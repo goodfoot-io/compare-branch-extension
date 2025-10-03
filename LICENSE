@@ -1,0 +1,47 @@
+Proprietary License
+
+Compare Branch Extension for Visual Studio Code
+Copyright (c) 2024 Productivity Bot
+
+All rights reserved.
+
+This software and associated documentation files (the "Software") are proprietary
+and confidential.
+
+NOTICE: This is closed-source software. The binaries and documentation are provided
+for use under the following terms:
+
+1. LICENSE GRANT
+   Subject to the terms of this license, you are granted a limited, non-exclusive,
+   non-transferable, revocable license to install and use the Software for personal
+   or commercial purposes.
+
+2. RESTRICTIONS
+   You may NOT:
+   - Reverse engineer, decompile, or disassemble the Software
+   - Modify, adapt, translate, or create derivative works of the Software
+   - Distribute, sublicense, rent, lease, or lend the Software
+   - Remove or alter any proprietary notices or labels on the Software
+   - Use the Software in any way that violates applicable laws or regulations
+
+3. OWNERSHIP
+   The Software is licensed, not sold. Productivity Bot retains all right, title,
+   and interest in and to the Software, including all intellectual property rights.
+
+4. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+5. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+6. TERMINATION
+   This license is effective until terminated. Your rights under this license will
+   terminate automatically without notice if you fail to comply with any term of
+   this license.
+
+For questions about licensing, please contact: https://github.com/goodfoot-io/compare-branch-extension
