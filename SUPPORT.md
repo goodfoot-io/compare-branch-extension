@@ -22,6 +22,7 @@ For questions, ideas, and community discussion:
 - [GitHub Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)
 
 Use Discussions for:
+
 - General questions about usage
 - Tips and tricks
 - Sharing workflows
@@ -46,12 +47,14 @@ This is a community-supported project. We'll do our best to respond to issues an
 ## Scope
 
 This repository is for:
+
 - ✅ Bug reports related to extension functionality
 - ✅ Feature requests and enhancement ideas
 - ✅ Documentation improvements
 - ✅ Questions about usage
 
 This repository is **not** for:
+
 - ❌ General VS Code support
 - ❌ Git usage questions (see [Git documentation](https://git-scm.com/doc))
 - ❌ Source code contributions (extension is closed-source)

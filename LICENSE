@@ -1,47 +1,61 @@
-Proprietary License
+PROPRIETARY LICENSE
 
 Compare Branch Extension for Visual Studio Code
-Copyright (c) 2024 Productivity Bot
+Copyright (c) 2025 Goodfoot Media LLC
+All Rights Reserved
 
-All rights reserved.
+This software and associated documentation files (the "Software") are the
+proprietary and confidential property of Goodfoot Media LLC.
 
-This software and associated documentation files (the "Software") are proprietary
-and confidential.
+NOTICE: All information contained herein is, and remains the property of
+Goodfoot Media LLC. The intellectual and technical concepts contained herein
+are proprietary to Goodfoot Media LLC and may be covered by U.S. and Foreign
+Patents, patents in process, and are protected by trade secret or copyright law.
 
-NOTICE: This is closed-source software. The binaries and documentation are provided
-for use under the following terms:
+Dissemination of this information or reproduction of this material is strictly
+forbidden unless prior written permission is obtained from Goodfoot Media LLC.
 
-1. LICENSE GRANT
-   Subject to the terms of this license, you are granted a limited, non-exclusive,
-   non-transferable, revocable license to install and use the Software for personal
-   or commercial purposes.
+USAGE TERMS:
 
-2. RESTRICTIONS
-   You may NOT:
+1. LICENSE GRANT: Subject to the terms of this license, Goodfoot Media LLC
+   grants you a limited, non-exclusive, non-transferable, revocable license
+   to install and use the Software solely for your internal business purposes.
+
+2. RESTRICTIONS: You may not:
+   - Copy, modify, or create derivative works of the Software
    - Reverse engineer, decompile, or disassemble the Software
-   - Modify, adapt, translate, or create derivative works of the Software
-   - Distribute, sublicense, rent, lease, or lend the Software
+   - Rent, lease, lend, sell, redistribute, or sublicense the Software
    - Remove or alter any proprietary notices or labels on the Software
-   - Use the Software in any way that violates applicable laws or regulations
 
-3. OWNERSHIP
-   The Software is licensed, not sold. Productivity Bot retains all right, title,
-   and interest in and to the Software, including all intellectual property rights.
+3. OWNERSHIP: Goodfoot Media LLC retains all right, title, and interest in
+   and to the Software, including all intellectual property rights therein.
 
-4. NO WARRANTY
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+4. TERMINATION: This license is effective until terminated. Your rights under
+   this license will terminate automatically without notice if you fail to
+   comply with any term of this license.
 
-5. LIMITATION OF LIABILITY
-   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-   DEALINGS IN THE SOFTWARE.
+5. DISCLAIMER OF WARRANTY: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY
+   OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
-6. TERMINATION
-   This license is effective until terminated. Your rights under this license will
-   terminate automatically without notice if you fail to comply with any term of
-   this license.
+6. LIMITATION OF LIABILITY: IN NO EVENT SHALL GOODFOOT MEDIA LLC BE LIABLE FOR
+   ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+   TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+   OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-For questions about licensing, please contact: https://github.com/goodfoot-io/compare-branch-extension
+---
+
+THIRD-PARTY COMPONENTS:
+
+Portions of this software are derived from Visual Studio Code:
+Copyright (c) Microsoft Corporation
+Licensed under the MIT License
+
+The Visual Studio Code project can be found at:
+https://github.com/microsoft/vscode
+
+This software uses patterns and structures inspired by the Visual Studio Code
+extension API and tree view implementations. Any code derived from VSCode
+maintains the original MIT License.
+
+For questions regarding licensing, contact: legal@goodfoot.io

@@ -4,10 +4,10 @@
 
 We provide security updates for the latest released version of Compare Branch extension.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| Latest  | :white_check_mark: |
-| < Latest| :x:                |
+| Version  | Supported          |
+| -------- | ------------------ |
+| Latest   | :white_check_mark: |
+| < Latest | :x:                |
 
 ## Reporting a Vulnerability
 
