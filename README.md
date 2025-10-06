@@ -23,6 +23,10 @@ Perfect for:
 
 ---
 
+![Compare Branch Demo](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/demo.gif?raw=true)
+
+---
+
 ## 🤖 Built for AI Coding Workflows
 
 Compare Branch is the **essential companion for AI coding agents** like Claude Code, GitHub Copilot, Cursor, and Windsurf.
