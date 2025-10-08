@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.6
+- Improved file tree loading performance with optimized stat-based filtering
+- Enhanced empty state handling in tree view for better user feedback
+- Fixed view mode button icons to use fold/unfold consistently
+
+## 1.0.6
+- Improved file tree performance with stat-based filtering for faster loading
+- Enhanced empty state handling for better user experience
+- Fixed view mode button icons to use more intuitive fold/unfold indicators
+- Enhanced filter menu structure with improved toggle commands and submenu organization
+- Improved file watcher performance for more responsive branch comparisons
+- Fixed working tree state detection for modified files
+- Added Git status filters with hasFilteredDescendant support for better tree navigation
+
 ## 1.0.4
 
 - Added git status filtering to show/hide staged, unstaged, and untracked files
