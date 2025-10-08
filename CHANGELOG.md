@@ -1,11 +1,6 @@
 # Changelog
 
 ## 1.0.6
-- Improved file tree loading performance with optimized stat-based filtering
-- Enhanced empty state handling in tree view for better user feedback
-- Fixed view mode button icons to use fold/unfold consistently
-
-## 1.0.6
 - Improved file tree performance with stat-based filtering for faster loading
 - Enhanced empty state handling for better user experience
 - Fixed view mode button icons to use more intuitive fold/unfold indicators
