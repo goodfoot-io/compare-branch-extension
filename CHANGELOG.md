@@ -1,6 +1,10 @@
 # Changelog
 
+## 1.0.8
+- Improved changelog generation and release process
+
 ## 1.0.6
+
 - Improved file tree performance with stat-based filtering for faster loading
 - Enhanced empty state handling for better user experience
 - Fixed view mode button icons to use more intuitive fold/unfold indicators
