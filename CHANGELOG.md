@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.0.4
+
 - Added git status filtering to show/hide staged, unstaged, and untracked files
 - Added filter submenu for easy access to file visibility controls
 - Improved view mode icons to use fold/unfold symbols for better clarity
@@ -8,9 +9,11 @@
 - Filter preferences are now saved per workspace
 
 ## 1.0.2
+
 - Minor improvements and bug fixes
 
 ## 1.0.0
+
 - Fixed working tree state detection for modified files in branch comparisons
 - Added telemetry support with privacy-compliant data sanitization for usage metrics and error tracking
 - Improved performance with enhanced subscription management in decoration and loading providers
