@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2
+- Fixed working tree state detection for modified files in Git comparisons
+- Improved performance with enhanced subscription management in FastLoadingProvider and GitDecorationProvider
+- Added telemetry support with privacy-compliant data sanitization for usage metrics and error tracking
+- Enhanced Git service with branch location checking and improved performance logging
+- Added comprehensive JSDoc documentation for better code maintainability
+- Improved binary file handling and error reporting across various components
+- Automated changelog generation and release workflow
+
 ## 1.0.0
 - Fixed working tree state detection for modified files in branch comparisons
 - Added telemetry support with privacy-compliant data sanitization for usage metrics and error tracking
