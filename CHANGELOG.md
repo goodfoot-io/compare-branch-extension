@@ -1,9 +1,11 @@
 # Changelog
 
 ## 1.0.10
+
 - Minor improvements and bug fixes
 
 ## 1.0.8
+
 - Improved changelog generation and release process
 
 ## 1.0.6
