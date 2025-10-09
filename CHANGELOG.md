@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.12
+- Fixed branch selection command icon for better visual clarity
+- Improved commit hash validation and error handling
+- Enhanced UI text labels for better user experience
+- Fixed Git decoration handling for more reliable branch comparison display
+
 ## 1.0.10
 
 - Minor improvements and bug fixes
