@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.14
+- Added tag selection functionality for comparing against git tags
+
 ## 1.0.12
 - Fixed branch selection command icon for better visual clarity
 - Improved commit hash validation and error handling
