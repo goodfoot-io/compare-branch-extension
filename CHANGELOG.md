@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.16
+- Fixed directory deletion detection and status display in tree view
+- Improved file path copying to include directories
+
 ## 1.0.14
 
 - Added tag selection functionality for comparing against git tags
