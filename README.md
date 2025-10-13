@@ -52,6 +52,12 @@ Filter files by their git status—modified, added, deleted, or renamed—to foc
 
 ![Filter by Status](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/filter.gif?raw=true)
 
+### View Side-by-Side Diffs
+
+Click any file to see a side-by-side diff comparing the base branch version with your working tree. See exactly what changed—additions, deletions, and modifications—all in VS Code's native diff viewer.
+
+![View Diff With Branch](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/diff.gif?raw=true)
+
 ---
 
 ## 🤖 Built for AI Coding Workflows
