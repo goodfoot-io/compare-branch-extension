@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.24
+- Fixed comparison issues with tags and commit hashes
+- Improved documentation for side-by-side diff viewing
+
 ## 1.0.22
 - Improved Git branch and tag retrieval performance for faster repository navigation
 - Enhanced handling of ambiguous remote branch names for more reliable branch comparison
