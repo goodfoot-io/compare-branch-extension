@@ -4,9 +4,6 @@
 
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/goodfoot.compare-branch?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
 [![Open VSX Registry](https://img.shields.io/open-vsx/v/goodfoot/compare-branch?label=Open%20VSX)](https://open-vsx.org/extension/goodfoot/compare-branch)
-[![Downloads](https://img.shields.io/visual-studio-marketplace/d/goodfoot.compare-branch)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
-[![Rating](https://img.shields.io/visual-studio-marketplace/r/goodfoot.compare-branch)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
-[![License](https://img.shields.io/badge/license-Proprietary-red)](LICENSE)
 
 ---
 
