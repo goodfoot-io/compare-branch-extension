@@ -105,18 +105,23 @@ Unlike heavyweight Git extensions, Compare Branch is:
 ## Features
 
 ### Speed
+
 Progressive loading means even with massive repos (tested with 10,000+ files), you get results in seconds. Git operations are cached, and the whole thing activates in the background without blocking VS Code startup. No spinning wheels.
 
 ### Auto-Detection
+
 The extension figures out your upstream branch automatically—usually main or develop. Compares against it without any configuration. If you need to compare against something else, manual override is one click away.
 
 ### Tree View
+
 Changes show up in a hierarchical tree organized by directory, with visual indicators for what's modified, added, deleted, or renamed. Two modes: see just what changed, or see your full file tree with changes highlighted.
 
 ### Workflow Features
+
 Click any file for instant side-by-side diff. Drag and drop files. Multi-select for bulk operations. Right-click for context menus with all the usual file operations (open, compare, copy path, reveal in explorer, etc).
 
 ### Auto-Refresh
+
 Watches your file system and git state. When you switch branches, make commits, or an AI agent pushes changes, the view updates automatically. No manual refresh needed.
 
 ---
@@ -413,4 +418,3 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 - 🐛 [Issue Tracker](https://github.com/goodfoot-io/compare-branch-extension/issues)
 - 🔒 [Security Policy](SECURITY.md)
 - 📞 [Support](SUPPORT.md)
-
