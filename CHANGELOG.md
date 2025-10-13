@@ -1,9 +1,11 @@
 # Changelog
 
 ## 1.0.18
+
 - Fixed untracked directories not appearing in branch comparisons
 
 ## 1.0.16
+
 - Fixed directory deletion detection and status display in tree view
 - Improved file path copying to include directories
 
