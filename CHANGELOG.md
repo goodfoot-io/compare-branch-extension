@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.22
+- Improved Git branch and tag retrieval performance for faster repository navigation
+- Enhanced handling of ambiguous remote branch names for more reliable branch comparison
+- Updated documentation with detailed feature descriptions and visual guides
+
 ## 1.0.20
 
 - Fixed tree view not updating when files are modified on the same branch
