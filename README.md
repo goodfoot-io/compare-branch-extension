@@ -23,7 +23,7 @@ Perfect for:
 
 ---
 
-## Key Features at a Glance
+## Key Features
 
 ### Choose Your Comparison Source
 
@@ -39,7 +39,7 @@ Quickly find specific files in your changeset with the built-in search functiona
 
 ### Switch Between View Modes
 
-Toggle between "Changed Files Only" mode for a focused view, or "All Files" mode to see your complete file tree with changes highlighted.
+Toggle between "Changed Files" mode for a focused view, or "All Files" mode to see your complete file tree with changes highlighted.
 
 ![Switch Between "Changed Files" and "All Files" modes](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/modes.gif?raw=true)
 
@@ -47,7 +47,7 @@ Toggle between "Changed Files Only" mode for a focused view, or "All Files" mode
 
 Filter files by their git status—modified, added, deleted, or renamed—to focus on specific types of changes.
 
-![Filter by Status](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/status.gif?raw=true)
+![Filter by Status](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/filter.gif?raw=true)
 
 ---
 
