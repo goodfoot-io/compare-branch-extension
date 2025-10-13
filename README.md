@@ -23,7 +23,31 @@ Perfect for:
 
 ---
 
-![Compare Branch Demo](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/demo.gif?raw=true)
+## Key Features at a Glance
+
+### Choose Your Comparison Source
+
+Switch between branches, commits, or tags to compare against your current branch.
+
+![Choose Branch](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/branch.gif?raw=true)
+
+### Search in Changed Files
+
+Quickly find specific files in your changeset with the built-in search functionality.
+
+![Search in Changed Files](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/search.gif?raw=true)
+
+### Switch Between View Modes
+
+Toggle between "Changed Files Only" mode for a focused view, or "All Files" mode to see your complete file tree with changes highlighted.
+
+![Switch Between "Changed Files" and "All Files" modes](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/modes.gif?raw=true)
+
+### Filter by Status
+
+Filter files by their git status—modified, added, deleted, or renamed—to focus on specific types of changes.
+
+![Filter by Status](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/status.gif?raw=true)
 
 ---
 
