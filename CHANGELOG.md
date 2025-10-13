@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.0.20
+
 - Fixed tree view not updating when files are modified on the same branch
 - Improved incremental refresh logic to properly display file changes in real-time
 - Enhanced directory status handling for better visibility of nested file changes
