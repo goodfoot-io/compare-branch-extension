@@ -1,132 +1,125 @@
-# Compare Branch — AI Code Review & Git Diff
-
-**Lightning-fast git branch comparison with intelligent auto-detection and modern tree view. Perfect for AI coding agents like Claude Code, GitHub Copilot, Cursor, and Windsurf. Streamline your PR workflow.**
-
-[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/goodfoot.compare-branch?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/goodfoot.compare-branch?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
 [![Open VSX Registry](https://img.shields.io/open-vsx/v/goodfoot/compare-branch?label=Open%20VSX)](https://open-vsx.org/extension/goodfoot/compare-branch)
 
----
+Compare Branch is a performance-optimized VS Code extension that provides comprehensive branch comparison in a hierarchical tree view. See all differences between your working branch and its target without leaving your editor.
 
-## Why Compare Branch?
+**Built for development teams working with:**
+- AI coding assistants that generate multi-file changes
+- Feature branch workflows requiring pre-merge review
+- Large codebases with complex directory structures
+- Git workflows that benefit from visual change navigation
 
-**Compare Branch** is a performance-optimized VS Code extension designed for developers who need fast, focused branch comparison without the complexity of full-featured Git suites.
 
-In today's AI-assisted development landscape, code changes come fast. AI agents can modify dozens of files in seconds, making it crucial to have a reliable way to review changes before merging. Compare Branch is built for this reality.
+### Flexible Branch Comparison
 
-**Perfect for:**
+<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/branch.gif" alt="Compare git branches in VS Code - automatic upstream branch detection and manual branch selection for pull request preview" width="100%">
 
-- **AI Code Review** — When Claude Code or Cursor modifies 50 files, see them all in one tree view
-- **PR Reviews** — Catch mistakes before pushing (we've all been there)
-- **Feature Branch Development** — See exactly what diverged from your base branch
-- **Code Reviews** — Clean tree view shows what changed, organized by directory
-- **Large Repositories** — Handles 10,000+ files without lag
+Compare against any branch, commit, or tag. Automatic upstream detection with manual override when needed.
 
----
+**Solves:** Manual branch selection overhead. Zero configuration required.
 
-## Key Features
+### Integrated Search
 
-### Choose Your Comparison Source
+<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/search.gif" alt="Search changed files in VS Code branch comparison - quickly find modified files in large AI-generated changesets" width="100%">
 
-Switch between branches, commits, or tags to compare against your current branch.
+Quickly locate specific files within large changesets.
 
-![Choose Branch](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/branch.gif?raw=true)
+**Solves:** Finding files when AI agents modify 50+ files simultaneously.
 
-### Search in Changed Files
+### Dual View Modes
 
-Quickly find specific files in your changeset with the built-in search functionality.
+<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/modes.gif" alt="Git diff tree view modes - toggle between changed files only and complete directory tree with changes highlighted" width="100%">
 
-![Search in Changed Files](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/search.gif?raw=true)
+Toggle between "Changed Files" for focused review or "All Files" to see changes within full directory context.
 
-### Switch Between View Modes
+**Solves:** Need for both focused review and full repository context.
 
-Toggle between "Changed Files" mode for a focused view, or "All Files" mode to see your complete file tree with changes highlighted.
+### Status-Based Filtering
 
-![Switch Between "Changed Files" and "All Files" modes](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/modes.gif?raw=true)
+<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/filter.gif" alt="Filter git changes by status - view only modified, added, deleted, or renamed files in branch comparison" width="100%">
 
-### Filter by Status
+Filter by modified, added, deleted, or renamed files.
 
-Filter files by their git status—modified, added, deleted, or renamed—to focus on specific types of changes.
+**Solves:** Navigating large changesets by focusing on specific change types.
 
-![Filter by Status](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/filter.gif?raw=true)
+### Native Diff Integration
 
-### View Side-by-Side Diffs
+<img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/diff.gif" alt="VS Code git diff viewer integration - single-click side-by-side branch comparison for any file" width="100%">
 
-Click any file to see a side-by-side diff comparing the base branch version with your working tree. See exactly what changed—additions, deletions, and modifications—all in VS Code's native diff viewer.
+Single-click access to VS Code's diff viewer for any file.
 
-![View Diff With Branch](https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/diff.gif?raw=true)
-
----
-
-## 🤖 Built for AI Coding Workflows
-
-Compare Branch is the **essential companion for AI coding agents** like Claude Code, GitHub Copilot, Cursor, and Windsurf.
-
-### Why AI Agents Need Compare Branch
-
-**Before Agent Execution:**
-
-- 👀 **Preview your baseline** — See exactly what's in your current branch before handing off to an AI agent
-- 🎯 **Verify starting state** — Ensure the agent is working from the right foundation
-- 📋 **Quick context review** — Understand existing changes before requesting new work
-
-**After Agent Execution:**
-
-- ✅ **Instant PR preview** — See all agent-generated changes in a clean tree view
-- 🔍 **Quality validation** — Review every file the agent modified before merging
-- ⚡ **Fast iteration** — Spot issues immediately and provide feedback to the agent
-
-**During Development:**
-
-- 🔄 **Multi-agent workflows** — When running parallel agents on different branches, quickly compare outputs
-- 🌳 **Branch strategy management** — Track changes across feature branches created by agents
-- 📊 **Change impact analysis** — Understand the scope of agent modifications instantly
-- 🗂️ **Git worktree workflows** — Essential for parallel development with multiple worktrees—compare branches across separate working directories
-
-### AI Tool Integrations
-
-Compare Branch works seamlessly with:
-
-- **Claude Code** — Anthropic's terminal-based agentic coding tool
-- **GitHub Copilot** — Industry-standard AI coding assistant (20M+ users)
-- **Cursor** — AI-powered code editor with GPT integration
-- **Windsurf** — Collaborative AI IDE with Cascade agent
-- **Cline** (formerly Claude Dev) — Open-source VSCode AI assistant
-- **Aider** — AI pair programming in your terminal
-- **Continue** — Privacy-focused AI assistant for local models
-- **Bolt.new** — Browser-based AI development environment
-
-Unlike heavyweight Git extensions, Compare Branch is:
-
-- ⚡ **Non-blocking** — Won't slow down VS Code startup or agent operations
-- 🎯 **Focused** — Does one thing exceptionally well
-- 🧠 **Intelligent** — Auto-detects upstream branches (works with agent-created branches)
-- 📦 **Lightweight** — Minimal resource usage even with large repositories
-
-> **Pro tip:** Keep Compare Branch open in your sidebar while agents work. When they finish, you'll instantly see all changes organized by directory—perfect for focused code review.
+**Solves:** Eliminates manual `git diff <file>` commands for individual files.
 
 ---
 
-## Features
+## AI Coding Workflows
 
-### Speed
+Modern AI coding assistants can modify dozens of files per operation. This creates specific challenges for code review.
 
-Progressive loading means even with massive repos (tested with 10,000+ files), you get results in seconds. Git operations are cached, and the whole thing activates in the background without blocking VS Code startup. No spinning wheels.
+### Common Pain Points
 
-### Auto-Detection
+**Volume Overwhelm:** AI agents frequently modify 10-50+ files per task. Standard terminal diffs become difficult to navigate at this scale.
 
-The extension figures out your upstream branch automatically—usually main or develop. Compares against it without any configuration. If you need to compare against something else, manual override is one click away.
+**Context Switching:** Moving between terminal-based AI tools and IDE for review creates friction in the development workflow.
 
-### Tree View
+**Validation Requirements:** Teams need to verify AI-generated code before merging, requiring file-by-file review capability.
 
-Changes show up in a hierarchical tree organized by directory, with visual indicators for what's modified, added, deleted, or renamed. Two modes: see just what changed, or see your full file tree with changes highlighted.
+### Supported AI Platforms
 
-### Workflow Features
+The extension integrates seamlessly with:
 
-Click any file for instant side-by-side diff. Drag and drop files. Multi-select for bulk operations. Right-click for context menus with all the usual file operations (open, compare, copy path, reveal in explorer, etc).
+- **Claude Code** — Anthropic's terminal-based coding agent
+- **GitHub Copilot** — Industry-standard AI pair programmer
+- **Cursor** — AI-integrated code editor
+- **Windsurf** — Collaborative AI development environment
+- **Cline** — Open-source VS Code AI agent
+- **Aider** — Terminal-based AI pair programming
+- **Continue** — Privacy-focused AI assistant with local model support
+- **Bolt.new** — Browser-based AI coding platform
 
-### Auto-Refresh
+### Workflow Integration
 
-Watches your file system and git state. When you switch branches, make commits, or an AI agent pushes changes, the view updates automatically. No manual refresh needed.
+**Pre-execution validation:**
+Review your branch baseline before delegating work to AI agents. Ensure correct starting state.
+
+**Post-execution review:**
+Examine all AI-generated changes in a unified interface. Navigate file-by-file for thorough validation.
+
+**Real-time monitoring:**
+Auto-refresh capability enables live review as AI agents create commits. Non-blocking architecture ensures no performance impact.
+
+**Parallel development:**
+For teams using git worktrees with multiple AI agents, Compare Branch enables comparison across different working directories.
+
+---
+
+## Why Choose Compare Branch?
+
+### Comparison with Alternatives
+
+| Capability | Compare Branch | GitLens | Git Tree Compare |
+|-----------|----------------|---------|------------------|
+| Primary focus | Branch comparison | Complete git suite | Basic tree view |
+| Performance | Optimized | Feature-heavy | Fast |
+| AI workflow support | Purpose-built | General-purpose | Not optimized |
+| Auto-detect upstream | Yes | Partial | No |
+| Search in changed files | Yes | No | No |
+| Status filtering | Yes | No | No |
+| Progressive loading | Yes | Limited | Limited |
+| Pricing | Free | $0-19/mo | Free |
+| Startup impact | None | Measurable | Minimal |
+
+### Competitive Advantages
+
+**Speed & Performance:** Progressive loading architecture handles repositories with 10,000+ files without performance degradation. Non-blocking activation ensures zero impact on VS Code startup time.
+
+**Privacy:** Operates entirely locally. No cloud services, no telemetry, no external dependencies.
+
+**Simplicity:** Single-purpose tool focused on branch comparison. No feature bloat, no complex configuration.
+
+**Universal Compatibility:** Works with all VS Code-based editors (Cursor, Windsurf, VSCodium) and available on both VS Code Marketplace and Open VSX Registry.
+
+**AI Workflow Optimization:** Auto-refresh for agent-generated commits. Review while agents continue working. Designed for multi-file changeset review.
 
 ---
 
@@ -134,146 +127,108 @@ Watches your file system and git state. When you switch branches, make commits, 
 
 ### From Visual Studio Marketplace
 
-1. Open VS Code
-2. Press `Cmd+Shift+X` (Mac) or `Ctrl+Shift+X` (Windows/Linux)
-3. Search for "Compare Branch"
-4. Click **Install**
+1. Open VS Code Extensions panel (`Cmd+Shift+X` or `Ctrl+Shift+X`)
+2. Search for "Compare Branch"
+3. Click Install
 
-[Install from VS Code Marketplace →](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
+**[→ Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)**
 
 ### From Open VSX Registry
 
-1. Visit [Open VSX Registry](https://open-vsx.org/)
-2. Search for "Compare Branch"
-3. Follow installation instructions for your platform
+Available for VSCodium and privacy-focused distributions.
 
-[Install from Open VSX →](https://open-vsx.org/extension/goodfoot/compare-branch)
+**[→ Install from Open VSX](https://open-vsx.org/extension/goodfoot/compare-branch)**
 
 ### From GitHub Releases
 
-1. Download the latest `.vsix` file from [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
-2. Verify the SHA-256 checksum (see [Security Verification](#security-verification))
-3. In VS Code, go to Extensions (`Cmd+Shift+X` or `Ctrl+Shift+X`)
-4. Click the `...` menu → **Install from VSIX...**
-5. Select the downloaded `.vsix` file
+Download the `.vsix` file from [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases), verify the checksum (see [Security Verification](#security-verification) below), then install via Extensions → `...` → Install from VSIX.
+
+**Platform Compatibility:**
+- Visual Studio Code
+- Cursor
+- Windsurf
+- VSCodium
+- Other VS Code forks
 
 ---
 
 ## Quick Start
 
-1. **Open a git repository** in VS Code
-2. **Click the Compare Branch icon** in the Activity Bar (left sidebar)
-3. **View your changes** — the extension auto-detects your upstream branch
-4. **Click any file** to see a detailed diff
+1. Open a git repository in VS Code
+2. Click the Compare Branch icon in the Activity Bar
+3. Review automatically detected changes
+4. Click any file to view the diff
 
-That's it! The extension automatically compares your current branch against its upstream (e.g., `main`, `develop`).
+No configuration required.
 
 ---
 
 ## Usage Guide
 
-### Viewing Branch Comparisons
+### Branch Comparison
 
-The extension shows all files that differ between your current branch and the source branch (typically your merge target like `main` or `develop`).
+The extension displays all files that differ between your current branch and the selected source branch (typically main or develop).
 
-**View Modes:**
+**View modes:**
+- **Changed Files** (default) — Modified files only
+- **All Files** — Complete directory tree with changes highlighted
 
-- **Changed Files Only** (default) — Shows only files with differences
-- **All Files** — Shows complete file tree with changes highlighted
+Toggle via toolbar icon.
 
-Toggle between modes using the filter icon in the toolbar.
+### Source Branch Selection
 
-### Selecting a Different Source Branch
+**Automatic detection (recommended):**
+Reads upstream branch configuration from git. Updates automatically when you switch branches or pull changes.
 
-**Automatic Detection** (recommended):
-
-- The extension automatically detects your upstream branch from git configuration
-- Updates when you switch branches or pull changes
-
-**Manual Selection:**
-
-1. Click the branch icon in the toolbar
-2. Select a branch from the quick pick menu
-3. Return to auto-detection with **Enable Auto-Detect Source Branch**
+**Manual selection:**
+Click the branch selector icon to choose any branch, commit, or tag. Return to automatic mode via "Enable Auto-Detect Source Branch" command.
 
 ### File Operations
 
-**Single File Operations:**
+**Single file:**
+- Click to open diff view
+- Right-click for context menu (open, compare, copy path, reveal in explorer, rename, delete, etc.)
 
-- **Click** — Open diff view
-- **Right-click** for context menu:
-  - Open / Open to Side / Open With
-  - Compare with Selected
-  - Copy Path / Copy Relative Path
-  - Reveal in Explorer / File Explorer
-  - Rename / Delete
-  - Discard Changes
-  - Open in Terminal
-
-**Multi-Select Operations:**
-
-- Hold `Cmd` (Mac) or `Ctrl` (Windows/Linux) and click multiple files
+**Multiple files:**
+- `Cmd`/`Ctrl` + click for multi-select
 - Right-click for bulk operations
-- Drag-and-drop to move files (when enabled in settings)
+- Drag and drop support (when enabled)
 
 ### Keyboard Shortcuts
 
 - `Enter` — Open diff for selected file(s)
-- `Cmd+C` / `Ctrl+C` — Copy selected file path(s)
-- `Delete` — Delete selected file(s) (with confirmation)
+- `Cmd+C` / `Ctrl+C` — Copy file path(s)
+- `Delete` — Delete selected file(s) with confirmation
 
 ---
 
 ## Commands
 
-Access commands via Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`):
+Access via Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`):
 
-- **Compare Branch: Change Source Branch** — Select a different branch to compare against
-- **Compare Branch: Enable Auto-Detect Source Branch** — Return to automatic upstream detection
-- **Compare Branch: Refresh** — Manually refresh the file list
-- **Compare Branch: Switch to All Files Mode** — Show complete file tree
-- **Compare Branch: Switch to Changed Files Mode** — Show only changed files
-
----
-
-## Compare Branch vs GitLens
-
-If you're looking for a lightweight alternative to GitLens specifically for branch comparison:
-
-| Feature        | Compare Branch    | GitLens          |
-| -------------- | ----------------- | ---------------- |
-| Focus          | Branch comparison | All git features |
-| Speed          | ⚡ Instant        | Slower           |
-| AI Workflow    | ✅ Optimized      | ❌ Not optimized |
-| Cost           | Free              | $0-19/mo         |
-| Complexity     | 📦 Lightweight    | 💼 Feature-heavy |
-| Startup Impact | None              | Noticeable       |
-
-**When to use Compare Branch:** You need fast, focused branch comparison without feature bloat.
-
-**When to use GitLens:** You need comprehensive git history, blame annotations, and team collaboration features.
-
-Many developers use both: GitLens for history and blame, Compare Branch for reviewing changes.
+- **Compare Branch: Change Source Branch** — Select different comparison target
+- **Compare Branch: Enable Auto-Detect Source Branch** — Return to automatic detection
+- **Compare Branch: Refresh** — Manually trigger view refresh
+- **Compare Branch: Switch to All Files Mode** — Display complete file tree
+- **Compare Branch: Switch to Changed Files Mode** — Display changed files only
 
 ---
 
 ## Security Verification
 
-Always verify the integrity of downloaded releases:
+Verify downloaded releases by comparing checksums:
 
-### macOS/Linux
-
+**macOS/Linux:**
 ```bash
 sha256sum compare-branch-*.vsix
 ```
 
-### Windows (PowerShell)
-
+**Windows (PowerShell):**
 ```powershell
 Get-FileHash compare-branch-*.vsix -Algorithm SHA256
 ```
 
-Compare the output with the checksum in `checksums.txt` from the release.
+Compare output with the checksum in `checksums.txt` from the release.
 
 For security disclosures, see [SECURITY.md](SECURITY.md).
 
@@ -283,116 +238,88 @@ For security disclosures, see [SECURITY.md](SECURITY.md).
 
 ### Getting Help
 
-- 💬 Ask questions in [GitHub Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)
-- 🐛 Report bugs via [GitHub Issues](https://github.com/goodfoot-io/compare-branch-extension/issues)
+Have questions or need assistance?
 
-### Before Reporting Issues
+- 💬 **[Ask in GitHub Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)** — Community support and general questions
+- 🐛 **[Report bugs via Issues](https://github.com/goodfoot-io/compare-branch-extension/issues)** — Bug reports and feature requests
+- 📖 **[Read the documentation](https://github.com/goodfoot-io/compare-branch-extension#readme)** — Complete usage guide
 
-1. Check [existing issues](https://github.com/goodfoot-io/compare-branch-extension/issues)
-2. Update to the latest version
-3. Try disabling other Git extensions
-4. Include your VS Code version and OS
+### Reporting Issues
 
-See [SUPPORT.md](SUPPORT.md) for detailed support guidelines.
+When reporting bugs, include:
+- VS Code version
+- Operating system
+- Steps to reproduce
+- Expected vs. actual behavior
+- Screenshots (if applicable)
+
+Check existing issues before creating new reports.
+
+See [SUPPORT.md](SUPPORT.md) for detailed guidelines.
 
 ---
 
 ## Frequently Asked Questions
 
-**Q: Does this work with AI coding agents like Claude Code or Cursor?**
-A: That's literally why we built it. Works with Claude Code, Cursor, Copilot, Cline—all of them. The extension just watches git changes, so it doesn't matter what's making the commits. Auto-refreshes when agents push new changes, and it's fast enough that you won't notice any lag.
+**Does this work with AI coding assistants?**
+Yes. The extension monitors git state and works with any tool that creates commits, including all major AI coding platforms.
 
-**Q: How is this different from using git diff in the terminal?**
-A: git diff works fine for small changes. But when you're reviewing 50+ files? Good luck scrolling through all that terminal output. This gives you a clickable tree view where you can jump between files and see diffs instantly. Way faster for large changesets.
+**How does this differ from terminal git diff?**
+Terminal diffs work well for reviewing small changes. For navigating modifications across many files and directories, a tree-based interface provides superior context and efficiency.
 
-**Q: Can I use this while an agent is working?**
-A: Yep. It won't slow down your editor, and it updates automatically when new commits come in. We've tested it with agents that commit dozens of times in rapid succession—still fast.
+**Can I use this while an AI agent is working?**
+Yes. Non-blocking architecture with automatic refresh as commits are created.
 
-**Q: How is this different from GitLens?**
-A: GitLens does everything—history, blame, collaboration features, the works. Some features need a paid subscription. Compare Branch does one thing: branch comparison, and it's completely free. Pick based on what you need. (Plenty of people use both.)
+**How does this differ from GitLens?**
+GitLens provides comprehensive git functionality. Compare Branch focuses on branch comparison. Choose based on your specific workflow requirements.
 
-**Q: Can I compare any two branches?**
-A: Yes. Use "Change Source Branch" to pick any branch, commit, or tag as your comparison base. The auto-detection usually gets it right, but manual override is there when you need it.
+**Can I compare any two branches?**
+Yes. Use the "Change Source Branch" command to select any branch, commit, or tag.
 
-**Q: Does this work with large repositories?**
-A: We've tested it with repos that have 10,000+ files. Progressive loading keeps it responsive even with huge changesets—the tree loads incrementally so you're never waiting around.
+**Does it support large repositories?**
+Yes. Progressive loading maintains performance with repositories containing 10,000+ files.
 
-**Q: Can I see the diff for deleted files?**
-A: Yep, click a deleted file and you'll see the diff showing what was removed.
+**Can I view diffs for deleted files?**
+Yes. Clicking a deleted file displays the diff showing removed content.
 
-**Q: Does this support monorepos?**
-A: Works with any git repo structure—monorepos, multi-project repos, whatever you've got.
+**Does this work with monorepos?**
+Yes. Supports any git repository structure.
 
-**Q: Does this work with Cursor, Windsurf, or VSCodium?**
-A: Works with any VSCode-based editor: Cursor, Windsurf, VSCodium, all of them. Also available on Open VSX Registry if you prefer that over the Microsoft marketplace.
+**Is this compatible with VS Code forks?**
+Yes. Works with Cursor, Windsurf, VSCodium, and other VS Code-based editors. Available on Open VSX Registry.
 
 ---
 
 ## Contributing
 
-We welcome contributions! Here's how you can help:
+### How You Can Help
+
+While Compare Branch is proprietary software, community participation is valuable:
+
+- **Report bugs** — [Open an issue](https://github.com/goodfoot-io/compare-branch-extension/issues/new)
+- **Request features** — [Start a discussion](https://github.com/goodfoot-io/compare-branch-extension/discussions/new?category=ideas)
+- **Share feedback** — Help us understand how you use the extension
+- **Spread the word** — Star this repository and share with colleagues
 
 ### Reporting Issues
 
-Found a bug? Please include:
-
+When reporting bugs, include:
 - VS Code version
 - Operating system
 - Steps to reproduce
-- Expected vs actual behavior
-- Screenshots if applicable
+- Expected vs. actual behavior
+- Screenshots (if relevant)
 
-[Report an issue →](https://github.com/goodfoot-io/compare-branch-extension/issues/new)
+**[→ Report an issue](https://github.com/goodfoot-io/compare-branch-extension/issues/new)**
 
 ### Feature Requests
 
-Have an idea? We'd love to hear it! Please describe:
+Describe:
+- Problem you are solving
+- Proposed solution
+- Alternatives considered
 
-- The problem you're trying to solve
-- Your proposed solution
-- Any alternatives you've considered
-
-[Request a feature →](https://github.com/goodfoot-io/compare-branch-extension/discussions/new?category=ideas)
-
-### Code Contributions
-
-While Compare Branch is proprietary software, we appreciate community feedback and discussion that helps improve the extension.
-
----
-
-## Roadmap
-
-Planned features (subject to change):
-
-- ✅ ~~Search/filter within changed files~~ (completed)
-- ✅ ~~Status filtering~~ (completed)
-- ✅ ~~Compare against tags~~ (completed)
-- 📊 **Statistics view** — change counts, additions/deletions
-- 🔀 **Commit range comparison** — compare any two commits
-- 💾 **Saved comparisons** — bookmark frequently used comparisons
-- 🎨 **Custom themes** — configurable file decoration colors
-
-Vote for features or suggest new ones in [GitHub Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions).
-
----
-
-## License
-
-This software is proprietary and closed-source. All rights reserved.
-
-**Copyright © 2025 Goodfoot Media LLC**
-
-See [LICENSE](LICENSE) for full license terms.
-
-### Terms Summary
-
-- ✅ Personal and commercial use permitted
-- ✅ Use in unlimited projects
-- ❌ No source code access
-- ❌ No redistribution
-- ❌ No reverse engineering
-
----
+**[→ Request a feature](https://github.com/goodfoot-io/compare-branch-extension/discussions/new?category=ideas)**
 
 ## Changelog
 
@@ -400,16 +327,11 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 
 ---
 
-## Credits
+## About
 
-**Built with ❤️ by [Goodfoot Media LLC](https://goodfoot.io)**
+**Developed by:** [Goodfoot Media LLC](https://goodfoot.io)
 
-### Technologies
-
-- TypeScript
-- VS Code Extension API
-- simple-git
-- chokidar
+**Technologies:** TypeScript, VS Code Extension API, simple-git, chokidar
 
 ---
 
@@ -421,4 +343,14 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 - 💬 [Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)
 - 🐛 [Issue Tracker](https://github.com/goodfoot-io/compare-branch-extension/issues)
 - 🔒 [Security Policy](SECURITY.md)
-- 📞 [Support](SUPPORT.md)
+- 📞 [Support Guidelines](SUPPORT.md)
+
+---
+
+<div align="center">
+
+**⭐ If you find Compare Branch useful, please star this repository!**
+
+[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch) | [Install from Open VSX](https://open-vsx.org/extension/goodfoot/compare-branch)
+
+</div>
