@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.26
+- Added Git worktree workflow support for comparing branches side-by-side across multiple worktrees
+- Improved package description and keyword discoverability for AI-assisted development use cases
+- Enhanced documentation with clearer AI code review workflow examples
+
 ## 1.0.24
 
 - Fixed comparison issues with tags and commit hashes
