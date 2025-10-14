@@ -80,6 +80,7 @@ Compare Branch is the **essential companion for AI coding agents** like Claude C
 - 🔄 **Multi-agent workflows** — When running parallel agents on different branches, quickly compare outputs
 - 🌳 **Branch strategy management** — Track changes across feature branches created by agents
 - 📊 **Change impact analysis** — Understand the scope of agent modifications instantly
+- 🗂️ **Git worktree workflows** — Essential for parallel development with multiple worktrees—compare branches across separate working directories
 
 ### AI Tool Integrations
 
