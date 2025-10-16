@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.28
+- Added unstaged file indicator (⚬) in tree view to distinguish unstaged from staged changes
+- Fixed unstaged indicators not refreshing correctly in parent directories
+- Added support for git worktrees in file watching
+- Fixed staging status not propagating correctly to tree nodes
+- Enhanced staging commands to work with individual files
+
+## 1.0.28
+- Added unstaged file indicator (⚬) to visually distinguish unstaged changes from staged changes in the tree view
+- Fixed file watcher to properly support git worktrees
+- Fixed stale unstaged indicators in parent directories
+- Improved staging workflow with enhanced stage changes commands
+
 ## 1.0.26
 
 - Added git worktree support for parallel development workflows
