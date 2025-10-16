@@ -1,11 +1,13 @@
 # Changelog
 
 ## 1.0.26
+
 - Added git worktree support for parallel development workflows
 - Improved package discoverability with expanded keywords for AI coding tools
 - Enhanced package description to emphasize AI code review capabilities
 
 ## 1.0.26
+
 - Added Git worktree workflow support for comparing branches side-by-side across multiple worktrees
 - Improved package description and keyword discoverability for AI-assisted development use cases
 - Enhanced documentation with clearer AI code review workflow examples

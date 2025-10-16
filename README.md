@@ -4,11 +4,11 @@
 Compare Branch is a performance-optimized VS Code extension that provides comprehensive branch comparison in a hierarchical tree view. See all differences between your working branch and its target without leaving your editor.
 
 **Built for development teams working with:**
+
 - AI coding assistants that generate multi-file changes
 - Feature branch workflows requiring pre-merge review
 - Large codebases with complex directory structures
 - Git workflows that benefit from visual change navigation
-
 
 ### Flexible Branch Comparison
 
@@ -97,17 +97,17 @@ For teams using git worktrees with multiple AI agents, Compare Branch enables co
 
 ### Comparison with Alternatives
 
-| Capability | Compare Branch | GitLens | Git Tree Compare |
-|-----------|----------------|---------|------------------|
-| Primary focus | Branch comparison | Complete git suite | Basic tree view |
-| Performance | Optimized | Feature-heavy | Fast |
-| AI workflow support | Purpose-built | General-purpose | Not optimized |
-| Auto-detect upstream | Yes | Partial | No |
-| Search in changed files | Yes | No | No |
-| Status filtering | Yes | No | No |
-| Progressive loading | Yes | Limited | Limited |
-| Pricing | Free | $0-19/mo | Free |
-| Startup impact | None | Measurable | Minimal |
+| Capability              | Compare Branch    | GitLens            | Git Tree Compare |
+| ----------------------- | ----------------- | ------------------ | ---------------- |
+| Primary focus           | Branch comparison | Complete git suite | Basic tree view  |
+| Performance             | Optimized         | Feature-heavy      | Fast             |
+| AI workflow support     | Purpose-built     | General-purpose    | Not optimized    |
+| Auto-detect upstream    | Yes               | Partial            | No               |
+| Search in changed files | Yes               | No                 | No               |
+| Status filtering        | Yes               | No                 | No               |
+| Progressive loading     | Yes               | Limited            | Limited          |
+| Pricing                 | Free              | $0-19/mo           | Free             |
+| Startup impact          | None              | Measurable         | Minimal          |
 
 ### Competitive Advantages
 
@@ -144,6 +144,7 @@ Available for VSCodium and privacy-focused distributions.
 Download the `.vsix` file from [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases), verify the checksum (see [Security Verification](#security-verification) below), then install via Extensions → `...` → Install from VSIX.
 
 **Platform Compatibility:**
+
 - Visual Studio Code
 - Cursor
 - Windsurf
@@ -170,6 +171,7 @@ No configuration required.
 The extension displays all files that differ between your current branch and the selected source branch (typically main or develop).
 
 **View modes:**
+
 - **Changed Files** (default) — Modified files only
 - **All Files** — Complete directory tree with changes highlighted
 
@@ -186,10 +188,12 @@ Click the branch selector icon to choose any branch, commit, or tag. Return to a
 ### File Operations
 
 **Single file:**
+
 - Click to open diff view
 - Right-click for context menu (open, compare, copy path, reveal in explorer, rename, delete, etc.)
 
 **Multiple files:**
+
 - `Cmd`/`Ctrl` + click for multi-select
 - Right-click for bulk operations
 - Drag and drop support (when enabled)
@@ -219,11 +223,13 @@ Access via Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`):
 Verify downloaded releases by comparing checksums:
 
 **macOS/Linux:**
+
 ```bash
 sha256sum compare-branch-*.vsix
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 Get-FileHash compare-branch-*.vsix -Algorithm SHA256
 ```
@@ -247,6 +253,7 @@ Have questions or need assistance?
 ### Reporting Issues
 
 When reporting bugs, include:
+
 - VS Code version
 - Operating system
 - Steps to reproduce
@@ -304,6 +311,7 @@ While Compare Branch is proprietary software, community participation is valuabl
 ### Reporting Issues
 
 When reporting bugs, include:
+
 - VS Code version
 - Operating system
 - Steps to reproduce
@@ -315,6 +323,7 @@ When reporting bugs, include:
 ### Feature Requests
 
 Describe:
+
 - Problem you are solving
 - Proposed solution
 - Alternatives considered
