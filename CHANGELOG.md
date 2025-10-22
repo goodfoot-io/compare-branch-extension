@@ -1,6 +1,13 @@
 # Changelog
 
+## 1.0.30
+- Enhanced file tooltips with status-specific information including commit history, conflict count, and staging status
+- Fixed handling of renamed and copied files in diff views to prevent path resolution errors
+- Improved staging workflow with progress notifications and better error handling
+- Fixed unstaged status indicator logic for files and directories
+
 ## 1.0.28
+
 - Added unstaged file indicator (⚬) in tree view to distinguish unstaged from staged changes
 - Fixed unstaged indicators not refreshing correctly in parent directories
 - Added support for git worktrees in file watching
@@ -8,6 +15,7 @@
 - Enhanced staging commands to work with individual files
 
 ## 1.0.28
+
 - Added unstaged file indicator (⚬) to visually distinguish unstaged changes from staged changes in the tree view
 - Fixed file watcher to properly support git worktrees
 - Fixed stale unstaged indicators in parent directories
