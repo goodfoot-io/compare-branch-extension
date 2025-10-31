@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.32
+- Improved handling of repositories with no branches to reduce unnecessary notifications
+
 ## 1.0.30
 
 - Enhanced file tooltips with status-specific information including commit history, conflict count, and staging status
