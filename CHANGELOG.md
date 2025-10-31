@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.0.30
+
 - Enhanced file tooltips with status-specific information including commit history, conflict count, and staging status
 - Fixed handling of renamed and copied files in diff views to prevent path resolution errors
 - Improved staging workflow with progress notifications and better error handling
