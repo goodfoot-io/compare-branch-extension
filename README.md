@@ -34,6 +34,14 @@ Toggle between "Changed Files" for focused review or "All Files" to see changes 
 
 **Solves:** Need for both focused review and full repository context.
 
+### Pin Current Commit as Baseline
+
+<!-- <img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/pin.gif" alt="Pin current commit as baseline - lock comparison point for tracking cumulative changes" width="100%"> -->
+
+One-click pinning of your current HEAD commit as a fixed comparison baseline. Track all subsequent changes from a known-good state, perfect for monitoring cumulative progress during iterative development or AI-assisted coding sessions.
+
+**Solves:** Need to track cumulative changes from a specific checkpoint during development.
+
 ### Status-Based Filtering
 
 <img src="https://github.com/goodfoot-io/compare-branch-extension/raw/main/images/filter.gif" alt="Filter git changes by status - view only modified, added, deleted, or renamed files in branch comparison" width="100%">

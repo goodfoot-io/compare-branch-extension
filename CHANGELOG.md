@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.0.32
+
 - Improved handling of repositories with no branches to reduce unnecessary notifications
 
 ## 1.0.30
