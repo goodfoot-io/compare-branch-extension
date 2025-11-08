@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.34
+- Added Pin Current Commit feature to lock comparison baseline for tracking cumulative changes
+- Added Unpin Commit command to restore automatic baseline tracking
+- Improved reflog-based parent branch detection for better automatic upstream detection
+- Enhanced error reporting with automatic prompt after extension errors (can be disabled for 1 day)
+- Added Report Issue and Request Feature commands for easier feedback submission
+- Fixed tooltip cache bug where tooltips didn't update after committing and staging changes
+- Improved workspace folder management for multi-root workspace support
+- Enhanced telemetry logging for better performance tracking
+
 ## 1.0.32
 
 - Improved handling of repositories with no branches to reduce unnecessary notifications
