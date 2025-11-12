@@ -1,6 +1,12 @@
 # Changelog
 
+## 1.0.36
+- Improved multi-repository workspace support with enhanced reliability
+- Enhanced branch switching performance and cache management
+- Fixed file monitoring reliability issues
+
 ## 1.0.34
+
 - Added Pin Current Commit feature to lock comparison baseline for tracking cumulative changes
 - Added Unpin Commit command to restore automatic baseline tracking
 - Improved reflog-based parent branch detection for better automatic upstream detection
