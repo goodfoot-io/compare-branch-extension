@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.38
+- Fixed bug where changes were not detected in multi-folder workspaces when the git repository was not in the first workspace folder
+
 ## 1.0.36
 - Improved multi-repository workspace support with enhanced reliability
 - Enhanced branch switching performance and cache management
