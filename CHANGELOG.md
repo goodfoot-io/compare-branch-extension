@@ -1,9 +1,16 @@
 # Changelog
 
+## 1.0.40
+- Improved extension performance and reliability through enhanced test coverage
+- Enhanced error handling and telemetry tracking for better diagnostics
+- Improved build configuration to reduce extension package size
+
 ## 1.0.38
+
 - Fixed bug where changes were not detected in multi-folder workspaces when the git repository was not in the first workspace folder
 
 ## 1.0.36
+
 - Improved multi-repository workspace support with enhanced reliability
 - Enhanced branch switching performance and cache management
 - Fixed file monitoring reliability issues
