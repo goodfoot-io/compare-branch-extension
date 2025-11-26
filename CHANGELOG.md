@@ -1,6 +1,13 @@
 # Changelog
 
+## 1.0.42
+- Improved commit selection with instant full commit ID recognition
+- Enhanced commit search with dynamic message-based filtering
+- Fixed tag selection to properly filter commit messages
+- Fixed formatting consistency for validated commit items
+
 ## 1.0.40
+
 - Improved extension performance and reliability through enhanced test coverage
 - Enhanced error handling and telemetry tracking for better diagnostics
 - Improved build configuration to reduce extension package size
