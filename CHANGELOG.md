@@ -1,6 +1,11 @@
 # Changelog
 
+## 1.0.44
+- Fixed bug where branch comparison showed no changes in multi-root workspaces when multiple git repositories were open
+- Improved code readability and maintainability in git operations
+
 ## 1.0.42
+
 - Improved commit selection with instant full commit ID recognition
 - Enhanced commit search with dynamic message-based filtering
 - Fixed tag selection to properly filter commit messages
