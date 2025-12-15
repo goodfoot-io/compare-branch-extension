@@ -143,7 +143,7 @@ interface UpdateIssueRequest {
 
 // POST /issues/{id}/comments
 interface AddCommentRequest {
-  body: string;
+  body?: string;
   author: "agent";
   commitSha?: string;    // Git SHA (40-char) of the commit being reported
   codeReferences?: {
@@ -154,8 +154,108 @@ interface AddCommentRequest {
     }
   }[];
   replyTo?: string;      // Parent comment ID
+  lock?: {
+    action: 'lock' | 'unlock';
+    resources: string[];
+    lockType: 'exclusive' | 'awareness';
+    reason?: string;
+    ttlSeconds?: number;
+  };
 }
 ```
+
+### Locks
+
+Soft locks provide coordination between agents working on the same branch. Locks are advisory and help prevent conflicts.
+
+#### Lock Nomenclature
+
+Resource patterns follow specific syntax conventions:
+
+**File Patterns (glob syntax)** - Can be exclusive or awareness type:
+```
+src/api/**/*.ts           # All TypeScript files in src/api
+packages/web/src/auth.ts  # Specific file
+```
+
+**Named Resources (@ prefix)** - ALWAYS exclusive:
+```
+@test-runner              # Test execution slot
+@build                    # Build process slot
+@deploy-preview           # Deployment slot
+```
+
+**Awareness Prefix (~ prefix)** - ALWAYS awareness type:
+```
+~src/api/**               # Working in API area (advisory)
+~authentication           # Working on auth feature (advisory)
+```
+
+#### Supported Glob Syntax
+
+| Feature | Syntax | Example | Supported |
+|---------|--------|---------|-----------|
+| Wildcard | `*` | `*.ts` | Yes |
+| Globstar | `**` | `src/**/*.ts` | Yes |
+| Single char | `?` | `file?.ts` | Yes |
+| Character class | `[]` | `[abc].ts` | Yes |
+| Negation | `!` | `!*.test.ts` | No |
+| Brace expansion | `{}` | `*.{ts,tsx}` | No |
+| Extended globs | `+()` `@()` | `+(a|b)` | No |
+
+Unsupported patterns are rejected with `VALIDATION_ERROR`.
+
+#### Lock Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /locks | List active locks (with optional filtering) |
+| POST | /locks/check | Pre-flight check for resource availability |
+
+```typescript
+// GET /locks
+// Query parameters:
+//   resource?: string  - Filter by resource pattern
+//   issueId?: string   - Filter by issue ID
+// Returns: { locks: ActiveLock[] }
+
+interface ActiveLock {
+  issueId: string;
+  commentId: string;
+  resources: string[];
+  lockType: 'exclusive' | 'awareness';
+  reason?: string;
+  createdAt: string;   // ISO 8601
+  expiresAt: string;   // ISO 8601
+}
+
+// POST /locks/check
+// Request body:
+interface LockCheckRequest {
+  resources: string[];
+}
+
+// Response:
+interface LockCheckResponse {
+  available: boolean;
+  conflicts: LockConflict[];
+}
+
+interface LockConflict {
+  resource: string;
+  conflictingLock: ActiveLock;
+  pattern: string;
+}
+```
+
+#### Conflict Response Protocol
+
+When `POST /locks/check` returns conflicts:
+
+1. **SHOULD wait and retry** - Poll until conflicting lock expires or is released
+2. **SHOULD coordinate** - Message the conflicting issue or create awareness lock to signal intent
+3. **MAY proceed anyway** - Soft locks are advisory; proceeding despite conflicts is allowed but may cause merge conflicts
+4. **MAY use awareness lock** - If exclusive lock is contested, awareness lock signals "working here" without blocking
 
 ### Attachments
 
