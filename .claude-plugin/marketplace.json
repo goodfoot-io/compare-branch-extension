@@ -1,0 +1,34 @@
+{
+  "name": "compare-branch-extension",
+  "owner": {
+    "name": "Compare Branch",
+    "email": "team@example.com"
+  },
+  "metadata": {
+    "description": "Plugins for the Compare Branch VSCode extension",
+    "version": "1.0.0",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "issues",
+      "source": "./plugins/issues",
+      "description": "Claude Code plugin for interacting with Compare Branch extension's Issues API",
+      "version": "1.0.0",
+      "author": {
+        "name": "Goodfoot Media LLC"
+      },
+      "license": "proprietary"
+    },
+    {
+      "name": "claude-code-cli",
+      "source": "./plugins/claude-code-cli",
+      "description": "Hooks for session tracking with Compare Branch extension's Issues API",
+      "version": "1.0.0",
+      "author": {
+        "name": "Goodfoot Media LLC"
+      },
+      "license": "proprietary"
+    }
+  ]
+}
