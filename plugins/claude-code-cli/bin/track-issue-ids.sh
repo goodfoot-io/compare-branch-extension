@@ -59,8 +59,7 @@ if [ -z "$ISSUE_IDS" ]; then
 fi
 
 # Discover API URL
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_URL=$("$SCRIPT_DIR/../../bin/discover-api.sh" 2>/dev/null) || exit 0
+BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" 2>/dev/null) || exit 0
 
 # Setup state directory and file
 STATE_DIR="$HOME/.claude/hook-state"

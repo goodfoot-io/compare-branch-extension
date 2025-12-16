@@ -23,6 +23,9 @@ ORIGINAL_PWD=$(pwd)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_SCRIPT="$SCRIPT_DIR/session-stop.sh"
 
+# Set CLAUDE_PLUGIN_ROOT for the target script
+export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Mock curl tracking
 MOCK_CURL_CALLS_FILE=""
 
@@ -51,7 +54,7 @@ cleanup_mock_home() {
 
 # Create mock discover-api.sh that returns a test URL
 setup_mock_discover_api() {
-    MOCK_BIN_DIR_API="$SCRIPT_DIR/../../bin"
+    MOCK_BIN_DIR_API="${CLAUDE_PLUGIN_ROOT}/bin"
     mkdir -p "$MOCK_BIN_DIR_API"
 
     # Save original if it exists
@@ -69,7 +72,7 @@ MOCKEOF
 
 # Restore original discover-api.sh
 restore_discover_api() {
-    MOCK_BIN_DIR_API="$SCRIPT_DIR/../../bin"
+    MOCK_BIN_DIR_API="${CLAUDE_PLUGIN_ROOT}/bin"
     if [ -f "$TEST_DIR/original-discover-api.sh" ]; then
         mv "$TEST_DIR/original-discover-api.sh" "$MOCK_BIN_DIR_API/discover-api.sh"
     fi

@@ -115,7 +115,7 @@ if [ "$STOP_HOOK_ACTIVE" != "true" ]; then
   cat << 'EOF'
 {
   "decision": "block",
-  "reason": "Review your work and consider adding items to the library.\n\n**When to add to the library:**\n- If you looked up information about the filesystem that you didn't already know → create library item\n- If the knowledge applies to multiple files/components → create library item\n\n**When NOT to add:**\n- If it's a one-off implementation detail → do not add\n- If a similar library item exists → update instead of creating new (only if necessary)\n\nUse `POST /library` with `{id, title, content}` to create items, or `PATCH /library/{id}` to update existing ones.\n\nOnce you have reviewed and added any relevant items (or determined none are needed), you may stop.\nIf you do not plan to add any items to the library, you may stop immediately."
+  "reason": "Review your work and consider adding items to the library.\n\n**Add to library if ANY of these apply:**\n\n| Discovery Type | Trigger | Example |\n|----------------|---------|---------|\n| Platform constraint | You researched external docs/web to understand a limitation | VSCode webview clipboard restrictions |\n| Architecture pattern | You traced how components communicate or connect | Message passing protocol between webview and extension |\n| Code location | You searched to find where a feature is implemented | \"save button\" → `isSubmitDisabled` in `App.tsx` |\n| Multi-file knowledge | The information applies to 2+ files or components | State tracking pattern used across editors |\n\n**Do NOT add if:**\n- One-off implementation detail (e.g., \"changed X to Y\")\n- Already in the library (shown in `<library>` section when issues:api skill loaded; use `GET /library | jq '.[] | {id, title}'` to check existing items, then `PATCH` to update if needed)\n- Already documented in code comments or README\n\n**API:** `POST /library` with `{id, title, content}` to create, `PATCH /library/{id}` to update existing.\n\nStop when done reviewing, or immediately if no items are needed."
 }
 EOF
   exit 0
@@ -127,9 +127,8 @@ if [ -z "${DISPATCHER_PID:-}" ]; then
   exit 0
 fi
 
-# Discover API URL using the issues plugin's discover-api.sh
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_URL=$("$SCRIPT_DIR/../../bin/discover-api.sh" 2>/dev/null) || exit 0
+# Discover API URL
+BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" 2>/dev/null) || exit 0
 
 # Report any active locks for engaged issues
 # Read issue IDs from state file and query locks API for each
