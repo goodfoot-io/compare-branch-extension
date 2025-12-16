@@ -23,22 +23,13 @@
  *
  * Exit codes:
  *   0 - No issues needing attention (or clean exit from polling mode)
- *   1 - Error (missing dependency, lock conflict, API not found, etc.)
+ *   1 - Error (missing dependency, API not found, etc.)
  */
 
 import { spawn, execSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-  unlinkSync,
-  mkdirSync,
-  openSync,
-  closeSync,
-} from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 // ============================================================================
 // Help Text
@@ -86,7 +77,7 @@ SIGNAL HANDLING:
 
 EXIT CODES:
   0    No issues needing attention (or clean exit)
-  1    Error (missing dependency, lock conflict, API not found, etc.)
+  1    Error (missing dependency, API not found, etc.)
 
 EXAMPLES:
   # Process all issues needing attention, then exit
@@ -113,8 +104,6 @@ const CLAUDE_CMD = process.env.CLAUDE_CMD || 'claude';
 let pollMode = false;
 let testMode = false;
 let claudeActive = false;
-let lockFilePath = '';
-let lockFd = null;
 let claudeProcess = null;
 
 // ============================================================================
@@ -134,10 +123,6 @@ function getWorkspace() {
   } catch {
     return process.cwd();
   }
-}
-
-function md5Hash(str) {
-  return createHash('md5').update(str).digest('hex').slice(0, 8);
 }
 
 function sleep(ms) {
@@ -205,76 +190,6 @@ function cleanup() {
     } catch {
       // Ignore errors
     }
-  }
-
-  // Release and remove lock file
-  if (lockFd !== null) {
-    try {
-      closeSync(lockFd);
-    } catch {
-      // Ignore errors
-    }
-    lockFd = null;
-  }
-
-  if (lockFilePath && existsSync(lockFilePath)) {
-    try {
-      unlinkSync(lockFilePath);
-    } catch {
-      // Ignore errors
-    }
-  }
-}
-
-// ============================================================================
-// Lock File Management
-// ============================================================================
-
-function acquireLock(workspace) {
-  const lockDir = join(homedir(), '.compare-branch');
-  const workspaceHash = md5Hash(workspace);
-  lockFilePath = join(lockDir, `.dispatcher-${workspaceHash}.lock`);
-
-  // Ensure lock directory exists
-  mkdirSync(lockDir, { recursive: true });
-
-  // Check for stale lock
-  if (existsSync(lockFilePath)) {
-    try {
-      const existingPid = parseInt(readFileSync(lockFilePath, 'utf-8').trim(), 10);
-      if (existingPid) {
-        try {
-          // Check if process is alive (signal 0 doesn't kill, just checks)
-          process.kill(existingPid, 0);
-          // Process is alive - lock is held
-          log(`Error: Another dispatcher is already running for workspace: ${workspace}`);
-          process.exit(1);
-        } catch {
-          // Process is dead - stale lock
-          log(`Removing stale lock (PID ${existingPid} no longer running)`);
-          unlinkSync(lockFilePath);
-        }
-      }
-    } catch {
-      // Can't read lock file, try to remove it
-      try {
-        unlinkSync(lockFilePath);
-      } catch {
-        // Ignore
-      }
-    }
-  }
-
-  // Create lock file with our PID
-  try {
-    lockFd = openSync(lockFilePath, 'wx'); // Exclusive create
-    writeFileSync(lockFilePath, `${process.pid}\n`);
-  } catch (err) {
-    if (err.code === 'EEXIST') {
-      log(`Error: Another dispatcher is already running for workspace: ${workspace}`);
-      process.exit(1);
-    }
-    throw err;
   }
 }
 
@@ -451,9 +366,6 @@ async function main() {
 
   // Get workspace
   const workspace = getWorkspace();
-
-  // Acquire lock
-  acquireLock(workspace);
 
   // Set up signal handlers (these execute immediately in Node.js!)
   process.on('SIGURG', handleSigurg);

@@ -154,13 +154,13 @@ interface AddCommentRequest {
     }
   }[];
   replyTo?: string;      // Parent comment ID
-  lock?: {
+  locks?: {              // Array of lock operations (supports multiple locks per comment)
     action: 'lock' | 'unlock';
     resources: string[];
-    lockType: 'exclusive' | 'awareness';
+    lockType: 'exclusive' | 'awareness';  // Required for 'lock' action
     reason?: string;
     ttlSeconds?: number;
-  };
+  }[];
 }
 ```
 
@@ -185,11 +185,7 @@ packages/web/src/auth.ts  # Specific file
 @deploy-preview           # Deployment slot
 ```
 
-**Awareness Prefix (~ prefix)** - ALWAYS awareness type:
-```
-~src/api/**               # Working in API area (advisory)
-~authentication           # Working on auth feature (advisory)
-```
+The lock type (exclusive vs awareness) is specified via the `lockType` property, not through pattern prefixes.
 
 #### Supported Glob Syntax
 

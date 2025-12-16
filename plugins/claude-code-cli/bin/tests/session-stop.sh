@@ -32,6 +32,9 @@ export SESSION_STOP_TEST_MODE=1
 # Enable second stop behavior for tests that need it
 export SEND_SIGTERM_TO_CLAUDE=1
 
+# Set DISPATCHER_PID to enable second stop logic (required for second stop to proceed)
+export DISPATCHER_PID=$$
+
 # Setup mock home directory
 setup_mock_home() {
     export HOME="$TEST_DIR/mock-home"
@@ -104,6 +107,33 @@ create_failing_mock_curl() {
 #!/bin/bash
 echo "\$@" >> "$MOCK_CURL_CALLS_FILE"
 exit 1
+MOCKEOF
+    chmod +x "$MOCK_BIN_DIR/curl"
+
+    # Prepend mock bin to PATH
+    export PATH="$MOCK_BIN_DIR:$PATH"
+}
+
+# Create mock curl that returns locks data for /locks endpoint
+# Usage: create_mock_curl_with_locks [issues_response] [locks_response]
+create_mock_curl_with_locks() {
+    local issues_response="${1:-}"
+    local locks_response="${2:-}"
+    MOCK_BIN_DIR="$TEST_DIR/mock-bin"
+    mkdir -p "$MOCK_BIN_DIR"
+
+    cat > "$MOCK_BIN_DIR/curl" << MOCKEOF
+#!/bin/bash
+echo "\$@" >> "$MOCK_CURL_CALLS_FILE"
+# Check if this is a GET request for /locks
+if echo "\$@" | grep -q "locks?issueId="; then
+    echo '$locks_response'
+# Check if this is a GET request for /issues
+elif echo "\$@" | grep -q "issues\$"; then
+    echo '$issues_response'
+else
+    echo '{"acknowledged":true}'
+fi
 MOCKEOF
     chmod +x "$MOCK_BIN_DIR/curl"
 
@@ -435,8 +465,8 @@ create_mock_curl
 INPUT=""
 run_test "Exits 0 with empty input" "$INPUT" 0
 
-# Test 11: Sends SIGURG (not SIGTERM) when needingAgentAttention is 0 (second stop)
-echo -e "\n${YELLOW}=== Test 11: Sends SIGURG (not SIGTERM) when needingAgentAttention is 0 ===${NC}"
+# Test 11: Sends SIGWINCH (not SIGTERM) when needingAgentAttention is 0 (second stop)
+echo -e "\n${YELLOW}=== Test 11: Sends SIGWINCH (not SIGTERM) when needingAgentAttention is 0 ===${NC}"
 setup_mock_home
 create_mock_curl '{"branch":"main","issues":[],"summary":{"total":2,"todo":1,"inProgress":1,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-11"
@@ -468,11 +498,11 @@ else
     echo "Verified: No SIGTERM triggered when needingAgentAttention is 0"
 fi
 
-# Verify SIGURG IS sent (to notify dispatcher session ended cleanly)
-if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would send SIGURG"; then
-    echo "Verified: SIGURG would be sent to notify dispatcher"
+# Verify SIGWINCH IS sent (to notify dispatcher session ended cleanly)
+if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would send SIGWINCH"; then
+    echo "Verified: SIGWINCH would be sent to notify dispatcher"
 else
-    echo -e "${RED}FAIL${NC} - SIGURG should be sent when needingAgentAttention is 0"
+    echo -e "${RED}FAIL${NC} - SIGWINCH should be sent when needingAgentAttention is 0"
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
@@ -560,7 +590,7 @@ else
     fi
 
     # Verify stdout contains library prompt text
-    if echo "$STDOUT" | grep -q "review your work"; then
+    if echo "$STDOUT" | grep -iq "review your work"; then
         echo "Verified: Output contains library prompt text"
     else
         echo -e "${RED}FAIL${NC} - Expected library prompt text in output"
@@ -841,8 +871,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 18: Second stop exits early when SEND_SIGTERM_TO_CLAUDE is not set
-echo -e "\n${YELLOW}=== Test 18: Second stop exits early without SEND_SIGTERM_TO_CLAUDE ===${NC}"
+# Test 18: Second stop exits early when DISPATCHER_PID is not set
+echo -e "\n${YELLOW}=== Test 18: Second stop exits early without DISPATCHER_PID ===${NC}"
 setup_mock_home
 create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-18"
@@ -865,11 +895,11 @@ EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: Second stop exits early without SEND_SIGTERM_TO_CLAUDE${NC}"
+echo -e "\n${YELLOW}TEST: Second stop exits early without DISPATCHER_PID${NC}"
 
-# Temporarily unset SEND_SIGTERM_TO_CLAUDE
-SAVED_SEND_SIGTERM="$SEND_SIGTERM_TO_CLAUDE"
-unset SEND_SIGTERM_TO_CLAUDE
+# Temporarily unset DISPATCHER_PID (required for second stop to proceed)
+SAVED_DISPATCHER_PID="$DISPATCHER_PID"
+unset DISPATCHER_PID
 
 # Capture stdout
 STDOUT_FILE="$TEST_DIR/stdout_no_sigterm_env"
@@ -877,8 +907,8 @@ STDERR_FILE="$TEST_DIR/stderr_no_sigterm_env"
 echo "$INPUT" | "$TARGET_SCRIPT" > "$STDOUT_FILE" 2>"$STDERR_FILE"
 EXIT_CODE=$?
 
-# Restore SEND_SIGTERM_TO_CLAUDE
-export SEND_SIGTERM_TO_CLAUDE="$SAVED_SEND_SIGTERM"
+# Restore DISPATCHER_PID
+export DISPATCHER_PID="$SAVED_DISPATCHER_PID"
 
 echo "Exit code: $EXIT_CODE (expected: 0)"
 
@@ -889,7 +919,7 @@ else
     # Verify NO curl calls made (exited before API calls)
     CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE" 2>/dev/null | wc -l)
     if [ "$CURL_CALLS" -eq 0 ]; then
-        echo "Verified: No API call made when SEND_SIGTERM_TO_CLAUDE is not set"
+        echo "Verified: No API call made when DISPATCHER_PID is not set"
     else
         echo -e "${RED}FAIL${NC} - Expected no curl calls, got: $CURL_CALLS"
         EXIT_CODE=1
@@ -898,11 +928,111 @@ else
     # Verify NO signal messages in stderr
     STDERR=$(cat "$STDERR_FILE")
     if echo "$STDERR" | grep -q "TEST_MODE"; then
-        echo -e "${RED}FAIL${NC} - Should NOT have signal messages without SEND_SIGTERM_TO_CLAUDE"
+        echo -e "${RED}FAIL${NC} - Should NOT have signal messages without DISPATCHER_PID"
         echo "Stderr: $STDERR"
         EXIT_CODE=1
     else
-        echo "Verified: No signal messages without SEND_SIGTERM_TO_CLAUDE"
+        echo "Verified: No signal messages without DISPATCHER_PID"
+    fi
+fi
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}PASS${NC}"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+fi
+
+rm -f "$STDOUT_FILE" "$STDERR_FILE"
+
+# Test 19: Reports active locks to stderr when stop_hook_active=true
+echo -e "\n${YELLOW}=== Test 19: Reports active locks to stderr ===${NC}"
+setup_mock_home
+ISSUES_RESPONSE='{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
+LOCKS_RESPONSE='{"locks":[{"issueId":"main:1","commentId":"comment-123","resources":["src/api/**/*.ts"],"lockType":"exclusive","reason":"Refactoring auth"}]}'
+create_mock_curl_with_locks "$ISSUES_RESPONSE" "$LOCKS_RESPONSE"
+SESSION_ID="test-session-19"
+
+# Create state file with issuesApiLoaded = true and engaged issues
+mkdir -p "$HOME/.claude/hook-state"
+cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+{"issuesApiLoaded":true,"issueIds":["main:1"]}
+EOF
+
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "Stop",
+  "stop_hook_active": true
+}
+EOF
+)
+
+TESTS_RUN=$((TESTS_RUN + 1))
+echo -e "\n${YELLOW}TEST: Reports active locks to stderr${NC}"
+
+# Capture stdout and stderr
+STDOUT_FILE="$TEST_DIR/stdout_locks"
+STDERR_FILE="$TEST_DIR/stderr_locks"
+echo "$INPUT" | "$TARGET_SCRIPT" > "$STDOUT_FILE" 2>"$STDERR_FILE"
+EXIT_CODE=$?
+
+echo "Exit code: $EXIT_CODE (expected: 0)"
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo -e "${RED}FAIL${NC} - unexpected exit code"
+    cat "$STDERR_FILE"
+else
+    STDERR=$(cat "$STDERR_FILE")
+
+    # Verify stderr contains lock report header
+    if echo "$STDERR" | grep -q "\[session-stop\] Active locks for this session:"; then
+        echo "Verified: Lock report header present in stderr"
+    else
+        echo -e "${RED}FAIL${NC} - Expected lock report header in stderr"
+        echo "Stderr: $STDERR"
+        EXIT_CODE=1
+    fi
+
+    # Verify stderr contains the issue ID
+    if echo "$STDERR" | grep -q "main:1"; then
+        echo "Verified: Issue ID 'main:1' present in stderr"
+    else
+        echo -e "${RED}FAIL${NC} - Expected issue ID 'main:1' in stderr"
+        echo "Stderr: $STDERR"
+        EXIT_CODE=1
+    fi
+
+    # Verify stderr contains the lock type
+    if echo "$STDERR" | grep -q "exclusive"; then
+        echo "Verified: Lock type 'exclusive' present in stderr"
+    else
+        echo -e "${RED}FAIL${NC} - Expected lock type 'exclusive' in stderr"
+        echo "Stderr: $STDERR"
+        EXIT_CODE=1
+    fi
+
+    # Verify stderr contains at least one resource pattern
+    if echo "$STDERR" | grep -q "src/api"; then
+        echo "Verified: Resource pattern present in stderr"
+    else
+        echo -e "${RED}FAIL${NC} - Expected resource pattern in stderr"
+        echo "Stderr: $STDERR"
+        EXIT_CODE=1
+    fi
+
+    # Verify curl was called for locks endpoint
+    if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
+        if grep -q "locks?issueId=" "$MOCK_CURL_CALLS_FILE"; then
+            echo "Verified: API call made to /locks endpoint"
+        else
+            echo -e "${RED}FAIL${NC} - Expected curl call to /locks endpoint"
+            cat "$MOCK_CURL_CALLS_FILE"
+            EXIT_CODE=1
+        fi
+    else
+        echo -e "${RED}FAIL${NC} - No curl calls recorded"
+        EXIT_CODE=1
     fi
 fi
 

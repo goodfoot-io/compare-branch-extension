@@ -131,6 +131,41 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_URL=$("$SCRIPT_DIR/../../bin/discover-api.sh" 2>/dev/null) || exit 0
 
+# Report any active locks for engaged issues
+# Read issue IDs from state file and query locks API for each
+ISSUE_IDS=$(jq -r '.issueIds // [] | .[]' "$STATE_FILE" 2>/dev/null) || ISSUE_IDS=""
+
+if [ -n "$ISSUE_IDS" ]; then
+  LOCK_REPORT=""
+
+  while IFS= read -r ISSUE_ID; do
+    [ -z "$ISSUE_ID" ] && continue
+
+    # Query locks API for this issue
+    LOCKS_RESPONSE=$(curl -s "${BASE_URL}/locks?issueId=${ISSUE_ID}" 2>/dev/null) || continue
+
+    # Extract locks array
+    LOCKS=$(echo "$LOCKS_RESPONSE" | jq -r '.locks // []' 2>/dev/null) || continue
+    LOCKS_COUNT=$(echo "$LOCKS" | jq -r 'length' 2>/dev/null) || LOCKS_COUNT="0"
+
+    if [ "$LOCKS_COUNT" != "0" ] && [ "$LOCKS_COUNT" != "null" ]; then
+      # Add issue header to report
+      LOCK_REPORT="${LOCK_REPORT}  Issue ${ISSUE_ID}:\n"
+
+      # Format each lock
+      while IFS= read -r LOCK_LINE; do
+        LOCK_REPORT="${LOCK_REPORT}${LOCK_LINE}\n"
+      done < <(echo "$LOCKS" | jq -r '.[] | "    - [\(.lockType)] \(.resources | join(", "))\(if .reason then " (\(.reason))" else "" end)"' 2>/dev/null)
+    fi
+  done <<< "$ISSUE_IDS"
+
+  # Output lock report to stderr if there are any locks
+  if [ -n "$LOCK_REPORT" ]; then
+    echo -e "[session-stop] Active locks for this session:" >&2
+    echo -e "$LOCK_REPORT" >&2
+  fi
+fi
+
 # POST to /session/stop endpoint
 curl -s -X POST "${BASE_URL}/session/stop" \
   -H "Content-Type: application/json" \
