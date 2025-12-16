@@ -47,7 +47,7 @@ You must reload this skill after compaction.
 
 ```!
 BACKTICK='`'
-BASE_URL=$(${CLAUDE_PLUGIN_ROOT}/../bin/discover-api.sh)
+BASE_URL=$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)
 
 echo "<library>"
 echo "## Library"

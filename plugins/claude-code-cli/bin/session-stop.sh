@@ -127,9 +127,8 @@ if [ -z "${DISPATCHER_PID:-}" ]; then
   exit 0
 fi
 
-# Discover API URL using the issues plugin's discover-api.sh
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_URL=$("$SCRIPT_DIR/../../bin/discover-api.sh" 2>/dev/null) || exit 0
+# Discover API URL
+BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" 2>/dev/null) || exit 0
 
 # POST to /session/stop endpoint
 curl -s -X POST "${BASE_URL}/session/stop" \
