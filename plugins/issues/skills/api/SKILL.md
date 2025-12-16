@@ -125,8 +125,6 @@ interface UpdateIssueRequest {
 - Tags are normalized to lowercase
 - Whitespace is trimmed from each tag
 - Maximum 50 characters per tag
-- Empty tags are filtered out
-- Duplicate tags are removed
 
 ### Comments
 
