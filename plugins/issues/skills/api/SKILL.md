@@ -178,9 +178,9 @@ packages/web/src/auth.ts  # Specific file
 
 **Named Resources (@ prefix)** - ALWAYS exclusive:
 ```
-@test-runner              # Test execution slot
-@build                    # Build process slot
-@deploy-preview           # Deployment slot
+!`echo "@"`test-runner              # Test execution slot
+!`echo "@"`@build                    # Build process slot
+!`echo "@"`deploy-preview           # Deployment slot
 ```
 
 The lock type (exclusive vs awareness) is specified via the `lockType` property, not through pattern prefixes.
@@ -195,7 +195,7 @@ The lock type (exclusive vs awareness) is specified via the `lockType` property,
 | Character class | [] | `[abc].ts` | Yes |
 | Negation | ! | `!*.test.ts` | No |
 | Brace expansion | {} | `*.{ts,tsx}` | No |
-| Extended globs | +() @() | `+(a|b)` | No |
+| Extended globs | +() !`echo "@"`() | `+(a|b)` | No |
 
 Unsupported patterns are rejected with `VALIDATION_ERROR`.
 
