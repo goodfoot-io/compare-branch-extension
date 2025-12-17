@@ -1,11 +1,11 @@
 ---
-name: issue-code-implementation
-description: Implement code changes in an isolated git worktree. Use when code changes are required based on [DESCRIPTION] or [LATEST_USER_COMMENT].
+name: issue-implementation
+description: Implement issue work in an isolated git worktree. Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT].
 ---
 
-## Implement Code Changes
+## Implement Issue Work
 
-Use when code changes are required based on [DESCRIPTION] or [LATEST_USER_COMMENT]. All modifications happen in an isolated worktree.
+Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT]. All modifications happen in an isolated worktree.
 
 ### Step 0: Check for Existing Work (Resumption Detection)
 
