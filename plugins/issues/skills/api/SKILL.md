@@ -189,13 +189,13 @@ The lock type (exclusive vs awareness) is specified via the `lockType` property,
 
 | Feature | Syntax | Example | Supported |
 |---------|--------|---------|-----------|
-| Wildcard | `*` | `*.ts` | Yes |
-| Globstar | `**` | `src/**/*.ts` | Yes |
-| Single char | `?` | `file?.ts` | Yes |
-| Character class | `[]` | `[abc].ts` | Yes |
-| Negation | `!` | `!*.test.ts` | No |
-| Brace expansion | `{}` | `*.{ts,tsx}` | No |
-| Extended globs | `+()` `@()` | `+(a|b)` | No |
+| Wildcard | * | `*.ts` | Yes |
+| Globstar | ** | `src/**/*.ts` | Yes |
+| Single char | ? | `file?.ts` | Yes |
+| Character class | [] | `[abc].ts` | Yes |
+| Negation | ! | `!*.test.ts` | No |
+| Brace expansion | {} | `*.{ts,tsx}` | No |
+| Extended globs | +() @() | `+(a|b)` | No |
 
 Unsupported patterns are rejected with `VALIDATION_ERROR`.
 
