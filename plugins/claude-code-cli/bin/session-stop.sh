@@ -2,23 +2,16 @@
 #
 # Stop hook: Reports session completion to API and handles graceful shutdown
 #
-# Implements a two-part stop process:
-# 1. First stop (stop_hook_active=false): Blocks and prompts agent to review
-#    and add library items before stopping. Only triggers if issues were
-#    actually engaged (issueIds.length > 0).
-# 2. Second stop (stop_hook_active=true): Proceeds with normal shutdown behavior.
-#    Only runs if DISPATCHER_PID env var is set (indicates dispatcher is running).
-#
-# Only fires if the issues:api skill was loaded during the session.
-# Detects this by checking the session state file for issuesApiLoaded flag.
+# Only runs if DISPATCHER_PID env var is set (indicates dispatcher is running)
+# and if the issues:api skill was loaded during the session (checked via
+# issuesApiLoaded flag in the session state file).
 #
 # Signals:
 # - If issues need attention: sends SIGTERM to Claude for graceful shutdown
 # - Always sends SIGWINCH to dispatcher to indicate Claude is now idle
 #
-# Input (stdin): JSON with session_id, transcript_path, cwd, hook_event_name,
-#                stop_hook_active
-# Output: JSON with decision/reason on block, none otherwise
+# Input (stdin): JSON with session_id, transcript_path, cwd, hook_event_name
+# Output: None
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # State file: $HOME/.claude/hook-state/${session_id}.json (read-only)
@@ -72,9 +65,6 @@ if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
-# Extract stop_hook_active from input
-STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false') || STOP_HOOK_ACTIVE="false"
-
 # Check if state file exists
 STATE_DIR="$HOME/.claude/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
@@ -91,37 +81,6 @@ if [ "$ISSUES_API_LOADED" != "true" ]; then
   exit 0
 fi
 
-# If this is the first stop attempt, block and prompt for library review
-# Only block if issues were actually engaged (issueIds.length > 0)
-# Only prompt once per session (tracked via libraryReviewPrompted flag)
-if [ "$STOP_HOOK_ACTIVE" != "true" ]; then
-  ISSUE_IDS_COUNT=$(jq -r '.issueIds | length' "$STATE_FILE" 2>/dev/null) || ISSUE_IDS_COUNT="0"
-  if [ "$ISSUE_IDS_COUNT" = "0" ] || [ "$ISSUE_IDS_COUNT" = "null" ]; then
-    # No issues were engaged - skip the library review prompt
-    exit 0
-  fi
-
-  # Check if we've already prompted for library review this session
-  LIBRARY_REVIEW_PROMPTED=$(jq -r '.libraryReviewPrompted // false' "$STATE_FILE" 2>/dev/null) || LIBRARY_REVIEW_PROMPTED="false"
-  if [ "$LIBRARY_REVIEW_PROMPTED" = "true" ]; then
-    # Already prompted once this session - don't block again
-    exit 0
-  fi
-
-  # Mark as prompted (atomic update via tmp file)
-  jq '.libraryReviewPrompted = true' "$STATE_FILE" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
-
-  # Output JSON to block the stop and prompt for library items
-  cat << 'EOF'
-{
-  "decision": "block",
-  "reason": "Review your work and consider adding items to the library.\n\n**Add to library if ANY of these apply:**\n\n| Discovery Type | Trigger | Example |\n|----------------|---------|---------|\n| Platform constraint | You researched external docs/web to understand a limitation | VSCode webview clipboard restrictions |\n| Architecture pattern | You traced how components communicate or connect | Message passing protocol between webview and extension |\n| Code location | You searched to find where a feature is implemented | \"save button\" → `isSubmitDisabled` in `App.tsx` |\n| Multi-file knowledge | The information applies to 2+ files or components | State tracking pattern used across editors |\n\n**Do NOT add if:**\n- One-off implementation detail (e.g., \"changed X to Y\")\n- Already in the library (shown in `<library>` section when issues:api skill loaded; use `GET /library | jq '.[] | {id, title}'` to check existing items, then `PATCH` to update if needed)\n- Already documented in code comments or README\n\n**API:** `POST /library` with `{id, title, content}` to create, `PATCH /library/{id}` to update existing.\n\nStop when done reviewing, or immediately if no items are needed."
-}
-EOF
-  exit 0
-fi
-
-# Second stop attempt - proceed with normal behavior
 # Only runs if DISPATCHER_PID env var is set (indicates dispatcher is running)
 if [ -z "${DISPATCHER_PID:-}" ]; then
   exit 0
