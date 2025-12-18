@@ -7,8 +7,6 @@ description: Create, read, and respond to issues related to this git branch.
 
 Use the Issues API to communicate with the user about this git branch. The user will be notified when you create an issue or add a comment.
 
-Work on one issue at a time. 
-
 <comments>
 Use comments to ask the user for clarifications, to report error states, or to report completion.
 
@@ -58,17 +56,6 @@ echo "${BACKTICK}${BACKTICK}${BACKTICK}json"
 echo "$LIBRARY_ITEMS"
 echo "${BACKTICK}${BACKTICK}${BACKTICK}"
 echo "</library>\n\n"
-
-
-ISSUES=$(curl -s "${BASE_URL}/issues" | jq '[.issues[] | select(.needsAgentAttention == true) | {id, title}]')
-if [ "$(echo "$ISSUES" | jq 'length')" -gt 1 ]; then
-  echo "<issues>"
-  echo "## Issues That Require Your Attention"
-  echo "${BACKTICK}${BACKTICK}${BACKTICK}json"
-  echo "$ISSUES"
-  echo "${BACKTICK}${BACKTICK}${BACKTICK}"
-  echo "/<issues>\n\n"
-fi
 
 echo "<api>"
 echo "Base URL: ${BASE_URL}"
