@@ -7,7 +7,6 @@
 # issuesApiLoaded flag in the session state file).
 #
 # Signals:
-# - If issues need attention: sends SIGTERM to Claude for graceful shutdown
 # - Always sends SIGWINCH to dispatcher to indicate Claude is now idle
 #
 # Input (stdin): JSON with session_id, transcript_path, cwd, hook_event_name
@@ -34,27 +33,6 @@ error_handler() {
 }
 
 trap 'error_handler ${LINENO} $?' ERR
-
-# Find claude process in the parent hierarchy (adapted from complete-iteration)
-find_claude_pid() {
-    local current_pid=$1
-    local max_depth=10
-    local depth=0
-
-    while [[ $depth -lt $max_depth && $current_pid -gt 1 ]]; do
-        # Check if current PID is claude
-        if ps -p "$current_pid" -o comm= 2>/dev/null | grep -q "^claude$"; then
-            echo "$current_pid"
-            return 0
-        fi
-
-        # Get parent PID
-        current_pid=$(ps -p "$current_pid" -o ppid= 2>/dev/null | tr -d ' ')
-        ((depth++)) || true
-    done
-
-    return 1
-}
 
 # Read input from stdin
 INPUT=$(cat)
@@ -129,25 +107,7 @@ curl -s -X POST "${BASE_URL}/session/stop" \
   -H "Content-Type: application/json" \
   -d "{\"sessionId\": \"${SESSION_ID}\"}" > /dev/null 2>&1 || true
 
-# Check if there are issues needing agent attention
-ISSUES_RESPONSE=$(curl -s "${BASE_URL}/issues" 2>/dev/null) || ISSUES_RESPONSE=""
-
-if [ -n "$ISSUES_RESPONSE" ]; then
-  # Extract count of issues needing agent attention from the summary
-  NEEDS_ATTENTION=$(echo "$ISSUES_RESPONSE" | jq -r '.summary.needingAgentAttention // 0' 2>/dev/null) || NEEDS_ATTENTION="0"
-
-  if [ "$NEEDS_ATTENTION" != "0" ] && [ "$NEEDS_ATTENTION" != "null" ]; then
-    # There are issues needing agent attention - send graceful shutdown signal
-    if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
-      echo "TEST_MODE: Would send SIGTERM (needingAgentAttention=$NEEDS_ATTENTION)" >&2
-    elif CLAUDE_PID=$(find_claude_pid $$); then
-      # Send SIGTERM for graceful shutdown
-      kill -TERM "$CLAUDE_PID" 2>/dev/null || true
-    fi
-  fi
-fi
-
-# Always signal dispatcher that Claude is now idle (finished processing)
+# Signal dispatcher that Claude is now idle (finished processing)
 # SIGWINCH is ignored by default, safe to send even if dispatcher exited
 if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
   echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle)" >&2
