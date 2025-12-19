@@ -81,9 +81,9 @@ if [ -n "$ISSUE_IDS" ]; then
     # Query locks API for this issue
     LOCKS_RESPONSE=$(curl -s "${BASE_URL}/locks?issueId=${ISSUE_ID}" 2>/dev/null) || continue
 
-    # Extract locks array
-    LOCKS=$(echo "$LOCKS_RESPONSE" | jq -r '.locks // []' 2>/dev/null) || continue
-    LOCKS_COUNT=$(echo "$LOCKS" | jq -r 'length' 2>/dev/null) || LOCKS_COUNT="0"
+    # Extract locks array (use here-string to handle JSON with newlines in values)
+    LOCKS=$(jq '.locks // []' <<< "$LOCKS_RESPONSE" 2>/dev/null) || continue
+    LOCKS_COUNT=$(jq 'length' <<< "$LOCKS" 2>/dev/null) || LOCKS_COUNT="0"
 
     if [ "$LOCKS_COUNT" != "0" ] && [ "$LOCKS_COUNT" != "null" ]; then
       # Add issue header to report
@@ -92,7 +92,7 @@ if [ -n "$ISSUE_IDS" ]; then
       # Format each lock
       while IFS= read -r LOCK_LINE; do
         LOCK_REPORT="${LOCK_REPORT}${LOCK_LINE}\n"
-      done < <(echo "$LOCKS" | jq -r '.[] | "    - [\(.lockType)] \(.resources | join(", "))\(if .reason then " (\(.reason))" else "" end)"' 2>/dev/null)
+      done < <(jq -r '.[] | "    - [\(.lockType)] \(.resources | join(", "))\(if .reason then " (\(.reason))" else "" end)"' <<< "$LOCKS" 2>/dev/null)
     fi
   done <<< "$ISSUE_IDS"
 
@@ -117,9 +117,9 @@ if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
     # Query comments API for comments since session started
     COMMENTS_RESPONSE=$(curl -s "${BASE_URL}/issues/${ISSUE_ID}/comments?since=${ENCODED_TIME}" 2>/dev/null) || continue
 
-    # Filter to user comments only (exclude agent comments)
-    USER_COMMENTS=$(echo "$COMMENTS_RESPONSE" | jq -r '[.[] | select(.author == "user")]' 2>/dev/null) || continue
-    COMMENTS_COUNT=$(echo "$USER_COMMENTS" | jq -r 'length' 2>/dev/null) || COMMENTS_COUNT="0"
+    # Filter to user comments only (use here-string to handle JSON with newlines in values)
+    USER_COMMENTS=$(jq '[.[] | select(.author == "user")]' <<< "$COMMENTS_RESPONSE" 2>/dev/null) || continue
+    COMMENTS_COUNT=$(jq 'length' <<< "$USER_COMMENTS" 2>/dev/null) || COMMENTS_COUNT="0"
 
     if [ "$COMMENTS_COUNT" != "0" ] && [ "$COMMENTS_COUNT" != "null" ]; then
       # Add issue header to report
@@ -128,7 +128,7 @@ if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
       # Format each comment (truncate body to first 100 chars)
       while IFS= read -r COMMENT_LINE; do
         COMMENTS_REPORT="${COMMENTS_REPORT}${COMMENT_LINE}\n"
-      done < <(echo "$USER_COMMENTS" | jq -r '.[] | "    - [\(.createdAt)] \(.body | gsub("\n"; " ") | if length > 100 then .[:100] + "..." else . end)"' 2>/dev/null)
+      done < <(jq -r '.[] | "    - [\(.createdAt)] \(.body | gsub("\n"; " ") | if length > 100 then .[:100] + "..." else . end)"' <<< "$USER_COMMENTS" 2>/dev/null)
     fi
   done <<< "$ISSUE_IDS"
 
