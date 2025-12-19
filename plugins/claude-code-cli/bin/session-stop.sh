@@ -2,8 +2,8 @@
 #
 # Stop hook: Reports session completion to API and handles graceful shutdown
 #
-# Only runs if DISPATCHER_PID env var is set (indicates dispatcher is running)
-# and if the issues:api skill was loaded during the session (checked via
+# Reports new comments and locks to Claude, and signals dispatcher when done.
+# Only runs if the issues:api skill was loaded during the session (checked via
 # issuesApiLoaded flag in the session state file).
 #
 # Signals:
@@ -60,11 +60,6 @@ fi
 ISSUES_API_LOADED=$(jq -r '.issuesApiLoaded // false' "$STATE_FILE" 2>/dev/null) || ISSUES_API_LOADED="false"
 if [ "$ISSUES_API_LOADED" != "true" ]; then
   # issues:api was not loaded during this session - nothing to do
-  exit 0
-fi
-
-# Only runs if DISPATCHER_PID env var is set (indicates dispatcher is running)
-if [ -z "${DISPATCHER_PID:-}" ]; then
   exit 0
 fi
 
@@ -164,10 +159,13 @@ curl -s -X POST "${BASE_URL}/session/stop" \
 
 # Signal dispatcher that Claude is now idle (finished processing)
 # SIGWINCH is ignored by default, safe to send even if dispatcher exited
-if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
-  echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle)" >&2
-else
-  kill -WINCH "$DISPATCHER_PID" 2>/dev/null || true
+# Only send signal if DISPATCHER_PID is set (indicates dispatcher is running)
+if [ -n "${DISPATCHER_PID:-}" ]; then
+  if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
+    echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle)" >&2
+  else
+    kill -WINCH "$DISPATCHER_PID" 2>/dev/null || true
+  fi
 fi
 
 exit 0
