@@ -75,14 +75,15 @@ POST /issues/[ISSUE_ID]/comments
 
 **Skip this step if [IS_RESUMABLE] is true OR [HAS_MODIFICATION_REQUEST] is true** — a checkpoint already exists from the original implementation.
 
-For new work only, create a checkpoint on [BASE_BRANCH]:
+For new work only, create a checkpoint marker on [BASE_BRANCH]:
 ```bash
-git add -A
 git commit --allow-empty -m "checkpoint: [ISSUE_ID] before implementation
 
 Issue: [ISSUE_ID]
 Title: [TITLE]"
 ```
+
+**Note:** Do not stage files for the checkpoint. The checkpoint is just a marker in git history. Any uncommitted files in the working directory (artifacts from concurrent agents, user's pending work) should remain uncommitted.
 
 ### Step 4: Create Worktree
 
@@ -121,9 +122,20 @@ Issue: [ISSUE_ID]
 ```
 
 ### Step 7: Merge Back to Main
-```bash
-cd /workspace  # Return to main workspace
 
+First, return to the main workspace and check for uncommitted files:
+```bash
+cd /workspace
+git status --porcelain
+```
+
+If uncommitted files exist, assess and handle them before merging:
+- **Known artifacts** (e.g., `.compare-branch/claude-launcher-*.mjs`): Delete them
+- **Legitimate uncommitted work**: Stash and restore after merge
+- **Potential conflicts with incoming changes**: Resolve before proceeding
+
+Then merge:
+```bash
 git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
 
 Issue: [ISSUE_ID]
