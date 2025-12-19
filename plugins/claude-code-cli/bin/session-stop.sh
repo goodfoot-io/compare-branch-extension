@@ -105,9 +105,8 @@ fi
 
 # Report any new comments added since session started
 # Only if CLAUDE_START_TIME is set (ISO 8601 timestamp from launcher)
+COMMENTS_REPORT=""
 if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
-  COMMENTS_REPORT=""
-
   while IFS= read -r ISSUE_ID; do
     [ -z "$ISSUE_ID" ] && continue
 
@@ -123,20 +122,35 @@ if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
 
     if [ "$COMMENTS_COUNT" != "0" ] && [ "$COMMENTS_COUNT" != "null" ]; then
       # Add issue header to report
-      COMMENTS_REPORT="${COMMENTS_REPORT}  Issue ${ISSUE_ID}:\n"
+      COMMENTS_REPORT="${COMMENTS_REPORT}Issue ${ISSUE_ID}:\n"
 
       # Format each comment (truncate body to first 100 chars)
       while IFS= read -r COMMENT_LINE; do
-        COMMENTS_REPORT="${COMMENTS_REPORT}${COMMENT_LINE}\n"
-      done < <(jq -r '.[] | "    - [\(.createdAt)] \(.body | gsub("\n"; " ") | if length > 100 then .[:100] + "..." else . end)"' <<< "$USER_COMMENTS" 2>/dev/null)
+        COMMENTS_REPORT="${COMMENTS_REPORT}  ${COMMENT_LINE}\n"
+      done < <(jq -r '.[] | "- [\(.createdAt)] \(.body | gsub("\n"; " ") | if length > 100 then .[:100] + "..." else . end)"' <<< "$USER_COMMENTS" 2>/dev/null)
     fi
   done <<< "$ISSUE_IDS"
+fi
 
-  # Output new comments report to stderr if there are any
-  if [ -n "$COMMENTS_REPORT" ]; then
-    echo -e "[session-stop] New comments since session started:" >&2
-    echo -e "$COMMENTS_REPORT" >&2
+# Build combined report for JSON output
+FULL_REPORT=""
+if [ -n "$LOCK_REPORT" ]; then
+  FULL_REPORT="Active locks for this session:\n${LOCK_REPORT}"
+fi
+if [ -n "$COMMENTS_REPORT" ]; then
+  if [ -n "$FULL_REPORT" ]; then
+    FULL_REPORT="${FULL_REPORT}\n"
   fi
+  FULL_REPORT="${FULL_REPORT}New comments since session started:\n${COMMENTS_REPORT}"
+fi
+
+# Output JSON to stdout if there's a report (Claude Code reads stdout for hook responses)
+# The "reason" field is shown to Claude as a system message
+if [ -n "$FULL_REPORT" ]; then
+  # Convert escaped newlines to actual newlines, then use jq to properly escape for JSON
+  # Use printf '%s' to avoid adding extra newlines
+  REASON_TEXT=$(printf '%s' "$(echo -e "$FULL_REPORT")" | jq -Rs '.')
+  printf '{"reason": %s}\n' "$REASON_TEXT"
 fi
 
 # POST to /session/stop endpoint
