@@ -23,6 +23,31 @@
 
 set -euo pipefail
 
+# ============================================================================
+# Dispatcher Session File Fallback
+# ============================================================================
+# Claude Code doesn't pass custom env vars to hooks, so we read from a file
+# written by the dispatcher before launching Claude.
+
+DISPATCHER_SESSION_FILE="$HOME/.claude/dispatcher-sessions/active.json"
+
+# Try to load dispatcher info from session file if env vars are not set
+if [ -z "${DISPATCHER_PID:-}" ] || [ -z "${CLAUDE_START_TIME:-}" ]; then
+  if [ -f "$DISPATCHER_SESSION_FILE" ]; then
+    # Read values from JSON file
+    FILE_DISPATCHER_PID=$(jq -r '.dispatcherPid // empty' "$DISPATCHER_SESSION_FILE" 2>/dev/null) || FILE_DISPATCHER_PID=""
+    FILE_START_TIME=$(jq -r '.startTime // empty' "$DISPATCHER_SESSION_FILE" 2>/dev/null) || FILE_START_TIME=""
+
+    # Use file values as fallback if env vars are not set
+    if [ -z "${DISPATCHER_PID:-}" ] && [ -n "$FILE_DISPATCHER_PID" ]; then
+      DISPATCHER_PID="$FILE_DISPATCHER_PID"
+    fi
+    if [ -z "${CLAUDE_START_TIME:-}" ] && [ -n "$FILE_START_TIME" ]; then
+      CLAUDE_START_TIME="$FILE_START_TIME"
+    fi
+  fi
+fi
+
 # Error handler - outputs to stderr and exits with code 2
 error_handler() {
     local line_no=$1

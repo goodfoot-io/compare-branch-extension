@@ -27,7 +27,7 @@
  */
 
 import { spawn, execSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -96,6 +96,10 @@ EXAMPLES:
 
 const DISCOVERY_FILE = join(homedir(), '.compare-branch', 'issues-api.json');
 const CLAUDE_CMD = process.env.CLAUDE_CMD || 'claude';
+
+// File used to pass dispatcher info to hooks (since Claude Code doesn't pass env vars to hooks)
+const DISPATCHER_SESSION_DIR = join(homedir(), '.claude', 'dispatcher-sessions');
+const DISPATCHER_SESSION_FILE = join(DISPATCHER_SESSION_DIR, 'active.json');
 
 // ============================================================================
 // State
@@ -179,10 +183,46 @@ function handleSigwinch() {
 }
 
 // ============================================================================
+// Dispatcher Session File Management
+// ============================================================================
+
+// Write dispatcher session info to a file that hooks can read
+// This is necessary because Claude Code doesn't pass env vars to hooks
+function writeDispatcherSessionFile(startTime) {
+  try {
+    if (!existsSync(DISPATCHER_SESSION_DIR)) {
+      mkdirSync(DISPATCHER_SESSION_DIR, { recursive: true });
+    }
+    const sessionInfo = {
+      dispatcherPid: process.pid,
+      startTime: startTime,
+      workspace: getWorkspace()
+    };
+    writeFileSync(DISPATCHER_SESSION_FILE, JSON.stringify(sessionInfo, null, 2));
+    log(`Wrote dispatcher session file: ${DISPATCHER_SESSION_FILE}`);
+  } catch (err) {
+    log(`Warning: Failed to write dispatcher session file: ${err.message}`);
+  }
+}
+
+function cleanupDispatcherSessionFile() {
+  try {
+    if (existsSync(DISPATCHER_SESSION_FILE)) {
+      unlinkSync(DISPATCHER_SESSION_FILE);
+    }
+  } catch {
+    // Ignore errors
+  }
+}
+
+// ============================================================================
 // Cleanup
 // ============================================================================
 
 function cleanup() {
+  // Remove dispatcher session file
+  cleanupDispatcherSessionFile();
+
   // Remove test mode file if it exists
   if (testMode && existsSync('.CLAUDE_ACTIVE')) {
     try {
@@ -284,8 +324,20 @@ function launchClaude(prompt, sessionId) {
 
     log(sessionId ? `Resuming session: ${sessionId}` : 'Starting new session');
 
-    // Set DISPATCHER_PID so hooks can signal us
-    const env = { ...process.env, DISPATCHER_PID: `${process.pid}` };
+    // Generate start time once to ensure consistency between env var and session file
+    const startTime = new Date().toISOString();
+
+    // Write dispatcher session info to file BEFORE spawning Claude
+    // This is the primary mechanism for hooks to access dispatcher info,
+    // since Claude Code doesn't pass env vars to hooks
+    writeDispatcherSessionFile(startTime);
+
+    // Also set environment variables (for backwards compatibility and non-hook usage)
+    const env = {
+      ...process.env,
+      DISPATCHER_PID: `${process.pid}`,
+      CLAUDE_START_TIME: startTime
+    };
 
     claudeProcess = spawn(CLAUDE_CMD, args, {
       stdio: 'inherit',
