@@ -3,7 +3,11 @@
 # Discovers the Issues API base URL for the current workspace.
 #
 # Usage:
-#   ./discover-api.sh
+#   ./discover-api.sh [workspace_path]
+#
+# Arguments:
+#   workspace_path - Optional. The workspace directory to discover API for.
+#                    If not provided, defaults to current working directory.
 #
 # Output:
 #   The base URL for the Issues API (e.g., http://127.0.0.1:12345/api/v1)
@@ -16,7 +20,13 @@
 set -euo pipefail
 
 DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
-WORKSPACE=$(pwd)
+# Use provided workspace path or fall back to current directory
+# Note: -z check handles empty string argument, not just unset
+if [ -z "${1:-}" ]; then
+  WORKSPACE=$(pwd)
+else
+  WORKSPACE="$1"
+fi
 
 # Check if discovery file exists
 if [ ! -f "$DISCOVERY_FILE" ]; then

@@ -38,11 +38,14 @@ trap 'error_handler ${LINENO} $?' ERR
 # Read input from stdin
 INPUT=$(cat)
 
-# Extract session_id from input
+# Extract session_id and cwd from input
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty') || SESSION_ID=""
 if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
+
+# Extract cwd for API discovery (hooks receive the working directory in input)
+SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty') || SESSION_CWD=""
 
 # Check if state file exists
 STATE_DIR="$HOME/.claude/hook-state"
@@ -65,16 +68,17 @@ if [ -z "${DISPATCHER_PID:-}" ]; then
   exit 0
 fi
 
-# Discover API URL
-BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" 2>/dev/null) || exit 0
+# Discover API URL (pass cwd to find the correct workspace API)
+BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
 
 # Report any active locks for engaged issues
 # Read issue IDs from state file and query locks API for each
 ISSUE_IDS=$(jq -r '.issueIds // [] | .[]' "$STATE_FILE" 2>/dev/null) || ISSUE_IDS=""
 
-if [ -n "$ISSUE_IDS" ]; then
-  LOCK_REPORT=""
+# Initialize lock report outside if block for set -u compatibility
+LOCK_REPORT=""
 
+if [ -n "$ISSUE_IDS" ]; then
   while IFS= read -r ISSUE_ID; do
     [ -z "$ISSUE_ID" ] && continue
 

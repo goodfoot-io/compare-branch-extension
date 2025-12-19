@@ -5,7 +5,7 @@
 # Detects when issue API endpoints are accessed and records the issue IDs
 # in session state. Posts sessionId as a comment on newly discovered issues.
 #
-# Input (stdin): JSON with session_id, tool_name, tool_input.command
+# Input (stdin): JSON with session_id, cwd, tool_name, tool_input.command
 # Output: None on success, error details to stderr on failure
 # Exit codes: 0 = success, 2 = unexpected error
 #
@@ -30,11 +30,14 @@ trap 'error_handler ${LINENO} $?' ERR
 # Read input from stdin
 INPUT=$(cat)
 
-# Extract session_id from input
+# Extract session_id and cwd from input
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty') || SESSION_ID=""
 if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
+
+# Extract cwd for API discovery (hooks receive the working directory in input)
+SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty') || SESSION_CWD=""
 
 # Check if tool_name is "Bash"
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty') || TOOL_NAME=""
@@ -58,8 +61,8 @@ if [ -z "$ISSUE_IDS" ]; then
   exit 0
 fi
 
-# Discover API URL
-BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" 2>/dev/null) || exit 0
+# Discover API URL (pass cwd to find the correct workspace API)
+BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
 
 # Setup state directory and file
 STATE_DIR="$HOME/.claude/hook-state"
