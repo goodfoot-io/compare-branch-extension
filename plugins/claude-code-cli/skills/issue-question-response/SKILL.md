@@ -5,10 +5,10 @@ description: Respond to user questions without code changes. Use when [HAS_PENDI
 
 ## Respond to Questions
 
-Use when [HAS_PENDING_QUESTION] is true and no code changes are required.
+Answer user questions before any implementation work. This cross-cutting check ensures users receive timely answers regardless of issue status.
 
 ### Step 1: Research Answer
-Use codebase exploration to find accurate information.
+Use codebase exploration to find accurate information. Reference specific files and line numbers when applicable.
 
 ### Step 2: Post Response
 ```
@@ -27,4 +27,4 @@ PATCH /issues/[ISSUE_ID]
   "status": "[ORIGINAL_STATUS]"
 }
 ```
-This returns the issue to "needs_review" status after answering the question.
+Restore the original status so the issue returns to its prior state after answering.

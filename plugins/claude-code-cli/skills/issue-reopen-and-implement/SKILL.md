@@ -27,3 +27,17 @@ Continue with `<code-implementation-protocol>` starting at Step 1, treating this
 - Implement the requested changes (Step 5+)
 
 The agent should address the specific request in [LATEST_USER_COMMENT], not re-implement the entire original issue.
+
+### Step 4: Update Status After Completion
+
+**IMPORTANT:** After implementation is complete, always set status to `needs_review`:
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "status": "needs_review",
+  "commitSha": "[FINAL_SHA]"
+}
+```
+
+Never set status to `done`. Only the user marks issues as done after reviewing the work.
