@@ -17,6 +17,7 @@
 #
 # Environment variables:
 #   DISPATCHER_PID - PID of dispatcher for sending idle signal (set by dispatcher)
+#   CLAUDE_START_TIME - ISO 8601 timestamp of when the session started (for new comment detection)
 #   SESSION_STOP_TEST_MODE - If set to "1", skips sending signals (for testing)
 #
 
@@ -99,6 +100,42 @@ if [ -n "$ISSUE_IDS" ]; then
   if [ -n "$LOCK_REPORT" ]; then
     echo -e "[session-stop] Active locks for this session:" >&2
     echo -e "$LOCK_REPORT" >&2
+  fi
+fi
+
+# Report any new comments added since session started
+# Only if CLAUDE_START_TIME is set (ISO 8601 timestamp from launcher)
+if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
+  COMMENTS_REPORT=""
+
+  while IFS= read -r ISSUE_ID; do
+    [ -z "$ISSUE_ID" ] && continue
+
+    # URL-encode the timestamp (replace : with %3A, + with %2B)
+    ENCODED_TIME=$(echo "$CLAUDE_START_TIME" | sed 's/:/%3A/g; s/+/%2B/g')
+
+    # Query comments API for comments since session started
+    COMMENTS_RESPONSE=$(curl -s "${BASE_URL}/issues/${ISSUE_ID}/comments?since=${ENCODED_TIME}" 2>/dev/null) || continue
+
+    # Filter to user comments only (exclude agent comments)
+    USER_COMMENTS=$(echo "$COMMENTS_RESPONSE" | jq -r '[.[] | select(.author == "user")]' 2>/dev/null) || continue
+    COMMENTS_COUNT=$(echo "$USER_COMMENTS" | jq -r 'length' 2>/dev/null) || COMMENTS_COUNT="0"
+
+    if [ "$COMMENTS_COUNT" != "0" ] && [ "$COMMENTS_COUNT" != "null" ]; then
+      # Add issue header to report
+      COMMENTS_REPORT="${COMMENTS_REPORT}  Issue ${ISSUE_ID}:\n"
+
+      # Format each comment (truncate body to first 100 chars)
+      while IFS= read -r COMMENT_LINE; do
+        COMMENTS_REPORT="${COMMENTS_REPORT}${COMMENT_LINE}\n"
+      done < <(echo "$USER_COMMENTS" | jq -r '.[] | "    - [\(.createdAt)] \(.body | gsub("\n"; " ") | if length > 100 then .[:100] + "..." else . end)"' 2>/dev/null)
+    fi
+  done <<< "$ISSUE_IDS"
+
+  # Output new comments report to stderr if there are any
+  if [ -n "$COMMENTS_REPORT" ]; then
+    echo -e "[session-stop] New comments since session started:" >&2
+    echo -e "$COMMENTS_REPORT" >&2
   fi
 fi
 
