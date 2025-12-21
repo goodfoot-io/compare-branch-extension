@@ -96,17 +96,22 @@ if [ -n "$ISSUE_IDS" ]; then
   done <<< "$ISSUE_IDS"
 fi
 
-# Report any new comments added since session started
+# Report any new comments added since session started (or since last report)
 # Only if CLAUDE_START_TIME is set (ISO 8601 timestamp from launcher)
 COMMENTS_REPORT=""
+NEWEST_COMMENT_TIME=""
 if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
+  # Check if we've already reported comments - use that time instead
+  LAST_REPORT_TIME=$(jq -r '.commentsReportedAt // empty' "$STATE_FILE" 2>/dev/null) || LAST_REPORT_TIME=""
+  QUERY_TIME="${LAST_REPORT_TIME:-$CLAUDE_START_TIME}"
+
   while IFS= read -r ISSUE_ID; do
     [ -z "$ISSUE_ID" ] && continue
 
     # URL-encode the timestamp (replace : with %3A, + with %2B)
-    ENCODED_TIME=$(echo "$CLAUDE_START_TIME" | sed 's/:/%3A/g; s/+/%2B/g')
+    ENCODED_TIME=$(echo "$QUERY_TIME" | sed 's/:/%3A/g; s/+/%2B/g')
 
-    # Query comments API for comments since session started
+    # Query comments API for comments since last check
     COMMENTS_RESPONSE=$(curl -s "${BASE_URL}/issues/${ISSUE_ID}/comments?since=${ENCODED_TIME}" 2>/dev/null) || continue
 
     # Filter to user comments only (use here-string to handle JSON with newlines in values)
@@ -121,8 +126,26 @@ if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
       while IFS= read -r COMMENT_LINE; do
         COMMENTS_REPORT="${COMMENTS_REPORT}  ${COMMENT_LINE}\n"
       done < <(jq -r '.[] | "- [\(.createdAt)] \(.body | gsub("\n"; " ") | if length > 100 then .[:100] + "..." else . end)"' <<< "$USER_COMMENTS" 2>/dev/null)
+
+      # Track the newest comment time to update state file
+      LATEST=$(jq -r 'map(.createdAt) | max' <<< "$USER_COMMENTS" 2>/dev/null) || LATEST=""
+      if [ -n "$LATEST" ] && [ "$LATEST" != "null" ]; then
+        if [ -z "$NEWEST_COMMENT_TIME" ] || [[ "$LATEST" > "$NEWEST_COMMENT_TIME" ]]; then
+          NEWEST_COMMENT_TIME="$LATEST"
+        fi
+      fi
     fi
   done <<< "$ISSUE_IDS"
+
+  # Update state file with the time of newest reported comment
+  if [ -n "$NEWEST_COMMENT_TIME" ]; then
+    (
+      flock -x 200
+      CURRENT_STATE=$(cat "$STATE_FILE" 2>/dev/null) || CURRENT_STATE="{}"
+      echo "$CURRENT_STATE" | jq --arg time "$NEWEST_COMMENT_TIME" '.commentsReportedAt = $time' > "$STATE_FILE.tmp"
+      mv "$STATE_FILE.tmp" "$STATE_FILE"
+    ) 200>"$STATE_FILE.lock"
+  fi
 fi
 
 # Build combined report for JSON output
