@@ -324,24 +324,15 @@ function launchClaude(prompt, sessionId) {
 
     log(sessionId ? `Resuming session: ${sessionId}` : 'Starting new session');
 
-    // Generate start time once to ensure consistency between env var and session file
+    // Generate start time for detecting new comments during session
     const startTime = new Date().toISOString();
 
     // Write dispatcher session info to file BEFORE spawning Claude
-    // This is the primary mechanism for hooks to access dispatcher info,
-    // since Claude Code doesn't pass env vars to hooks
+    // This is how hooks access dispatcher info (Claude Code doesn't pass env vars to hooks)
     writeDispatcherSessionFile(startTime);
-
-    // Also set environment variables (for backwards compatibility and non-hook usage)
-    const env = {
-      ...process.env,
-      DISPATCHER_PID: `${process.pid}`,
-      CLAUDE_START_TIME: startTime
-    };
 
     claudeProcess = spawn(CLAUDE_CMD, args, {
       stdio: 'inherit',
-      env,
     });
 
     // Mark as active immediately - SIGWINCH will set to false when idle

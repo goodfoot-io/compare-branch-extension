@@ -12,29 +12,26 @@
 # Output: None on success, error details to stderr on failure
 # Exit codes: 0 = success, 2 = unexpected error
 #
+# Dispatcher session file: $HOME/.claude/dispatcher-sessions/active.json (read-only)
+#
 # Environment variables:
-#   DISPATCHER_PID - PID of the dispatcher to send signals to (set by dispatcher)
 #   SIGNAL_ACTIVE_TEST_MODE - If set to "1", skips sending signals (for testing)
 #
 
 set -euo pipefail
 
 # ============================================================================
-# Dispatcher Session File Fallback
+# Dispatcher Session File
 # ============================================================================
-# Claude Code doesn't pass custom env vars to hooks, so we read from a file
-# written by the dispatcher before launching Claude.
+# Claude Code doesn't pass custom env vars to hooks, so dispatcher info is
+# read from a file written by the dispatcher/wrapper before launching Claude.
 
 DISPATCHER_SESSION_FILE="$HOME/.claude/dispatcher-sessions/active.json"
 
-# Try to load DISPATCHER_PID from session file if not set in env
-if [ -z "${DISPATCHER_PID:-}" ]; then
-  if [ -f "$DISPATCHER_SESSION_FILE" ]; then
-    FILE_DISPATCHER_PID=$(jq -r '.dispatcherPid // empty' "$DISPATCHER_SESSION_FILE" 2>/dev/null) || FILE_DISPATCHER_PID=""
-    if [ -n "$FILE_DISPATCHER_PID" ]; then
-      DISPATCHER_PID="$FILE_DISPATCHER_PID"
-    fi
-  fi
+# Initialize and load dispatcher PID from session file
+DISPATCHER_PID=""
+if [ -f "$DISPATCHER_SESSION_FILE" ]; then
+  DISPATCHER_PID=$(jq -r '.dispatcherPid // empty' "$DISPATCHER_SESSION_FILE" 2>/dev/null) || DISPATCHER_PID=""
 fi
 
 # Error handler - outputs to stderr and exits with code 2
