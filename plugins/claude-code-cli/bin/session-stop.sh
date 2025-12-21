@@ -14,31 +14,14 @@
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # State file: $HOME/.claude/hook-state/${session_id}.json (read-only)
-# Dispatcher session file: $HOME/.claude/dispatcher-sessions/active.json (read-only)
 #
 # Environment variables:
+#   DISPATCHER_PID - PID of dispatcher for sending idle signal (set by dispatcher)
+#   CLAUDE_START_TIME - ISO 8601 timestamp of when the session started (for new comment detection)
 #   SESSION_STOP_TEST_MODE - If set to "1", skips sending signals (for testing)
 #
 
 set -euo pipefail
-
-# ============================================================================
-# Dispatcher Session File
-# ============================================================================
-# Claude Code doesn't pass custom env vars to hooks, so dispatcher info is
-# read from a file written by the dispatcher/wrapper before launching Claude.
-
-DISPATCHER_SESSION_FILE="$HOME/.claude/dispatcher-sessions/active.json"
-
-# Initialize variables
-DISPATCHER_PID=""
-CLAUDE_START_TIME=""
-
-# Load dispatcher info from session file
-if [ -f "$DISPATCHER_SESSION_FILE" ]; then
-  DISPATCHER_PID=$(jq -r '.dispatcherPid // empty' "$DISPATCHER_SESSION_FILE" 2>/dev/null) || DISPATCHER_PID=""
-  CLAUDE_START_TIME=$(jq -r '.startTime // empty' "$DISPATCHER_SESSION_FILE" 2>/dev/null) || CLAUDE_START_TIME=""
-fi
 
 # Error handler - outputs to stderr and exits with code 2
 error_handler() {
