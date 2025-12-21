@@ -510,10 +510,10 @@ else
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 
-# Test 12: DOES trigger signal when needingAgentAttention > 0 (second stop)
-echo -e "\n${YELLOW}=== Test 12: DOES trigger signal when needingAgentAttention > 0 ===${NC}"
+# Test 12: Sends SIGWINCH to dispatcher when DISPATCHER_PID is set
+echo -e "\n${YELLOW}=== Test 12: Sends SIGWINCH to dispatcher ===${NC}"
 setup_mock_home
-create_mock_curl '{"branch":"main","issues":[{"id":"main:1","needsAgentAttention":true}],"summary":{"total":2,"todo":1,"inProgress":1,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":2}}'
+create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-12"
 
 # Create state file with issuesApiLoaded = true
@@ -527,27 +527,26 @@ INPUT=$(cat <<EOF
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/transcript.jsonl",
   "cwd": "/workspace",
-  "hook_event_name": "Stop",
-  "stop_hook_active": true
+  "hook_event_name": "Stop"
 }
 EOF
 )
-run_test "Signal triggered when needingAgentAttention > 0" "$INPUT" 0
+run_test "Sends SIGWINCH to dispatcher" "$INPUT" 0
 
-# Verify TEST_MODE message in stderr (signal would be triggered)
-if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would send SIGTERM"; then
-    echo "Verified: Signal would be triggered when needingAgentAttention > 0"
-    echo "Stderr: $LAST_STDERR"
+# Verify TEST_MODE message in stderr (SIGWINCH would be sent)
+if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would send SIGWINCH"; then
+    echo "Verified: SIGWINCH would be sent to dispatcher"
 else
-    echo -e "${RED}FAIL${NC} - Signal should be triggered when needingAgentAttention > 0"
+    echo -e "${RED}FAIL${NC} - SIGWINCH should be sent to dispatcher"
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 
-# Test 13: First stop blocks with library prompt (stop_hook_active=false)
-echo -e "\n${YELLOW}=== Test 13: First stop blocks with library prompt (stop_hook_active=false) ===${NC}"
+# Test 13: No block decision when no locks exist
+echo -e "\n${YELLOW}=== Test 13: No block decision when no locks exist ===${NC}"
 setup_mock_home
-create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
+# Return empty locks array
+create_mock_curl_with_locks '{"branch":"main","issues":[],"summary":{"total":0}}' '{"locks":[]}'
 SESSION_ID="test-session-13"
 
 # Create state file with issuesApiLoaded = true
@@ -561,18 +560,17 @@ INPUT=$(cat <<EOF
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/transcript.jsonl",
   "cwd": "/workspace",
-  "hook_event_name": "Stop",
-  "stop_hook_active": false
+  "hook_event_name": "Stop"
 }
 EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: First stop blocks with library prompt${NC}"
+echo -e "\n${YELLOW}TEST: No block decision when no locks exist${NC}"
 
 # Capture stdout
-STDOUT_FILE="$TEST_DIR/stdout_first_stop"
-STDERR_FILE="$TEST_DIR/stderr_first_stop"
+STDOUT_FILE="$TEST_DIR/stdout_no_locks"
+STDERR_FILE="$TEST_DIR/stderr_no_locks"
 echo "$INPUT" | "$TARGET_SCRIPT" > "$STDOUT_FILE" 2>"$STDERR_FILE"
 EXIT_CODE=$?
 
@@ -582,31 +580,22 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo -e "${RED}FAIL${NC} - unexpected exit code"
     cat "$STDERR_FILE"
 else
-    # Verify stdout contains block decision
+    # Verify NO block decision in output (no locks = no report)
     STDOUT=$(cat "$STDOUT_FILE")
-    if echo "$STDOUT" | grep -q '"decision": "block"'; then
-        echo "Verified: Output contains block decision"
+    if [ -z "$STDOUT" ] || ! echo "$STDOUT" | grep -q '"decision": "block"'; then
+        echo "Verified: No block decision when no locks"
     else
-        echo -e "${RED}FAIL${NC} - Expected block decision in output"
+        echo -e "${RED}FAIL${NC} - Should NOT have block decision when no locks"
         echo "Stdout: $STDOUT"
         EXIT_CODE=1
     fi
 
-    # Verify stdout contains library prompt text
-    if echo "$STDOUT" | grep -iq "review your work"; then
-        echo "Verified: Output contains library prompt text"
-    else
-        echo -e "${RED}FAIL${NC} - Expected library prompt text in output"
-        echo "Stdout: $STDOUT"
-        EXIT_CODE=1
-    fi
-
-    # Verify NO curl calls made (blocked before API call)
+    # Verify curl calls were made (locks query and session/stop)
     CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE" 2>/dev/null | wc -l)
-    if [ "$CURL_CALLS" -eq 0 ]; then
-        echo "Verified: No API call made when blocked"
+    if [ "$CURL_CALLS" -ge 1 ]; then
+        echo "Verified: API calls made"
     else
-        echo -e "${RED}FAIL${NC} - Expected no curl calls, got: $CURL_CALLS"
+        echo -e "${RED}FAIL${NC} - Expected API calls"
         EXIT_CODE=1
     fi
 fi
@@ -618,8 +607,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 14: First stop blocks with library prompt (stop_hook_active missing, defaults to false)
-echo -e "\n${YELLOW}=== Test 14: First stop blocks when stop_hook_active missing ===${NC}"
+# Test 14: Always calls /session/stop when issuesApiLoaded=true
+echo -e "\n${YELLOW}=== Test 14: Always calls /session/stop when issuesApiLoaded=true ===${NC}"
 setup_mock_home
 create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-14"
@@ -641,11 +630,11 @@ EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: First stop blocks when stop_hook_active missing${NC}"
+echo -e "\n${YELLOW}TEST: Always calls /session/stop${NC}"
 
 # Capture stdout
-STDOUT_FILE="$TEST_DIR/stdout_missing_flag"
-STDERR_FILE="$TEST_DIR/stderr_missing_flag"
+STDOUT_FILE="$TEST_DIR/stdout_session_stop"
+STDERR_FILE="$TEST_DIR/stderr_session_stop"
 echo "$INPUT" | "$TARGET_SCRIPT" > "$STDOUT_FILE" 2>"$STDERR_FILE"
 EXIT_CODE=$?
 
@@ -655,13 +644,12 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo -e "${RED}FAIL${NC} - unexpected exit code"
     cat "$STDERR_FILE"
 else
-    # Verify stdout contains block decision
-    STDOUT=$(cat "$STDOUT_FILE")
-    if echo "$STDOUT" | grep -q '"decision": "block"'; then
-        echo "Verified: Output contains block decision (defaults to false)"
+    # Verify /session/stop was called
+    if [ -f "$MOCK_CURL_CALLS_FILE" ] && grep -q "session/stop" "$MOCK_CURL_CALLS_FILE"; then
+        echo "Verified: /session/stop endpoint was called"
     else
-        echo -e "${RED}FAIL${NC} - Expected block decision when stop_hook_active missing"
-        echo "Stdout: $STDOUT"
+        echo -e "${RED}FAIL${NC} - Expected call to /session/stop"
+        cat "$MOCK_CURL_CALLS_FILE" 2>/dev/null || echo "No curl calls"
         EXIT_CODE=1
     fi
 fi
@@ -673,8 +661,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 15: Second stop allows through (stop_hook_active=true)
-echo -e "\n${YELLOW}=== Test 15: Second stop allows through (stop_hook_active=true) ===${NC}"
+# Test 15: Calls API and has no block when no locks/comments
+echo -e "\n${YELLOW}=== Test 15: Normal stop with no locks or comments ===${NC}"
 setup_mock_home
 create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-15"
@@ -690,18 +678,17 @@ INPUT=$(cat <<EOF
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/transcript.jsonl",
   "cwd": "/workspace",
-  "hook_event_name": "Stop",
-  "stop_hook_active": true
+  "hook_event_name": "Stop"
 }
 EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: Second stop allows through${NC}"
+echo -e "\n${YELLOW}TEST: Normal stop with no locks or comments${NC}"
 
 # Capture stdout
-STDOUT_FILE="$TEST_DIR/stdout_second_stop"
-STDERR_FILE="$TEST_DIR/stderr_second_stop"
+STDOUT_FILE="$TEST_DIR/stdout_normal_stop"
+STDERR_FILE="$TEST_DIR/stderr_normal_stop"
 echo "$INPUT" | "$TARGET_SCRIPT" > "$STDOUT_FILE" 2>"$STDERR_FILE"
 EXIT_CODE=$?
 
@@ -714,7 +701,7 @@ else
     # Verify curl calls were made (to /session/stop)
     CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE" 2>/dev/null | wc -l)
     if [ "$CURL_CALLS" -gt 0 ]; then
-        echo "Verified: API calls made when stop_hook_active=true"
+        echo "Verified: API calls made"
         if cat "$MOCK_CURL_CALLS_FILE" | grep -q "session/stop"; then
             echo "Verified: API call made to /session/stop"
         else
@@ -722,14 +709,14 @@ else
             EXIT_CODE=1
         fi
     else
-        echo -e "${RED}FAIL${NC} - Expected curl calls when stop_hook_active=true"
+        echo -e "${RED}FAIL${NC} - Expected curl calls"
         EXIT_CODE=1
     fi
 
-    # Verify NO block decision in output
+    # Verify NO block decision in output (no locks/comments to report)
     STDOUT=$(cat "$STDOUT_FILE")
     if echo "$STDOUT" | grep -q '"decision": "block"'; then
-        echo -e "${RED}FAIL${NC} - Should NOT contain block decision when stop_hook_active=true"
+        echo -e "${RED}FAIL${NC} - Should NOT contain block decision when no locks/comments"
         echo "Stdout: $STDOUT"
         EXIT_CODE=1
     else
@@ -744,8 +731,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 16: No block when issuesApiLoaded=true but issueIds is empty (first stop)
-echo -e "\n${YELLOW}=== Test 16: No block when issueIds is empty (first stop) ===${NC}"
+# Test 16: No block when issuesApiLoaded=true but issueIds is empty
+echo -e "\n${YELLOW}=== Test 16: No block when issueIds is empty ===${NC}"
 setup_mock_home
 create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-16"
@@ -761,8 +748,7 @@ INPUT=$(cat <<EOF
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/transcript.jsonl",
   "cwd": "/workspace",
-  "hook_event_name": "Stop",
-  "stop_hook_active": false
+  "hook_event_name": "Stop"
 }
 EOF
 )
@@ -782,7 +768,7 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo -e "${RED}FAIL${NC} - unexpected exit code"
     cat "$STDERR_FILE"
 else
-    # Verify NO block decision in output (script exits early due to empty issueIds)
+    # Verify NO block decision in output (no issues = no locks to report)
     STDOUT=$(cat "$STDOUT_FILE")
     if [ -z "$STDOUT" ] || ! echo "$STDOUT" | grep -q '"decision": "block"'; then
         echo "Verified: No block decision when issueIds is empty"
@@ -792,12 +778,11 @@ else
         EXIT_CODE=1
     fi
 
-    # Verify no curl calls made (exited before API calls)
-    CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE" 2>/dev/null | wc -l)
-    if [ "$CURL_CALLS" -eq 0 ]; then
-        echo "Verified: No API call made when issueIds is empty"
+    # /session/stop is still called even with empty issueIds
+    if [ -f "$MOCK_CURL_CALLS_FILE" ] && grep -q "session/stop" "$MOCK_CURL_CALLS_FILE"; then
+        echo "Verified: /session/stop still called with empty issueIds"
     else
-        echo -e "${RED}FAIL${NC} - Expected no curl calls, got: $CURL_CALLS"
+        echo -e "${RED}FAIL${NC} - Expected /session/stop to be called"
         EXIT_CODE=1
     fi
 fi
@@ -809,8 +794,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 17: No block when issuesApiLoaded=false (even with stop_hook_active=false)
-echo -e "\n${YELLOW}=== Test 17: No block when issuesApiLoaded=false ===${NC}"
+# Test 17: No action when issuesApiLoaded=false
+echo -e "\n${YELLOW}=== Test 17: No action when issuesApiLoaded=false ===${NC}"
 setup_mock_home
 create_mock_curl
 SESSION_ID="test-session-17"
@@ -826,8 +811,7 @@ INPUT=$(cat <<EOF
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/transcript.jsonl",
   "cwd": "/workspace",
-  "hook_event_name": "Stop",
-  "stop_hook_active": false
+  "hook_event_name": "Stop"
 }
 EOF
 )
@@ -874,8 +858,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 18: Second stop exits early when DISPATCHER_PID is not set
-echo -e "\n${YELLOW}=== Test 18: Second stop exits early without DISPATCHER_PID ===${NC}"
+# Test 18: No signal sent when DISPATCHER_PID is not set (but API calls still made)
+echo -e "\n${YELLOW}=== Test 18: No signal without DISPATCHER_PID ===${NC}"
 setup_mock_home
 create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-18"
@@ -891,22 +875,21 @@ INPUT=$(cat <<EOF
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/transcript.jsonl",
   "cwd": "/workspace",
-  "hook_event_name": "Stop",
-  "stop_hook_active": true
+  "hook_event_name": "Stop"
 }
 EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: Second stop exits early without DISPATCHER_PID${NC}"
+echo -e "\n${YELLOW}TEST: No signal without DISPATCHER_PID${NC}"
 
-# Temporarily unset DISPATCHER_PID (required for second stop to proceed)
+# Temporarily unset DISPATCHER_PID
 SAVED_DISPATCHER_PID="$DISPATCHER_PID"
 unset DISPATCHER_PID
 
 # Capture stdout
-STDOUT_FILE="$TEST_DIR/stdout_no_sigterm_env"
-STDERR_FILE="$TEST_DIR/stderr_no_sigterm_env"
+STDOUT_FILE="$TEST_DIR/stdout_no_signal"
+STDERR_FILE="$TEST_DIR/stderr_no_signal"
 echo "$INPUT" | "$TARGET_SCRIPT" > "$STDOUT_FILE" 2>"$STDERR_FILE"
 EXIT_CODE=$?
 
@@ -919,12 +902,11 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo -e "${RED}FAIL${NC} - unexpected exit code"
     cat "$STDERR_FILE"
 else
-    # Verify NO curl calls made (exited before API calls)
-    CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE" 2>/dev/null | wc -l)
-    if [ "$CURL_CALLS" -eq 0 ]; then
-        echo "Verified: No API call made when DISPATCHER_PID is not set"
+    # Verify API calls ARE still made (just no signal)
+    if [ -f "$MOCK_CURL_CALLS_FILE" ] && grep -q "session/stop" "$MOCK_CURL_CALLS_FILE"; then
+        echo "Verified: API calls still made without DISPATCHER_PID"
     else
-        echo -e "${RED}FAIL${NC} - Expected no curl calls, got: $CURL_CALLS"
+        echo -e "${RED}FAIL${NC} - Expected API calls to be made"
         EXIT_CODE=1
     fi
 
@@ -946,8 +928,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 19: Reports active locks to stderr when stop_hook_active=true
-echo -e "\n${YELLOW}=== Test 19: Reports active locks to stderr ===${NC}"
+# Test 19: Reports active locks in JSON output
+echo -e "\n${YELLOW}=== Test 19: Reports active locks in JSON output ===${NC}"
 setup_mock_home
 ISSUES_RESPONSE='{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 LOCKS_RESPONSE='{"locks":[{"issueId":"main:1","commentId":"comment-123","resources":["src/api/**/*.ts"],"lockType":"exclusive","reason":"Refactoring auth"}]}'
@@ -965,14 +947,13 @@ INPUT=$(cat <<EOF
   "session_id": "$SESSION_ID",
   "transcript_path": "/tmp/transcript.jsonl",
   "cwd": "/workspace",
-  "hook_event_name": "Stop",
-  "stop_hook_active": true
+  "hook_event_name": "Stop"
 }
 EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: Reports active locks to stderr${NC}"
+echo -e "\n${YELLOW}TEST: Reports active locks in JSON output${NC}"
 
 # Capture stdout and stderr
 STDOUT_FILE="$TEST_DIR/stdout_locks"
@@ -986,41 +967,44 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo -e "${RED}FAIL${NC} - unexpected exit code"
     cat "$STDERR_FILE"
 else
-    STDERR=$(cat "$STDERR_FILE")
+    STDOUT=$(cat "$STDOUT_FILE")
 
-    # Verify stderr contains lock report header
-    if echo "$STDERR" | grep -q "\[session-stop\] Active locks for this session:"; then
-        echo "Verified: Lock report header present in stderr"
+    # Parse the JSON output to get the reason field
+    REASON=$(echo "$STDOUT" | jq -r '.reason // empty' 2>/dev/null)
+
+    # Verify JSON output contains lock info
+    if [ -n "$REASON" ]; then
+        echo "Verified: JSON output contains lock report"
     else
-        echo -e "${RED}FAIL${NC} - Expected lock report header in stderr"
-        echo "Stderr: $STDERR"
+        echo -e "${RED}FAIL${NC} - Expected JSON output with reason field"
+        echo "Stdout: $STDOUT"
         EXIT_CODE=1
     fi
 
-    # Verify stderr contains the issue ID
-    if echo "$STDERR" | grep -q "main:1"; then
-        echo "Verified: Issue ID 'main:1' present in stderr"
+    # Verify reason contains the issue ID
+    if echo "$REASON" | grep -q "main:1"; then
+        echo "Verified: Issue ID 'main:1' present in JSON reason"
     else
-        echo -e "${RED}FAIL${NC} - Expected issue ID 'main:1' in stderr"
-        echo "Stderr: $STDERR"
+        echo -e "${RED}FAIL${NC} - Expected issue ID 'main:1' in JSON reason"
+        echo "Reason: $REASON"
         EXIT_CODE=1
     fi
 
-    # Verify stderr contains the lock type
-    if echo "$STDERR" | grep -q "exclusive"; then
-        echo "Verified: Lock type 'exclusive' present in stderr"
+    # Verify reason contains the lock type
+    if echo "$REASON" | grep -q "exclusive"; then
+        echo "Verified: Lock type 'exclusive' present in JSON reason"
     else
-        echo -e "${RED}FAIL${NC} - Expected lock type 'exclusive' in stderr"
-        echo "Stderr: $STDERR"
+        echo -e "${RED}FAIL${NC} - Expected lock type 'exclusive' in JSON reason"
+        echo "Reason: $REASON"
         EXIT_CODE=1
     fi
 
-    # Verify stderr contains at least one resource pattern
-    if echo "$STDERR" | grep -q "src/api"; then
-        echo "Verified: Resource pattern present in stderr"
+    # Verify reason contains at least one resource pattern
+    if echo "$REASON" | grep -q "src/api"; then
+        echo "Verified: Resource pattern present in JSON reason"
     else
-        echo -e "${RED}FAIL${NC} - Expected resource pattern in stderr"
-        echo "Stderr: $STDERR"
+        echo -e "${RED}FAIL${NC} - Expected resource pattern in JSON reason"
+        echo "Reason: $REASON"
         EXIT_CODE=1
     fi
 

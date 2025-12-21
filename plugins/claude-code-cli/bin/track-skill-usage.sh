@@ -75,4 +75,7 @@ STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
     echo "$NEW_STATE" > "$STATE_FILE"
 ) 200>"$STATE_FILE.lock"
 
+# Output JSON with systemMessage to confirm skill registration
+printf '{"systemMessage": "Issues API skill loaded. Session tracking enabled."}\n'
+
 exit 0

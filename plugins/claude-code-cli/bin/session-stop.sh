@@ -94,12 +94,6 @@ if [ -n "$ISSUE_IDS" ]; then
       done < <(jq -r '.[] | "    - [\(.lockType)] \(.resources | join(", "))\(if .reason then " (\(.reason))" else "" end)"' <<< "$LOCKS" 2>/dev/null)
     fi
   done <<< "$ISSUE_IDS"
-
-  # Output lock report to stderr if there are any locks
-  if [ -n "$LOCK_REPORT" ]; then
-    echo -e "[session-stop] Active locks for this session:" >&2
-    echo -e "$LOCK_REPORT" >&2
-  fi
 fi
 
 # Report any new comments added since session started
@@ -143,13 +137,13 @@ if [ -n "$COMMENTS_REPORT" ]; then
   FULL_REPORT="${FULL_REPORT}New comments since session started:\n${COMMENTS_REPORT}"
 fi
 
-# Output JSON to stdout if there's a report (Claude Code reads stdout for hook responses)
-# The "reason" field is shown to Claude as a system message
+# Output JSON to stdout if there's a report
+# Use "decision": "block" with "reason" to prevent stopping and show Claude the report
+# Set "continue": true so Claude can continue working after seeing the message
 if [ -n "$FULL_REPORT" ]; then
   # Convert escaped newlines to actual newlines, then use jq to properly escape for JSON
-  # Use printf '%s' to avoid adding extra newlines
   REASON_TEXT=$(printf '%s' "$(echo -e "$FULL_REPORT")" | jq -Rs '.')
-  printf '{"reason": %s}\n' "$REASON_TEXT"
+  printf '{"decision": "block", "reason": %s, "continue": true}\n' "$REASON_TEXT"
 fi
 
 # POST to /session/stop endpoint

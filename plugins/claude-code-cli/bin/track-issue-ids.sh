@@ -109,6 +109,27 @@ mkdir -p "$STATE_DIR"
   # Write updated state
   echo "$NEW_STATE" > "$STATE_FILE"
 
+  # Count newly tracked issues for the message
+  NEW_COUNT=$(echo "$NEW_IDS" | jq 'length')
+  OLD_COUNT=$(echo "$EXISTING_IDS" | jq 'length')
+  ADDED_COUNT=$((NEW_COUNT - OLD_COUNT))
+
+  # Output message if new issues were tracked
+  if [ "$ADDED_COUNT" -gt 0 ]; then
+    echo "$ADDED_COUNT" > "$STATE_FILE.added"
+  fi
+
 ) 200>"$STATE_FILE.lock"
+
+# Check if new issues were added and output systemMessage
+if [ -f "$STATE_FILE.added" ]; then
+  ADDED_COUNT=$(cat "$STATE_FILE.added")
+  rm -f "$STATE_FILE.added"
+  if [ "$ADDED_COUNT" -eq 1 ]; then
+    printf '{"systemMessage": "Now tracking 1 new issue in this session."}\n'
+  else
+    printf '{"systemMessage": "Now tracking %s new issues in this session."}\n' "$ADDED_COUNT"
+  fi
+fi
 
 exit 0
