@@ -81,6 +81,7 @@ interface CreateIssueRequest {
   description?: string;
   author: "agent";
   plan?: boolean;  // Whether this issue requires plan approval before implementation
+  review?: boolean;  // Whether this issue requires user review before completing
   tags?: string[];  // Optional tags for categorization (see Tag Validation Rules)
 }
 
@@ -92,6 +93,7 @@ interface UpdateIssueRequest {
   needsAgentAttention?: boolean;
   commitSha?: string;  // Git SHA (40-char) when starting work
   plan?: boolean;  // Whether this issue requires plan approval before implementation
+  review?: boolean;  // Whether this issue requires user review before completing
   tags?: string[];     // Optional tags for categorization (see Tag Validation Rules)
 }
 ```
