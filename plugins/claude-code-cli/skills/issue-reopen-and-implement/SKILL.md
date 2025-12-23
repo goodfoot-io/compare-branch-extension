@@ -1,43 +1,38 @@
 ---
 name: issue-reopen-and-implement
-description: Reopen completed issues for additional work. Use when [ORIGINAL_STATUS] is "done" but [HAS_REOPEN_REQUEST] is true.
+description: Reopen completed issues for additional work. Use when [STATUS] is "done" but [HAS_REOPEN_REQUEST] is true.
 ---
+
+<input-format>
+Extract from issue data:
+
+**Derived Fields:**
+- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
+</input-format>
 
 ## Reopen and Implement
 
-Use when [ORIGINAL_STATUS] is "done" but [HAS_REOPEN_REQUEST] is true. The user has explicitly requested to reopen the issue for additional work.
+Use when [STATUS] is "done" but [HAS_REOPEN_REQUEST] is true. The user has explicitly requested to reopen the issue for additional work.
 
 ### Step 1: Acknowledge Reopen Request
+
+Post a comment noting the reopen:
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "Reopening this issue to address the additional request.",
+  "body": "Reopening this issue to address: [brief summary of LATEST_USER_COMMENT]",
   "author": "agent"
 }
 ```
 
-### Step 2: Confirm Status
-Status is already `in_progress` (set by Instructions Step 4). No additional update needed.
+### Step 2: Proceed to Implementation
 
-### Step 3: Proceed to Implementation
-Continue with `<code-implementation-protocol>` starting at Step 1, treating this as new work:
-- [IS_RESUMABLE] is false (no prior work on this new request)
-- Create checkpoint commit (Step 3 of code-implementation-protocol)
-- Create fresh worktree (Step 4)
-- Implement the requested changes (Step 5+)
+Execute the `claude-code-cli:issue-implementation` skill to handle the work.
 
-The agent should address the specific request in [LATEST_USER_COMMENT], not re-implement the entire original issue.
+The implementation skill will:
+- Treat this as new work ([IS_RESUMABLE] = false)
+- Create checkpoint commit and worktree
+- Implement the requested changes
+- Set status to `needs_review` after completion
 
-### Step 4: Update Status After Completion
-
-**IMPORTANT:** After implementation is complete, always set status to `needs_review`:
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review",
-  "commitSha": "[FINAL_SHA]"
-}
-```
-
-Never set status to `done`. Only the user marks issues as done after reviewing the work.
+**Focus:** Address the specific request in [LATEST_USER_COMMENT], not re-implement the entire original issue.

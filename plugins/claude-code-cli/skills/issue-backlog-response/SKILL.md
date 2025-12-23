@@ -1,11 +1,11 @@
 ---
 name: issue-backlog-response
-description: Respond to backlog issues with information only - no code changes, worktrees, or commits. Use when [ORIGINAL_STATUS] is "backlog".
+description: Respond to backlog issues with information only - no code changes, worktrees, or commits. Use when [STATUS] is "backlog".
 ---
 
 ## Respond to Backlog Issues
 
-Use when [ORIGINAL_STATUS] is "backlog". Provide information only—no code changes, worktrees, or commits.
+Use when [STATUS] is "backlog". Provide information only—no code changes, worktrees, or commits.
 
 ### Step 1: Assess Viability
 If the issue appears unlikely to ever be addressed (stale, out of scope, or superseded):
@@ -28,7 +28,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[ORIGINAL_STATUS]",
+  "status": "[STATUS]",
   "needsAgentAttention": false
 }
 ```

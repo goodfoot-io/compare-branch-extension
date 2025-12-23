@@ -268,9 +268,9 @@ Include this section when you have critical technical unknowns requiring empiric
 ### Spike Workflow in Issue Context
 
 When a worktree exists for the issue:
-1. Create spike code in `scratchpad/[spike-name]/` within the worktree
+1. Create spike code in `.spikes/[ISSUE_ID]/[spike-name]/` within the worktree
 2. Run experiments and document results
-3. Delete the scratchpad directory before committing implementation
+3. Delete the spike directory before committing implementation
 4. Reference evidence and conclusions in the plan — artifacts don't persist
 
 When no worktree exists yet (plan-required issues):
@@ -295,7 +295,7 @@ When no worktree exists yet (plan-required issues):
   - WebSocket (Socket.io): Bidirectional communication working, <50ms latency, Redis pub/sub integration tested successfully
   - SSE (EventSource): Server->client only, requires separate POST endpoint for client->server
   - Polling: Functional but 23% higher server CPU usage, more complex state synchronization
-- **Artifacts**: `scratchpad/realtime-comparison/` (cleaned up before commit)
+- **Artifacts**: `.spikes/[ISSUE_ID]/realtime-comparison/` (cleaned up before commit)
 - **Impact**: Selected Socket.io as Technical Approach; enables bidirectional real-time features with horizontal scaling via Redis adapter
 
 ### Socket.io Redis Adapter Compatibility
@@ -305,8 +305,8 @@ When no worktree exists yet (plan-required issues):
 - **Question**: Does Socket.io v4.6.1 support Redis adapter for cross-instance message broadcasting?
 - **Approach Tested**: Created minimal Socket.io server with @socket.io/redis-adapter, tested multi-instance communication
 - **Result**: Confirmed v4.6.1 supports Redis adapter with connection state sharing
-- **Evidence**: Successfully broadcast messages across 3 server instances, verified in scratchpad test
-- **Artifacts**: `scratchpad/socketio-redis-test/` (cleaned up before commit)
+- **Evidence**: Successfully broadcast messages across 3 server instances, verified in spike test
+- **Artifacts**: `.spikes/[ISSUE_ID]/socketio-redis-test/` (cleaned up before commit)
 - **Impact**: Can proceed with horizontal scaling approach; no single-server bottleneck
 ```
 </example>

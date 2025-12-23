@@ -27,7 +27,23 @@ Statuses:
 </issue-status>
 
 <plan-approval>
-When an issue has `plan: true`, you must present a plan for user approval before beginning any meaningful implementation work. Create a plan document, add it as a comment to the issue, and wait for user approval before proceeding.
+When an issue has `plan: true`, you must present a plan for user approval before beginning any meaningful implementation work.
+
+**Workflow:**
+1. Create the plan document following the `issues:plan` skill format
+2. Post the plan as a comment to the issue for user review
+3. Once approved, store the plan content on the issue using `planContent`:
+
+```
+PATCH /issues/{id}
+{
+  "planContent": "[full plan markdown content]"
+}
+```
+
+4. Wait for user approval before proceeding with implementation
+
+The `planContent` field stores the approved plan for reference during implementation. Use it to access plan details without searching through comments.
 </plan-approval>
 
 <git-commit-sha>

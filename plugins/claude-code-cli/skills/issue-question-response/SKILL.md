@@ -24,7 +24,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[ORIGINAL_STATUS]"
+  "status": "[STATUS]"
 }
 ```
 Restore the original status so the issue returns to its prior state after answering.

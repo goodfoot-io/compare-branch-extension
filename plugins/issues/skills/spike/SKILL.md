@@ -13,9 +13,9 @@ Use when technology has NOT been chosen and you need to compare 2-3 viable appro
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Which approach ([A] vs [B] vs [C]) best supports [use case] with [constraints]?"
-- `[SCRATCHPAD_PATH]`: Format as `[PROJECT_PATH]/scratchpad/[test-name]/`
+- `[SPIKE_PATH]`: Format as `.spikes/[ISSUE_ID]/[test-name]/`
   - `[test-name]`: Use kebab-case like `realtime-comparison` or `socketio-vs-sse`
-  - `[PROJECT_PATH]` is a placeholder for the project directory (e.g., `projects/active/my-project`)
+  - `[ISSUE_ID]` is a placeholder for the issue identifier (e.g., `123` or `feature-auth`)
 - `[APPROACHES]`: List 2-3 technologies with versions (e.g., `["Socket.io v4.6.1 (WebSocket)", "EventSource (SSE)", "long-polling"]`)
 - `[COMPARISON_CRITERIA]`: Measurable aspects (e.g., `"Developer experience, bidirectional communication, horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -30,9 +30,9 @@ Use when technology IS chosen but specific capability/compatibility needs verifi
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Does [Library@version] support [specific capability]?"
-- `[SCRATCHPAD_PATH]`: Format as `[PROJECT_PATH]/scratchpad/[test-name]/`
+- `[SPIKE_PATH]`: Format as `.spikes/[ISSUE_ID]/[test-name]/`
   - `[test-name]`: Use kebab-case like `redis-compatibility-check` or `react-query-types-export`
-  - The `[PROJECT_PATH]` placeholder represents the project directory (e.g., `projects/active/my-project`)
+  - The `[ISSUE_ID]` placeholder represents the issue identifier (e.g., `123` or `feature-auth`)
 - `[APPROACH]`: Single technology to validate (e.g., `"Socket.io v4.6.1 with @socket.io/redis-adapter"`)
 - `[VALIDATION_CRITERIA]`: What needs verification (e.g., `"Redis adapter compatibility for horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -43,8 +43,8 @@ Use when technology IS chosen but specific capability/compatibility needs verifi
 
 
 <subagent-context>
-Subagents have no context from this conversation. Provide workspace-relative paths:
-- Scratchpad: `[PROJECT_PATH]/scratchpad/[test-name]/`
+Subagents have no context from this conversation. Provide issue-relative paths:
+- Spike directory: `.spikes/[ISSUE_ID]/[test-name]/`
 - Codebase files: `packages/api/src/server.ts` (no prefix needed)
 
 Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that organize technical details:
@@ -67,9 +67,9 @@ Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that or
 [Relevant technical constraints, requirements, or existing patterns]
 </technical-context>
 
-<scratchpad-path>
-[PROJECT_PATH]/scratchpad/[test-name]/
-</scratchpad-path>
+<spike-path>
+.spikes/[ISSUE_ID]/[test-name]/
+</spike-path>
 ```
 
 **When validating a chosen approach**:
@@ -90,14 +90,14 @@ Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that or
 [Relevant technical constraints, version requirements, or integration points]
 </technical-context>
 
-<scratchpad-path>
-[PROJECT_PATH]/scratchpad/[test-name]/
-</scratchpad-path>
+<spike-path>
+.spikes/[ISSUE_ID]/[test-name]/
+</spike-path>
 ```
 </subagent-context>
 
 <spike-result-format>
-Instruct the subagent to document findings in a structured format within the scratchpad:
+Instruct the subagent to document findings in a structured format within the spike directory:
 
 **Comparison Result Template** (when testing multiple approaches):
 ```markdown
@@ -111,7 +111,7 @@ Instruct the subagent to document findings in a structured format within the scr
   - [Approach 1]: [Specific findings from prototype]
   - [Approach 2]: [Specific findings from prototype]
   - [Approach 3]: [Specific findings from prototype]
-- **Artifacts**: `[PROJECT_PATH]/scratchpad/[test-name]/` contains:
+- **Artifacts**: `.spikes/[ISSUE_ID]/[test-name]/` contains:
   - `approach-[name1]/` - [Description]
   - `approach-[name2]/` - [Description]
   - `approach-[name3]/` - [Description]
@@ -129,7 +129,7 @@ Instruct the subagent to document findings in a structured format within the scr
 - **Approach Tested**: [Technology/version being validated]
 - **Result**: [Pass/Fail or capability confirmation]
 - **Evidence**: [Concrete demonstration - working code, API output, test results]
-- **Artifacts**: `[PROJECT_PATH]/scratchpad/[test-name]/` contains:
+- **Artifacts**: `.spikes/[ISSUE_ID]/[test-name]/` contains:
   - `test-implementation/` - [Description]
   - `results.md` - Detailed findings
 - **Impact**: [How this result confirms feasibility or influences implementation details]
@@ -139,11 +139,11 @@ Instruct the subagent to document findings in a structured format within the scr
 <example>
 **Comparison Spike Example**:
 
-User message: "Compare WebSocket (Socket.io), Server-Sent Events (EventSource), and long-polling for real-time notifications. Compare developer experience, bidirectional communication support, and horizontal scaling capability. Use scratchpad path `[PROJECT_PATH]/scratchpad/realtime-comparison/`"
+User message: "Compare WebSocket (Socket.io), Server-Sent Events (EventSource), and long-polling for real-time notifications. Compare developer experience, bidirectional communication support, and horizontal scaling capability. Use spike path `.spikes/[ISSUE_ID]/realtime-comparison/`"
 
 Derived values:
 - [SPIKE_QUESTION] = "Which real-time approach (WebSocket, SSE, or long-polling) best supports notification requirements with horizontal scaling?"
-- [SCRATCHPAD_PATH] = "[PROJECT_PATH]/scratchpad/realtime-comparison/"
+- [SPIKE_PATH] = ".spikes/[ISSUE_ID]/realtime-comparison/"
 - [APPROACHES] = ["Socket.io v4.6.1 (WebSocket)", "native EventSource (SSE)", "polling with state management"]
 - [COMPARISON_CRITERIA] = ["Developer experience", "Bidirectional communication support", "Horizontal scaling capability"]
 - [SUBAGENT_TYPE] = "general-purpose"
@@ -151,11 +151,11 @@ Derived values:
 
 [SUBAGENT_INSTRUCTIONS]:
 ```
-Compare three real-time communication approaches for a notification system. Create working prototypes of each approach in the scratchpad and compare them against specific criteria.
+Compare three real-time communication approaches for a notification system. Create working prototypes of each approach in the spike directory and compare them against specific criteria.
 
-Create prototypes in `[PROJECT_PATH]/scratchpad/realtime-comparison/`:
+Create prototypes in `.spikes/[ISSUE_ID]/realtime-comparison/`:
 1. `approach-socketio/` - Socket.io v4.6.1 implementation with Redis adapter for horizontal scaling
-2. `approach-sse/` - Native EventSource implementation with separate POST endpoint for client→server
+2. `approach-sse/` - Native EventSource implementation with separate POST endpoint for client->server
 3. `approach-polling/` - Long-polling implementation with state management
 
 For each prototype:
@@ -179,7 +179,7 @@ Notification system requires real-time delivery with horizontal scaling. Multipl
 
 <approaches-to-test>
 1. Socket.io v4.6.1 (WebSocket) - bidirectional, requires Redis adapter for scaling
-2. Native EventSource (SSE) - server→client only, simpler protocol
+2. Native EventSource (SSE) - server->client only, simpler protocol
 3. Long-polling - fallback approach, works everywhere
 </approaches-to-test>
 
@@ -193,9 +193,9 @@ Notification system requires real-time delivery with horizontal scaling. Multipl
 Existing system uses Express.js v4.18.2 in `packages/api/src/server.ts`. Production runs 5 instances behind load balancer. Redis v7.0 available for pub/sub if needed.
 </technical-context>
 
-<scratchpad-path>
-[PROJECT_PATH]/scratchpad/realtime-comparison/
-</scratchpad-path>
+<spike-path>
+.spikes/[ISSUE_ID]/realtime-comparison/
+</spike-path>
 ```
 
 Use the `Task()` tool to launch the spike investigation:
@@ -212,7 +212,7 @@ Notification system requires real-time delivery with horizontal scaling. Multipl
 
 <approaches-to-test>
 1. Socket.io v4.6.1 (WebSocket) - bidirectional, requires Redis adapter for scaling
-2. Native EventSource (SSE) - server→client only, simpler protocol
+2. Native EventSource (SSE) - server->client only, simpler protocol
 3. Long-polling - fallback approach, works everywhere
 </approaches-to-test>
 
@@ -226,16 +226,16 @@ Notification system requires real-time delivery with horizontal scaling. Multipl
 Existing system uses Express.js v4.18.2 in `packages/api/src/server.ts`. Production runs 5 instances behind load balancer. Redis v7.0 available for pub/sub if needed.
 </technical-context>
 
-<scratchpad-path>
-[PROJECT_PATH]/scratchpad/realtime-comparison/
-</scratchpad-path>
+<spike-path>
+.spikes/[ISSUE_ID]/realtime-comparison/
+</spike-path>
 
 <instructions>
-Compare three real-time communication approaches for a notification system. Create working prototypes of each approach in the scratchpad and compare them against specific criteria.
+Compare three real-time communication approaches for a notification system. Create working prototypes of each approach in the spike directory and compare them against specific criteria.
 
-Create prototypes in `[PROJECT_PATH]/scratchpad/realtime-comparison/`:
+Create prototypes in `.spikes/[ISSUE_ID]/realtime-comparison/`:
 1. `approach-socketio/` - Socket.io v4.6.1 implementation with Redis adapter for horizontal scaling
-2. `approach-sse/` - Native EventSource implementation with separate POST endpoint for client→server
+2. `approach-sse/` - Native EventSource implementation with separate POST endpoint for client->server
 3. `approach-polling/` - Long-polling implementation with state management
 
 For each prototype:
@@ -258,11 +258,11 @@ Document findings using the Comparison Result Template in `results.md`.
 <example>
 **Validation Spike Example**:
 
-User message: "Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling. Use scratchpad path `[PROJECT_PATH]/scratchpad/redis-compatibility/`"
+User message: "Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling. Use spike path `.spikes/[ISSUE_ID]/redis-compatibility/`"
 
 Derived values:
 - [SPIKE_QUESTION] = "Does Socket.io v4.6.1 support Redis adapter for horizontal scaling?"
-- [SCRATCHPAD_PATH] = "[PROJECT_PATH]/scratchpad/redis-compatibility/"
+- [SPIKE_PATH] = ".spikes/[ISSUE_ID]/redis-compatibility/"
 - [APPROACHES] = ["Socket.io v4.6.1 with Redis adapter"]
 - [SUBAGENT_TYPE] = "general-purpose"
 - [SUBAGENT_DESCRIPTION] = "redis-compatibility-check"
@@ -271,7 +271,7 @@ Derived values:
 ```
 Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling.
 
-Create test implementation in `[PROJECT_PATH]/scratchpad/redis-compatibility/`:
+Create test implementation in `.spikes/[ISSUE_ID]/redis-compatibility/`:
 1. `test-implementation/` - Socket.io v4.6.1 with Redis adapter configuration
 2. Install required packages: socket.io@4.6.1, @socket.io/redis-adapter
 3. Test multi-instance communication through Redis
@@ -303,9 +303,9 @@ Socket.io v4.6.1 with @socket.io/redis-adapter - configuration and multi-instanc
 Production environment uses Redis v7.0. Target deployment has 5 Node.js instances behind load balancer. Existing stack uses Express.js v4.18.2 in `packages/api/src/server.ts`.
 </technical-context>
 
-<scratchpad-path>
-[PROJECT_PATH]/scratchpad/redis-compatibility/
-</scratchpad-path>
+<spike-path>
+.spikes/[ISSUE_ID]/redis-compatibility/
+</spike-path>
 ```
 
 Use the `Task()` tool to launch the spike investigation:
@@ -334,14 +334,14 @@ Socket.io v4.6.1 with @socket.io/redis-adapter - configuration and multi-instanc
 Production environment uses Redis v7.0. Target deployment has 5 Node.js instances behind load balancer. Existing stack uses Express.js v4.18.2 in `packages/api/src/server.ts`.
 </technical-context>
 
-<scratchpad-path>
-[PROJECT_PATH]/scratchpad/redis-compatibility/
-</scratchpad-path>
+<spike-path>
+.spikes/[ISSUE_ID]/redis-compatibility/
+</spike-path>
 
 <instructions>
 Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling.
 
-Create test implementation in `[PROJECT_PATH]/scratchpad/redis-compatibility/`:
+Create test implementation in `.spikes/[ISSUE_ID]/redis-compatibility/`:
 1. `test-implementation/` - Socket.io v4.6.1 with Redis adapter configuration
 2. Install required packages: socket.io@4.6.1, @socket.io/redis-adapter
 3. Test multi-instance communication through Redis
@@ -360,7 +360,7 @@ Document findings using the Validation Result Template.
 <behavioral-guidelines>
 ### Spike Execution Principles
 
-1. **Always use scratchpad isolation**: All spike artifacts must be in the specified scratchpad path, never in main codebase
+1. **Always use spike isolation**: All spike artifacts must be in the specified spike path, never in main codebase
 2. **Require empirical evidence**: Spikes must produce working code or concrete test results, not documentation research
 3. **Focus on the question**: Stay narrowly focused on answering the specific technical uncertainty
 4. **Document for decisions**: Results must clearly inform implementation decisions with actionable recommendations
@@ -418,7 +418,7 @@ When multiple independent spike questions need investigation, launch all spikes 
 
 ### 1. Review Spike Artifacts
 
-The subagent will create artifacts in the scratchpad directory. Review these to ensure quality:
+The subagent will create artifacts in the spike directory. Review these to ensure quality:
 
 **For Comparison Spikes** (testing multiple approaches):
 - Multiple prototype directories exist (one per approach)
@@ -451,7 +451,7 @@ Check that spike results meet quality criteria:
 - Impact statement confirming feasibility for Technical Approach
 
 **Quality Criteria (Both Types):**
-- Scratchpad artifacts exist at specified paths
+- Spike artifacts exist at specified paths
 - Evidence is empirical (working code, not "should work" or "probably supports")
 - Impact statement clearly influences Technical Approach section
 - Question is answerable within isolated spike environment
@@ -466,7 +466,7 @@ If spike results have these problems, request revision:
 - **Excessive alternatives**: Comparison spike testing 4+ approaches (narrow scope)
 - **Speculative evidence**: Results based on documentation reading, not testing
 - **Unclear impact**: Spike results don't inform Technical Approach
-- **Missing artifacts**: No scratchpad path provided or artifacts don't match description
+- **Missing artifacts**: No spike path provided or artifacts don't match description
 
 ### 4. Incorporate Findings into Plans
 
@@ -474,7 +474,7 @@ After validating spike quality, incorporate findings:
 
 1. **Add to Technical Spike Results section** (if plan has this section):
    - Copy the formatted result (Question, Approaches Tested, Evidence, etc.)
-   - Include the scratchpad path reference
+   - Include the spike path reference
    - Preserve the Impact statement
 
 2. **Update Technical Approach section**:
@@ -494,5 +494,5 @@ Summarize findings in conversational language:
 - Share the key finding or recommendation
 - Explain how this impacts the implementation plan
 
-**Example**: "I tested three real-time communication approaches in the scratchpad. Socket.io with Redis adapter provided the best combination of bidirectional support and horizontal scaling. The prototypes confirmed it works with our Express.js setup, so I've updated the Technical Approach to use Socket.io v4.6.1."
+**Example**: "I tested three real-time communication approaches in the spike directory. Socket.io with Redis adapter provided the best combination of bidirectional support and horizontal scaling. The prototypes confirmed it works with our Express.js setup, so I've updated the Technical Approach to use Socket.io v4.6.1."
 </processing-spike-results>

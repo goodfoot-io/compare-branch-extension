@@ -1,9 +1,17 @@
 ---
-name: issue-plan-approval
-description: Submit implementation plan for user approval before coding. Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false.
+name: issue-plan
+description: Create and submit implementation plans with dual assessment. Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false.
 ---
 
-## Submit Plan for Approval
+<input-format>
+Extract from issue data:
+
+**Derived Fields:**
+- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
+- [PLAN_CONTENT] = The plan markdown content from `planContent` field (string or null if not set)
+</input-format>
+
+## Create and Submit Implementation Plan
 
 Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false. Research and present a plan—no code changes until user approves via comment.
 
@@ -52,7 +60,47 @@ Create a detailed plan including:
 
 If this is a revision, clearly note what changed from the previous version.
 
-### Step 6: Post Plan for Approval
+### Step 6: Run Dual Assessment
+
+When [PLAN_CONTENT] is not null after drafting, launch parallel assessment agents before presenting for user review:
+
+<!-- PARALLEL EXECUTION: Send both assessments in ONE message -->
+```xml
+<invoke name="Task">
+<parameter name="description">Structural Assessment</parameter>
+<parameter name="subagent_type">issues:plan-assessor</parameter>
+<parameter name="prompt">Assess the plan for structural compliance, technical feasibility, and completeness.
+
+Issue: [ISSUE_ID] - [TITLE]
+Description: [DESCRIPTION]
+
+Plan content:
+[PLAN_CONTENT]</parameter>
+</invoke>
+
+<invoke name="Task">
+<parameter name="description">Strategic Assessment</parameter>
+<parameter name="subagent_type">issues:plan-refactor</parameter>
+<parameter name="prompt">Evaluate the plan using the seven evaluation principles. Challenge assumptions, identify structural issues, and surface design decisions that warrant reconsideration.
+
+Issue: [ISSUE_ID] - [TITLE]
+Description: [DESCRIPTION]
+
+Plan content:
+[PLAN_CONTENT]</parameter>
+</invoke>
+```
+
+### Step 7: Review and Address Issues
+
+Review both assessment reports before presenting the plan for user approval. Address any CRITICAL or HIGH priority issues identified before requesting approval.
+
+If assessments reveal significant issues:
+- Revise the plan to address CRITICAL and HIGH priority findings
+- Re-run Step 6 if substantial changes were made
+- Document what was changed based on assessment feedback
+
+### Step 8: Post Plan for Approval
 ```
 POST /issues/[ISSUE_ID]/comments
 {
@@ -62,7 +110,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 7: Set Status and Wait
+### Step 9: Set Status and Wait
 ```
 PATCH /issues/[ISSUE_ID]
 {

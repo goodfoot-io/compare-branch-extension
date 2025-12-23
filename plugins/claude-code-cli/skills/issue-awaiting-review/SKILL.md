@@ -1,11 +1,18 @@
 ---
 name: issue-awaiting-review
-description: Await user review when no feedback provided yet. Use when [ORIGINAL_STATUS] is "needs_review" but [LATEST_USER_COMMENT] is null.
+description: Await user review when no feedback provided yet. Use when [STATUS] is "needs_review" but [LATEST_USER_COMMENT] is null.
 ---
+
+<input-format>
+Extract from issue data:
+
+**Derived Fields:**
+- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
+</input-format>
 
 ## Await Review
 
-Use when [ORIGINAL_STATUS] is "needs_review" but [LATEST_USER_COMMENT] is null (no user has reviewed yet). The agent completed work and is waiting for the first human review.
+Use when [STATUS] is "needs_review" but [LATEST_USER_COMMENT] is null (no user has reviewed yet). The agent completed work and is waiting for the first human review.
 
 ### Step 1: Verify State
 Confirm that:
@@ -18,7 +25,7 @@ The system may have erroneously flagged this for attention. Restore status and c
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[ORIGINAL_STATUS]",
+  "status": "[STATUS]",
   "needsAgentAttention": false
 }
 ```
