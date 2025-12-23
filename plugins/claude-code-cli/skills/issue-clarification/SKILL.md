@@ -3,6 +3,14 @@ name: issue-clarification
 description: Request clarification when Definition of Ready is not met. Use when [ORIGINAL_STATUS] is "todo" but [DOR_MET] is false.
 ---
 
+<input-format>
+Extract from issue data:
+
+**Required Fields:**
+- [DESCRIPTION] = The issue description with requirements (`description`)
+- [COMMENTS] = Array of comments with author, body, timestamps (`comments`)
+</input-format>
+
 ## Request Clarification
 
 Use when [ORIGINAL_STATUS] is "todo" but [DOR_MET] is false. Request missing information before starting implementation.

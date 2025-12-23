@@ -3,6 +3,18 @@ name: issue-implementation
 description: Implement issue work in an isolated git worktree. Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT].
 ---
 
+<input-format>
+Extract from issue data:
+
+**Required Fields:**
+- [TITLE] = The issue title (`title`)
+- [DESCRIPTION] = The issue description with requirements (`description`)
+
+**Derived Fields:**
+- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
+- [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
+</input-format>
+
 ## Implement Issue Work
 
 Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT]. All modifications happen in an isolated worktree.

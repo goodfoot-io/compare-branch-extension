@@ -3,6 +3,18 @@ name: issue-bug
 description: Fix testable bugs using test-first methodology in an isolated worktree. Creates reproduction test that must fail, then fixes source code while tracking any test modifications. Use when issue describes a programmatically verifiable defect (not CSS/visual issues).
 ---
 
+<input-format>
+Extract from issue data:
+
+**Required Fields:**
+- [TITLE] = The issue title (`title`)
+- [DESCRIPTION] = The issue description with requirements (`description`)
+- [COMMENTS] = Array of comments with author, body, timestamps (`comments`)
+
+**Derived Fields:**
+- [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
+</input-format>
+
 ## Fix Bug with Reproduction Test
 
 Use for issues describing programmatically testable defects. All work happens in an isolated worktree with strict test-first verification.

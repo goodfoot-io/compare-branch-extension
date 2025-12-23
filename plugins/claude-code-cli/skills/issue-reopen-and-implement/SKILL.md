@@ -3,6 +3,13 @@ name: issue-reopen-and-implement
 description: Reopen completed issues for additional work. Use when [ORIGINAL_STATUS] is "done" but [HAS_REOPEN_REQUEST] is true.
 ---
 
+<input-format>
+Extract from issue data:
+
+**Derived Fields:**
+- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
+</input-format>
+
 ## Reopen and Implement
 
 Use when [ORIGINAL_STATUS] is "done" but [HAS_REOPEN_REQUEST] is true. The user has explicitly requested to reopen the issue for additional work.

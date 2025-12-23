@@ -39,7 +39,7 @@ Why does this limit exist?
 
 **Example:**
 > "Limited to 1000 notifications/user because IndexedDB performance degrades
-> beyond this threshold on mobile Safari. Validated via spike in `[PROJECT_PATH]/scratchpad/indexeddb-perf/`."
+> beyond this threshold on mobile Safari. Validated via spike in `.spikes/[ISSUE_ID]/indexeddb-perf/`."
 
 ### Exclusion Rationale
 Why is this out of scope?
@@ -83,17 +83,16 @@ For significant decisions, use a Rationale & Context section:
   handling and room support rather than implementing from scratch.
 ```
 
-### Decision Records in Project Log
-For evolving projects, capture decisions in the project log as they happen.
+### Decision Records in Issue Comments
+For evolving projects, capture decisions in issue comments as they happen.
 
-Append a Decision Record to `[PROJECT_PATH]/log.md` whenever:
+Post a Decision Record comment via `POST /issues/[ISSUE_ID]/comments` whenever:
 - A technology selection is made
 - Scope is changed (features added or removed)
 - Trade-offs are resolved
 - Assumptions are validated or disproven
 
 This captures decisions chronologically with full context, rather than as a summary table.
-See `commands/create.md` logging guidelines for the Decision Record format.
 </capture-patterns>
 
 <assessment-criteria>
