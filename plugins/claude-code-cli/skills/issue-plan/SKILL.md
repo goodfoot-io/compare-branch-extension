@@ -17,7 +17,7 @@ Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false. Research and pres
 
 ### Interpreting User Feedback on Plans
 
-**Treat as APPROVAL** (proceed to code-implementation-protocol):
+**Treat as APPROVAL** (proceed to `claude-code-cli:issue-implementation`):
 - Explicit approval: "Approved", "LGTM", "Go ahead", "Proceed", "Ship it"
 - Unqualified positive: "This looks good", "Perfect", "Great plan"
 
@@ -118,6 +118,6 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-**STOP** — Wait for user approval via comment before proceeding to `<code-implementation-protocol>`.
+**STOP** — Wait for user approval via comment. Once approved, the system will re-invoke with [PLAN_APPROVED]=true, routing to `claude-code-cli:issue-implementation`.
 
 If the user responds with changes or rejection, return to Step 1 and create a revised plan.

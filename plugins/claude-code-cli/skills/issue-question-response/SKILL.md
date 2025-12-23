@@ -1,6 +1,6 @@
 ---
 name: issue-question-response
-description: Respond to user questions without code changes. Use when [HAS_PENDING_QUESTION] is true and no code changes are required.
+description: Respond to user questions without code changes. Use when [HAS_PENDING_QUESTION] is true.
 ---
 
 ## Respond to Questions
@@ -20,11 +20,14 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 3: Restore Status
+### Step 3: Restore Status and Clear Attention
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[STATUS]"
+  "status": "[STATUS]",
+  "needsAgentAttention": false
 }
 ```
 Restore the original status so the issue returns to its prior state after answering.
+
+**STOP** — The question has been answered. If the user has follow-up questions or requests implementation, the system will re-invoke with updated issue data.

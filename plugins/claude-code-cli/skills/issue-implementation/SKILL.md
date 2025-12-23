@@ -40,8 +40,7 @@ If [IS_RESUMABLE] is true (prior work exists without completion):
      git worktree add ".worktrees/$BRANCH_NAME" "$BRANCH_NAME"
      ```
    - If branch doesn't exist: The previous work may be lost. Start fresh with Step 1.
-4. Re-acquire locks (they may have expired) — proceed to Step 2
-5. Skip checkpoint commit (already exists from original session)
+4. Skip checkpoint commit (already exists from original session)
 
 If [IS_RESUMABLE] is false (new work or addressing feedback), proceed to Step 1.
 
@@ -58,32 +57,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### Step 2: Check and Acquire Locks
-
-First, check for existing locks:
-```
-GET /locks
-```
-
-Review the response for any locks on [FILES_TO_MODIFY]. If conflicts exist, wait or coordinate with the locking issue.
-
-Then acquire locks via comment:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Starting work on this issue.",
-  "author": "agent",
-  "locks": [{
-    "action": "lock",
-    "resources": ["[file patterns to modify]"],
-    "lockType": "exclusive",
-    "reason": "[Brief description of work]",
-    "ttlSeconds": 3600
-  }]
-}
-```
-
-### Step 3: Create Checkpoint Commit (New Work Only)
+### Step 2: Create Checkpoint Commit (New Work Only)
 
 **Skip this step if [IS_RESUMABLE] is true OR [HAS_MODIFICATION_REQUEST] is true** — a checkpoint already exists from the original implementation.
 
@@ -97,7 +71,7 @@ Title: [TITLE]"
 
 **Note:** Do not stage files for the checkpoint. The checkpoint is just a marker in git history. Any uncommitted files in the working directory (artifacts from concurrent agents, user's pending work) should remain uncommitted.
 
-### Step 4: Create Worktree
+### Step 3: Create Worktree
 
 Generate branch name (escape special characters) and create isolated worktree:
 ```bash
@@ -114,14 +88,14 @@ instant-worktree "$BRANCH_NAME"
 cd ".worktrees/$BRANCH_NAME"
 ```
 
-### Step 5: Implement Changes
+### Step 4: Implement Changes
 Working ONLY in the worktree directory:
 1. Read and understand existing code
 2. Make required changes
 3. Run linting and tests
 4. Fix any issues that arise
 
-### Step 6: Commit in Worktree
+### Step 5: Commit in Worktree
 ```bash
 git add -A
 git commit -m "[type]: [description]
@@ -133,7 +107,7 @@ Issue: [ISSUE_ID]
 🤖 Generated with Claude Code"
 ```
 
-### Step 7: Merge Back to Main
+### Step 6: Merge Back to Main
 
 First, return to the main workspace and check for uncommitted files:
 ```bash
@@ -159,29 +133,25 @@ Title: [TITLE]"
 2. Attempt resolution in worktree via rebase
 3. If unresolvable, switch to `<error-recovery-protocol>`
 
-### Step 8: Clean Up Worktree
+### Step 7: Clean Up Worktree
 After successful merge, remove the worktree and branch:
 ```bash
 # Returns the branch's final commit SHA
 FINAL_SHA=$(remove-instant-worktree "$BRANCH_NAME")
 ```
 
-### Step 9: Post Completion Comment
+### Step 8: Post Completion Comment
 ```
 POST /issues/[ISSUE_ID]/comments
 {
   "body": "## Implementation Complete\n\n[Summary of changes]\n\n### Files Modified\n- [list of files]\n\n### Testing\n- [test results]\n\nReady for review.",
   "author": "agent",
   "commitSha": "[FINAL_SHA]",
-  "codeReferences": [/* all modified files with line ranges */],
-  "locks": [{
-    "action": "unlock",
-    "resources": ["[same patterns as lock]"]
-  }]
+  "codeReferences": [/* all modified files with line ranges */]
 }
 ```
 
-### Step 10: Update Status
+### Step 9: Update Status
 
 **IMPORTANT:** Always set status to `needs_review`, NOT `done`. Only the user marks issues as done.
 

@@ -2,7 +2,7 @@
 #
 # Stop hook: Reports session completion to API and handles graceful shutdown
 #
-# Reports new comments and locks to Claude, and signals dispatcher when done.
+# Reports new comments to Claude, and signals dispatcher when done.
 # Only runs if the issues:api skill was loaded during the session (checked via
 # issuesApiLoaded flag in the session state file).
 #
@@ -66,35 +66,8 @@ fi
 # Discover API URL (pass cwd to find the correct workspace API)
 BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
 
-# Report any active locks for engaged issues
-# Read issue IDs from state file and query locks API for each
+# Read issue IDs from state file for comment reporting
 ISSUE_IDS=$(jq -r '.issueIds // [] | .[]' "$STATE_FILE" 2>/dev/null) || ISSUE_IDS=""
-
-# Initialize lock report outside if block for set -u compatibility
-LOCK_REPORT=""
-
-if [ -n "$ISSUE_IDS" ]; then
-  while IFS= read -r ISSUE_ID; do
-    [ -z "$ISSUE_ID" ] && continue
-
-    # Query locks API for this issue
-    LOCKS_RESPONSE=$(curl -s "${BASE_URL}/locks?issueId=${ISSUE_ID}" 2>/dev/null) || continue
-
-    # Extract locks array (use here-string to handle JSON with newlines in values)
-    LOCKS=$(jq '.locks // []' <<< "$LOCKS_RESPONSE" 2>/dev/null) || continue
-    LOCKS_COUNT=$(jq 'length' <<< "$LOCKS" 2>/dev/null) || LOCKS_COUNT="0"
-
-    if [ "$LOCKS_COUNT" != "0" ] && [ "$LOCKS_COUNT" != "null" ]; then
-      # Add issue header to report
-      LOCK_REPORT="${LOCK_REPORT}  Issue ${ISSUE_ID}:\n"
-
-      # Format each lock
-      while IFS= read -r LOCK_LINE; do
-        LOCK_REPORT="${LOCK_REPORT}${LOCK_LINE}\n"
-      done < <(jq -r '.[] | "    - [\(.lockType)] \(.resources | join(", "))\(if .reason then " (\(.reason))" else "" end)"' <<< "$LOCKS" 2>/dev/null)
-    fi
-  done <<< "$ISSUE_IDS"
-fi
 
 # Report any new comments added since session started (or since last report)
 # Only if CLAUDE_START_TIME is set (ISO 8601 timestamp from launcher)
@@ -148,16 +121,10 @@ if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
   fi
 fi
 
-# Build combined report for JSON output
+# Build report for JSON output
 FULL_REPORT=""
-if [ -n "$LOCK_REPORT" ]; then
-  FULL_REPORT="Active locks for this session:\n${LOCK_REPORT}"
-fi
 if [ -n "$COMMENTS_REPORT" ]; then
-  if [ -n "$FULL_REPORT" ]; then
-    FULL_REPORT="${FULL_REPORT}\n"
-  fi
-  FULL_REPORT="${FULL_REPORT}New comments since session started:\n${COMMENTS_REPORT}"
+  FULL_REPORT="New comments since session started:\n${COMMENTS_REPORT}"
 fi
 
 # Output JSON to stdout if there's a report

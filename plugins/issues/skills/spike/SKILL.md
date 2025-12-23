@@ -22,7 +22,7 @@ Use when technology has NOT been chosen and you need to compare 2-3 viable appro
 - `[SUBAGENT_INSTRUCTIONS]`: Specific testing steps for prototyping each approach
 - `[SUBAGENT_DESCRIPTION]`: Short kebab-case identifier (e.g., `"realtime-comparison-spike"`)
 
-**Always use:** `subagent_type="general-purpose"` and `model="sonnet"`
+**Always use:** `subagent_type="general-purpose"`
 
 ### For Validation Spikes (Testing Single Approach)
 

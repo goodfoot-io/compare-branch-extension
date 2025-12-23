@@ -38,7 +38,6 @@ If [IS_RESUMABLE] is true (prior work exists without completion):
    - Resume at appropriate phase
 3. If worktree doesn't exist but branch does:
    - Reattach worktree: `git worktree add ".worktrees/$BRANCH_NAME" "$BRANCH_NAME"`
-4. Re-acquire locks (may have expired)
 
 If [IS_RESUMABLE] is false, proceed to Step 1.
 
@@ -56,32 +55,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### Step 2: Check and Acquire Locks
-
-Check for existing locks:
-```
-GET /locks
-```
-
-Review for conflicts on [FILES_TO_MODIFY]. If conflicts exist, wait or coordinate.
-
-Acquire locks via comment:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Starting bug fix with test-first methodology.",
-  "author": "agent",
-  "locks": [{
-    "action": "lock",
-    "resources": ["[file patterns]"],
-    "lockType": "exclusive",
-    "reason": "Bug fix: [TITLE]",
-    "ttlSeconds": 3600
-  }]
-}
-```
-
-### Step 3: Create Checkpoint Commit
+### Step 2: Create Checkpoint Commit
 
 **Skip if [IS_RESUMABLE] is true.**
 
@@ -95,7 +69,7 @@ Title: [TITLE]"
 
 **Note:** Do not stage files for the checkpoint. The checkpoint is just a marker in git history. Any uncommitted files in the working directory (artifacts from concurrent agents, user's pending work) should remain uncommitted.
 
-### Step 4: Create Worktree
+### Step 3: Create Worktree
 
 ```bash
 BRANCH_NAME="issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]"
@@ -479,11 +453,7 @@ POST /issues/[ISSUE_ID]/comments
   "body": "## Bug Fix Complete\n\n### Bug\n[BUG_DESCRIPTION]\n\n### Reproduction Test\n- File: `[TEST_FILE_PATH]`\n- Verified: failed before fix, passes after\n\n### Fix\n- Files modified: [list from git diff]\n- Approach: [RESOLVER_REASONING]\n\n### Validation\n- Reproduction test: Passes\n- Full test suite: All pass\n\nReady for review.",
   "author": "agent",
   "commitSha": "[FINAL_SHA]",
-  "codeReferences": [/* test file + all modified source files */],
-  "locks": [{
-    "action": "unlock",
-    "resources": ["[same patterns as lock]"]
-  }]
+  "codeReferences": [/* test file + all modified source files */]
 }
 ```
 
