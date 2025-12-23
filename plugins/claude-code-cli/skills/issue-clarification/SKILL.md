@@ -1,6 +1,6 @@
 ---
 name: issue-clarification
-description: Request clarification when Definition of Ready is not met. Use when [ORIGINAL_STATUS] is "todo" but [DOR_MET] is false.
+description: Request clarification when Definition of Ready is not met. Use when [STATUS] is "todo" but [DOR_MET] is false.
 ---
 
 <input-format>
@@ -13,7 +13,7 @@ Extract from issue data:
 
 ## Request Clarification
 
-Use when [ORIGINAL_STATUS] is "todo" but [DOR_MET] is false. Request missing information before starting implementation.
+Use when [STATUS] is "todo" but [DOR_MET] is false. Request missing information before starting implementation.
 
 ### Step 1: Identify Missing Requirements
 Review [DESCRIPTION] and [COMMENTS] against the Definition of Ready criteria:

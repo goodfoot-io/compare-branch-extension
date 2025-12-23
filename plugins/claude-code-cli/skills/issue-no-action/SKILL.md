@@ -9,7 +9,7 @@ Use when [NEEDS_ATTENTION] is false or no agent action is needed.
 
 ### Step 1: Verify No Action Required
 Confirm that:
-- [ORIGINAL_STATUS] was "done" with no new requests, OR
+- [STATUS] was "done" with no new requests, OR
 - [NEEDS_ATTENTION] is false
 - [HAS_PENDING_QUESTION] is false
 
@@ -27,7 +27,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[ORIGINAL_STATUS]",
+  "status": "[STATUS]",
   "needsAgentAttention": false
 }
 ```
