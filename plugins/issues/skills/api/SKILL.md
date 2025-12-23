@@ -92,26 +92,11 @@ interface UpdateIssueRequest {
   needsAgentAttention?: boolean;
   commitSha?: string;  // Git SHA (40-char) when starting work
   plan?: boolean;  // Whether this issue requires plan approval before implementation
+  planContent?: string;  // Plan content
   tags?: string[];     // Optional tags for categorization (see Tag Validation Rules)
 }
 ```
 
-### Tags
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /tags | List all unique tags across all issues |
-
-```typescript
-// GET /tags
-// Returns: { tags: string[] }
-// Returns a sorted array of all unique tags used across all issues in the workspace.
-```
-
-#### Tag Validation Rules
-- Tags are normalized to lowercase
-- Whitespace is trimmed from each tag
-- Maximum 50 characters per tag
 
 ### Comments
 
