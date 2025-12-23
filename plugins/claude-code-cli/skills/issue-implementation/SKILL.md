@@ -15,6 +15,48 @@ Extract from issue data:
 - [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
 </input-format>
 
+<tools>
+
+## Worktree Management Tools
+
+### instant-worktree
+
+Creates a git worktree with symlinked dependencies for fast setup (~2 seconds).
+
+**Usage:**
+```bash
+instant-worktree "branch-name"
+```
+
+**Output:** Prints the created worktree path and branch name:
+```
+Created branch: branch-name
+Created worktree directory: /workspace/.worktrees/branch-name
+```
+
+**Behavior:**
+- Creates worktree at `.worktrees/[branch-name]`
+- Creates a new branch with the given name
+- Fails if branch already exists or worktree path is occupied
+
+### remove-instant-worktree
+
+Removes a worktree, deletes its associated branch, and returns the final commit SHA.
+
+**Usage:**
+```bash
+FINAL_SHA=$(remove-instant-worktree "branch-name")
+```
+
+**Output:** Prints the branch's final commit SHA before removal.
+
+**Behavior:**
+- Removes the worktree at `.worktrees/[branch-name]`
+- Deletes the local branch
+- Returns the commit SHA for recording in issue comments
+
+</tools>
+
 ## Implement Issue Work
 
 Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT]. All modifications happen in an isolated worktree.
