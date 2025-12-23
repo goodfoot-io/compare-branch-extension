@@ -3,7 +3,7 @@ name: refactor
 description: Plan-aware pre-validation cleanup on implemented code.
 color: teal
 model: inherit
-skills: issues:api, issues:plan, issues:refactoring
+skills: issues:api, claude-code-cli:plan, claude-code-cli:refactoring
 ---
 
 <input-format>

@@ -41,7 +41,7 @@ If no previous plan exists, continue to Step 2.
 Status is already `in_progress` (set by Instructions Step 3). No additional update needed.
 
 ### Step 3: Load Plan Skill
-Invoke the `issues:plan` skill to access plan structure requirements and examples.
+Invoke the `claude-code-cli:plan` skill to access plan structure requirements and examples.
 
 ### Step 4: Research and Analyze
 - Read relevant files in the codebase
@@ -68,7 +68,7 @@ When [PLAN_CONTENT] is not null after drafting, launch parallel assessment agent
 ```xml
 <invoke name="Task">
 <parameter name="description">Structural Assessment</parameter>
-<parameter name="subagent_type">issues:plan-assessor</parameter>
+<parameter name="subagent_type">claude-code-cli:plan-assessor</parameter>
 <parameter name="prompt">Assess the plan for structural compliance, technical feasibility, and completeness.
 
 Issue: [ISSUE_ID] - [TITLE]
@@ -80,7 +80,7 @@ Plan content:
 
 <invoke name="Task">
 <parameter name="description">Strategic Assessment</parameter>
-<parameter name="subagent_type">issues:plan-refactor</parameter>
+<parameter name="subagent_type">claude-code-cli:plan-refactor</parameter>
 <parameter name="prompt">Evaluate the plan using the seven evaluation principles. Challenge assumptions, identify structural issues, and surface design decisions that warrant reconsideration.
 
 Issue: [ISSUE_ID] - [TITLE]

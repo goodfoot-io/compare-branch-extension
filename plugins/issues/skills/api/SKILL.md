@@ -30,7 +30,7 @@ Statuses:
 When an issue has `plan: true`, you must present a plan for user approval before beginning any meaningful implementation work.
 
 **Workflow:**
-1. Create the plan document following the `issues:plan` skill format
+1. Create the plan document following the `claude-code-cli:plan` skill format
 2. Post the plan as a comment to the issue for user review
 3. Once approved, store the plan content on the issue using `planContent`:
 

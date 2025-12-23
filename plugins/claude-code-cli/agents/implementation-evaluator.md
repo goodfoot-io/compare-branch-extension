@@ -3,7 +3,7 @@ name: implementation-evaluator
 description: Evaluate implementation quality and determine production readiness.
 color: blue
 model: inherit
-skills: issues:api, issues:plan
+skills: issues:api, claude-code-cli:plan
 ---
 
 <input-format>
