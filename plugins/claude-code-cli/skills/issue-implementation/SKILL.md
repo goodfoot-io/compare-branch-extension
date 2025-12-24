@@ -42,22 +42,6 @@ Created worktree directory: .worktrees/branch-name
 - Creates a new branch with the given name
 - Fails if branch already exists or worktree path is occupied
 
-### remove-instant-worktree
-
-Removes a worktree, deletes its associated branch, and returns the final commit SHA.
-
-**Usage:**
-```bash
-FINAL_SHA=$(remove-instant-worktree "branch-name")
-```
-
-**Output:** Prints the branch's final commit SHA before removal.
-
-**Behavior:**
-- Removes the worktree at `.worktrees/[BRANCH_NAME]`
-- Deletes the local branch
-- Returns the commit SHA for recording in issue comments
-
 </tools>
 
 <instructions>

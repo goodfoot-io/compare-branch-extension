@@ -29,14 +29,8 @@ POST /issues/[ISSUE_ID]/comments
 
 ### Step 1.2: Proceed to Implementation
 
-Execute the `claude-code-cli:issue-implementation` skill to handle the work.
+Execute `<skill-loading-procedure>` with the updated issue data.
 
-The implementation skill will:
-- Treat this as new work ([IS_RESUMABLE] = false)
-- Create checkpoint commit and worktree
-- Implement the requested changes
-- Set status to `needs_review` after completion
-
-**Focus:** Address the specific request in [LATEST_USER_COMMENT], not re-implement the entire original issue.
+**Focus:** Address the specific request in [LATEST_USER_COMMENT].
 
 </instructions>
