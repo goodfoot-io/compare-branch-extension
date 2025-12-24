@@ -11,11 +11,13 @@ Extract from issue data:
 - [PLAN_CONTENT] = The plan markdown content from `planContent` field (string or null if not set)
 </input-format>
 
-## Create and Submit Implementation Plan
+<instructions>
+
+## Protocol Overview
 
 Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false. Research and present a plan—no code changes until user approves via comment.
 
-### Interpreting User Feedback on Plans
+## Interpreting User Feedback on Plans
 
 **Treat as APPROVAL** (proceed to `claude-code-cli:issue-implementation`):
 - Explicit approval: "Approved", "LGTM", "Go ahead", "Proceed", "Ship it"
@@ -29,27 +31,29 @@ Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false. Research and pres
 
 **When ambiguous**: Default to revision request. It's safer to clarify than to build the wrong thing.
 
-### Step 1: Check for Previous Plan and Feedback
+## Phase 1: Create and Submit Implementation Plan
+
+### Step 1.1: Check for Previous Plan and Feedback
 
 Check if an agent comment contains a previous plan. If so, examine [LATEST_USER_COMMENT]:
 - If it contains approval language (see above) → this protocol should not have been invoked; re-check routing
 - If it contains revision request language or is ambiguous → incorporate feedback into revised plan
 
-If no previous plan exists, continue to Step 2.
+If no previous plan exists, continue to Step 1.2.
 
-### Step 2: Confirm Status
+### Step 1.2: Confirm Status
 Status is already `in_progress` (set by Instructions Step 3). No additional update needed.
 
-### Step 3: Load Plan Skill
+### Step 1.3: Load Plan Skill
 Invoke the `claude-code-cli:plan` skill to access plan structure requirements and examples.
 
-### Step 4: Research and Analyze
+### Step 1.4: Research and Analyze
 - Read relevant files in the codebase
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 - Do NOT create worktrees or make code changes
 
-### Step 5: Draft Implementation Plan
+### Step 1.5: Draft Implementation Plan
 Create a detailed plan including:
 - Objective and scope
 - Proposed approach with steps
@@ -60,7 +64,7 @@ Create a detailed plan including:
 
 If this is a revision, clearly note what changed from the previous version.
 
-### Step 6: Run Dual Assessment
+### Step 1.6: Run Dual Assessment
 
 When [PLAN_CONTENT] is not null after drafting, launch parallel assessment agents before presenting for user review:
 
@@ -91,16 +95,16 @@ Plan content:
 </invoke>
 ```
 
-### Step 7: Review and Address Issues
+### Step 1.7: Review and Address Issues
 
 Review both assessment reports before presenting the plan for user approval. Address any CRITICAL or HIGH priority issues identified before requesting approval.
 
 If assessments reveal significant issues:
 - Revise the plan to address CRITICAL and HIGH priority findings
-- Re-run Step 6 if substantial changes were made
+- Re-run Step 1.6 if substantial changes were made
 - Document what was changed based on assessment feedback
 
-### Step 8: Post Plan for Approval
+### Step 1.8: Post Plan for Approval
 ```
 POST /issues/[ISSUE_ID]/comments
 {
@@ -110,7 +114,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 9: Set Status and Wait
+### Step 1.9: Set Status and Wait
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -120,4 +124,6 @@ PATCH /issues/[ISSUE_ID]
 
 **STOP** — Wait for user approval via comment. Once approved, the system will re-invoke with [PLAN_APPROVED]=true, routing to `claude-code-cli:issue-implementation`.
 
-If the user responds with changes or rejection, return to Step 1 and create a revised plan.
+If the user responds with changes or rejection, return to Step 1.1 and create a revised plan.
+
+</instructions>

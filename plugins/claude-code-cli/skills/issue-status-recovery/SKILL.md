@@ -3,23 +3,25 @@ name: issue-status-recovery
 description: Recover or clarify issue status when state is inconsistent. Use when [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
 ---
 
-## Recover Status
+<instructions>
+
+# Recover Status
 
 Use when [STATUS] is "in_progress" but [IS_RESUMABLE] is false. This indicates one of two situations:
 
 1. **Work completed but status not updated** — A completion comment exists with commitSha
 2. **No work was ever started** — No worktree, status was set prematurely
 
-### Step 1: Determine Situation
+## Step 1: Determine Situation
 
 Search comments for completion indicators:
 - "Implementation Complete", "Ready for review", "Bug Fix Complete"
 - A `commitSha` reference
 
-**If completion comment found:** Proceed to Step 2A (recover completed status)
-**If no completion comment:** Proceed to Step 2B (reset to start work)
+**If completion comment found:** Proceed to Step 2 (recover completed status)
+**If no completion comment:** Proceed to Step 3 (reset to start work)
 
-### Step 2A: Recover Completed Status
+## Step 2: Recover Completed Status
 
 Post recovery comment:
 ```
@@ -40,7 +42,7 @@ PATCH /issues/[ISSUE_ID]
 
 **STOP** — Do not re-implement. The work is already complete.
 
-### Step 2B: Reset to Start Work
+## Step 3: Reset to Start Work
 
 The issue was marked "in_progress" but no work began. Reset and proceed:
 
@@ -54,3 +56,5 @@ POST /issues/[ISSUE_ID]/comments
 ```
 
 Execute skill `claude-code-cli:issue-implementation` to begin work properly.
+
+</instructions>

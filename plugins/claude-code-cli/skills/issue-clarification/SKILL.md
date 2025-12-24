@@ -11,11 +11,13 @@ Extract from issue data:
 - [COMMENTS] = Array of comments with author, body, timestamps (`comments`)
 </input-format>
 
-## Request Clarification
+<instructions>
+
+## Phase 1: Request Clarification
 
 Use when [STATUS] is "todo" but [DOR_MET] is false. Request missing information before starting implementation.
 
-### Step 1: Identify Missing Requirements
+### Step 1.1: Identify Missing Requirements
 Review [DESCRIPTION] and [COMMENTS] against the Definition of Ready criteria:
 - Problem statement / user story
 - Acceptance criteria
@@ -23,10 +25,10 @@ Review [DESCRIPTION] and [COMMENTS] against the Definition of Ready criteria:
 - Technical approach feasibility
 - Unanswered questions
 
-### Step 2: Research Context
+### Step 1.2: Research Context
 Before asking questions, search the codebase for relevant context that might answer your questions or inform better questions.
 
-### Step 3: Post Clarification Request
+### Step 1.3: Post Clarification Request
 ```
 POST /issues/[ISSUE_ID]/comments
 {
@@ -36,7 +38,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 4: Update Status
+### Step 1.4: Update Status
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -46,3 +48,5 @@ PATCH /issues/[ISSUE_ID]
 ```
 
 **STOP** — Wait for user response before proceeding.
+
+</instructions>

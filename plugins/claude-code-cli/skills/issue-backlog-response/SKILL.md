@@ -3,19 +3,21 @@ name: issue-backlog-response
 description: Respond to backlog issues with information only - no code changes, worktrees, or commits. Use when [STATUS] is "backlog".
 ---
 
-## Respond to Backlog Issues
+<instructions>
+
+## Phase 1: Respond to Backlog Issues
 
 Use when [STATUS] is "backlog". Provide information only—no code changes, worktrees, or commits.
 
-### Step 1: Assess Viability
+### Step 1.1: Assess Issue Viability
 If the issue appears unlikely to ever be addressed (stale, out of scope, or superseded):
 - Recommend closure with honest, courteous feedback
 - Keep the backlog reflective of actual intended work
 
-### Step 2: Research and Respond
+### Step 1.2: Research and Provide Information
 If [HAS_PENDING_QUESTION] is true, research the codebase and provide helpful information.
 
-### Step 3: Post Comment
+### Step 1.3: Post Comment
 ```
 POST /issues/[ISSUE_ID]/comments
 {
@@ -24,7 +26,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 4: Restore Status and Clear Attention Flag
+### Step 1.4: Restore Status and Clear Attention Flag
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -35,3 +37,5 @@ PATCH /issues/[ISSUE_ID]
 This returns the issue to "backlog" status after the agent's informational response.
 
 **STOP** — Do not proceed to implementation protocols.
+
+</instructions>

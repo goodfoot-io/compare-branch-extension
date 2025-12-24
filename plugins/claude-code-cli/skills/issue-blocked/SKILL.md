@@ -3,23 +3,31 @@ name: issue-blocked
 description: Handle blocked issues by identifying and reporting blockers. Use when [IS_BLOCKED] is true.
 ---
 
+<instructions>
+
 ## Handle Blocked Issues
 
 Use when [IS_BLOCKED] is true. Do not attempt implementation until blocker is resolved.
 
-### Step 1: Identify Blocker
+## Phase 1: Analyze Blocker
+
+### Step 1.1: Identify Blocker
 Extract blocker reason from tags or comments (look for "blocked by", "waiting on", "depends on"). Classify as:
 - Another issue (internal dependency)
 - External dependency (third-party, infrastructure)
 - Missing information (awaiting user input)
 - Technical constraint (requires changes elsewhere first)
 
-### Step 2: Check Blocker Status
+### Step 1.2: Check Blocker Status
 If blocker references another issue:
 - Check if the blocking issue has been resolved
 - If resolved, remove "blocked" tag and re-route to appropriate protocol
 
-### Step 3: Report Blocked Status (if still blocked)
+## Phase 2: Report and Update
+
+### Step 2.1: Report Blocked Status
+If still blocked:
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
@@ -28,7 +36,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 4: Update Status
+### Step 2.2: Update Status
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -38,3 +46,5 @@ PATCH /issues/[ISSUE_ID]
 ```
 
 **STOP** — Do not proceed until blocker is resolved and issue is re-assigned.
+
+</instructions>

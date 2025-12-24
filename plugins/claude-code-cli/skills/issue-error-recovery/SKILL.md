@@ -3,6 +3,16 @@ name: issue-error-recovery
 description: Recover from errors during any protocol execution. Use when errors occur during other protocols.
 ---
 
+<input-format>
+Inherited from invoking protocol context:
+
+- [ISSUE_ID] = The issue identifier
+- [BASE_BRANCH] = The base branch (typically `main`)
+- [BRANCH_NAME] = The worktree branch name from the failed protocol
+</input-format>
+
+<instructions>
+
 ## Recover from Errors
 
 Use when errors occur during any other protocol.
@@ -26,7 +36,7 @@ If resolution fails, preserve state and report:
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Error Encountered\n\n[Description of error]\n\n### Current State\n- [BASE_BRANCH]: Clean (no merge in progress)\n- Worktree preserved at: `.worktrees/[branch-name]`\n- Error occurred during: [protocol/step]\n\n### Error Details\n```\n[error output]\n```\n\n### To Resolve Manually\n[Steps for manual resolution]\n\n### To Retry\nMove this issue back to 'todo' status after resolving the blocker.",
+  "body": "## Error Encountered\n\n[Description of error]\n\n### Current State\n- [BASE_BRANCH]: Clean (no merge in progress)\n- Worktree preserved at: `.worktrees/[BRANCH_NAME]`\n- Error occurred during: [protocol/step]\n\n### Error Details\n```\n[error output]\n```\n\n### To Resolve Manually\n[Steps for manual resolution]\n\n### To Retry\nMove this issue back to 'todo' status after resolving the blocker.",
   "author": "agent",
   "codeReferences": [/* relevant files */]
 }
@@ -40,3 +50,5 @@ PATCH /issues/[ISSUE_ID]
   "tags": ["blocked", "needs-human-review"]
 }
 ```
+
+</instructions>

@@ -10,11 +10,13 @@ Extract from issue data:
 - [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
 </input-format>
 
-## Reopen and Implement
+<instructions>
+
+## Phase 1: Reopen and Implement
 
 Use when [STATUS] is "done" but [HAS_REOPEN_REQUEST] is true. The user has explicitly requested to reopen the issue for additional work.
 
-### Step 1: Acknowledge Reopen Request
+### Step 1.1: Acknowledge Reopen Request
 
 Post a comment noting the reopen:
 ```
@@ -25,7 +27,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 2: Proceed to Implementation
+### Step 1.2: Proceed to Implementation
 
 Execute the `claude-code-cli:issue-implementation` skill to handle the work.
 
@@ -36,3 +38,5 @@ The implementation skill will:
 - Set status to `needs_review` after completion
 
 **Focus:** Address the specific request in [LATEST_USER_COMMENT], not re-implement the entire original issue.
+
+</instructions>

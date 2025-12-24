@@ -3,11 +3,13 @@ name: spike
 description: Conduct empirical technical investigations using isolated subagents to compare alternatives or validate assumptions through prototype testing.
 ---
 
+<instructions>
+
 Use the `Task()` tool to launch a subagent to perform a technical spike investigation.
 
 ## Spike Invocation Templates
 
-### For Comparison Spikes (Testing Multiple Alternatives)
+### Comparison Spikes (Testing Multiple Alternatives)
 
 Use when technology has NOT been chosen and you need to compare 2-3 viable approaches.
 
@@ -24,7 +26,7 @@ Use when technology has NOT been chosen and you need to compare 2-3 viable appro
 
 **Always use:** `subagent_type="general-purpose"`
 
-### For Validation Spikes (Testing Single Approach)
+### Validation Spikes (Testing Single Approach)
 
 Use when technology IS chosen but specific capability/compatibility needs verification.
 
@@ -99,7 +101,7 @@ Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that or
 <spike-result-format>
 Instruct the subagent to document findings in a structured format within the spike directory:
 
-**Comparison Result Template** (when testing multiple approaches):
+**Comparison Result Template** (for testing multiple approaches):
 ```markdown
 ## [Question]
 
@@ -121,7 +123,7 @@ Instruct the subagent to document findings in a structured format within the spi
 - **Impact**: [How this result influences the Technical Approach or implementation]
 ```
 
-**Validation Result Template** (when testing single approach):
+**Validation Result Template** (for testing single approach):
 ```markdown
 ## [Question]
 
@@ -358,14 +360,14 @@ Document findings using the Validation Result Template.
 </example>
 
 <behavioral-guidelines>
-### Spike Execution Principles
+## Spike Execution Principles
 
 1. **Always use spike isolation**: All spike artifacts must be in the specified spike path, never in main codebase
 2. **Require empirical evidence**: Spikes must produce working code or concrete test results, not documentation research
 3. **Focus on the question**: Stay narrowly focused on answering the specific technical uncertainty
 4. **Document for decisions**: Results must clearly inform implementation decisions with actionable recommendations
 
-### Running Multiple Spikes
+## Running Multiple Spikes
 
 When multiple independent spike questions need investigation, launch all spikes in parallel by combining all `Task()` calls into a single message:
 
@@ -414,9 +416,9 @@ When multiple independent spike questions need investigation, launch all spikes 
 </behavioral-guidelines>
 
 <processing-spike-results>
-## After Spike Completion
+## Post-Spike Processing
 
-### 1. Review Spike Artifacts
+### Step 1: Review Spike Artifacts
 
 The subagent will create artifacts in the spike directory. Review these to ensure quality:
 
@@ -431,7 +433,7 @@ The subagent will create artifacts in the spike directory. Review these to ensur
 - `results.md` contains pass/fail determination with evidence
 - Results follow the Validation Result Template
 
-### 2. Validate Result Quality
+### Step 2: Validate Result Quality
 
 Check that spike results meet quality criteria:
 
@@ -457,7 +459,7 @@ Check that spike results meet quality criteria:
 - Question is answerable within isolated spike environment
 - Results directly address the stated uncertainty
 
-### 3. Flag Quality Issues
+### Step 3: Flag Quality Issues
 
 If spike results have these problems, request revision:
 
@@ -468,7 +470,7 @@ If spike results have these problems, request revision:
 - **Unclear impact**: Spike results don't inform Technical Approach
 - **Missing artifacts**: No spike path provided or artifacts don't match description
 
-### 4. Incorporate Findings into Plans
+### Step 4: Incorporate Findings into Plans
 
 After validating spike quality, incorporate findings:
 
@@ -486,7 +488,7 @@ After validating spike quality, incorporate findings:
    - Add any libraries/frameworks selected by comparison spikes
    - Include specific versions validated by the spike
 
-### 5. Report to User
+### Step 5: Report to User
 
 Summarize findings in conversational language:
 - State the question that was investigated
@@ -496,3 +498,5 @@ Summarize findings in conversational language:
 
 **Example**: "I tested three real-time communication approaches in the spike directory. Socket.io with Redis adapter provided the best combination of bidirectional support and horizontal scaling. The prototypes confirmed it works with our Express.js setup, so I've updated the Technical Approach to use Socket.io v4.6.1."
 </processing-spike-results>
+
+</instructions>

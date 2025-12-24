@@ -13,6 +13,7 @@ Extract from issue data:
 **Derived Fields:**
 - [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
 - [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
+- [BRANCH_NAME] = Generated branch name: `issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]`
 </input-format>
 
 <tools>
@@ -35,7 +36,7 @@ Created worktree directory: /workspace/.worktrees/branch-name
 ```
 
 **Behavior:**
-- Creates worktree at `.worktrees/[branch-name]`
+- Creates worktree at `.worktrees/[BRANCH_NAME]`
 - Creates a new branch with the given name
 - Fails if branch already exists or worktree path is occupied
 
@@ -51,17 +52,19 @@ FINAL_SHA=$(remove-instant-worktree "branch-name")
 **Output:** Prints the branch's final commit SHA before removal.
 
 **Behavior:**
-- Removes the worktree at `.worktrees/[branch-name]`
+- Removes the worktree at `.worktrees/[BRANCH_NAME]`
 - Deletes the local branch
 - Returns the commit SHA for recording in issue comments
 
 </tools>
 
-## Implement Issue Work
+<instructions>
+
+## Phase 1: Prepare Implementation Environment
 
 Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT]. All modifications happen in an isolated worktree.
 
-### Step 0: Check for Existing Work (Resumption Detection)
+### Step 1.1: Check for Existing Work (Resumption Detection)
 
 If [IS_RESUMABLE] is true (prior work exists without completion):
 1. Check if worktree exists:
@@ -72,7 +75,7 @@ If [IS_RESUMABLE] is true (prior work exists without completion):
    - Navigate to it: `cd ".worktrees/$BRANCH_NAME"`
    - Run `git status` to check for uncommitted changes
    - If uncommitted changes exist, review and decide whether to commit or stash
-   - Skip to Step 5
+   - Skip to Step 3.1
 3. If worktree doesn't exist, check if branch exists:
    ```bash
    git branch --list "$BRANCH_NAME"
@@ -81,12 +84,12 @@ If [IS_RESUMABLE] is true (prior work exists without completion):
      ```bash
      git worktree add ".worktrees/$BRANCH_NAME" "$BRANCH_NAME"
      ```
-   - If branch doesn't exist: The previous work may be lost. Start fresh with Step 1.
+   - If branch doesn't exist: The previous work may be lost. Start fresh with Step 1.2.
 4. Skip checkpoint commit (already exists from original session)
 
-If [IS_RESUMABLE] is false (new work or addressing feedback), proceed to Step 1.
+If [IS_RESUMABLE] is false (new work or addressing feedback), proceed to Step 1.2.
 
-### Step 1: Record Start of Work
+### Step 1.2: Record Start of Work
 Get current commit SHA and record it on the issue (status is already `in_progress` from Instructions Step 3):
 ```bash
 CURRENT_SHA=$(git rev-parse HEAD)
@@ -99,7 +102,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### Step 2: Create Checkpoint Commit (New Work Only)
+### Step 1.3: Create Checkpoint Commit (New Work Only)
 
 **Skip this step if [IS_RESUMABLE] is true OR [HAS_MODIFICATION_REQUEST] is true** — a checkpoint already exists from the original implementation.
 
@@ -113,7 +116,7 @@ Title: [TITLE]"
 
 **Note:** Do not stage files for the checkpoint. The checkpoint is just a marker in git history. Any uncommitted files in the working directory (artifacts from concurrent agents, user's pending work) should remain uncommitted.
 
-### Step 3: Create Worktree
+### Step 1.4: Create Worktree
 
 Generate branch name (escape special characters) and create isolated worktree:
 ```bash
@@ -126,18 +129,20 @@ BRANCH_NAME="issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]
 # Create worktree
 instant-worktree "$BRANCH_NAME"
 
-# Navigate to worktree (path is .worktrees/[branch-name])
+# Navigate to worktree (path is .worktrees/[BRANCH_NAME])
 cd ".worktrees/$BRANCH_NAME"
 ```
 
-### Step 4: Implement Changes
+## Phase 2: Execute Implementation
+
+### Step 2.1: Implement Changes
 Working ONLY in the worktree directory:
 1. Read and understand existing code
 2. Make required changes
 3. Run linting and tests
 4. Fix any issues that arise
 
-### Step 5: Commit in Worktree
+### Step 2.2: Commit in Worktree
 ```bash
 git add -A
 git commit -m "[type]: [description]
@@ -149,7 +154,9 @@ Issue: [ISSUE_ID]
 🤖 Generated with Claude Code"
 ```
 
-### Step 6: Merge Back to Main
+## Phase 3: Integrate and Finalize
+
+### Step 3.1: Merge Back to Main
 
 First, return to the main workspace and check for uncommitted files:
 ```bash
@@ -175,14 +182,14 @@ Title: [TITLE]"
 2. Attempt resolution in worktree via rebase
 3. If unresolvable, switch to `<error-recovery-protocol>`
 
-### Step 7: Clean Up Worktree
+### Step 3.2: Clean Up Worktree
 After successful merge, remove the worktree and branch:
 ```bash
 # Returns the branch's final commit SHA
 FINAL_SHA=$(remove-instant-worktree "$BRANCH_NAME")
 ```
 
-### Step 8: Post Completion Comment
+### Step 3.3: Post Completion Comment
 ```
 POST /issues/[ISSUE_ID]/comments
 {
@@ -193,7 +200,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 9: Update Status
+### Step 3.4: Update Status
 
 **IMPORTANT:** Always set status to `needs_review`, NOT `done`. Only the user marks issues as done.
 
@@ -204,3 +211,5 @@ PATCH /issues/[ISSUE_ID]
   "commitSha": "[FINAL_SHA]"
 }
 ```
+
+</instructions>

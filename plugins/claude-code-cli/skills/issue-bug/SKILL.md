@@ -13,7 +13,10 @@ Extract from issue data:
 
 **Derived Fields:**
 - [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
+- [BRANCH_NAME] = Generated branch name: `issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]`
 </input-format>
+
+<instructions>
 
 ## Fix Bug with Reproduction Test
 
@@ -24,7 +27,7 @@ Use for issues describing programmatically testable defects. All work happens in
 2. Any test modification during resolution requires re-validation
 3. Test MUST pass after fix
 
-### Step 0: Check for Existing Work (Resumption Detection)
+### Check for Existing Work (Resumption Detection)
 
 If [IS_RESUMABLE] is true (prior work exists without completion):
 1. Check if worktree exists:
@@ -39,9 +42,11 @@ If [IS_RESUMABLE] is true (prior work exists without completion):
 3. If worktree doesn't exist but branch does:
    - Reattach worktree: `git worktree add ".worktrees/$BRANCH_NAME" "$BRANCH_NAME"`
 
-If [IS_RESUMABLE] is false, proceed to Step 1.
+If [IS_RESUMABLE] is false, proceed to Phase 1.
 
-### Step 1: Record Start of Work
+## Phase 1: Initialize Bug Fix
+
+### Step 1.1: Record Start of Work
 
 Get current commit SHA and record on issue:
 ```bash
@@ -55,7 +60,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### Step 2: Create Checkpoint Commit
+### Step 1.2: Create Checkpoint Commit
 
 **Skip if [IS_RESUMABLE] is true.**
 
@@ -69,7 +74,7 @@ Title: [TITLE]"
 
 **Note:** Do not stage files for the checkpoint. The checkpoint is just a marker in git history. Any uncommitted files in the working directory (artifacts from concurrent agents, user's pending work) should remain uncommitted.
 
-### Step 3: Create Worktree
+### Step 1.3: Create Worktree
 
 ```bash
 BRANCH_NAME="issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]"
@@ -84,13 +89,13 @@ WORKTREE_BASELINE=$(git rev-parse HEAD)
 
 ---
 
-## Phase A: Create Reproduction Test
+## Phase 2: Create Reproduction Test
 
 **Goal:** Create a minimal test that FAILS, demonstrating the bug.
 
 Initialize: [REPRODUCTION_ATTEMPT] = 0 (max 3)
 
-### Step A.1: Analyze Bug Description
+### Step 2.1: Analyze Bug Description
 
 Extract from [DESCRIPTION] and [COMMENTS]:
 - Expected behavior
@@ -98,7 +103,7 @@ Extract from [DESCRIPTION] and [COMMENTS]:
 - Error messages / stack traces
 - Scope hints (files, packages, functions)
 
-### Step A.2: Launch Test Creation Subagent
+### Step 2.2: Launch Test Creation Subagent
 
 Increment [REPRODUCTION_ATTEMPT]
 
@@ -145,7 +150,7 @@ Previous test code (DO NOT repeat this approach):
 </invoke>
 ```
 
-### Step A.3: Verify Test File Created and No Unexpected Changes
+### Step 2.3: Verify Test File Created and No Unexpected Changes
 
 **Trust git over subagent reports.**
 
@@ -165,7 +170,7 @@ if [ -n "$MODIFIED_FILES" ]; then
 fi
 ```
 
-### Step A.4: Execute Test and Verify Failure
+### Step 2.4: Execute Test and Verify Failure
 
 ```bash
 git add "[TEST_FILE_PATH]"
@@ -193,7 +198,7 @@ TEST_EXIT_CODE=$?
     "codeReferences": [{"uri": "[TEST_FILE_PATH]", "range": {...}}]
   }
   ```
-- Proceed to Phase B
+- Proceed to Phase 3
 
 **If test PASSES (unexpected):**
 - Read test file content
@@ -204,7 +209,7 @@ TEST_EXIT_CODE=$?
   git checkout "$WORKTREE_BASELINE" -- .
   git clean -fd
   ```
-- **If [REPRODUCTION_ATTEMPT] < 3:** Return to Step A.2 with [TEST_PASS_ANALYSIS]
+- **If [REPRODUCTION_ATTEMPT] < 3:** Return to Step 2.2 with [TEST_PASS_ANALYSIS]
 - **If [REPRODUCTION_ATTEMPT] >= 3:**
   - Post comment asking user for guidance
   - Set status to `needs_review`
@@ -212,13 +217,13 @@ TEST_EXIT_CODE=$?
 
 ---
 
-## Phase B: Resolve Bug
+## Phase 3: Resolve Bug
 
 **Goal:** Fix source code so test passes. Test modifications are allowed but require re-validation.
 
 Initialize: [RESOLVE_ATTEMPT] = 0 (max 3)
 
-### Step B.1: Launch Bug Resolution Subagent
+### Step 3.1: Launch Bug Resolution Subagent
 
 Increment [RESOLVE_ATTEMPT]
 
@@ -275,7 +280,7 @@ to fix the source code.
 
 Capture [RESOLVER_REASONING] from response.
 
-### Step B.2: Detect Actual File Changes
+### Step 3.2: Detect Actual File Changes
 
 **Trust git over subagent reports.**
 
@@ -291,7 +296,7 @@ TEST_FILE_MODIFIED=$?  # 0=unchanged, 1=modified
 SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v "[TEST_FILE_PATH]")
 ```
 
-### Step B.3: Handle Based on What Changed
+### Step 3.3: Handle Based on What Changed
 
 **Case 1: BLOCKED or CANNOT_COMPLETE**
 - Post comment with reasoning
@@ -310,30 +315,30 @@ if [ -n "$SOURCE_CHANGES" ]; then
 fi
 ```
 
-Go to Step B.5 (Validate Test Correction)
+Go to Step 3.5 (Validate Test Correction)
 
 **Case 3: Only source changed (SUCCESS path)**
 
-Proceed to Step B.4
+Proceed to Step 3.4
 
-### Step B.4: Validate Fix
+### Step 3.4: Validate Fix
 
 ```bash
 yarn test "[TEST_FILE_PATH]" 2>&1
 FIX_TEST_EXIT_CODE=$?
 ```
 
-**If test PASSES:** Proceed to Phase C
+**If test PASSES:** Proceed to Phase 4
 
 **If test FAILS:**
 - Capture new failure output
-- **If [RESOLVE_ATTEMPT] < 3:** Return to Step B.1 with failure context
+- **If [RESOLVE_ATTEMPT] < 3:** Return to Step 3.1 with failure context
 - **If [RESOLVE_ATTEMPT] >= 3:**
   - Post comment with failure details
   - Set status to `needs_review`
   - **STOP** - Leave worktree intact for manual intervention
 
-### Step B.5: Validate Test Correction
+### Step 3.5: Validate Test Correction
 
 The resolver modified the test. Verify modified test STILL FAILS (still reproduces bug):
 
@@ -353,7 +358,7 @@ CORRECTED_TEST_EXIT_CODE=$?
 - Update checkpoint: `TEST_READY_SHA=$(git rev-parse HEAD)`
 - Capture new [TEST_FAILURE_OUTPUT]
 - **Reset [RESOLVE_ATTEMPT] = 0** (fresh attempts with corrected test)
-- Return to Step B.1
+- Return to Step 3.1
 
 **If test PASSES (invalid correction):**
 - The test change made it pass without fixing the bug - invalid
@@ -361,7 +366,7 @@ CORRECTED_TEST_EXIT_CODE=$?
   ```bash
   git checkout "$TEST_READY_SHA" -- "[TEST_FILE_PATH]"
   ```
-- **If [RESOLVE_ATTEMPT] < 3:** Return to Step B.1 with note about invalid test modification
+- **If [RESOLVE_ATTEMPT] < 3:** Return to Step 3.1 with note about invalid test modification
 - **If [RESOLVE_ATTEMPT] >= 3:**
   - Post comment explaining situation
   - Set status to `needs_review`
@@ -369,14 +374,14 @@ CORRECTED_TEST_EXIT_CODE=$?
 
 ---
 
-## Phase C: Validate Full Test Suite
+## Phase 4: Validate Full Test Suite
 
 ```bash
 yarn test 2>&1
 FULL_SUITE_EXIT_CODE=$?
 ```
 
-**If all tests pass:** Proceed to Phase D
+**If all tests pass:** Proceed to Phase 5
 
 **If regressions detected:**
 - Post comment listing failed tests
@@ -386,9 +391,9 @@ FULL_SUITE_EXIT_CODE=$?
 
 ---
 
-## Phase D: Finalize (Squashed Commit)
+## Phase 5: Finalize (Squashed Commit)
 
-### Step D.1: Squash Commits in Worktree
+### Step 5.1: Squash Commits in Worktree
 
 Squash all commits since branching into single commit:
 
@@ -413,7 +418,7 @@ Generated with Claude Code"
 fi
 ```
 
-### Step D.2: Merge Back to Main
+### Step 5.2: Merge Back to Main
 
 First, return to the main workspace and check for uncommitted files:
 ```bash
@@ -439,13 +444,13 @@ Title: [TITLE]"
 2. Attempt resolution via rebase in worktree
 3. If unresolvable: execute `claude-code-cli:issue-error-recovery`
 
-### Step D.3: Clean Up Worktree
+### Step 5.3: Clean Up Worktree
 
 ```bash
 FINAL_SHA=$(remove-instant-worktree "$BRANCH_NAME")
 ```
 
-### Step D.4: Post Completion Comment
+### Step 5.4: Post Completion Comment
 
 ```
 POST /issues/[ISSUE_ID]/comments
@@ -457,7 +462,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step D.5: Update Status
+### Step 5.5: Update Status
 
 ```
 PATCH /issues/[ISSUE_ID]
@@ -466,3 +471,5 @@ PATCH /issues/[ISSUE_ID]
   "commitSha": "[FINAL_SHA]"
 }
 ```
+
+</instructions>
