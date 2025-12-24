@@ -422,7 +422,7 @@ fi
 
 First, return to the main workspace and check for uncommitted files:
 ```bash
-cd /workspace
+cd "$(git rev-parse --show-toplevel)"
 git status --porcelain
 ```
 

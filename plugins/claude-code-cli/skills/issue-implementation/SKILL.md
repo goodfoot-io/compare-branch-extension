@@ -32,7 +32,7 @@ instant-worktree "branch-name"
 **Output:** Prints the created worktree path and branch name:
 ```
 Created branch: branch-name
-Created worktree directory: /workspace/.worktrees/branch-name
+Created worktree directory: .worktrees/branch-name
 ```
 
 **Behavior:**
@@ -160,7 +160,7 @@ Issue: [ISSUE_ID]
 
 First, return to the main workspace and check for uncommitted files:
 ```bash
-cd /workspace
+cd "$(git rev-parse --show-toplevel)"
 git status --porcelain
 ```
 
@@ -175,6 +175,7 @@ git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
 
 Issue: [ISSUE_ID]
 Title: [TITLE]"
+MERGE_SHA=$(git rev-parse HEAD)
 ```
 
 **If merge conflict occurs:**
@@ -185,8 +186,7 @@ Title: [TITLE]"
 ### Step 3.2: Clean Up Worktree
 After successful merge, remove the worktree and branch:
 ```bash
-# Returns the branch's final commit SHA
-FINAL_SHA=$(remove-instant-worktree "$BRANCH_NAME")
+remove-instant-worktree "$BRANCH_NAME"
 ```
 
 ### Step 3.3: Post Completion Comment
@@ -195,7 +195,7 @@ POST /issues/[ISSUE_ID]/comments
 {
   "body": "## Implementation Complete\n\n[Summary of changes]\n\n### Files Modified\n- [list of files]\n\n### Testing\n- [test results]\n\nReady for review.",
   "author": "agent",
-  "commitSha": "[FINAL_SHA]",
+  "commitSha": "[MERGE_SHA]",
   "codeReferences": [/* all modified files with line ranges */]
 }
 ```
@@ -208,7 +208,7 @@ POST /issues/[ISSUE_ID]/comments
 PATCH /issues/[ISSUE_ID]
 {
   "status": "needs_review",
-  "commitSha": "[FINAL_SHA]"
+  "commitSha": "[MERGE_SHA]"
 }
 ```
 
