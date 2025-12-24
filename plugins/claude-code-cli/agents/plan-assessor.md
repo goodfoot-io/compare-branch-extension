@@ -14,8 +14,8 @@ Extract from the invoking context:
 - [TITLE] = The issue title
 - [DESCRIPTION] = The issue description with requirements
 
-**Derived Fields:**
-- [PLAN_CONTENT] = The plan markdown content from the issue's `planContent` field
+**API-Retrieved Fields:**
+- [PLAN_CONTENT] = Fetch from `GET /issues/{ISSUE_ID}` and extract the `planContent` field
 </input-format>
 
 ## Purpose and Philosophy
@@ -397,10 +397,14 @@ A plan **requires revision** when:
 1. Extract issue information from prompt:
    - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
    - Identify plan type: initial plan vs. strategic revision
-2. Check for existing issue comments via API
+2. Fetch plan content from the issues API:
+   - Call `GET /issues/{ISSUE_ID}` to retrieve the issue
+   - Extract the `planContent` field as [PLAN_CONTENT]
+   - If `planContent` is null or empty, report error and stop
+3. Check for existing issue comments via API
    - Review implementation status and strategic context
    - Identify reactive constraints or proactive optimization triggers
-3. Read current plan from [PLAN_CONTENT] with strategic assessment focus
+4. Read [PLAN_CONTENT] with strategic assessment focus
 
 ### 2. Review Structural Compliance
 Apply structural compliance requirements from the structural-compliance-requirements section above.

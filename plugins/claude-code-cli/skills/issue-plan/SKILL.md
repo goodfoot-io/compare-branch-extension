@@ -66,7 +66,17 @@ If this is a revision, clearly note what changed from the previous version.
 
 ### Step 1.6: Run Dual Assessment
 
-When [PLAN_CONTENT] is not null after drafting, launch parallel assessment agents before presenting for user review:
+When [PLAN_CONTENT] is not null after drafting, store the plan on the issue and launch parallel assessment agents before presenting for user review:
+
+1. First, store the plan content on the issue:
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "planContent": "[PLAN_CONTENT]"
+}
+```
+
+2. Then launch both assessment agents in parallel (they will fetch planContent from the API):
 
 <!-- PARALLEL EXECUTION: Send both assessments in ONE message -->
 ```xml
@@ -76,10 +86,7 @@ When [PLAN_CONTENT] is not null after drafting, launch parallel assessment agent
 <parameter name="prompt">Assess the plan for structural compliance, technical feasibility, and completeness.
 
 Issue: [ISSUE_ID] - [TITLE]
-Description: [DESCRIPTION]
-
-Plan content:
-[PLAN_CONTENT]</parameter>
+Description: [DESCRIPTION]</parameter>
 </invoke>
 
 <invoke name="Task">
@@ -88,10 +95,7 @@ Plan content:
 <parameter name="prompt">Evaluate the plan using the seven evaluation principles. Challenge assumptions, identify structural issues, and surface design decisions that warrant reconsideration.
 
 Issue: [ISSUE_ID] - [TITLE]
-Description: [DESCRIPTION]
-
-Plan content:
-[PLAN_CONTENT]</parameter>
+Description: [DESCRIPTION]</parameter>
 </invoke>
 ```
 

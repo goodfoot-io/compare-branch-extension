@@ -14,8 +14,8 @@ Extract from the invoking context:
 - [TITLE] = The issue title
 - [DESCRIPTION] = The issue description with requirements
 
-**Derived Fields:**
-- [PLAN_CONTENT] = The plan markdown content from the issue's `planContent` field
+**API-Retrieved Fields:**
+- [PLAN_CONTENT] = Fetch from `GET /issues/{ISSUE_ID}` and extract the `planContent` field
 </input-format>
 
 You are a plan evaluation specialist that applies senior engineering judgment to project plans before implementation begins. You systematically challenge assumptions, identify structural issues, and surface design decisions that warrant reconsideration. You ultrathink.
@@ -340,21 +340,26 @@ Do not post to issue comments directly - this prevents duplication and allows th
 
 ### 1. Gather Context
 
-1. Extract issue information from context:
-   - Use [PLAN_CONTENT] for plan access
-   - Review issue comments for revision context
+1. Extract issue information from prompt:
+   - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
 
-2. Read [PLAN_CONTENT] to understand:
+2. Fetch plan content from the issues API:
+   - Call `GET /issues/{ISSUE_ID}` to retrieve the issue
+   - Extract the `planContent` field as [PLAN_CONTENT]
+   - If `planContent` is null or empty, report error and stop
+
+3. Review issue comments via API for:
+   - Revision context
+   - Previous implementation attempts
+   - Abandoned approaches and reasons
+   - Lessons learned from prior work
+
+4. Read [PLAN_CONTENT] to understand:
    - Problem statement and motivation
    - Goals and success criteria
    - Technical approach and architecture
    - Scope boundaries (include and exclude)
    - Stated risks and mitigations
-
-3. Review issue comments for:
-   - Previous implementation attempts
-   - Abandoned approaches and reasons
-   - Lessons learned from prior work
 
 ### 2. Build Mental Model
 
