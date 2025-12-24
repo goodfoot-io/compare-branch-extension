@@ -7,8 +7,10 @@ description: Implement issue work in an isolated git worktree. Use for ALL work 
 Extract from issue data:
 
 **Required Fields:**
+- [ISSUE_ID] = The issue's unique identifier (`id`)
 - [TITLE] = The issue title (`title`)
 - [DESCRIPTION] = The issue description with requirements (`description`)
+- [REVIEW_REQUIRED] = Whether merge approval is needed (`review` field, default: false)
 
 **Derived Fields:**
 - [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
@@ -156,60 +158,46 @@ Issue: [ISSUE_ID]
 
 ## Phase 3: Integrate and Finalize
 
-### Step 3.1: Merge Back to Main
+### Step 3.1: Check Review Requirement
 
-First, return to the main workspace and check for uncommitted files:
+**If [REVIEW_REQUIRED] is true:**
+
+Post implementation summary for user review (do NOT merge yet):
+
 ```bash
-cd "$(git rev-parse --show-toplevel)"
-git status --porcelain
+cd ".worktrees/$BRANCH_NAME"
+IMPL_SHA=$(git rev-parse HEAD)
 ```
 
-If uncommitted files exist, assess and handle them before merging:
-- **Known artifacts** (e.g., `.compare-branch/claude-launcher-*.mjs`): Delete them
-- **Legitimate uncommitted work**: Stash and restore after merge
-- **Potential conflicts with incoming changes**: Resolve before proceeding
-
-Then merge:
-```bash
-git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
-
-Issue: [ISSUE_ID]
-Title: [TITLE]"
-MERGE_SHA=$(git rev-parse HEAD)
-```
-
-**If merge conflict occurs:**
-1. Abort merge on [BASE_BRANCH]: `git merge --abort`
-2. Attempt resolution in worktree via rebase
-3. If unresolvable, switch to `<error-recovery-protocol>`
-
-### Step 3.2: Clean Up Worktree
-After successful merge, remove the worktree and branch:
-```bash
-remove-instant-worktree "$BRANCH_NAME"
-```
-
-### Step 3.3: Post Completion Comment
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Complete\n\n[Summary of changes]\n\n### Files Modified\n- [list of files]\n\n### Testing\n- [test results]\n\nReady for review.",
+  "body": "## Implementation Ready for Review\n\n[Summary of changes]\n\n### Files Modified\n- [list of files]\n\n### Testing\n- [test results]\n\nAwaiting approval to merge.",
   "author": "agent",
-  "commitSha": "[MERGE_SHA]",
+  "commitSha": "[IMPL_SHA]",
   "codeReferences": [/* all modified files with line ranges */]
 }
 ```
 
-### Step 3.4: Update Status
-
-**IMPORTANT:** Always set status to `needs_review`, NOT `done`. Only the user marks issues as done.
-
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "needs_review",
-  "commitSha": "[MERGE_SHA]"
+  "status": "needs_review"
 }
+```
+
+**STOP here.** The merge will occur after user approval via the `issue-merge-approved` skill.
+
+---
+
+**If [REVIEW_REQUIRED] is false:**
+
+Load the `claude-code-cli:issue-merge-approved` skill to merge the implementation:
+
+```xml
+<invoke name="Skill">
+<parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+</invoke>
 ```
 
 </instructions>

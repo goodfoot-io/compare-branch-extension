@@ -7,9 +7,11 @@ description: Fix testable bugs using test-first methodology in an isolated workt
 Extract from issue data:
 
 **Required Fields:**
+- [ISSUE_ID] = The issue's unique identifier (`id`)
 - [TITLE] = The issue title (`title`)
 - [DESCRIPTION] = The issue description with requirements (`description`)
 - [COMMENTS] = Array of comments with author, body, timestamps (`comments`)
+- [REVIEW_REQUIRED] = Whether merge approval is needed (`review` field, default: false)
 
 **Derived Fields:**
 - [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
@@ -418,58 +420,46 @@ Generated with Claude Code"
 fi
 ```
 
-### Step 5.2: Merge Back to Main
+### Step 5.2: Check Review Requirement
 
-First, return to the main workspace and check for uncommitted files:
-```bash
-cd "$(git rev-parse --show-toplevel)"
-git status --porcelain
-```
+**If [REVIEW_REQUIRED] is true:**
 
-If uncommitted files exist, assess and handle them before merging:
-- **Known artifacts** (e.g., `.compare-branch/claude-launcher-*.mjs`): Delete them
-- **Legitimate uncommitted work**: Stash and restore after merge
-- **Potential conflicts with incoming changes**: Resolve before proceeding
-
-Then merge:
-```bash
-git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
-
-Issue: [ISSUE_ID]
-Title: [TITLE]"
-```
-
-**If merge conflict:**
-1. Abort merge: `git merge --abort`
-2. Attempt resolution via rebase in worktree
-3. If unresolvable: execute `claude-code-cli:issue-error-recovery`
-
-### Step 5.3: Clean Up Worktree
+Post bug fix summary for user review (do NOT merge yet):
 
 ```bash
-FINAL_SHA=$(remove-instant-worktree "$BRANCH_NAME")
+cd ".worktrees/$BRANCH_NAME"
+IMPL_SHA=$(git rev-parse HEAD)
 ```
-
-### Step 5.4: Post Completion Comment
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Bug Fix Complete\n\n### Bug\n[BUG_DESCRIPTION]\n\n### Reproduction Test\n- File: `[TEST_FILE_PATH]`\n- Verified: failed before fix, passes after\n\n### Fix\n- Files modified: [list from git diff]\n- Approach: [RESOLVER_REASONING]\n\n### Validation\n- Reproduction test: Passes\n- Full test suite: All pass\n\nReady for review.",
+  "body": "## Bug Fix Ready for Review\n\n### Bug\n[BUG_DESCRIPTION]\n\n### Reproduction Test\n- File: `[TEST_FILE_PATH]`\n- Verified: failed before fix, passes after\n\n### Fix\n- Files modified: [list from git diff]\n- Approach: [RESOLVER_REASONING]\n\n### Validation\n- Reproduction test: Passes\n- Full test suite: All pass\n\nAwaiting approval to merge.",
   "author": "agent",
-  "commitSha": "[FINAL_SHA]",
+  "commitSha": "[IMPL_SHA]",
   "codeReferences": [/* test file + all modified source files */]
 }
 ```
 
-### Step 5.5: Update Status
-
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "needs_review",
-  "commitSha": "[FINAL_SHA]"
+  "status": "needs_review"
 }
+```
+
+**STOP here.** The merge will occur after user approval via the `issue-merge-approved` skill.
+
+---
+
+**If [REVIEW_REQUIRED] is false:**
+
+Load the `claude-code-cli:issue-merge-approved` skill to merge the bug fix:
+
+```xml
+<invoke name="Skill">
+<parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+</invoke>
 ```
 
 </instructions>
