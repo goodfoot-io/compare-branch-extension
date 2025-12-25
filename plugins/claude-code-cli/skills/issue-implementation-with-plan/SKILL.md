@@ -224,11 +224,26 @@ POST /issues/[ISSUE_ID]/comments
 | Todos share context—understanding one helps others | Each todo needs independent investigation |
 | Changes in related files/patterns | Changes span unrelated subsystems |
 
-**Coherent issues** → Load skill directly (preserves context, avoids coordination overhead):
+**Coherent issues** → Invoke single agent for all todos (preserves shared context):
 
 ```xml
-<invoke name="Skill">
-<parameter name="skill">claude-code-cli:implement</parameter>
+<invoke name="Task">
+<parameter name="description">Implement [TITLE] (all todos)</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">
+Issue: [ISSUE_ID] - [TITLE]
+Worktree: [WORKTREE_PATH]
+
+## Setup
+1. Read the issue via `GET /issues/[ISSUE_ID]`
+2. Extract `planContent` field for implementation details and todos
+3. Extract `description` field for requirements context
+
+## Checkpoint Reference
+Task checkpoint SHA: [TASK_CHECKPOINT]
+
+Complete all todos in sequence, committing after each logical unit.
+</parameter>
 </invoke>
 ```
 
@@ -248,12 +263,6 @@ Worktree: [WORKTREE_PATH]
 
 ## Checkpoint Reference
 Task checkpoint SHA: [TASK_CHECKPOINT]
-
-## Validation Requirement (ZERO-TOLERANCE)
-ANY test failure = task fails. No exceptions.
-Run ALL validation commands from the plan's Validation Commands section.
-If no Validation Commands in plan: run typecheck, test, AND lint.
-Required: ZERO errors from ALL validation commands.
 
 This completes todo: [current todo description]
 </parameter>
