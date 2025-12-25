@@ -21,6 +21,7 @@ If a user asks a question in an issue, answer then change the issue status to `n
 Statuses:
 - **in_progress**: You, Claude, are actively working on this issue.
 - **todo**: This issue is ready for implementation.
+- **needs_approval**: This issue has a plan that awaits user approval before implementation.
 - **needs_review**: This issue is awaiting feedback from the user.
 - **done**: The issue is complete and needs no additional review.
 - **backlog**: The issue is still under consideration. Do not modify or work on issues in the backlog.
@@ -94,7 +95,7 @@ interface CreateIssueRequest {
 // PATCH /issues/{id}
 interface UpdateIssueRequest {
   title?: string;
-  status?: 'in_progress' | 'todo' | 'needs_review' | 'done' | 'backlog';
+  status?: 'in_progress' | 'todo' | 'needs_approval' | 'needs_review' | 'done' | 'backlog';
   order?: number;
   needsAgentAttention?: boolean;
   commitSha?: string;  // Git SHA (40-char) when starting work
