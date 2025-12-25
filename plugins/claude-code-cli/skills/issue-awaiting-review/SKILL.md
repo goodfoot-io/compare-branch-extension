@@ -7,8 +7,6 @@ description: Await user review when no feedback provided yet. Use when [STATUS] 
 
 ## Phase 1: Handle Awaiting Review
 
-Use when [STATUS] is "needs_review" but [LATEST_USER_COMMENT] is null. The agent completed work and awaits first human review.
-
 ### Step 1.1: Verify State
 
 Confirm that:

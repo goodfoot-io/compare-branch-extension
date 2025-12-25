@@ -3,16 +3,11 @@ name: issue-implementation
 description: Implement issue work in an isolated git worktree for code, research, analysis, or documentation.
 ---
 
-<input-format>
+<placeholder-variables>
 
-**From Issue Data:**
-- [TITLE] — Issue title (`title`)
-- [DESCRIPTION] — Requirements description (`description`)
-
-**Derived:**
 - [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 
-</input-format>
+</placeholder-variables>
 
 <tools>
 

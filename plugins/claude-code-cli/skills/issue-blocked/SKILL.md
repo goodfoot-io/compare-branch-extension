@@ -3,13 +3,12 @@ name: issue-blocked
 description: Handle blocked issues by identifying and reporting blockers. Use when [IS_BLOCKED] is true.
 ---
 
-<input-format>
+<placeholder-variables>
 
-**Derived:**
 - [BLOCKER_REASON] — Extracted from tags/comments ("blocked by", "waiting on", "depends on")
 - [BLOCKING_ISSUE_ID] — Referenced issue ID, if applicable
 
-</input-format>
+</placeholder-variables>
 
 <tools>
 

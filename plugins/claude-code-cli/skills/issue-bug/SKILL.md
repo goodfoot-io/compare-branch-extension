@@ -3,18 +3,12 @@ name: issue-bug
 description: Fix testable bugs using test-first methodology in an isolated worktree. Creates reproduction test that must fail, then fixes source code while tracking any test modifications.
 ---
 
-<input-format>
+<placeholder-variables>
 
-**From Issue Data:**
-- [TITLE] — Issue title (`title`)
-- [DESCRIPTION] — Bug description with requirements (`description`)
-- [COMMENTS] — Array of comments (`comments`)
-
-**Derived:**
 - [FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
 - [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 
-</input-format>
+</placeholder-variables>
 
 <tools>
 

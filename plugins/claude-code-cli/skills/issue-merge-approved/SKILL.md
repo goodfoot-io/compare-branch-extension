@@ -3,7 +3,7 @@ name: issue-merge-approved
 description: Merge completed implementation from worktree to main branch. Used when review is approved or when review is not required.
 ---
 
-<input-format>
+<placeholder-variables>
 Extract from issue data:
 
 **Required Fields:**
@@ -12,7 +12,7 @@ Extract from issue data:
 
 **Derived Fields:**
 - [WORKTREE_PATH] = `.worktrees/[BRANCH_NAME]`
-</input-format>
+</placeholder-variables>
 
 <tools>
 

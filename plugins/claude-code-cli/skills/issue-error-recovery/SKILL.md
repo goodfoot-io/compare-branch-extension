@@ -3,11 +3,11 @@ name: issue-error-recovery
 description: Recover from errors during any protocol execution. Use when errors occur during other protocols.
 ---
 
-<input-format>
+<placeholder-variables>
 
 - [BASE_BRANCH] — The branch from which the worktree was created (typically `main`)
 
-</input-format>
+</placeholder-variables>
 
 <instructions>
 

@@ -3,13 +3,13 @@ name: issue-status-recovery
 description: Reconcile inconsistent issue state when [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
 ---
 
-<input-format>
+<placeholder-variables>
 
 **Derived from Comments (search all comments, case-insensitive):**
 - [HAS_COMPLETION_COMMENT] — True if any comment contains "Implementation Complete", "Ready for review", "Bug Fix Complete", OR has a `commitSha` field
 - [COMPLETION_EVIDENCE] — First matched phrase or commitSha (chronological order)
 
-</input-format>
+</placeholder-variables>
 
 <instructions>
 

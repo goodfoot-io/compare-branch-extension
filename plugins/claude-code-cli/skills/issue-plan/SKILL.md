@@ -3,7 +3,7 @@ name: issue-plan
 description: Create and submit implementation plans with dual assessment. Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false.
 ---
 
-<input-format>
+<placeholder-variables>
 Extract from issue data:
 
 **Derived Fields:**
@@ -11,7 +11,7 @@ Extract from issue data:
 - [PLAN_CONTENT] = The plan markdown content from `planContent` field (string or null if not set)
 
 Note: [ISSUE_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
-</input-format>
+</placeholder-variables>
 
 <instructions>
 

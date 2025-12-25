@@ -3,16 +3,11 @@ name: issue-implementation-with-plan
 description: Implement approved plans using specialized agents in an isolated worktree.
 ---
 
-<input-format>
+<placeholder-variables>
 
-**From Issue Data:**
-- [TITLE] — Issue title (`title`)
-- [DESCRIPTION] — Requirements description (`description`)
-
-**Derived:**
 - [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 
-</input-format>
+</placeholder-variables>
 
 <orchestrator-constraints>
 The orchestrator coordinates—it does NOT implement code.
