@@ -4,34 +4,29 @@ description: Reconcile inconsistent issue state when [STATUS] is "in_progress" b
 ---
 
 <placeholder-variables>
-
-**Derived from Comments (search all comments, case-insensitive):**
-- [HAS_COMPLETION_COMMENT] — True if any comment contains "Implementation Complete", "Ready for review", "Bug Fix Complete", OR has a `commitSha` field
-- [COMPLETION_EVIDENCE] — First matched phrase or commitSha (chronological order)
-
+[HAS_COMPLETION_COMMENT] — True if any comment contains "Implementation Complete", "Ready for review", "Bug Fix Complete", OR has a `commitSha` field (derived from comments, search all comments, case-insensitive)
+[COMPLETION_EVIDENCE] — First matched phrase or commitSha in chronological order
 </placeholder-variables>
 
 <instructions>
 
-# Status Reconciliation
+## 1. Precondition
 
 Resolves state where [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
 
-## Precondition
-
-**STOP** if any of:
+**STOP** — Do not proceed if any of the following are true:
 - [STATUS] != "in_progress"
 - [IS_RESUMABLE] == true
 - [STATUS] is already "needs_review" or "todo" (already reconciled)
 
-## Route by Completion Evidence
+## 2. Route by Completion Evidence
 
 | Condition | Interpretation | Action |
 |-----------|----------------|--------|
-| [HAS_COMPLETION_COMMENT] | Work completed, status stale | **Recover** |
-| NOT [HAS_COMPLETION_COMMENT] | Status set prematurely | **Reset** |
+| [HAS_COMPLETION_COMMENT] | Work completed, status stale | Go to Step 3 |
+| NOT [HAS_COMPLETION_COMMENT] | Status set prematurely | Go to Step 4 |
 
-## Recover
+## 3. Recover
 
 1. Post recovery comment:
    ```
@@ -50,7 +45,7 @@ Resolves state where [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
 
 **STOP** — Do not re-implement. Work is already complete.
 
-## Reset
+## 4. Reset
 
 1. Post clarification comment:
    ```

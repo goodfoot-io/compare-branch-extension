@@ -4,9 +4,7 @@ description: Implement issue work in an isolated git worktree for code, research
 ---
 
 <placeholder-variables>
-
-- [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-
+[BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 </placeholder-variables>
 
 <tools>
@@ -59,7 +57,9 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    ```
    ```
    PATCH /issues/[ISSUE_ID]
-   { "commitSha": "${CURRENT_SHA}" }
+   {
+     "commitSha": "${CURRENT_SHA}"
+   }
    ```
 
 2. Create checkpoint (skip if [HAS_MODIFICATION_REQUEST]):
@@ -102,7 +102,13 @@ POST /issues/[ISSUE_ID]/comments
   "body": "## Implementation Complete\n\n[Summary]\n\n### Testing\n- [results]",
   "author": "agent",
   "commitSha": "${git rev-parse HEAD}",
-  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
+  "codeReferences": [
+    {
+      "path": "[file]",
+      "startLine": [n],
+      "endLine": [n]
+    }
+  ]
 }
 ```
 
@@ -116,12 +122,20 @@ POST /issues/[ISSUE_ID]/comments
   "body": "## Implementation Ready for Review\n\n[Summary]\n\n### Files Modified\n- [files]\n\n### Testing\n- [results]\n\nAwaiting approval.",
   "author": "agent",
   "commitSha": "${git rev-parse HEAD}",
-  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
+  "codeReferences": [
+    {
+      "path": "[file]",
+      "startLine": [n],
+      "endLine": [n]
+    }
+  ]
 }
 ```
 ```
 PATCH /issues/[ISSUE_ID]
-{ "status": "needs_review" }
+{
+  "status": "needs_review"
+}
 ```
 
 Stop here. Merge occurs via `issue-merge-approved` skill after user approval.

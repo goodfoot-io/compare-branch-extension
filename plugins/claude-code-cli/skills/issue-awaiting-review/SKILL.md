@@ -5,16 +5,14 @@ description: Await user review when no feedback provided yet. Use when [STATUS] 
 
 <instructions>
 
-## Phase 1: Handle Awaiting Review
-
-### Step 1.1: Verify State
+## 1. Verify State
 
 Confirm that:
 - A completion comment exists from the agent
 - No user feedback has been provided yet
 - This is not an error state
 
-### Step 1.2: Clear Attention Flag
+## 2. Clear Attention Flag
 
 The system may have flagged this issue for attention despite no user feedback. Clear the flag to prevent repeated no-op invocations:
 

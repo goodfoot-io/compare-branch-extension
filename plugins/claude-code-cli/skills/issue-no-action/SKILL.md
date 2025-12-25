@@ -7,7 +7,7 @@ description: Take no action when no agent work is required. Use for "done" issue
 
 Clear agent attention flag for completed or unroutable issues.
 
-## Steps
+## 1. Steps
 
 1. **Acknowledge** (only if user comment directly addresses the agent without requesting action):
    Skip for thank-you messages, status updates, or informational notes.

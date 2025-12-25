@@ -34,6 +34,6 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-**STOP** — The question has been answered. Do not proceed to implementation. If the user has follow-up questions or requests implementation, the system will re-invoke with updated issue data.
+**STOP** — Question answered; do not proceed to implementation
 
 </instructions>

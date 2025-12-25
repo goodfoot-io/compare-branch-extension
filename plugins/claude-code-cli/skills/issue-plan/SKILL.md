@@ -4,22 +4,17 @@ description: Create and submit implementation plans with dual assessment. Use wh
 ---
 
 <placeholder-variables>
-Extract from issue data:
-
-**Derived Fields:**
-- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
-- [PLAN_CONTENT] = The plan markdown content from `planContent` field (string or null if not set)
+[LATEST_USER_COMMENT] — Most recent comment from `author: "user"` (if any)
+[PLAN_CONTENT] — The plan markdown content from `planContent` field (string or null if not set)
 
 Note: [ISSUE_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
 </placeholder-variables>
 
 <instructions>
 
-# Plan Creation Skill
-
 Create implementation plans for issues requiring user approval before coding begins. Do NOT create worktrees or make code changes—plans must be approved before any implementation begins.
 
-## Entry Check
+## 1. Entry Check
 
 Evaluate conditions in order. "Previous plan" = [PLAN_CONTENT] is not null. "Already submitted" = agent comment exists containing "## Implementation Plan".
 
@@ -31,7 +26,7 @@ Evaluate conditions in order. "Previous plan" = [PLAN_CONTENT] is not null. "Alr
 | Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous | Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset. |
 | No previous plan | Create new plan. Start at step 1. |
 
-## Classifying User Feedback
+## 2. Classifying User Feedback
 
 **Default: When intent is unclear, treat as revision request.**
 
@@ -49,19 +44,19 @@ These signals mean stay in this skill and revise:
 - Alternative proposals: "Why not use X instead?"
 </revision-signals>
 
-## Workflow
+## 3. Workflow
 
-### 1. Load Plan Skill
+### 3.1 Load Plan Skill
 
 Invoke `claude-code-cli:plan` for structure requirements and examples.
 
-### 2. Research
+### 3.2 Research
 
 - Read relevant files in the codebase (track paths for `codeReferences` in step 6)
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 
-### 3. Draft Plan
+### 3.3 Draft Plan
 
 Include:
 - Objective and scope
@@ -73,12 +68,14 @@ Include:
 
 For revisions: Add a "## Changes from Previous Version" section listing each modification.
 
-### 4. Store and Assess
+### 3.4 Store and Assess
 
 First, store the drafted plan:
-```http
+```
 PATCH /issues/[ISSUE_ID]
-{ "planContent": "[drafted plan markdown]" }
+{
+  "planContent": "[drafted plan markdown]"
+}
 ```
 
 Then launch both assessments in parallel (one message):
@@ -102,7 +99,7 @@ Description: [DESCRIPTION]</parameter>
 </invoke>
 ```
 
-### 5. Address Findings
+### 3.5 Address Findings
 
 Review both assessment reports. If CRITICAL or HIGH priority issues exist:
 1. Revise the plan to address findings
@@ -110,9 +107,9 @@ Review both assessment reports. If CRITICAL or HIGH priority issues exist:
 3. Re-run step 4 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed)
 4. Document changes and decisions in the plan
 
-### 6. Submit for Approval
+### 3.6 Submit for Approval
 
-```http
+```
 POST /issues/[ISSUE_ID]/comments
 {
   "body": "## Implementation Plan\n\n[detailed plan]\n\n---\n**Please review and approve this plan before I proceed with implementation.**",
@@ -121,15 +118,16 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-```http
+```
 PATCH /issues/[ISSUE_ID]
-{ "status": "needs_approval" }
+{
+  "status": "needs_approval"
+}
 ```
 
-### 7. Wait
+### 3.7 Wait
 
-**STOP execution.** Output:
-> "Plan submitted for review. Awaiting your approval or feedback."
+**STOP** — Plan submitted for review. Awaiting your approval or feedback.
 
 The orchestration layer will re-invoke when user responds:
 - Approval → routes to `claude-code-cli:issue-implementation`

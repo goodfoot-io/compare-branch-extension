@@ -4,10 +4,8 @@ description: Fix testable bugs using test-first methodology in an isolated workt
 ---
 
 <placeholder-variables>
-
-- [FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
-- [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-
+[FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
+[BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 </placeholder-variables>
 
 <tools>
@@ -22,17 +20,15 @@ Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates new branch if needed, or
 
 </tools>
 
-<test-first-invariant>
+<instructions>
+
+## Test-First Invariant
 
 This skill enforces strict test-first verification:
 
 1. Reproduction test MUST fail before fix
 2. Any test modification during resolution requires re-validation
 3. Test MUST pass after fix
-
-</test-first-invariant>
-
-<instructions>
 
 ## 1. Prepare Environment
 
@@ -72,29 +68,35 @@ Then follow Resume steps above.
 
 ### New
 
-1. Record start:
-   ```bash
-   CURRENT_SHA=$(git rev-parse HEAD)
-   ```
-   ```
-   PATCH /issues/[ISSUE_ID]
-   { "commitSha": "${CURRENT_SHA}" }
-   ```
+Record start:
 
-2. Create checkpoint (empty commit—don't stage files):
-   ```bash
-   git commit --allow-empty -m "checkpoint: [ISSUE_ID] before bug fix
+```bash
+CURRENT_SHA=$(git rev-parse HEAD)
+```
 
-   Issue: [ISSUE_ID]
-   Title: [TITLE]"
-   ```
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "commitSha": "${CURRENT_SHA}"
+}
+```
 
-3. Create worktree:
-   ```bash
-   instant-worktree "[BRANCH_NAME]"
-   cd ".worktrees/[BRANCH_NAME]"
-   WORKTREE_BASELINE=$(git rev-parse HEAD)
-   ```
+Create checkpoint (empty commit—don't stage files):
+
+```bash
+git commit --allow-empty -m "checkpoint: [ISSUE_ID] before bug fix
+
+Issue: [ISSUE_ID]
+Title: [TITLE]"
+```
+
+Create worktree:
+
+```bash
+instant-worktree "[BRANCH_NAME]"
+cd ".worktrees/[BRANCH_NAME]"
+WORKTREE_BASELINE=$(git rev-parse HEAD)
+```
 
 ## 2. Create Reproduction Test
 
@@ -103,6 +105,7 @@ Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
 ### Prepare Context
 
 Extract from [DESCRIPTION] and [COMMENTS]:
+
 - BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
 - Error messages / stack traces (verbatim)
 - SCOPE_HINT — Files, packages, or functions mentioned
@@ -180,9 +183,11 @@ TEST_EXIT_CODE=$?
 ### Outcomes
 
 **BLOCKED or CANNOT_COMPLETE:**
-- Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
+
+Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
 
 **Test FAILS (expected):**
+
 - Commit: `git add -A && git commit -m "test: add reproduction test for [ISSUE_ID]"`
 - Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
 - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
@@ -190,6 +195,7 @@ TEST_EXIT_CODE=$?
 - Proceed to **3. Resolve Bug**
 
 **Test PASSES (unexpected):**
+
 - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
 - Revert: `git checkout "$WORKTREE_BASELINE" -- . && git clean -fd`
 - If REPRODUCTION_ATTEMPT < 3: Return to **Delegate to Subagent**
@@ -259,9 +265,11 @@ SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 ### Outcomes
 
 **BLOCKED or CANNOT_COMPLETE:**
-- Post comment with reasoning, set `needs_review`, **STOP**
+
+Post comment with reasoning, set `needs_review`, **STOP**
 
 **Test modified:**
+
 1. Increment TEST_CORRECTION_COUNT
 2. If TEST_CORRECTION_COUNT > 2: Post comment, set `needs_review`, **STOP**
 3. Revert source changes if any: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
@@ -270,6 +278,7 @@ SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 6. **If PASSES (invalid):** Revert test, retry if < 3 attempts, else `needs_review` and **STOP**
 
 **Only source changed:**
+
 1. Stage: `git add -A`
 2. Run test: `yarn test "$TEST_FILE_PATH"`
 3. **If PASSES:** Proceed to **4. Validate Full Suite**
@@ -310,30 +319,46 @@ fi
 ### Complete
 
 **If [REVIEW_REQUIRED]:**
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
   "body": "## Bug Fix Ready for Review\n\n### Bug\n${BUG_DESCRIPTION}\n\n### Fix\n${RESOLVER_REASONING}\n\n### Validation\n- Reproduction test: Passes\n- Full suite: All pass\n\nAwaiting approval.",
   "author": "agent",
   "commitSha": "$(git rev-parse HEAD)",
-  "codeReferences": [{"path": "${TEST_FILE_PATH}"}]
+  "codeReferences": [
+    {
+      "path": "${TEST_FILE_PATH}"
+    }
+  ]
 }
-
-PATCH /issues/[ISSUE_ID]
-{ "status": "needs_review" }
 ```
-Stop. Merge via `issue-merge-approved` skill after approval.
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "status": "needs_review"
+}
+```
+
+**STOP** — Merge via `issue-merge-approved` skill after approval.
 
 **If NOT [REVIEW_REQUIRED]:**
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
   "body": "## Bug Fix Complete\n\n### Bug\n${BUG_DESCRIPTION}\n\n### Fix\n${RESOLVER_REASONING}\n\n### Validation\n- Reproduction test: Passes\n- Full suite: All pass",
   "author": "agent",
   "commitSha": "$(git rev-parse HEAD)",
-  "codeReferences": [{"path": "${TEST_FILE_PATH}"}]
+  "codeReferences": [
+    {
+      "path": "${TEST_FILE_PATH}"
+    }
+  ]
 }
 ```
+
 ```xml
 <invoke name="Skill">
 <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>

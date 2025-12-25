@@ -10,7 +10,7 @@ description: Reopen completed issues for additional work. Use when [STATUS] is "
 If [LATEST_USER_COMMENT] is empty or does not indicate what additional work is needed:
 - Post comment requesting clarification
 - Set status to `needs_review`
-- HALT
+- **STOP** — Issue requires user clarification on additional work needed
 
 ## 2. Update Status and Acknowledge
 

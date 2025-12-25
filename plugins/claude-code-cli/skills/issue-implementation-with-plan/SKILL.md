@@ -4,9 +4,7 @@ description: Implement approved plans using specialized agents in an isolated wo
 ---
 
 <placeholder-variables>
-
-- [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-
+[BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -56,7 +54,7 @@ Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn
 
 <instructions>
 
-## Phase 1: Prepare Environment
+## 1. Prepare Environment
 
 Determine path using the first matching condition:
 
@@ -73,7 +71,7 @@ cd ".worktrees/[BRANCH_NAME]"
 git stash --include-untracked
 ```
 
-Continue to Phase 2. Restore stash after todo initialization.
+Continue to Step 2. Restore stash after todo initialization.
 
 ### Recreate
 
@@ -82,7 +80,7 @@ instant-worktree "[BRANCH_NAME]"
 cd ".worktrees/[BRANCH_NAME]"
 ```
 
-Continue to Phase 2.
+Continue to Step 2.
 
 ### New
 
@@ -90,9 +88,11 @@ Continue to Phase 2.
    ```bash
    git rev-parse HEAD  # CURRENT_SHA
    ```
-   ```http
+   ```
    PATCH /issues/[ISSUE_ID]
-   { "commitSha": "[CURRENT_SHA]" }
+   {
+     "commitSha": "[CURRENT_SHA]"
+   }
    ```
 
 2. Create checkpoint on base branch:
@@ -102,9 +102,13 @@ Continue to Phase 2.
    Issue: [ISSUE_ID]
    Title: [TITLE]"
    ```
-   ```http
+   ```
    POST /issues/[ISSUE_ID]/comments
-   { "body": "Checkpoint: before implementation", "author": "agent", "commitSha": "[CHECKPOINT_SHA]" }
+   {
+     "body": "Checkpoint: before implementation",
+     "author": "agent",
+     "commitSha": "[CHECKPOINT_SHA]"
+   }
    ```
 
 3. Create worktree:
@@ -117,7 +121,7 @@ On worktree creation failure: post error to issue, set status `blocked`, HALT.
 
 ---
 
-## Phase 2: Execute Implementation
+## 2. Execute Implementation
 
 ### 2.1 Validate and Initialize
 
@@ -180,12 +184,12 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 
 **After all todos:**
 - ALL blocked → post summary, set status `blocked`, HALT
-- SOME blocked → note in summary, proceed to Phase 3
-- NONE blocked → proceed to Phase 3
+- SOME blocked → note in summary, proceed to Step 3
+- NONE blocked → proceed to Step 3
 
 ---
 
-## Phase 3: Refactor
+## 3. Refactor
 
 ### 3.1 Pre-Refactoring Checkpoint
 
@@ -231,13 +235,13 @@ Worktree: [WORKTREE_PATH]
 
 | Status | Action |
 |--------|--------|
-| COMPLETED | Commit with `refactor:` prefix, post to issue, proceed to Phase 4 |
-| NEEDS_REVIEW | Log recommendations, proceed to Phase 4 |
-| BLOCKED | Document reasons, proceed to Phase 4 |
+| COMPLETED | Commit with `refactor:` prefix, post to issue, proceed to Step 4 |
+| NEEDS_REVIEW | Log recommendations, proceed to Step 4 |
+| BLOCKED | Document reasons, proceed to Step 4 |
 
 ---
 
-## Phase 4: Evaluate Quality
+## 4. Evaluate Quality
 
 ### 4.1 Pre-Evaluation Checkpoint
 
@@ -271,29 +275,37 @@ Evaluate for production readiness.
 
 | Status | Action |
 |--------|--------|
-| PRODUCTION_READY | Post completion comment, proceed to Phase 5 |
+| PRODUCTION_READY | Post completion comment, proceed to Step 5 |
 | CONTINUE | Increment [EVALUATION_CYCLE]. If ≥2: set `needs_review`, HALT. Else: create todos (prefix "[Eval fix]"), return to 2.2. |
 | BLOCKED | Document issues, set `needs_review`, HALT |
 
 ---
 
-## Phase 5: Finalize
+## 5. Finalize
 
 ### If [REVIEW_REQUIRED]:
 
-```http
+```
 POST /issues/[ISSUE_ID]/comments
 {
   "body": "## Implementation Ready for Review\n\n[Summary]\n\n### Files Modified\n- [files]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations\n\nAwaiting approval.",
   "author": "agent",
   "commitSha": "[HEAD_SHA]",
-  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
+  "codeReferences": [
+    {
+      "path": "[file]",
+      "startLine": [n],
+      "endLine": [n]
+    }
+  ]
 }
 ```
 
-```http
+```
 PATCH /issues/[ISSUE_ID]
-{ "status": "needs_review" }
+{
+  "status": "needs_review"
+}
 ```
 
 Stop here. Merge occurs via `issue-merge-approved` skill after user approval.

@@ -4,9 +4,7 @@ description: Recover from errors during any protocol execution. Use when errors 
 ---
 
 <placeholder-variables>
-
-- [BASE_BRANCH] — The branch from which the worktree was created (typically `main`)
-
+[BASE_BRANCH] — The branch from which the worktree was created (typically `main`)
 </placeholder-variables>
 
 <instructions>

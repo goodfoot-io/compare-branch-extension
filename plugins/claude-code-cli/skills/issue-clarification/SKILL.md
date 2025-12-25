@@ -4,11 +4,8 @@ description: Request clarification when Definition of Ready is not met. Use when
 ---
 
 <placeholder-variables>
-Extract from issue data:
-
-**Required Fields:**
-- [DESCRIPTION] = The issue description with requirements (`description`)
-- [COMMENTS] = Array of comments with author, body, timestamps (`comments`)
+[DESCRIPTION] — The issue description with requirements (`description`)
+[COMMENTS] — Array of comments with author, body, timestamps (`comments`)
 </placeholder-variables>
 
 <instructions>
@@ -16,8 +13,8 @@ Extract from issue data:
 ## 1. Check for Existing Clarification
 
 If [COMMENTS] contains a "## Clarification Needed" comment:
-- If a later comment exists from a non-agent author → **STOP** (router will re-evaluate)
-- Otherwise → **STOP** (already waiting)
+- If a later comment exists from a non-agent author → **STOP** — Router will re-evaluate
+- Otherwise → **STOP** — Already waiting
 
 ## 2. Identify Missing Requirements
 
@@ -35,7 +32,7 @@ Mark as MISSING if not present or inferable from [DESCRIPTION] and [COMMENTS]:
 2. Look for similar implementations
 3. Check tests for expected behavior
 
-**If research resolves all gaps**: Post findings as a comment and **STOP** (router will route to implementation).
+**If research resolves all gaps**: Post findings as a comment and **STOP** — Router will route to implementation.
 
 **If gaps remain**: Note findings for clarification request.
 

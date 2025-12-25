@@ -4,10 +4,8 @@ description: Handle blocked issues by identifying and reporting blockers. Use wh
 ---
 
 <placeholder-variables>
-
-- [BLOCKER_REASON] — Extracted from tags/comments ("blocked by", "waiting on", "depends on")
-- [BLOCKING_ISSUE_ID] — Referenced issue ID, if applicable
-
+[BLOCKER_REASON] — Extracted from tags/comments ("blocked by", "waiting on", "depends on")
+[BLOCKING_ISSUE_ID] — Referenced issue ID, if applicable
 </placeholder-variables>
 
 <tools>
@@ -37,7 +35,8 @@ Search tags and comments for blocker keywords ("blocked by", "waiting on", "depe
 
 Skip if a "## Blocked" comment already exists with the same [BLOCKER_REASON].
 
-### Post comment
+### Post Comment
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
@@ -46,10 +45,13 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Update issue
+### Update Issue
+
 ```
 PATCH /issues/[ISSUE_ID]
-{ "needsAgentAttention": false }
+{
+  "needsAgentAttention": false
+}
 ```
 
 **STOP** — Do not proceed until the blocker is resolved and the "blocked" tag is removed. Skill routing will re-evaluate once the tag is removed.

@@ -4,14 +4,9 @@ description: Merge completed implementation from worktree to main branch. Used w
 ---
 
 <placeholder-variables>
-Extract from issue data:
-
-**Required Fields:**
-- [TITLE] = The issue title (`title`)
-- [BRANCH_NAME] = The worktree branch name (derived or from context)
-
-**Derived Fields:**
-- [WORKTREE_PATH] = `.worktrees/[BRANCH_NAME]`
+[TITLE] — The issue title
+[BRANCH_NAME] — The worktree branch name (derived or from context)
+[WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
 </placeholder-variables>
 
 <tools>
@@ -25,8 +20,6 @@ Removes a worktree and deletes its associated branch. Returns the branch's final
 </tools>
 
 <instructions>
-
-In bash commands, use `$VARIABLE` syntax for runtime variables. Placeholders like `[ISSUE_ID]` indicate values to substitute before execution.
 
 ## 1. Detect Branch Name
 
@@ -110,9 +103,11 @@ remove-instant-worktree "$BRANCH_NAME"
 
 Set status to `needs_review` so the user can verify the merge. Only the user marks issues as `done`.
 
-```http
+```
 PATCH /issues/[ISSUE_ID]
-{ "status": "needs_review" }
+{
+  "status": "needs_review"
+}
 ```
 
 </instructions>

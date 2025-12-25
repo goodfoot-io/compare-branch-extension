@@ -5,11 +5,11 @@ description: Respond to backlog issues with information only - no code changes, 
 
 <instructions>
 
-## Constraint
+## 1. Constraint
 
 Provide information only—no code changes, worktrees, or commits. If the issue contains implementation requests, explain that implementation requires moving the issue to "todo" status first.
 
-## 1. Determine Response
+## 2. Determine Response
 
 Evaluate conditions in order; use first match:
 
@@ -19,7 +19,7 @@ Evaluate conditions in order; use first match:
 | [HAS_PENDING_QUESTION] is true | Research codebase and answer the question |
 | No pending questions | Acknowledge the issue remains in backlog and will be addressed when prioritized |
 
-## 2. Post Comment
+## 3. Post Comment
 
 ```
 POST /issues/[ISSUE_ID]/comments
@@ -29,7 +29,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-## 3. Clear Attention Flag
+## 4. Clear Attention Flag
 
 After successfully posting the comment:
 
@@ -40,6 +40,6 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-</instructions>
-
 **STOP** — Do not proceed to implementation protocols.
+
+</instructions>
