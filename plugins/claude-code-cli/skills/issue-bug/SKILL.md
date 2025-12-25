@@ -91,23 +91,24 @@ WORKTREE_BASELINE=$(git rev-parse HEAD)
 
 ---
 
-## Phase 2: Create Reproduction Test
+## Phase 2: Subagent Creates Reproduction Test
 
-**Goal:** Create a minimal test that FAILS, demonstrating the bug.
+**Pattern:** Prepare context → Delegate to subagent → Validate output → Retry if needed
 
 Initialize: [REPRODUCTION_ATTEMPT] = 0 (max 3)
 
-### Step 2.1: Analyze Bug Description
+### Prepare Context
 
 Extract from [DESCRIPTION] and [COMMENTS]:
-- Expected behavior
-- Actual behavior
+- Expected vs actual behavior
 - Error messages / stack traces
 - Scope hints (files, packages, functions)
 
-### Step 2.2: Launch Test Creation Subagent
+### Subagent Task
 
 Increment [REPRODUCTION_ATTEMPT]
+
+Use the Task tool to delegate test creation:
 
 ```xml
 <invoke name="Task">
@@ -152,35 +153,36 @@ Previous test code (DO NOT repeat this approach):
 </invoke>
 ```
 
-### Step 2.3: Verify Test File Created and No Unexpected Changes
+### Validate Output
 
 **Trust git over subagent reports.**
 
+Verify test file exists:
 ```bash
-# Verify file was created
 if [ ! -f "[TEST_FILE_PATH]" ]; then
-  # Subagent claimed success but file missing
-  # Retry Step A.2 if attempts remain, else report error
+  # Subagent claimed success but file missing - retry if attempts remain
 fi
+```
 
-# Check for unexpected modifications to existing files
+Check for unexpected modifications:
+```bash
 MODIFIED_FILES=$(git diff "$WORKTREE_BASELINE" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
-  # Report unexpected modifications to user via comment
-  # Ask: "Were these changes expected? [Yes, proceed] / [No, revert them]"
+  # Ask user: "Were these changes expected? [Yes, proceed] / [No, revert them]"
   # If revert: git checkout "$WORKTREE_BASELINE" -- $MODIFIED_FILES
 fi
 ```
 
-### Step 2.4: Execute Test and Verify Failure
-
+Run test and verify it fails:
 ```bash
 git add "[TEST_FILE_PATH]"
 yarn test "[TEST_FILE_PATH]" 2>&1
 TEST_EXIT_CODE=$?
 ```
 
-**If test FAILS (exit code != 0):**
+### Outcomes
+
+**Test FAILS (expected):** Success path
 - Capture [TEST_FAILURE_OUTPUT]
 - Commit test:
   ```bash
@@ -202,32 +204,30 @@ TEST_EXIT_CODE=$?
   ```
 - Proceed to Phase 3
 
-**If test PASSES (unexpected):**
-- Read test file content
-- Analyze why it passes when it should fail
+**Test PASSES (unexpected):** Retry with feedback
+- Analyze why test passes when it should fail
 - Capture analysis as [TEST_PASS_ANALYSIS]
 - Revert to baseline:
   ```bash
   git checkout "$WORKTREE_BASELINE" -- .
   git clean -fd
   ```
-- **If [REPRODUCTION_ATTEMPT] < 3:** Return to Step 2.2 with [TEST_PASS_ANALYSIS]
-- **If [REPRODUCTION_ATTEMPT] >= 3:**
-  - Post comment asking user for guidance
-  - Set status to `needs_review`
-  - **STOP** - Leave worktree intact for manual investigation
+- **If [REPRODUCTION_ATTEMPT] < 3:** Return to "Subagent Task" with [TEST_PASS_ANALYSIS]
+- **If [REPRODUCTION_ATTEMPT] >= 3:** Post comment, set `needs_review`, **STOP**
 
 ---
 
-## Phase 3: Resolve Bug
+## Phase 3: Subagent Resolves Bug
 
-**Goal:** Fix source code so test passes. Test modifications are allowed but require re-validation.
+**Pattern:** Delegate fix → Validate output → Handle test modifications → Retry if needed
 
 Initialize: [RESOLVE_ATTEMPT] = 0 (max 3)
 
-### Step 3.1: Launch Bug Resolution Subagent
+### Subagent Task
 
 Increment [RESOLVE_ATTEMPT]
+
+Use the Task tool to delegate bug resolution:
 
 ```xml
 <invoke name="Task">
@@ -282,97 +282,75 @@ to fix the source code.
 
 Capture [RESOLVER_REASONING] from response.
 
-### Step 3.2: Detect Actual File Changes
+### Validate Output
 
 **Trust git over subagent reports.**
 
+Detect what actually changed:
 ```bash
-# What changed since test-ready checkpoint?
 ALL_CHANGES=$(git diff "$TEST_READY_SHA" --name-only)
 
-# Was test file modified?
 git diff --quiet "$TEST_READY_SHA" -- "[TEST_FILE_PATH]"
 TEST_FILE_MODIFIED=$?  # 0=unchanged, 1=modified
 
-# Source files changed (excluding test)
 SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v "[TEST_FILE_PATH]")
 ```
 
-### Step 3.3: Handle Based on What Changed
+### Outcomes
 
-**Case 1: BLOCKED or CANNOT_COMPLETE**
+**BLOCKED or CANNOT_COMPLETE:**
 - Post comment with reasoning
 - Set status to `needs_review`
 - **STOP** - Leave worktree intact
 
-**Case 2: Test was modified (TEST_FILE_MODIFIED = 1)**
+**Test was modified (TEST_FILE_MODIFIED = 1):**
 
-The resolver touched the test file. This requires validation.
+Subagent touched the test file—validate the correction before proceeding.
 
 ```bash
-# If resolver ALSO changed source files, revert source changes
-# (We need to validate test change in isolation first)
+# If subagent ALSO changed source files, revert them first
+# (validate test change in isolation)
 if [ -n "$SOURCE_CHANGES" ]; then
   git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES
 fi
 ```
 
-Go to Step 3.5 (Validate Test Correction)
-
-**Case 3: Only source changed (SUCCESS path)**
-
-Proceed to Step 3.4
-
-### Step 3.4: Validate Fix
-
-```bash
-yarn test "[TEST_FILE_PATH]" 2>&1
-FIX_TEST_EXIT_CODE=$?
-```
-
-**If test PASSES:** Proceed to Phase 4
-
-**If test FAILS:**
-- Capture new failure output
-- **If [RESOLVE_ATTEMPT] < 3:** Return to Step 3.1 with failure context
-- **If [RESOLVE_ATTEMPT] >= 3:**
-  - Post comment with failure details
-  - Set status to `needs_review`
-  - **STOP** - Leave worktree intact for manual intervention
-
-### Step 3.5: Validate Test Correction
-
-The resolver modified the test. Verify modified test STILL FAILS (still reproduces bug):
-
+Run test to verify it still fails (still reproduces bug):
 ```bash
 yarn test "[TEST_FILE_PATH]" 2>&1
 CORRECTED_TEST_EXIT_CODE=$?
 ```
 
-**If test FAILS (valid correction):**
-- Commit test correction:
-  ```bash
-  git add "[TEST_FILE_PATH]"
-  git commit -m "test: correct reproduction test for [ISSUE_ID]
+- **Test FAILS (valid correction):**
+  - Commit test correction:
+    ```bash
+    git add "[TEST_FILE_PATH]"
+    git commit -m "test: correct reproduction test for [ISSUE_ID]
 
-  Reason: [RESOLVER_REASONING]"
-  ```
-- Update checkpoint: `TEST_READY_SHA=$(git rev-parse HEAD)`
-- Capture new [TEST_FAILURE_OUTPUT]
-- **Reset [RESOLVE_ATTEMPT] = 0** (fresh attempts with corrected test)
-- Return to Step 3.1
+    Reason: [RESOLVER_REASONING]"
+    ```
+  - Update checkpoint: `TEST_READY_SHA=$(git rev-parse HEAD)`
+  - Capture new [TEST_FAILURE_OUTPUT]
+  - **Reset [RESOLVE_ATTEMPT] = 0** (fresh attempts with corrected test)
+  - Return to "Subagent Task"
 
-**If test PASSES (invalid correction):**
-- The test change made it pass without fixing the bug - invalid
-- Revert test:
-  ```bash
-  git checkout "$TEST_READY_SHA" -- "[TEST_FILE_PATH]"
-  ```
-- **If [RESOLVE_ATTEMPT] < 3:** Return to Step 3.1 with note about invalid test modification
-- **If [RESOLVE_ATTEMPT] >= 3:**
-  - Post comment explaining situation
-  - Set status to `needs_review`
-  - **STOP**
+- **Test PASSES (invalid correction):**
+  - Revert test: `git checkout "$TEST_READY_SHA" -- "[TEST_FILE_PATH]"`
+  - **If [RESOLVE_ATTEMPT] < 3:** Return to "Subagent Task" with note about invalid modification
+  - **If [RESOLVE_ATTEMPT] >= 3:** Post comment, set `needs_review`, **STOP**
+
+**Only source changed (SUCCESS path):**
+
+Run test to verify fix:
+```bash
+yarn test "[TEST_FILE_PATH]" 2>&1
+FIX_TEST_EXIT_CODE=$?
+```
+
+- **Test PASSES:** Proceed to Phase 4
+- **Test FAILS:**
+  - **If [RESOLVE_ATTEMPT] < 3:** Return to "Subagent Task" with failure context
+  - **If [RESOLVE_ATTEMPT] >= 3:** Post comment, set `needs_review`, **STOP**
 
 ---
 
