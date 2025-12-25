@@ -835,6 +835,10 @@ Good: Post meta-analysis as a separate comment; keep plan standalone
 11. **Standalone Plans**: Each plan comment must be self-contained and readable
     without context from other comments. No revision notes or conversational preamble.
 
+12. **No Backward Compatibility Shims**: Delete unused code completely.
+    Don't rename to `_unused`, re-export for compatibility, or add "removed" comments.
+    If something is no longer needed, remove it.
+
 The best plan answers "what" and "where" while leaving "how" to the implementer.
 </key-principles>
 

@@ -31,7 +31,7 @@ Apply experienced engineering perspective to plans before implementation, catchi
 
 **Earn Every Abstraction**: John Carmack observed that "it is hard for less experienced developers to appreciate how rarely architecting for future requirements turns out net-positive." Every abstraction, pattern, and feature must justify its existence with current requirements.
 
-**Prefer Reversible Decisions**: Jeff Bezos distinguishes one-way doors (irreversible, need careful deliberation) from two-way doors (reversible, can proceed quickly). Identify which decisions in the plan are which, and verify one-way doors receive appropriate scrutiny.
+**Prefer Reversible Decisions**: One-way doors—decisions where something outside your control depends on the outcome—need careful deliberation. Two-way doors—internal changes you can reverse without external impact—should proceed quickly. Focus scrutiny on external commitments, not implementation difficulty.
 
 **Duplication Over Wrong Abstraction**: Sandi Metz's insight that "duplication is far easier to maintain than the wrong abstraction" applies to plans. It's easier to abstract later when patterns emerge than to de-abstract a premature generalization that gets "littered with conditional logic."
 
@@ -163,22 +163,31 @@ High cohesion (elements focused on single purpose) and low coupling (modules can
 - *"What happens when dependency Y changes its interface?"*
 
 ### Principle 6: Design for Change
-*"If we're wrong about this decision, how painful is it to fix?"*
+*"Does this decision create commitments we cannot unilaterally reverse?"*
 
-Bezos: One-way doors need careful deliberation; two-way doors should be fast. Amazon "spent significant effort trying to turn every door into a two-way door." Plans should minimize irreversible commitments.
+One-way doors require careful deliberation because something outside your control depends on the decision. Two-way doors—where you can change course without external impact—should proceed quickly.
+
+**One-way doors (require scrutiny):**
+- Database schemas with production data
+- Public API contracts consumers depend on
+- Persisted data formats that existing records use
+- External service integrations with customers or partners
+- Security model changes affecting access control
+
+**Two-way doors (do not flag):**
+- Internal library replacements behind stable interfaces
+- Implementation refactoring that preserves input/output contracts
+- Tooling or dependency changes that don't affect artifacts
+- Internal API changes within your control
 
 **Manifestations to detect:**
-- Data model decisions that lock in structure prematurely
-- Configuration hardcoded when it should be flexible
-- One-way doors treated as two-way (insufficient deliberation)
-- Two-way doors treated as one-way (excessive deliberation)
-- No migration path from current to proposed state
-- External API contracts that can't be versioned
+- Persisted data structure decisions made without migration consideration
+- Public API contracts introduced without versioning strategy
+- External integration points that couple to implementation details
 
 **Key questions:**
-- *"If this assumption is wrong, what breaks and how far does it propagate?"*
-- *"Is this a one-way door or a two-way door?"*
-- *"How do we get from here to there without breaking things?"*
+- *"Who outside this codebase depends on this decision?"*
+- *"If we reverse this tomorrow, what breaks that we don't control?"*
 
 ### Principle 7: Design for Reality
 *"Systems fail; tests must be possible"*
@@ -227,7 +236,7 @@ Apply principles in this order, as earlier principles inform later ones:
 **Definitely Reconsider** (blocks implementation confidence):
 - Plan may solve the wrong problem
 - Fundamental approach is over-engineered for the actual need
-- One-way door decision made without apparent deliberation
+- External commitment (public API, persisted data, external integration) made without deliberation
 - Critical implicit assumptions that could cause implementation failure
 
 **Worth Discussing** (implementation could proceed, but risks exist):
