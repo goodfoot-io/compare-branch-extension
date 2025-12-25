@@ -31,7 +31,7 @@ remove-instant-worktree "branch-name"
 **Behavior:**
 - Removes the worktree at `.worktrees/[BRANCH_NAME]`
 - Deletes the local branch
-- Returns the commit SHA (not needed here since we use MERGE_SHA)
+- Returns the commit SHA (for reference; implementation SHA is already recorded)
 
 </tools>
 
@@ -62,27 +62,21 @@ If uncommitted files exist, handle them:
 ## Step 3: Merge Worktree Branch
 
 ```bash
+# Record pre-merge state for recovery
+PRE_MERGE_SHA=$(git rev-parse HEAD)
+
 git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
 
 Issue: [ISSUE_ID]
 Title: [TITLE]"
-MERGE_SHA=$(git rev-parse HEAD)
-```
-
-Post merge commit to issue:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Merged branch '$BRANCH_NAME' to main",
-  "author": "agent",
-  "commitSha": "[MERGE_SHA]"
-}
 ```
 
 **If merge conflict occurs:**
 1. Abort merge: `git merge --abort`
 2. Attempt resolution in worktree via rebase
-3. If unresolvable, post error comment and set status to `needs_review`
+3. If unresolvable:
+   - Restore main branch: `git reset --hard $PRE_MERGE_SHA`
+   - Post error comment and set status to `needs_review`
 
 ## Step 4: Clean Up Worktree
 
@@ -90,27 +84,14 @@ POST /issues/[ISSUE_ID]/comments
 remove-instant-worktree "$BRANCH_NAME"
 ```
 
-## Step 5: Post Completion Comment
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "## Implementation Complete\n\n[Summary of changes]\n\n### Files Modified\n- [list of files]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations\n\nReady for review.",
-  "author": "agent",
-  "commitSha": "[MERGE_SHA]",
-  "codeReferences": [/* all modified files with line ranges */]
-}
-```
-
-## Step 6: Update Status
+## Step 5: Update Status
 
 **IMPORTANT:** Always set status to `needs_review`, NOT `done`. Only the user marks issues as done.
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "needs_review",
-  "commitSha": "[MERGE_SHA]"
+  "status": "needs_review"
 }
 ```
 

@@ -414,9 +414,7 @@ Root cause: [RESOLVER_REASONING]
 
 Test: [TEST_FILE_PATH]
 - Reproduction test verifies the fix
-- Test failed before fix, passes after
-
-Generated with Claude Code"
+- Test failed before fix, passes after"
 fi
 ```
 
@@ -453,6 +451,23 @@ PATCH /issues/[ISSUE_ID]
 ---
 
 **If [REVIEW_REQUIRED] is false:**
+
+Post bug fix completion and merge:
+
+```bash
+cd ".worktrees/$BRANCH_NAME"
+IMPL_SHA=$(git rev-parse HEAD)
+```
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Bug Fix Complete\n\n### Bug\n[BUG_DESCRIPTION]\n\n### Reproduction Test\n- File: `[TEST_FILE_PATH]`\n- Verified: failed before fix, passes after\n\n### Fix\n- Approach: [RESOLVER_REASONING]\n\n### Validation\n- Reproduction test: Passes\n- Full test suite: All pass",
+  "author": "agent",
+  "commitSha": "[IMPL_SHA]",
+  "codeReferences": [/* test file + all modified source files */]
+}
+```
 
 Load the `claude-code-cli:issue-merge-approved` skill to merge the bug fix:
 

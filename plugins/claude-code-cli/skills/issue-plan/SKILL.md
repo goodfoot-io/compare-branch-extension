@@ -129,8 +129,6 @@ PATCH /issues/[ISSUE_ID]
 
 **STOP** — Wait for user approval via comment. Once approved, the system will re-invoke with [PLAN_APPROVED]=true, routing to `claude-code-cli:issue-implementation`.
 
-Note: `needs_approval` indicates a plan awaiting approval, while `needs_review` indicates implementation work awaiting review.
-
 If the user responds with changes or rejection, return to Step 1.1 and create a revised plan.
 
 </instructions>

@@ -457,7 +457,24 @@ Evaluate the implementation for production readiness.
 ### Step 4.3: Process Evaluation Result
 
 **PRODUCTION_READY** (all requirements met):
-- Proceed to Phase 5
+
+Capture final implementation SHA and post completion comment:
+```bash
+cd "$WORKTREE_PATH"
+FINAL_IMPL_SHA=$(git rev-parse HEAD)
+```
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Implementation Complete\n\n[Summary of all changes]\n\n### Quality Assessment\n[Key findings from evaluator]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations",
+  "author": "agent",
+  "commitSha": "[FINAL_IMPL_SHA]",
+  "codeReferences": [/* all modified files with line ranges */]
+}
+```
+
+Proceed to Phase 5.
 
 **CONTINUE** (fixable issues):
 1. Create todos for issues found

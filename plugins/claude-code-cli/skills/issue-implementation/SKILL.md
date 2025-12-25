@@ -135,9 +135,19 @@ git commit -m "[type]: [description]
 
 Issue: [ISSUE_ID]
 
-[Detailed description of changes]
+[Detailed description of changes]"
+IMPL_SHA=$(git rev-parse HEAD)
+```
 
-🤖 Generated with Claude Code"
+Post implementation commit to issue:
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Implementation Complete\n\n[Summary of changes]\n\n### Testing\n- [test results]",
+  "author": "agent",
+  "commitSha": "[IMPL_SHA]",
+  "codeReferences": [/* all modified files with line ranges */]
+}
 ```
 
 ## Phase 3: Integrate and Finalize
