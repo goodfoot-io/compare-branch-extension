@@ -215,9 +215,24 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-### Step 2.3: Delegate to Implementer Agent
+### Step 2.3: Delegate Implementation
 
-For each todo, delegate to the implementer agent:
+**Assess issue coherence to choose delegation approach:**
+
+| Coherent Issue | Fragmented Issue |
+|----------------|------------------|
+| Todos share context—understanding one helps others | Each todo needs independent investigation |
+| Changes in related files/patterns | Changes span unrelated subsystems |
+
+**Coherent issues** → Load skill directly (preserves context, avoids coordination overhead):
+
+```xml
+<invoke name="Skill">
+<parameter name="skill">claude-code-cli:implement</parameter>
+</invoke>
+```
+
+**Fragmented issues** → Invoke agent for each todo:
 
 ```xml
 <invoke name="Task">
