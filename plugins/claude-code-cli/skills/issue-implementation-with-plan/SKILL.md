@@ -4,352 +4,207 @@ description: Implement approved plans using specialized agents in an isolated wo
 ---
 
 <input-format>
-Extract from issue data:
 
-**Required Fields:**
-- [ISSUE_ID] = The issue's unique identifier
-- [TITLE] = The issue title (`title`)
-- [DESCRIPTION] = The issue description with requirements (`description`)
-- [PLAN_CONTENT] = The approved plan markdown from `planContent` field
-- [REVIEW_REQUIRED] = Whether merge approval is needed (`review` field, default: false)
+**From Issue Data:**
+- [TITLE] — Issue title (`title`)
+- [DESCRIPTION] — Requirements description (`description`)
 
-**Derived Fields:**
-- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
-- [FILES_TO_MODIFY] = Files referenced in [PLAN_CONTENT] or [DESCRIPTION]
-- [BRANCH_NAME] = Generated branch name: `issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]`
-- [IS_RESUMABLE] = Agent work indicators exist (checkpoints, worktree) AND no completion comment
+**Derived:**
+- [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+
 </input-format>
+
+<orchestrator-constraints>
+The orchestrator coordinates—it does NOT implement code.
+
+| Orchestrator handles directly | Agents handle via delegation |
+|------------------------------|------------------------------|
+| Syntax errors visible in output | Feature implementation |
+| Import corrections (e.g., missing .js) | Business logic changes |
+| Config file typos | Complex debugging |
+| Test setup/polyfills | Multi-file refactoring |
+| | Investigation tasks |
+| | Library integrations |
+| | API changes |
+
+Plan says "implement" → delegate to `claude-code-cli:implementer`.
+Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
+</orchestrator-constraints>
+
+<test-policy>
+Every test failure is a production failure. No exceptions.
+
+| Excuse | Reality |
+|--------|---------|
+| "Only the new test fails" | New test proves new code is broken |
+| "WebSocket/connection issue" | Production has same issue |
+| "Tests timeout" | Code has cleanup/leak problems |
+| "Unrelated tests fail" | Your changes broke something |
+| "Works locally" | Must work in CI too |
+| "Flaky test" | Race condition that crashes production |
+| "Pre-existing issue" | Must be fixed |
+
+**Acceptable state:** ALL tests pass, ZERO errors.
+</test-policy>
 
 <tools>
 
-## Worktree Management Tools
+**instant-worktree** — Creates git worktree with symlinked dependencies (~2 seconds).
 
-### instant-worktree
-
-Creates a git worktree with symlinked dependencies for fast setup (~2 seconds).
-
-**Usage:**
 ```bash
-instant-worktree "branch-name"
+instant-worktree "[BRANCH_NAME]"
 ```
 
-**Output:** Prints the created worktree path and branch name:
-```
-Created branch: branch-name
-Created worktree directory: .worktrees/branch-name
-```
-
-**Behavior:**
-- Creates worktree at `.worktrees/[BRANCH_NAME]`
-- Creates a new branch with the given name
-- Fails if branch already exists or worktree path is occupied
+Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn't exist, or attaches to an existing branch. Fails if worktree path is already occupied.
 
 </tools>
 
-<orchestrator-role>
-
-## Orchestrator Role
-
-CRITICAL: The orchestrator ONLY coordinates - it does NOT implement code directly.
-
-### Direct Fixes (Orchestrator handles)
-- Syntax errors visible in error output
-- Import statement corrections (e.g., missing .js extensions)
-- Config file typos
-- Test setup/polyfills
-
-### Delegated Tasks (Agents handle)
-- All feature implementation
-- Business logic changes
-- Complex debugging
-- Multi-file refactoring
-- Anything requiring investigation
-- Library integrations
-- API changes
-- Validation issues beyond trivial syntax errors
-
-### Golden Rule
-If the plan asks to implement something → Delegate to `claude-code-cli:implementer`
-Never use Read/Write/Edit/MultiEdit for feature implementation.
-Only use TodoWrite and Task tools for coordination.
-
-</orchestrator-role>
-
-<zero-tolerance-policy>
-
-## Zero-Tolerance Test Policy (NON-NEGOTIABLE)
-
-Every test failure is a production failure. No exceptions.
-
-### These rationalizations are NEVER acceptable:
-- "Only the new test is failing" → New test proves new code is broken
-- "It's a WebSocket/connection issue" → Production will have same issue
-- "Tests timeout in the environment" → Code has cleanup/leak problems
-- "Unrelated tests are failing" → Your changes broke something
-- "It works locally" → Must work in CI/test environment too
-- "The test is flaky" → Flaky = race condition that will crash production
-- "It's a pre-existing issue" → Pre-existing issues MUST be fixed
-
-### The only acceptable state: ALL tests pass, ZERO errors
-
-</zero-tolerance-policy>
-
 <instructions>
 
-## Phase 1: Prepare Implementation Environment
+## Phase 1: Prepare Environment
 
-### Step 1.1: Check for Existing Work (Resumption Detection)
+Determine path using the first matching condition:
 
-If [IS_RESUMABLE] is true (prior work exists without completion):
-1. Check if worktree exists:
+| Condition | Action |
+|-----------|--------|
+| [IS_RESUMABLE] AND worktree exists | **Resume**: Navigate to existing worktree |
+| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate**: Attach worktree to branch |
+| Otherwise | **New**: Create checkpoint and worktree |
+
+### Resume
+
+```bash
+cd ".worktrees/[BRANCH_NAME]"
+git stash --include-untracked
+```
+
+Continue to Phase 2. Restore stash after todo initialization.
+
+### Recreate
+
+```bash
+instant-worktree "[BRANCH_NAME]"
+cd ".worktrees/[BRANCH_NAME]"
+```
+
+Continue to Phase 2.
+
+### New
+
+1. Record start:
    ```bash
-   ls -d .worktrees/issue-[ISSUE_ID]-* 2>/dev/null
+   git rev-parse HEAD  # CURRENT_SHA
    ```
-2. If worktree exists:
-   - Navigate to it: `cd ".worktrees/$BRANCH_NAME"`
-   - Run `git status` to check for uncommitted changes
-   - If uncommitted changes exist, review and decide whether to commit or stash
-   - Skip to Phase 2 (Implementation)
-3. If worktree doesn't exist, check if branch exists:
+   ```http
+   PATCH /issues/[ISSUE_ID]
+   { "commitSha": "[CURRENT_SHA]" }
+   ```
+
+2. Create checkpoint on base branch:
    ```bash
-   git branch --list "$BRANCH_NAME"
+   git commit --allow-empty -m "checkpoint: [ISSUE_ID] before implementation
+
+   Issue: [ISSUE_ID]
+   Title: [TITLE]"
    ```
-   - If branch exists: Attach worktree to existing branch:
-     ```bash
-     git worktree add ".worktrees/$BRANCH_NAME" "$BRANCH_NAME"
-     ```
-   - If branch doesn't exist: Start fresh with Step 1.2.
+   ```http
+   POST /issues/[ISSUE_ID]/comments
+   { "body": "Checkpoint: before implementation", "author": "agent", "commitSha": "[CHECKPOINT_SHA]" }
+   ```
 
-If [IS_RESUMABLE] is false (new work), proceed to Step 1.2.
+3. Create worktree:
+   ```bash
+   instant-worktree "[BRANCH_NAME]"
+   cd ".worktrees/[BRANCH_NAME]"
+   ```
 
-### Step 1.2: Record Start of Work
+On worktree creation failure: post error to issue, set status `blocked`, HALT.
 
-Get current commit SHA and record it on the issue:
-```bash
-CURRENT_SHA=$(git rev-parse HEAD)
-```
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "commitSha": "[CURRENT_SHA]"
-}
-```
-
-### Step 1.3: Create Checkpoint Commit (New Work Only)
-
-**Skip this step if [IS_RESUMABLE] is true** — a checkpoint already exists.
-
-For new work only, create a checkpoint marker on the base branch:
-```bash
-git commit --allow-empty -m "checkpoint: [ISSUE_ID] before implementation
-
-Issue: [ISSUE_ID]
-Title: [TITLE]"
-CHECKPOINT_SHA=$(git rev-parse HEAD)
-```
-
-Post checkpoint to issue:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Checkpoint: before implementation",
-  "author": "agent",
-  "commitSha": "[CHECKPOINT_SHA]"
-}
-```
-
-### Step 1.4: Create Worktree
-
-Generate branch name and create isolated worktree:
-```bash
-# Branch format: issue-[escaped-issue-id]-[short-title-slug]
-# Replace colons and slashes with hyphens to avoid path issues
-BRANCH_NAME="issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]"
-
-# Create worktree
-instant-worktree "$BRANCH_NAME"
-
-# Store worktree path for agent prompts
-WORKTREE_PATH=".worktrees/$BRANCH_NAME"
-```
+---
 
 ## Phase 2: Execute Implementation
 
-### Step 2.1: Initialize Todo List
+### 2.1 Validate and Initialize
 
-Create todos from [PLAN_CONTENT] to track implementation progress:
+If [PLAN_CONTENT] is empty: post error comment, set status `blocked`, HALT.
 
-```xml
-<invoke name="TodoWrite">
-<parameter name="todos">
-[
-  {"content": "Implement [first plan objective]", "status": "pending", "activeForm": "Implementing [first objective]"},
-  {"content": "Implement [second plan objective]", "status": "pending", "activeForm": "Implementing [second objective]"},
-  ...
-]
-</parameter>
-</invoke>
-```
+Create todos from [PLAN_CONTENT] using TodoWrite. Initialize `[EVALUATION_CYCLE] = 0`.
 
-### Step 2.2: Create Task Checkpoint
+If resuming: `git stash pop` to restore prior work.
 
-Before each implementation task:
+### 2.2 Task Checkpoint
+
+Before each agent delegation:
+
 ```bash
-cd "$WORKTREE_PATH"
 git add -A
 git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION]
 
 Issue: [ISSUE_ID]
-Progress: [COMPLETED_COUNT] of [TOTAL_COUNT] tasks complete"
-TASK_CHECKPOINT=$(git rev-parse HEAD)
+Progress: [COMPLETED] of [TOTAL] tasks complete"
 ```
 
-Post checkpoint to issue:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Checkpoint: before [TASK_DESCRIPTION]\n\nProgress: [COMPLETED_COUNT] of [TOTAL_COUNT] tasks complete",
-  "author": "agent",
-  "commitSha": "[TASK_CHECKPOINT]"
-}
-```
+Post checkpoint to issue.
 
-### Step 2.3: Delegate Implementation
+### 2.3 Assess Coherence
 
-**Assess issue coherence to choose delegation approach:**
+| Issue Type | Characteristics | Delegation Strategy |
+|------------|-----------------|---------------------|
+| Coherent | Todos share context; related files/patterns | Single agent for all todos |
+| Fragmented | Independent investigation; unrelated subsystems | Separate agent per todo |
 
-| Coherent Issue | Fragmented Issue |
-|----------------|------------------|
-| Todos share context—understanding one helps others | Each todo needs independent investigation |
-| Changes in related files/patterns | Changes span unrelated subsystems |
-
-**Coherent issues** → Invoke single agent for all todos (preserves shared context):
+### 2.4 Delegate Implementation
 
 ```xml
 <invoke name="Task">
-<parameter name="description">Implement [TITLE] (all todos)</parameter>
+<parameter name="description">[Implement TITLE (all todos) | Current todo]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="prompt">
 Issue: [ISSUE_ID] - [TITLE]
 Worktree: [WORKTREE_PATH]
+Checkpoint SHA: [TASK_CHECKPOINT]
 
 ## Setup
-1. Read the issue via `GET /issues/[ISSUE_ID]`
-2. Extract `planContent` field for implementation details and todos
-3. Extract `description` field for requirements context
+1. Read issue via `GET /issues/[ISSUE_ID]`
+2. Extract `planContent` for implementation details
+3. Extract `description` for requirements context
 
-## Checkpoint Reference
-Task checkpoint SHA: [TASK_CHECKPOINT]
-
-Complete all todos in sequence, committing after each logical unit.
+[Coherent: Complete all todos in sequence, committing after each logical unit.]
+[Fragmented: Completes todo: [current todo description]]
 </parameter>
 </invoke>
 ```
 
-**Fragmented issues** → Invoke agent for each todo:
+### 2.5 Process Result
 
-```xml
-<invoke name="Task">
-<parameter name="description">[Task description from todo]</parameter>
-<parameter name="subagent_type">claude-code-cli:implementer</parameter>
-<parameter name="prompt">
-Issue: [ISSUE_ID] - [TITLE]
-Description: [DESCRIPTION]
-Worktree: [WORKTREE_PATH]
+| Status | Action |
+|--------|--------|
+| COMPLETED | Mark todo completed. Commit if changes exist. Post to issue. Continue. |
+| NEEDS_REVISION | Update todo with attempt count. Revert to checkpoint. Re-delegate (max 3). After 3: mark blocked. |
+| BLOCKED | Document in issue. Mark todo blocked. Continue. |
 
-## Implementation Objective
-[Specific feature or component to implement from current todo]
+**After all todos:**
+- ALL blocked → post summary, set status `blocked`, HALT
+- SOME blocked → note in summary, proceed to Phase 3
+- NONE blocked → proceed to Phase 3
 
-## Checkpoint Reference
-Task checkpoint SHA: [TASK_CHECKPOINT]
+---
 
-This completes todo: [current todo description]
-</parameter>
-</invoke>
-```
+## Phase 3: Refactor
 
-### Step 2.4: Process Implementation Result
-
-**Based on implementer status:**
-
-**COMPLETED** (all validations pass):
-1. Mark todo as completed
-2. Commit in worktree:
-   ```bash
-   cd "$WORKTREE_PATH"
-   git add -A
-   git commit -m "feat: [TASK_DESCRIPTION]
-
-   Issue: [ISSUE_ID]
-
-   [Summary from implementer report]"
-   IMPL_SHA=$(git rev-parse HEAD)
-   ```
-3. Post implementation commit to issue:
-   ```
-   POST /issues/[ISSUE_ID]/comments
-   {
-     "body": "Completed: [TASK_DESCRIPTION]\n\n[Summary from implementer report]",
-     "author": "agent",
-     "commitSha": "[IMPL_SHA]",
-     "codeReferences": [/* files modified in this task */]
-   }
-   ```
-4. Continue to next todo, or proceed to Phase 3 if all todos complete
-
-**NEEDS_REVISION** (validation failures):
-1. Update todo with failure context:
-   ```xml
-   <invoke name="TodoWrite">
-   <parameter name="todos">
-   [
-     {"content": "Original task [ATTEMPT 2 - Root cause: [summary]]", "status": "in_progress", "activeForm": "Retrying task"}
-   ]
-   </parameter>
-   </invoke>
-   ```
-2. Revert to checkpoint if needed:
-   ```bash
-   cd "$WORKTREE_PATH"
-   git reset --hard $TASK_CHECKPOINT
-   git clean -fd
-   ```
-3. Re-delegate with enhanced context (max 3 attempts)
-4. After 3 attempts, mark as blocked and continue to next todo
-
-**BLOCKED** (external dependency issue):
-1. Document blocking reason
-2. Continue to next todo if others exist
-3. If all remaining todos blocked, proceed to Phase 5
-
-## Phase 3: Refactor Implementation
-
-After all implementation todos complete (or are blocked), perform plan-aware refactoring.
-
-### Step 3.1: Pre-Refactoring Checkpoint
+### 3.1 Pre-Refactoring Checkpoint
 
 ```bash
-cd "$WORKTREE_PATH"
 git add -A
-git commit -m "checkpoint: before refactoring
+git commit --allow-empty -m "checkpoint: before refactoring
 
 Issue: [ISSUE_ID]
-State: Implementation complete, proceeding to cleanup"
-REFACTOR_CHECKPOINT=$(git rev-parse HEAD)
+State: Implementation complete"
 ```
 
-Post checkpoint to issue:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Checkpoint: before refactoring\n\nImplementation complete, proceeding to cleanup.",
-  "author": "agent",
-  "commitSha": "[REFACTOR_CHECKPOINT]"
-}
-```
+Post checkpoint to issue.
 
-### Step 3.2: Delegate to Refactor Agent
+### 3.2 Delegate Refactoring
 
 ```xml
 <invoke name="Task">
@@ -360,85 +215,48 @@ Issue: [ISSUE_ID] - [TITLE]
 Description: [DESCRIPTION]
 Worktree: [WORKTREE_PATH]
 
-Perform plan-aware refactoring on recently implemented code.
-
-## Refactoring Focus Areas
-
-1. **Eliminate Dead Code**: Remove unused variables, functions, parameters
-2. **Simplify Logic**: Reduce complexity through guard clauses, smaller functions
-3. **Remove Over-Engineering (YAGNI)**: Collapse unnecessary abstractions
-4. **Improve Naming**: Align names with intent from plan
-5. **Harmonize Patterns**: Ensure new code follows existing codebase conventions
-6. **Refine Tests**: Remove redundant tests, focus on behavior
+## Focus Areas
+1. Eliminate dead code
+2. Simplify logic (guard clauses, smaller functions)
+3. Remove over-engineering (YAGNI)
+4. Improve naming (align with plan intent)
+5. Harmonize patterns (match codebase conventions)
+6. Refine tests (remove redundant, focus on behavior)
 
 ## Constraints
-
-- Preserve all observable behavior
+- Preserve observable behavior
 - Maintain test coverage
 - Stay within plan scope
-- Validate after each significant change
+- Validate after each change
 </parameter>
 </invoke>
 ```
 
-### Step 3.3: Process Refactoring Result
+### 3.3 Process Result
 
-**COMPLETED** (refactoring successful):
-```bash
-cd "$WORKTREE_PATH"
-git add -A
-git commit -m "refactor: [ISSUE_ID] code cleanup
+| Status | Action |
+|--------|--------|
+| COMPLETED | Commit with `refactor:` prefix, post to issue, proceed to Phase 4 |
+| NEEDS_REVIEW | Log recommendations, proceed to Phase 4 |
+| BLOCKED | Document reasons, proceed to Phase 4 |
 
-[Summary from refactor report]"
-REFACTOR_SHA=$(git rev-parse HEAD)
-```
-
-Post refactoring commit to issue:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Refactoring complete\n\n[Summary from refactor report]",
-  "author": "agent",
-  "commitSha": "[REFACTOR_SHA]",
-  "codeReferences": [/* files modified during refactoring */]
-}
-```
-
-Proceed to Phase 4.
-
-**NEEDS_REVIEW** (some opportunities require human judgment):
-- Note recommendations
-- Proceed to Phase 4
-
-**BLOCKED** (cannot refactor safely):
-- Document blocking reasons
-- Skip refactoring, proceed to Phase 4
+---
 
 ## Phase 4: Evaluate Quality
 
-### Step 4.1: Pre-Evaluation Checkpoint
+### 4.1 Pre-Evaluation Checkpoint
 
 ```bash
-cd "$WORKTREE_PATH"
 git add -A
 git commit --allow-empty -m "checkpoint: before evaluation
 
 Issue: [ISSUE_ID]
 State: Implementation and refactoring complete"
-EVAL_CHECKPOINT=$(git rev-parse HEAD)
 ```
 
-Post checkpoint to issue:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Checkpoint: before evaluation\n\nImplementation and refactoring complete.",
-  "author": "agent",
-  "commitSha": "[EVAL_CHECKPOINT]"
-}
-```
+Post checkpoint to issue.
 
-### Step 4.2: Delegate to Evaluator Agent
+### 4.2 Delegate Evaluation
 
 ```xml
 <invoke name="Task">
@@ -449,85 +267,47 @@ Issue: [ISSUE_ID] - [TITLE]
 Description: [DESCRIPTION]
 Worktree: [WORKTREE_PATH]
 
-Evaluate the implementation for production readiness.
+Evaluate for production readiness.
 </parameter>
 </invoke>
 ```
 
-### Step 4.3: Process Evaluation Result
+### 4.3 Process Result
 
-**PRODUCTION_READY** (all requirements met):
-
-Capture final implementation SHA and post completion comment:
-```bash
-cd "$WORKTREE_PATH"
-FINAL_IMPL_SHA=$(git rev-parse HEAD)
-```
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "## Implementation Complete\n\n[Summary of all changes]\n\n### Quality Assessment\n[Key findings from evaluator]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations",
-  "author": "agent",
-  "commitSha": "[FINAL_IMPL_SHA]",
-  "codeReferences": [/* all modified files with line ranges */]
-}
-```
-
-Proceed to Phase 5.
-
-**CONTINUE** (fixable issues):
-1. Create todos for issues found
-2. Return to Phase 2 (Step 2.2) to address issues
-3. After fixes, re-run evaluation
-
-**BLOCKED** (system-level failure):
-1. Document blocking issues
-2. Post status comment
-3. Set status to `needs_review`
-4. HALT execution
-
-## Phase 5: Integrate and Finalize
-
-### Step 5.1: Check Review Requirement
-
-**If [REVIEW_REQUIRED] is true:**
-
-Post implementation summary for user review (do NOT merge yet):
-
-```bash
-cd ".worktrees/$BRANCH_NAME"
-IMPL_SHA=$(git rev-parse HEAD)
-```
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "## Implementation Ready for Review\n\n[Summary of changes]\n\n### Quality Assessment\n[Key findings from evaluator]\n\n### Files Modified\n- [list of files]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations\n\nAwaiting approval to merge.",
-  "author": "agent",
-  "commitSha": "[IMPL_SHA]",
-  "codeReferences": [/* all modified files with line ranges */]
-}
-```
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
-}
-```
-
-**STOP here.** The merge will occur after user approval via the `issue-merge-approved` skill.
+| Status | Action |
+|--------|--------|
+| PRODUCTION_READY | Post completion comment, proceed to Phase 5 |
+| CONTINUE | Increment [EVALUATION_CYCLE]. If ≥2: set `needs_review`, HALT. Else: create todos (prefix "[Eval fix]"), return to 2.2. |
+| BLOCKED | Document issues, set `needs_review`, HALT |
 
 ---
 
-**If [REVIEW_REQUIRED] is false:**
+## Phase 5: Finalize
 
-Load the `claude-code-cli:issue-merge-approved` skill to merge the implementation:
+### If [REVIEW_REQUIRED]:
+
+```http
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Implementation Ready for Review\n\n[Summary]\n\n### Files Modified\n- [files]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations\n\nAwaiting approval.",
+  "author": "agent",
+  "commitSha": "[HEAD_SHA]",
+  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
+}
+```
+
+```http
+PATCH /issues/[ISSUE_ID]
+{ "status": "needs_review" }
+```
+
+Stop here. Merge occurs via `issue-merge-approved` skill after user approval.
+
+### If NOT [REVIEW_REQUIRED]:
 
 ```xml
 <invoke name="Skill">
-<parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+  <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
 </invoke>
 ```
 

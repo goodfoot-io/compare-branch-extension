@@ -5,40 +5,27 @@ description: Take no action when no agent work is required. Use for "done" issue
 
 <instructions>
 
-## When to Use
+Clear agent attention flag for completed or unroutable issues.
 
-Use when:
-- [STATUS] is "done" and [HAS_REOPEN_REQUEST] is false (completed issue, no new work requested)
-- Fallback: routing conditions don't match any other skill
+## Steps
 
-## Phase 1: Handle No-Action Case
+1. **Acknowledge** (only if user comment directly addresses the agent without requesting action):
+   Skip for thank-you messages, status updates, or informational notes.
+   ```
+   POST /issues/[ISSUE_ID]/comments
+   {
+     "body": "Acknowledged.",
+     "author": "agent"
+   }
+   ```
 
-### Step 1.1: Verify No Action Required
-
-Confirm that this is genuinely a no-action case:
-- [STATUS] is "done" with no reopen request, OR
-- No other routing condition applies (edge case)
-
-### Step 1.2: Acknowledge (if appropriate)
-
-If there's a comment that warrants acknowledgment but no action:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Acknowledged. No further action required from me at this time.",
-  "author": "agent"
-}
-```
-
-### Step 1.3: Restore Original Status
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "[STATUS]",
-  "needsAgentAttention": false
-}
-```
-This returns the issue to its original status (e.g., "done") after acknowledgment.
+2. **Clear attention flag**:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "status": "[STATUS]",
+     "needsAgentAttention": false
+   }
+   ```
 
 </instructions>

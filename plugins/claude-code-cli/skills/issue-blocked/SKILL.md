@@ -3,48 +3,56 @@ name: issue-blocked
 description: Handle blocked issues by identifying and reporting blockers. Use when [IS_BLOCKED] is true.
 ---
 
-<instructions>
+<input-format>
 
-## Handle Blocked Issues
+**Derived:**
+- [BLOCKER_REASON] — Extracted from tags/comments ("blocked by", "waiting on", "depends on")
+- [BLOCKING_ISSUE_ID] — Referenced issue ID, if applicable
 
-Use when [IS_BLOCKED] is true. Do not attempt implementation until blocker is resolved.
+</input-format>
 
-## Phase 1: Analyze Blocker
+<tools>
 
-### Step 1.1: Identify Blocker
-Extract blocker reason from tags or comments (look for "blocked by", "waiting on", "depends on"). Classify as:
-- Another issue (internal dependency)
-- External dependency (third-party, infrastructure)
-- Missing information (awaiting user input)
-- Technical constraint (requires changes elsewhere first)
-
-### Step 1.2: Check Blocker Status
-If blocker references another issue:
-- Check if the blocking issue has been resolved
-- If resolved, remove "blocked" tag and re-route to appropriate protocol
-
-## Phase 2: Report and Update
-
-### Step 2.1: Report Blocked Status
-If still blocked:
+**Issues API** — Comment and update operations.
 
 ```
 POST /issues/[ISSUE_ID]/comments
+PATCH /issues/[ISSUE_ID]
+```
+
+</tools>
+
+<instructions>
+
+Do not attempt implementation until the blocker is resolved.
+
+## 1. Analyze Blocker
+
+Search tags and comments for blocker keywords ("blocked by", "waiting on", "depends on"). Identify the blocker reason and any referenced issue ID.
+
+**If blocker references another issue:** Check its status. If resolved (status = "done"), remove the "blocked" tag and re-invoke skill routing.
+
+**If blocker cannot be identified:** Post a comment asking for clarification, set `needsAgentAttention: false`, and stop.
+
+## 2. Report Blocked Status
+
+Skip if a "## Blocked" comment already exists with the same [BLOCKER_REASON].
+
+### Post comment
+```
+POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Blocked\n\nThis issue cannot proceed due to:\n\n**Blocker:** [extracted blocker reason]\n\n### To Unblock\n[Specific action needed to resolve the blocker]\n\n---\n*I'll resume work once this blocker is resolved. Please remove the 'blocked' tag or update the status when ready.*",
+  "body": "## Blocked\n\nThis issue cannot proceed due to:\n\n**Blocker:** [BLOCKER_REASON]\n\n### To Unblock\n[action needed to resolve]\n\n---\n*I'll resume work once this blocker is resolved. Please remove the 'blocked' tag when ready.*",
   "author": "agent"
 }
 ```
 
-### Step 2.2: Update Status
+### Update issue
 ```
 PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review",
-  "needsAgentAttention": false
-}
+{ "needsAgentAttention": false }
 ```
 
-**STOP** — Do not proceed until blocker is resolved and issue is re-assigned.
+**STOP** — Do not proceed until the blocker is resolved and the "blocked" tag is removed. Skill routing will re-evaluate once the tag is removed.
 
 </instructions>

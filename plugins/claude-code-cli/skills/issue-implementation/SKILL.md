@@ -1,196 +1,141 @@
 ---
 name: issue-implementation
-description: Implement issue work in an isolated git worktree. Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT].
+description: Implement issue work in an isolated git worktree for code, research, analysis, or documentation.
 ---
 
 <input-format>
-Extract from issue data:
 
-**Required Fields:**
-- [ISSUE_ID] = The issue's unique identifier (`id`)
-- [TITLE] = The issue title (`title`)
-- [DESCRIPTION] = The issue description with requirements (`description`)
-- [REVIEW_REQUIRED] = Whether merge approval is needed (`review` field, default: false)
+**From Issue Data:**
+- [TITLE] — Issue title (`title`)
+- [DESCRIPTION] — Requirements description (`description`)
 
-**Derived Fields:**
-- [LATEST_USER_COMMENT] = Most recent comment from `author: "user"` (if any)
-- [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
-- [BRANCH_NAME] = Generated branch name: `issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]`
+**Derived:**
+- [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+
 </input-format>
 
 <tools>
 
-## Worktree Management Tools
+**instant-worktree** — Creates git worktree with symlinked dependencies (~2 seconds).
 
-### instant-worktree
-
-Creates a git worktree with symlinked dependencies for fast setup (~2 seconds).
-
-**Usage:**
 ```bash
-instant-worktree "branch-name"
+instant-worktree "[BRANCH_NAME]"
 ```
 
-**Output:** Prints the created worktree path and branch name:
-```
-Created branch: branch-name
-Created worktree directory: .worktrees/branch-name
-```
-
-**Behavior:**
-- Creates worktree at `.worktrees/[BRANCH_NAME]`
-- Creates a new branch with the given name
-- Fails if branch already exists or worktree path is occupied
+Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn't exist, or attaches to an existing branch. Fails if worktree path is already occupied.
 
 </tools>
 
 <instructions>
 
-## Phase 1: Prepare Implementation Environment
+## 1. Prepare Environment
 
-Use for ALL work types (code, research, analysis, documentation) based on [DESCRIPTION] or [LATEST_USER_COMMENT]. All modifications happen in an isolated worktree.
+Determine environment path using the first matching condition:
 
-### Step 1.1: Check for Existing Work (Resumption Detection)
+| Condition | Action |
+|-----------|--------|
+| [IS_RESUMABLE] AND worktree exists | **Resume**: Navigate to existing worktree |
+| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate**: Attach worktree to branch |
+| Otherwise | **New**: Create checkpoint and worktree |
 
-If [IS_RESUMABLE] is true (prior work exists without completion):
-1. Check if worktree exists:
+### Resume (worktree exists)
+
+```bash
+cd ".worktrees/[BRANCH_NAME]"
+git stash --include-untracked  # Save uncommitted work; restore with git stash pop after step 2
+```
+
+If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
+
+### Recreate (branch exists, no worktree)
+
+```bash
+instant-worktree "[BRANCH_NAME]"
+cd ".worktrees/[BRANCH_NAME]"
+```
+
+If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
+
+### New (fresh start)
+
+1. Record start:
    ```bash
-   ls -d .worktrees/issue-[ISSUE_ID]-* 2>/dev/null
+   CURRENT_SHA=$(git rev-parse HEAD)
    ```
-2. If worktree exists:
-   - Navigate to it: `cd ".worktrees/$BRANCH_NAME"`
-   - Run `git status` to check for uncommitted changes
-   - If uncommitted changes exist, review and decide whether to commit or stash
-   - Skip to Step 3.1
-3. If worktree doesn't exist, check if branch exists:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   { "commitSha": "${CURRENT_SHA}" }
+   ```
+
+2. Create checkpoint (skip if [HAS_MODIFICATION_REQUEST]):
    ```bash
-   git branch --list "$BRANCH_NAME"
+   git commit --allow-empty -m "checkpoint: [ISSUE_ID] before implementation
+
+   Issue: [ISSUE_ID]
+   Title: [TITLE]"
    ```
-   - If branch exists: Attach worktree to existing branch:
-     ```bash
-     git worktree add ".worktrees/$BRANCH_NAME" "$BRANCH_NAME"
-     ```
-   - If branch doesn't exist: The previous work may be lost. Start fresh with Step 1.2.
-4. Skip checkpoint commit (already exists from original session)
 
-If [IS_RESUMABLE] is false (new work or addressing feedback), proceed to Step 1.2.
+3. Create worktree:
+   ```bash
+   instant-worktree "[BRANCH_NAME]"
+   cd ".worktrees/[BRANCH_NAME]"
+   ```
 
-### Step 1.2: Record Start of Work
-Get current commit SHA and record it on the issue (status is already `in_progress` from Instructions Step 3):
-```bash
-CURRENT_SHA=$(git rev-parse HEAD)
-```
+## 2. Implement
 
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "commitSha": "[CURRENT_SHA]"
-}
-```
+Work in the worktree directory.
 
-### Step 1.3: Create Checkpoint Commit (New Work Only)
-
-**Skip this step if [IS_RESUMABLE] is true OR [HAS_MODIFICATION_REQUEST] is true** — a checkpoint already exists from the original implementation.
-
-For new work only, create a checkpoint marker on [BASE_BRANCH]:
-```bash
-git commit --allow-empty -m "checkpoint: [ISSUE_ID] before implementation
-
-Issue: [ISSUE_ID]
-Title: [TITLE]"
-```
-
-**Note:** Do not stage files for the checkpoint. The checkpoint is just a marker in git history. Any uncommitted files in the working directory (artifacts from concurrent agents, user's pending work) should remain uncommitted.
-
-### Step 1.4: Create Worktree
-
-Generate branch name (escape special characters) and create isolated worktree:
-```bash
-# Branch format: issue-[escaped-issue-id]-[short-title-slug]
-# Replace colons and slashes with hyphens to avoid path issues
-BRANCH_NAME="issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]"
-
-# Example: issue "project:123" becomes branch "issue-project-123-fix-bug"
-
-# Create worktree
-instant-worktree "$BRANCH_NAME"
-
-# Navigate to worktree (path is .worktrees/[BRANCH_NAME])
-cd ".worktrees/$BRANCH_NAME"
-```
-
-## Phase 2: Execute Implementation
-
-### Step 2.1: Implement Changes
-Working ONLY in the worktree directory:
-1. Read and understand existing code
+1. Read and understand existing code before making changes
 2. Make required changes
 3. Run linting and tests
-4. Fix any issues that arise
+4. Fix any issues
 
-### Step 2.2: Commit in Worktree
+Commit using conventional commit format (feat, fix, docs, refactor, test, chore):
 ```bash
 git add -A
 git commit -m "[type]: [description]
 
 Issue: [ISSUE_ID]
 
-[Detailed description of changes]"
-IMPL_SHA=$(git rev-parse HEAD)
+[Detailed changes]"
 ```
 
-Post implementation commit to issue:
+Post implementation comment:
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Complete\n\n[Summary of changes]\n\n### Testing\n- [test results]",
+  "body": "## Implementation Complete\n\n[Summary]\n\n### Testing\n- [results]",
   "author": "agent",
-  "commitSha": "[IMPL_SHA]",
-  "codeReferences": [/* all modified files with line ranges */]
+  "commitSha": "${git rev-parse HEAD}",
+  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
 }
 ```
 
-## Phase 3: Integrate and Finalize
+## 3. Finalize
 
-### Step 3.1: Check Review Requirement
-
-**If [REVIEW_REQUIRED] is true:**
-
-Post implementation summary for user review (do NOT merge yet):
-
-```bash
-cd ".worktrees/$BRANCH_NAME"
-IMPL_SHA=$(git rev-parse HEAD)
-```
+### If [REVIEW_REQUIRED]:
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Ready for Review\n\n[Summary of changes]\n\n### Files Modified\n- [list of files]\n\n### Testing\n- [test results]\n\nAwaiting approval to merge.",
+  "body": "## Implementation Ready for Review\n\n[Summary]\n\n### Files Modified\n- [files]\n\n### Testing\n- [results]\n\nAwaiting approval.",
   "author": "agent",
-  "commitSha": "[IMPL_SHA]",
-  "codeReferences": [/* all modified files with line ranges */]
+  "commitSha": "${git rev-parse HEAD}",
+  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
 }
 ```
-
 ```
 PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
-}
+{ "status": "needs_review" }
 ```
 
-**STOP here.** The merge will occur after user approval via the `issue-merge-approved` skill.
+Stop here. Merge occurs via `issue-merge-approved` skill after user approval.
 
----
-
-**If [REVIEW_REQUIRED] is false:**
-
-Load the `claude-code-cli:issue-merge-approved` skill to merge the implementation:
+### If NOT [REVIEW_REQUIRED]:
 
 ```xml
 <invoke name="Skill">
-<parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+  <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
 </invoke>
 ```
 

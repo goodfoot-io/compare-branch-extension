@@ -1,114 +1,121 @@
 ---
 name: issue-bug
-description: Fix testable bugs using test-first methodology in an isolated worktree. Creates reproduction test that must fail, then fixes source code while tracking any test modifications. Use when issue describes a programmatically verifiable defect (not CSS/visual issues).
+description: Fix testable bugs using test-first methodology in an isolated worktree. Creates reproduction test that must fail, then fixes source code while tracking any test modifications.
 ---
 
 <input-format>
-Extract from issue data:
 
-**Required Fields:**
-- [ISSUE_ID] = The issue's unique identifier (`id`)
-- [TITLE] = The issue title (`title`)
-- [DESCRIPTION] = The issue description with requirements (`description`)
-- [COMMENTS] = Array of comments with author, body, timestamps (`comments`)
-- [REVIEW_REQUIRED] = Whether merge approval is needed (`review` field, default: false)
+**From Issue Data:**
+- [TITLE] — Issue title (`title`)
+- [DESCRIPTION] — Bug description with requirements (`description`)
+- [COMMENTS] — Array of comments (`comments`)
 
-**Derived Fields:**
-- [FILES_TO_MODIFY] = Files referenced in [DESCRIPTION] or [COMMENTS]
-- [BRANCH_NAME] = Generated branch name: `issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]`
+**Derived:**
+- [FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
+- [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+
 </input-format>
 
-<instructions>
+<tools>
 
-## Fix Bug with Reproduction Test
+**instant-worktree** — Creates git worktree with symlinked dependencies (~2 seconds).
 
-Use for issues describing programmatically testable defects. All work happens in an isolated worktree with strict test-first verification.
+```bash
+instant-worktree "[BRANCH_NAME]"
+```
 
-**This skill enforces the test-first invariant:**
+Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates new branch if needed, or attaches to existing branch.
+
+</tools>
+
+<test-first-invariant>
+
+This skill enforces strict test-first verification:
+
 1. Reproduction test MUST fail before fix
 2. Any test modification during resolution requires re-validation
 3. Test MUST pass after fix
 
-### Check for Existing Work (Resumption Detection)
+</test-first-invariant>
 
-If [IS_RESUMABLE] is true (prior work exists without completion):
-1. Check if worktree exists:
+<instructions>
+
+## 1. Prepare Environment
+
+Determine path using first matching condition:
+
+| Condition | Action |
+|-----------|--------|
+| [IS_RESUMABLE] AND worktree exists | **Resume** |
+| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate** |
+| Otherwise | **New** |
+
+### Resume
+
+```bash
+cd ".worktrees/[BRANCH_NAME]"
+git status
+WORKTREE_BASELINE=$(git log --format=%H --grep="checkpoint: [ISSUE_ID]" -1)
+TEST_FILE_PATH=$(git log --oneline --name-only "$WORKTREE_BASELINE"..HEAD | grep -E '\.test\.(ts|js|tsx|jsx)$' | head -1)
+```
+
+Determine resume point:
+
+| Condition | Resume Point |
+|-----------|--------------|
+| TEST_FILE_PATH empty | **2. Create Reproduction Test** |
+| TEST_FILE_PATH exists AND `yarn test "$TEST_FILE_PATH"` fails | **3. Resolve Bug** (capture TEST_FAILURE_OUTPUT first) |
+| TEST_FILE_PATH exists AND test passes | **4. Validate Full Suite** |
+
+### Recreate
+
+```bash
+git worktree add ".worktrees/[BRANCH_NAME]" "[BRANCH_NAME]"
+cd ".worktrees/[BRANCH_NAME]"
+```
+
+Then follow Resume steps above.
+
+### New
+
+1. Record start:
    ```bash
-   ls -d .worktrees/issue-[ISSUE_ID]-* 2>/dev/null
+   CURRENT_SHA=$(git rev-parse HEAD)
    ```
-2. If worktree exists:
-   - Navigate to it: `cd ".worktrees/$BRANCH_NAME"`
-   - Run `git status` to check for uncommitted changes
-   - Determine phase: check for reproduction test file, check if test passes/fails
-   - Resume at appropriate phase
-3. If worktree doesn't exist but branch does:
-   - Reattach worktree: `git worktree add ".worktrees/$BRANCH_NAME" "$BRANCH_NAME"`
+   ```
+   PATCH /issues/[ISSUE_ID]
+   { "commitSha": "${CURRENT_SHA}" }
+   ```
 
-If [IS_RESUMABLE] is false, proceed to Phase 1.
+2. Create checkpoint (empty commit—don't stage files):
+   ```bash
+   git commit --allow-empty -m "checkpoint: [ISSUE_ID] before bug fix
 
-## Phase 1: Initialize Bug Fix
+   Issue: [ISSUE_ID]
+   Title: [TITLE]"
+   ```
 
-### Step 1.1: Record Start of Work
+3. Create worktree:
+   ```bash
+   instant-worktree "[BRANCH_NAME]"
+   cd ".worktrees/[BRANCH_NAME]"
+   WORKTREE_BASELINE=$(git rev-parse HEAD)
+   ```
 
-Get current commit SHA and record on issue:
-```bash
-CURRENT_SHA=$(git rev-parse HEAD)
-```
+## 2. Create Reproduction Test
 
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "commitSha": "[CURRENT_SHA]"
-}
-```
-
-### Step 1.2: Create Checkpoint Commit
-
-**Skip if [IS_RESUMABLE] is true.**
-
-Create a checkpoint marker on [BASE_BRANCH]:
-```bash
-git commit --allow-empty -m "checkpoint: [ISSUE_ID] before bug fix
-
-Issue: [ISSUE_ID]
-Title: [TITLE]"
-```
-
-**Note:** Do not stage files for the checkpoint. The checkpoint is just a marker in git history. Any uncommitted files in the working directory (artifacts from concurrent agents, user's pending work) should remain uncommitted.
-
-### Step 1.3: Create Worktree
-
-```bash
-BRANCH_NAME="issue-[ISSUE_ID with : and / replaced by -]-[slugified-short-title]"
-instant-worktree "$BRANCH_NAME"
-cd ".worktrees/$BRANCH_NAME"
-```
-
-Record baseline for change detection:
-```bash
-WORKTREE_BASELINE=$(git rev-parse HEAD)
-```
-
----
-
-## Phase 2: Subagent Creates Reproduction Test
-
-**Pattern:** Prepare context → Delegate to subagent → Validate output → Retry if needed
-
-Initialize: [REPRODUCTION_ATTEMPT] = 0 (max 3)
+Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
 
 ### Prepare Context
 
 Extract from [DESCRIPTION] and [COMMENTS]:
-- Expected vs actual behavior
-- Error messages / stack traces
-- Scope hints (files, packages, functions)
+- BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
+- Error messages / stack traces (verbatim)
+- SCOPE_HINT — Files, packages, or functions mentioned
 
-### Subagent Task
+### Delegate to Subagent
 
-Increment [REPRODUCTION_ATTEMPT]
-
-Use the Task tool to delegate test creation:
+Increment REPRODUCTION_ATTEMPT, then invoke:
 
 ```xml
 <invoke name="Task">
@@ -117,117 +124,90 @@ Use the Task tool to delegate test creation:
 <parameter name="prompt"># Task: Create Minimal Reproduction Test
 
 ## Bug
-[BUG_DESCRIPTION from issue]
+${BUG_DESCRIPTION}
 
 ## Scope
-[SCOPE_HINT - files/packages mentioned]
+${SCOPE_HINT}
 
 [If REPRODUCTION_ATTEMPT > 1:]
 ## Previous Attempt Failed
-The previous test PASSED when it should have FAILED:
-
-[TEST_PASS_ANALYSIS]
-
-Previous test code (DO NOT repeat this approach):
-```
-[previous test content]
-```
+Test PASSED when it should have FAILED:
+${TEST_PASS_ANALYSIS}
 [End if]
 
 ## Requirements
-- Create a NEW test file (do not modify existing tests)
-- Test must be minimal and MUST FAIL, demonstrating the bug
-- Follow existing test patterns in the codebase
-- Do NOT fix the bug - only write a test that exposes it
+- Create NEW test file (do not modify existing tests)
+- Test must be minimal and MUST FAIL
+- Follow existing test patterns
+- Do NOT fix the bug
 
 ## Response Format
 ## Status
 [SUCCESS | BLOCKED | CANNOT_COMPLETE]
 
 ## Result
-[Absolute file path created, or "None"]
+[Absolute file path, or "None"]
 
 ## Reasoning
-[How test reproduces the bug, or why blocked]
+[How test reproduces bug, or why blocked]
 </parameter>
 </invoke>
 ```
 
-### Validate Output
+### Capture and Validate
 
-**Trust git over subagent reports.**
+Parse response: SUBAGENT_STATUS, TEST_FILE_PATH, SUBAGENT_REASONING
 
-Verify test file exists:
+Verify using git (do not rely solely on subagent status):
+
 ```bash
-if [ ! -f "[TEST_FILE_PATH]" ]; then
-  # Subagent claimed success but file missing - retry if attempts remain
+# Verify file exists
+if [ ! -f "$TEST_FILE_PATH" ]; then
+  if [ "$REPRODUCTION_ATTEMPT" -lt 3 ]; then
+    # Return to Delegate to Subagent
+  else
+    # Post failure comment, set needs_review, STOP
+  fi
 fi
-```
 
-Check for unexpected modifications:
-```bash
+# Check for unexpected modifications
 MODIFIED_FILES=$(git diff "$WORKTREE_BASELINE" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
-  # Ask user: "Were these changes expected? [Yes, proceed] / [No, revert them]"
-  # If revert: git checkout "$WORKTREE_BASELINE" -- $MODIFIED_FILES
+  # Post comment asking user: proceed or revert?
+  # Set needs_review, STOP — await user direction
 fi
-```
 
-Run test and verify it fails:
-```bash
-git add "[TEST_FILE_PATH]"
-yarn test "[TEST_FILE_PATH]" 2>&1
+# Run test
+git add "$TEST_FILE_PATH"
+TEST_OUTPUT=$(yarn test "$TEST_FILE_PATH" 2>&1)
 TEST_EXIT_CODE=$?
 ```
 
 ### Outcomes
 
-**Test FAILS (expected):** Success path
-- Capture [TEST_FAILURE_OUTPUT]
-- Commit test:
-  ```bash
-  git add -A
-  git commit -m "test: add reproduction test for [ISSUE_ID]
+**BLOCKED or CANNOT_COMPLETE:**
+- Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
 
-  Bug: [brief bug description]
-  Test demonstrates the defect by failing against current code."
-  ```
-- Record checkpoint: `TEST_READY_SHA=$(git rev-parse HEAD)`
-- Post progress comment:
-  ```
-  POST /issues/[ISSUE_ID]/comments
-  {
-    "body": "## Reproduction Test Created\n\nTest file: `[TEST_FILE_PATH]`\n\n### Test Output (failing as expected)\n```\n[TEST_FAILURE_OUTPUT snippet]\n```\n\nProceeding to fix.",
-    "author": "agent",
-    "codeReferences": [{"uri": "[TEST_FILE_PATH]", "range": {...}}]
-  }
-  ```
-- Proceed to Phase 3
+**Test FAILS (expected):**
+- Commit: `git add -A && git commit -m "test: add reproduction test for [ISSUE_ID]"`
+- Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
+- Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
+- Post progress comment
+- Proceed to **3. Resolve Bug**
 
-**Test PASSES (unexpected):** Retry with feedback
-- Analyze why test passes when it should fail
-- Capture analysis as [TEST_PASS_ANALYSIS]
-- Revert to baseline:
-  ```bash
-  git checkout "$WORKTREE_BASELINE" -- .
-  git clean -fd
-  ```
-- **If [REPRODUCTION_ATTEMPT] < 3:** Return to "Subagent Task" with [TEST_PASS_ANALYSIS]
-- **If [REPRODUCTION_ATTEMPT] >= 3:** Post comment, set `needs_review`, **STOP**
+**Test PASSES (unexpected):**
+- Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
+- Revert: `git checkout "$WORKTREE_BASELINE" -- . && git clean -fd`
+- If REPRODUCTION_ATTEMPT < 3: Return to **Delegate to Subagent**
+- If REPRODUCTION_ATTEMPT >= 3: Post failure comment, set `needs_review`, **STOP**
 
----
+## 3. Resolve Bug
 
-## Phase 3: Subagent Resolves Bug
+Initialize: RESOLVE_ATTEMPT = 0 (max 3), TEST_CORRECTION_COUNT = 0 (max 2)
 
-**Pattern:** Delegate fix → Validate output → Handle test modifications → Retry if needed
+### Delegate to Subagent
 
-Initialize: [RESOLVE_ATTEMPT] = 0 (max 3)
-
-### Subagent Task
-
-Increment [RESOLVE_ATTEMPT]
-
-Use the Task tool to delegate bug resolution:
+Increment RESOLVE_ATTEMPT, then invoke:
 
 ```xml
 <invoke name="Task">
@@ -236,36 +216,27 @@ Use the Task tool to delegate bug resolution:
 <parameter name="prompt"># Task: Fix Bug to Make Test Pass
 
 ## Bug
-[BUG_DESCRIPTION]
+${BUG_DESCRIPTION}
 
 ## Failing Test
-File: [TEST_FILE_PATH]
-
-## Test Output
+File: ${TEST_FILE_PATH}
 ```
-[TEST_FAILURE_OUTPUT]
+${TEST_FAILURE_OUTPUT}
 ```
 
 [If RESOLVE_ATTEMPT > 1:]
 ## Previous Attempt Failed
-The previous fix did not make the test pass:
-```
-[previous failure output]
-```
+${PREVIOUS_FAILURE_OUTPUT}
 [End if]
 
 ## Requirements
-- Fix the source code to make the test pass
+- Fix source code to make test pass
 - Do not break existing functionality
 - Run linting after changes
 
 ## If Test Needs Correction
-If the test itself has incorrect assertions, wrong setup, or doesn't actually
-capture the bug properly:
-1. Modify ONLY the test - do NOT also fix source code in the same attempt
-2. Return status TEST_MODIFIED
-The orchestrator will verify the modified test still fails, then re-invoke you
-to fix the source code.
+Modify ONLY the test, return status TEST_MODIFIED.
+Orchestrator will verify corrected test still fails, then re-invoke.
 
 ## Response Format
 ## Status
@@ -275,180 +246,100 @@ to fix the source code.
 [File paths modified, or "None"]
 
 ## Reasoning
-[Fix explanation, or why test was modified, or why blocked]
+[Fix explanation, or why blocked]
 </parameter>
 </invoke>
 ```
 
-Capture [RESOLVER_REASONING] from response.
+Capture RESOLVER_REASONING from response.
 
-### Validate Output
+### Validate
 
-**Trust git over subagent reports.**
-
-Detect what actually changed:
 ```bash
 ALL_CHANGES=$(git diff "$TEST_READY_SHA" --name-only)
-
-git diff --quiet "$TEST_READY_SHA" -- "[TEST_FILE_PATH]"
+git diff --quiet "$TEST_READY_SHA" -- "$TEST_FILE_PATH"
 TEST_FILE_MODIFIED=$?  # 0=unchanged, 1=modified
-
-SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v "[TEST_FILE_PATH]")
+SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 ```
 
 ### Outcomes
 
 **BLOCKED or CANNOT_COMPLETE:**
-- Post comment with reasoning
-- Set status to `needs_review`
-- **STOP** - Leave worktree intact
+- Post comment with reasoning, set `needs_review`, **STOP**
 
-**Test was modified (TEST_FILE_MODIFIED = 1):**
+**Test modified:**
+1. Increment TEST_CORRECTION_COUNT
+2. If TEST_CORRECTION_COUNT > 2: Post comment, set `needs_review`, **STOP**
+3. Revert source changes if any: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
+4. Run test to verify it still fails
+5. **If FAILS (valid):** Commit correction, update TEST_READY_SHA, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to **Delegate to Subagent**
+6. **If PASSES (invalid):** Revert test, retry if < 3 attempts, else `needs_review` and **STOP**
 
-Subagent touched the test file—validate the correction before proceeding.
+**Only source changed:**
+1. Stage: `git add -A`
+2. Run test: `yarn test "$TEST_FILE_PATH"`
+3. **If PASSES:** Proceed to **4. Validate Full Suite**
+4. **If FAILS:** Capture `PREVIOUS_FAILURE_OUTPUT`, retry if < 3 attempts, else `needs_review` and **STOP**
+
+## 4. Validate Full Suite
 
 ```bash
-# If subagent ALSO changed source files, revert them first
-# (validate test change in isolation)
-if [ -n "$SOURCE_CHANGES" ]; then
-  git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES
-fi
+yarn lint
+yarn test
 ```
 
-Run test to verify it still fails (still reproduces bug):
-```bash
-yarn test "[TEST_FILE_PATH]" 2>&1
-CORRECTED_TEST_EXIT_CODE=$?
-```
+**If all pass:** Proceed to **5. Finalize**
 
-- **Test FAILS (valid correction):**
-  - Commit test correction:
-    ```bash
-    git add "[TEST_FILE_PATH]"
-    git commit -m "test: correct reproduction test for [ISSUE_ID]
+**If failures:** Post comment listing issues, set `needs_review`, **STOP**
 
-    Reason: [RESOLVER_REASONING]"
-    ```
-  - Update checkpoint: `TEST_READY_SHA=$(git rev-parse HEAD)`
-  - Capture new [TEST_FAILURE_OUTPUT]
-  - **Reset [RESOLVE_ATTEMPT] = 0** (fresh attempts with corrected test)
-  - Return to "Subagent Task"
+## 5. Finalize
 
-- **Test PASSES (invalid correction):**
-  - Revert test: `git checkout "$TEST_READY_SHA" -- "[TEST_FILE_PATH]"`
-  - **If [RESOLVE_ATTEMPT] < 3:** Return to "Subagent Task" with note about invalid modification
-  - **If [RESOLVE_ATTEMPT] >= 3:** Post comment, set `needs_review`, **STOP**
-
-**Only source changed (SUCCESS path):**
-
-Run test to verify fix:
-```bash
-yarn test "[TEST_FILE_PATH]" 2>&1
-FIX_TEST_EXIT_CODE=$?
-```
-
-- **Test PASSES:** Proceed to Phase 4
-- **Test FAILS:**
-  - **If [RESOLVE_ATTEMPT] < 3:** Return to "Subagent Task" with failure context
-  - **If [RESOLVE_ATTEMPT] >= 3:** Post comment, set `needs_review`, **STOP**
-
----
-
-## Phase 4: Validate Full Test Suite
+### Squash Commits
 
 ```bash
-yarn test 2>&1
-FULL_SUITE_EXIT_CODE=$?
-```
-
-**If all tests pass:** Proceed to Phase 5
-
-**If regressions detected:**
-- Post comment listing failed tests
-- Set status to `needs_review`
-- **STOP** - Leave worktree intact
-- User can: investigate / provide guidance / accept regressions
-
----
-
-## Phase 5: Finalize (Squashed Commit)
-
-### Step 5.1: Squash Commits in Worktree
-
-Squash all commits since branching into single commit:
-
-```bash
-# Count commits since branch point
 COMMIT_COUNT=$(git rev-list --count "$WORKTREE_BASELINE"..HEAD)
-
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "$WORKTREE_BASELINE"
-  git commit -m "fix: [brief description]
+  git commit -m "$(cat <<'EOF'
+fix: [TITLE]
 
 Issue: [ISSUE_ID]
-Bug: [BUG_DESCRIPTION summary]
+Bug: ${BUG_DESCRIPTION}
+Root cause: ${RESOLVER_REASONING}
 
-Root cause: [RESOLVER_REASONING]
-
-Test: [TEST_FILE_PATH]
-- Reproduction test verifies the fix
-- Test failed before fix, passes after"
+Test: ${TEST_FILE_PATH}
+EOF
+)"
 fi
 ```
 
-### Step 5.2: Check Review Requirement
+### Complete
 
-**If [REVIEW_REQUIRED] is true:**
-
-Post bug fix summary for user review (do NOT merge yet):
-
-```bash
-cd ".worktrees/$BRANCH_NAME"
-IMPL_SHA=$(git rev-parse HEAD)
-```
-
+**If [REVIEW_REQUIRED]:**
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Bug Fix Ready for Review\n\n### Bug\n[BUG_DESCRIPTION]\n\n### Reproduction Test\n- File: `[TEST_FILE_PATH]`\n- Verified: failed before fix, passes after\n\n### Fix\n- Files modified: [list from git diff]\n- Approach: [RESOLVER_REASONING]\n\n### Validation\n- Reproduction test: Passes\n- Full test suite: All pass\n\nAwaiting approval to merge.",
+  "body": "## Bug Fix Ready for Review\n\n### Bug\n${BUG_DESCRIPTION}\n\n### Fix\n${RESOLVER_REASONING}\n\n### Validation\n- Reproduction test: Passes\n- Full suite: All pass\n\nAwaiting approval.",
   "author": "agent",
-  "commitSha": "[IMPL_SHA]",
-  "codeReferences": [/* test file + all modified source files */]
+  "commitSha": "$(git rev-parse HEAD)",
+  "codeReferences": [{"path": "${TEST_FILE_PATH}"}]
 }
-```
 
-```
 PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
-}
+{ "status": "needs_review" }
 ```
+Stop. Merge via `issue-merge-approved` skill after approval.
 
-**STOP here.** The merge will occur after user approval via the `issue-merge-approved` skill.
-
----
-
-**If [REVIEW_REQUIRED] is false:**
-
-Post bug fix completion and merge:
-
-```bash
-cd ".worktrees/$BRANCH_NAME"
-IMPL_SHA=$(git rev-parse HEAD)
-```
-
+**If NOT [REVIEW_REQUIRED]:**
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Bug Fix Complete\n\n### Bug\n[BUG_DESCRIPTION]\n\n### Reproduction Test\n- File: `[TEST_FILE_PATH]`\n- Verified: failed before fix, passes after\n\n### Fix\n- Approach: [RESOLVER_REASONING]\n\n### Validation\n- Reproduction test: Passes\n- Full test suite: All pass",
+  "body": "## Bug Fix Complete\n\n### Bug\n${BUG_DESCRIPTION}\n\n### Fix\n${RESOLVER_REASONING}\n\n### Validation\n- Reproduction test: Passes\n- Full suite: All pass",
   "author": "agent",
-  "commitSha": "[IMPL_SHA]",
-  "codeReferences": [/* test file + all modified source files */]
+  "commitSha": "$(git rev-parse HEAD)",
+  "codeReferences": [{"path": "${TEST_FILE_PATH}"}]
 }
 ```
-
-Load the `claude-code-cli:issue-merge-approved` skill to merge the bug fix:
-
 ```xml
 <invoke name="Skill">
 <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>

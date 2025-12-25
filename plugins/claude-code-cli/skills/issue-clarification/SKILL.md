@@ -13,32 +13,49 @@ Extract from issue data:
 
 <instructions>
 
-## Phase 1: Request Clarification
+## 1. Check for Existing Clarification
 
-Use when [STATUS] is "todo" but [DOR_MET] is false. Request missing information before starting implementation.
+If [COMMENTS] contains a "## Clarification Needed" comment:
+- If a later comment exists from a non-agent author → **STOP** (router will re-evaluate)
+- Otherwise → **STOP** (already waiting)
 
-### Step 1.1: Identify Missing Requirements
-Review [DESCRIPTION] and [COMMENTS] against the Definition of Ready criteria:
-- Problem statement / user story
-- Acceptance criteria
-- Dependencies
-- Technical approach feasibility
-- Unanswered questions
+## 2. Identify Missing Requirements
 
-### Step 1.2: Research Context
-Before asking questions, search the codebase for relevant context that might answer your questions or inform better questions.
+Mark as MISSING if not present or inferable from [DESCRIPTION] and [COMMENTS]:
 
-### Step 1.3: Post Clarification Request
+- **Problem statement**: What problem this solves
+- **Acceptance criteria**: Testable completion conditions
+- **Dependencies**: Blockers or prerequisites
+- **Technical feasibility**: Enough detail to determine approach
+- **Unanswered questions**: All comment questions answered
+
+## 3. Research Context
+
+1. Search for [DESCRIPTION] keywords in code and documentation
+2. Look for similar implementations
+3. Check tests for expected behavior
+
+**If research resolves all gaps**: Post findings as a comment and **STOP** (router will route to implementation).
+
+**If gaps remain**: Note findings for clarification request.
+
+## 4. Post Clarification Request
+
+List questions by priority (most blocking first).
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Clarification Needed\n\nBefore I can begin implementation, I need some additional information:\n\n[Numbered list of specific questions]\n\n---\n*Once these are clarified, I'll proceed with implementation.*",
+  "body": "## Clarification Needed\n\n[Numbered questions]",
   "author": "agent",
-  "codeReferences": [/* relevant files if referencing code */]
+  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
 }
 ```
 
-### Step 1.4: Update Status
+Include `codeReferences` for code-related questions.
+
+## 5. Update Status and Stop
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -47,6 +64,6 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-**STOP** — Wait for user response before proceeding.
+**STOP**
 
 </instructions>

@@ -5,37 +5,41 @@ description: Respond to backlog issues with information only - no code changes, 
 
 <instructions>
 
-## Phase 1: Respond to Backlog Issues
+## Constraint
 
-Use when [STATUS] is "backlog". Provide information only—no code changes, worktrees, or commits.
+Provide information only—no code changes, worktrees, or commits. If the issue contains implementation requests, explain that implementation requires moving the issue to "todo" status first.
 
-### Step 1.1: Assess Issue Viability
-If the issue appears unlikely to ever be addressed (stale, out of scope, or superseded):
-- Recommend closure with honest, courteous feedback
-- Keep the backlog reflective of actual intended work
+## 1. Determine Response
 
-### Step 1.2: Research and Provide Information
-If [HAS_PENDING_QUESTION] is true, research the codebase and provide helpful information.
+Evaluate conditions in order; use first match:
 
-### Step 1.3: Post Comment
+| Condition | Response |
+|-----------|----------|
+| Issue is stale, out of scope, or superseded | Recommend closure with honest, courteous feedback; invite user response before any status change |
+| [HAS_PENDING_QUESTION] is true | Research codebase and answer the question |
+| No pending questions | Acknowledge the issue remains in backlog and will be addressed when prioritized |
+
+## 2. Post Comment
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "[Your informational response]\n\n---\n*Note: This issue is in backlog. Move to 'todo' status when ready to begin implementation.*",
+  "body": "[Response from Step 1]\n\n---\n*Note: This issue is in backlog. Move to 'todo' status when ready to begin implementation.*",
   "author": "agent"
 }
 ```
 
-### Step 1.4: Restore Status and Clear Attention Flag
+## 3. Clear Attention Flag
+
+After successfully posting the comment:
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[STATUS]",
   "needsAgentAttention": false
 }
 ```
-This returns the issue to "backlog" status after the agent's informational response.
-
-**STOP** — Do not proceed to implementation protocols.
 
 </instructions>
+
+**STOP** — Do not proceed to implementation protocols.

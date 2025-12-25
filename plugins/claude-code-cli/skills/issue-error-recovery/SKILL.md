@@ -4,50 +4,62 @@ description: Recover from errors during any protocol execution. Use when errors 
 ---
 
 <input-format>
-Inherited from invoking protocol context:
 
-- [ISSUE_ID] = The issue identifier
-- [BASE_BRANCH] = The base branch (typically `main`)
-- [BRANCH_NAME] = The worktree branch name from the failed protocol
+- [BASE_BRANCH] — The branch from which the worktree was created (typically `main`)
+
 </input-format>
 
 <instructions>
 
-## Recover from Errors
+## 1. Protect [BASE_BRANCH]
 
-Use when errors occur during any other protocol.
+Abort any incomplete git operations that could corrupt the base branch:
 
-### Step 1: Protect [BASE_BRANCH]
-If any operation fails that could leave [BASE_BRANCH] in a broken state:
 ```bash
-git merge --abort  # If merge in progress
-git reset --hard HEAD  # If uncommitted changes on [BASE_BRANCH]
+git merge --abort 2>/dev/null || true
+git rebase --abort 2>/dev/null || true
+git cherry-pick --abort 2>/dev/null || true
+git reset --hard HEAD
 ```
 
-### Step 2: Attempt Resolution
-For recoverable errors (test failures, lint errors):
-1. Analyze the error
-2. Attempt fix in worktree
-3. Re-run validation
-4. Retry up to 3 times
+## 2. Attempt Recovery
 
-### Step 3: Report Unrecoverable Errors
-If resolution fails, preserve state and report:
+For recoverable errors (test failures, lint errors, type errors), make up to 3 fix attempts:
+
+1. Analyze the error
+2. Fix in worktree
+3. Re-run validation
+4. If validation passes, return to the invoking protocol and continue from the step after the one that failed
+5. If validation fails and attempts remain, repeat from step 1
+
+After 3 failed attempts, proceed to section 3.
+
+Unrecoverable errors (git conflicts, permission errors, infrastructure failures) skip directly to section 3.
+
+## 3. Report and Block
+
+If the issue already has the "blocked" tag from a previous recovery attempt, skip to section 4 without posting a duplicate comment.
+
+Otherwise, document the failure:
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Error Encountered\n\n[Description of error]\n\n### Current State\n- [BASE_BRANCH]: Clean (no merge in progress)\n- Worktree preserved at: `.worktrees/[BRANCH_NAME]`\n- Error occurred during: [protocol/step]\n\n### Error Details\n```\n[error output]\n```\n\n### To Resolve Manually\n[Steps for manual resolution]\n\n### To Retry\nMove this issue back to 'todo' status after resolving the blocker.",
+  "body": "## Error Encountered\n\n[Description]\n\n### Current State\n- [BASE_BRANCH]: Clean (no merge in progress)\n- Worktree preserved at: `.worktrees/[BRANCH_NAME]`\n- Error occurred during: [protocol/step]\n\n### Error Details\n```\n[error output]\n```\n\n### To Resolve Manually\n[Steps for manual resolution]\n\n### To Retry\nMove this issue back to 'todo' status after resolving the blocker.",
   "author": "agent",
   "codeReferences": [/* relevant files */]
 }
 ```
 
-### Step 4: Update Status
+Then proceed to section 4.
+
+## 4. Update Status
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
   "status": "needs_review",
-  "tags": ["blocked", "needs-human-review"]
+  "tags": ["blocked"]
 }
 ```
 

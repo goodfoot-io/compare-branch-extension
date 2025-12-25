@@ -1,60 +1,77 @@
 ---
 name: issue-status-recovery
-description: Recover or clarify issue status when state is inconsistent. Use when [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
+description: Reconcile inconsistent issue state when [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
 ---
+
+<input-format>
+
+**Derived from Comments (search all comments, case-insensitive):**
+- [HAS_COMPLETION_COMMENT] — True if any comment contains "Implementation Complete", "Ready for review", "Bug Fix Complete", OR has a `commitSha` field
+- [COMPLETION_EVIDENCE] — First matched phrase or commitSha (chronological order)
+
+</input-format>
 
 <instructions>
 
-# Recover Status
+# Status Reconciliation
 
-Use when [STATUS] is "in_progress" but [IS_RESUMABLE] is false. This indicates one of two situations:
+Resolves state where [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
 
-1. **Work completed but status not updated** — A completion comment exists with commitSha
-2. **No work was ever started** — No worktree, status was set prematurely
+## Precondition
 
-## Step 1: Determine Situation
+**STOP** if any of:
+- [STATUS] != "in_progress"
+- [IS_RESUMABLE] == true
+- [STATUS] is already "needs_review" or "todo" (already reconciled)
 
-Search comments for completion indicators:
-- "Implementation Complete", "Ready for review", "Bug Fix Complete"
-- A `commitSha` reference
+## Route by Completion Evidence
 
-**If completion comment found:** Proceed to Step 2 (recover completed status)
-**If no completion comment:** Proceed to Step 3 (reset to start work)
+| Condition | Interpretation | Action |
+|-----------|----------------|--------|
+| [HAS_COMPLETION_COMMENT] | Work completed, status stale | **Recover** |
+| NOT [HAS_COMPLETION_COMMENT] | Status set prematurely | **Reset** |
 
-## Step 2: Recover Completed Status
+## Recover
 
-Post recovery comment:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Detected prior completion. Updating status to reflect completed work.",
-  "author": "agent"
-}
-```
+1. Post recovery comment:
+   ```
+   POST /issues/[ISSUE_ID]/comments
+   {
+     "body": "Detected prior completion (evidence: [COMPLETION_EVIDENCE]). Updating status to reflect completed work.",
+     "author": "agent"
+   }
+   ```
 
-Update status:
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
-}
-```
+2. Update status:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   { "status": "needs_review" }
+   ```
 
-**STOP** — Do not re-implement. The work is already complete.
+**STOP** — Do not re-implement. Work is already complete.
 
-## Step 3: Reset to Start Work
+## Reset
 
-The issue was marked "in_progress" but no work began. Reset and proceed:
+1. Post clarification comment:
+   ```
+   POST /issues/[ISSUE_ID]/comments
+   {
+     "body": "Issue was in 'in_progress' status but no prior work found. Resetting to start fresh.",
+     "author": "agent"
+   }
+   ```
 
-Post clarification comment:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Issue was in 'in_progress' status but no prior work was found. Starting fresh.",
-  "author": "agent"
-}
-```
+2. Reset status:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   { "status": "todo" }
+   ```
 
-Execute skill `claude-code-cli:issue-implementation` to begin work properly.
+3. Begin implementation:
+   ```xml
+   <invoke name="Skill">
+     <parameter name="skill">claude-code-cli:issue-implementation</parameter>
+   </invoke>
+   ```
 
 </instructions>
