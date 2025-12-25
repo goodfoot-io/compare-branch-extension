@@ -25,8 +25,7 @@ PATCH /issues/[ISSUE_ID]
 POST /issues/[ISSUE_ID]/comments
 {
   "body": "Reopening to address: [1-2 sentence summary of user's request from LATEST_USER_COMMENT]",
-  "author": "agent",
-  "commitSha": "${git rev-parse HEAD}"
+  "author": "agent"
 }
 ```
 
