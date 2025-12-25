@@ -63,16 +63,6 @@ You must reload this skill after compaction.
 BACKTICK='`'
 BASE_URL=$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)
 
-echo "<library>"
-echo "## Library"
-echo "Use the ${BACKTICK}GET /library/{id}${BACKTICK} endpoint to load library items that might be relevant to this issue."
-echo ""
-LIBRARY_ITEMS=$(curl -s "${BASE_URL}/library" | jq '[.[] | {id, title}]')
-echo "${BACKTICK}${BACKTICK}${BACKTICK}json"
-echo "$LIBRARY_ITEMS"
-echo "${BACKTICK}${BACKTICK}${BACKTICK}"
-echo "</library>\n\n"
-
 echo "<api>"
 echo "Base URL: ${BASE_URL}"
 
@@ -160,31 +150,6 @@ interface AddCommentRequest {
 interface UploadAttachmentRequest {
   filePath: string;      // Absolute path to file
   author: "agent";
-}
-```
-
-### Library
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /library | List all library items (returns array directly) |
-| POST | /library | Create library item |
-| GET | /library/{id} | Get library item |
-| PATCH | /library/{id} | Update library item |
-| DELETE | /library/{id} | Delete library item |
-
-```typescript
-// POST /library
-interface CreateLibraryItemRequest {
-  id: string;
-  title: string;
-  content: string;  // Raw markdown content
-}
-
-// PATCH /library/{id}
-interface UpdateLibraryItemRequest {
-  title?: string;
-  content?: string;  // Raw markdown content
 }
 ```
 </api>
