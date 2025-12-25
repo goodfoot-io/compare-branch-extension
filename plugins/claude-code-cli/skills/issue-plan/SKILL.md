@@ -105,8 +105,9 @@ Review both assessment reports before presenting the plan for user approval. Add
 
 If assessments reveal significant issues:
 - Revise the plan to address CRITICAL and HIGH priority findings
-- Re-run Step 1.6 if substantial changes were made
-- Document what was changed based on assessment feedback
+- Re-run Step 1.6 if functional changes were made
+- Add comments documenting what was changed based on assessment feedback
+- Add comments documenting questions raised in the assessment reports, and what the resulting decision made was
 
 ### Step 1.8: Post Plan for Approval
 ```
