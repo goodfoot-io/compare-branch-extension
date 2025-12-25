@@ -78,9 +78,18 @@ fi
 # Extract hook_event_name from input (default to SessionStart)
 HOOK_EVENT_NAME=$(echo "$INPUT" | jq -r '.hook_event_name // "SessionStart"')
 
+# Build human-readable systemMessage
+if [ "$SKILL_COUNT" -eq 1 ]; then
+    SYSTEM_MSG="Reloading skill: claude-code-cli:${SKILL}"
+else
+    # Build comma-separated list for multiple skills
+    SKILL_NAMES=$(echo "$CLI_SKILLS" | jq -r '.[]' | sed 's/^/claude-code-cli:/' | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
+    SYSTEM_MSG="Reloading skills: ${SKILL_NAMES}"
+fi
+
 # Output JSON with reload instructions and systemMessage
-jq -n --arg event "$HOOK_EVENT_NAME" --arg skills "$SKILL_LIST" '{
-  systemMessage: ("CLI skill reloader: Restoring " + $skills + " after context compaction"),
+jq -n --arg event "$HOOK_EVENT_NAME" --arg skills "$SKILL_LIST" --arg sysMsg "$SYSTEM_MSG" '{
+  systemMessage: $sysMsg,
   hookSpecificOutput: {
     hookEventName: $event,
     additionalContext: ("Load skill " + $skills + " before continuing")

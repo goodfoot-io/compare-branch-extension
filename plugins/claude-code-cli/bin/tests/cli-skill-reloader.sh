@@ -233,7 +233,7 @@ else
     echo -e "${RED}FAIL${NC} - Expected: SessionStart, got: $HOOK_EVENT"
 fi
 
-# Test 8: Includes systemMessage in output
+# Test 8: Includes systemMessage in output with human-readable format
 echo -e "\n${YELLOW}=== Test 8: Includes systemMessage in output ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-8"
@@ -249,14 +249,43 @@ EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: systemMessage is present${NC}"
+echo -e "\n${YELLOW}TEST: systemMessage has human-readable format for single skill${NC}"
 OUTPUT=$(echo "$INPUT" | "$TARGET_SCRIPT")
 SYSTEM_MSG=$(echo "$OUTPUT" | jq -r '.systemMessage')
-if echo "$SYSTEM_MSG" | grep -q "CLI skill reloader"; then
-    echo -e "${GREEN}PASS${NC} - systemMessage contains expected prefix"
+EXPECTED_MSG="Reloading skill: claude-code-cli:issue-bug"
+if [ "$SYSTEM_MSG" = "$EXPECTED_MSG" ]; then
+    echo -e "${GREEN}PASS${NC} - systemMessage has correct human-readable format"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-    echo -e "${RED}FAIL${NC} - Expected systemMessage to contain 'CLI skill reloader'"
+    echo -e "${RED}FAIL${NC} - Expected: $EXPECTED_MSG"
+    echo "Actual: $SYSTEM_MSG"
+fi
+
+# Test 9: Multiple skills systemMessage format
+echo -e "\n${YELLOW}=== Test 9: Multiple skills systemMessage format ===${NC}"
+setup_mock_home
+SESSION_ID="test-session-9"
+cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+{"cliSkills":["issue-bug","issue-implementation"]}
+EOF
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "hook_event_name": "SessionStart"
+}
+EOF
+)
+
+TESTS_RUN=$((TESTS_RUN + 1))
+echo -e "\n${YELLOW}TEST: systemMessage has human-readable format for multiple skills${NC}"
+OUTPUT=$(echo "$INPUT" | "$TARGET_SCRIPT")
+SYSTEM_MSG=$(echo "$OUTPUT" | jq -r '.systemMessage')
+EXPECTED_MSG="Reloading skills: claude-code-cli:issue-bug, claude-code-cli:issue-implementation"
+if [ "$SYSTEM_MSG" = "$EXPECTED_MSG" ]; then
+    echo -e "${GREEN}PASS${NC} - systemMessage has correct human-readable format for multiple skills"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+    echo -e "${RED}FAIL${NC} - Expected: $EXPECTED_MSG"
     echo "Actual: $SYSTEM_MSG"
 fi
 
