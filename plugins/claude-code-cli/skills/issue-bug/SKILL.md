@@ -86,7 +86,7 @@ Then follow Resume steps above.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Starting bug fix: [1-sentence: the bug being addressed]",
+     "body": "I'm starting the bug fix by [1-sentence: the investigation or approach, in gerund form (-ing)]",
      "author": "agent",
      "commitSha": "${WORKTREE_BASELINE}"
    }
@@ -189,7 +189,7 @@ Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
   ```
   POST /issues/[ISSUE_ID]/comments
   {
-    "body": "Reproduction test created: [1-sentence: what the test verifies and how it fails]",
+    "body": "I've created a reproduction test that [1-sentence: what it verifies and how it demonstrates the bug]",
     "author": "agent"
   }
   ```

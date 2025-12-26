@@ -69,7 +69,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Starting implementation: [1-sentence: what will be built or changed]",
+     "body": "I'm starting implementation by [1-sentence: the approach or first step, in gerund form (-ing)]",
      "author": "agent",
      "commitSha": "${BASE_SHA}"
    }

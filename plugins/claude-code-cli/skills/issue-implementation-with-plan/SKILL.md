@@ -104,7 +104,7 @@ Continue to Step 2.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Starting implementation: [phrase: key deliverable from plan]",
+     "body": "I'm beginning implementation of [phrase: key deliverable from plan]",
      "author": "agent",
      "commitSha": "${BASE_SHA}"
    }
@@ -138,7 +138,7 @@ Post checkpoint to issue:
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "Progress: [COMPLETED]/[TOTAL] tasks complete. Starting: [phrase: current task]",
+  "body": "I've completed [COMPLETED] of [TOTAL] tasks. Now starting [phrase: current task].",
   "author": "agent"
 }
 ```
@@ -186,7 +186,7 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "Completed: [phrase: task completed]. [1-sentence: what was done]",
+  "body": "I've completed [phrase: task completed]. [1-sentence: what was done]",
   "author": "agent"
 }
 ```
