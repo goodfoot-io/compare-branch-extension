@@ -76,6 +76,30 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    cd ".worktrees/[BRANCH_NAME]"
    ```
 
+4. Assess title accuracy:
+
+   Evaluate whether the issue title still accurately describes the work:
+
+   **RENAME when:**
+   - Title references wrong component, file, or feature
+   - Title describes symptom but implementation addresses root cause
+   - Scope has significantly changed from original request
+
+   **DO NOT RENAME when:**
+   - Minor phrasing improvements only
+   - Synonyms or style preferences
+   - Title is accurate but could be "better"
+
+   If renaming is warranted:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "title": "[NEW_TITLE]"
+   }
+   ```
+
+   Include the title change and rationale in the implementation summary comment.
+
 ## 2. Implement
 
 Work in the worktree directory.
