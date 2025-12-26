@@ -5,19 +5,8 @@ description: Handle blocked issues by identifying and reporting blockers. Use wh
 
 <placeholder-variables>
 [BLOCKER_REASON] — Extracted from tags/comments ("blocked by", "waiting on", "depends on")
-[BLOCKING_ISSUE_ID] — Referenced issue ID, if applicable
 </placeholder-variables>
 
-<tools>
-
-**Issues API** — Comment and update operations.
-
-```
-POST /issues/[ISSUE_ID]/comments
-PATCH /issues/[ISSUE_ID]
-```
-
-</tools>
 
 <instructions>
 
