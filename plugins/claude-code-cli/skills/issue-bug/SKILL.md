@@ -75,8 +75,10 @@ CURRENT_SHA=$(git rev-parse HEAD)
 ```
 
 ```
-PATCH /issues/[ISSUE_ID]
+POST /issues/[ISSUE_ID]/comments
 {
+  "body": "Starting bug fix",
+  "author": "agent",
   "commitSha": "${CURRENT_SHA}"
 }
 ```
