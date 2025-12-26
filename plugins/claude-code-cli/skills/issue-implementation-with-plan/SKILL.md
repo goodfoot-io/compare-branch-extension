@@ -89,8 +89,10 @@ Continue to Step 2.
    git rev-parse HEAD  # CURRENT_SHA
    ```
    ```
-   PATCH /issues/[ISSUE_ID]
+   POST /issues/[ISSUE_ID]/comments
    {
+     "body": "Starting implementation",
+     "author": "agent",
      "commitSha": "[CURRENT_SHA]"
    }
    ```

@@ -48,9 +48,12 @@ The `planContent` field stores the approved plan for reference during implementa
 </plan-approval>
 
 <git-commit-sha>
-Record the git commit SHA to track repository state.
+Record the git commit SHA to track repository state by posting comments with `commitSha`.
 
-Use `git rev-parse HEAD` to get the current 40-character SHA then include `commitSha` in the comment reporting the commit.
+- **When starting work on an issue**: POST a comment with `commitSha` set to current HEAD
+- **When committing changes**: Include `commitSha` in the comment reporting the commit
+
+Use `git rev-parse HEAD` to get the current 40-character SHA.
 </git-commit-sha>
 
 <reload-after-compaction>
@@ -95,7 +98,6 @@ interface UpdateIssueRequest {
   status?: 'in_progress' | 'todo' | 'needs_approval' | 'needs_review' | 'done' | 'backlog';
   order?: number;
   needsAgentAttention?: boolean;
-  commitSha?: string;  // Git SHA (40-char) when starting work
   plan?: boolean;  // Whether this issue requires plan approval before implementation
   planContent?: string;  // Plan content
   review?: boolean;  // Whether this issue requires user review before completing
