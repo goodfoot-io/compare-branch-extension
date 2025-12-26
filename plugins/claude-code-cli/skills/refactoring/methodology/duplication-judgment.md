@@ -190,9 +190,10 @@ When you encounter duplicated code, follow this process:
 
 ### Step 4: Apply the decision rule
 
-- If all consolidation criteria are met AND no tolerance criteria apply: **Consolidate**
-- If any tolerance criterion applies: **Tolerate** (but add a comment if the similarity is striking)
-- If uncertain: **Tolerate** - premature abstraction is harder to undo than delayed consolidation
+Based on the answers to the above questions:
+- **All consolidation criteria met AND no tolerance criteria apply**: Consolidate
+- **Any tolerance criterion applies**: Tolerate (but add a comment if the similarity is striking)
+- **Uncertain**: Tolerate - premature abstraction is harder to undo than delayed consolidation
 </decision-process>
 
 <consolidation-techniques>

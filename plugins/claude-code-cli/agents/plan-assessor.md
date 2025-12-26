@@ -213,18 +213,19 @@ When assessing plan quality, use the Quality Assessment section of the `claude-c
 
 **Severity Mapping:**
 
-| Finding Type | Threshold | Priority |
-|--------------|-----------|----------|
-| Vague terms in Goals | 1-2 terms = MEDIUM; 3+ = HIGH | Affects implementation alignment |
-| Missing numeric thresholds | Any performance claim without number = HIGH | Untestable requirements |
-| Coherence conflicts | Any conflict = CRITICAL | Implementation will fail |
-| Missing rationale | Tech selection without why = MEDIUM | Future maintainability |
-| Sparse Exclude section | < 3 items = MEDIUM; empty = HIGH | Scope creep risk |
-| Untestable goals | Any goal without clear test = HIGH | Acceptance criteria unclear |
-| Missing NFRs | User-facing ops without latency = HIGH | Production failure risk |
-| No version tracking | = LOW (first draft) or HIGH (revised plan) | Document evolution |
+Based on finding type, assign priority:
+- **Vague terms in Goals**: 1-2 terms = MEDIUM; 3+ terms = HIGH (affects implementation alignment)
+- **Missing numeric thresholds**: Any performance claim without number = HIGH (untestable requirements)
+- **Coherence conflicts**: Any conflict = CRITICAL (implementation will fail)
+- **Missing rationale**: Tech selection without why = MEDIUM (future maintainability)
+- **Sparse Exclude section**: < 3 items = MEDIUM; empty = HIGH (scope creep risk)
+- **Untestable goals**: Any goal without clear test = HIGH (acceptance criteria unclear)
+- **Missing NFRs**: User-facing ops without latency = HIGH (production failure risk)
+- **No version tracking**: First draft = LOW; revised plan = HIGH (document evolution)
 
 **Project Type Adjustments:**
+
+Based on project type, adjust assessment rigor:
 - **Bug fixes**: Scope/rationale less critical; focus on testability
 - **Refactoring**: No new user-facing functionality expected; focus on coherence
 - **Research/Spikes**: Uncertain outcomes acceptable; focus on scope boundaries
@@ -233,24 +234,22 @@ When assessing plan quality, use the Quality Assessment section of the `claude-c
 
 **Edge Case Handling:**
 
-*Minimal/Stub Plans:*
-- Empty sections or placeholder text ("TBD", "TODO", template text) = CRITICAL, cannot assess
-- Plans with < 3 goals: May be appropriate (bug fix) or incomplete (feature)
+Based on plan characteristics:
 
-*Over-Engineered Plans:*
-- Plans > 500 lines: Flag for review—likely too detailed
-- Plans with code samples, database schemas, UI specs: "Implementation Manual" anti-pattern
+- **Empty sections or placeholder text** ("TBD", "TODO", template text): CRITICAL, cannot assess
+- **Plans with < 3 goals**:
+  - **If bug fix**: May be appropriate
+  - **If feature**: Likely incomplete
+- **Plans > 500 lines**: Flag for review—likely too detailed
+- **Plans with code samples, database schemas, UI specs**: "Implementation Manual" anti-pattern
 
-*Partial Quality Plans:*
-If plan excels in some dimensions but fails in others, apply composite scoring:
-- Any CRITICAL issue = overall CRITICAL (blocks implementation)
-- 3+ HIGH issues = overall CRITICAL (cumulative risk)
-- Mix of HIGH/MEDIUM = overall HIGH with dimension-specific remediation
+Based on quality distribution, apply composite scoring:
+- **Any CRITICAL issue**: Overall CRITICAL (blocks implementation)
+- **3+ HIGH issues**: Overall CRITICAL (cumulative risk)
+- **Mix of HIGH/MEDIUM**: Overall HIGH with dimension-specific remediation
 
-*Premature Precision:*
-Flag when plan specifies exact numbers without evidence basis:
-- "200ms latency" without "validated via spike" or "based on benchmark"
-- Performance targets from imagination, not measurement
+Based on precision claims:
+- **Exact numbers without evidence basis** (e.g., "200ms latency" without "validated via spike" or "based on benchmark"): Flag as premature precision—performance targets from imagination, not measurement
 
 Report findings by priority level with specific remediation recommendations. Load relevant methodology for remediation examples.
 </content-analysis-patterns>
@@ -355,19 +354,21 @@ Do not post to issue comments directly - this prevents duplication and allows th
 </logging-requirements>
 
 <implementation-readiness-criteria>
-A plan is **ready to implement** when:
-- All CRITICAL, HIGH, or MEDIUM issues are resolved
-- Clear implementation path exists with objective architectural criteria
-- Success criteria are measurable through concrete testing and metrics
-- Implementation decisions are evidence-based with quantitative comparison
-- Complexity metrics remain within acceptable codebase thresholds
+Based on assessment findings, determine implementation readiness:
 
-A plan **requires revision** when:
-- Any CRITICAL, HIGH, or MEDIUM issues exist
-- Implementation steps lack objective architectural verification
-- Success criteria cannot be measured through concrete testing
-- Planning decisions lack objective triggers or measurable evidence
-- Complexity metrics exceed codebase thresholds without mitigation
+- **Ready to implement**: All of the following are true:
+  - All CRITICAL, HIGH, or MEDIUM issues are resolved
+  - Clear implementation path exists with objective architectural criteria
+  - Success criteria are measurable through concrete testing and metrics
+  - Implementation decisions are evidence-based with quantitative comparison
+  - Complexity metrics remain within acceptable codebase thresholds
+
+- **Requires revision**: Any of the following are true:
+  - Any CRITICAL, HIGH, or MEDIUM issues exist
+  - Implementation steps lack objective architectural verification
+  - Success criteria cannot be measured through concrete testing
+  - Planning decisions lack objective triggers or measurable evidence
+  - Complexity metrics exceed codebase thresholds without mitigation
 
 **Note**: Always recommend revision if CRITICAL, HIGH, or MEDIUM issues exist. For all revisions, ensure objective criteria are met and decisions are based on measurable evidence.
 

@@ -11,13 +11,10 @@ Provide information only—no code changes, worktrees, or commits. If the issue 
 
 ## 2. Determine Response
 
-Evaluate conditions in order; use first match:
-
-| Condition | Response |
-|-----------|----------|
-| Issue is stale, out of scope, or superseded | Recommend closure with honest, courteous feedback; invite user response before any status change |
-| [HAS_PENDING_QUESTION] is true | Research codebase and answer the question |
-| No pending questions | Acknowledge the issue remains in backlog and will be addressed when prioritized |
+Evaluate conditions in order (first match wins):
+- **Issue is stale, out of scope, or superseded**: Recommend closure with honest, courteous feedback; invite user response before any status change
+- **[HAS_PENDING_QUESTION] is true**: Research codebase and answer the question
+- **Otherwise**: Acknowledge the issue remains in backlog and will be addressed when prioritized
 
 ## 3. Post Comment
 

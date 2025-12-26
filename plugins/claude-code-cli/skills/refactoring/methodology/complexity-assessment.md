@@ -126,15 +126,14 @@ If a standard solution exists, the custom implementation is accidental complexit
 <decision-matrix>
 ## Decision Matrix
 
-| Condition | Complexity Type | Action |
-|-----------|-----------------|--------|
-| Plan explicitly requires this behaviour | Essential | Preserve, ensure documentation |
-| Plan does not mention this sophistication | Likely accidental | Simplify if tests still pass |
-| Tests would pass with simpler code | Accidental | Replace with simpler version |
-| Complexity handles explicit edge cases from plan | Essential | Preserve |
-| Abstraction serves single implementation | Accidental | Inline the abstraction |
-| Configuration options never vary | Accidental | Remove configuration, use constants |
-| Pattern prepares for unplanned future needs | Accidental | Remove, rebuild when needed |
+Based on the observed condition:
+- **Plan explicitly requires this behaviour**: Essential complexity — Preserve, ensure documentation
+- **Plan does not mention this sophistication**: Likely accidental complexity — Simplify if tests still pass
+- **Tests would pass with simpler code**: Accidental complexity — Replace with simpler version
+- **Complexity handles explicit edge cases from plan**: Essential complexity — Preserve
+- **Abstraction serves single implementation**: Accidental complexity — Inline the abstraction
+- **Configuration options never vary**: Accidental complexity — Remove configuration, use constants
+- **Pattern prepares for unplanned future needs**: Accidental complexity — Remove, rebuild when needed
 </decision-matrix>
 
 <refactoring-actions>

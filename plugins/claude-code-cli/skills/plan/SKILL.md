@@ -267,16 +267,16 @@ Include this section when you have critical technical unknowns requiring empiric
 
 ### Spike Workflow in Issue Context
 
-When a worktree exists for the issue:
-1. Create spike code in `.spikes/[ISSUE_ID]/[spike-name]/` within the worktree
-2. Run experiments and document results
-3. Delete the spike directory before committing implementation
-4. Reference evidence and conclusions in the plan — artifacts don't persist
-
-When no worktree exists yet (plan-required issues):
-1. Conduct lightweight investigation using Read/Grep tools
-2. Document findings without creating prototype code
-3. Note that full spike validation will occur during implementation if needed
+Based on worktree availability:
+- **Worktree exists for the issue**:
+  1. Create spike code in `.spikes/[ISSUE_ID]/[spike-name]/` within the worktree
+  2. Run experiments and document results
+  3. Delete the spike directory before committing implementation
+  4. Reference evidence and conclusions in the plan — artifacts don't persist
+- **No worktree exists (plan-required issues)**:
+  1. Conduct lightweight investigation using Read/Grep tools
+  2. Document findings without creating prototype code
+  3. Note that full spike validation will occur during implementation if needed
 </instructions>
 
 <example>
@@ -858,13 +858,13 @@ Load full methodology only when remediation guidance is needed or the issue is c
 
 Select and load methodology documents based on the quality issues you encounter during assessment:
 
-- Read `methodology/vague-language-detection.md` if requirements contain subjective terms like "fast", "user-friendly", or "scalable" without definitions. Provides systematic patterns for identifying ambiguous language and transforming it into specific, measurable criteria. Use when you cannot envision a clear test case for a requirement or when numeric thresholds are missing from performance claims.
-- Read `methodology/coherence-checking.md` if plan sections appear to contradict each other or use inconsistent terminology. Provides verification processes for cross-referencing values, terms, and scope items across all plan sections. Use when performance targets differ between sections, terminology is inconsistent, or scope boundaries conflict with technical approach.
-- Read `methodology/rationale-capture.md` if technical decisions lack justification or trade-offs are undocumented. Provides patterns for capturing technology selection reasoning, constraint origins, and exclusion rationale. Use when future maintainers would ask "why was this done?" or when scope exclusions lack explanation.
-- Read `methodology/scope-management.md` if the Exclude section is sparse or features use speculative language like "might need" or "for future use". Provides YAGNI assessment framework and scope defense protocols for maintaining clear project boundaries. Use when features aren't tied to the problem statement or when scope creep indicators appear in Technical Approach.
-- Read `methodology/testability-assessment.md` if you cannot answer "How would we test this?" for a requirement. Provides criteria for verifying requirements are observable, measurable, and deterministic with clear pass/fail conditions. Use when goals use subjective success criteria or acceptance criteria are abstract.
-- Read `methodology/nfr-completeness.md` if non-functional requirements are missing or assumed but not documented. Provides checklists for performance, reliability, security, and scalability coverage with assessment questions for each category. Use when there are no latency targets for user-facing operations or when scalability expectations are based on hope rather than evidence.
-- Read `methodology/document-evolution.md` if open questions are hidden in prose rather than explicit or sections aren't modular. Provides mechanisms for decision tracking via comments, open questions management, and modular section structure that supports iterative refinement. Use when assessing whether the plan can evolve healthily as implementation progresses.
+- **If requirements contain subjective terms** (e.g., "fast", "user-friendly", "scalable" without definitions): Read `methodology/vague-language-detection.md`. Provides systematic patterns for identifying ambiguous language and transforming it into specific, measurable criteria. Use when you cannot envision a clear test case for a requirement or when numeric thresholds are missing from performance claims.
+- **If plan sections contradict each other or use inconsistent terminology**: Read `methodology/coherence-checking.md`. Provides verification processes for cross-referencing values, terms, and scope items across all plan sections. Use when performance targets differ between sections, terminology is inconsistent, or scope boundaries conflict with technical approach.
+- **If technical decisions lack justification or trade-offs are undocumented**: Read `methodology/rationale-capture.md`. Provides patterns for capturing technology selection reasoning, constraint origins, and exclusion rationale. Use when future maintainers would ask "why was this done?" or when scope exclusions lack explanation.
+- **If the Exclude section is sparse or features use speculative language** (e.g., "might need", "for future use"): Read `methodology/scope-management.md`. Provides YAGNI assessment framework and scope defense protocols for maintaining clear project boundaries. Use when features aren't tied to the problem statement or when scope creep indicators appear in Technical Approach.
+- **If you cannot answer "How would we test this?" for a requirement**: Read `methodology/testability-assessment.md`. Provides criteria for verifying requirements are observable, measurable, and deterministic with clear pass/fail conditions. Use when goals use subjective success criteria or acceptance criteria are abstract.
+- **If non-functional requirements are missing or assumed but not documented**: Read `methodology/nfr-completeness.md`. Provides checklists for performance, reliability, security, and scalability coverage with assessment questions for each category. Use when there are no latency targets for user-facing operations or when scalability expectations are based on hope rather than evidence.
+- **If open questions are hidden in prose or sections aren't modular**: Read `methodology/document-evolution.md`. Provides mechanisms for decision tracking via comments, open questions management, and modular section structure that supports iterative refinement. Use when assessing whether the plan can evolve healthily as implementation progresses.
 
 </quality-assessment>
 

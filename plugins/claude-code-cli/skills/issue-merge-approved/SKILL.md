@@ -41,13 +41,10 @@ cd "$(git rev-parse --show-toplevel)"
 git status --porcelain
 ```
 
-Handle uncommitted files:
-
-| File Type | Action |
-|-----------|--------|
-| Known artifacts (`.compare-branch/claude-launcher-*.mjs`) | Delete |
-| Legitimate uncommitted work | `git stash push -m "pre-merge: [ISSUE_ID]"` |
-| Potential conflicts | Resolve before proceeding |
+Based on uncommitted file type:
+- **Known artifacts** (`.compare-branch/claude-launcher-*.mjs`): Delete
+- **Legitimate uncommitted work**: `git stash push -m "pre-merge: [ISSUE_ID]"`
+- **Potential conflicts**: Resolve before proceeding
 
 ## 3. Squash Commits in Worktree
 

@@ -33,12 +33,9 @@ This skill enforces strict test-first verification:
 ## 1. Prepare Environment
 
 Determine path using first matching condition:
-
-| Condition | Action |
-|-----------|--------|
-| [IS_RESUMABLE] AND worktree exists | **Resume** |
-| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate** |
-| Otherwise | **New** |
+- **[IS_RESUMABLE] AND worktree exists**: Resume
+- **[IS_RESUMABLE] AND branch exists (no worktree)**: Recreate
+- **Otherwise**: New
 
 ### Resume
 
@@ -50,12 +47,9 @@ TEST_FILE_PATH=$(git log --oneline --name-only "$WORKTREE_BASELINE"..HEAD | grep
 ```
 
 Determine resume point:
-
-| Condition | Resume Point |
-|-----------|--------------|
-| TEST_FILE_PATH empty | **2. Create Reproduction Test** |
-| TEST_FILE_PATH exists AND `yarn test "$TEST_FILE_PATH"` fails | **3. Resolve Bug** (capture TEST_FAILURE_OUTPUT first) |
-| TEST_FILE_PATH exists AND test passes | **4. Validate Full Suite** |
+- **TEST_FILE_PATH empty**: 2. Create Reproduction Test
+- **TEST_FILE_PATH exists AND `yarn test "$TEST_FILE_PATH"` fails**: 3. Resolve Bug (capture TEST_FAILURE_OUTPUT first)
+- **TEST_FILE_PATH exists AND test passes**: 4. Validate Full Suite
 
 ### Recreate
 

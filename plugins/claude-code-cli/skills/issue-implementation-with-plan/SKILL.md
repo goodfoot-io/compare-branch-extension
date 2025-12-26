@@ -57,12 +57,9 @@ Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn
 ## 1. Prepare Environment
 
 Determine path using the first matching condition:
-
-| Condition | Action |
-|-----------|--------|
-| [IS_RESUMABLE] AND worktree exists | **Resume**: Navigate to existing worktree |
-| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate**: Attach worktree to branch |
-| Otherwise | **New**: Create checkpoint and worktree |
+- **[IS_RESUMABLE] AND worktree exists**: Resume — Navigate to existing worktree
+- **[IS_RESUMABLE] AND branch exists (no worktree)**: Recreate — Attach worktree to branch
+- **Otherwise**: New — Create checkpoint and worktree
 
 ### Resume
 
@@ -137,10 +134,9 @@ Progress: [COMPLETED] of [TOTAL] tasks complete"
 
 ### 2.3 Assess Coherence
 
-| Issue Type | Characteristics | Delegation Strategy |
-|------------|-----------------|---------------------|
-| Coherent | Effort compounds across todos | Single agent for all todos |
-| Fragmented | Effort is isolated per todo | One agent per independent group |
+Based on issue type:
+- **Coherent** (effort compounds across todos): Delegate to single agent for all todos
+- **Fragmented** (effort is isolated per todo): Delegate one agent per independent group
 
 Test: Would a fresh agent be equally effective? If yes → Fragmented.
 
@@ -168,11 +164,12 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 
 ### 2.5 Process Result
 
-| Status | Action |
-|--------|--------|
-| COMPLETED | Mark todo completed. Commit if changes exist. Post to issue. Continue. |
-| NEEDS_REVISION | Update todo with attempt count. Revert to checkpoint. Re-delegate (max 3). After 3: mark blocked. |
-| BLOCKED | Document in issue. Mark todo blocked. Continue. |
+Based on agent status:
+- **COMPLETED**: Mark todo completed, commit if changes exist, post to issue, continue
+- **NEEDS_REVISION**: Update todo with attempt count, revert to checkpoint
+  - **If attempts < 3**: Re-delegate to agent
+  - **If attempts ≥ 3**: Mark todo blocked
+- **BLOCKED**: Document in issue, mark todo blocked, continue
 
 **COMPLETED:** Post a brief progress update indicating which task you completed and what you actually did. Keep it concise.
 ```
@@ -234,11 +231,10 @@ Worktree: [WORKTREE_PATH]
 
 ### 3.3 Process Result
 
-| Status | Action |
-|--------|--------|
-| COMPLETED | Commit with `refactor:` prefix, post to issue, proceed to Step 4 |
-| NEEDS_REVIEW | Log recommendations, proceed to Step 4 |
-| BLOCKED | Document reasons, proceed to Step 4 |
+Based on agent status:
+- **COMPLETED**: Commit with `refactor:` prefix, post to issue, proceed to Step 4
+- **NEEDS_REVIEW**: Log recommendations, proceed to Step 4
+- **BLOCKED**: Document reasons, proceed to Step 4
 
 ---
 
@@ -274,11 +270,12 @@ Evaluate for production readiness.
 
 ### 4.3 Process Result
 
-| Status | Action |
-|--------|--------|
-| PRODUCTION_READY | Post completion comment, proceed to Step 5 |
-| CONTINUE | Increment [EVALUATION_CYCLE]. If ≥2: set `needs_review`, HALT. Else: create todos (prefix "[Eval fix]"), return to 2.2. |
-| BLOCKED | Document issues, set `needs_review`, HALT |
+Based on evaluation result:
+- **PRODUCTION_READY**: Post completion comment, proceed to Step 5
+- **CONTINUE**: Increment [EVALUATION_CYCLE]
+  - **If cycle ≥ 2**: Set `needs_review`, HALT
+  - **If cycle < 2**: Create todos with "[Eval fix]" prefix, return to Step 2.2
+- **BLOCKED**: Document issues, set `needs_review`, HALT
 
 ---
 

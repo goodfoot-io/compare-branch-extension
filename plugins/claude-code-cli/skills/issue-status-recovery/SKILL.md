@@ -40,10 +40,9 @@ PATCH /issues/[ISSUE_ID]
 
 ## 2. Route by Completion Evidence
 
-| Condition | Interpretation | Action |
-|-----------|----------------|--------|
-| [HAS_COMPLETION_COMMENT] | Work completed, status stale | Go to Step 3 |
-| NOT [HAS_COMPLETION_COMMENT] | Status set prematurely | Go to Step 4 |
+Based on [HAS_COMPLETION_COMMENT]:
+- **True (work completed, status stale)**: Go to Step 3
+- **False (status set prematurely)**: Go to Step 4
 
 ## 3. Recover
 

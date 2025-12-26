@@ -22,7 +22,9 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-Include `codeReferences` when your answer references specific code locations.
+Based on answer content:
+- **If referencing specific code locations**: Include `codeReferences` array
+- **Otherwise**: Omit `codeReferences`
 
 ## 3. Restore Issue Status
 

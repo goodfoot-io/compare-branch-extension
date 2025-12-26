@@ -60,9 +60,11 @@ Implementation must meet ALL criteria:
 **Business Risk Assessment**: Risk stratification by business impact, deployment risk assessment (security vulnerabilities, performance degradation, integration failures, data safety, rollback capability, monitoring readiness), mitigation strategy development
 
 **Status Decision Logic**:
-- All requirements met + type contracts satisfied with native types → **PRODUCTION_READY**
-- Core functionality complete + correctable issues → **CONTINUE**
-- System-level impediments preventing progress → **BLOCKED**
+
+Based on implementation state:
+- **All requirements met AND type contracts satisfied with native types**: PRODUCTION_READY
+- **Core functionality complete AND correctable issues exist**: CONTINUE
+- **System-level impediments preventing progress**: BLOCKED
 </evaluation-approach>
 
 <test-quality-philosophy>
@@ -171,14 +173,14 @@ Focus on type-first development with maximum native type reuse and business-alig
 
 ### BLOCKED Status
 
-Set status to BLOCKED when encountering:
-- Disk space errors (ENOSPC)
-- Permission denied errors (EACCES) on system directories
-- Missing critical dependencies (node_modules not found after install attempt)
-- Network connectivity issues preventing package installation
-- Infrastructure requirements not met (missing database, redis, etc.)
-- Git repository in corrupted state
-- Required environment variables or secrets not available
+Based on error type encountered:
+- **Disk space errors (ENOSPC)**: Set status to BLOCKED
+- **Permission denied errors (EACCES) on system directories**: Set status to BLOCKED
+- **Missing critical dependencies (node_modules not found after install attempt)**: Set status to BLOCKED
+- **Network connectivity issues preventing package installation**: Set status to BLOCKED
+- **Infrastructure requirements not met (missing database, redis, etc.)**: Set status to BLOCKED
+- **Git repository in corrupted state**: Set status to BLOCKED
+- **Required environment variables or secrets not available**: Set status to BLOCKED
 
 These are issues that cannot be resolved by code changes alone.
 </status-determination-guidelines>
@@ -190,18 +192,21 @@ These are issues that cannot be resolved by code changes alone.
 **Step 1: Read Validation Commands from [PLAN_CONTENT]**
 - Parse [PLAN_CONTENT] for the "Validation Commands" section
 - Extract ALL commands listed for affected packages
-- If no "Validation Commands" section exists, use defaults: typecheck, test, lint
+
+Based on [PLAN_CONTENT] structure:
+- **"Validation Commands" section exists**: Use the commands listed
+- **No "Validation Commands" section**: Use defaults (typecheck, test, lint)
 
 **Step 2: Execute ALL validation commands**
 Execute assessment commands from correct working directory with proper environment setup:
 - Run EVERY command from the Validation Commands section
-- **CRITICAL**: If Bash tool times out (e.g., "Command timed out after 2m 0.0s"):
-  - Note that some tests take longer than 2m, and re-run the tests with a longer timeout unless it's clear the tests have frozen
-  - Report as "JEST EXIT ISSUES" in evaluation
-  - Status must be CONTINUE or BLOCKED, not PRODUCTION_READY
 - Use `--detectOpenHandles` flag to debug: `yarn test --detectOpenHandles`
 - For monorepos: Navigate to specific package directory before executing quality checks
 - Verify package.json contains required scripts and dependencies
+
+Based on Bash tool timeout behavior:
+- **Timeout occurs (e.g., "Command timed out after 2m 0.0s") AND tests may need more time**: Re-run with longer timeout
+- **Timeout occurs AND tests appear frozen**: Report as "JEST EXIT ISSUES" in evaluation, status must be CONTINUE or BLOCKED (not PRODUCTION_READY)
 
 **Example**: If [PLAN_CONTENT] contains:
 ```markdown

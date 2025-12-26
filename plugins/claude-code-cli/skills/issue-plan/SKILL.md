@@ -16,15 +16,13 @@ Create implementation plans for issues requiring user approval before coding beg
 
 ## 1. Entry Check
 
-Evaluate conditions in order. "Previous plan" = [PLAN_CONTENT] is not null. "Already submitted" = agent comment exists containing "## Implementation Plan".
+Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null. "Already submitted" = agent comment exists containing "## Implementation Plan".
 
-| Condition | Action |
-|-----------|--------|
-| Previous plan AND [LATEST_USER_COMMENT] contains approval language | Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool |
-| Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted | Skip to step 8 (Wait) |
-| Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted | Skip to step 7 (Submit) |
-| Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous | Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset. |
-| No previous plan | Create new plan. Start at step 1. |
+- **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
+- **Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted**: Skip to step 8 (Wait)
+- **Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted**: Skip to step 7 (Submit)
+- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
+- **No previous plan**: Create new plan. Start at step 1.
 
 ## 2. Classifying User Feedback
 
@@ -60,15 +58,13 @@ Invoke `claude-code-cli:plan` for structure requirements and examples.
 
 After research, evaluate whether the issue title still accurately describes the work:
 
-**RENAME when:**
-- Title references wrong component, file, or feature
-- Title describes symptom but research reveals root cause
-- Scope has significantly changed from original request
-
-**DO NOT RENAME when:**
-- Minor phrasing improvements only
-- Synonyms or style preferences
-- Title is accurate but could be "better"
+Based on title accuracy:
+- **Title references wrong component, file, or feature**: Rename
+- **Title describes symptom but research reveals root cause**: Rename
+- **Scope has significantly changed from original request**: Rename
+- **Minor phrasing improvements only**: Do not rename
+- **Synonyms or style preferences**: Do not rename
+- **Title is accurate but could be "better"**: Do not rename
 
 If renaming is warranted:
 ```
@@ -125,11 +121,11 @@ Description: [DESCRIPTION]</parameter>
 
 ### 3.6 Address Findings
 
-Review both assessment reports. If CRITICAL or HIGH priority issues exist:
-1. Revise the plan to address findings
-2. Re-store the revised plan via PATCH
-3. Re-run step 5 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed)
-4. Document changes and decisions in the plan
+Review both assessment reports.
+
+Based on assessment severity:
+- **CRITICAL or HIGH priority issues exist**: Revise the plan to address findings, re-store via PATCH, re-run step 5 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed), document changes and decisions in the plan
+- **Otherwise**: Proceed to step 7
 
 ### 3.7 Submit for Approval
 
