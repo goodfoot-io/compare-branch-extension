@@ -375,7 +375,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-**STOP** — Merge via `issue-merge-approved` skill after approval.
+**STOP** — Merge via `issue-merge` skill after approval.
 
 **If NOT [REVIEW_REQUIRED]:**
 
@@ -396,7 +396,7 @@ POST /issues/[ISSUE_ID]/comments
 
 ```xml
 <invoke name="Skill">
-<parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+<parameter name="skill">claude-code-cli:issue-merge</parameter>
 </invoke>
 ```
 

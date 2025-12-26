@@ -1,11 +1,11 @@
 ---
-name: issue-merge-approved
+name: issue-merge
 description: Merge completed implementation from worktree to main branch. Used when review is approved or when review is not required.
 ---
 
 <placeholder-variables>
 [TITLE] — The issue title
-[BRANCH_NAME] — The worktree branch name (derived or from context)
+[BRANCH_NAME] — The worktree branch name
 [WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
 </placeholder-variables>
 
@@ -21,20 +21,7 @@ Removes a worktree and deletes its associated branch. Returns the branch's final
 
 <instructions>
 
-## 1. Detect Branch Name
-
-> Skip this step if [BRANCH_NAME] is already known.
-
-```bash
-WORKTREE_DIR=$(ls -d .worktrees/issue-[ISSUE_ID]-* 2>/dev/null | head -1)
-if [ -z "$WORKTREE_DIR" ]; then
-  echo "Error: No worktree found for issue [ISSUE_ID]"
-  exit 1
-fi
-BRANCH_NAME=$(basename "$WORKTREE_DIR")
-```
-
-## 2. Prepare Main Workspace
+## 1. Prepare Main Workspace
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -46,7 +33,7 @@ Based on uncommitted file type:
 - **Legitimate uncommitted work**: `git stash push -m "pre-merge: [ISSUE_ID]"`
 - **Potential conflicts**: Resolve before proceeding
 
-## 3. Squash Commits in Worktree
+## 2. Squash Commits in Worktree
 
 ```bash
 cd ".worktrees/$BRANCH_NAME"
@@ -61,7 +48,7 @@ fi
 cd "$(git rev-parse --show-toplevel)"
 ```
 
-## 4. Merge Branch
+## 3. Merge Branch
 
 ```bash
 PRE_MERGE_SHA=$(git rev-parse HEAD)
@@ -97,7 +84,7 @@ If merge conflict occurs:
    ```
    Post error comment and set status to `needs_review`.
 
-## 5. Restore Stashed Work
+## 4. Restore Stashed Work
 
 If work was stashed in step 2:
 
@@ -105,13 +92,13 @@ If work was stashed in step 2:
 git stash list | grep -q "pre-merge: [ISSUE_ID]" && git stash pop
 ```
 
-## 6. Clean Up
+## 5. Clean Up
 
 ```bash
 remove-instant-worktree "$BRANCH_NAME"
 ```
 
-## 7. Update Status
+## 6. Update Status
 
 Set status to `needs_review` so the user can verify the merge. Only the user marks issues as `done`.
 

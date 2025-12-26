@@ -167,13 +167,13 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-Stop here. Merge occurs via `issue-merge-approved` skill after user approval.
+Stop here. Merge occurs via `issue-merge` skill after user approval.
 
 ### If NOT [REVIEW_REQUIRED]:
 
 ```xml
 <invoke name="Skill">
-  <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+  <parameter name="skill">claude-code-cli:issue-merge</parameter>
 </invoke>
 ```
 

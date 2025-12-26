@@ -281,6 +281,14 @@ Based on evaluation result:
 
 ## 5. Finalize
 
+### If NOT [REVIEW_REQUIRED]:
+
+```xml
+<invoke name="Skill">
+  <parameter name="skill">claude-code-cli:issue-merge</parameter>
+</invoke>
+```
+
 ### If [REVIEW_REQUIRED]:
 
 Post a summary explaining what you implemented and how it aligns with the approved plan. List the key files modified and confirm all validation passed. Indicate you're awaiting approval.
@@ -307,14 +315,6 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-Stop here. Merge occurs via `issue-merge-approved` skill after user approval.
-
-### If NOT [REVIEW_REQUIRED]:
-
-```xml
-<invoke name="Skill">
-  <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
-</invoke>
-```
+Stop here. Merge occurs via `issue-merge` skill after user approval.
 
 </instructions>
