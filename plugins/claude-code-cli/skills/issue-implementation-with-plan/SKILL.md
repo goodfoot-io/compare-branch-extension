@@ -89,7 +89,7 @@ Continue to Step 2.
    cd "$WORKTREE_DIR"
    ```
 
-   On worktree creation failure: post error to issue, set status `blocked`, **STOP**.
+   On worktree creation failure: post error to issue, set status `needs_review`, add `blocked` tag, **STOP**.
 
 2. Initialize implementation:
    ```
@@ -114,7 +114,7 @@ Continue to Step 2.
 
 ### 2.1 Validate and Initialize
 
-If [PLAN_CONTENT] is empty: post error comment, set status `blocked`, **STOP**.
+If [PLAN_CONTENT] is empty: post error comment, set status `needs_review`, add `blocked` tag, **STOP**.
 
 Create todos from [PLAN_CONTENT] using TodoWrite. Initialize `[EVALUATION_CYCLE] = 0`.
 
@@ -181,7 +181,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 
 **After all todos:**
-- ALL blocked → post summary, set status `blocked`, **STOP**
+- ALL blocked → post summary, set status `needs_review`, add `blocked` tag, **STOP**
 - SOME blocked → note in summary, proceed to Step 3
 - NONE blocked → proceed to Step 3
 
@@ -275,7 +275,7 @@ Based on evaluation result:
 - **CONTINUE**: Increment [EVALUATION_CYCLE]
   - **If cycle ≥ 2**: Set `needs_review`, **STOP**
   - **If cycle < 2**: Create todos with "[Eval fix]" prefix, return to Step 2.2
-- **BLOCKED**: Document issues, set `needs_review`, **STOP**
+- **BLOCKED**: Document issues, set status `needs_review`, add `blocked` tag, **STOP**
 
 ---
 

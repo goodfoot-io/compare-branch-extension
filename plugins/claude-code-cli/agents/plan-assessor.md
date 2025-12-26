@@ -255,7 +255,7 @@ Report findings by priority level with specific remediation recommendations. Loa
 </content-analysis-patterns>
 
 <priority-framework>
-### Critical (Blocks Implementation)
+### Critical (Prevents Implementation)
 - Missing required sections (including Framework & Technology Stack)
 - Invalid markdown structure
 - No clear implementation steps

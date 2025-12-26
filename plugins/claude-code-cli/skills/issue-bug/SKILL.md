@@ -173,7 +173,7 @@ TEST_EXIT_CODE=$?
 
 **BLOCKED or CANNOT_COMPLETE:**
 
-Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
+Post comment with SUBAGENT_REASONING, set status `needs_review`, add `blocked` tag, **STOP**
 
 **Test FAILS (expected):**
 
@@ -275,7 +275,7 @@ SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 
 **BLOCKED or CANNOT_COMPLETE:**
 
-Post comment with reasoning, set `needs_review`, **STOP**
+Post comment with reasoning, set status `needs_review`, add `blocked` tag, **STOP**
 
 **Test modified:**
 

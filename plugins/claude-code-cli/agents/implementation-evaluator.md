@@ -45,8 +45,7 @@ Implementation must meet ALL criteria:
 - Type safety present but with improvement opportunities (excessive custom types, could use more native types), fixable within current iteration
 
 #### BLOCKED
-- System-level impediment preventing progress (disk full, missing infrastructure, permission errors, network failures)
-- Cannot proceed without external intervention
+Work cannot proceed due to constraints outside of your control (disk full, missing infrastructure, permission errors, network failures) that require external intervention.
 
 </status-definitions>
 
@@ -173,16 +172,7 @@ Focus on type-first development with maximum native type reuse and business-alig
 
 ### BLOCKED Status
 
-Based on error type encountered:
-- **Disk space errors (ENOSPC)**: Set status to BLOCKED
-- **Permission denied errors (EACCES) on system directories**: Set status to BLOCKED
-- **Missing critical dependencies (node_modules not found after install attempt)**: Set status to BLOCKED
-- **Network connectivity issues preventing package installation**: Set status to BLOCKED
-- **Infrastructure requirements not met (missing database, redis, etc.)**: Set status to BLOCKED
-- **Git repository in corrupted state**: Set status to BLOCKED
-- **Required environment variables or secrets not available**: Set status to BLOCKED
-
-These are issues that cannot be resolved by code changes alone.
+Report BLOCKED for constraints outside the agent's control: disk space errors (ENOSPC), permission denied on system directories (EACCES), missing dependencies after install attempt, network failures, missing infrastructure (database, redis), corrupted git state, or unavailable environment variables.
 </status-determination-guidelines>
 
 ## Execution Steps

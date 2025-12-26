@@ -90,10 +90,7 @@ No excuses - iterate internally until zero errors across all packages.
 3. **Test infrastructure fixes** (connection pools, timeouts)
 4. **Environment fixes** (dependencies, configurations)
 
-Mark as BLOCKED only when:
-- **Fix attempts fail after 5 iterations**: Internal iteration limit reached
-- **Issue requires external dependencies not in project**: Cannot resolve without external resources
-- **Issue requires permissions you don't have**: Cannot complete due to access restrictions
+Report BLOCKED when work cannot proceed due to constraints outside your control (missing permissions, external dependencies, infrastructure failures) that require external intervention to resolve.
 
 ### Common Infrastructure Fix Patterns
 
@@ -129,7 +126,7 @@ To determine the final status:
 Based on validation results:
 - **All validation commands passed with zero errors**: COMPLETED
 - **Any command failed or reported errors**: NEEDS_REVISION
-- **External dependencies or permissions prevented completion**: BLOCKED
+- **Constraints outside your control prevent completion**: BLOCKED
 
 ## Report Template
 ```markdown
@@ -408,7 +405,7 @@ Generate Implementation Summary using template from <validation-and-reporting>:
 Based on implementation outcome:
 - **All plan objectives achieved with zero errors**: COMPLETED
 - **Unable to achieve plan goals after 5 attempts**: NEEDS_REVISION
-- **External dependency or permission issue**: BLOCKED
+- **Constraints outside your control prevent completion**: BLOCKED
 
 ### Document Achievement
 Reference the plan's Goals & Objectives:

@@ -404,5 +404,5 @@ Execute ALL validation commands from [PLAN_CONTENT]:
 Based on final validation results, determine status:
 - **COMPLETED**: All refactoring applied, validation passes, behavior preserved
 - **NEEDS_REVIEW**: Some refactoring opportunities identified but require human judgment
-- **BLOCKED**: Cannot refactor safely due to missing tests or unclear requirements
+- **BLOCKED**: Constraints outside your control (missing tests, unclear requirements) prevent safe refactoring
 </instructions>
