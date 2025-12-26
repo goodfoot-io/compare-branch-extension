@@ -230,6 +230,8 @@ Don't ask "What errors exist in the project?" - run validation commands instead!
 4. **Do NOT proceed until completely clean**
    - ALL packages must have zero errors
    - No exceptions to this rule
+
+5. **Post progress comment** via `POST /issues/[ISSUE_ID]/comments` summarizing preparation work—mention specific issues fixed, errors resolved, or that the workspace was already clean. Indicate readiness to investigate.
 </preparation-phase>
 
 <investigation-phase>
@@ -284,6 +286,8 @@ Based on your investigation, refine the plan's Technical Approach into concrete 
 **E. Validation Strategy**
 - [Using plan's Validation Commands]
 - [Success criteria from Goals & Objectives]
+
+**Post progress comment** summarizing your investigation findings—what you learned about the codebase, key files identified, or the approach you've determined. Indicate you're beginning implementation.
 </investigation-phase>
 
 <implementation-phase>
@@ -305,6 +309,8 @@ Work through the plan's Technical Approach sequentially:
 
 ### Validate After Each Step
 Run validation commands from the plan.
+
+After completing each major step from the plan's Technical Approach, **post a brief progress comment** describing what was built or changed. Reference the specific functionality, not just "step N complete."
 
 ### Internal Iteration Loop
 If validation fails, iterate internally (max 5 attempts):
@@ -384,6 +390,8 @@ Ensure you:
 For each risk identified in the plan:
 - Verify the mitigation is in place
 - Test the risk scenario if possible
+
+**Post progress comment** with validation results—test counts, packages checked, any issues encountered and resolved. This prepares the user for your final summary.
 </validation-phase>
 
 <reporting-phase>
@@ -416,8 +424,6 @@ Note any findings relevant to the plan's Risks & Mitigations:
 - `src/path/to/modified/file.ts:1-100`
 - `src/another/file.ts:25-75`
 ```
-
-Do not post to issue comments directly - this prevents duplication and allows the invoking skill to control logging format and timing.
 </reporting-phase>
 
 </instructions>

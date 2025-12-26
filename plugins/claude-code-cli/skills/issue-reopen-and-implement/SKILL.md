@@ -14,7 +14,7 @@ If [LATEST_USER_COMMENT] is empty or does not indicate what additional work is n
 
 ## 2. Update Status and Acknowledge
 
-Update status and post acknowledgment:
+Update status and post acknowledgment. Summarize the user's request from their latest comment to confirm you understand what additional work they want done.
 
 ```
 PATCH /issues/[ISSUE_ID]
@@ -24,7 +24,7 @@ PATCH /issues/[ISSUE_ID]
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "Reopening to address: [1-2 sentence summary of user's request from LATEST_USER_COMMENT]",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```

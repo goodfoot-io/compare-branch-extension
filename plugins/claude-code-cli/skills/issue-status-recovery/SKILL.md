@@ -19,10 +19,12 @@ If any of the following are true, notify and stop:
 - [IS_RESUMABLE] == true
 - [STATUS] is already "needs_review" or "todo" (already reconciled)
 
+Post a comment explaining what state was checked and why no recovery action is needed.
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## No Recovery Needed\n\n[1-sentence: state what was checked and why no action needed]",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
@@ -45,11 +47,11 @@ PATCH /issues/[ISSUE_ID]
 
 ## 3. Recover
 
-1. Post recovery comment:
+1. Post a comment citing the specific evidence of prior completion you found, and explain you're updating the status to reflect the completed work.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Detected prior completion (evidence: [COMPLETION_EVIDENCE]). Updating status to reflect completed work.",
+     "body": "[comment content]",
      "author": "agent"
    }
    ```
@@ -64,11 +66,11 @@ PATCH /issues/[ISSUE_ID]
 
 ## 4. Reset
 
-1. Post clarification comment:
+1. Post a comment explaining that no prior work was found for this issue, state you're resetting it to "todo", and that you'll begin implementation.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "No prior work found for [phrase: issue subject]. Resetting to begin implementation.",
+     "body": "[comment content]",
      "author": "agent"
    }
    ```

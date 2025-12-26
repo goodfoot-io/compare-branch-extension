@@ -83,10 +83,11 @@ Then follow Resume steps above.
      "status": "in_progress"
    }
    ```
+   Tell the user you're beginning work on the bug. Briefly describe what you'll investigate first or what approach you're taking to understand and reproduce the issue.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "I'm starting the bug fix by [1-sentence: the investigation or approach, in gerund form (-ing)]",
+     "body": "[comment content]",
      "author": "agent",
      "commitSha": "${WORKTREE_BASELINE}"
    }
@@ -185,11 +186,11 @@ Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
 - Commit: `git add -A && git commit -m "test: add reproduction test for [ISSUE_ID]"`
 - Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
 - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
-- Post progress comment:
+- Post a progress comment informing the user that you've created a test demonstrating the bug. Explain what the test checks and why it currently fails.
   ```
   POST /issues/[ISSUE_ID]/comments
   {
-    "body": "I've created a reproduction test that [1-sentence: what it verifies and how it demonstrates the bug]",
+    "body": "[comment content]",
     "author": "agent"
   }
   ```
@@ -200,11 +201,11 @@ Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
 - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
 - Revert: `git checkout "$WORKTREE_BASELINE" -- . && git clean -fd`
 - If REPRODUCTION_ATTEMPT < 3: Return to **Delegate to Subagent**
-- If REPRODUCTION_ATTEMPT >= 3: Post failure comment and **STOP**:
+- If REPRODUCTION_ATTEMPT >= 3: Report that you were unable to create a test that reproduces the reported bug. Summarize what you tried in each attempt and share your hypothesis about why reproduction failed. Then **STOP**.
   ```
   POST /issues/[ISSUE_ID]/comments
   {
-    "body": "## Unable to Reproduce\n\n[1-sentence: summary of bug that could not be reproduced]\n\n### Attempts\n[numbered list: each approach tried and why it failed to reproduce the bug]\n\n### Analysis\n[1-sentence: possible explanation for why reproduction failed]",
+    "body": "[comment content]",
     "author": "agent"
   }
   ```
@@ -301,19 +302,23 @@ Post comment with reasoning, set `needs_review`, **STOP**
 ### Failure Comment Templates
 
 **For fix failures (RESOLVE_ATTEMPT >= 3):**
+
+Explain that you couldn't resolve the bug despite multiple attempts. Describe what you tried and identify the specific technical obstacle preventing resolution.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Fix Unsuccessful\n\n[1-sentence: the approach taken]\n\n### Attempts\n[numbered list: each fix approach and why it failed]\n\n### Blocking Issue\n[1-sentence: what's preventing resolution]",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
 
 **For test validation failures (TEST_CORRECTION_COUNT > 2):**
+
+Report that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it can't be trusted to verify the fix.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Test Validation Failed\n\n[1-sentence: the test behavior issue]\n\n### Problem\n[1-sentence: why the test cannot reliably verify the bug fix]",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
@@ -354,10 +359,11 @@ fi
 
 **If [REVIEW_REQUIRED]:**
 
+Tell the user the bug fix is complete and awaiting their review. Summarize what the bug was, explain how you fixed it, and confirm that both the reproduction test and full test suite pass. Indicate you're waiting for approval.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Bug Fix Ready for Review\n\n### Bug\n${BUG_DESCRIPTION}\n\n### Fix\n${RESOLVER_REASONING}\n\n### Validation\n- Reproduction test: Passes\n- Full suite: All pass\n\nAwaiting approval.",
+  "body": "[comment content]",
   "author": "agent",
   "commitSha": "$(git rev-parse HEAD)",
   "codeReferences": [
@@ -379,10 +385,11 @@ PATCH /issues/[ISSUE_ID]
 
 **If NOT [REVIEW_REQUIRED]:**
 
+Announce that you've completed the bug fix. Summarize the bug, explain your fix approach, and confirm all tests pass. Since no review is required, you're proceeding directly to merge.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Bug Fix Complete\n\n### Bug\n${BUG_DESCRIPTION}\n\n### Fix\n${RESOLVER_REASONING}\n\n### Validation\n- Reproduction test: Passes\n- Full suite: All pass",
+  "body": "[comment content]",
   "author": "agent",
   "commitSha": "$(git rev-parse HEAD)",
   "codeReferences": [

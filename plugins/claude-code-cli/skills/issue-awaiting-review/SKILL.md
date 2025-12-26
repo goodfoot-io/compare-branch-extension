@@ -14,12 +14,12 @@ Confirm that:
 
 ## 2. Notify User
 
-Post a comment explaining the waiting state:
+Post a comment that briefly summarizes what was completed and clarifies you're waiting for user review before taking further action.
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Awaiting Review\n\n[1-sentence summary of what was completed]\n\nNo further action until feedback is provided.",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```

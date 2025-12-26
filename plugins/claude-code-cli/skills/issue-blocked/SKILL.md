@@ -37,10 +37,12 @@ Skip if a "## Blocked" comment already exists with the same [BLOCKER_REASON].
 
 ### Post Comment
 
+Post a comment explaining what is preventing progress. Identify the specific blocker (including any referenced issue IDs), describe what action is needed to resolve it, and indicate that work will resume once the blocker is cleared.
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Blocked\n\nThis issue cannot proceed due to:\n\n**Blocker:** [BLOCKER_REASON]\n\n### To Unblock\n[action needed to resolve]\n\n---\n*I'll resume work once this blocker is resolved. Please remove the 'blocked' tag when ready.*",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
