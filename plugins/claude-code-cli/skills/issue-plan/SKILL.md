@@ -21,8 +21,8 @@ Evaluate conditions in order. "Previous plan" = [PLAN_CONTENT] is not null. "Alr
 | Condition | Action |
 |-----------|--------|
 | Previous plan AND [LATEST_USER_COMMENT] contains approval language | Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool |
-| Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted | Skip to step 7 (Wait) |
-| Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted | Skip to step 6 (Submit) |
+| Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted | Skip to step 8 (Wait) |
+| Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted | Skip to step 7 (Submit) |
 | Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous | Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset. |
 | No previous plan | Create new plan. Start at step 1. |
 
@@ -52,11 +52,35 @@ Invoke `claude-code-cli:plan` for structure requirements and examples.
 
 ### 3.2 Research
 
-- Read relevant files in the codebase (track paths for `codeReferences` in step 6)
+- Read relevant files in the codebase (track paths for `codeReferences` in step 7)
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 
-### 3.3 Draft Plan
+### 3.3 Assess Title Accuracy
+
+After research, evaluate whether the issue title still accurately describes the work:
+
+**RENAME when:**
+- Title references wrong component, file, or feature
+- Title describes symptom but research reveals root cause
+- Scope has significantly changed from original request
+
+**DO NOT RENAME when:**
+- Minor phrasing improvements only
+- Synonyms or style preferences
+- Title is accurate but could be "better"
+
+If renaming is warranted:
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "title": "[NEW_TITLE]"
+}
+```
+
+Document the title change rationale in the plan's scope section.
+
+### 3.4 Draft Plan
 
 Include:
 - Objective and scope
@@ -68,7 +92,7 @@ Include:
 
 For revisions: Add a "## Changes from Previous Version" section listing each modification.
 
-### 3.4 Store and Assess
+### 3.5 Store and Assess
 
 First, store the drafted plan:
 ```
@@ -99,15 +123,15 @@ Description: [DESCRIPTION]</parameter>
 </invoke>
 ```
 
-### 3.5 Address Findings
+### 3.6 Address Findings
 
 Review both assessment reports. If CRITICAL or HIGH priority issues exist:
 1. Revise the plan to address findings
 2. Re-store the revised plan via PATCH
-3. Re-run step 4 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed)
+3. Re-run step 5 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed)
 4. Document changes and decisions in the plan
 
-### 3.6 Submit for Approval
+### 3.7 Submit for Approval
 
 ```
 POST /issues/[ISSUE_ID]/comments
@@ -125,7 +149,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### 3.7 Wait
+### 3.8 Wait
 
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
 

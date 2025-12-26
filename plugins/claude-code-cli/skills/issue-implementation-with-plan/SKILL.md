@@ -151,8 +151,10 @@ Post checkpoint to issue.
 
 | Issue Type | Characteristics | Delegation Strategy |
 |------------|-----------------|---------------------|
-| Coherent | Todos share context; related files/patterns | Single agent for all todos |
-| Fragmented | Independent investigation; unrelated subsystems | Separate agent per todo |
+| Coherent | Effort compounds across todos | Single agent for all todos |
+| Fragmented | Effort is isolated per todo | One agent per independent group |
+
+Test: Would a fresh agent be equally effective? If yes → Fragmented.
 
 ### 2.4 Delegate Implementation
 
@@ -171,7 +173,7 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 3. Extract `description` for requirements context
 
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
-[Fragmented: Completes todo: [current todo description]]
+[Fragmented: Complete todos: [independent group todo descriptions]]
 </parameter>
 </invoke>
 ```
