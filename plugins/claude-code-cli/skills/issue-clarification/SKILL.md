@@ -13,8 +13,44 @@ description: Request clarification when Definition of Ready is not met. Use when
 ## 1. Check for Existing Clarification
 
 If [COMMENTS] contains a "## Clarification Needed" comment:
-- If a later comment exists from a non-agent author → **STOP** — Router will re-evaluate
-- Otherwise → **STOP** — Already waiting
+
+**If a later comment exists from a non-agent author:**
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Re-evaluating Requirements\n\n[1-sentence: what new information was received and its impact]",
+  "author": "agent"
+}
+```
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "needsAgentAttention": false
+}
+```
+
+**STOP** — Router will re-evaluate with new information.
+
+**Otherwise (no new user response):**
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Still Awaiting Clarification\n\n[1-sentence: reference the specific pending questions]\n\nNo further action until this information is provided.",
+  "author": "agent"
+}
+```
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "needsAgentAttention": false
+}
+```
+
+**STOP** — Already waiting for user clarification.
 
 ## 2. Identify Missing Requirements
 

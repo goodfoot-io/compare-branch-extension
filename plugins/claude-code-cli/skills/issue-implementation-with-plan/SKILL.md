@@ -91,7 +91,7 @@ Continue to Step 2.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Starting implementation",
+     "body": "Starting implementation: [phrase: key deliverable from plan]",
      "author": "agent",
      "commitSha": "[CURRENT_SHA]"
    }
@@ -107,7 +107,7 @@ Continue to Step 2.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Checkpoint: before implementation",
+     "body": "Checkpoint: before [phrase: plan step or deliverable]",
      "author": "agent",
      "commitSha": "[CHECKPOINT_SHA]"
    }
@@ -145,7 +145,14 @@ Issue: [ISSUE_ID]
 Progress: [COMPLETED] of [TOTAL] tasks complete"
 ```
 
-Post checkpoint to issue.
+Post checkpoint to issue:
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "Progress: [COMPLETED]/[TOTAL] tasks complete. Starting: [phrase: current task]",
+  "author": "agent"
+}
+```
 
 ### 2.3 Assess Coherence
 
@@ -185,6 +192,15 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 | COMPLETED | Mark todo completed. Commit if changes exist. Post to issue. Continue. |
 | NEEDS_REVISION | Update todo with attempt count. Revert to checkpoint. Re-delegate (max 3). After 3: mark blocked. |
 | BLOCKED | Document in issue. Mark todo blocked. Continue. |
+
+**COMPLETED post format:**
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "Completed: [phrase: task completed]. [1-sentence: what was done]",
+  "author": "agent"
+}
+```
 
 **After all todos:**
 - ALL blocked → post summary, set status `blocked`, HALT
@@ -292,7 +308,7 @@ Evaluate for production readiness.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Ready for Review\n\n[Summary]\n\n### Files Modified\n- [files]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations\n\nAwaiting approval.",
+  "body": "## Implementation Ready for Review\n\n[2-3 sentence summary: what was implemented and how it follows the plan]\n\n### Files Modified\n[bullet list: key files modified, max 5]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations\n\nAwaiting approval.",
   "author": "agent",
   "commitSha": "[HEAD_SHA]",
   "codeReferences": [

@@ -77,7 +77,7 @@ CURRENT_SHA=$(git rev-parse HEAD)
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "Starting bug fix",
+  "body": "Starting bug fix: [1-sentence: the bug being addressed]",
   "author": "agent",
   "commitSha": "${CURRENT_SHA}"
 }
@@ -193,7 +193,14 @@ Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
 - Commit: `git add -A && git commit -m "test: add reproduction test for [ISSUE_ID]"`
 - Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
 - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
-- Post progress comment
+- Post progress comment:
+  ```
+  POST /issues/[ISSUE_ID]/comments
+  {
+    "body": "Reproduction test created: [1-sentence: what the test verifies and how it fails]",
+    "author": "agent"
+  }
+  ```
 - Proceed to **3. Resolve Bug**
 
 **Test PASSES (unexpected):**
@@ -201,7 +208,20 @@ Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
 - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
 - Revert: `git checkout "$WORKTREE_BASELINE" -- . && git clean -fd`
 - If REPRODUCTION_ATTEMPT < 3: Return to **Delegate to Subagent**
-- If REPRODUCTION_ATTEMPT >= 3: Post failure comment, set `needs_review`, **STOP**
+- If REPRODUCTION_ATTEMPT >= 3: Post failure comment and **STOP**:
+  ```
+  POST /issues/[ISSUE_ID]/comments
+  {
+    "body": "## Unable to Reproduce\n\n[1-sentence: summary of bug that could not be reproduced]\n\n### Attempts\n[numbered list: each approach tried and why it failed to reproduce the bug]\n\n### Analysis\n[1-sentence: possible explanation for why reproduction failed]",
+    "author": "agent"
+  }
+  ```
+  ```
+  PATCH /issues/[ISSUE_ID]
+  {
+    "status": "needs_review"
+  }
+  ```
 
 ## 3. Resolve Bug
 
@@ -277,14 +297,34 @@ Post comment with reasoning, set `needs_review`, **STOP**
 3. Revert source changes if any: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. **If FAILS (valid):** Commit correction, update TEST_READY_SHA, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to **Delegate to Subagent**
-6. **If PASSES (invalid):** Revert test, retry if < 3 attempts, else `needs_review` and **STOP**
+6. **If PASSES (invalid):** Revert test, retry if < 3 attempts, else post comment explaining test validation failure, set `needs_review`, and **STOP**
 
 **Only source changed:**
 
 1. Stage: `git add -A`
 2. Run test: `yarn test "$TEST_FILE_PATH"`
 3. **If PASSES:** Proceed to **4. Validate Full Suite**
-4. **If FAILS:** Capture `PREVIOUS_FAILURE_OUTPUT`, retry if < 3 attempts, else `needs_review` and **STOP**
+4. **If FAILS:** Capture `PREVIOUS_FAILURE_OUTPUT`, retry if < 3 attempts, else post comment with failure analysis, set `needs_review`, and **STOP**
+
+### Failure Comment Templates
+
+**For fix failures (RESOLVE_ATTEMPT >= 3):**
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Fix Unsuccessful\n\n[1-sentence: the approach taken]\n\n### Attempts\n[numbered list: each fix approach and why it failed]\n\n### Blocking Issue\n[1-sentence: what's preventing resolution]",
+  "author": "agent"
+}
+```
+
+**For test validation failures (TEST_CORRECTION_COUNT > 2):**
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Test Validation Failed\n\n[1-sentence: the test behavior issue]\n\n### Problem\n[1-sentence: why the test cannot reliably verify the bug fix]",
+  "author": "agent"
+}
+```
 
 ## 4. Validate Full Suite
 

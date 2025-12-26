@@ -58,7 +58,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Starting implementation",
+     "body": "Starting implementation: [1-sentence: what will be built or changed]",
      "author": "agent",
      "commitSha": "${CURRENT_SHA}"
    }
@@ -111,6 +111,21 @@ Work in the worktree directory.
 3. Run linting and tests
 4. Fix any issues
 
+**If validation fails after 3 attempts:** Post failure comment and **STOP**:
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Validation Failed\n\n[1-sentence: what failed (lint/test/type check)]\n\n### Failures\n[bullet list: specific errors that could not be resolved]\n\n### Attempted Fixes\n[bullet list: approaches tried]",
+  "author": "agent"
+}
+```
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "status": "needs_review"
+}
+```
+
 Commit using conventional commit format (feat, fix, docs, refactor, test, chore):
 ```bash
 git add -A
@@ -125,7 +140,7 @@ Post implementation comment:
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Complete\n\n[Summary]\n\n### Testing\n- [results]",
+  "body": "## Implementation Complete\n\n[2-3 sentence summary: what was implemented and key decisions made]\n\n### Testing\n[bullet list: test commands run and pass/fail status]",
   "author": "agent",
   "commitSha": "${git rev-parse HEAD}",
   "codeReferences": [
@@ -145,7 +160,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Ready for Review\n\n[Summary]\n\n### Files Modified\n- [files]\n\n### Testing\n- [results]\n\nAwaiting approval.",
+  "body": "## Implementation Ready for Review\n\n[2-3 sentence summary: what was implemented and key decisions made]\n\n### Files Modified\n[bullet list: key files modified, max 5]\n\n### Testing\n[bullet list: test commands run and pass/fail status]\n\nAwaiting approval.",
   "author": "agent",
   "commitSha": "${git rev-parse HEAD}",
   "codeReferences": [

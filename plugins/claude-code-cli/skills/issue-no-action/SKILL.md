@@ -14,7 +14,7 @@ Clear agent attention flag for completed or unroutable issues.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Acknowledged.",
+     "body": "Acknowledged: [brief: what was noted]",
      "author": "agent"
    }
    ```

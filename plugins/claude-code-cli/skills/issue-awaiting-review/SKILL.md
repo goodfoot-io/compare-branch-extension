@@ -12,9 +12,21 @@ Confirm that:
 - No user feedback has been provided yet
 - This is not an error state
 
-## 2. Clear Attention Flag
+## 2. Notify User
 
-The system may have flagged this issue for attention despite no user feedback. Clear the flag to prevent repeated no-op invocations:
+Post a comment explaining the waiting state:
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Awaiting Review\n\n[1-sentence summary of what was completed]\n\nNo further action until feedback is provided.",
+  "author": "agent"
+}
+```
+
+## 3. Clear Attention Flag
+
+Clear the flag to prevent repeated no-op invocations:
 
 ```
 PATCH /issues/[ISSUE_ID]

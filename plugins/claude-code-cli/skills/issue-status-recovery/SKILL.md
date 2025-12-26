@@ -14,10 +14,27 @@ description: Reconcile inconsistent issue state when [STATUS] is "in_progress" b
 
 Resolves state where [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
 
-**STOP** — Do not proceed if any of the following are true:
+If any of the following are true, notify and stop:
 - [STATUS] != "in_progress"
 - [IS_RESUMABLE] == true
 - [STATUS] is already "needs_review" or "todo" (already reconciled)
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## No Recovery Needed\n\n[1-sentence: state what was checked and why no action needed]",
+  "author": "agent"
+}
+```
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "needsAgentAttention": false
+}
+```
+
+**STOP** — Preconditions not met; no recovery action required.
 
 ## 2. Route by Completion Evidence
 
@@ -51,7 +68,7 @@ Resolves state where [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Issue was in 'in_progress' status but no prior work found. Resetting to start fresh.",
+     "body": "No prior work found for [phrase: issue subject]. Resetting to begin implementation.",
      "author": "agent"
    }
    ```
