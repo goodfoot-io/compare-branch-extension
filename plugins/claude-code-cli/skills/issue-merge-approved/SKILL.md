@@ -49,7 +49,22 @@ Handle uncommitted files:
 | Legitimate uncommitted work | `git stash push -m "pre-merge: [ISSUE_ID]"` |
 | Potential conflicts | Resolve before proceeding |
 
-## 3. Merge Branch
+## 3. Squash Commits in Worktree
+
+```bash
+cd ".worktrees/$BRANCH_NAME"
+BRANCH_BASE=$(git merge-base HEAD main)
+COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
+if [ "$COMMIT_COUNT" -gt 1 ]; then
+  git reset --soft "$BRANCH_BASE"
+  git commit -m "feat: [TITLE]
+
+Issue: [ISSUE_ID]"
+fi
+cd "$(git rev-parse --show-toplevel)"
+```
+
+## 4. Merge Branch
 
 ```bash
 PRE_MERGE_SHA=$(git rev-parse HEAD)
@@ -85,7 +100,7 @@ If merge conflict occurs:
    ```
    Post error comment and set status to `needs_review`.
 
-## 4. Restore Stashed Work
+## 5. Restore Stashed Work
 
 If work was stashed in step 2:
 
@@ -93,13 +108,13 @@ If work was stashed in step 2:
 git stash list | grep -q "pre-merge: [ISSUE_ID]" && git stash pop
 ```
 
-## 5. Clean Up
+## 6. Clean Up
 
 ```bash
 remove-instant-worktree "$BRANCH_NAME"
 ```
 
-## 6. Update Status
+## 7. Update Status
 
 Set status to `needs_review` so the user can verify the merge. Only the user marks issues as `done`.
 

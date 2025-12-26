@@ -68,37 +68,29 @@ Then follow Resume steps above.
 
 ### New
 
-Record start:
+1. Create worktree:
+   ```bash
+   WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+   WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
+   WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
+   cd "$WORKTREE_DIR"
+   ```
 
-```bash
-CURRENT_SHA=$(git rev-parse HEAD)
-```
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Starting bug fix: [1-sentence: the bug being addressed]",
-  "author": "agent",
-  "commitSha": "${CURRENT_SHA}"
-}
-```
-
-Create checkpoint (empty commit—don't stage files):
-
-```bash
-git commit --allow-empty -m "checkpoint: [ISSUE_ID] before bug fix
-
-Issue: [ISSUE_ID]
-Title: [TITLE]"
-```
-
-Create worktree:
-
-```bash
-instant-worktree "[BRANCH_NAME]"
-cd ".worktrees/[BRANCH_NAME]"
-WORKTREE_BASELINE=$(git rev-parse HEAD)
-```
+2. Initialize bug fix:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "status": "in_progress"
+   }
+   ```
+   ```
+   POST /issues/[ISSUE_ID]/comments
+   {
+     "body": "Starting bug fix: [1-sentence: the bug being addressed]",
+     "author": "agent",
+     "commitSha": "${WORKTREE_BASELINE}"
+   }
+   ```
 
 ## 2. Create Reproduction Test
 

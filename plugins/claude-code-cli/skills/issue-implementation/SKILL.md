@@ -51,34 +51,31 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
 
 ### New (fresh start)
 
-1. Record start:
+1. Create worktree:
    ```bash
-   CURRENT_SHA=$(git rev-parse HEAD)
+   WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+   WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
+   BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
+   cd "$WORKTREE_DIR"
+   ```
+
+2. Initialize implementation:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "status": "in_progress"
+   }
    ```
    ```
    POST /issues/[ISSUE_ID]/comments
    {
      "body": "Starting implementation: [1-sentence: what will be built or changed]",
      "author": "agent",
-     "commitSha": "${CURRENT_SHA}"
+     "commitSha": "${BASE_SHA}"
    }
    ```
 
-2. Create checkpoint (skip if [HAS_MODIFICATION_REQUEST]):
-   ```bash
-   git commit --allow-empty -m "checkpoint: [ISSUE_ID] before implementation
-
-   Issue: [ISSUE_ID]
-   Title: [TITLE]"
-   ```
-
-3. Create worktree:
-   ```bash
-   instant-worktree "[BRANCH_NAME]"
-   cd ".worktrees/[BRANCH_NAME]"
-   ```
-
-4. Assess title accuracy:
+3. Assess title accuracy:
 
    Evaluate whether the issue title still accurately describes the work:
 

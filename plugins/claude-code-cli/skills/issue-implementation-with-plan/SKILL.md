@@ -84,42 +84,31 @@ Continue to Step 2.
 
 ### New
 
-1. Record start:
+1. Create worktree:
    ```bash
-   git rev-parse HEAD  # CURRENT_SHA
+   WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+   WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
+   BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
+   cd "$WORKTREE_DIR"
+   ```
+
+   On worktree creation failure: post error to issue, set status `blocked`, HALT.
+
+2. Initialize implementation:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "status": "in_progress"
+   }
    ```
    ```
    POST /issues/[ISSUE_ID]/comments
    {
      "body": "Starting implementation: [phrase: key deliverable from plan]",
      "author": "agent",
-     "commitSha": "[CURRENT_SHA]"
+     "commitSha": "${BASE_SHA}"
    }
    ```
-
-2. Create checkpoint on base branch:
-   ```bash
-   git commit --allow-empty -m "checkpoint: [ISSUE_ID] before implementation
-
-   Issue: [ISSUE_ID]
-   Title: [TITLE]"
-   ```
-   ```
-   POST /issues/[ISSUE_ID]/comments
-   {
-     "body": "Checkpoint: before [phrase: plan step or deliverable]",
-     "author": "agent",
-     "commitSha": "[CHECKPOINT_SHA]"
-   }
-   ```
-
-3. Create worktree:
-   ```bash
-   instant-worktree "[BRANCH_NAME]"
-   cd ".worktrees/[BRANCH_NAME]"
-   ```
-
-On worktree creation failure: post error to issue, set status `blocked`, HALT.
 
 ---
 
