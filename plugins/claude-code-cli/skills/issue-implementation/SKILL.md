@@ -66,10 +66,11 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
      "status": "in_progress"
    }
    ```
+   Post a brief comment explaining your implementation approach or what you'll do first. Keep it concrete and specific to this task.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "I'm starting implementation by [1-sentence: the approach or first step, in gerund form (-ing)]",
+     "body": "[comment content]",
      "author": "agent",
      "commitSha": "${BASE_SHA}"
    }
@@ -108,11 +109,11 @@ Work in the worktree directory.
 3. Run linting and tests
 4. Fix any issues
 
-**If validation fails after 3 attempts:** Post failure comment and **STOP**:
+**If validation fails after 3 attempts:** Post a comment explaining what validation step failed, what specific errors you encountered that you couldn't resolve, and what approaches you attempted. Be detailed enough that the user can understand the problem without reading all the code. Then **STOP**.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Validation Failed\n\n[1-sentence: what failed (lint/test/type check)]\n\n### Failures\n[bullet list: specific errors that could not be resolved]\n\n### Attempted Fixes\n[bullet list: approaches tried]",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
@@ -133,11 +134,11 @@ Issue: [ISSUE_ID]
 [Detailed changes]"
 ```
 
-Post implementation comment:
+Post a summary comment explaining what you implemented and any important decisions you made. Include which test commands you ran and their results. This comment documents the completion before merge.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Complete\n\n[2-3 sentence summary: what was implemented and key decisions made]\n\n### Testing\n[bullet list: test commands run and pass/fail status]",
+  "body": "[comment content]",
   "author": "agent",
   "commitSha": "${git rev-parse HEAD}",
   "codeReferences": [
@@ -154,10 +155,11 @@ POST /issues/[ISSUE_ID]/comments
 
 ### If [REVIEW_REQUIRED]:
 
+Post a summary explaining what you implemented and key decisions you made. List the main files you modified and which validation commands passed. Indicate you're waiting for approval before merge.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Ready for Review\n\n[2-3 sentence summary: what was implemented and key decisions made]\n\n### Files Modified\n[bullet list: key files modified, max 5]\n\n### Testing\n[bullet list: test commands run and pass/fail status]\n\nAwaiting approval.",
+  "body": "[comment content]",
   "author": "agent",
   "commitSha": "${git rev-parse HEAD}",
   "codeReferences": [

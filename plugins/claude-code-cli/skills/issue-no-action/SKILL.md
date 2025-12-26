@@ -11,10 +11,12 @@ Clear agent attention flag for completed or unroutable issues.
 
 1. **Acknowledge** (only if user comment directly addresses the agent without requesting action):
    Skip for thank-you messages, status updates, or informational notes.
+
+   Briefly acknowledge what the user communicated, restating the key point to show you understood.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "Acknowledged. [1-sentence: brief restatement of what was noted]",
+     "body": "[comment content]",
      "author": "agent"
    }
    ```

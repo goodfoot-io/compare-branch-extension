@@ -38,12 +38,12 @@ Unrecoverable errors (git conflicts, permission errors, infrastructure failures)
 
 If the issue already has the "blocked" tag from a previous recovery attempt, skip to section 4 without posting a duplicate comment.
 
-Otherwise, document the failure:
+Otherwise, post a comment documenting the error that occurred. Describe what happened, report the current state of the repository (base branch status, worktree location, which step failed), include the relevant error output, provide steps for manual resolution, and explain how to retry.
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Error Encountered\n\n[Description]\n\n### Current State\n- [BASE_BRANCH]: Clean (no merge in progress)\n- Worktree preserved at: `.worktrees/[BRANCH_NAME]`\n- Error occurred during: [protocol/step]\n\n### Error Details\n```\n[error output]\n```\n\n### To Resolve Manually\n[Steps for manual resolution]\n\n### To Retry\nMove this issue back to 'todo' status after resolving the blocker.",
+  "body": "[comment content]",
   "author": "agent",
   "codeReferences": [/* relevant files */]
 }

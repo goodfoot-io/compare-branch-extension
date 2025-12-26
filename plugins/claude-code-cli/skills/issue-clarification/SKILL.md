@@ -16,10 +16,12 @@ If [COMMENTS] contains a "## Clarification Needed" comment:
 
 **If a later comment exists from a non-agent author:**
 
+Acknowledge what new information was received and briefly explain how it affects the requirements analysis. This lets stakeholders know their response was registered before the issue is re-routed.
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Re-evaluating Requirements\n\n[1-sentence: what new information was received and its impact]",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
@@ -35,10 +37,12 @@ PATCH /issues/[ISSUE_ID]
 
 **Otherwise (no new user response):**
 
+Confirm that you're still waiting for the previously requested information. Reference which specific questions remain unanswered and clarify that work is blocked until they're addressed.
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Still Awaiting Clarification\n\n[1-sentence: reference the specific pending questions]\n\nNo further action until this information is provided.",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
@@ -74,18 +78,16 @@ Mark as MISSING if not present or inferable from [DESCRIPTION] and [COMMENTS]:
 
 ## 4. Post Clarification Request
 
-List questions by priority (most blocking first).
+Present the specific questions needed to proceed with implementation. Prioritize by what's most blocking, explain why each piece of information is needed, and reference relevant code where applicable.
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Clarification Needed\n\n[Numbered questions]",
+  "body": "[comment content]",
   "author": "agent",
   "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
 }
 ```
-
-Include `codeReferences` for code-related questions.
 
 ## 5. Update Status and Stop
 

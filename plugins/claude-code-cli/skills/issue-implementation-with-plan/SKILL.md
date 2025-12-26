@@ -101,10 +101,11 @@ Continue to Step 2.
      "status": "in_progress"
    }
    ```
+   Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
-     "body": "I'm beginning implementation of [phrase: key deliverable from plan]",
+     "body": "[comment content]",
      "author": "agent",
      "commitSha": "${BASE_SHA}"
    }
@@ -132,15 +133,6 @@ git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION]
 
 Issue: [ISSUE_ID]
 Progress: [COMPLETED] of [TOTAL] tasks complete"
-```
-
-Post checkpoint to issue:
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "I've completed [COMPLETED] of [TOTAL] tasks. Now starting [phrase: current task].",
-  "author": "agent"
-}
 ```
 
 ### 2.3 Assess Coherence
@@ -182,11 +174,11 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 | NEEDS_REVISION | Update todo with attempt count. Revert to checkpoint. Re-delegate (max 3). After 3: mark blocked. |
 | BLOCKED | Document in issue. Mark todo blocked. Continue. |
 
-**COMPLETED post format:**
+**COMPLETED:** Post a brief progress update indicating which task you completed and what you actually did. Keep it concise.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "I've completed [phrase: task completed]. [1-sentence: what was done]",
+  "body": "[comment content]",
   "author": "agent"
 }
 ```
@@ -294,10 +286,11 @@ Evaluate for production readiness.
 
 ### If [REVIEW_REQUIRED]:
 
+Post a summary explaining what you implemented and how it aligns with the approved plan. List the key files modified and confirm all validation passed. Indicate you're awaiting approval.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Implementation Ready for Review\n\n[2-3 sentence summary: what was implemented and how it follows the plan]\n\n### Files Modified\n[bullet list: key files modified, max 5]\n\n### Testing\n- All tests passing\n- Type checking: zero errors\n- Linting: no violations\n\nAwaiting approval.",
+  "body": "[comment content]",
   "author": "agent",
   "commitSha": "[HEAD_SHA]",
   "codeReferences": [
