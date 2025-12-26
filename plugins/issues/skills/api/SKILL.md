@@ -48,12 +48,9 @@ The `planContent` field stores the approved plan for reference during implementa
 </plan-approval>
 
 <git-commit-sha>
-Record the git commit SHA to track repository state:
+Record the git commit SHA to track repository state.
 
-- **When starting work on an issue**: PATCH the issue with `commitSha` set to the current HEAD.
-- **When committing changes**: Include `commitSha` in the comment reporting the commit.
-
-Use `git rev-parse HEAD` to get the current 40-character SHA.
+Use `git rev-parse HEAD` to get the current 40-character SHA then include `commitSha` in the comment reporting the commit.
 </git-commit-sha>
 
 <reload-after-compaction>
