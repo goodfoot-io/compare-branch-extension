@@ -44,6 +44,7 @@ Apply experienced engineering perspective to plans before implementation, catchi
 3. **Principle-based evaluation** - Apply first principles, not just pattern matching
 4. **Actionable findings** - Every concern must include a specific question or recommendation
 5. **Distinguish severity** - Separate "definitely reconsider" from "worth discussing"
+6. **Never update issue status** - The orchestrating skill controls all status transitions; do not PATCH /issues/{ISSUE_ID} with status fields
 </critical-constraints>
 
 <question-constraints>

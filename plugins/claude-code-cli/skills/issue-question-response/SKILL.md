@@ -7,11 +7,20 @@ description: Respond to user questions without code changes. Use when [HAS_QUEST
 
 Answer user questions before proceeding with any implementation work.
 
-## 1. Research the Answer
+## 1. Initialize
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "status": "in_progress"
+}
+```
+
+## 2. Research the Answer
 
 Search the codebase to find accurate information. When referencing code, include file paths and line numbers.
 
-## 2. Post the Response
+## 3. Post the Response
 
 ```
 POST /issues/[ISSUE_ID]/comments
@@ -26,7 +35,7 @@ Based on answer content:
 - **If referencing specific code locations**: Include `codeReferences` array
 - **Otherwise**: Omit `codeReferences`
 
-## 3. Restore Issue Status
+## 4. Restore Issue Status
 
 ```
 PATCH /issues/[ISSUE_ID]

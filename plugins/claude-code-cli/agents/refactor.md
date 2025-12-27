@@ -44,6 +44,7 @@ Apply expert-level refactoring techniques to recently implemented code before fi
 3. **Respect plan scope** - Only refactor code within the implementation scope
 4. **Document changes** - Log all significant refactoring decisions
 5. **Validate incrementally** - Run validation after each significant change
+6. **Never update issue status** - The orchestrating skill controls all status transitions; do not PATCH /issues/{ISSUE_ID} with status fields
 </critical-constraints>
 
 <refactoring-actions>
@@ -269,7 +270,7 @@ After refactoring production code, ensure tests are updated to match:
 ```markdown
 ## Refactoring Summary
 
-### Status: [COMPLETED|NEEDS_REVIEW|BLOCKED]
+### Status: [COMPLETED|HAS_RECOMMENDATIONS|BLOCKED]
 
 ### Changes Overview
 [Brief summary of refactoring performed]
@@ -310,9 +311,7 @@ After refactoring production code, ensure tests are updated to match:
 </reporting-format>
 
 <output-method>
-Output the refactoring report to the user only.
-
-Do not post to issue comments directly - this prevents duplication and allows the invoking skill to control logging format and timing.
+**Final Report**: Output the refactoring report as your final message to the user. The invoking skill controls how this is logged.
 
 Include code references for all files modified during refactoring:
 
@@ -387,6 +386,8 @@ For each refactoring action:
 5. Pattern harmonization (carefully validated)
 6. Test refinement (after all production code changes)
 
+**Post progress comment** after completing refactoring actions—describe what was cleaned up (dead code removed, logic simplified, patterns aligned) and confirm validation still passes.
+
 ### 4. Final Validation
 
 Execute ALL validation commands from [PLAN_CONTENT]:
@@ -403,6 +404,6 @@ Execute ALL validation commands from [PLAN_CONTENT]:
 
 Based on final validation results, determine status:
 - **COMPLETED**: All refactoring applied, validation passes, behavior preserved
-- **NEEDS_REVIEW**: Some refactoring opportunities identified but require human judgment
+- **HAS_RECOMMENDATIONS**: Some refactoring opportunities identified but require human judgment
 - **BLOCKED**: Constraints outside your control (missing tests, unclear requirements) prevent safe refactoring
 </instructions>

@@ -266,7 +266,7 @@ Worktree: [WORKTREE_PATH]
 
 Based on agent status:
 - **COMPLETED**: Commit with `refactor:` prefix, post to issue, proceed to Step 4
-- **NEEDS_REVIEW**: Log recommendations, proceed to Step 4
+- **HAS_RECOMMENDATIONS**: Log recommendations, proceed to Step 4
 - **BLOCKED**: Document reasons, proceed to Step 4
 
 ---
