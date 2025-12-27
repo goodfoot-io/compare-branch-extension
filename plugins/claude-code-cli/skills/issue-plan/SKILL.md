@@ -19,12 +19,21 @@ Create implementation plans for issues requiring user approval before coding beg
 Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null. "Already submitted" = agent comment exists containing "## Implementation Plan".
 
 - **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
-- **Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted**: Skip to step 8 (Wait)
-- **Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted**: Skip to step 7 (Submit)
-- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
-- **No previous plan**: Create new plan. Start at step 1.
+- **Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted**: Skip to step 4.8 (Wait)
+- **Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted**: Skip to step 4.7 (Submit)
+- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 3 or 4 depending on scope. Assessment cycles reset.
+- **No previous plan**: Create new plan. Start at step 2.
 
-## 2. Classifying User Feedback
+## 2. Initialize
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "status": "in_progress"
+}
+```
+
+## 3. Classifying User Feedback
 
 **Default: When intent is unclear, treat as revision request.**
 
@@ -42,19 +51,19 @@ These signals mean stay in this skill and revise:
 - Alternative proposals: "Why not use X instead?"
 </revision-signals>
 
-## 3. Workflow
+## 4. Workflow
 
-### 3.1 Load Plan Skill
+### 4.1 Load Plan Skill
 
 Invoke `claude-code-cli:plan` for structure requirements and examples.
 
-### 3.2 Research
+### 4.2 Research
 
-- Read relevant files in the codebase (track paths for `codeReferences` in step 7)
+- Read relevant files in the codebase (track paths for `codeReferences` in step 4.7)
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 
-### 3.3 Assess Title Accuracy
+### 4.3 Assess Title Accuracy
 
 After research, evaluate whether the issue title still accurately describes the work:
 
@@ -76,7 +85,7 @@ PATCH /issues/[ISSUE_ID]
 
 Document the title change rationale in the plan's scope section.
 
-### 3.4 Draft Plan
+### 4.4 Draft Plan
 
 Include:
 - Objective and scope
@@ -88,7 +97,7 @@ Include:
 
 For revisions: Add a "## Changes from Previous Version" section listing each modification.
 
-### 3.5 Store and Assess
+### 4.5 Store and Assess
 
 First, store the drafted plan:
 ```
@@ -119,15 +128,15 @@ Description: [DESCRIPTION]</parameter>
 </invoke>
 ```
 
-### 3.6 Address Findings
+### 4.6 Address Findings
 
 Review both assessment reports.
 
 Based on assessment severity:
-- **CRITICAL or HIGH priority issues exist**: Revise the plan to address findings, re-store via PATCH, re-run step 5 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed), document changes and decisions in the plan
-- **Otherwise**: Proceed to step 7
+- **CRITICAL or HIGH priority issues exist**: Revise the plan to address findings, re-store via PATCH, re-run step 4.5 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed), document changes and decisions in the plan
+- **Otherwise**: Proceed to step 4.7
 
-### 3.7 Submit for Approval
+### 4.7 Submit for Approval
 
 ```
 POST /issues/[ISSUE_ID]/comments
@@ -145,12 +154,12 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### 3.8 Wait
+### 4.8 Wait
 
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
 
 The orchestration layer will re-invoke when user responds:
 - Approval → routes to `claude-code-cli:issue-implementation`
-- Revision request → re-invokes this skill; Entry Check routes to step 2 or 3
+- Revision request → re-invokes this skill; Entry Check routes to step 3 or 4
 
 </instructions>

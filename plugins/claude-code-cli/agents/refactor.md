@@ -269,7 +269,7 @@ After refactoring production code, ensure tests are updated to match:
 ```markdown
 ## Refactoring Summary
 
-### Status: [COMPLETED|NEEDS_REVIEW|BLOCKED]
+### Status: [COMPLETED|HAS_RECOMMENDATIONS|BLOCKED]
 
 ### Changes Overview
 [Brief summary of refactoring performed]
@@ -403,6 +403,6 @@ Execute ALL validation commands from [PLAN_CONTENT]:
 
 Based on final validation results, determine status:
 - **COMPLETED**: All refactoring applied, validation passes, behavior preserved
-- **NEEDS_REVIEW**: Some refactoring opportunities identified but require human judgment
+- **HAS_RECOMMENDATIONS**: Some refactoring opportunities identified but require human judgment
 - **BLOCKED**: Constraints outside your control (missing tests, unclear requirements) prevent safe refactoring
 </instructions>
