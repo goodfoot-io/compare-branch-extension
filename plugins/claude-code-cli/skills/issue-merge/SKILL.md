@@ -1,12 +1,13 @@
 ---
 name: issue-merge
-description: Merge completed implementation from worktree to main branch. Used when review is approved or when review is not required.
+description: Merge completed implementation from worktree to base branch. Used when review is approved or when review is not required.
 ---
 
 <placeholder-variables>
 [TITLE] — The issue title
 [BRANCH_NAME] — The worktree branch name
 [WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
+[BASE_BRANCH] — The branch to merge into (typically `main`)
 </placeholder-variables>
 
 <tools>
@@ -21,23 +22,20 @@ Removes a worktree and deletes its associated branch. Returns the branch's final
 
 <instructions>
 
-## 1. Prepare Main Workspace
+## 1. Update Status
 
-```bash
-cd "$(git rev-parse --show-toplevel)"
-git status --porcelain
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "status": "in_progress"
+}
 ```
 
-Based on uncommitted file type:
-- **Known artifacts** (`.compare-branch/claude-launcher-*.mjs`): Delete
-- **Legitimate uncommitted work**: `git stash push -m "pre-merge: [ISSUE_ID]"`
-- **Potential conflicts**: Resolve before proceeding
-
-## 2. Squash Commits in Worktree
+## 2. Squash Commits (in Worktree)
 
 ```bash
 cd ".worktrees/$BRANCH_NAME"
-BRANCH_BASE=$(git merge-base HEAD main)
+BRANCH_BASE=$(git merge-base HEAD $BASE_BRANCH)
 COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "$BRANCH_BASE"
@@ -45,60 +43,59 @@ if [ "$COMMIT_COUNT" -gt 1 ]; then
 
 Issue: [ISSUE_ID]"
 fi
-cd "$(git rev-parse --show-toplevel)"
 ```
 
-## 3. Merge Branch
+## 3. Rebase onto Local Base Branch (in Worktree)
+
+Rebase onto local `$BASE_BRANCH`, not `origin/$BASE_BRANCH`. The local branch includes recent merges that may not be pushed yet.
 
 ```bash
-PRE_MERGE_SHA=$(git rev-parse HEAD)
+git rebase $BASE_BRANCH
+# If conflicts occur: resolve, validate (typecheck/lint/test), then:
+# git add -A && git rebase --continue
+```
 
+- **If rebase conflicts cannot be resolved**: Post error comment, set status to `needs_review`, **STOP**.
+
+## 4. Prepare Main Workspace
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+git status --porcelain
+```
+
+- **If uncommitted changes exist**: Stash them:
+  ```bash
+  git stash push -m "pre-merge: [ISSUE_ID]"
+  ```
+
+## 5. Merge Branch
+
+After successful rebase, the merge should succeed without conflicts:
+
+```bash
 git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
 
 Issue: [ISSUE_ID]
 Title: [TITLE]"
 ```
 
-### Merge Conflict Handling
+- **If merge fails after rebase**: Post error comment, set status to `needs_review`, **STOP**.
 
-If merge conflict occurs:
+## 6. Restore Stashed Work
 
-1. Abort the merge:
-   ```bash
-   git merge --abort
-   ```
+- **If work was stashed in step 4**: Restore it:
+  ```bash
+  git stash list | grep -q "pre-merge: [ISSUE_ID]" && git stash pop
+  ```
 
-2. Attempt resolution in worktree:
-   ```bash
-   cd ".worktrees/$BRANCH_NAME"
-   git fetch origin main
-   git rebase origin/main
-   # Resolve any rebase conflicts
-   cd "$(git rev-parse --show-toplevel)"
-   ```
-   Then retry the merge command above.
-
-3. If conflicts cannot be resolved:
-   ```bash
-   git reset --hard $PRE_MERGE_SHA
-   ```
-   Post error comment and set status to `needs_review`.
-
-## 4. Restore Stashed Work
-
-If work was stashed in step 2:
-
-```bash
-git stash list | grep -q "pre-merge: [ISSUE_ID]" && git stash pop
-```
-
-## 5. Clean Up
+## 7. Clean Up
 
 ```bash
 remove-instant-worktree "$BRANCH_NAME"
 ```
 
-## 6. Update Status
+## 8. Update Status
 
 Set status to `needs_review` so the user can verify the merge. Only the user marks issues as `done`.
 
