@@ -141,7 +141,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "needs_approval"
+  "status": "needs_review"
 }
 ```
 
