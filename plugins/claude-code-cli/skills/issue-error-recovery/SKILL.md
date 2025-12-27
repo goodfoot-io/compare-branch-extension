@@ -22,23 +22,25 @@ git reset --hard HEAD
 
 ## 2. Attempt Recovery
 
-For recoverable errors (test failures, lint errors, type errors), make up to 3 fix attempts:
+Based on error type:
+- **Unrecoverable errors** (git conflicts, permission errors, infrastructure failures): Skip directly to section 3
+- **Recoverable errors** (test failures, lint errors, type errors): Make up to 3 fix attempts using the cycle below
 
+Recovery cycle:
 1. Analyze the error
 2. Fix in worktree
 3. Re-run validation
-4. If validation passes, return to the invoking protocol and continue from the step after the one that failed
-5. If validation fails and attempts remain, repeat from step 1
 
-After 3 failed attempts, proceed to section 3.
-
-Unrecoverable errors (git conflicts, permission errors, infrastructure failures) skip directly to section 3.
+Based on validation result:
+- **Validation passes**: Return to the invoking protocol and continue from the step after the one that failed
+- **Validation fails and attempts remain**: Repeat the recovery cycle from step 1
+- **Validation fails and attempts exhausted (3 failed attempts)**: Proceed to section 3
 
 ## 3. Report and Block
 
-If the issue already has the "blocked" tag from a previous recovery attempt, skip to section 4 without posting a duplicate comment.
-
-Otherwise, post a comment documenting the error that occurred. Describe what happened, report the current state of the repository (base branch status, worktree location, which step failed), include the relevant error output, provide steps for manual resolution, and explain how to retry.
+Based on issue state:
+- **Issue already has "blocked" tag** (from previous recovery attempt): Skip to section 4 without posting a duplicate comment
+- **Otherwise**: Post a comment documenting the error that occurred—describe what happened, report the current state of the repository (base branch status, worktree location, which step failed), include the relevant error output, provide steps for manual resolution, and explain how to retry
 
 ```
 POST /issues/[ISSUE_ID]/comments

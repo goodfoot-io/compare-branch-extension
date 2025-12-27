@@ -82,10 +82,10 @@ Common gaps:
 - Scalability targets based on hope, not data
 
 ### Step 4: Recommend Additions
-For each gap, recommend either:
-- Add explicit requirement to Goals or Technical Approach
-- Document as out-of-scope with rationale (rare for critical NFRs)
-- Add as Risk if target is uncertain
+Based on gap severity and nature:
+- **Critical NFR gap**: Add explicit requirement to Goals or Technical Approach
+- **Non-critical or out-of-scope NFR**: Document as out-of-scope with rationale (rare for critical NFRs)
+- **Uncertain target**: Add as Risk if target is uncertain
 </assessment-process>
 
 <assessment-checklist>

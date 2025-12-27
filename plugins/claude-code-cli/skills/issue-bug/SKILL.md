@@ -33,12 +33,9 @@ This skill enforces strict test-first verification:
 ## 1. Prepare Environment
 
 Determine path using first matching condition:
-
-| Condition | Action |
-|-----------|--------|
-| [IS_RESUMABLE] AND worktree exists | **Resume** |
-| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate** |
-| Otherwise | **New** |
+- **[IS_RESUMABLE] AND worktree exists**: Resume
+- **[IS_RESUMABLE] AND branch exists (no worktree)**: Recreate
+- **Otherwise**: New
 
 ### Resume
 
@@ -50,12 +47,9 @@ TEST_FILE_PATH=$(git log --oneline --name-only "$WORKTREE_BASELINE"..HEAD | grep
 ```
 
 Determine resume point:
-
-| Condition | Resume Point |
-|-----------|--------------|
-| TEST_FILE_PATH empty | **2. Create Reproduction Test** |
-| TEST_FILE_PATH exists AND `yarn test "$TEST_FILE_PATH"` fails | **3. Resolve Bug** (capture TEST_FAILURE_OUTPUT first) |
-| TEST_FILE_PATH exists AND test passes | **4. Validate Full Suite** |
+- **TEST_FILE_PATH empty**: 2. Create Reproduction Test
+- **TEST_FILE_PATH exists AND `yarn test "$TEST_FILE_PATH"` fails**: 3. Resolve Bug (capture TEST_FAILURE_OUTPUT first)
+- **TEST_FILE_PATH exists AND test passes**: 4. Validate Full Suite
 
 ### Recreate
 
@@ -179,7 +173,7 @@ TEST_EXIT_CODE=$?
 
 **BLOCKED or CANNOT_COMPLETE:**
 
-Post comment with SUBAGENT_REASONING, set `needs_review`, **STOP**
+Post comment with SUBAGENT_REASONING, set status `needs_review`, add `blocked` tag, **STOP**
 
 **Test FAILS (expected):**
 
@@ -281,7 +275,7 @@ SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 
 **BLOCKED or CANNOT_COMPLETE:**
 
-Post comment with reasoning, set `needs_review`, **STOP**
+Post comment with reasoning, set status `needs_review`, add `blocked` tag, **STOP**
 
 **Test modified:**
 
@@ -381,7 +375,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-**STOP** — Merge via `issue-merge-approved` skill after approval.
+**STOP** — Merge via `issue-merge` skill after approval.
 
 **If NOT [REVIEW_REQUIRED]:**
 
@@ -402,7 +396,7 @@ POST /issues/[ISSUE_ID]/comments
 
 ```xml
 <invoke name="Skill">
-<parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+<parameter name="skill">claude-code-cli:issue-merge</parameter>
 </invoke>
 ```
 

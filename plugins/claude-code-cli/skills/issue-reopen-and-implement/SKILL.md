@@ -7,10 +7,9 @@ description: Reopen completed issues for additional work. Use when [STATUS] is "
 
 ## 1. Validate Reopen Request
 
-If [LATEST_USER_COMMENT] is empty or does not indicate what additional work is needed:
-- Post comment requesting clarification
-- Set status to `needs_review`
-- **STOP** — Issue requires user clarification on additional work needed
+Based on [LATEST_USER_COMMENT]:
+- **Empty or does not indicate what additional work is needed**: Post comment requesting clarification, set status to `needs_review`, **STOP**
+- **Contains clear request for additional work**: Proceed to Step 2
 
 ## 2. Update Status and Acknowledge
 

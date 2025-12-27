@@ -12,49 +12,43 @@ description: Request clarification when Definition of Ready is not met. Use when
 
 ## 1. Check for Existing Clarification
 
-If [COMMENTS] contains a "## Clarification Needed" comment:
+Based on [COMMENTS] and prior clarification requests:
 
-**If a later comment exists from a non-agent author:**
+- **No existing "## Clarification Needed" comment**: Proceed to Step 2
 
-Acknowledge what new information was received and briefly explain how it affects the requirements analysis. This lets stakeholders know their response was registered before the issue is re-routed.
+- **Existing clarification request AND later comment from non-agent author**: Acknowledge the new information and explain how it affects requirements analysis. Post acknowledgment, set `needsAgentAttention: false`, then **STOP** — Router will re-evaluate with new information.
 
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "[comment content]",
-  "author": "agent"
-}
-```
+  ```
+  POST /issues/[ISSUE_ID]/comments
+  {
+    "body": "[comment content]",
+    "author": "agent"
+  }
+  ```
 
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "needsAgentAttention": false
-}
-```
+  ```
+  PATCH /issues/[ISSUE_ID]
+  {
+    "needsAgentAttention": false
+  }
+  ```
 
-**STOP** — Router will re-evaluate with new information.
+- **Existing clarification request AND no new user response**: Confirm you're still waiting for the previously requested information. Reference which questions remain unanswered. Post confirmation, set `needsAgentAttention: false`, then **STOP** — Already waiting for user clarification.
 
-**Otherwise (no new user response):**
+  ```
+  POST /issues/[ISSUE_ID]/comments
+  {
+    "body": "[comment content]",
+    "author": "agent"
+  }
+  ```
 
-Confirm that you're still waiting for the previously requested information. Reference which specific questions remain unanswered and clarify that work is blocked until they're addressed.
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "[comment content]",
-  "author": "agent"
-}
-```
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "needsAgentAttention": false
-}
-```
-
-**STOP** — Already waiting for user clarification.
+  ```
+  PATCH /issues/[ISSUE_ID]
+  {
+    "needsAgentAttention": false
+  }
+  ```
 
 ## 2. Identify Missing Requirements
 
@@ -72,9 +66,9 @@ Mark as MISSING if not present or inferable from [DESCRIPTION] and [COMMENTS]:
 2. Look for similar implementations
 3. Check tests for expected behavior
 
-**If research resolves all gaps**: Post findings as a comment and **STOP** — Router will route to implementation.
-
-**If gaps remain**: Note findings for clarification request.
+Based on research results:
+- **If research resolves all gaps**: Post findings as a comment and **STOP** — Router will route to implementation.
+- **If gaps remain**: Note findings for clarification request, proceed to Step 4.
 
 ## 4. Post Clarification Request
 

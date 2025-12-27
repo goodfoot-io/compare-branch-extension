@@ -24,12 +24,9 @@ Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn
 ## 1. Prepare Environment
 
 Determine environment path using the first matching condition:
-
-| Condition | Action |
-|-----------|--------|
-| [IS_RESUMABLE] AND worktree exists | **Resume**: Navigate to existing worktree |
-| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate**: Attach worktree to branch |
-| Otherwise | **New**: Create checkpoint and worktree |
+- **[IS_RESUMABLE] AND worktree exists**: Resume — Navigate to existing worktree
+- **[IS_RESUMABLE] AND branch exists (no worktree)**: Recreate — Attach worktree to branch
+- **Otherwise**: New — Create checkpoint and worktree
 
 ### Resume (worktree exists)
 
@@ -79,16 +76,8 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
 3. Assess title accuracy:
 
    Evaluate whether the issue title still accurately describes the work:
-
-   **RENAME when:**
-   - Title references wrong component, file, or feature
-   - Title describes symptom but implementation addresses root cause
-   - Scope has significantly changed from original request
-
-   **DO NOT RENAME when:**
-   - Minor phrasing improvements only
-   - Synonyms or style preferences
-   - Title is accurate but could be "better"
+   - **Rename when**: Title references wrong component/file/feature, describes symptom when implementation addresses root cause, or scope has significantly changed
+   - **Do not rename when**: Only minor phrasing improvements, synonyms, or style preferences would change — if the title is accurate, leave it
 
    If renaming is warranted:
    ```
@@ -178,13 +167,13 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-Stop here. Merge occurs via `issue-merge-approved` skill after user approval.
+Stop here. Merge occurs via `issue-merge` skill after user approval.
 
 ### If NOT [REVIEW_REQUIRED]:
 
 ```xml
 <invoke name="Skill">
-  <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
+  <parameter name="skill">claude-code-cli:issue-merge</parameter>
 </invoke>
 ```
 

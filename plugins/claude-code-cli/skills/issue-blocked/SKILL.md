@@ -5,19 +5,8 @@ description: Handle blocked issues by identifying and reporting blockers. Use wh
 
 <placeholder-variables>
 [BLOCKER_REASON] — Extracted from tags/comments ("blocked by", "waiting on", "depends on")
-[BLOCKING_ISSUE_ID] — Referenced issue ID, if applicable
 </placeholder-variables>
 
-<tools>
-
-**Issues API** — Comment and update operations.
-
-```
-POST /issues/[ISSUE_ID]/comments
-PATCH /issues/[ISSUE_ID]
-```
-
-</tools>
 
 <instructions>
 
@@ -27,9 +16,11 @@ Do not attempt implementation until the blocker is resolved.
 
 Search tags and comments for blocker keywords ("blocked by", "waiting on", "depends on"). Identify the blocker reason and any referenced issue ID.
 
-**If blocker references another issue:** Check its status. If resolved (status = "done"), remove the "blocked" tag and re-invoke skill routing.
-
-**If blocker cannot be identified:** Post a comment asking for clarification, set `needsAgentAttention: false`, and stop.
+Based on blocker analysis:
+- **Blocker references another issue**: Check its status
+  - **If resolved (status = "done")**: Remove the "blocked" tag and re-invoke skill routing
+  - **If not resolved**: Continue to Step 2
+- **Blocker cannot be identified**: Post a comment asking for clarification, set `needsAgentAttention: false`, and stop
 
 ## 2. Report Blocked Status
 

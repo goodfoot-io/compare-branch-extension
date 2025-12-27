@@ -401,8 +401,8 @@ Execute ALL validation commands from [PLAN_CONTENT]:
 2. Output summary to user (invoking skill controls logging)
 3. Include code references for all modified files
 
-**Status Determination**:
+Based on final validation results, determine status:
 - **COMPLETED**: All refactoring applied, validation passes, behavior preserved
 - **NEEDS_REVIEW**: Some refactoring opportunities identified but require human judgment
-- **BLOCKED**: Cannot refactor safely due to missing tests or unclear requirements
+- **BLOCKED**: Constraints outside your control (missing tests, unclear requirements) prevent safe refactoring
 </instructions>

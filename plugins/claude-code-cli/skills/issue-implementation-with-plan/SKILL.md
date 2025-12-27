@@ -57,12 +57,9 @@ Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn
 ## 1. Prepare Environment
 
 Determine path using the first matching condition:
-
-| Condition | Action |
-|-----------|--------|
-| [IS_RESUMABLE] AND worktree exists | **Resume**: Navigate to existing worktree |
-| [IS_RESUMABLE] AND branch exists (no worktree) | **Recreate**: Attach worktree to branch |
-| Otherwise | **New**: Create checkpoint and worktree |
+- **[IS_RESUMABLE] AND worktree exists**: Resume — Navigate to existing worktree
+- **[IS_RESUMABLE] AND branch exists (no worktree)**: Recreate — Attach worktree to branch
+- **Otherwise**: New — Create checkpoint and worktree
 
 ### Resume
 
@@ -92,7 +89,7 @@ Continue to Step 2.
    cd "$WORKTREE_DIR"
    ```
 
-   On worktree creation failure: post error to issue, set status `blocked`, HALT.
+   On worktree creation failure: post error to issue, set status `needs_review`, add `blocked` tag, **STOP**.
 
 2. Initialize implementation:
    ```
@@ -117,7 +114,7 @@ Continue to Step 2.
 
 ### 2.1 Validate and Initialize
 
-If [PLAN_CONTENT] is empty: post error comment, set status `blocked`, HALT.
+If [PLAN_CONTENT] is empty: post error comment, set status `needs_review`, add `blocked` tag, **STOP**.
 
 Create todos from [PLAN_CONTENT] using TodoWrite. Initialize `[EVALUATION_CYCLE] = 0`.
 
@@ -137,18 +134,48 @@ Progress: [COMPLETED] of [TOTAL] tasks complete"
 
 ### 2.3 Assess Coherence
 
-| Issue Type | Characteristics | Delegation Strategy |
-|------------|-----------------|---------------------|
-| Coherent | Effort compounds across todos | Single agent for all todos |
-| Fragmented | Effort is isolated per todo | One agent per independent group |
+Analyze tasks along three dimensions:
 
-Test: Would a fresh agent be equally effective? If yes → Fragmented.
+| Dimension | Question |
+|-----------|----------|
+| **Dependency** | Do files import/reference each other? |
+| **Uniformity** | Same operation across files, or varied operations? |
+| **Size** | Substantial tasks with clear completion gates? |
+
+**Route**:
+- Independent files OR uniform tasks → **Parallel** (concurrent agents)
+- Dependent + varied + small → **Coherent** (single agent)
+- Dependent + varied + substantial with clear gates → **Sequential** (ordered agents, checkpoint between)
+
+Clear gates: type-check passes, tests pass, API functional, UI renders.
 
 ### 2.4 Delegate Implementation
 
+Based on coherence assessment:
+
+**Parallel**: Launch concurrent agents for independent groups:
 ```xml
 <invoke name="Task">
-<parameter name="description">[Implement TITLE (all todos) | Current todo]</parameter>
+<parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">...</parameter>
+<parameter name="run_in_background">true</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">...</parameter>
+</invoke>
+```
+
+**Sequential**: Delegate to agent, checkpoint at gate, then delegate next phase.
+
+**Coherent**: Single agent for all todos.
+
+Agent prompt template:
+```xml
+<invoke name="Task">
+<parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="prompt">
 Issue: [ISSUE_ID] - [TITLE]
@@ -160,19 +187,22 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 2. Extract `planContent` for implementation details
 3. Extract `description` for requirements context
 
+## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
-[Fragmented: Complete todos: [independent group todo descriptions]]
+[Sequential: Complete phase [N] todos: [phase todo descriptions]. Stop at gate: [GATE_CONDITION].]
+[Parallel: Complete todos: [independent group todo descriptions]]
 </parameter>
 </invoke>
 ```
 
 ### 2.5 Process Result
 
-| Status | Action |
-|--------|--------|
-| COMPLETED | Mark todo completed. Commit if changes exist. Post to issue. Continue. |
-| NEEDS_REVISION | Update todo with attempt count. Revert to checkpoint. Re-delegate (max 3). After 3: mark blocked. |
-| BLOCKED | Document in issue. Mark todo blocked. Continue. |
+Based on agent status:
+- **COMPLETED**: Mark todo completed, commit if changes exist, post to issue, continue
+- **NEEDS_REVISION**: Update todo with attempt count, revert to checkpoint
+  - **If attempts < 3**: Re-delegate to agent
+  - **If attempts ≥ 3**: Mark todo blocked
+- **BLOCKED**: Document in issue, mark todo blocked, continue
 
 **COMPLETED:** Post a brief progress update indicating which task you completed and what you actually did. Keep it concise.
 ```
@@ -184,7 +214,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 
 **After all todos:**
-- ALL blocked → post summary, set status `blocked`, HALT
+- ALL blocked → post summary, set status `needs_review`, add `blocked` tag, **STOP**
 - SOME blocked → note in summary, proceed to Step 3
 - NONE blocked → proceed to Step 3
 
@@ -234,11 +264,10 @@ Worktree: [WORKTREE_PATH]
 
 ### 3.3 Process Result
 
-| Status | Action |
-|--------|--------|
-| COMPLETED | Commit with `refactor:` prefix, post to issue, proceed to Step 4 |
-| NEEDS_REVIEW | Log recommendations, proceed to Step 4 |
-| BLOCKED | Document reasons, proceed to Step 4 |
+Based on agent status:
+- **COMPLETED**: Commit with `refactor:` prefix, post to issue, proceed to Step 4
+- **NEEDS_REVIEW**: Log recommendations, proceed to Step 4
+- **BLOCKED**: Document reasons, proceed to Step 4
 
 ---
 
@@ -274,15 +303,24 @@ Evaluate for production readiness.
 
 ### 4.3 Process Result
 
-| Status | Action |
-|--------|--------|
-| PRODUCTION_READY | Post completion comment, proceed to Step 5 |
-| CONTINUE | Increment [EVALUATION_CYCLE]. If ≥2: set `needs_review`, HALT. Else: create todos (prefix "[Eval fix]"), return to 2.2. |
-| BLOCKED | Document issues, set `needs_review`, HALT |
+Based on evaluation result:
+- **PRODUCTION_READY**: Post completion comment, proceed to Step 5
+- **CONTINUE**: Increment [EVALUATION_CYCLE]
+  - **If cycle ≥ 2**: Set `needs_review`, **STOP**
+  - **If cycle < 2**: Create todos with "[Eval fix]" prefix, return to Step 2.2
+- **BLOCKED**: Document issues, set status `needs_review`, add `blocked` tag, **STOP**
 
 ---
 
 ## 5. Finalize
+
+### If NOT [REVIEW_REQUIRED]:
+
+```xml
+<invoke name="Skill">
+  <parameter name="skill">claude-code-cli:issue-merge</parameter>
+</invoke>
+```
 
 ### If [REVIEW_REQUIRED]:
 
@@ -310,14 +348,6 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-Stop here. Merge occurs via `issue-merge-approved` skill after user approval.
-
-### If NOT [REVIEW_REQUIRED]:
-
-```xml
-<invoke name="Skill">
-  <parameter name="skill">claude-code-cli:issue-merge-approved</parameter>
-</invoke>
-```
+Stop here. Merge occurs via `issue-merge` skill after user approval.
 
 </instructions>

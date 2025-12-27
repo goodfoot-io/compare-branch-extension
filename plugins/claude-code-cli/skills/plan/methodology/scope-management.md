@@ -50,14 +50,13 @@ Features introduced with these phrases are scope creep candidates:
 
 ### Decision Framework
 
-| Question | Yes | No |
-|----------|-----|-----|
-| Directly solves stated problem? | Keep | Flag |
-| Needed for current release? | Keep | Defer |
-| Evidence users want it? | Keep | Flag |
-| Other features depend on it? | Keep | Review |
-
-If any answer is "Flag" or "Defer", move to Exclude section with rationale.
+Evaluate each question in order:
+- **Directly solves stated problem — No**: Flag for exclusion
+- **Needed for current release — No**: Defer to future release
+- **Evidence users want it — No**: Flag for exclusion
+- **Other features depend on it — No**: Review necessity carefully
+- **Any answer is "Flag" or "Defer"**: Move to Exclude section with rationale
+- **All answers are "Yes"**: Keep in scope
 
 Source: project-plan-report.md lines 44-45
 > "Resist the temptation to add features 'for future use' or because 'we might
@@ -76,9 +75,11 @@ When stakeholders request additions during planning:
 Apply YAGNI questions above.
 
 ### Step 3: Classify
-- **Core**: Directly solves problem → Add to Include
-- **Related**: Useful but not essential → Add to Exclude with "Future consideration"
-- **Unrelated**: Different problem → Suggest separate project
+
+Based on feature relationship to core problem:
+- **Core (directly solves problem)**: Add to Include section
+- **Related (useful but not essential)**: Add to Exclude with "Future consideration"
+- **Unrelated (different problem)**: Suggest as separate project
 
 ### Step 4: Document
 If deferring, capture in the plan:

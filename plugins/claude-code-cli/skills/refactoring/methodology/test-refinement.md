@@ -177,14 +177,16 @@ Tests are redundant when they:
 
 ### Questions to Assess Redundancy
 
-1. **Does this test fail for a different reason than other tests?**
-   If two tests always fail together for the same root cause, one may be redundant.
+Based on test failure patterns:
+- **Two tests always fail together for the same root cause**: One may be redundant
 
-2. **Does this test document a distinct requirement or edge case?**
-   Each test should correspond to a specific behaviour or requirement from the plan.
+Based on test purpose:
+- **Test documents a distinct requirement or edge case from the plan**: Test is valuable, keep it
+- **Test does not correspond to a specific behaviour or requirement**: Test may be redundant
 
-3. **Would removing this test reduce confidence in the system?**
-   If no confidence is lost, the test is redundant.
+Based on confidence impact:
+- **Removing the test reduces confidence in the system**: Test is valuable, keep it
+- **Removing the test loses no confidence**: Test is redundant, consider removal
 
 ### Consolidation Techniques
 
@@ -320,10 +322,10 @@ After refactoring production code, verify test alignment:
 <decision-rule>
 ## When in Doubt
 
-If uncertain whether to consolidate, simplify, or preserve a test:
+When uncertain whether to consolidate, simplify, or preserve a test, ask: "Does this test document a distinct requirement from the plan?"
 
-1. **Ask**: "Does this test document a distinct requirement from the plan?"
-2. **If yes**: Preserve, but consider simplifying the implementation
-3. **If no**: Consider removing or consolidating with a related test
-4. **Always**: Ensure at least one test covers each explicit plan requirement
+Based on the answer:
+- **Yes, documents distinct requirement**: Preserve the test, but consider simplifying the implementation
+- **No, does not document distinct requirement**: Consider removing or consolidating with a related test
+- **Always applicable**: Ensure at least one test covers each explicit plan requirement
 </decision-rule>

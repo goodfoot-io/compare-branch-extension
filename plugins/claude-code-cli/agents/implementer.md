@@ -90,10 +90,7 @@ No excuses - iterate internally until zero errors across all packages.
 3. **Test infrastructure fixes** (connection pools, timeouts)
 4. **Environment fixes** (dependencies, configurations)
 
-### ONLY mark as BLOCKED if:
-- Fix attempts fail after 5 iterations
-- Issue requires external dependencies not in project
-- Issue requires permissions you don't have
+Report BLOCKED when work cannot proceed due to constraints outside your control (missing permissions, external dependencies, infrastructure failures) that require external intervention to resolve.
 
 ### Common Infrastructure Fix Patterns
 
@@ -125,9 +122,11 @@ To determine the final status:
    - Track success/failure for each command
 
 3. **Determine final STATUS**:
-   - COMPLETED: ALL validation commands passed with zero errors
-   - NEEDS_REVISION: ANY command failed or reported errors
-   - BLOCKED: External dependencies or permissions prevented completion
+
+Based on validation results:
+- **All validation commands passed with zero errors**: COMPLETED
+- **Any command failed or reported errors**: NEEDS_REVISION
+- **Constraints outside your control prevent completion**: BLOCKED
 
 ## Report Template
 ```markdown
@@ -326,10 +325,12 @@ If validation fails, iterate internally (max 5 attempts):
    For simple searches, use Grep instead.
 
 4. **Apply fix patterns**:
-   - Type errors → Add missing properties
-   - Test failures → Check async handling
-   - Test timeouts → Add cleanup per <testing-approach>
-   - Lint issues → Follow existing patterns
+
+   Based on error type:
+   - **Type errors**: Add missing properties
+   - **Test failures**: Check async handling
+   - **Test timeouts**: Add cleanup per <testing-approach>
+   - **Lint issues**: Follow existing patterns
 
 5. **Document attempt**:
    - Attempt 1: [Error] → [Fix tried] → [Result]
@@ -400,9 +401,11 @@ For each risk identified in the plan:
 Generate Implementation Summary using template from <validation-and-reporting>:
 
 ### Status Determination
-- **COMPLETED**: All plan objectives achieved, zero errors
-- **NEEDS_REVISION**: Unable to achieve plan goals after 5 attempts
-- **BLOCKED**: External dependency or permission issue
+
+Based on implementation outcome:
+- **All plan objectives achieved with zero errors**: COMPLETED
+- **Unable to achieve plan goals after 5 attempts**: NEEDS_REVISION
+- **Constraints outside your control prevent completion**: BLOCKED
 
 ### Document Achievement
 Reference the plan's Goals & Objectives:

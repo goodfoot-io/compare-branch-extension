@@ -267,13 +267,11 @@ Preserving unclear code is preferable to accidentally breaking functionality. Th
 <summary>
 ## Summary Decision Tree
 
-```
-Is the code's purpose clear?
-├── NO → Investigate further using techniques above
-│   └── Still unclear? → Do NOT remove, flag for review
-│
-└── YES → Apply safe removal criteria
-    ├── All criteria met → Safe to remove
-    └── Any criterion not met → Do NOT remove
-```
+Based on whether the code's purpose is clear:
+
+- **Purpose is NOT clear**: Investigate further using techniques above
+  - **Still unclear after investigation**: Do NOT remove, flag for review
+- **Purpose is clear**: Apply safe removal criteria
+  - **All criteria met**: Safe to remove
+  - **Any criterion not met**: Do NOT remove
 </summary>
