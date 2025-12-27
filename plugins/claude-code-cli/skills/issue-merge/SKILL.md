@@ -63,6 +63,7 @@ After rebase completes, run linting, type checking, and tests.
 - All validation commands must execute and pass. A command that errors before producing results is a failure.
 - Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block the merge.
 - Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
+- If blocked, report the failure by adding to existing open issues about the block, or by creating a new issue with "backlog" status.
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 4
