@@ -134,17 +134,48 @@ Progress: [COMPLETED] of [TOTAL] tasks complete"
 
 ### 2.3 Assess Coherence
 
-Based on issue type:
-- **Coherent** (effort compounds across todos): Delegate to single agent for all todos
-- **Fragmented** (effort is isolated per todo): Delegate one agent per independent group
+Analyze tasks along three dimensions:
 
-Test: Would a fresh agent be equally effective? If yes → Fragmented.
+| Dimension | Question |
+|-----------|----------|
+| **Dependency** | Do files import/reference each other? |
+| **Uniformity** | Same operation across files, or varied operations? |
+| **Size** | Substantial tasks with clear completion gates? |
+
+**Route**:
+- Independent files OR uniform tasks → **Parallel** (concurrent agents)
+- Dependent + varied + small → **Coherent** (single agent)
+- Dependent + varied + substantial with clear gates → **Sequential** (ordered agents, checkpoint between)
+
+Clear gates: type-check passes, tests pass, API functional, UI renders.
 
 ### 2.4 Delegate Implementation
 
+Based on coherence assessment:
+
+**Parallel**: Launch concurrent agents for independent groups:
 ```xml
 <invoke name="Task">
-<parameter name="description">[Implement TITLE (all todos) | Current todo]</parameter>
+<parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">...</parameter>
+<parameter name="run_in_background">true</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">...</parameter>
+</invoke>
+```
+
+**Sequential**: Delegate to agent, checkpoint at gate, then delegate next phase.
+
+**Coherent**: Single agent for all todos.
+
+Agent prompt template:
+```xml
+<invoke name="Task">
+<parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="prompt">
 Issue: [ISSUE_ID] - [TITLE]
@@ -156,8 +187,10 @@ Checkpoint SHA: [TASK_CHECKPOINT]
 2. Extract `planContent` for implementation details
 3. Extract `description` for requirements context
 
+## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
-[Fragmented: Complete todos: [independent group todo descriptions]]
+[Sequential: Complete phase [N] todos: [phase todo descriptions]. Stop at gate: [GATE_CONDITION].]
+[Parallel: Complete todos: [independent group todo descriptions]]
 </parameter>
 </invoke>
 ```
