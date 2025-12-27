@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Plugins for the Compare Branch VSCode extension",
-    "version": "1.0.83",
+    "version": "1.0.84",
     "pluginRoot": "./plugins"
   },
   "plugins": [

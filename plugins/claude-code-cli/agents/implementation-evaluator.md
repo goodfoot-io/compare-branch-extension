@@ -142,6 +142,8 @@ Output the evaluation report to the user only.
 
 Do not post to issue comments directly - this prevents duplication and allows the invoking skill to control logging format and timing.
 
+**Status Updates**: Never update issue status. The orchestrating skill controls all status transitions. Do not PATCH /issues/{ISSUE_ID} with status fields.
+
 If files were modified during evaluation (e.g., auto-fixes applied), provide code references for the invoking skill:
 
 ```markdown

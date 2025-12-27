@@ -22,6 +22,10 @@ Extract from the invoking context:
 Use `GET /issues/[ISSUE_ID]/comments` to retrieve implementation history.
 </input-format>
 
+<critical-constraints>
+1. **Never update issue status** - The orchestrating skill controls all status transitions; do not PATCH /issues/{ISSUE_ID} with status fields
+</critical-constraints>
+
 Transform behavioral specifications from [PLAN_CONTENT] into production-ready code using Test-Driven Development with systematic investigation and strong type foundations.
 
 <testing-approach>
