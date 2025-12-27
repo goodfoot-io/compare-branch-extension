@@ -29,12 +29,17 @@ Based on error type:
 Recovery cycle:
 1. Analyze the error
 2. Fix in worktree
-3. Re-run validation
+3. Run linting, type checking, and tests
+
+**Validation rules:**
+- All validation commands must execute and pass. A command that errors before producing results is a failure.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
+- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
 
 Based on validation result:
 - **Validation passes**: Return to the invoking protocol and continue from the step after the one that failed
-- **Validation fails and attempts remain**: Repeat the recovery cycle from step 1
-- **Validation fails and attempts exhausted (3 failed attempts)**: Proceed to section 3
+- **Validation fails and attempts < 3**: Repeat the recovery cycle from step 1
+- **Validation fails and attempts ≥ 3**: Proceed to section 3
 
 ## 3. Report and Block
 

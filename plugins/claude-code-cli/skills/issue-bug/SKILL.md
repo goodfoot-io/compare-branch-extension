@@ -311,14 +311,16 @@ Based on changes detected:
 
 ## 4. Validate Full Suite
 
-```bash
-yarn lint
-yarn test
-```
+Run linting, type checking, and tests.
 
-Based on result:
-- **All pass**: Proceed to Step 5
-- **Failures**: Post comment listing issues, set `needs_review`. **STOP** — Full suite validation failed.
+**Validation rules:**
+- All validation commands must execute and pass. A command that errors before producing results is a failure.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
+- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
+
+Based on validation result:
+- **All validation passes**: Proceed to Step 5
+- **Validation fails**: Post comment listing issues, set status `needs_review`, add `blocked` tag, **STOP** — Validation failed.
 
 ## 5. Finalize
 
