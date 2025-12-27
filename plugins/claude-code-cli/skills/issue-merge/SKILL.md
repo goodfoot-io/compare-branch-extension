@@ -45,17 +45,23 @@ Issue: [ISSUE_ID]"
 fi
 ```
 
-## 3. Rebase onto Local Base Branch (in Worktree)
+## 3. Rebase and Validate (in Worktree)
 
-Rebase onto local `$BASE_BRANCH`, not `origin/$BASE_BRANCH`. The local branch includes recent merges that may not be pushed yet.
+Rebase onto local `$BASE_BRANCH` (includes recent merges not yet pushed):
 
 ```bash
 git rebase $BASE_BRANCH
-# If conflicts occur: resolve, validate (typecheck/lint/test), then:
-# git add -A && git rebase --continue
+# If conflicts: resolve, then git add -A && git rebase --continue
 ```
 
-- **If rebase conflicts cannot be resolved**: Post error comment, set status to `needs_review`, **STOP**.
+After rebase completes, run linting, type checking, and tests.
+
+**Validation rules:**
+- All validation commands must execute and pass. A command that errors before producing results is a failure.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block the merge.
+- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
+
+**If rebase conflicts cannot be resolved OR validation fails after 3 attempts**: Post error comment explaining what failed and what you attempted, set status `needs_review`, add `blocked` tag, **STOP**.
 
 ## 4. Prepare Main Workspace
 
