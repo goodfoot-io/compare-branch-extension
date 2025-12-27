@@ -95,23 +95,19 @@ Work in the worktree directory.
 
 1. Read and understand existing code before making changes
 2. Make required changes
-3. Run linting and tests
+3. Run linting, type checking, and tests
 4. Fix any issues
 
-**If validation fails after 3 attempts:** Post a comment explaining what validation step failed, what specific errors you encountered that you couldn't resolve, and what approaches you attempted. Be detailed enough that the user can understand the problem without reading all the code. Then **STOP**.
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "[comment content]",
-  "author": "agent"
-}
-```
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
-}
-```
+**Validation rules:**
+- All validation commands must execute and pass. A command that errors before producing results is a failure.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
+- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
+- If blocked, report the failure by adding to existing open issues about the block, or by creating a new issue with "backlog" status.
+
+Based on validation result:
+- **All validation passes**: Proceed to commit
+- **Validation fails and attempts < 3**: Fix errors, re-run validation
+- **Validation fails and attempts ≥ 3**: Post error comment explaining what failed and what you attempted, set status `needs_review`, add `blocked` tag, **STOP** — Awaiting user intervention.
 
 Commit using conventional commit format (feat, fix, docs, refactor, test, chore):
 ```bash

@@ -37,6 +37,12 @@ Every test failure is a production failure. No exceptions.
 | "Flaky test" | Race condition that crashes production |
 | "Pre-existing issue" | Must be fixed |
 
+**Validation rules:**
+- All validation commands must execute and pass. A command that errors before producing results is a failure.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
+- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
+- If blocked, report the failure by adding to existing open issues about the block, or by creating a new issue with "backlog" status.
+
 **Acceptable state:** ALL tests pass, ZERO errors.
 </test-policy>
 
