@@ -1,6 +1,6 @@
 {
   "name": "issues",
-  "version": "1.0.20",
+  "version": "1.0.23",
   "description": "Claude Code plugin for interacting with Compare Branch extension's Issues API",
   "author": {
     "name": "Goodfoot Media LLC"
