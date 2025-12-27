@@ -31,12 +31,21 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-## 2. Squash Commits
+## 2. Check for Changes
 
 ```bash
 cd ".worktrees/$BRANCH_NAME"
 BRANCH_BASE=$(git merge-base HEAD $BASE_BRANCH)
 COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
+```
+
+Based on commit count:
+- **COMMIT_COUNT = 0**: No changes to merge. Run `remove-instant-worktree "$BRANCH_NAME"`, set status `needs_review`, post comment "No changes found in worktree. Cleaned up branch without merging.", **STOP**
+- **COMMIT_COUNT ≥ 1**: Proceed to Step 3
+
+## 3. Squash Commits
+
+```bash
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "$BRANCH_BASE"
   git commit -m "feat: [TITLE]
@@ -45,7 +54,7 @@ Issue: [ISSUE_ID]"
 fi
 ```
 
-## 3. Rebase and Validate (in Worktree)
+## 4. Rebase and Validate (in Worktree)
 
 Rebase onto local `$BASE_BRANCH` (includes recent merges not yet pushed):
 
@@ -66,11 +75,11 @@ After rebase completes, run linting, type checking, and tests.
 - If blocked, report the failure by adding to existing open issues about the block, or by creating a new issue with "backlog" status.
 
 Based on validation result:
-- **All validation passes**: Proceed to Step 4
+- **All validation passes**: Proceed to Step 5
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
 - **Validation fails and attempts ≥ 3**: Post error comment explaining what failed and what you attempted, set status `needs_review`, add `blocked` tag, **STOP** — Awaiting user intervention.
 
-## 4. Prepare Main Workspace
+## 5. Prepare Main Workspace
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -79,9 +88,9 @@ git status --porcelain
 
 Based on workspace state:
 - **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: [ISSUE_ID]"`
-- **No uncommitted changes**: Proceed to Step 5
+- **No uncommitted changes**: Proceed to Step 6
 
-## 5. Merge Branch
+## 6. Merge Branch
 
 ```bash
 git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
@@ -91,22 +100,22 @@ Title: [TITLE]"
 ```
 
 Based on merge result:
-- **Merge succeeds**: Proceed to Step 6
+- **Merge succeeds**: Proceed to Step 7
 - **Merge fails**: Post error comment, set status `needs_review`, add `blocked` tag, **STOP** — Merge failed after successful rebase.
 
-## 6. Restore Stashed Work
+## 7. Restore Stashed Work
 
 Based on stash state:
-- **Work was stashed in Step 4**: Run `git stash pop`
-- **No stashed work**: Proceed to Step 7
+- **Work was stashed in Step 5**: Run `git stash pop`
+- **No stashed work**: Proceed to Step 8
 
-## 7. Clean Up
+## 8. Clean Up
 
 ```bash
 remove-instant-worktree "$BRANCH_NAME"
 ```
 
-## 8. Update Status
+## 9. Update Status
 
 ```
 PATCH /issues/[ISSUE_ID]
