@@ -56,7 +56,26 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    cd "$WORKTREE_DIR"
    ```
 
-2. Initialize implementation:
+2. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on the issue content:
+
+   ```xml
+   <invoke name="Task">
+   <parameter name="description">explore-[target-a]</parameter>
+   <parameter name="subagent_type">Explore</parameter>
+   <parameter name="model">haiku</parameter>
+   <parameter name="run_in_background">true</parameter>
+   <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
+   </invoke>
+   <invoke name="Task">
+   <parameter name="description">explore-[target-b]</parameter>
+   <parameter name="subagent_type">Explore</parameter>
+   <parameter name="model">haiku</parameter>
+   <parameter name="run_in_background">true</parameter>
+   <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
+   </invoke>
+   ```
+
+3. Initialize implementation:
    ```
    PATCH /issues/[ISSUE_ID]
    {
@@ -73,7 +92,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    }
    ```
 
-3. Assess title accuracy:
+4. Assess title accuracy:
 
    Evaluate whether the issue title still accurately describes the work:
    - **Rename when**: Title references wrong component/file/feature, describes symptom when implementation addresses root cause, or scope has significantly changed
@@ -90,6 +109,8 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    Include the title change and rationale in the implementation summary comment.
 
 ## 2. Implement
+
+Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
 
 Work in the worktree directory.
 

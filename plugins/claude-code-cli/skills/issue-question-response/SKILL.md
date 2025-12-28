@@ -16,9 +16,30 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
+Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the question:
+
+```xml
+<invoke name="Task">
+<parameter name="description">explore-[target-a]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="run_in_background">true</parameter>
+<parameter name="prompt">[Distinct exploration task derived from question]</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">explore-[target-b]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="run_in_background">true</parameter>
+<parameter name="prompt">[Distinct exploration task derived from question]</parameter>
+</invoke>
+```
+
 ## 2. Research the Answer
 
-Search the codebase to find accurate information. When referencing code, include file paths and line numbers.
+Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
+
+Search the codebase to find additional information as needed. When referencing code, include file paths and line numbers.
 
 ## 3. Post the Response
 

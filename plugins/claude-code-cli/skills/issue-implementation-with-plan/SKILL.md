@@ -97,7 +97,26 @@ Continue to Step 2.
 
    On worktree creation failure: post error to issue, set status `needs_review`, add `blocked` tag, **STOP**.
 
-2. Initialize implementation:
+2. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on plan content:
+
+   ```xml
+   <invoke name="Task">
+   <parameter name="description">explore-[target-a]</parameter>
+   <parameter name="subagent_type">Explore</parameter>
+   <parameter name="model">haiku</parameter>
+   <parameter name="run_in_background">true</parameter>
+   <parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
+   </invoke>
+   <invoke name="Task">
+   <parameter name="description">explore-[target-b]</parameter>
+   <parameter name="subagent_type">Explore</parameter>
+   <parameter name="model">haiku</parameter>
+   <parameter name="run_in_background">true</parameter>
+   <parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
+   </invoke>
+   ```
+
+3. Initialize implementation:
    ```
    PATCH /issues/[ISSUE_ID]
    {
@@ -139,6 +158,8 @@ Progress: [COMPLETED] of [TOTAL] tasks complete"
 ```
 
 ### 2.3 Assess Coherence
+
+Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
 
 Analyze tasks along three dimensions:
 

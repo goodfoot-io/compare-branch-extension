@@ -63,6 +63,25 @@ WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"
 ```
 
+Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on the issue content:
+
+```xml
+<invoke name="Task">
+<parameter name="description">explore-[target-a]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="run_in_background">true</parameter>
+<parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">explore-[target-b]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="run_in_background">true</parameter>
+<parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
+</invoke>
+```
+
 Initialize bug fix:
 
 ```
@@ -96,6 +115,8 @@ Extract from [DESCRIPTION] and [COMMENTS]:
 - SCOPE_HINT — Files, packages, or functions mentioned
 
 ### 2.2 Delegate to Subagent
+
+Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
 
 Increment REPRODUCTION_ATTEMPT, then invoke:
 
