@@ -1,6 +1,6 @@
 ---
 name: issue-status-recovery
-description: Reconcile inconsistent issue state when [STATUS] is "in_progress" but [IS_RESUMABLE] is false.
+description: Reconcile inconsistent in_progress issue state.
 ---
 
 <placeholder-variables>

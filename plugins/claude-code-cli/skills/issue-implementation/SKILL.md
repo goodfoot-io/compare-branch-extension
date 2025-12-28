@@ -1,6 +1,6 @@
 ---
 name: issue-implementation
-description: Implement issue work in an isolated git worktree for code, research, analysis, or documentation.
+description: Implement issues in isolated git worktree.
 ---
 
 <placeholder-variables>

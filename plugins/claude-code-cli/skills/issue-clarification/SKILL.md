@@ -1,6 +1,6 @@
 ---
 name: issue-clarification
-description: Request clarification when Definition of Ready is not met. Use when [STATUS] is "todo" but [DOR_MET] is false.
+description: Request clarification when Definition of Ready unmet.
 ---
 
 <placeholder-variables>

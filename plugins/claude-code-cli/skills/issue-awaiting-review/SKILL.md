@@ -1,6 +1,6 @@
 ---
 name: issue-awaiting-review
-description: Await user review when no feedback provided yet. Use when [STATUS] is "needs_review" but [LATEST_USER_COMMENT] is null.
+description: Await user review when no feedback exists.
 ---
 
 <instructions>

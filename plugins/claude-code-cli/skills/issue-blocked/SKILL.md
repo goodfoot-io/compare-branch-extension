@@ -1,6 +1,6 @@
 ---
 name: issue-blocked
-description: Handle blocked issues by identifying and reporting blockers. Use when [IS_BLOCKED] is true.
+description: Handle blocked issues by reporting blockers.
 ---
 
 <placeholder-variables>

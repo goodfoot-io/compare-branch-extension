@@ -1,6 +1,6 @@
 ---
 name: issue-no-action
-description: Take no action when no agent work is required. Use for "done" issues without reopen requests, or as fallback for unmatched routing conditions.
+description: Take no action for completed issues.
 ---
 
 <instructions>

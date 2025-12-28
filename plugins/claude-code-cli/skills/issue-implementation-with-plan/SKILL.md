@@ -1,6 +1,6 @@
 ---
 name: issue-implementation-with-plan
-description: Implement approved plans using specialized agents in an isolated worktree.
+description: Implement approved plans in isolated worktree.
 ---
 
 <placeholder-variables>

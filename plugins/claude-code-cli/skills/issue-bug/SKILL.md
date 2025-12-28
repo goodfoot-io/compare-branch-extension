@@ -1,6 +1,6 @@
 ---
 name: issue-bug
-description: Fix testable bugs using test-first methodology in an isolated worktree. Creates reproduction test that must fail, then fixes source code while tracking any test modifications.
+description: Fix testable bugs using test-first methodology.
 ---
 
 <placeholder-variables>

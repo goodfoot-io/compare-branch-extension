@@ -1,6 +1,6 @@
 ---
 name: issue-error-recovery
-description: Recover from errors during any protocol execution. Use when errors occur during other protocols.
+description: Recover from errors during protocol execution.
 ---
 
 <placeholder-variables>

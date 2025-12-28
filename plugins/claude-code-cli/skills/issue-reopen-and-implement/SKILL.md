@@ -1,6 +1,6 @@
 ---
 name: issue-reopen-and-implement
-description: Reopen completed issues for additional work. Use when [STATUS] is "done" but [HAS_REOPEN_REQUEST] is true.
+description: Reopen completed issues for additional work.
 ---
 
 <instructions>

@@ -1,6 +1,6 @@
 ---
 name: issue-approve-review
-description: Set reviewApproved when user posts approval comment. Use when [STATUS] is "needs_review" and [LATEST_USER_COMMENT] contains approval language but issue.reviewApproved is not yet true.
+description: Set reviewApproved after user approval comment.
 ---
 
 <instructions>

@@ -1,6 +1,6 @@
 ---
 name: issue-merge
-description: Merge completed implementation from worktree to base branch. Used when review is approved or when review is not required.
+description: Merge worktree implementation to base branch.
 ---
 
 <placeholder-variables>

@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Implementation plan format for issue comments with required sections and examples.
+description: Implementation plan format with required sections.
 ---
 
 # Implementation Plan Format

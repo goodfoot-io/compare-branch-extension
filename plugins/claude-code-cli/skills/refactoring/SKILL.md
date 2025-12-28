@@ -1,6 +1,6 @@
 ---
 name: refactoring
-description: Decision routing for complex refactoring scenarios. Directs to supplementary methodology documents when nuanced judgment is needed during plan-aware code cleanup.
+description: Route complex refactoring to methodology documents.
 ---
 
 <instructions>

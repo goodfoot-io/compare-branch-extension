@@ -1,6 +1,6 @@
 ---
 name: issue-plan
-description: Create and submit implementation plans with dual assessment. Use when [PLAN_REQUIRED] is true and [PLAN_APPROVED] is false.
+description: Create implementation plans for user approval.
 ---
 
 <placeholder-variables>

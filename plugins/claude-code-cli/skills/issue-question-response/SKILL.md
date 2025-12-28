@@ -1,6 +1,6 @@
 ---
 name: issue-question-response
-description: Respond to user questions without code changes. Use when [HAS_QUESTION] is true.
+description: Respond to user questions without code changes.
 ---
 
 <instructions>

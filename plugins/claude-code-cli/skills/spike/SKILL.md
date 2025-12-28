@@ -1,6 +1,6 @@
 ---
 name: spike
-description: Conduct empirical technical investigations using isolated subagents to compare alternatives or validate assumptions through prototype testing.
+description: Conduct technical investigations via isolated subagents.
 ---
 
 <instructions>

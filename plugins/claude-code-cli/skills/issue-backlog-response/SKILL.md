@@ -1,6 +1,6 @@
 ---
 name: issue-backlog-response
-description: Respond to backlog issues with information only - no code changes, worktrees, or commits. Use when [STATUS] is "backlog".
+description: Respond to backlog issues without code changes.
 ---
 
 <instructions>
