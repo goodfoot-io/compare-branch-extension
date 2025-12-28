@@ -63,7 +63,16 @@ WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"
 ```
 
-Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on the issue content:
+Signal work has started:
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "status": "in_progress"
+}
+```
+
+Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
 ```xml
 <invoke name="Task">
@@ -82,25 +91,43 @@ Launch background Explore subagents (haiku model) while performing status update
 </invoke>
 ```
 
-Initialize bug fix:
+Clarify bug:
 
+Evaluate whether the title and description clearly describe the bug. A good bug title describes behavior: *"[Component] fails when [action]"* or *"[Expected] but [actual]"*.
+
+**Clarify title when:**
+- Title is truncated or incomplete
+- Title describes implementation detail rather than observable behavior
+- Title references wrong component, file, or feature
+
+**Clarify description when:**
+- Description contains factual errors (wrong paths, incorrect component names)
+- Error messages or stack traces are missing but available
+
+**Leave unchanged when:** Only minor phrasing or style preferences would change.
+
+**Clarification principles:**
+- Preserve all user-provided details, especially error messages and reproduction steps
+- Maintain user intent — the clarified version must describe the same bug
+- Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
+
+**Enrich descriptions** with context discovered during exploration:
+- Correct file paths and component names
+- Related error messages or stack traces
+- Environment or configuration details (if relevant)
+
+Do not expand scope beyond the reported bug.
+
+If changes are needed:
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "in_progress"
+  "title": "[CLARIFIED_TITLE]",
+  "description": "[CLARIFIED_DESCRIPTION]"
 }
 ```
 
-Tell the user you're beginning work on the bug. Briefly describe what you'll investigate first or what approach you're taking to understand and reproduce the issue.
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "[comment content]",
-  "author": "agent",
-  "commitSha": "${WORKTREE_BASELINE}"
-}
-```
+Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
 
 ## 2. Create Reproduction Test
 

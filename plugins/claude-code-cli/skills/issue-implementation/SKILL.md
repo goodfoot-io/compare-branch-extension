@@ -56,7 +56,15 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    cd "$WORKTREE_DIR"
    ```
 
-2. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on the issue content:
+2. Signal work has started:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "status": "in_progress"
+   }
+   ```
+
+3. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
    ```xml
    <invoke name="Task">
@@ -75,38 +83,44 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    </invoke>
    ```
 
-3. Initialize implementation:
+4. Clarify issue:
+
+   Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
+
+   **Clarify title when:**
+   - Title is truncated, incomplete, or doesn't start with an action verb
+   - Title describes symptom rather than the work (e.g., "Page is slow" → "Optimize database queries")
+   - Title references wrong component, file, or feature
+
+   **Clarify description when:**
+   - Description contains factual errors (wrong paths, incorrect component names)
+   - Description lacks context needed to begin work
+
+   **Leave unchanged when:** Only minor phrasing or style preferences would change.
+
+   **Clarification principles:**
+   - Preserve all user-provided details, requirements, and constraints
+   - Maintain user intent — the clarified version must request the same outcome
+   - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
+
+   **Enrich descriptions** with context discovered during exploration:
+   - Relevant file paths and component names
+   - Technical constraints or dependencies
+   - Acceptance criteria (if inferable from user intent)
+   - Brief background on why this change matters
+
+   Do not expand scope beyond user intent.
+
+   If changes are needed:
    ```
    PATCH /issues/[ISSUE_ID]
    {
-     "status": "in_progress"
-   }
-   ```
-   Post a brief comment explaining your implementation approach or what you'll do first. Keep it concrete and specific to this task.
-   ```
-   POST /issues/[ISSUE_ID]/comments
-   {
-     "body": "[comment content]",
-     "author": "agent",
-     "commitSha": "${BASE_SHA}"
+     "title": "[CLARIFIED_TITLE]",
+     "description": "[CLARIFIED_DESCRIPTION]"
    }
    ```
 
-4. Assess title accuracy:
-
-   Evaluate whether the issue title still accurately describes the work:
-   - **Rename when**: Title references wrong component/file/feature, describes symptom when implementation addresses root cause, or scope has significantly changed
-   - **Do not rename when**: Only minor phrasing improvements, synonyms, or style preferences would change — if the title is accurate, leave it
-
-   If renaming is warranted:
-   ```
-   PATCH /issues/[ISSUE_ID]
-   {
-     "title": "[NEW_TITLE]"
-   }
-   ```
-
-   Include the title change and rationale in the implementation summary comment.
+   Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
 
 ## 2. Implement
 

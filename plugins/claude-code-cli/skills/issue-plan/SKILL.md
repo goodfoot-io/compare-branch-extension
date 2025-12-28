@@ -63,27 +63,43 @@ Invoke `claude-code-cli:plan` for structure requirements and examples.
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 
-### 4.3 Assess Title Accuracy
+### 4.3 Clarify Title and Description
 
-After research, evaluate whether the issue title still accurately describes the work:
+After research, evaluate whether the title and description clearly represent the planned work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
 
-Based on title accuracy:
-- **Title references wrong component, file, or feature**: Rename
-- **Title describes symptom but research reveals root cause**: Rename
-- **Scope has significantly changed from original request**: Rename
-- **Minor phrasing improvements only**: Do not rename
-- **Synonyms or style preferences**: Do not rename
-- **Title is accurate but could be "better"**: Do not rename
+**Clarify title when:**
+- Title is truncated, incomplete, or doesn't start with an action verb
+- Title describes symptom but research reveals root cause
+- Title references wrong component, file, or feature
 
-If renaming is warranted:
+**Clarify description when:**
+- Description contains factual errors (wrong paths, incorrect component names)
+- Description lacks context needed to understand the planned work
+
+**Leave unchanged when:** Only minor phrasing or style preferences would change.
+
+**Clarification principles:**
+- Preserve all user-provided details, requirements, and constraints
+- Maintain user intent — the clarified version must request the same outcome
+- Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
+
+**Enrich descriptions** with context discovered during research:
+- Relevant file paths and component names
+- Technical constraints or dependencies
+- Acceptance criteria (if inferable from user intent)
+- Brief background on why this change matters
+
+Do not expand scope beyond user intent.
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "title": "[NEW_TITLE]"
+  "title": "[CLARIFIED_TITLE]",
+  "description": "[CLARIFIED_DESCRIPTION]"
 }
 ```
 
-Document the title change rationale in the plan's scope section.
+Omit `title` and `description` fields if no changes are needed. Document any changes in the plan's scope section.
 
 ### 4.4 Draft Plan
 
