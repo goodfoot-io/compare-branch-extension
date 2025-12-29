@@ -46,6 +46,6 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-**STOP** - The routing layer will trigger `issue-merge` on the next invocation when `[REVIEW_APPROVED]` is true.
+**STOP** — The routing layer will trigger `issue-merge` on the next invocation when `[REVIEW_APPROVED]` is true.
 
 </instructions>

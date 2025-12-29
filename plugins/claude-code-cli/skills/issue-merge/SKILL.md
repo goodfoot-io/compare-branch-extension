@@ -57,6 +57,13 @@ Based on rebase result:
 - **Conflicts occur**: Resolve conflicts, run `git add -A && git rebase --continue`
 - **Conflicts cannot be resolved**: Post error comment, add `blocked` tag, **STOP** — Awaiting user intervention.
 
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "tags": ["blocked"]
+}
+```
+
 After rebase completes, run linting, type checking, and tests.
 
 **Validation rules:**
@@ -69,6 +76,13 @@ Based on validation result:
 - **All validation passes**: Proceed to Step 4
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
 - **Validation fails and attempts ≥ 3**: Post error comment explaining what failed and what you attempted, add `blocked` tag, **STOP** — Awaiting user intervention.
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "tags": ["blocked"]
+}
+```
 
 ## 4. Prepare Main Workspace
 
@@ -93,6 +107,13 @@ Title: [TITLE]"
 Based on merge result:
 - **Merge succeeds**: Proceed to Step 6
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Merge failed after successful rebase.
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "tags": ["blocked"]
+}
+```
 
 ## 6. Restore Stashed Work
 
