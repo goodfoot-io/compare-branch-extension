@@ -148,8 +148,30 @@ Description: [DESCRIPTION]</parameter>
 
 Review both assessment reports.
 
-Based on assessment severity:
-- **CRITICAL or HIGH priority issues exist**: Revise the plan to address findings, re-store via PATCH, re-run step 4.5 assessments (maximum 2 total cycles per revision—if issues persist, document unresolved concerns and proceed), document changes and decisions in the plan
+**Post evaluation comment:**
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "## Evaluation Summary\n\n### Questions Raised\n[List concerns, ambiguities, or issues identified by assessors]\n\n### Decisions\n[For each question: state the decision and brief rationale]",
+  "author": "agent"
+}
+```
+
+**Update description if evidence contradicts it:**
+
+When assessor findings reveal that the description contains incorrect assumptions or factual errors (wrong root cause, incorrect component, invalid constraints), update the description with corrections and a footnote:
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "description": "[corrected description]\n\n---\n*Corrections based on evaluation: [what changed and why]*"
+}
+```
+
+Do not update the description for stylistic preferences or minor clarifications—only when evidence directly contradicts stated facts.
+
+**Based on assessment severity:**
+- **CRITICAL or HIGH priority issues**: Revise the plan, re-store via PATCH, re-run step 4.5 (maximum 2 cycles—if issues persist, note unresolved concerns in the comment)
 - **Otherwise**: Proceed to step 4.7
 
 ### 4.7 Submit for Approval
