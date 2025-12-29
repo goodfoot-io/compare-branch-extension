@@ -19,7 +19,6 @@ Required sections:
 - Goals & Objectives
 - Technical Approach
 - Validation Commands
-- Approval Request
 
 ### Tier 2: Standard Features
 *4-10 files, moderate complexity*
@@ -641,19 +640,6 @@ Document uncertainties explicitly:
 - Update as questions resolve in comment thread
 </instructions>
 
----
-
-## Approval Request
-
-Every plan must end with a clear approval request:
-
-<example>
-```markdown
----
-**Please review and approve this plan before I proceed with implementation.**
-```
-</example>
-
 <instructions>
 This signals the user that action is required. The horizontal rule visually separates the request from plan content. This section is always required.
 </instructions>
@@ -740,8 +726,6 @@ The application currently lacks real-time notification capabilities, requiring u
 - **Risk**: Storage quota exceeded
   **Mitigation**: Rolling window keeping last 1000 notifications
 
----
-**Please review and approve this plan before I proceed with implementation.**
 ```
 
 </complete-tier2-example>
@@ -877,7 +861,6 @@ Select and load methodology documents based on the quality issues you encounter 
 - Goals & Objectives (3-7 checkbox items)
 - Technical Approach (numbered steps with file paths)
 - Validation Commands (typecheck, test, lint minimum)
-- Approval request footer
 
 ### Include for Tier 2+
 - Scope (Include AND Exclude)
