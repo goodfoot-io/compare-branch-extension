@@ -24,6 +24,7 @@ Statuses:
 - **needs_review**: This issue is awaiting feedback from the user (includes plan approval and implementation review).
 - **done**: The issue is complete and needs no additional review.
 - **backlog**: The issue is still under consideration. Do not modify or work on issues in the backlog.
+- **archived**: This issue has been archived and is no longer in the active workflow.
 </issue-status>
 
 <plan-approval>
@@ -92,7 +93,7 @@ interface CreateIssueRequest {
 interface UpdateIssueRequest {
   title?: string;
   description?: string;
-  status?: 'in_progress' | 'todo' | 'needs_review' | 'done' | 'backlog';
+  status?: 'in_progress' | 'todo' | 'needs_review' | 'done' | 'backlog' | 'archived';
   order?: number;
   needsAgentAttention?: boolean;
   plan?: boolean;  // Whether this issue requires plan approval before implementation
