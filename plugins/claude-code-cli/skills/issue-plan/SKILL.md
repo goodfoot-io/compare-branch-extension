@@ -159,13 +159,11 @@ Update the issue with the final plan and set status for review:
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "planContent": "[detailed plan markdown with approval request footer]",
+  "planContent": "[detailed plan markdown]",
   "codeReferences": ["/path/to/reviewed/file.ts"],
   "status": "needs_review"
 }
 ```
-
-The plan should end with: `---\n**Please review and approve this plan before I proceed with implementation.**`
 
 ### 4.8 Wait
 
