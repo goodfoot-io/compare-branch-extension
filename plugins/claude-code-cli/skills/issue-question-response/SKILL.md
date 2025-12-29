@@ -7,14 +7,7 @@ description: Respond to user questions without code changes.
 
 Answer user questions before proceeding with any implementation work.
 
-## 1. Initialize
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "in_progress"
-}
-```
+## 1. Research the Answer
 
 Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the question:
 
@@ -35,15 +28,13 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
 </invoke>
 ```
 
-## 2. Research the Answer
-
 Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
 
 Search the codebase to find additional information as needed. When referencing code, include file paths and line numbers.
 
 Make sure to kill any Explore subagents that have not returned before moving to the next step.
 
-## 3. Post the Response
+## 2. Post the Response
 
 ```
 POST /issues/[ISSUE_ID]/comments
@@ -58,12 +49,11 @@ Based on answer content:
 - **If referencing specific code locations**: Include `codeReferences` array
 - **Otherwise**: Omit `codeReferences`
 
-## 4. Restore Issue Status
+## 3. Update `needsAgentAttention` field
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[STATUS]",
   "needsAgentAttention": false
 }
 ```

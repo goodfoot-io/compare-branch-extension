@@ -11,14 +11,9 @@ Based on [LATEST_USER_COMMENT]:
 - **Empty or does not indicate what additional work is needed**: Post comment requesting clarification, set status to `needs_review`, **STOP**
 - **Contains clear request for additional work**: Proceed to Step 2
 
-## 2. Update Status and Acknowledge
+## 2. Post Acknowledgment
 
-Update status and post acknowledgment. Summarize the user's request from their latest comment to confirm you understand what additional work they want done.
-
-```
-PATCH /issues/[ISSUE_ID]
-{ "status": "in_progress" }
-```
+Summarize the user's request from their latest comment to confirm you understand what additional work they want done.
 
 ```
 POST /issues/[ISSUE_ID]/comments
