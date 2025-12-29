@@ -91,6 +91,7 @@ interface CreateIssueRequest {
 // PATCH /issues/{id}
 interface UpdateIssueRequest {
   title?: string;
+  description?: string;
   status?: 'in_progress' | 'todo' | 'needs_review' | 'done' | 'backlog';
   order?: number;
   needsAgentAttention?: boolean;
