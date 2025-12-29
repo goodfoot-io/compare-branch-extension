@@ -210,7 +210,7 @@ TEST_EXIT_CODE=$?
 
 Based on subagent response and test result:
 
-- **BLOCKED or CANNOT_COMPLETE**: Post comment with SUBAGENT_REASONING, set status `needs_review`, add `blocked` tag. **STOP** — Awaiting user intervention.
+- **BLOCKED or CANNOT_COMPLETE**: Post comment with SUBAGENT_REASONING, add `blocked` tag. **STOP** — Awaiting user intervention.
 
 - **Test FAILS (expected)**:
   - Commit: `git add -A && git commit -m "test: add reproduction test for [ISSUE_ID]"`
@@ -238,12 +238,6 @@ Based on subagent response and test result:
   {
     "body": "[comment content]",
     "author": "agent"
-  }
-  ```
-  ```
-  PATCH /issues/[ISSUE_ID]
-  {
-    "status": "needs_review"
   }
   ```
   **STOP** — Reproduction failed after maximum attempts.
@@ -313,7 +307,7 @@ SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 
 Based on changes detected:
 
-- **BLOCKED or CANNOT_COMPLETE**: Post comment with RESOLVER_REASONING, set status `needs_review`, add `blocked` tag. **STOP** — Awaiting user intervention.
+- **BLOCKED or CANNOT_COMPLETE**: Post comment with RESOLVER_REASONING, add `blocked` tag. **STOP** — Awaiting user intervention.
 
 - **Test modified**: Go to Test Correction Flow (Step 3.4)
 
@@ -330,7 +324,7 @@ Based on changes detected:
       "author": "agent"
     }
     ```
-    Set status `needs_review`. **STOP** — Resolution failed after maximum attempts.
+    **STOP** — Resolution failed after maximum attempts.
 
 ### 3.4 Test Correction Flow
 
@@ -343,12 +337,12 @@ Based on changes detected:
      "author": "agent"
    }
    ```
-   Set `needs_review`. **STOP** — Test became unreliable.
+   **STOP** — Test became unreliable.
 3. Revert source changes: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
    - **FAILS (valid)**: Commit correction, update TEST_READY_SHA, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.1
-   - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.1. Else post comment explaining test validation failure, set `needs_review`. **STOP** — Test correction failed.
+   - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.1. Else post comment explaining test validation failure. **STOP** — Test correction failed.
 
 ## 4. Validate Full Suite
 
@@ -379,14 +373,13 @@ There is no "probably fine" state. If you cannot make validation pass, you MUST 
 
 **When blocked:**
 1. Post error comment with exact failure output
-2. Set status `needs_review`
-3. Add `blocked` tag
-4. **STOP** — Do not proceed under any circumstances
+2. Add `blocked` tag
+3. **STOP** — Do not proceed under any circumstances
 </validation-gate>
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 5
-- **Validation fails**: Post comment listing issues, set status `needs_review`, add `blocked` tag, **STOP** — Validation failed.
+- **Validation fails**: Post comment listing issues, add `blocked` tag, **STOP** — Validation failed.
 
 ## 5. Finalize
 
@@ -426,12 +419,6 @@ Based on review requirement:
         "path": "${TEST_FILE_PATH}"
       }
     ]
-  }
-  ```
-  ```
-  PATCH /issues/[ISSUE_ID]
-  {
-    "status": "needs_review"
   }
   ```
   **STOP** — Merge via `issue-merge` skill after approval.

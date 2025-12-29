@@ -25,7 +25,6 @@ Clear agent attention flag for completed or unroutable issues.
    ```
    PATCH /issues/[ISSUE_ID]
    {
-     "status": "[STATUS]",
      "needsAgentAttention": false
    }
    ```

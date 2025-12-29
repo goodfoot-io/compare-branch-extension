@@ -59,12 +59,11 @@ POST /issues/[ISSUE_ID]/comments
 
 Then proceed to section 4.
 
-## 4. Update Status
+## 4. Mark as Blocked
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "needs_review",
   "tags": ["blocked"]
 }
 ```

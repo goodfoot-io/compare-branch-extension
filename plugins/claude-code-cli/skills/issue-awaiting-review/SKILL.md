@@ -31,7 +31,6 @@ Clear the flag to prevent repeated no-op invocations:
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "[STATUS]",
   "needsAgentAttention": false
 }
 ```

@@ -52,9 +52,8 @@ There is no "probably fine" state. If you cannot make validation pass, you MUST 
 
 **When blocked:**
 1. Post error comment with exact failure output
-2. Set status `needs_review`
-3. Add `blocked` tag
-4. **STOP** — Do not proceed under any circumstances
+2. Add `blocked` tag
+3. **STOP** — Do not proceed under any circumstances
 </validation-gate>
 
 <tools>
@@ -74,9 +73,9 @@ Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn
 ## 1. Prepare Environment
 
 Determine path using the first matching condition:
-- **[IS_RESUMABLE] AND worktree exists**: Resume — Navigate to existing worktree
-- **[IS_RESUMABLE] AND branch exists (no worktree)**: Recreate — Attach worktree to branch
-- **Otherwise**: New — Create checkpoint and worktree
+- **Worktree exists**: Resume — Navigate to existing worktree
+- **Branch exists (no worktree)**: Recreate — Attach worktree to branch
+- **Otherwise**: New — Create worktree
 
 ### Resume
 
@@ -106,7 +105,7 @@ Continue to Step 2.
    cd "$WORKTREE_DIR"
    ```
 
-   On worktree creation failure: post error to issue, set status `needs_review`, add `blocked` tag, **STOP**.
+   On worktree creation failure: post error to issue, add `blocked` tag, **STOP**.
 
 2. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on plan content:
 
@@ -145,7 +144,7 @@ Continue to Step 2.
 
 ### 2.1 Validate and Initialize
 
-If [PLAN_CONTENT] is empty: post error comment, set status `needs_review`, add `blocked` tag, **STOP**.
+If [PLAN_CONTENT] is empty: post error comment, add `blocked` tag, **STOP**.
 
 Create todos from [PLAN_CONTENT] using TodoWrite. Initialize `[EVALUATION_CYCLE] = 0`.
 
@@ -250,7 +249,7 @@ POST /issues/[ISSUE_ID]/comments
 ```
 
 **After all todos:**
-- ALL blocked → post summary, set status `needs_review`, add `blocked` tag, **STOP**
+- ALL blocked → post summary, add `blocked` tag, **STOP**
 - SOME blocked → note in summary, proceed to Step 3
 - NONE blocked → proceed to Step 3
 
@@ -344,7 +343,7 @@ Based on evaluation result:
 - **CONTINUE**: Increment [EVALUATION_CYCLE]
   - **If cycle ≥ 2**: Set `needs_review`, **STOP**
   - **If cycle < 2**: Create todos with "[Eval fix]" prefix, return to Step 2.2
-- **BLOCKED**: Document issues, set status `needs_review`, add `blocked` tag, **STOP**
+- **BLOCKED**: Document issues, add `blocked` tag, **STOP**
 
 ---
 
@@ -374,13 +373,6 @@ POST /issues/[ISSUE_ID]/comments
       "endLine": [n]
     }
   ]
-}
-```
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
 }
 ```
 

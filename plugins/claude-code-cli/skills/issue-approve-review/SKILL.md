@@ -37,12 +37,11 @@ POST /issues/[ISSUE_ID]/comments
 
 ## 4. Finalize
 
-Set status back to `needs_review` and clear the attention flag:
+Clear the attention flag:
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "needs_review",
   "needsAgentAttention": false
 }
 ```

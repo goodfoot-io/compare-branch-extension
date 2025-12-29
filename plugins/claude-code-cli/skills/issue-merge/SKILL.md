@@ -31,7 +31,7 @@ COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
 ```
 
 Based on commit count:
-- **COMMIT_COUNT = 0**: No changes to merge. Run `remove-instant-worktree "$BRANCH_NAME"`, set status `needs_review`, post comment "No changes found in worktree. Cleaned up branch without merging.", **STOP**
+- **COMMIT_COUNT = 0**: No changes to merge. Run `remove-instant-worktree "$BRANCH_NAME"`, post comment "No changes found in worktree. Cleaned up branch without merging.", **STOP**
 - **COMMIT_COUNT ≥ 1**: Proceed to Step 2
 
 ## 2. Squash Commits
@@ -55,7 +55,7 @@ git rebase $BASE_BRANCH
 
 Based on rebase result:
 - **Conflicts occur**: Resolve conflicts, run `git add -A && git rebase --continue`
-- **Conflicts cannot be resolved**: Post error comment, set status `needs_review`, add `blocked` tag, **STOP** — Awaiting user intervention.
+- **Conflicts cannot be resolved**: Post error comment, add `blocked` tag, **STOP** — Awaiting user intervention.
 
 After rebase completes, run linting, type checking, and tests.
 
@@ -68,7 +68,7 @@ After rebase completes, run linting, type checking, and tests.
 Based on validation result:
 - **All validation passes**: Proceed to Step 4
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
-- **Validation fails and attempts ≥ 3**: Post error comment explaining what failed and what you attempted, set status `needs_review`, add `blocked` tag, **STOP** — Awaiting user intervention.
+- **Validation fails and attempts ≥ 3**: Post error comment explaining what failed and what you attempted, add `blocked` tag, **STOP** — Awaiting user intervention.
 
 ## 4. Prepare Main Workspace
 
@@ -92,7 +92,7 @@ Title: [TITLE]"
 
 Based on merge result:
 - **Merge succeeds**: Proceed to Step 6
-- **Merge fails**: Post error comment, set status `needs_review`, add `blocked` tag, **STOP** — Merge failed after successful rebase.
+- **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Merge failed after successful rebase.
 
 ## 6. Restore Stashed Work
 
@@ -104,15 +104,6 @@ Based on stash state:
 
 ```bash
 remove-instant-worktree "$BRANCH_NAME"
-```
-
-## 8. Update Status
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
-}
 ```
 
 **STOP** — Merge complete. Awaiting user verification.

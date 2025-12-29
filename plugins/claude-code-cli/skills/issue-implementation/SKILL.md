@@ -24,9 +24,9 @@ Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn
 ## 1. Prepare Environment
 
 Determine environment path using the first matching condition:
-- **[IS_RESUMABLE] AND worktree exists**: Resume — Navigate to existing worktree
-- **[IS_RESUMABLE] AND branch exists (no worktree)**: Recreate — Attach worktree to branch
-- **Otherwise**: New — Create checkpoint and worktree
+- **Worktree exists**: Resume — Navigate to existing worktree
+- **Branch exists (no worktree)**: Recreate — Attach worktree to branch
+- **Otherwise**: New — Create worktree
 
 ### Resume (worktree exists)
 
@@ -153,14 +153,13 @@ There is no "probably fine" state. If you cannot make validation pass, you MUST 
 
 **When blocked:**
 1. Post error comment with exact failure output
-2. Set status `needs_review`
-3. Add `blocked` tag
-4. **STOP** — Do not proceed under any circumstances
+2. Add `blocked` tag
+3. **STOP** — Do not proceed under any circumstances
 </validation-gate>
 
 Based on validation result:
 - **All validation passes**: Proceed to commit
-- **Validation fails**: Fix errors if in code you can modify. If unfixable, post error comment explaining what failed and what you attempted, set status `needs_review`, add `blocked` tag, **STOP** — Awaiting user intervention.
+- **Validation fails**: Fix errors if in code you can modify. If unfixable, post error comment explaining what failed and what you attempted, add `blocked` tag, **STOP** — Awaiting user intervention.
 
 Commit using conventional commit format (feat, fix, docs, refactor, test, chore):
 ```bash
@@ -207,12 +206,6 @@ POST /issues/[ISSUE_ID]/comments
       "endLine": [n]
     }
   ]
-}
-```
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "needs_review"
 }
 ```
 

@@ -83,12 +83,11 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-## 5. Update Status and Stop
+## 5. Clear Attention Flag and Stop
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "status": "needs_review",
   "needsAgentAttention": false
 }
 ```

@@ -16,11 +16,10 @@ Create implementation plans for issues requiring user approval before coding beg
 
 ## 1. Entry Check
 
-Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null. "Already submitted" = issue status is `needs_review`.
+Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null.
 
 - **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
-- **Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted**: Skip to step 3.8 (Wait)
-- **Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted**: Skip to step 3.7 (Submit)
+- **Previous plan AND [LATEST_USER_COMMENT] is null**: Skip to step 3.8 (Wait)
 - **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
 - **No previous plan**: Create new plan. Start at step 2.
 
@@ -167,14 +166,13 @@ Do not update the description for stylistic preferences or minor clarificationsâ
 
 ### 3.7 Submit for Approval
 
-Update the issue with the final plan and set status for review:
+Update the issue with the final plan:
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
   "planContent": "[detailed plan markdown]",
-  "codeReferences": ["/path/to/reviewed/file.ts"],
-  "status": "needs_review"
+  "codeReferences": ["/path/to/reviewed/file.ts"]
 }
 ```
 
