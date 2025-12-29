@@ -133,16 +133,39 @@ Work in the worktree directory.
 3. Run linting, type checking, and tests
 4. Fix any issues
 
-**Validation rules:**
-- All validation commands must execute and pass. A command that errors before producing results is a failure.
-- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
-- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
-- If blocked, report the failure by adding to existing open issues about the block, or by creating a new issue with "backlog" status.
+<validation-gate>
+**Gate requirement:** ALL validation commands must pass. No exceptions, no workarounds, no rationalizations.
+
+| Rationalization | Why it's wrong |
+|-----------------|----------------|
+| "Pre-existing issue" | You must fix it or block |
+| "Unrelated to my changes" | Prove it by fixing it, or block |
+| "Infrastructure failure" | Infrastructure IS the product |
+| "Only linting/types pass" | Tests are required, not optional |
+| "Change is purely cosmetic" | Cosmetic changes can still break tests |
+| "Tests are flaky" | Flaky = race condition = production bug |
+| "Works in other environments" | Must work HERE |
+
+**Validation is binary:**
+- ✅ ALL pass → proceed
+- ❌ ANY fail → block and report
+
+There is no "probably fine" state. If you cannot make validation pass, you MUST block.
+
+**When validation fails:**
+- If the error is in code you can modify, fix it and re-run
+- If the error is in infrastructure or code outside your scope, block immediately — do not retry hoping it resolves itself
+
+**When blocked:**
+1. Post error comment with exact failure output
+2. Set status `needs_review`
+3. Add `blocked` tag
+4. **STOP** — Do not proceed under any circumstances
+</validation-gate>
 
 Based on validation result:
 - **All validation passes**: Proceed to commit
-- **Validation fails and attempts < 3**: Fix errors, re-run validation
-- **Validation fails and attempts ≥ 3**: Post error comment explaining what failed and what you attempted, set status `needs_review`, add `blocked` tag, **STOP** — Awaiting user intervention.
+- **Validation fails**: Fix errors if in code you can modify. If unfixable, post error comment explaining what failed and what you attempted, set status `needs_review`, add `blocked` tag, **STOP** — Awaiting user intervention.
 
 Commit using conventional commit format (feat, fix, docs, refactor, test, chore):
 ```bash

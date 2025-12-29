@@ -24,27 +24,38 @@ Plan says "implement" → delegate to `claude-code-cli:implementer`.
 Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
 </orchestrator-constraints>
 
-<test-policy>
-Every test failure is a production failure. No exceptions.
+<validation-gate>
+**Gate requirement:** ALL validation commands must pass. No exceptions, no workarounds, no rationalizations.
 
-| Excuse | Reality |
-|--------|---------|
+| Rationalization | Why it's wrong |
+|-----------------|----------------|
+| "Pre-existing issue" | You must fix it or block |
+| "Unrelated to my changes" | Prove it by fixing it, or block |
+| "Infrastructure failure" | Infrastructure IS the product |
+| "Only linting/types pass" | Tests are required, not optional |
+| "Change is purely cosmetic" | Cosmetic changes can still break tests |
+| "Tests are flaky" | Flaky = race condition = production bug |
+| "Works in other environments" | Must work HERE |
 | "Only the new test fails" | New test proves new code is broken |
 | "WebSocket/connection issue" | Production has same issue |
 | "Tests timeout" | Code has cleanup/leak problems |
-| "Unrelated tests fail" | Your changes broke something |
-| "Works locally" | Must work in CI too |
-| "Flaky test" | Race condition that crashes production |
-| "Pre-existing issue" | Must be fixed |
 
-**Validation rules:**
-- All validation commands must execute and pass. A command that errors before producing results is a failure.
-- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
-- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
-- If blocked, report the failure by adding to existing open issues about the block, or by creating a new issue with "backlog" status.
+**Validation is binary:**
+- ✅ ALL pass → proceed
+- ❌ ANY fail → block and report
 
-**Acceptable state:** ALL tests pass, ZERO errors.
-</test-policy>
+There is no "probably fine" state. If you cannot make validation pass, you MUST block.
+
+**When validation fails:**
+- If the error is in code you can modify, fix it and re-run
+- If the error is in infrastructure or code outside your scope, block immediately — do not retry hoping it resolves itself
+
+**When blocked:**
+1. Post error comment with exact failure output
+2. Set status `needs_review`
+3. Add `blocked` tag
+4. **STOP** — Do not proceed under any circumstances
+</validation-gate>
 
 <tools>
 
@@ -173,6 +184,9 @@ Analyze tasks along three dimensions:
 - Independent files OR uniform tasks → **Parallel** (concurrent agents)
 - Dependent + varied + small → **Coherent** (single agent)
 - Dependent + varied + substantial with clear gates → **Sequential** (ordered agents, checkpoint between)
+
+When uncertain between Coherent and Sequential, choose **Sequential**.
+Checkpoints have low cost; missed validation opportunities have high cost.
 
 Clear gates: type-check passes, tests pass, API functional, UI renders.
 
