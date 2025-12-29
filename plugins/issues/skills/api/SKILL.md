@@ -149,4 +149,36 @@ interface UploadAttachmentRequest {
   author: "agent";
 }
 ```
+
+### Compare Mode
+
+Control the extension's comparison view to show differences between git refs.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v1/compare | Get current compare mode state |
+| POST | /api/v1/compare | Enter explicit comparison mode |
+| DELETE | /api/v1/compare | Clear compare mode and restore normal mode |
+
+```typescript
+// GET /api/v1/compare
+// Returns: CompareModeState
+interface CompareModeState {
+  sourceBranch: string;           // Current source branch/commit being compared from
+  targetRef: string;              // Target ref ("HEAD" for normal mode, or specific ref for comparison)
+  isExplicitComparison: boolean;  // Whether in explicit comparison mode (targetRef !== "HEAD")
+  preComparisonSource: string | null;  // Source branch to restore when clearing comparison
+}
+
+// POST /api/v1/compare
+// Note: If targetRef is "HEAD", automatically clears comparison mode instead
+interface SetCompareModeRequest {
+  sourceBranch: string;  // Source branch/commit to compare from
+  targetRef: string;     // Target ref to compare against (commit, branch, or tag)
+}
+
+// DELETE /api/v1/compare
+// Returns: { success: true }
+// Clears explicit comparison mode and restores normal mode
+```
 </api>
