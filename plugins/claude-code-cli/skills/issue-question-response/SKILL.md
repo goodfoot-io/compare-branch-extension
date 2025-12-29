@@ -41,6 +41,8 @@ Collect background exploration results via TaskOutput. Launch additional Explore
 
 Search the codebase to find additional information as needed. When referencing code, include file paths and line numbers.
 
+Make sure to kill any Explore subagents that have not returned before moving to the next step.
+
 ## 3. Post the Response
 
 ```

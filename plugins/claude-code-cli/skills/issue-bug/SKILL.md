@@ -129,6 +129,8 @@ PATCH /issues/[ISSUE_ID]
 
 Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
 
+Make sure to kill any Explore subagents that have not returned before moving to the next step.
+
 ## 2. Create Reproduction Test
 
 Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)

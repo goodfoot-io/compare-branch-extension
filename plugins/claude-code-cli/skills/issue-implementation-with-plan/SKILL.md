@@ -127,6 +127,8 @@ Continue to Step 2.
    </invoke>
    ```
 
+   Make sure to kill any Explore subagents that have not returned before moving to the next step.
+
 3. Initialize implementation:
    ```
    PATCH /issues/[ISSUE_ID]

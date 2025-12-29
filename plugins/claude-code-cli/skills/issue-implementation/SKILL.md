@@ -83,6 +83,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    </invoke>
    ```
 
+
 4. Clarify issue:
 
    Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
@@ -121,6 +122,8 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    ```
 
    Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
+
+   Make sure to kill any Explore subagents that have not returned before moving to the next step.
 
 ## 2. Implement
 
