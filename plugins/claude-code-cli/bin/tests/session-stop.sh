@@ -315,7 +315,7 @@ EOF
 )
 run_test "Uses correct sessionId in POST body" "$INPUT" 0
 
-# Verify curl was called with correct sessionId
+# Verify curl was called with correct sessionId and dispatcherPid
 if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
     CURL_CALL=$(cat "$MOCK_CURL_CALLS_FILE")
     if echo "$CURL_CALL" | grep -q "unique-session-id-12345"; then
@@ -323,6 +323,14 @@ if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
         echo "Curl call: $CURL_CALL"
     else
         echo -e "${RED}FAIL${NC} - Expected curl call with sessionId 'unique-session-id-12345'"
+        echo "Actual call: $CURL_CALL"
+        TESTS_PASSED=$((TESTS_PASSED - 1))
+    fi
+    # Verify dispatcherPid is included when DISPATCHER_PID is set
+    if echo "$CURL_CALL" | grep -q "dispatcherPid"; then
+        echo "Verified: API call includes dispatcherPid"
+    else
+        echo -e "${RED}FAIL${NC} - Expected curl call with dispatcherPid"
         echo "Actual call: $CURL_CALL"
         TESTS_PASSED=$((TESTS_PASSED - 1))
     fi
@@ -766,8 +774,8 @@ fi
 
 rm -f "$STDOUT_FILE" "$STDERR_FILE"
 
-# Test 17: No signal sent when DISPATCHER_PID is not set (but API calls still made)
-echo -e "\n${YELLOW}=== Test 17: No signal without DISPATCHER_PID ===${NC}"
+# Test 17: Exits with error when DISPATCHER_PID is not set
+echo -e "\n${YELLOW}=== Test 17: Exits with error when DISPATCHER_PID not set ===${NC}"
 setup_mock_home
 create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"inProgress":0,"needsReview":0,"done":0,"backlog":0,"needingAgentAttention":0}}'
 SESSION_ID="test-session-17"
@@ -789,7 +797,7 @@ EOF
 )
 
 TESTS_RUN=$((TESTS_RUN + 1))
-echo -e "\n${YELLOW}TEST: No signal without DISPATCHER_PID${NC}"
+echo -e "\n${YELLOW}TEST: Exits with error when DISPATCHER_PID not set${NC}"
 
 # Temporarily unset DISPATCHER_PID
 SAVED_DISPATCHER_PID="$DISPATCHER_PID"
@@ -804,32 +812,32 @@ EXIT_CODE=$?
 # Restore DISPATCHER_PID
 export DISPATCHER_PID="$SAVED_DISPATCHER_PID"
 
-echo "Exit code: $EXIT_CODE (expected: 0)"
+echo "Exit code: $EXIT_CODE (expected: 2)"
 
-if [ $EXIT_CODE -ne 0 ]; then
-    echo -e "${RED}FAIL${NC} - unexpected exit code"
+if [ $EXIT_CODE -ne 2 ]; then
+    echo -e "${RED}FAIL${NC} - expected exit code 2 (DISPATCHER_PID required)"
     cat "$STDERR_FILE"
 else
-    # Verify API calls ARE still made (just no signal)
-    if [ -f "$MOCK_CURL_CALLS_FILE" ] && grep -q "session/stop" "$MOCK_CURL_CALLS_FILE"; then
-        echo "Verified: API calls still made without DISPATCHER_PID"
+    # Verify error message includes actionable advice
+    STDERR=$(cat "$STDERR_FILE")
+    if echo "$STDERR" | grep -q "DISPATCHER_PID environment variable is not set"; then
+        echo "Verified: Error message indicates DISPATCHER_PID is required"
     else
-        echo -e "${RED}FAIL${NC} - Expected API calls to be made"
+        echo -e "${RED}FAIL${NC} - Expected error message about DISPATCHER_PID"
+        echo "Stderr: $STDERR"
         EXIT_CODE=1
     fi
 
-    # Verify NO signal messages in stderr
-    STDERR=$(cat "$STDERR_FILE")
-    if echo "$STDERR" | grep -q "TEST_MODE"; then
-        echo -e "${RED}FAIL${NC} - Should NOT have signal messages without DISPATCHER_PID"
+    if echo "$STDERR" | grep -q "Launch Claude using the issue panel"; then
+        echo "Verified: Error includes actionable advice"
+    else
+        echo -e "${RED}FAIL${NC} - Expected actionable advice in error"
         echo "Stderr: $STDERR"
         EXIT_CODE=1
-    else
-        echo "Verified: No signal messages without DISPATCHER_PID"
     fi
 fi
 
-if [ $EXIT_CODE -eq 0 ]; then
+if [ $EXIT_CODE -eq 2 ]; then
     echo -e "${GREEN}PASS${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 fi

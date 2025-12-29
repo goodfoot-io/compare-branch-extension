@@ -56,15 +56,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    cd "$WORKTREE_DIR"
    ```
 
-2. Signal work has started:
-   ```
-   PATCH /issues/[ISSUE_ID]
-   {
-     "status": "in_progress"
-   }
-   ```
-
-3. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
+2. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
    ```xml
    <invoke name="Task">
@@ -84,7 +76,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    ```
 
 
-4. Clarify issue:
+3. Clarify issue:
 
    Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
 

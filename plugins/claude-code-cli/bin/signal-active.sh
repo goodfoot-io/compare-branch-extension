@@ -40,15 +40,49 @@ if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
+# Extract cwd for API discovery (hooks receive the working directory in input)
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty') || CWD=""
+
+# Require DISPATCHER_PID - this hook only works with the wrapper script
+if [ -z "${DISPATCHER_PID:-}" ]; then
+  echo "ERROR: DISPATCHER_PID environment variable is not set." >&2
+  echo "This hook requires the Claude wrapper script (issue launcher)." >&2
+  echo "" >&2
+  echo "Action required:" >&2
+  echo "  - Launch Claude using the issue panel 'Launch Claude' button" >&2
+  echo "  - Or use the agent-issue-dispatcher script" >&2
+  echo "" >&2
+  echo "Direct 'claude' CLI invocation is not supported for issue tracking." >&2
+  exit 2
+fi
+
+# Check if dispatcher is alive (orphan detection)
+# If DISPATCHER_PID is set but the process no longer exists, Claude is orphaned
+if ! kill -0 "$DISPATCHER_PID" 2>/dev/null; then
+  echo "Wrapper process (PID=$DISPATCHER_PID) died, exiting Claude" >&2
+  exit 1
+fi
+
+# POST to /session/start to notify extension that Claude session is active
+if [ -n "$CWD" ]; then
+  if [ "${SIGNAL_ACTIVE_TEST_MODE:-}" = "1" ]; then
+    echo "TEST_MODE: Would POST /session/start (session=$SESSION_ID, pid=$DISPATCHER_PID)" >&2
+  else
+    BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$CWD" 2>/dev/null) || true
+    if [ -n "$BASE_URL" ]; then
+      curl -s --max-time 2 -X POST "${BASE_URL}/session/start" \
+        -H "Content-Type: application/json" \
+        -d "{\"sessionId\": \"${SESSION_ID}\", \"dispatcherPid\": ${DISPATCHER_PID}}" \
+        > /dev/null 2>&1 || true
+    fi
+  fi
+fi
+
 # Send SIGURG to notify dispatcher that Claude is actively processing
 if [ "${SIGNAL_ACTIVE_TEST_MODE:-}" = "1" ]; then
-  echo "TEST_MODE: Would send SIGURG (session=$SESSION_ID, dispatcher=${DISPATCHER_PID:-none})" >&2
-elif [ -n "${DISPATCHER_PID:-}" ]; then
-  # Send directly to dispatcher PID (avoids affecting other processes)
-  kill -URG "$DISPATCHER_PID" 2>/dev/null || true
+  echo "TEST_MODE: Would send SIGURG (session=$SESSION_ID, dispatcher=$DISPATCHER_PID)" >&2
 else
-  # Fallback to process group for non-dispatcher usage
-  kill -URG 0 2>/dev/null || true
+  kill -URG "$DISPATCHER_PID" 2>/dev/null || true
 fi
 
 exit 0

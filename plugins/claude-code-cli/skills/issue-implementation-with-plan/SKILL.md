@@ -129,14 +129,7 @@ Continue to Step 2.
 
    Make sure to kill any Explore subagents that have not returned before moving to the next step.
 
-3. Initialize implementation:
-   ```
-   PATCH /issues/[ISSUE_ID]
-   {
-     "status": "in_progress"
-   }
-   ```
-   Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
+3. Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
    ```
    POST /issues/[ISSUE_ID]/comments
    {

@@ -82,6 +82,7 @@ echo "Test mode: SIGNAL_ACTIVE_TEST_MODE=$SIGNAL_ACTIVE_TEST_MODE"
 # Test 1: Exits 0 with valid input and sends SIGURG
 echo -e "\n${YELLOW}=== Test 1: Exits 0 with valid input and sends SIGURG ===${NC}"
 setup_mock_home
+export DISPATCHER_PID=$$
 SESSION_ID="test-session-1"
 INPUT=$(cat <<EOF
 {
@@ -102,10 +103,12 @@ else
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
+unset DISPATCHER_PID
 
 # Test 2: Exits 0 when session_id is missing
 echo -e "\n${YELLOW}=== Test 2: Exits 0 when session_id is missing ===${NC}"
 setup_mock_home
+export DISPATCHER_PID=$$
 INPUT=$(cat <<EOF
 {
   "transcript_path": "/tmp/transcript.jsonl",
@@ -123,10 +126,12 @@ if echo "$LAST_STDERR" | grep -q "TEST_MODE"; then
 else
     echo "Verified: No signal sent when session_id missing"
 fi
+unset DISPATCHER_PID
 
 # Test 3: Exits 0 when session_id is empty
 echo -e "\n${YELLOW}=== Test 3: Exits 0 when session_id is empty ===${NC}"
 setup_mock_home
+export DISPATCHER_PID=$$
 INPUT=$(cat <<EOF
 {
   "session_id": "",
@@ -145,10 +150,12 @@ if echo "$LAST_STDERR" | grep -q "TEST_MODE"; then
 else
     echo "Verified: No signal sent when session_id empty"
 fi
+unset DISPATCHER_PID
 
 # Test 4: Exits 0 on malformed input
 echo -e "\n${YELLOW}=== Test 4: Exits 0 on malformed input ===${NC}"
 setup_mock_home
+export DISPATCHER_PID=$$
 INPUT="not valid json at all"
 run_test "Exits 0 with malformed input" "$INPUT" 0
 
@@ -159,16 +166,20 @@ if echo "$LAST_STDERR" | grep -q "TEST_MODE"; then
 else
     echo "Verified: No signal sent with malformed input"
 fi
+unset DISPATCHER_PID
 
 # Test 5: Exits 0 when empty input
 echo -e "\n${YELLOW}=== Test 5: Exits 0 when empty input ===${NC}"
 setup_mock_home
+export DISPATCHER_PID=$$
 INPUT=""
 run_test "Exits 0 with empty input" "$INPUT" 0
+unset DISPATCHER_PID
 
 # Test 6: Handles resume source
 echo -e "\n${YELLOW}=== Test 6: Handles resume source ===${NC}"
 setup_mock_home
+export DISPATCHER_PID=$$
 SESSION_ID="test-session-resume"
 INPUT=$(cat <<EOF
 {
@@ -188,10 +199,12 @@ else
     echo -e "${RED}FAIL${NC} - Expected TEST_MODE message for resume"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
+unset DISPATCHER_PID
 
 # Test 7: Handles different session IDs
 echo -e "\n${YELLOW}=== Test 7: Handles different session IDs ===${NC}"
 setup_mock_home
+export DISPATCHER_PID=$$
 SESSION_ID="unique-session-id-abcdef123456"
 INPUT=$(cat <<EOF
 {
@@ -212,6 +225,130 @@ else
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
+unset DISPATCHER_PID
+
+# Test 8: Posts to /session/start when DISPATCHER_PID is set with cwd
+echo -e "\n${YELLOW}=== Test 8: Posts to /session/start when DISPATCHER_PID set with cwd ===${NC}"
+setup_mock_home
+export DISPATCHER_PID=$$
+SESSION_ID="test-session-start"
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
+EOF
+)
+run_test "Posts to /session/start when DISPATCHER_PID set with cwd" "$INPUT" 0
+
+# Verify TEST_MODE message includes /session/start POST
+if echo "$LAST_STDERR" | grep -q "Would POST /session/start"; then
+    echo "Verified: Would POST to /session/start"
+else
+    echo -e "${RED}FAIL${NC} - Expected POST /session/start message"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+
+# Verify it includes the session ID and PID
+if echo "$LAST_STDERR" | grep -q "session=$SESSION_ID, pid=$DISPATCHER_PID"; then
+    echo "Verified: Includes session ID and PID"
+else
+    echo -e "${RED}FAIL${NC} - Expected session ID and PID in message"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+unset DISPATCHER_PID
+
+# Test 9: Does not post to /session/start when cwd is missing
+echo -e "\n${YELLOW}=== Test 9: Does not post to /session/start when cwd is missing ===${NC}"
+setup_mock_home
+export DISPATCHER_PID=$$
+SESSION_ID="test-no-cwd"
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
+EOF
+)
+run_test "Does not post to /session/start when cwd missing" "$INPUT" 0
+
+# Verify no /session/start POST in message (only SIGURG)
+if echo "$LAST_STDERR" | grep -q "Would POST /session/start"; then
+    echo -e "${RED}FAIL${NC} - Should not POST /session/start when cwd missing"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+else
+    echo "Verified: No /session/start POST when cwd missing"
+fi
+unset DISPATCHER_PID
+
+# Test 10: Exits with error when DISPATCHER_PID not set
+echo -e "\n${YELLOW}=== Test 10: Exits with error when DISPATCHER_PID not set ===${NC}"
+setup_mock_home
+SESSION_ID="test-no-dispatcher"
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
+EOF
+)
+run_test "Exits with error when DISPATCHER_PID not set" "$INPUT" 2
+
+# Verify error message includes actionable advice
+if echo "$LAST_STDERR" | grep -q "DISPATCHER_PID environment variable is not set"; then
+    echo "Verified: Error message indicates DISPATCHER_PID is required"
+else
+    echo -e "${RED}FAIL${NC} - Expected error message about DISPATCHER_PID"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+
+if echo "$LAST_STDERR" | grep -q "Launch Claude using the issue panel"; then
+    echo "Verified: Error includes actionable advice"
+else
+    echo -e "${RED}FAIL${NC} - Expected actionable advice in error"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+
+# Test 11: Orphan detection - exits 1 when dispatcher is dead
+echo -e "\n${YELLOW}=== Test 11: Orphan detection - exits 1 when dispatcher is dead ===${NC}"
+setup_mock_home
+# Use a PID that definitely doesn't exist (very high PID)
+export DISPATCHER_PID=999999999
+SESSION_ID="test-orphan"
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}
+EOF
+)
+run_test "Orphan detection - exits 1 when dispatcher dead" "$INPUT" 1
+
+# Verify error message
+if echo "$LAST_STDERR" | grep -q "Wrapper process.*died"; then
+    echo "Verified: Orphan detection message shown"
+else
+    echo -e "${RED}FAIL${NC} - Expected orphan detection message"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+unset DISPATCHER_PID
 
 # Cleanup
 cleanup_mock_home

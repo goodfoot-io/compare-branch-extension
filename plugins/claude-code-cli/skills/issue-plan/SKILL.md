@@ -19,21 +19,12 @@ Create implementation plans for issues requiring user approval before coding beg
 Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null. "Already submitted" = issue status is `needs_review`.
 
 - **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
-- **Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted**: Skip to step 4.8 (Wait)
-- **Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted**: Skip to step 4.7 (Submit)
-- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 3 or 4 depending on scope. Assessment cycles reset.
+- **Previous plan AND [LATEST_USER_COMMENT] is null AND already submitted**: Skip to step 3.8 (Wait)
+- **Previous plan AND [LATEST_USER_COMMENT] is null AND not submitted**: Skip to step 3.7 (Submit)
+- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
 - **No previous plan**: Create new plan. Start at step 2.
 
-## 2. Initialize
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "in_progress"
-}
-```
-
-## 3. Classifying User Feedback
+## 2. Classifying User Feedback
 
 **Default: When intent is unclear, treat as revision request.**
 
@@ -51,19 +42,19 @@ These signals mean stay in this skill and revise:
 - Alternative proposals: "Why not use X instead?"
 </revision-signals>
 
-## 4. Workflow
+## 3. Workflow
 
-### 4.1 Load Plan Skill
+### 3.1 Load Plan Skill
 
 Invoke `claude-code-cli:plan` for structure requirements and examples.
 
-### 4.2 Research
+### 3.2 Research
 
-- Read relevant files in the codebase (track paths for `codeReferences` in step 4.7)
+- Read relevant files in the codebase (track paths for `codeReferences` in step 3.7)
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 
-### 4.3 Clarify Title and Description
+### 3.3 Clarify Title and Description
 
 After research, evaluate whether the title and description clearly represent the planned work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
 
@@ -101,7 +92,7 @@ PATCH /issues/[ISSUE_ID]
 
 Omit `title` and `description` fields if no changes are needed. Document any changes in the plan's scope section.
 
-### 4.4 Draft Plan
+### 3.4 Draft Plan
 
 Include:
 - Objective and scope
@@ -113,7 +104,7 @@ Include:
 
 For revisions: Add a "## Changes from Previous Version" section listing each modification.
 
-### 4.5 Store and Assess
+### 3.5 Store and Assess
 
 First, store the drafted plan:
 ```
@@ -144,7 +135,7 @@ Description: [DESCRIPTION]</parameter>
 </invoke>
 ```
 
-### 4.6 Address Findings
+### 3.6 Address Findings
 
 Review both assessment reports.
 
@@ -171,10 +162,10 @@ PATCH /issues/[ISSUE_ID]
 Do not update the description for stylistic preferences or minor clarifications—only when evidence directly contradicts stated facts.
 
 **Based on assessment severity:**
-- **CRITICAL or HIGH priority issues**: Revise the plan, re-store via PATCH, re-run step 4.5 (maximum 2 cycles—if issues persist, note unresolved concerns in the comment)
-- **Otherwise**: Proceed to step 4.7
+- **CRITICAL or HIGH priority issues**: Revise the plan, re-store via PATCH, re-run step 3.5 (maximum 2 cycles—if issues persist, note unresolved concerns in the comment)
+- **Otherwise**: Proceed to step 3.7
 
-### 4.7 Submit for Approval
+### 3.7 Submit for Approval
 
 Update the issue with the final plan and set status for review:
 
@@ -187,12 +178,12 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### 4.8 Wait
+### 3.8 Wait
 
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
 
 The orchestration layer will re-invoke when user responds:
 - Approval → routes to `claude-code-cli:issue-implementation`
-- Revision request → re-invokes this skill; Entry Check routes to step 3 or 4
+- Revision request → re-invokes this skill; Entry Check routes to step 2 or 3
 
 </instructions>

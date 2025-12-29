@@ -47,6 +47,19 @@ fi
 # Extract cwd for API discovery (hooks receive the working directory in input)
 SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty') || SESSION_CWD=""
 
+# Require DISPATCHER_PID - this hook only works with the wrapper script
+if [ -z "${DISPATCHER_PID:-}" ]; then
+  echo "ERROR: DISPATCHER_PID environment variable is not set." >&2
+  echo "This hook requires the Claude wrapper script (issue launcher)." >&2
+  echo "" >&2
+  echo "Action required:" >&2
+  echo "  - Launch Claude using the issue panel 'Launch Claude' button" >&2
+  echo "  - Or use the agent-issue-dispatcher script" >&2
+  echo "" >&2
+  echo "Direct 'claude' CLI invocation is not supported for issue tracking." >&2
+  exit 2
+fi
+
 # Check if state file exists
 STATE_DIR="$HOME/.claude/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
@@ -136,20 +149,18 @@ if [ -n "$FULL_REPORT" ]; then
   printf '{"decision": "block", "reason": %s, "continue": true}\n' "$REASON_TEXT"
 fi
 
-# POST to /session/stop endpoint
-curl -s -X POST "${BASE_URL}/session/stop" \
+# POST to /session/stop endpoint with dispatcherPid
+curl -s --max-time 2 -X POST "${BASE_URL}/session/stop" \
   -H "Content-Type: application/json" \
-  -d "{\"sessionId\": \"${SESSION_ID}\"}" > /dev/null 2>&1 || true
+  -d "{\"sessionId\": \"${SESSION_ID}\", \"dispatcherPid\": ${DISPATCHER_PID}}" \
+  > /dev/null 2>&1 || true
 
 # Signal dispatcher that Claude is now idle (finished processing)
 # SIGWINCH is ignored by default, safe to send even if dispatcher exited
-# Only send signal if DISPATCHER_PID is set (indicates dispatcher is running)
-if [ -n "${DISPATCHER_PID:-}" ]; then
-  if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
-    echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle)" >&2
-  else
-    kill -WINCH "$DISPATCHER_PID" 2>/dev/null || true
-  fi
+if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
+  echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle)" >&2
+else
+  kill -WINCH "$DISPATCHER_PID" 2>/dev/null || true
 fi
 
 exit 0

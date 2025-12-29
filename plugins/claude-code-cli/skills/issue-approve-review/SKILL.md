@@ -12,16 +12,7 @@ Confirm that:
 - The latest user comment contains approval language ("approved", "lgtm", "proceed", "go ahead", "ship it", "merge")
 - `issue.reviewApproved` is not already `true`
 
-## 2. Initialize
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "in_progress"
-}
-```
-
-## 3. Set Review Approved
+## 2. Set Review Approved
 
 Call the API to set `reviewApproved: true`:
 
@@ -32,7 +23,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-## 4. Post Acknowledgment
+## 3. Post Acknowledgment
 
 Post a brief comment acknowledging the approval:
 
@@ -44,7 +35,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-## 5. Finalize
+## 4. Finalize
 
 Set status back to `needs_review` and clear the attention flag:
 

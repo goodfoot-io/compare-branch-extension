@@ -63,15 +63,6 @@ WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"
 ```
 
-Signal work has started:
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "status": "in_progress"
-}
-```
-
 Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
 ```xml
