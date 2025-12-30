@@ -72,13 +72,24 @@ echo "curl -s \"${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /issues | List all issues with summaries |
+| GET | /issues | List issues (supports pagination) |
 | POST | /issues | Create a new issue |
 | GET | /issues/{issueId} | Get issue with all comments |
 | PATCH | /issues/{issueId} | Update issue properties |
 | DELETE | /issues/{issueId} | Delete issue and all comments |
 
 ```typescript
+// GET /issues
+// Query parameters:
+//   limit?: number   - Maximum issues to return (default: all)
+//   offset?: number  - Number of issues to skip (default: 0)
+// Returns: IssueSummary[]
+//
+// Examples:
+//   GET /issues                    → All issues
+//   GET /issues?limit=10           → First 10 issues
+//   GET /issues?limit=10&offset=10 → Issues 11-20
+
 // POST /issues
 interface CreateIssueRequest {
   title: string;
