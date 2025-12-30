@@ -32,19 +32,19 @@ When an issue has `plan: true`, you must present a plan for user approval before
 
 **Workflow:**
 1. Create the plan document following the `claude-code-cli:plan` skill format
-2. Post the plan as a comment to the issue for user review
-3. Once approved, store the plan content on the issue using `planContent`:
+2. Store the plan in the `planContent` field for user review:
 
 ```
 PATCH /issues/{id}
 {
-  "planContent": "[full plan markdown content]"
+  "planContent": "[full plan markdown content]",
+  "codeReferences": ["/path/to/reviewed/file.ts"]
 }
 ```
 
-4. Wait for user approval before proceeding with implementation
+3. Wait for user approval before proceeding with implementation
 
-The `planContent` field stores the approved plan for reference during implementation. Use it to access plan details without searching through comments.
+The `planContent` field stores the plan for review and reference during implementation.
 </plan-approval>
 
 <git-commit-sha>
