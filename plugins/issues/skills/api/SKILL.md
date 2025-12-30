@@ -59,9 +59,10 @@ You must reload this skill after compaction.
 
 <api>
 
-```bash
-# Example: List all issues
-curl -s "$(!` echo "(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)" `)/issues" | jq .
+```!
+BACKTICK='`'
+echo "# Example: List all issues"
+echo "curl -s \"${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}/issues\" | jq ."
 ```
 
 
