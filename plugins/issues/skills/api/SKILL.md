@@ -100,6 +100,7 @@ interface UpdateIssueRequest {
   planContent?: string;  // Plan content
   review?: boolean;  // Whether this issue requires user review before completing
   tags?: string[];     // Optional tags for categorization (see Tag Validation Rules)
+  pinned?: boolean;  // Whether this issue is pinned to the top of the list
 }
 ```
 
