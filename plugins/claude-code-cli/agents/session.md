@@ -1,5 +1,5 @@
 ---
-name: session-vB
+name: session
 description: Research Claude Code session transcripts. Read-only investigation of past sessions.
 color: blue
 model: haiku
