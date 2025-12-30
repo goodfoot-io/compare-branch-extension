@@ -94,7 +94,6 @@ fi
 
 HISTORY_FILE="$CLAUDE_DIR/history.jsonl"
 ORIGINAL_PROMPT=""
-SESSION_SLUG=""
 SESSION_SUMMARY=""
 PROJECT_PATH=""
 GIT_BRANCH=""
@@ -110,11 +109,8 @@ if [ -f "$HISTORY_FILE" ]; then
     fi
 fi
 
-# Get slug, summary, branch, and timing from transcript
+# Get summary, branch, and timing from transcript
 if [ -f "$MAIN_TRANSCRIPT" ]; then
-    # Get slug from first user message
-    SESSION_SLUG=$(grep -m1 '"slug"' "$MAIN_TRANSCRIPT" 2>/dev/null | jq -r '.slug // empty' 2>/dev/null) || true
-
     # Get AI-generated summary (type: "summary" record)
     SESSION_SUMMARY=$(grep '"type":"summary"' "$MAIN_TRANSCRIPT" 2>/dev/null | jq -r '.summary // empty' 2>/dev/null | head -1) || true
 
@@ -131,8 +127,6 @@ fi
 # --- Output Session Summary ---
 
 echo "<session-summary>"
-echo ""
-echo "## Session: ${SESSION_SLUG:-$SESSION_ID}"
 echo ""
 
 # Metadata section
