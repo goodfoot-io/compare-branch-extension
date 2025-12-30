@@ -1,51 +1,25 @@
 ---
 name: issue-approve-review
-description: Set reviewApproved after user approval comment.
+description: "[DEPRECATED] Set reviewApproved after user approval comment."
+deprecated: true
 ---
+
+> **⚠️ DEPRECATED**: This skill is deprecated and no longer routed to.
+>
+> Users now set `reviewApproved` directly via the UI checkbox. The routing rule
+> that detected approval language in comments has been removed.
+>
+> See issue main:220 for details.
 
 <instructions>
 
-## 1. Verify State
+This skill has been deprecated. The routing layer no longer routes to this skill.
 
-Confirm that:
-- Issue status is `needs_review`
-- The latest user comment contains approval language ("approved", "lgtm", "proceed", "go ahead", "ship it", "merge")
-- `issue.reviewApproved` is not already `true`
+Users now approve reviews by:
+1. Checking the "Review Approved" checkbox in the issue detail header (visible when `review: true`)
+2. This directly sets `issue.reviewApproved = true`
+3. On the next agent invocation, the routing layer detects `[REVIEW_APPROVED]` and loads `claude-code-cli:issue-merge`
 
-## 2. Set Review Approved
-
-Call the API to set `reviewApproved: true`:
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "reviewApproved": true
-}
-```
-
-## 3. Post Acknowledgment
-
-Post a brief comment acknowledging the approval:
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "Review approved. The implementation will be merged on the next invocation.",
-  "author": "agent"
-}
-```
-
-## 4. Finalize
-
-Clear the attention flag:
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "needsAgentAttention": false
-}
-```
-
-**STOP** — The routing layer will trigger `issue-merge` on the next invocation when `[REVIEW_APPROVED]` is true.
+No comment parsing is needed.
 
 </instructions>
