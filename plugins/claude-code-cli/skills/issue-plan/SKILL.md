@@ -18,20 +18,14 @@ Create implementation plans for issues requiring user approval before coding beg
 
 Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null.
 
-- **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
 - **Previous plan AND [LATEST_USER_COMMENT] is null**: Skip to step 3.8 (Wait)
-- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
+- **Previous plan AND [LATEST_USER_COMMENT] contains revision request**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
+- **Previous plan AND [LATEST_USER_COMMENT] exists but no revision signals**: Skip to step 3.8 (Wait)
 - **No previous plan**: Create new plan. Start at step 2.
 
 ## 2. Classifying User Feedback
 
 **Default: When intent is unclear, treat as revision request.**
-
-<approval-signals>
-These signals cause the routing layer to redirect to implementation on the next invocation:
-- Explicit: "Approved", "LGTM", "Go ahead", "Proceed", "Ship it", or equivalent affirmative
-- Implicit: "This looks good", "Perfect", "Great plan", "Yes", "OK", "Do it"
-</approval-signals>
 
 <revision-signals>
 These signals mean stay in this skill and revise:
@@ -213,7 +207,7 @@ PATCH /issues/[ISSUE_ID]
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
 
 The orchestration layer will re-invoke when user responds:
-- Approval → routes to `claude-code-cli:issue-implementation`
+- Approval (`planApproved` set to true) → routes to `claude-code-cli:issue-implementation-with-plan`
 - Revision request → re-invokes this skill; Entry Check routes to step 2 or 3
 
 </instructions>
