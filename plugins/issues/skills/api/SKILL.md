@@ -57,14 +57,13 @@ Use `git rev-parse HEAD` to get the current 40-character SHA.
 You must reload this skill after compaction.
 </reload-after-compaction>
 
-```!
-BACKTICK='`'
-BASE_URL=$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)
+<api>
 
-echo "<api>"
-echo "Base URL: ${BASE_URL}"
-
+```bash
+# Example: List all issues
+curl -s "$(!` echo "(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)" `)/issues" | jq .
 ```
+
 
 ## Endpoints
 
