@@ -153,14 +153,28 @@ Description: [DESCRIPTION]</parameter>
 
 Review both assessment reports.
 
-**Post evaluation comment:**
+**Post meta-analysis comment:**
+
+Summarize how assessor findings influenced the plan. Use natural language paragraphs to explain the reasoning behind changes — avoid terse bullet lists that lack context.
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Evaluation Summary\n\n### Questions Raised\n[List concerns, ambiguities, or issues identified by assessors]\n\n### Decisions\n[For each question: state the decision and brief rationale]",
+  "body": "## Evaluation Notes\n\n[Narrative explanation of how assessor findings shaped the plan, including rationale for key decisions and any unresolved questions requiring user input]",
   "author": "agent"
 }
+```
+
+Example comment body:
+
+```markdown
+## Evaluation Notes
+
+The structural assessment identified that batch processing was outside the stated problem scope. Since the original issue focused on real-time notification delivery, I've removed the batching logic from the Technical Approach to keep the implementation focused.
+
+The strategic assessment flagged an unvalidated assumption about Redis adapter compatibility with Socket.io v4.6.1. Rather than proceed on assumption, I've added a tactical spike to the plan that will verify this integration before committing to the architecture.
+
+Both assessors noted ambiguity around reconnection behavior. The plan now explicitly addresses this in the Risks section, but I'd like your input: should we sync missed notifications on reconnect, or start fresh? The former adds complexity but improves UX; the latter is simpler but users may miss events during brief disconnections.
 ```
 
 **Update title when assessor findings reveal:**
