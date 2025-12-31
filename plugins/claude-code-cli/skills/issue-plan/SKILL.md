@@ -331,6 +331,16 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
+Post a brief summary of the evaluation outcome:
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "[natural language summary of assessment results and any accepted trade-offs or decisions that the user might want to discuss]",
+  "author": "agent"
+}
+```
+
 ### 3.9 Wait
 
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
