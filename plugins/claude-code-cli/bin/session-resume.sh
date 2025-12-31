@@ -68,7 +68,51 @@ if [ "$HAS_UPDATES" != "true" ]; then
   exit 0
 fi
 
-# Output DIFF_RESPONSE as JSON for SessionStart hook
-jq -nc --arg ctx "$DIFF_RESPONSE" '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":$ctx}}'
+# Build human-readable systemMessage from diff response
+# Count new comments and field changes across all issues
+COMMENT_COUNT=$(echo "$DIFF_RESPONSE" | jq '[.issues[].newComments | length] | add // 0')
+CHANGE_COUNT=$(echo "$DIFF_RESPONSE" | jq '[.issues[].fieldChanges | length] | add // 0')
+ISSUE_COUNT=$(echo "$DIFF_RESPONSE" | jq '[.issues[] | select((.newComments | length > 0) or (.fieldChanges | length > 0))] | length')
+
+# Build message parts
+PARTS=""
+if [ "$COMMENT_COUNT" -gt 0 ]; then
+  if [ "$COMMENT_COUNT" -eq 1 ]; then
+    PARTS="1 new comment"
+  else
+    PARTS="${COMMENT_COUNT} new comments"
+  fi
+fi
+
+if [ "$CHANGE_COUNT" -gt 0 ]; then
+  CHANGE_MSG=""
+  if [ "$CHANGE_COUNT" -eq 1 ]; then
+    CHANGE_MSG="1 field change"
+  else
+    CHANGE_MSG="${CHANGE_COUNT} field changes"
+  fi
+  if [ -n "$PARTS" ]; then
+    PARTS="${PARTS} and ${CHANGE_MSG}"
+  else
+    PARTS="${CHANGE_MSG}"
+  fi
+fi
+
+# Add issue context
+if [ "$ISSUE_COUNT" -eq 1 ]; then
+  ISSUE_TITLE=$(echo "$DIFF_RESPONSE" | jq -r '.issues[0].issueTitle // "unknown"')
+  SYSTEM_MSG="Issue updated: ${PARTS} on \"${ISSUE_TITLE}\""
+else
+  SYSTEM_MSG="Issues updated: ${PARTS} across ${ISSUE_COUNT} issues"
+fi
+
+# Output DIFF_RESPONSE as JSON for SessionStart hook with systemMessage
+jq -nc --arg ctx "$DIFF_RESPONSE" --arg sysMsg "$SYSTEM_MSG" '{
+  systemMessage: $sysMsg,
+  hookSpecificOutput: {
+    hookEventName: "SessionStart",
+    additionalContext: $ctx
+  }
+}'
 
 exit 0

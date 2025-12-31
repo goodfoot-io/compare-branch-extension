@@ -326,6 +326,15 @@ else
     echo "Output: $LAST_OUTPUT"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
+
+# Verify output contains systemMessage
+if echo "$LAST_OUTPUT" | grep -q '"systemMessage"'; then
+    echo "Verified: systemMessage field present in output"
+else
+    echo -e "${RED}FAIL${NC} - Expected systemMessage field in output"
+    echo "Output: $LAST_OUTPUT"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
 unset ISSUE_ID
 
 # Test 9: Blocks when field changes exist
@@ -351,6 +360,15 @@ if echo "$LAST_OUTPUT" | grep -q '"decision":"block"'; then
     echo "Verified: Block decision for field changes"
 else
     echo -e "${RED}FAIL${NC} - Expected block decision for field changes"
+    echo "Output: $LAST_OUTPUT"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+
+# Verify systemMessage field for field changes
+if echo "$LAST_OUTPUT" | grep -q '"systemMessage"'; then
+    echo "Verified: systemMessage field present for field changes"
+else
+    echo -e "${RED}FAIL${NC} - Expected systemMessage field for field changes"
     echo "Output: $LAST_OUTPUT"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
