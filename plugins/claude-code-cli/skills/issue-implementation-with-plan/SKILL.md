@@ -80,71 +80,87 @@ Determine path using the first matching condition:
 ### Resume
 
 ```bash
-WORKTREE_DIR=".worktrees/[BRANCH_NAME]"
-cd "$WORKTREE_DIR"
+cd ".worktrees/[BRANCH_NAME]"
 git stash --include-untracked
-BASE_SHA=$(git rev-parse HEAD)
 ```
 
-Restore stash after todo initialization in Step 2.
+Update issue with worktree path:
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "worktreePath": "$(pwd)"
+}
+```
+
+Continue to Step 2. Restore stash after todo initialization.
 
 ### Recreate
 
 ```bash
-WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
-WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
-BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
-cd "$WORKTREE_DIR"
+instant-worktree "[BRANCH_NAME]"
+cd ".worktrees/[BRANCH_NAME]"
 ```
 
-### New
-
-```bash
-WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
-WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
-BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
-cd "$WORKTREE_DIR"
-```
-
-On worktree creation failure: post error to issue, add `blocked` tag, **STOP**.
-
-### Register worktree (all paths)
-
+Update issue with worktree path:
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "worktreePath": "$WORKTREE_DIR"
+  "worktreePath": "$(pwd)"
 }
 ```
 
-Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "[comment content]",
-  "author": "agent",
-  "commitSha": "${BASE_SHA}"
-}
-```
+Continue to Step 2.
 
-### For new issues
+### New
 
-Launch parallel Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on plan content:
+1. Create worktree:
+   ```bash
+   WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+   WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
+   BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
+   cd "$WORKTREE_DIR"
+   ```
 
-```xml
-<invoke name="Task">
-<parameter name="description">explore-[target-a]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
-</invoke>
-<invoke name="Task">
-<parameter name="description">explore-[target-b]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
-</invoke>
-```
+   On worktree creation failure: post error to issue, add `blocked` tag, **STOP**.
+
+2. Update issue with worktree path:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "worktreePath": "$WORKTREE_DIR"
+   }
+   ```
+
+3. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on plan content:
+
+   ```xml
+   <invoke name="Task">
+   <parameter name="description">explore-[target-a]</parameter>
+   <parameter name="subagent_type">Explore</parameter>
+   <parameter name="model">haiku</parameter>
+   <parameter name="run_in_background">true</parameter>
+   <parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
+   </invoke>
+   <invoke name="Task">
+   <parameter name="description">explore-[target-b]</parameter>
+   <parameter name="subagent_type">Explore</parameter>
+   <parameter name="model">haiku</parameter>
+   <parameter name="run_in_background">true</parameter>
+   <parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
+   </invoke>
+   ```
+
+   Make sure to kill any Explore subagents that have not returned before moving to the next step.
+
+4. Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
+   ```
+   POST /issues/[ISSUE_ID]/comments
+   {
+     "body": "[comment content]",
+     "author": "agent",
+     "commitSha": "${BASE_SHA}"
+   }
+   ```
 
 ---
 
@@ -172,7 +188,7 @@ Progress: [COMPLETED] of [TOTAL] tasks complete"
 
 ### 2.3 Assess Coherence
 
-Launch additional Explore subagents if new information reveals unexplored areas.
+Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
 
 Analyze tasks along three dimensions:
 
@@ -202,6 +218,7 @@ Based on coherence assessment:
 <parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="prompt">...</parameter>
+<parameter name="run_in_background">true</parameter>
 </invoke>
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
@@ -357,24 +374,6 @@ Based on evaluation result:
 ## 5. Finalize
 
 ### If NOT [REVIEW_REQUIRED]:
-
-Post a summary explaining what you implemented and how it aligns with the approved plan. List the key files modified and confirm all validation passed. Since no review is required, you're proceeding directly to merge.
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "[comment content]",
-  "author": "agent",
-  "commitSha": "[HEAD_SHA]",
-  "codeReferences": [
-    {
-      "path": "[file]",
-      "startLine": [n],
-      "endLine": [n]
-    }
-  ]
-}
-```
 
 ```xml
 <invoke name="Skill">
