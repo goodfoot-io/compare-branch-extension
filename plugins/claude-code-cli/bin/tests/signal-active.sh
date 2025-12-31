@@ -350,6 +350,9 @@ else
 fi
 unset DISPATCHER_PID
 
+# Note: sessionId comment posting tests are in session-start.sh tests
+# signal-active.sh no longer handles sessionId comments
+
 # Cleanup
 cleanup_mock_home
 cd "$ORIGINAL_PWD"

@@ -10,7 +10,7 @@
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # State file: $HOME/.compare-branch/hook-state/${session_id}.json
-# Format: {"issuesApiLoaded": ..., "issueIds": [...], "cliSkills": ["issue-bug", "issue-implementation"]}
+# Format: {"cliSkills": ["issue-bug", "issue-implementation"]}
 #
 
 set -euo pipefail
@@ -71,7 +71,7 @@ STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
     if [ -f "$STATE_FILE" ]; then
         STATE=$(cat "$STATE_FILE")
     else
-        STATE='{"issuesApiLoaded":false,"issueIds":[],"cliSkills":[]}'
+        STATE='{"cliSkills":[]}'
     fi
 
     # Ensure cliSkills array exists and add skill (deduplicated)

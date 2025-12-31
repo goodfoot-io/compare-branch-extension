@@ -3,8 +3,7 @@
 # Stop hook: Reports session completion to API and handles graceful shutdown
 #
 # Reports new comments to Claude, and signals dispatcher when done.
-# Only runs if the issues:api skill was loaded during the session (checked via
-# issuesApiLoaded flag in the session state file).
+# Only runs if ISSUE_ID environment variable is set (by wrapper script).
 #
 # Signals:
 # - Always sends SIGWINCH to dispatcher to indicate Claude is now idle
@@ -13,10 +12,9 @@
 # Output: None
 # Exit codes: 0 = success, 2 = unexpected error
 #
-# State file: $HOME/.compare-branch/hook-state/${session_id}.json (read-only)
-#
 # Environment variables:
 #   DISPATCHER_PID - PID of dispatcher for sending idle signal (set by dispatcher)
+#   ISSUE_ID - Issue ID being worked on (set by wrapper, e.g., "main:123")
 #   SESSION_STOP_TEST_MODE - If set to "1", skips sending signals (for testing)
 #
 
@@ -59,36 +57,27 @@ if [ -z "${DISPATCHER_PID:-}" ]; then
   exit 2
 fi
 
-# Check if state file exists
-STATE_DIR="$HOME/.compare-branch/hook-state"
-STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
-
-if [ ! -f "$STATE_FILE" ]; then
-  # No state file means issues:api was never loaded - nothing to do
-  exit 0
-fi
-
-# Read state file and check if issuesApiLoaded is true
-ISSUES_API_LOADED=$(jq -r '.issuesApiLoaded // false' "$STATE_FILE" 2>/dev/null) || ISSUES_API_LOADED="false"
-if [ "$ISSUES_API_LOADED" != "true" ]; then
-  # issues:api was not loaded during this session - nothing to do
+# Check for ISSUE_ID environment variable (set by wrapper)
+# If not set, just signal dispatcher and exit
+if [ -z "${ISSUE_ID:-}" ]; then
+  # Signal dispatcher that Claude is now idle
+  if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
+    echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle, no ISSUE_ID)" >&2
+  else
+    kill -WINCH "$DISPATCHER_PID" 2>/dev/null || true
+  fi
   exit 0
 fi
 
 # Discover API URL (pass cwd to find the correct workspace API)
 BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
 
-# Read issue IDs from state file for comment reporting
-ISSUE_IDS=$(jq -r '.issueIds // [] | .[]' "$STATE_FILE" 2>/dev/null) || ISSUE_IDS=""
-
-# Query session diff for all issues at once
+# Query session diff for the issue
 COMMENTS_REPORT=""
-if [ -n "$SESSION_ID" ] && [ -n "$ISSUE_IDS" ]; then
-  # Build comma-separated issue IDs
-  ISSUE_IDS_CSV=$(echo "$ISSUE_IDS" | tr '\n' ',' | sed 's/,$//')
+if [ -n "$SESSION_ID" ]; then
 
-  # Single GET request for all issues via new diff endpoint
-  DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_IDS_CSV}" 2>/dev/null) || {
+  # Single GET request for the issue via diff endpoint
+  DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_ID}" 2>/dev/null) || {
     echo "Warning: diff endpoint unavailable, skipping comment report" >&2
     DIFF_RESPONSE=""
   }

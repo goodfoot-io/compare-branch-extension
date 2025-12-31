@@ -8,7 +8,7 @@
 #
 # Used by: SessionStart, UserPromptSubmit hooks
 #
-# Input (stdin): JSON with session_id, transcript_path, hook_event_name
+# Input (stdin): JSON with session_id, transcript_path, hook_event_name, source
 # Output: None on success, error details to stderr on failure
 # Exit codes: 0 = success, 2 = unexpected error
 #

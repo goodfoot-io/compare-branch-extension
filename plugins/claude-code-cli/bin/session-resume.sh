@@ -13,7 +13,8 @@
 # Output: Plain text context about new comments (added to Claude's context)
 # Exit codes: 0 = success, 2 = unexpected error
 #
-# State file: $HOME/.compare-branch/hook-state/${session_id}.json (read-only)
+# Environment variables:
+#   ISSUE_ID - Issue ID being worked on (set by wrapper, e.g., "main:123")
 #
 
 set -euo pipefail
@@ -42,38 +43,16 @@ fi
 # Extract cwd for API discovery
 SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty') || SESSION_CWD=""
 
-# Check if state file exists
-STATE_DIR="$HOME/.compare-branch/hook-state"
-STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
-
-if [ ! -f "$STATE_FILE" ]; then
-  # No state file means issues:api was never loaded - nothing to do
-  exit 0
-fi
-
-# Read state file and check if issuesApiLoaded is true
-ISSUES_API_LOADED=$(jq -r '.issuesApiLoaded // false' "$STATE_FILE" 2>/dev/null) || ISSUES_API_LOADED="false"
-if [ "$ISSUES_API_LOADED" != "true" ]; then
-  # issues:api was not loaded during this session - nothing to do
+# Require ISSUE_ID environment variable (set by wrapper)
+if [ -z "${ISSUE_ID:-}" ]; then
   exit 0
 fi
 
 # Discover API URL
 BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
 
-# Read issue IDs from state file
-ISSUE_IDS=$(jq -r '.issueIds // [] | .[]' "$STATE_FILE" 2>/dev/null) || ISSUE_IDS=""
-
-if [ -z "$ISSUE_IDS" ]; then
-  # No issues tracked - nothing to do
-  exit 0
-fi
-
-# Build comma-separated issue IDs
-ISSUE_IDS_CSV=$(echo "$ISSUE_IDS" | tr '\n' ',' | sed 's/,$//')
-
-# Call session diff endpoint
-DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_IDS_CSV}" 2>/dev/null) || {
+# Call session diff endpoint with ISSUE_ID from environment
+DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_ID}" 2>/dev/null) || {
   # Diff endpoint unavailable - continue silently
   exit 0
 }
