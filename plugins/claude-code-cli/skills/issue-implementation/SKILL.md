@@ -35,6 +35,14 @@ cd ".worktrees/[BRANCH_NAME]"
 git stash --include-untracked  # Save uncommitted work; restore with git stash pop after step 2
 ```
 
+Update issue with worktree path:
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "worktreePath": "$(pwd)"
+}
+```
+
 If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
 
 ### Recreate (branch exists, no worktree)
@@ -42,6 +50,14 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
 ```bash
 instant-worktree "[BRANCH_NAME]"
 cd ".worktrees/[BRANCH_NAME]"
+```
+
+Update issue with worktree path:
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "worktreePath": "$(pwd)"
+}
 ```
 
 If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
@@ -56,7 +72,15 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    cd "$WORKTREE_DIR"
    ```
 
-2. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
+2. Update issue with worktree path:
+   ```
+   PATCH /issues/[ISSUE_ID]
+   {
+     "worktreePath": "$WORKTREE_DIR"
+   }
+   ```
+
+3. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
    ```xml
    <invoke name="Task">
@@ -76,7 +100,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    ```
 
 
-3. Clarify issue:
+4. Clarify issue:
 
    Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
 
