@@ -28,7 +28,7 @@ Statuses:
 </issue-status>
 
 <plan-approval>
-When an issue has `plan: true`, you must present a plan for user approval before beginning any meaningful implementation work.
+When an issue has `planRequired: true`, you must present a plan for user approval before beginning any meaningful implementation work.
 
 **Workflow:**
 1. Create the plan document following the `claude-code-cli:plan` skill format
@@ -95,8 +95,8 @@ interface CreateIssueRequest {
   title: string;
   description?: string;
   author: "agent";
-  plan?: boolean;  // Whether this issue requires plan approval before implementation
-  review?: boolean;  // Whether this issue requires user review before completing
+  planRequired?: boolean;  // Whether this issue requires plan approval before implementation
+  reviewRequired?: boolean;  // Whether this issue requires user review before completing
   tags?: string[];  // Optional tags for categorization (see Tag Validation Rules)
 }
 
@@ -107,9 +107,9 @@ interface UpdateIssueRequest {
   status?: 'in_progress' | 'todo' | 'needs_review' | 'done' | 'backlog' | 'archived';
   order?: number;
   needsAgentAttention?: boolean;
-  plan?: boolean;  // Whether this issue requires plan approval before implementation
+  planRequired?: boolean;  // Whether this issue requires plan approval before implementation
   planContent?: string;  // Plan content
-  review?: boolean;  // Whether this issue requires user review before completing
+  reviewRequired?: boolean;  // Whether this issue requires user review before completing
   tags?: string[];     // Optional tags for categorization (see Tag Validation Rules)
 }
 ```
