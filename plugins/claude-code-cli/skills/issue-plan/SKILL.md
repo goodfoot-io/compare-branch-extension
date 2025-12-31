@@ -18,9 +18,9 @@ Create implementation plans for issues requiring user approval before coding beg
 
 Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null.
 
-- **Previous plan AND [LATEST_USER_COMMENT] is null**: Skip to step 3.8 (Wait)
+- **Previous plan AND [LATEST_USER_COMMENT] is null**: Skip to step 3.9 (Wait)
 - **Previous plan AND [LATEST_USER_COMMENT] contains revision request**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
-- **Previous plan AND [LATEST_USER_COMMENT] exists but no revision signals**: Skip to step 3.8 (Wait)
+- **Previous plan AND [LATEST_USER_COMMENT] exists but no revision signals**: Skip to step 3.9 (Wait)
 - **No previous plan**: Create new plan. Start at step 2.
 
 ## 2. Classifying User Feedback
@@ -43,15 +43,108 @@ Invoke `claude-code-cli:plan` for structure requirements and examples.
 
 ### 3.2 Research
 
-- Read relevant files in the codebase (track paths for `codeReferences` in step 3.7)
-- Understand existing patterns and architecture
-- Identify dependencies and risks
+Before asking the user any question, follow this research-first protocol.
 
-### 3.3 Clarify Title and Description
+#### 3.2.1 Conduct Research
+
+1. **Search the codebase** for existing patterns, conventions, and constraints
+2. **Check package.json** and lock files for version constraints and dependencies
+3. **Search the web** for package documentation, type definitions, and known issues
+4. **Eliminate options** that conflict with architecture, constraints, or documented limitations
+
+Track all reviewed paths for `codeReferences` in step 3.8.
+
+#### 3.2.2 Translate Questions to Research
+
+| Abstract Question | Concrete Research |
+|-------------------|-------------------|
+| "Solving actual problem?" | Find existing code handling this case |
+| "Earn complexity?" | Count usages of proposed abstraction |
+| "Right abstraction level?" | Search for similar patterns in codebase |
+| "Implicit assumptions?" | Search for undocumented conventions |
+
+#### 3.2.3 Surface Considerations, Then Decide
+
+After research:
+- State the consideration you're weighing
+- Share what you discovered and which options remain viable
+- Make your recommended decision with rationale
+- Document the decision in the plan for user approval
+
+**Only ask the user when:**
+- **Blocking**: Cannot proceed without their input (e.g., missing credentials, conflicting hard requirements)
+- **Intent clarity**: Risk of solving the wrong problem
+
+For all other decisions, make your best judgment. The plan is the approval checkpoint.
+
+#### 3.2.4 Default Stances (Apply Without Asking)
+
+| Situation | Default |
+|-----------|---------|
+| New package needed | Use latest stable version |
+| Existing package in project | Preserve current version unless upgrade required |
+| Single viable approach after research | Proceed with documented rationale |
+| Multiple viable approaches | Choose recommended approach, document alternatives in plan |
+
+#### 3.2.5 Determine Spike Needs
+
+After research, evaluate whether technical uncertainties require empirical validation.
+
+**Key decision: Has the technology/approach been chosen?**
+
+- **Technology NOT chosen**: Strategic spike — compare 2-3 alternatives
+- **Technology chosen, capability uncertain**: Tactical spike — validate specific capability
+- **Well-documented standard feature**: Skip spikes
+
+**Conduct spikes when:**
+- Multiple viable approaches exist and prototyping would reveal material differences
+- Decision significantly impacts architecture
+- Specific capability or version compatibility needs verification
+- Integration between libraries needs validation
+
+**Skip spikes when:**
+- Official documentation confirms capability with working examples
+- Codebase already uses the pattern successfully
+- Standard language/framework features
+- Technology selection hasn't been considered yet (research codebase first)
+
+### 3.3 Conduct Spikes (When Needed)
+
+If section 3.2.5 identified spike needs, invoke the spike skill:
+
+```xml
+<invoke name="Skill">
+  <parameter name="skill">claude-code-cli:spike</parameter>
+</invoke>
+```
+
+Then provide spike details in your message:
+
+**For Strategic Spikes** (comparing alternatives):
+```
+Compare [Approach A], [Approach B], and [Approach C] for [use case].
+Compare [criterion 1], [criterion 2], and [criterion 3].
+Use spike path `.spikes/[ISSUE_ID]/[test-name]/`
+```
+
+**For Tactical Spikes** (validating single approach):
+```
+Verify [Library@version] supports [specific capability].
+Use spike path `.spikes/[ISSUE_ID]/[test-name]/`
+```
+
+After spike completes:
+1. Review spike artifacts at `.spikes/[ISSUE_ID]/[test-name]/`
+2. Incorporate findings into plan's Technical Approach
+3. Document results in plan's Technical Spike Results section
+
+If no spikes needed, proceed to section 3.4.
+
+### 3.4 Clarify Title and Description
 
 After research, evaluate whether the title and description clearly represent the planned work.
 
-#### 3.3.1 Title Evaluation
+#### 3.4.1 Title Evaluation
 
 A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
 
@@ -69,7 +162,7 @@ Clarify title when:
 - **Contains rationale clause**: Move "because..." or "as..." explanations to description
 - **Multi-part scope unclear**: If issue has multiple distinct changes, title should summarize the primary change or use "and" to connect two major items (not three or more)
 
-#### 3.3.2 Description Evaluation
+#### 3.4.2 Description Evaluation
 
 Clarify description when:
 
@@ -86,7 +179,7 @@ Enrich descriptions with context discovered during research:
 - Acceptance criteria (if inferable from user intent)
 - Brief background on why this change matters
 
-#### 3.3.3 Preservation Principles
+#### 3.4.3 Preservation Principles
 
 - Preserve all user-provided details, requirements, and constraints
 - Maintain user intent — the clarified version must request the same outcome
@@ -106,7 +199,7 @@ PATCH /issues/[ISSUE_ID]
 
 Omit `title` and `description` fields if no changes are needed. Document any changes in the plan's scope section.
 
-### 3.4 Draft Plan
+### 3.5 Draft Plan
 
 Include:
 - Objective and scope
@@ -118,7 +211,7 @@ Include:
 
 For revisions: Add a "## Changes from Previous Version" section listing each modification.
 
-### 3.5 Store and Assess
+### 3.6 Store and Assess
 
 First, store the drafted plan:
 ```
@@ -149,33 +242,51 @@ Description: [DESCRIPTION]</parameter>
 </invoke>
 ```
 
-### 3.6 Address Findings
+### 3.7 Address Findings
 
 Review both assessment reports.
 
-**Post meta-analysis comment:**
+#### 3.7.1 Priority Levels
 
-Summarize how assessor findings influenced the plan. Use natural language paragraphs to explain the reasoning behind changes — avoid terse bullet lists that lack context.
+- **CRITICAL/RECONSIDER**: Must be addressed before implementation
+- **HIGH/CONCERNS**: Should be addressed or explicitly accepted
+- **MEDIUM**: Implementation clarity, risk coverage
+- **LOW**: Style suggestions — do not revise for these
+
+#### 3.7.2 Interpreting Combined Results
+
+Determine path using the first matching condition:
+
+- **Ready: No (any Plan Refactor result)**: Address structural issues first
+- **Any result + RECONSIDER**: Address strategic issues before proceeding
+- **Ready: Yes + RECONSIDER**: Treat as "Not Ready" — address strategic issues
+- **Ready: Yes + DISCUSS**: Proceed to step 3.8, but document accepted concerns (section 3.7.4)
+- **Ready: Yes (with suggestions) + READY/DISCUSS**: Proceed to step 3.8 with awareness of suggestions
+- **Ready: Yes + READY**: Proceed to step 3.8
+
+#### 3.7.3 After Both Assessments Complete
+
+1. **Resolve questions through research** following section 3.2
+2. **Conduct spikes for unvalidated assumptions**: If assessors flag technical claims lacking evidence, invoke `claude-code-cli:spike`
+3. **Surface considerations visibly** as you work through them
+4. **Track subjective decisions**: Collect design choices and judgment calls for the plan's decision log
+5. **Make decisions** for non-blocking issues and document in the plan revision
+6. **Only ask the user** for blocking issues or intent clarity
+7. **Determine next action** based on combined results table above
+
+#### 3.7.4 If Plan Refactor Returned DISCUSS
+
+Document accepted concerns before proceeding:
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Evaluation Notes\n\n[Narrative explanation of how assessor findings shaped the plan, including rationale for key decisions and any unresolved questions requiring user input]",
+  "body": "## Accepted Concerns\n\nThe following strategic concerns were noted but accepted:\n- [Concern]: [Rationale for accepting]",
   "author": "agent"
 }
 ```
 
-Example comment body:
-
-```markdown
-## Evaluation Notes
-
-The structural assessment identified that batch processing was outside the stated problem scope. Since the original issue focused on real-time notification delivery, I've removed the batching logic from the Technical Approach to keep the implementation focused.
-
-The strategic assessment flagged an unvalidated assumption about Redis adapter compatibility with Socket.io v4.6.1. Rather than proceed on assumption, I've added a tactical spike to the plan that will verify this integration before committing to the architecture.
-
-Both assessors noted ambiguity around reconnection behavior. The plan now explicitly addresses this in the Risks section, but I'd like your input: should we sync missed notifications on reconnect, or start fresh? The former adds complexity but improves UX; the latter is simpler but users may miss events during brief disconnections.
-```
+#### 3.7.5 Update Title or Description
 
 **Update title when assessor findings reveal:**
 
@@ -199,12 +310,16 @@ PATCH /issues/[ISSUE_ID]
 
 Do not update for stylistic preferences or minor clarifications — only when evidence directly contradicts stated facts or when ambiguity caused assessor confusion.
 
-**Based on assessment severity:**
+#### 3.7.6 Determine Next Action
 
-- **CRITICAL or HIGH priority issues**: Revise the plan, re-store via PATCH, re-run step 3.5 (maximum 2 cycles — if issues persist, note unresolved concerns in the comment)
-- **Otherwise**: Proceed to step 3.7
+Based on combined results (section 3.7.2) and priority levels (section 3.7.1):
 
-### 3.7 Submit for Approval
+- **Unvalidated technical assumptions flagged**: Invoke `claude-code-cli:spike`, then revise plan with findings
+- **CRITICAL/RECONSIDER or HIGH/CONCERNS**: Revise the plan, re-store via PATCH, re-run step 3.6. Iterate until both assessments pass.
+- **MEDIUM or LOW only**: Proceed to step 3.8. Do not revise for style suggestions.
+- **DISCUSS with no blocking issues**: Document accepted concerns (section 3.7.4), then proceed to step 3.8.
+
+### 3.8 Submit for Approval
 
 Update the issue with the final plan:
 
@@ -216,7 +331,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-### 3.8 Wait
+### 3.9 Wait
 
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
 

@@ -11,6 +11,15 @@
         ]
       },
       {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-resume.sh"
+          }
+        ]
+      },
+      {
         "matcher": "compact",
         "hooks": [
           {

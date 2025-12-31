@@ -3,8 +3,6 @@ name: plan
 description: Implementation plan format with required sections.
 ---
 
-# Implementation Plan Format
-
 This skill defines how to structure implementation plans posted as issue comments. Plans require user approval before implementation begins.
 
 ## Complexity Tiers
@@ -36,52 +34,6 @@ Add to Tier 2:
 - Technical Spike Results
 - Implementation References
 - Open Questions
-
----
-
-## Plan Revisions
-
-When the user requests changes to a plan:
-
-1. Post a meta-analysis comment explaining the changes:
-   ```markdown
-   ## Plan Revision Notes
-
-   Based on your feedback, I've updated the plan:
-   - Added batching logic for high-frequency events
-   - Removed preference caching (will use existing cache layer)
-   - Narrowed scope to exclude mobile push notifications
-   ```
-
-2. Update `planContent` with the revised plan via `PATCH /issues/{issueId}`
-3. The revised plan contains only the plan — no revision notes or diff summaries
-
----
-
-## Storing Plans
-
-Plans are stored in the `planContent` field via `PATCH /issues/{issueId}`:
-
-```typescript
-{
-  "planContent": "[plan content]",
-  "codeReferences": ["/path/to/reviewed/file.ts"]
-}
-```
-
-### Code References
-Include code references for files mentioned in:
-- Technical Approach steps
-- Dependency Analysis
-- Implementation References
-
-### Standalone Requirement
-The plan must be self-contained and readable without additional context. Do not include:
-- References to "the previous version"
-- Diff summaries or change notes
-- Conversational preamble ("Based on your feedback...")
-
-If revising a plan, post meta-analysis as a separate comment, then update `planContent` with the revised plan.
 
 ---
 
@@ -236,40 +188,16 @@ Document all framework and library versions that constrain the implementation. I
 ## Technical Spike Results (When Needed)
 
 <instructions>
-Include this section when you have critical technical unknowns requiring empirical investigation. This includes strategic spikes (comparing alternatives) or tactical spikes (validating chosen approaches). Omit this section if all technical assumptions are validated by existing code or documentation.
+Include this section for Tier 3 complexity when technical investigations were conducted. Document spike results that informed the Technical Approach.
 
-### When to Conduct Technical Spikes
-
-**Strategic Spikes** (Comparing Alternatives):
-- Technology selection between multiple viable approaches
-- Architecture pattern evaluation
-- Unfamiliar technology assessment
-
-**Tactical Spikes** (Validating Chosen Approach):
-- Version compatibility verification
-- API/export verification
-- Framework behavior validation
-- Integration validation
-- Performance feasibility
-
-### When to Skip Spikes
-- The approach/technology has not been chosen yet (research codebase first)
-- Well-documented framework features with clear examples
-- Internal code patterns already established
-- Standard operations with known patterns
-
-### Spike Workflow in Issue Context
-
-Based on worktree availability:
-- **Worktree exists for the issue**:
-  1. Create spike code in `.spikes/[ISSUE_ID]/[spike-name]/` within the worktree
-  2. Run experiments and document results
-  3. Delete the spike directory before committing implementation
-  4. Reference evidence and conclusions in the plan — artifacts don't persist
-- **No worktree exists (plan-required issues)**:
-  1. Conduct lightweight investigation using Read/Grep tools
-  2. Document findings without creating prototype code
-  3. Note that full spike validation will occur during implementation if needed
+For each spike, include:
+- **Type**: Strategic (comparing alternatives) or Tactical (validating chosen approach)
+- **Question**: The specific uncertainty being investigated
+- **Approaches Tested** or **Approach Tested**: What was evaluated
+- **Result**: The finding or recommendation
+- **Evidence**: Concrete data supporting the result
+- **Artifacts**: Path to spike code (cleaned up before commit)
+- **Impact**: How this affects the Technical Approach
 </instructions>
 
 <example>
