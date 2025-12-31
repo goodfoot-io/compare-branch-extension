@@ -1,6 +1,6 @@
 {
   "name": "claude-code-cli",
-  "version": "1.0.106",
+  "version": "1.0.107",
   "description": "Hooks for session tracking with Compare Branch extension's Issues API",
   "author": {
     "name": "Goodfoot Media LLC"
