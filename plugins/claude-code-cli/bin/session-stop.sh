@@ -13,7 +13,7 @@
 # Output: None
 # Exit codes: 0 = success, 2 = unexpected error
 #
-# State file: $HOME/.claude/hook-state/${session_id}.json (read-only)
+# State file: $HOME/.compare-branch/hook-state/${session_id}.json (read-only)
 #
 # Environment variables:
 #   DISPATCHER_PID - PID of dispatcher for sending idle signal (set by dispatcher)
@@ -60,7 +60,7 @@ if [ -z "${DISPATCHER_PID:-}" ]; then
 fi
 
 # Check if state file exists
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
 
 if [ ! -f "$STATE_FILE" ]; then

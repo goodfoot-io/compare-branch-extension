@@ -9,7 +9,7 @@
 # Output: None on success, error details to stderr on failure
 # Exit codes: 0 = success, 2 = unexpected error
 #
-# State file: $HOME/.claude/hook-state/${session_id}.json
+# State file: $HOME/.compare-branch/hook-state/${session_id}.json
 # Format: {"issuesApiLoaded": true, "issueIds": [...]}
 #
 
@@ -52,7 +52,7 @@ if [ -z "$SESSION_ID" ]; then
 fi
 
 # Create state directory if it doesn't exist
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 mkdir -p "$STATE_DIR"
 
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"

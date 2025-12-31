@@ -9,7 +9,7 @@
 # Output: JSON with systemMessage confirming cleanup
 # Exit codes: 0 = success (cleanup hooks should never fail)
 #
-# State file: $HOME/.claude/hook-state/${session_id}.json
+# State file: $HOME/.compare-branch/hook-state/${session_id}.json
 # Modifies: Removes cliSkills array from state
 #
 
@@ -26,7 +26,7 @@ if [ -z "$SESSION_ID" ]; then
 fi
 
 # Define state file path
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
 
 # Check if state file exists

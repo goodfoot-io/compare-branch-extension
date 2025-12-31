@@ -145,7 +145,7 @@ EOF
 run_test "Non-Bash tool is ignored" "$INPUT" 0
 
 # Verify no state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should not exist for non-Bash tool"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -172,7 +172,7 @@ EOF
 run_test "No issue IDs in command" "$INPUT" 0
 
 # Verify no state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should not exist when no issue IDs found"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -199,7 +199,7 @@ EOF
 run_test "Extracts issue ID from curl command" "$INPUT" 0
 
 # Verify state file was created with issue ID
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should exist"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -232,7 +232,7 @@ EOF
 run_test "Extracts multiple issue IDs" "$INPUT" 0
 
 # Verify state file contains both issue IDs
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     ISSUE_IDS=$(jq -c '.issueIds | sort' "$STATE_FILE")
     if [ "$ISSUE_IDS" = '["feature-auth:42","main:1"]' ]; then
@@ -265,7 +265,7 @@ EOF
 run_test "Extracts issue ID but not sub-path" "$INPUT" 0
 
 # Verify state file contains issue ID (extracted from the path, sub-path is ignored)
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     ISSUE_IDS=$(jq -c '.issueIds' "$STATE_FILE")
     # Should extract main:1, not main:1/comments
@@ -287,8 +287,8 @@ create_mock_curl
 SESSION_ID="test-session-6"
 
 # Create existing state file with one issue ID
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1"]}
 EOF
 
@@ -306,7 +306,7 @@ EOF
 run_test "Adds new issue ID to existing state" "$INPUT" 0
 
 # Verify state file contains both issue IDs
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     ISSUE_IDS=$(jq -c '.issueIds | sort' "$STATE_FILE")
     LOADED=$(jq -r '.issuesApiLoaded' "$STATE_FILE")
@@ -329,8 +329,8 @@ create_mock_curl
 SESSION_ID="test-session-7"
 
 # Create existing state file with issue ID
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:42"]}
 EOF
 
@@ -352,7 +352,7 @@ EOF
 run_test "Does not duplicate existing issue ID" "$INPUT" 0
 
 # Verify issue ID not duplicated
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     ISSUE_IDS=$(jq -c '.issueIds' "$STATE_FILE")
     if [ "$ISSUE_IDS" = '["main:42"]' ]; then
@@ -394,7 +394,7 @@ EOF
 run_test "Flock is used for atomic access" "$INPUT" 0
 
 # The actual test is that the script doesn't error - flock is being used
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     echo "Verified: State file created (flock was used successfully)"
 else

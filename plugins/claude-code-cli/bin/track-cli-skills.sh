@@ -9,7 +9,7 @@
 # Output: JSON response (empty {} on success)
 # Exit codes: 0 = success, 2 = unexpected error
 #
-# State file: $HOME/.claude/hook-state/${session_id}.json
+# State file: $HOME/.compare-branch/hook-state/${session_id}.json
 # Format: {"issuesApiLoaded": ..., "issueIds": [...], "cliSkills": ["issue-bug", "issue-implementation"]}
 #
 
@@ -58,7 +58,7 @@ fi
 SKILL_NAME="${SKILL#claude-code-cli:}"
 
 # Create state directory if it doesn't exist
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 mkdir -p "$STATE_DIR"
 
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"

@@ -25,7 +25,7 @@ TARGET_SCRIPT="$SCRIPT_DIR/cli-skill-reloader.sh"
 # Setup mock home directory
 setup_mock_home() {
     export HOME="$TEST_DIR/mock-home"
-    mkdir -p "$HOME/.claude/hook-state"
+    mkdir -p "$HOME/.compare-branch/hook-state"
 }
 
 # Cleanup mock home directory
@@ -106,7 +106,7 @@ run_test_with_output "No state file returns empty JSON" "$INPUT" "" 0
 echo -e "\n${YELLOW}=== Test 3: Returns empty JSON when cliSkills is empty ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-3"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":[],"cliSkills":[]}
 EOF
 INPUT=$(cat <<EOF
@@ -122,7 +122,7 @@ run_test_with_output "Empty cliSkills returns empty JSON" "$INPUT" "" 0
 echo -e "\n${YELLOW}=== Test 4: Returns reload instruction for single skill ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-4"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":[],"cliSkills":["issue-bug"]}
 EOF
 INPUT=$(cat <<EOF
@@ -151,7 +151,7 @@ fi
 echo -e "\n${YELLOW}=== Test 5: Returns reload instruction for two skills ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-5"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"cliSkills":["issue-bug","issue-implementation"]}
 EOF
 INPUT=$(cat <<EOF
@@ -181,7 +181,7 @@ fi
 echo -e "\n${YELLOW}=== Test 6: Returns reload instruction for three skills ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-6"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"cliSkills":["issue-bug","issue-implementation","issue-clarification"]}
 EOF
 INPUT=$(cat <<EOF
@@ -211,7 +211,7 @@ fi
 echo -e "\n${YELLOW}=== Test 7: Includes hookEventName in output ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-7"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"cliSkills":["issue-bug"]}
 EOF
 INPUT=$(cat <<EOF
@@ -237,7 +237,7 @@ fi
 echo -e "\n${YELLOW}=== Test 8: Includes systemMessage in output ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-8"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"cliSkills":["issue-bug"]}
 EOF
 INPUT=$(cat <<EOF
@@ -265,7 +265,7 @@ fi
 echo -e "\n${YELLOW}=== Test 9: Multiple skills systemMessage format ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-9"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"cliSkills":["issue-bug","issue-implementation"]}
 EOF
 INPUT=$(cat <<EOF

@@ -90,7 +90,7 @@ EOF
 run_test "Non-Skill tool is ignored" "$INPUT" 0
 
 # Verify no state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should not exist for non-Skill tool"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -116,7 +116,7 @@ EOF
 run_test "Non-claude-code-cli skill is ignored" "$INPUT" 0
 
 # Verify no state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should not exist for non-claude-code-cli skill"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -142,7 +142,7 @@ EOF
 run_test "claude-code-cli:* skill creates state file" "$INPUT" 0
 
 # Verify state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should exist"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -168,7 +168,7 @@ EOF
 run_test "Adds skill to cliSkills array" "$INPUT" 0
 
 # Verify cliSkills array contains the skill (without prefix)
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     CLI_SKILLS=$(jq -c '.cliSkills' "$STATE_FILE")
     if [ "$CLI_SKILLS" = '["issue-implementation"]' ]; then
@@ -200,7 +200,7 @@ EOF
 run_test "Strips prefix from skill name" "$INPUT" 0
 
 # Verify skill name is stored without prefix
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     FIRST_SKILL=$(jq -r '.cliSkills[0]' "$STATE_FILE")
     if [ "$FIRST_SKILL" = "issue-bug" ]; then
@@ -239,7 +239,7 @@ echo "$INPUT" | "$TARGET_SCRIPT" > /dev/null 2>&1
 run_test "Deduplicates skills" "$INPUT" 0
 
 # Verify only one entry exists
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     SKILL_COUNT=$(jq '.cliSkills | length' "$STATE_FILE")
     if [ "$SKILL_COUNT" -eq 1 ]; then
@@ -259,8 +259,8 @@ setup_mock_home
 SESSION_ID="test-session-7"
 
 # Create existing state file with issueIds
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1","feature:42"]}
 EOF
 
@@ -278,7 +278,7 @@ EOF
 run_test "Preserves existing issueIds" "$INPUT" 0
 
 # Verify issueIds are preserved
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     ISSUE_IDS=$(jq -c '.issueIds' "$STATE_FILE")
     LOADED=$(jq -r '.issuesApiLoaded' "$STATE_FILE")
@@ -315,7 +315,7 @@ EOF
 run_test "Creates state directory if missing" "$INPUT" 0
 
 # Verify directory and file were created
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
 if [ -d "$STATE_DIR" ] && [ -f "$STATE_FILE" ]; then
     echo "Verified: State directory and file created"
@@ -358,7 +358,7 @@ EOF
 run_test "Accumulates multiple skills" "$INPUT2" 0
 
 # Verify both skills are present
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     SKILL_COUNT=$(jq '.cliSkills | length' "$STATE_FILE")
     HAS_BUG=$(jq '.cliSkills | contains(["issue-bug"])' "$STATE_FILE")

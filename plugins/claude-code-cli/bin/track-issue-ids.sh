@@ -9,7 +9,7 @@
 # Output: None on success, error details to stderr on failure
 # Exit codes: 0 = success, 2 = unexpected error
 #
-# State file: $HOME/.claude/hook-state/${session_id}.json
+# State file: $HOME/.compare-branch/hook-state/${session_id}.json
 # Format: {"issuesApiLoaded": true, "issueIds": [...]}
 #
 
@@ -65,7 +65,7 @@ fi
 BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
 
 # Setup state directory and file
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
 
 # Create state directory if it doesn't exist

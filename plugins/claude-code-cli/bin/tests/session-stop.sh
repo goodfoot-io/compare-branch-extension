@@ -195,8 +195,8 @@ create_mock_curl
 SESSION_ID="test-session-2"
 
 # Create state file with issuesApiLoaded = false
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":false,"issueIds":["main:1"]}
 EOF
 
@@ -227,8 +227,8 @@ create_mock_curl
 SESSION_ID="test-session-3"
 
 # Create state file without issuesApiLoaded field
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issueIds":["main:1"]}
 EOF
 
@@ -259,8 +259,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="test-session-4"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1","feature:42"]}
 EOF
 
@@ -298,8 +298,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="unique-session-id-12345"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":[]}
 EOF
 
@@ -346,8 +346,8 @@ create_failing_mock_curl
 SESSION_ID="test-session-6"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1"]}
 EOF
 
@@ -386,9 +386,9 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="test-session-8"
 
 # Create state file with known content
-mkdir -p "$HOME/.claude/hook-state"
+mkdir -p "$HOME/.compare-branch/hook-state"
 ORIGINAL_STATE='{"issuesApiLoaded":true,"issueIds":["main:1","feature:42"]}'
-echo "$ORIGINAL_STATE" > "$HOME/.claude/hook-state/${SESSION_ID}.json"
+echo "$ORIGINAL_STATE" > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 
 INPUT=$(cat <<EOF
 {
@@ -403,7 +403,7 @@ EOF
 run_test "Does not modify state file" "$INPUT" 0
 
 # Verify state file still exists and is unchanged
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file was deleted"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -456,8 +456,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":2,"todo":1,"in
 SESSION_ID="test-session-11"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1"]}
 EOF
 
@@ -498,8 +498,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="test-session-12"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1"]}
 EOF
 
@@ -530,8 +530,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="test-session-13"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1"]}
 EOF
 
@@ -584,8 +584,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="test-session-14"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1"]}
 EOF
 
@@ -654,8 +654,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="test-session-15"
 
 # Create state file with issuesApiLoaded = true but empty issueIds
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":[]}
 EOF
 
@@ -717,8 +717,8 @@ create_mock_curl
 SESSION_ID="test-session-16"
 
 # Create state file with issuesApiLoaded = false
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":false,"issueIds":["main:1"]}
 EOF
 
@@ -781,8 +781,8 @@ create_mock_curl '{"branch":"main","issues":[],"summary":{"total":0,"todo":0,"in
 SESSION_ID="test-session-17"
 
 # Create state file with issuesApiLoaded = true
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":true,"issueIds":["main:1"]}
 EOF
 

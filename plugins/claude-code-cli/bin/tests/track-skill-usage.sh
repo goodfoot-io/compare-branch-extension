@@ -90,7 +90,7 @@ EOF
 run_test "Non-Skill tool is ignored" "$INPUT" 0
 
 # Verify no state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should not exist for non-Skill tool"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -116,7 +116,7 @@ EOF
 run_test "Non-issues:api skill is ignored" "$INPUT" 0
 
 # Verify no state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should not exist for non-issues:api skill"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -142,7 +142,7 @@ EOF
 run_test "issues:api skill creates state file" "$INPUT" 0
 
 # Verify state file was created
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then
     echo -e "${RED}FAIL${NC} - State file should exist"
     TESTS_PASSED=$((TESTS_PASSED - 1))
@@ -168,7 +168,7 @@ EOF
 run_test "issues:api skill sets issuesApiLoaded to true" "$INPUT" 0
 
 # Verify issuesApiLoaded is true
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     LOADED=$(jq -r '.issuesApiLoaded' "$STATE_FILE")
     if [ "$LOADED" = "true" ]; then
@@ -188,8 +188,8 @@ setup_mock_home
 SESSION_ID="test-session-5"
 
 # Create existing state file with issueIds
-mkdir -p "$HOME/.claude/hook-state"
-cat > "$HOME/.claude/hook-state/${SESSION_ID}.json" <<EOF
+mkdir -p "$HOME/.compare-branch/hook-state"
+cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
 {"issuesApiLoaded":false,"issueIds":["main:1","feature:42"]}
 EOF
 
@@ -207,7 +207,7 @@ EOF
 run_test "Preserves existing issueIds" "$INPUT" 0
 
 # Verify issueIds are preserved
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
 if [ -f "$STATE_FILE" ]; then
     ISSUE_IDS=$(jq -c '.issueIds' "$STATE_FILE")
     LOADED=$(jq -r '.issuesApiLoaded' "$STATE_FILE")
@@ -242,8 +242,8 @@ run_test "Flock is used for atomic access" "$INPUT" 0
 
 # Verify lock file was created (it may be cleaned up, but we can check if flock command works)
 # The actual test is that the script doesn't error - flock is being used
-STATE_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json"
-LOCK_FILE="$HOME/.claude/hook-state/${SESSION_ID}.json.lock"
+STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
+LOCK_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json.lock"
 if [ -f "$STATE_FILE" ]; then
     echo "Verified: State file created (flock was used successfully)"
 else
@@ -271,7 +271,7 @@ EOF
 run_test "Creates state directory if missing" "$INPUT" 0
 
 # Verify directory and file were created
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
 if [ -d "$STATE_DIR" ] && [ -f "$STATE_FILE" ]; then
     echo "Verified: State directory and file created"

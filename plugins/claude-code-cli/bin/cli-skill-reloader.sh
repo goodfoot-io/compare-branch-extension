@@ -9,7 +9,7 @@
 # Output: JSON with hookSpecificOutput.additionalContext containing reload instructions
 # Exit codes: 0 = success
 #
-# State file: $HOME/.claude/hook-state/${session_id}.json
+# State file: $HOME/.compare-branch/hook-state/${session_id}.json
 # Reads: cliSkills array from state
 #
 
@@ -28,7 +28,7 @@ if [ -z "$SESSION_ID" ]; then
 fi
 
 # Define state file path
-STATE_DIR="$HOME/.claude/hook-state"
+STATE_DIR="$HOME/.compare-branch/hook-state"
 STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
 
 # Check if state file exists
