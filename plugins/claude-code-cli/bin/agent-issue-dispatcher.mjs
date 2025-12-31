@@ -284,13 +284,10 @@ function launchClaude(prompt, sessionId) {
 
     log(sessionId ? `Resuming session: ${sessionId}` : 'Starting new session');
 
-    // Set environment variables for hooks:
-    // - DISPATCHER_PID: for signal-based communication
-    // - CLAUDE_START_TIME: ISO 8601 timestamp for detecting new comments during session
+    // Set environment variable for signal-based communication with hooks
     const env = {
       ...process.env,
-      DISPATCHER_PID: `${process.pid}`,
-      CLAUDE_START_TIME: new Date().toISOString()
+      DISPATCHER_PID: `${process.pid}`
     };
 
     claudeProcess = spawn(CLAUDE_CMD, args, {

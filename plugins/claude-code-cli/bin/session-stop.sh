@@ -17,7 +17,6 @@
 #
 # Environment variables:
 #   DISPATCHER_PID - PID of dispatcher for sending idle signal (set by dispatcher)
-#   CLAUDE_START_TIME - ISO 8601 timestamp of when the session started (for new comment detection)
 #   SESSION_STOP_TEST_MODE - If set to "1", skips sending signals (for testing)
 #
 
@@ -82,56 +81,42 @@ BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/nul
 # Read issue IDs from state file for comment reporting
 ISSUE_IDS=$(jq -r '.issueIds // [] | .[]' "$STATE_FILE" 2>/dev/null) || ISSUE_IDS=""
 
-# Report any new comments added since session started (or since last report)
-# Only if CLAUDE_START_TIME is set (ISO 8601 timestamp from launcher)
+# Query session diff for all issues at once
 COMMENTS_REPORT=""
-NEWEST_COMMENT_TIME=""
-if [ -n "${CLAUDE_START_TIME:-}" ] && [ -n "$ISSUE_IDS" ]; then
-  # Check if we've already reported comments - use that time instead
-  LAST_REPORT_TIME=$(jq -r '.commentsReportedAt // empty' "$STATE_FILE" 2>/dev/null) || LAST_REPORT_TIME=""
-  QUERY_TIME="${LAST_REPORT_TIME:-$CLAUDE_START_TIME}"
+if [ -n "$SESSION_ID" ] && [ -n "$ISSUE_IDS" ]; then
+  # Build comma-separated issue IDs
+  ISSUE_IDS_CSV=$(echo "$ISSUE_IDS" | tr '\n' ',' | sed 's/,$//')
 
-  while IFS= read -r ISSUE_ID; do
-    [ -z "$ISSUE_ID" ] && continue
+  # Single GET request for all issues via new diff endpoint
+  DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_IDS_CSV}" 2>/dev/null) || {
+    echo "Warning: diff endpoint unavailable, skipping comment report" >&2
+    DIFF_RESPONSE=""
+  }
 
-    # URL-encode the timestamp (replace : with %3A, + with %2B)
-    ENCODED_TIME=$(echo "$QUERY_TIME" | sed 's/:/%3A/g; s/+/%2B/g')
+  if [ -n "$DIFF_RESPONSE" ]; then
+    # Extract and format comments from response
+    while IFS= read -r ISSUE_JSON; do
+      [ -z "$ISSUE_JSON" ] || [ "$ISSUE_JSON" = "null" ] && continue
 
-    # Query comments API for comments since last check
-    COMMENTS_RESPONSE=$(curl -s "${BASE_URL}/issues/${ISSUE_ID}/comments?since=${ENCODED_TIME}" 2>/dev/null) || continue
+      ISSUE_ID=$(echo "$ISSUE_JSON" | jq -r '.issueId')
+      ISSUE_TITLE=$(echo "$ISSUE_JSON" | jq -r '.issueTitle // "Unknown"')
+      COMMENTS_JSON=$(echo "$ISSUE_JSON" | jq -r '.newComments // []')
+      COMMENTS_COUNT=$(echo "$COMMENTS_JSON" | jq 'length')
 
-    # Filter to user comments only (use here-string to handle JSON with newlines in values)
-    USER_COMMENTS=$(jq '[.[] | select(.author == "user")]' <<< "$COMMENTS_RESPONSE" 2>/dev/null) || continue
-    COMMENTS_COUNT=$(jq 'length' <<< "$USER_COMMENTS" 2>/dev/null) || COMMENTS_COUNT="0"
-
-    if [ "$COMMENTS_COUNT" != "0" ] && [ "$COMMENTS_COUNT" != "null" ]; then
-      # Add issue header to report
-      COMMENTS_REPORT="${COMMENTS_REPORT}Issue ${ISSUE_ID}:\n"
-
-      # Format each comment (truncate body to first 100 chars)
-      while IFS= read -r COMMENT_LINE; do
-        COMMENTS_REPORT="${COMMENTS_REPORT}  ${COMMENT_LINE}\n"
-      done < <(jq -r '.[] | "- [\(.createdAt)] \(.body | gsub("\n"; " ") | if length > 100 then .[:100] + "..." else . end)"' <<< "$USER_COMMENTS" 2>/dev/null)
-
-      # Track the newest comment time to update state file
-      LATEST=$(jq -r 'map(.createdAt) | max' <<< "$USER_COMMENTS" 2>/dev/null) || LATEST=""
-      if [ -n "$LATEST" ] && [ "$LATEST" != "null" ]; then
-        if [ -z "$NEWEST_COMMENT_TIME" ] || [[ "$LATEST" > "$NEWEST_COMMENT_TIME" ]]; then
-          NEWEST_COMMENT_TIME="$LATEST"
-        fi
+      if [ "$COMMENTS_COUNT" -gt 0 ]; then
+        COMMENTS_REPORT+="\n## Issue: ${ISSUE_TITLE} (${ISSUE_ID})\n"
+        while IFS= read -r COMMENT; do
+          [ -z "$COMMENT" ] || [ "$COMMENT" = "null" ] && continue
+          CREATED_AT=$(echo "$COMMENT" | jq -r '.createdAt // "unknown"')
+          BODY=$(echo "$COMMENT" | jq -r '.body // ""' | head -c 100)
+          COMMENTS_REPORT+="[${CREATED_AT}] ${BODY}\n"
+        done < <(echo "$COMMENTS_JSON" | jq -c '.[]')
       fi
-    fi
-  done <<< "$ISSUE_IDS"
-
-  # Update state file with the time of newest reported comment
-  if [ -n "$NEWEST_COMMENT_TIME" ]; then
-    (
-      flock -x 200
-      CURRENT_STATE=$(cat "$STATE_FILE" 2>/dev/null) || CURRENT_STATE="{}"
-      echo "$CURRENT_STATE" | jq --arg time "$NEWEST_COMMENT_TIME" '.commentsReportedAt = $time' > "$STATE_FILE.tmp"
-      mv "$STATE_FILE.tmp" "$STATE_FILE"
-    ) 200>"$STATE_FILE.lock"
+    done < <(echo "$DIFF_RESPONSE" | jq -c '.issues[]')
   fi
+
+  # Clean up session watermark on exit
+  curl -sf -X DELETE "${BASE_URL}/session/${SESSION_ID}" 2>/dev/null || true
 fi
 
 # Build report for JSON output

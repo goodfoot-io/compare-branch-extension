@@ -13,13 +13,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_SESSION_ID="test-session-$(date +%s)"
 TEST_DISPATCHER_PID="$$"
-TEST_START_TIME="$(date -Iseconds)"
 
 echo "=== Testing Hook Environment Variables ==="
 echo ""
 echo "Test Configuration:"
 echo "  DISPATCHER_PID: $TEST_DISPATCHER_PID"
-echo "  CLAUDE_START_TIME: $TEST_START_TIME"
 echo "  SESSION_ID: $TEST_SESSION_ID"
 echo ""
 
@@ -34,12 +32,11 @@ EOF
 )
 
 echo "=== Test 1: Direct env var inheritance ==="
-echo "Running session-stop.sh with DISPATCHER_PID and CLAUDE_START_TIME set..."
+echo "Running session-stop.sh with DISPATCHER_PID set..."
 echo ""
 
 # Run the hook with env vars set, but skip actual API calls by not having a state file
 export DISPATCHER_PID="$TEST_DISPATCHER_PID"
-export CLAUDE_START_TIME="$TEST_START_TIME"
 export SESSION_STOP_TEST_MODE="1"
 export CLAUDE_PLUGIN_ROOT="$SCRIPT_DIR/.."
 
@@ -48,7 +45,6 @@ export CLAUDE_PLUGIN_ROOT="$SCRIPT_DIR/.."
 echo "$TEST_INPUT" | bash -c '
   echo "Inside subprocess:"
   echo "  DISPATCHER_PID=${DISPATCHER_PID:-NOT_SET}"
-  echo "  CLAUDE_START_TIME=${CLAUDE_START_TIME:-NOT_SET}"
 '
 
 echo ""
@@ -59,13 +55,11 @@ echo ""
 # This simulates how Claude Code might spawn hook processes
 bash -c '
   export DISPATCHER_PID="12345"
-  export CLAUDE_START_TIME="2025-01-01T00:00:00Z"
 
   # Spawn a child process (like Claude Code spawning a hook)
   bash -c '\''
     echo "Child process env vars:"
     echo "  DISPATCHER_PID=${DISPATCHER_PID:-NOT_SET}"
-    echo "  CLAUDE_START_TIME=${CLAUDE_START_TIME:-NOT_SET}"
   '\''
 '
 
