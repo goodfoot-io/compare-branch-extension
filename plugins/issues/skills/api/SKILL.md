@@ -14,12 +14,7 @@ Use comments to ask the user for clarifications, to report error states, or to r
 </comments>
 
 <issue-status>
-**When you start or resume work on an issue, change the issue status to "in_progress" to signal you are working on it. After you have completed work, change the issue status to "needs_review" to signal the user to review.**
-
-If a user asks a question in an issue, answer then change the issue status to `needs_review`.
-
-Statuses:
-- **in_progress**: You, Claude, are actively working on this issue.
+- **in_progress**: The agent is actively working on this issue.
 - **todo**: This issue is ready for implementation.
 - **needs_review**: This issue is awaiting feedback from the user (includes plan approval and implementation review).
 - **done**: The issue is complete and needs no additional review.
@@ -31,7 +26,7 @@ Statuses:
 When an issue has `planRequired: true`, you must present a plan for user approval before beginning any meaningful implementation work.
 
 **Workflow:**
-1. Create the plan document following the `claude-code-cli:plan` skill format
+1. Create the plan document
 2. Store the plan in the `planContent` field for user review:
 
 ```
@@ -64,7 +59,6 @@ BACKTICK='`'
 echo "# Example: List all issues"
 echo "curl -s \"${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}/issues\" | jq ."
 ```
-
 
 ## Endpoints
 
