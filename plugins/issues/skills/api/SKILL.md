@@ -55,7 +55,7 @@ You must reload this skill after compaction.
 ```!
 BACKTICK='`'
 echo "# Get the API base URL"
-echo "API_BASE=${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}"
+echo "API_BASE=\"\$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)\""
 echo ""
 echo "# List all issues"
 echo "curl -s \"\$API_BASE/issues\" | jq ."
