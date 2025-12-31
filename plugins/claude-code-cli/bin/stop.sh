@@ -1,16 +1,12 @@
 #!/bin/bash
 #
-# session-resume.sh: Provides issue updates when resuming a Claude session
+# Stop hook: Injects issue updates when Claude is about to stop
 #
-# Fires on SessionStart with source="resume". Calls the session diff endpoint
-# to retrieve new comments and field changes since the last session interaction,
-# then outputs them as context for Claude.
+# Checks for new comments/changes on the issue and blocks stopping if there
+# are updates, providing the diff as context for Claude to continue working.
 #
-# This replaces the previous lastAgentAttentionAt-based prompt injection by
-# using the server-side session watermark tracking.
-#
-# Input (stdin): JSON with session_id, transcript_path, cwd, hook_event_name, source
-# Output: Plain text context about new comments (added to Claude's context)
+# Input (stdin): JSON with session_id, transcript_path, cwd, hook_event_name
+# Output: JSON with decision/reason if updates exist
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # Environment variables:
@@ -23,7 +19,7 @@ set -euo pipefail
 error_handler() {
     local line_no=$1
     local error_code=$2
-    echo "ERROR in session-resume.sh at line $line_no (exit code: $error_code)" >&2
+    echo "ERROR in stop.sh at line $line_no (exit code: $error_code)" >&2
     echo "Please report this issue at: https://github.com/goodfoot-io/compare-branch-extension/issues" >&2
     echo "Include the error details above and steps to reproduce." >&2
     exit 2
@@ -68,7 +64,7 @@ if [ "$HAS_UPDATES" != "true" ]; then
   exit 0
 fi
 
-# Output DIFF_RESPONSE as JSON for SessionStart hook
-jq -nc --arg ctx "$DIFF_RESPONSE" '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":$ctx}}'
+# Block stopping and provide diff as reason
+jq -nc --arg reason "$DIFF_RESPONSE" '{"decision":"block","reason":$reason}'
 
 exit 0

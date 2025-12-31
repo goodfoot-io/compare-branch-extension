@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# Stop hook: Reports session completion to API and handles graceful shutdown
+# Stop hook: Cleans up session and signals dispatcher on shutdown
 #
-# Reports new comments to Claude, and signals dispatcher when done.
+# Cleans up session watermark and signals dispatcher when done.
 # Only runs if ISSUE_ID environment variable is set (by wrapper script).
+# Note: SessionEnd hooks cannot inject context - use SessionStart for that.
 #
 # Signals:
 # - Always sends SIGWINCH to dispatcher to indicate Claude is now idle
@@ -72,56 +73,8 @@ fi
 # Discover API URL (pass cwd to find the correct workspace API)
 BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
 
-# Query session diff for the issue
-COMMENTS_REPORT=""
-if [ -n "$SESSION_ID" ]; then
-
-  # Single GET request for the issue via diff endpoint
-  DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_ID}" 2>/dev/null) || {
-    echo "Warning: diff endpoint unavailable, skipping comment report" >&2
-    DIFF_RESPONSE=""
-  }
-
-  if [ -n "$DIFF_RESPONSE" ]; then
-    # Extract and format comments from response
-    while IFS= read -r ISSUE_JSON; do
-      [ -z "$ISSUE_JSON" ] || [ "$ISSUE_JSON" = "null" ] && continue
-
-      ISSUE_ID=$(echo "$ISSUE_JSON" | jq -r '.issueId')
-      ISSUE_TITLE=$(echo "$ISSUE_JSON" | jq -r '.issueTitle // "Unknown"')
-      COMMENTS_JSON=$(echo "$ISSUE_JSON" | jq -r '.newComments // []')
-      COMMENTS_COUNT=$(echo "$COMMENTS_JSON" | jq 'length')
-
-      if [ "$COMMENTS_COUNT" -gt 0 ]; then
-        COMMENTS_REPORT+="\n## Issue: ${ISSUE_TITLE} (${ISSUE_ID})\n"
-        while IFS= read -r COMMENT; do
-          [ -z "$COMMENT" ] || [ "$COMMENT" = "null" ] && continue
-          CREATED_AT=$(echo "$COMMENT" | jq -r '.createdAt // "unknown"')
-          BODY=$(echo "$COMMENT" | jq -r '.body // ""' | head -c 100)
-          COMMENTS_REPORT+="[${CREATED_AT}] ${BODY}\n"
-        done < <(echo "$COMMENTS_JSON" | jq -c '.[]')
-      fi
-    done < <(echo "$DIFF_RESPONSE" | jq -c '.issues[]')
-  fi
-
-  # Clean up session watermark on exit
-  curl -sf -X DELETE "${BASE_URL}/session/${SESSION_ID}" 2>/dev/null || true
-fi
-
-# Build report for JSON output
-FULL_REPORT=""
-if [ -n "$COMMENTS_REPORT" ]; then
-  FULL_REPORT="New comments since session started:\n${COMMENTS_REPORT}"
-fi
-
-# Output JSON to stdout if there's a report
-# Use "decision": "block" with "reason" to prevent stopping and show Claude the report
-# Set "continue": true so Claude can continue working after seeing the message
-if [ -n "$FULL_REPORT" ]; then
-  # Convert escaped newlines to actual newlines, then use jq to properly escape for JSON
-  REASON_TEXT=$(printf '%s' "$(echo -e "$FULL_REPORT")" | jq -Rs '.')
-  printf '{"decision": "block", "reason": %s, "continue": true}\n' "$REASON_TEXT"
-fi
+# Clean up session watermark on exit
+curl -sf -X DELETE "${BASE_URL}/session/${SESSION_ID}" 2>/dev/null || true
 
 # POST to /session/stop endpoint with dispatcherPid
 curl -s --max-time 2 -X POST "${BASE_URL}/session/stop" \

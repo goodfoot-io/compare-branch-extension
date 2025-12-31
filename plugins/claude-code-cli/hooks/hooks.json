@@ -60,6 +60,10 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/cli-skill-cleanup.sh"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-end.sh"
           }
         ]
       }
@@ -69,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-stop.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/stop.sh"
           }
         ]
       }
