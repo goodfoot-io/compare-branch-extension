@@ -71,21 +71,19 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
+Launch parallel Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
 ```xml
 <invoke name="Task">
 <parameter name="description">explore-[target-a]</parameter>
 <parameter name="subagent_type">Explore</parameter>
 <parameter name="model">haiku</parameter>
-<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
 </invoke>
 <invoke name="Task">
 <parameter name="description">explore-[target-b]</parameter>
 <parameter name="subagent_type">Explore</parameter>
 <parameter name="model">haiku</parameter>
-<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
 </invoke>
 ```
@@ -128,8 +126,6 @@ PATCH /issues/[ISSUE_ID]
 
 Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
 
-Make sure to kill any Explore subagents that have not returned before moving to the next step.
-
 ## 2. Create Reproduction Test
 
 Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
@@ -144,7 +140,7 @@ Extract from [DESCRIPTION] and [COMMENTS]:
 
 ### 2.2 Delegate to Subagent
 
-Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
+Launch additional Explore subagents if new information reveals unexplored areas.
 
 Increment REPRODUCTION_ATTEMPT, then invoke:
 

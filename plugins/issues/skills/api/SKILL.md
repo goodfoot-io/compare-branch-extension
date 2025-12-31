@@ -42,22 +42,23 @@ PATCH /issues/{id}
 The `planContent` field stores the plan for review and reference during implementation.
 </plan-approval>
 
-<git-commit-sha>
-Record the git commit SHA to track repository state by posting comments with `commitSha`.
-
-Use `git rev-parse HEAD` to get the current 40-character SHA.
-</git-commit-sha>
-
 <reload-after-compaction>
 You must reload this skill after compaction.
 </reload-after-compaction>
 
 <api>
 
+
+
+
+
 ```!
 BACKTICK='`'
-echo "# Example: List all issues"
-echo "curl -s \"${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}/issues\" | jq ."
+echo "# Get the API base URL"
+echo "API_BASE=${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}
+echo ""
+echo "# List all issues"
+echo "curl -s \"$API_BASE/issues\" | jq ."
 ```
 
 ## Endpoints

@@ -104,6 +104,8 @@ Issue: [ISSUE_ID]
 Title: [TITLE]"
 ```
 
+**Do not post the merge commit in a comment.**
+
 Based on merge result:
 - **Merge succeeds**: Proceed to Step 6
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Merge failed after successful rebase.

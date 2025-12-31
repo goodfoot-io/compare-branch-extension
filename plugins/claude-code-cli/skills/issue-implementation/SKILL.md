@@ -31,119 +31,112 @@ Determine environment path using the first matching condition:
 ### Resume (worktree exists)
 
 ```bash
-cd ".worktrees/[BRANCH_NAME]"
+WORKTREE_DIR=".worktrees/[BRANCH_NAME]"
+cd "$WORKTREE_DIR"
 git stash --include-untracked  # Save uncommitted work; restore with git stash pop after step 2
+BASE_SHA=$(git rev-parse HEAD)
 ```
-
-Update issue with worktree path:
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "worktreePath": "$(pwd)"
-}
-```
-
-If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
 
 ### Recreate (branch exists, no worktree)
 
 ```bash
-instant-worktree "[BRANCH_NAME]"
-cd ".worktrees/[BRANCH_NAME]"
+WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
+BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
+cd "$WORKTREE_DIR"
 ```
-
-Update issue with worktree path:
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "worktreePath": "$(pwd)"
-}
-```
-
-If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
 
 ### New (fresh start)
 
-1. Create worktree:
-   ```bash
-   WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
-   WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
-   BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
-   cd "$WORKTREE_DIR"
-   ```
+```bash
+WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
+BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
+cd "$WORKTREE_DIR"
+```
 
-2. Update issue with worktree path:
-   ```
-   PATCH /issues/[ISSUE_ID]
-   {
-     "worktreePath": "$WORKTREE_DIR"
-   }
-   ```
+### Register worktree (all paths)
 
-3. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "worktreePath": "$WORKTREE_DIR"
+}
+```
 
-   ```xml
-   <invoke name="Task">
-   <parameter name="description">explore-[target-a]</parameter>
-   <parameter name="subagent_type">Explore</parameter>
-   <parameter name="model">haiku</parameter>
-   <parameter name="run_in_background">true</parameter>
-   <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
-   </invoke>
-   <invoke name="Task">
-   <parameter name="description">explore-[target-b]</parameter>
-   <parameter name="subagent_type">Explore</parameter>
-   <parameter name="model">haiku</parameter>
-   <parameter name="run_in_background">true</parameter>
-   <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
-   </invoke>
-   ```
+Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the description to confirm you're working on the right thing.
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "[comment content]",
+  "author": "agent",
+  "commitSha": "${BASE_SHA}"
+}
+```
 
+If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**.
 
-4. Clarify issue:
+### For new issues
 
-   Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
+Launch parallel Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
-   **Clarify title when:**
-   - Title is truncated, incomplete, or doesn't start with an action verb
-   - Title describes symptom rather than the work (e.g., "Page is slow" → "Optimize database queries")
-   - Title references wrong component, file, or feature
+```xml
+<invoke name="Task">
+<parameter name="description">explore-[target-a]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">explore-[target-b]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
+</invoke>
+```
 
-   **Clarify description when:**
-   - Description contains factual errors (wrong paths, incorrect component names)
-   - Description lacks context needed to begin work
+Clarify issue:
 
-   **Leave unchanged when:** Only minor phrasing or style preferences would change.
+Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
 
-   **Clarification principles:**
-   - Preserve all user-provided details, requirements, and constraints
-   - Maintain user intent — the clarified version must request the same outcome
-   - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
+**Clarify title when:**
+- Title is truncated, incomplete, or doesn't start with an action verb
+- Title describes symptom rather than the work (e.g., "Page is slow" → "Optimize database queries")
+- Title references wrong component, file, or feature
 
-   **Enrich descriptions** with context discovered during exploration:
-   - Relevant file paths and component names
-   - Technical constraints or dependencies
-   - Acceptance criteria (if inferable from user intent)
-   - Brief background on why this change matters
+**Clarify description when:**
+- Description contains factual errors (wrong paths, incorrect component names)
+- Description lacks context needed to begin work
 
-   Do not expand scope beyond user intent.
+**Leave unchanged when:** Only minor phrasing or style preferences would change.
 
-   If changes are needed:
-   ```
-   PATCH /issues/[ISSUE_ID]
-   {
-     "title": "[CLARIFIED_TITLE]",
-     "description": "[CLARIFIED_DESCRIPTION]"
-   }
-   ```
+**Clarification principles:**
+- Preserve all user-provided details, requirements, and constraints
+- Maintain user intent — the clarified version must request the same outcome
+- Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
 
-   Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
+**Enrich descriptions** with context discovered during exploration:
+- Relevant file paths and component names
+- Technical constraints or dependencies
+- Acceptance criteria (if inferable from user intent)
+- Brief background on why this change matters
 
-   Make sure to kill any Explore subagents that have not returned before moving to the next step.
+Do not expand scope beyond user intent.
+
+If changes are needed:
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "title": "[CLARIFIED_TITLE]",
+  "description": "[CLARIFIED_DESCRIPTION]"
+}
+```
+
+Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
 
 ## 2. Implement
 
-Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
+Launch additional Explore subagents if new information reveals unexplored areas.
 
 Work in the worktree directory.
 
@@ -214,6 +207,32 @@ POST /issues/[ISSUE_ID]/comments
 
 ## 3. Finalize
 
+### If NOT [REVIEW_REQUIRED]:
+
+Post a summary explaining what you implemented and key decisions you made. List the main files you modified and which validation commands passed. Since no review is required, you're proceeding directly to merge.
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "[comment content]",
+  "author": "agent",
+  "commitSha": "[HEAD_SHA]",
+  "codeReferences": [
+    {
+      "path": "[file]",
+      "startLine": [n],
+      "endLine": [n]
+    }
+  ]
+}
+```
+
+```xml
+<invoke name="Skill">
+  <parameter name="skill">claude-code-cli:issue-merge</parameter>
+</invoke>
+```
+
 ### If [REVIEW_REQUIRED]:
 
 Post a summary explaining what you implemented and key decisions you made. List the main files you modified and which validation commands passed. Indicate you're waiting for approval before merge.
@@ -234,13 +253,5 @@ POST /issues/[ISSUE_ID]/comments
 ```
 
 Stop here. Merge occurs via `issue-merge` skill after user approval.
-
-### If NOT [REVIEW_REQUIRED]:
-
-```xml
-<invoke name="Skill">
-  <parameter name="skill">claude-code-cli:issue-merge</parameter>
-</invoke>
-```
 
 </instructions>
