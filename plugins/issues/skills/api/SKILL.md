@@ -54,7 +54,9 @@ You must reload this skill after compaction.
 
 ```!
 BACKTICK='`'
+API_BASE=$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)
 echo "# Get the API base URL"
+echo "## Currently: \"$API_BASE\" but the port may change"
 echo "API_BASE=\"\$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)\""
 echo ""
 echo "# List all issues"
