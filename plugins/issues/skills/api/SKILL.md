@@ -32,19 +32,19 @@ When an issue has `plan: true`, you must present a plan for user approval before
 
 **Workflow:**
 1. Create the plan document following the `claude-code-cli:plan` skill format
-2. Post the plan as a comment to the issue for user review
-3. Once approved, store the plan content on the issue using `planContent`:
+2. Store the plan in the `planContent` field for user review:
 
 ```
 PATCH /issues/{id}
 {
-  "planContent": "[full plan markdown content]"
+  "planContent": "[full plan markdown content]",
+  "codeReferences": ["/path/to/reviewed/file.ts"]
 }
 ```
 
-4. Wait for user approval before proceeding with implementation
+3. Wait for user approval before proceeding with implementation
 
-The `planContent` field stores the approved plan for reference during implementation. Use it to access plan details without searching through comments.
+The `planContent` field stores the plan for review and reference during implementation.
 </plan-approval>
 
 <git-commit-sha>
@@ -57,14 +57,14 @@ Use `git rev-parse HEAD` to get the current 40-character SHA.
 You must reload this skill after compaction.
 </reload-after-compaction>
 
+<api>
+
 ```!
 BACKTICK='`'
-BASE_URL=$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)
-
-echo "<api>"
-echo "Base URL: ${BASE_URL}"
-
+echo "# Example: List all issues"
+echo "curl -s \"${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}/issues\" | jq ."
 ```
+
 
 ## Endpoints
 
@@ -72,13 +72,24 @@ echo "Base URL: ${BASE_URL}"
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /issues | List all issues with summaries |
+| GET | /issues | List issues (supports pagination) |
 | POST | /issues | Create a new issue |
 | GET | /issues/{issueId} | Get issue with all comments |
 | PATCH | /issues/{issueId} | Update issue properties |
 | DELETE | /issues/{issueId} | Delete issue and all comments |
 
 ```typescript
+// GET /issues
+// Query parameters:
+//   limit?: number   - Maximum issues to return (default: all)
+//   offset?: number  - Number of issues to skip (default: 0)
+// Returns: IssueSummary[]
+//
+// Examples:
+//   GET /issues                    → All issues
+//   GET /issues?limit=10           → First 10 issues
+//   GET /issues?limit=10&offset=10 → Issues 11-20
+
 // POST /issues
 interface CreateIssueRequest {
   title: string;

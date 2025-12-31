@@ -51,27 +51,21 @@ When the user requests changes to a plan:
    - Added batching logic for high-frequency events
    - Removed preference caching (will use existing cache layer)
    - Narrowed scope to exclude mobile push notifications
-
-   Revised plan follows in the next comment.
    ```
 
-2. Post the revised plan as a separate, standalone comment
-3. The plan comment contains only the plan — no revision notes or diff summaries
+2. Update `planContent` with the revised plan via `PATCH /issues/{issueId}`
+3. The revised plan contains only the plan — no revision notes or diff summaries
 
 ---
 
-## Posting Plans
+## Storing Plans
 
-Plans are posted as standalone comments via `POST /issues/{issueId}/comments`:
+Plans are stored in the `planContent` field via `PATCH /issues/{issueId}`:
 
 ```typescript
 {
-  "body": "[plan content]",
-  "author": "agent",
-  "codeReferences": [
-    // Required: Include ALL files mentioned in Technical Approach
-    { "uri": "src/services/auth.ts", "range": { "startLine": 45, "endLine": 78 } }
-  ]
+  "planContent": "[plan content]",
+  "codeReferences": ["/path/to/reviewed/file.ts"]
 }
 ```
 
@@ -82,12 +76,12 @@ Include code references for files mentioned in:
 - Implementation References
 
 ### Standalone Requirement
-The plan comment must be self-contained and readable without context from other comments. Do not include:
+The plan must be self-contained and readable without additional context. Do not include:
 - References to "the previous version"
 - Diff summaries or change notes
 - Conversational preamble ("Based on your feedback...")
 
-If revising a plan, post meta-analysis as a separate comment before the plan.
+If revising a plan, post meta-analysis as a separate comment, then update `planContent` with the revised plan.
 
 ---
 

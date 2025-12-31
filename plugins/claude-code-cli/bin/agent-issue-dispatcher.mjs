@@ -247,9 +247,9 @@ function startBackgroundPolling() {
       if (!response.ok) return;
 
       const data = await response.json();
-      if (!data.issues) return;
+      if (!Array.isArray(data)) return;
 
-      const issuesNeedingAttention = data.issues.filter(
+      const issuesNeedingAttention = data.filter(
         (issue) => issue.needsAgentAttention === true
       );
 
@@ -447,14 +447,14 @@ async function main() {
     }
 
     // Validate response
-    if (!issuesResponse.issues) {
-      log('Warning: Invalid response from API (missing .issues)');
+    if (!Array.isArray(issuesResponse)) {
+      log('Warning: Invalid response from API (not an array)');
       await sleep(5000);
       continue;
     }
 
     // Find highest-priority issue needing attention
-    const issuesNeedingAttention = issuesResponse.issues
+    const issuesNeedingAttention = issuesResponse
       .filter((issue) => issue.needsAgentAttention === true)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 

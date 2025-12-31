@@ -18,20 +18,14 @@ Create implementation plans for issues requiring user approval before coding beg
 
 Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null.
 
-- **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
 - **Previous plan AND [LATEST_USER_COMMENT] is null**: Skip to step 3.8 (Wait)
-- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
+- **Previous plan AND [LATEST_USER_COMMENT] contains revision request**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
+- **Previous plan AND [LATEST_USER_COMMENT] exists but no revision signals**: Skip to step 3.8 (Wait)
 - **No previous plan**: Create new plan. Start at step 2.
 
 ## 2. Classifying User Feedback
 
 **Default: When intent is unclear, treat as revision request.**
-
-<approval-signals>
-These signals cause the routing layer to redirect to implementation on the next invocation:
-- Explicit: "Approved", "LGTM", "Go ahead", "Proceed", "Ship it", or equivalent affirmative
-- Implicit: "This looks good", "Perfect", "Great plan", "Yes", "OK", "Do it"
-</approval-signals>
 
 <revision-signals>
 These signals mean stay in this skill and revise:
@@ -55,31 +49,52 @@ Invoke `claude-code-cli:plan` for structure requirements and examples.
 
 ### 3.3 Clarify Title and Description
 
-After research, evaluate whether the title and description clearly represent the planned work. A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
+After research, evaluate whether the title and description clearly represent the planned work.
 
-**Clarify title when:**
-- Title is truncated, incomplete, or doesn't start with an action verb
-- Title describes symptom but research reveals root cause
-- Title references wrong component, file, or feature
+#### 3.3.1 Title Evaluation
 
-**Clarify description when:**
-- Description contains factual errors (wrong paths, incorrect component names)
-- Description lacks context needed to understand the planned work
+A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
 
-**Leave unchanged when:** Only minor phrasing or style preferences would change.
+Determine the issue type, then apply the corresponding rules:
 
-**Clarification principles:**
-- Preserve all user-provided details, requirements, and constraints
-- Maintain user intent — the clarified version must request the same outcome
-- Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
+- **Feature or enhancement**: Title should start with action verb ("Add", "Update", "Remove") and describe the user-observable outcome
+- **Bug or diagnostic issue**: Title should identify root cause and impact — diagnostic clarity takes precedence over action verbs (e.g., "SessionPidRegistry never instantiated — process tracking disabled" is preferred over "Instantiate SessionPidRegistry")
+- **API or infrastructure change**: The technical change IS the observable outcome for developer users — titles like "Add GraphQL subscriptions for issue updates" are acceptable
 
-**Enrich descriptions** with context discovered during research:
+Clarify title when:
+
+- **Truncated or incomplete**: Complete the thought concisely
+- **Describes symptom only**: Add root cause if research revealed it
+- **References wrong component**: Correct to match codebase
+- **Contains rationale clause**: Move "because..." or "as..." explanations to description
+- **Multi-part scope unclear**: If issue has multiple distinct changes, title should summarize the primary change or use "and" to connect two major items (not three or more)
+
+#### 3.3.2 Description Evaluation
+
+Clarify description when:
+
+- **Duplicates title verbatim**: Expand with context, motivation, and criteria
+- **Missing problem/motivation**: Add brief explanation of why this matters
+- **Missing current vs desired**: Add contrast showing before/after states
+- **Vague acceptance criteria**: Add observable, testable success conditions
+- **Ambiguous scope phrases**: Clarify "replacing or complementing", "etc.", "and more"
+
+Enrich descriptions with context discovered during research:
+
 - Relevant file paths and component names
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)
 - Brief background on why this change matters
 
-Do not expand scope beyond user intent.
+#### 3.3.3 Preservation Principles
+
+- Preserve all user-provided details, requirements, and constraints
+- Maintain user intent — the clarified version must request the same outcome
+- Correct factual errors in main text; append footnote: `*Corrections: Changed X to Y (reason)*`
+- Do not expand scope beyond user intent
+- When adding acceptance criteria, derive from stated intent — do not introduce new requirements
+
+**Leave unchanged when:** Only minor phrasing or style preferences would change.
 
 ```
 PATCH /issues/[ISSUE_ID]
@@ -138,30 +153,55 @@ Description: [DESCRIPTION]</parameter>
 
 Review both assessment reports.
 
-**Post evaluation comment:**
+**Post meta-analysis comment:**
+
+Summarize how assessor findings influenced the plan. Use natural language paragraphs to explain the reasoning behind changes — avoid terse bullet lists that lack context.
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Evaluation Summary\n\n### Questions Raised\n[List concerns, ambiguities, or issues identified by assessors]\n\n### Decisions\n[For each question: state the decision and brief rationale]",
+  "body": "## Evaluation Notes\n\n[Narrative explanation of how assessor findings shaped the plan, including rationale for key decisions and any unresolved questions requiring user input]",
   "author": "agent"
 }
 ```
 
-**Update description if evidence contradicts it:**
+Example comment body:
 
-When assessor findings reveal that the description contains incorrect assumptions or factual errors (wrong root cause, incorrect component, invalid constraints), update the description with corrections and a footnote:
+```markdown
+## Evaluation Notes
+
+The structural assessment identified that batch processing was outside the stated problem scope. Since the original issue focused on real-time notification delivery, I've removed the batching logic from the Technical Approach to keep the implementation focused.
+
+The strategic assessment flagged an unvalidated assumption about Redis adapter compatibility with Socket.io v4.6.1. Rather than proceed on assumption, I've added a tactical spike to the plan that will verify this integration before committing to the architecture.
+
+Both assessors noted ambiguity around reconnection behavior. The plan now explicitly addresses this in the Risks section, but I'd like your input: should we sync missed notifications on reconnect, or start fresh? The former adds complexity but improves UX; the latter is simpler but users may miss events during brief disconnections.
+```
+
+**Update title when assessor findings reveal:**
+
+- Title describes symptom but investigation found root cause
+- Title names wrong component or approach
+- Title scope doesn't match planned work (e.g., title mentions one change but plan covers multiple)
+
+**Update description when assessor findings reveal:**
+
+- Incorrect assumptions or factual errors (wrong root cause, incorrect component, invalid constraints)
+- Ambiguous requirements that led to assessor confusion
+- Missing context that assessors needed to ask about
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
+  "title": "[CORRECTED_TITLE]",
   "description": "[corrected description]\n\n---\n*Corrections based on evaluation: [what changed and why]*"
 }
 ```
 
-Do not update the description for stylistic preferences or minor clarifications—only when evidence directly contradicts stated facts.
+Do not update for stylistic preferences or minor clarifications — only when evidence directly contradicts stated facts or when ambiguity caused assessor confusion.
 
 **Based on assessment severity:**
-- **CRITICAL or HIGH priority issues**: Revise the plan, re-store via PATCH, re-run step 3.5 (maximum 2 cycles—if issues persist, note unresolved concerns in the comment)
+
+- **CRITICAL or HIGH priority issues**: Revise the plan, re-store via PATCH, re-run step 3.5 (maximum 2 cycles — if issues persist, note unresolved concerns in the comment)
 - **Otherwise**: Proceed to step 3.7
 
 ### 3.7 Submit for Approval
@@ -181,7 +221,7 @@ PATCH /issues/[ISSUE_ID]
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
 
 The orchestration layer will re-invoke when user responds:
-- Approval → routes to `claude-code-cli:issue-implementation`
+- Approval (`planApproved` set to true) → routes to `claude-code-cli:issue-implementation-with-plan`
 - Revision request → re-invokes this skill; Entry Check routes to step 2 or 3
 
 </instructions>
