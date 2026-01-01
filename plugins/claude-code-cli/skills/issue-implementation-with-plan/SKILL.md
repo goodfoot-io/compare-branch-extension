@@ -58,13 +58,15 @@ There is no "probably fine" state. If you cannot make validation pass, you MUST 
 
 <tools>
 
-**instant-worktree** — Creates git worktree with symlinked dependencies (~2 seconds).
+**create-worktree-with-hooks** — Creates git worktree with automatic commitSha posting via hooks.
 
 ```bash
-instant-worktree "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
 ```
 
 Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn't exist, or attaches to an existing branch. Fails if worktree path is already occupied.
+
+Git hooks automatically post `commitSha` after each commit. Squashed commits are cleaned up automatically.
 
 </tools>
 
@@ -97,7 +99,7 @@ Continue to Step 2. Restore stash after todo initialization.
 ### Recreate
 
 ```bash
-instant-worktree "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
 cd ".worktrees/[BRANCH_NAME]"
 ```
 
@@ -115,7 +117,7 @@ Continue to Step 2.
 
 1. Create worktree:
    ```bash
-   WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]")
    WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
    BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
    cd "$WORKTREE_DIR"
@@ -157,8 +159,7 @@ Continue to Step 2.
    POST /issues/[ISSUE_ID]/comments
    {
      "body": "[comment content]",
-     "author": "agent",
-     "commitSha": "${BASE_SHA}"
+     "author": "agent"
    }
    ```
 
@@ -389,7 +390,6 @@ POST /issues/[ISSUE_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent",
-  "commitSha": "[HEAD_SHA]",
   "codeReferences": [
     {
       "path": "[file]",

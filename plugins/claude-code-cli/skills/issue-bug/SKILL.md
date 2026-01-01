@@ -23,13 +23,15 @@ description: Fix testable bugs using test-first methodology.
 
 <tools>
 
-**instant-worktree** — Creates git worktree with symlinked dependencies (~2 seconds).
+**create-worktree-with-hooks** — Creates git worktree with automatic commitSha posting via hooks.
 
 ```bash
-instant-worktree "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
 ```
 
 Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates new branch if needed, or attaches to existing branch.
+
+Git hooks automatically post `commitSha` after each commit. Squashed commits are cleaned up automatically.
 
 </tools>
 
@@ -57,7 +59,7 @@ if git show-ref --verify --quiet "refs/heads/[BRANCH_NAME]"; then
 fi
 
 # Create fresh worktree
-WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]")
 WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
 WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"
@@ -417,7 +419,6 @@ Based on review requirement:
   {
     "body": "[comment content]",
     "author": "agent",
-    "commitSha": "$(git rev-parse HEAD)",
     "codeReferences": [
       {
         "path": "${TEST_FILE_PATH}"
@@ -434,7 +435,6 @@ Based on review requirement:
   {
     "body": "[comment content]",
     "author": "agent",
-    "commitSha": "$(git rev-parse HEAD)",
     "codeReferences": [
       {
         "path": "${TEST_FILE_PATH}"
