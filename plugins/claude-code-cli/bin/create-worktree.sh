@@ -8,11 +8,13 @@
 #
 # This is a standalone script that does not depend on external worktree utilities.
 #
-# Usage: create-worktree --issue <ISSUE_ID> <branch-name>
+# Usage: ISSUE_ID=<id> create-worktree <branch-name>
+#
+# Environment:
+#   ISSUE_ID    Required. The issue ID to associate with commits (e.g., main:259)
 #
 # Options:
-#   --issue <ID>    Required. The issue ID to associate with commits (e.g., main:259)
-#   --help          Show this help message
+#   --help      Show this help message
 #
 # Output: JSON with branch, worktree, baseSha, and issueId
 # Exit codes:
@@ -28,28 +30,22 @@ set -e
 # Get the directory where this script is located (plugin bin directory)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Save the original working directory - this is where the issue's API is running
+ISSUE_WORKSPACE_PATH="$(pwd)"
+
 # Parse arguments
-ISSUE_ID=""
 BRANCH_NAME=""
 SHOW_HELP=false
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --issue)
-            if [ -z "$2" ]; then
-                printf '%s\n' "Error: --issue requires an argument" >&2
-                exit 2
-            fi
-            ISSUE_ID="$2"
-            shift 2
-            ;;
         --help|-h)
             SHOW_HELP=true
             shift
             ;;
         -*)
             printf '%s\n' "Error: Unknown option '$1'" >&2
-            printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
+            printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
             exit 2
             ;;
         *)
@@ -57,7 +53,7 @@ while [ $# -gt 0 ]; do
                 BRANCH_NAME="$1"
             else
                 printf '%s\n' "Error: Unexpected argument '$1'" >&2
-                printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
+                printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
                 exit 2
             fi
             shift
@@ -67,29 +63,31 @@ done
 
 # Show help if requested
 if [ "$SHOW_HELP" = "true" ]; then
-    printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>"
+    printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>"
     printf '%s\n' ""
     printf '%s\n' "Creates a git worktree with automatic commitSha posting via git hooks."
     printf '%s\n' ""
+    printf '%s\n' "Environment:"
+    printf '%s\n' "  ISSUE_ID    Required. The issue ID to associate with commits (e.g., main:259)"
+    printf '%s\n' ""
     printf '%s\n' "Options:"
-    printf '%s\n' "  --issue <ID>    Required. The issue ID to associate with commits"
-    printf '%s\n' "  --help          Show this help message"
+    printf '%s\n' "  --help      Show this help message"
     printf '%s\n' ""
     printf '%s\n' "The script installs hooks that automatically post commit information"
     printf '%s\n' "to the Issues API after each commit or rebase."
     exit 0
 fi
 
-# Validate required arguments
+# Validate required environment variable
 if [ -z "$ISSUE_ID" ]; then
-    printf '%s\n' "Error: --issue <ISSUE_ID> is required" >&2
-    printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
+    printf '%s\n' "Error: ISSUE_ID environment variable is required" >&2
+    printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
     exit 2
 fi
 
 if [ -z "$BRANCH_NAME" ]; then
     printf '%s\n' "Error: branch-name argument is required" >&2
-    printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
+    printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
     exit 2
 fi
 
@@ -307,6 +305,10 @@ git -C "$WORKTREE_DIR" config --worktree issue.pluginBinDir "$SCRIPT_DIR" 2>/dev
     printf '%s\n' "Error: Failed to store issue.pluginBinDir in worktree git config" >&2
     exit 2
 }
+git -C "$WORKTREE_DIR" config --worktree issue.workspacePath "$ISSUE_WORKSPACE_PATH" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store issue.workspacePath in worktree git config" >&2
+    exit 2
+}
 
 # Create hooks directory if it doesn't exist
 HOOKS_DIR="${WORKTREE_GIT_DIR}/hooks"
@@ -322,11 +324,26 @@ cat > "${HOOKS_DIR}/post-commit" << 'HOOK_EOF'
 set -o pipefail
 
 ISSUE_ID=$(git config --worktree issue.id 2>/dev/null)
-PLUGIN_BIN_DIR=$(git config --worktree issue.pluginBinDir 2>/dev/null)
+WORKSPACE_PATH=$(git config --worktree issue.workspacePath 2>/dev/null)
 
-if [ -z "$ISSUE_ID" ] || [ -z "$PLUGIN_BIN_DIR" ]; then
+if [ -z "$ISSUE_ID" ] || [ -z "$WORKSPACE_PATH" ]; then
   exit 0  # Not a tracked worktree, silently skip
 fi
+
+# Discover API for the issue's workspace (not the worktree's workspace)
+DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
+if [ ! -f "$DISCOVERY_FILE" ]; then
+  exit 0  # No discovery file, silently skip
+fi
+
+PORT=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
+HOST=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
+
+if [ -z "$PORT" ] || [ -z "$HOST" ]; then
+  exit 0  # Issue workspace API not running, silently skip
+fi
+
+API_BASE="http://${HOST}:${PORT}/api/v1"
 
 SHA=$(git rev-parse HEAD)
 MSG=$(git log -1 --format="%s" HEAD | head -c 100)  # Truncate long messages
@@ -334,7 +351,6 @@ MSG=$(git log -1 --format="%s" HEAD | head -c 100)  # Truncate long messages
 # Escape special characters in message for JSON
 MSG=$(printf '%s' "$MSG" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | tr '\n' ' ')
 
-API_BASE=$("${PLUGIN_BIN_DIR}/discover-api.sh" 2>/dev/null) || exit 0
 curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
   -H "Content-Type: application/json" \
   -d "{\"body\": \"Committed: $MSG\", \"author\": \"agent\", \"commitSha\": \"$SHA\"}" \
@@ -355,13 +371,26 @@ cat > "${HOOKS_DIR}/post-rewrite" << 'HOOK_EOF'
 set -o pipefail
 
 ISSUE_ID=$(git config --worktree issue.id 2>/dev/null)
-PLUGIN_BIN_DIR=$(git config --worktree issue.pluginBinDir 2>/dev/null)
+WORKSPACE_PATH=$(git config --worktree issue.workspacePath 2>/dev/null)
 
-if [ -z "$ISSUE_ID" ] || [ -z "$PLUGIN_BIN_DIR" ]; then
+if [ -z "$ISSUE_ID" ] || [ -z "$WORKSPACE_PATH" ]; then
   exit 0
 fi
 
-API_BASE=$("${PLUGIN_BIN_DIR}/discover-api.sh" 2>/dev/null) || exit 0
+# Discover API for the issue's workspace (not the worktree's workspace)
+DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
+if [ ! -f "$DISCOVERY_FILE" ]; then
+  exit 0
+fi
+
+PORT=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
+HOST=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
+
+if [ -z "$PORT" ] || [ -z "$HOST" ]; then
+  exit 0  # Issue workspace API not running, silently skip
+fi
+
+API_BASE="http://${HOST}:${PORT}/api/v1"
 NEW_SHA=$(git rev-parse HEAD)
 
 # Count rewritten commits and collect old SHAs

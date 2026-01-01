@@ -160,17 +160,17 @@ echo "Using utility: $UTILITY"
 
 echo -e "\n${YELLOW}=== Test 1: Missing branch name argument should fail with exit 2 ===${NC}"
 cd "$TEST_DIR/repo"
-run_test "Missing branch name" 2 "$UTILITY" "--issue" "test:123"
+run_test "Missing branch name" 2 env ISSUE_ID="test:123" "$UTILITY"
 
-echo -e "\n${YELLOW}=== Test 2: Missing --issue parameter should fail with exit 2 ===${NC}"
-run_test "Missing --issue parameter" 2 "$UTILITY" "test-branch"
+echo -e "\n${YELLOW}=== Test 2: Missing ISSUE_ID env var should fail with exit 2 ===${NC}"
+run_test "Missing ISSUE_ID env var" 2 "$UTILITY" "test-branch"
 
 echo -e "\n${YELLOW}=== Test 3: Invalid branch name format should fail with exit 2 ===${NC}"
-run_test "Invalid branch name (starts with hyphen)" 2 "$UTILITY" "--issue" "test:123" "-invalid"
-run_test "Invalid branch name (special chars)" 2 "$UTILITY" "--issue" "test:123" "test@branch"
+run_test "Invalid branch name (starts with hyphen)" 2 env ISSUE_ID="test:123" "$UTILITY" "-invalid"
+run_test "Invalid branch name (special chars)" 2 env ISSUE_ID="test:123" "$UTILITY" "test@branch"
 
-echo -e "\n${YELLOW}=== Test 4: Basic worktree creation with --issue parameter should succeed ===${NC}"
-run_test "Create worktree with --issue" 0 "$UTILITY" "--issue" "test:123" "hooks-test-1"
+echo -e "\n${YELLOW}=== Test 4: Basic worktree creation with ISSUE_ID should succeed ===${NC}"
+run_test "Create worktree with ISSUE_ID" 0 env ISSUE_ID="test:123" "$UTILITY" "hooks-test-1"
 verify "Worktree directory exists" "[ -d '.worktrees/hooks-test-1' ]"
 verify "Branch created" "git branch --list hooks-test-1 | grep -q hooks-test-1"
 verify "Source files copied" "[ -f '.worktrees/hooks-test-1/README.md' ]"
@@ -189,13 +189,13 @@ echo -e "\n${YELLOW}=== Test 7: Issue ID stored correctly in git config ===${NC}
 STORED_ISSUE_ID=$(git -C ".worktrees/hooks-test-1" config --worktree issue.id 2>/dev/null)
 verify "Issue ID matches" "[ '$STORED_ISSUE_ID' = 'test:123' ]"
 
-echo -e "\n${YELLOW}=== Test 8: Plugin bin path stored correctly in git config ===${NC}"
-STORED_PLUGIN_BIN_DIR=$(git -C ".worktrees/hooks-test-1" config --worktree issue.pluginBinDir 2>/dev/null)
-verify "Plugin bin dir is stored" "[ -n '$STORED_PLUGIN_BIN_DIR' ]"
-verify "Plugin bin dir is absolute path" "[[ '$STORED_PLUGIN_BIN_DIR' == /* ]]"
+echo -e "\n${YELLOW}=== Test 8: Workspace path stored correctly in git config ===${NC}"
+STORED_WORKSPACE_PATH=$(git -C ".worktrees/hooks-test-1" config --worktree issue.workspacePath 2>/dev/null)
+verify "Workspace path is stored" "[ -n '$STORED_WORKSPACE_PATH' ]"
+verify "Workspace path is absolute path" "[[ '$STORED_WORKSPACE_PATH' == /* ]]"
 
 echo -e "\n${YELLOW}=== Test 9: JSON output includes issueId field ===${NC}"
-output=$("$UTILITY" "--issue" "test:456" "json-test-branch" 2>/dev/null)
+output=$(ISSUE_ID="test:456" "$UTILITY" "json-test-branch" 2>/dev/null)
 verify "Output is valid JSON" "echo '$output' | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null"
 verify "JSON contains issueId field" "echo '$output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"issueId\"]==\"test:456\"' 2>/dev/null"
 
@@ -210,11 +210,11 @@ verify "baseSha is stored" "[ -n '$STORED_BASE_SHA' ]"
 verify "baseSha is valid format (40 char hex)" "echo '$STORED_BASE_SHA' | grep -qE '^[a-f0-9]{40}$'"
 
 echo -e "\n${YELLOW}=== Test 12: Duplicate branch name should fail ===${NC}"
-run_test "Duplicate branch" 2 "$UTILITY" "--issue" "test:789" "hooks-test-1"
+run_test "Duplicate branch" 2 env ISSUE_ID="test:789" "$UTILITY" "hooks-test-1"
 
 echo -e "\n${YELLOW}=== Test 13: Not in git repository should fail ===${NC}"
 cd /tmp
-run_test "Not in git repo" 2 "$UTILITY" "--issue" "test:000" "no-repo-branch"
+run_test "Not in git repo" 2 env ISSUE_ID="test:000" "$UTILITY" "no-repo-branch"
 cd "$TEST_DIR/repo"
 
 echo -e "\n${YELLOW}=== Test 14: Verify error output goes to stderr ===${NC}"
@@ -223,7 +223,7 @@ verify "Error message goes to stderr" "[ -n '$stderr_output' ]"
 
 echo -e "\n${YELLOW}=== Test 15: Running from subdirectory should work ===${NC}"
 cd "$TEST_DIR/repo/src"
-run_test "From subdirectory" 0 "$UTILITY" "--issue" "test:subdirtest" "subdir-hooks-branch"
+run_test "From subdirectory" 0 env ISSUE_ID="test:subdirtest" "$UTILITY" "subdir-hooks-branch"
 verify "Worktree created at repo root" "[ -d '$TEST_DIR/repo/.worktrees/subdir-hooks-branch' ]"
 cd "$TEST_DIR/repo"
 
@@ -237,19 +237,19 @@ else
     echo -e "${RED}FAIL${NC}: --help should exit with 0, got $exit_code"
     ((FAILED++))
 fi
-verify "--help output mentions --issue" "echo '$help_output' | grep -q '\-\-issue'"
+verify "--help output mentions ISSUE_ID" "echo '$help_output' | grep -q 'ISSUE_ID'"
 verify "--help output mentions branch-name" "echo '$help_output' | grep -q 'branch-name'"
 
 echo -e "\n${YELLOW}=== Test 17: Feature branch with slash should work ===${NC}"
-run_test "Feature branch with slash" 0 "$UTILITY" "--issue" "test:feature" "feature/new-feature"
+run_test "Feature branch with slash" 0 env ISSUE_ID="test:feature" "$UTILITY" "feature/new-feature"
 verify "Feature branch worktree exists" "[ -d '.worktrees/feature/new-feature' ]"
 # Verify hooks were installed for feature branch
 FEATURE_GIT_DIR=$(git -C ".worktrees/feature/new-feature" rev-parse --git-dir 2>/dev/null)
 verify "Feature branch has hooks" "[ -f '$FEATURE_GIT_DIR/hooks/post-commit' ]"
 
-echo -e "\n${YELLOW}=== Test 18: Issue parameter with different formats ===${NC}"
-run_test "Issue ID with colon format" 0 "$UTILITY" "--issue" "main:259" "issue-format-test-1"
-run_test "Issue ID simple format" 0 "$UTILITY" "--issue" "simple-issue-id" "issue-format-test-2"
+echo -e "\n${YELLOW}=== Test 18: Issue ID with different formats ===${NC}"
+run_test "Issue ID with colon format" 0 env ISSUE_ID="main:259" "$UTILITY" "issue-format-test-1"
+run_test "Issue ID simple format" 0 env ISSUE_ID="simple-issue-id" "$UTILITY" "issue-format-test-2"
 
 # Summary
 echo -e "\n${YELLOW}===== TEST SUMMARY =====${NC}"

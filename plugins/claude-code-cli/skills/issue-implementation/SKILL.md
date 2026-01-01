@@ -12,7 +12,7 @@ description: Implement issues in isolated git worktree.
 **create-worktree** — Creates git worktree with automatic commitSha posting via hooks.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
 ```
 
 Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn't exist, or attaches to an existing branch. Fails if worktree path is already occupied.
@@ -42,7 +42,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
 ### Recreate (branch exists, no worktree)
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
 cd ".worktrees/[BRANCH_NAME]"
 ```
 
@@ -52,7 +52,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
 
 1. Create worktree:
    ```bash
-   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]")
+   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
    WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
    BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
    cd "$WORKTREE_DIR"

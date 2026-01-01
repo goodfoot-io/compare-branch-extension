@@ -26,7 +26,7 @@ description: Fix testable bugs using test-first methodology.
 **create-worktree** — Creates git worktree with automatic commitSha posting via hooks.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
 ```
 
 Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates new branch if needed, or attaches to existing branch.
@@ -59,7 +59,7 @@ if git show-ref --verify --quiet "refs/heads/[BRANCH_NAME]"; then
 fi
 
 # Create fresh worktree
-WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]")
+WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
 WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
 WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"

@@ -146,7 +146,7 @@ cd "$TEST_DIR/repo"
 
 echo -e "\n${YELLOW}=== Flow 1: Complete create/remove lifecycle ===${NC}"
 echo "Creating worktree with hooks..."
-create_output=$("$CREATE_UTILITY" --issue "flow:1" "flow-test-1" 2>&1)
+create_output=$(ISSUE_ID="flow:1" "$CREATE_UTILITY" "flow-test-1" 2>&1)
 create_exit=$?
 
 verify "Worktree created successfully" "[ $create_exit -eq 0 ]"
@@ -179,7 +179,7 @@ verify "SHA returned matches" "[ '$remove_output' = '$EXPECTED_SHA' ]"
 
 echo -e "\n${YELLOW}=== Flow 2: Create worktree, make commit, verify hook execution ===${NC}"
 echo "Creating worktree..."
-"$CREATE_UTILITY" --issue "flow:2" "flow-test-2" >/dev/null 2>&1
+ISSUE_ID="flow:2" "$CREATE_UTILITY" "flow-test-2" >/dev/null 2>&1
 verify "Worktree created" "[ -d '.worktrees/flow-test-2' ]"
 
 # Verify config is set correctly for hooks to use
@@ -210,7 +210,7 @@ verify "Directory cleaned up" "[ ! -d '.worktrees/flow-test-2' ]"
 
 echo -e "\n${YELLOW}=== Flow 3: Worktree git config persists across operations ===${NC}"
 echo "Creating worktree..."
-"$CREATE_UTILITY" --issue "flow:3:complex:id" "flow-test-3" >/dev/null 2>&1
+ISSUE_ID="flow:3:complex:id" "$CREATE_UTILITY" "flow-test-3" >/dev/null 2>&1
 
 # Verify initial config
 INITIAL_ISSUE_ID=$(git -C ".worktrees/flow-test-3" config --worktree issue.id 2>/dev/null)
@@ -244,9 +244,9 @@ verify "pluginBinDir persists after commits" "[ '$POST_COMMIT_PLUGIN_BIN' = '$IN
 
 echo -e "\n${YELLOW}=== Flow 4: Multiple worktrees with different issue IDs ===${NC}"
 echo "Creating multiple worktrees..."
-"$CREATE_UTILITY" --issue "issue:alpha" "parallel-1" >/dev/null 2>&1
-"$CREATE_UTILITY" --issue "issue:beta" "parallel-2" >/dev/null 2>&1
-"$CREATE_UTILITY" --issue "issue:gamma" "parallel-3" >/dev/null 2>&1
+ISSUE_ID="issue:alpha" "$CREATE_UTILITY" "parallel-1" >/dev/null 2>&1
+ISSUE_ID="issue:beta" "$CREATE_UTILITY" "parallel-2" >/dev/null 2>&1
+ISSUE_ID="issue:gamma" "$CREATE_UTILITY" "parallel-3" >/dev/null 2>&1
 
 verify "All worktrees created" "[ -d '.worktrees/parallel-1' ] && [ -d '.worktrees/parallel-2' ] && [ -d '.worktrees/parallel-3' ]"
 
@@ -274,12 +274,12 @@ verify "All worktrees removed" "[ ! -d '.worktrees/parallel-1' ] && [ ! -d '.wor
 
 echo -e "\n${YELLOW}=== Flow 5: Create from within an existing worktree ===${NC}"
 echo "Creating parent worktree..."
-"$CREATE_UTILITY" --issue "issue:parent" "parent-worktree" >/dev/null 2>&1
+ISSUE_ID="issue:parent" "$CREATE_UTILITY" "parent-worktree" >/dev/null 2>&1
 verify "Parent worktree exists" "[ -d '.worktrees/parent-worktree' ]"
 
 # Run create from inside the parent worktree
 cd "$TEST_DIR/repo/.worktrees/parent-worktree"
-"$CREATE_UTILITY" --issue "issue:child" "child-from-worktree" >/dev/null 2>&1
+ISSUE_ID="issue:child" "$CREATE_UTILITY" "child-from-worktree" >/dev/null 2>&1
 cd "$TEST_DIR/repo"
 
 # The new worktree should be at the main repo root, not nested
@@ -296,7 +296,7 @@ verify "Child has correct issue ID" "[ '$CHILD_ISSUE' = 'issue:child' ]"
 
 echo -e "\n${YELLOW}=== Flow 6: Symlinks preserved during lifecycle ===${NC}"
 echo "Creating worktree and verifying symlinks..."
-"$CREATE_UTILITY" --issue "issue:symlink" "symlink-test" >/dev/null 2>&1
+ISSUE_ID="issue:symlink" "$CREATE_UTILITY" "symlink-test" >/dev/null 2>&1
 
 verify "node_modules is symlinked" "[ -L '.worktrees/symlink-test/node_modules' ]"
 verify "dist is symlinked" "[ -L '.worktrees/symlink-test/dist' ]"
@@ -312,7 +312,7 @@ verify "Original node_modules still exists after removal" "[ -d 'node_modules' ]
 
 echo -e "\n${YELLOW}=== Flow 7: SHA recovery scenario ===${NC}"
 echo "Simulating branch recovery using returned SHA..."
-"$CREATE_UTILITY" --issue "issue:recovery" "recovery-test" >/dev/null 2>&1
+ISSUE_ID="issue:recovery" "$CREATE_UTILITY" "recovery-test" >/dev/null 2>&1
 
 # Make some commits
 cd ".worktrees/recovery-test"
@@ -335,8 +335,8 @@ echo -e "\n${YELLOW}=== Flow 8: Error handling consistency ===${NC}"
 echo "Testing error conditions..."
 
 # Try to create with same issue but different branches (should succeed)
-"$CREATE_UTILITY" --issue "error:test" "error-branch-1" >/dev/null 2>&1
-"$CREATE_UTILITY" --issue "error:test" "error-branch-2" >/dev/null 2>&1
+ISSUE_ID="error:test" "$CREATE_UTILITY" "error-branch-1" >/dev/null 2>&1
+ISSUE_ID="error:test" "$CREATE_UTILITY" "error-branch-2" >/dev/null 2>&1
 verify "Same issue ID on different branches allowed" "[ -d '.worktrees/error-branch-1' ] && [ -d '.worktrees/error-branch-2' ]"
 
 # Both should have same issue ID
@@ -345,7 +345,7 @@ ID_B=$(git -C ".worktrees/error-branch-2" config --worktree issue.id 2>/dev/null
 verify "Both branches have same issue ID" "[ '$ID_A' = '$ID_B' ]"
 
 # Try to create duplicate branch (should fail)
-create_dup_exit=$("$CREATE_UTILITY" --issue "error:dup" "error-branch-1" 2>&1; echo $?)
+create_dup_exit=$(ISSUE_ID="error:dup" "$CREATE_UTILITY" "error-branch-1" 2>&1; echo $?)
 create_dup_exit=$(echo "$create_dup_exit" | tail -1)
 verify "Creating duplicate branch fails with exit 2" "[ '$create_dup_exit' = '2' ]"
 
@@ -355,7 +355,7 @@ verify "Creating duplicate branch fails with exit 2" "[ '$create_dup_exit' = '2'
 
 echo -e "\n${YELLOW}=== Flow 9: Hook content verification ===${NC}"
 echo "Verifying hook scripts have required content..."
-"$CREATE_UTILITY" --issue "hook:verify" "hook-content-test" >/dev/null 2>&1
+ISSUE_ID="hook:verify" "$CREATE_UTILITY" "hook-content-test" >/dev/null 2>&1
 
 HOOK_GIT_DIR=$(git -C ".worktrees/hook-content-test" rev-parse --git-dir 2>/dev/null)
 POST_COMMIT_HOOK="$HOOK_GIT_DIR/hooks/post-commit"
@@ -363,8 +363,8 @@ POST_REWRITE_HOOK="$HOOK_GIT_DIR/hooks/post-rewrite"
 
 # Verify post-commit hook has required elements (using grep directly on files)
 verify "post-commit reads issue.id from config" "grep -q 'issue.id' '$POST_COMMIT_HOOK'"
-verify "post-commit reads pluginBinDir from config" "grep -q 'issue.pluginBinDir' '$POST_COMMIT_HOOK'"
-verify "post-commit uses discover-api.sh" "grep -q 'discover-api.sh' '$POST_COMMIT_HOOK'"
+verify "post-commit reads workspacePath from config" "grep -q 'issue.workspacePath' '$POST_COMMIT_HOOK'"
+verify "post-commit uses issues-api.json" "grep -q 'issues-api.json' '$POST_COMMIT_HOOK'"
 verify "post-commit posts to issues API" "grep -q 'issues/\$ISSUE_ID/comments' '$POST_COMMIT_HOOK'"
 
 # Verify post-rewrite hook has required elements
@@ -376,14 +376,14 @@ verify "post-rewrite deletes old comments" "grep -q 'DELETE' '$POST_REWRITE_HOOK
 
 echo -e "\n${YELLOW}=== Flow 10: Recreate after removal ===${NC}"
 echo "Creating, removing, then recreating same branch with different issue..."
-"$CREATE_UTILITY" --issue "first:issue" "recreate-test" >/dev/null 2>&1
+ISSUE_ID="first:issue" "$CREATE_UTILITY" "recreate-test" >/dev/null 2>&1
 FIRST_ISSUE=$(git -C ".worktrees/recreate-test" config --worktree issue.id 2>/dev/null)
 verify "First worktree has first issue ID" "[ '$FIRST_ISSUE' = 'first:issue' ]"
 
 "$REMOVE_UTILITY" "recreate-test" >/dev/null 2>&1
 verify "First worktree removed" "[ ! -d '.worktrees/recreate-test' ]"
 
-"$CREATE_UTILITY" --issue "second:issue" "recreate-test" >/dev/null 2>&1
+ISSUE_ID="second:issue" "$CREATE_UTILITY" "recreate-test" >/dev/null 2>&1
 SECOND_ISSUE=$(git -C ".worktrees/recreate-test" config --worktree issue.id 2>/dev/null)
 verify "Second worktree has second issue ID" "[ '$SECOND_ISSUE' = 'second:issue' ]"
 verify "Issue IDs are different" "[ '$FIRST_ISSUE' != '$SECOND_ISSUE' ]"
