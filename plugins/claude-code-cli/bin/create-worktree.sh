@@ -346,14 +346,10 @@ fi
 API_BASE="http://${HOST}:${PORT}/api/v1"
 
 SHA=$(git rev-parse HEAD)
-MSG=$(git log -1 --format="%s" HEAD | head -c 100)  # Truncate long messages
-
-# Escape special characters in message for JSON
-MSG=$(printf '%s' "$MSG" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | tr '\n' ' ')
 
 curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
   -H "Content-Type: application/json" \
-  -d "{\"body\": \"Committed: $MSG\", \"author\": \"agent\", \"commitSha\": \"$SHA\"}" \
+  -d "{\"author\": \"agent\", \"commitSha\": \"$SHA\"}" \
   >/dev/null 2>&1 || true
 
 exit 0
@@ -402,13 +398,9 @@ while read old_sha new_sha extra; do
 done
 
 # Post new commit comment
-MSG=$(git log -1 --format="%s" HEAD | head -c 100)
-# Escape special characters in message for JSON
-MSG=$(printf '%s' "$MSG" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | tr '\n' ' ')
-
 curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
   -H "Content-Type: application/json" \
-  -d "{\"body\": \"Rebased ($REWRITE_COUNT commits): $MSG\", \"author\": \"agent\", \"commitSha\": \"$NEW_SHA\"}" \
+  -d "{\"author\": \"agent\", \"commitSha\": \"$NEW_SHA\"}" \
   >/dev/null 2>&1 || true
 
 # Delete old commit comments
@@ -427,21 +419,30 @@ chmod +x "${HOOKS_DIR}/post-rewrite"
 
 # Update issue with worktreePath (absolute path)
 # This allows the UI to show "Open Worktree" button
+# Discover API for the issue's workspace (using stored path, not pwd)
 # Failure is non-fatal - worktree is still usable without this
-API_BASE=$("${SCRIPT_DIR}/discover-api.sh" 2>/dev/null) && {
-    curl -s -X PATCH "$API_BASE/issues/$ISSUE_ID" \
-        -H "Content-Type: application/json" \
-        -d "{\"worktreePath\": \"$WORKTREE_DIR\"}" \
-        >/dev/null 2>&1 || true
+DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
+if [ -f "$DISCOVERY_FILE" ]; then
+    API_PORT=$(jq -r --arg ws "$ISSUE_WORKSPACE_PATH" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
+    API_HOST=$(jq -r --arg ws "$ISSUE_WORKSPACE_PATH" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
 
-    # Post initial baseSha as first commitSha comment
-    # This ensures getFirstCommitSha() returns baseSha for complete diffs
-    # Without this, the first actual commit's changes might be missing from comparisons
-    curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
-        -H "Content-Type: application/json" \
-        -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\"}" \
-        >/dev/null 2>&1 || true
-}
+    if [ -n "$API_PORT" ] && [ -n "$API_HOST" ]; then
+        API_BASE="http://${API_HOST}:${API_PORT}/api/v1"
+
+        curl -s -X PATCH "$API_BASE/issues/$ISSUE_ID" \
+            -H "Content-Type: application/json" \
+            -d "{\"worktreePath\": \"$WORKTREE_DIR\"}" \
+            >/dev/null 2>&1 || true
+
+        # Post initial baseSha as first commitSha comment
+        # This ensures getFirstCommitSha() returns baseSha for complete diffs
+        # Without this, the first actual commit's changes might be missing from comparisons
+        curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
+            -H "Content-Type: application/json" \
+            -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\"}" \
+            >/dev/null 2>&1 || true
+    fi
+fi
 
 # Output results as JSON with issueId included
 printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
