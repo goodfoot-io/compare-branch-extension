@@ -396,5 +396,15 @@ HOOK_EOF
 
 chmod +x "${HOOKS_DIR}/post-rewrite"
 
+# Update issue with worktreePath (absolute path)
+# This allows the UI to show "Open Worktree" button
+# Failure is non-fatal - worktree is still usable without this
+API_BASE=$("${SCRIPT_DIR}/discover-api.sh" 2>/dev/null) && {
+    curl -s -X PATCH "$API_BASE/issues/$ISSUE_ID" \
+        -H "Content-Type: application/json" \
+        -d "{\"worktreePath\": \"$WORKTREE_DIR\"}" \
+        >/dev/null 2>&1 || true
+}
+
 # Output results as JSON with issueId included
 printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"

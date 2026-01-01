@@ -65,14 +65,6 @@ WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"
 ```
 
-Update issue with worktree path:
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "worktreePath": "$WORKTREE_DIR"
-}
-```
-
 Launch parallel Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
 ```xml

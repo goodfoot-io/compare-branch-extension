@@ -86,14 +86,6 @@ cd ".worktrees/[BRANCH_NAME]"
 git stash --include-untracked
 ```
 
-Update issue with worktree path:
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "worktreePath": "$(pwd)"
-}
-```
-
 Continue to Step 2. Restore stash after todo initialization.
 
 ### Recreate
@@ -101,14 +93,6 @@ Continue to Step 2. Restore stash after todo initialization.
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
 cd ".worktrees/[BRANCH_NAME]"
-```
-
-Update issue with worktree path:
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "worktreePath": "$(pwd)"
-}
 ```
 
 Continue to Step 2.
@@ -125,15 +109,7 @@ Continue to Step 2.
 
    On worktree creation failure: post error to issue, add `blocked` tag, **STOP**.
 
-2. Update issue with worktree path:
-   ```
-   PATCH /issues/[ISSUE_ID]
-   {
-     "worktreePath": "$WORKTREE_DIR"
-   }
-   ```
-
-3. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on plan content:
+2. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on plan content:
 
    ```xml
    <invoke name="Task">
@@ -154,7 +130,7 @@ Continue to Step 2.
 
    Make sure to kill any Explore subagents that have not returned before moving to the next step.
 
-4. Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
+3. Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
    ```
    POST /issues/[ISSUE_ID]/comments
    {
