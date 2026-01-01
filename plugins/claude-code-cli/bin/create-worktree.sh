@@ -404,6 +404,14 @@ API_BASE=$("${SCRIPT_DIR}/discover-api.sh" 2>/dev/null) && {
         -H "Content-Type: application/json" \
         -d "{\"worktreePath\": \"$WORKTREE_DIR\"}" \
         >/dev/null 2>&1 || true
+
+    # Post initial baseSha as first commitSha comment
+    # This ensures getFirstCommitSha() returns baseSha for complete diffs
+    # Without this, the first actual commit's changes might be missing from comparisons
+    curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
+        -H "Content-Type: application/json" \
+        -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\"}" \
+        >/dev/null 2>&1 || true
 }
 
 # Output results as JSON with issueId included
