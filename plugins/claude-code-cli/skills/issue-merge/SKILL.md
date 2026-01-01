@@ -12,10 +12,10 @@ description: Merge worktree implementation to base branch.
 
 <tools>
 
-**remove-worktree-with-hooks** — Removes a worktree and deletes its associated branch. Returns the branch's final commit SHA.
+**remove-worktree** — Removes a worktree and deletes its associated branch. Returns the branch's final commit SHA.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree-with-hooks.sh" "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "[BRANCH_NAME]"
 ```
 
 </tools>
@@ -31,7 +31,7 @@ COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
 ```
 
 Based on commit count:
-- **COMMIT_COUNT = 0**: No changes to merge. Run `"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree-with-hooks.sh" "$BRANCH_NAME"`, post comment "No changes found in worktree. Cleaned up branch without merging.", **STOP**
+- **COMMIT_COUNT = 0**: No changes to merge. Run `"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "$BRANCH_NAME"`, post comment "No changes found in worktree. Cleaned up branch without merging.", **STOP**
 - **COMMIT_COUNT ≥ 1**: Proceed to Step 2
 
 ## 2. Squash Commits
@@ -126,7 +126,7 @@ Based on stash state:
 ## 7. Clean Up
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree-with-hooks.sh" "$BRANCH_NAME"
+"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "$BRANCH_NAME"
 ```
 
 **STOP** — Merge complete. Awaiting user verification.

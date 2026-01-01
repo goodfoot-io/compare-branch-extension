@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test suite for create-worktree-with-hooks utility
+# Test suite for create-worktree utility
 # Tests run in /tmp/ test repositories
 
 # Colors
@@ -139,20 +139,20 @@ fi
 
 # Determine the script path - use the worktree version if running from worktree
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-UTILITY="${SCRIPT_DIR}/../create-worktree-with-hooks.sh"
+UTILITY="${SCRIPT_DIR}/../create-worktree.sh"
 
 # Fall back to direct path if running from main workspace
 if [ ! -x "$UTILITY" ]; then
-    UTILITY="/workspace/public/plugins/claude-code-cli/bin/create-worktree-with-hooks.sh"
+    UTILITY="/workspace/public/plugins/claude-code-cli/bin/create-worktree.sh"
 fi
 
 # Also check for worktree path
 if [ ! -x "$UTILITY" ]; then
-    UTILITY="/workspace/.worktrees/issue-main-259-worktree-hooks/public/plugins/claude-code-cli/bin/create-worktree-with-hooks.sh"
+    UTILITY="/workspace/.worktrees/issue-main-259-worktree-hooks/public/plugins/claude-code-cli/bin/create-worktree.sh"
 fi
 
 if [ ! -x "$UTILITY" ]; then
-    echo -e "${RED}Error: create-worktree-with-hooks.sh not found${NC}"
+    echo -e "${RED}Error: create-worktree.sh not found${NC}"
     exit 1
 fi
 

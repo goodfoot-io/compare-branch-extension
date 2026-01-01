@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# remove-worktree-with-hooks: Safely remove a git worktree created by create-worktree-with-hooks
+# remove-worktree: Safely remove a git worktree created by create-worktree
 #
 # This script removes a worktree and its associated branch, outputting the final commit SHA
 # before deletion for reference or recovery purposes. The git hooks installed by
-# create-worktree-with-hooks are automatically cleaned up when the worktree is deleted.
+# create-worktree are automatically cleaned up when the worktree is deleted.
 #
 # This is a standalone script that does not depend on external worktree utilities.
 #
-# Usage: remove-worktree-with-hooks [-f|--force] <branch-name>
+# Usage: remove-worktree [-f|--force] <branch-name>
 #
 # Options:
 #   -f, --force    Force removal even if worktree has uncommitted changes
@@ -32,10 +32,10 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         --help|-h)
-            printf '%s\n' "Usage: remove-worktree-with-hooks [-f|--force] <branch-name>"
+            printf '%s\n' "Usage: remove-worktree [-f|--force] <branch-name>"
             printf '%s\n' ""
             printf '%s\n' "Safely removes a git worktree and its associated branch."
-            printf '%s\n' "Git hooks installed by create-worktree-with-hooks are automatically removed."
+            printf '%s\n' "Git hooks installed by create-worktree are automatically removed."
             printf '%s\n' ""
             printf '%s\n' "Options:"
             printf '%s\n' "  -f, --force    Force removal even if worktree has uncommitted changes"
@@ -46,7 +46,7 @@ while [ $# -gt 0 ]; do
             ;;
         -*)
             printf '%s\n' "Error: Unknown option '$1'" >&2
-            printf '%s\n' "Usage: remove-worktree-with-hooks [-f|--force] <branch-name>" >&2
+            printf '%s\n' "Usage: remove-worktree [-f|--force] <branch-name>" >&2
             exit 2
             ;;
         *)
@@ -54,7 +54,7 @@ while [ $# -gt 0 ]; do
                 BRANCH_NAME="$1"
             else
                 printf '%s\n' "Error: Unexpected argument '$1'" >&2
-                printf '%s\n' "Usage: remove-worktree-with-hooks [-f|--force] <branch-name>" >&2
+                printf '%s\n' "Usage: remove-worktree [-f|--force] <branch-name>" >&2
                 exit 2
             fi
             shift
@@ -64,7 +64,7 @@ done
 
 # Validate branch-name argument is provided
 if [ -z "$BRANCH_NAME" ]; then
-    printf '%s\n' "Usage: remove-worktree-with-hooks [-f|--force] <branch-name>" >&2
+    printf '%s\n' "Usage: remove-worktree [-f|--force] <branch-name>" >&2
     printf '%s\n' "" >&2
     printf '%s\n' "Safely removes a git worktree and its associated branch." >&2
     printf '%s\n' "Outputs the final commit SHA before deletion." >&2
@@ -140,7 +140,7 @@ if [ "$WORKTREE_EXISTS" = "true" ]; then
         done
         printf '%s\n' "" >&2
         printf '%s\n' "Use -f or --force to remove anyway:" >&2
-        printf '%s\n' "  remove-worktree-with-hooks -f $BRANCH_NAME" >&2
+        printf '%s\n' "  remove-worktree -f $BRANCH_NAME" >&2
         exit 2
     fi
 

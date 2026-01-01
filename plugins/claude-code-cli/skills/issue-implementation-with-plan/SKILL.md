@@ -58,10 +58,10 @@ There is no "probably fine" state. If you cannot make validation pass, you MUST 
 
 <tools>
 
-**create-worktree-with-hooks** — Creates git worktree with automatic commitSha posting via hooks.
+**create-worktree** — Creates git worktree with automatic commitSha posting via hooks.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
 ```
 
 Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn't exist, or attaches to an existing branch. Fails if worktree path is already occupied.
@@ -91,7 +91,7 @@ Continue to Step 2. Restore stash after todo initialization.
 ### Recreate
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]"
 cd ".worktrees/[BRANCH_NAME]"
 ```
 
@@ -101,7 +101,7 @@ Continue to Step 2.
 
 1. Create worktree:
    ```bash
-   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree-with-hooks.sh" --issue [ISSUE_ID] "[BRANCH_NAME]")
+   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" --issue [ISSUE_ID] "[BRANCH_NAME]")
    WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
    BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
    cd "$WORKTREE_DIR"

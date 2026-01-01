@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# create-worktree-with-hooks: Create a git worktree with automatic commitSha posting via git hooks
+# create-worktree: Create a git worktree with automatic commitSha posting via git hooks
 #
 # This script creates a git worktree with symlinked ignored directories and installs
 # git hooks that automatically post commit information to the Issues API. The hooks
@@ -8,7 +8,7 @@
 #
 # This is a standalone script that does not depend on external worktree utilities.
 #
-# Usage: create-worktree-with-hooks --issue <ISSUE_ID> <branch-name>
+# Usage: create-worktree --issue <ISSUE_ID> <branch-name>
 #
 # Options:
 #   --issue <ID>    Required. The issue ID to associate with commits (e.g., main:259)
@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do
             ;;
         -*)
             printf '%s\n' "Error: Unknown option '$1'" >&2
-            printf '%s\n' "Usage: create-worktree-with-hooks --issue <ISSUE_ID> <branch-name>" >&2
+            printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
             exit 2
             ;;
         *)
@@ -57,7 +57,7 @@ while [ $# -gt 0 ]; do
                 BRANCH_NAME="$1"
             else
                 printf '%s\n' "Error: Unexpected argument '$1'" >&2
-                printf '%s\n' "Usage: create-worktree-with-hooks --issue <ISSUE_ID> <branch-name>" >&2
+                printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
                 exit 2
             fi
             shift
@@ -67,7 +67,7 @@ done
 
 # Show help if requested
 if [ "$SHOW_HELP" = "true" ]; then
-    printf '%s\n' "Usage: create-worktree-with-hooks --issue <ISSUE_ID> <branch-name>"
+    printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>"
     printf '%s\n' ""
     printf '%s\n' "Creates a git worktree with automatic commitSha posting via git hooks."
     printf '%s\n' ""
@@ -83,13 +83,13 @@ fi
 # Validate required arguments
 if [ -z "$ISSUE_ID" ]; then
     printf '%s\n' "Error: --issue <ISSUE_ID> is required" >&2
-    printf '%s\n' "Usage: create-worktree-with-hooks --issue <ISSUE_ID> <branch-name>" >&2
+    printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
     exit 2
 fi
 
 if [ -z "$BRANCH_NAME" ]; then
     printf '%s\n' "Error: branch-name argument is required" >&2
-    printf '%s\n' "Usage: create-worktree-with-hooks --issue <ISSUE_ID> <branch-name>" >&2
+    printf '%s\n' "Usage: create-worktree --issue <ISSUE_ID> <branch-name>" >&2
     exit 2
 fi
 
@@ -268,7 +268,7 @@ if [ -n "$worktree_git_dir" ]; then
     exclude_file="$worktree_git_dir/info/exclude"
     mkdir -p "$(dirname "$exclude_file")"
     {
-        echo "# Symlinks created by create-worktree-with-hooks"
+        echo "# Symlinks created by create-worktree"
         while IFS= read -r dir; do
             [ -z "$dir" ] && continue
             [ -L "$WORKTREE_DIR/$dir" ] && echo "$dir"
@@ -316,7 +316,7 @@ mkdir -p "$HOOKS_DIR"
 cat > "${HOOKS_DIR}/post-commit" << 'HOOK_EOF'
 #!/bin/bash
 # post-commit hook - posts commit info to Issues API
-# Installed by create-worktree-with-hooks.sh
+# Installed by create-worktree.sh
 # Errors are logged to stderr but do not block git operations
 
 set -o pipefail
@@ -349,7 +349,7 @@ chmod +x "${HOOKS_DIR}/post-commit"
 cat > "${HOOKS_DIR}/post-rewrite" << 'HOOK_EOF'
 #!/bin/bash
 # post-rewrite hook - handles rebase/amend by posting new commit and cleaning up old ones
-# Installed by create-worktree-with-hooks.sh
+# Installed by create-worktree.sh
 # Errors are logged to stderr but do not block git operations
 
 set -o pipefail

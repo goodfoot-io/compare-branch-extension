@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Integration test suite for create-worktree-with-hooks and remove-worktree-with-hooks
+# Integration test suite for create-worktree and remove-worktree
 # Tests the complete workflow of creating and removing worktrees with hooks
 
 # Colors
@@ -85,7 +85,7 @@ verify() {
     fi
 }
 
-echo "Integration Test Suite: create-worktree-with-hooks + remove-worktree-with-hooks"
+echo "Integration Test Suite: create-worktree + remove-worktree"
 echo "Test directory: $TEST_DIR"
 echo "Creating test repository..."
 init_test_repo "$TEST_DIR/repo"
@@ -111,31 +111,31 @@ fi
 
 # Determine script paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CREATE_UTILITY="${SCRIPT_DIR}/../create-worktree-with-hooks.sh"
-REMOVE_UTILITY="${SCRIPT_DIR}/../remove-worktree-with-hooks.sh"
+CREATE_UTILITY="${SCRIPT_DIR}/../create-worktree.sh"
+REMOVE_UTILITY="${SCRIPT_DIR}/../remove-worktree.sh"
 
 # Fall back to direct paths if running from main workspace
 if [ ! -x "$CREATE_UTILITY" ]; then
-    CREATE_UTILITY="/workspace/public/plugins/claude-code-cli/bin/create-worktree-with-hooks.sh"
+    CREATE_UTILITY="/workspace/public/plugins/claude-code-cli/bin/create-worktree.sh"
 fi
 if [ ! -x "$REMOVE_UTILITY" ]; then
-    REMOVE_UTILITY="/workspace/public/plugins/claude-code-cli/bin/remove-worktree-with-hooks.sh"
+    REMOVE_UTILITY="/workspace/public/plugins/claude-code-cli/bin/remove-worktree.sh"
 fi
 
 # Check for worktree paths
 if [ ! -x "$CREATE_UTILITY" ]; then
-    CREATE_UTILITY="/workspace/.worktrees/issue-main-259-worktree-hooks/public/plugins/claude-code-cli/bin/create-worktree-with-hooks.sh"
+    CREATE_UTILITY="/workspace/.worktrees/issue-main-259-worktree-hooks/public/plugins/claude-code-cli/bin/create-worktree.sh"
 fi
 if [ ! -x "$REMOVE_UTILITY" ]; then
-    REMOVE_UTILITY="/workspace/.worktrees/issue-main-259-worktree-hooks/public/plugins/claude-code-cli/bin/remove-worktree-with-hooks.sh"
+    REMOVE_UTILITY="/workspace/.worktrees/issue-main-259-worktree-hooks/public/plugins/claude-code-cli/bin/remove-worktree.sh"
 fi
 
 if [ ! -x "$CREATE_UTILITY" ]; then
-    echo -e "${RED}Error: create-worktree-with-hooks.sh not found${NC}"
+    echo -e "${RED}Error: create-worktree.sh not found${NC}"
     exit 1
 fi
 if [ ! -x "$REMOVE_UTILITY" ]; then
-    echo -e "${RED}Error: remove-worktree-with-hooks.sh not found${NC}"
+    echo -e "${RED}Error: remove-worktree.sh not found${NC}"
     exit 1
 fi
 
