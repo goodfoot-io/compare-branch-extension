@@ -37,7 +37,7 @@ POST /issues/[ISSUE_ID]/comments
 {
   "body": "[Your answer]",
   "author": "agent",
-  "codeReferences": [{"path": "[file]", "startLine": [n], "endLine": [n]}]
+  "codeReferences": [{"uri": "[file]", "range": {"startLine": [n], "endLine": [n]}}]
 }
 ```
 

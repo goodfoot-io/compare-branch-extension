@@ -203,8 +203,18 @@ Update the issue with the final plan:
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "planContent": "[detailed plan markdown]",
-  "codeReferences": ["/path/to/reviewed/file.ts"]
+  "planContent": "[detailed plan markdown]"
+}
+```
+
+To reference code files reviewed during planning, add a comment with `codeReferences`:
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "Plan references the following files:",
+  "author": "agent",
+  "codeReferences": [{"uri": "/path/to/reviewed/file.ts"}]
 }
 ```
 

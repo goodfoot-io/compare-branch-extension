@@ -32,12 +32,22 @@ When an issue has `planRequired: true`, you must present a plan for user approva
 ```
 PATCH /issues/{id}
 {
-  "planContent": "[full plan markdown content]",
-  "codeReferences": ["/path/to/reviewed/file.ts"]
+  "planContent": "[full plan markdown content]"
 }
 ```
 
-3. Wait for user approval before proceeding with implementation
+3. To reference code files reviewed during planning, add a comment with `codeReferences`:
+
+```
+POST /issues/{id}/comments
+{
+  "body": "Plan references the following files:",
+  "author": "agent",
+  "codeReferences": [{"uri": "/path/to/reviewed/file.ts"}]
+}
+```
+
+4. Wait for user approval before proceeding with implementation
 
 The `planContent` field stores the plan for review and reference during implementation.
 </plan-approval>

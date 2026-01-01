@@ -368,9 +368,8 @@ POST /issues/[ISSUE_ID]/comments
   "author": "agent",
   "codeReferences": [
     {
-      "path": "[file]",
-      "startLine": [n],
-      "endLine": [n]
+      "uri": "[file]",
+      "range": {"startLine": [n], "endLine": [n]}
     }
   ]
 }

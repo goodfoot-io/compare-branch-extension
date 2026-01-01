@@ -413,7 +413,7 @@ Based on review requirement:
     "author": "agent",
     "codeReferences": [
       {
-        "path": "${TEST_FILE_PATH}"
+        "uri": "${TEST_FILE_PATH}"
       }
     ]
   }
@@ -429,7 +429,7 @@ Based on review requirement:
     "author": "agent",
     "codeReferences": [
       {
-        "path": "${TEST_FILE_PATH}"
+        "uri": "${TEST_FILE_PATH}"
       }
     ]
   }
