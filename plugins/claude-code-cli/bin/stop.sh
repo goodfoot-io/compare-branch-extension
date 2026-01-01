@@ -11,6 +11,8 @@
 #
 # Environment variables:
 #   ISSUE_ID - Issue ID being worked on (set by wrapper, e.g., "main:123")
+#   DISPATCHER_PID - PID of dispatcher for session tracking (set by wrapper)
+#   SESSION_STOP_TEST_MODE - If set to "1", skips sending signals (for testing)
 #
 
 set -euo pipefail
@@ -61,6 +63,21 @@ fi
 HAS_UPDATES=$(echo "$DIFF_RESPONSE" | jq '[.issues[] | select((.newComments | length > 0) or (.fieldChanges | length > 0))] | length > 0')
 
 if [ "$HAS_UPDATES" != "true" ]; then
+  # No updates - Claude will stop. Notify extension to update issue status.
+  if [ -n "${DISPATCHER_PID:-}" ]; then
+    curl -s --max-time 2 -X POST "${BASE_URL}/session/stop" \
+      -H "Content-Type: application/json" \
+      -d "{\"sessionId\": \"${SESSION_ID}\", \"dispatcherPid\": ${DISPATCHER_PID}}" \
+      > /dev/null 2>&1 || true
+
+    # Signal dispatcher that Claude is now idle
+    # SIGWINCH is ignored by default, safe to send even if dispatcher exited
+    if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
+      echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle)" >&2
+    else
+      kill -WINCH "$DISPATCHER_PID" 2>/dev/null || true
+    fi
+  fi
   exit 0
 fi
 

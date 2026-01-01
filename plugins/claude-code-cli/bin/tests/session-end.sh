@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test suite for session-end hook
-# Tests that session cleanup occurs (watermark deletion, dispatcher signaling)
+# Tests that session cleanup occurs (watermark deletion)
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -27,12 +27,6 @@ export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Mock curl tracking
 MOCK_CURL_CALLS_FILE=""
-
-# Enable test mode to prevent actual signal sending
-export SESSION_STOP_TEST_MODE=1
-
-# Set DISPATCHER_PID to enable logic (required for hook to proceed)
-export DISPATCHER_PID=$$
 
 # Setup mock home directory
 setup_mock_home() {
@@ -148,12 +142,11 @@ echo "Running session-end tests..."
 echo "=============================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $TARGET_SCRIPT"
-echo "Test mode: SESSION_STOP_TEST_MODE=$SESSION_STOP_TEST_MODE"
 
 # Setup mocks
 setup_mock_discover_api
 
-# Test 1: Exits 0 when ISSUE_ID is not set (no issue tracking)
+# Test 1: Exits 0 when ISSUE_ID is not set
 echo -e "\n${YELLOW}=== Test 1: Exits 0 when ISSUE_ID is not set ===${NC}"
 setup_mock_home
 create_mock_curl
@@ -170,17 +163,16 @@ EOF
 )
 run_test "Exits 0 when ISSUE_ID not set" "$INPUT" 0
 
-# Verify SIGWINCH is still sent (to notify dispatcher)
-if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would send SIGWINCH"; then
-    echo "Verified: SIGWINCH still sent without ISSUE_ID"
-else
-    echo -e "${RED}FAIL${NC} - SIGWINCH should still be sent"
-    echo "Stderr: $LAST_STDERR"
+# Verify no curl calls (nothing to clean up)
+if [ -f "$MOCK_CURL_CALLS_FILE" ] && [ -s "$MOCK_CURL_CALLS_FILE" ]; then
+    echo -e "${RED}FAIL${NC} - Should not make curl calls without ISSUE_ID"
     TESTS_PASSED=$((TESTS_PASSED - 1))
+else
+    echo "Verified: No curl calls without ISSUE_ID"
 fi
 
-# Test 2: Deletes session watermark and POSTs to /session/stop when ISSUE_ID is set
-echo -e "\n${YELLOW}=== Test 2: Deletes watermark and POSTs to /session/stop when ISSUE_ID is set ===${NC}"
+# Test 2: Deletes session watermark when ISSUE_ID is set
+echo -e "\n${YELLOW}=== Test 2: Deletes watermark when ISSUE_ID is set ===${NC}"
 setup_mock_home
 create_mock_curl
 export ISSUE_ID="main:1"
@@ -194,9 +186,9 @@ INPUT=$(cat <<EOF
 }
 EOF
 )
-run_test "Deletes watermark and POSTs to /session/stop when ISSUE_ID set" "$INPUT" 0
+run_test "Deletes watermark when ISSUE_ID set" "$INPUT" 0
 
-# Verify curl was called with session endpoints
+# Verify curl was called to delete session watermark
 if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
     CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE")
     if echo "$CURL_CALLS" | grep -q "DELETE.*session/$SESSION_ID"; then
@@ -206,58 +198,18 @@ if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
         echo "Actual calls: $CURL_CALLS"
         TESTS_PASSED=$((TESTS_PASSED - 1))
     fi
-    if echo "$CURL_CALLS" | grep -q "session/stop"; then
-        echo "Verified: /session/stop endpoint called"
-    else
-        echo -e "${RED}FAIL${NC} - Expected call to /session/stop"
-        echo "Actual calls: $CURL_CALLS"
-        TESTS_PASSED=$((TESTS_PASSED - 1))
-    fi
 else
     echo -e "${RED}FAIL${NC} - No curl calls recorded"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 unset ISSUE_ID
 
-# Test 3: Includes dispatcherPid in /session/stop POST
-echo -e "\n${YELLOW}=== Test 3: Includes dispatcherPid in /session/stop POST ===${NC}"
-setup_mock_home
-create_mock_curl
-export ISSUE_ID="main:1"
-SESSION_ID="test-session-3"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "transcript_path": "/tmp/transcript.jsonl",
-  "cwd": "/workspace",
-  "hook_event_name": "SessionEnd"
-}
-EOF
-)
-run_test "Includes dispatcherPid in POST" "$INPUT" 0
-
-# Verify dispatcherPid is in the POST body
-if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
-    CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE")
-    if echo "$CURL_CALLS" | grep -q "dispatcherPid"; then
-        echo "Verified: dispatcherPid included in POST"
-    else
-        echo -e "${RED}FAIL${NC} - Expected dispatcherPid in POST body"
-        echo "Actual calls: $CURL_CALLS"
-        TESTS_PASSED=$((TESTS_PASSED - 1))
-    fi
-else
-    echo -e "${RED}FAIL${NC} - No curl calls recorded"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-unset ISSUE_ID
-
-# Test 4: Exits 0 even if API call fails
-echo -e "\n${YELLOW}=== Test 4: Exits 0 even if API call fails ===${NC}"
+# Test 3: Exits 0 even if API call fails
+echo -e "\n${YELLOW}=== Test 3: Exits 0 even if API call fails ===${NC}"
 setup_mock_home
 create_failing_mock_curl
 export ISSUE_ID="main:1"
-SESSION_ID="test-session-4"
+SESSION_ID="test-session-3"
 INPUT=$(cat <<EOF
 {
   "session_id": "$SESSION_ID",
@@ -270,15 +222,15 @@ EOF
 run_test "Exits 0 even when API fails" "$INPUT" 0
 unset ISSUE_ID
 
-# Test 5: Exits 0 on malformed input
-echo -e "\n${YELLOW}=== Test 5: Exits 0 on malformed input ===${NC}"
+# Test 4: Exits 0 on malformed input
+echo -e "\n${YELLOW}=== Test 4: Exits 0 on malformed input ===${NC}"
 setup_mock_home
 create_mock_curl
 INPUT="not valid json at all"
 run_test "Exits 0 with malformed input" "$INPUT" 0
 
-# Test 6: Exits 0 when session_id is missing from input
-echo -e "\n${YELLOW}=== Test 6: Exits 0 when session_id is missing ===${NC}"
+# Test 5: Exits 0 when session_id is missing from input
+echo -e "\n${YELLOW}=== Test 5: Exits 0 when session_id is missing ===${NC}"
 setup_mock_home
 create_mock_curl
 INPUT=$(cat <<EOF
@@ -291,80 +243,12 @@ EOF
 )
 run_test "Exits 0 when session_id missing" "$INPUT" 0
 
-# Test 7: Exits 0 when empty input
-echo -e "\n${YELLOW}=== Test 7: Exits 0 when empty input ===${NC}"
+# Test 6: Exits 0 when empty input
+echo -e "\n${YELLOW}=== Test 6: Exits 0 when empty input ===${NC}"
 setup_mock_home
 create_mock_curl
 INPUT=""
 run_test "Exits 0 with empty input" "$INPUT" 0
-
-# Test 8: Sends SIGWINCH to dispatcher when ISSUE_ID is set
-echo -e "\n${YELLOW}=== Test 8: Sends SIGWINCH to dispatcher ===${NC}"
-setup_mock_home
-create_mock_curl
-export ISSUE_ID="main:1"
-SESSION_ID="test-session-8"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "transcript_path": "/tmp/transcript.jsonl",
-  "cwd": "/workspace",
-  "hook_event_name": "SessionEnd"
-}
-EOF
-)
-run_test "Sends SIGWINCH to dispatcher" "$INPUT" 0
-
-# Verify TEST_MODE message in stderr (SIGWINCH would be sent)
-if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would send SIGWINCH"; then
-    echo "Verified: SIGWINCH would be sent to dispatcher"
-else
-    echo -e "${RED}FAIL${NC} - SIGWINCH should be sent to dispatcher"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-unset ISSUE_ID
-
-# Test 9: Exits with error when DISPATCHER_PID is not set
-echo -e "\n${YELLOW}=== Test 9: Exits with error when DISPATCHER_PID not set ===${NC}"
-setup_mock_home
-create_mock_curl
-SESSION_ID="test-session-9"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "transcript_path": "/tmp/transcript.jsonl",
-  "cwd": "/workspace",
-  "hook_event_name": "SessionEnd"
-}
-EOF
-)
-
-# Temporarily unset DISPATCHER_PID
-SAVED_DISPATCHER_PID="$DISPATCHER_PID"
-unset DISPATCHER_PID
-
-run_test "Exits with error when DISPATCHER_PID not set" "$INPUT" 2
-
-# Restore DISPATCHER_PID
-export DISPATCHER_PID="$SAVED_DISPATCHER_PID"
-
-# Verify error message includes actionable advice
-if echo "$LAST_STDERR" | grep -q "DISPATCHER_PID environment variable is not set"; then
-    echo "Verified: Error message indicates DISPATCHER_PID is required"
-else
-    echo -e "${RED}FAIL${NC} - Expected error message about DISPATCHER_PID"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-
-if echo "$LAST_STDERR" | grep -q "Launch Claude using the issue panel"; then
-    echo "Verified: Error includes actionable advice"
-else
-    echo -e "${RED}FAIL${NC} - Expected actionable advice in error"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
 
 # Cleanup
 cleanup_mock_home

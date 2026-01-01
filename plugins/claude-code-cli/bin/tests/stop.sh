@@ -25,6 +25,9 @@ TARGET_SCRIPT="$SCRIPT_DIR/stop.sh"
 # Set CLAUDE_PLUGIN_ROOT for the target script
 export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Enable test mode to prevent actual signal sending
+export SESSION_STOP_TEST_MODE=1
+
 # Mock curl tracking
 MOCK_CURL_CALLS_FILE=""
 
@@ -427,6 +430,111 @@ else
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 unset ISSUE_ID
+
+# Test 12: POSTs to /session/stop when no updates and DISPATCHER_PID is set
+echo -e "\n${YELLOW}=== Test 12: POSTs to /session/stop when no updates ===${NC}"
+setup_mock_home
+create_mock_curl '{"issues":[{"issueId":"main:1","issueTitle":"Test Issue","newComments":[],"fieldChanges":[]}]}'
+export ISSUE_ID="main:1"
+export DISPATCHER_PID=$$
+SESSION_ID="test-session-12"
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "Stop"
+}
+EOF
+)
+run_test "POSTs to /session/stop when no updates" "$INPUT" 0
+
+# Verify /session/stop was called
+if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
+    CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE")
+    if echo "$CURL_CALLS" | grep -q "session/stop"; then
+        echo "Verified: /session/stop endpoint called"
+    else
+        echo -e "${RED}FAIL${NC} - Expected call to /session/stop"
+        echo "Actual calls: $CURL_CALLS"
+        TESTS_PASSED=$((TESTS_PASSED - 1))
+    fi
+    # Verify dispatcherPid is included
+    if echo "$CURL_CALLS" | grep -q "dispatcherPid"; then
+        echo "Verified: dispatcherPid included in POST"
+    else
+        echo -e "${RED}FAIL${NC} - Expected dispatcherPid in POST body"
+        echo "Actual calls: $CURL_CALLS"
+        TESTS_PASSED=$((TESTS_PASSED - 1))
+    fi
+else
+    echo -e "${RED}FAIL${NC} - No curl calls recorded"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+unset ISSUE_ID
+unset DISPATCHER_PID
+
+# Test 13: Does NOT POST to /session/stop when DISPATCHER_PID is not set
+echo -e "\n${YELLOW}=== Test 13: Skips /session/stop when DISPATCHER_PID not set ===${NC}"
+setup_mock_home
+create_mock_curl '{"issues":[{"issueId":"main:1","issueTitle":"Test Issue","newComments":[],"fieldChanges":[]}]}'
+export ISSUE_ID="main:1"
+unset DISPATCHER_PID
+SESSION_ID="test-session-13"
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "Stop"
+}
+EOF
+)
+run_test "Skips /session/stop when DISPATCHER_PID not set" "$INPUT" 0
+
+# Verify /session/stop was NOT called
+if [ -f "$MOCK_CURL_CALLS_FILE" ]; then
+    CURL_CALLS=$(cat "$MOCK_CURL_CALLS_FILE")
+    if echo "$CURL_CALLS" | grep -q "session/stop"; then
+        echo -e "${RED}FAIL${NC} - Should NOT call /session/stop without DISPATCHER_PID"
+        echo "Actual calls: $CURL_CALLS"
+        TESTS_PASSED=$((TESTS_PASSED - 1))
+    else
+        echo "Verified: /session/stop NOT called without DISPATCHER_PID"
+    fi
+else
+    echo "Verified: No unexpected curl calls"
+fi
+unset ISSUE_ID
+
+# Test 14: Sends SIGWINCH to dispatcher when no updates
+echo -e "\n${YELLOW}=== Test 14: Sends SIGWINCH to dispatcher when no updates ===${NC}"
+setup_mock_home
+create_mock_curl '{"issues":[{"issueId":"main:1","issueTitle":"Test Issue","newComments":[],"fieldChanges":[]}]}'
+export ISSUE_ID="main:1"
+export DISPATCHER_PID=$$
+SESSION_ID="test-session-14"
+INPUT=$(cat <<EOF
+{
+  "session_id": "$SESSION_ID",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/workspace",
+  "hook_event_name": "Stop"
+}
+EOF
+)
+run_test "Sends SIGWINCH when no updates" "$INPUT" 0
+
+# Verify SIGWINCH would be sent (test mode message)
+if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would send SIGWINCH"; then
+    echo "Verified: SIGWINCH would be sent to dispatcher"
+else
+    echo -e "${RED}FAIL${NC} - Expected SIGWINCH signal"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+unset ISSUE_ID
+unset DISPATCHER_PID
 
 # Cleanup
 cleanup_mock_home
