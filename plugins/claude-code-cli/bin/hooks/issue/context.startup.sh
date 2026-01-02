@@ -43,7 +43,8 @@ if [ "${SESSION_STARTUP_TEST_MODE:-}" = "1" ]; then
     echo "TEST_MODE: Would call session diff endpoint for session=$SESSION_ID, issue=$ISSUE_ID" >&2
     # Output a mock response in the expected format
     MOCK_ISSUE='{"id":"'$ISSUE_ID'","title":"Test Issue","status":"in_progress"}'
-    output_context "SessionStart" "$MOCK_ISSUE" "Session starting: Issue $ISSUE_ID loaded"
+    CONTEXT_TEXT=$(format_issue_context "$MOCK_ISSUE")
+    output_context "SessionStart" "$CONTEXT_TEXT" "Session starting: Issue $ISSUE_ID loaded"
     exit 0
 fi
 
@@ -74,8 +75,11 @@ fi
 # Extract issue title for the system message
 ISSUE_TITLE=$(echo "$FULL_ISSUE" | jq -r '.title // "unknown"')
 
+# Format issue as readable text for context injection
+CONTEXT_TEXT=$(format_issue_context "$FULL_ISSUE")
+
 # Build system message and output
 SYSTEM_MSG="Session starting: Issue \"${ISSUE_TITLE}\" loaded"
-output_context "SessionStart" "$FULL_ISSUE" "$SYSTEM_MSG"
+output_context "SessionStart" "$CONTEXT_TEXT" "$SYSTEM_MSG"
 
 exit 0

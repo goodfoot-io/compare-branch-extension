@@ -9,11 +9,14 @@
 #
 # Functions:
 #   output_system_message    - Output simple systemMessage-only JSON
-#   output_stop_allow        - Build Stop hook allow output with systemMessage
+#   output_stop_approve      - Build Stop hook approve output with systemMessage
 #   output_context           - Build SessionStart context output
 #   output_block_decision    - Build Stop hook block output
 #   output_empty             - Output empty JSON object
 #   build_update_summary     - Build human-readable update summary
+#   has_updates              - Check if diff response has any updates
+#   format_issue_context     - Format full issue as readable context text
+#   format_diff_context      - Format diff response as readable context text
 #   error_missing_issue_id   - Output error for missing ISSUE_ID and exit 2
 #
 
@@ -28,12 +31,12 @@ output_system_message() {
     jq -nc --arg sysMsg "$system_message" '{ systemMessage: $sysMsg }'
 }
 
-# Build Stop hook allow output with systemMessage
+# Build Stop hook approve output with systemMessage
 # Args: $1 = system_message
-output_stop_allow() {
+output_stop_approve() {
     local system_message="$1"
     jq -nc --arg sysMsg "$system_message" '{
-        decision: "allow",
+        decision: "approve",
         systemMessage: $sysMsg
     }'
 }
@@ -124,6 +127,48 @@ build_update_summary() {
 has_updates() {
     local diff_response="$1"
     echo "$diff_response" | jq '[.issues[] | select((.newComments | length > 0) or (.fieldChanges | length > 0))] | length > 0'
+}
+
+# Format full issue as readable context text
+# Args: $1 = issue (JSON)
+# Returns: Human-readable multi-line string
+format_issue_context() {
+    local issue="$1"
+    echo "$issue" | jq -r '
+        "Issue: \(.id)\n" +
+        "Title: \(.title)\n" +
+        "Status: \(.status)\n" +
+        (if .description and .description != "" then "Description: \(.description)\n" else "" end) +
+        (if .planRequired then "Plan Required: yes\n" else "" end) +
+        (if .planApproved then "Plan Approved: yes\n" else "" end) +
+        (if .planContent and .planContent != "" then "Plan:\n\(.planContent)\n" else "" end) +
+        (if .reviewRequired then "Review Required: yes\n" else "" end) +
+        (if .reviewApproved then "Review Approved: yes\n" else "" end) +
+        (if .tags and (.tags | length > 0) then "Tags: \(.tags | join(", "))\n" else "" end) +
+        (if .comments and (.comments | length > 0) then
+            "\nComments:\n" +
+            (.comments | map("[\(.author)] \(.body // "(no body)")") | join("\n\n"))
+        else "" end)
+    '
+}
+
+# Format diff response as readable context text
+# Args: $1 = diff_response (JSON)
+# Returns: Human-readable multi-line string
+format_diff_context() {
+    local diff_response="$1"
+    echo "$diff_response" | jq -r '
+        .issues[] | select((.newComments | length > 0) or (.fieldChanges | length > 0)) |
+        "Issue: \(.issueId) - \(.issueTitle)\n" +
+        (if .newComments and (.newComments | length > 0) then
+            "\nNew Comments:\n" +
+            (.newComments | map("[\(.author)] \(.body // "(no body)")") | join("\n\n"))
+        else "" end) +
+        (if .fieldChanges and (.fieldChanges | length > 0) then
+            "\nField Changes:\n" +
+            (.fieldChanges | map("- \(.field): \(.oldValue // "null") → \(.newValue // "null")") | join("\n"))
+        else "" end)
+    '
 }
 
 # Output error message for missing ISSUE_ID and exit
