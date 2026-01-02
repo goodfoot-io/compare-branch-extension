@@ -395,14 +395,31 @@ cat > "${HOOKS_DIR}/post-commit" << HOOK_EOF
 # post-commit hook - posts commit info to Issues API, then chains to original hook
 # Installed by create-worktree.sh
 # Errors are logged to stderr but do not block git operations
+#
+# This hook handles the case where chained hooks create additional commits
+# (e.g., git subtree split --rejoin). It tracks HEAD before and after chaining
+# and posts any new commits that result from the chain.
 
 set -o pipefail
 
 $HOOK_CHAIN_HELPER
 
-# --- Issues API posting ---
+# Helper function to post a commit SHA to the Issues API
+post_commit_sha() {
+    local sha="\$1"
+    local issue_id="\$2"
+    local api_base="\$3"
+
+    curl -s -X POST "\$api_base/issues/\$issue_id/comments" \
+        -H "Content-Type: application/json" \
+        -d "{\"author\": \"agent\", \"commitSha\": \"\$sha\"}" \
+        >/dev/null 2>&1 || true
+}
+
+# --- Setup API connection ---
 ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
 WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+API_BASE=""
 
 if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
     DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
@@ -412,21 +429,31 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
 
         if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
             API_BASE="http://\${HOST}:\${PORT}/api/v1"
-            SHA=\$(git rev-parse HEAD)
-
-            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
-                -H "Content-Type: application/json" \
-                -d "{\"author\": \"agent\", \"commitSha\": \"\$SHA\"}" \
-                >/dev/null 2>&1 || true
         fi
     fi
+fi
+
+# --- Record HEAD before any operations ---
+HEAD_BEFORE=\$(git rev-parse HEAD 2>/dev/null)
+
+# --- Post the current commit ---
+if [ -n "\$API_BASE" ] && [ -n "\$HEAD_BEFORE" ]; then
+    post_commit_sha "\$HEAD_BEFORE" "\$ISSUE_ID" "\$API_BASE"
 fi
 
 # --- Chain to original hook ---
 ORIGINAL_HOOK=\$(get_original_hook "post-commit")
 if [ -n "\$ORIGINAL_HOOK" ]; then
-    exec "\$ORIGINAL_HOOK" "\$@"
+    "\$ORIGINAL_HOOK" "\$@"
 fi
+
+# --- Check if HEAD changed after chaining ---
+# Chained hooks may create additional commits (e.g., subtree split --rejoin)
+HEAD_AFTER=\$(git rev-parse HEAD 2>/dev/null)
+if [ -n "\$API_BASE" ] && [ -n "\$HEAD_AFTER" ] && [ "\$HEAD_AFTER" != "\$HEAD_BEFORE" ]; then
+    post_commit_sha "\$HEAD_AFTER" "\$ISSUE_ID" "\$API_BASE"
+fi
+
 exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/post-commit"
