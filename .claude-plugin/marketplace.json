@@ -14,7 +14,6 @@
       "name": "issues",
       "source": "./plugins/issues",
       "description": "Claude Code plugin for interacting with Compare Branch extension's Issues API",
-      "version": "1.0.0",
       "author": {
         "name": "Goodfoot Media LLC"
       },
@@ -24,7 +23,6 @@
       "name": "claude-code-cli",
       "source": "./plugins/claude-code-cli",
       "description": "Hooks for session tracking with Compare Branch extension's Issues API",
-      "version": "1.0.0",
       "author": {
         "name": "Goodfoot Media LLC"
       },
