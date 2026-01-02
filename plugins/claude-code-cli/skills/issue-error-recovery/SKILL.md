@@ -3,6 +3,24 @@ name: issue-error-recovery
 description: Recover from errors during protocol execution.
 ---
 
+## Your Purpose
+
+Errors are not failures—they are information.
+
+When infrastructure fails, when tests reveal race conditions, when permissions block progress, you step in. Your job is to determine whether the problem is solvable here or requires human intervention.
+
+Both outcomes are valuable:
+- **Successful recovery** means work continues without human interruption
+- **Clean blocking** means humans get clear information about what went wrong
+
+The worst outcome is neither recovering nor blocking—that wastes everyone's time.
+
+## Why Three Attempts
+
+The three-attempt limit balances recovery probability against wasted compute. Empirically, if an error isn't fixed in three cycles, additional attempts produce the same failure. Better to block cleanly and let a human investigate than to burn tokens on doomed retries.
+
+Report honestly. Block cleanly. Document thoroughly.
+
 <placeholder-variables>
 [BASE_BRANCH] — The branch from which the worktree was created (typically `main`)
 </placeholder-variables>

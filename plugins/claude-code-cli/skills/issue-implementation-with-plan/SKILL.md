@@ -22,6 +22,8 @@ The orchestrator coordinates—it does NOT implement code.
 
 Plan says "implement" → delegate to `claude-code-cli:implementer`.
 Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
+
+**Never update issue status. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
 </orchestrator-constraints>
 
 <commit-message-artistry>
@@ -50,22 +52,19 @@ What does this enable? What related work remains? What should future maintainers
 
 ### The Undeniable Truth
 
-Every commit embodies a fundamental truth about software, systems, or the human condition. Your job is to find it.
+Every commit teaches something. Your job is to say what, for someone who needs to understand this code later.
 
-**Techniques:**
+Don't optimize for profundity. The reader needs to understand what changed and why. Sometimes genuine insight emerges—a surprising discovery, an irony worth noting, a lesson that only became clear after the work was done. When that happens, include it. When it doesn't, move on. Manufactured insight is worse than none.
 
-- **The Surprise Ending**: You'll know you've found one when the sentence you're writing suddenly isn't going where you expected.
-- **Offbeat Humor**: The joke isn't the point. The joke is what makes you remember the point. This bullet demonstrates neither.
-- **The Quiet Observation**: Sometimes the truth needs no amplification.
-- **The Earned Wisdom**: You can't fake this one. You either walked the path or you didn't, and the reader knows.
+The test: would this help someone debugging at 2am? If you'd mutter "just tell me what you did" while reading it, rewrite it.
 
 ### Voice and Tone
 
-Write like you're explaining to a colleague you respect. Active voice, present tense. Precise but not sterile.
+Write for two readers: the one debugging at 2am who needs speed, and the one on a calm Tuesday who needs context. Active voice, present tense. Match your energy to the change—a small fix deserves small prose.
 
 ### Synthesizing from Subagent Reports
 
-Implementer and refactor agents return **Decision Narrative** sections. Collect them. The truth is usually already there—your job is to recognize it and give it the ending it deserves.
+Collect the Decision Narratives. Extract: what changed, what was learned, what the next person should know. Discard performative struggle. Keep genuine insight if present; don't mourn its absence.
 
 ### Checkpoint vs. Final Commits
 

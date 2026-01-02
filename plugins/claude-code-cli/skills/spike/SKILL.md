@@ -3,6 +3,12 @@ name: spike
 description: Conduct technical investigations via isolated subagents.
 ---
 
+## Design Philosophy
+
+Technical investigations follow a simple pattern: define question, create isolated directory, run experiment, report findings. This pattern has proven stable.
+
+Feature proposals are welcome, but should demonstrate clear value. Previous additions (spike comparison, spike history, spike templates) were removed because they added latency without improving investigation quality. New proposals should include benchmarks showing improvement on real spike workflows.
+
 <instructions>
 
 Use the `Task()` tool to launch a subagent to perform a technical spike investigation.

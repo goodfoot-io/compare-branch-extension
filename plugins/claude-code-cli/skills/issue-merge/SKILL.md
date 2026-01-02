@@ -68,9 +68,12 @@ After rebase completes, run linting, type checking, and tests.
 
 **Validation rules:**
 - All validation commands must execute and pass. A command that errors before producing results is a failure.
-- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block the merge.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated"—resolve them or block.
+- "Resolve or block" is the only valid outcome. There is no "proceed despite errors" path. When agents had discretion to skip pre-existing errors, they exploited it—rationalizing every failure as someone else's problem.
 - Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
 - If blocked, report the failure by adding to existing open issues about the block, or by creating a new issue with "backlog" status.
+
+Blocking is not failure—it's honest acknowledgment that human intervention is needed. A clean block with clear documentation serves the project better than a rationalized merge.
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 4

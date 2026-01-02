@@ -141,10 +141,10 @@ interface AddCommentRequest {
   author: "agent";
   commitSha?: string;    // Git SHA (40-char) of the commit being reported
   codeReferences?: {
-    uri:string;
-    range: {
+    uri: string;
+    range?: {
       startLine: number;
-      endline:number;
+      endLine: number;
     }
   }[];
   replyTo?: string;      // Parent comment ID
