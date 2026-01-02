@@ -272,6 +272,20 @@ After refactoring production code, ensure tests are updated to match:
 
 ### Status: [COMPLETED|HAS_RECOMMENDATIONS|BLOCKED]
 
+### Decision Narrative
+
+Write 2-3 paragraphs of prose that tell the story of this refactoring session. This narrative will be used by the orchestrator to craft the final commit message. Include:
+
+**The Before**: What was the state of the code when you encountered it? What smells, redundancies, or awkward patterns stood out?
+
+**The Philosophy**: What refactoring principles guided your decisions? How did you balance "fix everything" against "preserve behavior"? What did you choose NOT to change, and why?
+
+**The After**: How is the code better now? What will future readers appreciate about its new form? What patterns are now clearer or more consistent?
+
+**The Truth**: Refactoring is archaeology. You'll find things. Some will be funny only because they're true.
+
+Write in prose that a future colleague would want to read.
+
 ### Changes Overview
 [Brief summary of refactoring performed]
 

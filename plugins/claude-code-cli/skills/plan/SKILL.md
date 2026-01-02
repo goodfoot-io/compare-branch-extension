@@ -745,6 +745,13 @@ Good: Post meta-analysis as a separate comment; keep plan standalone
     Don't rename to `_unused`, re-export for compatibility, or add "removed" comments.
     If something is no longer needed, remove it.
 
+13. **Commit Message Heritage**: The Problem Statement you write today becomes the
+    "before" picture in tomorrow's commit message. The Risks & Mitigations become
+    the story of challenges overcome. Write these sections knowing they'll be quoted
+    in the permanent git history—and take pride in that. A well-crafted Problem
+    Statement is the opening paragraph of a story future developers will read.
+    Make it worth reading.
+
 The best plan answers "what" and "where" while leaving "how" to the implementer.
 </key-principles>
 

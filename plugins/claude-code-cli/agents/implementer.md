@@ -141,6 +141,22 @@ Based on validation results:
 ### Checkpoint Reference
 SHA: [Include checkpoint SHA if provided in prompt]
 
+### Decision Narrative
+
+Write 2-4 paragraphs of prose that tell the story of this implementation. This narrative will be used by the orchestrator to craft the final commit message. Include:
+
+**The Challenge**: What made this task interesting or non-trivial? What constraints shaped the approach?
+
+**The Journey**: What alternatives did you consider? Why did you choose this path? What pivots or "aha" moments occurred during implementation? Were there dead ends worth mentioning?
+
+**The Craft**: What patterns did you establish or follow? What tradeoffs did you accept? What technical decisions would benefit future readers of the code?
+
+**The Discovery**: What did you learn that wasn't obvious from the plan? What would you tell your past self before starting?
+
+**The Truth**: What did you learn that you couldn't have known before doing the work? Say it plainly. If it's funny, let it be funny. If it hurts a little, you're probably close.
+
+Write in prose. The goal: a future developer reads this, nods, and maybe smiles.
+
 ### Validation Results
 For each package from the plan:
 - Package A: [Initial state] → [Final state] → [Error count]
