@@ -83,6 +83,6 @@ SYSTEM_MSG=$(build_update_summary "$DIFF_RESPONSE")
 DIFF_JSON=$(echo "$DIFF_RESPONSE" | jq -c '.')
 
 # Block stopping and provide diff as reason with systemMessage
-output_block_decision "$DIFF_JSON" "$SYSTEM_MSG"
+output_block_decision "**Issue JSON patch**\n$BACKTICK$BACKTICK$BACKTICKjson\n$DIFF_JSON$BACKTICK$BACKTICK$BACKTICK" "$SYSTEM_MSG"
 
 exit 0

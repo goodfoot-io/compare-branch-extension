@@ -75,8 +75,8 @@ SYSTEM_MSG=$(build_update_summary "$DIFF_RESPONSE")
 
 # Compact JSON for context (single line, no pretty printing)
 DIFF_JSON=$(echo "$DIFF_RESPONSE" | jq -c '.')
-
+BACKTICK='`'
 # Output context for SessionStart hook with just the JSON
-output_context "SessionStart" "$DIFF_JSON" "$SYSTEM_MSG"
+output_context "SessionStart" "**Issue JSON patch**\n$BACKTICK$BACKTICK$BACKTICKjson\n$DIFF_JSON$BACKTICK$BACKTICK$BACKTICK" "$SYSTEM_MSG"
 
 exit 0

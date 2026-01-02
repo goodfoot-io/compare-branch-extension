@@ -69,6 +69,7 @@ ISSUE_JSON=$(echo "$FULL_ISSUE" | jq -c '.')
 
 # Build system message and output with just the JSON
 SYSTEM_MSG="Session starting: Issue \"${ISSUE_TITLE}\" loaded"
-output_context "SessionStart" "$ISSUE_JSON" "$SYSTEM_MSG"
+BACKTICK='`'
+output_context "SessionStart" "**Full issue:**\n$BACKTICK$BACKTICK$BACKTICKjson\n$ISSUE_JSON\n$BACKTICK$BACKTICK$BACKTICK" "$SYSTEM_MSG"
 
 exit 0
