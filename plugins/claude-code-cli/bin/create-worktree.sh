@@ -143,13 +143,15 @@ fi
 
 # Create worktree - attach to existing branch or create new branch
 if [ "$BRANCH_EXISTS" = "true" ]; then
-    if ! git worktree add "$WORKTREE_DIR" "$BRANCH_NAME" >/dev/null 2>&1; then
+    if ! git_output=$(git worktree add "$WORKTREE_DIR" "$BRANCH_NAME" 2>&1); then
         printf '%s\n' "Error: Failed to create worktree for existing branch" >&2
+        printf '%s\n' "$git_output" >&2
         exit 2
     fi
 else
-    if ! git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" >/dev/null 2>&1; then
+    if ! git_output=$(git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" 2>&1); then
         printf '%s\n' "Error: Failed to create worktree" >&2
+        printf '%s\n' "$git_output" >&2
         exit 2
     fi
 fi
