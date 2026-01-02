@@ -14,6 +14,7 @@
 #   output_block_decision    - Build Stop hook block output
 #   output_empty             - Output empty JSON object
 #   build_update_summary     - Build human-readable update summary
+#   error_missing_issue_id   - Output error for missing ISSUE_ID and exit 2
 #
 
 # Prevent double-sourcing
@@ -123,4 +124,19 @@ build_update_summary() {
 has_updates() {
     local diff_response="$1"
     echo "$diff_response" | jq '[.issues[] | select((.newComments | length > 0) or (.fieldChanges | length > 0))] | length > 0'
+}
+
+# Output error message for missing ISSUE_ID and exit
+# This is a configuration error - the hook requires the wrapper script
+# Exit code: 2 (configuration error)
+error_missing_issue_id() {
+    echo "ERROR: ISSUE_ID environment variable is not set." >&2
+    echo "This hook requires the Claude wrapper script (issue launcher)." >&2
+    echo "" >&2
+    echo "Action required:" >&2
+    echo "  - Launch Claude using the issue panel 'Launch Claude' button" >&2
+    echo "  - Or use the agent-issue-dispatcher script" >&2
+    echo "" >&2
+    echo "Direct 'claude' CLI invocation is not supported for issue tracking." >&2
+    exit 2
 }

@@ -156,8 +156,8 @@ else
 fi
 unset ISSUE_ID
 
-# Test 3: Graceful handling when ISSUE_ID not set (exits 0, no output)
-echo -e "\n${YELLOW}=== Test 3: Graceful handling when ISSUE_ID not set ===${NC}"
+# Test 3: Error when ISSUE_ID not set (exits 2, shows error message)
+echo -e "\n${YELLOW}=== Test 3: Error when ISSUE_ID not set ===${NC}"
 setup_mock_home
 unset ISSUE_ID
 SESSION_ID="test-session-no-issue"
@@ -171,14 +171,14 @@ INPUT=$(cat <<EOF
 }
 EOF
 )
-run_test "Graceful handling when ISSUE_ID not set" "$INPUT" 0
+run_test "Error when ISSUE_ID not set" "$INPUT" 2
 
-# Verify no output when ISSUE_ID not set
-if [ -z "$LAST_OUTPUT" ]; then
-    echo "Verified: No output when ISSUE_ID not set"
+# Verify error message mentions ISSUE_ID
+if echo "$LAST_STDERR" | grep -q "ISSUE_ID"; then
+    echo "Verified: Error message mentions ISSUE_ID"
 else
-    echo -e "${RED}FAIL${NC} - Expected no output when ISSUE_ID not set"
-    echo "Output: $LAST_OUTPUT"
+    echo -e "${RED}FAIL${NC} - Expected error message about ISSUE_ID"
+    echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 

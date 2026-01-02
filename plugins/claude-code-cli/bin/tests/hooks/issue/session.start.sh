@@ -185,8 +185,8 @@ else
 fi
 unset ISSUE_ID
 
-# Test 3: Does NOT post sessionId comment when ISSUE_ID is not set
-echo -e "\n${YELLOW}=== Test 3: Does NOT post sessionId comment when ISSUE_ID is not set ===${NC}"
+# Test 3: Error when ISSUE_ID is not set (exits 2, shows error)
+echo -e "\n${YELLOW}=== Test 3: Error when ISSUE_ID is not set ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-no-issue"
 INPUT=$(cat <<EOF
@@ -199,15 +199,15 @@ INPUT=$(cat <<EOF
 }
 EOF
 )
-run_test "Does NOT post sessionId comment when ISSUE_ID not set" "$INPUT" 0
+run_test "Error when ISSUE_ID not set" "$INPUT" 2
 
-# Verify sessionId comment would NOT be posted
-if echo "$LAST_STDERR" | grep -q "Would POST sessionId comment"; then
-    echo -e "${RED}FAIL${NC} - Should NOT post sessionId comment when ISSUE_ID not set"
+# Verify error message mentions ISSUE_ID
+if echo "$LAST_STDERR" | grep -q "ISSUE_ID"; then
+    echo "Verified: Error message mentions ISSUE_ID"
+else
+    echo -e "${RED}FAIL${NC} - Expected error message about ISSUE_ID"
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
-else
-    echo "Verified: No sessionId comment without ISSUE_ID"
 fi
 
 # Test 4: Exits 0 when session_id is missing

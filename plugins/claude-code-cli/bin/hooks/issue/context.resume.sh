@@ -45,7 +45,7 @@ fi
 
 # Require ISSUE_ID environment variable (set by wrapper)
 if [ -z "${ISSUE_ID:-}" ]; then
-    exit 0
+    error_missing_issue_id
 fi
 
 # Discover API URL

@@ -155,8 +155,8 @@ echo "Script path: $TARGET_SCRIPT"
 # Setup mocks
 setup_mock_discover_api
 
-# Test 1: Exits 0 when ISSUE_ID is not set (no blocking)
-echo -e "\n${YELLOW}=== Test 1: Exits 0 when ISSUE_ID is not set ===${NC}"
+# Test 1: Error when ISSUE_ID is not set (exits 2, shows error)
+echo -e "\n${YELLOW}=== Test 1: Error when ISSUE_ID is not set ===${NC}"
 setup_mock_home
 create_mock_curl
 unset ISSUE_ID
@@ -170,14 +170,14 @@ INPUT=$(cat <<EOF
 }
 EOF
 )
-run_test "Exits 0 when ISSUE_ID not set" "$INPUT" 0
+run_test "Error when ISSUE_ID not set" "$INPUT" 2
 
-# Verify no output (no blocking)
-if [ -z "$LAST_OUTPUT" ]; then
-    echo "Verified: No output when ISSUE_ID not set"
+# Verify error message mentions ISSUE_ID
+if echo "$LAST_STDERR" | grep -q "ISSUE_ID"; then
+    echo "Verified: Error message mentions ISSUE_ID"
 else
-    echo -e "${RED}FAIL${NC} - Should have no output without ISSUE_ID"
-    echo "Output: $LAST_OUTPUT"
+    echo -e "${RED}FAIL${NC} - Expected error message about ISSUE_ID"
+    echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 

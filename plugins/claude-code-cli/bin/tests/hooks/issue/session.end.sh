@@ -146,8 +146,8 @@ echo "Script path: $TARGET_SCRIPT"
 # Setup mocks
 setup_mock_discover_api
 
-# Test 1: Exits 0 when ISSUE_ID is not set
-echo -e "\n${YELLOW}=== Test 1: Exits 0 when ISSUE_ID is not set ===${NC}"
+# Test 1: Error when ISSUE_ID is not set (exits 2, shows error)
+echo -e "\n${YELLOW}=== Test 1: Error when ISSUE_ID is not set ===${NC}"
 setup_mock_home
 create_mock_curl
 unset ISSUE_ID
@@ -161,14 +161,15 @@ INPUT=$(cat <<EOF
 }
 EOF
 )
-run_test "Exits 0 when ISSUE_ID not set" "$INPUT" 0
+run_test "Error when ISSUE_ID not set" "$INPUT" 2
 
-# Verify no curl calls (nothing to clean up)
-if [ -f "$MOCK_CURL_CALLS_FILE" ] && [ -s "$MOCK_CURL_CALLS_FILE" ]; then
-    echo -e "${RED}FAIL${NC} - Should not make curl calls without ISSUE_ID"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
+# Verify error message mentions ISSUE_ID
+if echo "$LAST_STDERR" | grep -q "ISSUE_ID"; then
+    echo "Verified: Error message mentions ISSUE_ID"
 else
-    echo "Verified: No curl calls without ISSUE_ID"
+    echo -e "${RED}FAIL${NC} - Expected error message about ISSUE_ID"
+    echo "Stderr: $LAST_STDERR"
+    TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 
 # Test 2: Deletes session watermark when ISSUE_ID is set
