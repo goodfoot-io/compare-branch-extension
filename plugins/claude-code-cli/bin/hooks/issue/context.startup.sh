@@ -2,9 +2,8 @@
 #
 # hooks/issue/context.startup.sh: Injects issue data when starting a new Claude session
 #
-# Fires on SessionStart with source="startup". Calls the session diff endpoint
-# to register a watermark and retrieve the full issue data, then outputs it
-# as context for Claude via hookSpecificOutput.additionalContext.
+# Fires on SessionStart with source="startup". Fetches the full issue data directly
+# and outputs it as context for Claude via hookSpecificOutput.additionalContext.
 #
 # Triggered by: SessionStart (matcher: startup)
 #
@@ -40,11 +39,10 @@ fi
 # Test mode handling
 if [ "${SESSION_STARTUP_TEST_MODE:-}" = "1" ]; then
     # Output test info via stderr for verification
-    echo "TEST_MODE: Would call session diff endpoint for session=$SESSION_ID, issue=$ISSUE_ID" >&2
+    echo "TEST_MODE: Would fetch issue $ISSUE_ID for session=$SESSION_ID" >&2
     # Output a mock response in the expected format
     MOCK_ISSUE='{"id":"'$ISSUE_ID'","title":"Test Issue","status":"in_progress"}'
-    CONTEXT_TEXT=$(format_issue_context "$MOCK_ISSUE")
-    output_context "SessionStart" "$CONTEXT_TEXT" "Session starting: Issue $ISSUE_ID loaded"
+    output_context "SessionStart" "$MOCK_ISSUE" "Session starting: Issue $ISSUE_ID loaded"
     exit 0
 fi
 
@@ -53,33 +51,24 @@ if ! BASE_URL=$(discover_api_url 2>&1); then
     exit 1  # Non-blocking, shows in verbose mode
 fi
 
-# Call session diff endpoint with ISSUE_ID from environment
-# The endpoint returns fullIssue when isNewSession: true (no watermark exists)
-DIFF_RESPONSE=$(fetch_issue_diff "$SESSION_ID" "$ISSUE_ID" "$BASE_URL") || {
-    # Diff endpoint unavailable - continue silently
+# Fetch issue directly - independent of session watermark state
+FULL_ISSUE=$(fetch_issue "$ISSUE_ID" "$BASE_URL") || {
+    # Issue fetch failed - continue silently
     exit 0
 }
 
-if [ -z "$DIFF_RESPONSE" ]; then
-    exit 0
-fi
-
-# Extract fullIssue from the response (only present for new sessions)
-FULL_ISSUE=$(echo "$DIFF_RESPONSE" | jq -c '.issues[0].fullIssue // empty') || FULL_ISSUE=""
-
-if [ -z "$FULL_ISSUE" ] || [ "$FULL_ISSUE" = "null" ]; then
-    # No fullIssue means this isn't a new session or the issue wasn't found
+if [ -z "$FULL_ISSUE" ]; then
     exit 0
 fi
 
 # Extract issue title for the system message
 ISSUE_TITLE=$(echo "$FULL_ISSUE" | jq -r '.title // "unknown"')
 
-# Format issue as readable text for context injection
-CONTEXT_TEXT=$(format_issue_context "$FULL_ISSUE")
+# Compact JSON for context (single line, no pretty printing)
+ISSUE_JSON=$(echo "$FULL_ISSUE" | jq -c '.')
 
-# Build system message and output
+# Build system message and output with just the JSON
 SYSTEM_MSG="Session starting: Issue \"${ISSUE_TITLE}\" loaded"
-output_context "SessionStart" "$CONTEXT_TEXT" "$SYSTEM_MSG"
+output_context "SessionStart" "$ISSUE_JSON" "$SYSTEM_MSG"
 
 exit 0

@@ -10,6 +10,7 @@
 # Functions:
 #   discover_api_url           - Get the Issues API base URL
 #   fetch_issue_diff           - GET /session/{id}/diff
+#   fetch_issue                - GET /issues/{id}
 #   post_session_comment       - POST /issues/{id}/comments
 #   delete_session_watermark   - DELETE /session/{id}
 #   notify_session_start       - POST /session/start
@@ -43,6 +44,17 @@ fetch_issue_diff() {
     local base_url="$3"
 
     curl -sf "${base_url}/session/${session_id}/diff?issueIds=${issue_id}" 2>/dev/null || return 1
+}
+
+# Fetch a single issue by ID
+# Args: $1 = issue_id, $2 = base_url
+# Returns: JSON issue object on stdout
+# Exit codes: 0 = success, 1 = curl failed or issue not found
+fetch_issue() {
+    local issue_id="$1"
+    local base_url="$2"
+
+    curl -sf "${base_url}/issues/${issue_id}" 2>/dev/null || return 1
 }
 
 # Post a session comment to an issue

@@ -101,10 +101,10 @@ EOF
 run_test "Fires on source=startup when ISSUE_ID is set" "$INPUT" 0
 
 # Verify stderr contains test mode message
-if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would call session diff endpoint for session=$SESSION_ID, issue=$ISSUE_ID"; then
-    echo "Verified: Would call session diff endpoint"
+if echo "$LAST_STDERR" | grep -q "TEST_MODE: Would fetch issue $ISSUE_ID for session=$SESSION_ID"; then
+    echo "Verified: Would fetch issue"
 else
-    echo -e "${RED}FAIL${NC} - Expected session diff endpoint call"
+    echo -e "${RED}FAIL${NC} - Expected fetch issue call"
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi

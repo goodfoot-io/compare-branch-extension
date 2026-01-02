@@ -79,7 +79,10 @@ fi
 # Build human-readable systemMessage from diff response
 SYSTEM_MSG=$(build_update_summary "$DIFF_RESPONSE")
 
+# Compact JSON for context (single line, no pretty printing)
+DIFF_JSON=$(echo "$DIFF_RESPONSE" | jq -c '.')
+
 # Block stopping and provide diff as reason with systemMessage
-output_block_decision "$DIFF_RESPONSE" "$SYSTEM_MSG"
+output_block_decision "$DIFF_JSON" "$SYSTEM_MSG"
 
 exit 0

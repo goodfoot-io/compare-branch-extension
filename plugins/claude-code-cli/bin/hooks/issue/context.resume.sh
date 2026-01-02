@@ -73,10 +73,10 @@ fi
 # Build human-readable systemMessage from diff response
 SYSTEM_MSG=$(build_update_summary "$DIFF_RESPONSE")
 
-# Format diff as readable text for context injection
-CONTEXT_TEXT=$(format_diff_context "$DIFF_RESPONSE")
+# Compact JSON for context (single line, no pretty printing)
+DIFF_JSON=$(echo "$DIFF_RESPONSE" | jq -c '.')
 
-# Output context for SessionStart hook with systemMessage
-output_context "SessionStart" "$CONTEXT_TEXT" "$SYSTEM_MSG"
+# Output context for SessionStart hook with just the JSON
+output_context "SessionStart" "$DIFF_JSON" "$SYSTEM_MSG"
 
 exit 0
