@@ -68,7 +68,7 @@ if [ -n "$CWD" ]; then
   if [ "${SIGNAL_ACTIVE_TEST_MODE:-}" = "1" ]; then
     echo "TEST_MODE: Would POST /session/start (session=$SESSION_ID, pid=$DISPATCHER_PID)" >&2
   else
-    BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$CWD" 2>/dev/null) || true
+    BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || true
     if [ -n "$BASE_URL" ]; then
       curl -s --max-time 2 -X POST "${BASE_URL}/session/start" \
         -H "Content-Type: application/json" \

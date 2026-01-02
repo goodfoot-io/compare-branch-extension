@@ -45,29 +45,29 @@ cleanup_mock_home() {
     export HOME="$ORIGINAL_HOME"
 }
 
-# Create mock discover-api.sh that returns a test URL
+# Create mock discover-workspace-api.sh that returns a test URL
 setup_mock_discover_api() {
     MOCK_BIN_DIR_API="${CLAUDE_PLUGIN_ROOT}/bin"
     mkdir -p "$MOCK_BIN_DIR_API"
 
     # Save original if it exists
-    if [ -f "$MOCK_BIN_DIR_API/discover-api.sh" ]; then
-        cp "$MOCK_BIN_DIR_API/discover-api.sh" "$TEST_DIR/original-discover-api.sh"
+    if [ -f "$MOCK_BIN_DIR_API/discover-workspace-api.sh" ]; then
+        cp "$MOCK_BIN_DIR_API/discover-workspace-api.sh" "$TEST_DIR/original-discover-workspace-api.sh"
     fi
 
     # Create mock
-    cat > "$MOCK_BIN_DIR_API/discover-api.sh" << 'MOCKEOF'
+    cat > "$MOCK_BIN_DIR_API/discover-workspace-api.sh" << 'MOCKEOF'
 #!/bin/bash
 echo "http://127.0.0.1:12345/api/v1"
 MOCKEOF
-    chmod +x "$MOCK_BIN_DIR_API/discover-api.sh"
+    chmod +x "$MOCK_BIN_DIR_API/discover-workspace-api.sh"
 }
 
-# Restore original discover-api.sh
+# Restore original discover-workspace-api.sh
 restore_discover_api() {
     MOCK_BIN_DIR_API="${CLAUDE_PLUGIN_ROOT}/bin"
-    if [ -f "$TEST_DIR/original-discover-api.sh" ]; then
-        mv "$TEST_DIR/original-discover-api.sh" "$MOCK_BIN_DIR_API/discover-api.sh"
+    if [ -f "$TEST_DIR/original-discover-workspace-api.sh" ]; then
+        mv "$TEST_DIR/original-discover-workspace-api.sh" "$MOCK_BIN_DIR_API/discover-workspace-api.sh"
     fi
 }
 

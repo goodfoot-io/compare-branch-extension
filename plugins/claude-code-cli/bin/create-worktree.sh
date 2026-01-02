@@ -30,9 +30,6 @@ set -e
 # Get the directory where this script is located (plugin bin directory)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Save the original working directory - this is where the issue's API is running
-ISSUE_WORKSPACE_PATH="$(pwd)"
-
 # Parse arguments
 BRANCH_NAME=""
 SHOW_HELP=false
@@ -78,7 +75,13 @@ if [ "$SHOW_HELP" = "true" ]; then
     exit 0
 fi
 
-# Validate required environment variable
+# Validate required environment variables
+if [ -z "${ISSUE_WORKSPACE_PATH:-}" ]; then
+    printf '%s\n' "Error: ISSUE_WORKSPACE_PATH environment variable is not set." >&2
+    printf '%s\n' "This script must be called from a Claude session with issue tracking enabled." >&2
+    exit 2
+fi
+
 if [ -z "$ISSUE_ID" ]; then
     printf '%s\n' "Error: ISSUE_ID environment variable is required" >&2
     printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Test suite for discover-api utility
-# Tests API discovery and base URL output
+# Test suite for discover-workspace-api utility
+# Tests API discovery and base URL output with ISSUE_WORKSPACE_PATH validation
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -18,9 +18,9 @@ TEST_DIR=$(mktemp -d)
 ORIGINAL_HOME="$HOME"
 ORIGINAL_PWD=$(pwd)
 
-# Get the discover-api script path
+# Get the discover-workspace-api script path
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DISCOVER_API="$SCRIPT_DIR/discover-api.sh"
+DISCOVER_API="$SCRIPT_DIR/discover-workspace-api.sh"
 
 # Setup mock home directory
 setup_mock_home() {
@@ -55,7 +55,7 @@ run_test() {
     echo "Exit code: $exit_code (expected: $expected_exit_code)"
 
     if [ $exit_code -ne "$expected_exit_code" ]; then
-        echo -e "${RED}✗ FAIL${NC} - unexpected exit code"
+        echo -e "${RED}x FAIL${NC} - unexpected exit code"
         if [ -n "$stderr_output" ]; then
             echo "Stderr: $stderr_output"
         fi
@@ -66,38 +66,48 @@ run_test() {
     if [ -n "$expected_output" ]; then
         if [ "$output" = "$expected_output" ]; then
             echo "Output: $output"
-            echo -e "${GREEN}✓ PASS${NC}"
+            echo -e "${GREEN}+ PASS${NC}"
             TESTS_PASSED=$((TESTS_PASSED + 1))
             return 0
         else
             echo "Expected: $expected_output"
             echo "Actual: $output"
-            echo -e "${RED}✗ FAIL${NC} - output mismatch"
+            echo -e "${RED}x FAIL${NC} - output mismatch"
             return 1
         fi
     else
-        echo -e "${GREEN}✓ PASS${NC}"
+        echo -e "${GREEN}+ PASS${NC}"
         TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     fi
 }
 
-echo "Running discover-api tests..."
+echo "Running discover-workspace-api tests..."
 echo "===================================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $DISCOVER_API"
 
-# Test 1: Discovery file not found
-echo -e "\n${YELLOW}=== Test 1: Discovery file not found ===${NC}"
+# Test 1: Missing ISSUE_WORKSPACE_PATH exits with code 2
+echo -e "\n${YELLOW}=== Test 1: Missing ISSUE_WORKSPACE_PATH exits with code 2 ===${NC}"
 setup_mock_home
-run_test "No discovery file" 1
+unset ISSUE_WORKSPACE_PATH
+run_test "Missing ISSUE_WORKSPACE_PATH" 2
 
-# Test 2: Discovery file exists with current workspace
-echo -e "\n${YELLOW}=== Test 2: Current workspace in discovery file ===${NC}"
+# Test 2: Discovery file not found
+echo -e "\n${YELLOW}=== Test 2: Discovery file not found ===${NC}"
 setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
-cd "$TEST_WORKSPACE"
+export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
+# Don't create discovery file
+run_test "No discovery file" 1
+
+# Test 3: Discovery file exists with current workspace
+echo -e "\n${YELLOW}=== Test 3: Current workspace in discovery file ===${NC}"
+setup_mock_home
+TEST_WORKSPACE="$TEST_DIR/test-workspace"
+mkdir -p "$TEST_WORKSPACE"
+export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 
 cat > "$HOME/.compare-branch/issues-api.json" <<EOF
 {
@@ -113,12 +123,12 @@ EOF
 
 run_test "Current workspace found" 0 "http://127.0.0.1:54321/api/v1"
 
-# Test 3: Workspace not in discovery file, fallback to first
-echo -e "\n${YELLOW}=== Test 3: Fallback to first available instance ===${NC}"
+# Test 4: Workspace not in discovery file (no fallback - strict mode)
+echo -e "\n${YELLOW}=== Test 4: Workspace not in discovery file (no fallback) ===${NC}"
 setup_mock_home
-OTHER_WORKSPACE="$TEST_DIR/other-workspace"
-mkdir -p "$OTHER_WORKSPACE"
-cd "$TEST_WORKSPACE"
+TEST_WORKSPACE="$TEST_DIR/test-workspace"
+mkdir -p "$TEST_WORKSPACE"
+export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 
 cat > "$HOME/.compare-branch/issues-api.json" <<EOF
 {
@@ -132,25 +142,33 @@ cat > "$HOME/.compare-branch/issues-api.json" <<EOF
 }
 EOF
 
-run_test "Fallback to first instance" 0 "http://127.0.0.1:55555/api/v1"
+run_test "Workspace not found, no fallback" 1
 
-# Test 4: Empty discovery file
-echo -e "\n${YELLOW}=== Test 4: Empty discovery file ===${NC}"
+# Test 5: Empty discovery file
+echo -e "\n${YELLOW}=== Test 5: Empty discovery file ===${NC}"
 setup_mock_home
+TEST_WORKSPACE="$TEST_DIR/test-workspace"
+mkdir -p "$TEST_WORKSPACE"
+export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 echo '{}' > "$HOME/.compare-branch/issues-api.json"
 run_test "Empty discovery file" 1
 
-# Test 5: Invalid JSON in discovery file
-echo -e "\n${YELLOW}=== Test 5: Invalid JSON in discovery file ===${NC}"
+# Test 6: Invalid JSON in discovery file
+echo -e "\n${YELLOW}=== Test 6: Invalid JSON in discovery file ===${NC}"
 setup_mock_home
+TEST_WORKSPACE="$TEST_DIR/test-workspace"
+mkdir -p "$TEST_WORKSPACE"
+export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 echo 'not valid json' > "$HOME/.compare-branch/issues-api.json"
 # Note: jq returns exit code 4 for parse errors, which causes script to fail
 run_test "Invalid JSON in discovery file" 4
 
-# Test 6: Multiple workspaces, current workspace preferred
-echo -e "\n${YELLOW}=== Test 6: Multiple workspaces, current preferred ===${NC}"
+# Test 7: Multiple workspaces, exact match only
+echo -e "\n${YELLOW}=== Test 7: Multiple workspaces, exact match only ===${NC}"
 setup_mock_home
-cd "$TEST_WORKSPACE"
+TEST_WORKSPACE="$TEST_DIR/test-workspace"
+mkdir -p "$TEST_WORKSPACE"
+export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 
 cat > "$HOME/.compare-branch/issues-api.json" <<EOF
 {
@@ -178,7 +196,7 @@ cat > "$HOME/.compare-branch/issues-api.json" <<EOF
 }
 EOF
 
-run_test "Current workspace preferred over others" 0 "http://127.0.0.1:22222/api/v1"
+run_test "Exact workspace match among multiple" 0 "http://127.0.0.1:22222/api/v1"
 
 # Cleanup
 cleanup_mock_home

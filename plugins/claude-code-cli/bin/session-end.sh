@@ -36,16 +36,13 @@ if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
-# Extract cwd for API discovery (hooks receive the working directory in input)
-SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty') || SESSION_CWD=""
-
 # Require ISSUE_ID - nothing to clean up without it
 if [ -z "${ISSUE_ID:-}" ]; then
   exit 0
 fi
 
 # Discover API URL (pass cwd to find the correct workspace API)
-BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
+BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || exit 0
 
 # Clean up session watermark on exit
 curl -sf -X DELETE "${BASE_URL}/session/${SESSION_ID}" 2>/dev/null || true

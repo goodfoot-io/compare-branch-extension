@@ -49,7 +49,7 @@ fi
 if [ "${SESSION_START_TEST_MODE:-}" = "1" ]; then
   echo "TEST_MODE: Would POST sessionId comment to /issues/${ISSUE_ID}/comments (session=$SESSION_ID, source=$SOURCE)" >&2
 else
-  BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$CWD" 2>/dev/null) || exit 0
+  BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || exit 0
   if [ -n "$BASE_URL" ]; then
     curl -s --max-time 2 -X POST "${BASE_URL}/issues/${ISSUE_ID}/comments" \
       -H "Content-Type: application/json" \

@@ -38,16 +38,13 @@ if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
-# Extract cwd for API discovery
-SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty') || SESSION_CWD=""
-
 # Require ISSUE_ID environment variable (set by wrapper)
 if [ -z "${ISSUE_ID:-}" ]; then
   exit 0
 fi
 
 # Discover API URL
-BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh" "$SESSION_CWD" 2>/dev/null) || exit 0
+BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || exit 0
 
 # Call session diff endpoint with ISSUE_ID from environment
 DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_ID}" 2>/dev/null) || {
