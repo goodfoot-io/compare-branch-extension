@@ -313,111 +313,183 @@ git -C "$WORKTREE_DIR" config --worktree issue.workspacePath "$ISSUE_WORKSPACE_P
     exit 2
 }
 
+# Capture the original core.hooksPath before overriding (for passthrough chaining)
+ORIGINAL_HOOKS_PATH=$(git -C "$WORKTREE_DIR" config core.hooksPath 2>/dev/null || echo "")
+if [ -n "$ORIGINAL_HOOKS_PATH" ]; then
+    git -C "$WORKTREE_DIR" config --worktree issue.originalHooksPath "$ORIGINAL_HOOKS_PATH" 2>/dev/null || true
+fi
+
+# Override core.hooksPath for this worktree to use hooks in the git directory
+# This prevents hooks from being committed (they live in .git/worktrees/.../hooks/)
+# while still allowing us to chain to the original hooks
+git -C "$WORKTREE_DIR" config --worktree core.hooksPath "$WORKTREE_GIT_DIR/hooks" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to set core.hooksPath in worktree git config" >&2
+    exit 2
+}
+
 # Create hooks directory if it doesn't exist
 HOOKS_DIR="${WORKTREE_GIT_DIR}/hooks"
 mkdir -p "$HOOKS_DIR"
 
-# Install post-commit hook
-cat > "${HOOKS_DIR}/post-commit" << 'HOOK_EOF'
+# Helper function embedded in hooks to find original hook
+# Reads issue.originalHooksPath from git config, resolves relative to repo root
+HOOK_CHAIN_HELPER='
+get_original_hook() {
+    local hook_name="$1"
+    local original_path=$(git config --worktree issue.originalHooksPath 2>/dev/null)
+    if [ -z "$original_path" ]; then
+        return 1
+    fi
+    local repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -z "$repo_root" ]; then
+        return 1
+    fi
+    # Resolve relative path against repo root
+    if [[ "$original_path" != /* ]]; then
+        original_path="$repo_root/$original_path"
+    fi
+    local hook_file="$original_path/$hook_name"
+    if [ -x "$hook_file" ]; then
+        echo "$hook_file"
+        return 0
+    fi
+    return 1
+}
+'
+
+# Install pre-commit hook (passthrough only)
+cat > "${HOOKS_DIR}/pre-commit" << HOOK_EOF
 #!/bin/bash
-# post-commit hook - posts commit info to Issues API
+# pre-commit hook - passthrough to original hooks
+# Installed by create-worktree.sh
+
+$HOOK_CHAIN_HELPER
+
+ORIGINAL_HOOK=\$(get_original_hook "pre-commit")
+if [ -n "\$ORIGINAL_HOOK" ]; then
+    exec "\$ORIGINAL_HOOK" "\$@"
+fi
+exit 0
+HOOK_EOF
+chmod +x "${HOOKS_DIR}/pre-commit"
+
+# Install pre-push hook (passthrough only)
+cat > "${HOOKS_DIR}/pre-push" << HOOK_EOF
+#!/bin/bash
+# pre-push hook - passthrough to original hooks
+# Installed by create-worktree.sh
+
+$HOOK_CHAIN_HELPER
+
+ORIGINAL_HOOK=\$(get_original_hook "pre-push")
+if [ -n "\$ORIGINAL_HOOK" ]; then
+    exec "\$ORIGINAL_HOOK" "\$@"
+fi
+exit 0
+HOOK_EOF
+chmod +x "${HOOKS_DIR}/pre-push"
+
+# Install post-commit hook (Issues API + passthrough)
+cat > "${HOOKS_DIR}/post-commit" << HOOK_EOF
+#!/bin/bash
+# post-commit hook - posts commit info to Issues API, then chains to original hook
 # Installed by create-worktree.sh
 # Errors are logged to stderr but do not block git operations
 
 set -o pipefail
 
-ISSUE_ID=$(git config --worktree issue.id 2>/dev/null)
-WORKSPACE_PATH=$(git config --worktree issue.workspacePath 2>/dev/null)
+$HOOK_CHAIN_HELPER
 
-if [ -z "$ISSUE_ID" ] || [ -z "$WORKSPACE_PATH" ]; then
-  exit 0  # Not a tracked worktree, silently skip
+# --- Issues API posting ---
+ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
+WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+
+if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
+    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
+    if [ -f "\$DISCOVERY_FILE" ]; then
+        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+
+        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
+            API_BASE="http://\${HOST}:\${PORT}/api/v1"
+            SHA=\$(git rev-parse HEAD)
+
+            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
+                -H "Content-Type: application/json" \
+                -d "{\"author\": \"agent\", \"commitSha\": \"\$SHA\"}" \
+                >/dev/null 2>&1 || true
+        fi
+    fi
 fi
 
-# Discover API for the issue's workspace (not the worktree's workspace)
-DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
-if [ ! -f "$DISCOVERY_FILE" ]; then
-  exit 0  # No discovery file, silently skip
+# --- Chain to original hook ---
+ORIGINAL_HOOK=\$(get_original_hook "post-commit")
+if [ -n "\$ORIGINAL_HOOK" ]; then
+    exec "\$ORIGINAL_HOOK" "\$@"
 fi
-
-PORT=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
-HOST=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
-
-if [ -z "$PORT" ] || [ -z "$HOST" ]; then
-  exit 0  # Issue workspace API not running, silently skip
-fi
-
-API_BASE="http://${HOST}:${PORT}/api/v1"
-
-SHA=$(git rev-parse HEAD)
-
-curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
-  -H "Content-Type: application/json" \
-  -d "{\"author\": \"agent\", \"commitSha\": \"$SHA\"}" \
-  >/dev/null 2>&1 || true
-
 exit 0
 HOOK_EOF
-
 chmod +x "${HOOKS_DIR}/post-commit"
 
-# Install post-rewrite hook
-cat > "${HOOKS_DIR}/post-rewrite" << 'HOOK_EOF'
+# Install post-rewrite hook (Issues API + passthrough)
+cat > "${HOOKS_DIR}/post-rewrite" << HOOK_EOF
 #!/bin/bash
-# post-rewrite hook - handles rebase/amend by posting new commit and cleaning up old ones
+# post-rewrite hook - handles rebase/amend, then chains to original hook
 # Installed by create-worktree.sh
 # Errors are logged to stderr but do not block git operations
 
 set -o pipefail
 
-ISSUE_ID=$(git config --worktree issue.id 2>/dev/null)
-WORKSPACE_PATH=$(git config --worktree issue.workspacePath 2>/dev/null)
+$HOOK_CHAIN_HELPER
 
-if [ -z "$ISSUE_ID" ] || [ -z "$WORKSPACE_PATH" ]; then
-  exit 0
+# Capture stdin for potential passthrough (post-rewrite receives old/new SHA pairs)
+STDIN_DATA=\$(cat)
+
+# --- Issues API posting ---
+ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
+WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+
+if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
+    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
+    if [ -f "\$DISCOVERY_FILE" ]; then
+        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+
+        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
+            API_BASE="http://\${HOST}:\${PORT}/api/v1"
+            NEW_SHA=\$(git rev-parse HEAD)
+
+            # Collect old SHAs from stdin data
+            OLD_SHAS=()
+            while read old_sha new_sha extra; do
+                OLD_SHAS+=("\$old_sha")
+            done <<< "\$STDIN_DATA"
+
+            # Post new commit comment
+            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
+                -H "Content-Type: application/json" \
+                -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \
+                >/dev/null 2>&1 || true
+
+            # Delete old commit comments
+            COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
+            for old_sha in "\${OLD_SHAS[@]}"; do
+                COMMENT_ID=\$(echo "\$COMMENTS" | jq -r ".[] | select(.commitSha == \"\$old_sha\") | .id" 2>/dev/null)
+                if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
+                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
+                fi
+            done
+        fi
+    fi
 fi
 
-# Discover API for the issue's workspace (not the worktree's workspace)
-DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
-if [ ! -f "$DISCOVERY_FILE" ]; then
-  exit 0
+# --- Chain to original hook ---
+ORIGINAL_HOOK=\$(get_original_hook "post-rewrite")
+if [ -n "\$ORIGINAL_HOOK" ]; then
+    echo "\$STDIN_DATA" | exec "\$ORIGINAL_HOOK" "\$@"
 fi
-
-PORT=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
-HOST=$(jq -r --arg ws "$WORKSPACE_PATH" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
-
-if [ -z "$PORT" ] || [ -z "$HOST" ]; then
-  exit 0  # Issue workspace API not running, silently skip
-fi
-
-API_BASE="http://${HOST}:${PORT}/api/v1"
-NEW_SHA=$(git rev-parse HEAD)
-
-# Count rewritten commits and collect old SHAs
-REWRITE_COUNT=0
-OLD_SHAS=()
-while read old_sha new_sha extra; do
-  OLD_SHAS+=("$old_sha")
-  ((REWRITE_COUNT++))
-done
-
-# Post new commit comment
-curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
-  -H "Content-Type: application/json" \
-  -d "{\"author\": \"agent\", \"commitSha\": \"$NEW_SHA\"}" \
-  >/dev/null 2>&1 || true
-
-# Delete old commit comments
-COMMENTS=$(curl -s "$API_BASE/issues/$ISSUE_ID/comments" 2>/dev/null) || exit 0
-for old_sha in "${OLD_SHAS[@]}"; do
-  COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.commitSha == \"$old_sha\") | .id" 2>/dev/null)
-  if [ -n "$COMMENT_ID" ] && [ "$COMMENT_ID" != "null" ]; then
-    curl -s -X DELETE "$API_BASE/issues/$ISSUE_ID/comments/$COMMENT_ID" >/dev/null 2>&1 || true
-  fi
-done
-
 exit 0
 HOOK_EOF
-
 chmod +x "${HOOKS_DIR}/post-rewrite"
 
 # Update issue with worktreePath (absolute path)
