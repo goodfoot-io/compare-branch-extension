@@ -65,6 +65,9 @@ run_test() {
         return 1
     fi
 
+    # Store output for verification by caller
+    LAST_OUTPUT="$output"
+
     echo -e "${GREEN}PASS${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
     return 0
@@ -151,6 +154,16 @@ if [ ! -f "$STATE_FILE" ]; then
     TESTS_PASSED=$((TESTS_PASSED - 1))
 else
     echo "Verified: State file created at $STATE_FILE"
+fi
+
+# Verify systemMessage in output
+TESTS_RUN=$((TESTS_RUN + 1))
+if echo "$LAST_OUTPUT" | grep -q '"systemMessage":"Skill tracked: claude-code-cli:issue-bug"'; then
+    echo "Verified: systemMessage present in output"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+    echo -e "${RED}FAIL${NC} - Expected systemMessage in output"
+    echo "Output: $LAST_OUTPUT"
 fi
 
 # Test 4: Adds skill to cliSkills array

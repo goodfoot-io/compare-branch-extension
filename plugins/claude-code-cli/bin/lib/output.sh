@@ -8,6 +8,8 @@
 # Usage: source "${CLAUDE_PLUGIN_ROOT}/bin/lib/output.sh"
 #
 # Functions:
+#   output_system_message    - Output simple systemMessage-only JSON
+#   output_stop_allow        - Build Stop hook allow output with systemMessage
 #   output_context           - Build SessionStart context output
 #   output_block_decision    - Build Stop hook block output
 #   output_empty             - Output empty JSON object
@@ -17,6 +19,23 @@
 # Prevent double-sourcing
 [[ -n "${_LIB_OUTPUT_SOURCED:-}" ]] && return 0
 readonly _LIB_OUTPUT_SOURCED=1
+
+# Output simple systemMessage-only JSON
+# Args: $1 = system_message
+output_system_message() {
+    local system_message="$1"
+    jq -nc --arg sysMsg "$system_message" '{ systemMessage: $sysMsg }'
+}
+
+# Build Stop hook allow output with systemMessage
+# Args: $1 = system_message
+output_stop_allow() {
+    local system_message="$1"
+    jq -nc --arg sysMsg "$system_message" '{
+        decision: "allow",
+        systemMessage: $sysMsg
+    }'
+}
 
 # Build SessionStart context output
 # Args: $1 = hook_event_name, $2 = context (JSON string), $3 = system_message

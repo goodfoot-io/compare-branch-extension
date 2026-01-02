@@ -202,6 +202,16 @@ else
     echo -e "${RED}FAIL${NC} - No curl calls recorded"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
+
+# Verify systemMessage in output
+TESTS_RUN=$((TESTS_RUN + 1))
+if echo "$LAST_OUTPUT" | grep -q '"systemMessage":"Session ended: Cleaned up session watermark"'; then
+    echo "Verified: systemMessage present in output"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+    echo -e "${RED}FAIL${NC} - Expected systemMessage in output"
+    echo "Output: $LAST_OUTPUT"
+fi
 unset ISSUE_ID
 
 # Test 3: Exits 0 even if API call fails

@@ -94,8 +94,9 @@ run_test() {
         return 1
     fi
 
-    # Store stderr output for verification by caller
+    # Store stderr output and stdout for verification by caller
     LAST_STDERR="$stderr_output"
+    LAST_OUTPUT="$output"
 
     echo -e "${GREEN}PASS${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -144,6 +145,16 @@ else
     echo -e "${RED}FAIL${NC} - Expected session ID and source in message"
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+
+# Verify systemMessage in output
+TESTS_RUN=$((TESTS_RUN + 1))
+if echo "$LAST_OUTPUT" | grep -q '"systemMessage":"Session tracking: Registered session with issue tracker"'; then
+    echo "Verified: systemMessage present in output"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+    echo -e "${RED}FAIL${NC} - Expected systemMessage in output"
+    echo "Output: $LAST_OUTPUT"
 fi
 unset ISSUE_ID
 

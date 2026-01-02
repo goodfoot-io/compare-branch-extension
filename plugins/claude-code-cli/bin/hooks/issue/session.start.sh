@@ -8,7 +8,7 @@
 # Triggered by: SessionStart (all, but skips on resume)
 #
 # Input (stdin): JSON with session_id, cwd, source
-# Output: None on success
+# Output: JSON with systemMessage on successful registration
 # Exit codes: 0 = success
 #
 # Environment variables:
@@ -20,6 +20,7 @@ set -euo pipefail
 
 # Source shared libraries
 source "${CLAUDE_PLUGIN_ROOT}/bin/lib/api.sh"
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/output.sh"
 
 # Read input from stdin
 INPUT=$(cat)
@@ -53,6 +54,7 @@ fi
 # Post sessionId comment to enable session resumption
 if [ "${SESSION_START_TEST_MODE:-}" = "1" ]; then
     echo "TEST_MODE: Would POST sessionId comment to /issues/${ISSUE_ID}/comments (session=$SESSION_ID, source=$SOURCE)" >&2
+    output_system_message "Session tracking: Registered session with issue tracker"
 else
     if ! BASE_URL=$(discover_api_url 2>&1); then
         exit 1  # Non-blocking, shows in verbose mode
@@ -60,6 +62,8 @@ else
     if [ -n "$BASE_URL" ]; then
         if ! post_session_comment "$ISSUE_ID" "$SESSION_ID" "$BASE_URL"; then
             echo "Warning: Failed to register session with issue tracker" >&2
+        else
+            output_system_message "Session tracking: Registered session with issue tracker"
         fi
     fi
 fi

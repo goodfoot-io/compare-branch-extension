@@ -8,7 +8,7 @@
 # Triggered by: SessionStart (all), UserPromptSubmit hooks
 #
 # Input (stdin): JSON with session_id, cwd, hook_event_name, source
-# Output: None on success
+# Output: JSON with systemMessage on success
 # Exit codes: 0 = success, 1 = orphan (dispatcher died), 2 = configuration error
 #
 # Environment variables:
@@ -32,6 +32,7 @@ trap 'error_handler ${LINENO} $?' ERR
 
 # Source shared libraries
 source "${CLAUDE_PLUGIN_ROOT}/bin/lib/api.sh"
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/output.sh"
 
 # Read input from stdin
 INPUT=$(cat)
@@ -91,5 +92,8 @@ else
         echo "Warning: Could not signal dispatcher (PID=$DISPATCHER_PID may have exited)" >&2
     fi
 fi
+
+# Output systemMessage for user feedback
+output_system_message "IPC: Signaling dispatcher that session is active"
 
 exit 0

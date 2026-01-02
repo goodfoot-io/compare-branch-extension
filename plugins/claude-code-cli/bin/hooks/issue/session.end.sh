@@ -8,7 +8,7 @@
 # Triggered by: SessionEnd hook
 #
 # Input (stdin): JSON with session_id, transcript_path, cwd, hook_event_name
-# Output: None
+# Output: JSON with systemMessage on successful cleanup
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # Environment variables:
@@ -31,6 +31,7 @@ trap 'error_handler ${LINENO} $?' ERR
 
 # Source shared libraries
 source "${CLAUDE_PLUGIN_ROOT}/bin/lib/api.sh"
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/output.sh"
 
 # Read input from stdin
 INPUT=$(cat)
@@ -54,6 +55,8 @@ fi
 # Clean up session watermark on exit
 if ! delete_session_watermark "$SESSION_ID" "$BASE_URL"; then
     echo "Warning: Failed to notify extension of session end" >&2
+else
+    output_system_message "Session ended: Cleaned up session watermark"
 fi
 
 exit 0

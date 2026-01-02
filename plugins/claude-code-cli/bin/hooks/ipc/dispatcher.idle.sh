@@ -8,7 +8,7 @@
 # Called by: hooks/issue/context.stop.sh when stop is allowed
 #
 # Input (stdin): JSON with session_id
-# Output: None
+# Output: JSON with systemMessage on success
 # Exit codes: 0 = success
 #
 # Environment variables:
@@ -20,6 +20,7 @@ set -euo pipefail
 
 # Source shared libraries
 source "${CLAUDE_PLUGIN_ROOT}/bin/lib/api.sh"
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/output.sh"
 
 # Read input from stdin
 INPUT=$(cat)
@@ -58,5 +59,8 @@ else
         echo "Warning: Could not signal dispatcher idle state (PID=$DISPATCHER_PID may have exited)" >&2
     fi
 fi
+
+# Output systemMessage for user feedback
+output_system_message "IPC: Signaling dispatcher that session is idle"
 
 exit 0

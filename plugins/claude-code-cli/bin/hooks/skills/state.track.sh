@@ -8,7 +8,7 @@
 # Triggered by: PostToolUse (matcher: Skill)
 #
 # Input (stdin): JSON with session_id, tool_name, tool_input.skill
-# Output: JSON response (empty {} on success)
+# Output: JSON with systemMessage when a claude-code-cli skill is tracked
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # State file: $HOME/.compare-branch/hook-state/${session_id}.json
@@ -66,7 +66,7 @@ SKILL_NAME="${SKILL#claude-code-cli:}"
 # Add the skill to state (using shared library)
 add_cli_skill "$SESSION_ID" "$SKILL_NAME"
 
-# Output minimal JSON response
-output_empty
+# Output systemMessage confirming skill was tracked
+output_system_message "Skill tracked: claude-code-cli:${SKILL_NAME}"
 
 exit 0

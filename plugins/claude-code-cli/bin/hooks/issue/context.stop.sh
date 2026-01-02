@@ -9,7 +9,7 @@
 # Triggered by: Stop hook
 #
 # Input (stdin): JSON with session_id, transcript_path, cwd, hook_event_name
-# Output: JSON with decision/reason if updates exist
+# Output: JSON with decision and systemMessage (allow or block)
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # Environment variables:
@@ -70,7 +70,9 @@ HAS_UPDATES=$(has_updates "$DIFF_RESPONSE")
 
 if [ "$HAS_UPDATES" != "true" ]; then
     # No updates - Claude will stop. Signal dispatcher that we're going idle.
-    echo "$INPUT" | "${CLAUDE_PLUGIN_ROOT}/bin/hooks/ipc/dispatcher.idle.sh"
+    echo "$INPUT" | "${CLAUDE_PLUGIN_ROOT}/bin/hooks/ipc/dispatcher.idle.sh" > /dev/null
+    # Output allow decision with systemMessage
+    output_stop_allow "Stop allowed: No pending issue updates"
     exit 0
 fi
 

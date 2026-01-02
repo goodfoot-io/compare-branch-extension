@@ -106,6 +106,17 @@ else
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
+
+# Verify systemMessage in output
+TESTS_RUN=$((TESTS_RUN + 1))
+OUTPUT=$(echo "$INPUT" | DISPATCHER_PID=$$ "$TARGET_SCRIPT" 2>/dev/null)
+if echo "$OUTPUT" | jq -e '.systemMessage' | grep -q "IPC: Signaling dispatcher that session is active"; then
+    echo "Verified: systemMessage present in output"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+    echo -e "${RED}FAIL${NC} - Expected systemMessage in output"
+    echo "Output: $OUTPUT"
+fi
 unset DISPATCHER_PID
 
 # Test 2: Exits 0 when session_id is missing

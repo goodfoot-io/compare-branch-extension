@@ -268,13 +268,23 @@ EOF
 )
 run_test "No block when no new comments or changes" "$INPUT" 0
 
-# Verify no block decision in output
-if echo "$LAST_OUTPUT" | grep -q '"decision":"block"'; then
-    echo -e "${RED}FAIL${NC} - Should NOT have block decision when no updates"
+# Verify allow decision in output with systemMessage
+if echo "$LAST_OUTPUT" | grep -q '"decision":"allow"'; then
+    echo "Verified: Allow decision when no updates"
+else
+    echo -e "${RED}FAIL${NC} - Expected allow decision when no updates"
     echo "Output: $LAST_OUTPUT"
     TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+
+# Verify systemMessage for allow case
+TESTS_RUN=$((TESTS_RUN + 1))
+if echo "$LAST_OUTPUT" | grep -q '"systemMessage":"Stop allowed: No pending issue updates"'; then
+    echo "Verified: systemMessage present for allow case"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-    echo "Verified: No block decision when no updates"
+    echo -e "${RED}FAIL${NC} - Expected systemMessage for allow case"
+    echo "Output: $LAST_OUTPUT"
 fi
 unset ISSUE_ID
 
