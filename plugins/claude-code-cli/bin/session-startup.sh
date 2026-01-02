@@ -52,7 +52,11 @@ if [ "${SESSION_STARTUP_TEST_MODE:-}" = "1" ]; then
 fi
 
 # Discover API URL
-BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || exit 0
+if ! BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>&1); then
+  echo "Warning: Issue tracking unavailable - VSCode extension not running or workspace not registered" >&2
+  echo "Ensure VSCode is running with the Compare Branch extension active in this workspace." >&2
+  exit 1  # Non-blocking, shows in verbose mode
+fi
 
 # Call session diff endpoint with ISSUE_ID from environment
 # The endpoint returns fullIssue when isNewSession: true (no watermark exists)

@@ -44,7 +44,11 @@ if [ -z "${ISSUE_ID:-}" ]; then
 fi
 
 # Discover API URL
-BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || exit 0
+if ! BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>&1); then
+  echo "Warning: Issue tracking unavailable - VSCode extension not running or workspace not registered" >&2
+  echo "Ensure VSCode is running with the Compare Branch extension active in this workspace." >&2
+  exit 1  # Non-blocking, shows in verbose mode
+fi
 
 # Call session diff endpoint with ISSUE_ID from environment
 DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_ID}" 2>/dev/null) || {
@@ -62,17 +66,24 @@ HAS_UPDATES=$(echo "$DIFF_RESPONSE" | jq '[.issues[] | select((.newComments | le
 if [ "$HAS_UPDATES" != "true" ]; then
   # No updates - Claude will stop. Notify extension to update issue status.
   if [ -n "${DISPATCHER_PID:-}" ]; then
-    curl -s --max-time 2 -X POST "${BASE_URL}/session/stop" \
+    # Non-critical: UI may show stale session status, but Claude will stop correctly
+    if ! curl -sf --max-time 2 -X POST "${BASE_URL}/session/stop" \
       -H "Content-Type: application/json" \
       -d "{\"sessionId\": \"${SESSION_ID}\", \"dispatcherPid\": ${DISPATCHER_PID}}" \
-      > /dev/null 2>&1 || true
+      > /dev/null 2>&1; then
+      echo "Warning: Failed to notify extension of session stop" >&2
+      echo "Session status in the issue panel may appear stale." >&2
+    fi
 
     # Signal dispatcher that Claude is now idle
     # SIGWINCH is ignored by default, safe to send even if dispatcher exited
     if [ "${SESSION_STOP_TEST_MODE:-}" = "1" ]; then
       echo "TEST_MODE: Would send SIGWINCH to dispatcher (idle)" >&2
     else
-      kill -WINCH "$DISPATCHER_PID" 2>/dev/null || true
+      # Signal failure is expected if dispatcher exited during the call
+      if ! kill -WINCH "$DISPATCHER_PID" 2>/dev/null; then
+        echo "Warning: Could not signal dispatcher idle state (PID=$DISPATCHER_PID may have exited)" >&2
+      fi
     fi
   fi
   exit 0

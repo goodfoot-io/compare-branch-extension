@@ -283,8 +283,15 @@ if [ -n "$worktree_git_dir" ]; then
     } >> "$exclude_file"
 
     # Enable worktree-specific config and set excludesFile for this worktree
-    git -C "$WORKSPACE_ROOT" config extensions.worktreeConfig true 2>/dev/null || true
-    git -C "$WORKTREE_DIR" config --worktree core.excludesFile "$exclude_file" 2>/dev/null || true
+    # These are non-critical - worktree is still usable without them
+    if ! git -C "$WORKSPACE_ROOT" config extensions.worktreeConfig true 2>/dev/null; then
+        echo "Warning: Could not enable worktree-specific config" >&2
+        echo "Symlinked paths may appear as unstaged changes. Run: git config extensions.worktreeConfig true" >&2
+    fi
+    if ! git -C "$WORKTREE_DIR" config --worktree core.excludesFile "$exclude_file" 2>/dev/null; then
+        echo "Warning: Could not set worktree excludes file" >&2
+        echo "Symlinked paths may appear as unstaged changes in this worktree." >&2
+    fi
 fi
 
 # Get the base commit SHA (the commit this worktree is based on)
@@ -318,7 +325,13 @@ git -C "$WORKTREE_DIR" config --worktree issue.workspacePath "$ISSUE_WORKSPACE_P
 # Capture the original core.hooksPath before overriding (for passthrough chaining)
 ORIGINAL_HOOKS_PATH=$(git -C "$WORKTREE_DIR" config core.hooksPath 2>/dev/null || echo "")
 if [ -n "$ORIGINAL_HOOKS_PATH" ]; then
-    git -C "$WORKTREE_DIR" config --worktree issue.originalHooksPath "$ORIGINAL_HOOKS_PATH" 2>/dev/null || true
+    # Critical: worktree hooks depend on this to chain to original hooks (e.g., pre-commit)
+    if ! git -C "$WORKTREE_DIR" config --worktree issue.originalHooksPath "$ORIGINAL_HOOKS_PATH" 2>/dev/null; then
+        printf '%s\n' "Error: Failed to store original hooks path in worktree git config" >&2
+        printf '%s\n' "This is required for worktree hooks to chain to your pre-commit/pre-push hooks." >&2
+        printf '%s\n' "Ensure you have write access to the worktree git config." >&2
+        exit 2
+    fi
 fi
 
 # Override core.hooksPath for this worktree to use hooks in the git directory
@@ -533,18 +546,26 @@ if [ -f "$DISCOVERY_FILE" ]; then
     if [ -n "$API_PORT" ] && [ -n "$API_HOST" ]; then
         API_BASE="http://${API_HOST}:${API_PORT}/api/v1"
 
-        curl -s -X PATCH "$API_BASE/issues/$ISSUE_ID" \
+        # Non-critical: UI may not show worktree path, but worktree is still functional
+        if ! curl -sf -X PATCH "$API_BASE/issues/$ISSUE_ID" \
             -H "Content-Type: application/json" \
             -d "{\"worktreePath\": \"$WORKTREE_DIR\"}" \
-            >/dev/null 2>&1 || true
+            >/dev/null 2>&1; then
+            echo "Warning: Failed to notify extension of worktree path" >&2
+            echo "The 'Open Worktree' button may not appear in the issue panel." >&2
+        fi
 
         # Post initial baseSha as first commitSha comment
         # This ensures getFirstCommitSha() returns baseSha for complete diffs
         # Without this, the first actual commit's changes might be missing from comparisons
-        curl -s -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
+        # Non-critical: commit tracking will still work for subsequent commits
+        if ! curl -sf -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
             -H "Content-Type: application/json" \
             -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\"}" \
-            >/dev/null 2>&1 || true
+            >/dev/null 2>&1; then
+            echo "Warning: Failed to register base commit with issue tracker" >&2
+            echo "Initial diff view may be incomplete. Subsequent commits will track normally." >&2
+        fi
     fi
 fi
 

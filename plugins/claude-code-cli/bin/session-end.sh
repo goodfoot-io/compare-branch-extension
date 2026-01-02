@@ -42,9 +42,15 @@ if [ -z "${ISSUE_ID:-}" ]; then
 fi
 
 # Discover API URL (pass cwd to find the correct workspace API)
-BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || exit 0
+if ! BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>&1); then
+  echo "Warning: Issue tracking unavailable - VSCode extension not running or workspace not registered" >&2
+  echo "Ensure VSCode is running with the Compare Branch extension active in this workspace." >&2
+  exit 1  # Non-blocking, shows in verbose mode
+fi
 
 # Clean up session watermark on exit
-curl -sf -X DELETE "${BASE_URL}/session/${SESSION_ID}" 2>/dev/null || true
+if ! curl -sf -X DELETE "${BASE_URL}/session/${SESSION_ID}" 2>/dev/null; then
+  echo "Warning: Failed to notify extension of session end" >&2
+fi
 
 exit 0

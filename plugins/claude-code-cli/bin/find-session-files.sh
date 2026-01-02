@@ -36,6 +36,8 @@ SESSION_ID="$1"
 # Validate UUID format
 if ! echo "$SESSION_ID" | grep -qE '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'; then
     echo "ERROR: Invalid session ID format." >&2
+    echo "Expected UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" >&2
+    echo "You can find session IDs in Claude's history or transcript filenames." >&2
     exit 2
 fi
 
@@ -61,9 +63,19 @@ find_claude_dir() {
     return 1
 }
 
-CLAUDE_DIR=$(find_claude_dir) || { echo "ERROR: Claude config directory not found." >&2; exit 2; }
+CLAUDE_DIR=$(find_claude_dir) || {
+    echo "ERROR: Claude config directory not found." >&2
+    echo "Checked: \$CLAUDE_CONFIG_DIR, \$XDG_DATA_HOME/claude, \$XDG_CONFIG_HOME/claude, ~/.config/claude, ~/.claude" >&2
+    echo "Ensure Claude has been run at least once to create its config directory." >&2
+    exit 2
+}
 PROJECTS_DIR="$CLAUDE_DIR/projects"
-[ ! -d "$PROJECTS_DIR" ] && { echo "ERROR: Projects directory not found." >&2; exit 2; }
+if [ ! -d "$PROJECTS_DIR" ]; then
+    echo "ERROR: Projects directory not found at $PROJECTS_DIR" >&2
+    echo "This directory is created when Claude records session transcripts." >&2
+    echo "Ensure Claude has been run with --transcript or equivalent." >&2
+    exit 2
+fi
 
 # --- Search for Session Files ---
 
@@ -80,6 +92,9 @@ done < <(find "$PROJECTS_DIR" -name "${SESSION_ID}.jsonl" -type f -print0 2>/dev
 
 if [ -z "$MAIN_TRANSCRIPT" ]; then
     echo "ERROR: Session not found: $SESSION_ID" >&2
+    echo "Searched in: $PROJECTS_DIR" >&2
+    echo "The session may have been deleted, or the ID may be incorrect." >&2
+    echo "List available sessions with: ls -la \"$PROJECTS_DIR\"/*/\"*.jsonl\" 2>/dev/null | head -20" >&2
     exit 1
 fi
 
@@ -102,6 +117,8 @@ MESSAGE_COUNT=0
 
 # Get original prompt and project from history.jsonl
 if [ -f "$HISTORY_FILE" ]; then
+    # Note: grep returns exit 1 for "no match" (expected) and exit 2 for errors
+    # We use || true to allow missing entries - not every session is in history
     HISTORY_ENTRY=$(grep "\"sessionId\":\"${SESSION_ID}\"" "$HISTORY_FILE" 2>/dev/null | head -1) || true
     if [ -n "$HISTORY_ENTRY" ]; then
         ORIGINAL_PROMPT=$(echo "$HISTORY_ENTRY" | jq -r '.display // empty' 2>/dev/null) || true
@@ -111,6 +128,9 @@ fi
 
 # Get summary, branch, and timing from transcript
 if [ -f "$MAIN_TRANSCRIPT" ]; then
+    # Note: Missing metadata is common and expected (not all sessions have summaries, branches, etc.)
+    # These extractions use || true to continue gracefully when data doesn't exist
+
     # Get AI-generated summary (type: "summary" record)
     SESSION_SUMMARY=$(grep '"type":"summary"' "$MAIN_TRANSCRIPT" 2>/dev/null | jq -r '.summary // empty' 2>/dev/null | head -1) || true
 

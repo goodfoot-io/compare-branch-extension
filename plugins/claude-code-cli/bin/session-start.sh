@@ -49,12 +49,18 @@ fi
 if [ "${SESSION_START_TEST_MODE:-}" = "1" ]; then
   echo "TEST_MODE: Would POST sessionId comment to /issues/${ISSUE_ID}/comments (session=$SESSION_ID, source=$SOURCE)" >&2
 else
-  BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || exit 0
+  if ! BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>&1); then
+    echo "Warning: Issue tracking unavailable - VSCode extension not running or workspace not registered" >&2
+    echo "Ensure VSCode is running with the Compare Branch extension active in this workspace." >&2
+    exit 1  # Non-blocking, shows in verbose mode
+  fi
   if [ -n "$BASE_URL" ]; then
-    curl -s --max-time 2 -X POST "${BASE_URL}/issues/${ISSUE_ID}/comments" \
-      -H "Content-Type: application/json" \
-      -d "{\"sessionId\": \"${SESSION_ID}\", \"author\": \"agent\"}" \
-      > /dev/null 2>&1 || true
+    if ! curl -s --max-time 2 -X POST "${BASE_URL}/issues/${ISSUE_ID}/comments" \
+        -H "Content-Type: application/json" \
+        -d "{\"sessionId\": \"${SESSION_ID}\", \"author\": \"agent\"}" \
+        > /dev/null 2>&1; then
+      echo "Warning: Failed to register session with issue tracker" >&2
+    fi
   fi
 fi
 

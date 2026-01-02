@@ -68,12 +68,16 @@ if [ -n "$CWD" ]; then
   if [ "${SIGNAL_ACTIVE_TEST_MODE:-}" = "1" ]; then
     echo "TEST_MODE: Would POST /session/start (session=$SESSION_ID, pid=$DISPATCHER_PID)" >&2
   else
+    # Non-critical: API discovery failure just means UI won't show session status
     BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null) || true
     if [ -n "$BASE_URL" ]; then
-      curl -s --max-time 2 -X POST "${BASE_URL}/session/start" \
+      if ! curl -sf --max-time 2 -X POST "${BASE_URL}/session/start" \
         -H "Content-Type: application/json" \
         -d "{\"sessionId\": \"${SESSION_ID}\", \"dispatcherPid\": ${DISPATCHER_PID}}" \
-        > /dev/null 2>&1 || true
+        > /dev/null 2>&1; then
+        echo "Warning: Failed to notify extension of session activity" >&2
+        echo "Session status may not update in the issue panel." >&2
+      fi
     fi
   fi
 fi
@@ -82,7 +86,11 @@ fi
 if [ "${SIGNAL_ACTIVE_TEST_MODE:-}" = "1" ]; then
   echo "TEST_MODE: Would send SIGURG (session=$SESSION_ID, dispatcher=$DISPATCHER_PID)" >&2
 else
-  kill -URG "$DISPATCHER_PID" 2>/dev/null || true
+  # Signal failure is expected if dispatcher exited during the call (race condition)
+  # We already checked dispatcher is alive above, so failure here is timing-related
+  if ! kill -URG "$DISPATCHER_PID" 2>/dev/null; then
+    echo "Warning: Could not signal dispatcher (PID=$DISPATCHER_PID may have exited)" >&2
+  fi
 fi
 
 exit 0
