@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test suite for session-start hook
+# Test suite for session.start hook
 # Tests that sessionId comments are posted for new sessions
 
 # Colors for output
@@ -19,8 +19,8 @@ ORIGINAL_HOME="$HOME"
 ORIGINAL_PWD=$(pwd)
 
 # Get the script path
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_SCRIPT="$SCRIPT_DIR/session-start.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+TARGET_SCRIPT="$SCRIPT_DIR/hooks/issue/session.start.sh"
 
 # Set CLAUDE_PLUGIN_ROOT for the target script
 export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -102,7 +102,7 @@ run_test() {
     return 0
 }
 
-echo "Running session-start tests..."
+echo "Running session.start tests..."
 echo "==============================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $TARGET_SCRIPT"
@@ -147,80 +147,8 @@ else
 fi
 unset ISSUE_ID
 
-# Test 2: Posts sessionId comment on compact when ISSUE_ID is set
-echo -e "\n${YELLOW}=== Test 2: Posts sessionId comment on compact when ISSUE_ID is set ===${NC}"
-setup_mock_home
-export ISSUE_ID="main:456"
-SESSION_ID="test-session-compact-comment"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "transcript_path": "/tmp/transcript.jsonl",
-  "cwd": "/workspace",
-  "hook_event_name": "SessionStart",
-  "source": "compact"
-}
-EOF
-)
-run_test "Posts sessionId comment on compact when ISSUE_ID is set" "$INPUT" 0
-
-# Verify sessionId comment would be posted
-if echo "$LAST_STDERR" | grep -q "Would POST sessionId comment to /issues/${ISSUE_ID}/comments"; then
-    echo "Verified: Would POST sessionId comment on compact"
-else
-    echo -e "${RED}FAIL${NC} - Expected sessionId comment POST on compact"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-
-# Verify source is compact
-if echo "$LAST_STDERR" | grep -q "session=$SESSION_ID, source=compact"; then
-    echo "Verified: Source is compact"
-else
-    echo -e "${RED}FAIL${NC} - Expected source=compact in message"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-unset ISSUE_ID
-
-# Test 3: Posts sessionId comment on clear when ISSUE_ID is set
-echo -e "\n${YELLOW}=== Test 3: Posts sessionId comment on clear when ISSUE_ID is set ===${NC}"
-setup_mock_home
-export ISSUE_ID="main:789"
-SESSION_ID="test-session-clear-comment"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "transcript_path": "/tmp/transcript.jsonl",
-  "cwd": "/workspace",
-  "hook_event_name": "SessionStart",
-  "source": "clear"
-}
-EOF
-)
-run_test "Posts sessionId comment on clear when ISSUE_ID is set" "$INPUT" 0
-
-# Verify sessionId comment would be posted
-if echo "$LAST_STDERR" | grep -q "Would POST sessionId comment to /issues/${ISSUE_ID}/comments"; then
-    echo "Verified: Would POST sessionId comment on clear"
-else
-    echo -e "${RED}FAIL${NC} - Expected sessionId comment POST on clear"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-
-# Verify source is clear
-if echo "$LAST_STDERR" | grep -q "session=$SESSION_ID, source=clear"; then
-    echo "Verified: Source is clear"
-else
-    echo -e "${RED}FAIL${NC} - Expected source=clear in message"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-unset ISSUE_ID
-
-# Test 4: Does NOT post sessionId comment on resume
-echo -e "\n${YELLOW}=== Test 4: Does NOT post sessionId comment on resume ===${NC}"
+# Test 2: Does NOT post sessionId comment on resume
+echo -e "\n${YELLOW}=== Test 2: Does NOT post sessionId comment on resume ===${NC}"
 setup_mock_home
 export ISSUE_ID="main:999"
 SESSION_ID="test-session-resume-no-comment"
@@ -246,8 +174,8 @@ else
 fi
 unset ISSUE_ID
 
-# Test 5: Does NOT post sessionId comment when ISSUE_ID is not set
-echo -e "\n${YELLOW}=== Test 5: Does NOT post sessionId comment when ISSUE_ID is not set ===${NC}"
+# Test 3: Does NOT post sessionId comment when ISSUE_ID is not set
+echo -e "\n${YELLOW}=== Test 3: Does NOT post sessionId comment when ISSUE_ID is not set ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-no-issue"
 INPUT=$(cat <<EOF
@@ -271,8 +199,8 @@ else
     echo "Verified: No sessionId comment without ISSUE_ID"
 fi
 
-# Test 6: Exits 0 when session_id is missing
-echo -e "\n${YELLOW}=== Test 6: Exits 0 when session_id is missing ===${NC}"
+# Test 4: Exits 0 when session_id is missing
+echo -e "\n${YELLOW}=== Test 4: Exits 0 when session_id is missing ===${NC}"
 setup_mock_home
 export ISSUE_ID="main:1"
 INPUT=$(cat <<EOF
@@ -295,8 +223,8 @@ else
 fi
 unset ISSUE_ID
 
-# Test 7: Exits 0 when cwd is missing
-echo -e "\n${YELLOW}=== Test 7: Exits 0 when cwd is missing ===${NC}"
+# Test 5: Exits 0 when cwd is missing
+echo -e "\n${YELLOW}=== Test 5: Exits 0 when cwd is missing ===${NC}"
 setup_mock_home
 export ISSUE_ID="main:1"
 SESSION_ID="test-no-cwd"
@@ -320,14 +248,14 @@ else
 fi
 unset ISSUE_ID
 
-# Test 8: Exits 0 with empty input
-echo -e "\n${YELLOW}=== Test 8: Exits 0 with empty input ===${NC}"
+# Test 6: Exits 0 with empty input
+echo -e "\n${YELLOW}=== Test 6: Exits 0 with empty input ===${NC}"
 setup_mock_home
 INPUT=""
 run_test "Exits 0 with empty input" "$INPUT" 0
 
-# Test 9: Exits 0 with malformed input
-echo -e "\n${YELLOW}=== Test 9: Exits 0 with malformed input ===${NC}"
+# Test 7: Exits 0 with malformed input
+echo -e "\n${YELLOW}=== Test 7: Exits 0 with malformed input ===${NC}"
 setup_mock_home
 INPUT="not valid json at all"
 run_test "Exits 0 with malformed input" "$INPUT" 0

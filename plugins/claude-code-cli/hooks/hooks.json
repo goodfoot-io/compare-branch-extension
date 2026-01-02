@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/signal-active.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/ipc/dispatcher.active.sh"
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-start.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/session.start.sh"
           }
         ]
       },
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-startup.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/context.startup.sh"
           }
         ]
       },
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-resume.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/context.resume.sh"
           }
         ]
       },
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/cli-skill-reloader.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/skills/state.reload.sh"
           }
         ]
       }
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/signal-active.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/ipc/dispatcher.active.sh"
           }
         ]
       }
@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/track-cli-skills.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/skills/state.track.sh"
           }
         ]
       }
@@ -68,11 +68,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/cli-skill-cleanup.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/skills/state.cleanup.sh"
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-end.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/session.end.sh"
           }
         ]
       }
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/stop.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/context.stop.sh"
           }
         ]
       }

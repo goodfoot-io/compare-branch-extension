@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test suite for session-startup hook
+# Test suite for context.startup hook
 # Tests that issue data is injected for new sessions via hookSpecificOutput
 
 # Colors for output
@@ -19,8 +19,8 @@ ORIGINAL_HOME="$HOME"
 ORIGINAL_PWD=$(pwd)
 
 # Get the script path
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_SCRIPT="$SCRIPT_DIR/session-startup.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+TARGET_SCRIPT="$SCRIPT_DIR/hooks/issue/context.startup.sh"
 
 # Set CLAUDE_PLUGIN_ROOT for the target script
 export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -77,7 +77,7 @@ run_test() {
     return 0
 }
 
-echo "Running session-startup tests..."
+echo "Running context.startup tests..."
 echo "================================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $TARGET_SCRIPT"
@@ -159,7 +159,6 @@ unset ISSUE_ID
 # Test 3: Graceful handling when ISSUE_ID not set (exits 0, no output)
 echo -e "\n${YELLOW}=== Test 3: Graceful handling when ISSUE_ID not set ===${NC}"
 setup_mock_home
-# Ensure ISSUE_ID is not set
 unset ISSUE_ID
 SESSION_ID="test-session-no-issue"
 INPUT=$(cat <<EOF

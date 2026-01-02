@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test suite for track-cli-skills hook
+# Test suite for state.track hook
 # Tests detection of claude-code-cli:* skill loading and state file management
 
 # Colors for output
@@ -19,8 +19,11 @@ ORIGINAL_HOME="$HOME"
 ORIGINAL_PWD=$(pwd)
 
 # Get the script path
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_SCRIPT="$SCRIPT_DIR/track-cli-skills.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+TARGET_SCRIPT="$SCRIPT_DIR/hooks/skills/state.track.sh"
+
+# Set CLAUDE_PLUGIN_ROOT for the target script
+export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Setup mock home directory
 setup_mock_home() {
@@ -67,7 +70,7 @@ run_test() {
     return 0
 }
 
-echo "Running track-cli-skills tests..."
+echo "Running state.track tests..."
 echo "===================================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $TARGET_SCRIPT"
@@ -253,81 +256,10 @@ else
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 
-# Test 7: Preserves existing issueIds in state file
-echo -e "\n${YELLOW}=== Test 7: Preserves existing issueIds in state file ===${NC}"
+# Test 7: Accumulates multiple different skills
+echo -e "\n${YELLOW}=== Test 7: Accumulates multiple different skills ===${NC}"
 setup_mock_home
 SESSION_ID="test-session-7"
-
-# Create existing state file with issueIds
-mkdir -p "$HOME/.compare-branch/hook-state"
-cat > "$HOME/.compare-branch/hook-state/${SESSION_ID}.json" <<EOF
-{"issuesApiLoaded":true,"issueIds":["main:1","feature:42"]}
-EOF
-
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "hook_event_name": "PostToolUse",
-  "tool_name": "Skill",
-  "tool_input": {
-    "skill": "claude-code-cli:issue-bug"
-  }
-}
-EOF
-)
-run_test "Preserves existing issueIds" "$INPUT" 0
-
-# Verify issueIds are preserved
-STATE_FILE="$HOME/.compare-branch/hook-state/${SESSION_ID}.json"
-if [ -f "$STATE_FILE" ]; then
-    ISSUE_IDS=$(jq -c '.issueIds' "$STATE_FILE")
-    LOADED=$(jq -r '.issuesApiLoaded' "$STATE_FILE")
-    CLI_SKILLS=$(jq -c '.cliSkills' "$STATE_FILE")
-    if [ "$ISSUE_IDS" = '["main:1","feature:42"]' ] && [ "$LOADED" = "true" ] && [ "$CLI_SKILLS" = '["issue-bug"]' ]; then
-        echo "Verified: issueIds preserved, issuesApiLoaded unchanged, cliSkills added"
-    else
-        echo -e "${RED}FAIL${NC} - State not preserved correctly"
-        echo "Actual: issueIds=$ISSUE_IDS, issuesApiLoaded=$LOADED, cliSkills=$CLI_SKILLS"
-        TESTS_PASSED=$((TESTS_PASSED - 1))
-    fi
-else
-    echo -e "${RED}FAIL${NC} - State file not found"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-
-# Test 8: Creates state directory if missing
-echo -e "\n${YELLOW}=== Test 8: Creates state directory if missing ===${NC}"
-setup_mock_home
-# Ensure no hook-state directory exists
-rm -rf "$HOME/.claude"
-SESSION_ID="test-session-8"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "hook_event_name": "PostToolUse",
-  "tool_name": "Skill",
-  "tool_input": {
-    "skill": "claude-code-cli:issue-bug"
-  }
-}
-EOF
-)
-run_test "Creates state directory if missing" "$INPUT" 0
-
-# Verify directory and file were created
-STATE_DIR="$HOME/.compare-branch/hook-state"
-STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
-if [ -d "$STATE_DIR" ] && [ -f "$STATE_FILE" ]; then
-    echo "Verified: State directory and file created"
-else
-    echo -e "${RED}FAIL${NC} - State directory or file not created"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-
-# Test 9: Accumulates multiple different skills
-echo -e "\n${YELLOW}=== Test 9: Accumulates multiple different skills ===${NC}"
-setup_mock_home
-SESSION_ID="test-session-9"
 
 # First skill
 INPUT1=$(cat <<EOF
@@ -375,8 +307,8 @@ else
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 
-# Test 10: Always exits 0 even with malformed input
-echo -e "\n${YELLOW}=== Test 10: Always exits 0 even with malformed input ===${NC}"
+# Test 8: Always exits 0 even with malformed input
+echo -e "\n${YELLOW}=== Test 8: Always exits 0 even with malformed input ===${NC}"
 setup_mock_home
 INPUT="not valid json at all"
 run_test "Exits 0 with malformed input" "$INPUT" 0

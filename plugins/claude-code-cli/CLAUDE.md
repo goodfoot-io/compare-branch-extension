@@ -39,7 +39,8 @@ The plugin implements a **prompt → skill → agent → bin** architecture for 
 | **Skills** | `skills/*/SKILL.md` | Knowledge + routing instructions |
 | **Agents** | `agents/*.md` | Isolated execution with own context |
 | **Bin** | `bin/*.sh` | Shell utilities (git, API calls) |
-| **Hooks** | `hooks/hooks.json` | Event-driven automation |
+| **Hooks** | `bin/hooks/{domain}/*.sh` | Event-driven automation scripts |
+| **Lib** | `bin/lib/*.sh` | Shared utilities for hooks |
 | **Methodology** | `skills/*/methodology/*.md` | Reference docs loaded on demand |
 
 ### Connection Graph
@@ -82,10 +83,29 @@ skills: issues:api, claude-code-cli:plan
 ```json
 {
   "hooks": {
-    "SessionStart": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/session-start.sh"}]
+    "SessionStart": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/session.start.sh"}]
   }
 }
 ```
+
+### Hook Organization
+
+Hooks follow the naming convention `{domain}/{resource}.{lifecycle}.sh`:
+
+| Domain | Resource | Purpose |
+|--------|----------|---------|
+| `issue/` | `context.*` | Load/check issue data into Claude's context |
+| `issue/` | `session.*` | Manage session-to-issue linkage |
+| `skills/` | `state.*` | Track and restore skill state across compaction |
+| `ipc/` | `dispatcher.*` | Signal session state to orchestrating process |
+
+### Shared Libraries
+
+| Library | Purpose |
+|---------|---------|
+| `lib/api.sh` | API discovery and HTTP operations |
+| `lib/state.sh` | Session state file management with locking |
+| `lib/output.sh` | JSON output formatting for hook responses |
 
 ### When to Consult Claude Code Documentation
 
@@ -179,6 +199,8 @@ Update the relevant section when:
 - `create-worktree.sh` — Git worktree creation with hooks
 - `remove-worktree.sh` — Worktree cleanup
 - `discover-workspace-api.sh` — API endpoint discovery
-- `session-*.sh` — Session lifecycle handlers
-- `*-skill*.sh` — Skill state management
-- `signal-active.sh` — Activity signaling
+- `hooks/issue/context.*.sh` — Issue data loading and update checking
+- `hooks/issue/session.*.sh` — Session-to-issue linkage
+- `hooks/skills/state.*.sh` — Skill state tracking and reload
+- `hooks/ipc/dispatcher.*.sh` — Session activity signaling
+- `lib/*.sh` — Shared utilities for hooks

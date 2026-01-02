@@ -1,9 +1,11 @@
 #!/bin/bash
 #
-# SessionEnd hook: Cleans up cliSkills from session state file
+# hooks/skills/state.cleanup.sh: Cleans up cliSkills from session state file
 #
 # Runs when a session truly ends (NOT during compaction).
 # Removes the cliSkills array from the session state file.
+#
+# Triggered by: SessionEnd hook
 #
 # Input (stdin): JSON with session_id
 # Output: JSON with systemMessage confirming cleanup
@@ -12,6 +14,9 @@
 # State file: $HOME/.compare-branch/hook-state/${session_id}.json
 # Modifies: Removes cliSkills array from state
 #
+
+# Source shared libraries
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/state.sh"
 
 # Read input from stdin
 INPUT=$(cat)
@@ -25,31 +30,15 @@ if [ -z "$SESSION_ID" ]; then
     exit 0
 fi
 
-# Define state file path
-STATE_DIR="$HOME/.compare-branch/hook-state"
-STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
-
 # Check if state file exists
+STATE_FILE=$(get_state_file "$SESSION_ID")
 if [ ! -f "$STATE_FILE" ]; then
     echo '{}'
     exit 0
 fi
 
-# Use flock for atomic read-modify-write
-(
-    flock -x 200
-
-    # Read current state
-    if [ -f "$STATE_FILE" ]; then
-        STATE=$(cat "$STATE_FILE")
-
-        # Remove cliSkills array from state
-        NEW_STATE=$(echo "$STATE" | jq 'del(.cliSkills)')
-
-        # Write updated state
-        echo "$NEW_STATE" > "$STATE_FILE"
-    fi
-) 200>"$STATE_FILE.lock"
+# Clear cliSkills from state (using shared library)
+clear_cli_skills "$SESSION_ID"
 
 # Output JSON with systemMessage confirming cleanup
 echo '{"systemMessage": "CLI skills cleanup: Removed tracked skills from session state"}'

@@ -1,9 +1,11 @@
 #!/bin/bash
 #
-# PostToolUse hook: Tracks when claude-code-cli:* skills are loaded
+# hooks/skills/state.track.sh: Tracks when claude-code-cli:* skills are loaded
 #
 # Detects when any claude-code-cli:* skill is loaded and records this in session state.
 # This enables the SessionStart compact hook to know which skills to reload after compaction.
+#
+# Triggered by: PostToolUse (matcher: Skill)
 #
 # Input (stdin): JSON with session_id, tool_name, tool_input.skill
 # Output: JSON response (empty {} on success)
@@ -19,13 +21,17 @@ set -euo pipefail
 error_handler() {
     local line_no=$1
     local error_code=$2
-    echo "ERROR in track-cli-skills.sh at line $line_no (exit code: $error_code)" >&2
+    echo "ERROR in state.track.sh at line $line_no (exit code: $error_code)" >&2
     echo "Please report this issue at: https://github.com/goodfoot-io/compare-branch-extension/issues" >&2
     echo "Include the error details above and steps to reproduce." >&2
     exit 2
 }
 
 trap 'error_handler ${LINENO} $?' ERR
+
+# Source shared libraries
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/state.sh"
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/output.sh"
 
 # Read input from stdin
 INPUT=$(cat)
@@ -38,52 +44,29 @@ SKILL=$(echo "$INPUT" | jq -r '.tool_input.skill // ""' 2>/dev/null) || SKILL=""
 
 # Exit early if not a Skill tool use
 if [ "$TOOL_NAME" != "Skill" ]; then
-    echo '{}'
+    output_empty
     exit 0
 fi
 
 # Exit early if not a claude-code-cli:* skill
 if [[ "$SKILL" != claude-code-cli:* ]]; then
-    echo '{}'
+    output_empty
     exit 0
 fi
 
 # Exit if no session_id
 if [ -z "$SESSION_ID" ]; then
-    echo '{}'
+    output_empty
     exit 0
 fi
 
 # Strip the claude-code-cli: prefix to get the skill name
 SKILL_NAME="${SKILL#claude-code-cli:}"
 
-# Create state directory if it doesn't exist
-STATE_DIR="$HOME/.compare-branch/hook-state"
-mkdir -p "$STATE_DIR"
-
-STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
-
-# Use flock for atomic read-modify-write
-(
-    flock -x 200
-
-    # Read current state or initialize default
-    if [ -f "$STATE_FILE" ]; then
-        STATE=$(cat "$STATE_FILE")
-    else
-        STATE='{"cliSkills":[]}'
-    fi
-
-    # Ensure cliSkills array exists and add skill (deduplicated)
-    NEW_STATE=$(echo "$STATE" | jq --arg skill "$SKILL_NAME" '
-        .cliSkills = ((.cliSkills // []) + [$skill] | unique)
-    ')
-
-    # Write updated state
-    echo "$NEW_STATE" > "$STATE_FILE"
-) 200>"$STATE_FILE.lock"
+# Add the skill to state (using shared library)
+add_cli_skill "$SESSION_ID" "$SKILL_NAME"
 
 # Output minimal JSON response
-echo '{}'
+output_empty
 
 exit 0

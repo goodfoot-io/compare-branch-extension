@@ -135,60 +135,76 @@
     },
     "discover-workspace-api.sh": {
       "purpose": "Discover Issues API base URL for current workspace",
-      "calledBy": ["bin/session-start.sh", "hooks"]
+      "calledBy": ["bin/lib/api.sh", "hooks"]
     },
     "find-session-files.sh": {
       "purpose": "Retrieve session metadata and file paths",
       "calledBy": ["skills/session/SKILL.md"]
     },
-    "session-start.sh": {
-      "purpose": "Post sessionId comment on new sessions",
-      "triggeredBy": "hooks/hooks.json:SessionStart"
+    "hooks/ipc/dispatcher.active.sh": {
+      "purpose": "Signal active session to dispatcher",
+      "triggeredBy": "hooks/hooks.json:SessionStart,UserPromptSubmit"
     },
-    "session-end.sh": {
-      "purpose": "Handle session end cleanup",
-      "triggeredBy": "hooks/hooks.json:SessionEnd"
+    "hooks/ipc/dispatcher.idle.sh": {
+      "purpose": "Signal idle session to dispatcher",
+      "calledBy": ["hooks/issue/context.stop.sh"]
     },
-    "session-startup.sh": {
-      "purpose": "Handle startup-specific initialization",
+    "hooks/issue/context.startup.sh": {
+      "purpose": "Load full issue data on new session",
       "triggeredBy": "hooks/hooks.json:SessionStart:startup"
     },
-    "session-resume.sh": {
-      "purpose": "Handle session resume",
+    "hooks/issue/context.resume.sh": {
+      "purpose": "Load issue diff on session resume",
       "triggeredBy": "hooks/hooks.json:SessionStart:resume"
     },
-    "track-cli-skills.sh": {
-      "purpose": "Track when claude-code-cli:* skills are loaded",
+    "hooks/issue/context.stop.sh": {
+      "purpose": "Check for updates before stopping",
+      "triggeredBy": "hooks/hooks.json:Stop"
+    },
+    "hooks/issue/session.start.sh": {
+      "purpose": "Post sessionId comment for resumption",
+      "triggeredBy": "hooks/hooks.json:SessionStart"
+    },
+    "hooks/issue/session.end.sh": {
+      "purpose": "Clean up API watermark",
+      "triggeredBy": "hooks/hooks.json:SessionEnd"
+    },
+    "hooks/skills/state.track.sh": {
+      "purpose": "Track skill usage for reload after compaction",
       "triggeredBy": "hooks/hooks.json:PostToolUse:Skill"
     },
-    "cli-skill-reloader.sh": {
+    "hooks/skills/state.reload.sh": {
       "purpose": "Reload skills after context compaction",
       "triggeredBy": "hooks/hooks.json:SessionStart:compact"
     },
-    "cli-skill-cleanup.sh": {
+    "hooks/skills/state.cleanup.sh": {
       "purpose": "Clean up skill state at session end",
       "triggeredBy": "hooks/hooks.json:SessionEnd"
     },
-    "signal-active.sh": {
-      "purpose": "Signal active session to extension",
-      "triggeredBy": "hooks/hooks.json:SessionStart,UserPromptSubmit"
+    "lib/api.sh": {
+      "purpose": "Shared API utilities for hooks",
+      "usedBy": ["hooks/issue/*", "hooks/ipc/*"]
     },
-    "stop.sh": {
-      "purpose": "Handle stop event",
-      "triggeredBy": "hooks/hooks.json:Stop"
+    "lib/state.sh": {
+      "purpose": "Shared state file utilities",
+      "usedBy": ["hooks/skills/*"]
+    },
+    "lib/output.sh": {
+      "purpose": "Shared JSON output builders",
+      "usedBy": ["hooks/issue/*", "hooks/skills/*"]
     }
   },
   "hooks": {
     "file": "hooks/hooks.json",
     "events": {
-      "SessionStart": ["bin/signal-active.sh", "bin/session-start.sh"],
-      "SessionStart:startup": ["bin/session-startup.sh"],
-      "SessionStart:resume": ["bin/session-resume.sh"],
-      "SessionStart:compact": ["bin/cli-skill-reloader.sh"],
-      "UserPromptSubmit": ["bin/signal-active.sh"],
-      "PostToolUse:Skill": ["bin/track-cli-skills.sh"],
-      "SessionEnd": ["bin/cli-skill-cleanup.sh", "bin/session-end.sh"],
-      "Stop": ["bin/stop.sh"]
+      "SessionStart": ["hooks/ipc/dispatcher.active.sh", "hooks/issue/session.start.sh"],
+      "SessionStart:startup": ["hooks/issue/context.startup.sh"],
+      "SessionStart:resume": ["hooks/issue/context.resume.sh"],
+      "SessionStart:compact": ["hooks/skills/state.reload.sh"],
+      "UserPromptSubmit": ["hooks/ipc/dispatcher.active.sh"],
+      "PostToolUse:Skill": ["hooks/skills/state.track.sh"],
+      "SessionEnd": ["hooks/skills/state.cleanup.sh", "hooks/issue/session.end.sh"],
+      "Stop": ["hooks/issue/context.stop.sh"]
     }
   },
   "hotspots": {

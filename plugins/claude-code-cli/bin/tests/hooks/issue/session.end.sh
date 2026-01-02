@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test suite for session-end hook
+# Test suite for session.end hook
 # Tests that session cleanup occurs (watermark deletion)
 
 # Colors for output
@@ -19,8 +19,8 @@ ORIGINAL_HOME="$HOME"
 ORIGINAL_PWD=$(pwd)
 
 # Get the script path
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_SCRIPT="$SCRIPT_DIR/session-end.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+TARGET_SCRIPT="$SCRIPT_DIR/hooks/issue/session.end.sh"
 
 # Set CLAUDE_PLUGIN_ROOT for the target script
 export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -138,7 +138,7 @@ run_test() {
     return 0
 }
 
-echo "Running session-end tests..."
+echo "Running session.end tests..."
 echo "=============================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $TARGET_SCRIPT"

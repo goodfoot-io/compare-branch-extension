@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test suite for cli-skill-reloader hook
+# Test suite for state.reload hook
 # Tests reload instruction generation for tracked claude-code-cli skills
 
 # Colors for output
@@ -19,8 +19,11 @@ ORIGINAL_HOME="$HOME"
 ORIGINAL_PWD=$(pwd)
 
 # Get the script path
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_SCRIPT="$SCRIPT_DIR/cli-skill-reloader.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+TARGET_SCRIPT="$SCRIPT_DIR/hooks/skills/state.reload.sh"
+
+# Set CLAUDE_PLUGIN_ROOT for the target script
+export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Setup mock home directory
 setup_mock_home() {
@@ -78,7 +81,7 @@ run_test_with_output() {
     return 0
 }
 
-echo "Running cli-skill-reloader tests..."
+echo "Running state.reload tests..."
 echo "===================================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $TARGET_SCRIPT"

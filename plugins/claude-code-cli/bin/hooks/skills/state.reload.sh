@@ -1,9 +1,11 @@
 #!/bin/bash
 #
-# SessionStart hook (compact matcher): Reloads claude-code-cli skills after compaction
+# hooks/skills/state.reload.sh: Reloads claude-code-cli skills after compaction
 #
 # Runs after context compaction and outputs instructions to reload previously tracked
 # claude-code-cli:* skills via additionalContext.
+#
+# Triggered by: SessionStart (matcher: compact)
 #
 # Input (stdin): JSON with session_id, hook_event_name
 # Output: JSON with hookSpecificOutput.additionalContext containing reload instructions
@@ -15,6 +17,10 @@
 
 set -euo pipefail
 
+# Source shared libraries
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/state.sh"
+source "${CLAUDE_PLUGIN_ROOT}/bin/lib/output.sh"
+
 # Read input from stdin
 INPUT=$(cat)
 
@@ -23,28 +29,25 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null) || SESSION_I
 
 # Exit if no session_id
 if [ -z "$SESSION_ID" ]; then
-    echo '{}'
+    output_empty
     exit 0
 fi
 
-# Define state file path
-STATE_DIR="$HOME/.compare-branch/hook-state"
-STATE_FILE="$STATE_DIR/${SESSION_ID}.json"
-
 # Check if state file exists
+STATE_FILE=$(get_state_file "$SESSION_ID")
 if [ ! -f "$STATE_FILE" ]; then
-    echo '{}'
+    output_empty
     exit 0
 fi
 
 # Read cliSkills from state file
-CLI_SKILLS=$(jq -r '.cliSkills // []' "$STATE_FILE" 2>/dev/null) || CLI_SKILLS="[]"
+CLI_SKILLS=$(read_cli_skills "$SESSION_ID")
 
 # Check if any skills are tracked
 SKILL_COUNT=$(echo "$CLI_SKILLS" | jq 'length')
 
 if [ "$SKILL_COUNT" -eq 0 ]; then
-    echo '{}'
+    output_empty
     exit 0
 fi
 
@@ -88,12 +91,7 @@ else
 fi
 
 # Output JSON with reload instructions and systemMessage
-jq -n --arg event "$HOOK_EVENT_NAME" --arg skills "$SKILL_LIST" --arg sysMsg "$SYSTEM_MSG" '{
-  systemMessage: $sysMsg,
-  hookSpecificOutput: {
-    hookEventName: $event,
-    additionalContext: ("Load skill " + $skills + " before continuing")
-  }
-}'
+CONTEXT="Load skill ${SKILL_LIST} before continuing"
+output_context "$HOOK_EVENT_NAME" "$CONTEXT" "$SYSTEM_MSG"
 
 exit 0
