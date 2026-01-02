@@ -102,6 +102,27 @@ Enrich descriptions with context discovered during research:
 
 **Leave unchanged when:** Only minor phrasing or style preferences would change.
 
+#### 3.3.4 Change Documentation (Required)
+
+**Never silently overwrite title or description.** Before any PATCH that modifies these fields, post a comment explaining the change.
+
+The comment should help a reader understand:
+- What was unclear or incorrect in the original
+- What the new version says instead
+- Why this change better represents the intended work
+
+This creates an immutable record in the issue history before the PATCH overwrites the original values. The user retains visibility into how their original request was interpreted and refined.
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "[explanation of title/description changes]",
+  "author": "agent"
+}
+```
+
+Then apply the changes:
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -110,7 +131,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-Omit `title` and `description` fields if no changes are needed. Document any changes in the plan's scope section.
+Omit `title` and `description` fields if no changes are needed. Skip the comment if no changes are made.
 
 ### 3.4 Draft Plan
 
@@ -161,10 +182,12 @@ Review both assessment reports.
 
 **Post evaluation comment:**
 
+The evaluation comment must include any title/description changes that will follow. This creates an immutable record before the PATCH overwrites the original values.
+
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Evaluation Summary\n\n### Questions Raised\n[List concerns, ambiguities, or issues identified by assessors]\n\n### Decisions\n[For each question: state the decision and brief rationale]",
+  "body": "## Evaluation Summary\n\n### Questions Raised\n[List concerns, ambiguities, or issues identified by assessors]\n\n### Decisions\n[For each question: state the decision and brief rationale]\n\n### Title/Description Changes\n[If modifying title or description: explain what was unclear or incorrect, what the new version says, and why this better represents the work. Omit this section if no changes.]",
   "author": "agent"
 }
 ```
@@ -181,11 +204,13 @@ POST /issues/[ISSUE_ID]/comments
 - Ambiguous requirements that led to assessor confusion
 - Missing context that assessors needed to ask about
 
+**After documenting changes in the evaluation comment**, apply the PATCH:
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
   "title": "[CORRECTED_TITLE]",
-  "description": "[corrected description]\n\n---\n*Corrections based on evaluation: [what changed and why]*"
+  "description": "[CORRECTED_DESCRIPTION]"
 }
 ```
 
