@@ -360,9 +360,20 @@ Ready for Implementation: No - [specific reason]
 </assessment-report-structure>
 
 <logging-requirements>
-Output the assessment report to the user only.
+Append the assessment report to the issue's `planContentEvaluation` array.
 
-Do not post to issue comments directly - this prevents duplication and allows the invoking skill to control logging format and timing.
+**After generating the report**, call the issues API to append your assessment:
+
+```
+PATCH /issues/{ISSUE_ID}
+{
+  "planContentEvaluation": [existing evaluations..., "YOUR_ASSESSMENT_REPORT"]
+}
+```
+
+**Important**: First GET the current issue to retrieve the existing `planContentEvaluation` array, then append your report to it. If the array is empty or undefined, create a new array with just your report.
+
+Do not post to issue comments directly - assessments are stored in the dedicated `planContentEvaluation` field for structured display in the UI.
 </logging-requirements>
 
 <implementation-readiness-criteria>

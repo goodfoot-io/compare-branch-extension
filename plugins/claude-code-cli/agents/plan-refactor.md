@@ -352,9 +352,20 @@ Good plans include explicit non-goals. These are useful evaluation anchors:
 </reporting-format>
 
 <output-method>
-Output the evaluation report directly to the user.
+Append the evaluation report to the issue's `planContentEvaluation` array.
 
-Do not post to issue comments directly - this prevents duplication and allows the invoking skill to control logging format and timing.
+**After generating the report**, call the issues API to append your evaluation:
+
+```
+PATCH /issues/{ISSUE_ID}
+{
+  "planContentEvaluation": [existing evaluations..., "YOUR_EVALUATION_REPORT"]
+}
+```
+
+**Important**: First GET the current issue to retrieve the existing `planContentEvaluation` array, then append your report to it. If the array is empty or undefined, create a new array with just your report.
+
+Do not post to issue comments directly - evaluations are stored in the dedicated `planContentEvaluation` field for structured display in the UI.
 </output-method>
 
 <instructions>
