@@ -1,78 +1,11 @@
 {
-  "description": "Session tracking hooks for Compare Branch extension's Issues API",
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/ipc/dispatcher.active.sh"
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/session.start.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/context.startup.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/context.resume.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/skills/state.reload.sh"
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/ipc/dispatcher.active.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/skills/state.track.sh"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/skills/state.cleanup.sh"
-          },
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/session.end.sh"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/user-prompt-submit.5a26c7f6.mjs"
           }
         ]
       }
@@ -82,10 +15,91 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/hooks/issue/context.stop.sh"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.eb2388f8.mjs"
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-state-reload.34b57e14.mjs"
+          }
+        ],
+        "matcher": "compact"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-session-register.d2a38694.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-dispatcher-active.122740d2.mjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-startup.7acc8375.mjs"
+          }
+        ],
+        "matcher": "startup"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-resume.b963088a.mjs"
+          }
+        ],
+        "matcher": "resume"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-state-cleanup.3487bd24.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-session-end.b2d29d89.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use.da27cd64.mjs"
+          }
+        ],
+        "matcher": "Skill"
+      }
     ]
+  },
+  "__generated": {
+    "files": [
+      "user-prompt-submit.5a26c7f6.mjs",
+      "stop.eb2388f8.mjs",
+      "session-start-state-reload.34b57e14.mjs",
+      "session-start-session-register.d2a38694.mjs",
+      "session-start-dispatcher-active.122740d2.mjs",
+      "session-start-context-startup.7acc8375.mjs",
+      "session-start-context-resume.b963088a.mjs",
+      "session-end-state-cleanup.3487bd24.mjs",
+      "session-end-session-end.b2d29d89.mjs",
+      "post-tool-use.da27cd64.mjs"
+    ],
+    "timestamp": "2026-01-04T23:35:30.953Z"
   }
 }
