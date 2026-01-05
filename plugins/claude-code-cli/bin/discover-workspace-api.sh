@@ -38,7 +38,7 @@ WORKSPACE="$ISSUE_WORKSPACE_PATH"
 if [ ! -f "$DISCOVERY_FILE" ]; then
   echo "Error: Discovery file not found at $DISCOVERY_FILE" >&2
   echo "Ensure VSCode is running with the Compare Branch extension and compareBranch.enableBranchIssues is enabled." >&2
-  exit 1
+  exit 2
 fi
 
 # Get port and host for current workspace
@@ -47,7 +47,7 @@ HOST=$(jq -r --arg ws "$WORKSPACE" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/d
 
 if [ -z "$PORT" ] || [ -z "$HOST" ]; then
   echo "Error: No API instance found for workspace $WORKSPACE" >&2
-  exit 1
+  exit 2
 fi
 
 echo "http://${HOST}:${PORT}/api/v1"
