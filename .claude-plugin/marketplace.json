@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Plugins for the Compare Branch VSCode extension",
-    "version": "1.0.186",
+    "version": "1.0.187",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -22,7 +22,7 @@
     },
     {
       "name": "claude-code-cli",
-      "version": "2.0.13",
+      "version": "2.0.14",
       "source": "./plugins/claude-code-cli",
       "description": "Hooks for session tracking with Compare Branch extension's Issues API",
       "author": {
