@@ -22,7 +22,7 @@
 #   2 - Failure (error details on stderr)
 #
 # The script installs two hooks in the worktree's git directory:
-#   - post-commit: Posts commit info to Issues API after each commit
+#   - post-commit: Posts commit info to Issues API after each commit, cleans up orphaned commits
 #   - post-rewrite: Handles rebase/amend by posting new commit and cleaning up old comments
 
 set -e
@@ -411,9 +411,14 @@ cat > "${HOOKS_DIR}/post-commit" << HOOK_EOF
 # Installed by create-worktree.sh
 # Errors are logged to stderr but do not block git operations
 #
-# This hook handles the case where chained hooks create additional commits
-# (e.g., git subtree split --rejoin). It tracks HEAD before and after chaining
-# and posts any new commits that result from the chain.
+# This hook handles:
+# 1. Posting the new commit SHA to the Issues API
+# 2. Chained hooks that create additional commits (e.g., git subtree split --rejoin)
+# 3. Cleaning up orphaned commitSha comments after squash operations
+#
+# The orphan cleanup runs after every commit. It identifies commits that are no
+# longer reachable from HEAD (e.g., after git reset --soft + commit) and deletes
+# their associated commitSha comments from the issue.
 
 set -o pipefail
 
@@ -467,6 +472,30 @@ fi
 HEAD_AFTER=\$(git rev-parse HEAD 2>/dev/null)
 if [ -n "\$API_BASE" ] && [ -n "\$HEAD_AFTER" ] && [ "\$HEAD_AFTER" != "\$HEAD_BEFORE" ]; then
     post_commit_sha "\$HEAD_AFTER" "\$ISSUE_ID" "\$API_BASE"
+fi
+
+# --- Clean up orphaned commit comments ---
+# After squash (git reset --soft + commit), old commits become unreachable.
+# This cleanup removes commitSha comments for commits no longer on the branch.
+# Valid commits: baseSha + all commits between baseSha and current HEAD.
+if [ -n "\$API_BASE" ]; then
+    BASE_SHA=\$(git config --worktree issue.baseSha 2>/dev/null)
+    if [ -n "\$BASE_SHA" ]; then
+        # Build set of valid SHAs (baseSha + descendants)
+        VALID_SHAS=\$(git rev-list "\$BASE_SHA"..HEAD 2>/dev/null || true)
+        VALID_SHAS="\$BASE_SHA"\$'\\n'"\$VALID_SHAS"
+
+        # Fetch all comments and delete orphaned commitSha comments
+        COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
+        if [ -n "\$COMMENTS" ]; then
+            echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \
+            while read -r comment_id commit_sha; do
+                if [ -n "\$commit_sha" ] && ! echo "\$VALID_SHAS" | grep -qx "\$commit_sha"; then
+                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
+                fi
+            done
+        fi
+    fi
 fi
 
 exit 0
