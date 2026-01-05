@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/user-prompt-submit.9f6e7a2c.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/user-prompt-submit.6b623e7f.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.7fd54213.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.a893cba0.mjs"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-state-reload.6ef5a329.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-state-reload.8c777408.mjs"
           }
         ],
         "matcher": "compact"
@@ -34,11 +34,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-session-register.81bae24c.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-session-register.69b3e20c.mjs"
           },
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-dispatcher-active.99599dc1.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-dispatcher-active.4b1c7f84.mjs"
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-startup.bf9a24b8.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-startup.598ea50b.mjs"
           }
         ],
         "matcher": "startup"
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-resume.821ee97a.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-resume.e64f17f3.mjs"
           }
         ],
         "matcher": "resume"
@@ -66,11 +66,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-state-cleanup.202b15d0.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-state-cleanup.22831f31.mjs"
           },
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-session-end.11fc2416.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-session-end.9d91904d.mjs"
           }
         ]
       }
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use.81986963.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use.de9d053f.mjs"
           }
         ],
         "matcher": "Skill"
@@ -89,17 +89,17 @@
   },
   "__generated": {
     "files": [
-      "user-prompt-submit.9f6e7a2c.mjs",
-      "stop.7fd54213.mjs",
-      "session-start-state-reload.6ef5a329.mjs",
-      "session-start-session-register.81bae24c.mjs",
-      "session-start-dispatcher-active.99599dc1.mjs",
-      "session-start-context-startup.bf9a24b8.mjs",
-      "session-start-context-resume.821ee97a.mjs",
-      "session-end-state-cleanup.202b15d0.mjs",
-      "session-end-session-end.11fc2416.mjs",
-      "post-tool-use.81986963.mjs"
+      "user-prompt-submit.6b623e7f.mjs",
+      "stop.a893cba0.mjs",
+      "session-start-state-reload.8c777408.mjs",
+      "session-start-session-register.69b3e20c.mjs",
+      "session-start-dispatcher-active.4b1c7f84.mjs",
+      "session-start-context-startup.598ea50b.mjs",
+      "session-start-context-resume.e64f17f3.mjs",
+      "session-end-state-cleanup.22831f31.mjs",
+      "session-end-session-end.9d91904d.mjs",
+      "post-tool-use.de9d053f.mjs"
     ],
-    "timestamp": "2026-01-05T20:05:48.740Z"
+    "timestamp": "2026-01-05T20:17:14.315Z"
   }
 }
