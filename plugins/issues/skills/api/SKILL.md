@@ -128,6 +128,7 @@ interface UpdateIssueRequest {
 |--------|----------|-------------|
 | GET | /issues/{issueId}/comments | Get comments for an issue |
 | POST | /issues/{issueId}/comments | Add comment (with optional code references) |
+| DELETE | /issues/{issueId}/comments/{commentId} | Delete a comment from an issue |
 
 ```typescript
 // GET /issues/{issueId}/comments
@@ -149,6 +150,28 @@ interface AddCommentRequest {
   }[];
   replyTo?: string;      // Parent comment ID
 }
+
+// DELETE /issues/{issueId}/comments/{commentId}
+// Returns: { success: true }
+```
+
+### Plan Evaluations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /issues/{issueId}/plan-evaluations | Get plan evaluations for an issue |
+| POST | /issues/{issueId}/plan-evaluations | Add a plan evaluation to an issue |
+
+```typescript
+// GET /issues/{issueId}/plan-evaluations
+// Returns: string[]  (raw evaluation strings)
+
+// POST /issues/{issueId}/plan-evaluations
+interface AddPlanEvaluationRequest {
+  body: string;      // Required evaluation content
+  author: "agent";   // Required author
+}
+// Returns: { index: number }  // Array index of appended evaluation
 ```
 
 ### Attachments
