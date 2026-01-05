@@ -415,7 +415,12 @@ Worktree: [WORKTREE_PATH]
 ### 3.3 Process Result
 
 Based on agent status:
-- **COMPLETED**: Commit with `refactor:` prefix, post to issue, proceed to Step 4
+- **COMPLETED**: Commit with `refactor:` prefix, then capture and report refactoring changes:
+  1. Find the checkpoint: `git log --grep="checkpoint: before refactoring" --format=%H -1`
+  2. Run `git diff <checkpoint> HEAD --stat` to capture changes
+  3. If diff is empty: Post brief note "No refactoring changes were made - code already met quality standards"
+  4. If diff has content: Post a comment with a paragraph summarizing what was refactored and why (derived from the diff stat and refactoring focus areas), followed by the diff stat
+  5. Proceed to Step 4
 - **HAS_RECOMMENDATIONS**: Log recommendations, proceed to Step 4
 - **BLOCKED**: Document reasons, proceed to Step 4
 
