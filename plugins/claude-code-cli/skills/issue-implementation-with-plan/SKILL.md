@@ -22,7 +22,121 @@ The orchestrator coordinates—it does NOT implement code.
 
 Plan says "implement" → delegate to `claude-code-cli:implementer`.
 Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
+
+**Never update issue status. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
 </orchestrator-constraints>
+
+<commit-message-artistry>
+## Crafting World-Class Commit Messages
+
+Commit messages are the narrative layer of code history. Future developers will read these messages to understand not just *what* changed, but *why* and *how*—the human story behind the code. Write commit messages that are technically precise, contextually rich, and genuinely engaging.
+
+### Message Structure
+
+Every significant commit (non-checkpoint) should follow this 2-5 paragraph structure. Length scales with change scope—a focused fix may need only 2 paragraphs; a multi-module feature deserves the full 5.
+
+**Paragraph 1 — The Hook (Subject + Context)**
+Start with a conventional commit prefix and concise subject line. Follow immediately with a sentence that establishes *why this change matters* in the broader context of the system.
+
+**Paragraph 2 — The Problem**
+What challenge, requirement, or deficiency prompted this work? Paint the "before" picture. What would happen without this change? Why now?
+
+**Paragraph 3 — The Journey (for substantial changes)**
+What alternatives were considered? What made this approach win? Were there pivots, dead ends, or "aha" moments? This paragraph is the heart of the narrative—it's what makes the commit message memorable and educational.
+
+**Paragraph 4 — The Solution**
+What was actually built? Focus on the *design* rather than listing files. What patterns were established or followed? What tradeoffs were accepted?
+
+**Paragraph 5 — The Future (optional, for large changes)**
+What does this enable? What related work remains? What should future maintainers know?
+
+### The Undeniable Truth
+
+Every commit teaches something. Your job is to say what, for someone who needs to understand this code later.
+
+Don't optimize for profundity. The reader needs to understand what changed and why. Sometimes genuine insight emerges—a surprising discovery, an irony worth noting, a lesson that only became clear after the work was done. When that happens, include it. When it doesn't, move on. Manufactured insight is worse than none.
+
+The test: would this help someone debugging at 2am? If you'd mutter "just tell me what you did" while reading it, rewrite it.
+
+### Voice and Tone
+
+Write for two readers: the one debugging at 2am who needs speed, and the one on a calm Tuesday who needs context. Active voice, present tense. Match your energy to the change—a small fix deserves small prose.
+
+### Synthesizing from Subagent Reports
+
+Collect the Decision Narratives. Extract: what changed, what was learned, what the next person should know. Discard performative struggle. Keep genuine insight if present; don't mourn its absence.
+
+### Checkpoint vs. Final Commits
+
+| Type | Style |
+|------|-------|
+| Checkpoint | 1-2 lines: issue ref, progress |
+| Implementation | 2-3 paragraphs: what changed, why |
+| Final | 2-5 paragraphs: the full story, ending on truth |
+
+### Example Final Commit Messages
+
+**Example 1 — The Surprise Ending (4 paragraphs)**
+```
+feat(auth): Implement JWT token rotation with graceful degradation
+
+The authentication system previously issued tokens with fixed expiration,
+forcing users into hard session boundaries. This change introduces automatic
+token rotation—invisible plumbing that keeps sessions alive while maintaining
+security invariants.
+
+We considered three approaches: silent background refresh, explicit refresh
+prompts, and sliding window expiration. Background refresh won because it's
+invisible to users and matches the "magic should feel effortless" principle.
+The refresh threshold (80% of TTL) was determined empirically—earlier refreshes
+waste bandwidth, later ones risk race conditions.
+
+The implementation hooks into the existing request interceptor, adding a
+pre-flight check that triggers rotation when tokens approach expiry. Failed
+rotations gracefully degrade to the existing behavior rather than forcing
+logout. The irony isn't lost on us: we spent a week building infrastructure
+whose highest success metric is that users never notice it exists.
+
+Issue: AUTH-247
+```
+
+**Example 2 — The Quiet Observation (2 paragraphs)**
+```
+fix(notifications): Deduplicate events before WebSocket broadcast
+
+Users reported seeing duplicate notifications—sometimes three or four copies
+of the same message. The bug traced to our event fan-out: when a user belonged
+to multiple groups, they received the event once per group membership.
+
+The fix is a Set. Not a distributed cache, not a Redis-backed deduplication
+layer, not an event sourcing system. A Set. Sometimes the senior engineer
+move is knowing when the junior engineer solution was right all along.
+
+Issue: NOTIFY-89
+```
+
+**Example 3 — Offbeat Humor Illuminating Truth (3 paragraphs)**
+```
+refactor(api): Remove FeatureFlags service abstraction layer
+
+The FeatureFlags service wrapped a config lookup in three classes, two
+interfaces, and a factory—enterprise architecture for reading a boolean.
+This commit removes 847 lines of code and replaces them with direct config
+access.
+
+We kept the abstraction for two years because "we might need to swap
+providers." We never did. We never even considered it. The abstraction
+existed to solve a problem we invented to justify the abstraction.
+
+The codebase is now faster to navigate, easier to test, and 847 lines
+lighter. Future us will add complexity when future us has future reasons.
+Present us has mass-deleted the architectural equivalent of a "just in case"
+umbrella collection in the desert.
+
+Issue: TECH-DEBT-42
+```
+
+</commit-message-artistry>
 
 <validation-gate>
 **Gate requirement:** ALL validation commands must pass. No exceptions, no workarounds, no rationalizations.
@@ -58,13 +172,15 @@ There is no "probably fine" state. If you cannot make validation pass, you MUST 
 
 <tools>
 
-**instant-worktree** — Creates git worktree with symlinked dependencies (~2 seconds).
+**create-worktree** — Creates git worktree with automatic commitSha posting via hooks.
 
 ```bash
-instant-worktree "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
 ```
 
 Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it doesn't exist, or attaches to an existing branch. Fails if worktree path is already occupied.
+
+Git hooks automatically post `commitSha` after each commit. Squashed commits are cleaned up automatically.
 
 </tools>
 
@@ -89,7 +205,7 @@ Continue to Step 2. Restore stash after todo initialization.
 ### Recreate
 
 ```bash
-instant-worktree "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
 cd ".worktrees/[BRANCH_NAME]"
 ```
 
@@ -99,7 +215,7 @@ Continue to Step 2.
 
 1. Create worktree:
    ```bash
-   WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
    WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
    BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
    cd "$WORKTREE_DIR"
@@ -133,8 +249,7 @@ Continue to Step 2.
    POST /issues/[ISSUE_ID]/comments
    {
      "body": "[comment content]",
-     "author": "agent",
-     "commitSha": "${BASE_SHA}"
+     "author": "agent"
    }
    ```
 
@@ -349,7 +464,37 @@ Based on evaluation result:
 
 ## 5. Finalize
 
-### If NOT [REVIEW_REQUIRED]:
+### 5.1 Craft Final Commit Message
+
+Before completing, synthesize Decision Narratives from all subagent reports into an artful commit message following `<commit-message-artistry>` guidelines.
+
+**Synthesis Process:**
+
+1. **Collect narratives** from implementer and refactor agent reports
+2. **Extract the arc**: Problem → Journey → Solution
+3. **Find the truth**: It's usually in the narratives already, waiting to be recognized
+4. **Weave**: A unified story, not a list
+5. **Scale**: 2 paragraphs for small changes, up to 5 for substantial ones
+
+**Create the final commit:**
+
+```bash
+git add -A
+git commit -m "$(cat <<'EOF'
+[TYPE]([SCOPE]): [SUBJECT]
+
+[The hook. The problem. The journey if it matters.]
+
+[The solution. Then end on the truth—the thing that makes the reader pause.]
+
+Issue: [ISSUE_ID]
+EOF
+)"
+```
+
+### 5.2 Complete or Await Review
+
+**If NOT [REVIEW_REQUIRED]:**
 
 ```xml
 <invoke name="Skill">
@@ -357,7 +502,7 @@ Based on evaluation result:
 </invoke>
 ```
 
-### If [REVIEW_REQUIRED]:
+**If [REVIEW_REQUIRED]:**
 
 Post a summary explaining what you implemented and how it aligns with the approved plan. List the key files modified and confirm all validation passed. Indicate you're awaiting approval.
 ```
@@ -365,12 +510,10 @@ POST /issues/[ISSUE_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent",
-  "commitSha": "[HEAD_SHA]",
   "codeReferences": [
     {
-      "path": "[file]",
-      "startLine": [n],
-      "endLine": [n]
+      "uri": "[file]",
+      "range": {"startLine": [n], "endLine": [n]}
     }
   ]
 }

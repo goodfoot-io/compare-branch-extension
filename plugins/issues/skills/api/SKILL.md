@@ -14,12 +14,7 @@ Use comments to ask the user for clarifications, to report error states, or to r
 </comments>
 
 <issue-status>
-**When you start or resume work on an issue, change the issue status to "in_progress" to signal you are working on it. After you have completed work, change the issue status to "needs_review" to signal the user to review.**
-
-If a user asks a question in an issue, answer then change the issue status to `needs_review`.
-
-Statuses:
-- **in_progress**: You, Claude, are actively working on this issue.
+- **in_progress**: The agent is actively working on this issue.
 - **todo**: This issue is ready for implementation.
 - **needs_review**: This issue is awaiting feedback from the user (includes plan approval and implementation review).
 - **done**: The issue is complete and needs no additional review.
@@ -28,30 +23,34 @@ Statuses:
 </issue-status>
 
 <plan-approval>
-When an issue has `plan: true`, you must present a plan for user approval before beginning any meaningful implementation work.
+When an issue has `planRequired: true`, you must present a plan for user approval before beginning any meaningful implementation work.
 
 **Workflow:**
-1. Create the plan document following the `claude-code-cli:plan` skill format
+1. Create the plan document
 2. Store the plan in the `planContent` field for user review:
 
 ```
 PATCH /issues/{id}
 {
-  "planContent": "[full plan markdown content]",
-  "codeReferences": ["/path/to/reviewed/file.ts"]
+  "planContent": "[full plan markdown content]"
 }
 ```
 
-3. Wait for user approval before proceeding with implementation
+3. To reference code files reviewed during planning, add a comment with `codeReferences`:
+
+```
+POST /issues/{id}/comments
+{
+  "body": "Plan references the following files:",
+  "author": "agent",
+  "codeReferences": [{"uri": "/path/to/reviewed/file.ts"}]
+}
+```
+
+4. Wait for user approval before proceeding with implementation
 
 The `planContent` field stores the plan for review and reference during implementation.
 </plan-approval>
-
-<git-commit-sha>
-Record the git commit SHA to track repository state by posting comments with `commitSha`.
-
-Use `git rev-parse HEAD` to get the current 40-character SHA.
-</git-commit-sha>
 
 <reload-after-compaction>
 You must reload this skill after compaction.
@@ -59,12 +58,20 @@ You must reload this skill after compaction.
 
 <api>
 
+
+
+
+
 ```!
 BACKTICK='`'
-echo "# Example: List all issues"
-echo "curl -s \"${BACKTICK}${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh${BACKTICK}/issues\" | jq ."
+API_BASE=$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)
+echo "# Get the API base URL"
+echo "## Currently: \"$API_BASE\" but the port may change"
+echo "API_BASE=\"\$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)\""
+echo ""
+echo "# List all issues"
+echo "curl -s \"\$API_BASE/issues\" | jq ."
 ```
-
 
 ## Endpoints
 
@@ -95,8 +102,8 @@ interface CreateIssueRequest {
   title: string;
   description?: string;
   author: "agent";
-  plan?: boolean;  // Whether this issue requires plan approval before implementation
-  review?: boolean;  // Whether this issue requires user review before completing
+  planRequired?: boolean;  // Whether this issue requires plan approval before implementation
+  reviewRequired?: boolean;  // Whether this issue requires user review before completing
   tags?: string[];  // Optional tags for categorization (see Tag Validation Rules)
 }
 
@@ -107,9 +114,9 @@ interface UpdateIssueRequest {
   status?: 'in_progress' | 'todo' | 'needs_review' | 'done' | 'backlog' | 'archived';
   order?: number;
   needsAgentAttention?: boolean;
-  plan?: boolean;  // Whether this issue requires plan approval before implementation
+  planRequired?: boolean;  // Whether this issue requires plan approval before implementation
   planContent?: string;  // Plan content
-  review?: boolean;  // Whether this issue requires user review before completing
+  reviewRequired?: boolean;  // Whether this issue requires user review before completing
   tags?: string[];     // Optional tags for categorization (see Tag Validation Rules)
   pinned?: boolean;  // Whether this issue is pinned to the top of the list
 }
@@ -135,10 +142,10 @@ interface AddCommentRequest {
   author: "agent";
   commitSha?: string;    // Git SHA (40-char) of the commit being reported
   codeReferences?: {
-    uri:string;
-    range: {
+    uri: string;
+    range?: {
       startLine: number;
-      endline:number;
+      endLine: number;
     }
   }[];
   replyTo?: string;      // Parent comment ID

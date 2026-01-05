@@ -23,13 +23,15 @@ description: Fix testable bugs using test-first methodology.
 
 <tools>
 
-**instant-worktree** — Creates git worktree with symlinked dependencies (~2 seconds).
+**create-worktree** — Creates git worktree with automatic commitSha posting via hooks.
 
 ```bash
-instant-worktree "[BRANCH_NAME]"
+"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
 ```
 
 Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates new branch if needed, or attaches to existing branch.
+
+Git hooks automatically post `commitSha` after each commit. Squashed commits are cleaned up automatically.
 
 </tools>
 
@@ -57,27 +59,25 @@ if git show-ref --verify --quiet "refs/heads/[BRANCH_NAME]"; then
 fi
 
 # Create fresh worktree
-WORKTREE_JSON=$(instant-worktree "[BRANCH_NAME]")
+WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
 WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
 WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"
 ```
 
-Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
+Launch parallel Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
 ```xml
 <invoke name="Task">
 <parameter name="description">explore-[target-a]</parameter>
 <parameter name="subagent_type">Explore</parameter>
 <parameter name="model">haiku</parameter>
-<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
 </invoke>
 <invoke name="Task">
 <parameter name="description">explore-[target-b]</parameter>
 <parameter name="subagent_type">Explore</parameter>
 <parameter name="model">haiku</parameter>
-<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
 </invoke>
 ```
@@ -120,8 +120,6 @@ PATCH /issues/[ISSUE_ID]
 
 Omit fields that don't need changes. Skip this PATCH entirely if no clarification is needed.
 
-Make sure to kill any Explore subagents that have not returned before moving to the next step.
-
 ## 2. Create Reproduction Test
 
 Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
@@ -136,7 +134,7 @@ Extract from [DESCRIPTION] and [COMMENTS]:
 
 ### 2.2 Delegate to Subagent
 
-Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
+Launch additional Explore subagents if new information reveals unexplored areas.
 
 Increment REPRODUCTION_ATTEMPT, then invoke:
 
@@ -413,10 +411,9 @@ Based on review requirement:
   {
     "body": "[comment content]",
     "author": "agent",
-    "commitSha": "$(git rev-parse HEAD)",
     "codeReferences": [
       {
-        "path": "${TEST_FILE_PATH}"
+        "uri": "${TEST_FILE_PATH}"
       }
     ]
   }
@@ -430,10 +427,9 @@ Based on review requirement:
   {
     "body": "[comment content]",
     "author": "agent",
-    "commitSha": "$(git rev-parse HEAD)",
     "codeReferences": [
       {
-        "path": "${TEST_FILE_PATH}"
+        "uri": "${TEST_FILE_PATH}"
       }
     ]
   }

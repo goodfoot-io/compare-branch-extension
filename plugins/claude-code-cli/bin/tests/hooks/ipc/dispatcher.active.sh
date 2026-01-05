@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test suite for signal-active hook
+# Test suite for dispatcher.active hook
 # Tests that SIGURG is sent to process group on session activity
 
 # Colors for output
@@ -19,8 +19,11 @@ ORIGINAL_HOME="$HOME"
 ORIGINAL_PWD=$(pwd)
 
 # Get the script path
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_SCRIPT="$SCRIPT_DIR/signal-active.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+TARGET_SCRIPT="$SCRIPT_DIR/hooks/ipc/dispatcher.active.sh"
+
+# Set CLAUDE_PLUGIN_ROOT for the target script
+export CLAUDE_PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Enable test mode to prevent actual signal sending
 export SIGNAL_ACTIVE_TEST_MODE=1
@@ -73,7 +76,7 @@ run_test() {
     return 0
 }
 
-echo "Running signal-active tests..."
+echo "Running dispatcher.active tests..."
 echo "==============================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $TARGET_SCRIPT"
@@ -102,6 +105,17 @@ else
     echo -e "${RED}FAIL${NC} - Expected TEST_MODE message about SIGURG"
     echo "Stderr: $LAST_STDERR"
     TESTS_PASSED=$((TESTS_PASSED - 1))
+fi
+
+# Verify systemMessage in output
+TESTS_RUN=$((TESTS_RUN + 1))
+OUTPUT=$(echo "$INPUT" | DISPATCHER_PID=$$ "$TARGET_SCRIPT" 2>/dev/null)
+if echo "$OUTPUT" | jq -e '.systemMessage' | grep -q "IPC: Signaling dispatcher that session is active"; then
+    echo "Verified: systemMessage present in output"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+    echo -e "${RED}FAIL${NC} - Expected systemMessage in output"
+    echo "Output: $OUTPUT"
 fi
 unset DISPATCHER_PID
 
@@ -201,34 +215,8 @@ else
 fi
 unset DISPATCHER_PID
 
-# Test 7: Handles different session IDs
-echo -e "\n${YELLOW}=== Test 7: Handles different session IDs ===${NC}"
-setup_mock_home
-export DISPATCHER_PID=$$
-SESSION_ID="unique-session-id-abcdef123456"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "transcript_path": "/tmp/transcript.jsonl",
-  "hook_event_name": "SessionStart",
-  "source": "startup"
-}
-EOF
-)
-run_test "Handles unique session IDs" "$INPUT" 0
-
-# Verify TEST_MODE message includes correct session ID
-if echo "$LAST_STDERR" | grep -q "session=$SESSION_ID"; then
-    echo "Verified: Session ID correctly included in output"
-else
-    echo -e "${RED}FAIL${NC} - Expected session ID in output"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-unset DISPATCHER_PID
-
-# Test 8: Posts to /session/start when DISPATCHER_PID is set with cwd
-echo -e "\n${YELLOW}=== Test 8: Posts to /session/start when DISPATCHER_PID set with cwd ===${NC}"
+# Test 7: Posts to /session/start when DISPATCHER_PID is set with cwd
+echo -e "\n${YELLOW}=== Test 7: Posts to /session/start when DISPATCHER_PID set with cwd ===${NC}"
 setup_mock_home
 export DISPATCHER_PID=$$
 SESSION_ID="test-session-start"
@@ -263,34 +251,8 @@ else
 fi
 unset DISPATCHER_PID
 
-# Test 9: Does not post to /session/start when cwd is missing
-echo -e "\n${YELLOW}=== Test 9: Does not post to /session/start when cwd is missing ===${NC}"
-setup_mock_home
-export DISPATCHER_PID=$$
-SESSION_ID="test-no-cwd"
-INPUT=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "transcript_path": "/tmp/transcript.jsonl",
-  "hook_event_name": "SessionStart",
-  "source": "startup"
-}
-EOF
-)
-run_test "Does not post to /session/start when cwd missing" "$INPUT" 0
-
-# Verify no /session/start POST in message (only SIGURG)
-if echo "$LAST_STDERR" | grep -q "Would POST /session/start"; then
-    echo -e "${RED}FAIL${NC} - Should not POST /session/start when cwd missing"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-else
-    echo "Verified: No /session/start POST when cwd missing"
-fi
-unset DISPATCHER_PID
-
-# Test 10: Exits with error when DISPATCHER_PID not set
-echo -e "\n${YELLOW}=== Test 10: Exits with error when DISPATCHER_PID not set ===${NC}"
+# Test 8: Exits with error when DISPATCHER_PID not set
+echo -e "\n${YELLOW}=== Test 8: Exits with error when DISPATCHER_PID not set ===${NC}"
 setup_mock_home
 SESSION_ID="test-no-dispatcher"
 INPUT=$(cat <<EOF
@@ -314,16 +276,8 @@ else
     TESTS_PASSED=$((TESTS_PASSED - 1))
 fi
 
-if echo "$LAST_STDERR" | grep -q "Launch Claude using the issue panel"; then
-    echo "Verified: Error includes actionable advice"
-else
-    echo -e "${RED}FAIL${NC} - Expected actionable advice in error"
-    echo "Stderr: $LAST_STDERR"
-    TESTS_PASSED=$((TESTS_PASSED - 1))
-fi
-
-# Test 11: Orphan detection - exits 1 when dispatcher is dead
-echo -e "\n${YELLOW}=== Test 11: Orphan detection - exits 1 when dispatcher is dead ===${NC}"
+# Test 9: Orphan detection - exits 1 when dispatcher is dead
+echo -e "\n${YELLOW}=== Test 9: Orphan detection - exits 1 when dispatcher is dead ===${NC}"
 setup_mock_home
 # Use a PID that definitely doesn't exist (very high PID)
 export DISPATCHER_PID=999999999

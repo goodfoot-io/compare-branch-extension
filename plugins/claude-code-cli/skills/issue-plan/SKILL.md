@@ -18,14 +18,20 @@ Create implementation plans for issues requiring user approval before coding beg
 
 Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null.
 
+- **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
 - **Previous plan AND [LATEST_USER_COMMENT] is null**: Skip to step 3.8 (Wait)
-- **Previous plan AND [LATEST_USER_COMMENT] contains revision request**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
-- **Previous plan AND [LATEST_USER_COMMENT] exists but no revision signals**: Skip to step 3.8 (Wait)
+- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
 - **No previous plan**: Create new plan. Start at step 2.
 
 ## 2. Classifying User Feedback
 
 **Default: When intent is unclear, treat as revision request.**
+
+<approval-signals>
+These signals cause the routing layer to redirect to implementation on the next invocation:
+- Explicit: "Approved", "LGTM", "Go ahead", "Proceed", "Ship it", or equivalent affirmative
+- Implicit: "This looks good", "Perfect", "Great plan", "Yes", "OK", "Do it"
+</approval-signals>
 
 <revision-signals>
 These signals mean stay in this skill and revise:
@@ -96,6 +102,27 @@ Enrich descriptions with context discovered during research:
 
 **Leave unchanged when:** Only minor phrasing or style preferences would change.
 
+#### 3.3.4 Change Documentation (Required)
+
+**Never silently overwrite title or description.** Before any PATCH that modifies these fields, post a comment explaining the change.
+
+The comment should help a reader understand:
+- What was unclear or incorrect in the original
+- What the new version says instead
+- Why this change better represents the intended work
+
+This creates an immutable record in the issue history before the PATCH overwrites the original values. The user retains visibility into how their original request was interpreted and refined.
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "[explanation of title/description changes]",
+  "author": "agent"
+}
+```
+
+Then apply the changes:
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -104,7 +131,7 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
-Omit `title` and `description` fields if no changes are needed. Document any changes in the plan's scope section.
+Omit `title` and `description` fields if no changes are needed. Skip the comment if no changes are made.
 
 ### 3.4 Draft Plan
 
@@ -153,28 +180,16 @@ Description: [DESCRIPTION]</parameter>
 
 Review both assessment reports.
 
-**Post meta-analysis comment:**
+**Post evaluation comment:**
 
-Summarize how assessor findings influenced the plan. Use natural language paragraphs to explain the reasoning behind changes — avoid terse bullet lists that lack context.
+The evaluation comment must include any title/description changes that will follow. This creates an immutable record before the PATCH overwrites the original values.
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Evaluation Notes\n\n[Narrative explanation of how assessor findings shaped the plan, including rationale for key decisions and any unresolved questions requiring user input]",
+  "body": "## Evaluation Summary\n\n### Questions Raised\n[List concerns, ambiguities, or issues identified by assessors]\n\n### Decisions\n[For each question: state the decision and brief rationale]\n\n### Title/Description Changes\n[If modifying title or description: explain what was unclear or incorrect, what the new version says, and why this better represents the work. Omit this section if no changes.]",
   "author": "agent"
 }
-```
-
-Example comment body:
-
-```markdown
-## Evaluation Notes
-
-The structural assessment identified that batch processing was outside the stated problem scope. Since the original issue focused on real-time notification delivery, I've removed the batching logic from the Technical Approach to keep the implementation focused.
-
-The strategic assessment flagged an unvalidated assumption about Redis adapter compatibility with Socket.io v4.6.1. Rather than proceed on assumption, I've added a tactical spike to the plan that will verify this integration before committing to the architecture.
-
-Both assessors noted ambiguity around reconnection behavior. The plan now explicitly addresses this in the Risks section, but I'd like your input: should we sync missed notifications on reconnect, or start fresh? The former adds complexity but improves UX; the latter is simpler but users may miss events during brief disconnections.
 ```
 
 **Update title when assessor findings reveal:**
@@ -189,11 +204,13 @@ Both assessors noted ambiguity around reconnection behavior. The plan now explic
 - Ambiguous requirements that led to assessor confusion
 - Missing context that assessors needed to ask about
 
+**After documenting changes in the evaluation comment**, apply the PATCH:
+
 ```
 PATCH /issues/[ISSUE_ID]
 {
   "title": "[CORRECTED_TITLE]",
-  "description": "[corrected description]\n\n---\n*Corrections based on evaluation: [what changed and why]*"
+  "description": "[CORRECTED_DESCRIPTION]"
 }
 ```
 
@@ -211,8 +228,18 @@ Update the issue with the final plan:
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "planContent": "[detailed plan markdown]",
-  "codeReferences": ["/path/to/reviewed/file.ts"]
+  "planContent": "[detailed plan markdown]"
+}
+```
+
+To reference code files reviewed during planning, add a comment with `codeReferences`:
+
+```
+POST /issues/[ISSUE_ID]/comments
+{
+  "body": "Plan references the following files:",
+  "author": "agent",
+  "codeReferences": [{"uri": "/path/to/reviewed/file.ts"}]
 }
 ```
 
@@ -221,7 +248,7 @@ PATCH /issues/[ISSUE_ID]
 **STOP** — Plan submitted for review. Awaiting your approval or feedback.
 
 The orchestration layer will re-invoke when user responds:
-- Approval (`planApproved` set to true) → routes to `claude-code-cli:issue-implementation-with-plan`
+- Approval → routes to `claude-code-cli:issue-implementation`
 - Revision request → re-invokes this skill; Entry Check routes to step 2 or 3
 
 </instructions>
