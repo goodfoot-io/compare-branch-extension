@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.97b73a18.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.122913f4.mjs"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-state-reload.ecb3251b.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-state-reload.d73c21e5.mjs"
           }
         ],
         "matcher": "compact"
@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-state-cleanup.5ad99a72.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-state-cleanup.6d0c7d2c.mjs"
           },
           {
             "type": "command",
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use.93a2ed91.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use.a3167a6c.mjs"
           }
         ],
         "matcher": "Skill"
@@ -90,16 +90,16 @@
   "__generated": {
     "files": [
       "user-prompt-submit.e2c6520b.mjs",
-      "stop.97b73a18.mjs",
-      "session-start-state-reload.ecb3251b.mjs",
+      "stop.122913f4.mjs",
+      "session-start-state-reload.d73c21e5.mjs",
       "session-start-session-register.9f80d79d.mjs",
       "session-start-dispatcher-active.88a4d0dc.mjs",
       "session-start-context-startup.f87e3bfd.mjs",
       "session-start-context-resume.0ef6f471.mjs",
-      "session-end-state-cleanup.5ad99a72.mjs",
+      "session-end-state-cleanup.6d0c7d2c.mjs",
       "session-end-session-end.fe2822ff.mjs",
-      "post-tool-use.93a2ed91.mjs"
+      "post-tool-use.a3167a6c.mjs"
     ],
-    "timestamp": "2026-01-06T18:25:32.103Z"
+    "timestamp": "2026-01-06T19:56:31.634Z"
   }
 }
