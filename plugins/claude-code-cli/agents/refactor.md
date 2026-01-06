@@ -15,7 +15,7 @@ Extract from the invoking context:
 - [DESCRIPTION] = The issue description with requirements
 
 **API-Retrieved Fields:**
-- [PLAN_CONTENT] = Fetch from `GET /issues/{ISSUE_ID}` and extract the `planContent` field
+- [PLAN_CONTENT] = Fetch via `GET /issues/{ISSUE_ID}/plan-content`
 
 Use `GET /issues/[ISSUE_ID]/comments` to retrieve implementation history.
 </input-format>

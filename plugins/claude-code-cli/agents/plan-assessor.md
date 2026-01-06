@@ -15,7 +15,7 @@ Extract from the invoking context:
 - [DESCRIPTION] = The issue description with requirements
 
 **API-Retrieved Fields:**
-- [PLAN_CONTENT] = Fetch from `GET /issues/{ISSUE_ID}` and extract the `planContent` field
+- [PLAN_CONTENT] = Fetch via `GET /issues/{ISSUE_ID}/plan-content`
 </input-format>
 
 ## Purpose and Philosophy
@@ -414,17 +414,15 @@ Based on assessment findings, determine implementation readiness:
 - Use second person for handoffs ("You'll need to...", "You should...")
 </behavioral-guidelines>
 
-
-## Execution Steps
+<instructions>
 
 ### 1. Gather Context
 1. Extract issue information from prompt:
    - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
    - Identify plan type: initial plan vs. strategic revision
 2. Fetch plan content from the issues API:
-   - Call `GET /issues/{ISSUE_ID}` to retrieve the issue
-   - Extract the `planContent` field as [PLAN_CONTENT]
-   - If `planContent` is null or empty, report error and stop
+   - Call `GET /issues/{ISSUE_ID}/plan-content` to retrieve the plan
+   - If [PLAN_CONTENT] is null or empty, report error and stop
 3. Check for existing issue comments via API
    - Review implementation status and strategic context
    - Identify reactive constraints or proactive optimization triggers
@@ -438,3 +436,4 @@ Apply content analysis patterns from the content-analysis-patterns section above
 
 ### 4. Generate Assessment Report
 Apply priority framework and generate assessment report using the formats specified in the assessment-report-structure and logging-requirements sections above.
+</instructions>

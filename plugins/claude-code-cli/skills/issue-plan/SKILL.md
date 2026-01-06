@@ -14,140 +14,24 @@ Note: [ISSUE_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
 
 Create implementation plans for issues requiring user approval before coding begins. Do NOT create worktrees or make code changes—plans must be approved before any implementation begins.
 
-## 1. Entry Check
+## 1. Create Plan
 
-Evaluate conditions in order (first match wins). "Previous plan" = [PLAN_CONTENT] is not null.
+### 1.1 Load Plan Skill
 
-- **Previous plan AND [LATEST_USER_COMMENT] contains approval language**: Routing error: invoke `claude-code-cli:issue-implementation` via Skill tool
-- **Previous plan AND [LATEST_USER_COMMENT] is null**: Skip to step 3.8 (Wait)
-- **Previous plan AND [LATEST_USER_COMMENT] contains revision request or is ambiguous**: Revise plan. Start at step 2 or 3 depending on scope. Assessment cycles reset.
-- **No previous plan**: Create new plan. Start at step 2.
+Load the `claude-code-cli:plan` skill for structure requirements and examples.
 
-## 2. Classifying User Feedback
+### 1.2 Research
 
-**Default: When intent is unclear, treat as revision request.**
-
-<approval-signals>
-These signals cause the routing layer to redirect to implementation on the next invocation:
-- Explicit: "Approved", "LGTM", "Go ahead", "Proceed", "Ship it", or equivalent affirmative
-- Implicit: "This looks good", "Perfect", "Great plan", "Yes", "OK", "Do it"
-</approval-signals>
-
-<revision-signals>
-These signals mean stay in this skill and revise:
-- Qualified positive: "Looks good, but...", "Mostly good, however..."
-- Suggestions: "Can you consider...", "Can you also...", "What about..."
-- Uncertainty: "I'm not sure about...", "Maybe we should..."
-- Alternative proposals: "Why not use X instead?"
-</revision-signals>
-
-## 3. Workflow
-
-### 3.1 Load Plan Skill
-
-Invoke `claude-code-cli:plan` for structure requirements and examples.
-
-### 3.2 Research
-
-- Read relevant files in the codebase (track paths for `codeReferences` in step 3.7)
+- Read relevant files in the codebase (track paths for `codeReferences` in step 3)
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 
-### 3.3 Clarify Title and Description
+### 1.3 Write and Store Plan
 
-After research, evaluate whether the title and description clearly represent the planned work.
+Create a plan based on the style and structure from the `claude-code-cli:plan` skill. 
 
-#### 3.3.1 Title Evaluation
+Then store the plan on the issue:
 
-A good title completes the sentence: *"To finish this ticket, I need to [TITLE]"*
-
-Determine the issue type, then apply the corresponding rules:
-
-- **Feature or enhancement**: Title should start with action verb ("Add", "Update", "Remove") and describe the user-observable outcome
-- **Bug or diagnostic issue**: Title should identify root cause and impact — diagnostic clarity takes precedence over action verbs (e.g., "SessionPidRegistry never instantiated — process tracking disabled" is preferred over "Instantiate SessionPidRegistry")
-- **API or infrastructure change**: The technical change IS the observable outcome for developer users — titles like "Add GraphQL subscriptions for issue updates" are acceptable
-
-Clarify title when:
-
-- **Truncated or incomplete**: Complete the thought concisely
-- **Describes symptom only**: Add root cause if research revealed it
-- **References wrong component**: Correct to match codebase
-- **Contains rationale clause**: Move "because..." or "as..." explanations to description
-- **Multi-part scope unclear**: If issue has multiple distinct changes, title should summarize the primary change or use "and" to connect two major items (not three or more)
-
-#### 3.3.2 Description Evaluation
-
-Clarify description when:
-
-- **Duplicates title verbatim**: Expand with context, motivation, and criteria
-- **Missing problem/motivation**: Add brief explanation of why this matters
-- **Missing current vs desired**: Add contrast showing before/after states
-- **Vague acceptance criteria**: Add observable, testable success conditions
-- **Ambiguous scope phrases**: Clarify "replacing or complementing", "etc.", "and more"
-
-Enrich descriptions with context discovered during research:
-
-- Relevant file paths and component names
-- Technical constraints or dependencies
-- Acceptance criteria (if inferable from user intent)
-- Brief background on why this change matters
-
-#### 3.3.3 Preservation Principles
-
-- Preserve all user-provided details, requirements, and constraints
-- Maintain user intent — the clarified version must request the same outcome
-- Correct factual errors in main text; append footnote: `*Corrections: Changed X to Y (reason)*`
-- Do not expand scope beyond user intent
-- When adding acceptance criteria, derive from stated intent — do not introduce new requirements
-
-**Leave unchanged when:** Only minor phrasing or style preferences would change.
-
-#### 3.3.4 Change Documentation (Required)
-
-**Never silently overwrite title or description.** Before any PATCH that modifies these fields, post a comment explaining the change.
-
-The comment should help a reader understand:
-- What was unclear or incorrect in the original
-- What the new version says instead
-- Why this change better represents the intended work
-
-This creates an immutable record in the issue history before the PATCH overwrites the original values. The user retains visibility into how their original request was interpreted and refined.
-
-```
-POST /issues/[ISSUE_ID]/comments
-{
-  "body": "[explanation of title/description changes]",
-  "author": "agent"
-}
-```
-
-Then apply the changes:
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "title": "[CLARIFIED_TITLE]",
-  "description": "[CLARIFIED_DESCRIPTION]"
-}
-```
-
-Omit `title` and `description` fields if no changes are needed. Skip the comment if no changes are made.
-
-### 3.4 Draft Plan
-
-Include:
-- Objective and scope
-- Proposed approach with steps
-- Files to be modified
-- Testing strategy
-- Risks and mitigations
-- Questions or decision points
-
-For revisions: Add a "## Changes from Previous Version" section listing each modification.
-
-### 3.5 Store and Assess
-
-First, store the drafted plan:
 ```
 PATCH /issues/[ISSUE_ID]
 {
@@ -155,100 +39,111 @@ PATCH /issues/[ISSUE_ID]
 }
 ```
 
+## 2. Assess Plan
+
+### 2.1 Launch Assessment Subagents
+
 Then launch both assessments in parallel (one message):
+
 ```xml
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-assessor</parameter>
-  <parameter name="prompt">Assess the plan for structural compliance, technical feasibility, and completeness.
+  <parameter name="prompt">Issue: [ISSUE_ID]
+  
+1. Read the plan:
+```
+GET /issues/[ISSUE_ID]/plan-content
+```
 
-Issue: [ISSUE_ID] - [TITLE]
-Description: [DESCRIPTION]</parameter>
+2. Assess the plan and post a report per your `<instructions>`.
+</parameter>
 </invoke>
 
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-refactor</parameter>
-  <parameter name="prompt">Evaluate the plan using the seven evaluation principles. Challenge assumptions, identify structural issues, and surface design decisions that warrant reconsideration.
+  <parameter name="prompt">Issue: [ISSUE_ID]
+  
+1. Read the plan:
+```
+GET /issues/[ISSUE_ID]/plan-content
+```
 
-Issue: [ISSUE_ID] - [TITLE]
-Description: [DESCRIPTION]</parameter>
+2. Assess the plan and post a report per your `<instructions>`.
+</parameter>
 </invoke>
 ```
 
-### 3.6 Address Findings
+### 2.2 Address Assessment Findings
 
-Review both assessment reports.
+Read the assessments:
 
-**Post evaluation comment:**
+```
+GET /issues/[ISSUE_ID]/plan-evaluations
+```
 
-The evaluation comment must include any title/description changes that will follow. This creates an immutable record before the PATCH overwrites the original values.
+### Combined Assessment Priority Levels
+- **CRITICAL/RECONSIDER**: Must be addressed before implementation
+- **HIGH/CONCERNS**: Should be addressed or explicitly accepted
+- **MEDIUM**: Implementation clarity, risk coverage, dependency analysis
+- **LOW**: Style suggestions, format variations
+
+### Interpreting Combined Results
+
+Based on combined assessment results:
+
+- **Ready: Yes AND READY**: Proceed to step 3
+- **Ready: Yes AND DISCUSS**: Proceed, but document accepted concerns
+- **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" - address strategic issues
+- **Ready: Yes (suggestions) AND READY/DISCUSS**: Proceed with awareness of suggestions
+- **Ready: No**: Address structural issues first
+- **RECONSIDER (any Ready state)**: Address strategic issues before proceeding
+
+#### After Both Assessments Complete (Always)
+
+1. **Resolve questions through research**
+2. **Surface considerations visibly** as you work through them
+3. **Track subjective decisions**: Collect design choices and judgment calls (not factual resolutions like "Is X compatible with Y?") for inclusion in the final summary. These help reviewers know where to focus.
+4. **Make decisions** for non-blocking issues and document them in the plan revision
+5. **Only ask the user** for blocking issues or intent clarity
+6. **Determine next action** based on combined results (see "Interpreting Combined Results" above)
+
+#### If Either Assessment Fails (Ready: No OR CRITICAL/RECONSIDER OR HIGH/MEDIUM/CONCERNS issues)
+
+Return to **1.3 Write and Store Plan** and revise.
+
+#### If Both Assessments Pass (Ready: Yes + READY/DISCUSS)
+
+If Plan Refactor returned DISCUSS, log accepted concerns:
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Evaluation Summary\n\n### Questions Raised\n[List concerns, ambiguities, or issues identified by assessors]\n\n### Decisions\n[For each question: state the decision and brief rationale]\n\n### Title/Description Changes\n[If modifying title or description: explain what was unclear or incorrect, what the new version says, and why this better represents the work. Omit this section if no changes.]",
+  "body": "## Accepted Concerns\n\nThe following strategic concerns were noted but accepted:\n   - [Concern from plan-refactor evaluation]\n   - [Rationale for accepting]",
   "author": "agent"
 }
 ```
 
-**Update title when assessor findings reveal:**
+Proceed to **3. Submit for Approval**
 
-- Title describes symptom but investigation found root cause
-- Title names wrong component or approach
-- Title scope doesn't match planned work (e.g., title mentions one change but plan covers multiple)
+## 3. Submit for Approval
 
-**Update description when assessor findings reveal:**
+**Present summary to user** including:
 
-- Incorrect assumptions or factual errors (wrong root cause, incorrect component, invalid constraints)
-- Ambiguous requirements that led to assessor confusion
-- Missing context that assessors needed to ask about
-
-**After documenting changes in the evaluation comment**, apply the PATCH:
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "title": "[CORRECTED_TITLE]",
-  "description": "[CORRECTED_DESCRIPTION]"
-}
-```
-
-Do not update for stylistic preferences or minor clarifications — only when evidence directly contradicts stated facts or when ambiguity caused assessor confusion.
-
-**Based on assessment severity:**
-
-- **CRITICAL or HIGH priority issues**: Revise the plan, re-store via PATCH, re-run step 3.5 (maximum 2 cycles — if issues persist, note unresolved concerns in the comment)
-- **Otherwise**: Proceed to step 3.7
-
-### 3.7 Submit for Approval
-
-Update the issue with the final plan:
-
-```
-PATCH /issues/[ISSUE_ID]
-{
-  "planContent": "[detailed plan markdown]"
-}
-```
-
-To reference code files reviewed during planning, add a comment with `codeReferences`:
+- Plan location and version
+- **Subjective decisions made**: List design choices and judgment calls with brief reasoning (e.g., "Chose server-side rendering for initial load performance"). Omit factual resolutions.
+- Any accepted concerns from DISCUSS assessment
+- Prompt for feedback
 
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "Plan references the following files:",
-  "author": "agent",
-  "codeReferences": [{"uri": "/path/to/reviewed/file.ts"}]
+  "body": "[summary]",
+  "author": "agent"
 }
 ```
 
-### 3.8 Wait
-
-**STOP** — Plan submitted for review. Awaiting your approval or feedback.
-
-The orchestration layer will re-invoke when user responds:
-- Approval → routes to `claude-code-cli:issue-implementation`
-- Revision request → re-invokes this skill; Entry Check routes to step 2 or 3
+**STOP** — Wait for user feedback on plan
 
 </instructions>
