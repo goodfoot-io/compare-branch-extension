@@ -156,23 +156,23 @@ interface AddCommentRequest {
 // Returns: { success: true }
 ```
 
-### Plan Evaluations
+### Plan Assessments
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /issues/{issueId}/plan-evaluations | Get plan evaluations for an issue |
-| POST | /issues/{issueId}/plan-evaluations | Add a plan evaluation to an issue |
+| GET | /issues/{issueId}/plan-assessments | Get plan assessments for an issue |
+| POST | /issues/{issueId}/plan-assessments | Add a plan assessment to an issue |
 
 ```typescript
-// GET /issues/{issueId}/plan-evaluations
-// Returns: string[]  (raw evaluation strings)
+// GET /issues/{issueId}/plan-assessments
+// Returns: string[]  (raw assessments strings)
 
-// POST /issues/{issueId}/plan-evaluations
-interface AddPlanEvaluationRequest {
-  body: string;      // Required evaluation content
+// POST /issues/{issueId}/plan-assessments
+interface AddPlanAssessmentRequest {
+  body: string;      // Required assessment content
   author: "agent";   // Required author
 }
-// Returns: { index: number }  // Array index of appended evaluation
+// Returns: { index: number }  // Array index of appended assessment
 ```
 
 ### Attachments

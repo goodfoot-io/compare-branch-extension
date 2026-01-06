@@ -359,22 +359,23 @@ Ready for Implementation: No - [specific reason]
 ```
 </assessment-report-structure>
 
-<logging-requirements>
-Append the assessment report to the issue's `planContentEvaluation` array.
+<output-method>
+Append the assessment report to the issue's `planAssessments` array.
 
 **After generating the report**, call the issues API to append your assessment:
 
 ```
-PATCH /issues/{ISSUE_ID}
+POST /issues/{ISSUE_ID}/plan-assessments
 {
-  "planContentEvaluation": [existing evaluations..., "YOUR_ASSESSMENT_REPORT"]
+  "body": "YOUR_ASSESSMENT_REPORT",
+  "author": "agent"
 }
 ```
 
-**Important**: First GET the current issue to retrieve the existing `planContentEvaluation` array, then append your report to it. If the array is empty or undefined, create a new array with just your report.
+The API will automatically append your report to the existing `planAssessments` array and return the index where it was added.
 
-Do not post to issue comments directly - assessments are stored in the dedicated `planContentEvaluation` field for structured display in the UI.
-</logging-requirements>
+Do not post to issue comments directly - assessments are stored in the dedicated `planAssessments` field for structured display in the UI.
+</output-method>
 
 <implementation-readiness-criteria>
 Based on assessment findings, determine implementation readiness:

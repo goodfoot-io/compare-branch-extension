@@ -80,7 +80,7 @@ GET /issues/[ISSUE_ID]/plan-content
 Read the assessments:
 
 ```
-GET /issues/[ISSUE_ID]/plan-evaluations
+GET /issues/[ISSUE_ID]/plan-assessments
 ```
 
 ### Combined Assessment Priority Levels
