@@ -55,7 +55,7 @@ An investigation request should make the intent and outcomes explicit: what need
 | Decision Criteria | How results influence next steps | "How will we decide what to do next?" |
 | Risks & Assumptions | Known uncertainties and dependencies | "What could invalidate or skew results?" |
 
-## Summary
+## Summary (Do not include header in final description output)
 
 State the investigation intent in one or two sentences. Focus on the learning objective and the decision it will inform.
 
@@ -70,6 +70,9 @@ Provide only the context required to understand the investigation and why it is 
 - Current system behavior, constraints, or pain points
 - Prior attempts or existing evidence
 - Stakeholders affected by the outcome
+
+**What not to include:**
+- A "Summary" section header
 
 **Guidance:**
 Keep this concise and factual. The goal is to frame, not to argue for a solution.

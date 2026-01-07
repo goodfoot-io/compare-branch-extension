@@ -68,7 +68,7 @@ Enhancement requests follow a four-section structure that builds understanding p
 | Desired Functionality | State requirements clearly | "What should it do?" |
 | Implementation Approach (Optional) | Describe the path forward | "How could we get there?" |
 
-## Historical Context
+## Historical Context (Do not include header in final description output)
 
 **Purpose:**
 Establish the narrative of how the system evolved to its current state. This section preserves decision history that would otherwise be lost and helps readers understand why things are the way they are.
@@ -79,6 +79,9 @@ Establish the narrative of how the system evolved to its current state. This sec
 - Trade-offs that were made and why
 - Unintended consequences of past changes
 - References to relevant commits, PRs, or discussions
+
+**What not to include:**
+- A "Historical Context" section header
 
 **Structure:**
 Organize chronologically or by conceptual phases. Each phase should explain:
@@ -240,32 +243,6 @@ Match the level of detail to the section's purpose. Historical Context needs nar
 Too much detail obscures; too little detail fails to communicate. Find the level that serves understanding.
 
 ## Quick Reference
-
-### Section Checklist
-
-**Historical Context**
-- [ ] Explains key decisions that shaped current state
-- [ ] Describes evolution chronologically or by phase
-- [ ] References relevant commits or discussions
-- [ ] Explains unintended consequences if applicable
-
-**Current Functionality**
-- [ ] Describes actual behavior with specifics
-- [ ] Includes file paths and line numbers
-- [ ] Explains what happens and why it matters
-- [ ] Distinguishes intentional from incidental behavior
-
-**Desired Functionality**
-- [ ] States requirements as verifiable outcomes
-- [ ] Defines scope boundaries (in and out)
-- [ ] Explains rationale for non-obvious requirements
-- [ ] Prioritizes must-have vs nice-to-have
-
-**Implementation Approach (Optional)**
-- [ ] Describes changes in natural language
-- [ ] Explains reasoning behind the approach
-- [ ] Addresses trade-offs and alternatives
-- [ ] Connects changes to requirements
 
 ### Common Mistakes
 

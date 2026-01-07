@@ -55,7 +55,7 @@ Maintenance requests follow a six-section structure:
 | Risks & Dependencies | Surface coordination and rollout needs | "What could go wrong or block us?" |
 | Acceptance Signals | Make completion verifiable | "How do we know it's done?" |
 
-## Motivation & Impact
+## Motivation & Impact (Do not include header in final description output)
 
 Anchor the request in measurable impact: operational risk, developer time, reliability, cost, or looming deprecations.
 
@@ -64,6 +64,9 @@ Anchor the request in measurable impact: operational risk, developer time, relia
 - Who is affected and how often
 - Deadlines (EOL dates, security policies, vendor timelines)
 - Evidence: incidents, metrics, recurring manual steps (toil)
+
+**What not to include:**
+- A "Motivation & Impact" section header
 
 **Guidance:**
 Use the technical-debt metaphor: call out the "interest" (ongoing cost) and the "principal" (cleanup work). Avoid vague urgency; quantify the impact when possible.
