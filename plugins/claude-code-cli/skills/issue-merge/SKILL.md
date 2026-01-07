@@ -47,7 +47,7 @@ fi
 
 ## 3. Rebase and Validate (in Worktree)
 
-Rebase onto local `$BASE_BRANCH` (includes recent merges not yet pushed):
+Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
 
 ```bash
 git rebase $BASE_BRANCH
@@ -98,20 +98,15 @@ Based on workspace state:
 - **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: [ISSUE_ID]"`
 - **No uncommitted changes**: Proceed to Step 5
 
-## 5. Merge Branch
+## 5. Fast-Forward Merge
 
 ```bash
-git merge --no-ff "$BRANCH_NAME" -m "Merge branch '$BRANCH_NAME'
-
-Issue: [ISSUE_ID]
-Title: [TITLE]"
+git merge --ff-only "$BRANCH_NAME"
 ```
-
-**Do not post the merge commit in a comment.**
 
 Based on merge result:
 - **Merge succeeds**: Proceed to Step 6
-- **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Merge failed after successful rebase.
+- **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
 
 ```
 PATCH /issues/[ISSUE_ID]

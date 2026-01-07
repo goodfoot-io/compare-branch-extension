@@ -218,25 +218,30 @@ STORED_BASE_SHA=$(git -C ".worktrees/json-test-branch" config --worktree issue.b
 verify "baseSha is stored" "[ -n '$STORED_BASE_SHA' ]"
 verify "baseSha is valid format (40 char hex)" "echo '$STORED_BASE_SHA' | grep -qE '^[a-f0-9]{40}$'"
 
-echo -e "\n${YELLOW}=== Test 12: Duplicate branch name should fail ===${NC}"
+echo -e "\n${YELLOW}=== Test 12: baseBranch stored correctly in git config ===${NC}"
+STORED_BASE_BRANCH=$(git -C ".worktrees/json-test-branch" config --worktree issue.baseBranch 2>/dev/null)
+verify "baseBranch is stored" "[ -n '$STORED_BASE_BRANCH' ]"
+verify "baseBranch defaults to main" "[ '$STORED_BASE_BRANCH' = 'main' ]"
+
+echo -e "\n${YELLOW}=== Test 13: Duplicate branch name should fail ===${NC}"
 run_test "Duplicate branch" 2 env ISSUE_ID="test:789" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "hooks-test-1"
 
-echo -e "\n${YELLOW}=== Test 13: Not in git repository should fail ===${NC}"
+echo -e "\n${YELLOW}=== Test 14: Not in git repository should fail ===${NC}"
 cd /tmp
 run_test "Not in git repo" 2 env ISSUE_ID="test:000" ISSUE_WORKSPACE_PATH="/tmp" "$UTILITY" "no-repo-branch"
 cd "$TEST_DIR/repo"
 
-echo -e "\n${YELLOW}=== Test 14: Verify error output goes to stderr ===${NC}"
+echo -e "\n${YELLOW}=== Test 15: Verify error output goes to stderr ===${NC}"
 stderr_output=$("$UTILITY" 2>&1 >/dev/null)
 verify "Error message goes to stderr" "[ -n '$stderr_output' ]"
 
-echo -e "\n${YELLOW}=== Test 15: Running from subdirectory should work ===${NC}"
+echo -e "\n${YELLOW}=== Test 16: Running from subdirectory should work ===${NC}"
 cd "$TEST_DIR/repo/src"
 run_test "From subdirectory" 0 env ISSUE_ID="test:subdirtest" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "subdir-hooks-branch"
 verify "Worktree created at repo root" "[ -d '$TEST_DIR/repo/.worktrees/subdir-hooks-branch' ]"
 cd "$TEST_DIR/repo"
 
-echo -e "\n${YELLOW}=== Test 16: --help flag should show usage ===${NC}"
+echo -e "\n${YELLOW}=== Test 17: --help flag should show usage ===${NC}"
 help_output=$("$UTILITY" --help 2>&1)
 exit_code=$?
 if [ "$exit_code" -eq 0 ]; then
@@ -249,14 +254,14 @@ fi
 verify "--help output mentions ISSUE_ID" "echo '$help_output' | grep -q 'ISSUE_ID'"
 verify "--help output mentions branch-name" "echo '$help_output' | grep -q 'branch-name'"
 
-echo -e "\n${YELLOW}=== Test 17: Feature branch with slash should work ===${NC}"
+echo -e "\n${YELLOW}=== Test 18: Feature branch with slash should work ===${NC}"
 run_test "Feature branch with slash" 0 env ISSUE_ID="test:feature" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "feature/new-feature"
 verify "Feature branch worktree exists" "[ -d '.worktrees/feature/new-feature' ]"
 # Verify hooks were installed for feature branch
 FEATURE_GIT_DIR=$(git -C ".worktrees/feature/new-feature" rev-parse --git-dir 2>/dev/null)
 verify "Feature branch has hooks" "[ -f '$FEATURE_GIT_DIR/hooks/post-commit' ]"
 
-echo -e "\n${YELLOW}=== Test 18: Issue ID with different formats ===${NC}"
+echo -e "\n${YELLOW}=== Test 19: Issue ID with different formats ===${NC}"
 run_test "Issue ID with colon format" 0 env ISSUE_ID="main:259" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-1"
 run_test "Issue ID simple format" 0 env ISSUE_ID="simple-issue-id" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-2"
 

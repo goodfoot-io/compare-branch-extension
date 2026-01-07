@@ -20,6 +20,10 @@ FAILED=0
 # Cleanup function
 cleanup() {
     cd /
+    if [ -n "${MOCK_SERVER_PID:-}" ]; then
+        kill "$MOCK_SERVER_PID" 2>/dev/null || true
+        wait "$MOCK_SERVER_PID" 2>/dev/null || true
+    fi
     if [ -d "$TEST_DIR" ]; then
         # Remove any worktrees first to avoid git errors
         if [ -d "$TEST_DIR/repo" ]; then
@@ -162,6 +166,8 @@ verify "JSON output contains issueId" "[ '$CREATE_ISSUE_ID' = 'flow:1' ]"
 # Capture SHA before removal
 EXPECTED_SHA=$(git rev-parse "flow-test-1" 2>/dev/null)
 verify "baseSha matches branch HEAD" "[ '$CREATE_BASE_SHA' = '$EXPECTED_SHA' ]"
+CREATE_BASE_BRANCH=$(git -C ".worktrees/flow-test-1" config --worktree issue.baseBranch 2>/dev/null)
+verify "baseBranch stored for worktree" "[ '$CREATE_BASE_BRANCH' = 'main' ]"
 
 # Verify hooks exist
 WORKTREE_GIT_DIR=$(git -C ".worktrees/flow-test-1" rev-parse --git-dir 2>/dev/null)
@@ -215,10 +221,12 @@ ISSUE_ID="flow:3:complex:id" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTIL
 # Verify initial config
 INITIAL_ISSUE_ID=$(git -C ".worktrees/flow-test-3" config --worktree issue.id 2>/dev/null)
 INITIAL_BASE_SHA=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseSha 2>/dev/null)
+INITIAL_BASE_BRANCH=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseBranch 2>/dev/null)
 INITIAL_PLUGIN_BIN=$(git -C ".worktrees/flow-test-3" config --worktree issue.pluginBinDir 2>/dev/null)
 
 verify "Initial issue.id correct" "[ '$INITIAL_ISSUE_ID' = 'flow:3:complex:id' ]"
 verify "Initial baseSha stored" "[ -n '$INITIAL_BASE_SHA' ]"
+verify "Initial baseBranch stored" "[ '$INITIAL_BASE_BRANCH' = 'main' ]"
 verify "Initial pluginBinDir stored" "[ -n '$INITIAL_PLUGIN_BIN' ]"
 
 # Make multiple commits
@@ -233,10 +241,12 @@ cd "$TEST_DIR/repo"
 # Config should still be correct after commits
 POST_COMMIT_ISSUE_ID=$(git -C ".worktrees/flow-test-3" config --worktree issue.id 2>/dev/null)
 POST_COMMIT_BASE_SHA=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseSha 2>/dev/null)
+POST_COMMIT_BASE_BRANCH=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseBranch 2>/dev/null)
 POST_COMMIT_PLUGIN_BIN=$(git -C ".worktrees/flow-test-3" config --worktree issue.pluginBinDir 2>/dev/null)
 
 verify "issue.id persists after commits" "[ '$POST_COMMIT_ISSUE_ID' = '$INITIAL_ISSUE_ID' ]"
 verify "baseSha persists after commits" "[ '$POST_COMMIT_BASE_SHA' = '$INITIAL_BASE_SHA' ]"
+verify "baseBranch persists after commits" "[ '$POST_COMMIT_BASE_BRANCH' = '$INITIAL_BASE_BRANCH' ]"
 verify "pluginBinDir persists after commits" "[ '$POST_COMMIT_PLUGIN_BIN' = '$INITIAL_PLUGIN_BIN' ]"
 
 # Cleanup
@@ -369,6 +379,8 @@ verify "post-commit posts to issues API" "grep -q 'issues/\$ISSUE_ID/comments' '
 
 # Verify post-rewrite hook has required elements
 verify "post-rewrite reads issue.id from config" "grep -q 'issue.id' '$POST_REWRITE_HOOK'"
+verify "post-rewrite reads issue.baseBranch from config" "grep -q 'issue.baseBranch' '$POST_REWRITE_HOOK'"
+verify "post-rewrite recalculates baseSha" "grep -q 'merge-base' '$POST_REWRITE_HOOK'"
 verify "post-rewrite handles old SHA pairs" "grep -q 'OLD_SHAS' '$POST_REWRITE_HOOK'"
 verify "post-rewrite deletes old comments" "grep -q 'DELETE' '$POST_REWRITE_HOOK'"
 
@@ -393,6 +405,189 @@ RECREATE_GIT_DIR=$(git -C ".worktrees/recreate-test" rev-parse --git-dir 2>/dev/
 verify "Recreated worktree has hooks" "[ -x '$RECREATE_GIT_DIR/hooks/post-commit' ]"
 
 "$REMOVE_UTILITY" "recreate-test" >/dev/null 2>&1
+
+echo -e "\n${YELLOW}=== Flow 11: Rebase updates baseSha and comments ===${NC}"
+MOCK_HOME="$TEST_DIR/mock-home"
+MOCK_SERVER_DIR="$TEST_DIR/mock-issues"
+mkdir -p "$MOCK_HOME/.compare-branch"
+mkdir -p "$MOCK_SERVER_DIR"
+
+SERVER_DATA="$MOCK_SERVER_DIR/state.json"
+SERVER_PORT_FILE="$MOCK_SERVER_DIR/port.txt"
+SERVER_SCRIPT="$MOCK_SERVER_DIR/server.js"
+
+cat > "$SERVER_SCRIPT" << 'EOF'
+const http = require('http');
+const fs = require('fs');
+
+const dataPath = process.argv[2];
+const portFile = process.argv[3];
+
+let state = { nextId: 1, issues: {} };
+
+const save = () => {
+  fs.writeFileSync(dataPath, JSON.stringify(state), 'utf8');
+};
+
+const sendJson = (res, status, body) => {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(body));
+};
+
+const readBody = (req) => new Promise((resolve) => {
+  let data = '';
+  req.on('data', (chunk) => { data += chunk; });
+  req.on('end', () => resolve(data));
+});
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, 'http://127.0.0.1');
+  const parts = url.pathname.split('/').filter(Boolean);
+  if (parts.length >= 4 && parts[0] === 'api' && parts[1] === 'v1' && parts[2] === 'issues') {
+    const issueId = decodeURIComponent(parts[3] || '');
+    if (!state.issues[issueId]) {
+      state.issues[issueId] = [];
+    }
+    if (parts.length === 5 && parts[4] === 'comments') {
+      if (req.method === 'GET') {
+        sendJson(res, 200, state.issues[issueId]);
+        return;
+      }
+      if (req.method === 'POST') {
+        const raw = await readBody(req);
+        let body = {};
+        try {
+          body = JSON.parse(raw || '{}');
+        } catch {
+          body = {};
+        }
+        const comment = { id: String(state.nextId++), commitSha: body.commitSha || null };
+        state.issues[issueId].push(comment);
+        save();
+        sendJson(res, 201, comment);
+        return;
+      }
+    }
+    if (parts.length === 6 && parts[4] === 'comments' && req.method === 'DELETE') {
+      const commentId = parts[5];
+      state.issues[issueId] = state.issues[issueId].filter((c) => c.id !== commentId);
+      save();
+      res.statusCode = 204;
+      res.end('');
+      return;
+    }
+    if (parts.length === 4 && req.method === 'PATCH') {
+      save();
+      res.statusCode = 200;
+      res.end('');
+      return;
+    }
+  }
+  res.statusCode = 404;
+  res.end('not found');
+});
+
+server.listen(0, '127.0.0.1', () => {
+  const port = server.address().port;
+  fs.writeFileSync(portFile, String(port), 'utf8');
+});
+
+process.on('SIGTERM', () => {
+  server.close(() => process.exit(0));
+});
+EOF
+
+node "$SERVER_SCRIPT" "$SERVER_DATA" "$SERVER_PORT_FILE" >/dev/null 2>&1 &
+MOCK_SERVER_PID=$!
+
+for i in $(seq 1 50); do
+    if [ -s "$SERVER_PORT_FILE" ]; then
+        break
+    fi
+    sleep 0.1
+done
+
+MOCK_SERVER_PORT=$(cat "$SERVER_PORT_FILE" 2>/dev/null || echo "")
+verify "Mock issues API started" "[ -n '$MOCK_SERVER_PORT' ]"
+
+cat > "$MOCK_HOME/.compare-branch/issues-api.json" << EOF
+{
+  "$TEST_DIR/repo": { "host": "127.0.0.1", "port": $MOCK_SERVER_PORT }
+}
+EOF
+
+ISSUE_ID="flow:rebase"
+ISSUE_ID_URL=$(ISSUE_ID="$ISSUE_ID" python3 - <<'PY'
+import os
+import urllib.parse
+print(urllib.parse.quote(os.environ["ISSUE_ID"]))
+PY
+)
+
+create_output=$(HOME="$MOCK_HOME" ISSUE_ID="$ISSUE_ID" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-rebase" 2>&1)
+create_exit=$?
+verify "Worktree created for rebase flow" "[ $create_exit -eq 0 ]"
+
+BASE_SHA_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree issue.baseSha 2>/dev/null)
+BASE_COMMENT_ID_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree issue.baseShaCommentId 2>/dev/null)
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENT_COUNT=$(echo "$COMMENTS" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)
+verify "Base comment posted at creation" "[ '$COMMENT_COUNT' = '1' ]"
+verify "Base comment ID stored" "[ -n '$BASE_COMMENT_ID_INITIAL' ]"
+verify "BaseSha comment matches initial base" "echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_INITIAL' '.[] | select(.commitSha == \$sha)' >/dev/null"
+
+cd ".worktrees/flow-rebase"
+echo "rebase feature" > src/rebase-feature.txt
+git add src/rebase-feature.txt
+HOME="$MOCK_HOME" git commit -m "Rebase feature" >/dev/null 2>&1
+COMMIT_SHA_BEFORE=$(git rev-parse HEAD)
+cd "$TEST_DIR/repo"
+
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENT_COUNT=$(echo "$COMMENTS" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)
+verify "Commit comment posted" "[ '$COMMENT_COUNT' = '2' ]"
+verify "Commit comment matches feature commit" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
+
+echo "main update" >> README.md
+git add README.md
+git commit -m "Main update" >/dev/null 2>&1
+MAIN_SHA=$(git rev-parse HEAD)
+
+cd ".worktrees/flow-rebase"
+HOME="$MOCK_HOME" git rebase main >/dev/null 2>&1
+COMMIT_SHA_AFTER=$(git rev-parse HEAD)
+BASE_SHA_UPDATED=$(git config --worktree issue.baseSha 2>/dev/null)
+cd "$TEST_DIR/repo"
+
+verify "Rebase rewrote commit SHA" "[ '$COMMIT_SHA_AFTER' != '$COMMIT_SHA_BEFORE' ]"
+verify "BaseSha updated to new main" "[ '$BASE_SHA_UPDATED' = '$MAIN_SHA' ]"
+
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
+verify "Updated baseSha comment posted" "echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_UPDATED' '.[] | select(.commitSha == \$sha)' >/dev/null"
+verify "Old baseSha comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_INITIAL' '.[] | select(.commitSha == \$sha)' >/dev/null"
+verify "New commit comment posted after rebase" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
+verify "Old commit comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
+
+cd ".worktrees/flow-rebase"
+sleep 1
+HOME="$MOCK_HOME" git commit --amend --no-edit >/dev/null 2>&1
+COMMIT_SHA_AMENDED=$(git rev-parse HEAD)
+BASE_SHA_AMENDED=$(git config --worktree issue.baseSha 2>/dev/null)
+cd "$TEST_DIR/repo"
+
+verify "Amend rewrote commit SHA" "[ '$COMMIT_SHA_AMENDED' != '$COMMIT_SHA_AFTER' ]"
+verify "BaseSha unchanged on amend" "[ '$BASE_SHA_AMENDED' = '$BASE_SHA_UPDATED' ]"
+
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
+verify "BaseSha comment retained on amend" "echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_UPDATED' '.[] | select(.commitSha == \$sha)' >/dev/null"
+verify "Amended commit comment posted" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AMENDED' '.[] | select(.commitSha == \$sha)' >/dev/null"
+verify "Prior commit comment removed on amend" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
+
+"$REMOVE_UTILITY" "flow-rebase" >/dev/null 2>&1
+kill "$MOCK_SERVER_PID" 2>/dev/null || true
+wait "$MOCK_SERVER_PID" 2>/dev/null || true
+MOCK_SERVER_PID=""
 
 # Summary
 echo -e "\n${YELLOW}===== INTEGRATION TEST SUMMARY =====${NC}"

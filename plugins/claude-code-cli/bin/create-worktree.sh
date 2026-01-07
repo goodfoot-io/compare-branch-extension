@@ -127,6 +127,12 @@ fi
 
 cd "$WORKSPACE_ROOT"
 
+# Determine base branch for merge-base calculations (default to main)
+BASE_BRANCH=$(git -C "$WORKSPACE_ROOT" branch --show-current 2>/dev/null || true)
+if [ -z "$BASE_BRANCH" ] || [ "$BASE_BRANCH" = "HEAD" ]; then
+    BASE_BRANCH="main"
+fi
+
 WORKTREE_DIR="${WORKSPACE_ROOT}/.worktrees/${BRANCH_NAME}"
 
 # Check git worktree list for existing worktree at target path
@@ -311,6 +317,10 @@ git -C "$WORKTREE_DIR" config --worktree issue.id "$ISSUE_ID" 2>/dev/null || {
 }
 git -C "$WORKTREE_DIR" config --worktree issue.baseSha "$BASE_SHA" 2>/dev/null || {
     printf '%s\n' "Error: Failed to store issue.baseSha in worktree git config" >&2
+    exit 2
+}
+git -C "$WORKTREE_DIR" config --worktree issue.baseBranch "$BASE_BRANCH" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store issue.baseBranch in worktree git config" >&2
     exit 2
 }
 git -C "$WORKTREE_DIR" config --worktree issue.pluginBinDir "$SCRIPT_DIR" 2>/dev/null || {
@@ -519,6 +529,23 @@ STDIN_DATA=\$(cat)
 # --- Issues API posting ---
 ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
 WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+# Update baseSha after rewrite using stored baseBranch
+BASE_BRANCH=\$(git config --worktree issue.baseBranch 2>/dev/null)
+BASE_SHA_OLD=\$(git config --worktree issue.baseSha 2>/dev/null)
+BASE_SHA_NEW=""
+BASE_SHA_UPDATED=false
+BASE_SHA_SHOULD_REPLACE=false
+
+if [ -n "\$BASE_BRANCH" ]; then
+    BASE_SHA_NEW=\$(git merge-base HEAD "\$BASE_BRANCH" 2>/dev/null || true)
+fi
+
+if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
+    BASE_SHA_SHOULD_REPLACE=true
+    if git config --worktree issue.baseSha "\$BASE_SHA_NEW" 2>/dev/null; then
+        BASE_SHA_UPDATED=true
+    fi
+fi
 
 if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
     DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
@@ -536,6 +563,42 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
                 OLD_SHAS+=("\$old_sha")
             done <<< "\$STDIN_DATA"
 
+            BASE_SHA_OLD_DERIVED=""
+            if [ -n "\$BASE_BRANCH" ] && [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
+                BASE_SHA_OLD_DERIVED=\$(git merge-base "\${OLD_SHAS[0]}" "\$BASE_BRANCH" 2>/dev/null || true)
+            fi
+            if [ -n "\$BASE_SHA_OLD_DERIVED" ] && [ "\$BASE_SHA_OLD_DERIVED" != "\$BASE_SHA_NEW" ]; then
+                BASE_SHA_OLD="\$BASE_SHA_OLD_DERIVED"
+                BASE_SHA_SHOULD_REPLACE=true
+            fi
+
+            COMMENTS=""
+            if [ "\$BASE_SHA_SHOULD_REPLACE" = "true" ] || [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
+                COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
+            fi
+
+            if [ "\$BASE_SHA_SHOULD_REPLACE" = "true" ] && [ -n "\$BASE_SHA_OLD" ]; then
+                BASE_COMMENT_ID=\$(git config --worktree issue.baseShaCommentId 2>/dev/null)
+                if [ -n "\$BASE_COMMENT_ID" ]; then
+                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$BASE_COMMENT_ID" >/dev/null 2>&1 || true
+                elif [ -n "\$COMMENTS" ]; then
+                    echo "\$COMMENTS" | jq -r --arg sha "\$BASE_SHA_OLD" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null | \
+                    while read -r comment_id; do
+                        if [ -n "\$comment_id" ] && [ "\$comment_id" != "null" ]; then
+                            curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
+                        fi
+                    done
+                fi
+
+                BASE_COMMENT_RESPONSE=\$(curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"author\": \"agent\", \"commitSha\": \"\$BASE_SHA_NEW\"}" 2>/dev/null || true)
+                BASE_COMMENT_ID=\$(echo "\$BASE_COMMENT_RESPONSE" | jq -r '.id // empty' 2>/dev/null)
+                if [ -n "\$BASE_COMMENT_ID" ]; then
+                    git config --worktree issue.baseShaCommentId "\$BASE_COMMENT_ID" 2>/dev/null || true
+                fi
+            fi
+
             # Post new commit comment
             curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
                 -H "Content-Type: application/json" \
@@ -543,13 +606,14 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
                 >/dev/null 2>&1 || true
 
             # Delete old commit comments
-            COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
-            for old_sha in "\${OLD_SHAS[@]}"; do
-                COMMENT_ID=\$(echo "\$COMMENTS" | jq -r ".[] | select(.commitSha == \"\$old_sha\") | .id" 2>/dev/null)
-                if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
-                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
-                fi
-            done
+            if [ -n "\$COMMENTS" ]; then
+                for old_sha in "\${OLD_SHAS[@]}"; do
+                    COMMENT_ID=\$(echo "\$COMMENTS" | jq -r --arg sha "\$old_sha" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null)
+                    if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
+                        curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
+                    fi
+                done
+            fi
         fi
     fi
 fi
@@ -588,10 +652,15 @@ if [ -f "$DISCOVERY_FILE" ]; then
         # This ensures getFirstCommitSha() returns baseSha for complete diffs
         # Without this, the first actual commit's changes might be missing from comparisons
         # Non-critical: commit tracking will still work for subsequent commits
-        if ! curl -sf -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
+        BASE_COMMENT_RESPONSE=$(curl -sf -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
             -H "Content-Type: application/json" \
-            -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\"}" \
-            >/dev/null 2>&1; then
+            -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\"}" 2>/dev/null || true)
+        if [ -n "$BASE_COMMENT_RESPONSE" ]; then
+            BASE_COMMENT_ID=$(echo "$BASE_COMMENT_RESPONSE" | jq -r '.id // empty' 2>/dev/null)
+            if [ -n "$BASE_COMMENT_ID" ]; then
+                git -C "$WORKTREE_DIR" config --worktree issue.baseShaCommentId "$BASE_COMMENT_ID" 2>/dev/null || true
+            fi
+        else
             echo "Warning: Failed to register base commit with issue tracker" >&2
             echo "Initial diff view may be incomplete. Subsequent commits will track normally." >&2
         fi
