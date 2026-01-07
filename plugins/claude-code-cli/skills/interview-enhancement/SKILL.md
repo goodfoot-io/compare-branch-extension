@@ -1,7 +1,18 @@
 ---
-name: enhancement
+name: interview-enhancement
 description: Guide for writing enhancement requests that document system evolution, current behavior, and desired functionality.
 ---
+
+<placeholder-variables>
+[PLAN_REQUIRED] — Whether plan approval is needed from `planRequired` field
+[LATEST_USER_COMMENT] — Most recent comment from `author: "user"` (if any)
+[USER_REQUESTED_APPROACH] — User explicitly asks to document a specific implementation approach or solution
+[HAS_SPECIFIC_SOLUTION] — Issue text or comments include concrete implementation steps or design choices
+[HIGH_RISK_CHANGE] — Cross-cutting refactor, migration, or performance-sensitive change described in issue
+[MULTIPLE_APPROACHES] — Notes or discussion indicate more than one viable approach
+[DEPENDENCY_COORDINATION] — Issue mentions sequencing across components/teams or external dependencies
+[NEEDS_ACTIONABLE_NOW] — No plan step expected AND description must be sufficient to implement
+</placeholder-variables>
 
 <how-to-write-an-enhancement-request>
 
@@ -289,3 +300,19 @@ Too much detail obscures; too little detail fails to communicate. Find the level
 - Requires tribal knowledge to interpret
 
 </how-to-write-an-enhancement-request>
+
+<instructions>
+Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with `<how-to-write-an-enhancement-request>`.
+
+Use the AskUserQuestion tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+
+Then patch the issue with the revised title and description:
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "title": "[updated title]",
+  "description": "[updated description]"
+}
+```
+</instructions>

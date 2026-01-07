@@ -1,5 +1,5 @@
 ---
-name: bug-report
+name: interview-bug-report
 description: Guide for writing effective bug reports for when the user asks to create an issue about bugs, errors, or broken functionality.
 ---
 
@@ -115,3 +115,19 @@ Separating observation timestamps from event timestamps matters. You may discove
 Reproducibility bridges "something went wrong" and "we understand why." Observable facts form shared ground truth—without them, investigators must guess. Root cause analysis requires reproduction and verification; until confirmed, even plausible explanations remain hypotheses. Investing effort in clarity upfront reduces back-and-forth and increases the likelihood issues get resolved.
 
 </how-to-write-a-bug-report>
+
+<instructions>
+Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with `<how-to-write-a-bug-report>`.
+
+Use the AskUserQuestion tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+
+Then patch the issue with the revised title and description:
+
+```
+PATCH /issues/[ISSUE_ID]
+{
+  "title": "[updated title]",
+  "description": "[updated description]"
+}
+```
+</instructions>

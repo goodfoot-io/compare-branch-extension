@@ -1,5 +1,5 @@
 ---
-name: skill-routing
+name: issue-routing
 description: Load the right skill based on issue state.
 ---
 
