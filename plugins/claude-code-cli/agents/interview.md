@@ -1,5 +1,5 @@
 ---
-name: interviewer
+name: interview
 description: Guide users through issue creation with targeted questions
 tools: "*"
 color: orange
