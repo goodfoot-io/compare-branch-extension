@@ -3,23 +3,45 @@ name: interview-maintenance
 description: Interview skill for improving maintenance issue titles and descriptions.
 ---
 
-<instructions>
+<research-before-asking>
+## Research-Before-Asking Protocol
 
-## 1. When to Use This Skill
+Before asking the user about debt or refactoring, follow this protocol.
 
-**Trigger conditions:**
-- User asks to refactor, clean up, or reduce tech debt
-- User requests upgrades, migrations, or deprecations
-- User wants reliability, performance, or cost improvements without new features
-- User needs to reduce toil or improve maintainability/observability
+### Step 1: Conduct Research
 
-Maintenance requests document improvements that preserve behavior while reducing long-term risk or cost. They are distinct from bug reports (unexpected behavior) and enhancements (new or changed functionality).
+1. **Quantify the Debt:** Use `Bash` `grep -r "TODO" .` or `grep -r "FIXME" .`.
+2. **Check Dependencies:** Use `Bash` to check lockfiles or run `npm outdated` if allowed.
+3. **Analyze Stability:** Use `Task` (explore) to "Check test coverage and complexity for module X".
 
-## 2. Core Principle
+**Codebase research tool selection:**
+
+| Query Type | Tool | Why |
+|------------|------|-----|
+| Find explicit debt | `Bash` (`grep`) | Locate self-admitted debt |
+| Check deprecations | `Bash` (`grep`) | Scope migration effort |
+| Dependency check | `Bash` (`cat` lockfiles) | Identify stale dependencies |
+
+### Step 2: Translate Abstract Questions to Concrete Research
+
+| Abstract Question | Concrete Research |
+|-------------------|-------------------|
+| "Is this code messy?" | Check file size with `Bash` `ls -lh`. |
+| "Is this library old?" | Check version in `package.json`. |
+| "Is it safe to change?" | Use `Task` (explore) to find tests. |
+| "Who owns this?" | Check `CODEOWNERS` with `Bash` `cat`. |
+
+### Step 3: Surface Considerations, Then Decide
+
+- Fill "Current State" with concrete metrics (file sizes, version numbers).
+- **Only ask the user** for business motivation and risk profile.
+</research-before-asking>
+
+<how-to-write-a-maintenence-request>
 
 Maintenance requests should explain **why the work matters** and **what success looks like** without prescribing how to implement it. The document should make the debt visible, bound the scope, and protect critical behavior.
 
-## 3. Document Structure
+## Document Structure
 
 Maintenance requests follow a six-section structure:
 
@@ -32,7 +54,7 @@ Maintenance requests follow a six-section structure:
 | Risks & Dependencies | Surface coordination and rollout needs | "What could go wrong or block us?" |
 | Acceptance Signals | Make completion verifiable | "How do we know it's done?" |
 
-## 4. Motivation & Impact
+## Motivation & Impact
 
 Anchor the request in measurable impact: operational risk, developer time, reliability, cost, or looming deprecations.
 
@@ -49,7 +71,7 @@ Use the technical-debt metaphor: call out the "interest" (ongoing cost) and the 
 - **The Urgency Claim**: "We must do this soon" without evidence of risk or cost
 - **The Invisible Cost**: No mention of how this work reduces future effort or failure
 
-## 5. Current State
+## Current State
 
 Describe the maintenance burden so readers can verify it and estimate effort.
 
@@ -66,7 +88,7 @@ Stick to observable facts. Use code references, metrics, or links to past issues
 - **The Hunch**: Speculating about debt without verifiable references
 - **The Anatomy Dump**: Listing every file touched without explaining the burden
 
-## 6. Desired Outcomes
+## Desired Outcomes
 
 Define outcomes that reduce maintenance cost while preserving behavior.
 
@@ -83,7 +105,7 @@ Write outcomes as verifiable statements. Avoid prescribing solutions unless requ
 - **The Refactor Command**: "Refactor module X" with no outcome
 - **The Vague Goal**: "Cleaner code" without measurable signals
 
-## 7. Scope & Constraints
+## Scope & Constraints
 
 Prevent scope creep and protect critical behaviors.
 
@@ -100,7 +122,7 @@ Be explicit about what must not change, especially user-facing behavior. Mainten
 - **The Unlimited Cleanup**: "Clean up the codebase" with no boundaries
 - **The Constraint Omission**: Forgetting API or data compatibility
 
-## 8. Risks & Dependencies
+## Risks & Dependencies
 
 Surface coordination needs and migration hazards early.
 
@@ -117,7 +139,7 @@ Identify risks without demanding a full plan. For large migrations, note if phas
 - **The Hidden Risk**: Omitting deprecation timelines or rollback concerns
 - **The Plan Trap**: Writing a detailed implementation plan here
 
-## 9. Acceptance Signals
+## Acceptance Signals
 
 Make completion verifiable without prescribing detailed steps.
 
@@ -134,35 +156,35 @@ Avoid "done when refactor is complete." Use outcomes that can be checked by anyo
 - **The Handwave**: "Done when the code is clean"
 - **The Hidden Criteria**: Success criteria only known to the author
 
-## 10. Advanced Techniques (Optional)
+## Advanced Techniques (Optional)
 
-### 10.1 Issue Tracker Alignment
+### Issue Tracker Alignment
 
 Use issue templates and structured fields to enforce required information and enable reporting. Templates should prompt for impact, scope, and acceptance signals, as seen in systems like Linear and Jira.
 
-### 10.2 LLM Assistance (Use Carefully)
+### LLM Assistance (Use Carefully)
 
 LLMs can help draft summaries, extract recurring pain points, or propose acceptance checks, but every claim must be verified with code references, metrics, or logs. Use LLMs to *surface* candidates, not to assert facts.
 
-## 11. Key Principles
+## Key Principles
 
-### 11.1 Intent Over Implementation
+### Intent Over Implementation
 
 Maintenance requests should state the why and the outcomes, not the exact steps. Over-prescription blocks better approaches and inflates risk.
 
-### 11.2 Evidence Over Assertion
+### Evidence Over Assertion
 
 Technical debt is easiest to fund when its cost is visible. Use metrics, incidents, and code references, not opinions.
 
-### 11.3 Scope Control
+### Scope Control
 
 Refactors grow without firm boundaries. In-scope/out-of-scope and constraints protect delivery.
 
-### 11.4 Risk Awareness
+### Risk Awareness
 
 Upgrades and migrations fail when dependencies and rollback paths are ignored. Make these explicit early.
 
-## 12. Quality Signals
+## Quality Signals
 
 **Strong maintenance requests:**
 - Explain the debt and its impact in measurable terms
@@ -174,14 +196,15 @@ Upgrades and migrations fail when dependencies and rollback paths are ignored. M
 - Only say "refactor/cleanup" with no outcomes
 - Lack scope boundaries or success criteria
 - Hide risks or required coordination
+</how-to-write-a-maintenence-request>
 
-## 13. Execution
+<instructions>
 
-Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
+1. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 
-Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+2. Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
 
-Then patch the issue with the revised title and description:
+3. Then patch the issue with the revised title and description:
 
 ```
 PATCH /issues/[ISSUE_ID]

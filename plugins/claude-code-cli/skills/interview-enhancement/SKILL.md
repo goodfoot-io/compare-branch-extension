@@ -3,6 +3,41 @@ name: interview-enhancement
 description: Guide for writing enhancement requests that document system evolution, current behavior, and desired functionality.
 ---
 
+<research-before-asking>
+## Research-Before-Asking Protocol
+
+Before asking the user how the system works now or how it *should* work, follow this protocol.
+
+### Step 1: Conduct Research
+
+1. **Trace Current Behavior:** Use `Task` with the `explore` agent to "Map the data flow of feature X".
+2. **Historical Archaeology:** Use `Bash` `git log -p [file]` or `git blame` to understand history.
+3. **Constraint Analysis:** Use `Task` (explore) to "Identify hard constraints or interfaces for X".
+
+**Codebase research tool selection:**
+
+| Query Type | Tool | Why |
+|------------|------|-----|
+| Map current flow | `Task` (agent: "explore") | Understand dependencies and call graphs |
+| Find historical context | `Bash` (`git log`) | Uncover why code is this way |
+| Check constraints | `Task` (agent: "explore") | Identify limits on changes |
+
+### Step 2: Translate Abstract Questions to Concrete Research
+
+| Abstract Question | Concrete Research |
+|-------------------|-------------------|
+| "How does it work now?" | Use `Task` (explore) to explain the flow. |
+| "Why is it like this?" | Search commit messages with `Bash` `git log --grep`. |
+| "What breaks if I change X?" | Find references with `Bash` `grep` or `Task` (explore). |
+| "Is this feasible?" | Check available libraries with `Bash` `cat package.json`. |
+
+### Step 3: Surface Considerations, Then Decide
+
+- Pre-populate "Historical Context" and "Current Functionality".
+- Propose "Desired Functionality" aligned with architecture.
+- **Only ask the user** to confirm business value or trade-offs.
+</research-before-asking>
+
 <placeholder-variables>
 [PLAN_REQUIRED] — Whether plan approval is needed from `planRequired` field
 [USER_REQUESTED_APPROACH] — User explicitly asks to document a specific implementation approach or solution
@@ -16,27 +51,13 @@ description: Guide for writing enhancement requests that document system evoluti
 [ASK_FOR_APPROACH_DETAILS] — [INCLUDE_IMPLEMENTATION_APPROACH] is true AND [APPROACH_DETAILS_PRESENT] is false
 </placeholder-variables>
 
-<instructions>
-
-## 1. When to Use This Skill
-
-**Trigger conditions:**
-- User wants to extend or improve existing functionality
-- User identifies a gap between current and desired behavior
-- A refactoring has introduced unintended behavioral changes
-- User needs to document a feature evolution proposal
-- System behavior needs to change without being "broken" (not a bug)
-
-**Distinction from bug reports:**
-Bug reports document unexpected behavior—something is broken. Enhancement requests document desired evolution—the system works as implemented, but implementation should change.
-
-## 2. Core Principle
+<how-to-write-an-enhancement-request>
 
 Enhancement requests bridge understanding between what exists, what should exist, and why the gap matters. They preserve institutional knowledge about how systems evolved while providing clear direction for future work.
 
 The document should enable someone unfamiliar with the system's history to understand the full context: what decisions led to the current state, what the current state actually does, what it should do instead, and how to get there.
 
-## 3. Document Structure
+## Document Structure
 
 Enhancement requests follow a four-section structure that builds understanding progressively:
 
@@ -47,7 +68,7 @@ Enhancement requests follow a four-section structure that builds understanding p
 | Desired Functionality | State requirements clearly | "What should it do?" |
 | Implementation Approach (Optional) | Describe the path forward | "How could we get there?" |
 
-## 4. Historical Context
+## Historical Context
 
 **Purpose:**
 Establish the narrative of how the system evolved to its current state. This section preserves decision history that would otherwise be lost and helps readers understand why things are the way they are.
@@ -79,7 +100,7 @@ When referencing commits or PRs, explain what they did rather than just citing t
 - **The Blame Game**: Framing past decisions as mistakes rather than trade-offs made with different information or priorities.
 - **The Archaeology Report**: Exhaustive commit-by-commit history without synthesis. Readers need narrative, not a changelog.
 
-## 5. Current Functionality
+## Current Functionality
 
 **Purpose:**
 Document what the system actually does today, with sufficient detail that readers can verify claims against the codebase. This section establishes shared understanding of the starting point.
@@ -111,7 +132,7 @@ Distinguish between intentional behavior and incidental behavior. Some behavior 
 - **The Vague Gesture**: "The system handles this somehow" without specifics. If you don't know, investigate or note the gap.
 - **The Stale Reference**: File paths or line numbers that don't match the current codebase. Verify before including.
 
-## 6. Desired Functionality
+## Desired Functionality
 
 **Purpose:**
 State clearly what the system should do. This section defines the target state against which implementation will be measured.
@@ -146,7 +167,7 @@ Distinguish between must-have and nice-to-have. If some requirements are negotia
 - **The Moving Target**: Requirements so vague they can't be verified. "Better performance" is not a requirement; "Response time under 200ms" is.
 - **The Scope Creep Invitation**: Failing to state what's out of scope, inviting unbounded expansion.
 
-## 7. Implementation Approach (Optional)
+## Implementation Approach (Optional)
 
 Determine whether to include this section:
 - **[INCLUDE_IMPLEMENTATION_APPROACH]**: Include this section
@@ -186,41 +207,41 @@ Connect changes to requirements. Each significant change should trace back to a 
 - **The Tunnel Vision**: Proposing an approach without considering alternatives or trade-offs. Single-option proposals suggest insufficient analysis.
 - **The Disconnected Solution**: An approach that doesn't clearly address the stated requirements. Every significant change should map to a desired behavior.
 
-## 8. Key Principles
+## Key Principles
 
-### 8.1 Progressive Understanding
+### Progressive Understanding
 
 Each section builds on the previous. Historical context explains why current functionality exists. Current functionality establishes the baseline for desired functionality. Desired functionality motivates the implementation approach.
 
 A reader should be able to stop at any section and have coherent, useful understanding. Someone who only reads Historical Context understands the evolution. Someone who reads through Current Functionality understands what exists. And so on.
 
-### 8.2 Evidence Over Assertion
+### Evidence Over Assertion
 
 Claims about the system should be verifiable. When describing current behavior, point to code. When describing history, reference commits or decisions. When describing desired behavior, be specific enough that compliance is testable.
 
 Assertions without evidence require trust. Evidence creates shared understanding.
 
-### 8.3 Separation of Concerns
+### Separation of Concerns
 
 Keep description separate from prescription. Current Functionality describes what is; Desired Functionality describes what should be; Implementation Approach (optional) describes how to bridge them. Mixing these creates confusion.
 
 A common failure mode is embedding requirements in the description of current behavior ("The system does X, but it should do Y"). Keep these separate.
 
-### 8.4 Audience Awareness
+### Audience Awareness
 
 Write for the reader who will implement the change, not for yourself. They may not have your context, your assumptions, or your mental model. Make the implicit explicit.
 
 Also write for the future reader who will encounter this document after implementation. They need to understand what was intended, not just what was built.
 
-### 8.5 Appropriate Abstraction
+### Appropriate Abstraction
 
 Match the level of detail to the section's purpose. Historical Context needs narrative, not commit hashes. Current Functionality needs specific file references, not vague descriptions. Desired Functionality needs verifiable requirements, not implementation details. Implementation Approach (optional) needs direction, not code.
 
 Too much detail obscures; too little detail fails to communicate. Find the level that serves understanding.
 
-## 9. Quick Reference
+## Quick Reference
 
-### 9.1 Section Checklist
+### Section Checklist
 
 **Historical Context**
 - [ ] Explains key decisions that shaped current state
@@ -246,7 +267,7 @@ Too much detail obscures; too little detail fails to communicate. Find the level
 - [ ] Addresses trade-offs and alternatives
 - [ ] Connects changes to requirements
 
-### 9.2 Common Mistakes
+### Common Mistakes
 
 | Mistake | Problem | Fix |
 |---------|---------|-----|
@@ -257,7 +278,7 @@ Too much detail obscures; too little detail fails to communicate. Find the level
 | Missing scope boundaries | Invites scope creep | Explicitly state what's excluded |
 | Disconnected sections | Sections don't build on each other | Ensure logical flow |
 
-### 9.3 Quality Signals
+### Quality Signals
 
 **Strong enhancement requests:**
 - Each section serves its purpose without overlap
@@ -272,14 +293,14 @@ Too much detail obscures; too little detail fails to communicate. Find the level
 - Requirements are wish lists without boundaries
 - Approach is code or pseudocode
 - Requires tribal knowledge to interpret
+</how-to-write-an-enhancement-request>
 
-## 10. Execution
+<instructions>
+1. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 
-Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
+2. Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
 
-Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
-
-Then patch the issue with the revised title and description:
+3. Then patch the issue with the revised title and description:
 
 ```
 PATCH /issues/[ISSUE_ID]

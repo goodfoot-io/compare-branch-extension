@@ -3,25 +3,46 @@ name: interview-investigation
 description: Interview skill for improving investigation issue titles and descriptions.
 ---
 
-<instructions>
+<research-before-asking>
+## Research-Before-Asking Protocol
 
-## 1. When to Use This Skill
+Before asking the user what to investigate, follow this protocol.
 
-**Trigger conditions:**
-- User asks for research, diagnostics, or a feasibility check
-- User wants a spike or exploratory investigation
-- Problem space is unclear and needs discovery before committing to changes
-- User needs to reduce uncertainty or validate assumptions
-- The request is about deciding whether or how to proceed
+### Step 1: Conduct Research
 
-**Distinction from bug reports/enhancements:**
-Investigation requests are about learning and decision-making, not delivering a fix or feature. They document unknowns, the plan to reduce them, and the decision criteria.
+1. **Assess Observability:** Use `Bash` `grep -r "log" .` or `grep -r "metrics" .` to see what is emitted.
+2. **Find Prior Art:** Use `Task` (explore) to search for similar past investigations in docs/issues.
+3. **Identify Boundaries:** Use `Task` (explore) to "Determine which parts of the system are external APIs".
 
-## 2. Core Principle
+**Codebase research tool selection:**
+
+| Query Type | Tool | Why |
+|------------|------|-----|
+| Check observability | `Bash` (`grep`) | See available data |
+| Find prior investigations | `Task` (agent: "explore") | Avoid repeating work |
+| Map system boundaries | `Task` (agent: "explore") | Define scope |
+
+### Step 2: Translate Abstract Questions to Concrete Research
+
+| Abstract Question | Concrete Research |
+|-------------------|-------------------|
+| "Can we measure X?" | Search code for instrumentation with `Bash` `grep`. |
+| "Is this a known issue?" | Use `Task` (explore) to search text files. |
+| "How complex is the system?" | Use `Bash` `find . -name "*.ts" | xargs wc -l`. |
+| "What tools do we have?" | Check dev dependencies with `Bash` `cat package.json`. |
+
+### Step 3: Surface Considerations, Then Decide
+
+- Frame "Key Questions" based on what is missing in the code.
+- Define "Approach" based on available tools.
+- **Only ask the user** for strategic impact or decision criteria.
+</research-before-asking>
+
+<how-to-write-an-investigation-request>
 
 An investigation request should make the intent and outcomes explicit: what needs to be learned, why it matters, and how to know when the investigation is complete. It should avoid prescribing solutions and instead focus on evidence gathering and decision readiness.
 
-## 3. Document Structure
+## Document Structure
 
 | Section | Purpose | Question Answered |
 |---------|---------|-------------------|
@@ -34,14 +55,14 @@ An investigation request should make the intent and outcomes explicit: what need
 | Decision Criteria | How results influence next steps | "How will we decide what to do next?" |
 | Risks & Assumptions | Known uncertainties and dependencies | "What could invalidate or skew results?" |
 
-## 4. Summary
+## Summary
 
 State the investigation intent in one or two sentences. Focus on the learning objective and the decision it will inform.
 
 **Guidance:**
 Write the summary as a question or uncertainty paired with impact. Example: "Assess whether the current indexing pipeline can meet a 2x throughput target without new infrastructure; results will decide whether to pursue a rewrite or incremental tuning."
 
-## 5. Background
+## Background
 
 Provide only the context required to understand the investigation and why it is needed now.
 
@@ -53,7 +74,7 @@ Provide only the context required to understand the investigation and why it is 
 **Guidance:**
 Keep this concise and factual. The goal is to frame, not to argue for a solution.
 
-## 6. Key Questions / Hypotheses
+## Key Questions / Hypotheses
 
 Enumerate the unknowns that must be resolved. This is the heart of an investigation request.
 
@@ -65,7 +86,7 @@ Enumerate the unknowns that must be resolved. This is the heart of an investigat
 **Guidance:**
 Phrase questions so they can be answered with data. Replace vague "Is this scalable?" with "What throughput is sustainable under current resource constraints?"
 
-## 7. Scope & Constraints
+## Scope & Constraints
 
 Define the boundaries and guardrails for the investigation.
 
@@ -78,7 +99,7 @@ Define the boundaries and guardrails for the investigation.
 **Guidance:**
 Scope should be narrow enough to complete but broad enough to answer the key questions.
 
-## 8. Approach & Evidence Sources
+## Approach & Evidence Sources
 
 Describe how evidence will be gathered to answer the key questions.
 
@@ -90,7 +111,7 @@ Describe how evidence will be gathered to answer the key questions.
 **Guidance:**
 Favor evidence that is repeatable and verifiable. Avoid approaches that depend on tribal knowledge without documentation.
 
-## 9. Deliverables
+## Deliverables
 
 List the expected outputs from the investigation.
 
@@ -100,7 +121,7 @@ List the expected outputs from the investigation.
 - Prototype results or benchmark data
 - Decision log or go/no-go criteria
 
-## 10. Decision Criteria
+## Decision Criteria
 
 Define how the investigation results will drive next steps.
 
@@ -109,7 +130,7 @@ Define how the investigation results will drive next steps.
 - How uncertainty will be handled
 - Who signs off on the decision
 
-## 11. Risks & Assumptions
+## Risks & Assumptions
 
 Surface what could skew the investigation or limit its conclusions.
 
@@ -119,13 +140,14 @@ Surface what could skew the investigation or limit its conclusions.
 - External dependencies or blockers
 - Risks of false positives/negatives
 
-## 12. Execution
+</how-to-write-an-investigation-request>
 
-Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
+<instructions>
+1. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 
-Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+2. Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
 
-Then patch the issue with the revised title and description:
+3. Then patch the issue with the revised title and description:
 
 ```
 PATCH /issues/[ISSUE_ID]

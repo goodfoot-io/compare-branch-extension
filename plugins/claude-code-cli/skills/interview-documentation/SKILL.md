@@ -3,26 +3,50 @@ name: interview-documentation
 description: Interview skill for improving documentation issue titles and descriptions.
 ---
 
-<instructions>
+<research-before-asking>
+## Research-Before-Asking Protocol
 
-## 1. When to Use This Skill
+Before asking the user about audience, location, or content, follow this protocol.
 
-**Trigger conditions:**
-- User wants new or improved documentation, examples, or guides
-- User asks for a runbook, playbook, or operational procedure
-- User requests a knowledge-base article or troubleshooting guide
-- Docs are missing, outdated, confusing, or hard to find
-- User needs to capture tribal knowledge into written form
+### Step 1: Conduct Research
 
-## 2. Core Principle
+1. **Audit Existing Docs:** Use `Bash` `find . -name "*.md"` or `Task` (explore) to find similar documentation.
+2. **Identify Source of Truth:** Use `Task` (explore) to "Explain the functionality of X based on the code".
+3. **Analyze Audience:** Use `Bash` `grep -r "import.*Feature" .` to see who consumes the code.
+
+**Codebase research tool selection:**
+
+| Query Type | Tool | Why |
+|------------|------|-----|
+| Find similar docs | `Bash` (`find`) | Discover existing structure |
+| Understand functionality | `Task` (agent: "explore") | Summarize logic for documentation |
+| Identify consumers | `Bash` (`grep`) | Determine if internal or external audience |
+
+### Step 2: Translate Abstract Questions to Concrete Research
+
+| Abstract Question | Concrete Research |
+|-------------------|-------------------|
+| "Where should this live?" | Analyze file structure with `Bash` `tree` or `ls -R`. |
+| "Who is this for?" | Check imports with `Bash` `grep`. |
+| "What are the inputs?" | Use `Task` (explore) to find function signatures. |
+| "Is this accurate?" | Verify against implementation with `Task` (explore). |
+
+### Step 3: Surface Considerations, Then Decide
+
+- Recommend a file path and format.
+- Draft the "Current State" based on code analysis.
+- **Only ask the user** about specific intent or subjective constraints.
+</research-before-asking>
+
+<how-to-write-a-documentation-request>
 
 Documentation requests should capture intent, audience, and outcomes without prescribing the solution. The goal is to make the work discoverable, verifiable, and useful to the people who need it while leaving room for the planner or implementer to choose the best format and placement.
 
 Good requests are scannable and timeless: they front-load the most important information and avoid time-bound language that will age the docs quickly.
 
-## 3. Writing Process
+## Writing Process
 
-### 3.1 Clarify the User Need and Context
+### Clarify the User Need and Context
 
 Anchor the request in the real task or decision the reader needs to make:
 
@@ -34,7 +58,7 @@ Anchor the request in the real task or decision the reader needs to make:
 If helpful, express the need in a user story format to make the audience and value explicit:
 - "As a [persona], I want [goal], so that [value]."
 
-### 3.2 Classify the Documentation Type
+### Classify the Documentation Type
 
 Different doc types serve different needs. If the user knows the type, record it; if not, infer it from the task:
 
@@ -46,7 +70,7 @@ Different doc types serve different needs. If the user knows the type, record it
 - **Knowledge-base Article**: Support-facing diagnosis and resolution
 - **Examples**: Concrete, runnable or copyable usage patterns
 
-### 3.3 Define the Desired Outcome (Success Criteria)
+### Define the Desired Outcome (Success Criteria)
 
 Describe what the reader should be able to do or understand after reading:
 
@@ -54,7 +78,7 @@ Describe what the reader should be able to do or understand after reading:
 - How to verify success (observable results, expected output, or confirmation signals)
 - Any must-have vs nice-to-have outcomes
 
-### 3.4 Record Source of Truth and Constraints
+### Record Source of Truth and Constraints
 
 Docs must align with reality. Capture:
 
@@ -64,7 +88,7 @@ Docs must align with reality. Capture:
 - Update cadence expectations (one-off, per release, after incidents)
 - Time sensitivity (avoid "new" or "currently"; use versions or dates if needed)
 
-### 3.5 Separate Intent from Implementation
+### Separate Intent from Implementation
 
 State outcomes, not the exact file or format unless required:
 
@@ -73,7 +97,7 @@ State outcomes, not the exact file or format unless required:
 
 If a location or template is required by policy, include it as a constraint, not a solution.
 
-### 3.6 Make the Request Scannable
+### Make the Request Scannable
 
 Readers often scan, so front-load the essentials:
 
@@ -81,14 +105,14 @@ Readers often scan, so front-load the essentials:
 - Use short sections with clear headings
 - Prefer concise, direct language over narrative
 
-### 3.7 Decide How Prescriptive the Docs Should Be
+### Decide How Prescriptive the Docs Should Be
 
 Some docs should recommend a specific path (prescriptive), while others should enumerate options (reference). If prescriptive guidance is needed:
 
 - Call out required vs optional actions explicitly
 - Avoid ambiguous "should" language unless policy mandates it
 
-## 4. Request Structure
+## Request Structure
 
 | Section | Content |
 |---------|---------|
@@ -100,7 +124,7 @@ Some docs should recommend a specific path (prescriptive), while others should e
 | Constraints | Versioning, compliance, tooling, or placement requirements |
 | Success Criteria (Optional) | Observable signals that the docs work |
 
-## 5. Runbook-Specific Additions
+## Runbook-Specific Additions
 
 If the request is for a runbook or operational guide, include:
 
@@ -113,7 +137,7 @@ If the request is for a runbook or operational guide, include:
 - Known failure modes, error messages, or decision trees if available
 - Whether procedures are routine, emergency-only, or both
 
-## 6. Procedure Format Signals
+## Procedure Format Signals
 
 If the documentation is primarily procedural (how-to or runbook), note formatting expectations that improve usability:
 
@@ -122,7 +146,7 @@ If the documentation is primarily procedural (how-to or runbook), note formattin
 - Keep step sequences short; split long procedures into sub-tasks
 - Maintain consistent structure across steps
 
-## 7. Examples and Knowledge-Base Guidance
+## Examples and Knowledge-Base Guidance
 
 For examples:
 - Provide representative inputs, outputs, and edge cases
@@ -135,7 +159,7 @@ For knowledge-base articles:
 - Resolution steps and expected confirmation
 - Related issues, tags, or search terms to improve findability
 
-## 8. Anti-Patterns to Avoid
+## Anti-Patterns to Avoid
 
 - **The Vague Ask**: "Add more docs" without audience or task
 - **The Implementation Lock-in**: Prescribing file locations or formats without necessity
@@ -143,7 +167,7 @@ For knowledge-base articles:
 - **The Timeless Doc**: Missing version or environment context
 - **The Unowned Artifact**: No source of truth or update responsibility
 
-## 9. Quality Signals
+## Quality Signals
 
 Strong documentation requests:
 - Make the user task and audience explicit
@@ -158,13 +182,15 @@ Weak documentation requests:
 - Provide no context for accuracy or ownership
 - Mix multiple audiences and goals in one request
 
-## 10. Execution
+</how-to-write-a-documentation-request>
 
-Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
+<instructions>
 
-Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+1. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 
-Then patch the issue with the revised title and description:
+2. Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+
+3. Then patch the issue with the revised title and description:
 
 ```
 PATCH /issues/[ISSUE_ID]
