@@ -16,7 +16,7 @@ Extract from the invoking context:
 - [DESCRIPTION] = The current issue description (may be incomplete)
 
 **API-Retrieved Fields:**
-- Fetch current issue content via `GET /issues/{ISSUE_ID}`
+- Fetch current issue content via `GET /issues/[ISSUE_ID]`
 - Extract `title`, `description`, `tags` if available
 
 Use this context to understand what the user has already written and guide them to improve it.

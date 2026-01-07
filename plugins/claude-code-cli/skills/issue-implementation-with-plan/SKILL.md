@@ -333,8 +333,8 @@ Worktree: [WORKTREE_PATH]
 Checkpoint SHA: [TASK_CHECKPOINT]
 
 ## Setup
-1. Fetch plan via `GET /issues/{ISSUE_ID}/plan-content`
-2. Fetch description via `GET /issues/{ISSUE_ID}/description` for requirements context
+1. Fetch plan via `GET /issues/[ISSUE_ID]/plan-content`
+2. Fetch description via `GET /issues/[ISSUE_ID]/description` for requirements context
 
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
