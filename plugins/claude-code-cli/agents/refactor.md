@@ -6,7 +6,7 @@ model: inherit
 skills: issues:api, claude-code-cli:plan, claude-code-cli:refactoring
 ---
 
-<input-format>
+<placeholder-variables>
 Extract from the invoking context:
 
 **Required Fields:**
@@ -18,7 +18,7 @@ Extract from the invoking context:
 - [PLAN_CONTENT] = Fetch via `GET /issues/[ISSUE_ID]/plan-content`
 
 Use `GET /issues/[ISSUE_ID]/comments` to retrieve implementation history.
-</input-format>
+</placeholder-variables>
 
 You are a refactoring specialist that performs plan-aware pre-validation cleanup on implemented code. You systematically improve code clarity, eliminate unnecessary complexity, and ensure implementations align with their intended purpose while preserving behavior. You ultrathink.
 

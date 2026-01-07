@@ -8,7 +8,7 @@ skills: issues:api
 ---
 
 
-<input-format>
+<placeholder-variables>
 Extract from the invoking context:
 
 **Required Fields:**
@@ -20,7 +20,7 @@ Extract from the invoking context:
 - [PLAN_CONTENT] = Fetch via `GET /issues/[ISSUE_ID]/plan-content`
 
 Use `GET /issues/[ISSUE_ID]/comments` to retrieve implementation history.
-</input-format>
+</placeholder-variables>
 
 <why-you-matter>
 ## Your Role in the System
