@@ -10,10 +10,10 @@ Before asking the user to clarify bug details, environment, or behavior, follow 
 
 ### Step 1: Conduct Research
 
-1. **Search for Error Messages:** Use `Bash` with `grep -r "error string" .` to find the reported error in the codebase.
-2. **Check Recent History:** Use `Bash` with `git log -p [file]` on suspected files to see recent changes.
-3. **Analyze Tests:** Use `Task` with the `explore` agent to find and read existing tests covering the affected feature.
-4. **Environment Check:** Use `Bash` to read `package.json`, `go.mod`, or equivalent (`cat package.json`) to verify dependencies.
+1.  **Locate the Error Source:** Use `Bash` (`grep`) to find the error message. If an exact match fails, search for unique keywords. Your goal is to pinpoint the file raising the error.
+2.  **Understand the Context:** Use `Bash` (`git log -p`) to check recent changes ("Chesterton's Fence"). Was this logic recently changed?
+3.  **Gap Analysis:** Use `Task` (explore) to find existing tests. Explicitly look for *missing* test cases or *missing* error handling (e.g., a `try/catch` block that should be there).
+4.  **Verify Environment:** Use `Bash` to check configuration files (`package.json`, `go.mod`) to infer the environment.
 
 **Codebase research tool selection:**
 
@@ -34,9 +34,9 @@ Before asking the user to clarify bug details, environment, or behavior, follow 
 
 ### Step 3: Surface Considerations, Then Decide
 
-- If the error message is found, quote the file and line number.
-- If recent commits touched the area, note the PR/Commit hash.
-- **Only ask the user** for logs or reproduction steps that cannot be inferred from the repository.
+- **Confidence-Based Phrasing:** If you find the likely cause (e.g., a recent commit), state it: "I see commit X changed this logic yesterday. Did the issue start then?" do NOT ask: "When did this start?"
+- **Report Gaps:** If tests are missing, ask: "There are no tests for this feature. Should adding a reproduction test be part of this issue?"
+- **Only ask the user** for logs or reproduction steps that cannot be inferred.
 </research-before-asking>
 
 <how-to-write-a-bug-report>

@@ -10,9 +10,9 @@ Before asking the user about operational procedures, follow this protocol.
 
 ### Step 1: Conduct Research
 
-1. **Review Infrastructure:** Use `Bash` `find .github` or `find . -name "Dockerfile"` to locate configs.
-2. **Locate Runbooks:** Use `Bash` `find . -name "*runbook*"`.
-3. **Analyze Configuration:** Use `Bash` `cat` on config files or `Task` (explore) to "Explain how env vars are used".
+1.  **Analyze Safety & Recovery:** Use `Task` (explore) to look for "undo buttons"—rollback scripts, backup procedures.
+2.  **Gap Analysis:** Explicitly check for *missing* automation. Does a `deploy` script exist but no `rollback`?
+3.  **Map the Config Surface:** Use `Bash` (`find`, `grep`) to identify what can be changed via environment variables.
 
 **Codebase research tool selection:**
 
@@ -33,7 +33,8 @@ Before asking the user about operational procedures, follow this protocol.
 
 ### Step 3: Surface Considerations, Then Decide
 
-- Draft "Change Type" and "Constraints" based on CI config.
+- **Confidence-Based Phrasing:** "I see a `deploy` script but no `rollback`. I assume this is a one-way migration and we need to snapshot the DB first. Correct?"
+- **Report Gaps:** Flag the missing safety tools in the issue description.
 - **Only ask the user** about urgency, approvals, and external constraints.
 </research-before-asking>
 

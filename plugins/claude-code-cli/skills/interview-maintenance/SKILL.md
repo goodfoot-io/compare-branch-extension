@@ -10,9 +10,9 @@ Before asking the user about debt or refactoring, follow this protocol.
 
 ### Step 1: Conduct Research
 
-1. **Quantify the Debt:** Use `Bash` `grep -r "TODO" .` or `grep -r "FIXME" .`.
-2. **Check Dependencies:** Use `Bash` to check lockfiles or run `npm outdated` if allowed.
-3. **Analyze Stability:** Use `Task` (explore) to "Check test coverage and complexity for module X".
+1.  **Correlate Complexity with Churn:** Use `Bash` (`git log` + file size) to find high-value targets.
+2.  **Gap Analysis (Stability):** Use `Task` (explore) to check for *missing* tests. A refactor without tests is dangerous.
+3.  **Verify Dependency Status:** Use `Bash` to check lockfiles for deprecated versions.
 
 **Codebase research tool selection:**
 
@@ -33,7 +33,8 @@ Before asking the user about debt or refactoring, follow this protocol.
 
 ### Step 3: Surface Considerations, Then Decide
 
-- Fill "Current State" with concrete metrics (file sizes, version numbers).
+- **Confidence-Based Phrasing:** "I see this module has 0 tests and high churn. I assume adding tests is the first requirement before any refactoring. Correct?"
+- **Report Gaps:** Identify specifically *what* is untestable or brittle.
 - **Only ask the user** for business motivation and risk profile.
 </research-before-asking>
 

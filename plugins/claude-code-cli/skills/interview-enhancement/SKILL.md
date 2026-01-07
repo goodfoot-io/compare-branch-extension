@@ -10,9 +10,9 @@ Before asking the user how the system works now or how it *should* work, follow 
 
 ### Step 1: Conduct Research
 
-1. **Trace Current Behavior:** Use `Task` with the `explore` agent to "Map the data flow of feature X".
-2. **Historical Archaeology:** Use `Bash` `git log -p [file]` or `git blame` to understand history.
-3. **Constraint Analysis:** Use `Task` (explore) to "Identify hard constraints or interfaces for X".
+1.  **Map the Territory:** Use `Task` (explore) to understand data flow. Look for *constraints* (schemas, API contracts).
+2.  **Respect "Chesterton's Fence":** Use `Bash` (`git log`, `git blame`) to investigate *why* code is written this way.
+3.  **Gap Analysis:** Identify what is *missing* that might block the enhancement. Are there missing tests? Missing API endpoints?
 
 **Codebase research tool selection:**
 
@@ -33,8 +33,8 @@ Before asking the user how the system works now or how it *should* work, follow 
 
 ### Step 3: Surface Considerations, Then Decide
 
-- Pre-populate "Historical Context" and "Current Functionality".
-- Propose "Desired Functionality" aligned with architecture.
+- **Confidence-Based Phrasing:** If the architecture dictates a pattern (e.g., all services use gRPC), assume it: "I assume we should use gRPC for this new endpoint to match the others. Correct?"
+- **Report Gaps:** "This feature is currently untested. Should I include writing a baseline test in the scope?"
 - **Only ask the user** to confirm business value or trade-offs.
 </research-before-asking>
 

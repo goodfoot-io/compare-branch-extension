@@ -10,9 +10,9 @@ Before asking the user what to investigate, follow this protocol.
 
 ### Step 1: Conduct Research
 
-1. **Assess Observability:** Use `Bash` `grep -r "log" .` or `grep -r "metrics" .` to see what is emitted.
-2. **Find Prior Art:** Use `Task` (explore) to search for similar past investigations in docs/issues.
-3. **Identify Boundaries:** Use `Task` (explore) to "Determine which parts of the system are external APIs".
+1.  **Assess Observability:** Use `Bash` (`grep`) to see what is currently logged.
+2.  **Gap Analysis:** Explicitly identify *missing* observability. Is there a metric that *should* be there to answer the question but isn't?
+3.  **Define Boundaries:** Use `Task` (explore) to determine system boundaries (black boxes vs white boxes).
 
 **Codebase research tool selection:**
 
@@ -33,8 +33,8 @@ Before asking the user what to investigate, follow this protocol.
 
 ### Step 3: Surface Considerations, Then Decide
 
-- Frame "Key Questions" based on what is missing in the code.
-- Define "Approach" based on available tools.
+- **Confidence-Based Phrasing:** "I see we don't have statsD metrics configured. I assume we need to rely on logs for this investigation, correct?"
+- **Report Gaps:** "We are missing visibility into the database connection pool. Should adding those metrics be the first step?"
 - **Only ask the user** for strategic impact or decision criteria.
 </research-before-asking>
 
