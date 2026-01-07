@@ -48,4 +48,6 @@ Route to the first matching condition:
 Load the skill from `<skill-routing>` that matches the issue state. **You must load a skill to continue.**
 
 Do not include other content in your response.
+
+**Never update issue status via API.**
 </instructions>

@@ -29,4 +29,5 @@ Load the skill that matches the issue type. **You must load a skill to continue.
 
 Do not include other content in your response.
 
+**Never update issue status via API.**
 </instructions>
