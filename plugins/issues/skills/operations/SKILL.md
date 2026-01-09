@@ -3,7 +3,6 @@ name: operations
 description: How to write a operations request issue issue
 ---
 
-
 <how-to-write-an-operations-request>
 
 Operations requests should capture the operational goal, evidence, and verification while minimizing risk. They emphasize outcomes, constraints, and safety over implementation details so work can be planned and executed by the right operator or team.
