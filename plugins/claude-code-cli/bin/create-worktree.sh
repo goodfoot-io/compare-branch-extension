@@ -162,6 +162,15 @@ else
     fi
 fi
 
+# Create empty checkpoint commit as explicit boundary marker
+# This commit serves as the baseSha for the issue, providing a clear,
+# intentional boundary between pre-existing commits and issue work.
+# The checkpoint commit contains no file changes—it exists solely as a marker.
+if ! git -C "$WORKTREE_DIR" commit --allow-empty -m "checkpoint: $ISSUE_ID" >/dev/null 2>&1; then
+    printf '%s\n' "Error: Failed to create checkpoint commit" >&2
+    exit 2
+fi
+
 # Discover ignored directories using git's built-in gitignore parsing
 # Get all ignored directories, filter nested redundancies
 all_dirs=$(git ls-files --ignored --exclude-standard --directory --others 2>/dev/null | \
@@ -300,7 +309,7 @@ if [ -n "$worktree_git_dir" ]; then
     fi
 fi
 
-# Get the base commit SHA (the commit this worktree is based on)
+# Get the base commit SHA (the checkpoint commit created for this issue)
 BASE_SHA=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null)
 
 # Get the worktree's git directory for hook installation
