@@ -90,12 +90,37 @@ echo "curl -s \"\$API_BASE/issues\" | jq ."
 // Query parameters:
 //   limit?: number   - Maximum issues to return (default: all)
 //   offset?: number  - Number of issues to skip (default: 0)
-// Returns: IssueSummary[]
+// Returns: IssueSummaryMinimal[]
+//
+// Response contains only 4 essential fields for bandwidth optimization:
+// - title: string                  - Issue title for display
+// - status: IssueStatus            - Kanban status for grouping/filtering
+// - needsAgentAttention: boolean   - Agent attention badge indicator
+// - updatedAt: string              - Last modification timestamp (ISO 8601)
+//
+// For full issue details including comments, description, and metadata,
+// use GET /issues/{id}
 //
 // Examples:
-//   GET /issues                    → All issues
-//   GET /issues?limit=10           → First 10 issues
-//   GET /issues?limit=10&offset=10 → Issues 11-20
+//   GET /issues                    → All issues (minimal)
+//   GET /issues?limit=10           → First 10 issues (minimal)
+//   GET /issues?limit=10&offset=10 → Issues 11-20 (minimal)
+//
+// Example response:
+// [
+//   {
+//     "title": "Implement dark mode toggle",
+//     "status": "in_progress",
+//     "needsAgentAttention": true,
+//     "updatedAt": "2024-01-15T14:30:00.000Z"
+//   },
+//   {
+//     "title": "Fix authentication bug",
+//     "status": "todo",
+//     "needsAgentAttention": false,
+//     "updatedAt": "2024-01-14T09:15:00.000Z"
+//   }
+// ]
 
 // POST /issues
 interface CreateIssueRequest {
