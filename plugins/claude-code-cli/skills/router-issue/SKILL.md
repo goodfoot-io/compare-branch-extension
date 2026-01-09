@@ -1,7 +1,6 @@
 ---
 name: router-issue
 description: Handle issues by routing to skills
-context: fork
 ---
 
 <placeholder-variables>
@@ -22,6 +21,7 @@ context: fork
 [IS_STALE] — No activity for 30+ days AND status not "done" or "archived"
 [IS_TESTABLE_BUG] — Has error evidence (stack traces, error messages) AND programmatically verifiable
 [DOR_MET] — Problem statement exists, acceptance criteria inferable, technical approach determinable
+[USER_RESPONDED_TO_PLAN] — [PLAN_CONTENT] exists AND latest user comment timestamp is more recent than the agent comment that submitted the plan for approval
 </placeholder-variables>
 
 <issues-api-constraints>
@@ -40,11 +40,12 @@ Route to the first matching condition:
 7. **[STATUS] = "done"**: Load `claude-code-cli:issue-no-action`
 8. **[STATUS] = "needs_review" AND NOT [HAS_MODIFICATION_REQUEST]**: Load `claude-code-cli:issue-awaiting-review`
 9. **[IS_STALE] AND [STATUS] != "needs_review"**: Load `claude-code-cli:issue-clarification` with stale flag
-10. **[PLAN_REQUIRED] AND NOT [PLAN_APPROVED]**: Load `claude-code-cli:issue-plan`
-11. **[STATUS] = "todo" AND NOT [DOR_MET]**: Load `claude-code-cli:issue-clarification`
-12. **[PLAN_APPROVED]**: Load `claude-code-cli:issue-implementation-with-plan`
-13. **[IS_TESTABLE_BUG]**: Load `claude-code-cli:issue-bug`
-14. **Otherwise**: Load `claude-code-cli:issue-implementation`
+10. **[PLAN_REQUIRED] AND NOT [PLAN_APPROVED] AND [USER_RESPONDED_TO_PLAN]**: Load `claude-code-cli:issue-plan-feedback`
+11. **[PLAN_REQUIRED] AND NOT [PLAN_APPROVED]**: Load `claude-code-cli:issue-plan`
+12. **[STATUS] = "todo" AND NOT [DOR_MET]**: Load `claude-code-cli:issue-clarification`
+13. **[PLAN_APPROVED]**: Load `claude-code-cli:issue-implementation-with-plan`
+14. **[IS_TESTABLE_BUG]**: Load `claude-code-cli:issue-bug`
+15. **Otherwise**: Load `claude-code-cli:issue-implementation`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?"—then write down why you're asking. The act of articulating the ambiguity usually resolves it.
 </skill-routing>

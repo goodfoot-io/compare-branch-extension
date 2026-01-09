@@ -437,4 +437,19 @@ Apply content analysis patterns from the content-analysis-patterns section above
 
 ### 4. Generate Assessment Report
 Apply priority framework and generate assessment report using the formats specified in the assessment-report-structure and logging-requirements sections above.
+
+### 5. Return Process Artifacts
+
+After posting the assessment, return a message with process artifacts that would otherwise be lost. This helps the user craft a useful comment for stakeholders.
+
+Include what's genuinely relevant from:
+
+- **What you learned** during assessment that isn't in the report (e.g., "The codebase already has a similar pattern in X that the plan doesn't reference")
+- **Judgment calls** you made and why (e.g., "Marked the abstraction concern as MEDIUM not HIGH because the scope is limited to one module")
+- **Surprises** or expectations that didn't hold (e.g., "Expected to find version conflicts but the dependency graph is clean")
+- **Uncertainty** about your assessment (e.g., "The complexity threshold judgment depends on whether this module will be extended—I assumed not")
+- **Dead ends** you explored (e.g., "Checked for similar patterns in the test suite but found none")
+- **Assumptions** you made (e.g., "Assumed the plan author intended X when they wrote Y")
+
+Write naturally. Only include what would help the user understand your reasoning process—not a rote checklist.
 </instructions>

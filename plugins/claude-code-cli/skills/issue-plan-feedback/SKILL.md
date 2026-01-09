@@ -1,56 +1,76 @@
 ---
-name: issue-plan
-description: Create implementation plans for user approval.
+name: issue-plan-feedback
+description: Incorporate user feedback into an existing plan and re-assess.
 ---
 
 <placeholder-variables>
-[LATEST_USER_COMMENT] — Most recent comment from `author: "user"` (if any)
-[PLAN_CONTENT] — The plan markdown content from `planContent` field (string or null if not set)
+[LATEST_USER_COMMENT] — Most recent comment from `author: "user"` containing feedback
+[PLAN_CONTENT] — The existing plan markdown content from `planContent` field
 
 Note: [ISSUE_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
 </placeholder-variables>
 
 <instructions>
 
-Create implementation plans for issues requiring user approval before coding begins. Do NOT create worktrees or make code changes—plans must be approved before any implementation begins.
+Incorporate user feedback into an existing implementation plan and re-run assessments. This skill continues from where `issue-plan` stopped after submitting for approval.
 
-## 1. Create Plan
+## 1. Review Feedback
 
-### 1.1 Load Plan Skill
+### 1.1 Analyze User Feedback
+
+Read and understand [LATEST_USER_COMMENT]:
+
+- **Requested changes**: Specific modifications to the plan
+- **Concerns raised**: Issues the user wants addressed
+- **Questions asked**: Clarifications needed before approval
+- **Scope adjustments**: Features to add, remove, or modify
+
+### 1.2 Load Plan Skill
 
 Load the `claude-code-cli:plan` skill for structure requirements and examples.
 
-### 1.2 Research
+## 2. Revise Plan
 
-- Read relevant files in the codebase (track paths for `codeReferences` in step 3)
-- Understand existing patterns and architecture
-- Identify dependencies and risks
+### 2.1 Research (If Needed)
 
-### 1.3 Write and Store Plan
+If feedback requires additional investigation:
 
-Create a plan based on the style and structure from the `claude-code-cli:plan` skill. 
+- Read relevant files in the codebase (track paths for `codeReferences`)
+- Understand implications of requested changes
+- Identify new dependencies or risks
 
-Then store the plan on the issue:
+### 2.2 Incorporate Feedback
+
+Update the plan to address all feedback points:
+
+- Apply requested changes
+- Address raised concerns
+- Answer questions within the plan context
+- Adjust scope as directed
+
+### 2.3 Store Revised Plan
+
+Store the updated plan:
 
 ```
 PATCH /issues/[ISSUE_ID]
 {
-  "planContent": "[drafted plan markdown]"
+  "planContent": "[revised plan markdown]"
 }
 ```
 
-## 2. Assess Plan
+## 3. Assess Revised Plan
 
-### 2.1 Launch Assessment Subagents
+### 3.1 Launch Assessment Subagents
 
-Then launch both assessments in parallel (one message):
+Launch both assessments in parallel (one message):
 
 ```xml
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-assessor</parameter>
   <parameter name="prompt">Issue: [ISSUE_ID]
-  
+
 1. Read the plan:
 ```
 GET /issues/[ISSUE_ID]/plan-content
@@ -64,7 +84,7 @@ GET /issues/[ISSUE_ID]/plan-content
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-refactor</parameter>
   <parameter name="prompt">Issue: [ISSUE_ID]
-  
+
 1. Read the plan:
 ```
 GET /issues/[ISSUE_ID]/plan-content
@@ -75,7 +95,7 @@ GET /issues/[ISSUE_ID]/plan-content
 </invoke>
 ```
 
-### 2.2 Address Assessment Findings
+### 3.2 Address Assessment Findings
 
 Read the assessments:
 
@@ -93,7 +113,7 @@ GET /issues/[ISSUE_ID]/plan-assessments
 
 Based on combined assessment results:
 
-- **Ready: Yes AND READY**: Proceed to step 3
+- **Ready: Yes AND READY**: Proceed to step 4
 - **Ready: Yes AND DISCUSS**: Proceed, but document accepted concerns
 - **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" - address strategic issues
 - **Ready: Yes (suggestions) AND READY/DISCUSS**: Proceed with awareness of suggestions
@@ -111,7 +131,7 @@ Based on combined assessment results:
 
 #### If Either Assessment Fails (Ready: No OR CRITICAL/RECONSIDER OR HIGH/MEDIUM/CONCERNS issues)
 
-Return to **1.3 Write and Store Plan** and revise.
+Return to **2.2 Incorporate Feedback** and revise.
 
 #### If Both Assessments Pass (Ready: Yes + READY/DISCUSS)
 
@@ -120,20 +140,20 @@ If Plan Refactor returned DISCUSS, log accepted concerns:
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "## Accepted Concerns\n\nThe following strategic concerns were noted but accepted:\n   - [Concern from plan-refactor evaluation]\n   - [Rationale for accepting]",
+  "body": "## Accepted Concerns\n\nThe following strategic concerns were noted but accepted:\n- [Concern from plan-refactor evaluation]\n- [Rationale for accepting]",
   "author": "agent"
 }
 ```
 
-Proceed to **3. Submit for Approval**
+Proceed to **4. Submit for Re-Approval**
 
-## 3. Submit for Approval
+## 4. Submit for Re-Approval
 
 **Post a process-oriented comment.** The plan content is already accessible—don't summarize it.
 
-Focus on what the reviewer can't see: your reasoning process, what you learned, where you made judgment calls, and where you're less certain. Mention the plan version. Surface decisions as questions with your selected answer inline when the right path wasn't obvious.
+Explain how you incorporated the feedback, especially where interpretation was required. Focus on what the reviewer can't see: your reasoning process, what you learned from the revision, where you made judgment calls, and where you're less certain. Mention the plan version.
 
-Include surprises, dead ends, assumptions, or risks when they'd help the reviewer focus their attention. Write naturally—only include what's genuinely useful for this specific plan.
+When feedback was ambiguous, surface your interpretation as a question with your selected answer inline. Include surprises, new assumptions, or risks discovered during revision when they'd help the reviewer. Write naturally—only include what's genuinely useful.
 
 ```
 POST /issues/[ISSUE_ID]/comments
@@ -143,6 +163,6 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-**STOP** — Wait for user feedback on plan
+**STOP** — Wait for user feedback or approval
 
 </instructions>

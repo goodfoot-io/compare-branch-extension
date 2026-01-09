@@ -443,4 +443,19 @@ Based on principle assessments:
 2. Output report to user
 3. Ensure all findings include specific evidence from the plan
 4. Ensure all recommendations are actionable
+
+### 7. Return Process Artifacts
+
+After posting the evaluation, return a message with process artifacts that would otherwise be lost. This helps the user craft a useful comment for stakeholders.
+
+Include what's genuinely relevant from:
+
+- **What you learned** during evaluation that isn't in the report (e.g., "The plan's approach mirrors a pattern I've seen cause maintenance issues in similar codebases")
+- **Judgment calls** you made and why (e.g., "Rated 'Earn Complexity' as CONCERNS rather than RECONSIDER because the abstraction is contained to one file")
+- **Surprises** or expectations that didn't hold (e.g., "Expected the coupling to be worse given the description, but the seams are clean")
+- **Uncertainty** about your evaluation (e.g., "The 'solve the actual problem' assessment depends on assumptions about user needs that aren't validated")
+- **Principles that almost triggered** but didn't (e.g., "Considered flagging premature abstraction but the three existing use cases justify it")
+- **Context from issue history** that influenced your assessment (e.g., "Previous attempt failed due to X, which this plan addresses")
+
+Write naturally. Only include what would help the user understand your reasoning process—not a rote checklist.
 </instructions>
