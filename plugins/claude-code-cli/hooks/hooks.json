@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/user-prompt-submit.e2c6520b.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/user-prompt-submit.1ad0b0ed.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.122913f4.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.682156a3.mjs"
           }
         ]
       }
@@ -34,11 +34,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-session-register.9f80d79d.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-session-register.8a66f2f0.mjs"
           },
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-dispatcher-active.88a4d0dc.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-dispatcher-active.0ebcde27.mjs"
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-startup.f87e3bfd.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-startup.48dc0f7c.mjs"
           }
         ],
         "matcher": "startup"
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-resume.0ef6f471.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-resume.e14d93bb.mjs"
           }
         ],
         "matcher": "resume"
@@ -70,7 +70,7 @@
           },
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-session-end.fe2822ff.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-session-end.b18f3182.mjs"
           }
         ]
       }
@@ -89,17 +89,17 @@
   },
   "__generated": {
     "files": [
-      "user-prompt-submit.e2c6520b.mjs",
-      "stop.122913f4.mjs",
+      "user-prompt-submit.1ad0b0ed.mjs",
+      "stop.682156a3.mjs",
       "session-start-state-reload.d73c21e5.mjs",
-      "session-start-session-register.9f80d79d.mjs",
-      "session-start-dispatcher-active.88a4d0dc.mjs",
-      "session-start-context-startup.f87e3bfd.mjs",
-      "session-start-context-resume.0ef6f471.mjs",
+      "session-start-session-register.8a66f2f0.mjs",
+      "session-start-dispatcher-active.0ebcde27.mjs",
+      "session-start-context-startup.48dc0f7c.mjs",
+      "session-start-context-resume.e14d93bb.mjs",
       "session-end-state-cleanup.6d0c7d2c.mjs",
-      "session-end-session-end.fe2822ff.mjs",
+      "session-end-session-end.b18f3182.mjs",
       "post-tool-use.a3167a6c.mjs"
     ],
-    "timestamp": "2026-01-06T20:16:16.549Z"
+    "timestamp": "2026-01-09T08:41:21.723Z"
   }
 }
