@@ -1,7 +1,6 @@
 ---
 name: issue-no-action
 description: Take no action for completed issues.
-model: haiku
 ---
 
 <instructions>

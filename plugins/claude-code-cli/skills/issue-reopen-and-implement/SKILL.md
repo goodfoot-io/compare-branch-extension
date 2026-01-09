@@ -1,7 +1,6 @@
 ---
 name: issue-reopen-and-implement
 description: Reopen completed issues for additional work.
-model: haiku
 ---
 
 <instructions>

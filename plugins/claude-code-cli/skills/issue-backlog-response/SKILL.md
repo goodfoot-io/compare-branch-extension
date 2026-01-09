@@ -1,7 +1,6 @@
 ---
 name: issue-backlog-response
 description: Respond to backlog issues without code changes.
-model: haiku
 ---
 
 <instructions>

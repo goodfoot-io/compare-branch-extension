@@ -1,7 +1,6 @@
 ---
 name: issue-blocked
 description: Handle blocked issues by reporting blockers.
-model: haiku
 ---
 
 <placeholder-variables>
