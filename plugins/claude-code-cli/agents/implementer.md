@@ -3,7 +3,6 @@ name: implementer
 description: Only use this agent when it is requested by name.
 tools: "*"
 color: purple
-model: inherit
 skills: issues:api
 ---
 

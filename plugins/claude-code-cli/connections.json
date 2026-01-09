@@ -43,9 +43,9 @@
     "issue-implementation": {
       "file": "skills/issue-implementation/SKILL.md",
       "invokesBin": ["bin/create-worktree.sh"],
+      "spawnsAgents": ["agents/implementer.md", "Explore"],
       "chainsTo": ["skills/issue-merge/SKILL.md"],
-      "usesAPI": true,
-      "spawnsAgents": ["Explore"]
+      "usesAPI": true
     },
     "issue-implementation-with-plan": {
       "file": "skills/issue-implementation-with-plan/SKILL.md",

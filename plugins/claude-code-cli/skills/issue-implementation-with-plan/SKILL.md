@@ -138,38 +138,6 @@ Issue: TECH-DEBT-42
 
 </commit-message-artistry>
 
-<validation-gate>
-**Gate requirement:** ALL validation commands must pass. No exceptions, no workarounds, no rationalizations.
-
-| Rationalization | Why it's wrong |
-|-----------------|----------------|
-| "Pre-existing issue" | You must fix it or block |
-| "Unrelated to my changes" | Prove it by fixing it, or block |
-| "Infrastructure failure" | Infrastructure IS the product |
-| "Only linting/types pass" | Tests are required, not optional |
-| "Change is purely cosmetic" | Cosmetic changes can still break tests |
-| "Tests are flaky" | Flaky = race condition = production bug |
-| "Works in other environments" | Must work HERE |
-| "Only the new test fails" | New test proves new code is broken |
-| "WebSocket/connection issue" | Production has same issue |
-| "Tests timeout" | Code has cleanup/leak problems |
-
-**Validation is binary:**
-- ✅ ALL pass → proceed
-- ❌ ANY fail → block and report
-
-There is no "probably fine" state. If you cannot make validation pass, you MUST block.
-
-**When validation fails:**
-- If the error is in code you can modify, fix it and re-run
-- If the error is in infrastructure or code outside your scope, block immediately — do not retry hoping it resolves itself
-
-**When blocked:**
-1. Post error comment with exact failure output
-2. Add `blocked` tag
-3. **STOP** — Do not proceed under any circumstances
-</validation-gate>
-
 <tools>
 
 **create-worktree** — Creates git worktree with automatic commitSha posting via hooks.
@@ -213,45 +181,16 @@ Continue to Step 2.
 
 ### New
 
-1. Create worktree:
-   ```bash
-   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
-   WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
-   BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
-   cd "$WORKTREE_DIR"
-   ```
+Create worktree:
 
-   On worktree creation failure: post error to issue, add `blocked` tag, **STOP**.
+```bash
+WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
+WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
+BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
+cd "$WORKTREE_DIR"
+```
 
-2. Launch background Explore subagents (haiku model) while performing status updates. Launch multiple subagents with distinct, targeted prompts based on plan content:
-
-   ```xml
-   <invoke name="Task">
-   <parameter name="description">explore-[target-a]</parameter>
-   <parameter name="subagent_type">Explore</parameter>
-   <parameter name="model">haiku</parameter>
-   <parameter name="run_in_background">true</parameter>
-   <parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
-   </invoke>
-   <invoke name="Task">
-   <parameter name="description">explore-[target-b]</parameter>
-   <parameter name="subagent_type">Explore</parameter>
-   <parameter name="model">haiku</parameter>
-   <parameter name="run_in_background">true</parameter>
-   <parameter name="prompt">[Distinct exploration task derived from plan]</parameter>
-   </invoke>
-   ```
-
-   Make sure to kill any Explore subagents that have not returned before moving to the next step.
-
-3. Post a brief comment indicating you're beginning implementation. Reference the main deliverable or objective from the approved plan to confirm you're working on the right thing.
-   ```
-   POST /issues/[ISSUE_ID]/comments
-   {
-     "body": "[comment content]",
-     "author": "agent"
-   }
-   ```
+On worktree creation failure: post error to issue, add `blocked` tag, **STOP**.
 
 ---
 
@@ -301,6 +240,11 @@ Clear gates: type-check passes, tests pass, API functional, UI renders.
 
 ### 2.4 Delegate Implementation
 
+Choose the [MODEL] to use with the `claude-code-cli:implementer` subagent based on the tasks:
+- **Ambiguous requirements, multiple possible approaches, or tasks where you're unsure how to start:** `opus`
+- **Clear goal with multiple steps, building features, or fixing bugs in unfamiliar code:** `sonnet`
+- **Single-step tasks, following established patterns, or making changes you already understand:** `haiku`
+
 Based on coherence assessment:
 
 **Parallel**: Launch concurrent agents for independent groups:
@@ -308,12 +252,14 @@ Based on coherence assessment:
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">...</parameter>
 <parameter name="run_in_background">true</parameter>
 </invoke>
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">...</parameter>
 </invoke>
 ```
@@ -327,6 +273,7 @@ Agent prompt template:
 <invoke name="Task">
 <parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Issue: [ISSUE_ID] - [TITLE]
 Worktree: [WORKTREE_PATH]
@@ -366,6 +313,20 @@ POST /issues/[ISSUE_ID]/comments
 - ALL blocked → post summary, add `blocked` tag, **STOP**
 - SOME blocked → note in summary, proceed to Step 3
 - NONE blocked → proceed to Step 3
+
+### 2.6 Validation Gate
+
+**Requirement:** ALL validation commands must pass before proceeding.
+
+Run validation per the plan's "Validation Commands" section.
+
+**On failure:**
+1. Error in code you can modify → delegate fix to implementer, re-run validation
+2. Error outside your scope → block immediately
+
+**When blocked:** Post exact failure output to issue, add `blocked` tag, **STOP**.
+
+Only proceed to **3. Refactor** when ALL validations pass.
 
 ---
 

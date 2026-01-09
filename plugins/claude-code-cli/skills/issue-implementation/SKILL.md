@@ -7,6 +7,24 @@ description: Implement issues in isolated git worktree.
 [BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 </placeholder-variables>
 
+<orchestrator-constraints>
+The orchestrator prepares, plans, and coordinates—it does NOT implement code.
+
+| Orchestrator handles directly | Implementer handles via delegation |
+|-------------------------------|-----------------------------------|
+| Worktree creation/navigation | Feature implementation |
+| Issue clarification | Code changes |
+| Codebase exploration | Test writing |
+| Task derivation | Validation execution |
+| Result processing | Bug fixes |
+
+Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation work.
+
+**Never update issue status. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
+</orchestrator-constraints>
+
+
+
 <tools>
 
 **create-worktree** — Creates git worktree with automatic commitSha posting via hooks.
@@ -34,10 +52,10 @@ Determine environment path using the first matching condition:
 
 ```bash
 cd ".worktrees/[BRANCH_NAME]"
-git stash --include-untracked  # Save uncommitted work; restore with git stash pop after step 2
+git stash --include-untracked  # Save uncommitted work; restore after task derivation
 ```
 
-If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
+If "Implementation Complete" comment exists on the issue, skip to **4. Finalize**. Otherwise continue to **2. Derive Tasks**.
 
 ### Recreate (branch exists, no worktree)
 
@@ -46,7 +64,7 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
 cd ".worktrees/[BRANCH_NAME]"
 ```
 
-If "Implementation Complete" comment exists on the issue, skip to **3. Finalize**. Otherwise continue to **2. Implement**.
+If "Implementation Complete" comment exists on the issue, skip to **4. Finalize**. Otherwise continue to **2. Derive Tasks**.
 
 ### New (fresh start)
 
@@ -57,6 +75,8 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
    cd "$WORKTREE_DIR"
    ```
+
+   On worktree creation failure: post error to issue, add `blocked` tag, **STOP**.
 
 2. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the issue content:
 
@@ -76,7 +96,6 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
    <parameter name="prompt">[Distinct exploration task derived from issue]</parameter>
    </invoke>
    ```
-
 
 3. Clarify issue:
 
@@ -119,65 +138,180 @@ If "Implementation Complete" comment exists on the issue, skip to **3. Finalize*
 
    Make sure to kill any Explore subagents that have not returned before moving to the next step.
 
-## 2. Implement
+---
+
+## 2. Derive Tasks
 
 Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
 
-Work in the worktree directory.
+### 2.1 Analyze Requirements
 
-1. Read and understand existing code before making changes
-2. Make required changes
-3. Run linting, type checking, and tests
-4. Fix any issues
+From the issue description and exploration results, identify:
+- What files need modification?
+- What new files are needed?
+- What behavior changes are required?
+- What tests need to be written?
 
-<validation-gate>
-**Gate requirement:** ALL validation commands must pass. No exceptions, no workarounds, no rationalizations.
+### 2.2 Create Implementation Tasks
 
-| Rationalization | Why it's wrong |
-|-----------------|----------------|
-| "Pre-existing issue" | You must fix it or block |
-| "Unrelated to my changes" | Prove it by fixing it, or block |
-| "Infrastructure failure" | Infrastructure IS the product |
-| "Only linting/types pass" | Tests are required, not optional |
-| "Change is purely cosmetic" | Cosmetic changes can still break tests |
-| "Tests are flaky" | Flaky = race condition = production bug |
-| "Works in other environments" | Must work HERE |
+Write concrete, actionable tasks to TodoWrite. Each task should specify:
+- **What** to create or modify
+- **Where** (file paths discovered during exploration)
+- **Why** (which requirement it satisfies)
 
-**Validation is binary:**
-- ✅ ALL pass → proceed
-- ❌ ANY fail → block and report
+<example>
+Example task derivation for "Add rate limiting to /api/submit endpoint":
 
-There is no "probably fine" state. If you cannot make validation pass, you MUST block.
+```
+1. Create rate limiter utility (src/utils/rate-limiter.ts)
+   - Implement token bucket algorithm
+   - Export createRateLimiter(options) factory
 
-**When validation fails:**
-- If the error is in code you can modify, fix it and re-run
-- If the error is in infrastructure or code outside your scope, block immediately — do not retry hoping it resolves itself
+2. Add rate limit middleware (src/middleware/rate-limit.ts)
+   - Wrap utility for Express middleware signature
+   - Return 429 with Retry-After header when limited
 
-**When blocked:**
-1. Post error comment with exact failure output
-2. Add `blocked` tag
-3. **STOP** — Do not proceed under any circumstances
-</validation-gate>
+3. Integrate into submit route (src/routes/api/submit.ts:45)
+   - Apply middleware before existing handler
+   - Use config values for rate limits
 
-Based on validation result:
-- **All validation passes**: Proceed to commit
-- **Validation fails**: Fix errors if in code you can modify. If unfixable, post error comment explaining what failed and what you attempted, add `blocked` tag, **STOP** — Awaiting user intervention.
+4. Write tests
+   - Unit tests for token bucket logic (src/utils/rate-limiter.test.ts)
+   - Integration test for 429 response (src/routes/api/submit.test.ts)
+```
+</example>
 
-Commit using conventional commit format (feat, fix, docs, refactor, test, chore):
+### 2.3 Assess Coherence
+
+Analyze tasks along three dimensions:
+
+| Dimension | Question |
+|-----------|----------|
+| **Dependency** | Do files import/reference each other? |
+| **Uniformity** | Same operation across files, or varied operations? |
+| **Size** | Substantial tasks with clear completion gates? |
+
+Route based on assessment:
+- **Independent files OR uniform tasks**: Parallel — concurrent agent delegations
+- **Dependent + varied + small**: Coherent — single agent for all tasks
+- **Dependent + varied + substantial with clear gates**: Sequential — ordered delegations with checkpoints
+
+When uncertain between Coherent and Sequential, choose **Coherent** for planless issues.
+
+### 2.4 Checkpoint Before Implementation
+
 ```bash
 git add -A
-git commit -m "[type]: [description]
+git commit --allow-empty -m "checkpoint: before implementation
 
 Issue: [ISSUE_ID]
-
-[Detailed changes]"
+Tasks: [TASK_COUNT] derived from issue"
 ```
 
-Post a summary comment explaining what you implemented and any important decisions you made. Include which test commands you ran and their results. This comment documents the completion before merge.
+If resuming: `git stash pop` to restore prior work.
+
+---
+
+## 3. Delegate Implementation
+
+### 3.1 Delegate to Implementer
+
+Pass the **orchestrator-defined tasks** to the implementer agent.
+
+Choose the [MODEL] to use with the `claude-code-cli:implementer` subagent based on the tasks:
+- **Ambiguous requirements, multiple possible approaches, or tasks where you're unsure how to start:** `opus`
+- **Clear goal with multiple steps, building features, or fixing bugs in unfamiliar code:** `sonnet`
+- **Single-step tasks, following established patterns, or making changes you already understand:** `haiku`
+
+**Coherent** (single delegation for all tasks):
+
+```xml
+<invoke name="Task">
+<parameter name="description">Implement [TITLE]</parameter>
+<parameter name="model">[MODEL]</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">
+Issue: [ISSUE_ID] - [TITLE]
+Worktree: [WORKTREE_PATH]
+Checkpoint SHA: [CHECKPOINT_SHA]
+
+## Description
+[ISSUE_DESCRIPTION]
+
+## Tasks to Complete
+
+1. **[Task 1 name]** (`[file-path]`)
+   - [Specific change 1]
+   - [Specific change 2]
+
+2. **[Task 2 name]** (`[file-path]`)
+   - [Specific change 1]
+   - [Specific change 2]
+
+[Continue for all derived tasks]
+
+## Validation
+- Type check: `yarn typecheck`
+- Test: `yarn test [relevant-test-files]`
+- Lint: `yarn lint`
+</parameter>
+</invoke>
+```
+
+**Parallel** (concurrent delegations for independent groups):
+
+```xml
+<invoke name="Task">
+<parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
+<parameter name="model">[MODEL]</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">
+Issue: [ISSUE_ID] - [TITLE]
+Worktree: [WORKTREE_PATH]
+
+## Tasks to Complete
+[Group A tasks only]
+
+## Validation
+[Commands for group A]
+</parameter>
+<parameter name="run_in_background">true</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
+<parameter name="model">[MODEL]</parameter>
+<parameter name="subagent_type">claude-code-cli:implementer</parameter>
+<parameter name="prompt">
+Issue: [ISSUE_ID] - [TITLE]
+Worktree: [WORKTREE_PATH]
+
+## Tasks to Complete
+[Group B tasks only]
+
+## Validation
+[Commands for group B]
+</parameter>
+</invoke>
+```
+
+**Sequential** (ordered delegations with checkpoints):
+
+Delegate first phase, checkpoint at gate, then delegate next phase.
+
+### 3.2 Process Result
+
+Based on implementer status:
+- **COMPLETED**: Mark todos completed, post summary comment, proceed to **4. Finalize**
+- **NEEDS_REVISION**: Update todo with attempt count, revert to checkpoint
+  - **If attempts < 3**: Re-delegate with additional context from failure report
+  - **If attempts ≥ 3**: Post failure details, add `blocked` tag, **STOP**
+- **BLOCKED**: Post blocking details from implementer report, add `blocked` tag, **STOP**
+
+**On COMPLETED:** Post a progress comment summarizing what was implemented:
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "[comment content]",
+  "body": "[Summary of implementation: what was built, key decisions made]",
   "author": "agent",
   "codeReferences": [
     {
@@ -188,15 +322,29 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-## 3. Finalize
+### 3.3 Validation Gate
+
+**Requirement:** ALL validation commands must pass before proceeding. This usually means linting, type checking, and testing.
+
+**On any failure:**
+1. Error in code you can modify → delegate fix to implementer, re-run validation
+2. Error outside your scope → block immediately
+
+**When blocked:** Post exact failure output to issue, add `blocked` tag, **STOP**.
+
+Only proceed to **4. Finalize** when ALL validations pass.
+
+---
+
+## 4. Finalize
 
 ### If [REVIEW_REQUIRED]:
 
-Post a summary explaining what you implemented and key decisions you made. List the main files you modified and which validation commands passed. Indicate you're waiting for approval before merge.
+Post a summary explaining what you implemented and key decisions made. List the main files modified and confirm all validation passed. Indicate you're waiting for approval before merge.
 ```
 POST /issues/[ISSUE_ID]/comments
 {
-  "body": "[comment content]",
+  "body": "[Summary with validation results and files modified]",
   "author": "agent",
   "codeReferences": [
     {
@@ -207,7 +355,7 @@ POST /issues/[ISSUE_ID]/comments
 }
 ```
 
-Stop here. Merge occurs via `issue-merge` skill after user approval.
+**STOP** — Merge occurs via `issue-merge` skill after user approval.
 
 ### If NOT [REVIEW_REQUIRED]:
 
