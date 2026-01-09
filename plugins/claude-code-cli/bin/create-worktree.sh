@@ -636,9 +636,11 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/post-rewrite"
 
-# Update issue with worktreePath (absolute path)
-# This allows the UI to show "Open Worktree" button
-# Discover API for the issue's workspace (using stored path, not pwd)
+# Post initial comment with baseSha, worktreePath, and branchName
+# This comment serves multiple purposes:
+# - Records baseSha so getFirstCommitSha() returns it for complete diffs
+# - Records worktreePath to enable "Open Worktree" button in UI
+# - Records branchName for historical context
 # Failure is non-fatal - worktree is still usable without this
 DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
 if [ -f "$DISCOVERY_FILE" ]; then
@@ -648,30 +650,22 @@ if [ -f "$DISCOVERY_FILE" ]; then
     if [ -n "$API_PORT" ] && [ -n "$API_HOST" ]; then
         API_BASE="http://${API_HOST}:${API_PORT}/api/v1"
 
-        # Non-critical: UI may not show worktree path, but worktree is still functional
-        if ! curl -sf -X PATCH "$API_BASE/issues/$ISSUE_ID" \
-            -H "Content-Type: application/json" \
-            -d "{\"worktreePath\": \"$WORKTREE_DIR\"}" \
-            >/dev/null 2>&1; then
-            echo "Warning: Failed to notify extension of worktree path" >&2
-            echo "The 'Open Worktree' button may not appear in the issue panel." >&2
-        fi
-
-        # Post initial baseSha as first commitSha comment
-        # This ensures getFirstCommitSha() returns baseSha for complete diffs
-        # Without this, the first actual commit's changes might be missing from comparisons
-        # Non-critical: commit tracking will still work for subsequent commits
+        # Post worktree info as a comment with commitSha, worktreePath, and branchName
+        # This enables:
+        # - getFirstCommitSha() to return baseSha for complete diffs
+        # - getLatestWorktreePath() to find the worktree for "Open Worktree" button
+        # - Historical tracking of which worktree/branch was used for each session
         BASE_COMMENT_RESPONSE=$(curl -sf -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
             -H "Content-Type: application/json" \
-            -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\"}" 2>/dev/null || true)
+            -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\", \"worktreePath\": \"$WORKTREE_DIR\", \"branchName\": \"$BRANCH_NAME\"}" 2>/dev/null || true)
         if [ -n "$BASE_COMMENT_RESPONSE" ]; then
             BASE_COMMENT_ID=$(echo "$BASE_COMMENT_RESPONSE" | jq -r '.id // empty' 2>/dev/null)
             if [ -n "$BASE_COMMENT_ID" ]; then
                 git -C "$WORKTREE_DIR" config --worktree issue.baseShaCommentId "$BASE_COMMENT_ID" 2>/dev/null || true
             fi
         else
-            echo "Warning: Failed to register base commit with issue tracker" >&2
-            echo "Initial diff view may be incomplete. Subsequent commits will track normally." >&2
+            echo "Warning: Failed to register worktree with issue tracker" >&2
+            echo "The 'Open Worktree' button may not appear. Subsequent commits will track normally." >&2
         fi
     fi
 fi
