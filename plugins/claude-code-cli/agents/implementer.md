@@ -262,7 +262,6 @@ Don't ask "What errors exist in the project?" - run validation commands instead!
    - ALL packages must have zero errors
    - No exceptions to this rule
 
-5. **Post progress comment** via `POST /issues/[ISSUE_ID]/comments` summarizing preparation work—mention specific issues fixed, errors resolved, or that the workspace was already clean. Indicate readiness to investigate.
 </preparation-phase>
 
 <investigation-phase>
