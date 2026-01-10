@@ -10,7 +10,10 @@ Use the Issues API to communicate with the user about this git branch. The user 
 <comments>
 Use comments to ask the user for clarifications, to report error states, or to report completion.
 
-**If you edit a file in the workspace while working on an issue, you must include that file in the comment `codeReferences` property.**
+**If you edit a file in the workspace while working on an issue, you must include code references in the comment body using GitHub-style fragment links:**
+- Single line: `[description](path/to/file.ts#L10)`
+- Line range: `[description](path/to/file.ts#L10-L20)`
+- Entire file: `[description](path/to/file.ts)`
 </comments>
 
 <issue-status>
@@ -36,14 +39,13 @@ PATCH /issues/{id}
 }
 ```
 
-3. To reference code files reviewed during planning, add a comment with `codeReferences`:
+3. To reference code files reviewed during planning, add a comment with fragment links in the body:
 
 ```
 POST /issues/{id}/comments
 {
-  "body": "Plan references the following files:",
-  "author": "agent",
-  "codeReferences": [{"uri": "/path/to/reviewed/file.ts"}]
+  "body": "Plan references the following files:\n- [Configuration module](src/config/index.ts#L1-L50)\n- [API handler](src/api/handler.ts#L25)",
+  "author": "agent"
 }
 ```
 
@@ -153,7 +155,7 @@ interface UpdateIssueRequest {
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /issues/{issueId}/comments | Get comments for an issue |
-| POST | /issues/{issueId}/comments | Add comment (with optional code references) |
+| POST | /issues/{issueId}/comments | Add comment (use fragment links in body for code references) |
 | DELETE | /issues/{issueId}/comments/{commentId} | Delete a comment from an issue |
 
 ```typescript
@@ -163,17 +165,14 @@ interface UpdateIssueRequest {
 // Returns: Comment[]
 
 // POST /issues/{id}/comments
+// Code references should be embedded in the body using GitHub-style fragment links:
+//   - Single line: [text](path/to/file.ts#L10)
+//   - Line range: [text](path/to/file.ts#L10-L20)
+//   - Entire file: [text](path/to/file.ts)
 interface AddCommentRequest {
-  body?: string;
+  body?: string;         // Markdown content (embed code references as fragment links)
   author: "agent";
   commitSha?: string;    // Git SHA (40-char) of the commit being reported
-  codeReferences?: {
-    uri: string;
-    range?: {
-      startLine: number;
-      endLine: number;
-    }
-  }[];
   replyTo?: string;      // Parent comment ID
 }
 
