@@ -1,7 +1,6 @@
 ---
 name: router-issue
 description: Handle issues by routing to skills
-model: haiku
 ---
 
 <placeholder-variables>
