@@ -121,6 +121,13 @@ if [ -z "$WORKSPACE_ROOT" ]; then
     exit 2
 fi
 
+# Capture current HEAD before changing directories (for branching from current context)
+ORIGINAL_HEAD=$(git rev-parse HEAD 2>/dev/null)
+if [ -z "$ORIGINAL_HEAD" ]; then
+    printf '%s\n' "Error: Could not determine current HEAD" >&2
+    exit 2
+fi
+
 cd "$WORKSPACE_ROOT"
 
 WORKTREE_DIR="${WORKSPACE_ROOT}/.worktrees/${BRANCH_NAME}"
@@ -145,7 +152,7 @@ if [ "$BRANCH_EXISTS" = "true" ]; then
         exit 2
     fi
 else
-    if ! git_output=$(git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" 2>&1); then
+    if ! git_output=$(git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" "$ORIGINAL_HEAD" 2>&1); then
         printf '%s\n' "Error: Failed to create worktree" >&2
         printf '%s\n' "$git_output" >&2
         exit 2
