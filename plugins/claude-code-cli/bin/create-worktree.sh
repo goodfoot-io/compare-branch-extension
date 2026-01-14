@@ -1,29 +1,25 @@
 #!/bin/bash
 
-# create-worktree: Create a git worktree with automatic commitSha posting via git hooks
+# create-worktree: Create a git worktree with symlinked ignored directories
 #
-# This script creates a git worktree with symlinked ignored directories and installs
-# git hooks that automatically post commit information to the Issues API. The hooks
-# handle both regular commits and rebase/amend scenarios.
+# This script creates a git worktree with symlinked ignored directories and
+# passthrough hooks for pre-commit and pre-push to chain to project hooks.
+# Commit tracking is handled by Claude Code hooks (PostToolUse), not git hooks.
 #
 # This is a standalone script that does not depend on external worktree utilities.
 #
 # Usage: ISSUE_ID=<id> create-worktree <branch-name>
 #
 # Environment:
-#   ISSUE_ID    Required. The issue ID to associate with commits (e.g., main:259)
+#   ISSUE_ID    Required. The issue ID to associate with the worktree (e.g., main:259)
 #
 # Options:
 #   --help      Show this help message
 #
-# Output: JSON with branch, worktree, baseSha, and issueId
+# Output: JSON with branch, worktree, and issueId
 # Exit codes:
 #   0 - Success
 #   2 - Failure (error details on stderr)
-#
-# The script installs two hooks in the worktree's git directory:
-#   - post-commit: Posts commit info to Issues API after each commit, cleans up orphaned commits
-#   - post-rewrite: Handles rebase/amend by posting new commit and cleaning up old comments
 
 set -e
 
@@ -62,16 +58,16 @@ done
 if [ "$SHOW_HELP" = "true" ]; then
     printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>"
     printf '%s\n' ""
-    printf '%s\n' "Creates a git worktree with automatic commitSha posting via git hooks."
+    printf '%s\n' "Creates a git worktree with symlinked ignored directories."
     printf '%s\n' ""
     printf '%s\n' "Environment:"
-    printf '%s\n' "  ISSUE_ID    Required. The issue ID to associate with commits (e.g., main:259)"
+    printf '%s\n' "  ISSUE_ID    Required. The issue ID to associate with the worktree (e.g., main:259)"
     printf '%s\n' ""
     printf '%s\n' "Options:"
     printf '%s\n' "  --help      Show this help message"
     printf '%s\n' ""
-    printf '%s\n' "The script installs hooks that automatically post commit information"
-    printf '%s\n' "to the Issues API after each commit or rebase."
+    printf '%s\n' "The script creates symlinks to ignored directories and installs passthrough"
+    printf '%s\n' "hooks to chain to project pre-commit/pre-push hooks."
     exit 0
 fi
 
@@ -127,12 +123,6 @@ fi
 
 cd "$WORKSPACE_ROOT"
 
-# Determine base branch for merge-base calculations (default to main)
-BASE_BRANCH=$(git -C "$WORKSPACE_ROOT" branch --show-current 2>/dev/null || true)
-if [ -z "$BASE_BRANCH" ] || [ "$BASE_BRANCH" = "HEAD" ]; then
-    BASE_BRANCH="main"
-fi
-
 WORKTREE_DIR="${WORKSPACE_ROOT}/.worktrees/${BRANCH_NAME}"
 
 # Check git worktree list for existing worktree at target path
@@ -160,15 +150,6 @@ else
         printf '%s\n' "$git_output" >&2
         exit 2
     fi
-fi
-
-# Create empty checkpoint commit as explicit boundary marker
-# This commit serves as the baseSha for the issue, providing a clear,
-# intentional boundary between pre-existing commits and issue work.
-# The checkpoint commit contains no file changes—it exists solely as a marker.
-if ! git -C "$WORKTREE_DIR" commit --allow-empty -m "checkpoint: $ISSUE_ID" >/dev/null 2>&1; then
-    printf '%s\n' "Error: Failed to create checkpoint commit" >&2
-    exit 2
 fi
 
 # Discover ignored directories using git's built-in gitignore parsing
@@ -309,9 +290,6 @@ if [ -n "$worktree_git_dir" ]; then
     fi
 fi
 
-# Get the base commit SHA (the checkpoint commit created for this issue)
-BASE_SHA=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null)
-
 # Get the worktree's git directory for hook installation
 WORKTREE_GIT_DIR=$(git -C "$WORKTREE_DIR" rev-parse --git-dir 2>/dev/null)
 if [ -z "$WORKTREE_GIT_DIR" ]; then
@@ -322,14 +300,6 @@ fi
 # Store issue context in worktree git config
 git -C "$WORKTREE_DIR" config --worktree issue.id "$ISSUE_ID" 2>/dev/null || {
     printf '%s\n' "Error: Failed to store issue.id in worktree git config" >&2
-    exit 2
-}
-git -C "$WORKTREE_DIR" config --worktree issue.baseSha "$BASE_SHA" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.baseSha in worktree git config" >&2
-    exit 2
-}
-git -C "$WORKTREE_DIR" config --worktree issue.baseBranch "$BASE_BRANCH" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.baseBranch in worktree git config" >&2
     exit 2
 }
 git -C "$WORKTREE_DIR" config --worktree issue.pluginBinDir "$SCRIPT_DIR" 2>/dev/null || {
@@ -423,252 +393,5 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/pre-push"
 
-# Install post-commit hook (Issues API + passthrough)
-cat > "${HOOKS_DIR}/post-commit" << HOOK_EOF
-#!/bin/bash
-# post-commit hook - posts commit info to Issues API, then chains to original hook
-# Installed by create-worktree.sh
-# Errors are logged to stderr but do not block git operations
-#
-# This hook handles:
-# 1. Posting the new commit SHA to the Issues API
-# 2. Chained hooks that create additional commits (e.g., git subtree split --rejoin)
-# 3. Cleaning up orphaned commitSha comments after squash operations
-#
-# The orphan cleanup runs after every commit. It identifies commits that are no
-# longer reachable from HEAD (e.g., after git reset --soft + commit) and deletes
-# their associated commitSha comments from the issue.
-
-set -o pipefail
-
-$HOOK_CHAIN_HELPER
-
-# Helper function to post a commit SHA to the Issues API
-post_commit_sha() {
-    local sha="\$1"
-    local issue_id="\$2"
-    local api_base="\$3"
-
-    curl -s -X POST "\$api_base/issues/\$issue_id/comments" \
-        -H "Content-Type: application/json" \
-        -d "{\"author\": \"agent\", \"commitSha\": \"\$sha\"}" \
-        >/dev/null 2>&1 || true
-}
-
-# --- Setup API connection ---
-ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
-WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
-API_BASE=""
-
-if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
-    if [ -f "\$DISCOVERY_FILE" ]; then
-        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-
-        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
-            API_BASE="http://\${HOST}:\${PORT}/api/v1"
-        fi
-    fi
-fi
-
-# --- Record HEAD before any operations ---
-HEAD_BEFORE=\$(git rev-parse HEAD 2>/dev/null)
-
-# --- Post the current commit ---
-if [ -n "\$API_BASE" ] && [ -n "\$HEAD_BEFORE" ]; then
-    post_commit_sha "\$HEAD_BEFORE" "\$ISSUE_ID" "\$API_BASE"
-fi
-
-# --- Chain to original hook ---
-ORIGINAL_HOOK=\$(get_original_hook "post-commit")
-if [ -n "\$ORIGINAL_HOOK" ]; then
-    "\$ORIGINAL_HOOK" "\$@"
-fi
-
-# --- Check if HEAD changed after chaining ---
-# Chained hooks may create additional commits (e.g., subtree split --rejoin)
-HEAD_AFTER=\$(git rev-parse HEAD 2>/dev/null)
-if [ -n "\$API_BASE" ] && [ -n "\$HEAD_AFTER" ] && [ "\$HEAD_AFTER" != "\$HEAD_BEFORE" ]; then
-    post_commit_sha "\$HEAD_AFTER" "\$ISSUE_ID" "\$API_BASE"
-fi
-
-# --- Clean up orphaned commit comments ---
-# After squash (git reset --soft + commit), old commits become unreachable.
-# This cleanup removes commitSha comments for commits no longer on the branch.
-# Valid commits: baseSha + all commits between baseSha and current HEAD.
-if [ -n "\$API_BASE" ]; then
-    BASE_SHA=\$(git config --worktree issue.baseSha 2>/dev/null)
-    if [ -n "\$BASE_SHA" ]; then
-        # Build set of valid SHAs (baseSha + descendants)
-        VALID_SHAS=\$(git rev-list "\$BASE_SHA"..HEAD 2>/dev/null || true)
-        VALID_SHAS="\$BASE_SHA"\$'\\n'"\$VALID_SHAS"
-
-        # Fetch all comments and delete orphaned commitSha comments
-        COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
-        if [ -n "\$COMMENTS" ]; then
-            echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \
-            while read -r comment_id commit_sha; do
-                if [ -n "\$commit_sha" ] && ! echo "\$VALID_SHAS" | grep -qx "\$commit_sha"; then
-                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
-                fi
-            done
-        fi
-    fi
-fi
-
-exit 0
-HOOK_EOF
-chmod +x "${HOOKS_DIR}/post-commit"
-
-# Install post-rewrite hook (Issues API + passthrough)
-cat > "${HOOKS_DIR}/post-rewrite" << HOOK_EOF
-#!/bin/bash
-# post-rewrite hook - handles rebase/amend, then chains to original hook
-# Installed by create-worktree.sh
-# Errors are logged to stderr but do not block git operations
-
-set -o pipefail
-
-$HOOK_CHAIN_HELPER
-
-# Capture stdin for potential passthrough (post-rewrite receives old/new SHA pairs)
-STDIN_DATA=\$(cat)
-
-# --- Issues API posting ---
-ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
-WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
-# Update baseSha after rewrite using stored baseBranch
-BASE_BRANCH=\$(git config --worktree issue.baseBranch 2>/dev/null)
-BASE_SHA_OLD=\$(git config --worktree issue.baseSha 2>/dev/null)
-BASE_SHA_NEW=""
-BASE_SHA_UPDATED=false
-BASE_SHA_SHOULD_REPLACE=false
-
-if [ -n "\$BASE_BRANCH" ]; then
-    BASE_SHA_NEW=\$(git merge-base HEAD "\$BASE_BRANCH" 2>/dev/null || true)
-fi
-
-if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
-    BASE_SHA_SHOULD_REPLACE=true
-    if git config --worktree issue.baseSha "\$BASE_SHA_NEW" 2>/dev/null; then
-        BASE_SHA_UPDATED=true
-    fi
-fi
-
-if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
-    if [ -f "\$DISCOVERY_FILE" ]; then
-        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-
-        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
-            API_BASE="http://\${HOST}:\${PORT}/api/v1"
-            NEW_SHA=\$(git rev-parse HEAD)
-
-            # Collect old SHAs from stdin data
-            OLD_SHAS=()
-            while read old_sha new_sha extra; do
-                OLD_SHAS+=("\$old_sha")
-            done <<< "\$STDIN_DATA"
-
-            BASE_SHA_OLD_DERIVED=""
-            if [ -n "\$BASE_BRANCH" ] && [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
-                BASE_SHA_OLD_DERIVED=\$(git merge-base "\${OLD_SHAS[0]}" "\$BASE_BRANCH" 2>/dev/null || true)
-            fi
-            if [ -n "\$BASE_SHA_OLD_DERIVED" ] && [ "\$BASE_SHA_OLD_DERIVED" != "\$BASE_SHA_NEW" ]; then
-                BASE_SHA_OLD="\$BASE_SHA_OLD_DERIVED"
-                BASE_SHA_SHOULD_REPLACE=true
-            fi
-
-            COMMENTS=""
-            if [ "\$BASE_SHA_SHOULD_REPLACE" = "true" ] || [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
-                COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
-            fi
-
-            if [ "\$BASE_SHA_SHOULD_REPLACE" = "true" ] && [ -n "\$BASE_SHA_OLD" ]; then
-                BASE_COMMENT_ID=\$(git config --worktree issue.baseShaCommentId 2>/dev/null)
-                if [ -n "\$BASE_COMMENT_ID" ]; then
-                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$BASE_COMMENT_ID" >/dev/null 2>&1 || true
-                elif [ -n "\$COMMENTS" ]; then
-                    echo "\$COMMENTS" | jq -r --arg sha "\$BASE_SHA_OLD" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null | \
-                    while read -r comment_id; do
-                        if [ -n "\$comment_id" ] && [ "\$comment_id" != "null" ]; then
-                            curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
-                        fi
-                    done
-                fi
-
-                BASE_COMMENT_RESPONSE=\$(curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
-                    -H "Content-Type: application/json" \
-                    -d "{\"author\": \"agent\", \"commitSha\": \"\$BASE_SHA_NEW\"}" 2>/dev/null || true)
-                BASE_COMMENT_ID=\$(echo "\$BASE_COMMENT_RESPONSE" | jq -r '.id // empty' 2>/dev/null)
-                if [ -n "\$BASE_COMMENT_ID" ]; then
-                    git config --worktree issue.baseShaCommentId "\$BASE_COMMENT_ID" 2>/dev/null || true
-                fi
-            fi
-
-            # Post new commit comment
-            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
-                -H "Content-Type: application/json" \
-                -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \
-                >/dev/null 2>&1 || true
-
-            # Delete old commit comments
-            if [ -n "\$COMMENTS" ]; then
-                for old_sha in "\${OLD_SHAS[@]}"; do
-                    COMMENT_ID=\$(echo "\$COMMENTS" | jq -r --arg sha "\$old_sha" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null)
-                    if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
-                        curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
-                    fi
-                done
-            fi
-        fi
-    fi
-fi
-
-# --- Chain to original hook ---
-ORIGINAL_HOOK=\$(get_original_hook "post-rewrite")
-if [ -n "\$ORIGINAL_HOOK" ]; then
-    echo "\$STDIN_DATA" | exec "\$ORIGINAL_HOOK" "\$@"
-fi
-exit 0
-HOOK_EOF
-chmod +x "${HOOKS_DIR}/post-rewrite"
-
-# Post initial comment with baseSha, worktreePath, and branchName
-# This comment serves multiple purposes:
-# - Records baseSha so getFirstCommitSha() returns it for complete diffs
-# - Records worktreePath to enable "Open Worktree" button in UI
-# - Records branchName for historical context
-# Failure is non-fatal - worktree is still usable without this
-DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
-if [ -f "$DISCOVERY_FILE" ]; then
-    API_PORT=$(jq -r --arg ws "$ISSUE_WORKSPACE_PATH" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
-    API_HOST=$(jq -r --arg ws "$ISSUE_WORKSPACE_PATH" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
-
-    if [ -n "$API_PORT" ] && [ -n "$API_HOST" ]; then
-        API_BASE="http://${API_HOST}:${API_PORT}/api/v1"
-
-        # Post worktree info as a comment with commitSha, worktreePath, and branchName
-        # This enables:
-        # - getFirstCommitSha() to return baseSha for complete diffs
-        # - getLatestWorktreePath() to find the worktree for "Open Worktree" button
-        # - Historical tracking of which worktree/branch was used for each session
-        BASE_COMMENT_RESPONSE=$(curl -sf -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
-            -H "Content-Type: application/json" \
-            -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\", \"worktreePath\": \"$WORKTREE_DIR\", \"branchName\": \"$BRANCH_NAME\"}" 2>/dev/null || true)
-        if [ -n "$BASE_COMMENT_RESPONSE" ]; then
-            BASE_COMMENT_ID=$(echo "$BASE_COMMENT_RESPONSE" | jq -r '.id // empty' 2>/dev/null)
-            if [ -n "$BASE_COMMENT_ID" ]; then
-                git -C "$WORKTREE_DIR" config --worktree issue.baseShaCommentId "$BASE_COMMENT_ID" 2>/dev/null || true
-            fi
-        else
-            echo "Warning: Failed to register worktree with issue tracker" >&2
-            echo "The 'Open Worktree' button may not appear. Subsequent commits will track normally." >&2
-        fi
-    fi
-fi
-
 # Output results as JSON with issueId included
-printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
+printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"issueId\":\"$ISSUE_ID\"}"
