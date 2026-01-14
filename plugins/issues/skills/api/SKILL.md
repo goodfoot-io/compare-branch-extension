@@ -231,16 +231,16 @@ Control the extension's comparison view to show differences between git refs.
 // GET /api/v1/compare
 // Returns: CompareModeState
 interface CompareModeState {
-  sourceBranch: string;           // Current source branch/commit being compared from
+  baseBranch: string;           // Current base branch/commit being compared from
   compareRef: string;              // Target ref ("HEAD" for normal mode, or specific ref for comparison)
   isExplicitComparison: boolean;  // Whether in explicit comparison mode (compareRef !== "HEAD")
-  preComparisonSource: string | null;  // Source branch to restore when clearing comparison
+  preComparisonSource: string | null;  // Base branch to restore when clearing comparison
 }
 
 // POST /api/v1/compare
 // Note: If compareRef is "HEAD", automatically clears comparison mode instead
 interface SetCompareModeRequest {
-  sourceBranch: string;  // Source branch/commit to compare from
+  baseBranch: string;  // Base branch/commit to compare from
   compareRef: string;     // Target ref to compare against (commit, branch, or tag)
 }
 
