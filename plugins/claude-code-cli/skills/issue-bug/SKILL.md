@@ -19,6 +19,9 @@ description: Fix testable bugs using test-first methodology.
 [TEST_PASS_ANALYSIS] — Synthesized explanation when test unexpectedly passes
 [PREVIOUS_FAILURE_OUTPUT] — Captured output from failed fix attempt
 [RESOLVER_REASONING] — Fix explanation from resolver subagent
+[DATA_FLOW_SOURCE] — Where the bad data originates (file:line or component)
+[DATA_FLOW_SYMPTOM] — Where the bad data causes the bug (file:line or component)
+[DATA_FLOW_PATH] — Chain from source to symptom: `SOURCE → [intermediates] → SYMPTOM`
 </placeholder-variables>
 
 <tools>
@@ -244,7 +247,24 @@ Based on subagent response and test result:
 
 Initialize: RESOLVE_ATTEMPT = 0 (max 3), TEST_CORRECTION_COUNT = 0 (max 2)
 
-### 3.1 Delegate to Subagent
+### 3.1 Trace Data Flow
+
+Before proposing a fix, map how bad data flows from origin to symptom:
+
+1. **Find [DATA_FLOW_SYMPTOM]** — Where in code does the bug manifest? (from [TEST_FAILURE_OUTPUT])
+2. **Find [DATA_FLOW_SOURCE]** — Trace backward: what data/state causes it? Where is that set?
+3. **Map [DATA_FLOW_PATH]** — Document the chain: `[DATA_FLOW_SOURCE] → [...] → [DATA_FLOW_SYMPTOM]`
+
+**Verification rule:** Any fix must modify [DATA_FLOW_PATH] such that correct data flows from source to symptom.
+
+- If fix adds new read → verify something writes the data
+- If fix adds new write → verify something reads the data
+- If fix adds new parameter → verify callers pass it
+- If fix adds new branch → verify production code triggers it
+
+Fixes that fail this check create "dead code" — new capabilities that are never exercised.
+
+### 3.2 Delegate to Subagent
 
 Increment RESOLVE_ATTEMPT, then invoke:
 
@@ -268,8 +288,16 @@ ${TEST_FAILURE_OUTPUT}
 ${PREVIOUS_FAILURE_OUTPUT}
 [End if]
 
+## Data Flow
+Source: [DATA_FLOW_SOURCE]
+Symptom: [DATA_FLOW_SYMPTOM]
+Path: [DATA_FLOW_PATH]
+
 ## Requirements
 - Fix source code to make test pass
+- Fix must modify the data flow path so correct data reaches the symptom
+- If adding new parameter: confirm callers will pass it
+- If adding new read: confirm something writes the data
 - Do not break existing functionality
 - Run linting after changes
 
@@ -292,7 +320,7 @@ Orchestrator will verify corrected test still fails, then re-invoke.
 
 Capture RESOLVER_REASONING from response.
 
-### 3.2 Validate
+### 3.3 Validate
 
 ```bash
 ALL_CHANGES=$(git diff "$TEST_READY_SHA" --name-only)
@@ -301,19 +329,19 @@ TEST_FILE_MODIFIED=$?  # 0=unchanged, 1=modified
 SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 ```
 
-### 3.3 Outcomes
+### 3.4 Outcomes
 
 Based on changes detected:
 
 - **BLOCKED or CANNOT_COMPLETE**: Post comment with RESOLVER_REASONING, add `blocked` tag. **STOP** — Awaiting user intervention.
 
-- **Test modified**: Go to Test Correction Flow (Step 3.4)
+- **Test modified**: Go to Test Correction Flow (Step 3.5)
 
 - **Only source changed and test PASSES**: Proceed to Step 4
 
 - **Only source changed and test FAILS**:
   - Capture `PREVIOUS_FAILURE_OUTPUT=$TEST_OUTPUT`
-  - **If attempts < 3**: Return to Step 3.1
+  - **If attempts < 3**: Return to Step 3.2
   - **If attempts ≥ 3**: Explain that you couldn't resolve the bug despite multiple attempts. Describe what you tried and identify the specific technical obstacle preventing resolution.
     ```
     POST /issues/[ISSUE_ID]/comments
@@ -324,7 +352,7 @@ Based on changes detected:
     ```
     **STOP** — Resolution failed after maximum attempts.
 
-### 3.4 Test Correction Flow
+### 3.5 Test Correction Flow
 
 1. Increment TEST_CORRECTION_COUNT
 2. **If > 2**: Report that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it can't be trusted to verify the fix.
@@ -339,8 +367,8 @@ Based on changes detected:
 3. Revert source changes: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
-   - **FAILS (valid)**: Commit correction, update TEST_READY_SHA, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.1
-   - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.1. Else post comment explaining test validation failure. **STOP** — Test correction failed.
+   - **FAILS (valid)**: Commit correction, update TEST_READY_SHA, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
+   - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else post comment explaining test validation failure. **STOP** — Test correction failed.
 
 ## 4. Validate Full Suite
 
