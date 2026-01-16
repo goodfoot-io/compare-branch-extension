@@ -97,26 +97,33 @@ if ! printf '%s\n' "$BRANCH_NAME" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9/_-]*$'; the
     exit 2
 fi
 
-# Find workspace root by walking up directory tree looking for .git directory or file
-WORKSPACE_ROOT=""
+# Find both the source workspace (where we're running from) and repository root
+# SOURCE_ROOT: Current workspace (main or worktree) - used for discovering ignored files
+# REPO_ROOT: Main repository root - used for git worktree operations
+SOURCE_ROOT=""
+REPO_ROOT=""
 current_dir="$(pwd)"
+
 while [ "$current_dir" != "/" ]; do
     if [ -d "$current_dir/.git" ]; then
-        # .git directory means this is the main repository root
-        WORKSPACE_ROOT="$current_dir"
+        # Main repository - source and repo are the same
+        SOURCE_ROOT="$current_dir"
+        REPO_ROOT="$current_dir"
         break
     elif [ -f "$current_dir/.git" ]; then
-        # .git file means this is a worktree - resolve to main repository
+        # Worktree - source is here, repo root is main
+        SOURCE_ROOT="$current_dir"
         gitdir_line=$(cat "$current_dir/.git")
         gitdir_path="${gitdir_line#gitdir: }"
+        # Strip /worktrees/<name> to get main .git dir, then get parent for repo root
         main_git_dir="${gitdir_path%/worktrees/*}"
-        WORKSPACE_ROOT="${main_git_dir%/.git}"
+        REPO_ROOT="${main_git_dir%/.git}"
         break
     fi
     current_dir="$(dirname "$current_dir")"
 done
 
-if [ -z "$WORKSPACE_ROOT" ]; then
+if [ -z "$SOURCE_ROOT" ] || [ -z "$REPO_ROOT" ]; then
     printf '%s\n' "Error: Could not find git repository root" >&2
     exit 2
 fi
@@ -128,9 +135,16 @@ if [ -z "$ORIGINAL_HEAD" ]; then
     exit 2
 fi
 
-cd "$WORKSPACE_ROOT"
+# Determine base branch for merge-base calculations (default to main)
+BASE_BRANCH=$(git -C "$SOURCE_ROOT" branch --show-current 2>/dev/null || true)
+if [ -z "$BASE_BRANCH" ] || [ "$BASE_BRANCH" = "HEAD" ]; then
+    BASE_BRANCH="main"
+fi
 
-WORKTREE_DIR="${WORKSPACE_ROOT}/.worktrees/${BRANCH_NAME}"
+# Change to repo root for git worktree operations
+cd "$REPO_ROOT"
+
+WORKTREE_DIR="${REPO_ROOT}/.worktrees/${BRANCH_NAME}"
 
 # Check git worktree list for existing worktree at target path
 if git worktree list | grep -q "${WORKTREE_DIR}"; then
@@ -159,52 +173,37 @@ else
     fi
 fi
 
-# Discover ignored directories using git's built-in gitignore parsing
-# Get all ignored directories, filter nested redundancies
-all_dirs=$(git ls-files --ignored --exclude-standard --directory --others 2>/dev/null | \
-    grep '/$' | sed 's|/$||' | grep -v '^\.worktrees' | sort)
+# Discover ignored items using git's built-in gitignore parsing from SOURCE workspace
+# Note: git ls-files shows directories with trailing '/' but files without '/'
+# Separate directories and files
+all_ignored=$(git -C "$SOURCE_ROOT" ls-files --ignored --exclude-standard --directory --others 2>/dev/null | \
+    grep -v '^\.worktrees' | sort)
 
-# Discover ignored files efficiently using find + git check-ignore
-# Build prune patterns from ignored directories (use basenames for -name matching)
-prune_names=""
-while IFS= read -r d; do
-    [ -z "$d" ] && continue
-    # Get basename of directory for -name matching
-    base=$(basename "$d")
-    # Add to prune pattern if not already present
-    case "$prune_names" in
-        *"-name '$base'"*) ;;  # Already present
-        *) prune_names="$prune_names -name '$base' -o" ;;
-    esac
-done <<< "$all_dirs"
-# Add .worktrees explicitly (always skip)
-prune_names="$prune_names -name '.worktrees'"
+# Extract directories (those with trailing /)
+all_dirs=$(echo "$all_ignored" | grep '/$' | sed 's|/$||')
 
-# Find files, pruning ignored directories, then check which are ignored
-all_files=$(eval "find '$WORKSPACE_ROOT' \\( $prune_names \\) -prune -o -type f -print" 2>/dev/null | \
-    sed "s|^$WORKSPACE_ROOT/||" | \
-    xargs -r git check-ignore 2>/dev/null | \
-    grep -v '^\.git/' | \
-    sort || true)
+# Extract files (those without trailing /)
+all_files=$(echo "$all_ignored" | grep -v '/$')
 
 dir_symlink_count=0
 file_symlink_count=0
 
-# Also find existing symlinks in the workspace root (for worktree-to-worktree creation)
+# Also find existing symlinks in the source workspace root (for worktree-to-worktree creation)
 # These won't be detected by git ls-files --ignored since they're symlinks, not real directories
 # Exclude .git and .worktrees but include other dotfiles like .env
-existing_symlinks=$(find "$WORKSPACE_ROOT" -maxdepth 1 -type l 2>/dev/null | \
-    sed "s|^$WORKSPACE_ROOT/||" | grep -v '^\(\.git\|\.worktrees\)$' | sort || true)
+existing_symlinks=$(find "$SOURCE_ROOT" -maxdepth 1 -type l 2>/dev/null | \
+    sed "s|^$SOURCE_ROOT/||" | grep -v '^\(\.git\|\.worktrees\)$' | sort || true)
 
 # Copy existing top-level symlinks to the new worktree
+# Use ln -snf to create new symlinks pointing to SOURCE_ROOT rather than preserving original targets
 while IFS= read -r link; do
     [ -z "$link" ] && continue
-    [ -L "$WORKSPACE_ROOT/$link" ] || continue
+    [ -L "$SOURCE_ROOT/$link" ] || continue
 
     # Skip if already exists in worktree
     { [ -e "$WORKTREE_DIR/$link" ] || [ -L "$WORKTREE_DIR/$link" ]; } && continue
 
-    cp -P "$WORKSPACE_ROOT/$link" "$WORKTREE_DIR/$link"
+    ln -snf "$SOURCE_ROOT/$link" "$WORKTREE_DIR/$link"
     dir_symlink_count=$((dir_symlink_count + 1))
 done <<< "$existing_symlinks"
 
@@ -213,7 +212,7 @@ while IFS= read -r dir; do
     [ -z "$dir" ] && continue
 
     # Only process directories that actually exist on disk (including symlinks to directories)
-    [ -d "$WORKSPACE_ROOT/$dir" ] || [ -L "$WORKSPACE_ROOT/$dir" ] || continue
+    [ -d "$SOURCE_ROOT/$dir" ] || [ -L "$SOURCE_ROOT/$dir" ] || continue
 
     # Check if any parent directory is in the ignored list
     parent="$dir"
@@ -233,13 +232,10 @@ while IFS= read -r dir; do
             mkdir -p "$WORKTREE_DIR/$parent_dir"
         fi
 
-        # If source is already a symlink, copy it to preserve original target
-        # Otherwise create a new symlink to the source
-        if [ -L "$WORKSPACE_ROOT/$dir" ]; then
-            cp -P "$WORKSPACE_ROOT/$dir" "$WORKTREE_DIR/$dir"
-        else
-            ln -sf "$WORKSPACE_ROOT/$dir" "$WORKTREE_DIR/$dir"
-        fi
+        # Always create a new symlink to the source workspace
+        # This ensures worktrees inherit from their source, not from main
+        # Use -n to avoid following symlinks in the source
+        ln -snf "$SOURCE_ROOT/$dir" "$WORKTREE_DIR/$dir"
         dir_symlink_count=$((dir_symlink_count + 1))
     fi
 done <<< "$all_dirs"
@@ -249,7 +245,7 @@ while IFS= read -r file; do
     [ -z "$file" ] && continue
 
     # Only process files that actually exist on disk (including symlinks to files)
-    [ -f "$WORKSPACE_ROOT/$file" ] || [ -L "$WORKSPACE_ROOT/$file" ] || continue
+    [ -f "$SOURCE_ROOT/$file" ] || [ -L "$SOURCE_ROOT/$file" ] || continue
 
     # Create parent directory in worktree if needed for nested files
     parent_dir=$(dirname "$file")
@@ -257,13 +253,10 @@ while IFS= read -r file; do
         mkdir -p "$WORKTREE_DIR/$parent_dir"
     fi
 
-    # If source is already a symlink, copy it to preserve original target
-    # Otherwise create a new symlink to the source
-    if [ -L "$WORKSPACE_ROOT/$file" ]; then
-        cp -P "$WORKSPACE_ROOT/$file" "$WORKTREE_DIR/$file"
-    else
-        ln -sf "$WORKSPACE_ROOT/$file" "$WORKTREE_DIR/$file"
-    fi
+    # Always create a new symlink to the source workspace
+    # This ensures worktrees inherit from their source, not from main
+    # Use -n to avoid following symlinks in the source
+    ln -snf "$SOURCE_ROOT/$file" "$WORKTREE_DIR/$file"
     file_symlink_count=$((file_symlink_count + 1))
 done <<< "$all_files"
 
@@ -287,7 +280,7 @@ if [ -n "$worktree_git_dir" ]; then
 
     # Enable worktree-specific config and set excludesFile for this worktree
     # These are non-critical - worktree is still usable without them
-    if ! git -C "$WORKSPACE_ROOT" config extensions.worktreeConfig true 2>/dev/null; then
+    if ! git -C "$REPO_ROOT" config extensions.worktreeConfig true 2>/dev/null; then
         echo "Warning: Could not enable worktree-specific config" >&2
         echo "Symlinked paths may appear as unstaged changes. Run: git config extensions.worktreeConfig true" >&2
     fi
@@ -296,6 +289,9 @@ if [ -n "$worktree_git_dir" ]; then
         echo "Symlinked paths may appear as unstaged changes in this worktree." >&2
     fi
 fi
+
+# Get the base commit SHA (the checkpoint commit created for this issue)
+BASE_SHA=$(git -C "$WORKTREE_DIR" rev-parse HEAD 2>/dev/null)
 
 # Get the worktree's git directory for hook installation
 WORKTREE_GIT_DIR=$(git -C "$WORKTREE_DIR" rev-parse --git-dir 2>/dev/null)
@@ -315,6 +311,14 @@ git -C "$WORKTREE_DIR" config --worktree issue.pluginBinDir "$SCRIPT_DIR" 2>/dev
 }
 git -C "$WORKTREE_DIR" config --worktree issue.workspacePath "$ISSUE_WORKSPACE_PATH" 2>/dev/null || {
     printf '%s\n' "Error: Failed to store issue.workspacePath in worktree git config" >&2
+    exit 2
+}
+git -C "$WORKTREE_DIR" config --worktree issue.baseSha "$BASE_SHA" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store issue.baseSha in worktree git config" >&2
+    exit 2
+}
+git -C "$WORKTREE_DIR" config --worktree issue.baseBranch "$BASE_BRANCH" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store issue.baseBranch in worktree git config" >&2
     exit 2
 }
 
@@ -400,5 +404,196 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/pre-push"
 
-# Output results as JSON with issueId included
-printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"issueId\":\"$ISSUE_ID\"}"
+# Install post-commit hook (Issues API + passthrough)
+cat > "${HOOKS_DIR}/post-commit" << HOOK_EOF
+#!/bin/bash
+# post-commit hook - posts commit info to Issues API, then chains to original hook
+# Installed by create-worktree.sh
+# Errors are logged to stderr but do not block git operations
+#
+# This hook handles:
+# 1. Posting the new commit SHA to the Issues API
+# 2. Chained hooks that create additional commits (e.g., git subtree split --rejoin)
+# 3. Cleaning up orphaned commitSha comments after squash operations
+#
+# The orphan cleanup runs after every commit. It identifies commits that are no
+# longer reachable from HEAD (e.g., after git reset --soft + commit) and deletes
+# their associated commitSha comments from the issue.
+
+set -o pipefail
+
+$HOOK_CHAIN_HELPER
+
+# Helper function to post a commit SHA to the Issues API
+post_commit_sha() {
+    local sha="\$1"
+    local issue_id="\$2"
+    local api_base="\$3"
+
+    curl -s -X POST "\$api_base/issues/\$issue_id/comments" \\
+        -H "Content-Type: application/json" \\
+        -d "{\"author\": \"agent\", \"commitSha\": \"\$sha\"}" \\
+        >/dev/null 2>&1 || true
+}
+
+# --- Setup API connection ---
+ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
+WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+API_BASE=""
+
+if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
+    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
+    if [ -f "\$DISCOVERY_FILE" ]; then
+        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+
+        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
+            API_BASE="http://\${HOST}:\${PORT}/api/v1"
+        fi
+    fi
+fi
+
+# --- Record HEAD before any operations ---
+HEAD_BEFORE=\$(git rev-parse HEAD 2>/dev/null)
+
+# --- Post the current commit ---
+if [ -n "\$API_BASE" ] && [ -n "\$HEAD_BEFORE" ]; then
+    post_commit_sha "\$HEAD_BEFORE" "\$ISSUE_ID" "\$API_BASE"
+fi
+
+# --- Chain to original hook ---
+ORIGINAL_HOOK=\$(get_original_hook "post-commit")
+if [ -n "\$ORIGINAL_HOOK" ]; then
+    "\$ORIGINAL_HOOK" "\$@"
+fi
+
+# --- Check if HEAD changed after chaining ---
+# Chained hooks may create additional commits (e.g., subtree split --rejoin)
+HEAD_AFTER=\$(git rev-parse HEAD 2>/dev/null)
+if [ -n "\$API_BASE" ] && [ -n "\$HEAD_AFTER" ] && [ "\$HEAD_AFTER" != "\$HEAD_BEFORE" ]; then
+    post_commit_sha "\$HEAD_AFTER" "\$ISSUE_ID" "\$API_BASE"
+fi
+
+# --- Clean up orphaned commit comments ---
+# After squash (git reset --soft + commit), old commits become unreachable.
+# This cleanup removes commitSha comments for commits no longer on the branch.
+# Valid commits: baseSha + all commits between baseSha and current HEAD.
+if [ -n "\$API_BASE" ]; then
+    BASE_SHA=\$(git config --worktree issue.baseSha 2>/dev/null)
+    if [ -n "\$BASE_SHA" ]; then
+        # Build set of valid SHAs (baseSha + descendants)
+        VALID_SHAS=\$(git rev-list "\$BASE_SHA"..HEAD 2>/dev/null || true)
+        VALID_SHAS="\$BASE_SHA"\$'\\n'"\$VALID_SHAS"
+
+        # Fetch all comments and delete orphaned commitSha comments
+        COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
+        if [ -n "\$COMMENTS" ]; then
+            echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \\
+            while read -r comment_id commit_sha; do
+                if [ -n "\$commit_sha" ] && ! echo "\$VALID_SHAS" | grep -qx "\$commit_sha"; then
+                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
+                fi
+            done
+        fi
+    fi
+fi
+
+exit 0
+HOOK_EOF
+chmod +x "${HOOKS_DIR}/post-commit"
+
+# Install post-rewrite hook (Issues API + passthrough)
+cat > "${HOOKS_DIR}/post-rewrite" << HOOK_EOF
+#!/bin/bash
+# post-rewrite hook - handles rebase/amend, then chains to original hook
+# Installed by create-worktree.sh
+# Errors are logged to stderr but do not block git operations
+
+set -o pipefail
+
+$HOOK_CHAIN_HELPER
+
+# Capture stdin for potential passthrough (post-rewrite receives old/new SHA pairs)
+STDIN_DATA=\$(cat)
+
+# --- Issues API posting ---
+ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
+WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+# Update baseSha after rewrite using stored baseBranch
+BASE_BRANCH=\$(git config --worktree issue.baseBranch 2>/dev/null)
+BASE_SHA_OLD=\$(git config --worktree issue.baseSha 2>/dev/null)
+BASE_SHA_NEW=""
+BASE_SHA_UPDATED=false
+BASE_SHA_SHOULD_REPLACE=false
+
+if [ -n "\$BASE_BRANCH" ]; then
+    BASE_SHA_NEW=\$(git merge-base HEAD "\$BASE_BRANCH" 2>/dev/null || true)
+fi
+
+if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
+    BASE_SHA_SHOULD_REPLACE=true
+    if git config --worktree issue.baseSha "\$BASE_SHA_NEW" 2>/dev/null; then
+        BASE_SHA_UPDATED=true
+    fi
+fi
+
+if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
+    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
+    if [ -f "\$DISCOVERY_FILE" ]; then
+        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
+
+        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
+            API_BASE="http://\${HOST}:\${PORT}/api/v1"
+            NEW_SHA=\$(git rev-parse HEAD)
+
+            # Collect old SHAs from stdin data
+            OLD_SHAS=()
+            while read old_sha new_sha extra; do
+                OLD_SHAS+=("\$old_sha")
+            done <<< "\$STDIN_DATA"
+
+            BASE_SHA_OLD_DERIVED=""
+            if [ -n "\$BASE_BRANCH" ] && [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
+                BASE_SHA_OLD_DERIVED=\$(git merge-base "\${OLD_SHAS[0]}" "\$BASE_BRANCH" 2>/dev/null || true)
+            fi
+            if [ -n "\$BASE_SHA_OLD_DERIVED" ] && [ "\$BASE_SHA_OLD_DERIVED" != "\$BASE_SHA_NEW" ]; then
+                BASE_SHA_OLD="\$BASE_SHA_OLD_DERIVED"
+                BASE_SHA_SHOULD_REPLACE=true
+            fi
+
+            COMMENTS=""
+            if [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
+                COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
+            fi
+
+            # Post new commit comment
+            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \\
+                -H "Content-Type: application/json" \\
+                -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \\
+                >/dev/null 2>&1 || true
+
+            # Delete old commit comments
+            if [ -n "\$COMMENTS" ]; then
+                for old_sha in "\${OLD_SHAS[@]}"; do
+                    COMMENT_ID=\$(echo "\$COMMENTS" | jq -r --arg sha "\$old_sha" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null)
+                    if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
+                        curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
+                    fi
+                done
+            fi
+        fi
+    fi
+fi
+
+# --- Chain to original hook ---
+ORIGINAL_HOOK=\$(get_original_hook "post-rewrite")
+if [ -n "\$ORIGINAL_HOOK" ]; then
+    echo "\$STDIN_DATA" | exec "\$ORIGINAL_HOOK" "\$@"
+fi
+exit 0
+HOOK_EOF
+chmod +x "${HOOKS_DIR}/post-rewrite"
+
+# Output results as JSON with baseSha and issueId included
+printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
