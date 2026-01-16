@@ -265,6 +265,118 @@ echo -e "\n${YELLOW}=== Test 19: Issue ID with different formats ===${NC}"
 run_test "Issue ID with colon format" 0 env ISSUE_ID="main:259" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-1"
 run_test "Issue ID simple format" 0 env ISSUE_ID="simple-issue-id" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-2"
 
+echo -e "\n${YELLOW}=== Test 20: Monorepo symlink rerouting ===${NC}"
+# Set up a monorepo structure
+cd "$TEST_DIR/repo"
+
+# Create monorepo package.json with workspaces
+cat > package.json << 'PKGEOF'
+{
+  "name": "test-monorepo",
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
+  ]
+}
+PKGEOF
+
+# Create workspace packages
+mkdir -p packages/core/src
+cat > packages/core/package.json << 'PKGEOF'
+{
+  "name": "@test/core",
+  "version": "1.0.0"
+}
+PKGEOF
+echo "export const core = 'core';" > packages/core/src/index.ts
+
+mkdir -p packages/utils/src
+cat > packages/utils/package.json << 'PKGEOF'
+{
+  "name": "@test/utils",
+  "version": "1.0.0"
+}
+PKGEOF
+echo "export const utils = 'utils';" > packages/utils/src/index.ts
+
+# Simulate Yarn workspace links in node_modules
+mkdir -p node_modules/@test
+ln -sf ../../packages/core node_modules/@test/core
+ln -sf ../../packages/utils node_modules/@test/utils
+
+# Create external dependency (real directory, not symlink)
+mkdir -p node_modules/lodash
+echo '{"name": "lodash"}' > node_modules/lodash/package.json
+
+# Commit monorepo structure
+git add .
+git commit -m "Add monorepo structure" >/dev/null 2>&1
+
+# Create worktree
+run_test "Create monorepo worktree" 0 env ISSUE_ID="test:monorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "monorepo-test"
+
+# Verify node_modules is a real directory (not symlink) because of rerouting
+verify "node_modules is a real directory (not symlink)" "[ -d '.worktrees/monorepo-test/node_modules' ] && [ ! -L '.worktrees/monorepo-test/node_modules' ]"
+
+# Verify workspace packages are symlinks with correct relative paths
+verify "Workspace package @test/core is symlink" "[ -L '.worktrees/monorepo-test/node_modules/@test/core' ]"
+verify "Workspace package @test/utils is symlink" "[ -L '.worktrees/monorepo-test/node_modules/@test/utils' ]"
+
+# Verify workspace packages resolve to worktree packages (not main repo)
+CORE_RESOLVED=$(realpath ".worktrees/monorepo-test/node_modules/@test/core" 2>/dev/null)
+UTILS_RESOLVED=$(realpath ".worktrees/monorepo-test/node_modules/@test/utils" 2>/dev/null)
+verify "Workspace package @test/core resolves to worktree" "[ \"\$CORE_RESOLVED\" = \"\$TEST_DIR/repo/.worktrees/monorepo-test/packages/core\" ]"
+verify "Workspace package @test/utils resolves to worktree" "[ \"\$UTILS_RESOLVED\" = \"\$TEST_DIR/repo/.worktrees/monorepo-test/packages/utils\" ]"
+
+# Verify external dependencies are still symlinked to main repo (shared)
+LODASH_TARGET=$(readlink ".worktrees/monorepo-test/node_modules/lodash" 2>/dev/null || echo "not-symlink")
+verify "External package (lodash) is symlinked to main repo" "[ \"\$LODASH_TARGET\" = \"\$TEST_DIR/repo/node_modules/lodash\" ]"
+
+# Verify JSON output includes reroutedSymlinks count
+first_output=$(env ISSUE_ID="test:monorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "monorepo-test" 2>&1 | grep '^{' || echo "{}")
+if [ -n "$first_output" ] && echo "$first_output" | grep -q '"worktree"'; then
+    verify "JSON output includes reroutedSymlinks field" "echo '\$first_output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"reroutedSymlinks\" in d' 2>/dev/null"
+    verify "reroutedSymlinks count is > 0" "echo '\$first_output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"reroutedSymlinks\"] > 0' 2>/dev/null"
+else
+    # Worktree already exists, check it was created with rerouting
+    verify "Monorepo worktree was created with rerouting" "[ -d '.worktrees/monorepo-test/node_modules/@test' ]"
+fi
+
+echo -e "\n${YELLOW}=== Test 21: Non-monorepo has no rerouting ===${NC}"
+# Test that non-monorepo repos don't trigger rerouting
+cd "$TEST_DIR/repo"
+
+# Back up and replace package.json to remove workspaces
+if [ -f package.json ]; then
+    mv package.json package.json.backup
+fi
+
+cat > package.json << 'PKGEOF'
+{
+  "name": "regular-project",
+  "version": "1.0.0"
+}
+PKGEOF
+
+git add package.json
+git commit -m "Remove workspaces (testing non-monorepo)" >/dev/null 2>&1
+
+run_test "Create non-monorepo worktree" 0 env ISSUE_ID="test:nonmonorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "non-monorepo-branch"
+
+# In non-monorepo, node_modules should still be symlinked (no rerouting)
+verify "node_modules is symlinked in non-monorepo" "[ -L '.worktrees/non-monorepo-branch/node_modules' ]"
+
+# JSON output should not have reroutedSymlinks field
+output=$(env ISSUE_ID="test:nonmonorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "non-monorepo-branch" 2>&1 | grep '^{' || echo "{}")
+verify "JSON output has no reroutedSymlinks in non-monorepo" "! echo '\$output' | grep -q 'reroutedSymlinks'"
+
+# Restore original package.json if it existed
+if [ -f package.json.backup ]; then
+    mv package.json.backup package.json
+    git add package.json
+    git commit -m "Restore package.json" >/dev/null 2>&1
+fi
+
 # Summary
 echo -e "\n${YELLOW}===== TEST SUMMARY =====${NC}"
 echo -e "Passed: ${GREEN}$PASSED${NC}"

@@ -6,6 +6,10 @@
 # passthrough hooks for pre-commit and pre-push to chain to project hooks.
 # Commit tracking is handled by Claude Code hooks (PostToolUse), not git hooks.
 #
+# In Yarn monorepos, workspace package symlinks are automatically re-routed to point
+# to the worktree's packages (not the main workspace), ensuring type checking works
+# correctly even when branches are on different commits.
+#
 # This is a standalone script that does not depend on external worktree utilities.
 #
 # Usage: ISSUE_ID=<id> create-worktree <branch-name>
@@ -259,6 +263,103 @@ while IFS= read -r file; do
     ln -snf "$SOURCE_ROOT/$file" "$WORKTREE_DIR/$file"
     file_symlink_count=$((file_symlink_count + 1))
 done <<< "$all_files"
+
+# Re-route workspace package symlinks in Yarn monorepos
+# This prevents type errors when worktree and source are on different commits
+reroute_node_modules_count=0
+if [ -f "$REPO_ROOT/package.json" ]; then
+    if grep -q '"workspaces"' "$REPO_ROOT/package.json" 2>/dev/null; then
+        # Function to detect if symlink points to internal repository paths
+        is_internal_symlink() {
+            local target="$1"
+            case "$target" in
+                ../../packages/*|../packages/*) return 0 ;;  # Workspace packages
+                ../../.yarn/*|../.yarn/*)       return 0 ;;  # Yarn cache
+                ../../apps/*|../apps/*)         return 0 ;;  # Apps directory
+                ../../libs/*|../libs/*)         return 0 ;;  # Libs directory
+                *)                              return 1 ;;  # External
+            esac
+        }
+
+        # Function to reroute node_modules directory
+        reroute_node_modules() {
+            local src="$1"  # Source node_modules (from SOURCE_ROOT)
+            local dst="$2"  # Destination node_modules (in worktree)
+
+            [ -d "$src" ] || return 0
+
+            # If destination is a symlink, remove it first
+            [ -L "$dst" ] && rm "$dst"
+
+            # Create as real directory
+            mkdir -p "$dst"
+
+            # Process all top-level entries
+            for entry in "$src"/*; do
+                [ -e "$entry" ] || [ -L "$entry" ] || continue
+                name=$(basename "$entry")
+
+                if [ -L "$entry" ]; then
+                    # Entry is a symlink
+                    target=$(readlink "$entry")
+                    if is_internal_symlink "$target"; then
+                        # Internal - preserve relative path (auto-routes to worktree)
+                        ln -sf "$target" "$dst/$name"
+                        reroute_node_modules_count=$((reroute_node_modules_count + 1))
+                    else
+                        # External - link to original location
+                        ln -sf "$entry" "$dst/$name"
+                    fi
+                elif [ -d "$entry" ]; then
+                    # Entry is a directory
+                    if [[ "$name" == @* ]]; then
+                        # Scoped package directory - process contents
+                        mkdir -p "$dst/$name"
+                        for pkg in "$entry"/*; do
+                            [ -e "$pkg" ] || [ -L "$pkg" ] || continue
+                            pkg_name=$(basename "$pkg")
+
+                            if [ -L "$pkg" ]; then
+                                target=$(readlink "$pkg")
+                                if is_internal_symlink "$target"; then
+                                    ln -sf "$target" "$dst/$name/$pkg_name"
+                                    reroute_node_modules_count=$((reroute_node_modules_count + 1))
+                                else
+                                    ln -sf "$pkg" "$dst/$name/$pkg_name"
+                                fi
+                            else
+                                # Real directory - link whole thing
+                                ln -sf "$pkg" "$dst/$name/$pkg_name"
+                            fi
+                        done
+                    else
+                        # Non-scoped directory - link entire thing
+                        ln -sf "$entry" "$dst/$name"
+                    fi
+                else
+                    # File - link to original
+                    ln -sf "$entry" "$dst/$name"
+                fi
+            done
+        }
+
+        # Reroute root node_modules
+        if [ -d "$SOURCE_ROOT/node_modules" ]; then
+            reroute_node_modules "$SOURCE_ROOT/node_modules" "$WORKTREE_DIR/node_modules"
+        fi
+
+        # Reroute package-level node_modules (common in monorepos)
+        if [ -d "$SOURCE_ROOT/packages" ]; then
+            for pkg_dir in "$SOURCE_ROOT/packages"/*; do
+                [ -d "$pkg_dir" ] || continue
+                pkg_name=$(basename "$pkg_dir")
+                if [ -d "$pkg_dir/node_modules" ]; then
+                    reroute_node_modules "$pkg_dir/node_modules" "$WORKTREE_DIR/packages/$pkg_name/node_modules"
+                fi
+            done
+        fi
+    fi
+fi
 
 # Add symlinked paths to worktree's local exclude file
 # (Symlinks aren't matched by gitignore patterns with trailing slashes)
@@ -596,4 +697,8 @@ HOOK_EOF
 chmod +x "${HOOKS_DIR}/post-rewrite"
 
 # Output results as JSON with baseSha and issueId included
-printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
+if [ "$reroute_node_modules_count" -gt 0 ]; then
+    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\",\"reroutedSymlinks\":$reroute_node_modules_count}"
+else
+    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
+fi
