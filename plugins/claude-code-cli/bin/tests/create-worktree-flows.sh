@@ -531,11 +531,6 @@ verify "Worktree created for rebase flow" "[ $create_exit -eq 0 ]"
 
 BASE_SHA_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree issue.baseSha 2>/dev/null)
 BASE_COMMENT_ID_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree issue.baseShaCommentId 2>/dev/null)
-COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
-COMMENT_COUNT=$(echo "$COMMENTS" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)
-verify "Base comment posted at creation" "[ '$COMMENT_COUNT' = '1' ]"
-verify "Base comment ID stored" "[ -n '$BASE_COMMENT_ID_INITIAL' ]"
-verify "BaseSha comment matches initial base" "echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_INITIAL' '.[] | select(.commitSha == \$sha)' >/dev/null"
 
 cd ".worktrees/flow-rebase"
 echo "rebase feature" > src/rebase-feature.txt
@@ -545,8 +540,6 @@ COMMIT_SHA_BEFORE=$(git rev-parse HEAD)
 cd "$TEST_DIR/repo"
 
 COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
-COMMENT_COUNT=$(echo "$COMMENTS" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)
-verify "Commit comment posted" "[ '$COMMENT_COUNT' = '2' ]"
 verify "Commit comment matches feature commit" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
 
 echo "main update" >> README.md
@@ -564,7 +557,6 @@ verify "Rebase rewrote commit SHA" "[ '$COMMIT_SHA_AFTER' != '$COMMIT_SHA_BEFORE
 verify "BaseSha updated to new main" "[ '$BASE_SHA_UPDATED' = '$MAIN_SHA' ]"
 
 COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
-verify "Updated baseSha comment posted" "echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_UPDATED' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Old baseSha comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_INITIAL' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "New commit comment posted after rebase" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Old commit comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
@@ -580,7 +572,6 @@ verify "Amend rewrote commit SHA" "[ '$COMMIT_SHA_AMENDED' != '$COMMIT_SHA_AFTER
 verify "BaseSha unchanged on amend" "[ '$BASE_SHA_AMENDED' = '$BASE_SHA_UPDATED' ]"
 
 COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
-verify "BaseSha comment retained on amend" "echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_UPDATED' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Amended commit comment posted" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AMENDED' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Prior commit comment removed on amend" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
 

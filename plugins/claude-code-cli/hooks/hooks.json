@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/user-prompt-submit.8d0075bd.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/user-prompt-submit.65147b51.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.a266a2b1.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.d9da6903.mjs"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-state-reload.fcf8d6a5.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-state-reload.c0a4b788.mjs"
           }
         ],
         "matcher": "compact"
@@ -34,11 +34,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-session-register.10c55885.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-session-register.b2551c86.mjs"
           },
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-dispatcher-active.a68816b1.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-dispatcher-active.63351cd7.mjs"
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-startup.038b2432.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-startup.0a9cb051.mjs"
           }
         ],
         "matcher": "startup"
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-resume.7db3e938.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context-resume.7f1483a0.mjs"
           }
         ],
         "matcher": "resume"
@@ -66,11 +66,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-state-cleanup.6d0c7d2c.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-state-cleanup.27b716e8.mjs"
           },
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-session-end.73c244bd.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end-session-end.50c0cc42.mjs"
           }
         ]
       }
@@ -80,26 +80,36 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use.a3167a6c.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use.d521d538.mjs"
           }
         ],
         "matcher": "Skill"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-git-commit.b3909fe5.mjs"
+          }
+        ],
+        "matcher": "Bash"
       }
     ]
   },
   "__generated": {
     "files": [
-      "user-prompt-submit.8d0075bd.mjs",
-      "stop.a266a2b1.mjs",
-      "session-start-state-reload.fcf8d6a5.mjs",
-      "session-start-session-register.10c55885.mjs",
-      "session-start-dispatcher-active.a68816b1.mjs",
-      "session-start-context-startup.038b2432.mjs",
-      "session-start-context-resume.7db3e938.mjs",
-      "session-end-state-cleanup.6d0c7d2c.mjs",
-      "session-end-session-end.73c244bd.mjs",
-      "post-tool-use.a3167a6c.mjs"
+      "user-prompt-submit.65147b51.mjs",
+      "stop.d9da6903.mjs",
+      "session-start-state-reload.c0a4b788.mjs",
+      "session-start-session-register.b2551c86.mjs",
+      "session-start-dispatcher-active.63351cd7.mjs",
+      "session-start-context-startup.0a9cb051.mjs",
+      "session-start-context-resume.7f1483a0.mjs",
+      "session-end-state-cleanup.27b716e8.mjs",
+      "session-end-session-end.50c0cc42.mjs",
+      "post-tool-use.d521d538.mjs",
+      "post-tool-use-git-commit.b3909fe5.mjs"
     ],
-    "timestamp": "2026-01-09T22:27:10.587Z"
+    "timestamp": "2026-01-18T01:14:57.168Z"
   }
 }

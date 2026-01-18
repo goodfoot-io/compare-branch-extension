@@ -1,7 +1,7 @@
 [![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/goodfoot.compare-branch?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
 [![Open VSX Registry](https://img.shields.io/open-vsx/v/goodfoot/compare-branch?label=Open%20VSX)](https://open-vsx.org/extension/goodfoot/compare-branch)
 
-Compare Branch is a performance-optimized VS Code extension that provides comprehensive branch comparison in a hierarchical tree view. See all differences between your working branch and its target without leaving your editor.
+Compare Branch is a performance-optimized VS Code extension that provides comprehensive branch comparison in a hierarchical tree view. See all differences between your working branch and its base git ref without leaving your editor.
 
 **Built for development teams working with:**
 
@@ -176,7 +176,7 @@ No configuration required.
 
 ### Branch Comparison
 
-The extension displays all files that differ between your current branch and the selected source branch (typically main or develop).
+The extension displays all files that differ between your current branch and the selected base branch (typically main or develop).
 
 **View modes:**
 
@@ -185,13 +185,13 @@ The extension displays all files that differ between your current branch and the
 
 Toggle via toolbar icon.
 
-### Source Branch Selection
+### Base Branch Selection
 
 **Automatic detection (recommended):**
 Reads upstream branch configuration from git. Updates automatically when you switch branches or pull changes.
 
 **Manual selection:**
-Click the branch selector icon to choose any branch, commit, or tag. Return to automatic mode via "Enable Auto-Detect Source Branch" command.
+Click the branch selector icon to choose any branch, commit, or tag. Return to automatic mode via "Enable Auto-Detect Base Branch" command.
 
 ### File Operations
 
@@ -218,8 +218,8 @@ Click the branch selector icon to choose any branch, commit, or tag. Return to a
 
 Access via Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`):
 
-- **Compare Branch: Change Source Branch** — Select different comparison target
-- **Compare Branch: Enable Auto-Detect Source Branch** — Return to automatic detection
+- **Compare Branch: Change Base Branch** — Select different comparison base
+- **Compare Branch: Enable Auto-Detect Base Branch** — Return to automatic detection
 - **Compare Branch: Refresh** — Manually trigger view refresh
 - **Compare Branch: Switch to All Files Mode** — Display complete file tree
 - **Compare Branch: Switch to Changed Files Mode** — Display changed files only
@@ -289,7 +289,7 @@ Yes. Non-blocking architecture with automatic refresh as commits are created.
 GitLens provides comprehensive git functionality. Compare Branch focuses on branch comparison. Choose based on your specific workflow requirements.
 
 **Can I compare any two branches?**
-Yes. Use the "Change Source Branch" command to select any branch, commit, or tag.
+Yes. Use the "Change Base Branch" command to select any branch, commit, or tag.
 
 **Does it support large repositories?**
 Yes. Progressive loading maintains performance with repositories containing 10,000+ files.

@@ -1,29 +1,29 @@
 #!/bin/bash
 
-# create-worktree: Create a git worktree with automatic commitSha posting via git hooks
+# create-worktree: Create a git worktree with symlinked ignored directories
 #
-# This script creates a git worktree with symlinked ignored directories and installs
-# git hooks that automatically post commit information to the Issues API. The hooks
-# handle both regular commits and rebase/amend scenarios.
+# This script creates a git worktree with symlinked ignored directories and
+# passthrough hooks for pre-commit and pre-push to chain to project hooks.
+# Commit tracking is handled by Claude Code hooks (PostToolUse), not git hooks.
+#
+# In Yarn monorepos, workspace package symlinks are automatically re-routed to point
+# to the worktree's packages (not the main workspace), ensuring type checking works
+# correctly even when branches are on different commits.
 #
 # This is a standalone script that does not depend on external worktree utilities.
 #
 # Usage: ISSUE_ID=<id> create-worktree <branch-name>
 #
 # Environment:
-#   ISSUE_ID    Required. The issue ID to associate with commits (e.g., main:259)
+#   ISSUE_ID    Required. The issue ID to associate with the worktree (e.g., main:259)
 #
 # Options:
 #   --help      Show this help message
 #
-# Output: JSON with branch, worktree, baseSha, and issueId
+# Output: JSON with branch, worktree, and issueId
 # Exit codes:
 #   0 - Success
 #   2 - Failure (error details on stderr)
-#
-# The script installs two hooks in the worktree's git directory:
-#   - post-commit: Posts commit info to Issues API after each commit, cleans up orphaned commits
-#   - post-rewrite: Handles rebase/amend by posting new commit and cleaning up old comments
 
 set -e
 
@@ -62,16 +62,16 @@ done
 if [ "$SHOW_HELP" = "true" ]; then
     printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>"
     printf '%s\n' ""
-    printf '%s\n' "Creates a git worktree with automatic commitSha posting via git hooks."
+    printf '%s\n' "Creates a git worktree with symlinked ignored directories."
     printf '%s\n' ""
     printf '%s\n' "Environment:"
-    printf '%s\n' "  ISSUE_ID    Required. The issue ID to associate with commits (e.g., main:259)"
+    printf '%s\n' "  ISSUE_ID    Required. The issue ID to associate with the worktree (e.g., main:259)"
     printf '%s\n' ""
     printf '%s\n' "Options:"
     printf '%s\n' "  --help      Show this help message"
     printf '%s\n' ""
-    printf '%s\n' "The script installs hooks that automatically post commit information"
-    printf '%s\n' "to the Issues API after each commit or rebase."
+    printf '%s\n' "The script creates symlinks to ignored directories and installs passthrough"
+    printf '%s\n' "hooks to chain to project pre-commit/pre-push hooks."
     exit 0
 fi
 
@@ -101,39 +101,54 @@ if ! printf '%s\n' "$BRANCH_NAME" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9/_-]*$'; the
     exit 2
 fi
 
-# Find workspace root by walking up directory tree looking for .git directory or file
-WORKSPACE_ROOT=""
+# Find both the source workspace (where we're running from) and repository root
+# SOURCE_ROOT: Current workspace (main or worktree) - used for discovering ignored files
+# REPO_ROOT: Main repository root - used for git worktree operations
+SOURCE_ROOT=""
+REPO_ROOT=""
 current_dir="$(pwd)"
+
 while [ "$current_dir" != "/" ]; do
     if [ -d "$current_dir/.git" ]; then
-        # .git directory means this is the main repository root
-        WORKSPACE_ROOT="$current_dir"
+        # Main repository - source and repo are the same
+        SOURCE_ROOT="$current_dir"
+        REPO_ROOT="$current_dir"
         break
     elif [ -f "$current_dir/.git" ]; then
-        # .git file means this is a worktree - resolve to main repository
+        # Worktree - source is here, repo root is main
+        SOURCE_ROOT="$current_dir"
         gitdir_line=$(cat "$current_dir/.git")
         gitdir_path="${gitdir_line#gitdir: }"
+        # Strip /worktrees/<name> to get main .git dir, then get parent for repo root
         main_git_dir="${gitdir_path%/worktrees/*}"
-        WORKSPACE_ROOT="${main_git_dir%/.git}"
+        REPO_ROOT="${main_git_dir%/.git}"
         break
     fi
     current_dir="$(dirname "$current_dir")"
 done
 
-if [ -z "$WORKSPACE_ROOT" ]; then
+if [ -z "$SOURCE_ROOT" ] || [ -z "$REPO_ROOT" ]; then
     printf '%s\n' "Error: Could not find git repository root" >&2
     exit 2
 fi
 
-cd "$WORKSPACE_ROOT"
+# Capture current HEAD before changing directories (for branching from current context)
+ORIGINAL_HEAD=$(git rev-parse HEAD 2>/dev/null)
+if [ -z "$ORIGINAL_HEAD" ]; then
+    printf '%s\n' "Error: Could not determine current HEAD" >&2
+    exit 2
+fi
 
 # Determine base branch for merge-base calculations (default to main)
-BASE_BRANCH=$(git -C "$WORKSPACE_ROOT" branch --show-current 2>/dev/null || true)
+BASE_BRANCH=$(git -C "$SOURCE_ROOT" branch --show-current 2>/dev/null || true)
 if [ -z "$BASE_BRANCH" ] || [ "$BASE_BRANCH" = "HEAD" ]; then
     BASE_BRANCH="main"
 fi
 
-WORKTREE_DIR="${WORKSPACE_ROOT}/.worktrees/${BRANCH_NAME}"
+# Change to repo root for git worktree operations
+cd "$REPO_ROOT"
+
+WORKTREE_DIR="${REPO_ROOT}/.worktrees/${BRANCH_NAME}"
 
 # Check git worktree list for existing worktree at target path
 if git worktree list | grep -q "${WORKTREE_DIR}"; then
@@ -155,68 +170,44 @@ if [ "$BRANCH_EXISTS" = "true" ]; then
         exit 2
     fi
 else
-    if ! git_output=$(git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" 2>&1); then
+    if ! git_output=$(git worktree add -b "$BRANCH_NAME" "$WORKTREE_DIR" "$ORIGINAL_HEAD" 2>&1); then
         printf '%s\n' "Error: Failed to create worktree" >&2
         printf '%s\n' "$git_output" >&2
         exit 2
     fi
 fi
 
-# Create empty checkpoint commit as explicit boundary marker
-# This commit serves as the baseSha for the issue, providing a clear,
-# intentional boundary between pre-existing commits and issue work.
-# The checkpoint commit contains no file changes—it exists solely as a marker.
-if ! git -C "$WORKTREE_DIR" commit --allow-empty -m "checkpoint: $ISSUE_ID" >/dev/null 2>&1; then
-    printf '%s\n' "Error: Failed to create checkpoint commit" >&2
-    exit 2
-fi
+# Discover ignored items using git's built-in gitignore parsing from SOURCE workspace
+# Note: git ls-files shows directories with trailing '/' but files without '/'
+# Separate directories and files
+all_ignored=$(git -C "$SOURCE_ROOT" ls-files --ignored --exclude-standard --directory --others 2>/dev/null | \
+    grep -v '^\.worktrees' | sort)
 
-# Discover ignored directories using git's built-in gitignore parsing
-# Get all ignored directories, filter nested redundancies
-all_dirs=$(git ls-files --ignored --exclude-standard --directory --others 2>/dev/null | \
-    grep '/$' | sed 's|/$||' | grep -v '^\.worktrees' | sort)
+# Extract directories (those with trailing /)
+all_dirs=$(echo "$all_ignored" | grep '/$' | sed 's|/$||')
 
-# Discover ignored files efficiently using find + git check-ignore
-# Build prune patterns from ignored directories (use basenames for -name matching)
-prune_names=""
-while IFS= read -r d; do
-    [ -z "$d" ] && continue
-    # Get basename of directory for -name matching
-    base=$(basename "$d")
-    # Add to prune pattern if not already present
-    case "$prune_names" in
-        *"-name '$base'"*) ;;  # Already present
-        *) prune_names="$prune_names -name '$base' -o" ;;
-    esac
-done <<< "$all_dirs"
-# Add .worktrees explicitly (always skip)
-prune_names="$prune_names -name '.worktrees'"
-
-# Find files, pruning ignored directories, then check which are ignored
-all_files=$(eval "find '$WORKSPACE_ROOT' \\( $prune_names \\) -prune -o -type f -print" 2>/dev/null | \
-    sed "s|^$WORKSPACE_ROOT/||" | \
-    xargs -r git check-ignore 2>/dev/null | \
-    grep -v '^\.git/' | \
-    sort || true)
+# Extract files (those without trailing /)
+all_files=$(echo "$all_ignored" | grep -v '/$')
 
 dir_symlink_count=0
 file_symlink_count=0
 
-# Also find existing symlinks in the workspace root (for worktree-to-worktree creation)
+# Also find existing symlinks in the source workspace root (for worktree-to-worktree creation)
 # These won't be detected by git ls-files --ignored since they're symlinks, not real directories
 # Exclude .git and .worktrees but include other dotfiles like .env
-existing_symlinks=$(find "$WORKSPACE_ROOT" -maxdepth 1 -type l 2>/dev/null | \
-    sed "s|^$WORKSPACE_ROOT/||" | grep -v '^\(\.git\|\.worktrees\)$' | sort || true)
+existing_symlinks=$(find "$SOURCE_ROOT" -maxdepth 1 -type l 2>/dev/null | \
+    sed "s|^$SOURCE_ROOT/||" | grep -v '^\(\.git\|\.worktrees\)$' | sort || true)
 
 # Copy existing top-level symlinks to the new worktree
+# Use ln -snf to create new symlinks pointing to SOURCE_ROOT rather than preserving original targets
 while IFS= read -r link; do
     [ -z "$link" ] && continue
-    [ -L "$WORKSPACE_ROOT/$link" ] || continue
+    [ -L "$SOURCE_ROOT/$link" ] || continue
 
     # Skip if already exists in worktree
     { [ -e "$WORKTREE_DIR/$link" ] || [ -L "$WORKTREE_DIR/$link" ]; } && continue
 
-    cp -P "$WORKSPACE_ROOT/$link" "$WORKTREE_DIR/$link"
+    ln -snf "$SOURCE_ROOT/$link" "$WORKTREE_DIR/$link"
     dir_symlink_count=$((dir_symlink_count + 1))
 done <<< "$existing_symlinks"
 
@@ -225,7 +216,7 @@ while IFS= read -r dir; do
     [ -z "$dir" ] && continue
 
     # Only process directories that actually exist on disk (including symlinks to directories)
-    [ -d "$WORKSPACE_ROOT/$dir" ] || [ -L "$WORKSPACE_ROOT/$dir" ] || continue
+    [ -d "$SOURCE_ROOT/$dir" ] || [ -L "$SOURCE_ROOT/$dir" ] || continue
 
     # Check if any parent directory is in the ignored list
     parent="$dir"
@@ -245,13 +236,10 @@ while IFS= read -r dir; do
             mkdir -p "$WORKTREE_DIR/$parent_dir"
         fi
 
-        # If source is already a symlink, copy it to preserve original target
-        # Otherwise create a new symlink to the source
-        if [ -L "$WORKSPACE_ROOT/$dir" ]; then
-            cp -P "$WORKSPACE_ROOT/$dir" "$WORKTREE_DIR/$dir"
-        else
-            ln -sf "$WORKSPACE_ROOT/$dir" "$WORKTREE_DIR/$dir"
-        fi
+        # Always create a new symlink to the source workspace
+        # This ensures worktrees inherit from their source, not from main
+        # Use -n to avoid following symlinks in the source
+        ln -snf "$SOURCE_ROOT/$dir" "$WORKTREE_DIR/$dir"
         dir_symlink_count=$((dir_symlink_count + 1))
     fi
 done <<< "$all_dirs"
@@ -261,7 +249,7 @@ while IFS= read -r file; do
     [ -z "$file" ] && continue
 
     # Only process files that actually exist on disk (including symlinks to files)
-    [ -f "$WORKSPACE_ROOT/$file" ] || [ -L "$WORKSPACE_ROOT/$file" ] || continue
+    [ -f "$SOURCE_ROOT/$file" ] || [ -L "$SOURCE_ROOT/$file" ] || continue
 
     # Create parent directory in worktree if needed for nested files
     parent_dir=$(dirname "$file")
@@ -269,15 +257,109 @@ while IFS= read -r file; do
         mkdir -p "$WORKTREE_DIR/$parent_dir"
     fi
 
-    # If source is already a symlink, copy it to preserve original target
-    # Otherwise create a new symlink to the source
-    if [ -L "$WORKSPACE_ROOT/$file" ]; then
-        cp -P "$WORKSPACE_ROOT/$file" "$WORKTREE_DIR/$file"
-    else
-        ln -sf "$WORKSPACE_ROOT/$file" "$WORKTREE_DIR/$file"
-    fi
+    # Always create a new symlink to the source workspace
+    # This ensures worktrees inherit from their source, not from main
+    # Use -n to avoid following symlinks in the source
+    ln -snf "$SOURCE_ROOT/$file" "$WORKTREE_DIR/$file"
     file_symlink_count=$((file_symlink_count + 1))
 done <<< "$all_files"
+
+# Re-route workspace package symlinks in Yarn monorepos
+# This prevents type errors when worktree and source are on different commits
+reroute_node_modules_count=0
+if [ -f "$REPO_ROOT/package.json" ]; then
+    if grep -q '"workspaces"' "$REPO_ROOT/package.json" 2>/dev/null; then
+        # Function to detect if symlink points to internal repository paths
+        is_internal_symlink() {
+            local target="$1"
+            case "$target" in
+                ../../packages/*|../packages/*) return 0 ;;  # Workspace packages
+                ../../.yarn/*|../.yarn/*)       return 0 ;;  # Yarn cache
+                ../../apps/*|../apps/*)         return 0 ;;  # Apps directory
+                ../../libs/*|../libs/*)         return 0 ;;  # Libs directory
+                *)                              return 1 ;;  # External
+            esac
+        }
+
+        # Function to reroute node_modules directory
+        reroute_node_modules() {
+            local src="$1"  # Source node_modules (from SOURCE_ROOT)
+            local dst="$2"  # Destination node_modules (in worktree)
+
+            [ -d "$src" ] || return 0
+
+            # If destination is a symlink, remove it first
+            [ -L "$dst" ] && rm "$dst"
+
+            # Create as real directory
+            mkdir -p "$dst"
+
+            # Process all top-level entries
+            for entry in "$src"/*; do
+                [ -e "$entry" ] || [ -L "$entry" ] || continue
+                name=$(basename "$entry")
+
+                if [ -L "$entry" ]; then
+                    # Entry is a symlink
+                    target=$(readlink "$entry")
+                    if is_internal_symlink "$target"; then
+                        # Internal - preserve relative path (auto-routes to worktree)
+                        ln -sf "$target" "$dst/$name"
+                        reroute_node_modules_count=$((reroute_node_modules_count + 1))
+                    else
+                        # External - link to original location
+                        ln -sf "$entry" "$dst/$name"
+                    fi
+                elif [ -d "$entry" ]; then
+                    # Entry is a directory
+                    if [[ "$name" == @* ]]; then
+                        # Scoped package directory - process contents
+                        mkdir -p "$dst/$name"
+                        for pkg in "$entry"/*; do
+                            [ -e "$pkg" ] || [ -L "$pkg" ] || continue
+                            pkg_name=$(basename "$pkg")
+
+                            if [ -L "$pkg" ]; then
+                                target=$(readlink "$pkg")
+                                if is_internal_symlink "$target"; then
+                                    ln -sf "$target" "$dst/$name/$pkg_name"
+                                    reroute_node_modules_count=$((reroute_node_modules_count + 1))
+                                else
+                                    ln -sf "$pkg" "$dst/$name/$pkg_name"
+                                fi
+                            else
+                                # Real directory - link whole thing
+                                ln -sf "$pkg" "$dst/$name/$pkg_name"
+                            fi
+                        done
+                    else
+                        # Non-scoped directory - link entire thing
+                        ln -sf "$entry" "$dst/$name"
+                    fi
+                else
+                    # File - link to original
+                    ln -sf "$entry" "$dst/$name"
+                fi
+            done
+        }
+
+        # Reroute root node_modules
+        if [ -d "$SOURCE_ROOT/node_modules" ]; then
+            reroute_node_modules "$SOURCE_ROOT/node_modules" "$WORKTREE_DIR/node_modules"
+        fi
+
+        # Reroute package-level node_modules (common in monorepos)
+        if [ -d "$SOURCE_ROOT/packages" ]; then
+            for pkg_dir in "$SOURCE_ROOT/packages"/*; do
+                [ -d "$pkg_dir" ] || continue
+                pkg_name=$(basename "$pkg_dir")
+                if [ -d "$pkg_dir/node_modules" ]; then
+                    reroute_node_modules "$pkg_dir/node_modules" "$WORKTREE_DIR/packages/$pkg_name/node_modules"
+                fi
+            done
+        fi
+    fi
+fi
 
 # Add symlinked paths to worktree's local exclude file
 # (Symlinks aren't matched by gitignore patterns with trailing slashes)
@@ -299,7 +381,7 @@ if [ -n "$worktree_git_dir" ]; then
 
     # Enable worktree-specific config and set excludesFile for this worktree
     # These are non-critical - worktree is still usable without them
-    if ! git -C "$WORKSPACE_ROOT" config extensions.worktreeConfig true 2>/dev/null; then
+    if ! git -C "$REPO_ROOT" config extensions.worktreeConfig true 2>/dev/null; then
         echo "Warning: Could not enable worktree-specific config" >&2
         echo "Symlinked paths may appear as unstaged changes. Run: git config extensions.worktreeConfig true" >&2
     fi
@@ -324,20 +406,20 @@ git -C "$WORKTREE_DIR" config --worktree issue.id "$ISSUE_ID" 2>/dev/null || {
     printf '%s\n' "Error: Failed to store issue.id in worktree git config" >&2
     exit 2
 }
-git -C "$WORKTREE_DIR" config --worktree issue.baseSha "$BASE_SHA" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.baseSha in worktree git config" >&2
-    exit 2
-}
-git -C "$WORKTREE_DIR" config --worktree issue.baseBranch "$BASE_BRANCH" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.baseBranch in worktree git config" >&2
-    exit 2
-}
 git -C "$WORKTREE_DIR" config --worktree issue.pluginBinDir "$SCRIPT_DIR" 2>/dev/null || {
     printf '%s\n' "Error: Failed to store issue.pluginBinDir in worktree git config" >&2
     exit 2
 }
 git -C "$WORKTREE_DIR" config --worktree issue.workspacePath "$ISSUE_WORKSPACE_PATH" 2>/dev/null || {
     printf '%s\n' "Error: Failed to store issue.workspacePath in worktree git config" >&2
+    exit 2
+}
+git -C "$WORKTREE_DIR" config --worktree issue.baseSha "$BASE_SHA" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store issue.baseSha in worktree git config" >&2
+    exit 2
+}
+git -C "$WORKTREE_DIR" config --worktree issue.baseBranch "$BASE_BRANCH" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store issue.baseBranch in worktree git config" >&2
     exit 2
 }
 
@@ -449,9 +531,9 @@ post_commit_sha() {
     local issue_id="\$2"
     local api_base="\$3"
 
-    curl -s -X POST "\$api_base/issues/\$issue_id/comments" \
-        -H "Content-Type: application/json" \
-        -d "{\"author\": \"agent\", \"commitSha\": \"\$sha\"}" \
+    curl -s -X POST "\$api_base/issues/\$issue_id/comments" \\
+        -H "Content-Type: application/json" \\
+        -d "{\"author\": \"agent\", \"commitSha\": \"\$sha\"}" \\
         >/dev/null 2>&1 || true
 }
 
@@ -507,7 +589,7 @@ if [ -n "\$API_BASE" ]; then
         # Fetch all comments and delete orphaned commitSha comments
         COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
         if [ -n "\$COMMENTS" ]; then
-            echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \
+            echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \\
             while read -r comment_id commit_sha; do
                 if [ -n "\$commit_sha" ] && ! echo "\$VALID_SHAS" | grep -qx "\$commit_sha"; then
                     curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
@@ -582,36 +664,14 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
             fi
 
             COMMENTS=""
-            if [ "\$BASE_SHA_SHOULD_REPLACE" = "true" ] || [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
+            if [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
                 COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
             fi
 
-            if [ "\$BASE_SHA_SHOULD_REPLACE" = "true" ] && [ -n "\$BASE_SHA_OLD" ]; then
-                BASE_COMMENT_ID=\$(git config --worktree issue.baseShaCommentId 2>/dev/null)
-                if [ -n "\$BASE_COMMENT_ID" ]; then
-                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$BASE_COMMENT_ID" >/dev/null 2>&1 || true
-                elif [ -n "\$COMMENTS" ]; then
-                    echo "\$COMMENTS" | jq -r --arg sha "\$BASE_SHA_OLD" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null | \
-                    while read -r comment_id; do
-                        if [ -n "\$comment_id" ] && [ "\$comment_id" != "null" ]; then
-                            curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
-                        fi
-                    done
-                fi
-
-                BASE_COMMENT_RESPONSE=\$(curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
-                    -H "Content-Type: application/json" \
-                    -d "{\"author\": \"agent\", \"commitSha\": \"\$BASE_SHA_NEW\"}" 2>/dev/null || true)
-                BASE_COMMENT_ID=\$(echo "\$BASE_COMMENT_RESPONSE" | jq -r '.id // empty' 2>/dev/null)
-                if [ -n "\$BASE_COMMENT_ID" ]; then
-                    git config --worktree issue.baseShaCommentId "\$BASE_COMMENT_ID" 2>/dev/null || true
-                fi
-            fi
-
             # Post new commit comment
-            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \
-                -H "Content-Type: application/json" \
-                -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \
+            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \\
+                -H "Content-Type: application/json" \\
+                -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \\
                 >/dev/null 2>&1 || true
 
             # Delete old commit comments
@@ -636,39 +696,9 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/post-rewrite"
 
-# Post initial comment with baseSha, worktreePath, and branchName
-# This comment serves multiple purposes:
-# - Records baseSha so getFirstCommitSha() returns it for complete diffs
-# - Records worktreePath to enable "Open Worktree" button in UI
-# - Records branchName for historical context
-# Failure is non-fatal - worktree is still usable without this
-DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
-if [ -f "$DISCOVERY_FILE" ]; then
-    API_PORT=$(jq -r --arg ws "$ISSUE_WORKSPACE_PATH" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
-    API_HOST=$(jq -r --arg ws "$ISSUE_WORKSPACE_PATH" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
-
-    if [ -n "$API_PORT" ] && [ -n "$API_HOST" ]; then
-        API_BASE="http://${API_HOST}:${API_PORT}/api/v1"
-
-        # Post worktree info as a comment with commitSha, worktreePath, and branchName
-        # This enables:
-        # - getFirstCommitSha() to return baseSha for complete diffs
-        # - getLatestWorktreePath() to find the worktree for "Open Worktree" button
-        # - Historical tracking of which worktree/branch was used for each session
-        BASE_COMMENT_RESPONSE=$(curl -sf -X POST "$API_BASE/issues/$ISSUE_ID/comments" \
-            -H "Content-Type: application/json" \
-            -d "{\"author\": \"agent\", \"commitSha\": \"$BASE_SHA\", \"worktreePath\": \"$WORKTREE_DIR\", \"branchName\": \"$BRANCH_NAME\"}" 2>/dev/null || true)
-        if [ -n "$BASE_COMMENT_RESPONSE" ]; then
-            BASE_COMMENT_ID=$(echo "$BASE_COMMENT_RESPONSE" | jq -r '.id // empty' 2>/dev/null)
-            if [ -n "$BASE_COMMENT_ID" ]; then
-                git -C "$WORKTREE_DIR" config --worktree issue.baseShaCommentId "$BASE_COMMENT_ID" 2>/dev/null || true
-            fi
-        else
-            echo "Warning: Failed to register worktree with issue tracker" >&2
-            echo "The 'Open Worktree' button may not appear. Subsequent commits will track normally." >&2
-        fi
-    fi
+# Output results as JSON with baseSha and issueId included
+if [ "$reroute_node_modules_count" -gt 0 ]; then
+    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\",\"reroutedSymlinks\":$reroute_node_modules_count}"
+else
+    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
 fi
-
-# Output results as JSON with issueId included
-printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
