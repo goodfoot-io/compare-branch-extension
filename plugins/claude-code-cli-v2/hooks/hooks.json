@@ -1,0 +1,54 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/plugins/claude-code-cli-v2/hooks/bin/stop.a227f0f9.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/plugins/claude-code-cli-v2/hooks/bin/session-start-context.7007a820.mjs"
+          }
+        ],
+        "matcher": "startup"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/plugins/claude-code-cli-v2/hooks/bin/post-tool-use-edit.350a9680.mjs"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/plugins/claude-code-cli-v2/hooks/bin/post-tool-use-bash.d08ba9c3.mjs"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ]
+  },
+  "__generated": {
+    "files": [
+      "stop.a227f0f9.mjs",
+      "session-start-context.7007a820.mjs",
+      "post-tool-use-edit.350a9680.mjs",
+      "post-tool-use-bash.d08ba9c3.mjs"
+    ],
+    "timestamp": "2026-01-20T20:56:17.264Z"
+  }
+}
