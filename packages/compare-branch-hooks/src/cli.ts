@@ -180,56 +180,6 @@ Troubleshooting:
 `;
 
 // ============================================================================
-// Logging
-// ============================================================================
-
-let logFile: fs.WriteStream | undefined;
-
-/**
- * Initializes the log file if a path is provided.
- * @param logPath - Optional path to log file
- * @internal
- */
-function _initLog(logPath?: string): void {
-  if (logPath !== undefined) {
-    const logDir = path.dirname(logPath);
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-    logFile = fs.createWriteStream(logPath, { flags: "a" });
-  }
-}
-
-/**
- * Closes the log file if open.
- */
-function closeLog(): void {
-  if (logFile !== undefined) {
-    logFile.close();
-    logFile = undefined;
-  }
-}
-
-/**
- * Logs a message to the log file (if configured).
- * Does NOT write to stdout/stderr to avoid interfering with hook protocol.
- * @param level - Log level
- * @param message - Log message
- * @param data - Optional additional data
- */
-function log(level: "info" | "warn" | "error" | "debug", message: string, data?: unknown): void {
-  if (logFile !== undefined) {
-    const entry = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      ...(data !== undefined ? { data } : {}),
-    };
-    logFile.write(`${JSON.stringify(entry)}\n`);
-  }
-}
-
-// ============================================================================
 // Argument Parsing
 // ============================================================================
 
@@ -581,21 +531,13 @@ async function compileAllHooks(options: CompileAllHooksOptions): Promise<Compile
   }
 
   for (const sourcePath of hookFiles) {
-    log("info", `Analyzing hook file: ${sourcePath}`);
-
     // Extract metadata from source
     const metadata = analyzeHookFile(sourcePath);
     if (metadata === undefined) {
-      log("warn", `Skipping ${sourcePath}: not a valid hook file (no hook factory found)`);
       continue;
     }
 
-    log("info", `Found hook: ${metadata.hookEventName}`, {
-      timeout: metadata.timeout,
-    });
-
     // Compile the hook
-    log("info", `Compiling: ${sourcePath}`);
     const compiledContent = await compileHook({ sourcePath, outputDir, logFilePath });
 
     // Generate content hash
@@ -610,7 +552,6 @@ async function compileAllHooks(options: CompileAllHooksOptions): Promise<Compile
     // --enable-source-maps enables stack traces with original source locations
     const shebang = "#!/usr/bin/env -S node --enable-source-maps\n";
     fs.writeFileSync(outputPath, shebang + compiledContent, { encoding: "utf-8", mode: 0o755 });
-    log("info", `Wrote: ${outputPath}`);
 
     compiledHooks.push({
       sourcePath,
@@ -629,11 +570,10 @@ async function compileAllHooks(options: CompileAllHooksOptions): Promise<Compile
 
 /**
  * Groups compiled hooks by event type.
- * Compare Branch hooks don't use matchers, so we only group by event type.
  * @param compiledHooks - Array of compiled hooks
  * @returns Map of EventType -> Hooks
  */
-function groupHooksByEventAndMatcher(compiledHooks: CompiledHook[]): Map<HookEventName, CompiledHook[]> {
+function groupHooksByEvent(compiledHooks: CompiledHook[]): Map<HookEventName, CompiledHook[]> {
   const groups = new Map<HookEventName, CompiledHook[]>();
 
   for (const hook of compiledHooks) {
@@ -740,7 +680,7 @@ function generateHooksJson(
   contextInfo: HookContextInfo,
   executable: string = "node",
 ): HooksJson {
-  const groups = groupHooksByEventAndMatcher(compiledHooks);
+  const groups = groupHooksByEvent(compiledHooks);
   const hooks: Partial<Record<HookEventName, MatcherEntry[]>> = {};
 
   for (const [eventName, hookList] of groups) {
@@ -778,10 +718,7 @@ function readExistingHooksJson(outputPath: string): HooksJson | undefined {
   try {
     const content = fs.readFileSync(outputPath, "utf-8");
     return JSON.parse(content) as HooksJson;
-  } catch (error) {
-    log("warn", "Failed to parse existing hooks.json, will overwrite", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
     return undefined;
   }
 }
@@ -800,11 +737,8 @@ function removeOldGeneratedFiles(existingHooksJson: HooksJson, outputDir: string
     if (fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
-        log("info", `Removed old generated file: ${filename}`);
-      } catch (error) {
-        log("warn", `Failed to remove old generated file: ${filename}`, {
-          error: error instanceof Error ? error.message : String(error),
-        });
+      } catch {
+        // Ignore errors when removing old files
       }
     }
   }
@@ -955,16 +889,8 @@ async function main(): Promise<void> {
     // Resolve log file path to absolute if provided
     const logFilePath = args.log !== undefined ? path.resolve(cwd, args.log) : undefined;
 
-    log("info", "Starting hook compilation", {
-      input: args.input,
-      output: args.output,
-      logFilePath,
-      cwd,
-    });
-
     // Discover hook files
     const hookFiles = await discoverHookFiles(args.input, cwd);
-    log("info", `Discovered ${hookFiles.length} hook files`, { files: hookFiles });
 
     if (hookFiles.length === 0) {
       process.stderr.write(`No hook files found matching pattern: ${args.input}\n`);
@@ -976,19 +902,11 @@ async function main(): Promise<void> {
     let preservedHooks: Partial<Record<HookEventName, MatcherEntry[]>> = {};
 
     if (existingHooksJson !== undefined) {
-      log("info", "Found existing hooks.json, will preserve non-generated hooks");
-
       // Extract hooks that were NOT generated by this package
       preservedHooks = extractPreservedHooks(existingHooksJson);
 
       // Remove old generated files from disk
       removeOldGeneratedFiles(existingHooksJson, buildDir);
-
-      const preservedCount = Object.values(preservedHooks).reduce(
-        (sum, entries) => sum + entries.reduce((s, e) => s + e.hooks.length, 0),
-        0,
-      );
-      log("info", `Preserved ${preservedCount} hooks from other sources`);
     }
 
     // Compile all hooks
@@ -1001,7 +919,6 @@ async function main(): Promise<void> {
 
     // Auto-detect hook context based on output path
     const hookContext = detectHookContext(outputPath);
-    log("info", `Detected hook context: ${hookContext.context}`, { rootDir: hookContext.rootDir });
 
     // Generate hooks.json for newly compiled hooks
     const executable = args.executable !== undefined && args.executable !== "" ? args.executable : "node";
@@ -1016,18 +933,12 @@ async function main(): Promise<void> {
 
       if (filesUnchanged && existingHooksJson.__generated?.timestamp) {
         newHooksJson.__generated.timestamp = existingHooksJson.__generated.timestamp;
-        log("info", "Files unchanged, preserving existing timestamp");
       }
     }
 
     // Merge with preserved hooks
     const finalHooksJson = mergeHooksJson(newHooksJson, preservedHooks);
     writeHooksJson(finalHooksJson, outputPath);
-
-    log("info", "Compilation complete", {
-      hooksCompiled: compiledHooks.length,
-      outputPath,
-    });
 
     // Output summary to stdout
     process.stdout.write(`Compiled ${compiledHooks.length} hooks to ${buildDir}\n`);
@@ -1043,11 +954,8 @@ async function main(): Promise<void> {
     process.exit(0);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log("error", "Build failed", { error: message });
     process.stderr.write(`Error: ${message}\n`);
     process.exit(1);
-  } finally {
-    closeLog();
   }
 }
 
@@ -1085,7 +993,7 @@ export {
   detectHookContext,
   generateCommandPath,
   generateHooksJson,
-  groupHooksByEventAndMatcher,
+  groupHooksByEvent,
   readExistingHooksJson,
   removeOldGeneratedFiles,
   extractPreservedHooks,

@@ -507,10 +507,8 @@ export class Logger {
    * @returns Whether the logger has any active output destinations
    */
   hasDestinations(): boolean {
-    for (const handlers of this.handlers.values()) {
-      if (handlers.size > 0) return true;
-    }
-    return this.logFilePath !== null;
+    const hasHandlers = Array.from(this.handlers.values()).some((handlers) => handlers.size > 0);
+    return hasHandlers || this.logFilePath !== null;
   }
 
   // ============================================================================

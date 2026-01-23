@@ -44,47 +44,66 @@ type AnyHookFunction =
   | HookFunction<EndInterviewInput>;
 
 // ============================================================================
-// Error Handling
+// Helper Functions
 // ============================================================================
 
 /**
- * Handles errors from environment variable extraction.
- *
- * Logs the error, writes to stderr, and exits with ERROR code.
- * @param error - The error that occurred during env extraction
+ * Gets the error message from an unknown error value.
  */
-function handleEnvExtractionError(error: unknown): never {
-  const message = error instanceof Error ? error.message : String(error);
-  logger.error(`Failed to extract input from environment: ${message}`);
-  writeError(`Hook failed: ${message}`);
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Cleans up logger state and exits with the given code.
+ */
+function cleanupAndExit(exitCode: number): never {
   logger.clearContext();
   logger.close();
-  process.exit(EXIT_CODES.ERROR);
+  process.exit(exitCode);
+}
+
+/**
+ * Checks for log file configuration conflicts between CLI and env var.
+ * Exits with error if there's a conflict.
+ */
+function configureLogFile(): void {
+  const cliLogFile = process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE;
+  const envLogFile = process.env.COMPARE_BRANCH_HOOKS_LOG_FILE;
+
+  if (cliLogFile !== undefined && envLogFile !== undefined && cliLogFile !== envLogFile) {
+    process.stderr.write(
+      `Log file configuration conflict: CLI --log="${cliLogFile}" vs COMPARE_BRANCH_HOOKS_LOG_FILE="${envLogFile}". ` +
+        "Use only one method to configure hook logging.\n",
+    );
+    process.exit(EXIT_CODES.ERROR);
+  }
+
+  if (cliLogFile !== undefined) {
+    logger.setLogFile(cliLogFile);
+  }
+}
+
+/**
+ * Handles errors from environment variable extraction.
+ * Logs the error, writes to stderr, and exits with ERROR code.
+ */
+function handleEnvExtractionError(error: unknown): never {
+  const message = getErrorMessage(error);
+  logger.error(`Failed to extract input from environment: ${message}`);
+  writeError(`Hook failed: ${message}`);
+  cleanupAndExit(EXIT_CODES.ERROR);
 }
 
 /**
  * Handles errors thrown by the hook handler.
- *
- * Writes stack trace to stderr (with sourcemaps if available) and exits with ERROR code.
- * @param error - The error thrown by the handler
+ * Writes stack trace to stderr and exits with ERROR code.
  */
 function handleHandlerError(error: unknown): never {
-  // Write stack trace to stderr (sourcemaps are applied automatically by Node.js)
-  if (error instanceof Error) {
-    process.stderr.write(`${error.stack ?? error.message}\n`);
-  } else {
-    process.stderr.write(`${String(error)}\n`);
-  }
-
-  // Log to file if configured
-  logger.error(`Hook handler error: ${error instanceof Error ? error.message : String(error)}`);
-
-  // Clear logger context and close
-  logger.clearContext();
-  logger.close();
-
-  // Exit with code 1 (ERROR)
-  process.exit(EXIT_CODES.ERROR);
+  const errorOutput = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  process.stderr.write(`${errorOutput}\n`);
+  logger.error(`Hook handler error: ${getErrorMessage(error)}`);
+  cleanupAndExit(EXIT_CODES.ERROR);
 }
 
 // ============================================================================
@@ -120,25 +139,7 @@ function handleHandlerError(error: unknown): never {
  */
 export async function execute(hookFn: AnyHookFunction): Promise<void> {
   try {
-    // Check for log file configuration conflicts
-    // COMPARE_BRANCH_HOOKS_CLI_LOG_FILE is injected by the CLI --log parameter
-    // COMPARE_BRANCH_HOOKS_LOG_FILE is the user's environment variable
-    const cliLogFile = process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE;
-    const envLogFile = process.env.COMPARE_BRANCH_HOOKS_LOG_FILE;
-
-    if (cliLogFile !== undefined && envLogFile !== undefined && cliLogFile !== envLogFile) {
-      // Write error to stderr and exit with error code
-      process.stderr.write(
-        `Log file configuration conflict: CLI --log="${cliLogFile}" vs COMPARE_BRANCH_HOOKS_LOG_FILE="${envLogFile}". ` +
-          "Use only one method to configure hook logging.\n",
-      );
-      process.exit(EXIT_CODES.ERROR);
-    }
-
-    // If CLI log file is set, configure the logger
-    if (cliLogFile !== undefined) {
-      logger.setLogFile(cliLogFile);
-    }
+    configureLogFile();
 
     // Extract input from environment variables
     const hookEventName = hookFn.hookEventName;
@@ -149,31 +150,22 @@ export async function execute(hookFn: AnyHookFunction): Promise<void> {
       handleEnvExtractionError(error);
     }
 
-    // Set logger context
+    // Set logger context and build handler context
     logger.setContext(hookEventName, input);
-
-    // Build context
     const context: HookContext = { logger };
 
     // Execute handler
     try {
-      // Type assertion is safe here because extractInput returns the correct type
-      // based on hookEventName, which matches the hook function's expected input type
+      // Type assertion is safe: extractInput returns the correct type based on hookEventName
       await (hookFn as HookFunction<HookInput>)(input, context);
     } catch (error) {
-      // Handler threw - output stacktrace to stderr and exit with code 1
       handleHandlerError(error);
     }
 
-    // Success - clear context and exit with 0
-    logger.clearContext();
-    logger.close();
-    process.exit(EXIT_CODES.SUCCESS);
+    cleanupAndExit(EXIT_CODES.SUCCESS);
   } catch (error) {
     // Unexpected error - try to clean up and exit
-    logger.error(`Unexpected runtime error: ${error instanceof Error ? error.message : String(error)}`);
-    logger.clearContext();
-    logger.close();
-    process.exit(EXIT_CODES.ERROR);
+    logger.error(`Unexpected runtime error: ${getErrorMessage(error)}`);
+    cleanupAndExit(EXIT_CODES.ERROR);
   }
 }

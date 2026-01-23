@@ -161,11 +161,10 @@ declare function compileHook(options: CompileHookOptions): Promise<string>;
 declare function generateContentHash(content: string): string;
 /**
  * Groups compiled hooks by event type.
- * Compare Branch hooks don't use matchers, so we only group by event type.
  * @param compiledHooks - Array of compiled hooks
  * @returns Map of EventType -> Hooks
  */
-declare function groupHooksByEventAndMatcher(compiledHooks: CompiledHook[]): Map<HookEventName, CompiledHook[]>;
+declare function groupHooksByEvent(compiledHooks: CompiledHook[]): Map<HookEventName, CompiledHook[]>;
 /**
  * Result of detecting the hook context, including the root directory.
  */
@@ -240,6 +239,6 @@ declare function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Re
  * @returns Merged HooksJson
  */
 declare function mergeHooksJson(newHooksJson: HooksJson, preservedHooks: Partial<Record<HookEventName, MatcherEntry[]>>): HooksJson;
-export { parseArgs, validateArgs, analyzeHookFile, discoverHookFiles, compileHook, generateContentHash, detectHookContext, generateCommandPath, generateHooksJson, groupHooksByEventAndMatcher, readExistingHooksJson, removeOldGeneratedFiles, extractPreservedHooks, mergeHooksJson, HOOK_FACTORY_TO_EVENT, };
+export { parseArgs, validateArgs, analyzeHookFile, discoverHookFiles, compileHook, generateContentHash, detectHookContext, generateCommandPath, generateHooksJson, groupHooksByEvent, readExistingHooksJson, removeOldGeneratedFiles, extractPreservedHooks, mergeHooksJson, HOOK_FACTORY_TO_EVENT, };
 export type { CliArgs, HookMetadata, CompiledHook, HookConfig, MatcherEntry, HooksJson };
 //# sourceMappingURL=cli.d.ts.map

@@ -150,7 +150,7 @@ function createHookFunction<TInput, TContext extends HookContext = HookContext>(
   handler: HookHandler<TInput, TContext>,
 ): HookFunction<TInput, TContext> {
   const hookFn = async (input: TInput, context: TContext): Promise<void> => {
-    return await handler(input, context);
+    await handler(input, context);
   };
 
   // Attach metadata for runtime inspection
