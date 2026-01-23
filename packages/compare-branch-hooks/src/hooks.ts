@@ -20,13 +20,7 @@
  */
 
 import type { Logger } from './logger.js';
-import type {
-  EndInterviewInput,
-  EndIssueInput,
-  HookEventName,
-  StartInterviewInput,
-  StartIssueInput
-} from './types.js';
+import type { EndInterviewInput, EndIssueInput, HookEventName, StartInterviewInput, StartIssueInput } from './types.js';
 
 // ============================================================================
 // Configuration Types

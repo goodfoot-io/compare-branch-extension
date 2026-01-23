@@ -25,7 +25,7 @@ export type HookEventName = 'StartIssue' | 'EndIssue' | 'StartInterview' | 'EndI
  * }
  * ```
  */
-export declare const HOOK_EVENT_NAMES: readonly ["StartIssue", "EndIssue", "StartInterview", "EndInterview"];
+export declare const HOOK_EVENT_NAMES: readonly ['StartIssue', 'EndIssue', 'StartInterview', 'EndInterview'];
 /**
  * Base input fields present in all hook inputs.
  *
@@ -41,34 +41,32 @@ export declare const HOOK_EVENT_NAMES: readonly ["StartIssue", "EndIssue", "Star
  * ```
  */
 export interface BaseHookInput {
-    /**
-     * Unique identifier for the current issue.
-     */
-    issueId: string;
-    /**
-     * Process ID of the execution wrapper.
-     */
-    executionWrapperPid: number;
-    /**
-     * Path to the IPC socket for hook-to-wrapper communication.
-     * Created by execution-wrapper.mjs for each hook process.
-     */
-    hookIpcSocket: string;
+  /**
+   * Unique identifier for the current issue.
+   */
+  issueId: string;
+  /**
+   * Process ID of the execution wrapper.
+   */
+  executionWrapperPid: number;
+  /**
+   * Path to the IPC socket for hook-to-wrapper communication.
+   * Created by execution-wrapper.mjs for each hook process.
+   */
+  hookIpcSocket: string;
 }
 /**
  * Input for issue-level hooks (StartIssue, EndIssue).
  *
  * Uses only the base input fields - no task-specific context.
  */
-export interface IssueHookInput extends BaseHookInput {
-}
+export interface IssueHookInput extends BaseHookInput {}
 /**
  * Input for interview hooks (StartInterview, EndInterview).
  *
  * Uses only the base input fields - interviews are always interactive.
  */
-export interface InterviewHookInput extends BaseHookInput {
-}
+export interface InterviewHookInput extends BaseHookInput {}
 /**
  * Input type for StartIssue hooks.
  */
@@ -104,15 +102,19 @@ export type EndInterviewInput = InterviewHookInput;
  * }
  * ```
  */
-export type HookInput = ({
-    hookEventName: 'StartIssue';
-} & StartIssueInput) | ({
-    hookEventName: 'EndIssue';
-} & EndIssueInput) | ({
-    hookEventName: 'StartInterview';
-} & StartInterviewInput) | ({
-    hookEventName: 'EndInterview';
-} & EndInterviewInput);
+export type HookInput =
+  | ({
+      hookEventName: 'StartIssue';
+    } & StartIssueInput)
+  | ({
+      hookEventName: 'EndIssue';
+    } & EndIssueInput)
+  | ({
+      hookEventName: 'StartInterview';
+    } & StartInterviewInput)
+  | ({
+      hookEventName: 'EndInterview';
+    } & EndInterviewInput);
 /**
  * Type helper for extracting input type from event name.
  *
@@ -123,7 +125,10 @@ export type HookInput = ({
  * // StartIssueIn is StartIssueInput & { hookEventName: 'StartIssue' }
  * ```
  */
-export type HookInputForEvent<T extends HookEventName> = Extract<HookInput, {
+export type HookInputForEvent<T extends HookEventName> = Extract<
+  HookInput,
+  {
     hookEventName: T;
-}>;
+  }
+>;
 //# sourceMappingURL=types.d.ts.map

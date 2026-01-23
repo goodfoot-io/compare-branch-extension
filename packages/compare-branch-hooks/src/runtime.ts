@@ -21,13 +21,7 @@ import { extractInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
 import type { HookContext, HookFunction } from './hooks.js';
 import { logger } from './logger.js';
-import type {
-  EndInterviewInput,
-  EndIssueInput,
-  HookInput,
-  StartInterviewInput,
-  StartIssueInput
-} from './types.js';
+import type { EndInterviewInput, EndIssueInput, HookInput, StartInterviewInput, StartIssueInput } from './types.js';
 
 /**
  * Union type of all possible hook functions.

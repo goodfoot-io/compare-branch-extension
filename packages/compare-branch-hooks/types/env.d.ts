@@ -22,21 +22,21 @@ import type { HookEventName, HookInputForEvent } from './types.js';
  * These are the environment variables that execution-wrapper.mjs sets when running hooks.
  */
 export declare const COMPARE_BRANCH_ENV_VARS: {
-    /**
-     * Unique identifier for the current issue.
-     * Available in all hooks.
-     */
-    readonly ISSUE_ID: "ISSUE_ID";
-    /**
-     * Process ID of the execution wrapper.
-     * Available in all hooks.
-     */
-    readonly EXECUTION_WRAPPER_PID: "EXECUTION_WRAPPER_PID";
-    /**
-     * Path to the IPC socket for hook-to-wrapper communication.
-     * Available in all hooks.
-     */
-    readonly HOOK_IPC_SOCKET: "HOOK_IPC_SOCKET";
+  /**
+   * Unique identifier for the current issue.
+   * Available in all hooks.
+   */
+  readonly ISSUE_ID: 'ISSUE_ID';
+  /**
+   * Process ID of the execution wrapper.
+   * Available in all hooks.
+   */
+  readonly EXECUTION_WRAPPER_PID: 'EXECUTION_WRAPPER_PID';
+  /**
+   * Path to the IPC socket for hook-to-wrapper communication.
+   * Available in all hooks.
+   */
+  readonly HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET';
 };
 /**
  * Gets the issue ID from environment.
