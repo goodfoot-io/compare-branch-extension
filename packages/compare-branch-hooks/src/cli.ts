@@ -16,15 +16,15 @@
  * @module
  */
 
-import * as crypto from "node:crypto";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import * as esbuild from "esbuild";
-import { glob } from "glob";
-import ts from "typescript";
-import { HOOK_FACTORY_TO_EVENT } from "./constants.js";
-import type { HookEventName } from "./types.js";
+import * as crypto from 'node:crypto';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as esbuild from 'esbuild';
+import { glob } from 'glob';
+import ts from 'typescript';
+import { HOOK_FACTORY_TO_EVENT } from './constants.js';
+import type { HookEventName } from './types.js';
 
 // ============================================================================
 // Types
@@ -36,7 +36,7 @@ import type { HookEventName } from "./types.js";
  * - `plugin`: Uses `$COMPARE_BRANCH_PLUGIN_ROOT` for plugin hooks
  * - `agent`: Uses `"$CLAUDE_PROJECT_DIR"` for agent hooks (.claude/hooks/)
  */
-type HookContext = "plugin" | "agent";
+type HookContext = 'plugin' | 'agent';
 
 /**
  * Command-line arguments parsed from process.argv.
@@ -85,7 +85,7 @@ interface CompiledHook {
  */
 interface HookConfig {
   /** Hook type - always "command" for compiled hooks. */
-  type: "command";
+  type: 'command';
   /** Absolute path to compiled hook executable. */
   command: string;
   /** Optional timeout in seconds. */
@@ -122,7 +122,7 @@ interface HooksJson {
 // Constants
 // ============================================================================
 
-const VERSION = "1.0.0";
+const VERSION = '1.0.0';
 
 const HELP_TEXT = `
 @goodfoot/compare-branch-hooks - Type-safe, compiled hooks for Compare Branch Extension
@@ -190,37 +190,37 @@ Troubleshooting:
  */
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
-    input: "",
-    output: "",
+    input: '',
+    output: '',
     help: false,
-    version: false,
+    version: false
   };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
     switch (arg) {
-      case "-i":
-      case "--input":
-        args.input = argv[++i] ?? "";
+      case '-i':
+      case '--input':
+        args.input = argv[++i] ?? '';
         break;
-      case "-o":
-      case "--output":
-        args.output = argv[++i] ?? "";
+      case '-o':
+      case '--output':
+        args.output = argv[++i] ?? '';
         break;
-      case "--log":
+      case '--log':
         args.log = argv[++i];
         break;
-      case "-h":
-      case "--help":
+      case '-h':
+      case '--help':
         args.help = true;
         break;
-      case "-v":
-      case "--version":
+      case '-v':
+      case '--version':
         args.version = true;
         break;
-      case "--executable":
-        args.executable = argv[++i] ?? "";
+      case '--executable':
+        args.executable = argv[++i] ?? '';
         break;
       default:
         // Unknown argument - ignore
@@ -242,12 +242,12 @@ function validateArgs(args: CliArgs): string | undefined {
   }
 
   // Normal build mode validation
-  if (args.input === "") {
-    return "Missing required argument: -i/--input <glob>";
+  if (args.input === '') {
+    return 'Missing required argument: -i/--input <glob>';
   }
 
-  if (args.output === "") {
-    return "Missing required argument: -o/--output <path>";
+  if (args.output === '') {
+    return 'Missing required argument: -o/--output <path>';
   }
 
   return undefined;
@@ -274,7 +274,7 @@ function validateArgs(args: CliArgs): string | undefined {
  * ```
  */
 function analyzeHookFile(sourcePath: string): HookMetadata | undefined {
-  const sourceCode = fs.readFileSync(sourcePath, "utf-8");
+  const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
   const sourceFile = ts.createSourceFile(sourcePath, sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 
   let metadata: HookMetadata | undefined;
@@ -361,7 +361,7 @@ function analyzeHookFile(sourcePath: string): HookMetadata | undefined {
         const propName = ts.isIdentifier(prop.name) ? prop.name.text : undefined;
         if (propName === undefined) continue;
 
-        if (propName === "timeout") {
+        if (propName === 'timeout') {
           // Extract number value
           if (ts.isNumericLiteral(prop.initializer)) {
             timeout = Number(prop.initializer.text);
@@ -391,10 +391,10 @@ async function discoverHookFiles(pattern: string, cwd: string): Promise<string[]
   const files = await glob(pattern, {
     cwd,
     absolute: true,
-    nodir: true,
+    nodir: true
   });
 
-  return files.filter((file) => file.endsWith(".ts") || file.endsWith(".mts"));
+  return files.filter((file) => file.endsWith('.ts') || file.endsWith('.mts'));
 }
 
 // ============================================================================
@@ -427,14 +427,14 @@ async function compileHook(options: CompileHookOptions): Promise<string> {
   // Create a temporary wrapper file that imports the hook and executes it
   // Use system temp directory with deterministic name based on all inputs that affect output
   // This ensures the same inputs always produce the same temp path, making builds deterministic
-  const hashInputs = [sourcePath, logFilePath ?? ""].join(":");
-  const buildHash = crypto.createHash("sha256").update(hashInputs).digest("hex").substring(0, 16);
-  const tempDir = path.join(os.tmpdir(), "compare-branch-hooks-build", buildHash);
-  const wrapperPath = path.join(tempDir, "wrapper.ts");
-  const tempOutput = path.join(tempDir, "output.mjs");
+  const hashInputs = [sourcePath, logFilePath ?? ''].join(':');
+  const buildHash = crypto.createHash('sha256').update(hashInputs).digest('hex').substring(0, 16);
+  const tempDir = path.join(os.tmpdir(), 'compare-branch-hooks-build', buildHash);
+  const wrapperPath = path.join(tempDir, 'wrapper.ts');
+  const tempOutput = path.join(tempDir, 'output.mjs');
 
   // Get the path to the runtime module (relative to this CLI)
-  const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), "./runtime.js");
+  const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), './runtime.js');
 
   // Ensure temp directory exists (don't delete - concurrent builds may be using it)
   fs.mkdirSync(tempDir, { recursive: true });
@@ -443,55 +443,55 @@ async function compileHook(options: CompileHookOptions): Promise<string> {
   const logFileInjection =
     logFilePath !== undefined
       ? `process.env['COMPARE_BRANCH_HOOKS_CLI_LOG_FILE'] = ${JSON.stringify(logFilePath)};\n`
-      : "";
+      : '';
 
   // Create wrapper that imports the hook and calls execute
   const wrapperContent = `${logFileInjection}
-import hook from '${sourcePath.replace(/\\/g, "/")}';
-import { execute } from '${runtimePath.replace(/\\/g, "/")}';
+import hook from '${sourcePath.replace(/\\/g, '/')}';
+import { execute } from '${runtimePath.replace(/\\/g, '/')}';
 
 execute(hook);
 `;
-  fs.writeFileSync(wrapperPath, wrapperContent, "utf-8");
+  fs.writeFileSync(wrapperPath, wrapperContent, 'utf-8');
 
   await esbuild.build({
     entryPoints: [wrapperPath],
     outfile: tempOutput,
-    format: "esm",
-    platform: "node",
-    target: "node20",
+    format: 'esm',
+    platform: 'node',
+    target: 'node20',
     bundle: true,
-    sourcemap: "inline",
+    sourcemap: 'inline',
     minify: false,
     // Keep node built-ins external
     external: [
-      "node:*",
-      "http",
-      "https",
-      "url",
-      "stream",
-      "zlib",
-      "events",
-      "buffer",
-      "util",
-      "path",
-      "fs",
-      "os",
-      "crypto",
-      "child_process",
-      "perf_hooks",
-      "async_hooks",
-      "diagnostics_channel",
+      'node:*',
+      'http',
+      'https',
+      'url',
+      'stream',
+      'zlib',
+      'events',
+      'buffer',
+      'util',
+      'path',
+      'fs',
+      'os',
+      'crypto',
+      'child_process',
+      'perf_hooks',
+      'async_hooks',
+      'diagnostics_channel'
     ],
     // Ensure we get clean ESM output
-    mainFields: ["module", "main"],
-    conditions: ["import", "node"],
+    mainFields: ['module', 'main'],
+    conditions: ['import', 'node']
   });
 
   // Read and return the compiled content
   // Don't delete temp directory - allows concurrent builds of same source
   // and the OS will clean up /tmp periodically
-  return fs.readFileSync(tempOutput, "utf-8");
+  return fs.readFileSync(tempOutput, 'utf-8');
 }
 
 /**
@@ -500,7 +500,7 @@ execute(hook);
  * @returns 8-character hex hash
  */
 function generateContentHash(content: string): string {
-  const hash = crypto.createHash("sha256").update(content).digest("hex");
+  const hash = crypto.createHash('sha256').update(content).digest('hex');
   return hash.substring(0, 8);
 }
 
@@ -550,14 +550,14 @@ async function compileAllHooks(options: CompileAllHooksOptions): Promise<Compile
 
     // Write compiled output with shebang for direct execution
     // --enable-source-maps enables stack traces with original source locations
-    const shebang = "#!/usr/bin/env -S node --enable-source-maps\n";
-    fs.writeFileSync(outputPath, shebang + compiledContent, { encoding: "utf-8", mode: 0o755 });
+    const shebang = '#!/usr/bin/env -S node --enable-source-maps\n';
+    fs.writeFileSync(outputPath, shebang + compiledContent, { encoding: 'utf-8', mode: 0o755 });
 
     compiledHooks.push({
       sourcePath,
       outputPath,
       outputFilename,
-      metadata,
+      metadata
     });
   }
 
@@ -611,22 +611,22 @@ interface HookContextInfo {
  */
 function detectHookContext(outputPath: string): HookContextInfo {
   // Normalize path separators for cross-platform compatibility
-  const normalizedPath = outputPath.replace(/\\/g, "/");
+  const normalizedPath = outputPath.replace(/\\/g, '/');
 
   // Check if the output path is within a .claude/ directory (agent hooks)
   // This matches paths like: /project/.claude/hooks/hooks.json
   const claudeMatch = normalizedPath.match(/^(.+)\/\.claude\//);
   if (claudeMatch !== null) {
     return {
-      context: "agent",
-      rootDir: claudeMatch[1],
+      context: 'agent',
+      rootDir: claudeMatch[1]
     };
   }
 
   // Default to plugin context with output directory as root
   return {
-    context: "plugin",
-    rootDir: path.dirname(outputPath),
+    context: 'plugin',
+    rootDir: path.dirname(outputPath)
   };
 }
 
@@ -648,14 +648,14 @@ function generateCommandPath(
   filename: string,
   buildDir: string,
   contextInfo: HookContextInfo,
-  executable: string = "node",
+  executable: string = 'node'
 ): string {
   // Calculate relative path from root to bin directory
   const relativeBuildPath = path.relative(contextInfo.rootDir, buildDir);
   // Normalize to forward slashes for cross-platform compatibility
-  const normalizedRelativePath = relativeBuildPath.replace(/\\/g, "/");
+  const normalizedRelativePath = relativeBuildPath.replace(/\\/g, '/');
 
-  if (contextInfo.context === "agent") {
+  if (contextInfo.context === 'agent') {
     // Agent hooks use $CLAUDE_PROJECT_DIR with shell-style quoting
     return `${executable} "$CLAUDE_PROJECT_DIR"/${normalizedRelativePath}/${filename}`;
   }
@@ -678,7 +678,7 @@ function generateHooksJson(
   compiledHooks: CompiledHook[],
   buildDir: string,
   contextInfo: HookContextInfo,
-  executable: string = "node",
+  executable: string = 'node'
 ): HooksJson {
   const groups = groupHooksByEvent(compiledHooks);
   const hooks: Partial<Record<HookEventName, MatcherEntry[]>> = {};
@@ -687,10 +687,10 @@ function generateHooksJson(
     // Create a single matcher entry (no matcher field)
     const entry: MatcherEntry = {
       hooks: hookList.map((hook) => ({
-        type: "command" as const,
+        type: 'command' as const,
         command: generateCommandPath(hook.outputFilename, buildDir, contextInfo, executable),
-        ...(hook.metadata.timeout !== undefined ? { timeout: hook.metadata.timeout } : {}),
-      })),
+        ...(hook.metadata.timeout !== undefined ? { timeout: hook.metadata.timeout } : {})
+      }))
     };
 
     hooks[eventName] = [entry];
@@ -700,8 +700,8 @@ function generateHooksJson(
     hooks,
     __generated: {
       files: compiledHooks.map((h) => h.outputFilename),
-      timestamp: new Date().toISOString(),
-    },
+      timestamp: new Date().toISOString()
+    }
   };
 }
 
@@ -716,7 +716,7 @@ function readExistingHooksJson(outputPath: string): HooksJson | undefined {
   }
 
   try {
-    const content = fs.readFileSync(outputPath, "utf-8");
+    const content = fs.readFileSync(outputPath, 'utf-8');
     return JSON.parse(content) as HooksJson;
   } catch {
     return undefined;
@@ -763,14 +763,14 @@ function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Record<Hoo
         // Extract filename from the command path
         // Command format: ${COMPARE_BRANCH_PLUGIN_ROOT}/filename.hash.mjs
         const match = hook.command.match(/\/([^/]+)$/);
-        const filename = match ? match[1] : "";
+        const filename = match ? match[1] : '';
         return !generatedFiles.has(filename);
       });
 
       if (preservedHooks.length > 0) {
         preservedEntries.push({
           ...entry,
-          hooks: preservedHooks,
+          hooks: preservedHooks
         });
       }
     }
@@ -792,14 +792,14 @@ function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Record<Hoo
  */
 function mergeHooksJson(
   newHooksJson: HooksJson,
-  preservedHooks: Partial<Record<HookEventName, MatcherEntry[]>>,
+  preservedHooks: Partial<Record<HookEventName, MatcherEntry[]>>
 ): HooksJson {
   const mergedHooks: Partial<Record<HookEventName, MatcherEntry[]>> = {};
 
   // Get all event types from both sources
   const allEventTypes = new Set([
     ...Object.keys(preservedHooks),
-    ...Object.keys(newHooksJson.hooks),
+    ...Object.keys(newHooksJson.hooks)
   ]) as Set<HookEventName>;
 
   for (const eventType of allEventTypes) {
@@ -812,7 +812,7 @@ function mergeHooksJson(
 
   return {
     hooks: mergedHooks,
-    __generated: newHooksJson.__generated,
+    __generated: newHooksJson.__generated
   };
 }
 
@@ -833,7 +833,7 @@ function writeHooksJson(hooksJson: HooksJson, outputPath: string): void {
   const content = `${JSON.stringify(hooksJson, null, 2)}\n`;
 
   try {
-    fs.writeFileSync(tempPath, content, "utf-8");
+    fs.writeFileSync(tempPath, content, 'utf-8');
     fs.renameSync(tempPath, outputPath);
   } catch (error) {
     // Clean up temp file if rename failed
@@ -884,7 +884,7 @@ async function main(): Promise<void> {
     const outputPath = path.resolve(cwd, args.output);
     const hooksJsonDir = path.dirname(outputPath);
     // Compiled hooks go in a 'bin' subdirectory relative to hooks.json
-    const buildDir = path.join(hooksJsonDir, "bin");
+    const buildDir = path.join(hooksJsonDir, 'bin');
 
     // Resolve log file path to absolute if provided
     const logFilePath = args.log !== undefined ? path.resolve(cwd, args.log) : undefined;
@@ -913,7 +913,7 @@ async function main(): Promise<void> {
     const compiledHooks = await compileAllHooks({ hookFiles, outputDir: buildDir, logFilePath });
 
     if (compiledHooks.length === 0) {
-      process.stderr.write("No valid hooks found in discovered files.\n");
+      process.stderr.write('No valid hooks found in discovered files.\n');
       process.exit(1);
     }
 
@@ -921,7 +921,7 @@ async function main(): Promise<void> {
     const hookContext = detectHookContext(outputPath);
 
     // Generate hooks.json for newly compiled hooks
-    const executable = args.executable !== undefined && args.executable !== "" ? args.executable : "node";
+    const executable = args.executable !== undefined && args.executable !== '' ? args.executable : 'node';
     const newHooksJson = generateHooksJson(compiledHooks, buildDir, hookContext, executable);
 
     // Preserve timestamp if generated files haven't changed
@@ -945,7 +945,7 @@ async function main(): Promise<void> {
     if (Object.keys(preservedHooks).length > 0) {
       const preservedCount = Object.values(preservedHooks).reduce(
         (sum, entries) => sum + entries.reduce((s, e) => s + e.hooks.length, 0),
-        0,
+        0
       );
       process.stdout.write(`Preserved ${preservedCount} hooks from other sources\n`);
     }
@@ -998,6 +998,6 @@ export {
   removeOldGeneratedFiles,
   extractPreservedHooks,
   mergeHooksJson,
-  HOOK_FACTORY_TO_EVENT,
+  HOOK_FACTORY_TO_EVENT
 };
 export type { CliArgs, HookMetadata, CompiledHook, HookConfig, MatcherEntry, HooksJson };

@@ -18,7 +18,7 @@
  *
  * All valid hook event names for Compare Branch Extension hooks.
  */
-export type HookEventName = "StartIssue" | "StartTask" | "EndTask" | "EndIssue" | "StartInterview" | "EndInterview";
+export type HookEventName = 'StartIssue' | 'StartTask' | 'EndTask' | 'EndIssue' | 'StartInterview' | 'EndInterview';
 
 /**
  * All hook event names as a readonly array.
@@ -32,12 +32,12 @@ export type HookEventName = "StartIssue" | "StartTask" | "EndTask" | "EndIssue" 
  * ```
  */
 export const HOOK_EVENT_NAMES = [
-  "StartIssue",
-  "StartTask",
-  "EndTask",
-  "EndIssue",
-  "StartInterview",
-  "EndInterview",
+  'StartIssue',
+  'StartTask',
+  'EndTask',
+  'EndIssue',
+  'StartInterview',
+  'EndInterview'
 ] as const satisfies readonly HookEventName[];
 
 // ============================================================================
@@ -167,12 +167,12 @@ export type EndInterviewInput = InterviewHookInput;
  * ```
  */
 export type HookInput =
-  | ({ hookEventName: "StartIssue" } & StartIssueInput)
-  | ({ hookEventName: "StartTask" } & StartTaskInput)
-  | ({ hookEventName: "EndTask" } & EndTaskInput)
-  | ({ hookEventName: "EndIssue" } & EndIssueInput)
-  | ({ hookEventName: "StartInterview" } & StartInterviewInput)
-  | ({ hookEventName: "EndInterview" } & EndInterviewInput);
+  | ({ hookEventName: 'StartIssue' } & StartIssueInput)
+  | ({ hookEventName: 'StartTask' } & StartTaskInput)
+  | ({ hookEventName: 'EndTask' } & EndTaskInput)
+  | ({ hookEventName: 'EndIssue' } & EndIssueInput)
+  | ({ hookEventName: 'StartInterview' } & StartInterviewInput)
+  | ({ hookEventName: 'EndInterview' } & EndInterviewInput);
 
 // ============================================================================
 // Type Helpers

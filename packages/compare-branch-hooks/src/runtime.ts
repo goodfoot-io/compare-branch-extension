@@ -17,10 +17,10 @@
  * ```
  */
 
-import { extractInput } from "./env.js";
-import { EXIT_CODES, writeError } from "./exit-codes.js";
-import type { HookContext, HookFunction } from "./hooks.js";
-import { logger } from "./logger.js";
+import { extractInput } from './env.js';
+import { EXIT_CODES, writeError } from './exit-codes.js';
+import type { HookContext, HookFunction } from './hooks.js';
+import { logger } from './logger.js';
 import type {
   EndInterviewInput,
   EndIssueInput,
@@ -28,8 +28,8 @@ import type {
   HookInput,
   StartInterviewInput,
   StartIssueInput,
-  StartTaskInput,
-} from "./types.js";
+  StartTaskInput
+} from './types.js';
 
 /**
  * Union type of all possible hook functions.
@@ -74,7 +74,7 @@ function configureLogFile(): void {
   if (cliLogFile !== undefined && envLogFile !== undefined && cliLogFile !== envLogFile) {
     process.stderr.write(
       `Log file configuration conflict: CLI --log="${cliLogFile}" vs COMPARE_BRANCH_HOOKS_LOG_FILE="${envLogFile}". ` +
-        "Use only one method to configure hook logging.\n",
+        'Use only one method to configure hook logging.\n'
     );
     process.exit(EXIT_CODES.ERROR);
   }

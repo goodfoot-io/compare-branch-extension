@@ -18,8 +18,16 @@
  * });
  * ```
  */
-import type { Logger } from "./logger.js";
-import type { EndInterviewInput, EndIssueInput, EndTaskInput, HookEventName, StartInterviewInput, StartIssueInput, StartTaskInput } from "./types.js";
+import type { Logger } from './logger.js';
+import type {
+  EndInterviewInput,
+  EndIssueInput,
+  EndTaskInput,
+  HookEventName,
+  StartInterviewInput,
+  StartIssueInput,
+  StartTaskInput
+} from './types.js';
 /**
  * Configuration options for hook factories.
  *
@@ -31,20 +39,20 @@ import type { EndInterviewInput, EndIssueInput, EndTaskInput, HookEventName, Sta
  * ```
  */
 export interface HookConfig {
-    /**
-     * Handler execution timeout in milliseconds.
-     *
-     * If the handler does not complete within this time, it will be
-     * terminated and an error will be logged.
-     *
-     * If not provided, uses the default timeout from the runtime.
-     * @example
-     * ```typescript
-     * { timeout: 5000 }  // 5 second timeout
-     * { timeout: 30000 } // 30 second timeout for long operations
-     * ```
-     */
-    timeout?: number;
+  /**
+   * Handler execution timeout in milliseconds.
+   *
+   * If the handler does not complete within this time, it will be
+   * terminated and an error will be logged.
+   *
+   * If not provided, uses the default timeout from the runtime.
+   * @example
+   * ```typescript
+   * { timeout: 5000 }  // 5 second timeout
+   * { timeout: 30000 } // 30 second timeout for long operations
+   * ```
+   */
+  timeout?: number;
 }
 /**
  * Context provided to hook handlers.
@@ -59,13 +67,13 @@ export interface HookConfig {
  * ```
  */
 export interface HookContext {
-    /**
-     * Logger instance for structured logging.
-     *
-     * The logger is pre-configured with the hook context (hookType, input)
-     * so log events are automatically enriched.
-     */
-    logger: Logger;
+  /**
+   * Logger instance for structured logging.
+   *
+   * The logger is pre-configured with the hook context (hookType, input)
+   * so log events are automatically enriched.
+   */
+  logger: Logger;
 }
 /**
  * Handler function for a specific hook type.
@@ -75,7 +83,10 @@ export interface HookContext {
  * @template TInput - The input type for this hook
  * @template TContext - The context type (defaults to HookContext)
  */
-export type HookHandler<TInput, TContext extends HookContext = HookContext> = (input: TInput, context: TContext) => void | Promise<void>;
+export type HookHandler<TInput, TContext extends HookContext = HookContext> = (
+  input: TInput,
+  context: TContext
+) => void | Promise<void>;
 /**
  * The result of a hook factory - a function that wraps the handler.
  *
@@ -84,20 +95,20 @@ export type HookHandler<TInput, TContext extends HookContext = HookContext> = (i
  * @template TContext - The context type (defaults to HookContext)
  */
 export interface HookFunction<TInput, TContext extends HookContext = HookContext> {
-    /**
-     * Execute the hook handler with the given input and context.
-     * @param input - The hook input data
-     * @param context - The hook execution context
-     */
-    (input: TInput, context: TContext): Promise<void>;
-    /**
-     * The hook event name this handler is for.
-     */
-    hookEventName: HookEventName;
-    /**
-     * The timeout in milliseconds, if configured.
-     */
-    timeout?: number;
+  /**
+   * Execute the hook handler with the given input and context.
+   * @param input - The hook input data
+   * @param context - The hook execution context
+   */
+  (input: TInput, context: TContext): Promise<void>;
+  /**
+   * The hook event name this handler is for.
+   */
+  hookEventName: HookEventName;
+  /**
+   * The timeout in milliseconds, if configured.
+   */
+  timeout?: number;
 }
 /**
  * Creates a StartIssue hook handler.
@@ -116,7 +127,10 @@ export interface HookFunction<TInput, TContext extends HookContext = HookContext
  * });
  * ```
  */
-export declare function startIssueHook(config: HookConfig, handler: HookHandler<StartIssueInput>): HookFunction<StartIssueInput>;
+export declare function startIssueHook(
+  config: HookConfig,
+  handler: HookHandler<StartIssueInput>
+): HookFunction<StartIssueInput>;
 /**
  * Creates a StartTask hook handler.
  *
@@ -137,7 +151,10 @@ export declare function startIssueHook(config: HookConfig, handler: HookHandler<
  * });
  * ```
  */
-export declare function startTaskHook(config: HookConfig, handler: HookHandler<StartTaskInput>): HookFunction<StartTaskInput>;
+export declare function startTaskHook(
+  config: HookConfig,
+  handler: HookHandler<StartTaskInput>
+): HookFunction<StartTaskInput>;
 /**
  * Creates an EndTask hook handler.
  *
@@ -173,7 +190,10 @@ export declare function endTaskHook(config: HookConfig, handler: HookHandler<End
  * });
  * ```
  */
-export declare function endIssueHook(config: HookConfig, handler: HookHandler<EndIssueInput>): HookFunction<EndIssueInput>;
+export declare function endIssueHook(
+  config: HookConfig,
+  handler: HookHandler<EndIssueInput>
+): HookFunction<EndIssueInput>;
 /**
  * Creates a StartInterview hook handler.
  *
@@ -191,7 +211,10 @@ export declare function endIssueHook(config: HookConfig, handler: HookHandler<En
  * });
  * ```
  */
-export declare function startInterviewHook(config: HookConfig, handler: HookHandler<StartInterviewInput>): HookFunction<StartInterviewInput>;
+export declare function startInterviewHook(
+  config: HookConfig,
+  handler: HookHandler<StartInterviewInput>
+): HookFunction<StartInterviewInput>;
 /**
  * Creates an EndInterview hook handler.
  *
@@ -209,5 +232,8 @@ export declare function startInterviewHook(config: HookConfig, handler: HookHand
  * });
  * ```
  */
-export declare function endInterviewHook(config: HookConfig, handler: HookHandler<EndInterviewInput>): HookFunction<EndInterviewInput>;
+export declare function endInterviewHook(
+  config: HookConfig,
+  handler: HookHandler<EndInterviewInput>
+): HookFunction<EndInterviewInput>;
 //# sourceMappingURL=hooks.d.ts.map

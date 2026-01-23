@@ -19,9 +19,9 @@
  * ```
  */
 
-import { closeSync, existsSync, mkdirSync, openSync, writeSync } from "node:fs";
-import { dirname } from "node:path";
-import type { HookEventName, HookInput } from "./types.js";
+import { closeSync, existsSync, mkdirSync, openSync, writeSync } from 'node:fs';
+import { dirname } from 'node:path';
+import type { HookEventName, HookInput } from './types.js';
 
 // ============================================================================
 // Log Level Types
@@ -37,12 +37,12 @@ import type { HookEventName, HookInput } from "./types.js";
  * | `warn` | Medium | Warning conditions that may indicate issues |
  * | `error` | High | Error conditions requiring attention |
  */
-export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * All log levels in order of severity (lowest to highest).
  */
-export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const satisfies readonly LogLevel[];
+export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const satisfies readonly LogLevel[];
 
 // ============================================================================
 // Log Event Type
@@ -291,7 +291,7 @@ export class Logger {
    * ```
    */
   debug(message: string, context?: Record<string, unknown>): void {
-    this.emit("debug", message, context);
+    this.emit('debug', message, context);
   }
 
   /**
@@ -307,7 +307,7 @@ export class Logger {
    * ```
    */
   info(message: string, context?: Record<string, unknown>): void {
-    this.emit("info", message, context);
+    this.emit('info', message, context);
   }
 
   /**
@@ -323,7 +323,7 @@ export class Logger {
    * ```
    */
   warn(message: string, context?: Record<string, unknown>): void {
-    this.emit("warn", message, context);
+    this.emit('warn', message, context);
   }
 
   /**
@@ -339,7 +339,7 @@ export class Logger {
    * ```
    */
   error(message: string, context?: Record<string, unknown>): void {
-    this.emit("error", message, context);
+    this.emit('error', message, context);
   }
 
   /**
@@ -367,12 +367,12 @@ export class Logger {
 
     const event: LogEvent = {
       timestamp: new Date().toISOString(),
-      level: "error",
+      level: 'error',
       hookType: this.currentHookType,
       message,
       input: this.currentInput,
       error: errorInfo,
-      context,
+      context
     };
 
     this.deliverEvent(event);
@@ -528,7 +528,7 @@ export class Logger {
       hookType: this.currentHookType,
       message,
       input: this.currentInput,
-      context,
+      context
     };
 
     this.deliverEvent(event);
@@ -595,7 +595,7 @@ export class Logger {
       }
 
       // Open file for appending
-      this.logFileFd = openSync(this.logFilePath, "a");
+      this.logFileFd = openSync(this.logFilePath, 'a');
     } catch {
       // Silently ignore file initialization errors
       this.logFileFd = null;
@@ -612,7 +612,7 @@ export class Logger {
       const info: LogEventError = {
         name: error.name,
         message: error.message,
-        stack: error.stack,
+        stack: error.stack
       };
 
       // Extract cause chain if present
@@ -625,8 +625,8 @@ export class Logger {
 
     // Handle non-Error values
     return {
-      name: "UnknownError",
-      message: String(error),
+      name: 'UnknownError',
+      message: String(error)
     };
   }
 }

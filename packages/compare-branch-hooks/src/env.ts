@@ -18,7 +18,7 @@
  * @module
  */
 
-import type { HookEventName, HookInputForEvent } from "./types.js";
+import type { HookEventName, HookInputForEvent } from './types.js';
 
 // ============================================================================
 // Constants
@@ -34,32 +34,32 @@ export const COMPARE_BRANCH_ENV_VARS = {
    * Unique identifier for the current issue.
    * Available in all hooks.
    */
-  ISSUE_ID: "ISSUE_ID",
+  ISSUE_ID: 'ISSUE_ID',
 
   /**
    * Unique identifier for the current task.
    * Only available in task hooks (StartTask, EndTask).
    */
-  TASK_ID: "TASK_ID",
+  TASK_ID: 'TASK_ID',
 
   /**
    * Process ID of the execution wrapper.
    * Available in all hooks.
    */
-  EXECUTION_WRAPPER_PID: "EXECUTION_WRAPPER_PID",
+  EXECUTION_WRAPPER_PID: 'EXECUTION_WRAPPER_PID',
 
   /**
    * Path to the IPC socket for hook-to-wrapper communication.
    * Available in all hooks.
    */
-  HOOK_IPC_SOCKET: "HOOK_IPC_SOCKET",
+  HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET',
 
   /**
    * Whether the task is running in interactive mode.
    * Set to "true" if interactive, absent otherwise.
    * Only available in task hooks (StartTask, EndTask).
    */
-  INTERACTIVE_MODE: "INTERACTIVE_MODE",
+  INTERACTIVE_MODE: 'INTERACTIVE_MODE'
 } as const;
 
 // ============================================================================
@@ -79,7 +79,7 @@ export const COMPARE_BRANCH_ENV_VARS = {
  */
 export function getIssueId(): string {
   const value = process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID];
-  if (value === undefined || value === "") {
+  if (value === undefined || value === '') {
     throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.ISSUE_ID}`);
   }
   return value;
@@ -99,7 +99,7 @@ export function getIssueId(): string {
  */
 export function getTaskId(): string | undefined {
   const value = process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID];
-  return value === "" ? undefined : value;
+  return value === '' ? undefined : value;
 }
 
 /**
@@ -115,7 +115,7 @@ export function getTaskId(): string | undefined {
  */
 export function getExecutionWrapperPid(): number {
   const value = process.env[COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID];
-  if (value === undefined || value === "") {
+  if (value === undefined || value === '') {
     throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID}`);
   }
   const pid = Number.parseInt(value, 10);
@@ -138,7 +138,7 @@ export function getExecutionWrapperPid(): number {
  */
 export function getHookIpcSocket(): string {
   const value = process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET];
-  if (value === undefined || value === "") {
+  if (value === undefined || value === '') {
     throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET}`);
   }
   return value;
@@ -156,7 +156,7 @@ export function getHookIpcSocket(): string {
  * ```
  */
 export function isInteractiveMode(): boolean {
-  return process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] === "true";
+  return process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] === 'true';
 }
 
 // ============================================================================
@@ -191,38 +191,38 @@ export function extractInput<T extends HookEventName>(hookEventName: T): HookInp
   const baseInput = {
     issueId: getIssueId(),
     executionWrapperPid: getExecutionWrapperPid(),
-    hookIpcSocket: getHookIpcSocket(),
+    hookIpcSocket: getHookIpcSocket()
   };
 
   switch (hookEventName) {
-    case "StartIssue":
-    case "EndIssue":
+    case 'StartIssue':
+    case 'EndIssue':
       return {
         hookEventName,
-        ...baseInput,
+        ...baseInput
       } as HookInputForEvent<T>;
 
-    case "StartTask":
-    case "EndTask": {
+    case 'StartTask':
+    case 'EndTask': {
       const taskId = getTaskId();
       if (taskId === undefined) {
         throw new Error(
-          `Missing required environment variable for ${hookEventName}: ${COMPARE_BRANCH_ENV_VARS.TASK_ID}`,
+          `Missing required environment variable for ${hookEventName}: ${COMPARE_BRANCH_ENV_VARS.TASK_ID}`
         );
       }
       return {
         hookEventName,
         ...baseInput,
         taskId,
-        interactiveMode: isInteractiveMode(),
+        interactiveMode: isInteractiveMode()
       } as HookInputForEvent<T>;
     }
 
-    case "StartInterview":
-    case "EndInterview":
+    case 'StartInterview':
+    case 'EndInterview':
       return {
         hookEventName,
-        ...baseInput,
+        ...baseInput
       } as HookInputForEvent<T>;
 
     default: {

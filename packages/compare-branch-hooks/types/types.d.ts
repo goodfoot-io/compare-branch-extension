@@ -13,7 +13,7 @@
  *
  * All valid hook event names for Compare Branch Extension hooks.
  */
-export type HookEventName = "StartIssue" | "StartTask" | "EndTask" | "EndIssue" | "StartInterview" | "EndInterview";
+export type HookEventName = 'StartIssue' | 'StartTask' | 'EndTask' | 'EndIssue' | 'StartInterview' | 'EndInterview';
 /**
  * All hook event names as a readonly array.
  *
@@ -25,7 +25,14 @@ export type HookEventName = "StartIssue" | "StartTask" | "EndTask" | "EndIssue" 
  * }
  * ```
  */
-export declare const HOOK_EVENT_NAMES: readonly ["StartIssue", "StartTask", "EndTask", "EndIssue", "StartInterview", "EndInterview"];
+export declare const HOOK_EVENT_NAMES: readonly [
+  'StartIssue',
+  'StartTask',
+  'EndTask',
+  'EndIssue',
+  'StartInterview',
+  'EndInterview'
+];
 /**
  * Base input fields present in all hook inputs.
  *
@@ -41,19 +48,19 @@ export declare const HOOK_EVENT_NAMES: readonly ["StartIssue", "StartTask", "End
  * ```
  */
 export interface BaseHookInput {
-    /**
-     * Unique identifier for the current issue.
-     */
-    issueId: string;
-    /**
-     * Process ID of the execution wrapper.
-     */
-    executionWrapperPid: number;
-    /**
-     * Path to the IPC socket for hook-to-wrapper communication.
-     * Created by execution-wrapper.mjs for each hook process.
-     */
-    hookIpcSocket: string;
+  /**
+   * Unique identifier for the current issue.
+   */
+  issueId: string;
+  /**
+   * Process ID of the execution wrapper.
+   */
+  executionWrapperPid: number;
+  /**
+   * Path to the IPC socket for hook-to-wrapper communication.
+   * Created by execution-wrapper.mjs for each hook process.
+   */
+  hookIpcSocket: string;
 }
 /**
  * Input for task-related hooks (StartTask, EndTask).
@@ -61,29 +68,27 @@ export interface BaseHookInput {
  * Extends base input with task-specific context.
  */
 export interface TaskHookInput extends BaseHookInput {
-    /**
-     * Unique identifier for the current task.
-     */
-    taskId: string;
-    /**
-     * Whether the task is running in interactive mode.
-     */
-    interactiveMode: boolean;
+  /**
+   * Unique identifier for the current task.
+   */
+  taskId: string;
+  /**
+   * Whether the task is running in interactive mode.
+   */
+  interactiveMode: boolean;
 }
 /**
  * Input for issue-level hooks (StartIssue, EndIssue).
  *
  * Uses only the base input fields - no task-specific context.
  */
-export interface IssueHookInput extends BaseHookInput {
-}
+export interface IssueHookInput extends BaseHookInput {}
 /**
  * Input for interview hooks (StartInterview, EndInterview).
  *
  * Uses only the base input fields - interviews are always interactive.
  */
-export interface InterviewHookInput extends BaseHookInput {
-}
+export interface InterviewHookInput extends BaseHookInput {}
 /**
  * Input type for StartIssue hooks.
  */
@@ -129,19 +134,25 @@ export type EndInterviewInput = InterviewHookInput;
  * }
  * ```
  */
-export type HookInput = ({
-    hookEventName: "StartIssue";
-} & StartIssueInput) | ({
-    hookEventName: "StartTask";
-} & StartTaskInput) | ({
-    hookEventName: "EndTask";
-} & EndTaskInput) | ({
-    hookEventName: "EndIssue";
-} & EndIssueInput) | ({
-    hookEventName: "StartInterview";
-} & StartInterviewInput) | ({
-    hookEventName: "EndInterview";
-} & EndInterviewInput);
+export type HookInput =
+  | ({
+      hookEventName: 'StartIssue';
+    } & StartIssueInput)
+  | ({
+      hookEventName: 'StartTask';
+    } & StartTaskInput)
+  | ({
+      hookEventName: 'EndTask';
+    } & EndTaskInput)
+  | ({
+      hookEventName: 'EndIssue';
+    } & EndIssueInput)
+  | ({
+      hookEventName: 'StartInterview';
+    } & StartInterviewInput)
+  | ({
+      hookEventName: 'EndInterview';
+    } & EndInterviewInput);
 /**
  * Type helper for extracting input type from event name.
  *
@@ -152,7 +163,10 @@ export type HookInput = ({
  * // StartTaskIn is StartTaskInput & { hookEventName: 'StartTask' }
  * ```
  */
-export type HookInputForEvent<T extends HookEventName> = Extract<HookInput, {
+export type HookInputForEvent<T extends HookEventName> = Extract<
+  HookInput,
+  {
     hookEventName: T;
-}>;
+  }
+>;
 //# sourceMappingURL=types.d.ts.map

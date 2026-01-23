@@ -19,7 +19,7 @@
  * ```
  */
 
-import type { Logger } from "./logger.js";
+import type { Logger } from './logger.js';
 import type {
   EndInterviewInput,
   EndIssueInput,
@@ -27,8 +27,8 @@ import type {
   HookEventName,
   StartInterviewInput,
   StartIssueInput,
-  StartTaskInput,
-} from "./types.js";
+  StartTaskInput
+} from './types.js';
 
 // ============================================================================
 // Configuration Types
@@ -101,7 +101,7 @@ export interface HookContext {
  */
 export type HookHandler<TInput, TContext extends HookContext = HookContext> = (
   input: TInput,
-  context: TContext,
+  context: TContext
 ) => void | Promise<void>;
 
 /**
@@ -147,7 +147,7 @@ export interface HookFunction<TInput, TContext extends HookContext = HookContext
 function createHookFunction<TInput, TContext extends HookContext = HookContext>(
   hookEventName: HookEventName,
   config: HookConfig,
-  handler: HookHandler<TInput, TContext>,
+  handler: HookHandler<TInput, TContext>
 ): HookFunction<TInput, TContext> {
   const hookFn = async (input: TInput, context: TContext): Promise<void> => {
     await handler(input, context);
@@ -183,9 +183,9 @@ function createHookFunction<TInput, TContext extends HookContext = HookContext>(
  */
 export function startIssueHook(
   config: HookConfig,
-  handler: HookHandler<StartIssueInput>,
+  handler: HookHandler<StartIssueInput>
 ): HookFunction<StartIssueInput> {
-  return createHookFunction("StartIssue", config, handler);
+  return createHookFunction('StartIssue', config, handler);
 }
 
 // ============================================================================
@@ -213,7 +213,7 @@ export function startIssueHook(
  * ```
  */
 export function startTaskHook(config: HookConfig, handler: HookHandler<StartTaskInput>): HookFunction<StartTaskInput> {
-  return createHookFunction("StartTask", config, handler);
+  return createHookFunction('StartTask', config, handler);
 }
 
 // ============================================================================
@@ -238,7 +238,7 @@ export function startTaskHook(config: HookConfig, handler: HookHandler<StartTask
  * ```
  */
 export function endTaskHook(config: HookConfig, handler: HookHandler<EndTaskInput>): HookFunction<EndTaskInput> {
-  return createHookFunction("EndTask", config, handler);
+  return createHookFunction('EndTask', config, handler);
 }
 
 // ============================================================================
@@ -263,7 +263,7 @@ export function endTaskHook(config: HookConfig, handler: HookHandler<EndTaskInpu
  * ```
  */
 export function endIssueHook(config: HookConfig, handler: HookHandler<EndIssueInput>): HookFunction<EndIssueInput> {
-  return createHookFunction("EndIssue", config, handler);
+  return createHookFunction('EndIssue', config, handler);
 }
 
 // ============================================================================
@@ -289,9 +289,9 @@ export function endIssueHook(config: HookConfig, handler: HookHandler<EndIssueIn
  */
 export function startInterviewHook(
   config: HookConfig,
-  handler: HookHandler<StartInterviewInput>,
+  handler: HookHandler<StartInterviewInput>
 ): HookFunction<StartInterviewInput> {
-  return createHookFunction("StartInterview", config, handler);
+  return createHookFunction('StartInterview', config, handler);
 }
 
 // ============================================================================
@@ -317,7 +317,7 @@ export function startInterviewHook(
  */
 export function endInterviewHook(
   config: HookConfig,
-  handler: HookHandler<EndInterviewInput>,
+  handler: HookHandler<EndInterviewInput>
 ): HookFunction<EndInterviewInput> {
-  return createHookFunction("EndInterview", config, handler);
+  return createHookFunction('EndInterview', config, handler);
 }

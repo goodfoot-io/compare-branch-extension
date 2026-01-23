@@ -26,7 +26,7 @@ export const EXIT_CODES = {
   /** Handler completed successfully. */
   SUCCESS: 0,
   /** Handler threw an error. */
-  ERROR: 1,
+  ERROR: 1
 } as const;
 
 /**
