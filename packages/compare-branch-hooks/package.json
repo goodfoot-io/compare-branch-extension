@@ -1,0 +1,53 @@
+{
+  "name": "@goodfoot/compare-branch-hooks",
+  "version": "1.0.0",
+  "description": "Type-safe Compare Branch Extension hooks library with environment variable input and exit code output",
+  "homepage": "https://github.com/goodfoot-io/marketplace/tree/main/public/packages/compare-branch-hooks",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goodfoot-io/marketplace.git",
+    "directory": "public/packages/compare-branch-hooks"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "files": [
+    "dist",
+    "types"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build tsconfig.build.json",
+    "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./tests",
+    "test": "vitest run"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./types/index.d.ts"
+    },
+    "./*": {
+      "import": "./dist/*.js",
+      "types": "./types/*.d.ts"
+    }
+  },
+  "bin": "./dist/cli.js",
+  "publishConfig": {
+    "bin": {
+      "compare-branch-hooks": "./dist/cli.js"
+    }
+  },
+  "dependencies": {
+    "esbuild": "^0.24.0",
+    "glob": "^11.0.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.11",
+    "@types/node": "^24",
+    "tsx": "^4.20.3",
+    "vitest": "4.0.13"
+  }
+}
