@@ -15,6 +15,8 @@ export { endInterviewHook, endIssueHook, endTaskHook, startInterviewHook, startI
 export type { LogEvent, LogEventError, LogEventHandler, LoggerConfig, LogLevel, Unsubscribe, } from "./logger.js";
 export { LOG_LEVELS, Logger, logger } from "./logger.js";
 export { execute } from "./runtime.js";
+export type { ScaffoldOptions } from "./scaffold.js";
+export { scaffoldProject } from "./scaffold.js";
 export type { BaseHookInput, EndInterviewInput, EndIssueInput, EndTaskInput, HookEventName, HookInput, HookInputForEvent, InterviewHookInput, IssueHookInput, StartInterviewInput, StartIssueInput, StartTaskInput, TaskHookInput, } from "./types.js";
 export { HOOK_EVENT_NAMES } from "./types.js";
 //# sourceMappingURL=index.d.ts.map
