@@ -6,15 +6,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   endInterviewHook,
   endIssueHook,
-  endTaskHook,
   type HookContext,
   type HookFunction,
   startInterviewHook,
-  startIssueHook,
-  startTaskHook
+  startIssueHook
 } from '../src/hooks.js';
 import { Logger } from '../src/logger.js';
-import type { StartIssueInput, StartTaskInput } from '../src/types.js';
+import type { StartIssueInput } from '../src/types.js';
 
 // Create a mock context
 const createMockContext = (): HookContext => ({
@@ -71,42 +69,6 @@ describe('Hook Factories', () => {
     });
   });
 
-  describe('startTaskHook', () => {
-    it('creates a hook function with correct hookEventName', () => {
-      const hook = startTaskHook({}, () => {});
-      expect(hook.hookEventName).toBe('StartTask');
-    });
-
-    it('receives task-specific input', async () => {
-      const handler = vi.fn();
-      const hook = startTaskHook({}, handler);
-      const input: StartTaskInput = {
-        issueId: 'issue-1',
-        taskId: 'task-1',
-        executionWrapperPid: 123,
-        hookIpcSocket: '/tmp/socket',
-        interactiveMode: true
-      };
-
-      await hook(input, createMockContext());
-
-      expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          taskId: 'task-1',
-          interactiveMode: true
-        }),
-        expect.anything()
-      );
-    });
-  });
-
-  describe('endTaskHook', () => {
-    it('creates a hook function with correct hookEventName', () => {
-      const hook = endTaskHook({}, () => {});
-      expect(hook.hookEventName).toBe('EndTask');
-    });
-  });
-
   describe('endIssueHook', () => {
     it('creates a hook function with correct hookEventName', () => {
       const hook = endIssueHook({}, () => {});
@@ -135,7 +97,7 @@ describe('Hook Factories', () => {
     });
 
     it('has required metadata properties', () => {
-      const hook = startTaskHook({ timeout: 10000 }, () => {});
+      const hook = startIssueHook({ timeout: 10000 }, () => {});
       expect(hook).toHaveProperty('hookEventName');
       expect(hook).toHaveProperty('timeout');
     });

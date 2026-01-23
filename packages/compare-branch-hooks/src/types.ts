@@ -18,7 +18,7 @@
  *
  * All valid hook event names for Compare Branch Extension hooks.
  */
-export type HookEventName = 'StartIssue' | 'StartTask' | 'EndTask' | 'EndIssue' | 'StartInterview' | 'EndInterview';
+export type HookEventName = 'StartIssue' | 'EndIssue' | 'StartInterview' | 'EndInterview';
 
 /**
  * All hook event names as a readonly array.
@@ -33,8 +33,6 @@ export type HookEventName = 'StartIssue' | 'StartTask' | 'EndTask' | 'EndIssue' 
  */
 export const HOOK_EVENT_NAMES = [
   'StartIssue',
-  'StartTask',
-  'EndTask',
   'EndIssue',
   'StartInterview',
   'EndInterview'
@@ -77,23 +75,6 @@ export interface BaseHookInput {
 }
 
 /**
- * Input for task-related hooks (StartTask, EndTask).
- *
- * Extends base input with task-specific context.
- */
-export interface TaskHookInput extends BaseHookInput {
-  /**
-   * Unique identifier for the current task.
-   */
-  taskId: string;
-
-  /**
-   * Whether the task is running in interactive mode.
-   */
-  interactiveMode: boolean;
-}
-
-/**
  * Input for issue-level hooks (StartIssue, EndIssue).
  *
  * Uses only the base input fields - no task-specific context.
@@ -115,16 +96,6 @@ export interface InterviewHookInput extends BaseHookInput {}
  * Input type for StartIssue hooks.
  */
 export type StartIssueInput = IssueHookInput;
-
-/**
- * Input type for StartTask hooks.
- */
-export type StartTaskInput = TaskHookInput;
-
-/**
- * Input type for EndTask hooks.
- */
-export type EndTaskInput = TaskHookInput;
 
 /**
  * Input type for EndIssue hooks.
@@ -154,13 +125,11 @@ export type EndInterviewInput = InterviewHookInput;
  * ```typescript
  * function handleHook(input: HookInput) {
  *   switch (input.hookEventName) {
- *     case 'StartTask':
- *       // TypeScript knows input has taskId here
- *       console.log(`Task: ${input.taskId}`);
- *       break;
  *     case 'StartIssue':
- *       // TypeScript knows input has only base fields here
  *       console.log(`Issue: ${input.issueId}`);
+ *       break;
+ *     case 'StartInterview':
+ *       console.log(`Interview for issue: ${input.issueId}`);
  *       break;
  *   }
  * }
@@ -168,8 +137,6 @@ export type EndInterviewInput = InterviewHookInput;
  */
 export type HookInput =
   | ({ hookEventName: 'StartIssue' } & StartIssueInput)
-  | ({ hookEventName: 'StartTask' } & StartTaskInput)
-  | ({ hookEventName: 'EndTask' } & EndTaskInput)
   | ({ hookEventName: 'EndIssue' } & EndIssueInput)
   | ({ hookEventName: 'StartInterview' } & StartInterviewInput)
   | ({ hookEventName: 'EndInterview' } & EndInterviewInput);
@@ -184,8 +151,8 @@ export type HookInput =
  * @template T - The hook event name
  * @example
  * ```typescript
- * type StartTaskIn = HookInputForEvent<'StartTask'>;
- * // StartTaskIn is StartTaskInput & { hookEventName: 'StartTask' }
+ * type StartIssueIn = HookInputForEvent<'StartIssue'>;
+ * // StartIssueIn is StartIssueInput & { hookEventName: 'StartIssue' }
  * ```
  */
 export type HookInputForEvent<T extends HookEventName> = Extract<HookInput, { hookEventName: T }>;

@@ -13,8 +13,6 @@ import type { HookEventName } from './types.js';
  */
 export const HOOK_FACTORY_TO_EVENT: Record<string, HookEventName> = {
   startIssueHook: 'StartIssue',
-  startTaskHook: 'StartTask',
-  endTaskHook: 'EndTask',
   endIssueHook: 'EndIssue',
   startInterviewHook: 'StartInterview',
   endInterviewHook: 'EndInterview'

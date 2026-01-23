@@ -59,9 +59,9 @@ export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const satisfies 
  * const event: LogEvent = {
  *   timestamp: '2024-01-15T10:30:00.000Z',
  *   level: 'warn',
- *   hookType: 'StartTask',
- *   message: 'Task started with interactive mode',
- *   input: { taskId: 'task-123', interactiveMode: true }
+ *   hookType: 'StartIssue',
+ *   message: 'Issue started',
+ *   input: { issueId: 'issue-123' }
  * };
  * ```
  */

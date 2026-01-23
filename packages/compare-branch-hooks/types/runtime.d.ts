@@ -17,25 +17,12 @@
  * ```
  */
 import type { HookFunction } from './hooks.js';
-import type {
-  EndInterviewInput,
-  EndIssueInput,
-  EndTaskInput,
-  StartInterviewInput,
-  StartIssueInput,
-  StartTaskInput
-} from './types.js';
+import type { EndInterviewInput, EndIssueInput, StartInterviewInput, StartIssueInput } from './types.js';
 /**
  * Union type of all possible hook functions.
  * This allows execute() to accept any hook function type.
  */
-type AnyHookFunction =
-  | HookFunction<StartIssueInput>
-  | HookFunction<StartTaskInput>
-  | HookFunction<EndTaskInput>
-  | HookFunction<EndIssueInput>
-  | HookFunction<StartInterviewInput>
-  | HookFunction<EndInterviewInput>;
+type AnyHookFunction = HookFunction<StartIssueInput> | HookFunction<EndIssueInput> | HookFunction<StartInterviewInput> | HookFunction<EndInterviewInput>;
 /**
  * Executes a hook handler with full runtime orchestration.
  *
@@ -54,14 +41,15 @@ type AnyHookFunction =
  * ```typescript
  * // In compiled hook file
  * import { execute } from '@goodfoot/compare-branch-hooks/runtime';
- * import { startTaskHook } from '@goodfoot/compare-branch-hooks';
+ * import { startIssueHook } from '@goodfoot/compare-branch-hooks';
  *
- * const myHook = startTaskHook({}, async (input, { logger }) => {
- *   logger.info('Processing task', { taskId: input.taskId });
+ * const myHook = startIssueHook({}, async (input, { logger }) => {
+ *   logger.info('Processing issue', { issueId: input.issueId });
  * });
  *
  * execute(myHook);
  * ```
  */
 export declare function execute(hookFn: AnyHookFunction): Promise<void>;
+export {};
 //# sourceMappingURL=runtime.d.ts.map

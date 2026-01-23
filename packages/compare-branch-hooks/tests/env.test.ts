@@ -8,9 +8,7 @@ import {
   extractInput,
   getExecutionWrapperPid,
   getHookIpcSocket,
-  getIssueId,
-  getTaskId,
-  isInteractiveMode
+  getIssueId
 } from '../src/env.js';
 
 describe('env', () => {
@@ -20,10 +18,8 @@ describe('env', () => {
   beforeEach(() => {
     // Clear all relevant env vars before each test
     delete process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID];
-    delete process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID];
     delete process.env[COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID];
     delete process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET];
-    delete process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE];
   });
 
   afterEach(() => {
@@ -35,10 +31,8 @@ describe('env', () => {
     it('should define all environment variable names', () => {
       expect(COMPARE_BRANCH_ENV_VARS).toEqual({
         ISSUE_ID: 'ISSUE_ID',
-        TASK_ID: 'TASK_ID',
         EXECUTION_WRAPPER_PID: 'EXECUTION_WRAPPER_PID',
-        HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET',
-        INTERACTIVE_MODE: 'INTERACTIVE_MODE'
+        HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET'
       });
     });
   });
@@ -56,22 +50,6 @@ describe('env', () => {
     it('should throw when ISSUE_ID is empty string', () => {
       process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID] = '';
       expect(() => getIssueId()).toThrow('Missing required environment variable: ISSUE_ID');
-    });
-  });
-
-  describe('getTaskId', () => {
-    it('should return task ID when set', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID] = 'task-456';
-      expect(getTaskId()).toBe('task-456');
-    });
-
-    it('should return undefined when TASK_ID is not set', () => {
-      expect(getTaskId()).toBeUndefined();
-    });
-
-    it('should return undefined when TASK_ID is empty string', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID] = '';
-      expect(getTaskId()).toBeUndefined();
     });
   });
 
@@ -122,32 +100,6 @@ describe('env', () => {
     it('should throw when HOOK_IPC_SOCKET is empty string', () => {
       process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET] = '';
       expect(() => getHookIpcSocket()).toThrow('Missing required environment variable: HOOK_IPC_SOCKET');
-    });
-  });
-
-  describe('isInteractiveMode', () => {
-    it('should return true when INTERACTIVE_MODE is "true"', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] = 'true';
-      expect(isInteractiveMode()).toBe(true);
-    });
-
-    it('should return false when INTERACTIVE_MODE is not set', () => {
-      expect(isInteractiveMode()).toBe(false);
-    });
-
-    it('should return false when INTERACTIVE_MODE is empty string', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] = '';
-      expect(isInteractiveMode()).toBe(false);
-    });
-
-    it('should return false when INTERACTIVE_MODE is "false"', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] = 'false';
-      expect(isInteractiveMode()).toBe(false);
-    });
-
-    it('should return false when INTERACTIVE_MODE is "1"', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] = '1';
-      expect(isInteractiveMode()).toBe(false);
     });
   });
 
@@ -210,72 +162,6 @@ describe('env', () => {
       });
     });
 
-    describe('StartTask', () => {
-      it('should extract all fields including taskId and interactiveMode', () => {
-        setupBaseEnv();
-        process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID] = 'task-456';
-        process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] = 'true';
-
-        const input = extractInput('StartTask');
-
-        expect(input).toEqual({
-          hookEventName: 'StartTask',
-          issueId: 'issue-123',
-          executionWrapperPid: 12345,
-          hookIpcSocket: '/tmp/socket.sock',
-          taskId: 'task-456',
-          interactiveMode: true
-        });
-      });
-
-      it('should set interactiveMode to false when INTERACTIVE_MODE is not set', () => {
-        setupBaseEnv();
-        process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID] = 'task-456';
-
-        const input = extractInput('StartTask');
-
-        expect(input.interactiveMode).toBe(false);
-      });
-
-      it('should throw when TASK_ID is missing for StartTask', () => {
-        setupBaseEnv();
-
-        expect(() => extractInput('StartTask')).toThrow('Missing required environment variable for StartTask: TASK_ID');
-      });
-
-      it('should throw when TASK_ID is empty string for StartTask', () => {
-        setupBaseEnv();
-        process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID] = '';
-
-        expect(() => extractInput('StartTask')).toThrow('Missing required environment variable for StartTask: TASK_ID');
-      });
-    });
-
-    describe('EndTask', () => {
-      it('should extract all fields including taskId and interactiveMode', () => {
-        setupBaseEnv();
-        process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID] = 'task-789';
-        process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] = 'true';
-
-        const input = extractInput('EndTask');
-
-        expect(input).toEqual({
-          hookEventName: 'EndTask',
-          issueId: 'issue-123',
-          executionWrapperPid: 12345,
-          hookIpcSocket: '/tmp/socket.sock',
-          taskId: 'task-789',
-          interactiveMode: true
-        });
-      });
-
-      it('should throw when TASK_ID is missing for EndTask', () => {
-        setupBaseEnv();
-
-        expect(() => extractInput('EndTask')).toThrow('Missing required environment variable for EndTask: TASK_ID');
-      });
-    });
-
     describe('StartInterview', () => {
       it('should extract base fields for StartInterview hook', () => {
         setupBaseEnv();
@@ -307,16 +193,14 @@ describe('env', () => {
     describe('Type safety', () => {
       it('should maintain correct types for each hook event', () => {
         setupBaseEnv();
-        process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID] = 'task-456';
 
         // Verify that StartIssue input has issueId
         const startIssue = extractInput('StartIssue');
         expect(startIssue.issueId).toBe('issue-123');
 
-        // Verify that StartTask input has taskId and interactiveMode
-        const startTask = extractInput('StartTask');
-        expect(startTask.taskId).toBe('task-456');
-        expect(startTask.interactiveMode).toBe(false);
+        // Verify that EndIssue input has issueId
+        const endIssue = extractInput('EndIssue');
+        expect(endIssue.issueId).toBe('issue-123');
       });
     });
   });

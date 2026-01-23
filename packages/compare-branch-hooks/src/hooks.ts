@@ -1,7 +1,7 @@
 /**
  * Hook factory functions for Compare Branch Extension hooks.
  *
- * Provides typed factory functions for all 6 hook types that handle:
+ * Provides typed factory functions for all 4 hook types that handle:
  * - Input type narrowing based on hook event type
  * - Handler metadata attachment for CLI analysis
  * - Logger context injection
@@ -11,10 +11,10 @@
  * @module
  * @example
  * ```typescript
- * import { startTaskHook } from '@goodfoot/compare-branch-hooks';
+ * import { startIssueHook } from '@goodfoot/compare-branch-hooks';
  *
- * export default startTaskHook({}, async (input, { logger }) => {
- *   logger.info('Task starting', { taskId: input.taskId });
+ * export default startIssueHook({}, async (input, { logger }) => {
+ *   logger.info('Issue starting', { issueId: input.issueId });
  * });
  * ```
  */
@@ -23,11 +23,9 @@ import type { Logger } from './logger.js';
 import type {
   EndInterviewInput,
   EndIssueInput,
-  EndTaskInput,
   HookEventName,
   StartInterviewInput,
-  StartIssueInput,
-  StartTaskInput
+  StartIssueInput
 } from './types.js';
 
 // ============================================================================
@@ -41,7 +39,7 @@ import type {
  * @example
  * ```typescript
  * // Set handler timeout
- * startTaskHook({ timeout: 5000 }, handler);
+ * startIssueHook({ timeout: 5000 }, handler);
  * ```
  */
 export interface HookConfig {
@@ -72,8 +70,8 @@ export interface HookConfig {
  * The context is injected by the runtime and should not be created manually.
  * @example
  * ```typescript
- * export default startTaskHook({}, async (input, { logger }) => {
- *   logger.info('Processing task', { taskId: input.taskId });
+ * export default startIssueHook({}, async (input, { logger }) => {
+ *   logger.info('Processing issue', { issueId: input.issueId });
  * });
  * ```
  */
@@ -186,59 +184,6 @@ export function startIssueHook(
   handler: HookHandler<StartIssueInput>
 ): HookFunction<StartIssueInput> {
   return createHookFunction('StartIssue', config, handler);
-}
-
-// ============================================================================
-// StartTask Hook Factory
-// ============================================================================
-
-/**
- * Creates a StartTask hook handler.
- *
- * StartTask hooks fire when a task begins within an issue.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
- * @example
- * ```typescript
- * import { startTaskHook } from '@goodfoot/compare-branch-hooks';
- *
- * export default startTaskHook({}, async (input, { logger }) => {
- *   logger.info('Task started', {
- *     taskId: input.taskId,
- *     interactiveMode: input.interactiveMode,
- *   });
- * });
- * ```
- */
-export function startTaskHook(config: HookConfig, handler: HookHandler<StartTaskInput>): HookFunction<StartTaskInput> {
-  return createHookFunction('StartTask', config, handler);
-}
-
-// ============================================================================
-// EndTask Hook Factory
-// ============================================================================
-
-/**
- * Creates an EndTask hook handler.
- *
- * EndTask hooks fire when a task completes within an issue.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
- * @example
- * ```typescript
- * import { endTaskHook } from '@goodfoot/compare-branch-hooks';
- *
- * export default endTaskHook({}, async (input, { logger }) => {
- *   logger.info('Task completed', { taskId: input.taskId });
- * });
- * ```
- */
-export function endTaskHook(config: HookConfig, handler: HookHandler<EndTaskInput>): HookFunction<EndTaskInput> {
-  return createHookFunction('EndTask', config, handler);
 }
 
 // ============================================================================

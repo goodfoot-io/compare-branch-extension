@@ -11,10 +11,8 @@
  * | Variable | Description | Available In |
  * |----------|-------------|--------------|
  * | `ISSUE_ID` | Unique issue identifier | All hooks |
- * | `TASK_ID` | Unique task identifier | Task hooks only |
  * | `EXECUTION_WRAPPER_PID` | Wrapper process ID | All hooks |
  * | `HOOK_IPC_SOCKET` | IPC socket path | All hooks |
- * | `INTERACTIVE_MODE` | "true" if interactive | Task hooks only |
  * @module
  */
 
@@ -37,12 +35,6 @@ export const COMPARE_BRANCH_ENV_VARS = {
   ISSUE_ID: 'ISSUE_ID',
 
   /**
-   * Unique identifier for the current task.
-   * Only available in task hooks (StartTask, EndTask).
-   */
-  TASK_ID: 'TASK_ID',
-
-  /**
    * Process ID of the execution wrapper.
    * Available in all hooks.
    */
@@ -52,14 +44,7 @@ export const COMPARE_BRANCH_ENV_VARS = {
    * Path to the IPC socket for hook-to-wrapper communication.
    * Available in all hooks.
    */
-  HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET',
-
-  /**
-   * Whether the task is running in interactive mode.
-   * Set to "true" if interactive, absent otherwise.
-   * Only available in task hooks (StartTask, EndTask).
-   */
-  INTERACTIVE_MODE: 'INTERACTIVE_MODE'
+  HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET'
 } as const;
 
 // ============================================================================
@@ -83,23 +68,6 @@ export function getIssueId(): string {
     throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.ISSUE_ID}`);
   }
   return value;
-}
-
-/**
- * Gets the task ID from environment.
- *
- * @returns The task ID, or undefined if not set
- * @example
- * ```typescript
- * const taskId = getTaskId();
- * if (taskId) {
- *   console.log(`Processing task: ${taskId}`);
- * }
- * ```
- */
-export function getTaskId(): string | undefined {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.TASK_ID];
-  return value === '' ? undefined : value;
 }
 
 /**
@@ -144,21 +112,6 @@ export function getHookIpcSocket(): string {
   return value;
 }
 
-/**
- * Checks if the current execution is in interactive mode.
- *
- * @returns true if INTERACTIVE_MODE is "true", false otherwise
- * @example
- * ```typescript
- * if (isInteractiveMode()) {
- *   // Show progress indicators
- * }
- * ```
- */
-export function isInteractiveMode(): boolean {
-  return process.env[COMPARE_BRANCH_ENV_VARS.INTERACTIVE_MODE] === 'true';
-}
-
 // ============================================================================
 // Typed Input Extraction
 // ============================================================================
@@ -175,15 +128,9 @@ export function isInteractiveMode(): boolean {
  * @throws Error if required environment variables are missing
  * @example
  * ```typescript
- * // For a StartTask hook
- * const input = extractInput('StartTask');
- * console.log(input.taskId);  // TypeScript knows this exists
- * console.log(input.interactiveMode);  // TypeScript knows this is boolean
- *
  * // For a StartIssue hook
  * const issueInput = extractInput('StartIssue');
  * console.log(issueInput.issueId);  // TypeScript knows this exists
- * // issueInput.taskId  // TypeScript error - doesn't exist on IssueHookInput
  * ```
  */
 export function extractInput<T extends HookEventName>(hookEventName: T): HookInputForEvent<T> {
@@ -197,27 +144,6 @@ export function extractInput<T extends HookEventName>(hookEventName: T): HookInp
   switch (hookEventName) {
     case 'StartIssue':
     case 'EndIssue':
-      return {
-        hookEventName,
-        ...baseInput
-      } as HookInputForEvent<T>;
-
-    case 'StartTask':
-    case 'EndTask': {
-      const taskId = getTaskId();
-      if (taskId === undefined) {
-        throw new Error(
-          `Missing required environment variable for ${hookEventName}: ${COMPARE_BRANCH_ENV_VARS.TASK_ID}`
-        );
-      }
-      return {
-        hookEventName,
-        ...baseInput,
-        taskId,
-        interactiveMode: isInteractiveMode()
-      } as HookInputForEvent<T>;
-    }
-
     case 'StartInterview':
     case 'EndInterview':
       return {

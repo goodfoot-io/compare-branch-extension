@@ -268,18 +268,18 @@ describe('Logger', () => {
       const events: LogEvent[] = [];
       logger.on('info', (event) => events.push(event));
 
-      logger.setContext('StartTask', undefined);
+      logger.setContext('StartIssue', undefined);
       logger.info('Test message');
 
-      expect(events[0].hookType).toBe('StartTask');
+      expect(events[0].hookType).toBe('StartIssue');
     });
 
     it('setContext() enriches log events with input', () => {
       const events: LogEvent[] = [];
       logger.on('info', (event) => events.push(event));
 
-      const input = { issueId: 'issue-123', taskId: 'task-456', interactiveMode: true };
-      logger.setContext('StartTask', input);
+      const input = { issueId: 'issue-123', executionWrapperPid: 123, hookIpcSocket: '/tmp/socket' };
+      logger.setContext('StartIssue', input);
       logger.info('Test message');
 
       expect(events[0].input).toEqual(input);
@@ -289,7 +289,7 @@ describe('Logger', () => {
       const events: LogEvent[] = [];
       logger.on('info', (event) => events.push(event));
 
-      logger.setContext('StartTask', { issueId: 'issue-123' });
+      logger.setContext('StartIssue', { issueId: 'issue-123' });
       logger.clearContext();
       logger.info('Test message');
 

@@ -24,11 +24,9 @@ import { logger } from './logger.js';
 import type {
   EndInterviewInput,
   EndIssueInput,
-  EndTaskInput,
   HookInput,
   StartInterviewInput,
-  StartIssueInput,
-  StartTaskInput
+  StartIssueInput
 } from './types.js';
 
 /**
@@ -37,8 +35,6 @@ import type {
  */
 type AnyHookFunction =
   | HookFunction<StartIssueInput>
-  | HookFunction<StartTaskInput>
-  | HookFunction<EndTaskInput>
   | HookFunction<EndIssueInput>
   | HookFunction<StartInterviewInput>
   | HookFunction<EndInterviewInput>;
@@ -128,10 +124,10 @@ function handleHandlerError(error: unknown): never {
  * ```typescript
  * // In compiled hook file
  * import { execute } from '@goodfoot/compare-branch-hooks/runtime';
- * import { startTaskHook } from '@goodfoot/compare-branch-hooks';
+ * import { startIssueHook } from '@goodfoot/compare-branch-hooks';
  *
- * const myHook = startTaskHook({}, async (input, { logger }) => {
- *   logger.info('Processing task', { taskId: input.taskId });
+ * const myHook = startIssueHook({}, async (input, { logger }) => {
+ *   logger.info('Processing issue', { issueId: input.issueId });
  * });
  *
  * execute(myHook);

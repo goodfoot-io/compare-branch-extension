@@ -317,14 +317,6 @@ export default ${factoryName}({}, (input, { logger }) => {
  * @returns TypeScript content for the test file
  */
 function generateTestFile(eventName: HookEventName, hookFilename: string): string {
-  // Task hooks need additional input fields
-  const isTaskHook = eventName === 'StartTask' || eventName === 'EndTask';
-  const extraInputFields = isTaskHook
-    ? `
-      taskId: "test-task",
-      interactiveMode: false,`
-    : '';
-
   return `/**
  * Tests for the ${eventName} hook.
  */
@@ -349,7 +341,7 @@ describe("${eventName} Hook", () => {
     const mockInput = {
       issueId: "test-issue",
       executionWrapperPid: 12345,
-      hookIpcSocket: "/tmp/socket.sock",${extraInputFields}
+      hookIpcSocket: "/tmp/socket.sock",
     } as Parameters<typeof hook>[0];
     const context = { logger };
 

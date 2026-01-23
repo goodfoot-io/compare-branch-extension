@@ -28,20 +28,12 @@ import {
 } from '../src/cli.js';
 
 describe('HOOK_FACTORY_TO_EVENT', () => {
-  it('maps all 6 hook factory names to event names', () => {
-    expect(Object.keys(HOOK_FACTORY_TO_EVENT)).toHaveLength(6);
+  it('maps all 4 hook factory names to event names', () => {
+    expect(Object.keys(HOOK_FACTORY_TO_EVENT)).toHaveLength(4);
   });
 
   it('maps startIssueHook to StartIssue', () => {
     expect(HOOK_FACTORY_TO_EVENT.startIssueHook).toBe('StartIssue');
-  });
-
-  it('maps startTaskHook to StartTask', () => {
-    expect(HOOK_FACTORY_TO_EVENT.startTaskHook).toBe('StartTask');
-  });
-
-  it('maps endTaskHook to EndTask', () => {
-    expect(HOOK_FACTORY_TO_EVENT.endTaskHook).toBe('EndTask');
   });
 
   it('maps endIssueHook to EndIssue', () => {
@@ -222,60 +214,6 @@ describe('analyzeHookFile', () => {
     return filePath;
   }
 
-  it('extracts StartTask hook without config', () => {
-    const filePath = writeHookFile(
-      'start-task.ts',
-      `
-      import { startTaskHook } from '@goodfoot/compare-branch-hooks';
-
-      export default startTaskHook({}, async (input, { logger }) => {
-        logger.info('Task started', { taskId: input.taskId });
-      });
-    `
-    );
-
-    const metadata = analyzeHookFile(filePath);
-
-    expect(metadata).toBeDefined();
-    expect(metadata?.hookEventName).toBe('StartTask');
-    expect(metadata?.timeout).toBeUndefined();
-  });
-
-  it('extracts StartTask hook with timeout', () => {
-    const filePath = writeHookFile(
-      'timeout-hook.ts',
-      `
-      import { startTaskHook } from '@goodfoot/compare-branch-hooks';
-
-      export default startTaskHook({ timeout: 5000 }, async (input, { logger }) => {
-        logger.info('Task started');
-      });
-    `
-    );
-
-    const metadata = analyzeHookFile(filePath);
-
-    expect(metadata?.hookEventName).toBe('StartTask');
-    expect(metadata?.timeout).toBe(5000);
-  });
-
-  it('extracts EndTask hook', () => {
-    const filePath = writeHookFile(
-      'end-task.ts',
-      `
-      import { endTaskHook } from '@goodfoot/compare-branch-hooks';
-
-      export default endTaskHook({}, async (input, { logger }) => {
-        logger.info('Task ended', { taskId: input.taskId });
-      });
-    `
-    );
-
-    const metadata = analyzeHookFile(filePath);
-
-    expect(metadata?.hookEventName).toBe('EndTask');
-  });
-
   it('extracts StartIssue hook', () => {
     const filePath = writeHookFile(
       'start-issue.ts',
@@ -363,15 +301,15 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'parenthesized.ts',
       `
-      import { startTaskHook } from '@goodfoot/compare-branch-hooks';
+      import { startIssueHook } from '@goodfoot/compare-branch-hooks';
 
-      export default (startTaskHook({}, async (input) => {}));
+      export default (startIssueHook({}, async (input) => {}));
     `
     );
 
     const metadata = analyzeHookFile(filePath);
 
-    expect(metadata?.hookEventName).toBe('StartTask');
+    expect(metadata?.hookEventName).toBe('StartIssue');
   });
 
   it('handles namespace-qualified hook factory', () => {
@@ -380,13 +318,13 @@ describe('analyzeHookFile', () => {
       `
       import * as hooks from '@goodfoot/compare-branch-hooks';
 
-      export default hooks.startTaskHook({}, async (input) => {});
+      export default hooks.startIssueHook({}, async (input) => {});
     `
     );
 
     const metadata = analyzeHookFile(filePath);
 
-    expect(metadata?.hookEventName).toBe('StartTask');
+    expect(metadata?.hookEventName).toBe('StartIssue');
   });
 });
 

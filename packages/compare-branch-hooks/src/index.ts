@@ -25,9 +25,7 @@ export {
   getExecutionWrapperPid,
   getHookIpcSocket,
   // Individual getters
-  getIssueId,
-  getTaskId,
-  isInteractiveMode
+  getIssueId
 } from './env.js';
 
 // ============================================================================
@@ -54,10 +52,8 @@ export type {
 export {
   endInterviewHook,
   endIssueHook,
-  endTaskHook,
   startInterviewHook,
-  startIssueHook,
-  startTaskHook
+  startIssueHook
 } from './hooks.js';
 
 // ============================================================================
@@ -96,7 +92,6 @@ export type {
   BaseHookInput,
   EndInterviewInput,
   EndIssueInput,
-  EndTaskInput,
   // Event names
   HookEventName,
   // Discriminated union
@@ -107,8 +102,6 @@ export type {
   IssueHookInput,
   StartInterviewInput,
   // Specific input types
-  StartIssueInput,
-  StartTaskInput,
-  TaskHookInput
+  StartIssueInput
 } from './types.js';
 export { HOOK_EVENT_NAMES } from './types.js';

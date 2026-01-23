@@ -39,14 +39,14 @@ describe('scaffoldProject', () => {
     it('accepts case-insensitive hook names', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['startissue', 'ENDISSUE', 'StartTask'],
+        hooks: ['startissue', 'ENDISSUE', 'StartInterview'],
         outputPath: 'dist/hooks.json'
       });
 
       expect(fs.existsSync(projectDir)).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-issue.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'end-issue.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'start-task.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'start-interview.ts'))).toBe(true);
     });
 
     it('rejects invalid hook names', () => {
@@ -86,13 +86,11 @@ describe('scaffoldProject', () => {
     it('accepts all valid hook event names', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'StartTask', 'EndTask', 'EndIssue', 'StartInterview', 'EndInterview'],
+        hooks: ['StartIssue', 'EndIssue', 'StartInterview', 'EndInterview'],
         outputPath: 'dist/hooks.json'
       });
 
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-issue.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'start-task.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'end-task.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'end-issue.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-interview.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'end-interview.ts'))).toBe(true);
@@ -171,39 +169,39 @@ describe('scaffoldProject', () => {
     it('generates hook files for each requested hook', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'EndTask'],
+        hooks: ['StartIssue', 'EndIssue'],
         outputPath: 'dist/hooks.json'
       });
 
       const startIssuePath = path.join(projectDir, 'src', 'start-issue.ts');
-      const endTaskPath = path.join(projectDir, 'src', 'end-task.ts');
+      const endIssuePath = path.join(projectDir, 'src', 'end-issue.ts');
 
       expect(fs.existsSync(startIssuePath)).toBe(true);
-      expect(fs.existsSync(endTaskPath)).toBe(true);
+      expect(fs.existsSync(endIssuePath)).toBe(true);
 
       const startIssueContent = fs.readFileSync(startIssuePath, 'utf-8');
       expect(startIssueContent).toContain('startIssueHook');
       expect(startIssueContent).toContain('StartIssue hook triggered');
       expect(startIssueContent).not.toContain('return'); // No return statement
 
-      const endTaskContent = fs.readFileSync(endTaskPath, 'utf-8');
-      expect(endTaskContent).toContain('endTaskHook');
-      expect(endTaskContent).toContain('EndTask hook triggered');
-      expect(endTaskContent).not.toContain('return'); // No return statement
+      const endIssueContent = fs.readFileSync(endIssuePath, 'utf-8');
+      expect(endIssueContent).toContain('endIssueHook');
+      expect(endIssueContent).toContain('EndIssue hook triggered');
+      expect(endIssueContent).not.toContain('return'); // No return statement
     });
 
     it('generates test files for each hook', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'StartTask'],
+        hooks: ['StartIssue', 'StartInterview'],
         outputPath: 'dist/hooks.json'
       });
 
       const startIssueTestPath = path.join(projectDir, 'test', 'start-issue.test.ts');
-      const startTaskTestPath = path.join(projectDir, 'test', 'start-task.test.ts');
+      const startInterviewTestPath = path.join(projectDir, 'test', 'start-interview.test.ts');
 
       expect(fs.existsSync(startIssueTestPath)).toBe(true);
-      expect(fs.existsSync(startTaskTestPath)).toBe(true);
+      expect(fs.existsSync(startInterviewTestPath)).toBe(true);
 
       const startIssueTestContent = fs.readFileSync(startIssueTestPath, 'utf-8');
       expect(startIssueTestContent).toContain('import hook from "../src/start-issue.js"');
@@ -211,13 +209,10 @@ describe('scaffoldProject', () => {
       expect(startIssueTestContent).toContain('issueId:');
       expect(startIssueTestContent).toContain('executionWrapperPid:');
       expect(startIssueTestContent).toContain('hookIpcSocket:');
-      expect(startIssueTestContent).not.toContain('taskId:'); // Issue hook doesn't have taskId
 
-      const startTaskTestContent = fs.readFileSync(startTaskTestPath, 'utf-8');
-      expect(startTaskTestContent).toContain('import hook from "../src/start-task.js"');
-      expect(startTaskTestContent).toContain('describe("StartTask Hook"');
-      expect(startTaskTestContent).toContain('taskId:'); // Task hook has taskId
-      expect(startTaskTestContent).toContain('interactiveMode:'); // Task hook has interactiveMode
+      const startInterviewTestContent = fs.readFileSync(startInterviewTestPath, 'utf-8');
+      expect(startInterviewTestContent).toContain('import hook from "../src/start-interview.js"');
+      expect(startInterviewTestContent).toContain('describe("StartInterview Hook"');
     });
 
     it('generates configuration files', () => {
@@ -256,12 +251,12 @@ describe('scaffoldProject', () => {
     it('converts PascalCase to kebab-case correctly', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'EndTask', 'StartInterview'],
+        hooks: ['StartIssue', 'EndIssue', 'StartInterview'],
         outputPath: 'dist/hooks.json'
       });
 
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-issue.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'end-task.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'end-issue.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-interview.ts'))).toBe(true);
     });
   });

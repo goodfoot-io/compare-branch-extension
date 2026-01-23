@@ -11,7 +11,7 @@ vi.spyOn(process, 'exit').mockImplementation(mockExit as unknown as typeof proce
 // Mock stderr.write
 const mockStderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-import { startIssueHook, startTaskHook } from '../src/hooks.js';
+import { startIssueHook } from '../src/hooks.js';
 import { execute } from '../src/runtime.js';
 
 describe('execute', () => {
@@ -78,28 +78,6 @@ describe('execute', () => {
 
     expect(mockExit).toHaveBeenCalledWith(1);
     expect(mockStderrWrite).toHaveBeenCalledWith(expect.stringContaining('Handler failed'));
-  });
-
-  it('extracts task-specific env vars for task hooks', async () => {
-    process.env.ISSUE_ID = 'test-issue';
-    process.env.TASK_ID = 'test-task';
-    process.env.EXECUTION_WRAPPER_PID = '12345';
-    process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
-    process.env.INTERACTIVE_MODE = 'true';
-
-    const handler = vi.fn();
-    const hook = startTaskHook({}, handler);
-
-    await execute(hook);
-
-    expect(handler).toHaveBeenCalledWith(
-      expect.objectContaining({
-        issueId: 'test-issue',
-        taskId: 'test-task',
-        interactiveMode: true
-      }),
-      expect.anything()
-    );
   });
 
   it('configures logger from CLI log file env var', async () => {

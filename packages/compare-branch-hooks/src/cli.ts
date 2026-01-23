@@ -60,7 +60,7 @@ interface CliArgs {
  * Metadata extracted from a hook file via TypeScript AST analysis.
  */
 interface HookMetadata {
-  /** The hook event type (StartTask, EndTask, etc.). */
+  /** The hook event type (StartIssue, EndIssue, etc.). */
   hookEventName: HookEventName;
   /** Optional timeout in milliseconds from hook config. */
   timeout?: number;
@@ -107,7 +107,7 @@ interface MatcherEntry {
  * Format: { hooks: { EventType: [ { hooks: [...] } ] } }
  */
 interface HooksJson {
-  /** Object keyed by event type (StartTask, EndTask, etc.). */
+  /** Object keyed by event type (StartIssue, EndIssue, etc.). */
   hooks: Partial<Record<HookEventName, MatcherEntry[]>>;
   /** Generated file tracking metadata. */
   __generated: {
@@ -129,7 +129,7 @@ const HELP_TEXT = `
 
 Description:
   This tool acts as a build system for Compare Branch hooks. It scans your TypeScript files for
-  exported hook factories (e.g., startTaskHook), compiles them into standalone ESM modules,
+  exported hook factories (e.g., startIssueHook), compiles them into standalone ESM modules,
   and generates a hooks.json manifest for the Compare Branch Extension.
 
 Usage:
@@ -260,17 +260,17 @@ function validateArgs(args: CliArgs): string | undefined {
 /**
  * Extracts hook metadata from a TypeScript source file using AST analysis.
  *
- * Looks for default exports that call hook factory functions (startTaskHook, etc.)
+ * Looks for default exports that call hook factory functions (startIssueHook, etc.)
  * and extracts the hook type and timeout from the config object.
  * @param sourcePath - Absolute path to the TypeScript source file
  * @returns Extracted hook metadata or undefined if not a valid hook file
  * @example
  * ```typescript
  * // For a file containing:
- * // export default startTaskHook({ timeout: 5000 }, handler);
+ * // export default startIssueHook({ timeout: 5000 }, handler);
  *
  * const metadata = analyzeHookFile('/path/to/hook.ts');
- * // { hookEventName: 'StartTask', timeout: 5000 }
+ * // { hookEventName: 'StartIssue', timeout: 5000 }
  * ```
  */
 function analyzeHookFile(sourcePath: string): HookMetadata | undefined {
@@ -294,7 +294,7 @@ function analyzeHookFile(sourcePath: string): HookMetadata | undefined {
       }
     }
 
-    // Also check for: export default startTaskHook(...)
+    // Also check for: export default startIssueHook(...)
     // which might be wrapped in other expressions
     ts.forEachChild(node, visit);
   }
@@ -305,17 +305,17 @@ function analyzeHookFile(sourcePath: string): HookMetadata | undefined {
    * @returns Hook metadata if found, undefined otherwise
    */
   function extractHookMetadataFromExpression(expression: ts.Expression): HookMetadata | undefined {
-    // Handle direct call: startTaskHook({ ... }, handler)
+    // Handle direct call: startIssueHook({ ... }, handler)
     if (ts.isCallExpression(expression)) {
       return extractFromCallExpression(expression);
     }
 
-    // Handle await: await startTaskHook(...)
+    // Handle await: await startIssueHook(...)
     if (ts.isAwaitExpression(expression)) {
       return extractHookMetadataFromExpression(expression.expression);
     }
 
-    // Handle parenthesized: (startTaskHook(...))
+    // Handle parenthesized: (startIssueHook(...))
     if (ts.isParenthesizedExpression(expression)) {
       return extractHookMetadataFromExpression(expression.expression);
     }
@@ -336,7 +336,7 @@ function analyzeHookFile(sourcePath: string): HookMetadata | undefined {
     if (ts.isIdentifier(callee)) {
       factoryName = callee.text;
     } else if (ts.isPropertyAccessExpression(callee)) {
-      // Could be namespace.startTaskHook
+      // Could be namespace.startIssueHook
       factoryName = callee.name.text;
     }
 
