@@ -13,14 +13,7 @@
  *
  * All valid hook event names for Compare Branch Extension hooks.
  */
-export type HookEventName =
-  | 'StartIssue'
-  | 'EndIssue'
-  | 'StartInterview'
-  | 'EndInterview'
-  | 'TypedFileCreated'
-  | 'TypedFileUpdated'
-  | 'TypedFileDeleted';
+export type HookEventName = 'StartIssue' | 'EndIssue' | 'StartInterview' | 'EndInterview' | 'TypedFileCreated' | 'TypedFileUpdated' | 'TypedFileDeleted';
 /**
  * All hook event names as a readonly array.
  *
@@ -32,15 +25,7 @@ export type HookEventName =
  * }
  * ```
  */
-export declare const HOOK_EVENT_NAMES: readonly [
-  'StartIssue',
-  'EndIssue',
-  'StartInterview',
-  'EndInterview',
-  'TypedFileCreated',
-  'TypedFileUpdated',
-  'TypedFileDeleted'
-];
+export declare const HOOK_EVENT_NAMES: readonly ["StartIssue", "EndIssue", "StartInterview", "EndInterview", "TypedFileCreated", "TypedFileUpdated", "TypedFileDeleted"];
 /**
  * Base input fields present in all hook inputs.
  *
@@ -56,70 +41,72 @@ export declare const HOOK_EVENT_NAMES: readonly [
  * ```
  */
 export interface BaseHookInput {
-  /**
-   * Unique identifier for the current issue.
-   */
-  issueId: string;
-  /**
-   * Process ID of the execution wrapper.
-   */
-  executionWrapperPid: number;
-  /**
-   * Path to the IPC socket for hook-to-wrapper communication.
-   * Created by execution-wrapper.mjs for each hook process.
-   */
-  hookIpcSocket: string;
+    /**
+     * Unique identifier for the current issue.
+     */
+    issueId: string;
+    /**
+     * Process ID of the execution wrapper.
+     */
+    executionWrapperPid: number;
+    /**
+     * Path to the IPC socket for hook-to-wrapper communication.
+     * Created by execution-wrapper.mjs for each hook process.
+     */
+    hookIpcSocket: string;
 }
 /**
  * Input for issue-level hooks (StartIssue, EndIssue).
  *
  * Uses only the base input fields - no task-specific context.
  */
-export interface IssueHookInput extends BaseHookInput {}
+export interface IssueHookInput extends BaseHookInput {
+}
 /**
  * Input for interview hooks (StartInterview, EndInterview).
  *
  * Uses only the base input fields - interviews are always interactive.
  */
-export interface InterviewHookInput extends BaseHookInput {}
+export interface InterviewHookInput extends BaseHookInput {
+}
 /**
  * Input for typed file hooks (TypedFileCreated, TypedFileUpdated, TypedFileDeleted).
  *
  * Provides file metadata and validation context for custom type files.
  */
 export interface TypedFileInput extends BaseHookInput {
-  /**
-   * The registered type name.
-   */
-  typeName: string;
-  /**
-   * The file name within the type directory.
-   */
-  fileName: string;
-  /**
-   * Full path to the file.
-   */
-  filePath: string;
-  /**
-   * MIME type of the content.
-   */
-  contentType: string;
-  /**
-   * File size in bytes.
-   */
-  size: number;
-  /**
-   * SHA256 hash of content.
-   */
-  sha256: string;
-  /**
-   * Version from type config.
-   */
-  typeVersion: string;
-  /**
-   * Optional metadata from validator.
-   */
-  metadata?: Record<string, unknown>;
+    /**
+     * The registered type name.
+     */
+    typeName: string;
+    /**
+     * The file name within the type directory.
+     */
+    fileName: string;
+    /**
+     * Full path to the file.
+     */
+    filePath: string;
+    /**
+     * MIME type of the content.
+     */
+    contentType: string;
+    /**
+     * File size in bytes.
+     */
+    size: number;
+    /**
+     * SHA256 hash of content.
+     */
+    sha256: string;
+    /**
+     * Version from type config.
+     */
+    typeVersion: string;
+    /**
+     * Optional metadata from validator.
+     */
+    metadata?: Record<string, unknown>;
 }
 /**
  * Input type for StartIssue hooks.
@@ -168,28 +155,21 @@ export type TypedFileDeletedInput = TypedFileInput;
  * }
  * ```
  */
-export type HookInput =
-  | ({
-      hookEventName: 'StartIssue';
-    } & StartIssueInput)
-  | ({
-      hookEventName: 'EndIssue';
-    } & EndIssueInput)
-  | ({
-      hookEventName: 'StartInterview';
-    } & StartInterviewInput)
-  | ({
-      hookEventName: 'EndInterview';
-    } & EndInterviewInput)
-  | ({
-      hookEventName: 'TypedFileCreated';
-    } & TypedFileCreatedInput)
-  | ({
-      hookEventName: 'TypedFileUpdated';
-    } & TypedFileUpdatedInput)
-  | ({
-      hookEventName: 'TypedFileDeleted';
-    } & TypedFileDeletedInput);
+export type HookInput = ({
+    hookEventName: 'StartIssue';
+} & StartIssueInput) | ({
+    hookEventName: 'EndIssue';
+} & EndIssueInput) | ({
+    hookEventName: 'StartInterview';
+} & StartInterviewInput) | ({
+    hookEventName: 'EndInterview';
+} & EndInterviewInput) | ({
+    hookEventName: 'TypedFileCreated';
+} & TypedFileCreatedInput) | ({
+    hookEventName: 'TypedFileUpdated';
+} & TypedFileUpdatedInput) | ({
+    hookEventName: 'TypedFileDeleted';
+} & TypedFileDeletedInput);
 /**
  * Type helper for extracting input type from event name.
  *
@@ -200,10 +180,7 @@ export type HookInput =
  * // StartIssueIn is StartIssueInput & { hookEventName: 'StartIssue' }
  * ```
  */
-export type HookInputForEvent<T extends HookEventName> = Extract<
-  HookInput,
-  {
+export type HookInputForEvent<T extends HookEventName> = Extract<HookInput, {
     hookEventName: T;
-  }
->;
+}>;
 //# sourceMappingURL=types.d.ts.map
