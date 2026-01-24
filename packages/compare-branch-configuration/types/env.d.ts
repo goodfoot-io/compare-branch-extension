@@ -22,61 +22,61 @@ import type { HookEventName, HookInputForEvent } from './types.js';
  * These are the environment variables that execution-wrapper.mjs sets when running hooks.
  */
 export declare const COMPARE_BRANCH_ENV_VARS: {
-    /**
-     * Unique identifier for the current issue.
-     * Available in all hooks.
-     */
-    readonly ISSUE_ID: "ISSUE_ID";
-    /**
-     * Process ID of the execution wrapper.
-     * Available in all hooks.
-     */
-    readonly EXECUTION_WRAPPER_PID: "EXECUTION_WRAPPER_PID";
-    /**
-     * Path to the IPC socket for hook-to-wrapper communication.
-     * Available in all hooks.
-     */
-    readonly HOOK_IPC_SOCKET: "HOOK_IPC_SOCKET";
-    /**
-     * The registered type name.
-     * Available in typed file hooks (TypedFileCreated, TypedFileUpdated, TypedFileDeleted).
-     */
-    readonly TYPE_NAME: "TYPE_NAME";
-    /**
-     * The file name within the type directory.
-     * Available in typed file hooks.
-     */
-    readonly FILE_NAME: "FILE_NAME";
-    /**
-     * Full path to the file.
-     * Available in typed file hooks.
-     */
-    readonly FILE_PATH: "FILE_PATH";
-    /**
-     * MIME type of the content.
-     * Available in typed file hooks.
-     */
-    readonly CONTENT_TYPE: "CONTENT_TYPE";
-    /**
-     * File size in bytes.
-     * Available in typed file hooks.
-     */
-    readonly FILE_SIZE: "FILE_SIZE";
-    /**
-     * SHA256 hash of content.
-     * Available in typed file hooks.
-     */
-    readonly SHA256: "SHA256";
-    /**
-     * Version from type config.
-     * Available in typed file hooks.
-     */
-    readonly TYPE_VERSION: "TYPE_VERSION";
-    /**
-     * Optional metadata from validator (JSON string).
-     * Available in typed file hooks.
-     */
-    readonly METADATA: "METADATA";
+  /**
+   * Unique identifier for the current issue.
+   * Available in all hooks.
+   */
+  readonly ISSUE_ID: 'ISSUE_ID';
+  /**
+   * Process ID of the execution wrapper.
+   * Available in all hooks.
+   */
+  readonly EXECUTION_WRAPPER_PID: 'EXECUTION_WRAPPER_PID';
+  /**
+   * Path to the IPC socket for hook-to-wrapper communication.
+   * Available in all hooks.
+   */
+  readonly HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET';
+  /**
+   * The registered type name.
+   * Available in typed file hooks (TypedFileCreated, TypedFileUpdated, TypedFileDeleted).
+   */
+  readonly TYPE_NAME: 'TYPE_NAME';
+  /**
+   * The file name within the type directory.
+   * Available in typed file hooks.
+   */
+  readonly FILE_NAME: 'FILE_NAME';
+  /**
+   * Full path to the file.
+   * Available in typed file hooks.
+   */
+  readonly FILE_PATH: 'FILE_PATH';
+  /**
+   * MIME type of the content.
+   * Available in typed file hooks.
+   */
+  readonly CONTENT_TYPE: 'CONTENT_TYPE';
+  /**
+   * File size in bytes.
+   * Available in typed file hooks.
+   */
+  readonly FILE_SIZE: 'FILE_SIZE';
+  /**
+   * SHA256 hash of content.
+   * Available in typed file hooks.
+   */
+  readonly SHA256: 'SHA256';
+  /**
+   * Version from type config.
+   * Available in typed file hooks.
+   */
+  readonly TYPE_VERSION: 'TYPE_VERSION';
+  /**
+   * Optional metadata from validator (JSON string).
+   * Available in typed file hooks.
+   */
+  readonly METADATA: 'METADATA';
 };
 /**
  * Gets the issue ID from environment.
