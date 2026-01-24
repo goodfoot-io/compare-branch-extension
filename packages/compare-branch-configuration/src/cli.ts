@@ -125,7 +125,7 @@ interface HooksJson {
 const VERSION = '1.0.0';
 
 const HELP_TEXT = `
-@goodfoot/compare-branch-hooks - Type-safe, compiled hooks for Compare Branch Extension
+@goodfoot/compare-branch-configuration - Type-safe, compiled hooks for Compare Branch Extension
 
 Description:
   This tool acts as a build system for Compare Branch hooks. It scans your TypeScript files for
@@ -133,7 +133,7 @@ Description:
   and generates a hooks.json manifest for the Compare Branch Extension.
 
 Usage:
-  npx -y @goodfoot/compare-branch-hooks -i <glob> -o <path> [options]
+  npx -y @goodfoot/compare-branch-configuration -i <glob> -o <path> [options]
 
 Build Mode (compile existing hooks):
   -i, --input <glob>
@@ -165,13 +165,13 @@ Optional Arguments:
 
 Examples:
   1. Basic Compilation:
-     npx -y @goodfoot/compare-branch-hooks -i "hooks/**/*.ts" -o "dist/hooks.json"
+     npx -y @goodfoot/compare-branch-configuration -i "hooks/**/*.ts" -o "dist/hooks.json"
 
   2. With Runtime Logging:
-     npx -y @goodfoot/compare-branch-hooks -i "src/hooks/*.ts" -o "bin/hooks.json" --log /tmp/hooks.log
+     npx -y @goodfoot/compare-branch-configuration -i "src/hooks/*.ts" -o "bin/hooks.json" --log /tmp/hooks.log
 
   3. With Custom Node Executable:
-     npx -y @goodfoot/compare-branch-hooks -i "hooks/**/*.ts" -o "dist/hooks.json" --executable /usr/local/bin/node
+     npx -y @goodfoot/compare-branch-configuration -i "hooks/**/*.ts" -o "dist/hooks.json" --executable /usr/local/bin/node
 
 Troubleshooting:
   - Ensure your hook files use 'export default'.

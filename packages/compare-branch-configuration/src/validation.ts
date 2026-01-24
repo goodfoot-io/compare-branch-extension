@@ -328,7 +328,7 @@ export function validationResponse(response: ValidationResponse): ValidationResp
  * @example
  * ```typescript
  * // validator.mjs
- * import { typeValidation, executeValidation, validationCreated } from '@goodfoot/compare-branch-hooks';
+ * import { typeValidation, executeValidation, validationCreated } from '@goodfoot/compare-branch-configuration';
  *
  * const validate = typeValidation({ timeout: 30000 }, (request, context) => {
  *   context.logger.info('Validating request');

@@ -11,7 +11,7 @@
  * @module
  * @example
  * ```bash
- * npx @goodfoot/compare-branch-hooks --scaffold ./my-hooks --hooks StartIssue,EndIssue -o dist/hooks.json
+ * npx @goodfoot/compare-branch-configuration --scaffold ./my-hooks --hooks StartIssue,EndIssue -o dist/hooks.json
  * ```
  */
 /**

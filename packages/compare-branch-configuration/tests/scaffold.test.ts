@@ -161,7 +161,7 @@ describe('scaffoldProject', () => {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
       expect(packageJson.name).toBe('test-hooks');
       expect(packageJson.type).toBe('module');
-      expect(packageJson.dependencies).toHaveProperty('@goodfoot/compare-branch-hooks');
+      expect(packageJson.dependencies).toHaveProperty('@goodfoot/compare-branch-configuration');
       expect(packageJson.scripts.build).toContain('compare-branch-hooks');
       expect(packageJson.scripts.build).toContain('dist/hooks.json');
     });
@@ -243,7 +243,7 @@ describe('scaffoldProject', () => {
       expect(readmeContent).toContain('# test-hooks');
       expect(readmeContent).toContain('`StartIssue`');
       expect(readmeContent).toContain('`EndIssue`');
-      expect(readmeContent).toContain('@goodfoot/compare-branch-hooks');
+      expect(readmeContent).toContain('@goodfoot/compare-branch-configuration');
     });
   });
 

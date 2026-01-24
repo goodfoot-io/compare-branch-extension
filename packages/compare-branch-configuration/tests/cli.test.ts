@@ -218,7 +218,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'start-issue.ts',
       `
-      import { startIssueHook } from '@goodfoot/compare-branch-hooks';
+      import { startIssueHook } from '@goodfoot/compare-branch-configuration';
 
       export default startIssueHook({}, async (input, { logger }) => {
         logger.info('Issue started', { issueId: input.issueId });
@@ -235,7 +235,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'end-issue.ts',
       `
-      import { endIssueHook } from '@goodfoot/compare-branch-hooks';
+      import { endIssueHook } from '@goodfoot/compare-branch-configuration';
 
       export default endIssueHook({}, async (input, { logger }) => {
         logger.info('Issue ended', { issueId: input.issueId });
@@ -252,7 +252,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'start-interview.ts',
       `
-      import { startInterviewHook } from '@goodfoot/compare-branch-hooks';
+      import { startInterviewHook } from '@goodfoot/compare-branch-configuration';
 
       export default startInterviewHook({}, async (input, { logger }) => {
         logger.info('Interview started');
@@ -269,7 +269,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'end-interview.ts',
       `
-      import { endInterviewHook } from '@goodfoot/compare-branch-hooks';
+      import { endInterviewHook } from '@goodfoot/compare-branch-configuration';
 
       export default endInterviewHook({}, async (input, { logger }) => {
         logger.info('Interview ended');
@@ -301,7 +301,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'parenthesized.ts',
       `
-      import { startIssueHook } from '@goodfoot/compare-branch-hooks';
+      import { startIssueHook } from '@goodfoot/compare-branch-configuration';
 
       export default (startIssueHook({}, async (input) => {}));
     `
@@ -316,7 +316,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'namespace.ts',
       `
-      import * as hooks from '@goodfoot/compare-branch-hooks';
+      import * as hooks from '@goodfoot/compare-branch-configuration';
 
       export default hooks.startIssueHook({}, async (input) => {});
     `

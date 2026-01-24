@@ -10,7 +10,7 @@
  * @example
  * ```typescript
  * // In a compiled hook file
- * import { execute } from '@goodfoot/compare-branch-hooks/runtime';
+ * import { execute } from '@goodfoot/compare-branch-configuration/runtime';
  * import myHook from './my-hook.js';
  *
  * execute(myHook);
@@ -117,8 +117,8 @@ function handleHandlerError(error: unknown): never {
  * @example
  * ```typescript
  * // In compiled hook file
- * import { execute } from '@goodfoot/compare-branch-hooks/runtime';
- * import { startIssueHook } from '@goodfoot/compare-branch-hooks';
+ * import { execute } from '@goodfoot/compare-branch-configuration/runtime';
+ * import { startIssueHook } from '@goodfoot/compare-branch-configuration';
  *
  * const myHook = startIssueHook({}, async (input, { logger }) => {
  *   logger.info('Processing issue', { issueId: input.issueId });

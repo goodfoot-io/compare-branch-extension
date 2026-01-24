@@ -1,12 +1,12 @@
 {
-  "name": "@goodfoot/compare-branch-hooks",
+  "name": "@goodfoot/compare-branch-configuration",
   "version": "1.0.0",
-  "description": "Type-safe Compare Branch Extension hooks library with environment variable input and exit code output",
-  "homepage": "https://github.com/goodfoot-io/marketplace/tree/main/public/packages/compare-branch-hooks",
+  "description": "Type-safe configuration library for the Compare Branch Extension with hooks, validators, and type configurations",
+  "homepage": "https://github.com/goodfoot-io/marketplace/tree/main/public/packages/compare-branch-configuration",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/goodfoot-io/marketplace.git",
-    "directory": "public/packages/compare-branch-hooks"
+    "directory": "public/packages/compare-branch-configuration"
   },
   "type": "module",
   "sideEffects": false,

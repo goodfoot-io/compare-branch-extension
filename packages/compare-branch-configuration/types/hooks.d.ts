@@ -11,7 +11,7 @@
  * @module
  * @example
  * ```typescript
- * import { startIssueHook } from '@goodfoot/compare-branch-hooks';
+ * import { startIssueHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default startIssueHook({}, async (input, { logger }) => {
  *   logger.info('Issue starting', { issueId: input.issueId });
@@ -121,7 +121,7 @@ export interface HookFunction<TInput, TContext extends HookContext = HookContext
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { startIssueHook } from '@goodfoot/compare-branch-hooks';
+ * import { startIssueHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default startIssueHook({}, async (input, { logger }) => {
  *   logger.info('Issue started', { issueId: input.issueId });
@@ -142,7 +142,7 @@ export declare function startIssueHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { endIssueHook } from '@goodfoot/compare-branch-hooks';
+ * import { endIssueHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default endIssueHook({}, async (input, { logger }) => {
  *   logger.info('Issue completed', { issueId: input.issueId });
@@ -163,7 +163,7 @@ export declare function endIssueHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { startInterviewHook } from '@goodfoot/compare-branch-hooks';
+ * import { startInterviewHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default startInterviewHook({}, async (input, { logger }) => {
  *   logger.info('Interview started', { issueId: input.issueId });
@@ -184,7 +184,7 @@ export declare function startInterviewHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { endInterviewHook } from '@goodfoot/compare-branch-hooks';
+ * import { endInterviewHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default endInterviewHook({}, async (input, { logger }) => {
  *   logger.info('Interview completed', { issueId: input.issueId });
@@ -205,7 +205,7 @@ export declare function endInterviewHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { typedFileCreatedHook } from '@goodfoot/compare-branch-hooks';
+ * import { typedFileCreatedHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default typedFileCreatedHook({}, async (input, { logger }) => {
  *   logger.info('Typed file created', { typeName: input.typeName, fileName: input.fileName });
@@ -226,7 +226,7 @@ export declare function typedFileCreatedHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { typedFileUpdatedHook } from '@goodfoot/compare-branch-hooks';
+ * import { typedFileUpdatedHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default typedFileUpdatedHook({}, async (input, { logger }) => {
  *   logger.info('Typed file updated', { typeName: input.typeName, fileName: input.fileName });
@@ -247,7 +247,7 @@ export declare function typedFileUpdatedHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { typedFileDeletedHook } from '@goodfoot/compare-branch-hooks';
+ * import { typedFileDeletedHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default typedFileDeletedHook({}, async (input, { logger }) => {
  *   logger.info('Typed file deleted', { typeName: input.typeName, fileName: input.fileName });

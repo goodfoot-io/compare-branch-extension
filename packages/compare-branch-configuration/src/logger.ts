@@ -7,7 +7,7 @@
  * @module
  * @example
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-hooks';
+ * import { logger } from '@goodfoot/compare-branch-configuration';
  *
  * // Subscribe to log events
  * const unsubscribe = logger.on('error', (event) => {
@@ -210,7 +210,7 @@ export interface LoggerConfig {
  * - `.on(level, handler)` returns an unsubscribe function
  * @example
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-hooks';
+ * import { logger } from '@goodfoot/compare-branch-configuration';
  *
  * // Subscribe to events at specific level
  * logger.on('warn', (event) => {
@@ -262,7 +262,7 @@ export class Logger {
    * @example
    * ```typescript
    * // Use singleton (recommended)
-   * import { logger } from '@goodfoot/compare-branch-hooks';
+   * import { logger } from '@goodfoot/compare-branch-configuration';
    *
    * // Or create custom instance
    * const customLogger = new Logger({ logFilePath: '/var/log/hooks.log' });
@@ -653,7 +653,7 @@ export class Logger {
  * The logger can be used directly within hook handlers:
  *
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-hooks';
+ * import { logger } from '@goodfoot/compare-branch-configuration';
  *
  * // In a hook handler
  * logger.warn('Task starting in interactive mode');
@@ -664,7 +664,7 @@ export class Logger {
  * Subscribe to events to forward logs to external systems:
  *
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-hooks';
+ * import { logger } from '@goodfoot/compare-branch-configuration';
  * import pino from 'pino';
  *
  * const pinoLogger = pino({ level: 'debug' });
@@ -677,7 +677,7 @@ export class Logger {
  * @example
  * ```typescript
  * // Direct usage
- * import { logger } from '@goodfoot/compare-branch-hooks';
+ * import { logger } from '@goodfoot/compare-branch-configuration';
  *
  * logger.info('Starting operation');
  * logger.warn('Resource limit approaching', { usage: 0.9 });
