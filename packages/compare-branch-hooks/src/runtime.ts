@@ -58,8 +58,8 @@ function cleanupAndExit(exitCode: number): never {
  * Exits with error if there's a conflict.
  */
 function configureLogFile(): void {
-  const cliLogFile = process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE;
-  const envLogFile = process.env.COMPARE_BRANCH_HOOKS_LOG_FILE;
+  const cliLogFile = process.env['COMPARE_BRANCH_HOOKS_CLI_LOG_FILE'];
+  const envLogFile = process.env['COMPARE_BRANCH_HOOKS_LOG_FILE'];
 
   if (cliLogFile !== undefined && envLogFile !== undefined && cliLogFile !== envLogFile) {
     process.stderr.write(

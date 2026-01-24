@@ -275,7 +275,7 @@ export class Logger {
     }
 
     // Set log file path from config or environment
-    this.logFilePath = config.logFilePath ?? process.env.COMPARE_BRANCH_HOOKS_LOG_FILE ?? null;
+    this.logFilePath = config.logFilePath ?? process.env['COMPARE_BRANCH_HOOKS_LOG_FILE'] ?? null;
   }
 
   /**

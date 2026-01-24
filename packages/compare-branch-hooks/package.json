@@ -23,18 +23,26 @@
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./tests",
     "test": "vitest run"
   },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./types/index.d.ts"
-    },
-    "./*": {
-      "import": "./dist/*.js",
-      "types": "./types/*.d.ts"
-    }
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
   },
   "bin": "./dist/cli.js",
   "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./types/index.d.ts",
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "types": "./types/index.d.ts"
+      },
+      "./*": {
+        "import": "./dist/*.js",
+        "types": "./types/*.d.ts"
+      }
+    },
     "bin": {
       "compare-branch-hooks": "./dist/cli.js"
     }
