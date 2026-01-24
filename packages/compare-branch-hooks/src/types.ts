@@ -18,7 +18,14 @@
  *
  * All valid hook event names for Compare Branch Extension hooks.
  */
-export type HookEventName = 'StartIssue' | 'EndIssue' | 'StartInterview' | 'EndInterview';
+export type HookEventName =
+  | 'StartIssue'
+  | 'EndIssue'
+  | 'StartInterview'
+  | 'EndInterview'
+  | 'TypedFileCreated'
+  | 'TypedFileUpdated'
+  | 'TypedFileDeleted';
 
 /**
  * All hook event names as a readonly array.
@@ -35,7 +42,10 @@ export const HOOK_EVENT_NAMES = [
   'StartIssue',
   'EndIssue',
   'StartInterview',
-  'EndInterview'
+  'EndInterview',
+  'TypedFileCreated',
+  'TypedFileUpdated',
+  'TypedFileDeleted'
 ] as const satisfies readonly HookEventName[];
 
 // ============================================================================
@@ -88,6 +98,53 @@ export interface IssueHookInput extends BaseHookInput {}
  */
 export interface InterviewHookInput extends BaseHookInput {}
 
+/**
+ * Input for typed file hooks (TypedFileCreated, TypedFileUpdated, TypedFileDeleted).
+ *
+ * Provides file metadata and validation context for custom type files.
+ */
+export interface TypedFileInput extends BaseHookInput {
+  /**
+   * The registered type name.
+   */
+  typeName: string;
+
+  /**
+   * The file name within the type directory.
+   */
+  fileName: string;
+
+  /**
+   * Full path to the file.
+   */
+  filePath: string;
+
+  /**
+   * MIME type of the content.
+   */
+  contentType: string;
+
+  /**
+   * File size in bytes.
+   */
+  size: number;
+
+  /**
+   * SHA256 hash of content.
+   */
+  sha256: string;
+
+  /**
+   * Version from type config.
+   */
+  typeVersion: string;
+
+  /**
+   * Optional metadata from validator.
+   */
+  metadata?: Record<string, unknown>;
+}
+
 // ============================================================================
 // Specific Input Type Aliases
 // ============================================================================
@@ -111,6 +168,21 @@ export type StartInterviewInput = InterviewHookInput;
  * Input type for EndInterview hooks.
  */
 export type EndInterviewInput = InterviewHookInput;
+
+/**
+ * Input type for TypedFileCreated hooks.
+ */
+export type TypedFileCreatedInput = TypedFileInput;
+
+/**
+ * Input type for TypedFileUpdated hooks.
+ */
+export type TypedFileUpdatedInput = TypedFileInput;
+
+/**
+ * Input type for TypedFileDeleted hooks.
+ */
+export type TypedFileDeletedInput = TypedFileInput;
 
 // ============================================================================
 // Discriminated Union
@@ -139,7 +211,10 @@ export type HookInput =
   | ({ hookEventName: 'StartIssue' } & StartIssueInput)
   | ({ hookEventName: 'EndIssue' } & EndIssueInput)
   | ({ hookEventName: 'StartInterview' } & StartInterviewInput)
-  | ({ hookEventName: 'EndInterview' } & EndInterviewInput);
+  | ({ hookEventName: 'EndInterview' } & EndInterviewInput)
+  | ({ hookEventName: 'TypedFileCreated' } & TypedFileCreatedInput)
+  | ({ hookEventName: 'TypedFileUpdated' } & TypedFileUpdatedInput)
+  | ({ hookEventName: 'TypedFileDeleted' } & TypedFileDeletedInput);
 
 // ============================================================================
 // Type Helpers

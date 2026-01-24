@@ -6,9 +6,17 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   COMPARE_BRANCH_ENV_VARS,
   extractInput,
+  getContentType,
   getExecutionWrapperPid,
+  getFileName,
+  getFilePath,
+  getFileSize,
   getHookIpcSocket,
-  getIssueId
+  getIssueId,
+  getMetadata,
+  getSha256,
+  getTypeName,
+  getTypeVersion
 } from '../src/env.js';
 
 describe('env', () => {
@@ -32,7 +40,15 @@ describe('env', () => {
       expect(COMPARE_BRANCH_ENV_VARS).toEqual({
         ISSUE_ID: 'ISSUE_ID',
         EXECUTION_WRAPPER_PID: 'EXECUTION_WRAPPER_PID',
-        HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET'
+        HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET',
+        TYPE_NAME: 'TYPE_NAME',
+        FILE_NAME: 'FILE_NAME',
+        FILE_PATH: 'FILE_PATH',
+        CONTENT_TYPE: 'CONTENT_TYPE',
+        FILE_SIZE: 'FILE_SIZE',
+        SHA256: 'SHA256',
+        TYPE_VERSION: 'TYPE_VERSION',
+        METADATA: 'METADATA'
       });
     });
   });
@@ -190,6 +206,91 @@ describe('env', () => {
       });
     });
 
+    describe('TypedFileCreated', () => {
+      it('should extract all fields for TypedFileCreated hook', () => {
+        setupBaseEnv();
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_NAME] = 'my-type';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_NAME] = 'document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE] = '1024';
+        process.env[COMPARE_BRANCH_ENV_VARS.SHA256] = 'abc123def456';
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_VERSION] = '1.0.0';
+        process.env[COMPARE_BRANCH_ENV_VARS.METADATA] = '{"key":"value"}';
+
+        const input = extractInput('TypedFileCreated');
+
+        expect(input).toEqual({
+          hookEventName: 'TypedFileCreated',
+          issueId: 'issue-123',
+          executionWrapperPid: 12345,
+          hookIpcSocket: '/tmp/socket.sock',
+          typeName: 'my-type',
+          fileName: 'document.pdf',
+          filePath: '/path/to/document.pdf',
+          contentType: 'application/pdf',
+          size: 1024,
+          sha256: 'abc123def456',
+          typeVersion: '1.0.0',
+          metadata: { key: 'value' }
+        });
+      });
+
+      it('should extract fields without optional metadata', () => {
+        setupBaseEnv();
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_NAME] = 'my-type';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_NAME] = 'document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE] = '1024';
+        process.env[COMPARE_BRANCH_ENV_VARS.SHA256] = 'abc123def456';
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_VERSION] = '1.0.0';
+
+        const input = extractInput('TypedFileCreated');
+
+        expect(input.typeName).toBe('my-type');
+        expect(input.fileName).toBe('document.pdf');
+        expect(input.metadata).toBeUndefined();
+      });
+    });
+
+    describe('TypedFileUpdated', () => {
+      it('should extract all fields for TypedFileUpdated hook', () => {
+        setupBaseEnv();
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_NAME] = 'my-type';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_NAME] = 'document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE] = '2048';
+        process.env[COMPARE_BRANCH_ENV_VARS.SHA256] = 'xyz789uvw012';
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_VERSION] = '1.1.0';
+
+        const input = extractInput('TypedFileUpdated');
+
+        expect(input.hookEventName).toBe('TypedFileUpdated');
+        expect(input.typeName).toBe('my-type');
+        expect(input.size).toBe(2048);
+      });
+    });
+
+    describe('TypedFileDeleted', () => {
+      it('should extract all fields for TypedFileDeleted hook', () => {
+        setupBaseEnv();
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_NAME] = 'my-type';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_NAME] = 'document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE] = '1024';
+        process.env[COMPARE_BRANCH_ENV_VARS.SHA256] = 'abc123def456';
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_VERSION] = '1.0.0';
+
+        const input = extractInput('TypedFileDeleted');
+
+        expect(input.hookEventName).toBe('TypedFileDeleted');
+        expect(input.typeName).toBe('my-type');
+      });
+    });
+
     describe('Type safety', () => {
       it('should maintain correct types for each hook event', () => {
         setupBaseEnv();
@@ -201,6 +302,123 @@ describe('env', () => {
         // Verify that EndIssue input has issueId
         const endIssue = extractInput('EndIssue');
         expect(endIssue.issueId).toBe('issue-123');
+      });
+    });
+  });
+
+  describe('Typed file getters', () => {
+    beforeEach(() => {
+      // Clear all typed file env vars before each test
+      delete process.env[COMPARE_BRANCH_ENV_VARS.TYPE_NAME];
+      delete process.env[COMPARE_BRANCH_ENV_VARS.FILE_NAME];
+      delete process.env[COMPARE_BRANCH_ENV_VARS.FILE_PATH];
+      delete process.env[COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE];
+      delete process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE];
+      delete process.env[COMPARE_BRANCH_ENV_VARS.SHA256];
+      delete process.env[COMPARE_BRANCH_ENV_VARS.TYPE_VERSION];
+      delete process.env[COMPARE_BRANCH_ENV_VARS.METADATA];
+    });
+
+    describe('getTypeName', () => {
+      it('should return type name when set', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_NAME] = 'my-type';
+        expect(getTypeName()).toBe('my-type');
+      });
+
+      it('should throw when TYPE_NAME is undefined', () => {
+        expect(() => getTypeName()).toThrow('Missing required environment variable: TYPE_NAME');
+      });
+    });
+
+    describe('getFileName', () => {
+      it('should return file name when set', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_NAME] = 'document.pdf';
+        expect(getFileName()).toBe('document.pdf');
+      });
+
+      it('should throw when FILE_NAME is undefined', () => {
+        expect(() => getFileName()).toThrow('Missing required environment variable: FILE_NAME');
+      });
+    });
+
+    describe('getFilePath', () => {
+      it('should return file path when set', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_PATH] = '/path/to/file';
+        expect(getFilePath()).toBe('/path/to/file');
+      });
+
+      it('should throw when FILE_PATH is undefined', () => {
+        expect(() => getFilePath()).toThrow('Missing required environment variable: FILE_PATH');
+      });
+    });
+
+    describe('getContentType', () => {
+      it('should return content type when set', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
+        expect(getContentType()).toBe('application/pdf');
+      });
+
+      it('should throw when CONTENT_TYPE is undefined', () => {
+        expect(() => getContentType()).toThrow('Missing required environment variable: CONTENT_TYPE');
+      });
+    });
+
+    describe('getFileSize', () => {
+      it('should return file size as number when set to valid integer', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE] = '1024';
+        expect(getFileSize()).toBe(1024);
+      });
+
+      it('should throw when FILE_SIZE is undefined', () => {
+        expect(() => getFileSize()).toThrow('Missing required environment variable: FILE_SIZE');
+      });
+
+      it('should throw when FILE_SIZE is not a number', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE] = 'not-a-number';
+        expect(() => getFileSize()).toThrow('Invalid FILE_SIZE: expected number, got "not-a-number"');
+      });
+    });
+
+    describe('getSha256', () => {
+      it('should return sha256 when set', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.SHA256] = 'abc123def456';
+        expect(getSha256()).toBe('abc123def456');
+      });
+
+      it('should throw when SHA256 is undefined', () => {
+        expect(() => getSha256()).toThrow('Missing required environment variable: SHA256');
+      });
+    });
+
+    describe('getTypeVersion', () => {
+      it('should return type version when set', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.TYPE_VERSION] = '1.0.0';
+        expect(getTypeVersion()).toBe('1.0.0');
+      });
+
+      it('should throw when TYPE_VERSION is undefined', () => {
+        expect(() => getTypeVersion()).toThrow('Missing required environment variable: TYPE_VERSION');
+      });
+    });
+
+    describe('getMetadata', () => {
+      it('should return parsed metadata when set to valid JSON', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.METADATA] = '{"key":"value","count":42}';
+        expect(getMetadata()).toEqual({ key: 'value', count: 42 });
+      });
+
+      it('should return undefined when METADATA is not set', () => {
+        expect(getMetadata()).toBeUndefined();
+      });
+
+      it('should return undefined when METADATA is empty string', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.METADATA] = '';
+        expect(getMetadata()).toBeUndefined();
+      });
+
+      it('should throw when METADATA is set to invalid JSON', () => {
+        process.env[COMPARE_BRANCH_ENV_VARS.METADATA] = 'not-valid-json';
+        expect(() => getMetadata()).toThrow('Invalid METADATA: expected valid JSON');
       });
     });
   });

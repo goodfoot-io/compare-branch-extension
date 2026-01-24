@@ -53,7 +53,10 @@ export {
   endInterviewHook,
   endIssueHook,
   startInterviewHook,
-  startIssueHook
+  startIssueHook,
+  typedFileCreatedHook,
+  typedFileDeletedHook,
+  typedFileUpdatedHook
 } from './hooks.js';
 
 // ============================================================================
@@ -102,6 +105,46 @@ export type {
   IssueHookInput,
   StartInterviewInput,
   // Specific input types
-  StartIssueInput
+  StartIssueInput,
+  TypedFileCreatedInput,
+  TypedFileDeletedInput,
+  TypedFileUpdatedInput
 } from './types.js';
 export { HOOK_EVENT_NAMES } from './types.js';
+
+// ============================================================================
+// Validation
+// ============================================================================
+
+export { parseHttpRequest } from './http-parser.js';
+export type {
+  ValidationConfig,
+  ValidationContext,
+  ValidationError,
+  ValidationFunction,
+  ValidationHandler,
+  ValidationRequest,
+  ValidationResponse
+} from './validation.js';
+export {
+  executeValidation,
+  typeValidation,
+  validationCreated,
+  validationError,
+  validationResponse,
+  validationUpdated
+} from './validation.js';
+
+// ============================================================================
+// Testing Utilities
+// ============================================================================
+
+export type {
+  TestRequestOptions,
+  TestValidationOptions,
+  TestValidationResult
+} from './testing.js';
+export {
+  createTestRequest,
+  testValidation
+} from './testing.js';

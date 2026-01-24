@@ -20,7 +20,16 @@
  */
 
 import type { Logger } from './logger.js';
-import type { EndInterviewInput, EndIssueInput, HookEventName, StartInterviewInput, StartIssueInput } from './types.js';
+import type {
+  EndInterviewInput,
+  EndIssueInput,
+  HookEventName,
+  StartInterviewInput,
+  StartIssueInput,
+  TypedFileCreatedInput,
+  TypedFileDeletedInput,
+  TypedFileUpdatedInput
+} from './types.js';
 
 // ============================================================================
 // Configuration Types
@@ -259,4 +268,88 @@ export function endInterviewHook(
   handler: HookHandler<EndInterviewInput>
 ): HookFunction<EndInterviewInput> {
   return createHookFunction('EndInterview', config, handler);
+}
+
+// ============================================================================
+// TypedFileCreated Hook Factory
+// ============================================================================
+
+/**
+ * Creates a TypedFileCreated hook handler.
+ *
+ * TypedFileCreated hooks fire when a typed file is created.
+ *
+ * @param config - Hook configuration with optional timeout
+ * @param handler - The handler function to execute
+ * @returns A hook function that can be exported as the default export
+ * @example
+ * ```typescript
+ * import { typedFileCreatedHook } from '@goodfoot/compare-branch-hooks';
+ *
+ * export default typedFileCreatedHook({}, async (input, { logger }) => {
+ *   logger.info('Typed file created', { typeName: input.typeName, fileName: input.fileName });
+ * });
+ * ```
+ */
+export function typedFileCreatedHook(
+  config: HookConfig,
+  handler: HookHandler<TypedFileCreatedInput>
+): HookFunction<TypedFileCreatedInput> {
+  return createHookFunction('TypedFileCreated', config, handler);
+}
+
+// ============================================================================
+// TypedFileUpdated Hook Factory
+// ============================================================================
+
+/**
+ * Creates a TypedFileUpdated hook handler.
+ *
+ * TypedFileUpdated hooks fire when a typed file is updated.
+ *
+ * @param config - Hook configuration with optional timeout
+ * @param handler - The handler function to execute
+ * @returns A hook function that can be exported as the default export
+ * @example
+ * ```typescript
+ * import { typedFileUpdatedHook } from '@goodfoot/compare-branch-hooks';
+ *
+ * export default typedFileUpdatedHook({}, async (input, { logger }) => {
+ *   logger.info('Typed file updated', { typeName: input.typeName, fileName: input.fileName });
+ * });
+ * ```
+ */
+export function typedFileUpdatedHook(
+  config: HookConfig,
+  handler: HookHandler<TypedFileUpdatedInput>
+): HookFunction<TypedFileUpdatedInput> {
+  return createHookFunction('TypedFileUpdated', config, handler);
+}
+
+// ============================================================================
+// TypedFileDeleted Hook Factory
+// ============================================================================
+
+/**
+ * Creates a TypedFileDeleted hook handler.
+ *
+ * TypedFileDeleted hooks fire when a typed file is deleted.
+ *
+ * @param config - Hook configuration with optional timeout
+ * @param handler - The handler function to execute
+ * @returns A hook function that can be exported as the default export
+ * @example
+ * ```typescript
+ * import { typedFileDeletedHook } from '@goodfoot/compare-branch-hooks';
+ *
+ * export default typedFileDeletedHook({}, async (input, { logger }) => {
+ *   logger.info('Typed file deleted', { typeName: input.typeName, fileName: input.fileName });
+ * });
+ * ```
+ */
+export function typedFileDeletedHook(
+  config: HookConfig,
+  handler: HookHandler<TypedFileDeletedInput>
+): HookFunction<TypedFileDeletedInput> {
+  return createHookFunction('TypedFileDeleted', config, handler);
 }
