@@ -165,7 +165,7 @@ export function parseHttpRequest(input: Buffer): ParseResult {
     return { success: false, error: 'Invalid request line format' };
   }
 
-  const [method, path, httpVersion] = requestParts;
+  const [method, path, httpVersion] = requestParts as [string, string, string];
 
   // Read headers until blank line
   const headers: Record<string, string> = {};
