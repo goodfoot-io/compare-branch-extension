@@ -22,7 +22,11 @@ import type { EndInterviewInput, EndIssueInput, StartInterviewInput, StartIssueI
  * Union type of all possible hook functions.
  * This allows execute() to accept any hook function type.
  */
-type AnyHookFunction = HookFunction<StartIssueInput> | HookFunction<EndIssueInput> | HookFunction<StartInterviewInput> | HookFunction<EndInterviewInput>;
+type AnyHookFunction =
+  | HookFunction<StartIssueInput>
+  | HookFunction<EndIssueInput>
+  | HookFunction<StartInterviewInput>
+  | HookFunction<EndInterviewInput>;
 /**
  * Executes a hook handler with full runtime orchestration.
  *
@@ -51,5 +55,4 @@ type AnyHookFunction = HookFunction<StartIssueInput> | HookFunction<EndIssueInpu
  * ```
  */
 export declare function execute(hookFn: AnyHookFunction): Promise<void>;
-export {};
 //# sourceMappingURL=runtime.d.ts.map
