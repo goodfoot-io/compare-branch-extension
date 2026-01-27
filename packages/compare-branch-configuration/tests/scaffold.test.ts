@@ -162,7 +162,7 @@ describe('scaffoldProject', () => {
       expect(packageJson.name).toBe('test-hooks');
       expect(packageJson.type).toBe('module');
       expect(packageJson.dependencies).toHaveProperty('@goodfoot/compare-branch-configuration');
-      expect(packageJson.scripts.build).toContain('compare-branch-hooks');
+      expect(packageJson.scripts.build).toContain('compare-branch-configuration');
       expect(packageJson.scripts.build).toContain('dist/hooks.json');
     });
 

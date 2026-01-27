@@ -8,10 +8,10 @@
  * @example
  * ```bash
  * # Compile hooks and generate hooks.json
- * compare-branch-hooks -i "hooks/**\/*.ts" -o "./dist/hooks.json"
+ * compare-branch-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json"
  *
  * # With runtime logging (equivalent to COMPARE_BRANCH_HOOKS_LOG_FILE)
- * compare-branch-hooks -i "hooks/**\/*.ts" -o "./dist/hooks.json" --log /tmp/hooks.log
+ * compare-branch-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json" --log /tmp/hooks.log
  * ```
  * @module
  */
@@ -150,7 +150,7 @@ Optional Arguments:
       Path to a log file for runtime hook logging.
       If provided, all context.logger calls within your hooks will write to this file.
       This is equivalent to setting the COMPARE_BRANCH_HOOKS_LOG_FILE environment variable.
-      Example: "/tmp/compare-branch-hooks.log"
+      Example: "/tmp/compare-branch-configuration.log"
 
   --executable <path>
       Node executable path to use in generated commands (default: "node").
@@ -429,7 +429,7 @@ async function compileHook(options: CompileHookOptions): Promise<string> {
   // This ensures the same inputs always produce the same temp path, making builds deterministic
   const hashInputs = [sourcePath, logFilePath ?? ''].join(':');
   const buildHash = crypto.createHash('sha256').update(hashInputs).digest('hex').substring(0, 16);
-  const tempDir = path.join(os.tmpdir(), 'compare-branch-hooks-build', buildHash);
+  const tempDir = path.join(os.tmpdir(), 'compare-branch-configuration-build', buildHash);
   const wrapperPath = path.join(tempDir, 'wrapper.ts');
   const tempOutput = path.join(tempDir, 'output.mjs');
 
@@ -867,7 +867,7 @@ async function main(): Promise<void> {
 
   // Handle version
   if (args.version) {
-    process.stdout.write(`compare-branch-hooks v${VERSION}\n`);
+    process.stdout.write(`compare-branch-configuration v${VERSION}\n`);
     process.exit(0);
   }
 

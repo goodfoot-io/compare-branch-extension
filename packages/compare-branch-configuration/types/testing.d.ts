@@ -11,16 +11,16 @@ import type { ValidationContext, ValidationFunction, ValidationRequest, Validati
  * Options for creating a test request.
  */
 export interface TestRequestOptions {
-  /** HTTP method (default: 'PUT') */
-  method?: string;
-  /** Request path (default: '/test') */
-  path?: string;
-  /** HTTP version (default: 'HTTP/1.1') */
-  httpVersion?: string;
-  /** Request headers */
-  headers?: Record<string, string>;
-  /** Request body as string, Buffer, or object (object will be JSON-stringified) */
-  body?: string | Buffer | object;
+    /** HTTP method (default: 'PUT') */
+    method?: string;
+    /** Request path (default: '/test') */
+    path?: string;
+    /** HTTP version (default: 'HTTP/1.1') */
+    httpVersion?: string;
+    /** Request headers */
+    headers?: Record<string, string>;
+    /** Request body as string, Buffer, or object (object will be JSON-stringified) */
+    body?: string | Buffer | object;
 }
 /**
  * Creates a test ValidationRequest from options.
@@ -41,17 +41,17 @@ export declare function createTestRequest(options?: TestRequestOptions): Validat
  * Options for testValidation.
  */
 export interface TestValidationOptions {
-  /** Custom logger (default: creates new Logger) */
-  logger?: Logger;
+    /** Custom logger (default: creates new Logger) */
+    logger?: Logger;
 }
 /**
  * Test harness result.
  */
 export interface TestValidationResult {
-  /** The response returned by the validator */
-  response: ValidationResponse;
-  /** The context that was passed to the validator */
-  context: ValidationContext;
+    /** The response returned by the validator */
+    response: ValidationResponse;
+    /** The context that was passed to the validator */
+    context: ValidationContext;
 }
 /**
  * Test harness for validators.
@@ -80,9 +80,5 @@ export interface TestValidationResult {
  * expect(result.response.metadata).toEqual({ name: 'test' });
  * ```
  */
-export declare function testValidation(
-  validation: ValidationFunction,
-  request: ValidationRequest | TestRequestOptions,
-  options?: TestValidationOptions
-): Promise<TestValidationResult>;
+export declare function testValidation(validation: ValidationFunction, request: ValidationRequest | TestRequestOptions, options?: TestValidationOptions): Promise<TestValidationResult>;
 //# sourceMappingURL=testing.d.ts.map

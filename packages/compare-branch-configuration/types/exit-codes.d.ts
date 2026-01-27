@@ -18,10 +18,10 @@
  * | 1 | ERROR | Handler threw an error |
  */
 export declare const EXIT_CODES: {
-  /** Handler completed successfully. */
-  readonly SUCCESS: 0;
-  /** Handler threw an error. */
-  readonly ERROR: 1;
+    /** Handler completed successfully. */
+    readonly SUCCESS: 0;
+    /** Handler threw an error. */
+    readonly ERROR: 1;
 };
 /**
  * Exit code type.
@@ -62,11 +62,11 @@ export declare function exitWithError(message: string): never;
  * Used by the runtime to determine the final exit code.
  */
 export interface HookExecutionResult {
-  /** Whether the hook executed successfully. */
-  success: boolean;
-  /** The exit code to use when exiting. */
-  exitCode: ExitCode;
-  /** The error that occurred, if any. */
-  error?: Error;
+    /** Whether the hook executed successfully. */
+    success: boolean;
+    /** The exit code to use when exiting. */
+    exitCode: ExitCode;
+    /** The error that occurred, if any. */
+    error?: Error;
 }
 //# sourceMappingURL=exit-codes.d.ts.map

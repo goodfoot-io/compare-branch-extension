@@ -44,7 +44,7 @@
       }
     },
     "bin": {
-      "compare-branch-hooks": "./dist/cli.js"
+      "compare-branch-configuration": "./dist/cli.js"
     }
   },
   "dependencies": {

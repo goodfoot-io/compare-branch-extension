@@ -18,11 +18,11 @@ export type { ValidationRequest } from './http-parser.js';
  * ```
  */
 export interface ValidationConfig {
-  /**
-   * Maximum time in milliseconds for validation to complete.
-   * If not specified, no timeout is enforced at the SDK level.
-   */
-  timeout?: number;
+    /**
+     * Maximum time in milliseconds for validation to complete.
+     * If not specified, no timeout is enforced at the SDK level.
+     */
+    timeout?: number;
 }
 /**
  * Context provided to validation handlers.
@@ -36,10 +36,10 @@ export interface ValidationConfig {
  * ```
  */
 export interface ValidationContext {
-  /**
-   * Logger for structured logging during validation.
-   */
-  logger: Logger;
+    /**
+     * Logger for structured logging during validation.
+     */
+    logger: Logger;
 }
 /**
  * Structured validation error.
@@ -55,18 +55,18 @@ export interface ValidationContext {
  * ```
  */
 export interface ValidationError {
-  /**
-   * Machine-readable error code.
-   */
-  code: string;
-  /**
-   * Human-readable error message.
-   */
-  message: string;
-  /**
-   * Optional field name that caused the error.
-   */
-  field?: string;
+    /**
+     * Machine-readable error code.
+     */
+    code: string;
+    /**
+     * Human-readable error message.
+     */
+    message: string;
+    /**
+     * Optional field name that caused the error.
+     */
+    field?: string;
 }
 /**
  * Response from a validation handler.
@@ -82,22 +82,22 @@ export interface ValidationError {
  * ```
  */
 export interface ValidationResponse {
-  /**
-   * HTTP status code (e.g., 200, 201, 400, 422, 500).
-   */
-  status?: number;
-  /**
-   * HTTP response headers.
-   */
-  headers?: Record<string, string>;
-  /**
-   * Response body as string or Buffer.
-   */
-  body?: string | Buffer;
-  /**
-   * Optional metadata to store in .meta.json file.
-   */
-  metadata?: Record<string, unknown>;
+    /**
+     * HTTP status code (e.g., 200, 201, 400, 422, 500).
+     */
+    status?: number;
+    /**
+     * HTTP response headers.
+     */
+    headers?: Record<string, string>;
+    /**
+     * Response body as string or Buffer.
+     */
+    body?: string | Buffer;
+    /**
+     * Optional metadata to store in .meta.json file.
+     */
+    metadata?: Record<string, unknown>;
 }
 /**
  * Validation handler function.
@@ -118,10 +118,7 @@ export interface ValidationResponse {
  * };
  * ```
  */
-export type ValidationHandler<TRequest = import('./http-parser.js').ValidationRequest> = (
-  request: TRequest,
-  context: ValidationContext
-) => ValidationResponse | Promise<ValidationResponse>;
+export type ValidationHandler<TRequest = import('./http-parser.js').ValidationRequest> = (request: TRequest, context: ValidationContext) => ValidationResponse | Promise<ValidationResponse>;
 /**
  * Validation function created by the factory.
  *
@@ -137,8 +134,8 @@ export type ValidationHandler<TRequest = import('./http-parser.js').ValidationRe
  * ```
  */
 export interface ValidationFunction {
-  (request: import('./http-parser.js').ValidationRequest, context: ValidationContext): Promise<ValidationResponse>;
-  timeout?: number;
+    (request: import('./http-parser.js').ValidationRequest, context: ValidationContext): Promise<ValidationResponse>;
+    timeout?: number;
 }
 /**
  * Creates a type validation function.
@@ -206,11 +203,7 @@ export declare function validationUpdated(metadata?: Record<string, unknown>): V
  * ], 'Validation failed');
  * ```
  */
-export declare function validationError(
-  status: number,
-  errors: ValidationError[],
-  message?: string
-): ValidationResponse;
+export declare function validationError(status: number, errors: ValidationError[], message?: string): ValidationResponse;
 /**
  * Passes through a custom validation response.
  *

@@ -21,53 +21,51 @@
  * ```
  */
 export interface ValidationRequest {
-  /**
-   * HTTP method (e.g., 'PUT', 'POST').
-   */
-  method: string;
-  /**
-   * Request path (e.g., '/contract/api-v2.json').
-   */
-  path: string;
-  /**
-   * HTTP version (e.g., 'HTTP/1.1').
-   */
-  httpVersion: string;
-  /**
-   * HTTP headers as key-value pairs.
-   * Header names are normalized to lowercase.
-   */
-  headers: Record<string, string>;
-  /**
-   * Raw body content as a Buffer.
-   * Binary-safe and limited to exactly Content-Length bytes.
-   */
-  body: Buffer;
-  /**
-   * Convenience getter for body as UTF-8 string.
-   */
-  bodyText: string;
-  /**
-   * Convenience getter for body parsed as JSON.
-   * @throws {SyntaxError} If body is not valid JSON
-   * @template T - The expected type of the parsed JSON
-   */
-  bodyJson: <T = unknown>() => T;
+    /**
+     * HTTP method (e.g., 'PUT', 'POST').
+     */
+    method: string;
+    /**
+     * Request path (e.g., '/contract/api-v2.json').
+     */
+    path: string;
+    /**
+     * HTTP version (e.g., 'HTTP/1.1').
+     */
+    httpVersion: string;
+    /**
+     * HTTP headers as key-value pairs.
+     * Header names are normalized to lowercase.
+     */
+    headers: Record<string, string>;
+    /**
+     * Raw body content as a Buffer.
+     * Binary-safe and limited to exactly Content-Length bytes.
+     */
+    body: Buffer;
+    /**
+     * Convenience getter for body as UTF-8 string.
+     */
+    bodyText: string;
+    /**
+     * Convenience getter for body parsed as JSON.
+     * @throws {SyntaxError} If body is not valid JSON
+     * @template T - The expected type of the parsed JSON
+     */
+    bodyJson: <T = unknown>() => T;
 }
 /**
  * Result of HTTP request parsing.
  *
  * Success case includes the parsed request, failure case includes error message.
  */
-export type ParseResult =
-  | {
-      success: true;
-      request: ValidationRequest;
-    }
-  | {
-      success: false;
-      error: string;
-    };
+export type ParseResult = {
+    success: true;
+    request: ValidationRequest;
+} | {
+    success: false;
+    error: string;
+};
 /**
  * Parses an HTTP request from a buffer.
  *

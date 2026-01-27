@@ -456,7 +456,7 @@ export class Logger {
    * @example
    * ```typescript
    * // Enable file logging at runtime
-   * logger.setLogFile('/var/log/compare-branch-hooks.log');
+   * logger.setLogFile('/var/log/compare-branch-configuration.log');
    *
    * // Disable file logging
    * logger.setLogFile(null);

@@ -7,10 +7,10 @@
  * @example
  * ```bash
  * # Compile hooks and generate hooks.json
- * compare-branch-hooks -i "hooks/**\/*.ts" -o "./dist/hooks.json"
+ * compare-branch-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json"
  *
  * # With runtime logging (equivalent to COMPARE_BRANCH_HOOKS_LOG_FILE)
- * compare-branch-hooks -i "hooks/**\/*.ts" -o "./dist/hooks.json" --log /tmp/hooks.log
+ * compare-branch-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json" --log /tmp/hooks.log
  * ```
  * @module
  */
@@ -27,59 +27,59 @@ type HookContext = 'plugin' | 'agent';
  * Command-line arguments parsed from process.argv.
  */
 interface CliArgs {
-  /** Glob pattern for hook source files. */
-  input: string;
-  /** Path for hooks.json output file. */
-  output: string;
-  /** Optional log file path. */
-  log?: string;
-  /** Show help. */
-  help: boolean;
-  /** Show version. */
-  version: boolean;
-  /** Node executable path to use in command output (default: "node"). */
-  executable?: string;
+    /** Glob pattern for hook source files. */
+    input: string;
+    /** Path for hooks.json output file. */
+    output: string;
+    /** Optional log file path. */
+    log?: string;
+    /** Show help. */
+    help: boolean;
+    /** Show version. */
+    version: boolean;
+    /** Node executable path to use in command output (default: "node"). */
+    executable?: string;
 }
 /**
  * Metadata extracted from a hook file via TypeScript AST analysis.
  */
 interface HookMetadata {
-  /** The hook event type (StartIssue, EndIssue, etc.). */
-  hookEventName: HookEventName;
-  /** Optional timeout in milliseconds from hook config. */
-  timeout?: number;
+    /** The hook event type (StartIssue, EndIssue, etc.). */
+    hookEventName: HookEventName;
+    /** Optional timeout in milliseconds from hook config. */
+    timeout?: number;
 }
 /**
  * A compiled hook with its metadata and output path.
  */
 interface CompiledHook {
-  /** Original source file path. */
-  sourcePath: string;
-  /** Compiled output file path. */
-  outputPath: string;
-  /** Output filename (e.g., "my-hook.abc123.mjs"). */
-  outputFilename: string;
-  /** Extracted hook metadata. */
-  metadata: HookMetadata;
+    /** Original source file path. */
+    sourcePath: string;
+    /** Compiled output file path. */
+    outputPath: string;
+    /** Output filename (e.g., "my-hook.abc123.mjs"). */
+    outputFilename: string;
+    /** Extracted hook metadata. */
+    metadata: HookMetadata;
 }
 /**
  * Individual hook configuration within a matcher group.
  */
 interface HookConfig {
-  /** Hook type - always "command" for compiled hooks. */
-  type: 'command';
-  /** Absolute path to compiled hook executable. */
-  command: string;
-  /** Optional timeout in seconds. */
-  timeout?: number;
+    /** Hook type - always "command" for compiled hooks. */
+    type: 'command';
+    /** Absolute path to compiled hook executable. */
+    command: string;
+    /** Optional timeout in seconds. */
+    timeout?: number;
 }
 /**
  * Matcher group entry within an event type.
  * Compare Branch hooks don't use matchers, so this is simplified.
  */
 interface MatcherEntry {
-  /** Array of hook configurations in this group. */
-  hooks: HookConfig[];
+    /** Array of hook configurations in this group. */
+    hooks: HookConfig[];
 }
 /**
  * The complete hooks.json structure expected by Compare Branch Extension.
@@ -87,15 +87,15 @@ interface MatcherEntry {
  * Format: { hooks: { EventType: [ { hooks: [...] } ] } }
  */
 interface HooksJson {
-  /** Object keyed by event type (StartIssue, EndIssue, etc.). */
-  hooks: Partial<Record<HookEventName, MatcherEntry[]>>;
-  /** Generated file tracking metadata. */
-  __generated: {
-    /** Array of generated filenames. */
-    files: string[];
-    /** ISO timestamp of generation. */
-    timestamp: string;
-  };
+    /** Object keyed by event type (StartIssue, EndIssue, etc.). */
+    hooks: Partial<Record<HookEventName, MatcherEntry[]>>;
+    /** Generated file tracking metadata. */
+    __generated: {
+        /** Array of generated filenames. */
+        files: string[];
+        /** ISO timestamp of generation. */
+        timestamp: string;
+    };
 }
 /**
  * Parses command-line arguments.
@@ -137,12 +137,12 @@ declare function discoverHookFiles(pattern: string, cwd: string): Promise<string
  * Options for compiling a hook.
  */
 interface CompileHookOptions {
-  /** Absolute path to source file. */
-  sourcePath: string;
-  /** Directory for compiled output. */
-  outputDir: string;
-  /** Optional log file path to inject into compiled hook. */
-  logFilePath?: string;
+    /** Absolute path to source file. */
+    sourcePath: string;
+    /** Directory for compiled output. */
+    outputDir: string;
+    /** Optional log file path to inject into compiled hook. */
+    logFilePath?: string;
 }
 /**
  * Compiles a TypeScript hook file to a self-contained ESM executable.
@@ -169,10 +169,10 @@ declare function groupHooksByEvent(compiledHooks: CompiledHook[]): Map<HookEvent
  * Result of detecting the hook context, including the root directory.
  */
 interface HookContextInfo {
-  /** Hook context type. */
-  context: HookContext;
-  /** Absolute path to the root directory (plugin root or project root). */
-  rootDir: string;
+    /** Hook context type. */
+    context: HookContext;
+    /** Absolute path to the root directory (plugin root or project root). */
+    rootDir: string;
 }
 /**
  * Auto-detects the hook context and root directory based on directory structure.
@@ -198,12 +198,7 @@ declare function detectHookContext(outputPath: string): HookContextInfo;
  * @param executable - Node executable path (default: "node")
  * @returns The command path string
  */
-declare function generateCommandPath(
-  filename: string,
-  buildDir: string,
-  contextInfo: HookContextInfo,
-  executable?: string
-): string;
+declare function generateCommandPath(filename: string, buildDir: string, contextInfo: HookContextInfo, executable?: string): string;
 /**
  * Generates the hooks.json content in Compare Branch Extension's expected format.
  *
@@ -215,12 +210,7 @@ declare function generateCommandPath(
  * @param executable - Node executable path (default: "node")
  * @returns The hooks.json structure
  */
-declare function generateHooksJson(
-  compiledHooks: CompiledHook[],
-  buildDir: string,
-  contextInfo: HookContextInfo,
-  executable?: string
-): HooksJson;
+declare function generateHooksJson(compiledHooks: CompiledHook[], buildDir: string, contextInfo: HookContextInfo, executable?: string): HooksJson;
 /**
  * Reads an existing hooks.json file if it exists.
  * @param outputPath - Path to the hooks.json file
@@ -248,26 +238,7 @@ declare function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Re
  * @param preservedHooks - Hooks to preserve from the existing hooks.json
  * @returns Merged HooksJson
  */
-declare function mergeHooksJson(
-  newHooksJson: HooksJson,
-  preservedHooks: Partial<Record<HookEventName, MatcherEntry[]>>
-): HooksJson;
-export {
-  parseArgs,
-  validateArgs,
-  analyzeHookFile,
-  discoverHookFiles,
-  compileHook,
-  generateContentHash,
-  detectHookContext,
-  generateCommandPath,
-  generateHooksJson,
-  groupHooksByEvent,
-  readExistingHooksJson,
-  removeOldGeneratedFiles,
-  extractPreservedHooks,
-  mergeHooksJson,
-  HOOK_FACTORY_TO_EVENT
-};
+declare function mergeHooksJson(newHooksJson: HooksJson, preservedHooks: Partial<Record<HookEventName, MatcherEntry[]>>): HooksJson;
+export { parseArgs, validateArgs, analyzeHookFile, discoverHookFiles, compileHook, generateContentHash, detectHookContext, generateCommandPath, generateHooksJson, groupHooksByEvent, readExistingHooksJson, removeOldGeneratedFiles, extractPreservedHooks, mergeHooksJson, HOOK_FACTORY_TO_EVENT };
 export type { CliArgs, HookMetadata, CompiledHook, HookConfig, MatcherEntry, HooksJson };
 //# sourceMappingURL=cli.d.ts.map

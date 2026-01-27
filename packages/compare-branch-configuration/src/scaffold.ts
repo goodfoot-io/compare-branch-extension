@@ -125,7 +125,7 @@ function generatePackageJson(projectName: string, outputPath: string): string {
     version: '1.0.0',
     type: 'module',
     scripts: {
-      build: `compare-branch-hooks -i "src/**/*.ts" -o "${outputPath}"`,
+      build: `compare-branch-configuration -i "src/**/*.ts" -o "${outputPath}"`,
       test: 'vitest run',
       lint: 'biome check .',
       typecheck: 'tsc --noEmit'
@@ -231,7 +231,7 @@ export default defineConfig({
  * @returns Markdown content for CLAUDE.md
  */
 function generateClaudeMd(): string {
-  return 'Load the `compare-branch-hooks:compare-branch-hooks` skill immediately if it is available.\n';
+  return 'Load the `compare-branch-configuration:compare-branch-configuration` skill immediately if it is available.\n';
 }
 
 /**
