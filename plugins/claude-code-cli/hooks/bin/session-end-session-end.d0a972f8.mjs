@@ -603,9 +603,9 @@ var session_end_session_end_default = sessionEndHook({}, async (input, { logger:
   if (!sessionId) {
     return sessionEndOutput({});
   }
-  const issueId = process.env.ISSUE_ID;
+  const issueId = process.env.CARD_ID;
   if (!issueId) {
-    logger2.warn("ISSUE_ID not set - this hook requires the issue launcher");
+    logger2.warn("CARD_ID not set - this hook requires the issue launcher");
     return sessionEndOutput({});
   }
   try {

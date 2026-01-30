@@ -700,7 +700,7 @@ async function cleanupOrphanedCommits(issueId, baseUrl, cwd, excludeSha, logger2
   }
 }
 var post_tool_use_git_commit_default = postToolUseHook({ matcher: "Bash" }, async (input, { logger: logger2 }) => {
-  const issueId = process.env.ISSUE_ID;
+  const issueId = process.env.CARD_ID;
   if (!issueId) {
     return postToolUseOutput({});
   }

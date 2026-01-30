@@ -29,7 +29,7 @@ describe('scaffoldProject', () => {
     it('accepts valid hook names', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'EndIssue'],
+        hooks: ['StartCard', 'EndCard'],
         outputPath: 'dist/hooks.json'
       });
 
@@ -39,13 +39,13 @@ describe('scaffoldProject', () => {
     it('accepts case-insensitive hook names', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['startissue', 'ENDISSUE', 'StartInterview'],
+        hooks: ['startcard', 'ENDCARD', 'StartInterview'],
         outputPath: 'dist/hooks.json'
       });
 
       expect(fs.existsSync(projectDir)).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'start-issue.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'end-issue.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'start-card.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'end-card.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-interview.ts'))).toBe(true);
     });
 
@@ -86,12 +86,12 @@ describe('scaffoldProject', () => {
     it('accepts all valid hook event names', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'EndIssue', 'StartInterview', 'EndInterview'],
+        hooks: ['StartCard', 'EndCard', 'StartInterview', 'EndInterview'],
         outputPath: 'dist/hooks.json'
       });
 
-      expect(fs.existsSync(path.join(projectDir, 'src', 'start-issue.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'end-issue.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'start-card.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'end-card.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-interview.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'end-interview.ts'))).toBe(true);
     });
@@ -101,7 +101,7 @@ describe('scaffoldProject', () => {
     it('creates project directory structure', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue'],
+        hooks: ['StartCard'],
         outputPath: 'dist/hooks.json'
       });
 
@@ -132,7 +132,7 @@ describe('scaffoldProject', () => {
       try {
         scaffoldProject({
           directory: projectDir,
-          hooks: ['StartIssue'],
+          hooks: ['StartCard'],
           outputPath: 'dist/hooks.json'
         });
       } catch (_error) {
@@ -151,7 +151,7 @@ describe('scaffoldProject', () => {
     it('generates package.json with correct dependencies', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue'],
+        hooks: ['StartCard'],
         outputPath: 'dist/hooks.json'
       });
 
@@ -169,46 +169,46 @@ describe('scaffoldProject', () => {
     it('generates hook files for each requested hook', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'EndIssue'],
+        hooks: ['StartCard', 'EndCard'],
         outputPath: 'dist/hooks.json'
       });
 
-      const startIssuePath = path.join(projectDir, 'src', 'start-issue.ts');
-      const endIssuePath = path.join(projectDir, 'src', 'end-issue.ts');
+      const startCardPath = path.join(projectDir, 'src', 'start-card.ts');
+      const endCardPath = path.join(projectDir, 'src', 'end-card.ts');
 
-      expect(fs.existsSync(startIssuePath)).toBe(true);
-      expect(fs.existsSync(endIssuePath)).toBe(true);
+      expect(fs.existsSync(startCardPath)).toBe(true);
+      expect(fs.existsSync(endCardPath)).toBe(true);
 
-      const startIssueContent = fs.readFileSync(startIssuePath, 'utf-8');
-      expect(startIssueContent).toContain('startIssueHook');
-      expect(startIssueContent).toContain('StartIssue hook triggered');
-      expect(startIssueContent).not.toContain('return'); // No return statement
+      const startCardContent = fs.readFileSync(startCardPath, 'utf-8');
+      expect(startCardContent).toContain('startCardHook');
+      expect(startCardContent).toContain('StartCard hook triggered');
+      expect(startCardContent).not.toContain('return'); // No return statement
 
-      const endIssueContent = fs.readFileSync(endIssuePath, 'utf-8');
-      expect(endIssueContent).toContain('endIssueHook');
-      expect(endIssueContent).toContain('EndIssue hook triggered');
-      expect(endIssueContent).not.toContain('return'); // No return statement
+      const endCardContent = fs.readFileSync(endCardPath, 'utf-8');
+      expect(endCardContent).toContain('endCardHook');
+      expect(endCardContent).toContain('EndCard hook triggered');
+      expect(endCardContent).not.toContain('return'); // No return statement
     });
 
     it('generates test files for each hook', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'StartInterview'],
+        hooks: ['StartCard', 'StartInterview'],
         outputPath: 'dist/hooks.json'
       });
 
-      const startIssueTestPath = path.join(projectDir, 'test', 'start-issue.test.ts');
+      const startCardTestPath = path.join(projectDir, 'test', 'start-card.test.ts');
       const startInterviewTestPath = path.join(projectDir, 'test', 'start-interview.test.ts');
 
-      expect(fs.existsSync(startIssueTestPath)).toBe(true);
+      expect(fs.existsSync(startCardTestPath)).toBe(true);
       expect(fs.existsSync(startInterviewTestPath)).toBe(true);
 
-      const startIssueTestContent = fs.readFileSync(startIssueTestPath, 'utf-8');
-      expect(startIssueTestContent).toContain('import hook from "../src/start-issue.js"');
-      expect(startIssueTestContent).toContain('describe("StartIssue Hook"');
-      expect(startIssueTestContent).toContain('issueId:');
-      expect(startIssueTestContent).toContain('executionWrapperPid:');
-      expect(startIssueTestContent).toContain('hookIpcSocket:');
+      const startCardTestContent = fs.readFileSync(startCardTestPath, 'utf-8');
+      expect(startCardTestContent).toContain('import hook from "../src/start-card.js"');
+      expect(startCardTestContent).toContain('describe("StartCard Hook"');
+      expect(startCardTestContent).toContain('cardId:');
+      expect(startCardTestContent).toContain('executionWrapperPid:');
+      expect(startCardTestContent).toContain('hookIpcSocket:');
 
       const startInterviewTestContent = fs.readFileSync(startInterviewTestPath, 'utf-8');
       expect(startInterviewTestContent).toContain('import hook from "../src/start-interview.js"');
@@ -218,7 +218,7 @@ describe('scaffoldProject', () => {
     it('generates configuration files', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue'],
+        hooks: ['StartCard'],
         outputPath: 'dist/hooks.json'
       });
 
@@ -233,7 +233,7 @@ describe('scaffoldProject', () => {
     it('generates README with hook list', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'EndIssue'],
+        hooks: ['StartCard', 'EndCard'],
         outputPath: 'dist/hooks.json'
       });
 
@@ -241,8 +241,8 @@ describe('scaffoldProject', () => {
       const readmeContent = fs.readFileSync(readmePath, 'utf-8');
 
       expect(readmeContent).toContain('# test-hooks');
-      expect(readmeContent).toContain('`StartIssue`');
-      expect(readmeContent).toContain('`EndIssue`');
+      expect(readmeContent).toContain('`StartCard`');
+      expect(readmeContent).toContain('`EndCard`');
       expect(readmeContent).toContain('@goodfoot/compare-branch-configuration');
     });
   });
@@ -251,12 +251,12 @@ describe('scaffoldProject', () => {
     it('converts PascalCase to kebab-case correctly', () => {
       scaffoldProject({
         directory: projectDir,
-        hooks: ['StartIssue', 'EndIssue', 'StartInterview'],
+        hooks: ['StartCard', 'EndCard', 'StartInterview'],
         outputPath: 'dist/hooks.json'
       });
 
-      expect(fs.existsSync(path.join(projectDir, 'src', 'start-issue.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(projectDir, 'src', 'end-issue.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'start-card.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(projectDir, 'src', 'end-card.ts'))).toBe(true);
       expect(fs.existsSync(path.join(projectDir, 'src', 'start-interview.ts'))).toBe(true);
     });
   });

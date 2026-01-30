@@ -11,7 +11,7 @@ vi.spyOn(process, 'exit').mockImplementation(mockExit as unknown as typeof proce
 // Mock stderr.write
 const mockStderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-import { startIssueHook } from '../src/hooks.js';
+import { startCardHook } from '../src/hooks.js';
 import { execute } from '../src/runtime.js';
 
 describe('execute', () => {
@@ -29,18 +29,18 @@ describe('execute', () => {
 
   it('executes hook with environment variables', async () => {
     // Set required environment variables
-    process.env.ISSUE_ID = 'test-issue';
+    process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
 
     const handler = vi.fn();
-    const hook = startIssueHook({}, handler);
+    const hook = startCardHook({}, handler);
 
     await execute(hook);
 
     expect(handler).toHaveBeenCalledWith(
       expect.objectContaining({
-        issueId: 'test-issue',
+        cardId: 'test-card',
         executionWrapperPid: 12345,
         hookIpcSocket: '/tmp/socket.sock'
       }),
@@ -52,11 +52,11 @@ describe('execute', () => {
   });
 
   it('exits with error when required env vars are missing', async () => {
-    // Don't set ISSUE_ID
+    // Don't set CARD_ID
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
 
-    const hook = startIssueHook({}, () => {});
+    const hook = startCardHook({}, () => {});
 
     await execute(hook);
 
@@ -65,12 +65,12 @@ describe('execute', () => {
   });
 
   it('exits with error when handler throws', async () => {
-    process.env.ISSUE_ID = 'test-issue';
+    process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
 
     const error = new Error('Handler failed');
-    const hook = startIssueHook({}, () => {
+    const hook = startCardHook({}, () => {
       throw error;
     });
 
@@ -81,12 +81,12 @@ describe('execute', () => {
   });
 
   it('configures logger from CLI log file env var', async () => {
-    process.env.ISSUE_ID = 'test-issue';
+    process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
     process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE = '/tmp/test.log';
 
-    const hook = startIssueHook({}, () => {});
+    const hook = startCardHook({}, () => {});
 
     await execute(hook);
 
@@ -94,13 +94,13 @@ describe('execute', () => {
   });
 
   it('exits with error when CLI and env log files conflict', async () => {
-    process.env.ISSUE_ID = 'test-issue';
+    process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
     process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE = '/tmp/cli.log';
     process.env.COMPARE_BRANCH_HOOKS_LOG_FILE = '/tmp/env.log';
 
-    const hook = startIssueHook({}, () => {});
+    const hook = startCardHook({}, () => {});
 
     await execute(hook);
 
@@ -109,13 +109,13 @@ describe('execute', () => {
   });
 
   it('allows matching CLI and env log files', async () => {
-    process.env.ISSUE_ID = 'test-issue';
+    process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
     process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE = '/tmp/same.log';
     process.env.COMPARE_BRANCH_HOOKS_LOG_FILE = '/tmp/same.log';
 
-    const hook = startIssueHook({}, () => {});
+    const hook = startCardHook({}, () => {});
 
     await execute(hook);
 

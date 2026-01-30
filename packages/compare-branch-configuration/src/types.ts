@@ -5,7 +5,7 @@
  * - Hook input types (environment variable based)
  * - Hook event name union type
  * - Type helper for extracting input type from event name
- * @see documentation/issues-v2-planning/hook-based-workflow.md
+ * @see documentation/cards-v2-planning/hook-based-workflow.md
  * @module
  */
 
@@ -19,8 +19,8 @@
  * All valid hook event names for Compare Branch Extension hooks.
  */
 export type HookEventName =
-  | 'StartIssue'
-  | 'EndIssue'
+  | 'StartCard'
+  | 'EndCard'
   | 'StartInterview'
   | 'EndInterview'
   | 'TypedFileCreated'
@@ -39,8 +39,8 @@ export type HookEventName =
  * ```
  */
 export const HOOK_EVENT_NAMES = [
-  'StartIssue',
-  'EndIssue',
+  'StartCard',
+  'EndCard',
   'StartInterview',
   'EndInterview',
   'TypedFileCreated',
@@ -60,7 +60,7 @@ export const HOOK_EVENT_NAMES = [
  * @example
  * ```typescript
  * const handleAnyHook = (input: BaseHookInput) => {
- *   console.log(`Issue: ${input.issueId}`);
+ *   console.log(`Card: ${input.cardId}`);
  *   console.log(`Wrapper PID: ${input.executionWrapperPid}`);
  *   console.log(`IPC Socket: ${input.hookIpcSocket}`);
  * };
@@ -68,9 +68,9 @@ export const HOOK_EVENT_NAMES = [
  */
 export interface BaseHookInput {
   /**
-   * Unique identifier for the current issue.
+   * Unique identifier for the current card.
    */
-  issueId: string;
+  cardId: string;
 
   /**
    * Process ID of the execution wrapper.
@@ -85,11 +85,11 @@ export interface BaseHookInput {
 }
 
 /**
- * Input for issue-level hooks (StartIssue, EndIssue).
+ * Input for card-level hooks (StartCard, EndCard).
  *
  * Uses only the base input fields - no task-specific context.
  */
-export interface IssueHookInput extends BaseHookInput {}
+export interface CardHookInput extends BaseHookInput {}
 
 /**
  * Input for interview hooks (StartInterview, EndInterview).
@@ -150,14 +150,14 @@ export interface TypedFileInput extends BaseHookInput {
 // ============================================================================
 
 /**
- * Input type for StartIssue hooks.
+ * Input type for StartCard hooks.
  */
-export type StartIssueInput = IssueHookInput;
+export type StartCardInput = CardHookInput;
 
 /**
- * Input type for EndIssue hooks.
+ * Input type for EndCard hooks.
  */
-export type EndIssueInput = IssueHookInput;
+export type EndCardInput = CardHookInput;
 
 /**
  * Input type for StartInterview hooks.
@@ -197,19 +197,19 @@ export type TypedFileDeletedInput = TypedFileInput;
  * ```typescript
  * function handleHook(input: HookInput) {
  *   switch (input.hookEventName) {
- *     case 'StartIssue':
- *       console.log(`Issue: ${input.issueId}`);
+ *     case 'StartCard':
+ *       console.log(`Card: ${input.cardId}`);
  *       break;
  *     case 'StartInterview':
- *       console.log(`Interview for issue: ${input.issueId}`);
+ *       console.log(`Interview for card: ${input.cardId}`);
  *       break;
  *   }
  * }
  * ```
  */
 export type HookInput =
-  | ({ hookEventName: 'StartIssue' } & StartIssueInput)
-  | ({ hookEventName: 'EndIssue' } & EndIssueInput)
+  | ({ hookEventName: 'StartCard' } & StartCardInput)
+  | ({ hookEventName: 'EndCard' } & EndCardInput)
   | ({ hookEventName: 'StartInterview' } & StartInterviewInput)
   | ({ hookEventName: 'EndInterview' } & EndInterviewInput)
   | ({ hookEventName: 'TypedFileCreated' } & TypedFileCreatedInput)
@@ -226,8 +226,8 @@ export type HookInput =
  * @template T - The hook event name
  * @example
  * ```typescript
- * type StartIssueIn = HookInputForEvent<'StartIssue'>;
- * // StartIssueIn is StartIssueInput & { hookEventName: 'StartIssue' }
+ * type StartCardIn = HookInputForEvent<'StartCard'>;
+ * // StartCardIn is StartCardInput & { hookEventName: 'StartCard' }
  * ```
  */
 export type HookInputForEvent<T extends HookEventName> = Extract<HookInput, { hookEventName: T }>;

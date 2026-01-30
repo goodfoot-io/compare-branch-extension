@@ -607,11 +607,11 @@ var session_start_context_startup_default = sessionStartHook({ matcher: "startup
   if (!sessionId) {
     return sessionStartOutput({});
   }
-  const issueId = process.env.ISSUE_ID;
+  const issueId = process.env.CARD_ID;
   if (!issueId) {
-    logger2.warn("ISSUE_ID not set - this hook requires the issue launcher");
+    logger2.warn("CARD_ID not set - this hook requires the issue launcher");
     return sessionStartOutput({
-      stopReason: "ISSUE_ID not set. Launch Claude using the issue panel 'Launch Claude' button or use the agent-issue-dispatcher script."
+      stopReason: "CARD_ID not set. Launch Claude using the issue panel 'Launch Claude' button or use the agent-issue-dispatcher script."
     });
   }
   if (process.env.SESSION_STARTUP_TEST_MODE === "1") {

@@ -11,7 +11,7 @@
  * @module
  * @example
  * ```bash
- * npx @goodfoot/compare-branch-configuration --scaffold ./my-hooks --hooks StartIssue,EndIssue -o dist/hooks.json
+ * npx @goodfoot/compare-branch-configuration --scaffold ./my-hooks --hooks StartCard,EndCard -o dist/hooks.json
  * ```
  */
 
@@ -30,7 +30,7 @@ import type { HookEventName } from './types.js';
 export interface ScaffoldOptions {
   /** Directory path where the project will be created. */
   directory: string;
-  /** Array of hook event names to generate (e.g., ['StartIssue', 'EndIssue']). */
+  /** Array of hook event names to generate (e.g., ['StartCard', 'EndCard']). */
   hooks: string[];
   /** Relative path for hooks.json output in the build script. */
   outputPath: string;
@@ -67,7 +67,7 @@ const EVENT_TO_HOOK_FACTORY: Record<HookEventName, string> = Object.fromEntries(
 /**
  * Validates hook names against valid hook event names.
  *
- * Accepts PascalCase names case-insensitively (e.g., 'startissue' -> 'StartIssue').
+ * Accepts PascalCase names case-insensitively (e.g., 'startcard' -> 'StartCard').
  * @param hookNames - Array of hook names to validate
  * @returns Object with normalized hook names or error message
  */
@@ -103,8 +103,8 @@ function validateHookNames(
 
 /**
  * Converts a PascalCase hook event name to kebab-case filename.
- * @param eventName - Hook event name (e.g., 'StartIssue')
- * @returns Kebab-case filename (e.g., 'start-issue')
+ * @param eventName - Hook event name (e.g., 'StartCard')
+ * @returns Kebab-case filename (e.g., 'start-card')
  */
 function toKebabCase(eventName: string): string {
   return eventName
@@ -275,9 +275,9 @@ function generateReadme(projectName: string, hooks: HookEventName[]): string {
   const hookList = hooks.map((h) => `\`${h}\``).join(', ');
   return `# ${projectName}
 
-This project contains Compare Branch Extension hooks built with the \`@goodfoot/compare-branch-configuration\` library. Hooks let you extend the Compare Branch workflow by running custom code at specific points during issue execution—when issues or tasks start/end, and when interviews begin/complete. This project includes hooks for: ${hookList}.
+This project contains Compare Branch Extension hooks built with the \`@goodfoot/compare-branch-configuration\` library. Hooks let you extend the Compare Branch workflow by running custom code at specific points during card execution—when cards or tasks start/end, and when interviews begin/complete. This project includes hooks for: ${hookList}.
 
-To get started, run \`npm install\` to install dependencies, then \`npm run build\` to compile your hooks into \`hooks.json\`. Configure the Compare Branch Extension to use your hooks, and they will run automatically during issue execution. Edit the files in \`src/\` to customize behavior, and use \`npm test\` to verify your changes work correctly.
+To get started, run \`npm install\` to install dependencies, then \`npm run build\` to compile your hooks into \`hooks.json\`. Configure the Compare Branch Extension to use your hooks, and they will run automatically during card execution. Edit the files in \`src/\` to customize behavior, and use \`npm test\` to verify your changes work correctly.
 `;
 }
 
@@ -286,7 +286,7 @@ To get started, run \`npm install\` to install dependencies, then \`npm run buil
  *
  * Uses double quotes for all strings to match biome's formatting preferences.
  * Compare Branch hooks return void, so no return statement is generated.
- * @param eventName - Hook event name (e.g., 'StartIssue')
+ * @param eventName - Hook event name (e.g., 'StartCard')
  * @returns TypeScript content for the hook file
  */
 function generateHookTemplate(eventName: HookEventName): string {
@@ -295,7 +295,7 @@ function generateHookTemplate(eventName: HookEventName): string {
   return `/**
  * ${eventName} hook implementation.
  *
- * @see documentation/issues-v2-planning/hook-based-workflow.md
+ * @see documentation/cards-v2-planning/hook-based-workflow.md
  */
 
 import { ${factoryName} } from "@goodfoot/compare-branch-configuration";
@@ -312,8 +312,8 @@ export default ${factoryName}({}, (input, { logger }) => {
  * Uses double quotes, alphabetical import order (describe, expect, it),
  * and trailing commas to match biome's formatting preferences.
  * Uses the real Logger class (silent by default) instead of mocks.
- * @param eventName - Hook event name (e.g., 'StartIssue')
- * @param hookFilename - Kebab-case filename of the hook (e.g., 'start-issue')
+ * @param eventName - Hook event name (e.g., 'StartCard')
+ * @param hookFilename - Kebab-case filename of the hook (e.g., 'start-card')
  * @returns TypeScript content for the test file
  */
 function generateTestFile(eventName: HookEventName, hookFilename: string): string {
@@ -339,7 +339,7 @@ describe("${eventName} Hook", () => {
 
   it("executes without throwing", async () => {
     const mockInput = {
-      issueId: "test-issue",
+      cardId: "test-card",
       executionWrapperPid: 12345,
       hookIpcSocket: "/tmp/socket.sock",
     } as Parameters<typeof hook>[0];
@@ -369,7 +369,7 @@ describe("${eventName} Hook", () => {
  * ```typescript
  * scaffoldProject({
  *   directory: './my-hooks',
- *   hooks: ['StartIssue', 'EndIssue'],
+ *   hooks: ['StartCard', 'EndCard'],
  *   outputPath: 'dist/hooks.json'
  * });
  * ```

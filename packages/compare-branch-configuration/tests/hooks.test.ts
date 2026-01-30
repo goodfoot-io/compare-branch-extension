@@ -4,18 +4,18 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
+  endCardHook,
   endInterviewHook,
-  endIssueHook,
   type HookContext,
   type HookFunction,
+  startCardHook,
   startInterviewHook,
-  startIssueHook,
   typedFileCreatedHook,
   typedFileDeletedHook,
   typedFileUpdatedHook
 } from '../src/hooks.js';
 import { Logger } from '../src/logger.js';
-import type { StartIssueInput, TypedFileCreatedInput } from '../src/types.js';
+import type { StartCardInput, TypedFileCreatedInput } from '../src/types.js';
 
 // Create a mock context
 const createMockContext = (): HookContext => ({
@@ -23,27 +23,27 @@ const createMockContext = (): HookContext => ({
 });
 
 describe('Hook Factories', () => {
-  describe('startIssueHook', () => {
+  describe('startCardHook', () => {
     it('creates a hook function with correct hookEventName', () => {
-      const hook = startIssueHook({}, () => {});
-      expect(hook.hookEventName).toBe('StartIssue');
+      const hook = startCardHook({}, () => {});
+      expect(hook.hookEventName).toBe('StartCard');
     });
 
     it('attaches timeout from config', () => {
-      const hook = startIssueHook({ timeout: 5000 }, () => {});
+      const hook = startCardHook({ timeout: 5000 }, () => {});
       expect(hook.timeout).toBe(5000);
     });
 
     it('has undefined timeout when not configured', () => {
-      const hook = startIssueHook({}, () => {});
+      const hook = startCardHook({}, () => {});
       expect(hook.timeout).toBeUndefined();
     });
 
     it('calls handler with input and context', async () => {
       const handler = vi.fn();
-      const hook = startIssueHook({}, handler);
-      const input: StartIssueInput = {
-        issueId: 'issue-1',
+      const hook = startCardHook({}, handler);
+      const input: StartCardInput = {
+        cardId: 'card-1',
         executionWrapperPid: 123,
         hookIpcSocket: '/tmp/socket'
       };
@@ -56,13 +56,13 @@ describe('Hook Factories', () => {
 
     it('awaits async handlers', async () => {
       let completed = false;
-      const hook = startIssueHook({}, async () => {
+      const hook = startCardHook({}, async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         completed = true;
       });
 
-      const input: StartIssueInput = {
-        issueId: 'issue-1',
+      const input: StartCardInput = {
+        cardId: 'card-1',
         executionWrapperPid: 123,
         hookIpcSocket: '/tmp/socket'
       };
@@ -72,10 +72,10 @@ describe('Hook Factories', () => {
     });
   });
 
-  describe('endIssueHook', () => {
+  describe('endCardHook', () => {
     it('creates a hook function with correct hookEventName', () => {
-      const hook = endIssueHook({}, () => {});
-      expect(hook.hookEventName).toBe('EndIssue');
+      const hook = endCardHook({}, () => {});
+      expect(hook.hookEventName).toBe('EndCard');
     });
   });
 
@@ -113,7 +113,7 @@ describe('Hook Factories', () => {
       const handler = vi.fn();
       const hook = typedFileCreatedHook({}, handler);
       const input: TypedFileCreatedInput = {
-        issueId: 'issue-1',
+        cardId: 'card-1',
         executionWrapperPid: 123,
         hookIpcSocket: '/tmp/socket',
         typeName: 'schema',
@@ -152,7 +152,7 @@ describe('Hook Factories', () => {
       const handler = vi.fn();
       const hook = typedFileUpdatedHook({}, handler);
       const input: TypedFileCreatedInput = {
-        issueId: 'issue-1',
+        cardId: 'card-1',
         executionWrapperPid: 123,
         hookIpcSocket: '/tmp/socket',
         typeName: 'schema',
@@ -191,7 +191,7 @@ describe('Hook Factories', () => {
       const handler = vi.fn();
       const hook = typedFileDeletedHook({}, handler);
       const input: TypedFileCreatedInput = {
-        issueId: 'issue-1',
+        cardId: 'card-1',
         executionWrapperPid: 123,
         hookIpcSocket: '/tmp/socket',
         typeName: 'schema',
@@ -212,12 +212,12 @@ describe('Hook Factories', () => {
 
   describe('HookFunction type', () => {
     it('is callable', async () => {
-      const hook: HookFunction<StartIssueInput> = startIssueHook({}, () => {});
+      const hook: HookFunction<StartCardInput> = startCardHook({}, () => {});
       expect(typeof hook).toBe('function');
     });
 
     it('has required metadata properties', () => {
-      const hook = startIssueHook({ timeout: 10000 }, () => {});
+      const hook = startCardHook({ timeout: 10000 }, () => {});
       expect(hook).toHaveProperty('hookEventName');
       expect(hook).toHaveProperty('timeout');
     });

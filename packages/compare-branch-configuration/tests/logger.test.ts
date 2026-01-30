@@ -268,18 +268,18 @@ describe('Logger', () => {
       const events: LogEvent[] = [];
       logger.on('info', (event) => events.push(event));
 
-      logger.setContext('StartIssue', undefined);
+      logger.setContext('StartCard', undefined);
       logger.info('Test message');
 
-      expect(events[0].hookType).toBe('StartIssue');
+      expect(events[0].hookType).toBe('StartCard');
     });
 
     it('setContext() enriches log events with input', () => {
       const events: LogEvent[] = [];
       logger.on('info', (event) => events.push(event));
 
-      const input = { issueId: 'issue-123', executionWrapperPid: 123, hookIpcSocket: '/tmp/socket' };
-      logger.setContext('StartIssue', input);
+      const input = { cardId: 'card-123', executionWrapperPid: 123, hookIpcSocket: '/tmp/socket' };
+      logger.setContext('StartCard', input);
       logger.info('Test message');
 
       expect(events[0].input).toEqual(input);
@@ -289,7 +289,7 @@ describe('Logger', () => {
       const events: LogEvent[] = [];
       logger.on('info', (event) => events.push(event));
 
-      logger.setContext('StartIssue', { issueId: 'issue-123' });
+      logger.setContext('StartCard', { cardId: 'card-123' });
       logger.clearContext();
       logger.info('Test message');
 
@@ -301,11 +301,11 @@ describe('Logger', () => {
       const events: LogEvent[] = [];
       logger.on('error', (event) => events.push(event));
 
-      logger.setContext('StartIssue', { issueId: 'issue-123' });
+      logger.setContext('StartCard', { cardId: 'card-123' });
       logger.logError(new Error('Test'), 'Error with context');
 
-      expect(events[0].hookType).toBe('StartIssue');
-      expect(events[0].input).toEqual({ issueId: 'issue-123' });
+      expect(events[0].hookType).toBe('StartCard');
+      expect(events[0].input).toEqual({ cardId: 'card-123' });
     });
   });
 

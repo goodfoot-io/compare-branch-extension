@@ -34,7 +34,7 @@ import type { HookEventName, HookInput } from './types.js';
  * |-------|----------|----------|
  * | `debug` | Lowest | Detailed debugging information |
  * | `info` | Low | General operational events |
- * | `warn` | Medium | Warning conditions that may indicate issues |
+ * | `warn` | Medium | Warning conditions that may indicate cards |
  * | `error` | High | Error conditions requiring attention |
  */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -59,9 +59,9 @@ export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const satisfies 
  * const event: LogEvent = {
  *   timestamp: '2024-01-15T10:30:00.000Z',
  *   level: 'warn',
- *   hookType: 'StartIssue',
- *   message: 'Issue started',
- *   input: { issueId: 'issue-123' }
+ *   hookType: 'StartCard',
+ *   message: 'Card started',
+ *   input: { cardId: 'card-123' }
  * };
  * ```
  */
@@ -90,7 +90,7 @@ export interface LogEvent {
 
   /**
    * Hook input data at the time of logging.
-   * Useful for debugging and reproducing issues.
+   * Useful for debugging and reproducing cards.
    */
   input?: Partial<HookInput>;
 
@@ -303,7 +303,7 @@ export class Logger {
    * @param context - Optional additional context
    * @example
    * ```typescript
-   * logger.info('Task started', { taskId: 'task-123', issueId: 'issue-456' });
+   * logger.info('Task started', { taskId: 'task-123', cardId: 'card-456' });
    * ```
    */
   info(message: string, context?: Record<string, unknown>): void {
@@ -313,7 +313,7 @@ export class Logger {
   /**
    * Logs a warning message.
    *
-   * Use for conditions that may indicate issues but don't prevent
+   * Use for conditions that may indicate cards but don't prevent
    * operation, such as deprecated patterns or performance concerns.
    * @param message - The warning message
    * @param context - Optional additional context

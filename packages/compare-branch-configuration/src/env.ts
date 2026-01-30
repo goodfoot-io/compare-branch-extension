@@ -10,7 +10,7 @@
  *
  * | Variable | Description | Available In |
  * |----------|-------------|--------------|
- * | `ISSUE_ID` | Unique issue identifier | All hooks |
+ * | `CARD_ID` | Unique card identifier | All hooks |
  * | `EXECUTION_WRAPPER_PID` | Wrapper process ID | All hooks |
  * | `HOOK_IPC_SOCKET` | IPC socket path | All hooks |
  * @module
@@ -29,10 +29,10 @@ import type { HookEventName, HookInputForEvent } from './types.js';
  */
 export const COMPARE_BRANCH_ENV_VARS = {
   /**
-   * Unique identifier for the current issue.
+   * Unique identifier for the current card.
    * Available in all hooks.
    */
-  ISSUE_ID: 'ISSUE_ID',
+  CARD_ID: 'CARD_ID',
 
   /**
    * Process ID of the execution wrapper.
@@ -100,20 +100,20 @@ export const COMPARE_BRANCH_ENV_VARS = {
 // ============================================================================
 
 /**
- * Gets the issue ID from environment.
+ * Gets the card ID from environment.
  *
- * @returns The issue ID
- * @throws Error if ISSUE_ID is not set
+ * @returns The card ID
+ * @throws Error if CARD_ID is not set
  * @example
  * ```typescript
- * const issueId = getIssueId();
- * console.log(`Processing issue: ${issueId}`);
+ * const cardId = getCardId();
+ * console.log(`Processing card: ${cardId}`);
  * ```
  */
-export function getIssueId(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID];
+export function getCardId(): string {
+  const value = process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.ISSUE_ID}`);
+    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.CARD_ID}`);
   }
   return value;
 }
@@ -340,22 +340,22 @@ export function getMetadata(): Record<string, unknown> | undefined {
  * @throws Error if required environment variables are missing
  * @example
  * ```typescript
- * // For a StartIssue hook
- * const issueInput = extractInput('StartIssue');
- * console.log(issueInput.issueId);  // TypeScript knows this exists
+ * // For a StartCard hook
+ * const cardInput = extractInput('StartCard');
+ * console.log(cardInput.cardId);  // TypeScript knows this exists
  * ```
  */
 export function extractInput<T extends HookEventName>(hookEventName: T): HookInputForEvent<T> {
   // Base fields required by all hooks
   const baseInput = {
-    issueId: getIssueId(),
+    cardId: getCardId(),
     executionWrapperPid: getExecutionWrapperPid(),
     hookIpcSocket: getHookIpcSocket()
   };
 
   switch (hookEventName) {
-    case 'StartIssue':
-    case 'EndIssue':
+    case 'StartCard':
+    case 'EndCard':
     case 'StartInterview':
     case 'EndInterview':
       return {

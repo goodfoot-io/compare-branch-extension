@@ -11,21 +11,21 @@
  * @module
  * @example
  * ```typescript
- * import { startIssueHook } from '@goodfoot/compare-branch-configuration';
+ * import { startCardHook } from '@goodfoot/compare-branch-configuration';
  *
- * export default startIssueHook({}, async (input, { logger }) => {
- *   logger.info('Issue starting', { issueId: input.issueId });
+ * export default startCardHook({}, async (input, { logger }) => {
+ *   logger.info('Card starting', { cardId: input.cardId });
  * });
  * ```
  */
 
 import type { Logger } from './logger.js';
 import type {
+  EndCardInput,
   EndInterviewInput,
-  EndIssueInput,
   HookEventName,
+  StartCardInput,
   StartInterviewInput,
-  StartIssueInput,
   TypedFileCreatedInput,
   TypedFileDeletedInput,
   TypedFileUpdatedInput
@@ -42,7 +42,7 @@ import type {
  * @example
  * ```typescript
  * // Set handler timeout
- * startIssueHook({ timeout: 5000 }, handler);
+ * startCardHook({ timeout: 5000 }, handler);
  * ```
  */
 export interface HookConfig {
@@ -73,8 +73,8 @@ export interface HookConfig {
  * The context is injected by the runtime and should not be created manually.
  * @example
  * ```typescript
- * export default startIssueHook({}, async (input, { logger }) => {
- *   logger.info('Processing issue', { issueId: input.issueId });
+ * export default startCardHook({}, async (input, { logger }) => {
+ *   logger.info('Processing card', { cardId: input.cardId });
  * });
  * ```
  */
@@ -162,56 +162,53 @@ function createHookFunction<TInput, TContext extends HookContext = HookContext>(
 }
 
 // ============================================================================
-// StartIssue Hook Factory
+// StartCard Hook Factory
 // ============================================================================
 
 /**
- * Creates a StartIssue hook handler.
+ * Creates a StartCard hook handler.
  *
- * StartIssue hooks fire when a new issue execution begins.
+ * StartCard hooks fire when a new card execution begins.
  *
  * @param config - Hook configuration with optional timeout
  * @param handler - The handler function to execute
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { startIssueHook } from '@goodfoot/compare-branch-configuration';
+ * import { startCardHook } from '@goodfoot/compare-branch-configuration';
  *
- * export default startIssueHook({}, async (input, { logger }) => {
- *   logger.info('Issue started', { issueId: input.issueId });
+ * export default startCardHook({}, async (input, { logger }) => {
+ *   logger.info('Card started', { cardId: input.cardId });
  * });
  * ```
  */
-export function startIssueHook(
-  config: HookConfig,
-  handler: HookHandler<StartIssueInput>
-): HookFunction<StartIssueInput> {
-  return createHookFunction('StartIssue', config, handler);
+export function startCardHook(config: HookConfig, handler: HookHandler<StartCardInput>): HookFunction<StartCardInput> {
+  return createHookFunction('StartCard', config, handler);
 }
 
 // ============================================================================
-// EndIssue Hook Factory
+// EndCard Hook Factory
 // ============================================================================
 
 /**
- * Creates an EndIssue hook handler.
+ * Creates an EndCard hook handler.
  *
- * EndIssue hooks fire when an issue execution completes.
+ * EndCard hooks fire when an card execution completes.
  *
  * @param config - Hook configuration with optional timeout
  * @param handler - The handler function to execute
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { endIssueHook } from '@goodfoot/compare-branch-configuration';
+ * import { endCardHook } from '@goodfoot/compare-branch-configuration';
  *
- * export default endIssueHook({}, async (input, { logger }) => {
- *   logger.info('Issue completed', { issueId: input.issueId });
+ * export default endCardHook({}, async (input, { logger }) => {
+ *   logger.info('Card completed', { cardId: input.cardId });
  * });
  * ```
  */
-export function endIssueHook(config: HookConfig, handler: HookHandler<EndIssueInput>): HookFunction<EndIssueInput> {
-  return createHookFunction('EndIssue', config, handler);
+export function endCardHook(config: HookConfig, handler: HookHandler<EndCardInput>): HookFunction<EndCardInput> {
+  return createHookFunction('EndCard', config, handler);
 }
 
 // ============================================================================
@@ -231,7 +228,7 @@ export function endIssueHook(config: HookConfig, handler: HookHandler<EndIssueIn
  * import { startInterviewHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default startInterviewHook({}, async (input, { logger }) => {
- *   logger.info('Interview started', { issueId: input.issueId });
+ *   logger.info('Interview started', { cardId: input.cardId });
  * });
  * ```
  */
@@ -259,7 +256,7 @@ export function startInterviewHook(
  * import { endInterviewHook } from '@goodfoot/compare-branch-configuration';
  *
  * export default endInterviewHook({}, async (input, { logger }) => {
- *   logger.info('Interview completed', { issueId: input.issueId });
+ *   logger.info('Interview completed', { cardId: input.cardId });
  * });
  * ```
  */

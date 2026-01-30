@@ -21,15 +21,15 @@ import { extractInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
 import type { HookContext, HookFunction } from './hooks.js';
 import { logger } from './logger.js';
-import type { EndInterviewInput, EndIssueInput, HookInput, StartInterviewInput, StartIssueInput } from './types.js';
+import type { EndCardInput, EndInterviewInput, HookInput, StartCardInput, StartInterviewInput } from './types.js';
 
 /**
  * Union type of all possible hook functions.
  * This allows execute() to accept any hook function type.
  */
 type AnyHookFunction =
-  | HookFunction<StartIssueInput>
-  | HookFunction<EndIssueInput>
+  | HookFunction<StartCardInput>
+  | HookFunction<EndCardInput>
   | HookFunction<StartInterviewInput>
   | HookFunction<EndInterviewInput>;
 
@@ -118,10 +118,10 @@ function handleHandlerError(error: unknown): never {
  * ```typescript
  * // In compiled hook file
  * import { execute } from '@goodfoot/compare-branch-configuration/runtime';
- * import { startIssueHook } from '@goodfoot/compare-branch-configuration';
+ * import { startCardHook } from '@goodfoot/compare-branch-configuration';
  *
- * const myHook = startIssueHook({}, async (input, { logger }) => {
- *   logger.info('Processing issue', { issueId: input.issueId });
+ * const myHook = startCardHook({}, async (input, { logger }) => {
+ *   logger.info('Processing card', { cardId: input.cardId });
  * });
  *
  * execute(myHook);

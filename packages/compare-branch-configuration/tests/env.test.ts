@@ -6,13 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   COMPARE_BRANCH_ENV_VARS,
   extractInput,
+  getCardId,
   getContentType,
   getExecutionWrapperPid,
   getFileName,
   getFilePath,
   getFileSize,
   getHookIpcSocket,
-  getIssueId,
   getMetadata,
   getSha256,
   getTypeName,
@@ -25,7 +25,7 @@ describe('env', () => {
 
   beforeEach(() => {
     // Clear all relevant env vars before each test
-    delete process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID];
+    delete process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID];
     delete process.env[COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID];
     delete process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET];
   });
@@ -38,7 +38,7 @@ describe('env', () => {
   describe('COMPARE_BRANCH_ENV_VARS', () => {
     it('should define all environment variable names', () => {
       expect(COMPARE_BRANCH_ENV_VARS).toEqual({
-        ISSUE_ID: 'ISSUE_ID',
+        CARD_ID: 'CARD_ID',
         EXECUTION_WRAPPER_PID: 'EXECUTION_WRAPPER_PID',
         HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET',
         TYPE_NAME: 'TYPE_NAME',
@@ -53,19 +53,19 @@ describe('env', () => {
     });
   });
 
-  describe('getIssueId', () => {
-    it('should return issue ID when set', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID] = 'issue-123';
-      expect(getIssueId()).toBe('issue-123');
+  describe('getCardId', () => {
+    it('should return card ID when set', () => {
+      process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID] = 'card-123';
+      expect(getCardId()).toBe('card-123');
     });
 
-    it('should throw when ISSUE_ID is undefined', () => {
-      expect(() => getIssueId()).toThrow('Missing required environment variable: ISSUE_ID');
+    it('should throw when CARD_ID is undefined', () => {
+      expect(() => getCardId()).toThrow('Missing required environment variable: CARD_ID');
     });
 
-    it('should throw when ISSUE_ID is empty string', () => {
-      process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID] = '';
-      expect(() => getIssueId()).toThrow('Missing required environment variable: ISSUE_ID');
+    it('should throw when CARD_ID is empty string', () => {
+      process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID] = '';
+      expect(() => getCardId()).toThrow('Missing required environment variable: CARD_ID');
     });
   });
 
@@ -122,56 +122,54 @@ describe('env', () => {
   describe('extractInput', () => {
     // Helper to set up base environment variables required by all hooks
     function setupBaseEnv() {
-      process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID] = 'issue-123';
+      process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID] = 'card-123';
       process.env[COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID] = '12345';
       process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET] = '/tmp/socket.sock';
     }
 
-    describe('StartIssue', () => {
-      it('should extract base fields for StartIssue hook', () => {
+    describe('StartCard', () => {
+      it('should extract base fields for StartCard hook', () => {
         setupBaseEnv();
-        const input = extractInput('StartIssue');
+        const input = extractInput('StartCard');
 
         expect(input).toEqual({
-          hookEventName: 'StartIssue',
-          issueId: 'issue-123',
+          hookEventName: 'StartCard',
+          cardId: 'card-123',
           executionWrapperPid: 12345,
           hookIpcSocket: '/tmp/socket.sock'
         });
       });
 
-      it('should throw when required ISSUE_ID is missing', () => {
+      it('should throw when required CARD_ID is missing', () => {
         process.env[COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID] = '12345';
         process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET] = '/tmp/socket.sock';
 
-        expect(() => extractInput('StartIssue')).toThrow('Missing required environment variable: ISSUE_ID');
+        expect(() => extractInput('StartCard')).toThrow('Missing required environment variable: CARD_ID');
       });
 
       it('should throw when required EXECUTION_WRAPPER_PID is missing', () => {
-        process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID] = 'issue-123';
+        process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID] = 'card-123';
         process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET] = '/tmp/socket.sock';
 
-        expect(() => extractInput('StartIssue')).toThrow(
-          'Missing required environment variable: EXECUTION_WRAPPER_PID'
-        );
+        expect(() => extractInput('StartCard')).toThrow('Missing required environment variable: EXECUTION_WRAPPER_PID');
       });
 
       it('should throw when required HOOK_IPC_SOCKET is missing', () => {
-        process.env[COMPARE_BRANCH_ENV_VARS.ISSUE_ID] = 'issue-123';
+        process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID] = 'card-123';
         process.env[COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID] = '12345';
 
-        expect(() => extractInput('StartIssue')).toThrow('Missing required environment variable: HOOK_IPC_SOCKET');
+        expect(() => extractInput('StartCard')).toThrow('Missing required environment variable: HOOK_IPC_SOCKET');
       });
     });
 
-    describe('EndIssue', () => {
-      it('should extract base fields for EndIssue hook', () => {
+    describe('EndCard', () => {
+      it('should extract base fields for EndCard hook', () => {
         setupBaseEnv();
-        const input = extractInput('EndIssue');
+        const input = extractInput('EndCard');
 
         expect(input).toEqual({
-          hookEventName: 'EndIssue',
-          issueId: 'issue-123',
+          hookEventName: 'EndCard',
+          cardId: 'card-123',
           executionWrapperPid: 12345,
           hookIpcSocket: '/tmp/socket.sock'
         });
@@ -185,7 +183,7 @@ describe('env', () => {
 
         expect(input).toEqual({
           hookEventName: 'StartInterview',
-          issueId: 'issue-123',
+          cardId: 'card-123',
           executionWrapperPid: 12345,
           hookIpcSocket: '/tmp/socket.sock'
         });
@@ -199,7 +197,7 @@ describe('env', () => {
 
         expect(input).toEqual({
           hookEventName: 'EndInterview',
-          issueId: 'issue-123',
+          cardId: 'card-123',
           executionWrapperPid: 12345,
           hookIpcSocket: '/tmp/socket.sock'
         });
@@ -222,7 +220,7 @@ describe('env', () => {
 
         expect(input).toEqual({
           hookEventName: 'TypedFileCreated',
-          issueId: 'issue-123',
+          cardId: 'card-123',
           executionWrapperPid: 12345,
           hookIpcSocket: '/tmp/socket.sock',
           typeName: 'my-type',
@@ -295,13 +293,13 @@ describe('env', () => {
       it('should maintain correct types for each hook event', () => {
         setupBaseEnv();
 
-        // Verify that StartIssue input has issueId
-        const startIssue = extractInput('StartIssue');
-        expect(startIssue.issueId).toBe('issue-123');
+        // Verify that StartCard input has cardId
+        const startCard = extractInput('StartCard');
+        expect(startCard.cardId).toBe('card-123');
 
-        // Verify that EndIssue input has issueId
-        const endIssue = extractInput('EndIssue');
-        expect(endIssue.issueId).toBe('issue-123');
+        // Verify that EndCard input has cardId
+        const endCard = extractInput('EndCard');
+        expect(endCard.cardId).toBe('card-123');
       });
     });
   });

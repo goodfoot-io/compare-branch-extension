@@ -648,7 +648,7 @@ var stop_default = stopHook({}, async (input, { logger: logger2 }) => {
   if (!sessionId) {
     return stopOutput({ decision: "approve" });
   }
-  const issueId = process.env["ISSUE_ID"];
+  const issueId = process.env["CARD_ID"];
   if (!issueId) {
     return stopOutput({
       decision: "approve",

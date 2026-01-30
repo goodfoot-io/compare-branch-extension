@@ -22,10 +22,10 @@ export {
   COMPARE_BRANCH_ENV_VARS,
   // Typed extraction
   extractInput,
-  getExecutionWrapperPid,
-  getHookIpcSocket,
   // Individual getters
-  getIssueId
+  getCardId,
+  getExecutionWrapperPid,
+  getHookIpcSocket
 } from './env.js';
 
 // ============================================================================
@@ -50,10 +50,10 @@ export type {
   HookHandler
 } from './hooks.js';
 export {
+  endCardHook,
   endInterviewHook,
-  endIssueHook,
+  startCardHook,
   startInterviewHook,
-  startIssueHook,
   typedFileCreatedHook,
   typedFileDeletedHook,
   typedFileUpdatedHook
@@ -93,8 +93,9 @@ export { scaffoldProject } from './scaffold.js';
 export type {
   // Base types
   BaseHookInput,
+  CardHookInput,
+  EndCardInput,
   EndInterviewInput,
-  EndIssueInput,
   // Event names
   HookEventName,
   // Discriminated union
@@ -102,10 +103,9 @@ export type {
   // Type helper
   HookInputForEvent,
   InterviewHookInput,
-  IssueHookInput,
-  StartInterviewInput,
   // Specific input types
-  StartIssueInput,
+  StartCardInput,
+  StartInterviewInput,
   TypedFileCreatedInput,
   TypedFileDeletedInput,
   TypedFileUpdatedInput

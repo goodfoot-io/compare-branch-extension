@@ -32,12 +32,12 @@ describe('HOOK_FACTORY_TO_EVENT', () => {
     expect(Object.keys(HOOK_FACTORY_TO_EVENT)).toHaveLength(4);
   });
 
-  it('maps startIssueHook to StartIssue', () => {
-    expect(HOOK_FACTORY_TO_EVENT.startIssueHook).toBe('StartIssue');
+  it('maps startCardHook to StartCard', () => {
+    expect(HOOK_FACTORY_TO_EVENT.startCardHook).toBe('StartCard');
   });
 
-  it('maps endIssueHook to EndIssue', () => {
-    expect(HOOK_FACTORY_TO_EVENT.endIssueHook).toBe('EndIssue');
+  it('maps endCardHook to EndCard', () => {
+    expect(HOOK_FACTORY_TO_EVENT.endCardHook).toBe('EndCard');
   });
 
   it('maps startInterviewHook to StartInterview', () => {
@@ -214,38 +214,38 @@ describe('analyzeHookFile', () => {
     return filePath;
   }
 
-  it('extracts StartIssue hook', () => {
+  it('extracts StartCard hook', () => {
     const filePath = writeHookFile(
-      'start-issue.ts',
+      'start-card.ts',
       `
-      import { startIssueHook } from '@goodfoot/compare-branch-configuration';
+      import { startCardHook } from '@goodfoot/compare-branch-configuration';
 
-      export default startIssueHook({}, async (input, { logger }) => {
-        logger.info('Issue started', { issueId: input.issueId });
+      export default startCardHook({}, async (input, { logger }) => {
+        logger.info('Card started', { cardId: input.cardId });
       });
     `
     );
 
     const metadata = analyzeHookFile(filePath);
 
-    expect(metadata?.hookEventName).toBe('StartIssue');
+    expect(metadata?.hookEventName).toBe('StartCard');
   });
 
-  it('extracts EndIssue hook', () => {
+  it('extracts EndCard hook', () => {
     const filePath = writeHookFile(
-      'end-issue.ts',
+      'end-card.ts',
       `
-      import { endIssueHook } from '@goodfoot/compare-branch-configuration';
+      import { endCardHook } from '@goodfoot/compare-branch-configuration';
 
-      export default endIssueHook({}, async (input, { logger }) => {
-        logger.info('Issue ended', { issueId: input.issueId });
+      export default endCardHook({}, async (input, { logger }) => {
+        logger.info('Card ended', { cardId: input.cardId });
       });
     `
     );
 
     const metadata = analyzeHookFile(filePath);
 
-    expect(metadata?.hookEventName).toBe('EndIssue');
+    expect(metadata?.hookEventName).toBe('EndCard');
   });
 
   it('extracts StartInterview hook', () => {
@@ -301,15 +301,15 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'parenthesized.ts',
       `
-      import { startIssueHook } from '@goodfoot/compare-branch-configuration';
+      import { startCardHook } from '@goodfoot/compare-branch-configuration';
 
-      export default (startIssueHook({}, async (input) => {}));
+      export default (startCardHook({}, async (input) => {}));
     `
     );
 
     const metadata = analyzeHookFile(filePath);
 
-    expect(metadata?.hookEventName).toBe('StartIssue');
+    expect(metadata?.hookEventName).toBe('StartCard');
   });
 
   it('handles namespace-qualified hook factory', () => {
@@ -318,13 +318,13 @@ describe('analyzeHookFile', () => {
       `
       import * as hooks from '@goodfoot/compare-branch-configuration';
 
-      export default hooks.startIssueHook({}, async (input) => {});
+      export default hooks.startCardHook({}, async (input) => {});
     `
     );
 
     const metadata = analyzeHookFile(filePath);
 
-    expect(metadata?.hookEventName).toBe('StartIssue');
+    expect(metadata?.hookEventName).toBe('StartCard');
   });
 });
 

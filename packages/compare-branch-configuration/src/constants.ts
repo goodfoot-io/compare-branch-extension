@@ -12,8 +12,8 @@ import type { HookEventName } from './types.js';
  * hook type a file exports.
  */
 export const HOOK_FACTORY_TO_EVENT: Record<string, HookEventName> = {
-  startIssueHook: 'StartIssue',
-  endIssueHook: 'EndIssue',
+  startCardHook: 'StartCard',
+  endCardHook: 'EndCard',
   startInterviewHook: 'StartInterview',
   endInterviewHook: 'EndInterview'
 };
