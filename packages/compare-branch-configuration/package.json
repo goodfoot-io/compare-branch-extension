@@ -55,7 +55,6 @@
   "devDependencies": {
     "@biomejs/biome": "2.3.11",
     "@types/node": "^24",
-    "tsx": "^4.20.3",
     "vitest": "4.0.13"
   }
 }
