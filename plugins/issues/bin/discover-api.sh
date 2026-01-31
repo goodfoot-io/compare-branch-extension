@@ -15,13 +15,13 @@
 
 set -euo pipefail
 
-DISCOVERY_FILE="$HOME/.compare-branch/issues-api.json"
+DISCOVERY_FILE="$HOME/.cards/issues-api.json"
 WORKSPACE=$(pwd)
 
 # Check if discovery file exists
 if [ ! -f "$DISCOVERY_FILE" ]; then
   echo "Error: Discovery file not found at $DISCOVERY_FILE" >&2
-  echo "Ensure VSCode is running with the Compare Branch extension and compareBranch.enableBranchIssues is enabled." >&2
+  echo "Ensure VSCode is running with the Compare Branch extension and cards.enableBranchIssues is enabled." >&2
   exit 2
 fi
 

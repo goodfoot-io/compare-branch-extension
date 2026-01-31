@@ -511,7 +511,7 @@ done
 MOCK_SERVER_PORT=$(cat "$SERVER_PORT_FILE" 2>/dev/null || echo "")
 verify "Mock issues API started" "[ -n '$MOCK_SERVER_PORT' ]"
 
-cat > "$MOCK_HOME/.compare-branch/issues-api.json" << EOF
+cat > "$MOCK_HOME/.cards/issues-api.json" << EOF
 {
   "$TEST_DIR/repo": { "host": "127.0.0.1", "port": $MOCK_SERVER_PORT }
 }

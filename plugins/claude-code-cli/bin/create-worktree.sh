@@ -543,7 +543,7 @@ WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
 API_BASE=""
 
 if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
+    DISCOVERY_FILE="\$HOME/.cards/issues-api.json"
     if [ -f "\$DISCOVERY_FILE" ]; then
         PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
         HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
@@ -639,7 +639,7 @@ if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
 fi
 
 if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.compare-branch/issues-api.json"
+    DISCOVERY_FILE="\$HOME/.cards/issues-api.json"
     if [ -f "\$DISCOVERY_FILE" ]; then
         PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
         HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)

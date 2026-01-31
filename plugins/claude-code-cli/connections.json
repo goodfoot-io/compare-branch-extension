@@ -1,10 +1,10 @@
 {
   "$schema": "connection-graph-v1",
   "description": "Call chain connections between prompt.md, skills, agents, and bin scripts",
-  "entryPoint": "../../../.compare-branch/prompt.md",
+  "entryPoint": "../../../.cards/prompt.md",
   "flows": {
     "issue-session": {
-      "entry": "../../../.compare-branch/prompt.md",
+      "entry": "../../../.cards/prompt.md",
       "invokes": ["issues:api", "skills/skill-routing/SKILL.md"],
       "description": "Entry point invokes issues API then skill-routing"
     },

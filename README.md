@@ -136,7 +136,7 @@ For teams using git worktrees with multiple AI agents, Compare Branch enables co
 ### From Visual Studio Marketplace
 
 1. Open VS Code Extensions panel (`Cmd+Shift+X` or `Ctrl+Shift+X`)
-2. Search for "Compare Branch"
+2. Search for "Cards"
 3. Click Install
 
 **[→ Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)**
@@ -233,13 +233,13 @@ Verify downloaded releases by comparing checksums:
 **macOS/Linux:**
 
 ```bash
-sha256sum compare-branch-*.vsix
+sha256sum cards-*.vsix
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-Get-FileHash compare-branch-*.vsix -Algorithm SHA256
+Get-FileHash cards-*.vsix -Algorithm SHA256
 ```
 
 Compare output with the checksum in `checksums.txt` from the release.
