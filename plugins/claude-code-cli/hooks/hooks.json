@@ -34,11 +34,7 @@
     ]
   },
   "__generated": {
-    "files": [
-      "stop.3e4ee79d.mjs",
-      "session-start-context.9419f8d7.mjs",
-      "post-tool-use-edit.5b2484ca.mjs"
-    ],
+    "files": ["stop.3e4ee79d.mjs", "session-start-context.9419f8d7.mjs", "post-tool-use-edit.5b2484ca.mjs"],
     "timestamp": "2026-01-31T17:56:07.499Z"
   }
 }
