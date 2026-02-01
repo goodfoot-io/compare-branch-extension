@@ -1,5 +1,5 @@
 /**
- * Logger system for Compare Branch Extension hooks.
+ * Logger system for Cards Extension hooks.
  *
  * Provides structured logging with event subscription and optional file output.
  * The logger is **silent by default** to avoid interfering with hook protocol
@@ -191,7 +191,7 @@ export interface LoggerConfig {
 // ============================================================================
 
 /**
- * Logger for Compare Branch Extension hooks with event subscription and file output.
+ * Logger for Cards Extension hooks with event subscription and file output.
  *
  * ## Key Behaviors
  *
@@ -636,7 +636,7 @@ export class Logger {
 // ============================================================================
 
 /**
- * Global logger instance for Compare Branch Extension hooks.
+ * Global logger instance for Cards Extension hooks.
  *
  * Use this singleton for all logging within hooks. The logger is configured
  * via environment variables and supports event subscription for custom

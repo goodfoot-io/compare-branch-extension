@@ -3,27 +3,27 @@
   "description": "Call chain connections between prompt.md, skills, agents, and bin scripts",
   "entryPoint": "../../../.cards/prompt.md",
   "flows": {
-    "issue-session": {
+    "card-session": {
       "entry": "../../../.cards/prompt.md",
-      "invokes": ["issues:api", "skills/skill-routing/SKILL.md"],
+      "invokes": ["cards:api", "skills/skill-routing/SKILL.md"],
       "description": "Entry point invokes issues API then skill-routing"
     },
     "skill-routing": {
       "file": "skills/skill-routing/SKILL.md",
       "routes": {
-        "HAS_ACTIVE_INFRASTRUCTURE_ERROR": "skills/issue-error-recovery/SKILL.md",
-        "HAS_QUESTION": "skills/issue-question-response/SKILL.md",
-        "STATUS=backlog": "skills/issue-backlog-response/SKILL.md",
-        "REVIEW_APPROVED": "skills/issue-merge/SKILL.md",
-        "IS_BLOCKED": "skills/issue-blocked/SKILL.md",
-        "STATUS=done+HAS_REOPEN_REQUEST": "skills/issue-reopen-and-implement/SKILL.md",
-        "STATUS=done": "skills/issue-no-action/SKILL.md",
-        "STATUS=needs_review+!HAS_MODIFICATION_REQUEST": "skills/issue-awaiting-review/SKILL.md",
-        "PLAN_REQUIRED+!PLAN_APPROVED": "skills/issue-plan/SKILL.md",
-        "STATUS=todo+!DOR_MET": "skills/issue-clarification/SKILL.md",
-        "PLAN_APPROVED": "skills/issue-implementation-with-plan/SKILL.md",
-        "IS_TESTABLE_BUG": "skills/issue-bug/SKILL.md",
-        "default": "skills/issue-implementation/SKILL.md"
+        "HAS_ACTIVE_INFRASTRUCTURE_ERROR": "skills/card-error-recovery/SKILL.md",
+        "HAS_QUESTION": "skills/card-question-response/SKILL.md",
+        "STATUS=backlog": "skills/card-backlog-response/SKILL.md",
+        "REVIEW_APPROVED": "skills/card-merge/SKILL.md",
+        "IS_BLOCKED": "skills/card-blocked/SKILL.md",
+        "STATUS=done+HAS_REOPEN_REQUEST": "skills/card-reopen-and-implement/SKILL.md",
+        "STATUS=done": "skills/card-no-action/SKILL.md",
+        "STATUS=needs_review+!HAS_MODIFICATION_REQUEST": "skills/card-awaiting-review/SKILL.md",
+        "PLAN_REQUIRED+!PLAN_APPROVED": "skills/card-plan/SKILL.md",
+        "STATUS=todo+!DOR_MET": "skills/card-clarification/SKILL.md",
+        "PLAN_APPROVED": "skills/card-implementation-with-plan/SKILL.md",
+        "IS_TESTABLE_BUG": "skills/card-bug/SKILL.md",
+        "default": "skills/card-implementation/SKILL.md"
       }
     }
   },
@@ -33,29 +33,29 @@
       "invokes": ["skills/*"],
       "type": "router"
     },
-    "issue-plan": {
-      "file": "skills/issue-plan/SKILL.md",
+    "card-plan": {
+      "file": "skills/card-plan/SKILL.md",
       "loads": ["skills/plan/SKILL.md"],
       "spawnsAgents": ["agents/plan-assessor.md", "agents/plan-refactor.md"],
-      "chainsTo": ["skills/issue-implementation/SKILL.md"],
+      "chainsTo": ["skills/card-implementation/SKILL.md"],
       "usesAPI": true
     },
-    "issue-implementation": {
-      "file": "skills/issue-implementation/SKILL.md",
+    "card-implementation": {
+      "file": "skills/card-implementation/SKILL.md",
       "invokesBin": ["bin/create-worktree.sh"],
       "spawnsAgents": ["agents/implementer.md", "Explore"],
-      "chainsTo": ["skills/issue-merge/SKILL.md"],
+      "chainsTo": ["skills/card-merge/SKILL.md"],
       "usesAPI": true
     },
-    "issue-implementation-with-plan": {
-      "file": "skills/issue-implementation-with-plan/SKILL.md",
+    "card-implementation-with-plan": {
+      "file": "skills/card-implementation-with-plan/SKILL.md",
       "invokesBin": ["bin/create-worktree.sh"],
       "spawnsAgents": ["agents/implementer.md", "agents/refactor.md", "agents/implementation-evaluator.md", "Explore"],
-      "chainsTo": ["skills/issue-merge/SKILL.md"],
+      "chainsTo": ["skills/card-merge/SKILL.md"],
       "usesAPI": true
     },
-    "issue-merge": {
-      "file": "skills/issue-merge/SKILL.md",
+    "card-merge": {
+      "file": "skills/card-merge/SKILL.md",
       "invokesBin": ["bin/remove-worktree.sh"],
       "usesAPI": true
     },
@@ -95,27 +95,27 @@
   "agents": {
     "plan-assessor": {
       "file": "agents/plan-assessor.md",
-      "loadsSkills": ["issues:api", "skills/plan/SKILL.md"],
+      "loadsSkills": ["cards:api", "skills/plan/SKILL.md"],
       "purpose": "Evaluate implementation plans for structural compliance"
     },
     "plan-refactor": {
       "file": "agents/plan-refactor.md",
-      "loadsSkills": ["issues:api", "skills/plan/SKILL.md"],
+      "loadsSkills": ["cards:api", "skills/plan/SKILL.md"],
       "purpose": "Apply senior engineering judgment to plans"
     },
     "implementer": {
       "file": "agents/implementer.md",
-      "loadsSkills": ["issues:api"],
+      "loadsSkills": ["cards:api"],
       "purpose": "Transform plans into production-ready code via TDD"
     },
     "refactor": {
       "file": "agents/refactor.md",
-      "loadsSkills": ["issues:api", "skills/plan/SKILL.md", "skills/refactoring/SKILL.md"],
+      "loadsSkills": ["cards:api", "skills/plan/SKILL.md", "skills/refactoring/SKILL.md"],
       "purpose": "Plan-aware pre-validation cleanup"
     },
     "implementation-evaluator": {
       "file": "agents/implementation-evaluator.md",
-      "loadsSkills": ["issues:api", "skills/plan/SKILL.md"],
+      "loadsSkills": ["cards:api", "skills/plan/SKILL.md"],
       "purpose": "Evaluate implementation quality for production readiness"
     },
     "session": {
@@ -127,11 +127,11 @@
   "bin": {
     "create-worktree.sh": {
       "purpose": "Create git worktree with automatic commitSha posting via hooks",
-      "calledBy": ["skills/issue-implementation/SKILL.md", "skills/issue-implementation-with-plan/SKILL.md"]
+      "calledBy": ["skills/card-implementation/SKILL.md", "skills/card-implementation-with-plan/SKILL.md"]
     },
     "remove-worktree.sh": {
       "purpose": "Remove worktree and delete associated branch",
-      "calledBy": ["skills/issue-merge/SKILL.md"]
+      "calledBy": ["skills/card-merge/SKILL.md"]
     },
     "discover-workspace-api.sh": {
       "purpose": "Discover Issues API base URL for current workspace",
@@ -209,7 +209,7 @@
   },
   "hotspots": {
     "skill-routing": "skills/skill-routing/SKILL.md — All issue processing flows through here",
-    "issue-implementation-with-plan": "skills/issue-implementation-with-plan/SKILL.md — Orchestrates full implementation pipeline",
+    "card-implementation-with-plan": "skills/card-implementation-with-plan/SKILL.md — Orchestrates full implementation pipeline",
     "hooks": "hooks/hooks.json — Event-driven automation for session lifecycle",
     "create-worktree": "bin/create-worktree.sh — Git isolation with automatic API integration"
   }

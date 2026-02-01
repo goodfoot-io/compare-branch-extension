@@ -1,5 +1,5 @@
 /**
- * Type definitions for Compare Branch Extension hooks.
+ * Type definitions for Cards Extension hooks.
  *
  * This module provides:
  * - Hook input types (environment variable based)
@@ -16,7 +16,7 @@
 /**
  * Hook event name literal union.
  *
- * All valid hook event names for Compare Branch Extension hooks.
+ * All valid hook event names for Cards Extension hooks.
  */
 export type HookEventName =
   | 'StartCard'

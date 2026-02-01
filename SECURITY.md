@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We provide security updates for the latest released version of Compare Branch extension.
+We provide security updates for the latest released version of Cards extension.
 
 | Version  | Supported          |
 | -------- | ------------------ |
@@ -13,7 +13,7 @@ We provide security updates for the latest released version of Compare Branch ex
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-If you discover a security vulnerability in the Compare Branch extension, please report it privately:
+If you discover a security vulnerability in the Cards extension, please report it privately:
 
 ### How to Report
 
@@ -41,7 +41,7 @@ If you discover a security vulnerability in the Compare Branch extension, please
 
 ## Security Features
 
-The Compare Branch extension:
+The Cards extension:
 
 - Operates only on local git repositories
 - Does not transmit data externally

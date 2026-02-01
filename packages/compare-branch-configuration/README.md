@@ -1,6 +1,6 @@
 # @goodfoot/compare-branch-configuration
 
-Type-safe configuration library for the Compare Branch Extension with hooks, validators, and type configurations.
+Type-safe configuration library for the Cards Extension with hooks, validators, and type configurations.
 
 ## Installation
 

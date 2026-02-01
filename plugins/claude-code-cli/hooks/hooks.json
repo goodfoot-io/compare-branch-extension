@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.5b2484ca.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.001fde0f.mjs"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -34,7 +34,11 @@
     ]
   },
   "__generated": {
-    "files": ["stop.3e4ee79d.mjs", "session-start-context.9419f8d7.mjs", "post-tool-use-edit.5b2484ca.mjs"],
-    "timestamp": "2026-01-31T17:56:07.499Z"
+    "files": [
+      "stop.3e4ee79d.mjs",
+      "session-start-context.9419f8d7.mjs",
+      "post-tool-use-edit.001fde0f.mjs"
+    ],
+    "timestamp": "2026-02-01T19:05:27.622Z"
   }
 }

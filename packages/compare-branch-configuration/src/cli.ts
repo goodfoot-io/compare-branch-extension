@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * CLI tool for compiling Compare Branch hooks using esbuild.
+ * CLI tool for compiling Cards hooks using esbuild.
  *
  * Compiles TypeScript hooks to standalone ESM modules and generates hooks.json
- * with correct command paths for Compare Branch Extension execution.
+ * with correct command paths for Cards Extension execution.
  * @example
  * ```bash
  * # Compile hooks and generate hooks.json
@@ -94,7 +94,7 @@ interface HookConfig {
 
 /**
  * Matcher group entry within an event type.
- * Compare Branch hooks don't use matchers, so this is simplified.
+ * Cards hooks don't use matchers, so this is simplified.
  */
 interface MatcherEntry {
   /** Array of hook configurations in this group. */
@@ -102,7 +102,7 @@ interface MatcherEntry {
 }
 
 /**
- * The complete hooks.json structure expected by Compare Branch Extension.
+ * The complete hooks.json structure expected by Cards Extension.
  *
  * Format: { hooks: { EventType: [ { hooks: [...] } ] } }
  */
@@ -125,12 +125,12 @@ interface HooksJson {
 const VERSION = '1.0.0';
 
 const HELP_TEXT = `
-@goodfoot/compare-branch-configuration - Type-safe, compiled hooks for Compare Branch Extension
+@goodfoot/compare-branch-configuration - Type-safe, compiled hooks for Cards Extension
 
 Description:
-  This tool acts as a build system for Compare Branch hooks. It scans your TypeScript files for
+  This tool acts as a build system for Cards hooks. It scans your TypeScript files for
   exported hook factories (e.g., startCardHook), compiles them into standalone ESM modules,
-  and generates a hooks.json manifest for the Compare Branch Extension.
+  and generates a hooks.json manifest for the Cards Extension.
 
 Usage:
   npx -y @goodfoot/compare-branch-configuration -i <glob> -o <path> [options]
@@ -664,10 +664,10 @@ function generateCommandPath(
 }
 
 /**
- * Generates the hooks.json content in Compare Branch Extension's expected format.
+ * Generates the hooks.json content in Cards Extension's expected format.
  *
  * Format: { hooks: { EventType: [ { hooks: [...] } ] } }
- * Note: No matcher field since Compare Branch hooks don't use matchers.
+ * Note: No matcher field since Cards hooks don't use matchers.
  * @param compiledHooks - Array of compiled hooks
  * @param buildDir - Absolute path to the bin directory
  * @param contextInfo - Hook context info for path resolution

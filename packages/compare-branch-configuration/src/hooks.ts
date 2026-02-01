@@ -1,5 +1,5 @@
 /**
- * Hook factory functions for Compare Branch Extension hooks.
+ * Hook factory functions for Cards Extension hooks.
  *
  * Provides typed factory functions for all 4 hook types that handle:
  * - Input type narrowing based on hook event type

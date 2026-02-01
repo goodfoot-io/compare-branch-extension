@@ -1,5 +1,5 @@
 /**
- * Runtime module for Compare Branch Extension hooks.
+ * Runtime module for Cards Extension hooks.
  *
  * Handles environment variable extraction, handler invocation, and exit code management
  * for compiled hook execution. This module is the core orchestrator that:

@@ -1,8 +1,8 @@
 /**
- * Type-safe Compare Branch Extension hooks library.
+ * Type-safe Cards Extension hooks library.
  *
  * Provides typed hook factories, environment variable extraction,
- * exit code handling, and logging system for building Compare Branch
+ * exit code handling, and logging system for building Cards
  * Extension hooks with full type safety.
  * @module
  */

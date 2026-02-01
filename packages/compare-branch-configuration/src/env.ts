@@ -1,7 +1,7 @@
 /**
- * Environment variable utilities for Compare Branch Extension hooks.
+ * Environment variable utilities for Cards Extension hooks.
  *
- * Provides typed access to Compare Branch Extension's environment variables
+ * Provides typed access to Cards Extension's environment variables
  * and utilities for extracting hook input from the environment.
  *
  * ## Environment Variables
@@ -23,7 +23,7 @@ import type { HookEventName, HookInputForEvent } from './types.js';
 // ============================================================================
 
 /**
- * Compare Branch Extension environment variable names.
+ * Cards Extension environment variable names.
  *
  * These are the environment variables that execution-wrapper.mjs sets when running hooks.
  */

@@ -1,5 +1,5 @@
 /**
- * Scaffold module for generating new Compare Branch hook projects.
+ * Scaffold module for generating new Cards hook projects.
  *
  * Generates a complete TypeScript project structure with:
  * - package.json with dependencies and scripts
@@ -275,9 +275,9 @@ function generateReadme(projectName: string, hooks: HookEventName[]): string {
   const hookList = hooks.map((h) => `\`${h}\``).join(', ');
   return `# ${projectName}
 
-This project contains Compare Branch Extension hooks built with the \`@goodfoot/compare-branch-configuration\` library. Hooks let you extend the Compare Branch workflow by running custom code at specific points during card execution—when cards or tasks start/end, and when interviews begin/complete. This project includes hooks for: ${hookList}.
+This project contains Cards Extension hooks built with the \`@goodfoot/compare-branch-configuration\` library. Hooks let you extend the Cards workflow by running custom code at specific points during card execution—when cards or tasks start/end, and when interviews begin/complete. This project includes hooks for: ${hookList}.
 
-To get started, run \`npm install\` to install dependencies, then \`npm run build\` to compile your hooks into \`hooks.json\`. Configure the Compare Branch Extension to use your hooks, and they will run automatically during card execution. Edit the files in \`src/\` to customize behavior, and use \`npm test\` to verify your changes work correctly.
+To get started, run \`npm install\` to install dependencies, then \`npm run build\` to compile your hooks into \`hooks.json\`. Configure the Cards Extension to use your hooks, and they will run automatically during card execution. Edit the files in \`src/\` to customize behavior, and use \`npm test\` to verify your changes work correctly.
 `;
 }
 
@@ -285,7 +285,7 @@ To get started, run \`npm install\` to install dependencies, then \`npm run buil
  * Generates a hook template file for a specific hook type.
  *
  * Uses double quotes for all strings to match biome's formatting preferences.
- * Compare Branch hooks return void, so no return statement is generated.
+ * Cards hooks return void, so no return statement is generated.
  * @param eventName - Hook event name (e.g., 'StartCard')
  * @returns TypeScript content for the hook file
  */
@@ -357,7 +357,7 @@ describe("${eventName} Hook", () => {
 // ============================================================================
 
 /**
- * Scaffolds a new Compare Branch hook project.
+ * Scaffolds a new Cards hook project.
  *
  * Creates the complete project structure including:
  * - package.json, tsconfig.json, biome.json, vitest.config.ts
