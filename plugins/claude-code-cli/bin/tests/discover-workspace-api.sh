@@ -25,7 +25,7 @@ DISCOVER_API="$SCRIPT_DIR/discover-workspace-api.sh"
 # Setup mock home directory
 setup_mock_home() {
     export HOME="$TEST_DIR/mock-home"
-    mkdir -p "$HOME/.compare-branch"
+    mkdir -p "$HOME/.cards"
 }
 
 # Cleanup mock home directory

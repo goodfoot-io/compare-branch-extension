@@ -409,7 +409,7 @@ verify "Recreated worktree has hooks" "[ -x '$RECREATE_GIT_DIR/hooks/post-commit
 echo -e "\n${YELLOW}=== Flow 11: Rebase updates baseSha and comments ===${NC}"
 MOCK_HOME="$TEST_DIR/mock-home"
 MOCK_SERVER_DIR="$TEST_DIR/mock-issues"
-mkdir -p "$MOCK_HOME/.compare-branch"
+mkdir -p "$MOCK_HOME/.cards"
 mkdir -p "$MOCK_SERVER_DIR"
 
 SERVER_DATA="$MOCK_SERVER_DIR/state.json"
