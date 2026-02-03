@@ -3,7 +3,7 @@ name: plan-refactor
 description: Apply senior engineering judgment to evaluate plans before implementation begins.
 color: magenta
 model: inherit
-skills: issues:api, claude-code-cli:plan
+skills: cards:api, claude-code-cli:plan
 ---
 
 <placeholder-variables>

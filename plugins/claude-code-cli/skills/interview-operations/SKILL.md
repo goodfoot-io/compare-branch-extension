@@ -41,7 +41,7 @@ Before asking the user about operational procedures, follow this protocol.
 
 <instructions>
 
-1. Load the `issues:operations` skill and review how to write a world-class operations request.
+1. Load the `cards:operations` skill and review how to write a world-class operations request.
 
 2. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 

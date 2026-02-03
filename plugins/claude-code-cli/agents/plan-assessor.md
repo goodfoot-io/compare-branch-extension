@@ -3,7 +3,7 @@ name: plan-assessor
 description: Evaluate implementation plans for quality, feasibility, and completeness.
 color: cyan
 model: haiku
-skills: issues:api, claude-code-cli:plan
+skills: cards:api, claude-code-cli:plan
 ---
 
 <placeholder-variables>

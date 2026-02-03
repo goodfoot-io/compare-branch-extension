@@ -423,7 +423,7 @@ const fs = require('fs');
 const dataPath = process.argv[2];
 const portFile = process.argv[3];
 
-let state = { nextId: 1, issues: {} };
+let state = { nextId: 1, cards: {} };
 
 const save = () => {
   fs.writeFileSync(dataPath, JSON.stringify(state), 'utf8');

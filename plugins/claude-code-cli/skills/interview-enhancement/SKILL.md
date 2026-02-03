@@ -41,7 +41,7 @@ Before asking the user how the system works now or how it *should* work, follow 
 
 <instructions>
 
-1. Load the `issues:enhancement` skill and review how to write a world-class enhancement request.
+1. Load the `cards:enhancement` skill and review how to write a world-class enhancement request.
 
 2. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 

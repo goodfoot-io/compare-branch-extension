@@ -10,7 +10,7 @@ The plugin implements a **prompt → skill → agent → bin** architecture for 
 .cards/prompt.md (entry point)
        │
        ▼
-  issues:api + skill-routing
+  cards:api + skill-routing
        │
        ▼
   ┌────────────────────────────────────────┐
@@ -76,7 +76,7 @@ See `connections.json` for the complete mapping of:
 **Agent loads Skills:**
 ```yaml
 # agents/*.md frontmatter
-skills: issues:api, claude-code-cli:plan
+skills: cards:api, claude-code-cli:plan
 ```
 
 **Hook triggers Bin:**

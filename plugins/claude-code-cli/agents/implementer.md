@@ -3,7 +3,7 @@ name: implementer
 description: Only use this agent when it is requested by name.
 tools: "*"
 color: purple
-skills: issues:api
+skills: cards:api
 ---
 
 

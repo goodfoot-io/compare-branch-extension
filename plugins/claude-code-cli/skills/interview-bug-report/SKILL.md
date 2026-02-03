@@ -41,7 +41,7 @@ Before asking the user to clarify bug details, environment, or behavior, follow 
 
 <instructions>
 
-1. Load the `issues:bug-report` skill and review how to write a world-class bug report.
+1. Load the `cards:bug-report` skill and review how to write a world-class bug report.
 
 2. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 
