@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.a5f87f1f.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.d77872bf.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context.2c03f280.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context.62079d12.mjs"
           }
         ],
         "matcher": "startup"
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.64bd3e73.mjs"
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.a4da6d43.mjs"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -34,7 +34,11 @@
     ]
   },
   "__generated": {
-    "files": ["stop.a5f87f1f.mjs", "session-start-context.2c03f280.mjs", "post-tool-use-edit.64bd3e73.mjs"],
-    "timestamp": "2026-02-03T02:49:37.044Z"
+    "files": [
+      "stop.d77872bf.mjs",
+      "session-start-context.62079d12.mjs",
+      "post-tool-use-edit.a4da6d43.mjs"
+    ],
+    "timestamp": "2026-02-03T18:57:23.099Z"
   }
 }
