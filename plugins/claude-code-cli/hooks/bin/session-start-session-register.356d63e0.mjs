@@ -587,7 +587,7 @@ function discoverApiUrl(logger2) {
 }
 async function postSessionComment(issueId, sessionId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/issues/${issueId}/comments`, {
+    const response = await fetch(`${baseUrl}/cards/${issueId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId, author: "agent" }),

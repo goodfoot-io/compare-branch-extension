@@ -763,7 +763,7 @@ var stop_default = stopHook({}, async (input, { logger: logger2 }) => {
     return stopOutput({
       decision: "block",
       reason: `API unavailable: ${error instanceof Error ? error.message : String(error)}`,
-      systemMessage: "The Issues API is unavailable. This is a catastrophic failure. Check that VSCode is running with the Compare Branch extension active."
+      systemMessage: "The Cards API is unavailable. This is a catastrophic failure. Check that VSCode is running with the Cards extension active."
     });
   }
   if (!hasUpdates(diffResponse)) {

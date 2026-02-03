@@ -590,7 +590,7 @@ function discoverApiUrl(logger2) {
 }
 async function postCommitComment(issueId, commitSha, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/issues/${issueId}/comments`, {
+    const response = await fetch(`${baseUrl}/cards/${issueId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ commitSha, author: "agent" }),
@@ -604,7 +604,7 @@ async function postCommitComment(issueId, commitSha, baseUrl, logger2) {
 }
 async function fetchCommitComments(issueId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/issues/${issueId}/comments`, {
+    const response = await fetch(`${baseUrl}/cards/${issueId}/comments`, {
       signal: AbortSignal.timeout(5e3)
     });
     if (!response.ok) {
@@ -620,7 +620,7 @@ async function fetchCommitComments(issueId, baseUrl, logger2) {
 }
 async function deleteComment(issueId, commentId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/issues/${issueId}/comments/${commentId}`, {
+    const response = await fetch(`${baseUrl}/cards/${issueId}/comments/${commentId}`, {
       method: "DELETE",
       signal: AbortSignal.timeout(2e3)
     });

@@ -280,8 +280,8 @@ Worktree: [WORKTREE_PATH]
 Checkpoint SHA: [TASK_CHECKPOINT]
 
 ## Setup
-1. Fetch plan via `GET /issues/[ISSUE_ID]/plan-content`
-2. Fetch description via `GET /issues/[ISSUE_ID]/description` for requirements context
+1. Fetch plan via `GET /cards/[CARD_ID]/plan`
+2. Fetch description via `GET /cards/[CARD_ID]/description` for requirements context
 
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
@@ -302,7 +302,7 @@ Based on agent status:
 
 **COMPLETED:** Post a brief progress update indicating which task you completed and what you actually did. Keep it concise.
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent"
@@ -471,7 +471,7 @@ EOF
 
 Post a summary explaining what you implemented and how it aligns with the approved plan. List the key files modified and confirm all validation passed. Indicate you're awaiting approval.
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent",

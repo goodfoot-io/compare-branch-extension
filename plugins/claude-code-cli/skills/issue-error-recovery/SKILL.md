@@ -67,7 +67,7 @@ Based on issue state:
 - **Otherwise**: Post a comment documenting the error that occurred—describe what happened, report the current state of the repository (base branch status, worktree location, which step failed), include the relevant error output, provide steps for manual resolution, and explain how to retry
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent",
@@ -80,7 +80,7 @@ Then proceed to section 4.
 ## 4. Mark as Blocked
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "tags": ["blocked"]
 }

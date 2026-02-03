@@ -6,7 +6,7 @@
     "card-session": {
       "entry": "../../../.cards/prompt.md",
       "invokes": ["cards:api", "skills/skill-routing/SKILL.md"],
-      "description": "Entry point invokes issues API then skill-routing"
+      "description": "Entry point invokes Cards API then skill-routing"
     },
     "skill-routing": {
       "file": "skills/skill-routing/SKILL.md",
@@ -134,7 +134,7 @@
       "calledBy": ["skills/card-merge/SKILL.md"]
     },
     "discover-workspace-api.sh": {
-      "purpose": "Discover Issues API base URL for current workspace",
+      "purpose": "Discover Cards API base URL for current workspace",
       "calledBy": ["bin/lib/api.sh", "hooks"]
     },
     "find-session-files.sh": {

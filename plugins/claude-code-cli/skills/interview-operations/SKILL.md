@@ -50,7 +50,7 @@ Before asking the user about operational procedures, follow this protocol.
 4. Then patch the issue with the revised title and description:
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "title": "[updated title]",
   "description": "[updated description]"

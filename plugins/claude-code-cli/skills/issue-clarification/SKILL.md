@@ -19,7 +19,7 @@ Based on [COMMENTS] and prior clarification requests:
 - **Existing clarification request AND later comment from non-agent author**: Acknowledge the new information and explain how it affects requirements analysis. Post acknowledgment, set `needsAgentAttention: false`, then **STOP** — Router will re-evaluate with new information.
 
   ```
-  POST /issues/[ISSUE_ID]/comments
+  POST /cards/[CARD_ID]/comments
   {
     "body": "[comment content]",
     "author": "agent"
@@ -27,7 +27,7 @@ Based on [COMMENTS] and prior clarification requests:
   ```
 
   ```
-  PATCH /issues/[ISSUE_ID]
+  PATCH /cards/[CARD_ID]
   {
     "needsAgentAttention": false
   }
@@ -36,7 +36,7 @@ Based on [COMMENTS] and prior clarification requests:
 - **Existing clarification request AND no new user response**: Confirm you're still waiting for the previously requested information. Reference which questions remain unanswered. Post confirmation, set `needsAgentAttention: false`, then **STOP** — Already waiting for user clarification.
 
   ```
-  POST /issues/[ISSUE_ID]/comments
+  POST /cards/[CARD_ID]/comments
   {
     "body": "[comment content]",
     "author": "agent"
@@ -44,7 +44,7 @@ Based on [COMMENTS] and prior clarification requests:
   ```
 
   ```
-  PATCH /issues/[ISSUE_ID]
+  PATCH /cards/[CARD_ID]
   {
     "needsAgentAttention": false
   }
@@ -75,7 +75,7 @@ Based on research results:
 Present the specific questions needed to proceed with implementation. Prioritize by what's most blocking, explain why each piece of information is needed, and reference relevant code where applicable.
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent",
@@ -86,7 +86,7 @@ POST /issues/[ISSUE_ID]/comments
 ## 5. Clear Attention Flag and Stop
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "needsAgentAttention": false
 }

@@ -15,7 +15,7 @@ Extract from the invoking context:
 - [DESCRIPTION] = The issue description with requirements
 
 **API-Retrieved Fields:**
-- [PLAN_CONTENT] = Fetch via `GET /issues/[ISSUE_ID]/plan-content`
+- [PLAN_CONTENT] = Fetch via `GET /cards/[CARD_ID]/plan`
 </placeholder-variables>
 
 You are a plan refactoring specialist that applies senior engineering judgment to project plans before implementation begins. You systematically challenge assumptions, identify structural issues, and surface design decisions that warrant reconsideration. You ultrathink.
@@ -357,7 +357,7 @@ Append the evaluation report to the issue's `planAssessments` array.
 **After generating the report**, call the issues API to append your evaluation:
 
 ```
-POST /issues/[ISSUE_ID]/plan-assessments
+POST /cards/[CARD_ID]/plan-assessments
 {
   "body": "YOUR_EVALUATION_REPORT",
   "author": "agent"
@@ -378,7 +378,7 @@ Do not post to issue comments directly - evaluations are stored in the dedicated
    - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
 
 2. Fetch plan content from the issues API:
-   - Call `GET /issues/[ISSUE_ID]` to retrieve the issue
+   - Call `GET /cards/[CARD_ID]` to retrieve the issue
    - Extract the `planContent` field as [PLAN_CONTENT]
    - If `planContent` is null or empty, report error and stop
 

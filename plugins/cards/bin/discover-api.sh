@@ -1,12 +1,12 @@
 #!/bin/bash
 #
-# Discovers the Issues API base URL for the current workspace.
+# Discovers the Cards API base URL for the current workspace.
 #
 # Usage:
 #   ./discover-api.sh
 #
 # Output:
-#   The base URL for the Issues API (e.g., http://127.0.0.1:12345/api/v1)
+#   The base URL for the Cards API (e.g., http://127.0.0.1:12345/api/v1)
 #
 # Exit codes:
 #   0 - Success, base URL printed to stdout
@@ -15,13 +15,13 @@
 
 set -euo pipefail
 
-DISCOVERY_FILE="$HOME/.cards/issues-api.json"
+DISCOVERY_FILE="$HOME/.cards/cards-api.json"
 WORKSPACE=$(pwd)
 
 # Check if discovery file exists
 if [ ! -f "$DISCOVERY_FILE" ]; then
   echo "Error: Discovery file not found at $DISCOVERY_FILE" >&2
-  echo "Ensure VSCode is running with the Compare Branch extension and cards.enableBranchIssues is enabled." >&2
+  echo "Ensure VSCode is running with the Cards extension and cards.enableBranchIssues is enabled." >&2
   exit 2
 fi
 

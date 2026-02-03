@@ -505,15 +505,15 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/pre-push"
 
-# Install post-commit hook (Issues API + passthrough)
+# Install post-commit hook (Cards API + passthrough)
 cat > "${HOOKS_DIR}/post-commit" << HOOK_EOF
 #!/bin/bash
-# post-commit hook - posts commit info to Issues API, then chains to original hook
+# post-commit hook - posts commit info to Cards API, then chains to original hook
 # Installed by create-worktree.sh
 # Errors are logged to stderr but do not block git operations
 #
 # This hook handles:
-# 1. Posting the new commit SHA to the Issues API
+# 1. Posting the new commit SHA to the Cards API
 # 2. Chained hooks that create additional commits (e.g., git subtree split --rejoin)
 # 3. Cleaning up orphaned commitSha comments after squash operations
 #
@@ -525,13 +525,13 @@ set -o pipefail
 
 $HOOK_CHAIN_HELPER
 
-# Helper function to post a commit SHA to the Issues API
+# Helper function to post a commit SHA to the Cards API
 post_commit_sha() {
     local sha="\$1"
     local issue_id="\$2"
     local api_base="\$3"
 
-    curl -s -X POST "\$api_base/issues/\$issue_id/comments" \\
+    curl -s -X POST "\$api_base/cards/\$issue_id/comments" \\
         -H "Content-Type: application/json" \\
         -d "{\"author\": \"agent\", \"commitSha\": \"\$sha\"}" \\
         >/dev/null 2>&1 || true
@@ -543,7 +543,7 @@ WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
 API_BASE=""
 
 if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.cards/issues-api.json"
+    DISCOVERY_FILE="\$HOME/.cards/cards-api.json"
     if [ -f "\$DISCOVERY_FILE" ]; then
         PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
         HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
@@ -587,12 +587,12 @@ if [ -n "\$API_BASE" ]; then
         VALID_SHAS="\$BASE_SHA"\$'\\n'"\$VALID_SHAS"
 
         # Fetch all comments and delete orphaned commitSha comments
-        COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
+        COMMENTS=\$(curl -s "\$API_BASE/cards/\$ISSUE_ID/comments" 2>/dev/null) || true
         if [ -n "\$COMMENTS" ]; then
             echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \\
             while read -r comment_id commit_sha; do
                 if [ -n "\$commit_sha" ] && ! echo "\$VALID_SHAS" | grep -qx "\$commit_sha"; then
-                    curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
+                    curl -s -X DELETE "\$API_BASE/cards/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
                 fi
             done
         fi
@@ -603,7 +603,7 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/post-commit"
 
-# Install post-rewrite hook (Issues API + passthrough)
+# Install post-rewrite hook (Cards API + passthrough)
 cat > "${HOOKS_DIR}/post-rewrite" << HOOK_EOF
 #!/bin/bash
 # post-rewrite hook - handles rebase/amend, then chains to original hook
@@ -617,7 +617,7 @@ $HOOK_CHAIN_HELPER
 # Capture stdin for potential passthrough (post-rewrite receives old/new SHA pairs)
 STDIN_DATA=\$(cat)
 
-# --- Issues API posting ---
+# --- Cards API posting ---
 ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
 WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
 # Update baseSha after rewrite using stored baseBranch
@@ -639,7 +639,7 @@ if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
 fi
 
 if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.cards/issues-api.json"
+    DISCOVERY_FILE="\$HOME/.cards/cards-api.json"
     if [ -f "\$DISCOVERY_FILE" ]; then
         PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
         HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
@@ -665,11 +665,11 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
 
             COMMENTS=""
             if [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
-                COMMENTS=\$(curl -s "\$API_BASE/issues/\$ISSUE_ID/comments" 2>/dev/null) || true
+                COMMENTS=\$(curl -s "\$API_BASE/cards/\$ISSUE_ID/comments" 2>/dev/null) || true
             fi
 
             # Post new commit comment
-            curl -s -X POST "\$API_BASE/issues/\$ISSUE_ID/comments" \\
+            curl -s -X POST "\$API_BASE/cards/\$ISSUE_ID/comments" \\
                 -H "Content-Type: application/json" \\
                 -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \\
                 >/dev/null 2>&1 || true
@@ -679,7 +679,7 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
                 for old_sha in "\${OLD_SHAS[@]}"; do
                     COMMENT_ID=\$(echo "\$COMMENTS" | jq -r --arg sha "\$old_sha" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null)
                     if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
-                        curl -s -X DELETE "\$API_BASE/issues/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
+                        curl -s -X DELETE "\$API_BASE/cards/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
                     fi
                 done
             fi

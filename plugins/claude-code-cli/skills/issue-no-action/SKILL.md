@@ -14,7 +14,7 @@ Based on comment type:
 - **Thank-you messages, status updates, or informational notes**: Skip acknowledgment
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent"
@@ -24,7 +24,7 @@ POST /issues/[ISSUE_ID]/comments
 ## 2. Clear Attention Flag
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "needsAgentAttention": false
 }

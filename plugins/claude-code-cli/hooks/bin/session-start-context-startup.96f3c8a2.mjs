@@ -587,7 +587,7 @@ function discoverApiUrl(logger2) {
 }
 async function fetchIssue(issueId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/issues/${issueId}`, {
+    const response = await fetch(`${baseUrl}/cards/${issueId}`, {
       signal: AbortSignal.timeout(5e3)
     });
     if (!response.ok) {

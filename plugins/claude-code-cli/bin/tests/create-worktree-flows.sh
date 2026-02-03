@@ -374,7 +374,7 @@ POST_REWRITE_HOOK="$HOOK_GIT_DIR/hooks/post-rewrite"
 # Verify post-commit hook has required elements (using grep directly on files)
 verify "post-commit reads issue.id from config" "grep -q 'issue.id' '$POST_COMMIT_HOOK'"
 verify "post-commit reads workspacePath from config" "grep -q 'issue.workspacePath' '$POST_COMMIT_HOOK'"
-verify "post-commit uses issues-api.json" "grep -q 'issues-api.json' '$POST_COMMIT_HOOK'"
+verify "post-commit uses cards-api.json" "grep -q 'cards-api.json' '$POST_COMMIT_HOOK'"
 verify "post-commit posts to issues API" "grep -q 'issues/\$ISSUE_ID/comments' '$POST_COMMIT_HOOK'"
 
 # Verify post-rewrite hook has required elements
@@ -509,9 +509,9 @@ for i in $(seq 1 50); do
 done
 
 MOCK_SERVER_PORT=$(cat "$SERVER_PORT_FILE" 2>/dev/null || echo "")
-verify "Mock issues API started" "[ -n '$MOCK_SERVER_PORT' ]"
+verify "Mock Cards API started" "[ -n '$MOCK_SERVER_PORT' ]"
 
-cat > "$MOCK_HOME/.cards/issues-api.json" << EOF
+cat > "$MOCK_HOME/.cards/cards-api.json" << EOF
 {
   "$TEST_DIR/repo": { "host": "127.0.0.1", "port": $MOCK_SERVER_PORT }
 }
@@ -539,7 +539,7 @@ HOME="$MOCK_HOME" git commit -m "Rebase feature" >/dev/null 2>&1
 COMMIT_SHA_BEFORE=$(git rev-parse HEAD)
 cd "$TEST_DIR/repo"
 
-COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/cards/$ISSUE_ID_URL/comments" 2>/dev/null)
 verify "Commit comment matches feature commit" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
 
 echo "main update" >> README.md
@@ -556,7 +556,7 @@ cd "$TEST_DIR/repo"
 verify "Rebase rewrote commit SHA" "[ '$COMMIT_SHA_AFTER' != '$COMMIT_SHA_BEFORE' ]"
 verify "BaseSha updated to new main" "[ '$BASE_SHA_UPDATED' = '$MAIN_SHA' ]"
 
-COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/cards/$ISSUE_ID_URL/comments" 2>/dev/null)
 verify "Old baseSha comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_INITIAL' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "New commit comment posted after rebase" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Old commit comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
@@ -571,7 +571,7 @@ cd "$TEST_DIR/repo"
 verify "Amend rewrote commit SHA" "[ '$COMMIT_SHA_AMENDED' != '$COMMIT_SHA_AFTER' ]"
 verify "BaseSha unchanged on amend" "[ '$BASE_SHA_AMENDED' = '$BASE_SHA_UPDATED' ]"
 
-COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/issues/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/cards/$ISSUE_ID_URL/comments" 2>/dev/null)
 verify "Amended commit comment posted" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AMENDED' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Prior commit comment removed on amend" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
 

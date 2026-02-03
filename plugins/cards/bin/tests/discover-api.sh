@@ -99,7 +99,7 @@ TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
 cd "$TEST_WORKSPACE"
 
-cat > "$HOME/.cards/issues-api.json" <<EOF
+cat > "$HOME/.cards/cards-api.json" <<EOF
 {
   "$TEST_WORKSPACE": {
     "port": 54321,
@@ -120,7 +120,7 @@ OTHER_WORKSPACE="$TEST_DIR/other-workspace"
 mkdir -p "$OTHER_WORKSPACE"
 cd "$TEST_WORKSPACE"
 
-cat > "$HOME/.cards/issues-api.json" <<EOF
+cat > "$HOME/.cards/cards-api.json" <<EOF
 {
   "/some/other/path": {
     "port": 55555,
@@ -137,13 +137,13 @@ run_test "Fallback to first instance" 0 "http://127.0.0.1:55555/api/v1"
 # Test 4: Empty discovery file
 echo -e "\n${YELLOW}=== Test 4: Empty discovery file ===${NC}"
 setup_mock_home
-echo '{}' > "$HOME/.cards/issues-api.json"
+echo '{}' > "$HOME/.cards/cards-api.json"
 run_test "Empty discovery file" 1
 
 # Test 5: Invalid JSON in discovery file
 echo -e "\n${YELLOW}=== Test 5: Invalid JSON in discovery file ===${NC}"
 setup_mock_home
-echo 'not valid json' > "$HOME/.cards/issues-api.json"
+echo 'not valid json' > "$HOME/.cards/cards-api.json"
 # Note: jq returns exit code 4 for parse errors, which causes script to fail
 run_test "Invalid JSON in discovery file" 4
 
@@ -152,7 +152,7 @@ echo -e "\n${YELLOW}=== Test 6: Multiple workspaces, current preferred ===${NC}"
 setup_mock_home
 cd "$TEST_WORKSPACE"
 
-cat > "$HOME/.cards/issues-api.json" <<EOF
+cat > "$HOME/.cards/cards-api.json" <<EOF
 {
   "/some/other/path": {
     "port": 11111,

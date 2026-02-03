@@ -53,7 +53,7 @@ Update the plan to address all feedback points:
 Store the updated plan:
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "planContent": "[revised plan markdown]"
 }
@@ -73,7 +73,7 @@ Launch both assessments in parallel (one message):
 
 1. Read the plan:
 ```
-GET /issues/[ISSUE_ID]/plan-content
+GET /cards/[CARD_ID]/plan
 ```
 
 2. Assess the plan and post a report per your `<instructions>`.
@@ -87,7 +87,7 @@ GET /issues/[ISSUE_ID]/plan-content
 
 1. Read the plan:
 ```
-GET /issues/[ISSUE_ID]/plan-content
+GET /cards/[CARD_ID]/plan
 ```
 
 2. Assess the plan and post a report per your `<instructions>`.
@@ -100,7 +100,7 @@ GET /issues/[ISSUE_ID]/plan-content
 Read the assessments:
 
 ```
-GET /issues/[ISSUE_ID]/plan-assessments
+GET /cards/[CARD_ID]/plan-assessments
 ```
 
 ### Combined Assessment Priority Levels
@@ -138,7 +138,7 @@ Return to **2.2 Incorporate Feedback** and revise.
 If Plan Refactor returned DISCUSS, log accepted concerns:
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "## Accepted Concerns\n\nThe following strategic concerns were noted but accepted:\n- [Concern from plan-refactor evaluation]\n- [Rationale for accepting]",
   "author": "agent"
@@ -156,7 +156,7 @@ Explain how you incorporated the feedback, especially where interpretation was r
 When feedback was ambiguous, surface your interpretation as a question with your selected answer inline. Include surprises, new assumptions, or risks discovered during revision when they'd help the reviewer. Write naturally—only include what's genuinely useful.
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[process-oriented comment]",
   "author": "agent"

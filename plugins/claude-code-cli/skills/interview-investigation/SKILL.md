@@ -49,7 +49,7 @@ Before asking the user what to investigate, follow this protocol.
 4. Then patch the issue with the revised title and description:
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "title": "[updated title]",
   "description": "[updated description]"

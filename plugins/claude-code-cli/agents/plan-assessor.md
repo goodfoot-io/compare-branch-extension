@@ -15,7 +15,7 @@ Extract from the invoking context:
 - [DESCRIPTION] = The issue description with requirements
 
 **API-Retrieved Fields:**
-- [PLAN_CONTENT] = Fetch via `GET /issues/[ISSUE_ID]/plan-content`
+- [PLAN_CONTENT] = Fetch via `GET /cards/[CARD_ID]/plan`
 </placeholder-variables>
 
 ## Purpose and Philosophy
@@ -365,7 +365,7 @@ Append the assessment report to the issue's `planAssessments` array.
 **After generating the report**, call the issues API to append your assessment:
 
 ```
-POST /issues/[ISSUE_ID]/plan-assessments
+POST /cards/[CARD_ID]/plan-assessments
 {
   "body": "YOUR_ASSESSMENT_REPORT",
   "author": "agent"
@@ -422,7 +422,7 @@ Based on assessment findings, determine implementation readiness:
    - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
    - Identify plan type: initial plan vs. strategic revision
 2. Fetch plan content from the issues API:
-   - Call `GET /issues/[ISSUE_ID]/plan-content` to retrieve the plan
+   - Call `GET /cards/[CARD_ID]/plan` to retrieve the plan
    - If [PLAN_CONTENT] is null or empty, report error and stop
 3. Check for existing issue comments via API
    - Review implementation status and strategic context

@@ -33,7 +33,7 @@ Create a plan based on the style and structure from the `claude-code-cli:plan` s
 Then store the plan on the issue:
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "planContent": "[drafted plan markdown]"
 }
@@ -53,7 +53,7 @@ Then launch both assessments in parallel (one message):
   
 1. Read the plan:
 ```
-GET /issues/[ISSUE_ID]/plan-content
+GET /cards/[CARD_ID]/plan
 ```
 
 2. Assess the plan and post a report per your `<instructions>`.
@@ -67,7 +67,7 @@ GET /issues/[ISSUE_ID]/plan-content
   
 1. Read the plan:
 ```
-GET /issues/[ISSUE_ID]/plan-content
+GET /cards/[CARD_ID]/plan
 ```
 
 2. Assess the plan and post a report per your `<instructions>`.
@@ -80,7 +80,7 @@ GET /issues/[ISSUE_ID]/plan-content
 Read the assessments:
 
 ```
-GET /issues/[ISSUE_ID]/plan-assessments
+GET /cards/[CARD_ID]/plan-assessments
 ```
 
 ### Combined Assessment Priority Levels
@@ -118,7 +118,7 @@ Return to **1.3 Write and Store Plan** and revise.
 If Plan Refactor returned DISCUSS, log accepted concerns:
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "## Accepted Concerns\n\nThe following strategic concerns were noted but accepted:\n   - [Concern from plan-refactor evaluation]\n   - [Rationale for accepting]",
   "author": "agent"
@@ -136,7 +136,7 @@ Focus on what the reviewer can't see: your reasoning process, what you learned, 
 Include surprises, dead ends, assumptions, or risks when they'd help the reviewer focus their attention. Write naturally—only include what's genuinely useful for this specific plan.
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[process-oriented comment]",
   "author": "agent"
