@@ -29,7 +29,9 @@
     ".": "./src/index.ts",
     "./*": "./src/*.ts"
   },
-  "bin": "./dist/cli.js",
+  "bin": {
+    "cards-configuration": "./dist/cli.js"
+  },
   "publishConfig": {
     "main": "./dist/index.js",
     "types": "./types/index.d.ts",
