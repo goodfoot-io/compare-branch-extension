@@ -8,10 +8,46 @@
  */
 
 // ============================================================================
+// Action Factories (New)
+// ============================================================================
+
+export type {
+  ActionContext,
+  ActionEndCommand,
+  ActionEndConfig,
+  ActionEndInput,
+  ActionHandler,
+  ActionStartCommand,
+  ActionStartConfig,
+  ActionStartInput,
+  TypeConfig,
+  TypeCreateCommand,
+  TypeDeleteCommand,
+  TypeHandler,
+  TypeHookInput,
+  TypeUpdateCommand,
+  TypeValidatorCommand
+} from './actions.js';
+export {
+  actionEnd,
+  actionStart,
+  typeCreate,
+  typeDelete,
+  typeUpdate,
+  typeValidator
+} from './actions.js';
+
+// ============================================================================
 // Constants
 // ============================================================================
 
-export { HOOK_FACTORY_TO_EVENT } from './constants.js';
+export type { ActionFactoryType, FactoryType, TypeFactoryType } from './constants.js';
+export {
+  ACTION_FACTORY_NAMES,
+  ALL_FACTORY_NAMES,
+  HOOK_FACTORY_TO_EVENT,
+  TYPE_FACTORY_NAMES
+} from './constants.js';
 
 // ============================================================================
 // Environment Variables
@@ -40,7 +76,7 @@ export {
 } from './exit-codes.js';
 
 // ============================================================================
-// Hook Factories
+// Hook Factories (Deprecated)
 // ============================================================================
 
 export type {
@@ -49,6 +85,9 @@ export type {
   HookFunction,
   HookHandler
 } from './hooks.js';
+/**
+ * @deprecated Use actionStart/actionEnd instead
+ */
 export {
   endCardHook,
   endInterviewHook,

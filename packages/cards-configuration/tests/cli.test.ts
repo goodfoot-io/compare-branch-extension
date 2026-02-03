@@ -5,10 +5,13 @@
  * - parseArgs for various input combinations
  * - validateArgs error conditions
  * - analyzeHookFile extracts correct metadata from sample hook files
+ * - analyzeSourceFile extracts metadata from new factory functions
  * - HOOK_FACTORY_TO_EVENT mapping
  * - detectHookContext for different directory structures
  * - generateCommandPath for plugin and agent contexts
  * - generateContentHash produces consistent results
+ * - generateSettingsJson builds correct structure
+ * - slugify converts names to URL-friendly IDs
  */
 
 import * as crypto from 'node:crypto';
@@ -16,14 +19,17 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CliArgs } from '../src/cli.js';
+import type { CliArgs, CompiledCommand } from '../src/cli.js';
 import {
   analyzeHookFile,
+  analyzeSourceFile,
   detectHookContext,
   generateCommandPath,
   generateContentHash,
+  generateSettingsJson,
   HOOK_FACTORY_TO_EVENT,
   parseArgs,
+  slugify,
   validateArgs
 } from '../src/cli.js';
 
@@ -119,15 +125,41 @@ describe('parseArgs', () => {
 });
 
 describe('validateArgs', () => {
-  it('returns undefined for valid args with input and output', () => {
+  it('returns undefined for valid args with input, output, and environment', () => {
     const args: CliArgs = {
       input: 'hooks/**/*.ts',
-      output: './dist/hooks.json',
+      output: './dist/settings.json',
+      environment: 'default',
       help: false,
       version: false
     };
 
     expect(validateArgs(args)).toBeUndefined();
+  });
+
+  it('returns undefined for valid args with config file', () => {
+    const args: CliArgs = {
+      input: '',
+      output: '',
+      configFile: 'cards.config.json',
+      help: false,
+      version: false
+    };
+
+    expect(validateArgs(args)).toBeUndefined();
+  });
+
+  it('returns error when environment is missing in single-environment mode', () => {
+    const args: CliArgs = {
+      input: 'hooks/**/*.ts',
+      output: './dist/settings.json',
+      help: false,
+      version: false
+    };
+
+    const error = validateArgs(args);
+
+    expect(error).toBe('Missing required argument: --environment <name>');
   });
 
   it('returns undefined when help flag is set', () => {
@@ -463,5 +495,375 @@ describe('generateContentHash', () => {
     const hash = generateContentHash(content);
 
     expect(hash).toBe(expectedHash);
+  });
+});
+
+describe('analyzeSourceFile', () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-test-source-'));
+  });
+
+  afterEach(() => {
+    const files = fs.readdirSync(tempDir);
+    for (const file of files) {
+      fs.unlinkSync(path.join(tempDir, file));
+    }
+    fs.rmdirSync(tempDir);
+  });
+
+  function writeSourceFile(filename: string, content: string): string {
+    const filePath = path.join(tempDir, filename);
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return filePath;
+  }
+
+  it('extracts actionStart metadata', () => {
+    const filePath = writeSourceFile(
+      'start-action.ts',
+      `
+      import { actionStart } from '@cards/configuration';
+
+      export default actionStart(
+        { actionName: 'Launch Claude', description: 'Start Claude', supportsBackgroundMode: true },
+        async (input, { logger }) => {
+          logger.info('Action started');
+        }
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.factoryType).toBe('actionStart');
+    expect(metadata?.actionName).toBe('Launch Claude');
+    expect(metadata?.description).toBe('Start Claude');
+    expect(metadata?.supportsBackgroundMode).toBe(true);
+  });
+
+  it('extracts actionEnd metadata', () => {
+    const filePath = writeSourceFile(
+      'end-action.ts',
+      `
+      import { actionEnd } from '@cards/configuration';
+
+      export default actionEnd(
+        { actionName: 'Launch Claude', timeout: 5000 },
+        async (input, { logger }) => {
+          logger.info('Action ended');
+        }
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.factoryType).toBe('actionEnd');
+    expect(metadata?.actionName).toBe('Launch Claude');
+    expect(metadata?.timeout).toBe(5000);
+  });
+
+  it('extracts typeValidator metadata', () => {
+    const filePath = writeSourceFile(
+      'validator.ts',
+      `
+      import { typeValidator } from '@cards/configuration';
+
+      export default typeValidator(
+        { typeName: 'adaptive-card', timeout: 30000 },
+        async (input, { logger }) => {
+          logger.info('Validating');
+        }
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.factoryType).toBe('typeValidator');
+    expect(metadata?.typeName).toBe('adaptive-card');
+    expect(metadata?.timeout).toBe(30000);
+  });
+
+  it('extracts typeCreate metadata', () => {
+    const filePath = writeSourceFile(
+      'create.ts',
+      `
+      import { typeCreate } from '@cards/configuration';
+
+      export default typeCreate(
+        { typeName: 'adaptive-card' },
+        async (input, { logger }) => {
+          logger.info('Created');
+        }
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.factoryType).toBe('typeCreate');
+    expect(metadata?.typeName).toBe('adaptive-card');
+  });
+
+  it('extracts typeUpdate metadata', () => {
+    const filePath = writeSourceFile(
+      'update.ts',
+      `
+      import { typeUpdate } from '@cards/configuration';
+
+      export default typeUpdate(
+        { typeName: 'adaptive-card' },
+        async (input) => {}
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.factoryType).toBe('typeUpdate');
+    expect(metadata?.typeName).toBe('adaptive-card');
+  });
+
+  it('extracts typeDelete metadata', () => {
+    const filePath = writeSourceFile(
+      'delete.ts',
+      `
+      import { typeDelete } from '@cards/configuration';
+
+      export default typeDelete(
+        { typeName: 'adaptive-card' },
+        async (input) => {}
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.factoryType).toBe('typeDelete');
+    expect(metadata?.typeName).toBe('adaptive-card');
+  });
+
+  it('returns undefined for non-factory file', () => {
+    const filePath = writeSourceFile(
+      'not-a-factory.ts',
+      `
+      export default function regularFunction() {
+        console.log('Not a factory');
+      }
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata).toBeUndefined();
+  });
+
+  it('handles namespace-qualified factory', () => {
+    const filePath = writeSourceFile(
+      'namespace.ts',
+      `
+      import * as config from '@cards/configuration';
+
+      export default config.actionStart(
+        { actionName: 'Test' },
+        async (input) => {}
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.factoryType).toBe('actionStart');
+    expect(metadata?.actionName).toBe('Test');
+  });
+
+  it('extracts allowConcurrent from config', () => {
+    const filePath = writeSourceFile(
+      'concurrent.ts',
+      `
+      import { actionStart } from '@cards/configuration';
+
+      export default actionStart(
+        { actionName: 'Test', allowConcurrent: false },
+        async (input) => {}
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.allowConcurrent).toBe(false);
+  });
+
+  it('extracts icon from config', () => {
+    const filePath = writeSourceFile(
+      'icon.ts',
+      `
+      import { actionStart } from '@cards/configuration';
+
+      export default actionStart(
+        { actionName: 'Test', icon: '$CARDS_PLUGIN_ROOT/images/icon.svg' },
+        async (input) => {}
+      );
+    `
+    );
+
+    const metadata = analyzeSourceFile(filePath);
+
+    expect(metadata?.icon).toBe('$CARDS_PLUGIN_ROOT/images/icon.svg');
+  });
+});
+
+describe('slugify', () => {
+  it('converts spaces to hyphens', () => {
+    expect(slugify('Launch Claude')).toBe('launch-claude');
+  });
+
+  it('removes special characters', () => {
+    expect(slugify('Test@Action!')).toBe('test-action');
+  });
+
+  it('converts to lowercase', () => {
+    expect(slugify('UPPERCASE')).toBe('uppercase');
+  });
+
+  it('removes leading and trailing hyphens', () => {
+    expect(slugify('--test--')).toBe('test');
+  });
+
+  it('collapses multiple special chars to single hyphen', () => {
+    expect(slugify('test   action')).toBe('test-action');
+  });
+});
+
+describe('generateSettingsJson', () => {
+  const contextInfo = {
+    context: 'plugin' as const,
+    rootDir: '/plugin-root'
+  };
+  const buildDir = '/plugin-root/bin';
+
+  it('generates settings with actions', () => {
+    const compiledCommands: CompiledCommand[] = [
+      {
+        sourcePath: '/src/start.ts',
+        outputPath: '/plugin-root/bin/start.abc123.mjs',
+        outputFilename: 'start.abc123.mjs',
+        metadata: {
+          factoryType: 'actionStart',
+          actionName: 'Launch Claude',
+          description: 'Start Claude',
+          supportsBackgroundMode: true
+        }
+      },
+      {
+        sourcePath: '/src/end.ts',
+        outputPath: '/plugin-root/bin/end.def456.mjs',
+        outputFilename: 'end.def456.mjs',
+        metadata: {
+          factoryType: 'actionEnd',
+          actionName: 'Launch Claude',
+          timeout: 5000
+        }
+      }
+    ];
+
+    const settings = generateSettingsJson(compiledCommands, 'default', 'Test environment', buildDir, contextInfo);
+
+    expect(settings.environments.default).toBeDefined();
+    expect(settings.environments.default.version).toBe(1);
+    expect(settings.environments.default.description).toBe('Test environment');
+    expect(settings.environments.default.actions).toHaveLength(1);
+
+    const action = settings.environments.default.actions[0];
+    expect(action.id).toBe('launch-claude');
+    expect(action.name).toBe('Launch Claude');
+    expect(action.description).toBe('Start Claude');
+    expect(action.supportsBackgroundMode).toBe(true);
+    expect(action.start.command).toContain('start.abc123.mjs');
+    expect(action.end?.command).toContain('end.def456.mjs');
+    expect(action.end?.timeout).toBe(5000);
+  });
+
+  it('generates settings with types', () => {
+    const compiledCommands: CompiledCommand[] = [
+      {
+        sourcePath: '/src/validator.ts',
+        outputPath: '/plugin-root/bin/validator.abc123.mjs',
+        outputFilename: 'validator.abc123.mjs',
+        metadata: {
+          factoryType: 'typeValidator',
+          typeName: 'adaptive-card',
+          timeout: 30000
+        }
+      },
+      {
+        sourcePath: '/src/create.ts',
+        outputPath: '/plugin-root/bin/create.def456.mjs',
+        outputFilename: 'create.def456.mjs',
+        metadata: {
+          factoryType: 'typeCreate',
+          typeName: 'adaptive-card'
+        }
+      }
+    ];
+
+    const settings = generateSettingsJson(compiledCommands, 'default', undefined, buildDir, contextInfo);
+
+    expect(settings.environments.default.types).toBeDefined();
+    expect(settings.environments.default.types!['adaptive-card']).toBeDefined();
+
+    const typeConfig = settings.environments.default.types!['adaptive-card'];
+    expect(typeConfig.version).toBe('1.0.0');
+    expect(typeConfig.validator?.command).toContain('validator.abc123.mjs');
+    expect(typeConfig.validator?.timeout).toBe(30000);
+    expect(typeConfig.create?.command).toContain('create.def456.mjs');
+  });
+
+  it('includes __generated metadata', () => {
+    const compiledCommands: CompiledCommand[] = [
+      {
+        sourcePath: '/src/start.ts',
+        outputPath: '/plugin-root/bin/start.abc123.mjs',
+        outputFilename: 'start.abc123.mjs',
+        metadata: {
+          factoryType: 'actionStart',
+          actionName: 'Test'
+        }
+      }
+    ];
+
+    const settings = generateSettingsJson(compiledCommands, 'default', undefined, buildDir, contextInfo);
+
+    expect(settings.__generated.files).toContain('start.abc123.mjs');
+    expect(settings.__generated.timestamp).toBeDefined();
+  });
+
+  it('omits description when not provided', () => {
+    const compiledCommands: CompiledCommand[] = [];
+
+    const settings = generateSettingsJson(compiledCommands, 'default', undefined, buildDir, contextInfo);
+
+    expect(settings.environments.default.description).toBeUndefined();
+  });
+
+  it('omits types when none provided', () => {
+    const compiledCommands: CompiledCommand[] = [
+      {
+        sourcePath: '/src/start.ts',
+        outputPath: '/plugin-root/bin/start.abc123.mjs',
+        outputFilename: 'start.abc123.mjs',
+        metadata: {
+          factoryType: 'actionStart',
+          actionName: 'Test'
+        }
+      }
+    ];
+
+    const settings = generateSettingsJson(compiledCommands, 'default', undefined, buildDir, contextInfo);
+
+    expect(settings.environments.default.types).toBeUndefined();
   });
 });
