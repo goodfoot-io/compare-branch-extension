@@ -33,7 +33,7 @@ Search the codebase to find additional information as needed. When referencing c
 ## 2. Post the Response
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[Your answer]",
   "author": "agent",
@@ -48,7 +48,7 @@ Based on answer content:
 ## 3. Update `needsAgentAttention` field
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "needsAgentAttention": false
 }

@@ -41,7 +41,7 @@ Before asking the user about audience, location, or content, follow this protoco
 
 <instructions>
 
-1. Load the `issues:documentation` skill and review how to write a world-class documentation request.
+1. Load the `cards:documentation` skill and review how to write a world-class documentation request.
 
 2. Conduct an interview to improve only the issue title and description (do not modify plan content or other fields) so they align with this guidance.
 
@@ -50,7 +50,7 @@ Before asking the user about audience, location, or content, follow this protoco
 4. Then patch the issue with the revised title and description:
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "title": "[updated title]",
   "description": "[updated description]"

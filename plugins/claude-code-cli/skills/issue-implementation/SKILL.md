@@ -127,7 +127,7 @@ If "Implementation Complete" comment exists on the issue, skip to **4. Finalize*
 
    If changes are needed:
    ```
-   PATCH /issues/[ISSUE_ID]
+   PATCH /cards/[CARD_ID]
    {
      "title": "[CLARIFIED_TITLE]",
      "description": "[CLARIFIED_DESCRIPTION]"
@@ -309,7 +309,7 @@ Based on implementer status:
 
 **On COMPLETED:** Post a progress comment summarizing what was implemented:
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[Summary of implementation: what was built, key decisions made]",
   "author": "agent",
@@ -342,7 +342,7 @@ Only proceed to **4. Finalize** when ALL validations pass.
 
 Post a summary explaining what you implemented and key decisions made. List the main files modified and confirm all validation passed. Indicate you're waiting for approval before merge.
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[Summary with validation results and files modified]",
   "author": "agent",

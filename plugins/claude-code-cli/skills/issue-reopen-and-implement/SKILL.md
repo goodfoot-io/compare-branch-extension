@@ -16,7 +16,7 @@ Based on [LATEST_USER_COMMENT]:
 Summarize the user's request from their latest comment to confirm you understand what additional work they want done.
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent"

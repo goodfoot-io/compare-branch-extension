@@ -17,7 +17,7 @@ Confirm that:
 Post a comment that briefly summarizes what was completed and clarifies you're waiting for user review before taking further action.
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent"
@@ -29,7 +29,7 @@ POST /issues/[ISSUE_ID]/comments
 Clear the flag to prevent repeated no-op invocations:
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "needsAgentAttention": false
 }

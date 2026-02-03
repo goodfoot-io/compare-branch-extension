@@ -31,7 +31,7 @@ Skip if a "## Blocked" comment already exists with the same [BLOCKER_REASON].
 Post a comment explaining what is preventing progress. Identify the specific blocker (including any referenced issue IDs), describe what action is needed to resolve it, and indicate that work will resume once the blocker is cleared.
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[comment content]",
   "author": "agent"
@@ -41,7 +41,7 @@ POST /issues/[ISSUE_ID]/comments
 ### Update Issue
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "needsAgentAttention": false
 }

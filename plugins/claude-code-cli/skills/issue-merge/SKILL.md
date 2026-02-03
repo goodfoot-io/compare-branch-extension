@@ -58,7 +58,7 @@ Based on rebase result:
 - **Conflicts cannot be resolved**: Post error comment, add `blocked` tag, **STOP** — Awaiting user intervention.
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "tags": ["blocked"]
 }
@@ -81,7 +81,7 @@ Based on validation result:
 - **Validation fails and attempts ≥ 3**: Post error comment explaining what failed and what you attempted, add `blocked` tag, **STOP** — Awaiting user intervention.
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "tags": ["blocked"]
 }
@@ -109,7 +109,7 @@ Based on merge result:
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "tags": ["blocked"]
 }

@@ -25,7 +25,7 @@ DISCOVER_API="$SCRIPT_DIR/discover-workspace-api.sh"
 # Setup mock home directory
 setup_mock_home() {
     export HOME="$TEST_DIR/mock-home"
-    mkdir -p "$HOME/.compare-branch"
+    mkdir -p "$HOME/.cards"
 }
 
 # Cleanup mock home directory
@@ -109,7 +109,7 @@ TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
 export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 
-cat > "$HOME/.compare-branch/issues-api.json" <<EOF
+cat > "$HOME/.cards/cards-api.json" <<EOF
 {
   "$TEST_WORKSPACE": {
     "port": 54321,
@@ -130,7 +130,7 @@ TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
 export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 
-cat > "$HOME/.compare-branch/issues-api.json" <<EOF
+cat > "$HOME/.cards/cards-api.json" <<EOF
 {
   "/some/other/path": {
     "port": 55555,
@@ -150,7 +150,7 @@ setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
 export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
-echo '{}' > "$HOME/.compare-branch/issues-api.json"
+echo '{}' > "$HOME/.cards/cards-api.json"
 run_test "Empty discovery file" 1
 
 # Test 6: Invalid JSON in discovery file
@@ -159,7 +159,7 @@ setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
 export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
-echo 'not valid json' > "$HOME/.compare-branch/issues-api.json"
+echo 'not valid json' > "$HOME/.cards/cards-api.json"
 # Note: jq returns exit code 4 for parse errors, which causes script to fail
 run_test "Invalid JSON in discovery file" 4
 
@@ -170,7 +170,7 @@ TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
 export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
 
-cat > "$HOME/.compare-branch/issues-api.json" <<EOF
+cat > "$HOME/.cards/cards-api.json" <<EOF
 {
   "/some/other/path": {
     "port": 11111,

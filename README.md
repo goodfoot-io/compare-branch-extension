@@ -1,7 +1,7 @@
-[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/goodfoot.compare-branch?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/goodfoot.cards?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards)
 [![Open VSX Registry](https://img.shields.io/open-vsx/v/goodfoot/compare-branch?label=Open%20VSX)](https://open-vsx.org/extension/goodfoot/compare-branch)
 
-Compare Branch is a performance-optimized VS Code extension that provides comprehensive branch comparison in a hierarchical tree view. See all differences between your working branch and its base git ref without leaving your editor.
+Cards is a performance-optimized VS Code extension that provides comprehensive branch comparison in a hierarchical tree view. See all differences between your working branch and its base git ref without leaving your editor.
 
 **Built for development teams working with:**
 
@@ -97,15 +97,15 @@ Examine all AI-generated changes in a unified interface. Navigate file-by-file f
 Auto-refresh capability enables live review as AI agents create commits. Non-blocking architecture ensures no performance impact.
 
 **Parallel development:**
-For teams using git worktrees with multiple AI agents, Compare Branch enables comparison across different working directories.
+For teams using git worktrees with multiple AI agents, Cards enables comparison across different working directories.
 
 ---
 
-## Why Choose Compare Branch?
+## Why Choose Cards?
 
 ### Comparison with Alternatives
 
-| Capability              | Compare Branch    | GitLens            | Git Tree Compare |
+| Capability              | Cards             | GitLens            | Git Tree Compare |
 | ----------------------- | ----------------- | ------------------ | ---------------- |
 | Primary focus           | Branch comparison | Complete git suite | Basic tree view  |
 | Performance             | Optimized         | Feature-heavy      | Fast             |
@@ -136,10 +136,10 @@ For teams using git worktrees with multiple AI agents, Compare Branch enables co
 ### From Visual Studio Marketplace
 
 1. Open VS Code Extensions panel (`Cmd+Shift+X` or `Ctrl+Shift+X`)
-2. Search for "Compare Branch"
+2. Search for "Cards"
 3. Click Install
 
-**[→ Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)**
+**[→ Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards)**
 
 ### From Open VSX Registry
 
@@ -164,7 +164,7 @@ Download the `.vsix` file from [Releases](https://github.com/goodfoot-io/compare
 ## Quick Start
 
 1. Open a git repository in VS Code
-2. Click the Compare Branch icon in the Activity Bar
+2. Click the Cards icon in the Activity Bar
 3. Review automatically detected changes
 4. Click any file to view the diff
 
@@ -218,11 +218,11 @@ Click the branch selector icon to choose any branch, commit, or tag. Return to a
 
 Access via Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`):
 
-- **Compare Branch: Change Base Branch** — Select different comparison base
-- **Compare Branch: Enable Auto-Detect Base Branch** — Return to automatic detection
-- **Compare Branch: Refresh** — Manually trigger view refresh
-- **Compare Branch: Switch to All Files Mode** — Display complete file tree
-- **Compare Branch: Switch to Changed Files Mode** — Display changed files only
+- **Cards: Change Base Branch** — Select different comparison base
+- **Cards: Enable Auto-Detect Base Branch** — Return to automatic detection
+- **Cards: Refresh** — Manually trigger view refresh
+- **Cards: Switch to All Files Mode** — Display complete file tree
+- **Cards: Switch to Changed Files Mode** — Display changed files only
 
 ---
 
@@ -233,13 +233,13 @@ Verify downloaded releases by comparing checksums:
 **macOS/Linux:**
 
 ```bash
-sha256sum compare-branch-*.vsix
+sha256sum cards-*.vsix
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-Get-FileHash compare-branch-*.vsix -Algorithm SHA256
+Get-FileHash cards-*.vsix -Algorithm SHA256
 ```
 
 Compare output with the checksum in `checksums.txt` from the release.
@@ -309,7 +309,7 @@ Yes. Works with Cursor, Windsurf, VSCodium, and other VS Code-based editors. Ava
 
 ### How You Can Help
 
-While Compare Branch is proprietary software, community participation is valuable:
+While Cards is proprietary software, community participation is valuable:
 
 - **Report bugs** — [Open an issue](https://github.com/goodfoot-io/compare-branch-extension/issues/new)
 - **Request features** — [Start a discussion](https://github.com/goodfoot-io/compare-branch-extension/discussions/new?category=ideas)
@@ -354,7 +354,7 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 
 ## Links
 
-- 🏪 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
+- 🏪 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards)
 - 🌐 [Open VSX Registry](https://open-vsx.org/extension/goodfoot/compare-branch)
 - 📦 [GitHub Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 - 💬 [Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)
@@ -366,8 +366,8 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 
 <div align="center">
 
-**⭐ If you find Compare Branch useful, please star this repository!**
+**⭐ If you find Cards useful, please star this repository!**
 
-[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch) | [Install from Open VSX](https://open-vsx.org/extension/goodfoot/compare-branch)
+[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards) | [Install from Open VSX](https://open-vsx.org/extension/goodfoot/compare-branch)
 
 </div>

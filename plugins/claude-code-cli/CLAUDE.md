@@ -7,10 +7,10 @@ The plugin implements a **prompt → skill → agent → bin** architecture for 
 ### Call Chain Flow
 
 ```
-.compare-branch/prompt.md (entry point)
+.cards/prompt.md (entry point)
        │
        ▼
-  issues:api + skill-routing
+  cards:api + skill-routing
        │
        ▼
   ┌────────────────────────────────────────┐
@@ -35,7 +35,7 @@ The plugin implements a **prompt → skill → agent → bin** architecture for 
 
 | Layer | Files | Purpose |
 |-------|-------|---------|
-| **Prompt** | `.compare-branch/prompt.md` | Entry point, invokes initial skills |
+| **Prompt** | `.cards/prompt.md` | Entry point, invokes initial skills |
 | **Skills** | `skills/*/SKILL.md` | Knowledge + routing instructions |
 | **Agents** | `agents/*.md` | Isolated execution with own context |
 | **Bin** | `bin/*.sh` | Shell utilities (git, API calls) |
@@ -76,7 +76,7 @@ See `connections.json` for the complete mapping of:
 **Agent loads Skills:**
 ```yaml
 # agents/*.md frontmatter
-skills: issues:api, claude-code-cli:plan
+skills: cards:api, claude-code-cli:plan
 ```
 
 **Hook triggers Bin:**

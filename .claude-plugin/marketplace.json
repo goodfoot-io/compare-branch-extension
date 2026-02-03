@@ -1,20 +1,20 @@
 {
-  "name": "compare-branch-extension",
+  "name": "cards-extension",
   "owner": {
-    "name": "Compare Branch",
+    "name": "Cards",
     "email": "team@example.com"
   },
   "metadata": {
-    "description": "Plugins for the Compare Branch VSCode extension",
-    "version": "1.0.248",
+    "description": "Plugins for the Cards VSCode extension",
+    "version": "1.0.275",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
-      "name": "issues",
-      "version": "1.0.59",
-      "source": "./plugins/issues",
-      "description": "Claude Code plugin for interacting with Compare Branch extension's Issues API",
+      "name": "cards",
+      "version": "1.0.65",
+      "source": "./plugins/cards",
+      "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {
         "name": "Goodfoot Media LLC"
       },
@@ -22,9 +22,9 @@
     },
     {
       "name": "claude-code-cli",
-      "version": "2.0.66",
+      "version": "2.0.93",
       "source": "./plugins/claude-code-cli",
-      "description": "Hooks for session tracking with Compare Branch extension's Issues API",
+      "description": "Hooks for session tracking with Cards extension's Cards API",
       "author": {
         "name": "Goodfoot Media LLC"
       },

@@ -114,7 +114,7 @@ Do not expand scope beyond the reported bug.
 
 If changes are needed:
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "title": "[CLARIFIED_TITLE]",
   "description": "[CLARIFIED_DESCRIPTION]"
@@ -219,7 +219,7 @@ Based on subagent response and test result:
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Post a progress comment informing the user that you've created a test demonstrating the bug. Explain what the test checks and why it currently fails.
     ```
-    POST /issues/[ISSUE_ID]/comments
+    POST /cards/[CARD_ID]/comments
     {
       "body": "[comment content]",
       "author": "agent"
@@ -235,7 +235,7 @@ Based on subagent response and test result:
 - **Test PASSES (unexpected) and attempts ≥ 3**:
   Report that you were unable to create a test that reproduces the reported bug. Summarize what you tried in each attempt and share your hypothesis about why reproduction failed.
   ```
-  POST /issues/[ISSUE_ID]/comments
+  POST /cards/[CARD_ID]/comments
   {
     "body": "[comment content]",
     "author": "agent"
@@ -344,7 +344,7 @@ Based on changes detected:
   - **If attempts < 3**: Return to Step 3.2
   - **If attempts ≥ 3**: Explain that you couldn't resolve the bug despite multiple attempts. Describe what you tried and identify the specific technical obstacle preventing resolution.
     ```
-    POST /issues/[ISSUE_ID]/comments
+    POST /cards/[CARD_ID]/comments
     {
       "body": "[comment content]",
       "author": "agent"
@@ -357,7 +357,7 @@ Based on changes detected:
 1. Increment TEST_CORRECTION_COUNT
 2. **If > 2**: Report that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it can't be trusted to verify the fix.
    ```
-   POST /issues/[ISSUE_ID]/comments
+   POST /cards/[CARD_ID]/comments
    {
      "body": "[comment content]",
      "author": "agent"
@@ -435,7 +435,7 @@ Based on review requirement:
 - **[REVIEW_REQUIRED]**:
   Tell the user the bug fix is complete and awaiting their review. Summarize what the bug was, explain how you fixed it, and confirm that both the reproduction test and full test suite pass.
   ```
-  POST /issues/[ISSUE_ID]/comments
+  POST /cards/[CARD_ID]/comments
   {
     "body": "[comment content]",
     "author": "agent",
@@ -451,7 +451,7 @@ Based on review requirement:
 - **NOT [REVIEW_REQUIRED]**:
   Announce that you've completed the bug fix. Summarize the bug, explain your fix approach, and confirm all tests pass. Since no review is required, you're proceeding directly to merge.
   ```
-  POST /issues/[ISSUE_ID]/comments
+  POST /cards/[CARD_ID]/comments
   {
     "body": "[comment content]",
     "author": "agent",

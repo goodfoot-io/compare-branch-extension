@@ -19,7 +19,7 @@ Evaluate conditions in order (first match wins):
 ## 3. Post Comment
 
 ```
-POST /issues/[ISSUE_ID]/comments
+POST /cards/[CARD_ID]/comments
 {
   "body": "[Response from Step 1]\n\n---\n*Note: This issue is in backlog. Move to 'todo' status when ready to begin implementation.*",
   "author": "agent"
@@ -31,7 +31,7 @@ POST /issues/[ISSUE_ID]/comments
 After successfully posting the comment:
 
 ```
-PATCH /issues/[ISSUE_ID]
+PATCH /cards/[CARD_ID]
 {
   "needsAgentAttention": false
 }

@@ -3,7 +3,7 @@ name: implementation-evaluator
 description: Evaluate implementation quality and determine production readiness.
 color: blue
 model: inherit
-skills: issues:api, claude-code-cli:plan
+skills: cards:api, claude-code-cli:plan
 ---
 
 <placeholder-variables>
@@ -15,7 +15,7 @@ Extract from the invoking context:
 - [DESCRIPTION] = The issue description with requirements
 
 **API-Retrieved Fields:**
-- [PLAN_CONTENT] = Fetch via `GET /issues/[ISSUE_ID]/plan-content`
+- [PLAN_CONTENT] = Fetch via `GET /cards/[CARD_ID]/plan`
 </placeholder-variables>
 
 You are an implementation quality evaluator that systematically verifies implementation quality and determines production readiness status for completed features. You ultrathink.

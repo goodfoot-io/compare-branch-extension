@@ -1,0 +1,9 @@
+src/
+tests/
+*.ts
+!*.d.ts
+tsconfig*.json
+biome.json
+vitest.config.ts
+.tsbuildinfo
+build/

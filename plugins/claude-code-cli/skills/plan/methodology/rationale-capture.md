@@ -86,7 +86,7 @@ For significant decisions, use a Rationale & Context section:
 ### Decision Records in Issue Comments
 For evolving projects, capture decisions in issue comments as they happen.
 
-Post a Decision Record comment via `POST /issues/[ISSUE_ID]/comments` whenever:
+Post a Decision Record comment via `POST /cards/[CARD_ID]/comments` whenever:
 - A technology selection is made
 - Scope is changed (features added or removed)
 - Trade-offs are resolved
