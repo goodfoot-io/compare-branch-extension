@@ -1,4 +1,4 @@
-[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/goodfoot.compare-branch?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/goodfoot.cards?label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards)
 [![Open VSX Registry](https://img.shields.io/open-vsx/v/goodfoot/compare-branch?label=Open%20VSX)](https://open-vsx.org/extension/goodfoot/compare-branch)
 
 Cards is a performance-optimized VS Code extension that provides comprehensive branch comparison in a hierarchical tree view. See all differences between your working branch and its base git ref without leaving your editor.
@@ -139,7 +139,7 @@ For teams using git worktrees with multiple AI agents, Cards enables comparison 
 2. Search for "Cards"
 3. Click Install
 
-**[→ Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)**
+**[→ Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards)**
 
 ### From Open VSX Registry
 
@@ -354,7 +354,7 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 
 ## Links
 
-- 🏪 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch)
+- 🏪 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards)
 - 🌐 [Open VSX Registry](https://open-vsx.org/extension/goodfoot/compare-branch)
 - 📦 [GitHub Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 - 💬 [Discussions](https://github.com/goodfoot-io/compare-branch-extension/discussions)
@@ -368,6 +368,6 @@ See [Releases](https://github.com/goodfoot-io/compare-branch-extension/releases)
 
 **⭐ If you find Cards useful, please star this repository!**
 
-[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.compare-branch) | [Install from Open VSX](https://open-vsx.org/extension/goodfoot/compare-branch)
+[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=goodfoot.cards) | [Install from Open VSX](https://open-vsx.org/extension/goodfoot/compare-branch)
 
 </div>

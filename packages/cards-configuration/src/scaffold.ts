@@ -11,7 +11,7 @@
  * @module
  * @example
  * ```bash
- * npx @goodfoot/compare-branch-configuration --scaffold ./my-hooks --hooks StartCard,EndCard -o dist/hooks.json
+ * npx @cards/configuration --scaffold ./my-hooks --hooks StartCard,EndCard -o dist/hooks.json
  * ```
  */
 
@@ -125,13 +125,13 @@ function generatePackageJson(projectName: string, outputPath: string): string {
     version: '1.0.0',
     type: 'module',
     scripts: {
-      build: `compare-branch-configuration -i "src/**/*.ts" -o "${outputPath}"`,
+      build: `cards-configuration -i "src/**/*.ts" -o "${outputPath}"`,
       test: 'vitest run',
       lint: 'biome check .',
       typecheck: 'tsc --noEmit'
     },
     dependencies: {
-      '@goodfoot/compare-branch-configuration': '^1.0.0'
+      '@cards/configuration': '^1.0.0'
     },
     devDependencies: {
       '@biomejs/biome': '2.3.11',
@@ -231,7 +231,7 @@ export default defineConfig({
  * @returns Markdown content for CLAUDE.md
  */
 function generateClaudeMd(): string {
-  return 'Load the `compare-branch-configuration:compare-branch-configuration` skill immediately if it is available.\n';
+  return 'Load the `cards-configuration:cards-configuration` skill immediately if it is available.\n';
 }
 
 /**
@@ -275,7 +275,7 @@ function generateReadme(projectName: string, hooks: HookEventName[]): string {
   const hookList = hooks.map((h) => `\`${h}\``).join(', ');
   return `# ${projectName}
 
-This project contains Cards Extension hooks built with the \`@goodfoot/compare-branch-configuration\` library. Hooks let you extend the Cards workflow by running custom code at specific points during card execution—when cards or tasks start/end, and when interviews begin/complete. This project includes hooks for: ${hookList}.
+This project contains Cards Extension hooks built with the \`@cards/configuration\` library. Hooks let you extend the Cards workflow by running custom code at specific points during card execution—when cards or tasks start/end, and when interviews begin/complete. This project includes hooks for: ${hookList}.
 
 To get started, run \`npm install\` to install dependencies, then \`npm run build\` to compile your hooks into \`hooks.json\`. Configure the Cards Extension to use your hooks, and they will run automatically during card execution. Edit the files in \`src/\` to customize behavior, and use \`npm test\` to verify your changes work correctly.
 `;
@@ -298,7 +298,7 @@ function generateHookTemplate(eventName: HookEventName): string {
  * @see documentation/cards-v2-planning/hook-based-workflow.md
  */
 
-import { ${factoryName} } from "@goodfoot/compare-branch-configuration";
+import { ${factoryName} } from "@cards/configuration";
 
 export default ${factoryName}({}, (input, { logger }) => {
   logger.info("${eventName} hook triggered", { input });
@@ -321,7 +321,7 @@ function generateTestFile(eventName: HookEventName, hookFilename: string): strin
  * Tests for the ${eventName} hook.
  */
 
-import { Logger } from "@goodfoot/compare-branch-configuration";
+import { Logger } from "@cards/configuration";
 import { describe, expect, it } from "vitest";
 import hook from "../src/${hookFilename}.js";
 

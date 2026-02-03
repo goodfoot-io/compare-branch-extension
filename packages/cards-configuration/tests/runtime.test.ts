@@ -84,7 +84,7 @@ describe('execute', () => {
     process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
-    process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE = '/tmp/test.log';
+    process.env.CARDS_HOOKS_CLI_LOG_FILE = '/tmp/test.log';
 
     const hook = startCardHook({}, () => {});
 
@@ -97,8 +97,8 @@ describe('execute', () => {
     process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
-    process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE = '/tmp/cli.log';
-    process.env.COMPARE_BRANCH_HOOKS_LOG_FILE = '/tmp/env.log';
+    process.env.CARDS_HOOKS_CLI_LOG_FILE = '/tmp/cli.log';
+    process.env.CARDS_HOOKS_LOG_FILE = '/tmp/env.log';
 
     const hook = startCardHook({}, () => {});
 
@@ -112,8 +112,8 @@ describe('execute', () => {
     process.env.CARD_ID = 'test-card';
     process.env.EXECUTION_WRAPPER_PID = '12345';
     process.env.HOOK_IPC_SOCKET = '/tmp/socket.sock';
-    process.env.COMPARE_BRANCH_HOOKS_CLI_LOG_FILE = '/tmp/same.log';
-    process.env.COMPARE_BRANCH_HOOKS_LOG_FILE = '/tmp/same.log';
+    process.env.CARDS_HOOKS_CLI_LOG_FILE = '/tmp/same.log';
+    process.env.CARDS_HOOKS_LOG_FILE = '/tmp/same.log';
 
     const hook = startCardHook({}, () => {});
 

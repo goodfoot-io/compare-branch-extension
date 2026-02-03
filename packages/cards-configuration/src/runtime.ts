@@ -10,7 +10,7 @@
  * @example
  * ```typescript
  * // In a compiled hook file
- * import { execute } from '@goodfoot/compare-branch-configuration/runtime';
+ * import { execute } from '@cards/configuration/runtime';
  * import myHook from './my-hook.js';
  *
  * execute(myHook);
@@ -58,12 +58,12 @@ function cleanupAndExit(exitCode: number): never {
  * Exits with error if there's a conflict.
  */
 function configureLogFile(): void {
-  const cliLogFile = process.env['COMPARE_BRANCH_HOOKS_CLI_LOG_FILE'];
-  const envLogFile = process.env['COMPARE_BRANCH_HOOKS_LOG_FILE'];
+  const cliLogFile = process.env['CARDS_HOOKS_CLI_LOG_FILE'];
+  const envLogFile = process.env['CARDS_HOOKS_LOG_FILE'];
 
   if (cliLogFile !== undefined && envLogFile !== undefined && cliLogFile !== envLogFile) {
     process.stderr.write(
-      `Log file configuration conflict: CLI --log="${cliLogFile}" vs COMPARE_BRANCH_HOOKS_LOG_FILE="${envLogFile}". ` +
+      `Log file configuration conflict: CLI --log="${cliLogFile}" vs CARDS_HOOKS_LOG_FILE="${envLogFile}". ` +
         'Use only one method to configure hook logging.\n'
     );
     process.exit(EXIT_CODES.ERROR);
@@ -117,8 +117,8 @@ function handleHandlerError(error: unknown): never {
  * @example
  * ```typescript
  * // In compiled hook file
- * import { execute } from '@goodfoot/compare-branch-configuration/runtime';
- * import { startCardHook } from '@goodfoot/compare-branch-configuration';
+ * import { execute } from '@cards/configuration/runtime';
+ * import { startCardHook } from '@cards/configuration';
  *
  * const myHook = startCardHook({}, async (input, { logger }) => {
  *   logger.info('Processing card', { cardId: input.cardId });

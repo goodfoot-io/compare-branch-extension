@@ -1,7 +1,7 @@
 /**
- * Exit code constants and helpers for Compare Branch Extension hooks.
+ * Exit code constants and helpers for Cards Extension hooks.
  *
- * Compare Branch hooks use exit codes to communicate success/failure:
+ * Cards hooks use exit codes to communicate success/failure:
  * - Exit 0: Hook completed successfully
  * - Exit non-zero: Hook failed (error message written to stderr)
  *
@@ -15,7 +15,7 @@
 // ============================================================================
 
 /**
- * Exit codes used by Compare Branch hooks.
+ * Exit codes used by Cards hooks.
  *
  * | Exit Code | Name | When Used |
  * |-----------|------|-----------|

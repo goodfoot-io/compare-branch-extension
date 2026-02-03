@@ -120,7 +120,7 @@ export interface TestValidationResult {
  * @returns The validation result
  * @example
  * ```typescript
- * import { testValidation, createTestRequest, typeValidation, validationCreated } from '@goodfoot/compare-branch-configuration';
+ * import { testValidation, createTestRequest, typeValidation, validationCreated } from '@cards/configuration';
  *
  * const validator = typeValidation({}, async (request) => {
  *   const data = request.bodyJson<{ name: string }>();

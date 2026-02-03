@@ -7,7 +7,7 @@
  * @module
  * @example
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-configuration';
+ * import { logger } from '@cards/configuration';
  *
  * // Subscribe to log events
  * const unsubscribe = logger.on('error', (event) => {
@@ -181,7 +181,7 @@ export interface LoggerConfig {
   /**
    * Path to the log file for file output.
    * If not set, file logging is disabled.
-   * Can also be set via `COMPARE_BRANCH_HOOKS_LOG_FILE` environment variable.
+   * Can also be set via `CARDS_HOOKS_LOG_FILE` environment variable.
    */
   logFilePath?: string;
 }
@@ -198,7 +198,7 @@ export interface LoggerConfig {
  * | Configuration | Behavior |
  * |--------------|----------|
  * | No config (default) | **Silent** - no output anywhere |
- * | `COMPARE_BRANCH_HOOKS_LOG_FILE` env var | Append JSON lines to file |
+ * | `CARDS_HOOKS_LOG_FILE` env var | Append JSON lines to file |
  * | `.on(level, handler)` registered | Events delivered to handlers only |
  * | Multiple destinations | All destinations receive events |
  *
@@ -210,7 +210,7 @@ export interface LoggerConfig {
  * - `.on(level, handler)` returns an unsubscribe function
  * @example
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-configuration';
+ * import { logger } from '@cards/configuration';
  *
  * // Subscribe to events at specific level
  * logger.on('warn', (event) => {
@@ -262,7 +262,7 @@ export class Logger {
    * @example
    * ```typescript
    * // Use singleton (recommended)
-   * import { logger } from '@goodfoot/compare-branch-configuration';
+   * import { logger } from '@cards/configuration';
    *
    * // Or create custom instance
    * const customLogger = new Logger({ logFilePath: '/var/log/hooks.log' });
@@ -275,7 +275,7 @@ export class Logger {
     }
 
     // Set log file path from config or environment
-    this.logFilePath = config.logFilePath ?? process.env['COMPARE_BRANCH_HOOKS_LOG_FILE'] ?? null;
+    this.logFilePath = config.logFilePath ?? process.env['CARDS_HOOKS_LOG_FILE'] ?? null;
   }
 
   /**
@@ -456,7 +456,7 @@ export class Logger {
    * @example
    * ```typescript
    * // Enable file logging at runtime
-   * logger.setLogFile('/var/log/compare-branch-configuration.log');
+   * logger.setLogFile('/var/log/cards-configuration.log');
    *
    * // Disable file logging
    * logger.setLogFile(null);
@@ -646,14 +646,14 @@ export class Logger {
  *
  * | Environment Variable | Description |
  * |---------------------|-------------|
- * | `COMPARE_BRANCH_HOOKS_LOG_FILE` | Path to log file (JSON Lines format) |
+ * | `CARDS_HOOKS_LOG_FILE` | Path to log file (JSON Lines format) |
  *
  * ## Usage in Hooks
  *
  * The logger can be used directly within hook handlers:
  *
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-configuration';
+ * import { logger } from '@cards/configuration';
  *
  * // In a hook handler
  * logger.warn('Task starting in interactive mode');
@@ -664,7 +664,7 @@ export class Logger {
  * Subscribe to events to forward logs to external systems:
  *
  * ```typescript
- * import { logger } from '@goodfoot/compare-branch-configuration';
+ * import { logger } from '@cards/configuration';
  * import pino from 'pino';
  *
  * const pinoLogger = pino({ level: 'debug' });
@@ -677,7 +677,7 @@ export class Logger {
  * @example
  * ```typescript
  * // Direct usage
- * import { logger } from '@goodfoot/compare-branch-configuration';
+ * import { logger } from '@cards/configuration';
  *
  * logger.info('Starting operation');
  * logger.warn('Resource limit approaching', { usage: 0.9 });

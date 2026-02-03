@@ -218,7 +218,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'start-card.ts',
       `
-      import { startCardHook } from '@goodfoot/compare-branch-configuration';
+      import { startCardHook } from '@cards/configuration';
 
       export default startCardHook({}, async (input, { logger }) => {
         logger.info('Card started', { cardId: input.cardId });
@@ -235,7 +235,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'end-card.ts',
       `
-      import { endCardHook } from '@goodfoot/compare-branch-configuration';
+      import { endCardHook } from '@cards/configuration';
 
       export default endCardHook({}, async (input, { logger }) => {
         logger.info('Card ended', { cardId: input.cardId });
@@ -252,7 +252,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'start-interview.ts',
       `
-      import { startInterviewHook } from '@goodfoot/compare-branch-configuration';
+      import { startInterviewHook } from '@cards/configuration';
 
       export default startInterviewHook({}, async (input, { logger }) => {
         logger.info('Interview started');
@@ -269,7 +269,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'end-interview.ts',
       `
-      import { endInterviewHook } from '@goodfoot/compare-branch-configuration';
+      import { endInterviewHook } from '@cards/configuration';
 
       export default endInterviewHook({}, async (input, { logger }) => {
         logger.info('Interview ended');
@@ -301,7 +301,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'parenthesized.ts',
       `
-      import { startCardHook } from '@goodfoot/compare-branch-configuration';
+      import { startCardHook } from '@cards/configuration';
 
       export default (startCardHook({}, async (input) => {}));
     `
@@ -316,7 +316,7 @@ describe('analyzeHookFile', () => {
     const filePath = writeHookFile(
       'namespace.ts',
       `
-      import * as hooks from '@goodfoot/compare-branch-configuration';
+      import * as hooks from '@cards/configuration';
 
       export default hooks.startCardHook({}, async (input) => {});
     `
@@ -373,7 +373,7 @@ describe('generateCommandPath', () => {
 
     const result = generateCommandPath(filename, buildDir, contextInfo);
 
-    expect(result).toBe('node $COMPARE_BRANCH_PLUGIN_ROOT/hooks/bin/my-hook.abc123.mjs');
+    expect(result).toBe('node $CARDS_PLUGIN_ROOT/hooks/bin/my-hook.abc123.mjs');
   });
 
   it('generates plugin command path with custom executable', () => {
@@ -386,7 +386,7 @@ describe('generateCommandPath', () => {
 
     const result = generateCommandPath(filename, buildDir, contextInfo, '/usr/local/bin/node');
 
-    expect(result).toBe('/usr/local/bin/node $COMPARE_BRANCH_PLUGIN_ROOT/dist/bin/hook.abc123.mjs');
+    expect(result).toBe('/usr/local/bin/node $CARDS_PLUGIN_ROOT/dist/bin/hook.abc123.mjs');
   });
 
   it('generates agent command path with default executable', () => {

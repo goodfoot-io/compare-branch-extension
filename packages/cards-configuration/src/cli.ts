@@ -8,10 +8,10 @@
  * @example
  * ```bash
  * # Compile hooks and generate hooks.json
- * compare-branch-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json"
+ * cards-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json"
  *
- * # With runtime logging (equivalent to COMPARE_BRANCH_HOOKS_LOG_FILE)
- * compare-branch-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json" --log /tmp/hooks.log
+ * # With runtime logging (equivalent to CARDS_HOOKS_LOG_FILE)
+ * cards-configuration -i "hooks/**\/*.ts" -o "./dist/hooks.json" --log /tmp/hooks.log
  * ```
  * @module
  */
@@ -33,7 +33,7 @@ import type { HookEventName } from './types.js';
 /**
  * Hook context determines how paths are resolved in hooks.json.
  *
- * - `plugin`: Uses `$COMPARE_BRANCH_PLUGIN_ROOT` for plugin hooks
+ * - `plugin`: Uses `$CARDS_PLUGIN_ROOT` for plugin hooks
  * - `agent`: Uses `"$CLAUDE_PROJECT_DIR"` for agent hooks (.claude/hooks/)
  */
 type HookContext = 'plugin' | 'agent';
@@ -125,7 +125,7 @@ interface HooksJson {
 const VERSION = '1.0.0';
 
 const HELP_TEXT = `
-@goodfoot/compare-branch-configuration - Type-safe, compiled hooks for Cards Extension
+@cards/configuration - Type-safe, compiled hooks for Cards Extension
 
 Description:
   This tool acts as a build system for Cards hooks. It scans your TypeScript files for
@@ -133,7 +133,7 @@ Description:
   and generates a hooks.json manifest for the Cards Extension.
 
 Usage:
-  npx -y @goodfoot/compare-branch-configuration -i <glob> -o <path> [options]
+  npx -y @cards/configuration -i <glob> -o <path> [options]
 
 Build Mode (compile existing hooks):
   -i, --input <glob>
@@ -149,8 +149,8 @@ Optional Arguments:
   --log <path>
       Path to a log file for runtime hook logging.
       If provided, all context.logger calls within your hooks will write to this file.
-      This is equivalent to setting the COMPARE_BRANCH_HOOKS_LOG_FILE environment variable.
-      Example: "/tmp/compare-branch-configuration.log"
+      This is equivalent to setting the CARDS_HOOKS_LOG_FILE environment variable.
+      Example: "/tmp/cards-configuration.log"
 
   --executable <path>
       Node executable path to use in generated commands (default: "node").
@@ -165,13 +165,13 @@ Optional Arguments:
 
 Examples:
   1. Basic Compilation:
-     npx -y @goodfoot/compare-branch-configuration -i "hooks/**/*.ts" -o "dist/hooks.json"
+     npx -y @cards/configuration -i "hooks/**/*.ts" -o "dist/hooks.json"
 
   2. With Runtime Logging:
-     npx -y @goodfoot/compare-branch-configuration -i "src/hooks/*.ts" -o "bin/hooks.json" --log /tmp/hooks.log
+     npx -y @cards/configuration -i "src/hooks/*.ts" -o "bin/hooks.json" --log /tmp/hooks.log
 
   3. With Custom Node Executable:
-     npx -y @goodfoot/compare-branch-configuration -i "hooks/**/*.ts" -o "dist/hooks.json" --executable /usr/local/bin/node
+     npx -y @cards/configuration -i "hooks/**/*.ts" -o "dist/hooks.json" --executable /usr/local/bin/node
 
 Troubleshooting:
   - Ensure your hook files use 'export default'.
@@ -429,7 +429,7 @@ async function compileHook(options: CompileHookOptions): Promise<string> {
   // This ensures the same inputs always produce the same temp path, making builds deterministic
   const hashInputs = [sourcePath, logFilePath ?? ''].join(':');
   const buildHash = crypto.createHash('sha256').update(hashInputs).digest('hex').substring(0, 16);
-  const tempDir = path.join(os.tmpdir(), 'compare-branch-configuration-build', buildHash);
+  const tempDir = path.join(os.tmpdir(), 'cards-configuration-build', buildHash);
   const wrapperPath = path.join(tempDir, 'wrapper.ts');
   const tempOutput = path.join(tempDir, 'output.mjs');
 
@@ -441,9 +441,7 @@ async function compileHook(options: CompileHookOptions): Promise<string> {
 
   // Build log file injection code if specified
   const logFileInjection =
-    logFilePath !== undefined
-      ? `process.env['COMPARE_BRANCH_HOOKS_CLI_LOG_FILE'] = ${JSON.stringify(logFilePath)};\n`
-      : '';
+    logFilePath !== undefined ? `process.env['CARDS_HOOKS_CLI_LOG_FILE'] = ${JSON.stringify(logFilePath)};\n` : '';
 
   // Create wrapper that imports the hook and calls execute
   const wrapperContent = `${logFileInjection}
@@ -636,7 +634,7 @@ function detectHookContext(outputPath: string): HookContextInfo {
  * Calculates the relative path from the root directory to the bin directory.
  * Prepends the node executable.
  *
- * - `plugin`: Uses `node $COMPARE_BRANCH_PLUGIN_ROOT/hooks/bin/filename`
+ * - `plugin`: Uses `node $CARDS_PLUGIN_ROOT/hooks/bin/filename`
  * - `agent`: Uses `node "$CLAUDE_PROJECT_DIR"/.claude/hooks/bin/filename`
  * @param filename - The compiled hook filename
  * @param buildDir - Absolute path to the bin directory
@@ -659,8 +657,8 @@ function generateCommandPath(
     // Agent hooks use $CLAUDE_PROJECT_DIR with shell-style quoting
     return `${executable} "$CLAUDE_PROJECT_DIR"/${normalizedRelativePath}/${filename}`;
   }
-  // Plugin hooks use $COMPARE_BRANCH_PLUGIN_ROOT
-  return `${executable} $COMPARE_BRANCH_PLUGIN_ROOT/${normalizedRelativePath}/${filename}`;
+  // Plugin hooks use $CARDS_PLUGIN_ROOT
+  return `${executable} $CARDS_PLUGIN_ROOT/${normalizedRelativePath}/${filename}`;
 }
 
 /**
@@ -761,7 +759,7 @@ function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Record<Hoo
       // Filter out hooks whose command matches a generated file
       const preservedHooks = entry.hooks.filter((hook) => {
         // Extract filename from the command path
-        // Command format: ${COMPARE_BRANCH_PLUGIN_ROOT}/filename.hash.mjs
+        // Command format: ${CARDS_PLUGIN_ROOT}/filename.hash.mjs
         const match = hook.command.match(/\/([^/]+)$/);
         const filename = match ? match[1] : '';
         return !generatedFiles.has(filename);
@@ -867,7 +865,7 @@ async function main(): Promise<void> {
 
   // Handle version
   if (args.version) {
-    process.stdout.write(`compare-branch-configuration v${VERSION}\n`);
+    process.stdout.write(`cards-configuration v${VERSION}\n`);
     process.exit(0);
   }
 

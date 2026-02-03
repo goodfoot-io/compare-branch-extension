@@ -1,12 +1,12 @@
 {
-  "name": "@goodfoot/compare-branch-configuration",
+  "name": "@cards/configuration",
   "version": "1.0.0",
-  "description": "Type-safe configuration library for the Compare Branch Extension with hooks, validators, and type configurations",
-  "homepage": "https://github.com/goodfoot-io/marketplace/tree/main/public/packages/compare-branch-configuration",
+  "description": "Type-safe configuration library for the Cards Extension with hooks, validators, and type configurations",
+  "homepage": "https://github.com/goodfoot-io/marketplace/tree/main/public/packages/cards-configuration",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/goodfoot-io/marketplace.git",
-    "directory": "public/packages/compare-branch-configuration"
+    "directory": "public/packages/cards-configuration"
   },
   "type": "module",
   "sideEffects": false,
@@ -44,7 +44,7 @@
       }
     },
     "bin": {
-      "compare-branch-configuration": "./dist/cli.js"
+      "cards-configuration": "./dist/cli.js"
     }
   },
   "dependencies": {

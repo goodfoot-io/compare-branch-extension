@@ -27,7 +27,7 @@ import type { HookEventName, HookInputForEvent } from './types.js';
  *
  * These are the environment variables that execution-wrapper.mjs sets when running hooks.
  */
-export const COMPARE_BRANCH_ENV_VARS = {
+export const CARDS_ENV_VARS = {
   /**
    * Unique identifier for the current card.
    * Available in all hooks.
@@ -111,9 +111,9 @@ export const COMPARE_BRANCH_ENV_VARS = {
  * ```
  */
 export function getCardId(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.CARD_ID];
+  const value = process.env[CARDS_ENV_VARS.CARD_ID];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.CARD_ID}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.CARD_ID}`);
   }
   return value;
 }
@@ -130,13 +130,13 @@ export function getCardId(): string {
  * ```
  */
 export function getExecutionWrapperPid(): number {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID];
+  const value = process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.EXECUTION_WRAPPER_PID}`);
   }
   const pid = Number.parseInt(value, 10);
   if (Number.isNaN(pid)) {
-    throw new Error(`Invalid ${COMPARE_BRANCH_ENV_VARS.EXECUTION_WRAPPER_PID}: expected number, got "${value}"`);
+    throw new Error(`Invalid ${CARDS_ENV_VARS.EXECUTION_WRAPPER_PID}: expected number, got "${value}"`);
   }
   return pid;
 }
@@ -153,9 +153,9 @@ export function getExecutionWrapperPid(): number {
  * ```
  */
 export function getHookIpcSocket(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET];
+  const value = process.env[CARDS_ENV_VARS.HOOK_IPC_SOCKET];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.HOOK_IPC_SOCKET}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.HOOK_IPC_SOCKET}`);
   }
   return value;
 }
@@ -172,9 +172,9 @@ export function getHookIpcSocket(): string {
  * ```
  */
 export function getTypeName(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.TYPE_NAME];
+  const value = process.env[CARDS_ENV_VARS.TYPE_NAME];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.TYPE_NAME}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.TYPE_NAME}`);
   }
   return value;
 }
@@ -191,9 +191,9 @@ export function getTypeName(): string {
  * ```
  */
 export function getFileName(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.FILE_NAME];
+  const value = process.env[CARDS_ENV_VARS.FILE_NAME];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.FILE_NAME}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.FILE_NAME}`);
   }
   return value;
 }
@@ -210,9 +210,9 @@ export function getFileName(): string {
  * ```
  */
 export function getFilePath(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.FILE_PATH];
+  const value = process.env[CARDS_ENV_VARS.FILE_PATH];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.FILE_PATH}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.FILE_PATH}`);
   }
   return value;
 }
@@ -229,9 +229,9 @@ export function getFilePath(): string {
  * ```
  */
 export function getContentType(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE];
+  const value = process.env[CARDS_ENV_VARS.CONTENT_TYPE];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.CONTENT_TYPE}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.CONTENT_TYPE}`);
   }
   return value;
 }
@@ -248,13 +248,13 @@ export function getContentType(): string {
  * ```
  */
 export function getFileSize(): number {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.FILE_SIZE];
+  const value = process.env[CARDS_ENV_VARS.FILE_SIZE];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.FILE_SIZE}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.FILE_SIZE}`);
   }
   const size = Number.parseInt(value, 10);
   if (Number.isNaN(size)) {
-    throw new Error(`Invalid ${COMPARE_BRANCH_ENV_VARS.FILE_SIZE}: expected number, got "${value}"`);
+    throw new Error(`Invalid ${CARDS_ENV_VARS.FILE_SIZE}: expected number, got "${value}"`);
   }
   return size;
 }
@@ -271,9 +271,9 @@ export function getFileSize(): number {
  * ```
  */
 export function getSha256(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.SHA256];
+  const value = process.env[CARDS_ENV_VARS.SHA256];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.SHA256}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.SHA256}`);
   }
   return value;
 }
@@ -290,9 +290,9 @@ export function getSha256(): string {
  * ```
  */
 export function getTypeVersion(): string {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.TYPE_VERSION];
+  const value = process.env[CARDS_ENV_VARS.TYPE_VERSION];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${COMPARE_BRANCH_ENV_VARS.TYPE_VERSION}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.TYPE_VERSION}`);
   }
   return value;
 }
@@ -313,14 +313,14 @@ export function getTypeVersion(): string {
  * ```
  */
 export function getMetadata(): Record<string, unknown> | undefined {
-  const value = process.env[COMPARE_BRANCH_ENV_VARS.METADATA];
+  const value = process.env[CARDS_ENV_VARS.METADATA];
   if (value === undefined || value === '') {
     return undefined;
   }
   try {
     return JSON.parse(value) as Record<string, unknown>;
   } catch (_error) {
-    throw new Error(`Invalid ${COMPARE_BRANCH_ENV_VARS.METADATA}: expected valid JSON, got "${value}"`);
+    throw new Error(`Invalid ${CARDS_ENV_VARS.METADATA}: expected valid JSON, got "${value}"`);
   }
 }
 

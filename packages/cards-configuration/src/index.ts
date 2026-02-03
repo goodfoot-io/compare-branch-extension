@@ -19,7 +19,7 @@ export { HOOK_FACTORY_TO_EVENT } from './constants.js';
 
 export {
   // Environment variable name constants
-  COMPARE_BRANCH_ENV_VARS,
+  CARDS_ENV_VARS,
   // Typed extraction
   extractInput,
   // Individual getters

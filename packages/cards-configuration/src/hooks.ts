@@ -11,7 +11,7 @@
  * @module
  * @example
  * ```typescript
- * import { startCardHook } from '@goodfoot/compare-branch-configuration';
+ * import { startCardHook } from '@cards/configuration';
  *
  * export default startCardHook({}, async (input, { logger }) => {
  *   logger.info('Card starting', { cardId: input.cardId });
@@ -175,7 +175,7 @@ function createHookFunction<TInput, TContext extends HookContext = HookContext>(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { startCardHook } from '@goodfoot/compare-branch-configuration';
+ * import { startCardHook } from '@cards/configuration';
  *
  * export default startCardHook({}, async (input, { logger }) => {
  *   logger.info('Card started', { cardId: input.cardId });
@@ -200,7 +200,7 @@ export function startCardHook(config: HookConfig, handler: HookHandler<StartCard
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { endCardHook } from '@goodfoot/compare-branch-configuration';
+ * import { endCardHook } from '@cards/configuration';
  *
  * export default endCardHook({}, async (input, { logger }) => {
  *   logger.info('Card completed', { cardId: input.cardId });
@@ -225,7 +225,7 @@ export function endCardHook(config: HookConfig, handler: HookHandler<EndCardInpu
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { startInterviewHook } from '@goodfoot/compare-branch-configuration';
+ * import { startInterviewHook } from '@cards/configuration';
  *
  * export default startInterviewHook({}, async (input, { logger }) => {
  *   logger.info('Interview started', { cardId: input.cardId });
@@ -253,7 +253,7 @@ export function startInterviewHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { endInterviewHook } from '@goodfoot/compare-branch-configuration';
+ * import { endInterviewHook } from '@cards/configuration';
  *
  * export default endInterviewHook({}, async (input, { logger }) => {
  *   logger.info('Interview completed', { cardId: input.cardId });
@@ -281,7 +281,7 @@ export function endInterviewHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { typedFileCreatedHook } from '@goodfoot/compare-branch-configuration';
+ * import { typedFileCreatedHook } from '@cards/configuration';
  *
  * export default typedFileCreatedHook({}, async (input, { logger }) => {
  *   logger.info('Typed file created', { typeName: input.typeName, fileName: input.fileName });
@@ -309,7 +309,7 @@ export function typedFileCreatedHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { typedFileUpdatedHook } from '@goodfoot/compare-branch-configuration';
+ * import { typedFileUpdatedHook } from '@cards/configuration';
  *
  * export default typedFileUpdatedHook({}, async (input, { logger }) => {
  *   logger.info('Typed file updated', { typeName: input.typeName, fileName: input.fileName });
@@ -337,7 +337,7 @@ export function typedFileUpdatedHook(
  * @returns A hook function that can be exported as the default export
  * @example
  * ```typescript
- * import { typedFileDeletedHook } from '@goodfoot/compare-branch-configuration';
+ * import { typedFileDeletedHook } from '@cards/configuration';
  *
  * export default typedFileDeletedHook({}, async (input, { logger }) => {
  *   logger.info('Typed file deleted', { typeName: input.typeName, fileName: input.fileName });
