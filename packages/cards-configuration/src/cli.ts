@@ -3,8 +3,11 @@
 /**
  * CLI tool for compiling Cards hooks using esbuild.
  *
- * Compiles TypeScript hooks to standalone ESM modules and generates hooks.json
- * with correct command paths for Cards Extension execution.
+ * Discovers hook files by scanning TypeScript for default exports that call a
+ * known hook factory, compiles them into standalone ESM modules, and generates
+ * hooks.json with the correct command paths for Cards Extension execution.
+ * This command writes to disk and may overwrite previously generated hook
+ * binaries for the same output directory.
  * @example
  * ```bash
  * # Compile hooks and generate hooks.json
@@ -35,6 +38,8 @@ import type { HookEventName } from './types.js';
  *
  * - `plugin`: Uses `$CARDS_PLUGIN_ROOT` for plugin hooks
  * - `agent`: Uses `"$CLAUDE_PROJECT_DIR"` for agent hooks (.claude/hooks/)
+ *
+ * The agent path includes quotes to handle project directories with spaces.
  */
 type HookContext = 'plugin' | 'agent';
 
@@ -46,7 +51,7 @@ interface CliArgs {
   input: string;
   /** Path for hooks.json output file. */
   output: string;
-  /** Optional log file path. */
+  /** Optional log file path injected into compiled hooks. */
   log?: string;
   /** Show help. */
   help: boolean;
@@ -62,7 +67,7 @@ interface CliArgs {
 interface HookMetadata {
   /** The hook event type (StartCard, EndCard, etc.). */
   hookEventName: HookEventName;
-  /** Optional timeout in milliseconds from hook config. */
+  /** Optional timeout in milliseconds read from the hook config literal. */
   timeout?: number;
 }
 
@@ -88,7 +93,7 @@ interface HookConfig {
   type: 'command';
   /** Absolute path to compiled hook executable. */
   command: string;
-  /** Optional timeout in seconds. */
+  /** Optional timeout in milliseconds (passed through from hook config). */
   timeout?: number;
 }
 
@@ -105,6 +110,7 @@ interface MatcherEntry {
  * The complete hooks.json structure expected by Cards Extension.
  *
  * Format: { hooks: { EventType: [ { hooks: [...] } ] } }
+ * Includes __generated metadata so subsequent runs can clean up old binaries.
  */
 interface HooksJson {
   /** Object keyed by event type (StartCard, EndCard, etc.). */
@@ -185,6 +191,8 @@ Troubleshooting:
 
 /**
  * Parses command-line arguments.
+ *
+ * Unknown flags are ignored to keep the CLI forward-compatible.
  * @param argv - Process argv (usually process.argv.slice(2))
  * @returns Parsed arguments
  */
@@ -233,6 +241,8 @@ function parseArgs(argv: string[]): CliArgs {
 
 /**
  * Validates CLI arguments and returns error message if invalid.
+ *
+ * Help/version modes bypass required argument checks.
  * @param args - Parsed CLI arguments
  * @returns Error message if invalid, undefined if valid
  */
@@ -261,7 +271,9 @@ function validateArgs(args: CliArgs): string | undefined {
  * Extracts hook metadata from a TypeScript source file using AST analysis.
  *
  * Looks for default exports that call hook factory functions (startCardHook, etc.)
- * and extracts the hook type and timeout from the config object.
+ * and extracts the hook type and timeout from the config object. This is a
+ * static analysis pass: it only recognizes literal factory names and literal
+ * numeric timeout values in the first argument.
  * @param sourcePath - Absolute path to the TypeScript source file
  * @returns Extracted hook metadata or undefined if not a valid hook file
  * @example
@@ -383,6 +395,9 @@ function analyzeHookFile(sourcePath: string): HookMetadata | undefined {
 
 /**
  * Discovers hook files matching the glob pattern.
+ *
+ * The glob is resolved relative to the provided cwd and returns .ts/.mts files.
+ * Non-hook files are filtered out later by {@link analyzeHookFile}.
  * @param pattern - Glob pattern for hook files
  * @param cwd - Current working directory for relative patterns
  * @returns Array of absolute paths to hook files
@@ -417,7 +432,9 @@ interface CompileHookOptions {
  * Compiles a TypeScript hook file to a self-contained ESM executable.
  *
  * Creates a wrapper that imports the hook and calls execute(), then bundles
- * everything together including the runtime.
+ * everything together including the runtime. The wrapper is written to a
+ * temporary directory under the OS temp path and is not deleted to allow
+ * concurrent builds.
  * @param options - Compilation options
  * @returns Compiled output content as a string
  */
@@ -494,6 +511,9 @@ execute(hook);
 
 /**
  * Generates a content hash (SHA-256, 8-char prefix) for a compiled hook.
+ *
+ * The short prefix keeps filenames readable; collisions are possible but
+ * extremely unlikely in practice.
  * @param content - Compiled hook content
  * @returns 8-character hex hash
  */
@@ -516,6 +536,8 @@ interface CompileAllHooksOptions {
 
 /**
  * Compiles all discovered hooks and returns their metadata.
+ *
+ * Files that do not export a recognizable hook factory are skipped.
  * @param options - Compilation options
  * @returns Array of compiled hook information
  */
@@ -636,6 +658,9 @@ function detectHookContext(outputPath: string): HookContextInfo {
  *
  * - `plugin`: Uses `node $CARDS_PLUGIN_ROOT/hooks/bin/filename`
  * - `agent`: Uses `node "$CLAUDE_PROJECT_DIR"/.claude/hooks/bin/filename`
+ *
+ * The executable value is inserted as-is, so callers should provide an
+ * already-escaped path if necessary.
  * @param filename - The compiled hook filename
  * @param buildDir - Absolute path to the bin directory
  * @param contextInfo - Hook context info including root directory
@@ -666,6 +691,7 @@ function generateCommandPath(
  *
  * Format: { hooks: { EventType: [ { hooks: [...] } ] } }
  * Note: No matcher field since Cards hooks don't use matchers.
+ * Only event types with compiled hooks are included.
  * @param compiledHooks - Array of compiled hooks
  * @param buildDir - Absolute path to the bin directory
  * @param contextInfo - Hook context info for path resolution
@@ -705,8 +731,10 @@ function generateHooksJson(
 
 /**
  * Reads an existing hooks.json file if it exists.
+ *
+ * Malformed JSON is treated as "missing" to avoid breaking builds.
  * @param outputPath - Path to the hooks.json file
- * @returns Parsed HooksJson or undefined if file doesn't exist
+ * @returns Parsed HooksJson or undefined if file doesn't exist or is invalid
  */
 function readExistingHooksJson(outputPath: string): HooksJson | undefined {
   if (!fs.existsSync(outputPath)) {
@@ -744,7 +772,10 @@ function removeOldGeneratedFiles(existingHooksJson: HooksJson, outputDir: string
 
 /**
  * Extracts hooks from an existing hooks.json that were NOT generated by this package.
- * Identifies generated hooks by checking if their command path matches the generated file pattern.
+ *
+ * Identifies generated hooks by checking if their command path ends with a
+ * filename listed in __generated.files. Hooks whose commands do not match are
+ * preserved, even if they point elsewhere.
  * @param existingHooksJson - The existing hooks.json content
  * @returns Object containing preserved hooks (keyed by event type)
  */
@@ -783,7 +814,8 @@ function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Record<Hoo
 
 /**
  * Merges preserved hooks with newly generated hooks.
- * Preserved hooks are added first, then new hooks are appended.
+ * Preserved hooks are added first, then new hooks are appended, so custom
+ * hooks keep their relative ordering ahead of generated ones.
  * @param newHooksJson - The newly generated hooks.json content
  * @param preservedHooks - Hooks to preserve from the existing hooks.json
  * @returns Merged HooksJson
@@ -816,7 +848,8 @@ function mergeHooksJson(
 
 /**
  * Writes hooks.json to the specified path atomically.
- * Uses write-to-temp-then-rename pattern for atomicity.
+ * Uses write-to-temp-then-rename pattern for atomicity. The temp file is
+ * removed on failure when possible.
  * @param hooksJson - The hooks.json content
  * @param outputPath - Path to write hooks.json
  */
@@ -852,6 +885,8 @@ function writeHooksJson(hooksJson: HooksJson, outputPath: string): void {
 
 /**
  * Main CLI entry point.
+ *
+ * Parses arguments, compiles hooks, writes hooks.json, and exits the process.
  */
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);

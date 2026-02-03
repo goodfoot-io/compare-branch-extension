@@ -1,8 +1,9 @@
 /**
  * Validation factory and output builders for custom type validators.
  *
- * Provides factory functions for creating type validators, output builders
- * for constructing validation responses, and runtime execution support.
+ * Validators run as a stdin/stdout protocol: they receive an HTTP request on
+ * stdin and emit a JSON response on stdout. This module provides the handler
+ * types, response helpers, and the runtime executor.
  * @module
  */
 
@@ -32,7 +33,9 @@ export type { ValidationRequest } from './http-parser.js';
 export interface ValidationConfig {
   /**
    * Maximum time in milliseconds for validation to complete.
-   * If not specified, no timeout is enforced at the SDK level.
+   *
+   * This value is attached as metadata on the validation function. The SDK
+   * does not enforce timeouts itself.
    */
   timeout?: number;
 }
@@ -41,6 +44,8 @@ export interface ValidationConfig {
  * Context provided to validation handlers.
  *
  * Contains utilities and services available during validation execution.
+ * The logger is a fresh instance (silent unless configured with handlers
+ * or a log file).
  * @example
  * ```typescript
  * function handler(request: ValidationRequest, context: ValidationContext) {
@@ -136,7 +141,8 @@ export interface ValidationResponse {
  * Validation handler function.
  *
  * Receives an HTTP request and context, returns a validation response.
- * Can be sync or async.
+ * Can be sync or async. If the handler throws, {@link executeValidation}
+ * converts the failure into a 500 response.
  * @template TRequest - The request type (defaults to ValidationRequest)
  * @example
  * ```typescript
@@ -160,6 +166,7 @@ export type ValidationHandler<TRequest = import('./http-parser.js').ValidationRe
  * Validation function created by the factory.
  *
  * A callable function with attached metadata (timeout).
+ * The timeout is informational unless enforced by the execution environment.
  * @example
  * ```typescript
  * const validate: ValidationFunction = typeValidation(
@@ -184,6 +191,7 @@ export interface ValidationFunction {
  *
  * Factory that wraps a validation handler with configuration metadata.
  * The returned function can be executed directly or passed to executeValidation.
+ * The timeout is attached as metadata for external tooling.
  * @param config - Validation configuration (timeout, etc.)
  * @param handler - The validation handler function
  * @returns A ValidationFunction with attached metadata
@@ -223,6 +231,8 @@ export function typeValidation(config: ValidationConfig, handler: ValidationHand
  * Creates a 201 Created response.
  *
  * Use when validation succeeds for a new resource.
+ * This helper only sets status and metadata; use {@link validationResponse}
+ * if you need headers or a body.
  * @param metadata - Optional metadata to store in .meta.json
  * @returns ValidationResponse with status 201
  * @example
@@ -238,6 +248,8 @@ export function validationCreated(metadata?: Record<string, unknown>): Validatio
  * Creates a 200 OK response.
  *
  * Use when validation succeeds for updating an existing resource.
+ * This helper only sets status and metadata; use {@link validationResponse}
+ * if you need headers or a body.
  * @param metadata - Optional metadata to store in .meta.json
  * @returns ValidationResponse with status 200
  * @example
@@ -253,7 +265,7 @@ export function validationUpdated(metadata?: Record<string, unknown>): Validatio
  * Creates an error response.
  *
  * Use when validation fails. Automatically sets Content-Type to application/json
- * and formats errors in the response body.
+ * and formats errors in the response body. Metadata is omitted for errors.
  * @param status - HTTP status code (typically 400, 422, or 500)
  * @param errors - Array of validation errors
  * @param message - Optional human-readable error message
@@ -306,9 +318,9 @@ export function validationResponse(response: ValidationResponse): ValidationResp
  * Executes a validation function with stdin/stdout protocol.
  *
  * Reads an HTTP request from stdin, invokes the validation handler,
- * and writes the JSON response to stdout. Always exits with code 0
- * for handled cases (including validation errors). Non-zero exit codes
- * indicate unhandled crashes.
+ * and writes the JSON response to stdout. Always exits with code 0 for
+ * handled cases (including validation errors). Non-zero exit codes indicate
+ * unhandled crashes or process-level failures.
  *
  * ## Protocol
  *
@@ -324,7 +336,11 @@ export function validationResponse(response: ValidationResponse): ValidationResp
  * | Validation error | 4xx | 0 |
  * | Handler exception | 500 | 0 |
  * | Unhandled crash | - | non-zero |
+ *
+ * This function reads all of stdin into memory before parsing. The request
+ * must include a valid Content-Length header; chunked encoding is unsupported.
  * @param validation - The validation function to execute
+ * @returns A promise that resolves only if process.exit is mocked
  * @example
  * ```typescript
  * // validator.mjs

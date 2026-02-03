@@ -1,8 +1,8 @@
 /**
  * Testing utilities for validation handlers.
  *
- * Provides a test harness for validators that allows testing without
- * process I/O operations.
+ * Provides a test harness that executes validators without stdin/stdout,
+ * making it suitable for unit tests and fast feedback loops.
  * @module
  */
 
@@ -32,6 +32,9 @@ export interface TestRequestOptions {
 /**
  * Creates a test ValidationRequest from options.
  *
+ * This helper normalizes headers, sets Content-Length, and JSON-stringifies
+ * object bodies. It mirrors the runtime's ValidationRequest shape without
+ * going through stdin parsing.
  * @param options - Request options
  * @returns A ValidationRequest suitable for testing
  * @example
@@ -112,7 +115,8 @@ export interface TestValidationResult {
  * Test harness for validators.
  *
  * Invokes a validation function with a test request and returns the result.
- * Does not involve process I/O - suitable for unit testing.
+ * Does not involve process I/O - suitable for unit testing. Errors thrown
+ * by the validation function will reject the promise.
  *
  * @param validation - The validation function to test
  * @param request - Test request (or options to create one)

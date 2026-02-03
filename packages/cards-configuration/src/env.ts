@@ -1,18 +1,12 @@
 /**
  * Environment variable utilities for Cards Extension hooks.
  *
- * Provides typed access to Cards Extension's environment variables
- * and utilities for extracting hook input from the environment.
+ * The execution wrapper injects hook inputs via process.env. This module
+ * provides strict getters and a typed extractor so hook handlers do not need
+ * to parse environment variables manually.
  *
- * ## Environment Variables
- *
- * The execution-wrapper sets these environment variables when running hooks:
- *
- * | Variable | Description | Available In |
- * |----------|-------------|--------------|
- * | `CARD_ID` | Unique card identifier | All hooks |
- * | `EXECUTION_WRAPPER_PID` | Wrapper process ID | All hooks |
- * | `HOOK_IPC_SOCKET` | IPC socket path | All hooks |
+ * Use the individual getters when you only need one value; use
+ * {@link extractInput} when you need a full typed payload for a hook event.
  * @module
  */
 
@@ -23,9 +17,10 @@ import type { HookEventName, HookInputForEvent } from './types.js';
 // ============================================================================
 
 /**
- * Cards Extension environment variable names.
+ * Environment variable names set by the Cards execution wrapper.
  *
- * These are the environment variables that execution-wrapper.mjs sets when running hooks.
+ * This is the single source of truth for env var keys used by hook processes.
+ * Keep it in sync with the wrapper to avoid subtle "undefined input" bugs.
  */
 export const CARDS_ENV_VARS = {
   /**
@@ -100,10 +95,11 @@ export const CARDS_ENV_VARS = {
 // ============================================================================
 
 /**
- * Gets the card ID from environment.
+ * Reads the card identifier from the hook environment.
  *
- * @returns The card ID
- * @throws Error if CARD_ID is not set
+ * The execution wrapper always sets this for every hook invocation.
+ * @returns The current card ID
+ * @throws Error if CARD_ID is missing or empty
  * @example
  * ```typescript
  * const cardId = getCardId();
@@ -119,10 +115,12 @@ export function getCardId(): string {
 }
 
 /**
- * Gets the execution wrapper PID from environment.
+ * Reads the execution-wrapper PID from the hook environment.
  *
+ * This can be useful for correlating logs or diagnostics with the wrapper
+ * process that launched the hook.
  * @returns The execution wrapper process ID
- * @throws Error if EXECUTION_WRAPPER_PID is not set or invalid
+ * @throws Error if EXECUTION_WRAPPER_PID is missing or not a number
  * @example
  * ```typescript
  * const pid = getExecutionWrapperPid();
@@ -142,10 +140,12 @@ export function getExecutionWrapperPid(): number {
 }
 
 /**
- * Gets the IPC socket path from environment.
+ * Reads the IPC socket path from the hook environment.
  *
+ * This socket can be used for hook-to-wrapper communication when supported
+ * by the Cards runtime.
  * @returns The IPC socket path
- * @throws Error if HOOK_IPC_SOCKET is not set
+ * @throws Error if HOOK_IPC_SOCKET is missing or empty
  * @example
  * ```typescript
  * const socketPath = getHookIpcSocket();
@@ -161,10 +161,11 @@ export function getHookIpcSocket(): string {
 }
 
 /**
- * Gets the type name from environment.
+ * Reads the registered type name for typed file hooks.
  *
+ * This value is only present for TypedFile* events.
  * @returns The registered type name
- * @throws Error if TYPE_NAME is not set
+ * @throws Error if TYPE_NAME is missing or empty
  * @example
  * ```typescript
  * const typeName = getTypeName();
@@ -180,10 +181,11 @@ export function getTypeName(): string {
 }
 
 /**
- * Gets the file name from environment.
+ * Reads the typed file name for TypedFile* events.
  *
+ * This is the file name relative to the type directory, not a full path.
  * @returns The file name within the type directory
- * @throws Error if FILE_NAME is not set
+ * @throws Error if FILE_NAME is missing or empty
  * @example
  * ```typescript
  * const fileName = getFileName();
@@ -199,10 +201,11 @@ export function getFileName(): string {
 }
 
 /**
- * Gets the file path from environment.
+ * Reads the absolute path to the typed file.
  *
+ * This is the fully resolved path on disk provided by the execution wrapper.
  * @returns The full path to the file
- * @throws Error if FILE_PATH is not set
+ * @throws Error if FILE_PATH is missing or empty
  * @example
  * ```typescript
  * const filePath = getFilePath();
@@ -218,10 +221,11 @@ export function getFilePath(): string {
 }
 
 /**
- * Gets the content type from environment.
+ * Reads the MIME type for the typed file content.
  *
+ * Provided for TypedFile* events so validators can branch on content type.
  * @returns The MIME type of the content
- * @throws Error if CONTENT_TYPE is not set
+ * @throws Error if CONTENT_TYPE is missing or empty
  * @example
  * ```typescript
  * const contentType = getContentType();
@@ -237,10 +241,11 @@ export function getContentType(): string {
 }
 
 /**
- * Gets the file size from environment.
+ * Reads the typed file size from the environment.
  *
+ * The value is parsed as a base-10 integer.
  * @returns The file size in bytes
- * @throws Error if FILE_SIZE is not set or invalid
+ * @throws Error if FILE_SIZE is missing or not a number
  * @example
  * ```typescript
  * const size = getFileSize();
@@ -260,10 +265,11 @@ export function getFileSize(): number {
 }
 
 /**
- * Gets the SHA256 hash from environment.
+ * Reads the SHA256 hash for the typed file content.
  *
+ * Useful for detecting content changes without reading the file again.
  * @returns The SHA256 hash of the content
- * @throws Error if SHA256 is not set
+ * @throws Error if SHA256 is missing or empty
  * @example
  * ```typescript
  * const hash = getSha256();
@@ -279,10 +285,11 @@ export function getSha256(): string {
 }
 
 /**
- * Gets the type version from environment.
+ * Reads the declared type version for TypedFile* events.
  *
- * @returns The version from type config
- * @throws Error if TYPE_VERSION is not set
+ * This version comes from the type configuration that registered the file.
+ * @returns The version string from type config
+ * @throws Error if TYPE_VERSION is missing or empty
  * @example
  * ```typescript
  * const version = getTypeVersion();
@@ -298,17 +305,17 @@ export function getTypeVersion(): string {
 }
 
 /**
- * Gets the metadata from environment.
+ * Reads optional validator metadata from the environment.
  *
- * Parses optional metadata JSON string from the METADATA environment variable.
- *
- * @returns The parsed metadata object or undefined if not set
- * @throws Error if METADATA is set but not valid JSON
+ * When present, METADATA is expected to be a JSON string produced by a type
+ * validator. Missing or empty values return undefined.
+ * @returns Parsed metadata object, or undefined when not provided
+ * @throws Error if METADATA is present but not valid JSON
  * @example
  * ```typescript
  * const metadata = getMetadata();
  * if (metadata) {
- *   console.log(`Metadata:`, metadata);
+ *   console.log('Metadata:', metadata);
  * }
  * ```
  */
@@ -329,20 +336,20 @@ export function getMetadata(): Record<string, unknown> | undefined {
 // ============================================================================
 
 /**
- * Extracts all environment variables into a typed input object based on hook type.
+ * Builds a typed hook input object from environment variables.
  *
- * This function reads environment variables and constructs the appropriate
- * typed input object for the specified hook event type.
+ * Base fields (cardId, executionWrapperPid, hookIpcSocket) are always required.
+ * TypedFile* events also read file metadata and optional validator metadata.
  *
  * @template T - The hook event name
- * @param hookEventName - The type of hook being executed
- * @returns Typed input object with all relevant environment variables
- * @throws Error if required environment variables are missing
+ * @param hookEventName - The event type being executed
+ * @returns Typed input object for the event
+ * @throws Error if required env vars are missing or metadata JSON is invalid
  * @example
  * ```typescript
  * // For a StartCard hook
  * const cardInput = extractInput('StartCard');
- * console.log(cardInput.cardId);  // TypeScript knows this exists
+ * console.log(cardInput.cardId);
  * ```
  */
 export function extractInput<T extends HookEventName>(hookEventName: T): HookInputForEvent<T> {

@@ -1,13 +1,10 @@
 /**
  * Hook factory functions for Cards Extension hooks.
  *
- * Provides typed factory functions for all 4 hook types that handle:
- * - Input type narrowing based on hook event type
- * - Handler metadata attachment for CLI analysis
- * - Logger context injection
- *
- * Each factory accepts a HookConfig with optional timeout setting,
- * and returns a function that the runtime invokes when the hook file executes.
+ * Each factory wraps a handler and attaches metadata (`hookEventName`, `timeout`)
+ * that the CLI uses for hooks.json generation and the runtime uses for input
+ * extraction. Export the returned function as the default export of a hook file
+ * so the CLI can discover it without evaluating your module.
  * @module
  * @example
  * ```typescript
@@ -36,23 +33,23 @@ import type {
 // ============================================================================
 
 /**
- * Configuration options for hook factories.
+ * Configuration options that become metadata on the hook function.
  *
- * Controls handler timeout behavior.
+ * The CLI reads this metadata to populate hooks.json. The SDK does not enforce
+ * timeouts locally; enforcement (if any) happens in the Cards runtime.
  * @example
  * ```typescript
- * // Set handler timeout
+ * // Set a handler timeout for the Cards runtime to enforce.
  * startCardHook({ timeout: 5000 }, handler);
  * ```
  */
 export interface HookConfig {
   /**
-   * Handler execution timeout in milliseconds.
+   * Maximum handler runtime in milliseconds.
    *
-   * If the handler does not complete within this time, it will be
-   * terminated and an error will be logged.
-   *
-   * If not provided, uses the default timeout from the runtime.
+   * This value is forwarded to hooks.json. If the Cards runtime enforces
+   * timeouts, it will terminate the hook after this duration. Omitting it
+   * lets the runtime apply its default policy.
    * @example
    * ```typescript
    * { timeout: 5000 }  // 5 second timeout
@@ -67,10 +64,11 @@ export interface HookConfig {
 // ============================================================================
 
 /**
- * Context provided to hook handlers.
+ * Context injected by the runtime when a hook executes.
  *
- * Contains utilities and state available during hook execution.
- * The context is injected by the runtime and should not be created manually.
+ * The context is created by {@link execute} and already scoped to the current
+ * hook, so logs are enriched with hook metadata automatically. Do not construct
+ * this manually; it is intentionally small and runtime-owned.
  * @example
  * ```typescript
  * export default startCardHook({}, async (input, { logger }) => {
@@ -80,10 +78,10 @@ export interface HookConfig {
  */
 export interface HookContext {
   /**
-   * Logger instance for structured logging.
+   * Logger for structured, context-aware logging.
    *
-   * The logger is pre-configured with the hook context (hookType, input)
-   * so log events are automatically enriched.
+   * The logger is pre-configured with hookType and input, and it does not write
+   * to stdout/stderr unless you configure destinations.
    */
   logger: Logger;
 }
@@ -93,12 +91,12 @@ export interface HookContext {
 // ============================================================================
 
 /**
- * Handler function for a specific hook type.
+ * Handler function for a specific hook event.
  *
- * Receives the typed input and context, returns void or Promise<void>.
- * Can be async for operations that require awaiting.
- * @template TInput - The input type for this hook
- * @template TContext - The context type (defaults to HookContext)
+ * Throwing or rejecting signals failure and results in a non-zero exit code
+ * from the runtime. Use async when the hook needs to await I/O.
+ * @template TInput - Hook input payload for the event
+ * @template TContext - Context type (defaults to HookContext)
  */
 export type HookHandler<TInput, TContext extends HookContext = HookContext> = (
   input: TInput,
@@ -106,27 +104,29 @@ export type HookHandler<TInput, TContext extends HookContext = HookContext> = (
 ) => void | Promise<void>;
 
 /**
- * The result of a hook factory - a function that wraps the handler.
+ * Callable hook wrapper returned by a factory.
  *
- * This is what gets exported from hook files and invoked by the runtime.
- * @template TInput - The input type for this hook
- * @template TContext - The context type (defaults to HookContext)
+ * This is what you export from hook files. The runtime uses its metadata to
+ * decide which input shape to build and which timeout to apply.
+ * @template TInput - Hook input payload for the event
+ * @template TContext - Context type (defaults to HookContext)
  */
 export interface HookFunction<TInput, TContext extends HookContext = HookContext> {
   /**
-   * Execute the hook handler with the given input and context.
-   * @param input - The hook input data
-   * @param context - The hook execution context
+   * Invoked by the runtime after it has built the input and context.
+   * @param input - Event-specific input payload
+   * @param context - Runtime-provided context utilities
+   * @returns Resolves when the handler finishes
    */
   (input: TInput, context: TContext): Promise<void>;
 
   /**
-   * The hook event name this handler is for.
+   * Hook event name used by the runtime for input extraction.
    */
   hookEventName: HookEventName;
 
   /**
-   * The timeout in milliseconds, if configured.
+   * Optional timeout in milliseconds forwarded to hooks.json.
    */
   timeout?: number;
 }
@@ -136,13 +136,14 @@ export interface HookFunction<TInput, TContext extends HookContext = HookContext
 // ============================================================================
 
 /**
- * Creates a hook factory function for a specific hook type.
+ * Creates a hook wrapper and attaches discovery metadata.
  *
- * This is the internal implementation used by all typed factories.
- * @param hookEventName - The hook event name
- * @param config - Hook configuration
+ * The wrapper preserves async behavior and stores `hookEventName` and `timeout`
+ * on the function object so the runtime and CLI can inspect it later.
+ * @param hookEventName - The event name to bind to this handler
+ * @param config - Hook configuration metadata
  * @param handler - The handler function to wrap
- * @returns A wrapped hook function
+ * @returns A callable hook wrapper with attached metadata
  * @internal
  */
 function createHookFunction<TInput, TContext extends HookContext = HookContext>(
@@ -168,11 +169,11 @@ function createHookFunction<TInput, TContext extends HookContext = HookContext>(
 /**
  * Creates a StartCard hook handler.
  *
- * StartCard hooks fire when a new card execution begins.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
+ * StartCard runs at the beginning of a card execution. Use it for setup,
+ * instrumentation, or early validation that should gate the rest of the run.
+ * @param config - Hook metadata (timeout, etc.)
+ * @param handler - Handler invoked for StartCard events
+ * @returns A hook wrapper suitable for default export
  * @example
  * ```typescript
  * import { startCardHook } from '@cards/configuration';
@@ -193,11 +194,11 @@ export function startCardHook(config: HookConfig, handler: HookHandler<StartCard
 /**
  * Creates an EndCard hook handler.
  *
- * EndCard hooks fire when an card execution completes.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
+ * EndCard runs after a card execution completes. Use it for cleanup,
+ * summarization, or reporting that should happen after work finishes.
+ * @param config - Hook metadata (timeout, etc.)
+ * @param handler - Handler invoked for EndCard events
+ * @returns A hook wrapper suitable for default export
  * @example
  * ```typescript
  * import { endCardHook } from '@cards/configuration';
@@ -218,11 +219,11 @@ export function endCardHook(config: HookConfig, handler: HookHandler<EndCardInpu
 /**
  * Creates a StartInterview hook handler.
  *
- * StartInterview hooks fire when an interview session begins.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
+ * StartInterview runs when an interview session begins. Use it for
+ * instrumentation or to prepare any interview-specific resources.
+ * @param config - Hook metadata (timeout, etc.)
+ * @param handler - Handler invoked for StartInterview events
+ * @returns A hook wrapper suitable for default export
  * @example
  * ```typescript
  * import { startInterviewHook } from '@cards/configuration';
@@ -246,11 +247,11 @@ export function startInterviewHook(
 /**
  * Creates an EndInterview hook handler.
  *
- * EndInterview hooks fire when an interview session completes.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
+ * EndInterview runs after an interview completes. Use it for cleanup,
+ * scoring, or post-interview reporting.
+ * @param config - Hook metadata (timeout, etc.)
+ * @param handler - Handler invoked for EndInterview events
+ * @returns A hook wrapper suitable for default export
  * @example
  * ```typescript
  * import { endInterviewHook } from '@cards/configuration';
@@ -274,11 +275,11 @@ export function endInterviewHook(
 /**
  * Creates a TypedFileCreated hook handler.
  *
- * TypedFileCreated hooks fire when a typed file is created.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
+ * TypedFileCreated runs when a new typed file is created. Inputs include file
+ * metadata (type name, path, hash) so you can validate or react to changes.
+ * @param config - Hook metadata (timeout, etc.)
+ * @param handler - Handler invoked for TypedFileCreated events
+ * @returns A hook wrapper suitable for default export
  * @example
  * ```typescript
  * import { typedFileCreatedHook } from '@cards/configuration';
@@ -302,11 +303,11 @@ export function typedFileCreatedHook(
 /**
  * Creates a TypedFileUpdated hook handler.
  *
- * TypedFileUpdated hooks fire when a typed file is updated.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
+ * TypedFileUpdated runs when a typed file changes. Use this to validate edits
+ * or recompute derived metadata when content updates.
+ * @param config - Hook metadata (timeout, etc.)
+ * @param handler - Handler invoked for TypedFileUpdated events
+ * @returns A hook wrapper suitable for default export
  * @example
  * ```typescript
  * import { typedFileUpdatedHook } from '@cards/configuration';
@@ -330,11 +331,11 @@ export function typedFileUpdatedHook(
 /**
  * Creates a TypedFileDeleted hook handler.
  *
- * TypedFileDeleted hooks fire when a typed file is deleted.
- *
- * @param config - Hook configuration with optional timeout
- * @param handler - The handler function to execute
- * @returns A hook function that can be exported as the default export
+ * TypedFileDeleted runs when a typed file is removed. Use it to clean up any
+ * derived state or external references tied to that file.
+ * @param config - Hook metadata (timeout, etc.)
+ * @param handler - Handler invoked for TypedFileDeleted events
+ * @returns A hook wrapper suitable for default export
  * @example
  * ```typescript
  * import { typedFileDeletedHook } from '@cards/configuration';

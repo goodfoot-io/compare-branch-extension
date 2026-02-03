@@ -1,8 +1,8 @@
 /**
- * HTTP request parser for validation system.
+ * HTTP request parser for the validation system.
  *
- * Provides binary-safe HTTP request parsing with support for reading
- * request line, headers, and body content based on Content-Length.
+ * Parses a single HTTP request from a complete Buffer. It is intentionally
+ * strict: Content-Length is required and chunked encoding is not supported.
  * @module
  */
 
@@ -43,7 +43,7 @@ export interface ValidationRequest {
 
   /**
    * HTTP headers as key-value pairs.
-   * Header names are normalized to lowercase.
+   * Header names are normalized to lowercase; duplicate headers overwrite.
    */
   headers: Record<string, string>;
 
@@ -60,6 +60,8 @@ export interface ValidationRequest {
 
   /**
    * Convenience getter for body parsed as JSON.
+   *
+   * The body is parsed as UTF-8. Throws if the content is not valid JSON.
    * @throws {SyntaxError} If body is not valid JSON
    * @template T - The expected type of the parsed JSON
    */
@@ -69,7 +71,7 @@ export interface ValidationRequest {
 /**
  * Result of HTTP request parsing.
  *
- * Success case includes the parsed request, failure case includes error message.
+ * Success case includes the parsed request, failure case includes an error message.
  */
 export type ParseResult =
   | {
@@ -101,6 +103,9 @@ export type ParseResult =
  *
  * The body is read as raw bytes and stored in a Buffer. This allows
  * validation of binary content types without corruption.
+ *
+ * This parser operates on a single in-memory Buffer. It does not support
+ * streaming or chunked transfer encoding.
  * @param input - The raw HTTP request as a Buffer
  * @returns ParseResult with either the parsed request or an error
  * @example

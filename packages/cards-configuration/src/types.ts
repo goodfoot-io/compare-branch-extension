@@ -1,10 +1,9 @@
 /**
- * Type definitions for Cards Extension hooks.
+ * Type definitions for Cards Extension hook inputs and events.
  *
- * This module provides:
- * - Hook input types (environment variable based)
- * - Hook event name union type
- * - Type helper for extracting input type from event name
+ * These types describe the payloads derived from execution-wrapper environment
+ * variables and are used by hook factories and the runtime to provide
+ * event-specific typing.
  * @see documentation/cards-v2-planning/hook-based-workflow.md
  * @module
  */
@@ -16,7 +15,8 @@
 /**
  * Hook event name literal union.
  *
- * All valid hook event names for Cards Extension hooks.
+ * These event names appear in hooks.json and drive which input payload is
+ * built by {@link extractInput}.
  */
 export type HookEventName =
   | 'StartCard'
@@ -30,7 +30,8 @@ export type HookEventName =
 /**
  * All hook event names as a readonly array.
  *
- * Useful for iteration and validation.
+ * Useful for iteration and validation. The order is stable and matches the
+ * literal union defined in this module.
  * @example
  * ```typescript
  * for (const eventName of HOOK_EVENT_NAMES) {
@@ -53,10 +54,10 @@ export const HOOK_EVENT_NAMES = [
 // ============================================================================
 
 /**
- * Base input fields present in all hook inputs.
+ * Base input fields present in every hook invocation.
  *
- * Every hook receives these base fields providing execution context.
- * Hook-specific inputs extend this base with additional fields.
+ * These values come directly from environment variables injected by the
+ * execution wrapper. Hook-specific inputs extend this base with extra fields.
  * @example
  * ```typescript
  * const handleAnyHook = (input: BaseHookInput) => {
@@ -101,7 +102,8 @@ export interface InterviewHookInput extends BaseHookInput {}
 /**
  * Input for typed file hooks (TypedFileCreated, TypedFileUpdated, TypedFileDeleted).
  *
- * Provides file metadata and validation context for custom type files.
+ * Includes file metadata computed by the execution wrapper (name, path, size,
+ * hash) plus optional validator metadata when available.
  */
 export interface TypedFileInput extends BaseHookInput {
   /**
@@ -140,7 +142,7 @@ export interface TypedFileInput extends BaseHookInput {
   typeVersion: string;
 
   /**
-   * Optional metadata from validator.
+   * Optional metadata produced by a type validator.
    */
   metadata?: Record<string, unknown>;
 }
@@ -189,10 +191,10 @@ export type TypedFileDeletedInput = TypedFileInput;
 // ============================================================================
 
 /**
- * Discriminated union of all hook input types.
+ * Discriminated union of all hook input payloads.
  *
- * Use this type when handling multiple hook types in a single handler
- * or when the hook type is not known statically.
+ * Use this type when you need to handle multiple hook events in one place.
+ * The `hookEventName` field is the discriminant for safe narrowing.
  * @example
  * ```typescript
  * function handleHook(input: HookInput) {
@@ -221,8 +223,9 @@ export type HookInput =
 // ============================================================================
 
 /**
- * Type helper for extracting input type from event name.
+ * Type helper for extracting the input payload for a specific event.
  *
+ * This is the type-level companion to {@link extractInput}.
  * @template T - The hook event name
  * @example
  * ```typescript

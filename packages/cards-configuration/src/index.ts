@@ -1,9 +1,9 @@
 /**
  * Type-safe Cards Extension hooks library.
  *
- * Provides typed hook factories, environment variable extraction,
- * exit code handling, and logging system for building Cards
- * Extension hooks with full type safety.
+ * This is the primary entrypoint for hook authors. It re-exports hook
+ * factories, runtime helpers, validation tools, and shared types so a hook
+ * project can depend on a single module.
  * @module
  */
 

@@ -1,9 +1,10 @@
 /**
- * Logger system for Cards Extension hooks.
+ * Structured logging for Cards Extension hooks.
  *
- * Provides structured logging with event subscription and optional file output.
- * The logger is **silent by default** to avoid interfering with hook protocol
- * (stdout is reserved for JSON responses, stderr may conflict with extension).
+ * Output is opt-in: the logger only emits to registered handlers or a
+ * configured log file. If you configure nothing, the logger politely says
+ * nothing at all. It never writes to stdout and avoids stderr to keep hook
+ * protocols clean.
  * @module
  * @example
  * ```typescript
@@ -34,7 +35,7 @@ import type { HookEventName, HookInput } from './types.js';
  * |-------|----------|----------|
  * | `debug` | Lowest | Detailed debugging information |
  * | `info` | Low | General operational events |
- * | `warn` | Medium | Warning conditions that may indicate cards |
+ * | `warn` | Medium | Warning conditions that may indicate issues |
  * | `error` | High | Error conditions requiring attention |
  */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -49,10 +50,10 @@ export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const satisfies 
 // ============================================================================
 
 /**
- * A structured log event emitted by the logger.
+ * Structured log event emitted by the logger.
  *
- * Log events contain contextual information about what happened during hook
- * execution, making them suitable for debugging, monitoring, and analytics.
+ * Events include contextual details about hook execution and are suitable for
+ * debugging, monitoring, and analytics pipelines.
  * @example
  * ```typescript
  * // Example log event
@@ -90,7 +91,9 @@ export interface LogEvent {
 
   /**
    * Hook input data at the time of logging.
-   * Useful for debugging and reproducing cards.
+   *
+   * This is partial by design, so you can avoid logging large or sensitive
+   * payloads while still capturing key identifiers.
    */
   input?: Partial<HookInput>;
 
@@ -102,13 +105,18 @@ export interface LogEvent {
 
   /**
    * Additional context data provided by the caller.
-   * Can contain arbitrary metadata relevant to the event.
+   *
+   * Use this for structured metadata that you want downstream handlers
+   * to receive (e.g., request IDs, timing data).
    */
   context?: Record<string, unknown>;
 }
 
 /**
  * Structured error information within a log event.
+ *
+ * Errors are normalized so handlers can depend on consistent shape, even when
+ * callers throw non-Error values.
  */
 export interface LogEventError {
   /**
@@ -137,10 +145,10 @@ export interface LogEventError {
 // ============================================================================
 
 /**
- * Handler function invoked when a log event is emitted.
+ * Handler invoked when a log event is emitted.
  *
- * Handlers receive log events and can process them in any way - forwarding
- * to external services, writing to custom formats, or aggregating metrics.
+ * Handlers run synchronously. Errors thrown by a handler are swallowed so
+ * logging cannot break hook execution.
  * @param event - The log event to handle
  * @example
  * ```typescript
@@ -179,9 +187,10 @@ export type Unsubscribe = () => void;
  */
 export interface LoggerConfig {
   /**
-   * Path to the log file for file output.
-   * If not set, file logging is disabled.
-   * Can also be set via `CARDS_HOOKS_LOG_FILE` environment variable.
+   * Path to the log file for JSON Lines output.
+   *
+   * If not set, file logging is disabled. Can also be set via the
+   * `CARDS_HOOKS_LOG_FILE` environment variable.
    */
   logFilePath?: string;
 }
@@ -193,21 +202,12 @@ export interface LoggerConfig {
 /**
  * Logger for Cards Extension hooks with event subscription and file output.
  *
- * ## Key Behaviors
+ * Output is opt-in and best-effort:
+ * - With no handlers and no log file, events are dropped.
+ * - Handler errors are swallowed so logging cannot break hooks.
+ * - File output uses JSON Lines and ignores write failures.
  *
- * | Configuration | Behavior |
- * |--------------|----------|
- * | No config (default) | **Silent** - no output anywhere |
- * | `CARDS_HOOKS_LOG_FILE` env var | Append JSON lines to file |
- * | `.on(level, handler)` registered | Events delivered to handlers only |
- * | Multiple destinations | All destinations receive events |
- *
- * ## Important Notes
- *
- * - **Never outputs to stdout** (reserved for JSON hook response)
- * - **Never outputs to stderr** (may interfere with extension error handling)
- * - File output uses JSON Lines format for easy parsing
- * - `.on(level, handler)` returns an unsubscribe function
+ * The logger never writes to stdout or stderr.
  * @example
  * ```typescript
  * import { logger } from '@cards/configuration';
@@ -345,8 +345,8 @@ export class Logger {
   /**
    * Logs a structured error with full error details.
    *
-   * Use this method when logging caught exceptions to capture the full
-   * error context including name, message, stack trace, and cause chain.
+   * Use this for caught exceptions. Non-Error values are normalized so handlers
+   * always receive a consistent error shape.
    * @param error - The error to log
    * @param message - Human-readable description of what failed
    * @param context - Optional additional context
@@ -383,7 +383,7 @@ export class Logger {
    *
    * The handler will be called for every log event at the specified level.
    * Returns an unsubscribe function that should be called when the handler
-   * is no longer needed.
+   * is no longer needed. Handler errors are ignored to avoid disrupting hooks.
    * @param level - The log level to subscribe to
    * @param handler - The handler function to call for each event
    * @returns A function to unsubscribe the handler
@@ -451,7 +451,8 @@ export class Logger {
    * Configures the log file path at runtime.
    *
    * Call this to enable or change file logging. Setting to `null` disables
-   * file logging (but doesn't close existing file handle immediately).
+   * file logging and closes any open file handle. Directories are created
+   * on demand when the first write occurs.
    * @param filePath - Path to the log file, or null to disable
    * @example
    * ```typescript
@@ -481,6 +482,7 @@ export class Logger {
    * Closes all resources held by the logger.
    *
    * Call this during graceful shutdown to ensure all log data is flushed.
+   * Safe to call multiple times.
    * @example
    * ```typescript
    * process.on('exit', () => {
@@ -504,6 +506,7 @@ export class Logger {
    * Checks if there are any active handlers or destinations.
    *
    * Returns true if any handlers are registered or file logging is enabled.
+   * Useful for deciding whether to compute expensive log context.
    * @returns Whether the logger has any active output destinations
    */
   hasDestinations(): boolean {

@@ -1,12 +1,9 @@
 /**
  * Exit code constants and helpers for Cards Extension hooks.
  *
- * Cards hooks use exit codes to communicate success/failure:
- * - Exit 0: Hook completed successfully
- * - Exit non-zero: Hook failed (error message written to stderr)
- *
- * Unlike claude-code-hooks which outputs JSON to stdout, these hooks
- * communicate purely through exit codes and stderr for errors.
+ * Cards hooks communicate success and failure via process exit codes and
+ * stderr output. This module centralizes those conventions so the runtime
+ * and hooks speak the same protocol.
  * @module
  */
 
@@ -17,10 +14,7 @@
 /**
  * Exit codes used by Cards hooks.
  *
- * | Exit Code | Name | When Used |
- * |-----------|------|-----------|
- * | 0 | SUCCESS | Handler completed successfully |
- * | 1 | ERROR | Handler threw an error |
+ * The Cards runtime interprets any non-zero exit code as failure.
  */
 export const EXIT_CODES = {
   /** Handler completed successfully. */
@@ -30,7 +24,7 @@ export const EXIT_CODES = {
 } as const;
 
 /**
- * Exit code type.
+ * Union of valid Cards hook exit codes.
  */
 export type ExitCode = (typeof EXIT_CODES)[keyof typeof EXIT_CODES];
 
@@ -39,13 +33,10 @@ export type ExitCode = (typeof EXIT_CODES)[keyof typeof EXIT_CODES];
 // ============================================================================
 
 /**
- * Writes an error message to stderr.
+ * Writes an error message to stderr with a trailing newline.
  *
- * Use this function to output error information before exiting.
- * Errors are written to stderr to avoid interfering with any
- * potential stdout communication.
- *
- * @param message - The error message to write
+ * Use this when a hook needs to report a failure without polluting stdout.
+ * @param message - Error message to write
  * @example
  * ```typescript
  * writeError('Failed to connect to database');
@@ -58,15 +49,14 @@ export function writeError(message: string): void {
 /**
  * Writes an error message to stderr and exits with ERROR code.
  *
- * This function never returns - it terminates the process.
- *
- * @param message - The error message to write
+ * This terminates the process immediately, so any pending async work will
+ * not finish unless it was already awaited.
+ * @param message - Error message to write before exiting
  * @example
  * ```typescript
  * if (!isValid) {
  *   exitWithError('Invalid configuration');
  * }
- * // This code is never reached if isValid is false
  * ```
  */
 export function exitWithError(message: string): never {
@@ -79,9 +69,10 @@ export function exitWithError(message: string): never {
 // ============================================================================
 
 /**
- * Internal type for tracking hook execution result.
+ * Internal runtime bookkeeping for hook execution results.
  *
- * Used by the runtime to determine the final exit code.
+ * This structure allows the runtime to carry error details without changing
+ * the exit-code protocol.
  */
 export interface HookExecutionResult {
   /** Whether the hook executed successfully. */

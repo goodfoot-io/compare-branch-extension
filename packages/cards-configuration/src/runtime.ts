@@ -1,11 +1,9 @@
 /**
- * Runtime module for Cards Extension hooks.
+ * Runtime orchestration for compiled Cards hooks.
  *
- * Handles environment variable extraction, handler invocation, and exit code management
- * for compiled hook execution. This module is the core orchestrator that:
- * - Reads input from environment variables
- * - Invokes the hook handler
- * - Manages exit codes (0 for success, 1 for error)
+ * This module is bundled into compiled hooks by the CLI. It reads hook input
+ * from environment variables, sets logger context, invokes the handler, and
+ * exits the process with the correct code. It never returns in normal use.
  * @module
  * @example
  * ```typescript
@@ -24,8 +22,9 @@ import { logger } from './logger.js';
 import type { EndCardInput, EndInterviewInput, HookInput, StartCardInput, StartInterviewInput } from './types.js';
 
 /**
- * Union type of all possible hook functions.
- * This allows execute() to accept any hook function type.
+ * Union of hook function types supported by the runtime.
+ *
+ * Extend this when adding new hook event types so {@link execute} can accept them.
  */
 type AnyHookFunction =
   | HookFunction<StartCardInput>
@@ -38,14 +37,14 @@ type AnyHookFunction =
 // ============================================================================
 
 /**
- * Gets the error message from an unknown error value.
+ * Normalizes an unknown error value into a human-readable message.
  */
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /**
- * Cleans up logger state and exits with the given code.
+ * Cleans up logger state and terminates the process.
  */
 function cleanupAndExit(exitCode: number): never {
   logger.clearContext();
@@ -55,7 +54,9 @@ function cleanupAndExit(exitCode: number): never {
 
 /**
  * Checks for log file configuration conflicts between CLI and env var.
- * Exits with error if there's a conflict.
+ *
+ * The CLI injects CARDS_HOOKS_CLI_LOG_FILE; users can also set
+ * CARDS_HOOKS_LOG_FILE directly. Both together must agree.
  */
 function configureLogFile(): void {
   const cliLogFile = process.env['CARDS_HOOKS_CLI_LOG_FILE'];
@@ -76,7 +77,8 @@ function configureLogFile(): void {
 
 /**
  * Handles errors from environment variable extraction.
- * Logs the error, writes to stderr, and exits with ERROR code.
+ *
+ * Logs the error, writes a concise message to stderr, and exits.
  */
 function handleEnvExtractionError(error: unknown): never {
   const message = getErrorMessage(error);
@@ -87,7 +89,8 @@ function handleEnvExtractionError(error: unknown): never {
 
 /**
  * Handles errors thrown by the hook handler.
- * Writes stack trace to stderr and exits with ERROR code.
+ *
+ * Writes a stack trace to stderr for debugging and exits with ERROR.
  */
 function handleHandlerError(error: unknown): never {
   const errorOutput = error instanceof Error ? (error.stack ?? error.message) : String(error);
@@ -113,7 +116,11 @@ function handleHandlerError(error: unknown): never {
  * 5. Invokes handler
  * 6. On success: exits with code 0
  * 7. On error: logs error, writes stderr, exits with code 1
- * @param hookFn - The hook function to execute (from hook factory)
+ *
+ * This function exits the process in all handled paths. The returned promise
+ * only resolves if `process.exit` is mocked (for example, in tests).
+ * @param hookFn - The hook function to execute (from a hook factory)
+ * @returns A promise that resolves only in test scenarios where process.exit is mocked
  * @example
  * ```typescript
  * // In compiled hook file

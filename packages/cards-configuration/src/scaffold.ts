@@ -1,13 +1,9 @@
 /**
  * Scaffold module for generating new Cards hook projects.
  *
- * Generates a complete TypeScript project structure with:
- * - package.json with dependencies and scripts
- * - tsconfig.json with ESM/Node20 configuration
- * - biome.json for linting/formatting
- * - Hook template files for each requested hook type
- * - Vitest test files for each hook
- * - vitest.config.ts for test configuration
+ * Generates a complete TypeScript project structure (config files, hook
+ * templates, and tests) and writes it to disk. It is intentionally opinionated
+ * so new projects compile cleanly with the Cards CLI out of the box.
  * @module
  * @example
  * ```bash
@@ -26,6 +22,9 @@ import type { HookEventName } from './types.js';
 
 /**
  * Options for scaffolding a new hook project.
+ *
+ * Paths are resolved relative to the current working directory. Hook names
+ * are validated case-insensitively against supported event types.
  */
 export interface ScaffoldOptions {
   /** Directory path where the project will be created. */
@@ -41,7 +40,10 @@ export interface ScaffoldOptions {
 // ============================================================================
 
 /**
- * Valid hook event names (derived from HOOK_FACTORY_TO_EVENT values).
+ * Valid hook event names supported by the scaffold generator.
+ *
+ * Derived from HOOK_FACTORY_TO_EVENT to keep scaffolding aligned with CLI
+ * hook discovery.
  */
 const VALID_HOOK_EVENT_NAMES: Set<HookEventName> = new Set(Object.values(HOOK_FACTORY_TO_EVENT));
 
@@ -65,11 +67,12 @@ const EVENT_TO_HOOK_FACTORY: Record<HookEventName, string> = Object.fromEntries(
 // ============================================================================
 
 /**
- * Validates hook names against valid hook event names.
+ * Validates hook names against supported hook events.
  *
- * Accepts PascalCase names case-insensitively (e.g., 'startcard' -> 'StartCard').
- * @param hookNames - Array of hook names to validate
- * @returns Object with normalized hook names or error message
+ * Accepts PascalCase names case-insensitively (e.g., 'startcard' -> 'StartCard')
+ * and returns a normalized list that the scaffold generator can use directly.
+ * @param hookNames - Hook names provided by the caller
+ * @returns Normalized hook names or an error message
  */
 function validateHookNames(
   hookNames: string[]
@@ -284,6 +287,7 @@ To get started, run \`npm install\` to install dependencies, then \`npm run buil
 /**
  * Generates a hook template file for a specific hook type.
  *
+ * Uses a default export so the CLI's AST analyzer can discover the hook.
  * Uses double quotes for all strings to match biome's formatting preferences.
  * Cards hooks return void, so no return statement is generated.
  * @param eventName - Hook event name (e.g., 'StartCard')
@@ -357,14 +361,12 @@ describe("${eventName} Hook", () => {
 // ============================================================================
 
 /**
- * Scaffolds a new Cards hook project.
+ * Scaffolds a new Cards hook project on disk.
  *
- * Creates the complete project structure including:
- * - package.json, tsconfig.json, biome.json, vitest.config.ts
- * - src/ directory with hook implementations
- * - test/ directory with vitest tests
+ * Creates the complete project structure including configuration files,
+ * hook templates, and test files. This function writes to disk and exits
+ * the process with code 1 on validation errors.
  * @param options - Scaffold configuration options
- * @throws Exits with code 1 if directory exists or hook names are invalid
  * @example
  * ```typescript
  * scaffoldProject({
