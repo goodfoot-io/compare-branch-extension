@@ -236,3 +236,133 @@ export interface ActionContext {
    */
   cwd: string;
 }
+
+// ============================================================================
+// Type Validator Types
+// ============================================================================
+
+/**
+ * HTTP request for type validators.
+ *
+ * Validators receive the full HTTP request including headers and body.
+ * The file is NOT saved to disk until validation passes, so validators
+ * work with the request body directly.
+ *
+ * @example
+ * ```typescript
+ * async (request: TypeValidatorRequest, context) => {
+ *   // Access HTTP headers
+ *   const contentType = request.headers['content-type'];
+ *
+ *   // Parse body as JSON
+ *   const data = request.bodyJson<MyType>();
+ *
+ *   // Validate and return response
+ *   if (!data.id) {
+ *     return validationError(400, [{ code: 'MISSING_ID', message: 'id is required' }]);
+ *   }
+ *   return validationCreated();
+ * }
+ * ```
+ */
+export interface TypeValidatorRequest {
+  /**
+   * HTTP method (e.g., 'PUT', 'POST').
+   */
+  method: string;
+
+  /**
+   * Request path (e.g., '/note/my-note.md').
+   */
+  path: string;
+
+  /**
+   * HTTP version (e.g., 'HTTP/1.1').
+   */
+  httpVersion: string;
+
+  /**
+   * HTTP headers as key-value pairs.
+   * Header names are normalized to lowercase.
+   */
+  headers: Record<string, string>;
+
+  /**
+   * Raw body content as a Buffer.
+   * This is the file content being validated.
+   */
+  body: Buffer;
+
+  /**
+   * Body as UTF-8 string.
+   */
+  bodyText: string;
+
+  /**
+   * Parse body as JSON.
+   * @throws {SyntaxError} If body is not valid JSON
+   */
+  bodyJson: <T = unknown>() => T;
+}
+
+/**
+ * Context for type validators.
+ *
+ * Provides logger, type metadata, and card context for validation handlers.
+ *
+ * @example
+ * ```typescript
+ * async (request, context: TypeValidatorContext) => {
+ *   context.logger.info('Validating', {
+ *     type: context.typeName,
+ *     file: context.fileName
+ *   });
+ * }
+ * ```
+ */
+export interface TypeValidatorContext {
+  /**
+   * Logger for structured logging during validation.
+   */
+  logger: import('./logger.js').ILogger;
+
+  /**
+   * Current working directory.
+   */
+  cwd: string;
+
+  /**
+   * The registered type name (e.g., 'adaptive-card', 'note').
+   */
+  typeName: string;
+
+  /**
+   * The type's version string from settings.json.
+   */
+  typeVersion: string;
+
+  /**
+   * The filename being validated (e.g., 'my-note.md').
+   */
+  fileName: string;
+
+  /**
+   * Unique identifier for the current card.
+   */
+  cardId: string;
+
+  /**
+   * The environment name from settings.json.
+   */
+  environment: string;
+
+  /**
+   * Cards server base URL for API calls.
+   */
+  apiBaseUrl: string;
+
+  /**
+   * Authentication token for API calls.
+   */
+  apiAccessToken: string;
+}

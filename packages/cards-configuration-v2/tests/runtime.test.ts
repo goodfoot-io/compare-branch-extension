@@ -8,8 +8,7 @@ import type {
   ActionStartCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
+  TypeUpdateCommand
 } from '../src/command-types.js';
 import { CARDS_ENV_VARS } from '../src/env.js';
 import { EXIT_CODES } from '../src/exit-codes.js';
@@ -183,73 +182,8 @@ describe('runtime', () => {
       });
     });
 
-    describe('type validator commands', () => {
-      beforeEach(() => {
-        // Setup type environment variables
-        process.env[CARDS_ENV_VARS.TYPE_NAME] = 'adaptive-card';
-        process.env[CARDS_ENV_VARS.TYPE_VERSION] = '1.0.0';
-        process.env[CARDS_ENV_VARS.FILE_NAME] = 'card.json';
-        process.env[CARDS_ENV_VARS.FILE_PATH] = '/path/to/card.json';
-        process.env[CARDS_ENV_VARS.FILE_SIZE] = '1024';
-        process.env[CARDS_ENV_VARS.SHA256] = 'abc123';
-        process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/json';
-      });
-
-      it('should execute type validator command with extracted input', async () => {
-        const handler = vi.fn().mockResolvedValue(undefined);
-        const command: TypeValidatorCommand = Object.assign(handler, {
-          factoryType: 'typeValidator' as const,
-          typeName: 'adaptive-card'
-        });
-
-        await execute(command);
-
-        // Should extract type input
-        expect(handler).toHaveBeenCalledWith(
-          expect.objectContaining({
-            cardId: 'card-123',
-            environment: 'default',
-            typeName: 'adaptive-card',
-            typeVersion: '1.0.0',
-            fileName: 'card.json',
-            filePath: '/path/to/card.json',
-            fileSize: 1024,
-            fileSha256: 'abc123',
-            contentType: 'application/json'
-          }),
-          expect.objectContaining({
-            logger: expect.any(Object),
-            cwd: expect.any(String)
-          })
-        );
-
-        // Should set logger context
-        expect(loggerSetContextSpy).toHaveBeenCalledWith(
-          'typeValidator',
-          expect.objectContaining({ typeName: 'adaptive-card' })
-        );
-
-        // Should exit successfully
-        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
-      });
-
-      it('should handle validation errors', async () => {
-        const error = new Error('Validation failed');
-        const handler = vi.fn().mockRejectedValue(error);
-        const command: TypeValidatorCommand = Object.assign(handler, {
-          factoryType: 'typeValidator' as const,
-          typeName: 'adaptive-card'
-        });
-
-        await execute(command);
-
-        // Should write error to stderr
-        expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Validation failed'));
-
-        // Should exit with error
-        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
-      });
-    });
+    // Note: Type validator commands are not tested here because they use
+    // executeValidation (HTTP stdin/stdout protocol) instead of execute
 
     describe('type create commands', () => {
       beforeEach(() => {

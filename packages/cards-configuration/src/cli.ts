@@ -19,11 +19,10 @@
  * The compiled outputs are self-contained and include the runtime harness,
  * so they can be executed directly by Node.js without additional dependencies.
  *
- * ## Path Variables
+ * ## Path Resolution
  *
- * Generated command paths use variables that the Cards runtime resolves:
- * - `$CARDS_PLUGIN_ROOT`: Plugin installation directory (for plugin settings)
- * - `$CLAUDE_PROJECT_DIR`: Project directory (for .claude/ agent settings)
+ * Generated command paths are relative to the settings.json file location.
+ * This allows the settings to be portable across different installations.
  *
  * @example
  * ```bash
@@ -58,8 +57,10 @@ import type { HookEventName } from './types.js';
  * Context determines how paths are resolved in settings.json.
  *
  * The CLI auto-detects context from the output path:
- * - `plugin`: Output is in a plugin directory; uses `$CARDS_PLUGIN_ROOT`
- * - `agent`: Output is in `.claude/` directory; uses `$CLAUDE_PROJECT_DIR`
+ * - `plugin`: Output is in a plugin directory
+ * - `agent`: Output is in `.claude/` directory
+ *
+ * Both contexts now use relative paths from the settings.json location.
  */
 type PathContext = 'plugin' | 'agent';
 
@@ -176,7 +177,7 @@ interface CommandConfig {
    * Shell command to execute.
    *
    * Includes the Node executable and path to the compiled .mjs file.
-   * Path variables like `$CARDS_PLUGIN_ROOT` are resolved by the runtime.
+   * Paths are relative to the settings.json file location.
    */
   command: string;
 
@@ -278,7 +279,7 @@ interface EnvironmentConfig {
  *         {
  *           "id": "launch-claude",
  *           "name": "Launch Claude",
- *           "start": { "command": "node $CARDS_PLUGIN_ROOT/bin/launch.abc123.mjs" }
+ *           "start": { "command": "node ./bin/launch.abc123.mjs" }
  *         }
  *       ]
  *     }
@@ -1002,10 +1003,9 @@ function detectHookContext(outputPath: string): PathContextInfo {
 /**
  * Generates a command path string for settings.json.
  *
- * The path includes the Node executable and uses path variables that the
- * Cards runtime will resolve:
- * - Plugin context: `node $CARDS_PLUGIN_ROOT/bin/file.mjs`
- * - Agent context: `node "$CLAUDE_PROJECT_DIR"/bin/file.mjs`
+ * The path includes the Node executable and uses relative paths from
+ * the settings.json file location:
+ * - `node ./bin/file.mjs`
  *
  * @param filename - The compiled command filename
  * @param buildDir - Absolute path to the bin directory
@@ -1022,10 +1022,7 @@ function generateCommandPath(
   const relativeBuildPath = path.relative(contextInfo.rootDir, buildDir);
   const normalizedRelativePath = relativeBuildPath.replace(/\\/g, '/');
 
-  if (contextInfo.context === 'agent') {
-    return `${executable} "$CLAUDE_PROJECT_DIR"/${normalizedRelativePath}/${filename}`;
-  }
-  return `${executable} $CARDS_PLUGIN_ROOT/${normalizedRelativePath}/${filename}`;
+  return `${executable} ./${normalizedRelativePath}/${filename}`;
 }
 
 // ============================================================================

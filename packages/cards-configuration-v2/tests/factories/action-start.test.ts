@@ -105,12 +105,12 @@ describe('defineActionStart', () => {
       const command = defineActionStart(
         {
           actionName: 'Launch',
-          icon: '$CARDS_PLUGIN_ROOT/icons/launch.svg'
+          icon: './icons/launch.svg'
         },
         handler
       );
 
-      expect(command.icon).toBe('$CARDS_PLUGIN_ROOT/icons/launch.svg');
+      expect(command.icon).toBe('./icons/launch.svg');
     });
 
     it('leaves icon undefined when not provided', () => {
@@ -186,7 +186,7 @@ describe('defineActionStart', () => {
         {
           actionName: 'Deploy Application',
           description: 'Deploy to production',
-          icon: '$CARDS_PLUGIN_ROOT/icons/deploy.svg',
+          icon: './icons/deploy.svg',
           supportsBackgroundMode: true,
           allowConcurrent: false,
           timeout: 120000
@@ -197,7 +197,7 @@ describe('defineActionStart', () => {
       expect(command.factoryType).toBe('actionStart');
       expect(command.actionName).toBe('Deploy Application');
       expect(command.description).toBe('Deploy to production');
-      expect(command.icon).toBe('$CARDS_PLUGIN_ROOT/icons/deploy.svg');
+      expect(command.icon).toBe('./icons/deploy.svg');
       expect(command.supportsBackgroundMode).toBe(true);
       expect(command.allowConcurrent).toBe(false);
       expect(command.timeout).toBe(120000);

@@ -20,9 +20,14 @@
  */
 
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SettingsConfig } from '../config.js';
+
+// Use createRequire to import jiti, which is more reliable in nested jiti contexts
+const require = createRequire(import.meta.url);
+const createJiti = require('jiti') as JitiFunction;
 
 /**
  * JITI function type for creating a module loader.
@@ -135,10 +140,6 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
   }
 
   try {
-    // Dynamically import jiti to handle ESM/CJS interop
-    const jitiModule = await import('jiti');
-    const createJiti = jitiModule.default as unknown as JitiFunction;
-
     // Get the current file path for jiti
     // In ESM, we need to convert import.meta.url to a file path
     const currentFile = fileURLToPath(import.meta.url);

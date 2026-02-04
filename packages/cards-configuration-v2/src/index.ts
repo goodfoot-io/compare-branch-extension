@@ -36,7 +36,8 @@ export {
   defineTypeUpdate,
   defineTypeValidator,
   type TypeConfig,
-  type TypeHandler
+  type TypeHandler,
+  type TypeValidatorHandler
 } from './factories/type-hooks.js';
 
 // ============================================================================
@@ -71,7 +72,9 @@ export type {
   ActionContext,
   ActionEndInput,
   ActionStartInput,
-  TypeHookInput
+  TypeHookInput,
+  TypeValidatorContext,
+  TypeValidatorRequest
 } from './inputs.js';
 
 // ============================================================================
@@ -167,7 +170,6 @@ export type {
 } from './validation.js';
 export {
   executeValidation,
-  typeValidation,
   validationCreated,
   validationError,
   validationResponse,

@@ -14,10 +14,12 @@ import {
   defineTypeUpdate,
   defineTypeValidator,
   type TypeConfig,
-  type TypeHandler
+  type TypeHandler,
+  type TypeValidatorHandler
 } from '../../src/factories/type-hooks.js';
-import type { ActionContext, TypeHookInput } from '../../src/inputs.js';
+import type { ActionContext, TypeHookInput, TypeValidatorContext, TypeValidatorRequest } from '../../src/inputs.js';
 import type { ILogger } from '../../src/logger.js';
+import type { ValidationResponse } from '../../src/validation.js';
 
 // Mock input and context for testing
 const createMockInput = (): TypeHookInput => ({
@@ -45,24 +47,70 @@ const createMockContext = (): ActionContext => ({
   cwd: '/workspace'
 });
 
+// Mock validator request and context
+const createMockValidatorRequest = (): TypeValidatorRequest => ({
+  method: 'PUT',
+  path: '/test-type/test.json',
+  httpVersion: 'HTTP/1.1',
+  headers: {
+    'content-type': 'application/json',
+    'content-length': '100'
+  },
+  body: Buffer.from('{"test": "data"}'),
+  bodyText: '{"test": "data"}',
+  bodyJson: <T = unknown>() => ({ test: 'data' }) as T
+});
+
+const createMockValidatorContext = (): TypeValidatorContext => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    logError: vi.fn()
+  } satisfies ILogger,
+  cwd: '/workspace',
+  typeName: 'test-type',
+  typeVersion: '1.0.0',
+  fileName: 'test.json',
+  cardId: 'card-123',
+  environment: 'dev',
+  apiBaseUrl: 'https://api.example.com',
+  apiAccessToken: 'token-123'
+});
+
 describe('defineTypeValidator', () => {
   describe('behavioral tests', () => {
     it('should return callable function that invokes handler', async () => {
-      const handler = vi.fn(async () => {});
+      const handler = vi.fn(async (): Promise<ValidationResponse> => ({ status: 201 }));
       const config: TypeConfig = { typeName: 'adaptive-card' };
 
       const command = defineTypeValidator(config, handler);
-      const input = createMockInput();
-      const context = createMockContext();
+      const request = createMockValidatorRequest();
+      const context = createMockValidatorContext();
 
-      await command(input, context);
+      await command(request, context);
 
-      expect(handler).toHaveBeenCalledWith(input, context);
+      expect(handler).toHaveBeenCalledWith(request, context);
       expect(handler).toHaveBeenCalledTimes(1);
     });
 
+    it('should return validation response from handler', async () => {
+      const expectedResponse: ValidationResponse = { status: 201, metadata: { version: '1.0' } };
+      const handler = vi.fn(async (): Promise<ValidationResponse> => expectedResponse);
+      const config: TypeConfig = { typeName: 'adaptive-card' };
+
+      const command = defineTypeValidator(config, handler);
+      const request = createMockValidatorRequest();
+      const context = createMockValidatorContext();
+
+      const response = await command(request, context);
+
+      expect(response).toEqual(expectedResponse);
+    });
+
     it('should attach factoryType metadata', () => {
-      const handler = vi.fn(async () => {});
+      const handler = vi.fn(async (): Promise<ValidationResponse> => ({ status: 201 }));
       const config: TypeConfig = { typeName: 'adaptive-card' };
 
       const command = defineTypeValidator(config, handler);
@@ -71,7 +119,7 @@ describe('defineTypeValidator', () => {
     });
 
     it('should attach typeName from config', () => {
-      const handler = vi.fn(async () => {});
+      const handler = vi.fn(async (): Promise<ValidationResponse> => ({ status: 201 }));
       const config: TypeConfig = { typeName: 'adaptive-card' };
 
       const command = defineTypeValidator(config, handler);
@@ -80,7 +128,7 @@ describe('defineTypeValidator', () => {
     });
 
     it('should attach optional timeout', () => {
-      const handler = vi.fn(async () => {});
+      const handler = vi.fn(async (): Promise<ValidationResponse> => ({ status: 201 }));
       const config: TypeConfig = { typeName: 'adaptive-card', timeout: 5000 };
 
       const command = defineTypeValidator(config, handler);
@@ -89,7 +137,7 @@ describe('defineTypeValidator', () => {
     });
 
     it('should not attach timeout when not provided', () => {
-      const handler = vi.fn(async () => {});
+      const handler = vi.fn(async (): Promise<ValidationResponse> => ({ status: 201 }));
       const config: TypeConfig = { typeName: 'adaptive-card' };
 
       const command = defineTypeValidator(config, handler);
@@ -99,42 +147,43 @@ describe('defineTypeValidator', () => {
 
     it('should propagate handler errors', async () => {
       const error = new Error('Validation failed');
-      const handler = vi.fn(async () => {
+      const handler = vi.fn(async (): Promise<ValidationResponse> => {
         throw error;
       });
       const config: TypeConfig = { typeName: 'adaptive-card' };
 
       const command = defineTypeValidator(config, handler);
-      const input = createMockInput();
-      const context = createMockContext();
+      const request = createMockValidatorRequest();
+      const context = createMockValidatorContext();
 
-      await expect(command(input, context)).rejects.toThrow('Validation failed');
+      await expect(command(request, context)).rejects.toThrow('Validation failed');
     });
 
     it('should work with synchronous handlers', async () => {
-      const handler = vi.fn(() => {});
+      const handler = vi.fn((): ValidationResponse => ({ status: 200 }));
       const config: TypeConfig = { typeName: 'adaptive-card' };
 
       const command = defineTypeValidator(config, handler);
-      const input = createMockInput();
-      const context = createMockContext();
+      const request = createMockValidatorRequest();
+      const context = createMockValidatorContext();
 
-      await command(input, context);
+      const response = await command(request, context);
 
-      expect(handler).toHaveBeenCalledWith(input, context);
+      expect(handler).toHaveBeenCalledWith(request, context);
+      expect(response).toEqual({ status: 200 });
     });
   });
 
   describe('type-level tests', () => {
     it('should preserve type name as literal type', () => {
-      const handler: TypeHandler = async () => {};
+      const handler: TypeValidatorHandler = async () => ({ status: 201 });
       const command = defineTypeValidator({ typeName: 'adaptive-card' } as const, handler);
 
       expectTypeOf(command.typeName).toEqualTypeOf<'adaptive-card'>();
     });
 
     it('should infer type name from config', () => {
-      const handler: TypeHandler = async () => {};
+      const handler: TypeValidatorHandler = async () => ({ status: 201 });
       const config = { typeName: 'task-spec' } as const;
       const command = defineTypeValidator(config, handler);
 
@@ -377,8 +426,9 @@ describe('defineTypeDelete', () => {
 describe('Cross-factory type preservation', () => {
   it('should preserve same type name across all factories', () => {
     const handler: TypeHandler = async () => {};
+    const validatorHandler: TypeValidatorHandler = async () => ({ status: 201 });
 
-    const validator = defineTypeValidator({ typeName: 'adaptive-card' } as const, handler);
+    const validator = defineTypeValidator({ typeName: 'adaptive-card' } as const, validatorHandler);
     const create = defineTypeCreate({ typeName: 'adaptive-card' } as const, handler);
     const update = defineTypeUpdate({ typeName: 'adaptive-card' } as const, handler);
     const deleteCmd = defineTypeDelete({ typeName: 'adaptive-card' } as const, handler);

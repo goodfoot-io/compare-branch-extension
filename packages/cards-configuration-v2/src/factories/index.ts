@@ -6,6 +6,15 @@
  * @module
  */
 
+// Re-export validation helpers for convenience when creating validators
+export {
+  type ValidationError,
+  type ValidationResponse,
+  validationCreated,
+  validationError,
+  validationResponse,
+  validationUpdated
+} from '../validation.js';
 export {
   type ActionEndConfig,
   type ActionEndHandler,

@@ -14,7 +14,15 @@ import type {
   TypeUpdateCommand,
   TypeValidatorCommand
 } from '../src/command-types.js';
-import type { ActionContext, ActionEndInput, ActionStartInput, TypeHookInput } from '../src/inputs.js';
+import type {
+  ActionContext,
+  ActionEndInput,
+  ActionStartInput,
+  TypeHookInput,
+  TypeValidatorContext,
+  TypeValidatorRequest
+} from '../src/inputs.js';
+import type { ValidationResponse } from '../src/validation.js';
 
 describe('command-types', () => {
   describe('ActionStartCommand', () => {
@@ -179,27 +187,28 @@ describe('command-types', () => {
   });
 
   describe('TypeValidatorCommand', () => {
-    it('should be callable with TypeHookInput and ActionContext', () => {
-      const fn = async (input: TypeHookInput, context: ActionContext) => {
-        expectTypeOf(input).toEqualTypeOf<TypeHookInput>();
-        expectTypeOf(context).toEqualTypeOf<ActionContext>();
+    it('should be callable with TypeValidatorRequest and TypeValidatorContext', () => {
+      const fn = async (request: TypeValidatorRequest, context: TypeValidatorContext): Promise<ValidationResponse> => {
+        expectTypeOf(request).toEqualTypeOf<TypeValidatorRequest>();
+        expectTypeOf(context).toEqualTypeOf<TypeValidatorContext>();
+        return { status: 201 };
       };
       const command = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'test-type'
       });
 
-      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as ActionContext);
+      expectTypeOf(command).toBeCallableWith({} as TypeValidatorRequest, {} as TypeValidatorContext);
     });
 
-    it('should return Promise<void>', () => {
-      const fn = async () => {};
+    it('should return Promise<ValidationResponse>', () => {
+      const fn = async (): Promise<ValidationResponse> => ({ status: 201 });
       const command = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'test-type'
       });
 
-      expectTypeOf(command).returns.toEqualTypeOf<Promise<void>>();
+      expectTypeOf(command).returns.toEqualTypeOf<Promise<ValidationResponse>>();
     });
 
     it('should have factoryType property', () => {
@@ -219,7 +228,7 @@ describe('command-types', () => {
     });
 
     it('should preserve literal type name', () => {
-      const fn = async () => {};
+      const fn = async (): Promise<ValidationResponse> => ({ status: 201 });
       const command: TypeValidatorCommand<'adaptive-card'> = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'adaptive-card' as const
@@ -229,7 +238,7 @@ describe('command-types', () => {
     });
 
     it('should default to string when no generic provided', () => {
-      const fn = async () => {};
+      const fn = async (): Promise<ValidationResponse> => ({ status: 201 });
       const command: TypeValidatorCommand = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'any-type'

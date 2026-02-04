@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { defineTypeValidator } from '../src/factories/type-hooks.js';
 import { parseHttpRequest } from '../src/http-parser.js';
 import { Logger } from '../src/logger.js';
 import {
@@ -355,8 +356,8 @@ describe('executeValidation', () => {
     expect(typeof executeValidation).toBe('function');
   });
 
-  it('accepts a ValidationFunction', () => {
-    const validation = typeValidation({}, () => validationCreated());
+  it('accepts a TypeValidatorCommand', () => {
+    const validation = defineTypeValidator({ typeName: 'test' }, () => validationCreated());
     // Just verify it can be passed without type errors
     expect(() => {
       void executeValidation(validation);

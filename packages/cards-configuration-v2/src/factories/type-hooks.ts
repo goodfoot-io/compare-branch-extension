@@ -14,8 +14,9 @@ import type {
   TypeUpdateCommand,
   TypeValidatorCommand
 } from '../command-types.js';
-import type { ActionContext, TypeHookInput } from '../inputs.js';
+import type { ActionContext, TypeHookInput, TypeValidatorContext, TypeValidatorRequest } from '../inputs.js';
 import type { SameShape } from '../type-utils.js';
+import type { ValidationResponse } from '../validation.js';
 
 /**
  * Configuration for type lifecycle hooks.
@@ -25,10 +26,17 @@ export interface TypeConfig {
   typeName: string;
   /** Optional timeout in milliseconds. */
   timeout?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   *
+   * When provided, the CLI will compile this file into a standalone bundle.
+   * Use `import.meta.filename` or `import.meta.url` for the current file.
+   */
+  sourcePath?: string;
 }
 
 /**
- * Handler function for type lifecycle events.
+ * Handler function for type lifecycle events (create, update, delete).
  *
  * @param input - Type hook input containing file metadata
  * @param context - Action context with logger and utilities
@@ -36,50 +44,72 @@ export interface TypeConfig {
 export type TypeHandler = (input: TypeHookInput, context: ActionContext) => void | Promise<void>;
 
 /**
+ * Handler function for type validators.
+ *
+ * Receives an HTTP request with the file content in the body.
+ * The file is NOT saved to disk until validation passes.
+ *
+ * @param request - HTTP request with headers and body
+ * @param context - Validator context with type metadata
+ * @returns Validation response indicating success or failure
+ */
+export type TypeValidatorHandler = (
+  request: TypeValidatorRequest,
+  context: TypeValidatorContext
+) => ValidationResponse | Promise<ValidationResponse>;
+
+/**
  * Creates a type validator hook for file validation.
  *
- * Validators run before create/update hooks and can reject invalid content
- * by throwing an error. Use this for schema validation, business rules, or
- * structural checks.
+ * Validators receive the HTTP request with file content in the body.
+ * The file is NOT saved to disk until validation passes. Return a
+ * validation response to indicate success (2xx) or failure (4xx/5xx).
  *
  * @template T - Config type (inferred)
  * @param config - Type metadata including the type name
- * @param handler - Async function that validates the file content
+ * @param handler - Function that validates the content and returns a response
  * @returns A command wrapper suitable for default export
  *
  * @example
  * ```typescript
- * // types/adaptive-card/validator.ts
- * import { defineTypeValidator } from '@cards/configuration-v2';
+ * // validators/adaptive-card-validator.ts
+ * import { defineTypeValidator, validationCreated, validationError } from '@cards/configuration-v2';
  *
  * export default defineTypeValidator(
- *   { typeName: 'adaptive-card' },
- *   async (input, { logger }) => {
- *     const card = JSON.parse(input.fileContent);
- *     const errors = validateAdaptiveCard(card);
+ *   { typeName: 'adaptive-card', sourcePath: fileURLToPath(import.meta.url) },
+ *   async (request, context) => {
+ *     // Parse the request body (file not yet saved to disk)
+ *     const card = request.bodyJson<AdaptiveCard>();
  *
+ *     // Access HTTP headers if needed
+ *     const contentType = request.headers['content-type'];
+ *
+ *     // Validate
+ *     const errors = validateAdaptiveCard(card);
  *     if (errors.length > 0) {
- *       throw new Error(`Invalid adaptive card: ${errors}`);
+ *       return validationError(400, errors);
  *     }
  *
- *     logger.debug('Validation passed', { file: input.fileName });
+ *     context.logger.info('Validation passed', { file: context.fileName });
+ *     return validationCreated({ cardId: card.id });
  *   }
  * );
  * ```
  */
 export function defineTypeValidator<T extends TypeConfig>(
   config: SameShape<TypeConfig, T>,
-  handler: TypeHandler
+  handler: TypeValidatorHandler
 ): TypeValidatorCommand<T['typeName']> {
-  const fn = async (input: TypeHookInput, context: ActionContext): Promise<void> => {
-    await handler(input, context);
+  const fn = async (request: TypeValidatorRequest, context: TypeValidatorContext): Promise<ValidationResponse> => {
+    return await Promise.resolve(handler(request, context));
   };
 
   fn.factoryType = 'typeValidator' as const;
   fn.typeName = config.typeName;
   fn.timeout = config.timeout;
+  fn.sourcePath = config.sourcePath;
 
-  return fn as TypeValidatorCommand<T['typeName']>;
+  return fn as unknown as TypeValidatorCommand<T['typeName']>;
 }
 
 /**
@@ -127,6 +157,7 @@ export function defineTypeCreate<T extends TypeConfig>(
   fn.factoryType = 'typeCreate' as const;
   fn.typeName = config.typeName;
   fn.timeout = config.timeout;
+  fn.sourcePath = config.sourcePath;
 
   return fn as TypeCreateCommand<T['typeName']>;
 }
@@ -175,6 +206,7 @@ export function defineTypeUpdate<T extends TypeConfig>(
   fn.factoryType = 'typeUpdate' as const;
   fn.typeName = config.typeName;
   fn.timeout = config.timeout;
+  fn.sourcePath = config.sourcePath;
 
   return fn as TypeUpdateCommand<T['typeName']>;
 }
@@ -221,6 +253,7 @@ export function defineTypeDelete<T extends TypeConfig>(
   fn.factoryType = 'typeDelete' as const;
   fn.typeName = config.typeName;
   fn.timeout = config.timeout;
+  fn.sourcePath = config.sourcePath;
 
   return fn as TypeDeleteCommand<T['typeName']>;
 }

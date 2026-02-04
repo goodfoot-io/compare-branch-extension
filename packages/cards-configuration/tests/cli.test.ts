@@ -405,7 +405,7 @@ describe('generateCommandPath', () => {
 
     const result = generateCommandPath(filename, buildDir, contextInfo);
 
-    expect(result).toBe('node $CARDS_PLUGIN_ROOT/hooks/bin/my-hook.abc123.mjs');
+    expect(result).toBe('node ./hooks/bin/my-hook.abc123.mjs');
   });
 
   it('generates plugin command path with custom executable', () => {
@@ -418,7 +418,7 @@ describe('generateCommandPath', () => {
 
     const result = generateCommandPath(filename, buildDir, contextInfo, '/usr/local/bin/node');
 
-    expect(result).toBe('/usr/local/bin/node $CARDS_PLUGIN_ROOT/dist/bin/hook.abc123.mjs');
+    expect(result).toBe('/usr/local/bin/node ./dist/bin/hook.abc123.mjs');
   });
 
   it('generates agent command path with default executable', () => {
@@ -431,7 +431,7 @@ describe('generateCommandPath', () => {
 
     const result = generateCommandPath(filename, buildDir, contextInfo);
 
-    expect(result).toBe('node "$CLAUDE_PROJECT_DIR"/.claude/hooks/bin/my-hook.def456.mjs');
+    expect(result).toBe('node ./.claude/hooks/bin/my-hook.def456.mjs');
   });
 
   it('generates agent command path with custom executable', () => {
@@ -444,7 +444,7 @@ describe('generateCommandPath', () => {
 
     const result = generateCommandPath(filename, buildDir, contextInfo, 'node22');
 
-    expect(result).toBe('node22 "$CLAUDE_PROJECT_DIR"/.claude/hooks/bin/hook.ghi789.mjs');
+    expect(result).toBe('node22 ./.claude/hooks/bin/hook.ghi789.mjs');
   });
 
   it('normalizes relative paths to forward slashes', () => {
@@ -704,7 +704,7 @@ describe('analyzeSourceFile', () => {
       import { actionStart } from '@cards/configuration';
 
       export default actionStart(
-        { actionName: 'Test', icon: '$CARDS_PLUGIN_ROOT/images/icon.svg' },
+        { actionName: 'Test', icon: './images/icon.svg' },
         async (input) => {}
       );
     `
@@ -712,7 +712,7 @@ describe('analyzeSourceFile', () => {
 
     const metadata = analyzeSourceFile(filePath);
 
-    expect(metadata?.icon).toBe('$CARDS_PLUGIN_ROOT/images/icon.svg');
+    expect(metadata?.icon).toBe('./images/icon.svg');
   });
 });
 

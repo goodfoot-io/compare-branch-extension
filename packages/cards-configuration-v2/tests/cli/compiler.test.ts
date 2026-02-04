@@ -8,8 +8,13 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { compileHandler } from '../../src/cli/compiler.js';
+
+// Resolve the path to the factories module for test fixtures
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FACTORIES_PATH = path.resolve(__dirname, '../../src/factories/index.js');
 
 // ============================================================================
 // Test Helpers
@@ -75,13 +80,16 @@ describe('compileHandler', () => {
   // ==========================================================================
 
   it('should compile a simple JavaScript handler to ESM bundle', async () => {
-    // Create a simple handler
+    // Create a simple handler that imports from the real source path
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default actionStart(async (input, context) => {
-  context.logger.info('Action started');
-});
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Action started');
+  }
+);
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
@@ -109,14 +117,17 @@ export default actionStart(async (input, context) => {
   });
 
   it('should compile a TypeScript handler to ESM bundle', async () => {
-    // Create a TypeScript handler
+    // Create a TypeScript handler that imports from the real source path
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
-import type { ActionStartInput, ActionContext } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import type { ActionStartInput, ActionContext } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default actionStart(async (input: ActionStartInput, context: ActionContext) => {
-  context.logger.info('Action started');
-});
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input: ActionStartInput, context: ActionContext) => {
+    context.logger.info('Action started');
+  }
+);
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.ts', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
@@ -145,11 +156,14 @@ export default actionStart(async (input: ActionStartInput, context: ActionContex
   it('should inject runtime wrapper code that calls execute', async () => {
     // Create a simple handler
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default actionStart(async (input, context) => {
-  context.logger.info('Test');
-});
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Test');
+  }
+);
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
@@ -181,11 +195,14 @@ export default actionStart(async (input, context) => {
 
   it('should generate inline source maps when requested', async () => {
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default actionStart(async (input, context) => {
-  context.logger.info('Test');
-});
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Test');
+  }
+);
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
@@ -207,11 +224,14 @@ export default actionStart(async (input, context) => {
 
   it('should not generate source maps when not requested', async () => {
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default actionStart(async (input, context) => {
-  context.logger.info('Test');
-});
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Test');
+  }
+);
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
@@ -245,12 +265,15 @@ export function greet(name) {
     writeTestHandler(testDir, 'util.js', utilContent);
 
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 import { greet } from './util.js';
 
-export default actionStart(async (input, context) => {
-  context.logger.info(greet('World'));
-});
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info(greet('World'));
+  }
+);
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
@@ -297,11 +320,13 @@ export default actionStart(async (input, context) => {
   it('should return error for handler with syntax errors', async () => {
     // Create a handler with syntax errors
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default actionStart(async (input, context) => {
-  // Missing closing brace
-  context.logger.info('Test');
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    // Missing closing brace
+    context.logger.info('Test');
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
@@ -326,11 +351,14 @@ export default actionStart(async (input, context) => {
 
   it('should create output directory if it does not exist', async () => {
     const handlerContent = `
-import { actionStart } from '@cards/configuration-v2';
+import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default actionStart(async (input, context) => {
-  context.logger.info('Test');
-});
+export default defineActionStart(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Test');
+  }
+);
 `;
     const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
     const outputDir = path.join(testDir, 'nested', 'output', 'dir');

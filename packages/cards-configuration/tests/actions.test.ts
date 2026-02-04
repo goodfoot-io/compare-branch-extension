@@ -64,11 +64,8 @@ describe('Action Factories', () => {
     });
 
     it('attaches icon from config', () => {
-      const command = actionStart(
-        { actionName: 'Launch Claude', icon: '$CARDS_PLUGIN_ROOT/images/claude.svg' },
-        () => {}
-      );
-      expect(command.icon).toBe('$CARDS_PLUGIN_ROOT/images/claude.svg');
+      const command = actionStart({ actionName: 'Launch Claude', icon: './images/claude.svg' }, () => {});
+      expect(command.icon).toBe('./images/claude.svg');
     });
 
     it('attaches supportsBackgroundMode from config', () => {

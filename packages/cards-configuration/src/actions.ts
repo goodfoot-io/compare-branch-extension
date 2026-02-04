@@ -316,7 +316,7 @@ export type TypeHandler = (input: TypeHookInput, context: ActionContext) => void
  * const config: ActionStartConfig = {
  *   actionName: 'Launch Claude',
  *   description: 'Start a Claude coding session',
- *   icon: '$CARDS_PLUGIN_ROOT/icons/claude.svg',
+ *   icon: './icons/claude.svg',
  *   supportsBackgroundMode: true,
  *   timeout: 30000
  * };
@@ -341,8 +341,8 @@ export interface ActionStartConfig {
   /**
    * Path to icon file for the action button.
    *
-   * Supports path variables like `$CARDS_PLUGIN_ROOT` for plugin-relative
-   * paths. SVG format recommended for crisp rendering at any size.
+   * Paths are relative to the settings.json file location.
+   * SVG format recommended for crisp rendering at any size.
    */
   icon?: string;
 
@@ -552,7 +552,7 @@ export interface TypeDeleteCommand {
  *   {
  *     actionName: 'Launch Claude',
  *     description: 'Open Claude Code in a new terminal',
- *     icon: '$CARDS_PLUGIN_ROOT/icons/claude.svg',
+ *     icon: './icons/claude.svg',
  *     supportsBackgroundMode: true
  *   },
  *   async (input, { logger, cwd }) => {

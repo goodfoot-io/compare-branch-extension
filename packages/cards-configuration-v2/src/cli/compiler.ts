@@ -2,16 +2,17 @@
  * Handler compiler for Cards Configuration v2.
  *
  * This module provides functionality to compile handler files into standalone
- * ESM bundles that can be executed by the runtime. The compiler uses esbuild
- * to bundle each handler file with its dependencies and injects a wrapper that
- * calls the execute function.
+ * ESM bundles that can be executed by the runtime. The compiler uses Bun's
+ * bundler API (via subprocess) to bundle each handler file with its dependencies
+ * and injects a wrapper that calls the execute function.
  *
  * ## Compilation Process
  *
  * 1. Creates a temporary wrapper file that imports the handler and runtime
- * 2. Uses esbuild to bundle the wrapper with all dependencies
- * 3. Outputs a standalone ESM file that can be executed with Node.js
- * 4. Optionally generates source maps for debugging
+ * 2. Creates a build script that uses Bun.build() API
+ * 3. Invokes the build script via `bun` subprocess
+ * 4. Outputs a standalone ESM file that can be executed with Node.js or Bun
+ * 5. Optionally generates source maps for debugging
  *
  * ## Wrapper Code
  *
@@ -72,6 +73,15 @@ export interface CompileOptions {
    * source maps are generated. Defaults to false.
    */
   sourcemap?: boolean;
+
+  /**
+   * Factory type of the handler.
+   *
+   * When 'typeValidator', the wrapper will use executeValidation() which
+   * reads HTTP input from stdin and writes JSON response to stdout.
+   * For other types, the wrapper uses execute() which reads from env vars.
+   */
+  factoryType?: string;
 }
 
 /**
@@ -108,24 +118,24 @@ export type CompileResult = CompileSuccess | CompileFailure;
 // Implementation
 // ============================================================================
 
+import { execSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import * as esbuild from 'esbuild';
 
 /**
  * Compiles a handler file into a standalone ESM bundle.
  *
  * This function bundles the handler file with all its dependencies using
- * esbuild, injects runtime wrapper code, and outputs an executable ESM file.
- * The resulting bundle can be executed directly with Node.js.
+ * Bun's bundler API (via subprocess), injects runtime wrapper code, and
+ * outputs an executable ESM file. The resulting bundle can be executed
+ * directly with Node.js or Bun.
  *
  * ## Bundling Strategy
  *
  * - **Format**: ESM (ES Modules)
- * - **Platform**: Node.js
- * - **Target**: Node 20
+ * - **Target**: Node.js compatible
  * - **External modules**: Node built-ins are externalized
  * - **Wrapper injection**: Creates a temporary wrapper file that imports the
  *   handler and calls execute()
@@ -135,7 +145,7 @@ import * as esbuild from 'esbuild';
  * Returns a CompileFailure result if:
  * - The source file doesn't exist
  * - The source file has syntax errors
- * - esbuild encounters an error during bundling
+ * - Bun build encounters an error during bundling
  * - The output directory cannot be created
  * - File system operations fail
  *
@@ -158,7 +168,7 @@ import * as esbuild from 'esbuild';
  * ```
  */
 export async function compileHandler(options: CompileOptions): Promise<CompileResult> {
-  const { sourcePath, outputPath, sourcemap = false } = options;
+  const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
 
   try {
     // Verify source file exists
@@ -169,10 +179,11 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
       };
     }
 
-    // Create a unique temporary directory for the wrapper
+    // Create a unique temporary directory for build artifacts
     const buildHash = crypto.createHash('sha256').update(sourcePath).digest('hex').substring(0, 16);
     const tempDir = path.join(os.tmpdir(), 'cards-configuration-v2-build', buildHash);
     const wrapperPath = path.join(tempDir, 'wrapper.ts');
+    const buildScriptPath = path.join(tempDir, 'build.ts');
 
     // Create temp directory
     fs.mkdirSync(tempDir, { recursive: true });
@@ -180,13 +191,28 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     // Resolve runtime path (the runtime.js file in the same package)
     const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
 
-    // Generate wrapper content that imports the handler and calls execute
-    const wrapperContent = `
+    // Resolve validation path for type validators
+    const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
+
+    // Generate wrapper content based on handler type
+    // Type validators use HTTP stdin/stdout protocol via executeValidation
+    // Other handlers use environment variable extraction via execute
+    let wrapperContent: string;
+    if (factoryType === 'typeValidator') {
+      wrapperContent = `
+import handler from '${sourcePath.replace(/\\/g, '/')}';
+import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
+
+executeValidation(handler);
+`;
+    } else {
+      wrapperContent = `
 import handler from '${sourcePath.replace(/\\/g, '/')}';
 import { execute } from '${runtimePath.replace(/\\/g, '/')}';
 
 execute(handler);
 `;
+    }
 
     // Write wrapper file
     fs.writeFileSync(wrapperPath, wrapperContent, 'utf-8');
@@ -195,39 +221,120 @@ execute(handler);
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
 
-    // Bundle with esbuild
-    await esbuild.build({
-      entryPoints: [wrapperPath],
-      outfile: outputPath,
-      format: 'esm',
-      platform: 'node',
-      target: 'node20',
-      bundle: true,
-      sourcemap: sourcemap ? 'inline' : false,
-      minify: false,
-      external: [
-        '@cards/configuration-v2',
-        'node:*',
-        'http',
-        'https',
-        'url',
-        'stream',
-        'zlib',
-        'events',
-        'buffer',
-        'util',
-        'path',
-        'fs',
-        'os',
-        'crypto',
-        'child_process',
-        'perf_hooks',
-        'async_hooks',
-        'diagnostics_channel'
-      ],
-      mainFields: ['module', 'main'],
-      conditions: ['import', 'node']
-    });
+    // Banner to enable CommonJS require() in ESM bundles.
+    // This is needed because some dependencies (e.g., gray-matter) use CommonJS
+    // and need a working require() function for Node built-ins.
+    const banner = `import { createRequire as __createRequire } from 'node:module';
+const require = __createRequire(import.meta.url);`;
+
+    // External modules (Node built-ins)
+    const externals = [
+      'node:*',
+      'http',
+      'https',
+      'url',
+      'stream',
+      'zlib',
+      'events',
+      'buffer',
+      'util',
+      'path',
+      'fs',
+      'os',
+      'crypto',
+      'child_process',
+      'perf_hooks',
+      'async_hooks',
+      'diagnostics_channel'
+    ];
+
+    // Create a build script that uses Bun.build() API
+    const buildScript = `
+const result = await Bun.build({
+  entrypoints: [${JSON.stringify(wrapperPath)}],
+  outdir: ${JSON.stringify(outputDir)},
+  format: 'esm',
+  target: 'node',
+  sourcemap: ${sourcemap ? '"inline"' : '"none"'},
+  minify: false,
+  external: ${JSON.stringify(externals)},
+  naming: '[name].[ext]'
+});
+
+if (!result.success) {
+  const errors = result.logs
+    .filter((log) => log.level === 'error')
+    .map((log) => log.message)
+    .join('\\n');
+  console.error(JSON.stringify({ success: false, error: errors || 'Unknown error' }));
+  process.exit(1);
+}
+
+console.log(JSON.stringify({ success: true }));
+`;
+
+    // Write build script
+    fs.writeFileSync(buildScriptPath, buildScript, 'utf-8');
+
+    // Execute build script with Bun
+    let buildOutput: string;
+    try {
+      buildOutput = execSync(`bun ${buildScriptPath}`, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        encoding: 'utf-8'
+      });
+    } catch (execError) {
+      const err = execError as { stderr?: string; stdout?: string; message?: string };
+      // Try to parse structured error from stdout
+      try {
+        const result = JSON.parse(err.stdout || '{}');
+        if (!result.success) {
+          return {
+            success: false,
+            error: `Bundling failed: ${result.error}`
+          };
+        }
+      } catch {
+        // Fall back to stderr or message
+        const errorOutput = err.stderr || err.message || 'Unknown error';
+        return {
+          success: false,
+          error: `Bundling failed: ${errorOutput}`
+        };
+      }
+      return {
+        success: false,
+        error: `Bundling failed: ${err.stderr || err.message || 'Unknown error'}`
+      };
+    }
+
+    // Parse build result
+    try {
+      const result = JSON.parse(buildOutput.trim());
+      if (!result.success) {
+        return {
+          success: false,
+          error: `Bundling failed: ${result.error}`
+        };
+      }
+    } catch {
+      // If we can't parse the output but the command succeeded, continue
+    }
+
+    // Bun outputs to outdir with the entrypoint name (wrapper.js)
+    const bunOutputPath = path.join(outputDir, 'wrapper.js');
+
+    // Prepend the banner to the compiled output
+    if (fs.existsSync(bunOutputPath)) {
+      const compiledContent = fs.readFileSync(bunOutputPath, 'utf-8');
+      const contentWithBanner = `${banner}\n${compiledContent}`;
+      fs.writeFileSync(bunOutputPath, contentWithBanner, 'utf-8');
+    }
+
+    // Rename to the desired output path
+    if (bunOutputPath !== outputPath && fs.existsSync(bunOutputPath)) {
+      fs.renameSync(bunOutputPath, outputPath);
+    }
 
     return {
       success: true,

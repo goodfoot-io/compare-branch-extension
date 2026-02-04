@@ -171,8 +171,9 @@ export default {
         expect(settings.environments.default.actions[0].name).toBe('Launch');
         expect(settings.environments.default.actions[0].description).toBe('Launch Claude');
         expect(settings.environments.default.actions[0].icon).toBe('rocket');
-        expect(settings.environments.default.actions[0].start.command).toBe('actionStart-Launch.js');
-        expect(settings.environments.default.actions[0].end.command).toBe('actionEnd-Launch.js');
+        // Without sourcePath, commands use placeholder format
+        expect(settings.environments.default.actions[0].start.command).toBe('actionStart-placeholder.js');
+        expect(settings.environments.default.actions[0].end.command).toBe('actionEnd-placeholder.js');
       }
     });
 
@@ -226,7 +227,8 @@ export default {
 
         expect(settings.environments.default.types).toHaveProperty('note');
         expect(settings.environments.default.types.note.version).toBe('1.0.0');
-        expect(settings.environments.default.types.note.validator.command).toBe('typeValidator-note.js');
+        // Without sourcePath, commands use placeholder format
+        expect(settings.environments.default.types.note.validator.command).toBe('typeValidator-placeholder.js');
       }
     });
 
@@ -359,10 +361,27 @@ export default {
         expect(result.error).toBeTruthy();
       }
     });
+
+    it('should return clear error when outdir is a file instead of directory', async () => {
+      // Create a file at the outdir path (common mistake: -o dist/settings.json instead of -o dist)
+      const filePath = join(FIXTURES_DIR, 'output-is-file.json');
+      writeFileSync(filePath, '{}');
+
+      const result = await build({
+        config: join(FIXTURES_DIR, 'valid.config.ts'),
+        outdir: filePath
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('is a file, not a directory');
+        expect(result.error).toContain('-o/--outdir argument should be a directory path');
+      }
+    });
   });
 
   describe('handler compilation', () => {
-    it('should not compile handlers (by design in v2)', async () => {
+    it('should not compile handlers when sourcePath is not provided', async () => {
       const outdir = join(FIXTURES_DIR, 'output-no-compile');
       const result = await build({
         config: join(FIXTURES_DIR, 'valid.config.ts'),
@@ -371,9 +390,8 @@ export default {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // In v2, handler compilation is intentionally NOT performed by the CLI.
-        // Handlers should be compiled separately as part of the build pipeline.
-        // The CLI only generates settings.json from the config file.
+        // When sourcePath is not provided, handlers are not compiled
+        // Commands use placeholder format in settings.json
         expect(result.compiledHandlers).toEqual([]);
       }
     });

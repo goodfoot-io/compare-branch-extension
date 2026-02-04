@@ -37,8 +37,7 @@ import type {
   ActionStartCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
+  TypeUpdateCommand
 } from './command-types.js';
 import { extractActionInput, extractTypeInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
@@ -56,15 +55,12 @@ import { logger } from './logger.js';
  * the factory functions. The runtime dispatches based on the `factoryType`
  * discriminant.
  *
+ * Note: TypeValidatorCommand is excluded because validators use a different
+ * execution model (HTTP stdin/stdout via {@link executeValidation}).
+ *
  * @internal
  */
-type AnyCommand =
-  | ActionStartCommand
-  | ActionEndCommand
-  | TypeValidatorCommand
-  | TypeCreateCommand
-  | TypeUpdateCommand
-  | TypeDeleteCommand;
+type AnyCommand = ActionStartCommand | ActionEndCommand | TypeCreateCommand | TypeUpdateCommand | TypeDeleteCommand;
 
 // ============================================================================
 // Helper Functions
@@ -162,10 +158,12 @@ function handleHandlerError(error: unknown): never {
  *
  * - **Action Start** (`actionStart`): Invoked when an action begins
  * - **Action End** (`actionEnd`): Invoked after successful action completion
- * - **Type Validator** (`typeValidator`): Validates typed file content
  * - **Type Create** (`typeCreate`): Runs after new typed file creation
  * - **Type Update** (`typeUpdate`): Runs after typed file modification
  * - **Type Delete** (`typeDelete`): Runs when typed file is deleted
+ *
+ * Note: Type validators use a different execution model (HTTP stdin/stdout)
+ * and should be executed via {@link executeValidation} instead.
  *
  * ## Error Handling
  *

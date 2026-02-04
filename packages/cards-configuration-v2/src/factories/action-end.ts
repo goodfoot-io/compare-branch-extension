@@ -26,6 +26,13 @@ import type { SameShape } from '../type-utils.js';
 export interface ActionEndConfig {
   actionName: string;
   timeout?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   *
+   * When provided, the CLI will compile this file into a standalone bundle.
+   * Use `import.meta.filename` or `import.meta.url` for the current file.
+   */
+  sourcePath?: string;
 }
 
 // ============================================================================
@@ -117,6 +124,7 @@ export function defineActionEnd<T extends ActionEndConfig>(
   fn.factoryType = 'actionEnd' as const;
   fn.actionName = config.actionName as T['actionName'];
   fn.timeout = config.timeout;
+  fn.sourcePath = config.sourcePath;
 
   return fn as ActionEndCommand<T['actionName']>;
 }

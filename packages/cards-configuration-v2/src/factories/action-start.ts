@@ -28,7 +28,7 @@ import type { SameShape } from '../type-utils.js';
  * const config: ActionStartConfig = {
  *   actionName: 'Launch Claude',
  *   description: 'Start a Claude coding session',
- *   icon: '$CARDS_PLUGIN_ROOT/icons/claude.svg',
+ *   icon: './icons/claude.svg',
  *   supportsBackgroundMode: true,
  *   timeout: 30000
  * };
@@ -53,8 +53,8 @@ export interface ActionStartConfig {
   /**
    * Path to icon file for the action button.
    *
-   * Supports path variables like `$CARDS_PLUGIN_ROOT` for plugin-relative
-   * paths. SVG format recommended for crisp rendering at any size.
+   * Paths are relative to the settings.json file location.
+   * SVG format recommended for crisp rendering at any size.
    */
   icon?: string;
 
@@ -81,6 +81,25 @@ export interface ActionStartConfig {
    * Omit to use the platform's default timeout policy.
    */
   timeout?: number;
+
+  /**
+   * Path to the handler source file for CLI compilation.
+   *
+   * When provided, the CLI will compile this file into a standalone bundle
+   * and generate proper command paths (e.g., `node ./bin/handler.abc123.mjs`).
+   *
+   * If omitted, the CLI generates placeholder command strings. For full
+   * feature parity with v1, always provide sourcePath.
+   *
+   * @example
+   * ```typescript
+   * defineActionStart({
+   *   actionName: 'Launch Claude',
+   *   sourcePath: import.meta.filename // or import.meta.url
+   * }, handler);
+   * ```
+   */
+  sourcePath?: string;
 }
 
 // ============================================================================
@@ -151,7 +170,7 @@ export type ActionHandler = (input: ActionStartInput, context: ActionContext) =>
  *   {
  *     actionName: 'Deploy Application',
  *     description: 'Deploy to production',
- *     icon: '$CARDS_PLUGIN_ROOT/icons/deploy.svg',
+ *     icon: './icons/deploy.svg',
  *     supportsBackgroundMode: true,
  *     allowConcurrent: false,
  *     timeout: 60000
@@ -193,6 +212,7 @@ export function defineActionStart<T extends ActionStartConfig>(
   fn.supportsBackgroundMode = config.supportsBackgroundMode;
   fn.allowConcurrent = config.allowConcurrent;
   fn.timeout = config.timeout;
+  fn.sourcePath = config.sourcePath;
 
   return fn as ActionStartCommand<T['actionName']>;
 }

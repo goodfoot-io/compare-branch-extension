@@ -11,7 +11,15 @@
  * @module
  */
 
-import type { ActionContext, ActionEndInput, ActionStartInput, TypeHookInput } from './inputs.js';
+import type {
+  ActionContext,
+  ActionEndInput,
+  ActionStartInput,
+  TypeHookInput,
+  TypeValidatorContext,
+  TypeValidatorRequest
+} from './inputs.js';
+import type { ValidationResponse } from './validation.js';
 
 // ============================================================================
 // Command Types
@@ -72,6 +80,15 @@ export interface ActionStartCommand<N extends string = string> {
 
   /** Timeout from config, if provided. */
   timeout?: number;
+
+  /**
+   * Path to the handler source file for CLI compilation.
+   *
+   * When provided, the CLI will compile this file into a standalone bundle
+   * and generate proper command paths in settings.json. If omitted, the
+   * CLI will generate placeholder command strings.
+   */
+  sourcePath?: string;
 }
 
 /**
@@ -102,23 +119,31 @@ export interface ActionEndCommand<N extends string = string> {
   /** Action name - must match corresponding start command. */
   actionName: N;
   timeout?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   */
+  sourcePath?: string;
 }
 
 /**
  * Callable command returned by type validator factory.
  *
- * Validators run before create/update hooks and can reject invalid content
- * by throwing an error. The generic parameter `T` preserves the type name
- * for configuration validation.
+ * Validators receive the HTTP request with file content in the body.
+ * The file is NOT saved to disk until validation passes. Return a
+ * validation response to indicate success (2xx) or failure (4xx/5xx).
  *
  * @template T - The literal type name (e.g., 'adaptive-card')
  */
 export interface TypeValidatorCommand<T extends string = string> {
-  (input: TypeHookInput, context: ActionContext): Promise<void>;
+  (request: TypeValidatorRequest, context: TypeValidatorContext): Promise<ValidationResponse>;
   factoryType: 'typeValidator';
   /** Type name from config - preserved as literal type. */
   typeName: T;
   timeout?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   */
+  sourcePath?: string;
 }
 
 /**
@@ -134,6 +159,10 @@ export interface TypeCreateCommand<T extends string = string> {
   /** Type name from config - preserved as literal type. */
   typeName: T;
   timeout?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   */
+  sourcePath?: string;
 }
 
 /**
@@ -149,6 +178,10 @@ export interface TypeUpdateCommand<T extends string = string> {
   /** Type name from config - preserved as literal type. */
   typeName: T;
   timeout?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   */
+  sourcePath?: string;
 }
 
 /**
@@ -166,4 +199,8 @@ export interface TypeDeleteCommand<T extends string = string> {
   /** Type name from config - preserved as literal type. */
   typeName: T;
   timeout?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   */
+  sourcePath?: string;
 }
