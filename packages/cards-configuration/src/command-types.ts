@@ -63,6 +63,9 @@ export interface ActionStartCommand<N extends string = string> {
   /** Discriminant for the CLI's AST analyzer. */
   factoryType: 'actionStart';
 
+  /** Explicit action ID from config, if provided. */
+  id?: string;
+
   /** Action name from config - preserved as literal type. */
   actionName: N;
 

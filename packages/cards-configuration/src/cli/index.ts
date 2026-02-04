@@ -277,8 +277,15 @@ async function compileHandlers(
       // Clean up temp file
       try {
         fs.unlinkSync(tempOutputPath);
-      } catch {
-        // Ignore cleanup errors
+      } catch (err) {
+        // Ignore ENOENT (file already deleted), log other errors
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.warn(
+            '[cards-configuration] Failed to clean up temp file %s: %s',
+            tempOutputPath,
+            (err as Error).message
+          );
+        }
       }
       continue;
     }
@@ -286,8 +293,15 @@ async function compileHandlers(
     // Clean up temp file used for hashing
     try {
       fs.unlinkSync(tempOutputPath);
-    } catch {
-      // Ignore cleanup errors
+    } catch (err) {
+      // Ignore ENOENT (file already deleted), log other errors
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.warn(
+          '[cards-configuration] Failed to clean up temp file %s: %s',
+          tempOutputPath,
+          (err as Error).message
+        );
+      }
     }
 
     // Make executable
@@ -332,7 +346,7 @@ function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], b
       const startCompiled = compiledByKey.get(startKey);
 
       const action: Action = {
-        id: slugify(actionPair.start.actionName),
+        id: actionPair.start.id ?? slugify(actionPair.start.actionName),
         name: actionPair.start.actionName,
         start: generateCommand(actionPair.start, startCompiled, binDir)
       };
@@ -465,12 +479,18 @@ function cleanupStaleFiles(settingsPath: string, binDir: string): void {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
-      } catch {
-        // Ignore errors cleaning up individual files
+      } catch (err) {
+        // Ignore ENOENT (file already deleted), log other errors
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.warn('[cards-configuration] Failed to clean up stale file %s: %s', filePath, (err as Error).message);
+        }
       }
     }
-  } catch {
-    // Ignore errors reading previous settings
+  } catch (err) {
+    // Ignore ENOENT (settings file doesn't exist), log other errors
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn('[cards-configuration] Failed to read previous settings for cleanup: %s', (err as Error).message);
+    }
   }
 }
 

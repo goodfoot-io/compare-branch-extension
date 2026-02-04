@@ -36,6 +36,14 @@ import type { SameShape } from '../type-utils.js';
  */
 export interface ActionStartConfig {
   /**
+   * Stable identifier for the action used in telemetry, localization, and API lookups.
+   *
+   * Should be lowercase with hyphens (e.g., 'launch-claude', 'run-tests').
+   * If omitted, the CLI generates an ID by slugifying `actionName`.
+   */
+  id?: string;
+
+  /**
    * The action name used to group start/end commands in settings.json.
    *
    * This name appears in the UI and must match between actionStart and
@@ -206,6 +214,7 @@ export function defineActionStart<T extends ActionStartConfig>(
   };
 
   fn.factoryType = 'actionStart' as const;
+  fn.id = config.id;
   fn.actionName = config.actionName;
   fn.description = config.description;
   fn.icon = config.icon;
