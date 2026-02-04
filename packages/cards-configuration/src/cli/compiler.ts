@@ -1,18 +1,17 @@
 /**
- * Handler compiler for Cards Configuration v2.
+ * Handler compiler for Cards Configuration.
  *
  * This module provides functionality to compile handler files into standalone
- * ESM bundles that can be executed by the runtime. The compiler uses Bun's
- * bundler API (via subprocess) to bundle each handler file with its dependencies
- * and injects a wrapper that calls the execute function.
+ * ESM bundles that can be executed by the runtime. The compiler uses esbuild
+ * to bundle each handler file with its dependencies and injects a wrapper
+ * that calls the execute function.
  *
  * ## Compilation Process
  *
  * 1. Creates a temporary wrapper file that imports the handler and runtime
- * 2. Creates a build script that uses Bun.build() API
- * 3. Invokes the build script via `bun` subprocess
- * 4. Outputs a standalone ESM file that can be executed with Node.js or Bun
- * 5. Optionally generates source maps for debugging
+ * 2. Invokes esbuild to bundle the wrapper with all dependencies
+ * 3. Outputs a standalone ESM file that can be executed with Node.js or Bun
+ * 4. Optionally generates source maps for debugging
  *
  * ## Wrapper Code
  *
@@ -26,7 +25,7 @@
  *
  * @example
  * ```typescript
- * import { compileHandler } from '@cards/configuration-v2/cli/compiler';
+ * import { compileHandler } from '@cards/configuration/cli/compiler';
  *
  * const result = await compileHandler({
  *   sourcePath: '/path/to/handler.ts',
@@ -118,24 +117,54 @@ export type CompileResult = CompileSuccess | CompileFailure;
 // Implementation
 // ============================================================================
 
-import { execSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as esbuild from 'esbuild';
+
+/**
+ * External modules (Node built-ins) that should not be bundled.
+ */
+const EXTERNALS = [
+  'node:*',
+  'http',
+  'https',
+  'url',
+  'stream',
+  'zlib',
+  'events',
+  'buffer',
+  'util',
+  'path',
+  'fs',
+  'os',
+  'crypto',
+  'child_process',
+  'perf_hooks',
+  'async_hooks',
+  'diagnostics_channel'
+];
+
+/**
+ * Banner to enable CommonJS require() in ESM bundles.
+ * This is needed because some dependencies (e.g., gray-matter) use CommonJS
+ * and need a working require() function for Node built-ins.
+ */
+const BANNER = `import { createRequire as __createRequire } from 'node:module';
+const require = __createRequire(import.meta.url);`;
 
 /**
  * Compiles a handler file into a standalone ESM bundle.
  *
  * This function bundles the handler file with all its dependencies using
- * Bun's bundler API (via subprocess), injects runtime wrapper code, and
- * outputs an executable ESM file. The resulting bundle can be executed
- * directly with Node.js or Bun.
+ * esbuild, injects runtime wrapper code, and outputs an executable ESM file.
+ * The resulting bundle can be executed directly with Node.js or Bun.
  *
  * ## Bundling Strategy
  *
  * - **Format**: ESM (ES Modules)
- * - **Target**: Node.js compatible
+ * - **Target**: Node.js compatible (ES2022)
  * - **External modules**: Node built-ins are externalized
  * - **Wrapper injection**: Creates a temporary wrapper file that imports the
  *   handler and calls execute()
@@ -145,7 +174,7 @@ import * as path from 'node:path';
  * Returns a CompileFailure result if:
  * - The source file doesn't exist
  * - The source file has syntax errors
- * - Bun build encounters an error during bundling
+ * - esbuild encounters an error during bundling
  * - The output directory cannot be created
  * - File system operations fail
  *
@@ -181,9 +210,8 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
 
     // Create a unique temporary directory for build artifacts
     const buildHash = crypto.createHash('sha256').update(sourcePath).digest('hex').substring(0, 16);
-    const tempDir = path.join(os.tmpdir(), 'cards-configuration-v2-build', buildHash);
+    const tempDir = path.join(os.tmpdir(), 'cards-configuration-build', buildHash);
     const wrapperPath = path.join(tempDir, 'wrapper.ts');
-    const buildScriptPath = path.join(tempDir, 'build.ts');
 
     // Create temp directory
     fs.mkdirSync(tempDir, { recursive: true });
@@ -221,119 +249,29 @@ execute(handler);
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
 
-    // Banner to enable CommonJS require() in ESM bundles.
-    // This is needed because some dependencies (e.g., gray-matter) use CommonJS
-    // and need a working require() function for Node built-ins.
-    const banner = `import { createRequire as __createRequire } from 'node:module';
-const require = __createRequire(import.meta.url);`;
+    // Build using esbuild
+    const result = await esbuild.build({
+      entryPoints: [wrapperPath],
+      outfile: outputPath,
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      target: 'es2022',
+      sourcemap: sourcemap ? 'inline' : false,
+      minify: false,
+      external: EXTERNALS,
+      banner: {
+        js: BANNER
+      },
+      logLevel: 'silent'
+    });
 
-    // External modules (Node built-ins)
-    const externals = [
-      'node:*',
-      'http',
-      'https',
-      'url',
-      'stream',
-      'zlib',
-      'events',
-      'buffer',
-      'util',
-      'path',
-      'fs',
-      'os',
-      'crypto',
-      'child_process',
-      'perf_hooks',
-      'async_hooks',
-      'diagnostics_channel'
-    ];
-
-    // Create a build script that uses Bun.build() API
-    const buildScript = `
-const result = await Bun.build({
-  entrypoints: [${JSON.stringify(wrapperPath)}],
-  outdir: ${JSON.stringify(outputDir)},
-  format: 'esm',
-  target: 'node',
-  sourcemap: ${sourcemap ? '"inline"' : '"none"'},
-  minify: false,
-  external: ${JSON.stringify(externals)},
-  naming: '[name].[ext]'
-});
-
-if (!result.success) {
-  const errors = result.logs
-    .filter((log) => log.level === 'error')
-    .map((log) => log.message)
-    .join('\\n');
-  console.error(JSON.stringify({ success: false, error: errors || 'Unknown error' }));
-  process.exit(1);
-}
-
-console.log(JSON.stringify({ success: true }));
-`;
-
-    // Write build script
-    fs.writeFileSync(buildScriptPath, buildScript, 'utf-8');
-
-    // Execute build script with Bun
-    let buildOutput: string;
-    try {
-      buildOutput = execSync(`bun ${buildScriptPath}`, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        encoding: 'utf-8'
-      });
-    } catch (execError) {
-      const err = execError as { stderr?: string; stdout?: string; message?: string };
-      // Try to parse structured error from stdout
-      try {
-        const result = JSON.parse(err.stdout || '{}');
-        if (!result.success) {
-          return {
-            success: false,
-            error: `Bundling failed: ${result.error}`
-          };
-        }
-      } catch {
-        // Fall back to stderr or message
-        const errorOutput = err.stderr || err.message || 'Unknown error';
-        return {
-          success: false,
-          error: `Bundling failed: ${errorOutput}`
-        };
-      }
+    if (result.errors.length > 0) {
+      const errors = result.errors.map((e) => e.text).join('\n');
       return {
         success: false,
-        error: `Bundling failed: ${err.stderr || err.message || 'Unknown error'}`
+        error: `Bundling failed: ${errors}`
       };
-    }
-
-    // Parse build result
-    try {
-      const result = JSON.parse(buildOutput.trim());
-      if (!result.success) {
-        return {
-          success: false,
-          error: `Bundling failed: ${result.error}`
-        };
-      }
-    } catch {
-      // If we can't parse the output but the command succeeded, continue
-    }
-
-    // Bun outputs to outdir with the entrypoint name (wrapper.js)
-    const bunOutputPath = path.join(outputDir, 'wrapper.js');
-
-    // Prepend the banner to the compiled output
-    if (fs.existsSync(bunOutputPath)) {
-      const compiledContent = fs.readFileSync(bunOutputPath, 'utf-8');
-      const contentWithBanner = `${banner}\n${compiledContent}`;
-      fs.writeFileSync(bunOutputPath, contentWithBanner, 'utf-8');
-    }
-
-    // Rename to the desired output path
-    if (bunOutputPath !== outputPath && fs.existsSync(bunOutputPath)) {
-      fs.renameSync(bunOutputPath, outputPath);
     }
 
     return {
@@ -341,6 +279,16 @@ console.log(JSON.stringify({ success: true }));
       outputPath
     };
   } catch (error) {
+    // Handle esbuild build errors
+    if (error && typeof error === 'object' && 'errors' in error) {
+      const buildError = error as esbuild.BuildFailure;
+      const errors = buildError.errors.map((e) => e.text).join('\n');
+      return {
+        success: false,
+        error: `Bundling failed: ${errors}`
+      };
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,

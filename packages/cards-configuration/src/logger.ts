@@ -22,7 +22,6 @@
 
 import { closeSync, existsSync, mkdirSync, openSync, writeSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { HookEventName, HookInput } from './types.js';
 
 // ============================================================================
 // Log Level Types
@@ -60,7 +59,7 @@ export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const satisfies 
  * const event: LogEvent = {
  *   timestamp: '2024-01-15T10:30:00.000Z',
  *   level: 'warn',
- *   hookType: 'StartCard',
+ *   hookType: 'action-start',
  *   message: 'Card started',
  *   input: { cardId: 'card-123' }
  * };
@@ -82,7 +81,7 @@ export interface LogEvent {
    * Type of hook that generated this event.
    * May be undefined for events outside hook context.
    */
-  hookType?: HookEventName;
+  hookType?: string;
 
   /**
    * Human-readable description of what happened.
@@ -95,7 +94,7 @@ export interface LogEvent {
    * This is partial by design, so you can avoid logging large or sensitive
    * payloads while still capturing key identifiers.
    */
-  input?: Partial<HookInput>;
+  input?: Record<string, unknown>;
 
   /**
    * Error information if this event represents an error.
@@ -196,6 +195,58 @@ export interface LoggerConfig {
 }
 
 // ============================================================================
+// Logger Interface (for testing and type compatibility)
+// ============================================================================
+
+/**
+ * Logger interface for structured, context-aware logging.
+ *
+ * This interface defines the public API of the Logger class. It exists
+ * primarily for type compatibility and testing purposes, allowing tests
+ * to mock the logger without needing to implement all internal methods.
+ *
+ * For production use, use the {@link Logger} class or the {@link logger}
+ * singleton export.
+ */
+export interface ILogger {
+  /**
+   * Logs a debug message.
+   * @param message - The debug message
+   * @param context - Optional additional context
+   */
+  debug(message: string, context?: Record<string, unknown>): void;
+
+  /**
+   * Logs an info message.
+   * @param message - The info message
+   * @param context - Optional additional context
+   */
+  info(message: string, context?: Record<string, unknown>): void;
+
+  /**
+   * Logs a warning message.
+   * @param message - The warning message
+   * @param context - Optional additional context
+   */
+  warn(message: string, context?: Record<string, unknown>): void;
+
+  /**
+   * Logs an error message.
+   * @param message - The error message
+   * @param context - Optional additional context
+   */
+  error(message: string, context?: Record<string, unknown>): void;
+
+  /**
+   * Logs a structured error with full error details.
+   * @param error - The error to log
+   * @param message - Human-readable description of what failed
+   * @param context - Optional additional context
+   */
+  logError(error: unknown, message: string, context?: Record<string, unknown>): void;
+}
+
+// ============================================================================
 // Logger Class
 // ============================================================================
 
@@ -246,12 +297,12 @@ export class Logger {
   /**
    * Current hook context for enriching log events.
    */
-  private currentHookType: HookEventName | undefined;
+  private currentHookType: string | undefined;
 
   /**
    * Current hook input for enriching log events.
    */
-  private currentInput: Partial<HookInput> | undefined;
+  private currentInput: Record<string, unknown> | undefined;
 
   /**
    * Creates a new Logger instance.
@@ -431,7 +482,7 @@ export class Logger {
    * @param input - The hook input data
    * @internal
    */
-  setContext(hookType: HookEventName | undefined, input: Partial<HookInput> | undefined): void {
+  setContext(hookType: string | undefined, input: Record<string, unknown> | undefined): void {
     this.currentHookType = hookType;
     this.currentInput = input;
   }

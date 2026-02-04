@@ -24,12 +24,12 @@ const exec = promisify(execCallback);
 // ============================================================================
 
 /**
- * Path to the real build output from claude-code-v2 configuration.
+ * Path to the real build output from claude-code configuration.
  * This tests against actual built artifacts rather than mocked fixtures.
  */
-const CLAUDE_CODE_V2_DIST = path.resolve(
+const CLAUDE_CODE_DIST = path.resolve(
   __dirname,
-  '../../../../../packages/cards/default-configuration/claude-code-v2/dist'
+  '../../../../../packages/cards/default-configuration/claude-code/dist'
 );
 
 /**
@@ -50,11 +50,11 @@ describe('build output: settings.json structure', () => {
   let settingsPath: string;
 
   beforeAll(() => {
-    settingsPath = path.join(CLAUDE_CODE_V2_DIST, 'settings.json');
+    settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
     if (!fs.existsSync(settingsPath)) {
       throw new Error(
         `Build output not found at ${settingsPath}. ` +
-          'Run the build first: yarn workspace @cards/default-configuration-claude-code-v2 build'
+          'Run the build first: yarn workspace @cards/default-configuration-claude-code build'
       );
     }
     const content = fs.readFileSync(settingsPath, 'utf-8');
@@ -202,13 +202,13 @@ describe('build output: compiled handlers', () => {
   let binDir: string;
 
   beforeAll(() => {
-    const settingsPath = path.join(CLAUDE_CODE_V2_DIST, 'settings.json');
+    const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
     if (!fs.existsSync(settingsPath)) {
       throw new Error(`Build output not found at ${settingsPath}`);
     }
     const content = fs.readFileSync(settingsPath, 'utf-8');
     settings = JSON.parse(content);
-    binDir = path.join(CLAUDE_CODE_V2_DIST, 'bin');
+    binDir = path.join(CLAUDE_CODE_DIST, 'bin');
   });
 
   describe('file existence', () => {
@@ -286,13 +286,13 @@ describe('build output: handler execution', () => {
   let binDir: string;
 
   beforeAll(() => {
-    const settingsPath = path.join(CLAUDE_CODE_V2_DIST, 'settings.json');
+    const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
     if (!fs.existsSync(settingsPath)) {
       throw new Error(`Build output not found at ${settingsPath}`);
     }
     const content = fs.readFileSync(settingsPath, 'utf-8');
     settings = JSON.parse(content);
-    binDir = path.join(CLAUDE_CODE_V2_DIST, 'bin');
+    binDir = path.join(CLAUDE_CODE_DIST, 'bin');
 
     // Create fixtures directory
     fs.mkdirSync(FIXTURES_DIR, { recursive: true });
@@ -724,13 +724,13 @@ describe('build output: input/output handling', () => {
   let binDir: string;
 
   beforeAll(() => {
-    const settingsPath = path.join(CLAUDE_CODE_V2_DIST, 'settings.json');
+    const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
     if (!fs.existsSync(settingsPath)) {
       throw new Error(`Build output not found at ${settingsPath}`);
     }
     const content = fs.readFileSync(settingsPath, 'utf-8');
     settings = JSON.parse(content);
-    binDir = path.join(CLAUDE_CODE_V2_DIST, 'bin');
+    binDir = path.join(CLAUDE_CODE_DIST, 'bin');
 
     // Create fixtures directory
     fs.mkdirSync(FIXTURES_DIR, { recursive: true });
@@ -1188,13 +1188,13 @@ describe('build output: cross-reference validation', () => {
   let binDir: string;
 
   beforeAll(() => {
-    const settingsPath = path.join(CLAUDE_CODE_V2_DIST, 'settings.json');
+    const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
     if (!fs.existsSync(settingsPath)) {
       throw new Error(`Build output not found at ${settingsPath}`);
     }
     const content = fs.readFileSync(settingsPath, 'utf-8');
     settings = JSON.parse(content);
-    binDir = path.join(CLAUDE_CODE_V2_DIST, 'bin');
+    binDir = path.join(CLAUDE_CODE_DIST, 'bin');
   });
 
   it('should have all referenced handler files exist', () => {

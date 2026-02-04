@@ -10,8 +10,8 @@
  *
  * @example
  * ```typescript
- * import { defineConfig } from '@cards/configuration-v2';
- * import { defineActionStart, defineActionEnd } from '@cards/configuration-v2/factories';
+ * import { defineConfig } from '@cards/configuration';
+ * import { defineActionStart, defineActionEnd } from '@cards/configuration/factories';
  *
  * const launchStart = defineActionStart({ actionName: 'Launch' }, async () => {});
  * const launchEnd = defineActionEnd({ actionName: 'Launch' }, async () => {});

@@ -83,7 +83,7 @@ export type ActionEndHandler = (input: ActionEndInput, context: ActionContext) =
  * @example
  * ```typescript
  * // actions/launch-claude-end.ts
- * import { defineActionEnd } from '@cards/configuration-v2';
+ * import { defineActionEnd } from '@cards/configuration';
  *
  * export default defineActionEnd(
  *   { actionName: 'Launch Claude' },
@@ -97,7 +97,7 @@ export type ActionEndHandler = (input: ActionEndInput, context: ActionContext) =
  * @example
  * ```typescript
  * // Type-safe pairing with start handler
- * import { defineActionStart, defineActionEnd } from '@cards/configuration-v2';
+ * import { defineActionStart, defineActionEnd } from '@cards/configuration';
  *
  * const start = defineActionStart(
  *   { actionName: 'Deploy' },

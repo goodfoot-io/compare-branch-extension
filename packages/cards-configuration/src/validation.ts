@@ -7,7 +7,10 @@
  * @module
  */
 
+import type { TypeValidatorCommand } from './command-types.js';
+import { CARDS_ENV_VARS } from './env.js';
 import { parseHttpRequest } from './http-parser.js';
+import type { TypeValidatorContext, TypeValidatorRequest } from './inputs.js';
 import { Logger } from './logger.js';
 
 // ============================================================================
@@ -212,11 +215,11 @@ export interface ValidationFunction {
  * ```
  */
 export function typeValidation(config: ValidationConfig, handler: ValidationHandler): ValidationFunction {
-  const fn = async (
+  const fn = (
     request: import('./http-parser.js').ValidationRequest,
     context: ValidationContext
   ): Promise<ValidationResponse> => {
-    return await handler(request, context);
+    return Promise.resolve(handler(request, context));
   };
 
   fn.timeout = config.timeout;
@@ -315,16 +318,17 @@ export function validationResponse(response: ValidationResponse): ValidationResp
 // ============================================================================
 
 /**
- * Executes a validation function with stdin/stdout protocol.
+ * Executes a type validator command with stdin/stdout protocol.
  *
- * Reads an HTTP request from stdin, invokes the validation handler,
- * and writes the JSON response to stdout. Always exits with code 0 for
- * handled cases (including validation errors). Non-zero exit codes indicate
- * unhandled crashes or process-level failures.
+ * Reads an HTTP request from stdin, extracts type context from environment
+ * variables, invokes the validation handler, and writes the JSON response
+ * to stdout. Always exits with code 0 for handled cases (including validation
+ * errors). Non-zero exit codes indicate unhandled crashes or process-level failures.
  *
  * ## Protocol
  *
  * - **Input**: HTTP request on stdin (request line, headers, body)
+ * - **Environment**: Type metadata from environment variables
  * - **Output**: JSON response on stdout
  * - **Exit Code**: 0 for all handled cases (2xx, 4xx, 5xx), non-zero for crashes
  *
@@ -339,24 +343,27 @@ export function validationResponse(response: ValidationResponse): ValidationResp
  *
  * This function reads all of stdin into memory before parsing. The request
  * must include a valid Content-Length header; chunked encoding is unsupported.
- * @param validation - The validation function to execute
+ * @param validation - The type validator command to execute
  * @returns A promise that resolves only if process.exit is mocked
  * @example
  * ```typescript
  * // validator.mjs
- * import { typeValidation, executeValidation, validationCreated } from '@cards/configuration';
+ * import { defineTypeValidator, executeValidation, validationCreated } from '@cards/configuration';
  *
- * const validate = typeValidation({ timeout: 30000 }, (request, context) => {
- *   context.logger.info('Validating request');
- *   const data = request.bodyJson();
- *   // ... validation logic
- *   return validationCreated();
- * });
+ * const validate = defineTypeValidator(
+ *   { typeName: 'note', timeout: 30000 },
+ *   (request, context) => {
+ *     context.logger.info('Validating request');
+ *     const data = request.bodyJson();
+ *     // ... validation logic
+ *     return validationCreated();
+ *   }
+ * );
  *
  * executeValidation(validate);
  * ```
  */
-export async function executeValidation(validation: ValidationFunction): Promise<void> {
+export async function executeValidation(validation: TypeValidatorCommand): Promise<void> {
   const logger = new Logger();
 
   try {
@@ -379,8 +386,32 @@ export async function executeValidation(validation: ValidationFunction): Promise
       process.exit(0); // Exit 0 even for validation errors
     }
 
+    // Extract type context from environment variables
+    const context: TypeValidatorContext = {
+      logger,
+      cwd: process.cwd(),
+      typeName: process.env[CARDS_ENV_VARS.TYPE_NAME] ?? '',
+      typeVersion: process.env[CARDS_ENV_VARS.TYPE_VERSION] ?? '',
+      fileName: process.env[CARDS_ENV_VARS.FILE_NAME] ?? '',
+      cardId: process.env[CARDS_ENV_VARS.CARD_ID] ?? '',
+      environment: process.env[CARDS_ENV_VARS.ENVIRONMENT] ?? '',
+      apiBaseUrl: process.env[CARDS_ENV_VARS.API_BASE_URL] ?? '',
+      apiAccessToken: process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] ?? ''
+    };
+
+    // Create TypeValidatorRequest from parsed HTTP request
+    const request: TypeValidatorRequest = {
+      method: parseResult.request.method,
+      path: parseResult.request.path,
+      httpVersion: parseResult.request.httpVersion,
+      headers: parseResult.request.headers,
+      body: parseResult.request.body,
+      bodyText: parseResult.request.bodyText,
+      bodyJson: parseResult.request.bodyJson
+    };
+
     // Execute handler
-    const response = await validation(parseResult.request, { logger });
+    const response = await validation(request, context);
 
     // Write response
     process.stdout.write(JSON.stringify(response));

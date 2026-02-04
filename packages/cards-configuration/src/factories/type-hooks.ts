@@ -73,7 +73,7 @@ export type TypeValidatorHandler = (
  * @example
  * ```typescript
  * // validators/adaptive-card-validator.ts
- * import { defineTypeValidator, validationCreated, validationError } from '@cards/configuration-v2';
+ * import { defineTypeValidator, validationCreated, validationError } from '@cards/configuration';
  *
  * export default defineTypeValidator(
  *   { typeName: 'adaptive-card', sourcePath: fileURLToPath(import.meta.url) },
@@ -126,7 +126,7 @@ export function defineTypeValidator<T extends TypeConfig>(
  * @example
  * ```typescript
  * // types/adaptive-card/create.ts
- * import { defineTypeCreate } from '@cards/configuration-v2';
+ * import { defineTypeCreate } from '@cards/configuration';
  *
  * export default defineTypeCreate(
  *   { typeName: 'adaptive-card' },
@@ -176,7 +176,7 @@ export function defineTypeCreate<T extends TypeConfig>(
  * @example
  * ```typescript
  * // types/adaptive-card/update.ts
- * import { defineTypeUpdate } from '@cards/configuration-v2';
+ * import { defineTypeUpdate } from '@cards/configuration';
  *
  * export default defineTypeUpdate(
  *   { typeName: 'adaptive-card' },
@@ -226,7 +226,7 @@ export function defineTypeUpdate<T extends TypeConfig>(
  * @example
  * ```typescript
  * // types/adaptive-card/delete.ts
- * import { defineTypeDelete } from '@cards/configuration-v2';
+ * import { defineTypeDelete } from '@cards/configuration';
  *
  * export default defineTypeDelete(
  *   { typeName: 'adaptive-card' },

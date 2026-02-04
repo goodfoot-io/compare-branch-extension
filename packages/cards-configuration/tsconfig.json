@@ -9,6 +9,6 @@
     "declarationDir": "./types",
     "outDir": "./dist",
     "baseUrl": ".",
-    "types": ["node"]
+    "types": ["node", "bun"]
   }
 }

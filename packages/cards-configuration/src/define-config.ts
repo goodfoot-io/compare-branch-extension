@@ -9,8 +9,8 @@
  *
  * @example
  * ```typescript
- * import { defineConfig } from '@cards/configuration-v2';
- * import { defineActionStart } from '@cards/configuration-v2/factories';
+ * import { defineConfig } from '@cards/configuration';
+ * import { defineActionStart } from '@cards/configuration/factories';
  *
  * const launchStart = defineActionStart({ actionName: 'Launch' }, async () => {});
  *
@@ -67,7 +67,7 @@ function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefin
  *
  * @example
  * ```typescript
- * import { defineConfig } from '@cards/configuration-v2';
+ * import { defineConfig } from '@cards/configuration';
  *
  * export default defineConfig({
  *   environments: {

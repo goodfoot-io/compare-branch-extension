@@ -1,5 +1,5 @@
 /**
- * Vitest configuration for the cards-configuration package.
+ * Vitest configuration for the cards-configuration-v2 package.
  *
  * Limits tests to the local tests/ directory and keeps globals disabled to
  * avoid cross-test pollution.
