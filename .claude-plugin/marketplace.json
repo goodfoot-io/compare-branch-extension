@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.275",
+    "version": "1.0.276",
     "pluginRoot": "./plugins"
   },
   "plugins": [
