@@ -362,7 +362,7 @@ export default {
   });
 
   describe('handler compilation', () => {
-    it('should skip handler compilation (not yet implemented)', async () => {
+    it('should not compile handlers (by design in v2)', async () => {
       const outdir = join(FIXTURES_DIR, 'output-no-compile');
       const result = await build({
         config: join(FIXTURES_DIR, 'valid.config.ts'),
@@ -371,7 +371,9 @@ export default {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        // Handler compilation is not yet implemented, so compiledHandlers should be empty
+        // In v2, handler compilation is intentionally NOT performed by the CLI.
+        // Handlers should be compiled separately as part of the build pipeline.
+        // The CLI only generates settings.json from the config file.
         expect(result.compiledHandlers).toEqual([]);
       }
     });

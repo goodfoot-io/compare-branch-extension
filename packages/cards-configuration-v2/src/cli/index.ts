@@ -7,8 +7,17 @@
  * 1. Parses command-line arguments
  * 2. Loads the configuration file
  * 3. Serializes settings to JSON format
- * 4. Compiles handler files to standalone bundles
- * 5. Writes output to the specified directory
+ * 4. Writes settings.json to the specified directory
+ *
+ * ## Handler Compilation
+ *
+ * Unlike v1, the v2 CLI does not compile handler files. In v2, handlers are
+ * imported directly in settings.config.ts, so they should be pre-compiled
+ * or bundled as part of your build pipeline (e.g., using tsc, esbuild, etc.).
+ *
+ * The CLI's responsibility is only to generate settings.json from the config
+ * file. This simplifies the CLI and gives you full control over how handlers
+ * are built and bundled.
  *
  * @module cli/index
  *
@@ -24,7 +33,6 @@
  * if (result.success) {
  *   console.log('Build successful!');
  *   console.log('Settings:', result.settingsPath);
- *   console.log('Handlers:', result.compiledHandlers);
  * } else {
  *   console.error('Build failed:', result.error);
  * }
@@ -50,6 +58,13 @@ export interface BuildSuccess {
 
   /**
    * Paths to all compiled handler files.
+   *
+   * Note: In v2, handler compilation is not performed by the CLI.
+   * This array is always empty. Handlers should be pre-compiled as
+   * part of your build pipeline before running the CLI.
+   *
+   * @deprecated This field exists for backwards compatibility but is
+   * not used in v2. Will be removed in v3.
    */
   compiledHandlers: string[];
 }
@@ -83,25 +98,30 @@ export type BuildResult = BuildSuccess | BuildFailure;
  * This function orchestrates the entire build process:
  * 1. Loads and validates the configuration file
  * 2. Serializes the configuration to settings.json format
- * 3. Compiles all handler files to standalone ESM bundles
- * 4. Writes settings.json and compiled handlers to the output directory
+ * 3. Writes settings.json to the output directory
  *
  * The output directory structure:
  * ```
  * outdir/
- * ├── settings.json       # Serialized settings
- * └── bin/               # Compiled handlers
- *     ├── actionStart-Launch.mjs
- *     ├── actionEnd-Launch.mjs
- *     └── ...
+ * └── settings.json       # Serialized settings
  * ```
+ *
+ * ## Handler Compilation
+ *
+ * Unlike v1, the v2 CLI does NOT compile handler files. In v2:
+ * - Handlers are imported directly in settings.config.ts
+ * - The CLI only extracts metadata and generates settings.json
+ * - Handler compilation should happen in your build pipeline (tsc, esbuild, etc.)
+ *
+ * This design keeps the CLI simple and focused on configuration serialization,
+ * as per the v2 design goal of "no AST analysis needed" - handlers are just
+ * plain imports.
  *
  * ## Error Handling
  *
  * Returns a BuildFailure result if:
  * - The configuration file doesn't exist or is invalid
  * - The configuration has structural errors (missing required fields)
- * - Handler compilation fails
  * - File system operations fail (permissions, disk space, etc.)
  *
  * @param args - Build arguments including config path and output directory
@@ -123,14 +143,22 @@ export type BuildResult = BuildSuccess | BuildFailure;
  *
  * @example
  * ```typescript
- * // With logging
- * const result = await build({
- *   config: './settings.config.ts',
- *   outdir: './dist',
- *   log: './build.log'
+ * // Full build pipeline with handler compilation
+ * import { build as buildHandlers } from 'esbuild';
+ * import { build as buildSettings } from '@cards/configuration-v2/cli';
+ *
+ * // First: compile handlers
+ * await buildHandlers({
+ *   entryPoints: ['./actions/*.ts'],
+ *   outdir: './dist/bin',
+ *   format: 'esm'
  * });
  *
- * console.log(`Compiled ${result.compiledHandlers.length} handlers`);
+ * // Then: generate settings.json
+ * await buildSettings({
+ *   config: './settings.config.ts',
+ *   outdir: './dist'
+ * });
  * ```
  */
 export async function build(args: BuildArgs): Promise<BuildResult> {
@@ -188,9 +216,16 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
       };
     }
 
-    // 5. TODO: Compile handlers
-    // For now, we skip handler compilation and return empty array
-    // This will be implemented in a future enhancement
+    // 5. Handler compilation is intentionally NOT performed by the CLI in v2.
+    //
+    // Design rationale:
+    // - In v2, handlers are imported directly in settings.config.ts (not discovered via AST)
+    // - The CLI's job is to serialize the config to settings.json
+    // - Handler compilation should be part of the user's build pipeline (tsc, esbuild, etc.)
+    // - This keeps the CLI simple and focused, as per v2 design goals
+    //
+    // Users should compile handlers separately before or after running this CLI.
+    // See the build() function documentation for an example build pipeline.
     const compiledHandlers: string[] = [];
 
     return {
