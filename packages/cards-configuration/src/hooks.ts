@@ -1,46 +1,42 @@
 /**
- * Hook factory functions for Cards Extension hooks.
+ * Hook type definitions for Cards Extension hooks.
  *
- * Each factory wraps a handler and attaches metadata (`hookEventName`, `timeout`)
- * that the CLI uses for hooks.json generation and the runtime uses for input
- * extraction. Export the returned function as the default export of a hook file
- * so the CLI can discover it without evaluating your module.
+ * These types define the contract between hook authors and the runtime. The
+ * actual hook factory functions have been replaced by the settings-based
+ * actions system in {@link ./actions.js}, but these types remain for runtime
+ * compatibility and for authors who need fine-grained control over hook
+ * behavior.
+ *
+ * Most developers should use the action factories from `./actions.js` instead
+ * of working with these types directly.
+ *
  * @module
- * @example
- * ```typescript
- * import { startCardHook } from '@cards/configuration';
- *
- * export default startCardHook({}, async (input, { logger }) => {
- *   logger.info('Card starting', { cardId: input.cardId });
- * });
- * ```
+ * @see {@link ./actions.js} for the recommended action factory functions
+ * @see {@link ./runtime.js} for how hooks are executed
  */
 
 import type { Logger } from './logger.js';
-import type {
-  EndCardInput,
-  EndInterviewInput,
-  HookEventName,
-  StartCardInput,
-  StartInterviewInput,
-  TypedFileCreatedInput,
-  TypedFileDeletedInput,
-  TypedFileUpdatedInput
-} from './types.js';
+import type { HookEventName } from './types.js';
 
 // ============================================================================
 // Configuration Types
 // ============================================================================
 
 /**
- * Configuration options that become metadata on the hook function.
+ * Configuration options for hook metadata.
  *
- * The CLI reads this metadata to populate hooks.json. The SDK does not enforce
- * timeouts locally; enforcement (if any) happens in the Cards runtime.
+ * These options become properties on the hook function and are extracted by
+ * the CLI during compilation. The SDK does not enforce timeouts locally;
+ * enforcement (if any) happens in the Cards runtime based on hooks.json
+ * configuration.
+ *
  * @example
  * ```typescript
- * // Set a handler timeout for the Cards runtime to enforce.
- * startCardHook({ timeout: 5000 }, handler);
+ * // Set a handler timeout for the Cards runtime
+ * const config: HookConfig = { timeout: 5000 };
+ *
+ * // For long-running operations like file processing
+ * const longRunningConfig: HookConfig = { timeout: 30000 };
  * ```
  */
 export interface HookConfig {
@@ -48,12 +44,19 @@ export interface HookConfig {
    * Maximum handler runtime in milliseconds.
    *
    * This value is forwarded to hooks.json. If the Cards runtime enforces
-   * timeouts, it will terminate the hook after this duration. Omitting it
-   * lets the runtime apply its default policy.
+   * timeouts, it will terminate the hook process after this duration.
+   * Omitting this field lets the runtime apply its default timeout policy.
+   *
+   * Choose timeout values based on expected operation duration plus buffer
+   * for I/O variance. For validation hooks that should be fast, use shorter
+   * timeouts (5-10 seconds). For hooks that do network calls or heavy
+   * processing, use longer timeouts (30+ seconds).
+   *
    * @example
    * ```typescript
-   * { timeout: 5000 }  // 5 second timeout
-   * { timeout: 30000 } // 30 second timeout for long operations
+   * { timeout: 5000 }   // 5 seconds for fast validation
+   * { timeout: 30000 }  // 30 seconds for API calls
+   * { timeout: 120000 } // 2 minutes for heavy processing
    * ```
    */
   timeout?: number;
@@ -64,24 +67,43 @@ export interface HookConfig {
 // ============================================================================
 
 /**
- * Context injected by the runtime when a hook executes.
+ * Runtime context injected when a hook executes.
  *
- * The context is created by {@link execute} and already scoped to the current
- * hook, so logs are enriched with hook metadata automatically. Do not construct
- * this manually; it is intentionally small and runtime-owned.
+ * The context is created by {@link execute} and is already scoped to the
+ * current hook invocation. Log events are automatically enriched with hook
+ * metadata, so you don't need to manually include hookType or cardId in
+ * every log call.
+ *
+ * Do not construct this manually; it is intentionally minimal and owned by
+ * the runtime. The interface may be extended in future versions to include
+ * additional utilities.
+ *
  * @example
  * ```typescript
- * export default startCardHook({}, async (input, { logger }) => {
- *   logger.info('Processing card', { cardId: input.cardId });
- * });
+ * async (input, { logger }: HookContext) => {
+ *   // Logger is pre-configured with hook context
+ *   logger.info('Processing card');
+ *   logger.debug('Input details', { executionMode: input.executionMode });
+ *
+ *   try {
+ *     await performWork();
+ *     logger.info('Work completed');
+ *   } catch (err) {
+ *     logger.logError(err, 'Work failed');
+ *     throw err;
+ *   }
+ * }
  * ```
  */
 export interface HookContext {
   /**
    * Logger for structured, context-aware logging.
    *
-   * The logger is pre-configured with hookType and input, and it does not write
-   * to stdout/stderr unless you configure destinations.
+   * The logger is pre-configured with hookType and input metadata. It writes
+   * to configured destinations (file, handlers) but never to stdout/stderr
+   * to keep hook output clean for protocol communication.
+   *
+   * @see {@link Logger} for available methods and configuration
    */
   logger: Logger;
 }
@@ -91,12 +113,31 @@ export interface HookContext {
 // ============================================================================
 
 /**
- * Handler function for a specific hook event.
+ * Handler function signature for hook events.
  *
- * Throwing or rejecting signals failure and results in a non-zero exit code
- * from the runtime. Use async when the hook needs to await I/O.
- * @template TInput - Hook input payload for the event
- * @template TContext - Context type (defaults to HookContext)
+ * Handlers receive the event-specific input payload and a context object.
+ * Throwing an error or returning a rejected promise signals failure; the
+ * runtime will exit with a non-zero code and log the error.
+ *
+ * Handlers may be synchronous (return void) or asynchronous (return Promise).
+ * Use async when the hook needs to perform I/O operations.
+ *
+ * @template TInput - The hook input payload type for the specific event
+ * @template TContext - The context type, defaults to {@link HookContext}
+ *
+ * @example
+ * ```typescript
+ * // Synchronous handler for simple operations
+ * const syncHandler: HookHandler<CardHookInput> = (input, context) => {
+ *   context.logger.info('Card started', { cardId: input.cardId });
+ * };
+ *
+ * // Async handler for I/O operations
+ * const asyncHandler: HookHandler<TypedFileInput> = async (input, context) => {
+ *   const content = await fs.readFile(input.filePath, 'utf-8');
+ *   context.logger.info('File read', { size: content.length });
+ * };
+ * ```
  */
 export type HookHandler<TInput, TContext extends HookContext = HookContext> = (
   input: TInput,
@@ -106,248 +147,61 @@ export type HookHandler<TInput, TContext extends HookContext = HookContext> = (
 /**
  * Callable hook wrapper returned by a factory.
  *
- * This is what you export from hook files. The runtime uses its metadata to
- * decide which input shape to build and which timeout to apply.
- * @template TInput - Hook input payload for the event
- * @template TContext - Context type (defaults to HookContext)
+ * This is what you export from hook files. The runtime uses the attached
+ * metadata to decide which input shape to build (based on hookEventName)
+ * and which timeout to apply. The function itself is invoked with the
+ * parsed input and runtime context.
+ *
+ * The interface combines a callable signature with metadata properties,
+ * similar to how Express middleware can have attached properties.
+ *
+ * @template TInput - The hook input payload type for the specific event
+ * @template TContext - The context type, defaults to {@link HookContext}
+ *
+ * @example
+ * ```typescript
+ * // A hook function has both callable and metadata aspects
+ * const hook: HookFunction<StartCardInput> = Object.assign(
+ *   async (input, context) => {
+ *     context.logger.info('Card started');
+ *   },
+ *   {
+ *     hookEventName: 'StartCard' as const,
+ *     timeout: 5000
+ *   }
+ * );
+ *
+ * // Runtime invokes it
+ * await hook(input, context);
+ *
+ * // CLI reads metadata
+ * console.log(hook.hookEventName); // 'StartCard'
+ * console.log(hook.timeout);       // 5000
+ * ```
  */
 export interface HookFunction<TInput, TContext extends HookContext = HookContext> {
   /**
-   * Invoked by the runtime after it has built the input and context.
-   * @param input - Event-specific input payload
+   * Invoked by the runtime after building input and context.
+   *
+   * @param input - Event-specific input payload extracted from environment
    * @param context - Runtime-provided context utilities
-   * @returns Resolves when the handler finishes
+   * @returns Resolves when the handler finishes; rejection signals error
    */
   (input: TInput, context: TContext): Promise<void>;
 
   /**
    * Hook event name used by the runtime for input extraction.
+   *
+   * The runtime uses this to determine which environment variables to read
+   * and how to parse them into the input object.
    */
   hookEventName: HookEventName;
 
   /**
-   * Optional timeout in milliseconds forwarded to hooks.json.
+   * Optional timeout in milliseconds, forwarded to hooks.json.
+   *
+   * When present, the Cards runtime may enforce this as a hard limit on
+   * handler execution time.
    */
   timeout?: number;
-}
-
-// ============================================================================
-// Generic Factory
-// ============================================================================
-
-/**
- * Creates a hook wrapper and attaches discovery metadata.
- *
- * The wrapper preserves async behavior and stores `hookEventName` and `timeout`
- * on the function object so the runtime and CLI can inspect it later.
- * @param hookEventName - The event name to bind to this handler
- * @param config - Hook configuration metadata
- * @param handler - The handler function to wrap
- * @returns A callable hook wrapper with attached metadata
- * @internal
- */
-function createHookFunction<TInput, TContext extends HookContext = HookContext>(
-  hookEventName: HookEventName,
-  config: HookConfig,
-  handler: HookHandler<TInput, TContext>
-): HookFunction<TInput, TContext> {
-  const hookFn = async (input: TInput, context: TContext): Promise<void> => {
-    await handler(input, context);
-  };
-
-  // Attach metadata for runtime inspection
-  hookFn.hookEventName = hookEventName;
-  hookFn.timeout = config.timeout;
-
-  return hookFn;
-}
-
-// ============================================================================
-// StartCard Hook Factory
-// ============================================================================
-
-/**
- * Creates a StartCard hook handler.
- *
- * StartCard runs at the beginning of a card execution. Use it for setup,
- * instrumentation, or early validation that should gate the rest of the run.
- * @param config - Hook metadata (timeout, etc.)
- * @param handler - Handler invoked for StartCard events
- * @returns A hook wrapper suitable for default export
- * @example
- * ```typescript
- * import { startCardHook } from '@cards/configuration';
- *
- * export default startCardHook({}, async (input, { logger }) => {
- *   logger.info('Card started', { cardId: input.cardId });
- * });
- * ```
- */
-export function startCardHook(config: HookConfig, handler: HookHandler<StartCardInput>): HookFunction<StartCardInput> {
-  return createHookFunction('StartCard', config, handler);
-}
-
-// ============================================================================
-// EndCard Hook Factory
-// ============================================================================
-
-/**
- * Creates an EndCard hook handler.
- *
- * EndCard runs after a card execution completes. Use it for cleanup,
- * summarization, or reporting that should happen after work finishes.
- * @param config - Hook metadata (timeout, etc.)
- * @param handler - Handler invoked for EndCard events
- * @returns A hook wrapper suitable for default export
- * @example
- * ```typescript
- * import { endCardHook } from '@cards/configuration';
- *
- * export default endCardHook({}, async (input, { logger }) => {
- *   logger.info('Card completed', { cardId: input.cardId });
- * });
- * ```
- */
-export function endCardHook(config: HookConfig, handler: HookHandler<EndCardInput>): HookFunction<EndCardInput> {
-  return createHookFunction('EndCard', config, handler);
-}
-
-// ============================================================================
-// StartInterview Hook Factory
-// ============================================================================
-
-/**
- * Creates a StartInterview hook handler.
- *
- * StartInterview runs when an interview session begins. Use it for
- * instrumentation or to prepare any interview-specific resources.
- * @param config - Hook metadata (timeout, etc.)
- * @param handler - Handler invoked for StartInterview events
- * @returns A hook wrapper suitable for default export
- * @example
- * ```typescript
- * import { startInterviewHook } from '@cards/configuration';
- *
- * export default startInterviewHook({}, async (input, { logger }) => {
- *   logger.info('Interview started', { cardId: input.cardId });
- * });
- * ```
- */
-export function startInterviewHook(
-  config: HookConfig,
-  handler: HookHandler<StartInterviewInput>
-): HookFunction<StartInterviewInput> {
-  return createHookFunction('StartInterview', config, handler);
-}
-
-// ============================================================================
-// EndInterview Hook Factory
-// ============================================================================
-
-/**
- * Creates an EndInterview hook handler.
- *
- * EndInterview runs after an interview completes. Use it for cleanup,
- * scoring, or post-interview reporting.
- * @param config - Hook metadata (timeout, etc.)
- * @param handler - Handler invoked for EndInterview events
- * @returns A hook wrapper suitable for default export
- * @example
- * ```typescript
- * import { endInterviewHook } from '@cards/configuration';
- *
- * export default endInterviewHook({}, async (input, { logger }) => {
- *   logger.info('Interview completed', { cardId: input.cardId });
- * });
- * ```
- */
-export function endInterviewHook(
-  config: HookConfig,
-  handler: HookHandler<EndInterviewInput>
-): HookFunction<EndInterviewInput> {
-  return createHookFunction('EndInterview', config, handler);
-}
-
-// ============================================================================
-// TypedFileCreated Hook Factory
-// ============================================================================
-
-/**
- * Creates a TypedFileCreated hook handler.
- *
- * TypedFileCreated runs when a new typed file is created. Inputs include file
- * metadata (type name, path, hash) so you can validate or react to changes.
- * @param config - Hook metadata (timeout, etc.)
- * @param handler - Handler invoked for TypedFileCreated events
- * @returns A hook wrapper suitable for default export
- * @example
- * ```typescript
- * import { typedFileCreatedHook } from '@cards/configuration';
- *
- * export default typedFileCreatedHook({}, async (input, { logger }) => {
- *   logger.info('Typed file created', { typeName: input.typeName, fileName: input.fileName });
- * });
- * ```
- */
-export function typedFileCreatedHook(
-  config: HookConfig,
-  handler: HookHandler<TypedFileCreatedInput>
-): HookFunction<TypedFileCreatedInput> {
-  return createHookFunction('TypedFileCreated', config, handler);
-}
-
-// ============================================================================
-// TypedFileUpdated Hook Factory
-// ============================================================================
-
-/**
- * Creates a TypedFileUpdated hook handler.
- *
- * TypedFileUpdated runs when a typed file changes. Use this to validate edits
- * or recompute derived metadata when content updates.
- * @param config - Hook metadata (timeout, etc.)
- * @param handler - Handler invoked for TypedFileUpdated events
- * @returns A hook wrapper suitable for default export
- * @example
- * ```typescript
- * import { typedFileUpdatedHook } from '@cards/configuration';
- *
- * export default typedFileUpdatedHook({}, async (input, { logger }) => {
- *   logger.info('Typed file updated', { typeName: input.typeName, fileName: input.fileName });
- * });
- * ```
- */
-export function typedFileUpdatedHook(
-  config: HookConfig,
-  handler: HookHandler<TypedFileUpdatedInput>
-): HookFunction<TypedFileUpdatedInput> {
-  return createHookFunction('TypedFileUpdated', config, handler);
-}
-
-// ============================================================================
-// TypedFileDeleted Hook Factory
-// ============================================================================
-
-/**
- * Creates a TypedFileDeleted hook handler.
- *
- * TypedFileDeleted runs when a typed file is removed. Use it to clean up any
- * derived state or external references tied to that file.
- * @param config - Hook metadata (timeout, etc.)
- * @param handler - Handler invoked for TypedFileDeleted events
- * @returns A hook wrapper suitable for default export
- * @example
- * ```typescript
- * import { typedFileDeletedHook } from '@cards/configuration';
- *
- * export default typedFileDeletedHook({}, async (input, { logger }) => {
- *   logger.info('Typed file deleted', { typeName: input.typeName, fileName: input.fileName });
- * });
- * ```
- */
-export function typedFileDeletedHook(
-  config: HookConfig,
-  handler: HookHandler<TypedFileDeletedInput>
-): HookFunction<TypedFileDeletedInput> {
-  return createHookFunction('TypedFileDeleted', config, handler);
 }

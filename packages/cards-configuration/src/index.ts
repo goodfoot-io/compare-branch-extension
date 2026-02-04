@@ -1,10 +1,43 @@
 /**
- * Type-safe Cards Extension hooks library.
+ * Type-safe Cards Extension configuration and hooks library.
  *
- * This is the primary entrypoint for hook authors. It re-exports hook
- * factories, runtime helpers, validation tools, and shared types so a hook
- * project can depend on a single module.
+ * This is the primary entry point for action authors. It re-exports action
+ * factories, runtime helpers, validation tools, and shared types so your
+ * project can depend on a single module for all Cards Extension integration.
+ *
+ * ## Quick Start
+ *
+ * Most developers need just the action factories:
+ *
+ * ```typescript
+ * import { actionStart, actionEnd, typeValidator } from '@cards/configuration';
+ *
+ * // Define an action
+ * export default actionStart(
+ *   { actionName: 'My Action', description: 'Does something useful' },
+ *   async (input, { logger }) => {
+ *     logger.info('Action started', { cardId: input.cardId });
+ *   }
+ * );
+ * ```
+ *
+ * ## Module Organization
+ *
+ * - **Action Factories**: {@link actionStart}, {@link actionEnd}, {@link typeValidator}, etc.
+ * - **Constants**: Factory type names for tooling integration
+ * - **Environment**: Helpers for reading hook environment variables
+ * - **Exit Codes**: Standard exit codes and error utilities
+ * - **Logger**: Structured logging with event subscription
+ * - **Runtime**: The {@link execute} function used by compiled hooks
+ * - **Scaffold**: Project scaffolding utilities
+ * - **Types**: Input payloads and event name definitions
+ * - **Validation**: Type validation helpers and HTTP parsing
+ * - **Testing**: Test utilities for validation hooks
+ *
  * @module
+ * @see {@link actionStart} for creating action handlers
+ * @see {@link typeValidator} for creating type validators
+ * @see {@link execute} for runtime execution details
  */
 
 // ============================================================================
@@ -76,7 +109,7 @@ export {
 } from './exit-codes.js';
 
 // ============================================================================
-// Hook Factories (Deprecated)
+// Hook Types (for runtime compatibility)
 // ============================================================================
 
 export type {
@@ -84,18 +117,6 @@ export type {
   HookContext,
   HookFunction,
   HookHandler
-} from './hooks.js';
-/**
- * @deprecated Use actionStart/actionEnd instead
- */
-export {
-  endCardHook,
-  endInterviewHook,
-  startCardHook,
-  startInterviewHook,
-  typedFileCreatedHook,
-  typedFileDeletedHook,
-  typedFileUpdatedHook
 } from './hooks.js';
 
 // ============================================================================

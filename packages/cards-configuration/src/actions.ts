@@ -2,8 +2,18 @@
  * Action factory functions for Cards Extension actions.
  *
  * Each factory wraps a handler and attaches metadata that the CLI uses for
- * settings.json generation and the runtime uses for input extraction.
+ * settings.json generation and the runtime uses for input extraction. The
+ * pattern is intentionally simple: call a factory with config and handler,
+ * then default-export the result. The CLI's AST analyzer will find it.
+ *
+ * The factory functions are the primary authoring API for action developers.
+ * They provide type safety for inputs, automatic metadata attachment for
+ * settings.json generation, and a consistent execution model across all
+ * action types.
+ *
  * @module
+ * @see {@link actionStart} for creating action start handlers
+ * @see {@link typeValidator} for creating type validation hooks
  */
 
 import type { Logger } from './logger.js';
@@ -13,56 +23,112 @@ import type { Logger } from './logger.js';
 // ============================================================================
 
 /**
- * Input for action start/end handlers.
+ * Input payload for action start and end handlers.
  *
- * These values come from environment variables injected by the action
- * dispatcher when spawning action commands.
+ * These values are injected as environment variables by the action dispatcher
+ * when spawning action commands. The runtime extracts them and passes them to
+ * your handler as a typed object.
+ *
+ * The `apiBaseUrl` and `apiAccessToken` fields enable actions to make
+ * authenticated API calls back to the Cards server for operations like
+ * updating card state or fetching additional data.
+ *
+ * @example
+ * ```typescript
+ * async (input: ActionStartInput, { logger }) => {
+ *   // Access card context
+ *   logger.info(`Processing card ${input.cardId}`);
+ *
+ *   // Make authenticated API calls
+ *   const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
+ *     headers: { Authorization: `Bearer ${input.apiAccessToken}` }
+ *   });
+ * }
+ * ```
  */
 export interface ActionStartInput {
   /**
    * Unique identifier for the current card.
+   *
+   * This ID is stable across action invocations and can be used to track
+   * state or make API calls related to the card.
    */
   cardId: string;
 
   /**
    * The environment name this action belongs to.
+   *
+   * Matches the environment key in settings.json (e.g., "default", "staging").
+   * Useful for environment-specific behavior or logging.
    */
   environment: string;
 
   /**
-   * Card's execution mode.
+   * Card's execution mode, determining UI interaction model.
+   *
+   * - `interactive`: User is actively engaged; UI is visible
+   * - `background`: Action runs without user attention; minimize prompts
    */
   executionMode: 'interactive' | 'background';
 
   /**
    * Cards server base URL for API calls.
+   *
+   * Use this as the base for constructing API endpoints. The URL does not
+   * include a trailing slash.
    */
   apiBaseUrl: string;
 
   /**
    * Authentication token for API calls.
+   *
+   * Bearer token valid for the duration of this action execution. Include
+   * in Authorization headers when calling the Cards API.
    */
   apiAccessToken: string;
 
   /**
-   * Value of `cards.codingAgent` from settings.
+   * Configured coding agent identifier from `cards.codingAgent` setting.
+   *
+   * When set, indicates which AI coding assistant the user prefers. Actions
+   * can use this to customize behavior or prompts for different agents.
    */
   codingAgent?: string;
 }
 
 /**
- * Input for action end handlers.
+ * Input payload for action end handlers.
  *
- * Identical to ActionStartInput - end is only invoked when start exits with
- * code 0, so no exit code field is needed.
+ * Structurally identical to {@link ActionStartInput}. The end handler is only
+ * invoked when the start handler exits successfully (code 0), so no exit code
+ * or error information is included.
+ *
+ * @see {@link ActionStartInput} for field descriptions
  */
 export type ActionEndInput = ActionStartInput;
 
 /**
- * Input for type lifecycle hooks.
+ * Input payload for type lifecycle hooks.
  *
- * These values come from environment variables injected when typed file
- * events are dispatched.
+ * Contains file metadata computed by the execution wrapper when typed file
+ * events occur. The `fileSha256` enables content-based caching and change
+ * detection without reading file contents.
+ *
+ * @example
+ * ```typescript
+ * async (input: TypeHookInput, { logger }) => {
+ *   logger.info('Processing typed file', {
+ *     type: input.typeName,
+ *     file: input.fileName,
+ *     size: input.fileSize
+ *   });
+ *
+ *   // Read and validate the file
+ *   const content = await fs.readFile(input.filePath, 'utf-8');
+ *   const parsed = JSON.parse(content);
+ *   validateSchema(input.typeName, parsed);
+ * }
+ * ```
  */
 export interface TypeHookInput {
   /**
@@ -71,42 +137,61 @@ export interface TypeHookInput {
   cardId: string;
 
   /**
-   * The environment name.
+   * The environment name from settings.json.
    */
   environment: string;
 
   /**
-   * The type name (e.g., `adaptive-card`).
+   * The registered type name (e.g., `adaptive-card`, `task-spec`).
+   *
+   * Matches the type key in settings.json's `types` section.
    */
   typeName: string;
 
   /**
-   * The type's version string.
+   * The type's version string from settings.json configuration.
+   *
+   * Follows semver conventions. Validators can use this to apply
+   * version-specific validation rules.
    */
   typeVersion: string;
 
   /**
-   * The filename within the type directory.
+   * The filename within the type directory (e.g., `card.json`).
+   *
+   * This is the basename only, not a path.
    */
   fileName: string;
 
   /**
-   * Full absolute path to the file.
+   * Full absolute path to the file on disk.
+   *
+   * Safe to read directly. The file exists at the time of hook invocation.
    */
   filePath: string;
 
   /**
    * File size in bytes.
+   *
+   * Useful for size validation or deciding whether to read the file into
+   * memory vs. streaming.
    */
   fileSize: number;
 
   /**
-   * SHA256 hash of file content.
+   * SHA-256 hash of file content as a hex string.
+   *
+   * Enables content-based caching and deduplication without reading the
+   * file. The hash is computed by the execution wrapper before invoking
+   * the hook.
    */
   fileSha256: string;
 
   /**
-   * MIME type of the file.
+   * MIME type of the file (e.g., `application/json`, `text/plain`).
+   *
+   * Detected from file content or extension. Use this to decide how to
+   * parse or process the file.
    */
   contentType: string;
 
@@ -126,19 +211,42 @@ export interface TypeHookInput {
 // ============================================================================
 
 /**
- * Context injected by the runtime when an action executes.
+ * Runtime context injected when an action executes.
  *
  * The context is created by the runtime and provides utilities for logging
- * and accessing the working directory.
+ * and accessing the working directory. It is intentionally minimal to avoid
+ * coupling actions to runtime internals.
+ *
+ * @example
+ * ```typescript
+ * async (input, context: ActionContext) => {
+ *   context.logger.info('Action started', { cwd: context.cwd });
+ *
+ *   // Use cwd for file operations
+ *   const configPath = path.join(context.cwd, 'config.json');
+ *   if (await fs.exists(configPath)) {
+ *     // ...
+ *   }
+ * }
+ * ```
  */
 export interface ActionContext {
   /**
    * Logger for structured, context-aware logging.
+   *
+   * Pre-configured with action type and input metadata. Log events are
+   * enriched automatically; you only need to provide the message and
+   * optional context data.
+   *
+   * @see {@link Logger} for logging methods and configuration
    */
   logger: Logger;
 
   /**
    * Current working directory for the action.
+   *
+   * Set by the runtime based on the card's project directory. Use this
+   * as the base for relative file operations.
    */
   cwd: string;
 }
@@ -148,18 +256,47 @@ export interface ActionContext {
 // ============================================================================
 
 /**
- * Handler function for action start/end events.
+ * Handler function signature for action start and end events.
  *
- * Throwing or rejecting signals failure and results in a non-zero exit code
- * from the runtime.
+ * Throwing an error or returning a rejected promise signals failure and
+ * causes the runtime to exit with a non-zero code. For graceful error
+ * handling, catch exceptions and log them before re-throwing.
+ *
+ * @example
+ * ```typescript
+ * const handler: ActionHandler = async (input, { logger }) => {
+ *   try {
+ *     await performAction(input.cardId);
+ *     logger.info('Action completed successfully');
+ *   } catch (err) {
+ *     logger.logError(err, 'Action failed');
+ *     throw err; // Re-throw to signal failure
+ *   }
+ * };
+ * ```
  */
 export type ActionHandler = (input: ActionStartInput | ActionEndInput, context: ActionContext) => void | Promise<void>;
 
 /**
- * Handler function for type lifecycle events.
+ * Handler function signature for type lifecycle events.
  *
- * Throwing or rejecting signals failure and results in a non-zero exit code
- * from the runtime.
+ * Throwing an error signals validation failure or hook error. For validators,
+ * throw with a descriptive message that will help the user understand what
+ * needs to be fixed.
+ *
+ * @example
+ * ```typescript
+ * const handler: TypeHandler = async (input, { logger }) => {
+ *   const content = await fs.readFile(input.filePath, 'utf-8');
+ *   const data = JSON.parse(content);
+ *
+ *   if (!data.version) {
+ *     throw new Error('Missing required "version" field');
+ *   }
+ *
+ *   logger.info('Validation passed', { typeName: input.typeName });
+ * };
+ * ```
  */
 export type TypeHandler = (input: TypeHookInput, context: ActionContext) => void | Promise<void>;
 
@@ -168,68 +305,106 @@ export type TypeHandler = (input: TypeHookInput, context: ActionContext) => void
 // ============================================================================
 
 /**
- * Configuration for actionStart factory.
+ * Configuration for {@link actionStart} factory.
  *
- * All metadata except `actionName` is optional and forwarded to settings.json.
+ * All fields except `actionName` are optional and forwarded to settings.json.
+ * The CLI extracts this metadata via AST analysis, so values must be string
+ * literals or boolean/number literals in the source code.
+ *
+ * @example
+ * ```typescript
+ * const config: ActionStartConfig = {
+ *   actionName: 'Launch Claude',
+ *   description: 'Start a Claude coding session',
+ *   icon: '$CARDS_PLUGIN_ROOT/icons/claude.svg',
+ *   supportsBackgroundMode: true,
+ *   timeout: 30000
+ * };
+ * ```
  */
 export interface ActionStartConfig {
   /**
-   * The action name used to group start/end commands.
+   * The action name used to group start/end commands in settings.json.
+   *
+   * This name appears in the UI and must match between actionStart and
+   * actionEnd if you have both. Keep it concise but descriptive.
    */
   actionName: string;
 
   /**
    * Human-readable description shown in button tooltip.
+   *
+   * Explain what the action does in a few words. Shown on hover in the UI.
    */
   description?: string;
 
   /**
-   * Path to icon file (supports path variables).
+   * Path to icon file for the action button.
+   *
+   * Supports path variables like `$CARDS_PLUGIN_ROOT` for plugin-relative
+   * paths. SVG format recommended for crisp rendering at any size.
    */
   icon?: string;
 
   /**
-   * Whether execution mode toggle is shown (default: false).
+   * Whether to show the execution mode toggle in the UI.
+   *
+   * When true, users can choose between interactive and background modes.
+   * When false (default), the action always runs in interactive mode.
    */
   supportsBackgroundMode?: boolean;
 
   /**
-   * Whether multiple instances can run on same card (default: false).
+   * Whether multiple instances can run simultaneously on the same card.
+   *
+   * When false (default), starting the action while it's running will be
+   * blocked. Set to true for idempotent actions that can safely overlap.
    */
   allowConcurrent?: boolean;
 
   /**
-   * Timeout in milliseconds.
+   * Maximum execution time in milliseconds.
+   *
+   * If the action exceeds this timeout, the runtime will terminate it.
+   * Omit to use the platform's default timeout policy.
    */
   timeout?: number;
 }
 
 /**
- * Configuration for actionEnd factory.
+ * Configuration for {@link actionEnd} factory.
+ *
+ * The end handler shares an actionName with its corresponding start handler
+ * to form a complete action lifecycle.
  */
 export interface ActionEndConfig {
   /**
-   * The action name used to group start/end commands.
+   * The action name, matching the corresponding {@link ActionStartConfig.actionName}.
    */
   actionName: string;
 
   /**
-   * Timeout in milliseconds.
+   * Maximum execution time in milliseconds.
    */
   timeout?: number;
 }
 
 /**
- * Configuration for type factories.
+ * Configuration for type factory functions.
+ *
+ * Used by {@link typeValidator}, {@link typeCreate}, {@link typeUpdate},
+ * and {@link typeDelete} factories.
  */
 export interface TypeConfig {
   /**
-   * The type name (e.g., `adaptive-card`).
+   * The type name to handle (e.g., `adaptive-card`).
+   *
+   * Must match a type key in settings.json's `types` section.
    */
   typeName: string;
 
   /**
-   * Timeout in milliseconds.
+   * Maximum execution time in milliseconds.
    */
   timeout?: number;
 }
@@ -239,21 +414,57 @@ export interface TypeConfig {
 // ============================================================================
 
 /**
- * Action start command returned by actionStart factory.
+ * Callable command returned by {@link actionStart}.
+ *
+ * This interface combines the callable signature with metadata properties
+ * that the CLI and runtime use. The function is what the runtime invokes;
+ * the properties are what the CLI extracts for settings.json generation.
+ *
+ * @example
+ * ```typescript
+ * // The command can be called directly (by the runtime)
+ * await command(input, context);
+ *
+ * // And inspected for metadata (by the CLI)
+ * console.log(command.factoryType); // 'actionStart'
+ * console.log(command.actionName);  // 'Launch Claude'
+ * ```
  */
 export interface ActionStartCommand {
+  /**
+   * Invokes the wrapped handler with the provided input and context.
+   * @param input - Action input payload from environment variables
+   * @param context - Runtime context with logger and cwd
+   * @returns Resolves when the handler completes
+   */
   (input: ActionStartInput, context: ActionContext): Promise<void>;
+
+  /** Discriminant for the CLI's AST analyzer. */
   factoryType: 'actionStart';
+
+  /** Action name from config. */
   actionName: string;
+
+  /** Description from config, if provided. */
   description?: string;
+
+  /** Icon path from config, if provided. */
   icon?: string;
+
+  /** Background mode flag from config, if provided. */
   supportsBackgroundMode?: boolean;
+
+  /** Concurrent execution flag from config, if provided. */
   allowConcurrent?: boolean;
+
+  /** Timeout from config, if provided. */
   timeout?: number;
 }
 
 /**
- * Action end command returned by actionEnd factory.
+ * Callable command returned by {@link actionEnd}.
+ *
+ * @see {@link ActionStartCommand} for usage pattern
  */
 export interface ActionEndCommand {
   (input: ActionEndInput, context: ActionContext): Promise<void>;
@@ -263,7 +474,10 @@ export interface ActionEndCommand {
 }
 
 /**
- * Type validator command returned by typeValidator factory.
+ * Callable command returned by {@link typeValidator}.
+ *
+ * Validators run before create/update hooks and can reject invalid content
+ * by throwing an error.
  */
 export interface TypeValidatorCommand {
   (input: TypeHookInput, context: ActionContext): Promise<void>;
@@ -273,7 +487,9 @@ export interface TypeValidatorCommand {
 }
 
 /**
- * Type create command returned by typeCreate factory.
+ * Callable command returned by {@link typeCreate}.
+ *
+ * Runs after a new typed file passes validation.
  */
 export interface TypeCreateCommand {
   (input: TypeHookInput, context: ActionContext): Promise<void>;
@@ -283,7 +499,9 @@ export interface TypeCreateCommand {
 }
 
 /**
- * Type update command returned by typeUpdate factory.
+ * Callable command returned by {@link typeUpdate}.
+ *
+ * Runs after an existing typed file is modified and passes validation.
  */
 export interface TypeUpdateCommand {
   (input: TypeHookInput, context: ActionContext): Promise<void>;
@@ -293,7 +511,11 @@ export interface TypeUpdateCommand {
 }
 
 /**
- * Type delete command returned by typeDelete factory.
+ * Callable command returned by {@link typeDelete}.
+ *
+ * Runs when a typed file is deleted. The file may already be gone from disk
+ * by the time this hook runs; use the metadata in input rather than reading
+ * the file.
  */
 export interface TypeDeleteCommand {
   (input: TypeHookInput, context: ActionContext): Promise<void>;
@@ -307,20 +529,43 @@ export interface TypeDeleteCommand {
 // ============================================================================
 
 /**
- * Creates an action start handler.
+ * Creates an action start handler with attached metadata.
  *
- * Action starts run when the user invokes an action on a card.
- * @param config - Action metadata (actionName, description, icon, etc.)
- * @param handler - Handler invoked for action start events
+ * This is the primary factory for defining card actions. The returned command
+ * should be the default export of your action file. The CLI will discover it
+ * via AST analysis and generate the appropriate settings.json entry.
+ *
+ * The handler runs when a user clicks the action button in the Cards UI. Use
+ * the input to access card context and the logger for observability.
+ *
+ * @param config - Action metadata including name, description, and behavioral flags
+ * @param handler - Async function that implements the action logic
  * @returns A command wrapper suitable for default export
+ *
  * @example
  * ```typescript
+ * // actions/launch-claude.ts
  * import { actionStart } from '@cards/configuration';
+ * import { spawn } from 'node:child_process';
  *
  * export default actionStart(
- *   { actionName: 'Launch Claude', description: 'Start Claude session' },
- *   async (input, { logger }) => {
- *     logger.info('Action started', { cardId: input.cardId });
+ *   {
+ *     actionName: 'Launch Claude',
+ *     description: 'Open Claude Code in a new terminal',
+ *     icon: '$CARDS_PLUGIN_ROOT/icons/claude.svg',
+ *     supportsBackgroundMode: true
+ *   },
+ *   async (input, { logger, cwd }) => {
+ *     logger.info('Launching Claude', { cardId: input.cardId, mode: input.executionMode });
+ *
+ *     const process = spawn('claude', ['--card', input.cardId], {
+ *       cwd,
+ *       detached: input.executionMode === 'background'
+ *     });
+ *
+ *     if (input.executionMode === 'interactive') {
+ *       await new Promise((resolve) => process.on('close', resolve));
+ *     }
  *   }
  * );
  * ```
@@ -342,20 +587,28 @@ export function actionStart(config: ActionStartConfig, handler: ActionHandler): 
 }
 
 /**
- * Creates an action end handler.
+ * Creates an action end handler for cleanup or finalization.
  *
- * Action ends run after a successful action start (exit code 0).
- * @param config - Action metadata (actionName, timeout)
- * @param handler - Handler invoked for action end events
+ * End handlers run after the corresponding start handler exits with code 0.
+ * If the start handler fails, the end handler is not invoked. Use this for
+ * cleanup, logging completion, or triggering downstream workflows.
+ *
+ * @param config - Action metadata, must have matching actionName with start
+ * @param handler - Async function that implements cleanup logic
  * @returns A command wrapper suitable for default export
+ *
  * @example
  * ```typescript
+ * // actions/launch-claude-end.ts
  * import { actionEnd } from '@cards/configuration';
  *
  * export default actionEnd(
  *   { actionName: 'Launch Claude' },
  *   async (input, { logger }) => {
- *     logger.info('Action ended', { cardId: input.cardId });
+ *     logger.info('Claude session ended', { cardId: input.cardId });
+ *
+ *     // Notify external systems
+ *     await notifySlack(`Claude session completed for card ${input.cardId}`);
  *   }
  * );
  * ```
@@ -373,20 +626,41 @@ export function actionEnd(config: ActionEndConfig, handler: ActionHandler): Acti
 }
 
 /**
- * Creates a type validator handler.
+ * Creates a type validator for content validation.
  *
- * Type validators run to validate typed file content.
- * @param config - Type metadata (typeName, timeout)
- * @param handler - Handler invoked for validation events
+ * Validators run before create and update hooks. Throwing an error rejects
+ * the file and prevents the create/update hooks from running. The error
+ * message should clearly explain what validation failed and how to fix it.
+ *
+ * Validators should be fast and side-effect-free. They validate content
+ * structure, not business logic that depends on external state.
+ *
+ * @param config - Type metadata including the type name to validate
+ * @param handler - Async function that validates file content
  * @returns A command wrapper suitable for default export
+ *
  * @example
  * ```typescript
+ * // types/adaptive-card/validator.ts
  * import { typeValidator } from '@cards/configuration';
+ * import Ajv from 'ajv';
+ * import schema from './adaptive-card.schema.json';
+ *
+ * const ajv = new Ajv();
+ * const validate = ajv.compile(schema);
  *
  * export default typeValidator(
- *   { typeName: 'adaptive-card' },
+ *   { typeName: 'adaptive-card', timeout: 5000 },
  *   async (input, { logger }) => {
- *     logger.info('Validating file', { fileName: input.fileName });
+ *     const content = await fs.readFile(input.filePath, 'utf-8');
+ *     const data = JSON.parse(content);
+ *
+ *     if (!validate(data)) {
+ *       const errors = validate.errors?.map(e => e.message).join(', ');
+ *       throw new Error(`Invalid adaptive card: ${errors}`);
+ *     }
+ *
+ *     logger.debug('Validation passed', { file: input.fileName });
  *   }
  * );
  * ```
@@ -404,20 +678,34 @@ export function typeValidator(config: TypeConfig, handler: TypeHandler): TypeVal
 }
 
 /**
- * Creates a type create hook handler.
+ * Creates a type create hook for new file events.
  *
- * Type create hooks run when a typed file is created.
- * @param config - Type metadata (typeName, timeout)
- * @param handler - Handler invoked for create events
+ * Runs after a new typed file passes validation. Use this for side effects
+ * like indexing, notifications, or syncing with external systems.
+ *
+ * @param config - Type metadata including the type name
+ * @param handler - Async function that handles the create event
  * @returns A command wrapper suitable for default export
+ *
  * @example
  * ```typescript
+ * // types/adaptive-card/create.ts
  * import { typeCreate } from '@cards/configuration';
  *
  * export default typeCreate(
  *   { typeName: 'adaptive-card' },
  *   async (input, { logger }) => {
- *     logger.info('File created', { fileName: input.fileName });
+ *     logger.info('New adaptive card created', {
+ *       file: input.fileName,
+ *       size: input.fileSize
+ *     });
+ *
+ *     // Index for search
+ *     await searchIndex.add({
+ *       id: input.fileSha256,
+ *       path: input.filePath,
+ *       type: input.typeName
+ *     });
  *   }
  * );
  * ```
@@ -435,20 +723,33 @@ export function typeCreate(config: TypeConfig, handler: TypeHandler): TypeCreate
 }
 
 /**
- * Creates a type update hook handler.
+ * Creates a type update hook for modified file events.
  *
- * Type update hooks run when a typed file is updated.
- * @param config - Type metadata (typeName, timeout)
- * @param handler - Handler invoked for update events
+ * Runs after an existing typed file is modified and passes validation.
+ * The input includes the new file hash, enabling efficient change detection.
+ *
+ * @param config - Type metadata including the type name
+ * @param handler - Async function that handles the update event
  * @returns A command wrapper suitable for default export
+ *
  * @example
  * ```typescript
+ * // types/adaptive-card/update.ts
  * import { typeUpdate } from '@cards/configuration';
  *
  * export default typeUpdate(
  *   { typeName: 'adaptive-card' },
  *   async (input, { logger }) => {
- *     logger.info('File updated', { fileName: input.fileName });
+ *     logger.info('Adaptive card updated', {
+ *       file: input.fileName,
+ *       newHash: input.fileSha256.slice(0, 8)
+ *     });
+ *
+ *     // Update search index
+ *     await searchIndex.update(input.filePath, {
+ *       hash: input.fileSha256,
+ *       updatedAt: new Date().toISOString()
+ *     });
  *   }
  * );
  * ```
@@ -466,20 +767,31 @@ export function typeUpdate(config: TypeConfig, handler: TypeHandler): TypeUpdate
 }
 
 /**
- * Creates a type delete hook handler.
+ * Creates a type delete hook for file removal events.
  *
- * Type delete hooks run when a typed file is deleted.
- * @param config - Type metadata (typeName, timeout)
- * @param handler - Handler invoked for delete events
+ * Runs when a typed file is deleted. The file may already be removed from
+ * disk when this hook executes, so use the metadata in input rather than
+ * attempting to read the file.
+ *
+ * @param config - Type metadata including the type name
+ * @param handler - Async function that handles the delete event
  * @returns A command wrapper suitable for default export
+ *
  * @example
  * ```typescript
+ * // types/adaptive-card/delete.ts
  * import { typeDelete } from '@cards/configuration';
  *
  * export default typeDelete(
  *   { typeName: 'adaptive-card' },
  *   async (input, { logger }) => {
- *     logger.info('File deleted', { fileName: input.fileName });
+ *     logger.info('Adaptive card deleted', { file: input.fileName });
+ *
+ *     // Remove from search index
+ *     await searchIndex.remove(input.filePath);
+ *
+ *     // Clean up any cached renders
+ *     await renderCache.invalidate(input.fileSha256);
  *   }
  * );
  * ```

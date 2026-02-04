@@ -3,22 +3,40 @@
 /**
  * CLI tool for compiling Cards actions using esbuild.
  *
- * Discovers action files by scanning TypeScript for default exports that call a
- * known factory function (actionStart, actionEnd, typeValidator, etc.), compiles
- * them into standalone ESM modules, and generates settings.json with the correct
- * command paths for Cards Extension execution.
+ * This is the build system for Cards actions. It discovers action files by
+ * scanning TypeScript source for default exports that call known factory
+ * functions (actionStart, actionEnd, typeValidator, etc.), compiles them
+ * into standalone ESM modules with the runtime bundled, and generates a
+ * settings.json manifest with the correct command paths.
  *
- * Also supports legacy hook factories for backward compatibility.
+ * ## Build Process
+ *
+ * 1. **Discovery**: Glob patterns find TypeScript files
+ * 2. **Analysis**: AST parsing extracts factory calls and their config objects
+ * 3. **Compilation**: esbuild bundles each action into a standalone .mjs file
+ * 4. **Generation**: settings.json is created with environment/action structure
+ *
+ * The compiled outputs are self-contained and include the runtime harness,
+ * so they can be executed directly by Node.js without additional dependencies.
+ *
+ * ## Path Variables
+ *
+ * Generated command paths use variables that the Cards runtime resolves:
+ * - `$CARDS_PLUGIN_ROOT`: Plugin installation directory (for plugin settings)
+ * - `$CLAUDE_PROJECT_DIR`: Project directory (for .claude/ agent settings)
  *
  * @example
  * ```bash
- * # Compile actions and generate settings.json
+ * # Single-environment build
  * cards-configuration -i "actions/**\/*.ts" -o "./dist/settings.json" --environment default
  *
  * # Multi-environment build using config file
  * cards-configuration -c cards.config.json
  * ```
+ *
  * @module
+ * @see {@link ActionStartConfig} for action metadata fields
+ * @see {@link SettingsJson} for the output format
  */
 
 import * as crypto from 'node:crypto';
@@ -39,145 +57,252 @@ import type { HookEventName } from './types.js';
 /**
  * Context determines how paths are resolved in settings.json.
  *
- * - `plugin`: Uses `$CARDS_PLUGIN_ROOT` for plugin settings
- * - `agent`: Uses `"$CLAUDE_PROJECT_DIR"` for agent settings (.claude/)
+ * The CLI auto-detects context from the output path:
+ * - `plugin`: Output is in a plugin directory; uses `$CARDS_PLUGIN_ROOT`
+ * - `agent`: Output is in `.claude/` directory; uses `$CLAUDE_PROJECT_DIR`
  */
 type PathContext = 'plugin' | 'agent';
 
 /**
  * Command-line arguments parsed from process.argv.
+ *
+ * The CLI supports two modes:
+ * - **Single-environment**: Specify input glob, output path, and environment name
+ * - **Config file**: Specify a JSON config file for multi-environment builds
  */
 interface CliArgs {
-  /** Glob pattern for source files. */
+  /** Glob pattern for source files (e.g., "actions/**\/*.ts"). */
   input: string;
+
   /** Path for settings.json output file. */
   output: string;
-  /** Optional log file path injected into compiled commands. */
+
+  /**
+   * Optional log file path injected into compiled commands.
+   *
+   * When set, the runtime will write structured logs to this file.
+   */
   log?: string;
-  /** Show help. */
+
+  /** Show help text and exit. */
   help: boolean;
-  /** Show version. */
+
+  /** Show version and exit. */
   version: boolean;
-  /** Node executable path to use in command output (default: "node"). */
+
+  /**
+   * Node executable path to use in command output.
+   *
+   * Defaults to "node". Override for custom Node installations or
+   * version-specific executables like "node22".
+   */
   executable?: string;
+
   /** Environment name for single-environment builds. */
   environment?: string;
+
   /** Environment description for single-environment builds. */
   description?: string;
+
   /** Config file path for multi-environment builds. */
   configFile?: string;
 }
 
 /**
  * Metadata extracted from a source file via TypeScript AST analysis.
+ *
+ * The CLI parses the source file's AST to find default exports that call
+ * factory functions, then extracts the config object's properties as metadata.
+ * Only string, boolean, and number literals are supported; computed values
+ * are not extracted.
  */
 interface CommandMetadata {
-  /** The factory type used. */
+  /** The factory type used (e.g., "actionStart", "typeValidator"). */
   factoryType: FactoryType | 'legacyHook';
-  /** Action name (for actionStart/actionEnd). */
+
+  /** Action name for actionStart/actionEnd factories. */
   actionName?: string;
-  /** Type name (for type factories). */
+
+  /** Type name for type lifecycle factories. */
   typeName?: string;
-  /** Description (for actionStart). */
+
+  /** Description from actionStart config. */
   description?: string;
-  /** Icon path (for actionStart). */
+
+  /** Icon path from actionStart config. */
   icon?: string;
-  /** Supports background mode (for actionStart). */
+
+  /** Background mode flag from actionStart config. */
   supportsBackgroundMode?: boolean;
-  /** Allow concurrent executions (for actionStart). */
+
+  /** Concurrent execution flag from actionStart config. */
   allowConcurrent?: boolean;
-  /** Optional timeout in milliseconds. */
+
+  /** Timeout in milliseconds from config. */
   timeout?: number;
+
   /** Legacy hook event name (for backward compatibility). */
   hookEventName?: HookEventName;
 }
 
 /**
  * A compiled command with its metadata and output path.
+ *
+ * Represents one action file after compilation, ready to be included
+ * in settings.json.
  */
 interface CompiledCommand {
   /** Original source file path. */
   sourcePath: string;
+
   /** Compiled output file path. */
   outputPath: string;
+
   /** Output filename (e.g., "my-action.abc123.mjs"). */
   outputFilename: string;
-  /** Extracted metadata. */
+
+  /** Extracted metadata from AST analysis. */
   metadata: CommandMetadata;
 }
 
 /**
  * Command configuration in settings.json.
+ *
+ * Represents a single executable command with its shell invocation string
+ * and optional timeout.
  */
 interface CommandConfig {
-  /** Shell command to execute. */
+  /**
+   * Shell command to execute.
+   *
+   * Includes the Node executable and path to the compiled .mjs file.
+   * Path variables like `$CARDS_PLUGIN_ROOT` are resolved by the runtime.
+   */
   command: string;
+
   /** Optional timeout in milliseconds. */
   timeout?: number;
 }
 
 /**
  * Action configuration in settings.json.
+ *
+ * Represents one user-visible action with its start/end commands and
+ * UI metadata.
  */
 interface ActionConfig {
-  /** Optional stable identifier. */
+  /**
+   * Stable identifier derived from action name.
+   *
+   * Used for persistence and deduplication across settings reloads.
+   */
   id?: string;
-  /** Display name. */
+
+  /** Display name shown in the UI. */
   name: string;
-  /** Optional description. */
+
+  /** Optional description shown in tooltip. */
   description?: string;
-  /** Optional icon path. */
+
+  /** Optional icon path for the action button. */
   icon?: string;
-  /** Start command configuration. */
+
+  /** Start command configuration (required). */
   start: CommandConfig;
-  /** Optional end command configuration. */
+
+  /** End command configuration (optional). */
   end?: CommandConfig;
+
   /** Whether execution mode toggle is shown. */
   supportsBackgroundMode?: boolean;
+
   /** Whether multiple instances can run on same card. */
   allowConcurrent?: boolean;
 }
 
 /**
  * Type configuration in settings.json.
+ *
+ * Represents lifecycle hooks for a typed file category.
  */
 interface TypeCommandConfig {
-  /** Type version. */
+  /** Type schema version. */
   version: string;
-  /** Optional validator command. */
+
+  /** Validator command run before create/update. */
   validator?: CommandConfig;
-  /** Optional create hook command. */
+
+  /** Hook command run after file creation. */
   create?: CommandConfig;
-  /** Optional update hook command. */
+
+  /** Hook command run after file modification. */
   update?: CommandConfig;
-  /** Optional delete hook command. */
+
+  /** Hook command run after file deletion. */
   delete?: CommandConfig;
 }
 
 /**
  * Environment configuration in settings.json.
+ *
+ * Groups actions and types under a named environment. The Cards runtime
+ * selects an environment based on user configuration.
  */
 interface EnvironmentConfig {
-  /** Schema version. */
+  /** Schema version for forward compatibility. */
   version: number;
-  /** Optional description. */
+
+  /** Optional human-readable description. */
   description?: string;
+
   /** Array of action configurations. */
   actions: ActionConfig[];
-  /** Optional type configurations. */
+
+  /** Optional type configurations keyed by type name. */
   types?: Record<string, TypeCommandConfig>;
 }
 
 /**
  * The complete settings.json structure.
+ *
+ * This is the output format produced by the CLI. The Cards runtime reads
+ * this file to discover available actions and their commands.
+ *
+ * @example
+ * ```json
+ * {
+ *   "environments": {
+ *     "default": {
+ *       "version": 1,
+ *       "actions": [
+ *         {
+ *           "id": "launch-claude",
+ *           "name": "Launch Claude",
+ *           "start": { "command": "node $CARDS_PLUGIN_ROOT/bin/launch.abc123.mjs" }
+ *         }
+ *       ]
+ *     }
+ *   },
+ *   "__generated": {
+ *     "files": ["launch.abc123.mjs"],
+ *     "timestamp": "2024-01-15T10:30:00.000Z"
+ *   }
+ * }
+ * ```
  */
 interface SettingsJson {
   /** Environments keyed by name. */
   environments: Record<string, EnvironmentConfig>;
-  /** Generated file tracking metadata. */
+
+  /**
+   * Generated file tracking metadata.
+   *
+   * Used by the CLI to remove stale files on rebuild. Do not edit manually.
+   */
   __generated: {
-    /** Array of generated filenames. */
+    /** Array of generated filenames in the bin directory. */
     files: string[];
+
     /** ISO timestamp of generation. */
     timestamp: string;
   };
@@ -185,6 +310,8 @@ interface SettingsJson {
 
 /**
  * Legacy hooks.json structure for backward compatibility.
+ *
+ * @deprecated Use settings.json with the new action factories instead.
  */
 interface HooksJson {
   hooks: Partial<
@@ -198,21 +325,44 @@ interface HooksJson {
 
 /**
  * Multi-environment configuration file structure.
+ *
+ * Used with the `-c` flag to build multiple environments in one invocation.
+ *
+ * @example
+ * ```json
+ * {
+ *   "environments": {
+ *     "default": {
+ *       "description": "Standard workflows",
+ *       "actions": ["src/actions/*.ts"],
+ *       "types": ["src/types/*.ts"]
+ *     },
+ *     "staging": {
+ *       "description": "Staging environment",
+ *       "actions": ["src/actions/*.ts", "src/staging-actions/*.ts"]
+ *     }
+ *   },
+ *   "output": "dist/settings.json"
+ * }
+ * ```
  */
 interface ConfigFile {
   /** Environments with their glob patterns. */
   environments: Record<
     string,
     {
-      /** Optional description. */
+      /** Optional description for the environment. */
       description?: string;
+
       /** Glob patterns for action source files. */
       actions?: string[];
+
       /** Glob patterns for type source files. */
       types?: string[];
     }
   >;
-  /** Output path for settings.json. */
+
+  /** Output path for settings.json relative to config file location. */
   output: string;
 }
 
@@ -310,9 +460,14 @@ Factory Functions:
 // ============================================================================
 
 /**
- * Parses command-line arguments.
- * @param argv - Process argv (usually process.argv.slice(2))
- * @returns Parsed arguments
+ * Parses command-line arguments into a structured object.
+ *
+ * Uses a simple switch-based parser rather than a library to minimize
+ * dependencies. Unknown arguments are silently ignored to allow forward
+ * compatibility.
+ *
+ * @param argv - Argument array, typically `process.argv.slice(2)`
+ * @returns Parsed arguments with defaults applied
  */
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
@@ -368,7 +523,13 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 /**
- * Validates CLI arguments and returns error message if invalid.
+ * Validates CLI arguments and returns an error message if invalid.
+ *
+ * Validation rules:
+ * - Help and version flags bypass validation
+ * - Config file mode only requires the config file path
+ * - Single-environment mode requires input, output, and environment
+ *
  * @param args - Parsed CLI arguments
  * @returns Error message if invalid, undefined if valid
  */
@@ -405,10 +566,27 @@ function validateArgs(args: CliArgs): string | undefined {
 /**
  * Extracts command metadata from a TypeScript source file using AST analysis.
  *
- * Looks for default exports that call factory functions and extracts metadata
- * from the config object.
+ * Parses the source file and looks for default exports that call factory
+ * functions. When found, extracts the config object's properties as metadata.
+ *
+ * Only literal values are extracted (strings, numbers, booleans). Computed
+ * values, variables, or expressions are not supported and will be undefined
+ * in the metadata.
+ *
  * @param sourcePath - Absolute path to the TypeScript source file
- * @returns Extracted metadata or undefined if not a valid command file
+ * @returns Extracted metadata, or undefined if the file doesn't export a valid command
+ *
+ * @example
+ * ```typescript
+ * // Given this source file:
+ * export default actionStart(
+ *   { actionName: 'Launch Claude', timeout: 5000 },
+ *   handler
+ * );
+ *
+ * // Produces this metadata:
+ * { factoryType: 'actionStart', actionName: 'Launch Claude', timeout: 5000 }
+ * ```
  */
 function analyzeSourceFile(sourcePath: string): CommandMetadata | undefined {
   const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
@@ -550,7 +728,15 @@ function analyzeSourceFile(sourcePath: string): CommandMetadata | undefined {
   return metadata;
 }
 
-// Legacy compatibility
+/**
+ * Analyzes a source file for legacy hook patterns.
+ *
+ * @deprecated Use {@link analyzeSourceFile} instead, which handles both
+ *   new action factories and legacy hook factories.
+ *
+ * @param sourcePath - Absolute path to the TypeScript source file
+ * @returns Hook metadata if found, undefined otherwise
+ */
 function analyzeHookFile(sourcePath: string): { hookEventName: HookEventName; timeout?: number } | undefined {
   const metadata = analyzeSourceFile(sourcePath);
   if (metadata?.factoryType === 'legacyHook' && metadata.hookEventName) {
@@ -564,8 +750,13 @@ function analyzeHookFile(sourcePath: string): { hookEventName: HookEventName; ti
 // ============================================================================
 
 /**
- * Discovers source files matching the glob pattern.
- * @param pattern - Glob pattern for source files
+ * Discovers source files matching a glob pattern.
+ *
+ * Returns absolute paths to all `.ts` and `.mts` files matching the pattern.
+ * Files are filtered to only include TypeScript sources; compiled outputs
+ * and other files are excluded.
+ *
+ * @param pattern - Glob pattern for source files (e.g., "actions/**\/*.ts")
  * @param cwd - Current working directory for relative patterns
  * @returns Array of absolute paths to source files
  */
@@ -579,7 +770,15 @@ async function discoverSourceFiles(pattern: string, cwd: string): Promise<string
   return files.filter((file) => file.endsWith('.ts') || file.endsWith('.mts'));
 }
 
-// Legacy compatibility
+/**
+ * Discovers hook files matching a glob pattern.
+ *
+ * @deprecated Alias for {@link discoverSourceFiles} for backward compatibility.
+ *
+ * @param pattern - Glob pattern for hook files
+ * @param cwd - Current working directory
+ * @returns Array of absolute paths to hook files
+ */
 async function discoverHookFiles(pattern: string, cwd: string): Promise<string[]> {
   return discoverSourceFiles(pattern, cwd);
 }
@@ -596,8 +795,20 @@ interface CompileOptions {
 
 /**
  * Compiles a TypeScript source file to a self-contained ESM executable.
- * @param options - Compilation options
- * @returns Compiled output content as a string
+ *
+ * The compilation process:
+ * 1. Creates a wrapper that imports the source and the runtime
+ * 2. Bundles everything with esbuild (format: ESM, target: Node 20)
+ * 3. Returns the compiled content as a string
+ *
+ * The wrapper injects log file configuration and calls `execute(hook)` to
+ * run the exported hook with full runtime orchestration.
+ *
+ * Node built-in modules are externalized to keep bundle size reasonable
+ * and avoid issues with native bindings.
+ *
+ * @param options - Compilation options including source path and log file
+ * @returns Compiled JavaScript content as a string
  */
 async function compileSource(options: CompileOptions): Promise<string> {
   const { sourcePath, logFilePath } = options;
@@ -658,15 +869,26 @@ execute(hook);
   return fs.readFileSync(tempOutput, 'utf-8');
 }
 
-// Legacy compatibility
+/**
+ * Compiles a hook source file.
+ *
+ * @deprecated Alias for {@link compileSource} for backward compatibility.
+ *
+ * @param options - Compilation options
+ * @returns Compiled JavaScript content
+ */
 async function compileHook(options: CompileOptions): Promise<string> {
   return compileSource(options);
 }
 
 /**
- * Generates a content hash (SHA-256, 8-char prefix).
+ * Generates a content-based hash for cache busting.
+ *
+ * The hash ensures that compiled filenames change when content changes,
+ * allowing browsers and runtimes to properly cache and invalidate.
+ *
  * @param content - Content to hash
- * @returns 8-character hex hash
+ * @returns 8-character hex hash suitable for filename embedding
  */
 function generateContentHash(content: string): string {
   const hash = crypto.createHash('sha256').update(content).digest('hex');
@@ -681,8 +903,17 @@ interface CompileAllOptions {
 
 /**
  * Compiles all discovered source files and returns their metadata.
- * @param options - Compilation options
- * @returns Array of compiled command information
+ *
+ * Processes each source file:
+ * 1. Analyzes AST to extract metadata
+ * 2. Compiles to standalone ESM
+ * 3. Writes to output directory with content hash in filename
+ * 4. Makes executable (chmod 755)
+ *
+ * Files without valid factory exports are silently skipped.
+ *
+ * @param options - Compilation options including file list and output directory
+ * @returns Array of compiled command information for settings.json generation
  */
 async function compileAllSources(options: CompileAllOptions): Promise<CompiledCommand[]> {
   const { sourceFiles, outputDir, logFilePath } = options;
@@ -730,8 +961,14 @@ interface PathContextInfo {
 
 /**
  * Auto-detects the path context based on output path.
+ *
+ * Detection rules:
+ * - If output path contains `/.claude/`, context is "agent" and root is
+ *   the directory containing `.claude/`
+ * - Otherwise, context is "plugin" and root is the output directory
+ *
  * @param outputPath - Absolute path to the settings.json output file
- * @returns Detected context and root directory
+ * @returns Detected context and root directory for path resolution
  */
 function detectPathContext(outputPath: string): PathContextInfo {
   const normalizedPath = outputPath.replace(/\\/g, '/');
@@ -750,18 +987,31 @@ function detectPathContext(outputPath: string): PathContextInfo {
   };
 }
 
-// Legacy compatibility
+/**
+ * Detects hook context from output path.
+ *
+ * @deprecated Alias for {@link detectPathContext} for backward compatibility.
+ *
+ * @param outputPath - Output file path
+ * @returns Path context info
+ */
 function detectHookContext(outputPath: string): PathContextInfo {
   return detectPathContext(outputPath);
 }
 
 /**
- * Generates a command path based on the context.
+ * Generates a command path string for settings.json.
+ *
+ * The path includes the Node executable and uses path variables that the
+ * Cards runtime will resolve:
+ * - Plugin context: `node $CARDS_PLUGIN_ROOT/bin/file.mjs`
+ * - Agent context: `node "$CLAUDE_PROJECT_DIR"/bin/file.mjs`
+ *
  * @param filename - The compiled command filename
  * @param buildDir - Absolute path to the bin directory
- * @param contextInfo - Path context info
+ * @param contextInfo - Path context info from {@link detectPathContext}
  * @param executable - Node executable path (default: "node")
- * @returns The command path string
+ * @returns The command path string for settings.json
  */
 function generateCommandPath(
   filename: string,
@@ -784,8 +1034,12 @@ function generateCommandPath(
 
 /**
  * Groups compiled commands by action name.
+ *
+ * Used to pair actionStart and actionEnd commands that share the same
+ * action name into a single action configuration.
+ *
  * @param commands - Array of compiled commands
- * @returns Map of actionName -> commands
+ * @returns Map from actionName to commands with that name
  */
 function groupByActionName(commands: CompiledCommand[]): Map<string, CompiledCommand[]> {
   const groups = new Map<string, CompiledCommand[]>();
@@ -807,8 +1061,12 @@ function groupByActionName(commands: CompiledCommand[]): Map<string, CompiledCom
 
 /**
  * Groups compiled commands by type name.
+ *
+ * Used to combine validator, create, update, and delete commands for the
+ * same type into a single type configuration.
+ *
  * @param commands - Array of compiled commands
- * @returns Map of typeName -> commands
+ * @returns Map from typeName to commands for that type
  */
 function groupByTypeName(commands: CompiledCommand[]): Map<string, CompiledCommand[]> {
   const groups = new Map<string, CompiledCommand[]>();
@@ -830,8 +1088,20 @@ function groupByTypeName(commands: CompiledCommand[]): Map<string, CompiledComma
 
 /**
  * Converts an action name to a URL-friendly slug for use as ID.
- * @param name - Action name
- * @returns Slugified ID
+ *
+ * Transformation rules:
+ * - Lowercase the string
+ * - Replace non-alphanumeric sequences with hyphens
+ * - Remove leading and trailing hyphens
+ *
+ * @param name - Action name to slugify
+ * @returns URL-friendly slug
+ *
+ * @example
+ * ```typescript
+ * slugify('Launch Claude'); // 'launch-claude'
+ * slugify('My Cool Action!'); // 'my-cool-action'
+ * ```
  */
 function slugify(name: string): string {
   return name
@@ -842,13 +1112,20 @@ function slugify(name: string): string {
 
 /**
  * Generates settings.json from compiled commands.
- * @param compiledCommands - Array of compiled commands
- * @param environmentName - Environment name
- * @param environmentDescription - Optional environment description
- * @param buildDir - Build directory path
- * @param contextInfo - Path context info
- * @param executable - Node executable path
- * @returns Settings JSON structure
+ *
+ * Creates the complete settings.json structure with:
+ * - Actions grouped by name, with start/end commands paired
+ * - Types grouped by name, with lifecycle hooks combined
+ * - Environment wrapper with version and optional description
+ * - Generated files metadata for cleanup on rebuild
+ *
+ * @param compiledCommands - Array of compiled commands from {@link compileAllSources}
+ * @param environmentName - Environment name (e.g., "default")
+ * @param environmentDescription - Optional human-readable description
+ * @param buildDir - Build directory path for command path generation
+ * @param contextInfo - Path context info from {@link detectPathContext}
+ * @param executable - Node executable path (default: "node")
+ * @returns Complete settings.json structure
  */
 function generateSettingsJson(
   compiledCommands: CompiledCommand[],
@@ -989,6 +1266,14 @@ interface CompiledHook {
   metadata: HookMetadata;
 }
 
+/**
+ * Groups compiled hooks by event name.
+ *
+ * @deprecated For legacy hooks.json generation.
+ *
+ * @param compiledHooks - Array of compiled hooks
+ * @returns Map from event name to hooks for that event
+ */
 function groupHooksByEvent(compiledHooks: CompiledHook[]): Map<HookEventName, CompiledHook[]> {
   const groups = new Map<HookEventName, CompiledHook[]>();
 
@@ -1006,6 +1291,17 @@ function groupHooksByEvent(compiledHooks: CompiledHook[]): Map<HookEventName, Co
   return groups;
 }
 
+/**
+ * Generates legacy hooks.json from compiled hooks.
+ *
+ * @deprecated Use {@link generateSettingsJson} with the new action factories.
+ *
+ * @param compiledHooks - Array of compiled hooks
+ * @param buildDir - Build directory path
+ * @param contextInfo - Path context info
+ * @param executable - Node executable path
+ * @returns Legacy hooks.json structure
+ */
 function generateHooksJson(
   compiledHooks: CompiledHook[],
   buildDir: string,
@@ -1042,8 +1338,12 @@ function generateHooksJson(
 
 /**
  * Reads an existing settings.json or hooks.json file.
- * @param outputPath - Path to the file
- * @returns Parsed content or undefined if file doesn't exist or is invalid
+ *
+ * Used to extract the list of previously generated files for cleanup
+ * before a rebuild.
+ *
+ * @param outputPath - Path to the settings/hooks file
+ * @returns Parsed content, or undefined if file doesn't exist or is invalid
  */
 function readExistingOutput(outputPath: string): (SettingsJson | HooksJson) | undefined {
   if (!fs.existsSync(outputPath)) {
@@ -1058,6 +1358,14 @@ function readExistingOutput(outputPath: string): (SettingsJson | HooksJson) | un
   }
 }
 
+/**
+ * Reads an existing hooks.json file.
+ *
+ * @deprecated For legacy hooks.json handling.
+ *
+ * @param outputPath - Path to hooks.json
+ * @returns Parsed hooks.json, or undefined if not found or invalid
+ */
 function readExistingHooksJson(outputPath: string): HooksJson | undefined {
   const existing = readExistingOutput(outputPath);
   if (existing && 'hooks' in existing) {
@@ -1068,7 +1376,11 @@ function readExistingHooksJson(outputPath: string): HooksJson | undefined {
 
 /**
  * Removes previously generated files from disk.
- * @param existingOutput - The existing output content
+ *
+ * Uses the `__generated.files` array from the existing output to find
+ * and delete stale compiled files before a rebuild.
+ *
+ * @param existingOutput - The existing settings/hooks content
  * @param outputDir - Directory containing the generated files
  */
 function removeOldGeneratedFiles(existingOutput: SettingsJson | HooksJson, outputDir: string): void {
@@ -1091,6 +1403,17 @@ interface MatcherEntry {
   hooks: Array<{ type: 'command'; command: string; timeout?: number }>;
 }
 
+/**
+ * Extracts manually-added hooks from existing hooks.json.
+ *
+ * Hooks that were not generated by the CLI (not in __generated.files)
+ * are preserved and merged with newly generated hooks.
+ *
+ * @deprecated For legacy hooks.json handling.
+ *
+ * @param existingHooksJson - The existing hooks.json content
+ * @returns Hooks that should be preserved (not auto-generated)
+ */
 function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Record<HookEventName, MatcherEntry[]>> {
   const generatedFiles = new Set(existingHooksJson.__generated?.files ?? []);
   const preserved: Partial<Record<HookEventName, MatcherEntry[]>> = {};
@@ -1121,6 +1444,15 @@ function extractPreservedHooks(existingHooksJson: HooksJson): Partial<Record<Hoo
   return preserved;
 }
 
+/**
+ * Merges new hooks.json with preserved manual hooks.
+ *
+ * @deprecated For legacy hooks.json handling.
+ *
+ * @param newHooksJson - Newly generated hooks.json
+ * @param preservedHooks - Manually-added hooks to preserve
+ * @returns Merged hooks.json with both preserved and generated hooks
+ */
 function mergeHooksJson(
   newHooksJson: HooksJson,
   preservedHooks: Partial<Record<HookEventName, MatcherEntry[]>>
@@ -1147,8 +1479,12 @@ function mergeHooksJson(
 
 /**
  * Writes output JSON to the specified path atomically.
- * @param content - The JSON content
- * @param outputPath - Path to write
+ *
+ * Uses a temp file and rename pattern to ensure the output file is
+ * never left in a partial state. Creates parent directories as needed.
+ *
+ * @param content - The JSON content to write
+ * @param outputPath - Destination path
  */
 function writeOutputJson(content: SettingsJson | HooksJson, outputPath: string): void {
   const dir = path.dirname(outputPath);
@@ -1174,6 +1510,14 @@ function writeOutputJson(content: SettingsJson | HooksJson, outputPath: string):
   }
 }
 
+/**
+ * Writes hooks.json to the specified path.
+ *
+ * @deprecated Alias for {@link writeOutputJson} for backward compatibility.
+ *
+ * @param hooksJson - The hooks.json content
+ * @param outputPath - Destination path
+ */
 function writeHooksJson(hooksJson: HooksJson, outputPath: string): void {
   writeOutputJson(hooksJson, outputPath);
 }
@@ -1184,6 +1528,9 @@ function writeHooksJson(hooksJson: HooksJson, outputPath: string): void {
 
 /**
  * Main CLI entry point.
+ *
+ * Parses arguments, validates inputs, and runs the appropriate build mode.
+ * Exits with code 0 on success, code 1 on error.
  */
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
