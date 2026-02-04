@@ -115,7 +115,7 @@ function cleanupAndExit(exitCode: number): never {
  *
  * @internal
  */
-function _handleEnvExtractionError(error: unknown): never {
+function handleEnvExtractionError(error: unknown): never {
   const message = getErrorMessage(error);
   logger.error(`Failed to extract input from environment: ${message}`);
   writeError(`Handler failed: ${message}`);
@@ -134,7 +134,7 @@ function _handleEnvExtractionError(error: unknown): never {
  *
  * @internal
  */
-function _handleHandlerError(error: unknown): never {
+function handleHandlerError(error: unknown): never {
   const errorOutput = error instanceof Error ? (error.stack ?? error.message) : String(error);
   process.stderr.write(`${errorOutput}\n`);
   logger.error(`Handler error: ${getErrorMessage(error)}`);
@@ -208,7 +208,7 @@ export async function execute(command: AnyCommand): Promise<void> {
         input = extractTypeInput();
       }
     } catch (error) {
-      _handleEnvExtractionError(error);
+      handleEnvExtractionError(error);
       // TypeScript knows this is unreachable due to 'never' return type
       // But at runtime in tests with mocked process.exit, it may continue
       // This return prevents that from happening
@@ -228,7 +228,7 @@ export async function execute(command: AnyCommand): Promise<void> {
     try {
       await command(input as never, context);
     } catch (error) {
-      _handleHandlerError(error);
+      handleHandlerError(error);
       // Same guard for tests with mocked process.exit
       return;
     }

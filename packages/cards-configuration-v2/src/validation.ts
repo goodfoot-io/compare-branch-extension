@@ -212,11 +212,11 @@ export interface ValidationFunction {
  * ```
  */
 export function typeValidation(config: ValidationConfig, handler: ValidationHandler): ValidationFunction {
-  const fn = async (
+  const fn = (
     request: import('./http-parser.js').ValidationRequest,
     context: ValidationContext
   ): Promise<ValidationResponse> => {
-    return await handler(request, context);
+    return Promise.resolve(handler(request, context));
   };
 
   fn.timeout = config.timeout;

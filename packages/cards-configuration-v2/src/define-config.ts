@@ -26,7 +26,34 @@
  */
 
 import type { SettingsConfig } from './config.js';
-import type { Action, Settings, TypeDefinition } from './schema.js';
+import type { Action, Command, Settings, TypeDefinition } from './schema.js';
+
+/**
+ * Type hook command with factoryType and typeName properties.
+ * Used internally for serializing type lifecycle hooks.
+ */
+interface TypeHookCommand {
+  factoryType: string;
+  typeName: string;
+  timeout?: number;
+}
+
+/**
+ * Serializes a type hook command to a Command object.
+ * Returns undefined if the hook is not present.
+ */
+function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefined {
+  if (!hook) {
+    return undefined;
+  }
+  const command: Command = {
+    command: `${hook.factoryType}-${hook.typeName}.js`
+  };
+  if (hook.timeout !== undefined) {
+    command.timeout = hook.timeout;
+  }
+  return command;
+}
 
 /**
  * Helper function for IDE intellisense in settings.config.ts files.
@@ -168,52 +195,12 @@ export function serializeSettings(config: SettingsConfig): Settings {
         }
 
         const typeDef: TypeDefinition = {
-          version: typeConfig.version
+          version: typeConfig.version,
+          validator: serializeTypeHook(typeConfig.validator),
+          create: serializeTypeHook(typeConfig.create),
+          update: serializeTypeHook(typeConfig.update),
+          delete: serializeTypeHook(typeConfig.delete)
         };
-
-        // Add validator if present
-        if (typeConfig.validator) {
-          const validator = typeConfig.validator;
-          typeDef.validator = {
-            command: `${validator.factoryType}-${validator.typeName}.js`
-          };
-          if (validator.timeout !== undefined) {
-            typeDef.validator.timeout = validator.timeout;
-          }
-        }
-
-        // Add create hook if present
-        if (typeConfig.create) {
-          const create = typeConfig.create;
-          typeDef.create = {
-            command: `${create.factoryType}-${create.typeName}.js`
-          };
-          if (create.timeout !== undefined) {
-            typeDef.create.timeout = create.timeout;
-          }
-        }
-
-        // Add update hook if present
-        if (typeConfig.update) {
-          const update = typeConfig.update;
-          typeDef.update = {
-            command: `${update.factoryType}-${update.typeName}.js`
-          };
-          if (update.timeout !== undefined) {
-            typeDef.update.timeout = update.timeout;
-          }
-        }
-
-        // Add delete hook if present
-        if (typeConfig.delete) {
-          const deleteHook = typeConfig.delete;
-          typeDef.delete = {
-            command: `${deleteHook.factoryType}-${deleteHook.typeName}.js`
-          };
-          if (deleteHook.timeout !== undefined) {
-            typeDef.delete.timeout = deleteHook.timeout;
-          }
-        }
 
         serializedTypes[typeName] = typeDef;
       }

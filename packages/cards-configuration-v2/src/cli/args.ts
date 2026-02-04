@@ -87,7 +87,16 @@ export function parseArgs(argv: string[]): ParseResult {
 
     // Check if value exists and doesn't look like another flag
     if (!value || value.startsWith('-')) {
-      const flagName = flag.startsWith('--') ? flag : flag === '-c' ? '--config' : flag === '-o' ? '--outdir' : flag;
+      let flagName: string;
+      if (flag.startsWith('--')) {
+        flagName = flag;
+      } else if (flag === '-c') {
+        flagName = '--config';
+      } else if (flag === '-o') {
+        flagName = '--outdir';
+      } else {
+        flagName = flag;
+      }
       return { success: false, error: `Missing value for ${flagName}` };
     }
 
