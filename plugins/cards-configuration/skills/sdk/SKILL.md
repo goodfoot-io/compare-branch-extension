@@ -1,6 +1,6 @@
 ---
 name: Cards Configuration SDK
-description: This skill should be used when the user asks about "@cards/configuration", "cards extension settings", "defineActionStart", "defineActionEnd", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationCreated", "validationError", or mentions building settings.json for Cards Extension.
+description: This skill should be used when the user asks about "@cards/configuration", "cards extension settings", "defineActionStart", "defineActionEnd", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationCreated", "validationError", "stream transforms", "TransformContext", "JSONL streaming", or mentions building settings.json for Cards Extension.
 version: 1.0.0
 ---
 
@@ -136,6 +136,12 @@ export default defineConfig({
           version: '1.0.0',
           validator: adaptiveCardValidator
         }
+      },
+      streams: {
+        'chat-log': {
+          version: 1,
+          transform: { path: 'chat-formatter.mjs' }
+        }
       }
     }
   }
@@ -174,6 +180,42 @@ export const del = defineTypeDelete(
   }
 );
 ```
+
+## Stream Configuration Example
+
+Stream transforms process JSONL lines as they arrive. Unlike actions and validators, transforms are plain ESM modules (not SDK factory functions) and don't require a rebuild step.
+
+Create transform modules in `.cards/transforms/`:
+
+```javascript
+// .cards/transforms/chat-formatter.mjs
+export default function transform(line, context) {
+  try {
+    const msg = JSON.parse(line);
+    return `**${msg.role}** (line ${context.lineNumber}):\n${msg.content}`;
+  } catch {
+    return line; // Return original line on parse error
+  }
+}
+```
+
+Configure stream types in your environment:
+
+```typescript
+streams: {
+  'chat-log': {
+    version: 1,
+    transform: {
+      path: 'chat-formatter.mjs',  // Relative to .cards/transforms/
+      timeout: 5000                 // Optional, default 5000ms
+    },
+    maxLineLength: 1048576,         // Optional, default 1MB
+    maxStreamSize: 104857600        // Optional, default 100MB
+  }
+}
+```
+
+Transforms are cached after first load. Restart the server to reload updated transforms.
 
 ## Factory Functions Reference
 
@@ -215,3 +257,4 @@ Consult these reference files for detailed information:
 - **[reference/environment.md](reference/environment.md)**: CARDS_ENV_VARS and extraction utilities
 - **[reference/logging.md](reference/logging.md)**: Logger API and configuration
 - **[reference/testing.md](reference/testing.md)**: Testing utilities for validators
+- **[reference/streams.md](reference/streams.md)**: Stream transforms and JSONL processing
