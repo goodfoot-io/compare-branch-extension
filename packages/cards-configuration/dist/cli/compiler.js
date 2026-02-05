@@ -48,27 +48,28 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as esbuild from 'esbuild';
+
 /**
  * External modules (Node built-ins) that should not be bundled.
  */
 const EXTERNALS = [
-    'node:*',
-    'http',
-    'https',
-    'url',
-    'stream',
-    'zlib',
-    'events',
-    'buffer',
-    'util',
-    'path',
-    'fs',
-    'os',
-    'crypto',
-    'child_process',
-    'perf_hooks',
-    'async_hooks',
-    'diagnostics_channel'
+  'node:*',
+  'http',
+  'https',
+  'url',
+  'stream',
+  'zlib',
+  'events',
+  'buffer',
+  'util',
+  'path',
+  'fs',
+  'os',
+  'crypto',
+  'child_process',
+  'perf_hooks',
+  'async_hooks',
+  'diagnostics_channel'
 ];
 /**
  * Banner to enable CommonJS require() in ESM bundles.
@@ -120,92 +121,90 @@ const require = __createRequire(import.meta.url);`;
  * ```
  */
 export async function compileHandler(options) {
-    const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
-    try {
-        // Verify source file exists
-        if (!fs.existsSync(sourcePath)) {
-            return {
-                success: false,
-                error: `Source file does not exist: ${sourcePath}`
-            };
-        }
-        // Create a unique temporary directory for build artifacts
-        const buildHash = crypto.createHash('sha256').update(sourcePath).digest('hex').substring(0, 16);
-        const tempDir = path.join(os.tmpdir(), 'cards-configuration-build', buildHash);
-        const wrapperPath = path.join(tempDir, 'wrapper.ts');
-        // Create temp directory
-        fs.mkdirSync(tempDir, { recursive: true });
-        // Resolve runtime path (the runtime.js file in the same package)
-        const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
-        // Resolve validation path for type validators
-        const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
-        // Generate wrapper content based on handler type
-        // Type validators use HTTP stdin/stdout protocol via executeValidation
-        // Other handlers use environment variable extraction via execute
-        let wrapperContent;
-        if (factoryType === 'typeValidator') {
-            wrapperContent = `
+  const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
+  try {
+    // Verify source file exists
+    if (!fs.existsSync(sourcePath)) {
+      return {
+        success: false,
+        error: `Source file does not exist: ${sourcePath}`
+      };
+    }
+    // Create a unique temporary directory for build artifacts
+    const buildHash = crypto.createHash('sha256').update(sourcePath).digest('hex').substring(0, 16);
+    const tempDir = path.join(os.tmpdir(), 'cards-configuration-build', buildHash);
+    const wrapperPath = path.join(tempDir, 'wrapper.ts');
+    // Create temp directory
+    fs.mkdirSync(tempDir, { recursive: true });
+    // Resolve runtime path (the runtime.js file in the same package)
+    const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
+    // Resolve validation path for type validators
+    const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
+    // Generate wrapper content based on handler type
+    // Type validators use HTTP stdin/stdout protocol via executeValidation
+    // Other handlers use environment variable extraction via execute
+    let wrapperContent;
+    if (factoryType === 'typeValidator') {
+      wrapperContent = `
 import handler from '${sourcePath.replace(/\\/g, '/')}';
 import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
 
 executeValidation(handler);
 `;
-        }
-        else {
-            wrapperContent = `
+    } else {
+      wrapperContent = `
 import handler from '${sourcePath.replace(/\\/g, '/')}';
 import { execute } from '${runtimePath.replace(/\\/g, '/')}';
 
 execute(handler);
 `;
-        }
-        // Write wrapper file
-        fs.writeFileSync(wrapperPath, wrapperContent, 'utf-8');
-        // Create output directory if it doesn't exist
-        const outputDir = path.dirname(outputPath);
-        fs.mkdirSync(outputDir, { recursive: true });
-        // Build using esbuild
-        const result = await esbuild.build({
-            entryPoints: [wrapperPath],
-            outfile: outputPath,
-            bundle: true,
-            format: 'esm',
-            platform: 'node',
-            target: 'es2022',
-            sourcemap: sourcemap ? 'inline' : false,
-            minify: false,
-            external: EXTERNALS,
-            banner: {
-                js: BANNER
-            },
-            logLevel: 'silent'
-        });
-        if (result.errors.length > 0) {
-            const errors = result.errors.map((e) => e.text).join('\n');
-            return {
-                success: false,
-                error: `Bundling failed: ${errors}`
-            };
-        }
-        return {
-            success: true,
-            outputPath
-        };
     }
-    catch (error) {
-        // Handle esbuild build errors
-        if (error && typeof error === 'object' && 'errors' in error) {
-            const buildError = error;
-            const errors = buildError.errors.map((e) => e.text).join('\n');
-            return {
-                success: false,
-                error: `Bundling failed: ${errors}`
-            };
-        }
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return {
-            success: false,
-            error: `Compilation failed: ${errorMessage}`
-        };
+    // Write wrapper file
+    fs.writeFileSync(wrapperPath, wrapperContent, 'utf-8');
+    // Create output directory if it doesn't exist
+    const outputDir = path.dirname(outputPath);
+    fs.mkdirSync(outputDir, { recursive: true });
+    // Build using esbuild
+    const result = await esbuild.build({
+      entryPoints: [wrapperPath],
+      outfile: outputPath,
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      target: 'es2022',
+      sourcemap: sourcemap ? 'inline' : false,
+      minify: false,
+      external: EXTERNALS,
+      banner: {
+        js: BANNER
+      },
+      logLevel: 'silent'
+    });
+    if (result.errors.length > 0) {
+      const errors = result.errors.map((e) => e.text).join('\n');
+      return {
+        success: false,
+        error: `Bundling failed: ${errors}`
+      };
     }
+    return {
+      success: true,
+      outputPath
+    };
+  } catch (error) {
+    // Handle esbuild build errors
+    if (error && typeof error === 'object' && 'errors' in error) {
+      const buildError = error;
+      const errors = buildError.errors.map((e) => e.text).join('\n');
+      return {
+        success: false,
+        error: `Bundling failed: ${errors}`
+      };
+    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: `Compilation failed: ${errorMessage}`
+    };
+  }
 }
