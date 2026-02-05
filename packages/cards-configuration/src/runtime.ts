@@ -1,36 +1,66 @@
 /**
- * Runtime orchestration for compiled Cards hooks.
+ * Runtime orchestration for compiled Cards action and type handlers.
  *
- * This module is bundled into compiled hooks by the CLI. It reads hook input
- * from environment variables, sets logger context, invokes the handler, and
- * exits the process with the correct code. It never returns in normal use.
+ * This module is bundled into compiled handlers by the CLI. It provides the
+ * execution harness that reads handler input from environment variables, sets
+ * up the logger context, invokes the user's handler, and exits the process
+ * with the appropriate code.
+ *
+ * The runtime is designed to never return in normal use. All code paths
+ * terminate with `process.exit()`. The only exception is test scenarios
+ * where `process.exit` is mocked.
+ *
+ * ## Execution Flow
+ *
+ * 1. Extract input payload from environment variables based on command type
+ * 2. Set logger context with command type and input
+ * 3. Build ActionContext with logger and cwd
+ * 4. Invoke the command with input and context
+ * 5. On success: clean up and exit with code 0
+ * 6. On error: log error, write to stderr, clean up and exit with code 1
+ *
  * @module
+ * @see {@link execute} for the main entry point
+ *
  * @example
  * ```typescript
- * // In a compiled hook file
+ * // This is what compiled handlers look like internally
  * import { execute } from '@cards/configuration/runtime';
- * import myHook from './my-hook.js';
+ * import myCommand from './my-command.js';
  *
- * execute(myHook);
+ * execute(myCommand);
  * ```
  */
 
-import { extractInput } from './env.js';
+import type {
+  ActionEndCommand,
+  ActionStartCommand,
+  TypeCreateCommand,
+  TypeDeleteCommand,
+  TypeUpdateCommand
+} from './command-types.js';
+import { extractActionInput, extractTypeInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
-import type { HookContext, HookFunction } from './hooks.js';
+import type { ActionContext, ActionEndInput, ActionStartInput, TypeHookInput } from './inputs.js';
 import { logger } from './logger.js';
-import type { EndCardInput, EndInterviewInput, HookInput, StartCardInput, StartInterviewInput } from './types.js';
+
+// ============================================================================
+// Command Type Union
+// ============================================================================
 
 /**
- * Union of hook function types supported by the runtime.
+ * Union of all command types supported by the runtime.
  *
- * Extend this when adding new hook event types so {@link execute} can accept them.
+ * This type union allows {@link execute} to accept any command returned by
+ * the factory functions. The runtime dispatches based on the `factoryType`
+ * discriminant.
+ *
+ * Note: TypeValidatorCommand is excluded because validators use a different
+ * execution model (HTTP stdin/stdout via {@link executeValidation}).
+ *
+ * @internal
  */
-type AnyHookFunction =
-  | HookFunction<StartCardInput>
-  | HookFunction<EndCardInput>
-  | HookFunction<StartInterviewInput>
-  | HookFunction<EndInterviewInput>;
+type AnyCommand = ActionStartCommand | ActionEndCommand | TypeCreateCommand | TypeUpdateCommand | TypeDeleteCommand;
 
 // ============================================================================
 // Helper Functions
@@ -38,6 +68,14 @@ type AnyHookFunction =
 
 /**
  * Normalizes an unknown error value into a human-readable message.
+ *
+ * Errors in JavaScript can be thrown with any value. This function ensures
+ * we always get a string message regardless of what was thrown.
+ *
+ * @param error - The caught error value, which may or may not be an Error instance
+ * @returns A string message suitable for logging or display
+ *
+ * @internal
  */
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -45,6 +83,15 @@ function getErrorMessage(error: unknown): string {
 
 /**
  * Cleans up logger state and terminates the process.
+ *
+ * This function never returns. It clears the logger's context, closes
+ * open file handles to flush pending writes, and exits with the specified
+ * code.
+ *
+ * @param exitCode - The exit code to pass to `process.exit()`
+ * @returns Never returns; process terminates
+ *
+ * @internal
  */
 function cleanupAndExit(exitCode: number): never {
   logger.clearContext();
@@ -53,49 +100,40 @@ function cleanupAndExit(exitCode: number): never {
 }
 
 /**
- * Checks for log file configuration conflicts between CLI and env var.
+ * Handles errors during environment variable extraction.
  *
- * The CLI injects CARDS_HOOKS_CLI_LOG_FILE; users can also set
- * CARDS_HOOKS_LOG_FILE directly. Both together must agree.
- */
-function configureLogFile(): void {
-  const cliLogFile = process.env['CARDS_HOOKS_CLI_LOG_FILE'];
-  const envLogFile = process.env['CARDS_HOOKS_LOG_FILE'];
-
-  if (cliLogFile !== undefined && envLogFile !== undefined && cliLogFile !== envLogFile) {
-    process.stderr.write(
-      `Log file configuration conflict: CLI --log="${cliLogFile}" vs CARDS_HOOKS_LOG_FILE="${envLogFile}". ` +
-        'Use only one method to configure hook logging.\n'
-    );
-    process.exit(EXIT_CODES.ERROR);
-  }
-
-  if (cliLogFile !== undefined) {
-    logger.setLogFile(cliLogFile);
-  }
-}
-
-/**
- * Handles errors from environment variable extraction.
+ * Environment extraction can fail if required variables are missing or
+ * malformed. This provides user-friendly error output and ensures proper
+ * cleanup before exit.
  *
- * Logs the error, writes a concise message to stderr, and exits.
+ * @param error - The error thrown during extraction
+ * @returns Never returns; process terminates with error code
+ *
+ * @internal
  */
 function handleEnvExtractionError(error: unknown): never {
   const message = getErrorMessage(error);
   logger.error(`Failed to extract input from environment: ${message}`);
-  writeError(`Hook failed: ${message}`);
+  writeError(`Handler failed: ${message}`);
   cleanupAndExit(EXIT_CODES.ERROR);
 }
 
 /**
- * Handles errors thrown by the hook handler.
+ * Handles errors thrown by the user's command handler.
  *
- * Writes a stack trace to stderr for debugging and exits with ERROR.
+ * When a handler throws or rejects, we want to provide useful debugging
+ * information. This writes the full stack trace to stderr (which the
+ * execution wrapper captures) and logs a structured error event.
+ *
+ * @param error - The error thrown or rejection reason from the handler
+ * @returns Never returns; process terminates with error code
+ *
+ * @internal
  */
 function handleHandlerError(error: unknown): never {
   const errorOutput = error instanceof Error ? (error.stack ?? error.message) : String(error);
   process.stderr.write(`${errorOutput}\n`);
-  logger.error(`Hook handler error: ${getErrorMessage(error)}`);
+  logger.error(`Handler error: ${getErrorMessage(error)}`);
   cleanupAndExit(EXIT_CODES.ERROR);
 }
 
@@ -104,61 +142,96 @@ function handleHandlerError(error: unknown): never {
 // ============================================================================
 
 /**
- * Executes a hook handler with full runtime orchestration.
+ * Executes a command handler with full runtime orchestration.
  *
- * This is the main entry point that compiled hooks use. When a compiled hook
- * runs as a CLI:
+ * This is the main entry point that compiled handlers use. The CLI generates
+ * wrapper code that imports the user's command and passes it to this function.
+ * From there, execute handles all the ceremony: environment parsing, logging
+ * setup, handler invocation, error handling, and process termination.
  *
- * 1. Checks for log file configuration conflicts
- * 2. Extracts input from environment variables based on hook type
- * 3. Sets up logger context
- * 4. Builds context object { logger }
- * 5. Invokes handler
- * 6. On success: exits with code 0
- * 7. On error: logs error, writes stderr, exits with code 1
+ * The function exits the process in all normal code paths. The returned
+ * promise only resolves if `process.exit` is mocked, which happens in test
+ * scenarios. Production code should not await this function or expect it
+ * to return.
  *
- * This function exits the process in all handled paths. The returned promise
- * only resolves if `process.exit` is mocked (for example, in tests).
- * @param hookFn - The hook function to execute (from a hook factory)
- * @returns A promise that resolves only in test scenarios where process.exit is mocked
+ * ## Supported Command Types
+ *
+ * - **Action Start** (`actionStart`): Invoked when an action begins
+ * - **Action End** (`actionEnd`): Invoked after successful action completion
+ * - **Type Create** (`typeCreate`): Runs after new typed file creation
+ * - **Type Update** (`typeUpdate`): Runs after typed file modification
+ * - **Type Delete** (`typeDelete`): Runs when typed file is deleted
+ *
+ * Note: Type validators use a different execution model (HTTP stdin/stdout)
+ * and should be executed via {@link executeValidation} instead.
+ *
+ * ## Error Handling
+ *
+ * Errors are handled at three levels:
+ *
+ * 1. **Environment extraction errors** (missing/invalid variables): Log the
+ *    error and exit. These indicate a problem with how the handler was invoked.
+ *
+ * 2. **Handler errors** (user code throws): Write the stack trace to stderr,
+ *    log a structured error, and exit. The execution wrapper captures stderr
+ *    for debugging.
+ *
+ * 3. **Unexpected errors**: Catch-all for any other failures during runtime
+ *    orchestration.
+ *
+ * @param command - The command to execute, returned from a factory function
+ * @returns A promise that resolves only when `process.exit` is mocked (tests)
+ *
  * @example
  * ```typescript
- * // In compiled hook file
+ * // Generated wrapper code (produced by CLI)
  * import { execute } from '@cards/configuration/runtime';
- * import { startCardHook } from '@cards/configuration';
+ * import command from './user-command.js';
  *
- * const myHook = startCardHook({}, async (input, { logger }) => {
- *   logger.info('Processing card', { cardId: input.cardId });
- * });
- *
- * execute(myHook);
+ * // This call never returns in production
+ * execute(command);
  * ```
  */
-export async function execute(hookFn: AnyHookFunction): Promise<void> {
+export async function execute(command: AnyCommand): Promise<void> {
   try {
-    configureLogFile();
+    // Determine command type and extract appropriate input
+    const factoryType = command.factoryType;
+    let input: ActionStartInput | ActionEndInput | TypeHookInput;
 
-    // Extract input from environment variables
-    const hookEventName = hookFn.hookEventName;
-    let input: HookInput;
     try {
-      input = extractInput(hookEventName);
+      if (factoryType === 'actionStart' || factoryType === 'actionEnd') {
+        input = extractActionInput();
+      } else {
+        // Type commands: validator, create, update, delete
+        input = extractTypeInput();
+      }
     } catch (error) {
       handleEnvExtractionError(error);
+      // TypeScript knows this is unreachable due to 'never' return type
+      // But at runtime in tests with mocked process.exit, it may continue
+      // This return prevents that from happening
+      return;
     }
 
-    // Set logger context and build handler context
-    logger.setContext(hookEventName, input);
-    const context: HookContext = { logger };
+    // Set logger context with command type
+    logger.setContext(factoryType, input as unknown as Record<string, unknown>);
 
-    // Execute handler
+    // Build ActionContext with logger and cwd
+    const context: ActionContext = {
+      logger,
+      cwd: process.cwd()
+    };
+
+    // Execute the command handler
     try {
-      // Type assertion is safe: extractInput returns the correct type based on hookEventName
-      await (hookFn as HookFunction<HookInput>)(input, context);
+      await command(input as never, context);
     } catch (error) {
       handleHandlerError(error);
+      // Same guard for tests with mocked process.exit
+      return;
     }
 
+    // Clean up and exit successfully
     cleanupAndExit(EXIT_CODES.SUCCESS);
   } catch (error) {
     // Unexpected error - try to clean up and exit

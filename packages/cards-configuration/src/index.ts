@@ -1,116 +1,158 @@
 /**
- * Type-safe Cards Extension hooks library.
+ * @cards/configuration
  *
- * This is the primary entrypoint for hook authors. It re-exports hook
- * factories, runtime helpers, validation tools, and shared types so a hook
- * project can depend on a single module.
+ * Type-safe configuration library v2 for the Cards Extension with hooks,
+ * validators, and type configurations.
+ *
+ * This module provides action factories, type hook factories, configuration
+ * utilities, environment helpers, logging, validation tools, and runtime
+ * execution capabilities for Cards Extension integration.
+ *
  * @module
  */
 
 // ============================================================================
-// Constants
+// Action Factories
 // ============================================================================
 
-export { HOOK_FACTORY_TO_EVENT } from './constants.js';
+export {
+  type ActionEndConfig,
+  type ActionEndHandler,
+  defineActionEnd
+} from './factories/action-end.js';
+export {
+  type ActionHandler,
+  type ActionStartConfig,
+  defineActionStart
+} from './factories/action-start.js';
+
+// ============================================================================
+// Type Hook Factories
+// ============================================================================
+
+export {
+  defineTypeCreate,
+  defineTypeDelete,
+  defineTypeUpdate,
+  defineTypeValidator,
+  type TypeConfig,
+  type TypeHandler,
+  type TypeValidatorHandler
+} from './factories/type-hooks.js';
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+export type {
+  ActionPair,
+  EnvironmentConfig,
+  SettingsConfig,
+  TypeConfigDefinition
+} from './config.js';
+export { defineConfig, serializeSettings } from './define-config.js';
+
+// ============================================================================
+// Schema Types
+// ============================================================================
+
+export type {
+  Action,
+  Command,
+  Environment,
+  Settings,
+  TypeDefinition
+} from './schema.js';
+
+// ============================================================================
+// Input Types
+// ============================================================================
+
+export type {
+  ActionContext,
+  ActionEndInput,
+  ActionStartInput,
+  TypeHookInput,
+  TypeValidatorContext,
+  TypeValidatorRequest
+} from './inputs.js';
+
+// ============================================================================
+// Command Types
+// ============================================================================
+
+export type {
+  ActionEndCommand,
+  ActionStartCommand,
+  TypeCreateCommand,
+  TypeDeleteCommand,
+  TypeUpdateCommand,
+  TypeValidatorCommand
+} from './command-types.js';
+
+// ============================================================================
+// Type Utilities
+// ============================================================================
+
+export type { SameShape } from './type-utils.js';
 
 // ============================================================================
 // Environment Variables
 // ============================================================================
 
 export {
-  // Environment variable name constants
   CARDS_ENV_VARS,
-  // Typed extraction
-  extractInput,
-  // Individual getters
+  extractActionInput,
+  extractTypeInput,
+  getApiAccessToken,
+  getApiBaseUrl,
   getCardId,
-  getExecutionWrapperPid,
-  getHookIpcSocket
+  getCodingAgent,
+  getContentType,
+  getEnvironment,
+  getExecutionMode,
+  getFileName,
+  getFilePath,
+  getFileSize,
+  getSha256,
+  getTypeName,
+  getTypeVersion
 } from './env.js';
 
 // ============================================================================
 // Exit Codes
 // ============================================================================
 
-export type { ExitCode, HookExecutionResult } from './exit-codes.js';
 export {
   EXIT_CODES,
+  type ExitCode,
   exitWithError,
+  type HookExecutionResult,
   writeError
 } from './exit-codes.js';
-
-// ============================================================================
-// Hook Factories
-// ============================================================================
-
-export type {
-  HookConfig,
-  HookContext,
-  HookFunction,
-  HookHandler
-} from './hooks.js';
-export {
-  endCardHook,
-  endInterviewHook,
-  startCardHook,
-  startInterviewHook,
-  typedFileCreatedHook,
-  typedFileDeletedHook,
-  typedFileUpdatedHook
-} from './hooks.js';
 
 // ============================================================================
 // Logger
 // ============================================================================
 
-export type {
-  LogEvent,
-  LogEventError,
-  LogEventHandler,
-  LoggerConfig,
-  LogLevel,
-  Unsubscribe
+export {
+  type ILogger,
+  LOG_LEVELS,
+  type LogEvent,
+  type LogEventError,
+  type LogEventHandler,
+  Logger,
+  type LoggerConfig,
+  type LogLevel,
+  logger,
+  type Unsubscribe
 } from './logger.js';
-export { LOG_LEVELS, Logger, logger } from './logger.js';
 
 // ============================================================================
 // Runtime
 // ============================================================================
 
 export { execute } from './runtime.js';
-
-// ============================================================================
-// Scaffold
-// ============================================================================
-
-export type { ScaffoldOptions } from './scaffold.js';
-export { scaffoldProject } from './scaffold.js';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export type {
-  // Base types
-  BaseHookInput,
-  CardHookInput,
-  EndCardInput,
-  EndInterviewInput,
-  // Event names
-  HookEventName,
-  // Discriminated union
-  HookInput,
-  // Type helper
-  HookInputForEvent,
-  InterviewHookInput,
-  // Specific input types
-  StartCardInput,
-  StartInterviewInput,
-  TypedFileCreatedInput,
-  TypedFileDeletedInput,
-  TypedFileUpdatedInput
-} from './types.js';
-export { HOOK_EVENT_NAMES } from './types.js';
 
 // ============================================================================
 // Validation
@@ -128,7 +170,6 @@ export type {
 } from './validation.js';
 export {
   executeValidation,
-  typeValidation,
   validationCreated,
   validationError,
   validationResponse,
@@ -144,7 +185,4 @@ export type {
   TestValidationOptions,
   TestValidationResult
 } from './testing.js';
-export {
-  createTestRequest,
-  testValidation
-} from './testing.js';
+export { createTestRequest, testValidation } from './testing.js';

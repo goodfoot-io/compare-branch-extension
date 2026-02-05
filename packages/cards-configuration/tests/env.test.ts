@@ -5,15 +5,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   CARDS_ENV_VARS,
-  extractInput,
+  extractActionInput,
+  extractTypeInput,
+  getApiAccessToken,
+  getApiBaseUrl,
   getCardId,
+  getCodingAgent,
   getContentType,
-  getExecutionWrapperPid,
+  getEnvironment,
+  getExecutionMode,
   getFileName,
   getFilePath,
   getFileSize,
-  getHookIpcSocket,
-  getMetadata,
   getSha256,
   getTypeName,
   getTypeVersion
@@ -26,8 +29,18 @@ describe('env', () => {
   beforeEach(() => {
     // Clear all relevant env vars before each test
     delete process.env[CARDS_ENV_VARS.CARD_ID];
-    delete process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID];
-    delete process.env[CARDS_ENV_VARS.HOOK_IPC_SOCKET];
+    delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
+    delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
+    delete process.env[CARDS_ENV_VARS.API_BASE_URL];
+    delete process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN];
+    delete process.env[CARDS_ENV_VARS.CODING_AGENT];
+    delete process.env[CARDS_ENV_VARS.TYPE_NAME];
+    delete process.env[CARDS_ENV_VARS.TYPE_VERSION];
+    delete process.env[CARDS_ENV_VARS.FILE_NAME];
+    delete process.env[CARDS_ENV_VARS.FILE_PATH];
+    delete process.env[CARDS_ENV_VARS.FILE_SIZE];
+    delete process.env[CARDS_ENV_VARS.SHA256];
+    delete process.env[CARDS_ENV_VARS.CONTENT_TYPE];
   });
 
   afterEach(() => {
@@ -39,16 +52,18 @@ describe('env', () => {
     it('should define all environment variable names', () => {
       expect(CARDS_ENV_VARS).toEqual({
         CARD_ID: 'CARD_ID',
-        EXECUTION_WRAPPER_PID: 'EXECUTION_WRAPPER_PID',
-        HOOK_IPC_SOCKET: 'HOOK_IPC_SOCKET',
+        ENVIRONMENT: 'ENVIRONMENT',
+        EXECUTION_MODE: 'EXECUTION_MODE',
+        API_BASE_URL: 'API_BASE_URL',
+        API_ACCESS_TOKEN: 'API_ACCESS_TOKEN',
+        CODING_AGENT: 'CODING_AGENT',
         TYPE_NAME: 'TYPE_NAME',
+        TYPE_VERSION: 'TYPE_VERSION',
         FILE_NAME: 'FILE_NAME',
         FILE_PATH: 'FILE_PATH',
-        CONTENT_TYPE: 'CONTENT_TYPE',
         FILE_SIZE: 'FILE_SIZE',
         SHA256: 'SHA256',
-        TYPE_VERSION: 'TYPE_VERSION',
-        METADATA: 'METADATA'
+        CONTENT_TYPE: 'CONTENT_TYPE'
       });
     });
   });
@@ -69,355 +84,449 @@ describe('env', () => {
     });
   });
 
-  describe('getExecutionWrapperPid', () => {
-    it('should return PID as number when set to valid integer', () => {
-      process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = '12345';
-      expect(getExecutionWrapperPid()).toBe(12345);
+  describe('getEnvironment', () => {
+    it('should return environment when set', () => {
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
+      expect(getEnvironment()).toBe('production');
     });
 
-    it('should throw when EXECUTION_WRAPPER_PID is undefined', () => {
-      expect(() => getExecutionWrapperPid()).toThrow('Missing required environment variable: EXECUTION_WRAPPER_PID');
+    it('should throw when ENVIRONMENT is undefined', () => {
+      expect(() => getEnvironment()).toThrow('Missing required environment variable: ENVIRONMENT');
     });
 
-    it('should throw when EXECUTION_WRAPPER_PID is empty string', () => {
-      process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = '';
-      expect(() => getExecutionWrapperPid()).toThrow('Missing required environment variable: EXECUTION_WRAPPER_PID');
+    it('should throw when ENVIRONMENT is empty string', () => {
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = '';
+      expect(() => getEnvironment()).toThrow('Missing required environment variable: ENVIRONMENT');
+    });
+  });
+
+  describe('getExecutionMode', () => {
+    it('should return "interactive" when set', () => {
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      expect(getExecutionMode()).toBe('interactive');
     });
 
-    it('should throw when EXECUTION_WRAPPER_PID is not a number', () => {
-      process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = 'not-a-number';
-      expect(() => getExecutionWrapperPid()).toThrow(
-        'Invalid EXECUTION_WRAPPER_PID: expected number, got "not-a-number"'
+    it('should return "background" when set', () => {
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'background';
+      expect(getExecutionMode()).toBe('background');
+    });
+
+    it('should throw when EXECUTION_MODE is undefined', () => {
+      expect(() => getExecutionMode()).toThrow('Missing required environment variable: EXECUTION_MODE');
+    });
+
+    it('should throw when EXECUTION_MODE is empty string', () => {
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = '';
+      expect(() => getExecutionMode()).toThrow('Missing required environment variable: EXECUTION_MODE');
+    });
+
+    it('should throw when EXECUTION_MODE is invalid value', () => {
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'invalid';
+      expect(() => getExecutionMode()).toThrow(
+        "Invalid EXECUTION_MODE: expected 'interactive' or 'background', got \"invalid\""
       );
+    });
+  });
+
+  describe('getApiBaseUrl', () => {
+    it('should return API base URL when set', () => {
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
+      expect(getApiBaseUrl()).toBe('https://api.example.com');
+    });
+
+    it('should throw when API_BASE_URL is undefined', () => {
+      expect(() => getApiBaseUrl()).toThrow('Missing required environment variable: API_BASE_URL');
+    });
+
+    it('should throw when API_BASE_URL is empty string', () => {
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = '';
+      expect(() => getApiBaseUrl()).toThrow('Missing required environment variable: API_BASE_URL');
+    });
+  });
+
+  describe('getApiAccessToken', () => {
+    it('should return API access token when set', () => {
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
+      expect(getApiAccessToken()).toBe('token-abc123');
+    });
+
+    it('should throw when API_ACCESS_TOKEN is undefined', () => {
+      expect(() => getApiAccessToken()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
+    });
+
+    it('should throw when API_ACCESS_TOKEN is empty string', () => {
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = '';
+      expect(() => getApiAccessToken()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
+    });
+  });
+
+  describe('getCodingAgent', () => {
+    it('should return coding agent when set', () => {
+      process.env[CARDS_ENV_VARS.CODING_AGENT] = 'claude';
+      expect(getCodingAgent()).toBe('claude');
+    });
+
+    it('should return undefined when CODING_AGENT is not set', () => {
+      expect(getCodingAgent()).toBeUndefined();
+    });
+
+    it('should return undefined when CODING_AGENT is empty string', () => {
+      process.env[CARDS_ENV_VARS.CODING_AGENT] = '';
+      expect(getCodingAgent()).toBeUndefined();
+    });
+  });
+
+  describe('getTypeName', () => {
+    it('should return type name when set', () => {
+      process.env[CARDS_ENV_VARS.TYPE_NAME] = 'my-type';
+      expect(getTypeName()).toBe('my-type');
+    });
+
+    it('should throw when TYPE_NAME is undefined', () => {
+      expect(() => getTypeName()).toThrow('Missing required environment variable: TYPE_NAME');
+    });
+
+    it('should throw when TYPE_NAME is empty string', () => {
+      process.env[CARDS_ENV_VARS.TYPE_NAME] = '';
+      expect(() => getTypeName()).toThrow('Missing required environment variable: TYPE_NAME');
+    });
+  });
+
+  describe('getTypeVersion', () => {
+    it('should return type version when set', () => {
+      process.env[CARDS_ENV_VARS.TYPE_VERSION] = '1.0.0';
+      expect(getTypeVersion()).toBe('1.0.0');
+    });
+
+    it('should throw when TYPE_VERSION is undefined', () => {
+      expect(() => getTypeVersion()).toThrow('Missing required environment variable: TYPE_VERSION');
+    });
+
+    it('should throw when TYPE_VERSION is empty string', () => {
+      process.env[CARDS_ENV_VARS.TYPE_VERSION] = '';
+      expect(() => getTypeVersion()).toThrow('Missing required environment variable: TYPE_VERSION');
+    });
+  });
+
+  describe('getFileName', () => {
+    it('should return file name when set', () => {
+      process.env[CARDS_ENV_VARS.FILE_NAME] = 'document.pdf';
+      expect(getFileName()).toBe('document.pdf');
+    });
+
+    it('should throw when FILE_NAME is undefined', () => {
+      expect(() => getFileName()).toThrow('Missing required environment variable: FILE_NAME');
+    });
+
+    it('should throw when FILE_NAME is empty string', () => {
+      process.env[CARDS_ENV_VARS.FILE_NAME] = '';
+      expect(() => getFileName()).toThrow('Missing required environment variable: FILE_NAME');
+    });
+  });
+
+  describe('getFilePath', () => {
+    it('should return file path when set', () => {
+      process.env[CARDS_ENV_VARS.FILE_PATH] = '/path/to/file';
+      expect(getFilePath()).toBe('/path/to/file');
+    });
+
+    it('should throw when FILE_PATH is undefined', () => {
+      expect(() => getFilePath()).toThrow('Missing required environment variable: FILE_PATH');
+    });
+
+    it('should throw when FILE_PATH is empty string', () => {
+      process.env[CARDS_ENV_VARS.FILE_PATH] = '';
+      expect(() => getFilePath()).toThrow('Missing required environment variable: FILE_PATH');
+    });
+  });
+
+  describe('getFileSize', () => {
+    it('should return file size as number when set to valid integer', () => {
+      process.env[CARDS_ENV_VARS.FILE_SIZE] = '1024';
+      expect(getFileSize()).toBe(1024);
+    });
+
+    it('should throw when FILE_SIZE is undefined', () => {
+      expect(() => getFileSize()).toThrow('Missing required environment variable: FILE_SIZE');
+    });
+
+    it('should throw when FILE_SIZE is empty string', () => {
+      process.env[CARDS_ENV_VARS.FILE_SIZE] = '';
+      expect(() => getFileSize()).toThrow('Missing required environment variable: FILE_SIZE');
+    });
+
+    it('should throw when FILE_SIZE is not a number', () => {
+      process.env[CARDS_ENV_VARS.FILE_SIZE] = 'not-a-number';
+      expect(() => getFileSize()).toThrow('Invalid FILE_SIZE: expected number, got "not-a-number"');
     });
 
     it('should parse float strings by truncating to integer', () => {
       // Note: parseInt truncates floats - this is standard JavaScript behavior
-      process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = '123.45';
-      expect(getExecutionWrapperPid()).toBe(123);
+      process.env[CARDS_ENV_VARS.FILE_SIZE] = '123.45';
+      expect(getFileSize()).toBe(123);
     });
 
-    it('should handle zero as valid PID', () => {
-      process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = '0';
-      expect(getExecutionWrapperPid()).toBe(0);
-    });
-  });
-
-  describe('getHookIpcSocket', () => {
-    it('should return socket path when set', () => {
-      process.env[CARDS_ENV_VARS.HOOK_IPC_SOCKET] = '/tmp/socket.sock';
-      expect(getHookIpcSocket()).toBe('/tmp/socket.sock');
-    });
-
-    it('should throw when HOOK_IPC_SOCKET is undefined', () => {
-      expect(() => getHookIpcSocket()).toThrow('Missing required environment variable: HOOK_IPC_SOCKET');
-    });
-
-    it('should throw when HOOK_IPC_SOCKET is empty string', () => {
-      process.env[CARDS_ENV_VARS.HOOK_IPC_SOCKET] = '';
-      expect(() => getHookIpcSocket()).toThrow('Missing required environment variable: HOOK_IPC_SOCKET');
+    it('should handle zero as valid file size', () => {
+      process.env[CARDS_ENV_VARS.FILE_SIZE] = '0';
+      expect(getFileSize()).toBe(0);
     });
   });
 
-  describe('extractInput', () => {
-    // Helper to set up base environment variables required by all hooks
-    function setupBaseEnv() {
+  describe('getSha256', () => {
+    it('should return sha256 when set', () => {
+      process.env[CARDS_ENV_VARS.SHA256] = 'abc123def456';
+      expect(getSha256()).toBe('abc123def456');
+    });
+
+    it('should throw when SHA256 is undefined', () => {
+      expect(() => getSha256()).toThrow('Missing required environment variable: SHA256');
+    });
+
+    it('should throw when SHA256 is empty string', () => {
+      process.env[CARDS_ENV_VARS.SHA256] = '';
+      expect(() => getSha256()).toThrow('Missing required environment variable: SHA256');
+    });
+  });
+
+  describe('getContentType', () => {
+    it('should return content type when set', () => {
+      process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
+      expect(getContentType()).toBe('application/pdf');
+    });
+
+    it('should throw when CONTENT_TYPE is undefined', () => {
+      expect(() => getContentType()).toThrow('Missing required environment variable: CONTENT_TYPE');
+    });
+
+    it('should throw when CONTENT_TYPE is empty string', () => {
+      process.env[CARDS_ENV_VARS.CONTENT_TYPE] = '';
+      expect(() => getContentType()).toThrow('Missing required environment variable: CONTENT_TYPE');
+    });
+  });
+
+  describe('extractActionInput', () => {
+    // Helper to set up action environment variables
+    function setupActionEnv() {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
-      process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = '12345';
-      process.env[CARDS_ENV_VARS.HOOK_IPC_SOCKET] = '/tmp/socket.sock';
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
     }
 
-    describe('StartCard', () => {
-      it('should extract base fields for StartCard hook', () => {
-        setupBaseEnv();
-        const input = extractInput('StartCard');
+    it('should extract all action input fields when all are set', () => {
+      setupActionEnv();
+      process.env[CARDS_ENV_VARS.CODING_AGENT] = 'claude';
 
-        expect(input).toEqual({
-          hookEventName: 'StartCard',
-          cardId: 'card-123',
-          executionWrapperPid: 12345,
-          hookIpcSocket: '/tmp/socket.sock'
-        });
-      });
+      const input = extractActionInput();
 
-      it('should throw when required CARD_ID is missing', () => {
-        process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = '12345';
-        process.env[CARDS_ENV_VARS.HOOK_IPC_SOCKET] = '/tmp/socket.sock';
-
-        expect(() => extractInput('StartCard')).toThrow('Missing required environment variable: CARD_ID');
-      });
-
-      it('should throw when required EXECUTION_WRAPPER_PID is missing', () => {
-        process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
-        process.env[CARDS_ENV_VARS.HOOK_IPC_SOCKET] = '/tmp/socket.sock';
-
-        expect(() => extractInput('StartCard')).toThrow('Missing required environment variable: EXECUTION_WRAPPER_PID');
-      });
-
-      it('should throw when required HOOK_IPC_SOCKET is missing', () => {
-        process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
-        process.env[CARDS_ENV_VARS.EXECUTION_WRAPPER_PID] = '12345';
-
-        expect(() => extractInput('StartCard')).toThrow('Missing required environment variable: HOOK_IPC_SOCKET');
+      expect(input).toEqual({
+        cardId: 'card-123',
+        environment: 'production',
+        executionMode: 'interactive',
+        apiBaseUrl: 'https://api.example.com',
+        apiAccessToken: 'token-abc123',
+        codingAgent: 'claude'
       });
     });
 
-    describe('EndCard', () => {
-      it('should extract base fields for EndCard hook', () => {
-        setupBaseEnv();
-        const input = extractInput('EndCard');
+    it('should extract action input without optional codingAgent', () => {
+      setupActionEnv();
 
-        expect(input).toEqual({
-          hookEventName: 'EndCard',
-          cardId: 'card-123',
-          executionWrapperPid: 12345,
-          hookIpcSocket: '/tmp/socket.sock'
-        });
+      const input = extractActionInput();
+
+      expect(input).toEqual({
+        cardId: 'card-123',
+        environment: 'production',
+        executionMode: 'interactive',
+        apiBaseUrl: 'https://api.example.com',
+        apiAccessToken: 'token-abc123',
+        codingAgent: undefined
       });
     });
 
-    describe('StartInterview', () => {
-      it('should extract base fields for StartInterview hook', () => {
-        setupBaseEnv();
-        const input = extractInput('StartInterview');
+    it('should extract action input with background execution mode', () => {
+      setupActionEnv();
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'background';
 
-        expect(input).toEqual({
-          hookEventName: 'StartInterview',
-          cardId: 'card-123',
-          executionWrapperPid: 12345,
-          hookIpcSocket: '/tmp/socket.sock'
-        });
-      });
+      const input = extractActionInput();
+
+      expect(input.executionMode).toBe('background');
     });
 
-    describe('EndInterview', () => {
-      it('should extract base fields for EndInterview hook', () => {
-        setupBaseEnv();
-        const input = extractInput('EndInterview');
+    it('should throw when required CARD_ID is missing', () => {
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
-        expect(input).toEqual({
-          hookEventName: 'EndInterview',
-          cardId: 'card-123',
-          executionWrapperPid: 12345,
-          hookIpcSocket: '/tmp/socket.sock'
-        });
-      });
+      expect(() => extractActionInput()).toThrow('Missing required environment variable: CARD_ID');
     });
 
-    describe('TypedFileCreated', () => {
-      it('should extract all fields for TypedFileCreated hook', () => {
-        setupBaseEnv();
-        process.env[CARDS_ENV_VARS.TYPE_NAME] = 'my-type';
-        process.env[CARDS_ENV_VARS.FILE_NAME] = 'document.pdf';
-        process.env[CARDS_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
-        process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
-        process.env[CARDS_ENV_VARS.FILE_SIZE] = '1024';
-        process.env[CARDS_ENV_VARS.SHA256] = 'abc123def456';
-        process.env[CARDS_ENV_VARS.TYPE_VERSION] = '1.0.0';
-        process.env[CARDS_ENV_VARS.METADATA] = '{"key":"value"}';
+    it('should throw when required ENVIRONMENT is missing', () => {
+      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
-        const input = extractInput('TypedFileCreated');
-
-        expect(input).toEqual({
-          hookEventName: 'TypedFileCreated',
-          cardId: 'card-123',
-          executionWrapperPid: 12345,
-          hookIpcSocket: '/tmp/socket.sock',
-          typeName: 'my-type',
-          fileName: 'document.pdf',
-          filePath: '/path/to/document.pdf',
-          contentType: 'application/pdf',
-          size: 1024,
-          sha256: 'abc123def456',
-          typeVersion: '1.0.0',
-          metadata: { key: 'value' }
-        });
-      });
-
-      it('should extract fields without optional metadata', () => {
-        setupBaseEnv();
-        process.env[CARDS_ENV_VARS.TYPE_NAME] = 'my-type';
-        process.env[CARDS_ENV_VARS.FILE_NAME] = 'document.pdf';
-        process.env[CARDS_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
-        process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
-        process.env[CARDS_ENV_VARS.FILE_SIZE] = '1024';
-        process.env[CARDS_ENV_VARS.SHA256] = 'abc123def456';
-        process.env[CARDS_ENV_VARS.TYPE_VERSION] = '1.0.0';
-
-        const input = extractInput('TypedFileCreated');
-
-        expect(input.typeName).toBe('my-type');
-        expect(input.fileName).toBe('document.pdf');
-        expect(input.metadata).toBeUndefined();
-      });
+      expect(() => extractActionInput()).toThrow('Missing required environment variable: ENVIRONMENT');
     });
 
-    describe('TypedFileUpdated', () => {
-      it('should extract all fields for TypedFileUpdated hook', () => {
-        setupBaseEnv();
-        process.env[CARDS_ENV_VARS.TYPE_NAME] = 'my-type';
-        process.env[CARDS_ENV_VARS.FILE_NAME] = 'document.pdf';
-        process.env[CARDS_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
-        process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
-        process.env[CARDS_ENV_VARS.FILE_SIZE] = '2048';
-        process.env[CARDS_ENV_VARS.SHA256] = 'xyz789uvw012';
-        process.env[CARDS_ENV_VARS.TYPE_VERSION] = '1.1.0';
+    it('should throw when required EXECUTION_MODE is missing', () => {
+      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
-        const input = extractInput('TypedFileUpdated');
-
-        expect(input.hookEventName).toBe('TypedFileUpdated');
-        expect(input.typeName).toBe('my-type');
-        expect(input.size).toBe(2048);
-      });
+      expect(() => extractActionInput()).toThrow('Missing required environment variable: EXECUTION_MODE');
     });
 
-    describe('TypedFileDeleted', () => {
-      it('should extract all fields for TypedFileDeleted hook', () => {
-        setupBaseEnv();
-        process.env[CARDS_ENV_VARS.TYPE_NAME] = 'my-type';
-        process.env[CARDS_ENV_VARS.FILE_NAME] = 'document.pdf';
-        process.env[CARDS_ENV_VARS.FILE_PATH] = '/path/to/document.pdf';
-        process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
-        process.env[CARDS_ENV_VARS.FILE_SIZE] = '1024';
-        process.env[CARDS_ENV_VARS.SHA256] = 'abc123def456';
-        process.env[CARDS_ENV_VARS.TYPE_VERSION] = '1.0.0';
+    it('should throw when required API_BASE_URL is missing', () => {
+      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
-        const input = extractInput('TypedFileDeleted');
-
-        expect(input.hookEventName).toBe('TypedFileDeleted');
-        expect(input.typeName).toBe('my-type');
-      });
+      expect(() => extractActionInput()).toThrow('Missing required environment variable: API_BASE_URL');
     });
 
-    describe('Type safety', () => {
-      it('should maintain correct types for each hook event', () => {
-        setupBaseEnv();
+    it('should throw when required API_ACCESS_TOKEN is missing', () => {
+      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
 
-        // Verify that StartCard input has cardId
-        const startCard = extractInput('StartCard');
-        expect(startCard.cardId).toBe('card-123');
+      expect(() => extractActionInput()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
+    });
 
-        // Verify that EndCard input has cardId
-        const endCard = extractInput('EndCard');
-        expect(endCard.cardId).toBe('card-123');
-      });
+    it('should throw when EXECUTION_MODE has invalid value', () => {
+      setupActionEnv();
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'invalid-mode';
+
+      expect(() => extractActionInput()).toThrow(
+        "Invalid EXECUTION_MODE: expected 'interactive' or 'background', got \"invalid-mode\""
+      );
     });
   });
 
-  describe('Typed file getters', () => {
-    beforeEach(() => {
-      // Clear all typed file env vars before each test
+  describe('extractTypeInput', () => {
+    // Helper to set up type hook environment variables
+    function setupTypeEnv() {
+      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-456';
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'staging';
+      process.env[CARDS_ENV_VARS.TYPE_NAME] = 'adaptive-card';
+      process.env[CARDS_ENV_VARS.TYPE_VERSION] = '2.0.0';
+      process.env[CARDS_ENV_VARS.FILE_NAME] = 'card.json';
+      process.env[CARDS_ENV_VARS.FILE_PATH] = '/cards/card-456/adaptive-card/card.json';
+      process.env[CARDS_ENV_VARS.FILE_SIZE] = '2048';
+      process.env[CARDS_ENV_VARS.SHA256] = 'def789ghi012';
+      process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/json';
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-xyz789';
+    }
+
+    it('should extract all type input fields when all are set', () => {
+      setupTypeEnv();
+
+      const input = extractTypeInput();
+
+      expect(input).toEqual({
+        cardId: 'card-456',
+        environment: 'staging',
+        typeName: 'adaptive-card',
+        typeVersion: '2.0.0',
+        fileName: 'card.json',
+        filePath: '/cards/card-456/adaptive-card/card.json',
+        fileSize: 2048,
+        fileSha256: 'def789ghi012',
+        contentType: 'application/json',
+        apiBaseUrl: 'https://api.example.com',
+        apiAccessToken: 'token-xyz789'
+      });
+    });
+
+    it('should throw when required CARD_ID is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.CARD_ID];
+
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: CARD_ID');
+    });
+
+    it('should throw when required ENVIRONMENT is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
+
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: ENVIRONMENT');
+    });
+
+    it('should throw when required TYPE_NAME is missing', () => {
+      setupTypeEnv();
       delete process.env[CARDS_ENV_VARS.TYPE_NAME];
-      delete process.env[CARDS_ENV_VARS.FILE_NAME];
-      delete process.env[CARDS_ENV_VARS.FILE_PATH];
-      delete process.env[CARDS_ENV_VARS.CONTENT_TYPE];
-      delete process.env[CARDS_ENV_VARS.FILE_SIZE];
-      delete process.env[CARDS_ENV_VARS.SHA256];
+
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: TYPE_NAME');
+    });
+
+    it('should throw when required TYPE_VERSION is missing', () => {
+      setupTypeEnv();
       delete process.env[CARDS_ENV_VARS.TYPE_VERSION];
-      delete process.env[CARDS_ENV_VARS.METADATA];
+
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: TYPE_VERSION');
     });
 
-    describe('getTypeName', () => {
-      it('should return type name when set', () => {
-        process.env[CARDS_ENV_VARS.TYPE_NAME] = 'my-type';
-        expect(getTypeName()).toBe('my-type');
-      });
+    it('should throw when required FILE_NAME is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.FILE_NAME];
 
-      it('should throw when TYPE_NAME is undefined', () => {
-        expect(() => getTypeName()).toThrow('Missing required environment variable: TYPE_NAME');
-      });
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: FILE_NAME');
     });
 
-    describe('getFileName', () => {
-      it('should return file name when set', () => {
-        process.env[CARDS_ENV_VARS.FILE_NAME] = 'document.pdf';
-        expect(getFileName()).toBe('document.pdf');
-      });
+    it('should throw when required FILE_PATH is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.FILE_PATH];
 
-      it('should throw when FILE_NAME is undefined', () => {
-        expect(() => getFileName()).toThrow('Missing required environment variable: FILE_NAME');
-      });
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: FILE_PATH');
     });
 
-    describe('getFilePath', () => {
-      it('should return file path when set', () => {
-        process.env[CARDS_ENV_VARS.FILE_PATH] = '/path/to/file';
-        expect(getFilePath()).toBe('/path/to/file');
-      });
+    it('should throw when required FILE_SIZE is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.FILE_SIZE];
 
-      it('should throw when FILE_PATH is undefined', () => {
-        expect(() => getFilePath()).toThrow('Missing required environment variable: FILE_PATH');
-      });
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: FILE_SIZE');
     });
 
-    describe('getContentType', () => {
-      it('should return content type when set', () => {
-        process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/pdf';
-        expect(getContentType()).toBe('application/pdf');
-      });
+    it('should throw when required SHA256 is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.SHA256];
 
-      it('should throw when CONTENT_TYPE is undefined', () => {
-        expect(() => getContentType()).toThrow('Missing required environment variable: CONTENT_TYPE');
-      });
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: SHA256');
     });
 
-    describe('getFileSize', () => {
-      it('should return file size as number when set to valid integer', () => {
-        process.env[CARDS_ENV_VARS.FILE_SIZE] = '1024';
-        expect(getFileSize()).toBe(1024);
-      });
+    it('should throw when required CONTENT_TYPE is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.CONTENT_TYPE];
 
-      it('should throw when FILE_SIZE is undefined', () => {
-        expect(() => getFileSize()).toThrow('Missing required environment variable: FILE_SIZE');
-      });
-
-      it('should throw when FILE_SIZE is not a number', () => {
-        process.env[CARDS_ENV_VARS.FILE_SIZE] = 'not-a-number';
-        expect(() => getFileSize()).toThrow('Invalid FILE_SIZE: expected number, got "not-a-number"');
-      });
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: CONTENT_TYPE');
     });
 
-    describe('getSha256', () => {
-      it('should return sha256 when set', () => {
-        process.env[CARDS_ENV_VARS.SHA256] = 'abc123def456';
-        expect(getSha256()).toBe('abc123def456');
-      });
+    it('should throw when required API_BASE_URL is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.API_BASE_URL];
 
-      it('should throw when SHA256 is undefined', () => {
-        expect(() => getSha256()).toThrow('Missing required environment variable: SHA256');
-      });
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: API_BASE_URL');
     });
 
-    describe('getTypeVersion', () => {
-      it('should return type version when set', () => {
-        process.env[CARDS_ENV_VARS.TYPE_VERSION] = '1.0.0';
-        expect(getTypeVersion()).toBe('1.0.0');
-      });
+    it('should throw when required API_ACCESS_TOKEN is missing', () => {
+      setupTypeEnv();
+      delete process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN];
 
-      it('should throw when TYPE_VERSION is undefined', () => {
-        expect(() => getTypeVersion()).toThrow('Missing required environment variable: TYPE_VERSION');
-      });
+      expect(() => extractTypeInput()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
     });
 
-    describe('getMetadata', () => {
-      it('should return parsed metadata when set to valid JSON', () => {
-        process.env[CARDS_ENV_VARS.METADATA] = '{"key":"value","count":42}';
-        expect(getMetadata()).toEqual({ key: 'value', count: 42 });
-      });
+    it('should throw when FILE_SIZE is not a valid number', () => {
+      setupTypeEnv();
+      process.env[CARDS_ENV_VARS.FILE_SIZE] = 'invalid-size';
 
-      it('should return undefined when METADATA is not set', () => {
-        expect(getMetadata()).toBeUndefined();
-      });
-
-      it('should return undefined when METADATA is empty string', () => {
-        process.env[CARDS_ENV_VARS.METADATA] = '';
-        expect(getMetadata()).toBeUndefined();
-      });
-
-      it('should throw when METADATA is set to invalid JSON', () => {
-        process.env[CARDS_ENV_VARS.METADATA] = 'not-valid-json';
-        expect(() => getMetadata()).toThrow('Invalid METADATA: expected valid JSON');
-      });
+      expect(() => extractTypeInput()).toThrow('Invalid FILE_SIZE: expected number, got "invalid-size"');
     });
   });
 });
