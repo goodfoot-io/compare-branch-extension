@@ -38,11 +38,11 @@ import { Logger } from './logger.js';
  * ```
  */
 export function typeValidation(config, handler) {
-  const fn = (request, context) => {
-    return Promise.resolve(handler(request, context));
-  };
-  fn.timeout = config.timeout;
-  return fn;
+    const fn = (request, context) => {
+        return Promise.resolve(handler(request, context));
+    };
+    fn.timeout = config.timeout;
+    return fn;
 }
 // ============================================================================
 // Output Builders
@@ -61,7 +61,7 @@ export function typeValidation(config, handler) {
  * ```
  */
 export function validationCreated(metadata) {
-  return { status: 201, metadata };
+    return { status: 201, metadata };
 }
 /**
  * Creates a 200 OK response.
@@ -77,7 +77,7 @@ export function validationCreated(metadata) {
  * ```
  */
 export function validationUpdated(metadata) {
-  return { status: 200, metadata };
+    return { status: 200, metadata };
 }
 /**
  * Creates an error response.
@@ -97,15 +97,15 @@ export function validationUpdated(metadata) {
  * ```
  */
 export function validationError(status, errors, message) {
-  const body = { errors };
-  if (message !== undefined) {
-    body.message = message;
-  }
-  return {
-    status,
-    body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' }
-  };
+    const body = { errors };
+    if (message !== undefined) {
+        body.message = message;
+    }
+    return {
+        status,
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' }
+    };
 }
 /**
  * Passes through a custom validation response.
@@ -123,7 +123,7 @@ export function validationError(status, errors, message) {
  * ```
  */
 export function validationResponse(response) {
-  return response;
+    return response;
 }
 // ============================================================================
 // Runtime Execution
@@ -175,62 +175,63 @@ export function validationResponse(response) {
  * ```
  */
 export async function executeValidation(validation) {
-  const logger = new Logger();
-  try {
-    // Read all of stdin
-    const chunks = [];
-    for await (const chunk of process.stdin) {
-      chunks.push(chunk);
+    const logger = new Logger();
+    try {
+        // Read all of stdin
+        const chunks = [];
+        for await (const chunk of process.stdin) {
+            chunks.push(chunk);
+        }
+        const input = Buffer.concat(chunks);
+        // Parse HTTP request
+        const parseResult = parseHttpRequest(input);
+        if (!parseResult.success) {
+            const errorResponse = {
+                status: 400,
+                body: JSON.stringify({ error: parseResult.error }),
+                headers: { 'Content-Type': 'application/json' }
+            };
+            process.stdout.write(JSON.stringify(errorResponse));
+            process.exit(0); // Exit 0 even for validation errors
+        }
+        // Extract type context from environment variables
+        const context = {
+            logger,
+            cwd: process.cwd(),
+            typeName: process.env[CARDS_ENV_VARS.TYPE_NAME] ?? '',
+            typeVersion: process.env[CARDS_ENV_VARS.TYPE_VERSION] ?? '',
+            fileName: process.env[CARDS_ENV_VARS.FILE_NAME] ?? '',
+            cardId: process.env[CARDS_ENV_VARS.CARD_ID] ?? '',
+            environment: process.env[CARDS_ENV_VARS.ENVIRONMENT] ?? '',
+            apiBaseUrl: process.env[CARDS_ENV_VARS.API_BASE_URL] ?? '',
+            apiAccessToken: process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] ?? ''
+        };
+        // Create TypeValidatorRequest from parsed HTTP request
+        const request = {
+            method: parseResult.request.method,
+            path: parseResult.request.path,
+            httpVersion: parseResult.request.httpVersion,
+            headers: parseResult.request.headers,
+            body: parseResult.request.body,
+            bodyText: parseResult.request.bodyText,
+            bodyJson: parseResult.request.bodyJson
+        };
+        // Execute handler
+        const response = await validation(request, context);
+        // Write response
+        process.stdout.write(JSON.stringify(response));
+        process.exit(0);
     }
-    const input = Buffer.concat(chunks);
-    // Parse HTTP request
-    const parseResult = parseHttpRequest(input);
-    if (!parseResult.success) {
-      const errorResponse = {
-        status: 400,
-        body: JSON.stringify({ error: parseResult.error }),
-        headers: { 'Content-Type': 'application/json' }
-      };
-      process.stdout.write(JSON.stringify(errorResponse));
-      process.exit(0); // Exit 0 even for validation errors
+    catch (error) {
+        // Unhandled error - return 500
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('Validation error', { error: errorMessage });
+        const errorResponse = {
+            status: 500,
+            body: JSON.stringify({ error: 'Internal validation error', message: errorMessage }),
+            headers: { 'Content-Type': 'application/json' }
+        };
+        process.stdout.write(JSON.stringify(errorResponse));
+        process.exit(0); // Exit 0 - non-zero only for crashes
     }
-    // Extract type context from environment variables
-    const context = {
-      logger,
-      cwd: process.cwd(),
-      typeName: process.env[CARDS_ENV_VARS.TYPE_NAME] ?? '',
-      typeVersion: process.env[CARDS_ENV_VARS.TYPE_VERSION] ?? '',
-      fileName: process.env[CARDS_ENV_VARS.FILE_NAME] ?? '',
-      cardId: process.env[CARDS_ENV_VARS.CARD_ID] ?? '',
-      environment: process.env[CARDS_ENV_VARS.ENVIRONMENT] ?? '',
-      apiBaseUrl: process.env[CARDS_ENV_VARS.API_BASE_URL] ?? '',
-      apiAccessToken: process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] ?? ''
-    };
-    // Create TypeValidatorRequest from parsed HTTP request
-    const request = {
-      method: parseResult.request.method,
-      path: parseResult.request.path,
-      httpVersion: parseResult.request.httpVersion,
-      headers: parseResult.request.headers,
-      body: parseResult.request.body,
-      bodyText: parseResult.request.bodyText,
-      bodyJson: parseResult.request.bodyJson
-    };
-    // Execute handler
-    const response = await validation(request, context);
-    // Write response
-    process.stdout.write(JSON.stringify(response));
-    process.exit(0);
-  } catch (error) {
-    // Unhandled error - return 500
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('Validation error', { error: errorMessage });
-    const errorResponse = {
-      status: 500,
-      body: JSON.stringify({ error: 'Internal validation error', message: errorMessage }),
-      headers: { 'Content-Type': 'application/json' }
-    };
-    process.stdout.write(JSON.stringify(errorResponse));
-    process.exit(0); // Exit 0 - non-zero only for crashes
-  }
 }
