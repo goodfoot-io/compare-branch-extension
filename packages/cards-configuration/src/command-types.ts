@@ -207,3 +207,38 @@ export interface TypeDeleteCommand<T extends string = string> {
    */
   sourcePath?: string;
 }
+
+/**
+ * Context provided to stream transform handlers.
+ */
+export interface TransformContext {
+  /** 1-based line number in the stream. */
+  lineNumber: number;
+  /** Stream type key (e.g., 'jsonl', 'logs'). */
+  streamType: string;
+}
+
+/**
+ * Callable command returned by stream transform factory.
+ *
+ * Transforms each line of a stream before processing. The handler receives
+ * the line content and context, and returns the transformed line.
+ *
+ * @template N - The literal stream type name (e.g., 'jsonl')
+ */
+export interface StreamTransformCommand<N extends string = string> {
+  (line: string, context: TransformContext): Promise<string>;
+  factoryType: 'streamTransform';
+  /** Stream type from config - preserved as literal type. */
+  streamType: N;
+  /** Optional timeout in milliseconds. */
+  timeout?: number;
+  /** Maximum line length in bytes. */
+  maxLineLength?: number;
+  /** Maximum stream size in bytes. */
+  maxStreamSize?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   */
+  sourcePath?: string;
+}

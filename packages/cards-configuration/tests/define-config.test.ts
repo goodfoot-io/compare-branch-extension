@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   ActionEndCommand,
   ActionStartCommand,
+  StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
@@ -520,6 +521,225 @@ describe('serializeSettings', () => {
       expect(typeDef?.create?.command).toBe('typeCreate-full-type.js');
       expect(typeDef?.update?.command).toBe('typeUpdate-full-type.js');
       expect(typeDef?.delete?.command).toBe('typeDelete-full-type.js');
+    });
+  });
+
+  describe('stream transform to StreamDefinition conversion', () => {
+    it('should extract streamType and generate correct command path', () => {
+      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
+      transformCommand.factoryType = 'streamTransform';
+      transformCommand.streamType = 'jsonl';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            streams: {
+              'jsonl-stream': {
+                version: 1,
+                transform: transformCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const streamDef = result.environments.default.streams?.['jsonl-stream'];
+
+      expect(streamDef?.transform.path).toBe('streamTransform-jsonl.js');
+    });
+
+    it('should preserve version field', () => {
+      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
+      transformCommand.factoryType = 'streamTransform';
+      transformCommand.streamType = 'jsonl';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            streams: {
+              'jsonl-stream': {
+                version: 1,
+                transform: transformCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const streamDef = result.environments.default.streams?.['jsonl-stream'];
+
+      expect(streamDef?.version).toBe(1);
+    });
+
+    it('should extract timeout from transform command', () => {
+      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
+      transformCommand.factoryType = 'streamTransform';
+      transformCommand.streamType = 'jsonl';
+      transformCommand.timeout = 5000;
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            streams: {
+              'jsonl-stream': {
+                version: 1,
+                transform: transformCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const streamDef = result.environments.default.streams?.['jsonl-stream'];
+
+      expect(streamDef?.transform.timeout).toBe(5000);
+    });
+
+    it('should extract maxLineLength from transform command', () => {
+      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
+      transformCommand.factoryType = 'streamTransform';
+      transformCommand.streamType = 'jsonl';
+      transformCommand.maxLineLength = 1024;
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            streams: {
+              'jsonl-stream': {
+                version: 1,
+                transform: transformCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const streamDef = result.environments.default.streams?.['jsonl-stream'];
+
+      expect(streamDef?.maxLineLength).toBe(1024);
+    });
+
+    it('should extract maxStreamSize from transform command', () => {
+      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
+      transformCommand.factoryType = 'streamTransform';
+      transformCommand.streamType = 'jsonl';
+      transformCommand.maxStreamSize = 1048576;
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            streams: {
+              'jsonl-stream': {
+                version: 1,
+                transform: transformCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const streamDef = result.environments.default.streams?.['jsonl-stream'];
+
+      expect(streamDef?.maxStreamSize).toBe(1048576);
+    });
+
+    it('should handle stream with all metadata', () => {
+      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
+      transformCommand.factoryType = 'streamTransform';
+      transformCommand.streamType = 'jsonl';
+      transformCommand.timeout = 5000;
+      transformCommand.maxLineLength = 1024;
+      transformCommand.maxStreamSize = 1048576;
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            streams: {
+              'jsonl-stream': {
+                version: 1,
+                transform: transformCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const streamDef = result.environments.default.streams?.['jsonl-stream'];
+
+      expect(streamDef?.version).toBe(1);
+      expect(streamDef?.transform.path).toBe('streamTransform-jsonl.js');
+      expect(streamDef?.transform.timeout).toBe(5000);
+      expect(streamDef?.maxLineLength).toBe(1024);
+      expect(streamDef?.maxStreamSize).toBe(1048576);
+    });
+
+    it('should handle multiple streams in one environment', () => {
+      const jsonlTransform = vi.fn() as unknown as StreamTransformCommand;
+      jsonlTransform.factoryType = 'streamTransform';
+      jsonlTransform.streamType = 'jsonl';
+
+      const logsTransform = vi.fn() as unknown as StreamTransformCommand;
+      logsTransform.factoryType = 'streamTransform';
+      logsTransform.streamType = 'logs';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            streams: {
+              'jsonl-stream': {
+                version: 1,
+                transform: jsonlTransform
+              },
+              'logs-stream': {
+                version: 1,
+                transform: logsTransform
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+
+      expect(result.environments.default.streams?.['jsonl-stream']).toBeDefined();
+      expect(result.environments.default.streams?.['logs-stream']).toBeDefined();
+      expect(result.environments.default.streams?.['jsonl-stream'].transform.path).toBe('streamTransform-jsonl.js');
+      expect(result.environments.default.streams?.['logs-stream'].transform.path).toBe('streamTransform-logs.js');
+    });
+
+    it('should handle missing streams gracefully', () => {
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: []
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+
+      expect(result.environments.default.streams).toBeUndefined();
     });
   });
 

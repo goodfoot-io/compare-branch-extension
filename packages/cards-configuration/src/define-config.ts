@@ -26,7 +26,7 @@
  */
 
 import type { SettingsConfig } from './config.js';
-import type { Action, Command, Settings, TypeDefinition } from './schema.js';
+import type { Action, Command, Settings, StreamDefinition, TypeDefinition } from './schema.js';
 
 /**
  * Type hook command with factoryType and typeName properties.
@@ -36,6 +36,18 @@ interface TypeHookCommand {
   factoryType: string;
   typeName: string;
   timeout?: number;
+}
+
+/**
+ * Stream hook command with factoryType and streamType properties.
+ * Used internally for serializing stream transform commands.
+ */
+interface StreamHookCommand {
+  factoryType: string;
+  streamType: string;
+  timeout?: number;
+  maxLineLength?: number;
+  maxStreamSize?: number;
 }
 
 /**
@@ -53,6 +65,39 @@ function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefin
     command.timeout = hook.timeout;
   }
   return command;
+}
+
+/**
+ * Serializes a stream configuration to a StreamDefinition object.
+ * Extracts metadata from the transform command and generates the command path.
+ *
+ * @param streamConfig - The stream configuration with transform command
+ * @returns StreamDefinition compatible with settings.json schema
+ */
+function serializeStreamConfig(streamConfig: { version: number; transform: StreamHookCommand }): StreamDefinition {
+  const transform = streamConfig.transform;
+
+  const streamDef: StreamDefinition = {
+    version: streamConfig.version,
+    transform: {
+      path: `${transform.factoryType}-${transform.streamType}.js`
+    }
+  };
+
+  // Add optional timeout to transform
+  if (transform.timeout !== undefined) {
+    streamDef.transform.timeout = transform.timeout;
+  }
+
+  // Add optional size constraints
+  if (transform.maxLineLength !== undefined) {
+    streamDef.maxLineLength = transform.maxLineLength;
+  }
+  if (transform.maxStreamSize !== undefined) {
+    streamDef.maxStreamSize = transform.maxStreamSize;
+  }
+
+  return streamDef;
 }
 
 /**
@@ -206,6 +251,19 @@ export function serializeSettings(config: SettingsConfig): Settings {
       }
     }
 
+    // Serialize streams
+    let serializedStreams: Settings['environments'][string]['streams'];
+    if (envConfig.streams) {
+      serializedStreams = {};
+      for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
+        const streamDef = serializeStreamConfig({
+          version: streamConfig.version,
+          transform: streamConfig.transform as unknown as StreamHookCommand
+        });
+        serializedStreams[streamName] = streamDef;
+      }
+    }
+
     // Build the serialized environment
     serializedEnvironments[envName] = {
       version: envConfig.version ?? 1,
@@ -220,6 +278,11 @@ export function serializeSettings(config: SettingsConfig): Settings {
     // Add types if present
     if (serializedTypes) {
       serializedEnvironments[envName].types = serializedTypes;
+    }
+
+    // Add streams if present
+    if (serializedStreams) {
+      serializedEnvironments[envName].streams = serializedStreams;
     }
   }
 

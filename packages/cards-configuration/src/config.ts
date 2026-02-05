@@ -32,6 +32,7 @@
 import type {
   ActionEndCommand,
   ActionStartCommand,
+  StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
@@ -82,6 +83,44 @@ export interface ActionPair<N extends string = string> {
    * name must match the start command's action name, enforced by TypeScript.
    */
   end?: ActionEndCommand<N>;
+}
+
+// ============================================================================
+// Stream Configuration
+// ============================================================================
+
+/**
+ * Stream definition for settings configuration.
+ *
+ * Defines a stream transform handler that processes lines from streaming
+ * endpoints. The transform runs on each line before further processing.
+ *
+ * This is the input format for stream definitions in settings.config.ts files.
+ * It uses a direct import of the command object created by the factory function.
+ *
+ * @example
+ * ```typescript
+ * const jsonlStream: StreamConfigDefinition = {
+ *   version: 1,
+ *   transform: defineStreamTransform({ streamType: 'jsonl' }, transformHandler)
+ * };
+ * ```
+ */
+export interface StreamConfigDefinition {
+  /**
+   * Stream schema version.
+   *
+   * Identifies the version of the stream definition. Must be a positive integer.
+   */
+  version: number;
+
+  /**
+   * Transform command.
+   *
+   * The stream transform command that processes each line of the stream.
+   * Created using the defineStreamTransform factory function.
+   */
+  transform: StreamTransformCommand;
 }
 
 // ============================================================================
@@ -206,6 +245,14 @@ export interface EnvironmentConfig {
    * Type names should match the type discriminant in typed files.
    */
   types?: Record<string, TypeConfigDefinition>;
+
+  /**
+   * Optional stream definitions.
+   *
+   * Maps stream type names to their configurations (transform handler).
+   * Stream types identify different kinds of streaming endpoints (e.g., 'jsonl', 'logs').
+   */
+  streams?: Record<string, StreamConfigDefinition>;
 }
 
 // ============================================================================

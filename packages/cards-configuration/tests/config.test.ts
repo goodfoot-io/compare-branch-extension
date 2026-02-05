@@ -10,12 +10,19 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   ActionEndCommand,
   ActionStartCommand,
+  StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
   TypeValidatorCommand
 } from '../src/command-types.js';
-import type { ActionPair, EnvironmentConfig, SettingsConfig, TypeConfigDefinition } from '../src/config.js';
+import type {
+  ActionPair,
+  EnvironmentConfig,
+  SettingsConfig,
+  StreamConfigDefinition,
+  TypeConfigDefinition
+} from '../src/config.js';
 
 // ============================================================================
 // Type-Level Tests
@@ -123,6 +130,52 @@ describe('config types', () => {
       const pair: ActionPair<Actions> = { start };
 
       expectTypeOf(pair.start.actionName).toEqualTypeOf<Actions>();
+    });
+  });
+
+  describe('StreamConfigDefinition', () => {
+    it('should accept stream config with version and transform', () => {
+      const transform: StreamTransformCommand<'jsonl'> = {
+        factoryType: 'streamTransform',
+        streamType: 'jsonl'
+      } as StreamTransformCommand<'jsonl'>;
+
+      const streamConfig: StreamConfigDefinition = {
+        version: 1,
+        transform
+      };
+
+      expect(streamConfig.version).toBe(1);
+      expect(streamConfig.transform.streamType).toBe('jsonl');
+    });
+
+    it('should verify version is required and is number type', () => {
+      // Type-level check that version is required and is a number
+      type ConfigType = StreamConfigDefinition;
+
+      expectTypeOf<ConfigType>().toHaveProperty('version').toEqualTypeOf<number>();
+    });
+
+    it('should verify transform is required', () => {
+      // Type-level check that transform is required
+      type ConfigType = StreamConfigDefinition;
+
+      expectTypeOf<ConfigType>().toHaveProperty('transform').toEqualTypeOf<StreamTransformCommand>();
+    });
+
+    it('should accept stream config with different stream types', () => {
+      const logsTransform: StreamTransformCommand<'logs'> = {
+        factoryType: 'streamTransform',
+        streamType: 'logs'
+      } as StreamTransformCommand<'logs'>;
+
+      const streamConfig: StreamConfigDefinition = {
+        version: 2,
+        transform: logsTransform
+      };
+
+      expect(streamConfig.version).toBe(2);
+      expect(streamConfig.transform.streamType).toBe('logs');
     });
   });
 
@@ -259,6 +312,82 @@ describe('config types', () => {
       expectTypeOf<EnvType['version']>().toEqualTypeOf<number | undefined>();
       expectTypeOf<EnvType['description']>().toEqualTypeOf<string | undefined>();
       expectTypeOf<EnvType['types']>().toEqualTypeOf<Record<string, TypeConfigDefinition> | undefined>();
+    });
+
+    it('should accept environment with streams', () => {
+      const start: ActionStartCommand = {
+        factoryType: 'actionStart',
+        actionName: 'Launch'
+      } as ActionStartCommand;
+
+      const transform: StreamTransformCommand<'jsonl'> = {
+        factoryType: 'streamTransform',
+        streamType: 'jsonl'
+      } as StreamTransformCommand<'jsonl'>;
+
+      const streamConfig: StreamConfigDefinition = {
+        version: 1,
+        transform
+      };
+
+      const envConfig: EnvironmentConfig = {
+        actions: [{ start }],
+        streams: {
+          jsonl: streamConfig
+        }
+      };
+
+      expect(envConfig.streams?.jsonl).toBe(streamConfig);
+      expect(envConfig.streams?.jsonl.version).toBe(1);
+    });
+
+    it('should accept environment without streams', () => {
+      const start: ActionStartCommand = {
+        factoryType: 'actionStart',
+        actionName: 'Launch'
+      } as ActionStartCommand;
+
+      const envConfig: EnvironmentConfig = {
+        actions: [{ start }]
+      };
+
+      expect(envConfig.streams).toBeUndefined();
+    });
+
+    it('should verify streams field is optional', () => {
+      // Type-level check that streams is optional
+      type EnvType = EnvironmentConfig;
+
+      expectTypeOf<EnvType['streams']>().toEqualTypeOf<Record<string, StreamConfigDefinition> | undefined>();
+    });
+
+    it('should accept multiple stream definitions', () => {
+      const start: ActionStartCommand = {
+        factoryType: 'actionStart',
+        actionName: 'Launch'
+      } as ActionStartCommand;
+
+      const jsonlTransform: StreamTransformCommand<'jsonl'> = {
+        factoryType: 'streamTransform',
+        streamType: 'jsonl'
+      } as StreamTransformCommand<'jsonl'>;
+
+      const logsTransform: StreamTransformCommand<'logs'> = {
+        factoryType: 'streamTransform',
+        streamType: 'logs'
+      } as StreamTransformCommand<'logs'>;
+
+      const envConfig: EnvironmentConfig = {
+        actions: [{ start }],
+        streams: {
+          jsonl: { version: 1, transform: jsonlTransform },
+          logs: { version: 2, transform: logsTransform }
+        }
+      };
+
+      expect(Object.keys(envConfig.streams ?? {})).toHaveLength(2);
+      expect(envConfig.streams?.jsonl.version).toBe(1);
+      expect(envConfig.streams?.logs.version).toBe(2);
     });
   });
 
@@ -422,6 +551,44 @@ describe('config types', () => {
       };
 
       expectTypeOf(config.environments.default.actions[0].start.actionName).toEqualTypeOf<'SpecificAction'>();
+    });
+
+    it('should support configuration with streams alongside actions and types', () => {
+      const start: ActionStartCommand<'Launch'> = {
+        factoryType: 'actionStart',
+        actionName: 'Launch'
+      } as ActionStartCommand<'Launch'>;
+
+      const validator: TypeValidatorCommand<'adaptive-card'> = {
+        factoryType: 'typeValidator',
+        typeName: 'adaptive-card'
+      } as TypeValidatorCommand<'adaptive-card'>;
+
+      const transform: StreamTransformCommand<'jsonl'> = {
+        factoryType: 'streamTransform',
+        streamType: 'jsonl'
+      } as StreamTransformCommand<'jsonl'>;
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            description: 'Full environment with streams',
+            actions: [{ start }],
+            types: {
+              'adaptive-card': { version: '1.0.0', validator }
+            },
+            streams: {
+              jsonl: { version: 1, transform }
+            }
+          }
+        }
+      };
+
+      expect(config.environments.default.actions).toHaveLength(1);
+      expect(config.environments.default.types?.['adaptive-card']).toBeDefined();
+      expect(config.environments.default.streams?.jsonl).toBeDefined();
+      expect(config.environments.default.streams?.jsonl.version).toBe(1);
     });
   });
 });

@@ -110,6 +110,37 @@ export interface TypeDefinition {
 }
 
 // ============================================================================
+// StreamDefinition
+// ============================================================================
+
+/**
+ * Represents a stream configuration with transform and size constraints.
+ *
+ * Stream definitions specify how to transform JSONL streams and set limits
+ * on line length and total stream size.
+ *
+ * @example
+ * ```typescript
+ * const streamDef: StreamDefinition = {
+ *   version: 1,
+ *   transform: { path: './bin/transform.js', timeout: 5000 },
+ *   maxLineLength: 1024,
+ *   maxStreamSize: 1048576
+ * };
+ * ```
+ */
+export interface StreamDefinition {
+  /** Version number for the stream definition */
+  version: number;
+  /** Transform configuration with script path and optional timeout */
+  transform: { path: string; timeout?: number };
+  /** Optional maximum length for a single line in bytes */
+  maxLineLength?: number;
+  /** Optional maximum total stream size in bytes */
+  maxStreamSize?: number;
+}
+
+// ============================================================================
 // Environment
 // ============================================================================
 
@@ -148,6 +179,8 @@ export interface Environment {
   actions: Action[];
   /** Optional record of type definitions keyed by type name */
   types?: Record<string, TypeDefinition>;
+  /** Optional record of stream definitions keyed by stream name */
+  streams?: Record<string, StreamDefinition>;
 }
 
 // ============================================================================

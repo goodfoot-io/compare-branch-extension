@@ -6,7 +6,7 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
-import type { Action, Command, Environment, Settings, TypeDefinition } from '../src/schema.js';
+import type { Action, Command, Environment, Settings, StreamDefinition, TypeDefinition } from '../src/schema.js';
 
 // ============================================================================
 // Command Tests
@@ -186,6 +186,79 @@ describe('TypeDefinition', () => {
 });
 
 // ============================================================================
+// StreamDefinition Tests
+// ============================================================================
+
+describe('StreamDefinition', () => {
+  it('should require version and transform properties', () => {
+    expectTypeOf<StreamDefinition>().toMatchTypeOf<{
+      version: number;
+      transform: { path: string; timeout?: number };
+    }>();
+  });
+
+  it('should require version to be a number', () => {
+    const streamDef: StreamDefinition = {
+      version: 1,
+      transform: { path: './bin/transform.js' }
+    };
+    expectTypeOf(streamDef.version).toBeNumber();
+  });
+
+  it('should require transform.path to be a string', () => {
+    const streamDef: StreamDefinition = {
+      version: 1,
+      transform: { path: './bin/transform.js' }
+    };
+    expectTypeOf(streamDef.transform.path).toBeString();
+  });
+
+  it('should allow minimal stream definition with only required fields', () => {
+    const minimalStream: StreamDefinition = {
+      version: 1,
+      transform: { path: './bin/transform.js' }
+    };
+    expectTypeOf(minimalStream).toMatchTypeOf<StreamDefinition>();
+  });
+
+  it('should allow optional timeout in transform', () => {
+    const streamWithTimeout: StreamDefinition = {
+      version: 1,
+      transform: { path: './bin/transform.js', timeout: 5000 }
+    };
+    expectTypeOf(streamWithTimeout.transform.timeout).toEqualTypeOf<number | undefined>();
+  });
+
+  it('should allow optional maxLineLength property', () => {
+    const streamWithMaxLine: StreamDefinition = {
+      version: 1,
+      transform: { path: './bin/transform.js' },
+      maxLineLength: 1024
+    };
+    expectTypeOf(streamWithMaxLine.maxLineLength).toEqualTypeOf<number | undefined>();
+  });
+
+  it('should allow optional maxStreamSize property', () => {
+    const streamWithMaxSize: StreamDefinition = {
+      version: 1,
+      transform: { path: './bin/transform.js' },
+      maxStreamSize: 1048576
+    };
+    expectTypeOf(streamWithMaxSize.maxStreamSize).toEqualTypeOf<number | undefined>();
+  });
+
+  it('should allow all properties together', () => {
+    const fullStream: StreamDefinition = {
+      version: 1,
+      transform: { path: './bin/transform.js', timeout: 5000 },
+      maxLineLength: 1024,
+      maxStreamSize: 1048576
+    };
+    expectTypeOf(fullStream).toMatchTypeOf<StreamDefinition>();
+  });
+});
+
+// ============================================================================
 // Environment Tests
 // ============================================================================
 
@@ -253,6 +326,41 @@ describe('Environment', () => {
     }
   });
 
+  it('should allow optional streams property', () => {
+    const envWithStreams: Environment = {
+      version: 1,
+      actions: [],
+      streams: {
+        logs: {
+          version: 1,
+          transform: { path: './bin/transform-logs.js' }
+        }
+      }
+    };
+    expectTypeOf(envWithStreams.streams).toEqualTypeOf<Record<string, StreamDefinition> | undefined>();
+  });
+
+  it('should allow streams to be a record of StreamDefinitions', () => {
+    const env: Environment = {
+      version: 1,
+      actions: [],
+      streams: {
+        logs: {
+          version: 1,
+          transform: { path: './bin/transform-logs.js' }
+        },
+        metrics: {
+          version: 1,
+          transform: { path: './bin/transform-metrics.js' }
+        }
+      }
+    };
+    if (env.streams) {
+      expectTypeOf(env.streams.logs).toMatchTypeOf<StreamDefinition>();
+      expectTypeOf(env.streams.metrics).toMatchTypeOf<StreamDefinition>();
+    }
+  });
+
   it('should allow all properties together', () => {
     const fullEnv: Environment = {
       version: 1,
@@ -267,6 +375,14 @@ describe('Environment', () => {
         note: {
           version: '1.0.0',
           validator: { command: 'node ./bin/validator.js' }
+        }
+      },
+      streams: {
+        logs: {
+          version: 1,
+          transform: { path: './bin/transform-logs.js', timeout: 5000 },
+          maxLineLength: 1024,
+          maxStreamSize: 1048576
         }
       }
     };
