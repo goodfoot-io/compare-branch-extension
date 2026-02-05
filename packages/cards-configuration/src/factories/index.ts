@@ -27,6 +27,7 @@ export {
 } from './action-start.js';
 export {
   defineStreamTransform,
+  type StreamInitHandler,
   type StreamTransformConfig,
   type StreamTransformHandler
 } from './stream-transform.js';

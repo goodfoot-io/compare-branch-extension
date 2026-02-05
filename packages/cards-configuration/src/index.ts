@@ -46,6 +46,7 @@ export {
 
 export {
   defineStreamTransform,
+  type StreamInitHandler,
   type StreamTransformConfig,
   type StreamTransformHandler
 } from './factories/stream-transform.js';
@@ -96,6 +97,8 @@ export type {
 export type {
   ActionEndCommand,
   ActionStartCommand,
+  StreamInitContext,
+  StreamInitHandler as StreamInitHandlerType,
   StreamTransformCommand,
   TransformContext,
   TypeCreateCommand,

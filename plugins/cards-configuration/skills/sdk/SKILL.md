@@ -183,20 +183,35 @@ export const del = defineTypeDelete(
 
 ## Stream Configuration Example
 
-Stream transforms process JSONL lines as they arrive. Unlike actions and validators, transforms are plain ESM modules (not SDK factory functions) and don't require a rebuild step.
+Stream transforms process JSONL lines as they arrive in isolated worker threads. Unlike actions and validators, transforms are plain ESM modules (not SDK factory functions) and don't require a rebuild step.
+
+Each stream gets its own isolated worker with a `state` Map shared between the optional `init()` function and the `transform()` function. This enables stateful stream processing while maintaining security through worker isolation.
 
 Create transform modules in `.cards/transforms/`:
 
 ```javascript
-// .cards/transforms/chat-formatter.mjs
-export default function transform(line, context) {
-  try {
-    const msg = JSON.parse(line);
-    return `**${msg.role}** (line ${context.lineNumber}):\n${msg.content}`;
-  } catch {
-    return line; // Return original line on parse error
-  }
+// .cards/transforms/session-counter.mjs
+import { defineStreamTransform } from '@cards/configuration';
+
+// Optional init function - called once when stream starts
+function init(ctx) {
+  ctx.state.set('counter', 0);
+  ctx.state.set('sessionId', ctx.headers['x-session-id'] ?? 'unknown');
+  console.log('Stream started for card:', ctx.card.id);
 }
+
+// Transform function - called for each line
+function transform(line, ctx) {
+  const count = (ctx.state.get('counter') ?? 0) + 1;
+  ctx.state.set('counter', count);
+  return `[${count}] ${line}`;
+}
+
+export default defineStreamTransform(
+  { streamType: 'logs' },
+  transform,
+  init
+);
 ```
 
 Configure stream types in your environment:

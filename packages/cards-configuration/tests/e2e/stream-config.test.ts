@@ -352,7 +352,8 @@ describe('stream configuration serialization', () => {
       // Execute the transform to verify context
       const testContext: TransformContext = {
         lineNumber: 42,
-        streamType: 'jsonl'
+        streamType: 'jsonl',
+        state: new Map()
       };
 
       await transform('test line', testContext);
@@ -380,9 +381,10 @@ describe('stream configuration serialization', () => {
       );
 
       // Simulate processing multiple lines
-      await transform('line 1', { lineNumber: 1, streamType: 'jsonl' });
-      await transform('line 2', { lineNumber: 2, streamType: 'jsonl' });
-      await transform('line 3', { lineNumber: 3, streamType: 'jsonl' });
+      const state = new Map();
+      await transform('line 1', { lineNumber: 1, streamType: 'jsonl', state });
+      await transform('line 2', { lineNumber: 2, streamType: 'jsonl', state });
+      await transform('line 3', { lineNumber: 3, streamType: 'jsonl', state });
 
       expect(lineNumbers).toEqual([1, 2, 3]);
     });

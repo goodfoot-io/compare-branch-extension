@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import type { TransformContext } from '../../src/command-types.js';
+import type { StreamInitContext, TransformContext } from '../../src/command-types.js';
 import {
   defineStreamTransform,
   type StreamTransformConfig,
@@ -21,7 +21,21 @@ import {
 // Mock context for testing
 const createMockContext = (lineNumber: number = 1, streamType: string = 'jsonl'): TransformContext => ({
   lineNumber,
-  streamType
+  streamType,
+  state: new Map()
+});
+
+// Mock init context for testing
+const createMockInitContext = (streamType: string = 'jsonl', filename: string = 'test.jsonl'): StreamInitContext => ({
+  streamType,
+  filename,
+  headers: { 'content-type': 'application/json' },
+  card: {
+    id: 'card-123',
+    title: 'Test Card',
+    metadata: {}
+  },
+  state: new Map()
 });
 
 describe('defineStreamTransform', () => {
@@ -271,6 +285,78 @@ describe('defineStreamTransform', () => {
       expect(result2).toBe('[Line 2] second');
       expect(result3).toBe('[Line 3] third');
       expect(handler).toHaveBeenCalledTimes(3);
+    });
+
+    // Init handler tests
+    it('should accept init handler as third parameter', () => {
+      const handler = vi.fn(async (line: string) => line);
+      const init = vi.fn(async (ctx: StreamInitContext) => {
+        ctx.state.set('initialized', true);
+      });
+      const config: StreamTransformConfig = { streamType: 'jsonl' };
+
+      const command = defineStreamTransform(config, handler, init);
+
+      expect(command.init).toBe(init);
+    });
+
+    it('should work without init handler (backward compatible)', async () => {
+      const handler = vi.fn(async (line: string) => line.toUpperCase());
+      const config: StreamTransformConfig = { streamType: 'jsonl' };
+
+      const command = defineStreamTransform(config, handler);
+      const context = createMockContext();
+
+      const result = await command('test', context);
+
+      expect(result).toBe('TEST');
+      expect(handler).toHaveBeenCalledWith('test', context);
+      expect(command.init).toBeUndefined();
+    });
+
+    it('should include init property when provided', () => {
+      const handler = vi.fn(async (line: string) => line);
+      const init = vi.fn(async (ctx: StreamInitContext) => {
+        ctx.state.set('key', 'value');
+      });
+      const config: StreamTransformConfig = { streamType: 'jsonl' };
+
+      const command = defineStreamTransform(config, handler, init);
+
+      expect(command.init).toBeDefined();
+      expect(typeof command.init).toBe('function');
+    });
+
+    it('should exclude init property when not provided', () => {
+      const handler = vi.fn(async (line: string) => line);
+      const config: StreamTransformConfig = { streamType: 'jsonl' };
+
+      const command = defineStreamTransform(config, handler);
+
+      expect(command.init).toBeUndefined();
+    });
+
+    it('should pass StreamInitContext type to init handler', async () => {
+      const handler = vi.fn(async (line: string) => line);
+      const init = vi.fn(async (ctx: StreamInitContext) => {
+        // Verify we can access all expected properties
+        expect(ctx.streamType).toBeDefined();
+        expect(ctx.filename).toBeDefined();
+        expect(ctx.headers).toBeDefined();
+        expect(ctx.card).toBeDefined();
+        expect(ctx.card.id).toBeDefined();
+        expect(ctx.state).toBeInstanceOf(Map);
+      });
+      const config: StreamTransformConfig = { streamType: 'jsonl' };
+
+      const command = defineStreamTransform(config, handler, init);
+
+      // Manually invoke init to verify it receives the correct context
+      if (command.init) {
+        const initContext = createMockInitContext();
+        await command.init(initContext);
+        expect(init).toHaveBeenCalledWith(initContext);
+      }
     });
   });
 

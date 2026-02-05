@@ -9,7 +9,7 @@
  * @module factories/stream-transform
  */
 
-import type { StreamTransformCommand, TransformContext } from '../command-types.js';
+import type { StreamInitContext, StreamTransformCommand, TransformContext } from '../command-types.js';
 import type { SameShape } from '../type-utils.js';
 
 /**
@@ -45,6 +45,18 @@ export interface StreamTransformConfig {
 export type StreamTransformHandler = (line: string, context: TransformContext) => string | Promise<string>;
 
 /**
+ * Optional initialization handler for stream transforms.
+ *
+ * Called once when a stream begins, before any lines are processed.
+ * Use this to set up session-level state based on HTTP headers, card metadata,
+ * or other stream context.
+ *
+ * @param context - Stream initialization context with headers, card info, and state
+ * @returns A promise that resolves when initialization is complete, or void
+ */
+export type StreamInitHandler = (context: StreamInitContext) => void | Promise<void>;
+
+/**
  * Creates a stream transform handler.
  *
  * Transform handlers receive each line of a stream and return the transformed
@@ -54,6 +66,7 @@ export type StreamTransformHandler = (line: string, context: TransformContext) =
  * @template T - Config type (inferred)
  * @param config - Stream metadata including the stream type
  * @param handler - Function that transforms each line
+ * @param init - Optional initialization handler called once at stream start
  * @returns A command wrapper suitable for default export
  *
  * @example
@@ -75,10 +88,34 @@ export type StreamTransformHandler = (line: string, context: TransformContext) =
  *   }
  * );
  * ```
+ *
+ * @example With init handler
+ * ```typescript
+ * // transforms/jsonl-with-state.ts
+ * import { defineStreamTransform } from '@cards/configuration';
+ *
+ * export default defineStreamTransform(
+ *   {
+ *     streamType: 'jsonl',
+ *     sourcePath: import.meta.filename
+ *   },
+ *   async (line, context) => {
+ *     // Access session state set during init
+ *     const prefix = context.state?.get('prefix') as string || '';
+ *     return `${prefix}${line}`;
+ *   },
+ *   async (context) => {
+ *     // Initialize session state from headers
+ *     const clientId = context.headers['x-client-id'] || 'unknown';
+ *     context.state.set('prefix', `[${clientId}] `);
+ *   }
+ * );
+ * ```
  */
 export function defineStreamTransform<T extends StreamTransformConfig>(
   config: SameShape<StreamTransformConfig, T>,
-  handler: StreamTransformHandler
+  handler: StreamTransformHandler,
+  init?: StreamInitHandler
 ): StreamTransformCommand<T['streamType']> {
   const fn = async (line: string, context: TransformContext): Promise<string> => {
     return await Promise.resolve(handler(line, context));
@@ -90,6 +127,11 @@ export function defineStreamTransform<T extends StreamTransformConfig>(
   fn.maxLineLength = config.maxLineLength;
   fn.maxStreamSize = config.maxStreamSize;
   fn.sourcePath = config.sourcePath;
+
+  // Attach init handler if provided
+  if (init) {
+    fn.init = init;
+  }
 
   return fn as unknown as StreamTransformCommand<T['streamType']>;
 }
