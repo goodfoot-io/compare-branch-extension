@@ -295,6 +295,8 @@ if [ -f "$REPO_ROOT/package.json" ]; then
             mkdir -p "$dst"
 
             # Process all top-level entries
+            # Note: Use ln -snf (not ln -sf) to avoid following existing symlinks
+            # This is critical when entries appear multiple times due to filesystem issues
             for entry in "$src"/*; do
                 [ -e "$entry" ] || [ -L "$entry" ] || continue
                 name=$(basename "$entry")
@@ -304,11 +306,11 @@ if [ -f "$REPO_ROOT/package.json" ]; then
                     target=$(readlink "$entry")
                     if is_internal_symlink "$target"; then
                         # Internal - preserve relative path (auto-routes to worktree)
-                        ln -sf "$target" "$dst/$name"
+                        ln -snf "$target" "$dst/$name"
                         reroute_node_modules_count=$((reroute_node_modules_count + 1))
                     else
                         # External - link to original location
-                        ln -sf "$entry" "$dst/$name"
+                        ln -snf "$entry" "$dst/$name"
                     fi
                 elif [ -d "$entry" ]; then
                     # Entry is a directory
@@ -322,23 +324,23 @@ if [ -f "$REPO_ROOT/package.json" ]; then
                             if [ -L "$pkg" ]; then
                                 target=$(readlink "$pkg")
                                 if is_internal_symlink "$target"; then
-                                    ln -sf "$target" "$dst/$name/$pkg_name"
+                                    ln -snf "$target" "$dst/$name/$pkg_name"
                                     reroute_node_modules_count=$((reroute_node_modules_count + 1))
                                 else
-                                    ln -sf "$pkg" "$dst/$name/$pkg_name"
+                                    ln -snf "$pkg" "$dst/$name/$pkg_name"
                                 fi
                             else
                                 # Real directory - link whole thing
-                                ln -sf "$pkg" "$dst/$name/$pkg_name"
+                                ln -snf "$pkg" "$dst/$name/$pkg_name"
                             fi
                         done
                     else
                         # Non-scoped directory - link entire thing
-                        ln -sf "$entry" "$dst/$name"
+                        ln -snf "$entry" "$dst/$name"
                     fi
                 else
                     # File - link to original
-                    ln -sf "$entry" "$dst/$name"
+                    ln -snf "$entry" "$dst/$name"
                 fi
             done
         }
