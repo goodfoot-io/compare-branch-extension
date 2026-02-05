@@ -6,22 +6,21 @@
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { build } from '../../src/cli/index.js';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { build, main } from '../../src/cli/index.js';
 
-// Test fixtures directory
-const FIXTURES_DIR =
-  '/tmp/claude-1000/-workspace--worktrees-settings-updates/14bd0ed8-2e93-4c1d-bbc6-ce5ed92e3214/scratchpad/cli-index-fixtures';
+// Test fixtures directory - use a stable path for this test file
+const FIXTURES_DIR = '/tmp/cards-configuration-cli-index-test-fixtures';
 
-describe('build', () => {
-  beforeAll(() => {
-    // Create fixtures directory
-    mkdirSync(FIXTURES_DIR, { recursive: true });
+// Module-level setup/teardown so fixtures are available to all describe blocks
+beforeAll(() => {
+  // Create fixtures directory
+  mkdirSync(FIXTURES_DIR, { recursive: true });
 
-    // Create valid config with actions
-    writeFileSync(
-      join(FIXTURES_DIR, 'valid.config.ts'),
-      `
+  // Create valid config with actions
+  writeFileSync(
+    join(FIXTURES_DIR, 'valid.config.ts'),
+    `
 const launchStart = {
   factoryType: 'actionStart',
   actionName: 'Launch',
@@ -47,13 +46,13 @@ export default {
     }
   }
 };
-      `.trim()
-    );
+    `.trim()
+  );
 
-    // Create config with multiple environments
-    writeFileSync(
-      join(FIXTURES_DIR, 'multi-env.config.ts'),
-      `
+  // Create config with multiple environments
+  writeFileSync(
+    join(FIXTURES_DIR, 'multi-env.config.ts'),
+    `
 const start1 = {
   factoryType: 'actionStart',
   actionName: 'Action1',
@@ -78,13 +77,13 @@ export default {
     }
   }
 };
-      `.trim()
-    );
+    `.trim()
+  );
 
-    // Create config with type definitions
-    writeFileSync(
-      join(FIXTURES_DIR, 'with-types.config.ts'),
-      `
+  // Create config with type definitions
+  writeFileSync(
+    join(FIXTURES_DIR, 'with-types.config.ts'),
+    `
 const noteValidator = {
   factoryType: 'typeValidator',
   typeName: 'note',
@@ -111,24 +110,24 @@ export default {
     }
   }
 };
-      `.trim()
-    );
+    `.trim()
+  );
 
-    // Create invalid config (missing environments)
-    writeFileSync(
-      join(FIXTURES_DIR, 'invalid.config.ts'),
-      `
+  // Create invalid config (missing environments)
+  writeFileSync(
+    join(FIXTURES_DIR, 'invalid.config.ts'),
+    `
 export default {
   version: 1,
   actions: []
 };
-      `.trim()
-    );
+    `.trim()
+  );
 
-    // Create config with syntax error
-    writeFileSync(
-      join(FIXTURES_DIR, 'syntax-error.config.ts'),
-      `
+  // Create config with syntax error
+  writeFileSync(
+    join(FIXTURES_DIR, 'syntax-error.config.ts'),
+    `
 export default {
   environments: {
     default: {
@@ -137,15 +136,16 @@ export default {
     }
   }
 };
-      `.trim()
-    );
-  });
+    `.trim()
+  );
+});
 
-  afterAll(() => {
-    // Clean up fixtures directory
-    rmSync(FIXTURES_DIR, { recursive: true, force: true });
-  });
+afterAll(() => {
+  // Clean up fixtures directory
+  rmSync(FIXTURES_DIR, { recursive: true, force: true });
+});
 
+describe('build', () => {
   describe('successful build', () => {
     it('should load config, serialize settings, and write settings.json', async () => {
       const outdir = join(FIXTURES_DIR, 'output-basic');
@@ -414,21 +414,61 @@ export default {
 });
 
 describe('main', () => {
-  it.skip('should read process.argv and execute build', async () => {
-    // This test would need to mock process.argv and process.exit
-    // For now, we'll skip it as it requires more setup
-    // The main function is a thin wrapper around build() and parseArgs()
+  let originalArgv: string[];
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    originalArgv = process.argv;
+    // Mock process.exit to throw instead of terminating
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new Error(`process.exit(${code})`);
+    });
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  it.skip('should exit with code 0 on success', async () => {
-    // Mock test - would need process.exit mocking
+  afterEach(() => {
+    process.argv = originalArgv;
+    vi.restoreAllMocks();
   });
 
-  it.skip('should exit with code 1 on error', async () => {
-    // Mock test - would need process.exit mocking
+  it('should read process.argv and execute build', async () => {
+    const outdir = join(FIXTURES_DIR, 'output-main-argv');
+    process.argv = ['node', 'cli.js', 'build', '-c', join(FIXTURES_DIR, 'valid.config.ts'), '-o', outdir];
+
+    await expect(main()).rejects.toThrow('process.exit(0)');
+    expect(consoleLogSpy).toHaveBeenCalledWith('Build successful!');
   });
 
-  it.skip('should print error message on failure', async () => {
-    // Mock test - would need console.error mocking
+  it('should exit with code 0 on success', async () => {
+    const outdir = join(FIXTURES_DIR, 'output-main-success');
+    process.argv = ['node', 'cli.js', 'build', '-c', join(FIXTURES_DIR, 'valid.config.ts'), '-o', outdir];
+
+    await expect(main()).rejects.toThrow('process.exit(0)');
+    expect(exitSpy).toHaveBeenCalledWith(0);
+  });
+
+  it('should exit with code 1 on error', async () => {
+    process.argv = ['node', 'cli.js', 'build', '-c', '/nonexistent/config.ts', '-o', '/tmp/out'];
+
+    await expect(main()).rejects.toThrow('process.exit(1)');
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('should print error message on failure', async () => {
+    process.argv = ['node', 'cli.js', 'build', '-c', '/nonexistent/config.ts', '-o', '/tmp/out'];
+
+    await expect(main()).rejects.toThrow('process.exit(1)');
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Build failed:'), expect.any(String));
+  });
+
+  it('should print usage on parse error', async () => {
+    process.argv = ['node', 'cli.js', 'build']; // Missing required args
+
+    await expect(main()).rejects.toThrow('process.exit(1)');
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error:', expect.any(String));
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Usage:'));
   });
 });

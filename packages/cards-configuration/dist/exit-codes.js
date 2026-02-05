@@ -15,10 +15,10 @@
  * The Cards runtime interprets any non-zero exit code as failure.
  */
 export const EXIT_CODES = {
-    /** Handler completed successfully. */
-    SUCCESS: 0,
-    /** Handler threw an error. */
-    ERROR: 1
+  /** Handler completed successfully. */
+  SUCCESS: 0,
+  /** Handler threw an error. */
+  ERROR: 1
 };
 // ============================================================================
 // Error Output Helpers
@@ -34,7 +34,7 @@ export const EXIT_CODES = {
  * ```
  */
 export function writeError(message) {
-    process.stderr.write(`${message}\n`);
+  process.stderr.write(`${message}\n`);
 }
 /**
  * Writes an error message to stderr and exits with ERROR code.
@@ -50,6 +50,6 @@ export function writeError(message) {
  * ```
  */
 export function exitWithError(message) {
-    writeError(message);
-    process.exit(EXIT_CODES.ERROR);
+  writeError(message);
+  process.exit(EXIT_CODES.ERROR);
 }

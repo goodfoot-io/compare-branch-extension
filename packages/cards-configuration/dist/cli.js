@@ -8,4 +8,5 @@
  * @module cli
  */
 import { main } from './cli/index.js';
+
 main();

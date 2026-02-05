@@ -34,6 +34,7 @@
 import { extractActionInput, extractTypeInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
 import { logger } from './logger.js';
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -49,7 +50,7 @@ import { logger } from './logger.js';
  * @internal
  */
 function getErrorMessage(error) {
-    return error instanceof Error ? error.message : String(error);
+  return error instanceof Error ? error.message : String(error);
 }
 /**
  * Cleans up logger state and terminates the process.
@@ -64,9 +65,9 @@ function getErrorMessage(error) {
  * @internal
  */
 function cleanupAndExit(exitCode) {
-    logger.clearContext();
-    logger.close();
-    process.exit(exitCode);
+  logger.clearContext();
+  logger.close();
+  process.exit(exitCode);
 }
 /**
  * Handles errors during environment variable extraction.
@@ -81,10 +82,10 @@ function cleanupAndExit(exitCode) {
  * @internal
  */
 function handleEnvExtractionError(error) {
-    const message = getErrorMessage(error);
-    logger.error(`Failed to extract input from environment: ${message}`);
-    writeError(`Handler failed: ${message}`);
-    cleanupAndExit(EXIT_CODES.ERROR);
+  const message = getErrorMessage(error);
+  logger.error(`Failed to extract input from environment: ${message}`);
+  writeError(`Handler failed: ${message}`);
+  cleanupAndExit(EXIT_CODES.ERROR);
 }
 /**
  * Handles errors thrown by the user's command handler.
@@ -99,10 +100,10 @@ function handleEnvExtractionError(error) {
  * @internal
  */
 function handleHandlerError(error) {
-    const errorOutput = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    process.stderr.write(`${errorOutput}\n`);
-    logger.error(`Handler error: ${getErrorMessage(error)}`);
-    cleanupAndExit(EXIT_CODES.ERROR);
+  const errorOutput = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  process.stderr.write(`${errorOutput}\n`);
+  logger.error(`Handler error: ${getErrorMessage(error)}`);
+  cleanupAndExit(EXIT_CODES.ERROR);
 }
 // ============================================================================
 // Execute Function
@@ -159,48 +160,44 @@ function handleHandlerError(error) {
  * ```
  */
 export async function execute(command) {
+  try {
+    // Determine command type and extract appropriate input
+    const factoryType = command.factoryType;
+    let input;
     try {
-        // Determine command type and extract appropriate input
-        const factoryType = command.factoryType;
-        let input;
-        try {
-            if (factoryType === 'actionStart' || factoryType === 'actionEnd') {
-                input = extractActionInput();
-            }
-            else {
-                // Type commands: validator, create, update, delete
-                input = extractTypeInput();
-            }
-        }
-        catch (error) {
-            handleEnvExtractionError(error);
-            // TypeScript knows this is unreachable due to 'never' return type
-            // But at runtime in tests with mocked process.exit, it may continue
-            // This return prevents that from happening
-            return;
-        }
-        // Set logger context with command type
-        logger.setContext(factoryType, input);
-        // Build ActionContext with logger and cwd
-        const context = {
-            logger,
-            cwd: process.cwd()
-        };
-        // Execute the command handler
-        try {
-            await command(input, context);
-        }
-        catch (error) {
-            handleHandlerError(error);
-            // Same guard for tests with mocked process.exit
-            return;
-        }
-        // Clean up and exit successfully
-        cleanupAndExit(EXIT_CODES.SUCCESS);
+      if (factoryType === 'actionStart' || factoryType === 'actionEnd') {
+        input = extractActionInput();
+      } else {
+        // Type commands: validator, create, update, delete
+        input = extractTypeInput();
+      }
+    } catch (error) {
+      handleEnvExtractionError(error);
+      // TypeScript knows this is unreachable due to 'never' return type
+      // But at runtime in tests with mocked process.exit, it may continue
+      // This return prevents that from happening
+      return;
     }
-    catch (error) {
-        // Unexpected error - try to clean up and exit
-        logger.error(`Unexpected runtime error: ${getErrorMessage(error)}`);
-        cleanupAndExit(EXIT_CODES.ERROR);
+    // Set logger context with command type
+    logger.setContext(factoryType, input);
+    // Build ActionContext with logger and cwd
+    const context = {
+      logger,
+      cwd: process.cwd()
+    };
+    // Execute the command handler
+    try {
+      await command(input, context);
+    } catch (error) {
+      handleHandlerError(error);
+      // Same guard for tests with mocked process.exit
+      return;
     }
+    // Clean up and exit successfully
+    cleanupAndExit(EXIT_CODES.SUCCESS);
+  } catch (error) {
+    // Unexpected error - try to clean up and exit
+    logger.error(`Unexpected runtime error: ${getErrorMessage(error)}`);
+    cleanupAndExit(EXIT_CODES.ERROR);
+  }
 }
