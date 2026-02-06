@@ -135,25 +135,32 @@ export async function compileHandler(options) {
         const wrapperPath = path.join(tempDir, 'wrapper.ts');
         // Create temp directory
         fs.mkdirSync(tempDir, { recursive: true });
-        // Resolve runtime path (the runtime.js file in the same package)
-        const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
-        // Resolve validation path for type validators
-        const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
         // Generate wrapper content based on handler type
-        // Type validators use HTTP stdin/stdout protocol via executeValidation
-        // Other handlers use environment variable extraction via execute
+        const normalizedSource = sourcePath.replace(/\\/g, '/');
         let wrapperContent;
-        if (factoryType === 'typeValidator') {
+        if (factoryType === 'streamTransform') {
+            // Stream transforms re-export raw init and default transform functions
             wrapperContent = `
-import handler from '${sourcePath.replace(/\\/g, '/')}';
+import cmd from '${normalizedSource}';
+export function init(ctx) { return cmd.init?.(ctx); }
+export default function transform(line, ctx) { return cmd(line, ctx); }
+`;
+        }
+        else if (factoryType === 'typeValidator') {
+            // Type validators use HTTP stdin/stdout protocol via executeValidation
+            const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
+            wrapperContent = `
+import handler from '${normalizedSource}';
 import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
 
 executeValidation(handler);
 `;
         }
         else {
+            // Other handlers use environment variable extraction via execute
+            const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
             wrapperContent = `
-import handler from '${sourcePath.replace(/\\/g, '/')}';
+import handler from '${normalizedSource}';
 import { execute } from '${runtimePath.replace(/\\/g, '/')}';
 
 execute(handler);
@@ -165,19 +172,24 @@ execute(handler);
         const outputDir = path.dirname(outputPath);
         fs.mkdirSync(outputDir, { recursive: true });
         // Build using esbuild
+        // Stream transforms run in vm.SourceTextModule sandbox with no imports,
+        // so they need fully self-contained bundles (no externals, no banner)
+        const isStreamTransform = factoryType === 'streamTransform';
         const result = await esbuild.build({
             entryPoints: [wrapperPath],
             outfile: outputPath,
             bundle: true,
             format: 'esm',
-            platform: 'node',
+            platform: isStreamTransform ? 'neutral' : 'node',
             target: 'es2022',
             sourcemap: sourcemap ? 'inline' : false,
             minify: false,
-            external: EXTERNALS,
-            banner: {
-                js: BANNER
-            },
+            external: isStreamTransform ? [] : EXTERNALS,
+            banner: isStreamTransform
+                ? {}
+                : {
+                    js: BANNER
+                },
             logLevel: 'silent'
         });
         if (result.errors.length > 0) {

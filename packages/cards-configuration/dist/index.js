@@ -19,6 +19,10 @@ export { defineActionStart } from './factories/action-start.js';
 // Type Hook Factories
 // ============================================================================
 export { defineTypeCreate, defineTypeDelete, defineTypeUpdate, defineTypeValidator } from './factories/type-hooks.js';
+// ============================================================================
+// Stream Transform Factories
+// ============================================================================
+export { defineStreamTransform } from './factories/stream-transform.js';
 export { defineConfig, serializeSettings } from './define-config.js';
 // ============================================================================
 // Environment Variables

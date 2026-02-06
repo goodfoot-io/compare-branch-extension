@@ -9,4 +9,5 @@
 export { validationCreated, validationError, validationResponse, validationUpdated } from '../validation.js';
 export { defineActionEnd } from './action-end.js';
 export { defineActionStart } from './action-start.js';
+export { defineStreamTransform } from './stream-transform.js';
 export { defineTypeCreate, defineTypeDelete, defineTypeUpdate, defineTypeValidator } from './type-hooks.js';

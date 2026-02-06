@@ -130,6 +130,17 @@ function extractCommands(config) {
                 }
             }
         }
+        // Extract stream transform commands
+        if (envConfig.streams) {
+            for (const streamConfig of Object.values(envConfig.streams)) {
+                commands.push({
+                    factoryType: streamConfig.transform.factoryType,
+                    name: streamConfig.transform.streamType,
+                    sourcePath: streamConfig.transform.sourcePath,
+                    timeout: streamConfig.transform.timeout
+                });
+            }
+        }
     }
     return commands;
 }
@@ -314,6 +325,16 @@ function generateSettings(config, compiled, binDir) {
         if (types) {
             environments[envName].types = types;
         }
+        // Generate streams
+        if (envConfig.streams) {
+            const streams = {};
+            for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
+                const key = `${streamConfig.transform.factoryType}:${streamConfig.transform.streamType}`;
+                const compiled = compiledByKey.get(key);
+                streams[streamName] = generateStreamDefinition(streamConfig, compiled, binDir);
+            }
+            environments[envName].streams = streams;
+        }
     }
     return { environments };
 }
@@ -335,6 +356,29 @@ function generateCommand(cmd, compiled, binDir) {
         command.timeout = cmd.timeout;
     }
     return command;
+}
+/**
+ * Generates a StreamDefinition object for a stream config.
+ */
+function generateStreamDefinition(streamConfig, compiled, binDir) {
+    const streamDef = {
+        version: streamConfig.version,
+        transform: {
+            path: compiled
+                ? path.posix.join(binDir, compiled.filename)
+                : `${streamConfig.transform.factoryType}-${streamConfig.transform.streamType}.js`
+        }
+    };
+    if (streamConfig.transform.timeout !== undefined) {
+        streamDef.transform.timeout = streamConfig.transform.timeout;
+    }
+    if (streamConfig.transform.maxLineLength !== undefined) {
+        streamDef.maxLineLength = streamConfig.transform.maxLineLength;
+    }
+    if (streamConfig.transform.maxStreamSize !== undefined) {
+        streamDef.maxStreamSize = streamConfig.transform.maxStreamSize;
+    }
+    return streamDef;
 }
 // ============================================================================
 // Stale File Cleanup
