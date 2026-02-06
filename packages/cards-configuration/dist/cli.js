@@ -139,14 +139,12 @@ var init_args = __esm({
 });
 
 // src/cli/index.ts
-import * as crypto2 from "node:crypto";
+import * as crypto from "node:crypto";
 import * as fs2 from "node:fs";
 import * as path2 from "node:path";
 
 // src/cli/compiler.ts
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import * as esbuild from "esbuild";
 function findPackageRoot(startDir) {
@@ -190,10 +188,6 @@ async function compileHandler(options) {
         error: `Source file does not exist: ${sourcePath}`
       };
     }
-    const buildHash = crypto.createHash("sha256").update(sourcePath).digest("hex").substring(0, 16);
-    const tempDir = path.join(os.tmpdir(), "cards-configuration-build", buildHash);
-    const wrapperPath = path.join(tempDir, "wrapper.ts");
-    fs.mkdirSync(tempDir, { recursive: true });
     const normalizedSource = sourcePath.replace(/\\/g, "/");
     let wrapperContent;
     if (factoryType === "streamTransform") {
@@ -219,12 +213,16 @@ import { execute } from '${runtimePath.replace(/\\/g, "/")}';
 execute(handler);
 `;
     }
-    fs.writeFileSync(wrapperPath, wrapperContent, "utf-8");
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
     const isStreamTransform = factoryType === "streamTransform";
     const result = await esbuild.build({
-      entryPoints: [wrapperPath],
+      stdin: {
+        contents: wrapperContent,
+        resolveDir: path.dirname(sourcePath),
+        sourcefile: "hook-wrapper.ts",
+        loader: "ts"
+      },
       outfile: outputPath,
       bundle: true,
       format: "esm",
@@ -268,7 +266,7 @@ execute(handler);
 
 // src/cli/index.ts
 function generateContentHash(content) {
-  return crypto2.createHash("sha256").update(content).digest("hex").substring(0, 8);
+  return crypto.createHash("sha256").update(content).digest("hex").substring(0, 8);
 }
 function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
