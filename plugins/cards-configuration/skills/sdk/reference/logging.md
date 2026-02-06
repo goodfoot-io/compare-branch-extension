@@ -136,48 +136,6 @@ logger.on('warn', (event) => pinoLogger.warn(event, event.message));
 logger.on('error', (event) => pinoLogger.error(event, event.message));
 ```
 
-## Singleton vs Instance
-
-### Global Singleton
-
-The default export is a pre-configured singleton:
-
-```typescript
-import { logger } from '@cards/configuration';
-
-// Use directly
-logger.info('Using singleton logger');
-```
-
-### Custom Instance
-
-Create custom instances for isolation:
-
-```typescript
-import { Logger } from '@cards/configuration';
-
-const customLogger = new Logger({
-  logFilePath: '/custom/path/hooks.log'
-});
-
-customLogger.info('Using custom logger');
-```
-
-## Context Enrichment
-
-The runtime automatically sets hook context:
-
-```typescript
-// Set by runtime before handler invocation
-logger.setContext('actionStart', { cardId: 'card-123', ... });
-
-// All subsequent logs include this context
-logger.info('Processing'); // hookType: 'actionStart', input: { cardId: ... }
-
-// Cleared after handler completes
-logger.clearContext();
-```
-
 ## Error Logging
 
 ### logError Method
@@ -223,21 +181,6 @@ try {
 }
 ```
 
-## Output File Format
-
-Log files use JSON Lines format (one JSON object per line):
-
-```
-{"timestamp":"2024-01-15T10:30:00.000Z","level":"info","hookType":"actionStart","message":"Starting action","input":{"cardId":"card-123"}}
-{"timestamp":"2024-01-15T10:30:01.000Z","level":"warn","hookType":"actionStart","message":"Resource limit approaching","input":{"cardId":"card-123"},"context":{"usage":0.9}}
-{"timestamp":"2024-01-15T10:30:02.000Z","level":"error","hookType":"actionStart","message":"Operation failed","input":{"cardId":"card-123"},"error":{"name":"Error","message":"Connection refused","stack":"..."}}
-```
-
-This format is:
-- Appendable (no need to parse entire file)
-- Streamable (process line by line)
-- Compatible with log aggregation tools
-
 ## Best Practices
 
 ### Do Not Use console.log
@@ -282,15 +225,6 @@ logger.warn('Rate limit approaching', { remaining: 10 });
 logger.error('Failed to save', { reason: 'disk full' });
 ```
 
-### Clean Up Resources
-
-```typescript
-// Close logger on shutdown
-process.on('exit', () => {
-  logger.close();
-});
-```
-
 ## Logger Methods Reference
 
 | Method | Purpose |
@@ -300,11 +234,5 @@ process.on('exit', () => {
 | `warn(message, context?)` | Log warning message |
 | `error(message, context?)` | Log error message |
 | `logError(error, message, context?)` | Log caught exception with full details |
-| `on(level, handler)` | Subscribe to log events at level |
-| `setContext(hookType, input)` | Set hook context (runtime use) |
-| `clearContext()` | Clear hook context (runtime use) |
-| `setLogFile(path)` | Configure log file path |
-| `close()` | Close file handle, flush pending writes |
-| `hasDestinations()` | Check if any output is configured |
 
 </instructions>

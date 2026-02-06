@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.292",
+    "version": "1.0.293",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -22,7 +22,7 @@
     },
     {
       "name": "cards-configuration",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "source": "./plugins/cards-configuration",
       "description": "Claude Code plugin for interacting with Cards extension's Cards Configuration SDK",
       "author": {

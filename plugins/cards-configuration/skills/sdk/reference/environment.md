@@ -146,21 +146,6 @@ const input = extractTypeInput();
 // }
 ```
 
-## Runtime Behavior
-
-The runtime automatically extracts environment variables before invoking handlers:
-
-```typescript
-// For action handlers (actionStart, actionEnd)
-execute(command); // Internally calls extractActionInput()
-
-// For type lifecycle hooks (typeCreate, typeUpdate, typeDelete)
-execute(command); // Internally calls extractTypeInput()
-
-// For type validators
-executeValidation(command); // Extracts from CARDS_ENV_VARS manually
-```
-
 ## Error Handling
 
 Getters throw descriptive errors when variables are missing:
@@ -207,25 +192,6 @@ async (input, { logger }) => {
   const data = await response.json();
   logger.info('Fetched card data', { cardId: input.cardId });
 }
-```
-
-## Logger Configuration
-
-The logger can be configured via environment variable:
-
-```typescript
-// Set via environment
-export CARDS_HOOKS_LOG_FILE=/var/log/cards-hooks.log
-
-// Or programmatically
-import { logger } from '@cards/configuration';
-logger.setLogFile('/var/log/cards-hooks.log');
-```
-
-The log file uses JSON Lines format:
-
-```json
-{"timestamp":"2024-01-15T10:30:00.000Z","level":"info","hookType":"actionStart","message":"Starting action","input":{"cardId":"card-123"}}
 ```
 
 </instructions>

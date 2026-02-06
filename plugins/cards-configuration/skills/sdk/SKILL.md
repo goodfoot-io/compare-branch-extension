@@ -182,62 +182,66 @@ export const del = defineTypeDelete(
 );
 ```
 
-## Stream Configuration Example
+## Stream Transform Example
 
-Stream transforms process JSONL lines as they arrive in isolated worker threads. Transforms use the `defineStreamTransform` factory function for full feature support.
+Stream transforms process JSONL lines in isolated `worker_threads` + `vm.SourceTextModule` sandboxes. Each stream gets its own worker with a `state` Map shared between the optional `init()` and the `transform()` function.
 
-Each stream gets its own isolated worker with a `state` Map shared between the optional `init()` function and the `transform()` function. This enables stateful stream processing while maintaining security through worker isolation.
+Create transform source files alongside other handlers:
 
-Create transform modules in `.cards/transforms/`:
+```typescript
+// src/transforms/session-counter.ts
+import type { StreamInitContext, TransformContext } from '@cards/configuration';
+import { defineStreamTransform } from '@cards/configuration/factories/stream-transform';
 
-```javascript
-// .cards/transforms/session-counter.mjs
-import { defineStreamTransform } from '@cards/configuration';
-
-// Optional init function - called once when stream starts
-function init(ctx) {
+function handleInit(ctx: StreamInitContext): void {
   ctx.state.set('counter', 0);
   ctx.state.set('sessionId', ctx.headers['x-session-id'] ?? 'unknown');
-  console.log('Stream started for card:', ctx.card.id);
 }
 
-// Transform function - called for each line
-function transform(line, ctx) {
-  const count = (ctx.state.get('counter') ?? 0) + 1;
-  ctx.state.set('counter', count);
+function handleTransform(line: string, ctx: TransformContext): string {
+  const count = ((ctx.state?.get('counter') as number) ?? 0) + 1;
+  ctx.state?.set('counter', count);
   return `[${count}] ${line}`;
 }
 
 export default defineStreamTransform(
-  { streamType: 'logs' },
-  transform,
-  init
+  {
+    streamType: 'session-log',
+    sourcePath: typeof URL !== 'undefined' ? new URL(import.meta.url).pathname : undefined,
+    maxLineLength: 1_048_576
+  },
+  handleTransform,
+  handleInit
 );
 ```
 
-Configure stream types in your environment:
+Register stream transforms in `settings.config.ts` by passing the imported command object:
 
 ```typescript
-streams: {
-  'chat-log': {
-    version: 1,
-    transform: {
-      path: 'chat-formatter.mjs',  // Relative to .cards/transforms/
-      timeout: 5000                 // Optional, default 5000ms
-    },
-    maxLineLength: 1048576,         // Optional, default 1MB
-    maxStreamSize: 104857600        // Optional, default 100MB
+import sessionLogTransform from './src/transforms/session-counter.js';
+
+export default defineConfig({
+  environments: {
+    default: {
+      // ...actions, types...
+      streams: {
+        'session-log': {         // Key must match streamType in factory config
+          version: 1,
+          transform: sessionLogTransform  // The imported command object
+        }
+      }
+    }
   }
-}
+});
 ```
 
-Transforms are cached after first load. Restart the server to reload updated transforms.
+After `yarn build`, the CLI compiles stream transforms into self-contained `.mjs` bundles (platform: neutral, no externals) and writes `settings.json` with the compiled path.
 
 ## Factory Functions Reference
 
 | Factory | Purpose | Config Fields |
 |---------|---------|---------------|
-| `defineActionStart` | Action entry point | `actionName`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?`, `sourcePath?` |
+| `defineActionStart` | Action entry point | `id?`, `actionName`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?`, `sourcePath?` |
 | `defineActionEnd` | Post-action cleanup | `actionName`, `timeout?`, `sourcePath?` |
 | `defineTypeValidator` | Pre-save validation | `typeName`, `timeout?`, `sourcePath?` |
 | `defineTypeCreate` | New file hook | `typeName`, `timeout?`, `sourcePath?` |
@@ -260,11 +264,11 @@ Before debugging issues, verify:
 
 - [ ] `@cards/configuration` is in `package.json` dependencies
 - [ ] Build script exists: `"build": "cards-configuration build -c settings.config.ts -o dist"`
-- [ ] Handlers rebuilt after last code change
-- [ ] Stream transforms rebuilt if using `sourcePath`
-- [ ] No `console.log` or `console.error` in handler code (use `logger`)
+- [ ] Handlers rebuilt after last code change (`yarn build`)
 - [ ] Handler files use `export default factoryFunction(...)` pattern
-- [ ] Handlers include `sourcePath: fileURLToPath(import.meta.url)`
+- [ ] Handlers include `sourcePath` (e.g. `new URL(import.meta.url).pathname`)
+- [ ] Stream transforms do not use `require`, `fetch`, `setTimeout`, `fs`, or dynamic `import()` (sandbox forbids them)
+- [ ] Stream transform tests run against the compiled `.mjs` bundle from `dist/bin/`
 
 ## Additional Resources
 

@@ -182,41 +182,6 @@ async (input, context: ActionContext) => {
 }
 ```
 
-## Environment Variable Extraction
-
-### Individual Getters
-
-Extract single values from environment variables:
-
-```typescript
-import {
-  getCardId,
-  getEnvironment,
-  getExecutionMode,
-  getApiBaseUrl,
-  getApiAccessToken,
-  getCodingAgent,
-  getTypeName,
-  getTypeVersion,
-  getFileName,
-  getFilePath,
-  getFileSize,
-  getSha256,
-  getContentType
-} from '@cards/configuration';
-
-// Action variables
-const cardId = getCardId();              // Throws if missing
-const environment = getEnvironment();    // Throws if missing
-const mode = getExecutionMode();         // 'interactive' | 'background'
-const codingAgent = getCodingAgent();    // Optional, may be undefined
-
-// Type hook variables
-const typeName = getTypeName();          // Throws if missing
-const fileName = getFileName();          // Throws if missing
-const fileSize = getFileSize();          // Parsed as number
-```
-
 ### Typed Input Extraction
 
 Extract complete typed input objects:
@@ -232,23 +197,5 @@ const actionInput = extractActionInput();
 const typeInput = extractTypeInput();
 // Returns TypeHookInput with all fields
 ```
-
-## Environment Variable Reference
-
-| Variable | Available In | Description |
-|----------|--------------|-------------|
-| `CARD_ID` | All | Unique card identifier |
-| `ENVIRONMENT` | All | Environment name from settings.json |
-| `EXECUTION_MODE` | Actions only | 'interactive' or 'background' |
-| `API_BASE_URL` | All | Cards server base URL |
-| `API_ACCESS_TOKEN` | All | Bearer token for API calls |
-| `CODING_AGENT` | Actions only | Configured AI coding assistant (optional) |
-| `TYPE_NAME` | Type hooks only | Registered type name |
-| `TYPE_VERSION` | Type hooks only | Type version from settings.json |
-| `FILE_NAME` | Type hooks only | File name within type directory |
-| `FILE_PATH` | Type hooks only | Full path to the file |
-| `FILE_SIZE` | Type hooks only | File size in bytes |
-| `SHA256` | Type hooks only | SHA-256 hash of content |
-| `CONTENT_TYPE` | Type hooks only | MIME type of the content |
 
 </instructions>

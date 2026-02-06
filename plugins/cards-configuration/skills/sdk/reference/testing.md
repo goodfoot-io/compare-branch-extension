@@ -168,33 +168,6 @@ describe('noteValidator', () => {
 });
 ```
 
-### Testing with Custom Logger
-
-```typescript
-import { describe, it, expect, vi } from 'vitest';
-import { testValidation, Logger } from '@cards/configuration';
-import myValidator from '../src/validators/my-validator.js';
-
-describe('myValidator logging', () => {
-  it('should log validation events', async () => {
-    const logger = new Logger();
-    const logHandler = vi.fn();
-    logger.on('info', logHandler);
-
-    await testValidation(myValidator, {
-      body: { type: 'AdaptiveCard' }
-    }, { logger });
-
-    expect(logHandler).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'info',
-        message: expect.stringContaining('Validation')
-      })
-    );
-  });
-});
-```
-
 ### Testing Metadata
 
 ```typescript
@@ -276,39 +249,6 @@ describe('launchClaudeStart', () => {
 });
 ```
 
-## Test Setup Recommendations
-
-### Vitest Configuration
-
-```typescript
-// vitest.config.ts
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['test/**/*.test.ts'],
-    coverage: {
-      provider: 'v8',
-      include: ['src/**/*.ts']
-    }
-  }
-});
-```
-
-### Package.json Scripts
-
-```json
-{
-  "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
-  }
-}
-```
-
 ## Best Practices
 
 ### Isolate Validator Logic
@@ -366,32 +306,6 @@ describe('edge cases', () => {
     const result = await testValidation(validator, {
       body: { title: 'Test' }
     });
-    expect(result.response.status).toBe(201);
-  });
-});
-```
-
-### Use Fixtures
-
-```typescript
-// test/fixtures/valid-card.json
-{
-  "type": "AdaptiveCard",
-  "version": "1.5",
-  "body": []
-}
-
-// test/card-validator.test.ts
-import { readFileSync } from 'fs';
-import { testValidation } from '@cards/configuration';
-
-const validCard = JSON.parse(
-  readFileSync('./test/fixtures/valid-card.json', 'utf-8')
-);
-
-describe('cardValidator', () => {
-  it('should accept valid card fixture', async () => {
-    const result = await testValidation(cardValidator, { body: validCard });
     expect(result.response.status).toBe(201);
   });
 });
