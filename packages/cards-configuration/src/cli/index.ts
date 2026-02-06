@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * CLI main entry point for Cards Configuration v2.
  *

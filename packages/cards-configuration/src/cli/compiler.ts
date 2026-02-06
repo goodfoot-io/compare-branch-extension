@@ -124,6 +124,24 @@ import * as path from 'node:path';
 import * as esbuild from 'esbuild';
 
 /**
+ * Finds the package root by traversing up from a starting directory
+ * looking for package.json. Works whether invoked from src/ (tests)
+ * or dist/ (bundled CLI).
+ */
+function findPackageRoot(startDir: string): string {
+  let dir = startDir;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  throw new Error(`Could not find package.json from ${startDir}`);
+}
+
+const PACKAGE_ROOT = findPackageRoot(path.dirname(new URL(import.meta.url).pathname));
+
+/**
  * External modules (Node built-ins) that should not be bundled.
  */
 const EXTERNALS = [
@@ -228,7 +246,7 @@ export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === 'typeValidator') {
       // Type validators use HTTP stdin/stdout protocol via executeValidation
-      const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
+      const validationPath = path.resolve(PACKAGE_ROOT, 'src/validation.ts');
       wrapperContent = `
 import handler from '${normalizedSource}';
 import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
@@ -237,7 +255,7 @@ executeValidation(handler);
 `;
     } else {
       // Other handlers use environment variable extraction via execute
-      const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
+      const runtimePath = path.resolve(PACKAGE_ROOT, 'src/runtime.ts');
       wrapperContent = `
 import handler from '${normalizedSource}';
 import { execute } from '${runtimePath.replace(/\\/g, '/')}';
