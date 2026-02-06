@@ -25,6 +25,16 @@ Use comments to ask the user for clarifications, to report error states, or to r
 - **archived**: This card has been archived and is no longer in the active workflow.
 </card-status>
 
+<activate-before-work>
+Before starting work on a card, activate it to establish commit attribution:
+
+```
+curl -s -X POST "$API_BASE/cards/{cardId}/activate"
+```
+
+This links your session to the card so that any git commits you make are automatically attributed to it. Always activate before your first code change.
+</activate-before-work>
+
 <plan-approval>
 When a card has `gates.planRequired: true`, present a plan for user approval before beginning implementation.
 
@@ -87,6 +97,12 @@ echo "curl -s \"\$API_BASE/cards\" | jq ."
 |--------|----------|-------------|
 | GET | /cards/{cardId}/plan | Get plan content. Returns 404 if no plan exists |
 | PUT | /cards/{cardId}/plan | Update plan. Body: `content` (markdown) |
+
+### Activate
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /cards/{cardId}/activate | Activate card for this session. Establishes commit attribution — call before starting work |
 
 ### Commits
 
