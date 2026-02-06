@@ -28,11 +28,11 @@ Use comments to ask the user for clarifications, to report error states, or to r
 <plan-approval>
 When a card has `gates.planRequired: true`, present a plan for user approval before beginning implementation.
 
-1. Store the plan: `PUT /cards/{id}/plan` with `{ "content": "..." }`
+1. Store the plan: `PUT /cards/{cardId}/plan` with `{ "content": "..." }`
 2. Add a comment with code references reviewed during planning
 3. Wait for user approval before proceeding
 
-The plan content is accessible via `GET /cards/{id}/plan`.
+The plan content is accessible via `GET /cards/{cardId}/plan`.
 </plan-approval>
 
 <reload-after-compaction>
@@ -56,12 +56,12 @@ echo "curl -s \"\$API_BASE/cards\" | jq ."
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /cards | List cards. Query: `status`, `tag`, `limit`, `offset`, `search` |
-| POST | /cards | Create card. Body: `title` (required), `description` (required), `tags`, `gates` |
-| GET | /cards/{id} | Get card details |
-| PATCH | /cards/{id} | Update card. Body: `title`, `status`, `tags`, `description`, `isPinned`, `order` |
-| DELETE | /cards/{id} | Delete card |
-| GET | /cards/{id}/has-updates | Check updates since timestamp. Query: `since` (ISO 8601) |
+| GET | /cards | List cards. Query: `workspacePath` (required), `status`, `tag`, `limit`, `offset`, `search` |
+| POST | /cards | Create card. Body: `workspacePath` (required), `title` (required), `description` (required), `tags`, `gates`, `environmentName`, `order` |
+| GET | /cards/{cardId} | Get card details |
+| PATCH | /cards/{cardId} | Update card. Body: `title`, `status`, `tags`, `description`, `isPinned`, `order` |
+| DELETE | /cards/{cardId} | Delete card |
+| GET | /cards/{cardId}/has-updates | Check updates since timestamp. Query: `since` (ISO 8601) |
 
 **Note:** Gate flags (`planApproved`, `reviewApproved`) are server-controlled and cannot be set directly via PATCH.
 
@@ -69,52 +69,53 @@ echo "curl -s \"\$API_BASE/cards\" | jq ."
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /cards/{id}/gates/plan/approve | Approve the plan gate |
-| POST | /cards/{id}/gates/review/approve | Approve the review gate |
+| POST | /cards/{cardId}/gates/plan/approve | Approve the plan gate |
+| POST | /cards/{cardId}/gates/review/approve | Approve the review gate |
 
 ### Comments
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /cards/{id}/comments | List comments |
-| POST | /cards/{id}/comments | Add comment. Body: `author` ("agent" or "user"), `content` (markdown) |
-| PATCH | /cards/{id}/comments/{commentId} | Update comment. Body: `content` |
-| DELETE | /cards/{id}/comments/{commentId} | Delete comment |
+| GET | /cards/{cardId}/comments | List comments |
+| POST | /cards/{cardId}/comments | Add comment. Body: `author` ("agent" or "user"), `content` (markdown) |
+| PATCH | /cards/{cardId}/comments/{commentId} | Update comment. Body: `content` |
+| DELETE | /cards/{cardId}/comments/{commentId} | Delete comment |
 
 ### Plan
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /cards/{id}/plan | Get plan content. Returns 404 if no plan exists |
-| PUT | /cards/{id}/plan | Update plan. Body: `content` (markdown) |
+| GET | /cards/{cardId}/plan | Get plan content. Returns 404 if no plan exists |
+| PUT | /cards/{cardId}/plan | Update plan. Body: `content` (markdown) |
 
 ### Commits
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /cards/{id}/commits | List commit attributions |
-| POST | /cards/{id}/commits | Add commit. Body: `sha` (full 40-char), `repoPath` (optional) |
-| DELETE | /cards/{id}/commits/{sha} | Remove commit attribution |
+| GET | /cards/{cardId}/commits | List commit attributions |
+| POST | /cards/{cardId}/commits | Add commit. Body: `sha` (full 40-char), `repoPath` (optional) |
+| DELETE | /cards/{cardId}/commits/{sha} | Remove commit attribution |
 
 ### Timeline
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /cards/{id}/timeline | Unified timeline (comments, commits, notes, cards). Query: `before`, `limit` |
+| GET | /cards/{cardId}/timeline | Unified timeline (comments, commits, notes, cards). Query: `before`, `limit` |
 
 ### Attachments
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /cards/{id}/attachments | List attachments |
-| POST | /cards/{id}/attachments | Upload. Body: `name` (filename), `data` (base64 encoded) |
-| GET | /cards/{id}/attachments/{attachmentId} | Download attachment |
+| GET | /cards/{cardId}/attachments | List attachments |
+| PUT | /cards/{cardId}/attachments/{filename} | Upload binary. Raw body, 50MB max |
+| POST | /cards/{cardId}/attachments | Upload base64 (legacy). Body: `name` (filename), `data` (base64 encoded) |
+| GET | /cards/{cardId}/attachments/{attachmentId} | Download attachment |
 
 ### Tags
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /tags | List all unique tags across cards |
+| GET | /tags | List all unique tags across cards. Query: `workspacePath` (required) |
 
 ### Typed Files
 
@@ -122,10 +123,22 @@ Extensible content system for custom file types with optional validation (config
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /cards/{id}/{typeName} | List files of a specific type |
-| GET | /cards/{id}/{typeName}/{fileName} | Retrieve typed file |
-| PUT | /cards/{id}/{typeName}/{fileName} | Create/replace typed file |
-| DELETE | /cards/{id}/{typeName}/{fileName} | Delete typed file |
+| GET | /cards/{cardId}/{typeName} | List files of a specific type |
+| GET | /cards/{cardId}/{typeName}/{fileName} | Retrieve typed file |
+| PUT | /cards/{cardId}/{typeName}/{fileName} | Create/replace typed file |
+| DELETE | /cards/{cardId}/{typeName}/{fileName} | Delete typed file |
+
+### Streams
+
+JSONL streaming with server-side transforms. Stream types are defined in the card's environment configuration.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /cards/{cardId}/streams/{streamType}/{filename} | Stream JSONL data. Raw line-delimited JSON body (chunked transfer). Headers: `X-Stream-Title` (optional), `X-Stream-Session-Id` (optional). Returns `{ filename, streamType, lineCount, status }` |
+| GET | /cards/{cardId}/streams | List streams for a card |
+| GET | /cards/{cardId}/streams/{filename} | Retrieve stream metadata and lines |
+
+Default size limits: 1MB per line, 100MB per stream (configurable per stream type).
 
 ### Environments
 
@@ -137,7 +150,7 @@ Extensible content system for custom file types with optional validation (config
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /api/notifications | Broadcast notification. Body: `message`, `severity` (error/warning/info), `source` (optional) |
+| POST | /api/notifications | Broadcast notification. Body: `type` (error/warning/info), `title`, `message`, `source` — all required. Rate limited: 10/min per source |
 
 ### Health
 

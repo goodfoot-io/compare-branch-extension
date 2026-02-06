@@ -1,6 +1,6 @@
 ---
 name: maintenence
-description: How to write a maintenence request issue issue
+description: How to write a maintenance request card
 ---
 
 
@@ -52,7 +52,7 @@ Describe the maintenance burden so readers can verify it and estimate effort.
 - Current versions or dependencies if upgrades are involved
 
 **Guidance:**
-Stick to observable facts. Use code references, metrics, or links to past issues. If evidence exists in "self-admitted technical debt" comments (e.g., TODO/FIXME), reference them.
+Stick to observable facts. Use code references, metrics, or links to past cards. If evidence exists in "self-admitted technical debt" comments (e.g., TODO/FIXME), reference them.
 
 **Anti-patterns:**
 - **The Hunch**: Speculating about debt without verifiable references
@@ -128,9 +128,9 @@ Avoid "done when refactor is complete." Use outcomes that can be checked by anyo
 
 ## Advanced Techniques (Optional)
 
-### Issue Tracker Alignment
+### Card Template Alignment
 
-Use issue templates and structured fields to enforce required information and enable reporting. Templates should prompt for impact, scope, and acceptance signals, as seen in systems like Linear and Jira.
+Use card templates and structured fields to enforce required information and enable reporting. Templates should prompt for impact, scope, and acceptance signals.
 
 ### LLM Assistance (Use Carefully)
 

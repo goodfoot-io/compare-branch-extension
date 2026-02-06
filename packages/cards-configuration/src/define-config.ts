@@ -25,8 +25,14 @@
  * ```
  */
 
-import type { SettingsConfig } from './config.js';
-import type { Action, Command, Settings, TypeDefinition } from './schema.js';
+import type {
+  ActionPair,
+  EnvironmentConfig,
+  SettingsConfig,
+  StreamConfigDefinition,
+  TypeConfigDefinition
+} from './config.js';
+import type { Action, Command, Environment, Settings, StreamDefinition, TypeDefinition } from './schema.js';
 
 /**
  * Type hook command with factoryType and typeName properties.
@@ -53,6 +59,132 @@ function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefin
     command.timeout = hook.timeout;
   }
   return command;
+}
+
+/**
+ * Serializes a stream configuration to a StreamDefinition object.
+ * Extracts metadata from the transform command and generates the command path.
+ */
+function serializeStreamConfig(streamConfig: StreamConfigDefinition): StreamDefinition {
+  const { version, transform } = streamConfig;
+
+  const streamDef: StreamDefinition = {
+    version,
+    transform: {
+      path: `${transform.factoryType}-${transform.streamType}.js`
+    }
+  };
+
+  if (transform.timeout !== undefined) {
+    streamDef.transform.timeout = transform.timeout;
+  }
+
+  if (transform.maxLineLength !== undefined) {
+    streamDef.maxLineLength = transform.maxLineLength;
+  }
+
+  if (transform.maxStreamSize !== undefined) {
+    streamDef.maxStreamSize = transform.maxStreamSize;
+  }
+
+  return streamDef;
+}
+
+/**
+ * Serializes an action pair to an Action object.
+ * Extracts metadata from start/end commands and generates command paths.
+ */
+function serializeActionPair(actionPair: ActionPair): Action {
+  if (!actionPair.start) {
+    throw new Error('Action must have a start command');
+  }
+
+  const { start } = actionPair;
+  const action: Action = {
+    name: start.actionName,
+    start: {
+      command: `${start.factoryType}-${start.actionName}.js`
+    }
+  };
+
+  if (start.timeout !== undefined) {
+    action.start.timeout = start.timeout;
+  }
+
+  if (start.description !== undefined) {
+    action.description = start.description;
+  }
+
+  if (start.icon !== undefined) {
+    action.icon = start.icon;
+  }
+
+  if (start.supportsBackgroundMode !== undefined) {
+    action.supportsBackgroundMode = start.supportsBackgroundMode;
+  }
+
+  if (start.allowConcurrent !== undefined) {
+    action.allowConcurrent = start.allowConcurrent;
+  }
+
+  if (actionPair.end) {
+    const { end } = actionPair;
+    action.end = {
+      command: `${end.factoryType}-${end.actionName}.js`
+    };
+    if (end.timeout !== undefined) {
+      action.end.timeout = end.timeout;
+    }
+  }
+
+  return action;
+}
+
+/**
+ * Serializes a type configuration to a TypeDefinition object.
+ */
+function serializeTypeConfig(typeName: string, typeConfig: TypeConfigDefinition): TypeDefinition {
+  if (!typeConfig.version) {
+    throw new Error(`Type "${typeName}" must have a version`);
+  }
+
+  return {
+    version: typeConfig.version,
+    validator: serializeTypeHook(typeConfig.validator),
+    create: serializeTypeHook(typeConfig.create),
+    update: serializeTypeHook(typeConfig.update),
+    delete: serializeTypeHook(typeConfig.delete)
+  };
+}
+
+/**
+ * Serializes an environment configuration to an Environment object.
+ */
+function serializeEnvironment(envConfig: EnvironmentConfig): Environment {
+  const env: Environment = {
+    version: envConfig.version ?? 1,
+    actions: envConfig.actions.map(serializeActionPair)
+  };
+
+  if (envConfig.description !== undefined) {
+    env.description = envConfig.description;
+  }
+
+  if (envConfig.types) {
+    env.types = {};
+    for (const [typeName, typeConfig] of Object.entries(envConfig.types)) {
+      env.types[typeName] = serializeTypeConfig(typeName, typeConfig);
+    }
+  }
+
+  if (envConfig.streams) {
+    env.streams = {};
+    for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
+      env.streams[streamName] = serializeStreamConfig(streamConfig);
+    }
+  }
+
+  return env;
 }
 
 /**
@@ -135,95 +267,11 @@ export function defineConfig(config: SettingsConfig): SettingsConfig {
  * ```
  */
 export function serializeSettings(config: SettingsConfig): Settings {
-  const serializedEnvironments: Settings['environments'] = {};
+  const environments: Settings['environments'] = {};
 
   for (const [envName, envConfig] of Object.entries(config.environments)) {
-    // Serialize actions
-    const serializedActions = envConfig.actions.map((actionPair) => {
-      if (!actionPair.start) {
-        throw new Error('Action must have a start command');
-      }
-
-      const start = actionPair.start;
-      const action: Action = {
-        name: start.actionName,
-        start: {
-          command: `${start.factoryType}-${start.actionName}.js`
-        }
-      };
-
-      // Add optional start command timeout
-      if (start.timeout !== undefined) {
-        action.start.timeout = start.timeout;
-      }
-
-      // Add optional metadata from start command
-      if (start.description !== undefined) {
-        action.description = start.description;
-      }
-      if (start.icon !== undefined) {
-        action.icon = start.icon;
-      }
-      if (start.supportsBackgroundMode !== undefined) {
-        action.supportsBackgroundMode = start.supportsBackgroundMode;
-      }
-      if (start.allowConcurrent !== undefined) {
-        action.allowConcurrent = start.allowConcurrent;
-      }
-
-      // Add end command if present
-      if (actionPair.end) {
-        const end = actionPair.end;
-        action.end = {
-          command: `${end.factoryType}-${end.actionName}.js`
-        };
-        if (end.timeout !== undefined) {
-          action.end.timeout = end.timeout;
-        }
-      }
-
-      return action;
-    });
-
-    // Serialize types
-    let serializedTypes: Settings['environments'][string]['types'];
-    if (envConfig.types) {
-      serializedTypes = {};
-      for (const [typeName, typeConfig] of Object.entries(envConfig.types)) {
-        if (!typeConfig.version) {
-          throw new Error(`Type "${typeName}" must have a version`);
-        }
-
-        const typeDef: TypeDefinition = {
-          version: typeConfig.version,
-          validator: serializeTypeHook(typeConfig.validator),
-          create: serializeTypeHook(typeConfig.create),
-          update: serializeTypeHook(typeConfig.update),
-          delete: serializeTypeHook(typeConfig.delete)
-        };
-
-        serializedTypes[typeName] = typeDef;
-      }
-    }
-
-    // Build the serialized environment
-    serializedEnvironments[envName] = {
-      version: envConfig.version ?? 1,
-      actions: serializedActions
-    };
-
-    // Add optional description
-    if (envConfig.description !== undefined) {
-      serializedEnvironments[envName].description = envConfig.description;
-    }
-
-    // Add types if present
-    if (serializedTypes) {
-      serializedEnvironments[envName].types = serializedTypes;
-    }
+    environments[envName] = serializeEnvironment(envConfig);
   }
 
-  return {
-    environments: serializedEnvironments
-  };
+  return { environments };
 }

@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: How to write a documentation request issue
+description: How to write a documentation request card
 ---
 
 
@@ -123,7 +123,7 @@ For knowledge-base articles:
 - Symptoms and quick diagnosis checklist
 - Environment or configuration factors that change the solution
 - Resolution steps and expected confirmation
-- Related issues, tags, or search terms to improve findability
+- Related cards, tags, or search terms to improve findability
 
 ## Anti-Patterns to Avoid
 

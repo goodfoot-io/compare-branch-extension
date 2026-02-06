@@ -15,6 +15,7 @@ import { compileHandler } from '../../src/cli/compiler.js';
 // Resolve the path to the factories module for test fixtures
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FACTORIES_PATH = path.resolve(__dirname, '../../src/factories/index.js');
+const STREAM_TRANSFORM_PATH = path.resolve(__dirname, '../../src/factories/stream-transform.js');
 
 // ============================================================================
 // Test Helpers
@@ -380,5 +381,97 @@ export default defineActionStart(
     // Verify output directory was created
     expect(fs.existsSync(outputDir)).toBe(true);
     expect(fs.existsSync(outputPath)).toBe(true);
+  });
+
+  // ==========================================================================
+  // Stream Transform Compilation
+  // ==========================================================================
+
+  describe('streamTransform factoryType', () => {
+    /**
+     * Compiles a stream transform handler and returns the compiled output string.
+     * Asserts compilation success before returning.
+     */
+    async function compileStreamTransform(
+      handlerContent: string,
+      options: { sourcemap?: boolean } = {}
+    ): Promise<string> {
+      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
+      const outputPath = path.join(testDir, 'output.mjs');
+      const result = await compileHandler({
+        sourcePath,
+        outputPath,
+        sourcemap: options.sourcemap ?? false,
+        factoryType: 'streamTransform'
+      });
+      expect(result.success).toBe(true);
+      return readCompiledOutput(outputPath);
+    }
+
+    /** Stream transform handler fixture with init function. */
+    const HANDLER_WITH_INIT = `
+import { defineStreamTransform } from '${STREAM_TRANSFORM_PATH.replace(/\\/g, '/')}';
+
+export default defineStreamTransform(
+  { streamType: 'test-stream', sourcePath: '/workspace/handler.js' },
+  (line) => \`transformed: \${line}\`,
+  (ctx) => { ctx.state.set('initialized', true); }
+);
+`;
+
+    /** Stream transform handler fixture without init function. */
+    const HANDLER_WITHOUT_INIT = `
+import { defineStreamTransform } from '${STREAM_TRANSFORM_PATH.replace(/\\/g, '/')}';
+
+export default defineStreamTransform(
+  { streamType: 'test-stream', sourcePath: '/workspace/handler.js' },
+  (line) => \`transformed: \${line}\`
+);
+`;
+
+    it('should produce a self-contained ESM bundle with init and default exports', async () => {
+      const output = await compileStreamTransform(HANDLER_WITH_INIT);
+
+      // Exports: init function and default export
+      expect(output).toMatch(/function init\s*\(/);
+      expect(output).toMatch(/export\s*\{[\s\S]*?init/);
+      expect(output).toMatch(/export\s*\{[\s\S]*?default/);
+
+      // Fully bundled: no bare import statements
+      expect(output).not.toMatch(/^\s*import\s+/m);
+
+      // No Node.js createRequire banner (incompatible with VM sandbox)
+      expect(output).not.toContain('createRequire');
+    });
+
+    it('should export init that safely no-ops when no init handler is provided', async () => {
+      const output = await compileStreamTransform(HANDLER_WITHOUT_INIT);
+
+      expect(output).toMatch(/function init\s*\(/);
+      expect(output).toMatch(/export\s*\{[\s\S]*?init/);
+    });
+
+    it('should return error for non-existent source file', async () => {
+      const sourcePath = path.join(testDir, 'non-existent.js');
+      const outputPath = path.join(testDir, 'output.mjs');
+
+      const result = await compileHandler({
+        sourcePath,
+        outputPath,
+        sourcemap: false,
+        factoryType: 'streamTransform'
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('does not exist');
+      }
+    });
+
+    it('should generate inline source maps when requested', async () => {
+      const output = await compileStreamTransform(HANDLER_WITH_INIT, { sourcemap: true });
+
+      expect(output).toContain('sourceMappingURL');
+    });
   });
 });

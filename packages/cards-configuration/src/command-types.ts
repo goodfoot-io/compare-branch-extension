@@ -207,3 +207,99 @@ export interface TypeDeleteCommand<T extends string = string> {
    */
   sourcePath?: string;
 }
+
+/**
+ * Context provided to an optional `init()` function at stream start.
+ *
+ * When a transform module exports an `init` function alongside its default
+ * transform, the worker calls `init(context)` once before processing any
+ * lines. This allows transforms to:
+ *
+ * - Extract data from HTTP headers (e.g., authentication info, client ID).
+ * - Read card metadata for conditional behavior.
+ * - Seed the `state` Map with session-level data that persists across lines.
+ *
+ * The `state` Map is the same instance passed to every `transform()` call
+ * within the stream, enabling cross-line data sharing without global variables.
+ * The state lives entirely in the worker thread and never crosses the thread
+ * boundary (no serialization overhead).
+ */
+export interface StreamInitContext {
+  /** Stream type key matching the environment config entry. */
+  streamType: string;
+
+  /** Filename of the stream being created. */
+  filename: string;
+
+  /** HTTP request headers from the POST that created the stream. */
+  headers: Record<string, string>;
+
+  /** Card that owns this stream. */
+  card: {
+    /** Card unique identifier. */
+    id: string;
+    /** Card title, if set. */
+    title?: string;
+    /** Arbitrary metadata from card frontmatter. */
+    metadata: Record<string, unknown>;
+  };
+
+  /**
+   * Mutable state Map shared with transform calls.
+   *
+   * Use this to store session-level data during init that persists
+   * across all transform calls within this stream. The same Map instance
+   * is passed to the transform function's context.
+   */
+  state: Map<string, unknown>;
+}
+
+/**
+ * Context provided to stream transform handlers.
+ */
+export interface TransformContext {
+  /** 1-based line number in the stream. */
+  lineNumber: number;
+  /** Stream type key (e.g., 'jsonl', 'logs'). */
+  streamType: string;
+  /**
+   * Mutable state Map shared with init.
+   * Optional for backward compatibility with existing transforms.
+   */
+  state?: Map<string, unknown>;
+}
+
+/**
+ * Optional initialization handler for stream transforms.
+ */
+export type StreamInitHandler = (context: StreamInitContext) => void | Promise<void>;
+
+/**
+ * Callable command returned by stream transform factory.
+ *
+ * Transforms each line of a stream before processing. The handler receives
+ * the line content and context, and returns the transformed line.
+ *
+ * @template N - The literal stream type name (e.g., 'jsonl')
+ */
+export interface StreamTransformCommand<N extends string = string> {
+  (line: string, context: TransformContext): Promise<string>;
+  factoryType: 'streamTransform';
+  /** Stream type from config - preserved as literal type. */
+  streamType: N;
+  /** Optional timeout in milliseconds. */
+  timeout?: number;
+  /** Maximum line length in bytes. */
+  maxLineLength?: number;
+  /** Maximum stream size in bytes. */
+  maxStreamSize?: number;
+  /**
+   * Path to the handler source file for CLI compilation.
+   */
+  sourcePath?: string;
+  /**
+   * Optional initialization handler called once at stream start.
+   * Receives context with headers, card metadata, and shared state Map.
+   */
+  init?: StreamInitHandler;
+}

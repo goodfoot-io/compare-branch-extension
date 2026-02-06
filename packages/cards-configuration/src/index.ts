@@ -41,6 +41,17 @@ export {
 } from './factories/type-hooks.js';
 
 // ============================================================================
+// Stream Transform Factories
+// ============================================================================
+
+export {
+  defineStreamTransform,
+  type StreamInitHandler,
+  type StreamTransformConfig,
+  type StreamTransformHandler
+} from './factories/stream-transform.js';
+
+// ============================================================================
 // Configuration
 // ============================================================================
 
@@ -48,6 +59,7 @@ export type {
   ActionPair,
   EnvironmentConfig,
   SettingsConfig,
+  StreamConfigDefinition,
   TypeConfigDefinition
 } from './config.js';
 export { defineConfig, serializeSettings } from './define-config.js';
@@ -61,6 +73,7 @@ export type {
   Command,
   Environment,
   Settings,
+  StreamDefinition,
   TypeDefinition
 } from './schema.js';
 
@@ -84,6 +97,10 @@ export type {
 export type {
   ActionEndCommand,
   ActionStartCommand,
+  StreamInitContext,
+  StreamInitHandler as StreamInitHandlerType,
+  StreamTransformCommand,
+  TransformContext,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,

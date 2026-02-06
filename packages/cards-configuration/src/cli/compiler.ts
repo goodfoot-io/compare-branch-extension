@@ -8,8 +8,8 @@
  *
  * ## Compilation Process
  *
- * 1. Creates a temporary wrapper file that imports the handler and runtime
- * 2. Invokes esbuild to bundle the wrapper with all dependencies
+ * 1. Generates wrapper code that imports the handler and runtime
+ * 2. Feeds the wrapper to esbuild via stdin (no temp files on disk)
  * 3. Outputs a standalone ESM file that can be executed with Node.js or Bun
  * 4. Optionally generates source maps for debugging
  *
@@ -117,11 +117,27 @@ export type CompileResult = CompileSuccess | CompileFailure;
 // Implementation
 // ============================================================================
 
-import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import * as esbuild from 'esbuild';
+
+/**
+ * Finds the package root by traversing up from a starting directory
+ * looking for package.json. Works whether invoked from src/ (tests)
+ * or dist/ (bundled CLI).
+ */
+function findPackageRoot(startDir: string): string {
+  let dir = startDir;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  throw new Error(`Could not find package.json from ${startDir}`);
+}
+
+const PACKAGE_ROOT = findPackageRoot(path.dirname(new URL(import.meta.url).pathname));
 
 /**
  * External modules (Node built-ins) that should not be bundled.
@@ -166,8 +182,8 @@ const require = __createRequire(import.meta.url);`;
  * - **Format**: ESM (ES Modules)
  * - **Target**: Node.js compatible (ES2022)
  * - **External modules**: Node built-ins are externalized
- * - **Wrapper injection**: Creates a temporary wrapper file that imports the
- *   handler and calls execute()
+ * - **Wrapper injection**: Feeds wrapper code to esbuild via stdin that
+ *   imports the handler and calls execute()
  *
  * ## Error Handling
  *
@@ -208,61 +224,66 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
       };
     }
 
-    // Create a unique temporary directory for build artifacts
-    const buildHash = crypto.createHash('sha256').update(sourcePath).digest('hex').substring(0, 16);
-    const tempDir = path.join(os.tmpdir(), 'cards-configuration-build', buildHash);
-    const wrapperPath = path.join(tempDir, 'wrapper.ts');
-
-    // Create temp directory
-    fs.mkdirSync(tempDir, { recursive: true });
-
-    // Resolve runtime path (the runtime.js file in the same package)
-    const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
-
-    // Resolve validation path for type validators
-    const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
-
     // Generate wrapper content based on handler type
-    // Type validators use HTTP stdin/stdout protocol via executeValidation
-    // Other handlers use environment variable extraction via execute
+    const normalizedSource = sourcePath.replace(/\\/g, '/');
     let wrapperContent: string;
-    if (factoryType === 'typeValidator') {
+    if (factoryType === 'streamTransform') {
+      // Stream transforms re-export raw init and default transform functions
       wrapperContent = `
-import handler from '${sourcePath.replace(/\\/g, '/')}';
+import cmd from '${normalizedSource}';
+export function init(ctx) { return cmd.init?.(ctx); }
+export default function transform(line, ctx) { return cmd(line, ctx); }
+`;
+    } else if (factoryType === 'typeValidator') {
+      // Type validators use HTTP stdin/stdout protocol via executeValidation
+      const validationPath = path.resolve(PACKAGE_ROOT, 'src/validation.ts');
+      wrapperContent = `
+import handler from '${normalizedSource}';
 import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
 
 executeValidation(handler);
 `;
     } else {
+      // Other handlers use environment variable extraction via execute
+      const runtimePath = path.resolve(PACKAGE_ROOT, 'src/runtime.ts');
       wrapperContent = `
-import handler from '${sourcePath.replace(/\\/g, '/')}';
+import handler from '${normalizedSource}';
 import { execute } from '${runtimePath.replace(/\\/g, '/')}';
 
 execute(handler);
 `;
     }
 
-    // Write wrapper file
-    fs.writeFileSync(wrapperPath, wrapperContent, 'utf-8');
-
     // Create output directory if it doesn't exist
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
 
     // Build using esbuild
+    // Use stdin to avoid writing a temporary wrapper file to disk. The
+    // sourcefile uses a distinct name so it cannot collide with the
+    // handler file that the wrapper imports (esbuild treats sourcefile
+    // as the virtual filename for the stdin content).
+    const isStreamTransform = factoryType === 'streamTransform';
     const result = await esbuild.build({
-      entryPoints: [wrapperPath],
+      stdin: {
+        contents: wrapperContent,
+        resolveDir: path.dirname(sourcePath),
+        sourcefile: 'hook-wrapper.ts',
+        loader: 'ts'
+      },
       outfile: outputPath,
       bundle: true,
       format: 'esm',
-      platform: 'node',
+      platform: isStreamTransform ? 'neutral' : 'node',
       target: 'es2022',
       sourcemap: sourcemap ? 'inline' : false,
       minify: false,
-      external: EXTERNALS,
-      banner: {
-        js: BANNER
-      },
+      external: isStreamTransform ? [] : EXTERNALS,
+      banner: isStreamTransform
+        ? {}
+        : {
+            js: BANNER
+          },
       logLevel: 'silent'
     });
 

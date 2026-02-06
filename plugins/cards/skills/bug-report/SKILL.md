@@ -1,6 +1,6 @@
 ---
 name: bug-report
-description: How to write a bug report issue
+description: How to write a bug report card
 ---
 
 <how-to-write-a-bug-report>
