@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.d0967da6.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-card-association.1ab53ceb.mjs"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ]
+  },
+  "__generated": {
+    "files": [
+      "stop.d0967da6.mjs",
+      "post-tool-use-card-association.1ab53ceb.mjs"
+    ],
+    "timestamp": "2026-02-06T20:41:29.313Z"
+  }
+}
