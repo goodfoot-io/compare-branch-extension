@@ -10,7 +10,7 @@ skills: cards:api, claude-code-cli:plan, claude-code-cli:refactoring
 Extract from the invoking context:
 
 **Required Fields:**
-- [ISSUE_ID] = The issue's unique identifier
+- [CARD_ID] = The issue's unique identifier
 - [TITLE] = The issue title
 - [DESCRIPTION] = The issue description with requirements
 
@@ -359,7 +359,7 @@ Include code references for all files modified during refactoring:
 ### 1. Gather Context
 
 1. Extract issue information from prompt:
-   - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
+   - Use the provided [CARD_ID], [TITLE], and [DESCRIPTION]
    - Parse [PLAN_CONTENT] to understand intended scope and requirements
    - GET /cards/[CARD_ID]/comments to review implementation history and decisions
 

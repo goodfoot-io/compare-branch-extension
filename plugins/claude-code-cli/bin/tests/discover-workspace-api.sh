@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test suite for discover-workspace-api utility
-# Tests API discovery and base URL output with ISSUE_WORKSPACE_PATH validation
+# Tests API discovery and base URL output with CARD_WORKSPACE_PATH validation
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -87,116 +87,79 @@ echo "===================================="
 echo "Test directory: $TEST_DIR"
 echo "Script path: $DISCOVER_API"
 
-# Test 1: Missing ISSUE_WORKSPACE_PATH exits with code 2
-echo -e "\n${YELLOW}=== Test 1: Missing ISSUE_WORKSPACE_PATH exits with code 2 ===${NC}"
+# Test 1: Missing CARD_WORKSPACE_PATH exits with code 2
+echo -e "\n${YELLOW}=== Test 1: Missing CARD_WORKSPACE_PATH exits with code 2 ===${NC}"
 setup_mock_home
-unset ISSUE_WORKSPACE_PATH
-run_test "Missing ISSUE_WORKSPACE_PATH" 2
+unset CARD_WORKSPACE_PATH
+run_test "Missing CARD_WORKSPACE_PATH" 2
 
 # Test 2: Discovery file not found
 echo -e "\n${YELLOW}=== Test 2: Discovery file not found ===${NC}"
 setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
-export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
+export CARD_WORKSPACE_PATH="$TEST_WORKSPACE"
 # Don't create discovery file
-run_test "No discovery file" 1
+run_test "No discovery file" 2
 
-# Test 3: Discovery file exists with current workspace
-echo -e "\n${YELLOW}=== Test 3: Current workspace in discovery file ===${NC}"
+# Test 3: Flat discovery file with port and host
+echo -e "\n${YELLOW}=== Test 3: Flat discovery file ===${NC}"
 setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
-export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
+export CARD_WORKSPACE_PATH="$TEST_WORKSPACE"
 
 cat > "$HOME/.cards/cards-api.json" <<EOF
 {
-  "$TEST_WORKSPACE": {
-    "port": 54321,
-    "host": "127.0.0.1",
-    "pid": 12345,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T10:00:00.000Z"
-  }
+  "port": 54321,
+  "host": "127.0.0.1",
+  "pid": 12345,
+
+  "accessToken": "abc123",
+  "startedAt": "2024-01-15T10:00:00.000Z"
 }
 EOF
 
-run_test "Current workspace found" 0 "http://127.0.0.1:54321/api/v1"
+run_test "Flat discovery file" 0 "http://127.0.0.1:54321"
 
-# Test 4: Workspace not in discovery file (no fallback - strict mode)
-echo -e "\n${YELLOW}=== Test 4: Workspace not in discovery file (no fallback) ===${NC}"
+# Test 4: Empty discovery file (no port/host)
+echo -e "\n${YELLOW}=== Test 4: Empty discovery file ===${NC}"
 setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
-export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
-
-cat > "$HOME/.cards/cards-api.json" <<EOF
-{
-  "/some/other/path": {
-    "port": 55555,
-    "host": "127.0.0.1",
-    "pid": 99999,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T10:00:00.000Z"
-  }
-}
-EOF
-
-run_test "Workspace not found, no fallback" 1
-
-# Test 5: Empty discovery file
-echo -e "\n${YELLOW}=== Test 5: Empty discovery file ===${NC}"
-setup_mock_home
-TEST_WORKSPACE="$TEST_DIR/test-workspace"
-mkdir -p "$TEST_WORKSPACE"
-export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
+export CARD_WORKSPACE_PATH="$TEST_WORKSPACE"
 echo '{}' > "$HOME/.cards/cards-api.json"
-run_test "Empty discovery file" 1
+run_test "Empty discovery file" 2
 
-# Test 6: Invalid JSON in discovery file
-echo -e "\n${YELLOW}=== Test 6: Invalid JSON in discovery file ===${NC}"
+# Test 5: Invalid JSON in discovery file
+echo -e "\n${YELLOW}=== Test 5: Invalid JSON in discovery file ===${NC}"
 setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
-export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
+export CARD_WORKSPACE_PATH="$TEST_WORKSPACE"
 echo 'not valid json' > "$HOME/.cards/cards-api.json"
 # Note: jq returns exit code 4 for parse errors, which causes script to fail
 run_test "Invalid JSON in discovery file" 4
 
-# Test 7: Multiple workspaces, exact match only
-echo -e "\n${YELLOW}=== Test 7: Multiple workspaces, exact match only ===${NC}"
+# Test 6: Discovery file with custom host
+echo -e "\n${YELLOW}=== Test 6: Custom host in discovery file ===${NC}"
 setup_mock_home
 TEST_WORKSPACE="$TEST_DIR/test-workspace"
 mkdir -p "$TEST_WORKSPACE"
-export ISSUE_WORKSPACE_PATH="$TEST_WORKSPACE"
+export CARD_WORKSPACE_PATH="$TEST_WORKSPACE"
 
 cat > "$HOME/.cards/cards-api.json" <<EOF
 {
-  "/some/other/path": {
-    "port": 11111,
-    "host": "127.0.0.1",
-    "pid": 11111,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T09:00:00.000Z"
-  },
-  "$TEST_WORKSPACE": {
-    "port": 22222,
-    "host": "127.0.0.1",
-    "pid": 22222,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T10:00:00.000Z"
-  },
-  "/another/path": {
-    "port": 33333,
-    "host": "127.0.0.1",
-    "pid": 33333,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T11:00:00.000Z"
-  }
+  "port": 9999,
+  "host": "0.0.0.0",
+  "pid": 67890,
+
+  "accessToken": "def456",
+  "startedAt": "2024-01-15T11:00:00.000Z"
 }
 EOF
 
-run_test "Exact workspace match among multiple" 0 "http://127.0.0.1:22222/api/v1"
+run_test "Custom host" 0 "http://0.0.0.0:9999"
 
 # Cleanup
 cleanup_mock_home

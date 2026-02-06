@@ -584,8 +584,8 @@ function discoverApiUrl(logger2) {
     });
   }
 }
-async function fetchIssueDiff(sessionId, issueId, baseUrl, logger2) {
-  const url = `${baseUrl}/session/${sessionId}/diff?issueIds=${issueId}`;
+async function fetchCardDiff(sessionId, cardId, baseUrl, logger2) {
+  const url = `${baseUrl}/session/${sessionId}/diff?cardIds=${cardId}`;
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(5e3)
@@ -737,8 +737,8 @@ var stop_default = stopHook({}, async (input, { logger: logger2 }) => {
   if (!sessionId) {
     return stopOutput({ decision: "approve" });
   }
-  const issueId = process.env.CARD_ID;
-  if (!issueId) {
+  const cardId = process.env.CARD_ID;
+  if (!cardId) {
     logger2.warn("CARD_ID not set - this hook requires the issue launcher");
     return stopOutput({
       decision: "approve",
@@ -749,7 +749,7 @@ var stop_default = stopHook({}, async (input, { logger: logger2 }) => {
   let diffResponse;
   try {
     baseUrl = discoverApiUrl(logger2);
-    diffResponse = await fetchIssueDiff(sessionId, issueId, baseUrl, logger2);
+    diffResponse = await fetchCardDiff(sessionId, cardId, baseUrl, logger2);
   } catch (error) {
     logger2.debug("API error", { error: String(error) });
     if (hasApiFailureBeenReported(sessionId, logger2)) {
@@ -774,7 +774,7 @@ var stop_default = stopHook({}, async (input, { logger: logger2 }) => {
     }
     return stopOutput({
       decision: "approve",
-      systemMessage: `Issue \`${issueId}\` has no updates.`
+      systemMessage: `Issue \`${cardId}\` has no updates.`
     });
   }
   const systemMsg = buildUpdateSummary(diffResponse);

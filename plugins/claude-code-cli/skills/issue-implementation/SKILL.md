@@ -4,7 +4,7 @@ description: Implement issues in isolated git worktree.
 ---
 
 <placeholder-variables>
-[BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[BRANCH_NAME] — `issue-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -204,7 +204,7 @@ When uncertain between Coherent and Sequential, choose **Coherent** for planless
 git add -A
 git commit --allow-empty -m "checkpoint: before implementation
 
-Issue: [ISSUE_ID]
+Issue: [CARD_ID]
 Tasks: [TASK_COUNT] derived from issue"
 ```
 
@@ -231,7 +231,7 @@ Choose the [MODEL] to use with the `claude-code-cli:implementer` subagent based 
 <parameter name="model">[MODEL]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="prompt">
-Issue: [ISSUE_ID] - [TITLE]
+Issue: [CARD_ID] - [TITLE]
 Worktree: [WORKTREE_PATH]
 Checkpoint SHA: [CHECKPOINT_SHA]
 
@@ -266,7 +266,7 @@ Checkpoint SHA: [CHECKPOINT_SHA]
 <parameter name="model">[MODEL]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="prompt">
-Issue: [ISSUE_ID] - [TITLE]
+Issue: [CARD_ID] - [TITLE]
 Worktree: [WORKTREE_PATH]
 
 ## Tasks to Complete
@@ -282,7 +282,7 @@ Worktree: [WORKTREE_PATH]
 <parameter name="model">[MODEL]</parameter>
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="prompt">
-Issue: [ISSUE_ID] - [TITLE]
+Issue: [CARD_ID] - [TITLE]
 Worktree: [WORKTREE_PATH]
 
 ## Tasks to Complete

@@ -6,7 +6,7 @@
 #   ./discover-api.sh
 #
 # Output:
-#   The base URL for the Cards API (e.g., http://127.0.0.1:12345/api/v1)
+#   The base URL for the Cards API (e.g., http://127.0.0.1:12345)
 #
 # Exit codes:
 #   0 - Success, base URL printed to stdout
@@ -16,7 +16,6 @@
 set -euo pipefail
 
 DISCOVERY_FILE="$HOME/.cards/cards-api.json"
-WORKSPACE=$(pwd)
 
 # Check if discovery file exists
 if [ ! -f "$DISCOVERY_FILE" ]; then
@@ -25,19 +24,14 @@ if [ ! -f "$DISCOVERY_FILE" ]; then
   exit 2
 fi
 
-# Get port and host for current workspace (or first available if not found)
-PORT=$(jq -r --arg ws "$WORKSPACE" '.[$ws].port // empty' "$DISCOVERY_FILE" 2>/dev/null)
-HOST=$(jq -r --arg ws "$WORKSPACE" '.[$ws].host // empty' "$DISCOVERY_FILE" 2>/dev/null)
-
-# Fall back to first available instance if workspace not found
-if [ -z "$PORT" ] || [ -z "$HOST" ]; then
-  PORT=$(jq -r 'to_entries[0].value.port // empty' "$DISCOVERY_FILE" 2>/dev/null)
-  HOST=$(jq -r 'to_entries[0].value.host // empty' "$DISCOVERY_FILE" 2>/dev/null)
-fi
+# The discovery file is a flat JSON object written by CardsServer:
+#   { "port": N, "host": "...", "pid": N, "accessToken": "...", "startedAt": "..." }
+PORT=$(jq -r '.port // empty' "$DISCOVERY_FILE" 2>/dev/null)
+HOST=$(jq -r '.host // empty' "$DISCOVERY_FILE" 2>/dev/null)
 
 if [ -z "$PORT" ] || [ -z "$HOST" ]; then
   echo "Error: No API instances found in discovery file" >&2
   exit 2
 fi
 
-echo "http://${HOST}:${PORT}/api/v1"
+echo "http://${HOST}:${PORT}"

@@ -10,7 +10,7 @@ skills: cards:api, claude-code-cli:plan
 Extract from the invoking context:
 
 **Required Fields:**
-- [ISSUE_ID] = The issue's unique identifier
+- [CARD_ID] = The issue's unique identifier
 - [TITLE] = The issue title
 - [DESCRIPTION] = The issue description with requirements
 
@@ -375,7 +375,7 @@ Do not post to issue comments directly - evaluations are stored in the dedicated
 ### 1. Gather Context
 
 1. Extract issue information from prompt:
-   - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
+   - Use the provided [CARD_ID], [TITLE], and [DESCRIPTION]
 
 2. Fetch plan content from the issues API:
    - Call `GET /cards/[CARD_ID]` to retrieve the issue

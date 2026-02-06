@@ -577,7 +577,6 @@ async function discoverApiInfo(logger2) {
       host: "localhost",
       port: 9999,
       pid: 99999,
-      apiVersion: "test",
       accessToken: "test-token",
       startedAt: "2024-01-01T00:00:00Z"
     };
@@ -586,7 +585,7 @@ async function discoverApiInfo(logger2) {
   try {
     const content = await readFile(configPath, "utf-8");
     const config = JSON.parse(content);
-    if (typeof config["host"] !== "string" || typeof config["port"] !== "number" || typeof config["accessToken"] !== "string" || typeof config["apiVersion"] !== "string" || typeof config["pid"] !== "number" || typeof config["startedAt"] !== "string") {
+    if (typeof config["host"] !== "string" || typeof config["port"] !== "number" || typeof config["accessToken"] !== "string" || typeof config["pid"] !== "number" || typeof config["startedAt"] !== "string") {
       logger2?.debug("API info discovery failed", { error: "Config missing required fields" });
       return null;
     }
@@ -594,7 +593,6 @@ async function discoverApiInfo(logger2) {
       host: config["host"],
       port: config["port"],
       accessToken: config["accessToken"],
-      apiVersion: config["apiVersion"],
       pid: config["pid"],
       startedAt: config["startedAt"],
       sessionBaseline: config["sessionBaseline"]

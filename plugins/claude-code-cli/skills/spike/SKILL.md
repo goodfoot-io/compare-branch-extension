@@ -22,9 +22,9 @@ Based on decision context:
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Which approach ([A] vs [B] vs [C]) best supports [use case] with [constraints]?"
-- `[SPIKE_PATH]`: Format as `.spikes/[ISSUE_ID]/[test-name]/`
+- `[SPIKE_PATH]`: Format as `.spikes/[CARD_ID]/[test-name]/`
   - `[test-name]`: Use kebab-case like `realtime-comparison` or `socketio-vs-sse`
-  - `[ISSUE_ID]` is a placeholder for the issue identifier (e.g., `123` or `feature-auth`)
+  - `[CARD_ID]` is a placeholder for the issue identifier (e.g., `123` or `feature-auth`)
 - `[APPROACHES]`: List 2-3 technologies with versions (e.g., `["Socket.io v4.6.1 (WebSocket)", "EventSource (SSE)", "long-polling"]`)
 - `[COMPARISON_CRITERIA]`: Measurable aspects (e.g., `"Developer experience, bidirectional communication, horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -39,9 +39,9 @@ Based on decision context:
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Does [Library@version] support [specific capability]?"
-- `[SPIKE_PATH]`: Format as `.spikes/[ISSUE_ID]/[test-name]/`
+- `[SPIKE_PATH]`: Format as `.spikes/[CARD_ID]/[test-name]/`
   - `[test-name]`: Use kebab-case like `redis-compatibility-check` or `react-query-types-export`
-  - The `[ISSUE_ID]` placeholder represents the issue identifier (e.g., `123` or `feature-auth`)
+  - The `[CARD_ID]` placeholder represents the issue identifier (e.g., `123` or `feature-auth`)
 - `[APPROACH]`: Single technology to validate (e.g., `"Socket.io v4.6.1 with @socket.io/redis-adapter"`)
 - `[VALIDATION_CRITERIA]`: What needs verification (e.g., `"Redis adapter compatibility for horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -53,7 +53,7 @@ Based on decision context:
 
 <subagent-context>
 Subagents have no context from this conversation. Provide issue-relative paths:
-- Spike directory: `.spikes/[ISSUE_ID]/[test-name]/`
+- Spike directory: `.spikes/[CARD_ID]/[test-name]/`
 - Codebase files: `packages/api/src/server.ts` (no prefix needed)
 
 Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that organize technical details.
@@ -78,7 +78,7 @@ Based on spike type:
   </technical-context>
 
   <spike-path>
-  .spikes/[ISSUE_ID]/[test-name]/
+  .spikes/[CARD_ID]/[test-name]/
   </spike-path>
   ```
 - **Validation Spike**: Use the following XML structure:
@@ -100,7 +100,7 @@ Based on spike type:
   </technical-context>
 
   <spike-path>
-  .spikes/[ISSUE_ID]/[test-name]/
+  .spikes/[CARD_ID]/[test-name]/
   </spike-path>
   ```
 </subagent-context>
@@ -121,7 +121,7 @@ Based on spike type, use the appropriate result template:
     - [Approach 1]: [Specific findings from prototype]
     - [Approach 2]: [Specific findings from prototype]
     - [Approach 3]: [Specific findings from prototype]
-  - **Artifacts**: `.spikes/[ISSUE_ID]/[test-name]/` contains:
+  - **Artifacts**: `.spikes/[CARD_ID]/[test-name]/` contains:
     - `approach-[name1]/` - [Description]
     - `approach-[name2]/` - [Description]
     - `approach-[name3]/` - [Description]
@@ -138,7 +138,7 @@ Based on spike type, use the appropriate result template:
   - **Approach Tested**: [Technology/version being validated]
   - **Result**: [Pass/Fail or capability confirmation]
   - **Evidence**: [Concrete demonstration - working code, API output, test results]
-  - **Artifacts**: `.spikes/[ISSUE_ID]/[test-name]/` contains:
+  - **Artifacts**: `.spikes/[CARD_ID]/[test-name]/` contains:
     - `test-implementation/` - [Description]
     - `results.md` - Detailed findings
   - **Impact**: [How this result confirms feasibility or influences implementation details]
@@ -148,11 +148,11 @@ Based on spike type, use the appropriate result template:
 <example>
 **Comparison Spike Example**:
 
-User message: "Compare WebSocket (Socket.io), Server-Sent Events (EventSource), and long-polling for real-time notifications. Compare developer experience, bidirectional communication support, and horizontal scaling capability. Use spike path `.spikes/[ISSUE_ID]/realtime-comparison/`"
+User message: "Compare WebSocket (Socket.io), Server-Sent Events (EventSource), and long-polling for real-time notifications. Compare developer experience, bidirectional communication support, and horizontal scaling capability. Use spike path `.spikes/[CARD_ID]/realtime-comparison/`"
 
 Derived values:
 - [SPIKE_QUESTION] = "Which real-time approach (WebSocket, SSE, or long-polling) best supports notification requirements with horizontal scaling?"
-- [SPIKE_PATH] = ".spikes/[ISSUE_ID]/realtime-comparison/"
+- [SPIKE_PATH] = ".spikes/[CARD_ID]/realtime-comparison/"
 - [APPROACHES] = ["Socket.io v4.6.1 (WebSocket)", "native EventSource (SSE)", "polling with state management"]
 - [COMPARISON_CRITERIA] = ["Developer experience", "Bidirectional communication support", "Horizontal scaling capability"]
 - [SUBAGENT_TYPE] = "general-purpose"
@@ -162,7 +162,7 @@ Derived values:
 ```
 Compare three real-time communication approaches for a notification system. Create working prototypes of each approach in the spike directory and compare them against specific criteria.
 
-Create prototypes in `.spikes/[ISSUE_ID]/realtime-comparison/`:
+Create prototypes in `.spikes/[CARD_ID]/realtime-comparison/`:
 1. `approach-socketio/` - Socket.io v4.6.1 implementation with Redis adapter for horizontal scaling
 2. `approach-sse/` - Native EventSource implementation with separate POST endpoint for client->server
 3. `approach-polling/` - Long-polling implementation with state management
@@ -203,7 +203,7 @@ Existing system uses Express.js v4.18.2 in `packages/api/src/server.ts`. Product
 </technical-context>
 
 <spike-path>
-.spikes/[ISSUE_ID]/realtime-comparison/
+.spikes/[CARD_ID]/realtime-comparison/
 </spike-path>
 ```
 
@@ -236,13 +236,13 @@ Existing system uses Express.js v4.18.2 in `packages/api/src/server.ts`. Product
 </technical-context>
 
 <spike-path>
-.spikes/[ISSUE_ID]/realtime-comparison/
+.spikes/[CARD_ID]/realtime-comparison/
 </spike-path>
 
 <instructions>
 Compare three real-time communication approaches for a notification system. Create working prototypes of each approach in the spike directory and compare them against specific criteria.
 
-Create prototypes in `.spikes/[ISSUE_ID]/realtime-comparison/`:
+Create prototypes in `.spikes/[CARD_ID]/realtime-comparison/`:
 1. `approach-socketio/` - Socket.io v4.6.1 implementation with Redis adapter for horizontal scaling
 2. `approach-sse/` - Native EventSource implementation with separate POST endpoint for client->server
 3. `approach-polling/` - Long-polling implementation with state management
@@ -267,11 +267,11 @@ Document findings using the Comparison Result Template in `results.md`.
 <example>
 **Validation Spike Example**:
 
-User message: "Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling. Use spike path `.spikes/[ISSUE_ID]/redis-compatibility/`"
+User message: "Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling. Use spike path `.spikes/[CARD_ID]/redis-compatibility/`"
 
 Derived values:
 - [SPIKE_QUESTION] = "Does Socket.io v4.6.1 support Redis adapter for horizontal scaling?"
-- [SPIKE_PATH] = ".spikes/[ISSUE_ID]/redis-compatibility/"
+- [SPIKE_PATH] = ".spikes/[CARD_ID]/redis-compatibility/"
 - [APPROACHES] = ["Socket.io v4.6.1 with Redis adapter"]
 - [SUBAGENT_TYPE] = "general-purpose"
 - [SUBAGENT_DESCRIPTION] = "redis-compatibility-check"
@@ -280,7 +280,7 @@ Derived values:
 ```
 Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling.
 
-Create test implementation in `.spikes/[ISSUE_ID]/redis-compatibility/`:
+Create test implementation in `.spikes/[CARD_ID]/redis-compatibility/`:
 1. `test-implementation/` - Socket.io v4.6.1 with Redis adapter configuration
 2. Install required packages: socket.io@4.6.1, @socket.io/redis-adapter
 3. Test multi-instance communication through Redis
@@ -313,7 +313,7 @@ Production environment uses Redis v7.0. Target deployment has 5 Node.js instance
 </technical-context>
 
 <spike-path>
-.spikes/[ISSUE_ID]/redis-compatibility/
+.spikes/[CARD_ID]/redis-compatibility/
 </spike-path>
 ```
 
@@ -344,13 +344,13 @@ Production environment uses Redis v7.0. Target deployment has 5 Node.js instance
 </technical-context>
 
 <spike-path>
-.spikes/[ISSUE_ID]/redis-compatibility/
+.spikes/[CARD_ID]/redis-compatibility/
 </spike-path>
 
 <instructions>
 Verify Socket.io v4.6.1 supports Redis adapter for horizontal scaling.
 
-Create test implementation in `.spikes/[ISSUE_ID]/redis-compatibility/`:
+Create test implementation in `.spikes/[CARD_ID]/redis-compatibility/`:
 1. `test-implementation/` - Socket.io v4.6.1 with Redis adapter configuration
 2. Install required packages: socket.io@4.6.1, @socket.io/redis-adapter
 3. Test multi-instance communication through Redis

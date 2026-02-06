@@ -105,10 +105,10 @@ describe('Testing Utilities', () => {
       });
 
       const result = await testValidation(validator, {
-        path: '/api/v1/contract.json'
+        path: '/contract.json'
       });
 
-      expect(result.response.metadata).toEqual({ path: '/api/v1/contract.json' });
+      expect(result.response.metadata).toEqual({ path: '/contract.json' });
     });
 
     it('accepts ValidationRequest directly', async () => {

@@ -7,7 +7,7 @@ description: Create implementation plans for user approval.
 [LATEST_USER_COMMENT] — Most recent comment from `author: "user"` (if any)
 [PLAN_CONTENT] — The plan markdown content from `planContent` field (string or null if not set)
 
-Note: [ISSUE_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
+Note: [CARD_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
 </placeholder-variables>
 
 <instructions>
@@ -49,7 +49,7 @@ Then launch both assessments in parallel (one message):
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-assessor</parameter>
-  <parameter name="prompt">Issue: [ISSUE_ID]
+  <parameter name="prompt">Issue: [CARD_ID]
   
 1. Read the plan:
 ```
@@ -63,7 +63,7 @@ GET /cards/[CARD_ID]/plan
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-refactor</parameter>
-  <parameter name="prompt">Issue: [ISSUE_ID]
+  <parameter name="prompt">Issue: [CARD_ID]
   
 1. Read the plan:
 ```

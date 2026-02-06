@@ -12,15 +12,15 @@
 #
 # This is a standalone script that does not depend on external worktree utilities.
 #
-# Usage: ISSUE_ID=<id> create-worktree <branch-name>
+# Usage: CARD_ID=<id> create-worktree <branch-name>
 #
 # Environment:
-#   ISSUE_ID    Required. The issue ID to associate with the worktree (e.g., main:259)
+#   CARD_ID    Required. The issue ID to associate with the worktree (e.g., main:259)
 #
 # Options:
 #   --help      Show this help message
 #
-# Output: JSON with branch, worktree, and issueId
+# Output: JSON with branch, worktree, and cardId
 # Exit codes:
 #   0 - Success
 #   2 - Failure (error details on stderr)
@@ -42,7 +42,7 @@ while [ $# -gt 0 ]; do
             ;;
         -*)
             printf '%s\n' "Error: Unknown option '$1'" >&2
-            printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
+            printf '%s\n' "Usage: CARD_ID=<id> create-worktree <branch-name>" >&2
             exit 2
             ;;
         *)
@@ -50,7 +50,7 @@ while [ $# -gt 0 ]; do
                 BRANCH_NAME="$1"
             else
                 printf '%s\n' "Error: Unexpected argument '$1'" >&2
-                printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
+                printf '%s\n' "Usage: CARD_ID=<id> create-worktree <branch-name>" >&2
                 exit 2
             fi
             shift
@@ -60,12 +60,12 @@ done
 
 # Show help if requested
 if [ "$SHOW_HELP" = "true" ]; then
-    printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>"
+    printf '%s\n' "Usage: CARD_ID=<id> create-worktree <branch-name>"
     printf '%s\n' ""
     printf '%s\n' "Creates a git worktree with symlinked ignored directories."
     printf '%s\n' ""
     printf '%s\n' "Environment:"
-    printf '%s\n' "  ISSUE_ID    Required. The issue ID to associate with the worktree (e.g., main:259)"
+    printf '%s\n' "  CARD_ID    Required. The issue ID to associate with the worktree (e.g., main:259)"
     printf '%s\n' ""
     printf '%s\n' "Options:"
     printf '%s\n' "  --help      Show this help message"
@@ -76,21 +76,21 @@ if [ "$SHOW_HELP" = "true" ]; then
 fi
 
 # Validate required environment variables
-if [ -z "${ISSUE_WORKSPACE_PATH:-}" ]; then
-    printf '%s\n' "Error: ISSUE_WORKSPACE_PATH environment variable is not set." >&2
+if [ -z "${CARD_WORKSPACE_PATH:-}" ]; then
+    printf '%s\n' "Error: CARD_WORKSPACE_PATH environment variable is not set." >&2
     printf '%s\n' "This script must be called from a Claude session with issue tracking enabled." >&2
     exit 2
 fi
 
-if [ -z "$ISSUE_ID" ]; then
-    printf '%s\n' "Error: ISSUE_ID environment variable is required" >&2
-    printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
+if [ -z "$CARD_ID" ]; then
+    printf '%s\n' "Error: CARD_ID environment variable is required" >&2
+    printf '%s\n' "Usage: CARD_ID=<id> create-worktree <branch-name>" >&2
     exit 2
 fi
 
 if [ -z "$BRANCH_NAME" ]; then
     printf '%s\n' "Error: branch-name argument is required" >&2
-    printf '%s\n' "Usage: ISSUE_ID=<id> create-worktree <branch-name>" >&2
+    printf '%s\n' "Usage: CARD_ID=<id> create-worktree <branch-name>" >&2
     exit 2
 fi
 
@@ -404,24 +404,24 @@ if [ -z "$WORKTREE_GIT_DIR" ]; then
 fi
 
 # Store issue context in worktree git config
-git -C "$WORKTREE_DIR" config --worktree issue.id "$ISSUE_ID" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.id in worktree git config" >&2
+git -C "$WORKTREE_DIR" config --worktree card.id "$CARD_ID" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store card.id in worktree git config" >&2
     exit 2
 }
-git -C "$WORKTREE_DIR" config --worktree issue.pluginBinDir "$SCRIPT_DIR" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.pluginBinDir in worktree git config" >&2
+git -C "$WORKTREE_DIR" config --worktree card.pluginBinDir "$SCRIPT_DIR" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store card.pluginBinDir in worktree git config" >&2
     exit 2
 }
-git -C "$WORKTREE_DIR" config --worktree issue.workspacePath "$ISSUE_WORKSPACE_PATH" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.workspacePath in worktree git config" >&2
+git -C "$WORKTREE_DIR" config --worktree card.workspacePath "$CARD_WORKSPACE_PATH" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store card.workspacePath in worktree git config" >&2
     exit 2
 }
-git -C "$WORKTREE_DIR" config --worktree issue.baseSha "$BASE_SHA" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.baseSha in worktree git config" >&2
+git -C "$WORKTREE_DIR" config --worktree card.baseSha "$BASE_SHA" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store card.baseSha in worktree git config" >&2
     exit 2
 }
-git -C "$WORKTREE_DIR" config --worktree issue.baseBranch "$BASE_BRANCH" 2>/dev/null || {
-    printf '%s\n' "Error: Failed to store issue.baseBranch in worktree git config" >&2
+git -C "$WORKTREE_DIR" config --worktree card.baseBranch "$BASE_BRANCH" 2>/dev/null || {
+    printf '%s\n' "Error: Failed to store card.baseBranch in worktree git config" >&2
     exit 2
 }
 
@@ -429,7 +429,7 @@ git -C "$WORKTREE_DIR" config --worktree issue.baseBranch "$BASE_BRANCH" 2>/dev/
 ORIGINAL_HOOKS_PATH=$(git -C "$WORKTREE_DIR" config core.hooksPath 2>/dev/null || echo "")
 if [ -n "$ORIGINAL_HOOKS_PATH" ]; then
     # Critical: worktree hooks depend on this to chain to original hooks (e.g., pre-commit)
-    if ! git -C "$WORKTREE_DIR" config --worktree issue.originalHooksPath "$ORIGINAL_HOOKS_PATH" 2>/dev/null; then
+    if ! git -C "$WORKTREE_DIR" config --worktree card.originalHooksPath "$ORIGINAL_HOOKS_PATH" 2>/dev/null; then
         printf '%s\n' "Error: Failed to store original hooks path in worktree git config" >&2
         printf '%s\n' "This is required for worktree hooks to chain to your pre-commit/pre-push hooks." >&2
         printf '%s\n' "Ensure you have write access to the worktree git config." >&2
@@ -450,11 +450,11 @@ HOOKS_DIR="${WORKTREE_GIT_DIR}/hooks"
 mkdir -p "$HOOKS_DIR"
 
 # Helper function embedded in hooks to find original hook
-# Reads issue.originalHooksPath from git config, resolves relative to repo root
+# Reads card.originalHooksPath from git config, resolves relative to repo root
 HOOK_CHAIN_HELPER='
 get_original_hook() {
     local hook_name="$1"
-    local original_path=$(git config --worktree issue.originalHooksPath 2>/dev/null)
+    local original_path=$(git config --worktree card.originalHooksPath 2>/dev/null)
     if [ -z "$original_path" ]; then
         return 1
     fi
@@ -540,18 +540,18 @@ post_commit_sha() {
 }
 
 # --- Setup API connection ---
-ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
-WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+CARD_ID=\$(git config --worktree card.id 2>/dev/null)
+WORKSPACE_PATH=\$(git config --worktree card.workspacePath 2>/dev/null)
 API_BASE=""
 
-if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
+if [ -n "\$CARD_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
     DISCOVERY_FILE="\$HOME/.cards/cards-api.json"
     if [ -f "\$DISCOVERY_FILE" ]; then
         PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
         HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
 
         if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
-            API_BASE="http://\${HOST}:\${PORT}/api/v1"
+            API_BASE="http://\${HOST}:\${PORT}"
         fi
     fi
 fi
@@ -561,7 +561,7 @@ HEAD_BEFORE=\$(git rev-parse HEAD 2>/dev/null)
 
 # --- Post the current commit ---
 if [ -n "\$API_BASE" ] && [ -n "\$HEAD_BEFORE" ]; then
-    post_commit_sha "\$HEAD_BEFORE" "\$ISSUE_ID" "\$API_BASE"
+    post_commit_sha "\$HEAD_BEFORE" "\$CARD_ID" "\$API_BASE"
 fi
 
 # --- Chain to original hook ---
@@ -574,7 +574,7 @@ fi
 # Chained hooks may create additional commits (e.g., subtree split --rejoin)
 HEAD_AFTER=\$(git rev-parse HEAD 2>/dev/null)
 if [ -n "\$API_BASE" ] && [ -n "\$HEAD_AFTER" ] && [ "\$HEAD_AFTER" != "\$HEAD_BEFORE" ]; then
-    post_commit_sha "\$HEAD_AFTER" "\$ISSUE_ID" "\$API_BASE"
+    post_commit_sha "\$HEAD_AFTER" "\$CARD_ID" "\$API_BASE"
 fi
 
 # --- Clean up orphaned commit comments ---
@@ -582,19 +582,19 @@ fi
 # This cleanup removes commitSha comments for commits no longer on the branch.
 # Valid commits: baseSha + all commits between baseSha and current HEAD.
 if [ -n "\$API_BASE" ]; then
-    BASE_SHA=\$(git config --worktree issue.baseSha 2>/dev/null)
+    BASE_SHA=\$(git config --worktree card.baseSha 2>/dev/null)
     if [ -n "\$BASE_SHA" ]; then
         # Build set of valid SHAs (baseSha + descendants)
         VALID_SHAS=\$(git rev-list "\$BASE_SHA"..HEAD 2>/dev/null || true)
         VALID_SHAS="\$BASE_SHA"\$'\\n'"\$VALID_SHAS"
 
         # Fetch all comments and delete orphaned commitSha comments
-        COMMENTS=\$(curl -s "\$API_BASE/cards/\$ISSUE_ID/comments" 2>/dev/null) || true
+        COMMENTS=\$(curl -s "\$API_BASE/cards/\$CARD_ID/comments" 2>/dev/null) || true
         if [ -n "\$COMMENTS" ]; then
             echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \\
             while read -r comment_id commit_sha; do
                 if [ -n "\$commit_sha" ] && ! echo "\$VALID_SHAS" | grep -qx "\$commit_sha"; then
-                    curl -s -X DELETE "\$API_BASE/cards/\$ISSUE_ID/comments/\$comment_id" >/dev/null 2>&1 || true
+                    curl -s -X DELETE "\$API_BASE/cards/\$CARD_ID/comments/\$comment_id" >/dev/null 2>&1 || true
                 fi
             done
         fi
@@ -620,11 +620,11 @@ $HOOK_CHAIN_HELPER
 STDIN_DATA=\$(cat)
 
 # --- Cards API posting ---
-ISSUE_ID=\$(git config --worktree issue.id 2>/dev/null)
-WORKSPACE_PATH=\$(git config --worktree issue.workspacePath 2>/dev/null)
+CARD_ID=\$(git config --worktree card.id 2>/dev/null)
+WORKSPACE_PATH=\$(git config --worktree card.workspacePath 2>/dev/null)
 # Update baseSha after rewrite using stored baseBranch
-BASE_BRANCH=\$(git config --worktree issue.baseBranch 2>/dev/null)
-BASE_SHA_OLD=\$(git config --worktree issue.baseSha 2>/dev/null)
+BASE_BRANCH=\$(git config --worktree card.baseBranch 2>/dev/null)
+BASE_SHA_OLD=\$(git config --worktree card.baseSha 2>/dev/null)
 BASE_SHA_NEW=""
 BASE_SHA_UPDATED=false
 BASE_SHA_SHOULD_REPLACE=false
@@ -635,19 +635,19 @@ fi
 
 if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
     BASE_SHA_SHOULD_REPLACE=true
-    if git config --worktree issue.baseSha "\$BASE_SHA_NEW" 2>/dev/null; then
+    if git config --worktree card.baseSha "\$BASE_SHA_NEW" 2>/dev/null; then
         BASE_SHA_UPDATED=true
     fi
 fi
 
-if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
+if [ -n "\$CARD_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
     DISCOVERY_FILE="\$HOME/.cards/cards-api.json"
     if [ -f "\$DISCOVERY_FILE" ]; then
         PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
         HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
 
         if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
-            API_BASE="http://\${HOST}:\${PORT}/api/v1"
+            API_BASE="http://\${HOST}:\${PORT}"
             NEW_SHA=\$(git rev-parse HEAD)
 
             # Collect old SHAs from stdin data
@@ -667,11 +667,11 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
 
             COMMENTS=""
             if [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
-                COMMENTS=\$(curl -s "\$API_BASE/cards/\$ISSUE_ID/comments" 2>/dev/null) || true
+                COMMENTS=\$(curl -s "\$API_BASE/cards/\$CARD_ID/comments" 2>/dev/null) || true
             fi
 
             # Post new commit comment
-            curl -s -X POST "\$API_BASE/cards/\$ISSUE_ID/comments" \\
+            curl -s -X POST "\$API_BASE/cards/\$CARD_ID/comments" \\
                 -H "Content-Type: application/json" \\
                 -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \\
                 >/dev/null 2>&1 || true
@@ -681,7 +681,7 @@ if [ -n "\$ISSUE_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
                 for old_sha in "\${OLD_SHAS[@]}"; do
                     COMMENT_ID=\$(echo "\$COMMENTS" | jq -r --arg sha "\$old_sha" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null)
                     if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
-                        curl -s -X DELETE "\$API_BASE/cards/\$ISSUE_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
+                        curl -s -X DELETE "\$API_BASE/cards/\$CARD_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
                     fi
                 done
             fi
@@ -698,9 +698,9 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/post-rewrite"
 
-# Output results as JSON with baseSha and issueId included
+# Output results as JSON with baseSha and cardId included
 if [ "$reroute_node_modules_count" -gt 0 ]; then
-    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\",\"reroutedSymlinks\":$reroute_node_modules_count}"
+    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"cardId\":\"$CARD_ID\",\"reroutedSymlinks\":$reroute_node_modules_count}"
 else
-    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"issueId\":\"$ISSUE_ID\"}"
+    printf '%s\n' "{\"branch\":\"$BRANCH_NAME\",\"worktree\":\"$WORKTREE_DIR\",\"baseSha\":\"$BASE_SHA\",\"cardId\":\"$CARD_ID\"}"
 fi

@@ -588,9 +588,9 @@ function discoverApiUrl(logger2) {
     });
   }
 }
-async function postCommitComment(issueId, commitSha, baseUrl, logger2) {
+async function postCommitComment(cardId, commitSha, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/cards/${issueId}/comments`, {
+    const response = await fetch(`${baseUrl}/cards/${cardId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ commitSha, author: "agent" }),
@@ -602,9 +602,9 @@ async function postCommitComment(issueId, commitSha, baseUrl, logger2) {
     return false;
   }
 }
-async function fetchCommitComments(issueId, baseUrl, logger2) {
+async function fetchCommitComments(cardId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/cards/${issueId}/comments`, {
+    const response = await fetch(`${baseUrl}/cards/${cardId}/comments`, {
       signal: AbortSignal.timeout(5e3)
     });
     if (!response.ok) {
@@ -618,9 +618,9 @@ async function fetchCommitComments(issueId, baseUrl, logger2) {
     return [];
   }
 }
-async function deleteComment(issueId, commentId, baseUrl, logger2) {
+async function deleteComment(cardId, commentId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/cards/${issueId}/comments/${commentId}`, {
+    const response = await fetch(`${baseUrl}/cards/${cardId}/comments/${commentId}`, {
       method: "DELETE",
       signal: AbortSignal.timeout(2e3)
     });
@@ -682,14 +682,14 @@ function parseCommitShaFromOutput(stdout) {
 }
 
 // src/post-tool-use-git-commit.ts
-async function cleanupOrphanedCommits(issueId, baseUrl, cwd, excludeSha, logger2) {
-  const comments = await fetchCommitComments(issueId, baseUrl, logger2);
+async function cleanupOrphanedCommits(cardId, baseUrl, cwd, excludeSha, logger2) {
+  const comments = await fetchCommitComments(cardId, baseUrl, logger2);
   for (const comment of comments) {
     if (comment.commitSha === excludeSha) {
       continue;
     }
     if (!isCommitInHistory(comment.commitSha, cwd)) {
-      const deleted = await deleteComment(issueId, comment.id, baseUrl, logger2);
+      const deleted = await deleteComment(cardId, comment.id, baseUrl, logger2);
       if (!deleted) {
         logger2.debug("Failed to delete orphaned commit comment", {
           commentId: comment.id,
@@ -700,8 +700,8 @@ async function cleanupOrphanedCommits(issueId, baseUrl, cwd, excludeSha, logger2
   }
 }
 var post_tool_use_git_commit_default = postToolUseHook({ matcher: "Bash" }, async (input, { logger: logger2 }) => {
-  const issueId = process.env.CARD_ID;
-  if (!issueId) {
+  const cardId = process.env.CARD_ID;
+  if (!cardId) {
     return postToolUseOutput({});
   }
   if (input.tool_name !== "Bash") {
@@ -735,16 +735,16 @@ var post_tool_use_git_commit_default = postToolUseHook({ matcher: "Bash" }, asyn
   }
   let postSuccess = false;
   try {
-    postSuccess = await postCommitComment(issueId, commitSha, baseUrl, logger2);
+    postSuccess = await postCommitComment(cardId, commitSha, baseUrl, logger2);
     if (!postSuccess) {
-      logger2.debug("Failed to post commit comment", { commitSha, issueId });
+      logger2.debug("Failed to post commit comment", { commitSha, cardId });
     }
   } catch (error) {
     logger2.debug("Post commit comment error", { error: String(error) });
   }
   const cwd = input.cwd;
   if (typeof cwd === "string") {
-    await cleanupOrphanedCommits(issueId, baseUrl, cwd, commitSha, logger2);
+    await cleanupOrphanedCommits(cardId, baseUrl, cwd, commitSha, logger2);
   }
   if (postSuccess) {
     return postToolUseOutput({

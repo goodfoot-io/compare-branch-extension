@@ -7,7 +7,7 @@ description: Fix testable bugs using test-first methodology.
 [TITLE] — Issue title for commit messages
 [DESCRIPTION] — Issue description text
 [COMMENTS] — User comments on the issue
-[BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[BRANCH_NAME] — `issue-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 [FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
 [BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
 [SCOPE_HINT] — Files, packages, or functions mentioned in issue (extracted in Step 2)
@@ -214,7 +214,7 @@ Based on subagent response and test result:
 - **BLOCKED or CANNOT_COMPLETE**: Post comment with SUBAGENT_REASONING, add `blocked` tag. **STOP** — Awaiting user intervention.
 
 - **Test FAILS (expected)**:
-  - Commit: `git add -A && git commit -m "test: add reproduction test for [ISSUE_ID]"`
+  - Commit: `git add -A && git commit -m "test: add reproduction test for [CARD_ID]"`
   - Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Post a progress comment informing the user that you've created a test demonstrating the bug. Explain what the test checks and why it currently fails.
@@ -418,7 +418,7 @@ if [ "$COMMIT_COUNT" -gt 1 ]; then
   git commit -m "$(cat <<'EOF'
 fix: [TITLE]
 
-Issue: [ISSUE_ID]
+Issue: [CARD_ID]
 Bug: ${BUG_DESCRIPTION}
 Root cause: ${RESOLVER_REASONING}
 

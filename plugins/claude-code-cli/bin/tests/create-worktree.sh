@@ -160,17 +160,17 @@ echo "Using utility: $UTILITY"
 
 echo -e "\n${YELLOW}=== Test 1: Missing branch name argument should fail with exit 2 ===${NC}"
 cd "$TEST_DIR/repo"
-run_test "Missing branch name" 2 env ISSUE_ID="test:123" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY"
+run_test "Missing branch name" 2 env CARD_ID="test:123" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY"
 
-echo -e "\n${YELLOW}=== Test 2: Missing ISSUE_ID env var should fail with exit 2 ===${NC}"
-run_test "Missing ISSUE_ID env var" 2 env ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "test-branch"
+echo -e "\n${YELLOW}=== Test 2: Missing CARD_ID env var should fail with exit 2 ===${NC}"
+run_test "Missing CARD_ID env var" 2 env CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "test-branch"
 
 echo -e "\n${YELLOW}=== Test 3: Invalid branch name format should fail with exit 2 ===${NC}"
-run_test "Invalid branch name (starts with hyphen)" 2 env ISSUE_ID="test:123" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "-invalid"
-run_test "Invalid branch name (special chars)" 2 env ISSUE_ID="test:123" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "test@branch"
+run_test "Invalid branch name (starts with hyphen)" 2 env CARD_ID="test:123" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "-invalid"
+run_test "Invalid branch name (special chars)" 2 env CARD_ID="test:123" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "test@branch"
 
-echo -e "\n${YELLOW}=== Test 4: Basic worktree creation with ISSUE_ID should succeed ===${NC}"
-run_test "Create worktree with ISSUE_ID" 0 env ISSUE_ID="test:123" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "hooks-test-1"
+echo -e "\n${YELLOW}=== Test 4: Basic worktree creation with CARD_ID should succeed ===${NC}"
+run_test "Create worktree with CARD_ID" 0 env CARD_ID="test:123" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "hooks-test-1"
 verify "Worktree directory exists" "[ -d '.worktrees/hooks-test-1' ]"
 verify "Branch created" "git branch --list hooks-test-1 | grep -q hooks-test-1"
 verify "Source files copied" "[ -f '.worktrees/hooks-test-1/README.md' ]"
@@ -195,18 +195,18 @@ verify "core.hooksPath is set" "[ -n '$HOOKS_PATH' ]"
 verify "core.hooksPath points to git dir hooks" "[[ '$HOOKS_PATH' == *'/hooks' ]]"
 
 echo -e "\n${YELLOW}=== Test 7: Issue ID stored correctly in git config ===${NC}"
-STORED_ISSUE_ID=$(git -C ".worktrees/hooks-test-1" config --worktree issue.id 2>/dev/null)
-verify "Issue ID matches" "[ '$STORED_ISSUE_ID' = 'test:123' ]"
+STORED_CARD_ID=$(git -C ".worktrees/hooks-test-1" config --worktree card.id 2>/dev/null)
+verify "Issue ID matches" "[ '$STORED_CARD_ID' = 'test:123' ]"
 
 echo -e "\n${YELLOW}=== Test 8: Workspace path stored correctly in git config ===${NC}"
-STORED_WORKSPACE_PATH=$(git -C ".worktrees/hooks-test-1" config --worktree issue.workspacePath 2>/dev/null)
+STORED_WORKSPACE_PATH=$(git -C ".worktrees/hooks-test-1" config --worktree card.workspacePath 2>/dev/null)
 verify "Workspace path is stored" "[ -n '$STORED_WORKSPACE_PATH' ]"
 verify "Workspace path is absolute path" "[[ '$STORED_WORKSPACE_PATH' == /* ]]"
 
-echo -e "\n${YELLOW}=== Test 9: JSON output includes issueId field ===${NC}"
-output=$(ISSUE_ID="test:456" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "json-test-branch" 2>/dev/null)
+echo -e "\n${YELLOW}=== Test 9: JSON output includes cardId field ===${NC}"
+output=$(CARD_ID="test:456" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "json-test-branch" 2>/dev/null)
 verify "Output is valid JSON" "echo '$output' | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null"
-verify "JSON contains issueId field" "echo '$output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"issueId\"]==\"test:456\"' 2>/dev/null"
+verify "JSON contains cardId field" "echo '$output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"cardId\"]==\"test:456\"' 2>/dev/null"
 
 echo -e "\n${YELLOW}=== Test 10: JSON output includes branch, worktree, baseSha fields ===${NC}"
 verify "JSON contains branch field" "echo '$output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"branch\"]==\"json-test-branch\"' 2>/dev/null"
@@ -214,21 +214,21 @@ verify "JSON contains worktree field" "echo '$output' | python3 -c 'import json,
 verify "JSON contains baseSha field (40 char hex)" "echo '$output' | python3 -c 'import json,sys,re; d=json.load(sys.stdin); assert re.match(r\"^[0-9a-f]{40}\$\", d[\"baseSha\"])' 2>/dev/null"
 
 echo -e "\n${YELLOW}=== Test 11: baseSha stored correctly in git config ===${NC}"
-STORED_BASE_SHA=$(git -C ".worktrees/json-test-branch" config --worktree issue.baseSha 2>/dev/null)
+STORED_BASE_SHA=$(git -C ".worktrees/json-test-branch" config --worktree card.baseSha 2>/dev/null)
 verify "baseSha is stored" "[ -n '$STORED_BASE_SHA' ]"
 verify "baseSha is valid format (40 char hex)" "echo '$STORED_BASE_SHA' | grep -qE '^[a-f0-9]{40}$'"
 
 echo -e "\n${YELLOW}=== Test 12: baseBranch stored correctly in git config ===${NC}"
-STORED_BASE_BRANCH=$(git -C ".worktrees/json-test-branch" config --worktree issue.baseBranch 2>/dev/null)
+STORED_BASE_BRANCH=$(git -C ".worktrees/json-test-branch" config --worktree card.baseBranch 2>/dev/null)
 verify "baseBranch is stored" "[ -n '$STORED_BASE_BRANCH' ]"
 verify "baseBranch defaults to main" "[ '$STORED_BASE_BRANCH' = 'main' ]"
 
 echo -e "\n${YELLOW}=== Test 13: Duplicate branch name should fail ===${NC}"
-run_test "Duplicate branch" 2 env ISSUE_ID="test:789" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "hooks-test-1"
+run_test "Duplicate branch" 2 env CARD_ID="test:789" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "hooks-test-1"
 
 echo -e "\n${YELLOW}=== Test 14: Not in git repository should fail ===${NC}"
 cd /tmp
-run_test "Not in git repo" 2 env ISSUE_ID="test:000" ISSUE_WORKSPACE_PATH="/tmp" "$UTILITY" "no-repo-branch"
+run_test "Not in git repo" 2 env CARD_ID="test:000" CARD_WORKSPACE_PATH="/tmp" "$UTILITY" "no-repo-branch"
 cd "$TEST_DIR/repo"
 
 echo -e "\n${YELLOW}=== Test 15: Verify error output goes to stderr ===${NC}"
@@ -237,7 +237,7 @@ verify "Error message goes to stderr" "[ -n '$stderr_output' ]"
 
 echo -e "\n${YELLOW}=== Test 16: Running from subdirectory should work ===${NC}"
 cd "$TEST_DIR/repo/src"
-run_test "From subdirectory" 0 env ISSUE_ID="test:subdirtest" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "subdir-hooks-branch"
+run_test "From subdirectory" 0 env CARD_ID="test:subdirtest" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "subdir-hooks-branch"
 verify "Worktree created at repo root" "[ -d '$TEST_DIR/repo/.worktrees/subdir-hooks-branch' ]"
 cd "$TEST_DIR/repo"
 
@@ -251,19 +251,19 @@ else
     echo -e "${RED}FAIL${NC}: --help should exit with 0, got $exit_code"
     ((FAILED++))
 fi
-verify "--help output mentions ISSUE_ID" "echo '$help_output' | grep -q 'ISSUE_ID'"
+verify "--help output mentions CARD_ID" "echo '$help_output' | grep -q 'CARD_ID'"
 verify "--help output mentions branch-name" "echo '$help_output' | grep -q 'branch-name'"
 
 echo -e "\n${YELLOW}=== Test 18: Feature branch with slash should work ===${NC}"
-run_test "Feature branch with slash" 0 env ISSUE_ID="test:feature" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "feature/new-feature"
+run_test "Feature branch with slash" 0 env CARD_ID="test:feature" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "feature/new-feature"
 verify "Feature branch worktree exists" "[ -d '.worktrees/feature/new-feature' ]"
 # Verify hooks were installed for feature branch
 FEATURE_GIT_DIR=$(git -C ".worktrees/feature/new-feature" rev-parse --git-dir 2>/dev/null)
 verify "Feature branch has hooks" "[ -f '$FEATURE_GIT_DIR/hooks/post-commit' ]"
 
 echo -e "\n${YELLOW}=== Test 19: Issue ID with different formats ===${NC}"
-run_test "Issue ID with colon format" 0 env ISSUE_ID="main:259" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-1"
-run_test "Issue ID simple format" 0 env ISSUE_ID="simple-issue-id" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-2"
+run_test "Issue ID with colon format" 0 env CARD_ID="main:259" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-1"
+run_test "Issue ID simple format" 0 env CARD_ID="simple-issue-id" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "issue-format-test-2"
 
 echo -e "\n${YELLOW}=== Test 20: Monorepo symlink rerouting ===${NC}"
 # Set up a monorepo structure
@@ -313,7 +313,7 @@ git add .
 git commit -m "Add monorepo structure" >/dev/null 2>&1
 
 # Create worktree
-run_test "Create monorepo worktree" 0 env ISSUE_ID="test:monorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "monorepo-test"
+run_test "Create monorepo worktree" 0 env CARD_ID="test:monorepo" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "monorepo-test"
 
 # Verify node_modules is a real directory (not symlink) because of rerouting
 verify "node_modules is a real directory (not symlink)" "[ -d '.worktrees/monorepo-test/node_modules' ] && [ ! -L '.worktrees/monorepo-test/node_modules' ]"
@@ -333,7 +333,7 @@ LODASH_TARGET=$(readlink ".worktrees/monorepo-test/node_modules/lodash" 2>/dev/n
 verify "External package (lodash) is symlinked to main repo" "[ \"\$LODASH_TARGET\" = \"\$TEST_DIR/repo/node_modules/lodash\" ]"
 
 # Verify JSON output includes reroutedSymlinks count
-first_output=$(env ISSUE_ID="test:monorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "monorepo-test" 2>&1 | grep '^{' || echo "{}")
+first_output=$(env CARD_ID="test:monorepo" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "monorepo-test" 2>&1 | grep '^{' || echo "{}")
 if [ -n "$first_output" ] && echo "$first_output" | grep -q '"worktree"'; then
     verify "JSON output includes reroutedSymlinks field" "echo '\$first_output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert \"reroutedSymlinks\" in d' 2>/dev/null"
     verify "reroutedSymlinks count is > 0" "echo '\$first_output' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d[\"reroutedSymlinks\"] > 0' 2>/dev/null"
@@ -361,13 +361,13 @@ PKGEOF
 git add package.json
 git commit -m "Remove workspaces (testing non-monorepo)" >/dev/null 2>&1
 
-run_test "Create non-monorepo worktree" 0 env ISSUE_ID="test:nonmonorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "non-monorepo-branch"
+run_test "Create non-monorepo worktree" 0 env CARD_ID="test:nonmonorepo" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "non-monorepo-branch"
 
 # In non-monorepo, node_modules should still be symlinked (no rerouting)
 verify "node_modules is symlinked in non-monorepo" "[ -L '.worktrees/non-monorepo-branch/node_modules' ]"
 
 # JSON output should not have reroutedSymlinks field
-output=$(env ISSUE_ID="test:nonmonorepo" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "non-monorepo-branch" 2>&1 | grep '^{' || echo "{}")
+output=$(env CARD_ID="test:nonmonorepo" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$UTILITY" "non-monorepo-branch" 2>&1 | grep '^{' || echo "{}")
 verify "JSON output has no reroutedSymlinks in non-monorepo" "! echo '\$output' | grep -q 'reroutedSymlinks'"
 
 # Restore original package.json if it existed

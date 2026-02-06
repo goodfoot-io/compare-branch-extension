@@ -4,7 +4,7 @@ description: Handle issues by routing to skills
 ---
 
 <placeholder-variables>
-[ISSUE_ID] — The issue's unique identifier from `id` field
+[CARD_ID] — The issue's unique identifier from `id` field
 [STATUS] — Workflow state: backlog, todo, in_progress, needs_review, done, archived
 [PLAN_REQUIRED] — Whether plan approval is needed from `planRequired` field
 [PLAN_CONTENT] — Plan markdown from `planContent` field (string or null)

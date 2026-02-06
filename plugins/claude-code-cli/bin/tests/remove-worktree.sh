@@ -187,7 +187,7 @@ run_test "Missing argument" 2 "$REMOVE_UTILITY"
 
 echo -e "\n${YELLOW}=== Test 2: Basic worktree removal should succeed ===${NC}"
 # First create a worktree
-ISSUE_ID="test:123" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "remove-test-1" >/dev/null 2>&1
+CARD_ID="test:123" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "remove-test-1" >/dev/null 2>&1
 # Capture the worktree git directory for cleanup verification
 WORKTREE_GIT_DIR=$(git -C ".worktrees/remove-test-1" rev-parse --git-dir 2>/dev/null)
 # Get the expected SHA
@@ -217,7 +217,7 @@ verify "Output SHA matches expected" "[ '$output' = '$EXPECTED_SHA' ]"
 verify "Output is valid SHA format" "echo '$output' | grep -qE '^[a-f0-9]{40}$'"
 
 echo -e "\n${YELLOW}=== Test 4: Force flag (-f) works for uncommitted changes ===${NC}"
-ISSUE_ID="test:456" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "uncommitted-test" >/dev/null 2>&1
+CARD_ID="test:456" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "uncommitted-test" >/dev/null 2>&1
 # Add uncommitted changes in the worktree
 echo "modified content" > ".worktrees/uncommitted-test/README.md"
 
@@ -257,7 +257,7 @@ verify "Worktree removed with -f" "[ ! -d '.worktrees/uncommitted-test' ]"
 verify "SHA returned after force removal" "[ '$output' = '$EXPECTED_SHA' ]"
 
 echo -e "\n${YELLOW}=== Test 5: --force long option works ===${NC}"
-ISSUE_ID="test:789" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "force-long-test" >/dev/null 2>&1
+CARD_ID="test:789" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "force-long-test" >/dev/null 2>&1
 echo "new file" > ".worktrees/force-long-test/newfile.txt"
 EXPECTED_SHA=$(git rev-parse "force-long-test" 2>/dev/null)
 
@@ -300,7 +300,7 @@ stderr_output=$("$REMOVE_UTILITY" 2>&1 >/dev/null)
 verify "Error message goes to stderr" "[ -n '$stderr_output' ]"
 
 echo -e "\n${YELLOW}=== Test 10: Running from subdirectory should work ===${NC}"
-ISSUE_ID="test:subdir" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "subdir-remove-test" >/dev/null 2>&1
+CARD_ID="test:subdir" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "subdir-remove-test" >/dev/null 2>&1
 cd "$TEST_DIR/repo/src"
 output=$("$REMOVE_UTILITY" "subdir-remove-test" 2>/dev/null)
 exit_code=$?
@@ -316,7 +316,7 @@ cd "$TEST_DIR/repo"
 verify "Worktree removed from subdirectory call" "[ ! -d '.worktrees/subdir-remove-test' ]"
 
 echo -e "\n${YELLOW}=== Test 11: Feature branch with slash should work ===${NC}"
-ISSUE_ID="test:feature" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "feature/remove-test" >/dev/null 2>&1
+CARD_ID="test:feature" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "feature/remove-test" >/dev/null 2>&1
 EXPECTED_SHA=$(git rev-parse "feature/remove-test" 2>/dev/null)
 
 output=$("$REMOVE_UTILITY" "feature/remove-test" 2>/dev/null)
@@ -333,7 +333,7 @@ verify "Feature branch worktree removed" "[ ! -d '.worktrees/feature/remove-test
 verify "SHA returned for feature branch" "[ -n '$output' ]"
 
 echo -e "\n${YELLOW}=== Test 12: Worktree with commits returns correct SHA ===${NC}"
-ISSUE_ID="test:commits" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "commits-test" >/dev/null 2>&1
+CARD_ID="test:commits" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "commits-test" >/dev/null 2>&1
 # Make commits in the worktree
 cd ".worktrees/commits-test"
 echo "new file" > new-file.txt

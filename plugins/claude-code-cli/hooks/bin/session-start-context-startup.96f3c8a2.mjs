@@ -585,9 +585,9 @@ function discoverApiUrl(logger2) {
     });
   }
 }
-async function fetchIssue(issueId, baseUrl, logger2) {
+async function fetchCard(cardId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/cards/${issueId}`, {
+    const response = await fetch(`${baseUrl}/cards/${cardId}`, {
       signal: AbortSignal.timeout(5e3)
     });
     if (!response.ok) {
@@ -607,18 +607,18 @@ var session_start_context_startup_default = sessionStartHook({ matcher: "startup
   if (!sessionId) {
     return sessionStartOutput({});
   }
-  const issueId = process.env.CARD_ID;
-  if (!issueId) {
+  const cardId = process.env.CARD_ID;
+  if (!cardId) {
     logger2.warn("CARD_ID not set - this hook requires the issue launcher");
     return sessionStartOutput({
       stopReason: "CARD_ID not set. Launch Claude using the issue panel 'Launch Claude' button or use the agent-issue-dispatcher script."
     });
   }
   if (process.env.SESSION_STARTUP_TEST_MODE === "1") {
-    logger2.debug("TEST_MODE: Would fetch issue", { issueId, sessionId });
-    const mockIssue = { id: issueId, title: "Test Issue", status: "in_progress" };
+    logger2.debug("TEST_MODE: Would fetch issue", { cardId, sessionId });
+    const mockIssue = { id: cardId, title: "Test Issue", status: "in_progress" };
     return sessionStartOutput({
-      systemMessage: `Session starting: Issue ${issueId} loaded`,
+      systemMessage: `Session starting: Issue ${cardId} loaded`,
       hookSpecificOutput: {
         additionalContext: JSON.stringify(mockIssue)
       }
@@ -631,7 +631,7 @@ var session_start_context_startup_default = sessionStartHook({ matcher: "startup
     logger2.debug("API error", { error: String(error) });
     return sessionStartOutput({});
   }
-  const issue = await fetchIssue(issueId, baseUrl, logger2);
+  const issue = await fetchCard(cardId, baseUrl, logger2);
   if (!issue) {
     return sessionStartOutput({});
   }
@@ -645,7 +645,7 @@ var session_start_context_startup_default = sessionStartHook({ matcher: "startup
 ${issueJson}
 \`\`\`
       
-      GET ${baseUrl}/session/${sessionId}/diff?issueIds=${issueId} at convenient stopping points for new comments and field updates on this issue.`
+      GET ${baseUrl}/session/${sessionId}/diff?cardIds=${cardId} at convenient stopping points for new comments and field updates on this issue.`
     }
   });
 });

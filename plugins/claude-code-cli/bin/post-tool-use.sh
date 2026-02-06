@@ -14,7 +14,7 @@
 # Exit codes: 0 = success, 2 = unexpected error
 #
 # Environment variables:
-#   ISSUE_ID - Issue ID being worked on (set by wrapper, e.g., "main:123")
+#   CARD_ID - Issue ID being worked on (set by wrapper, e.g., "main:123")
 #
 
 set -euo pipefail
@@ -40,8 +40,8 @@ if [ -z "$SESSION_ID" ]; then
   exit 0
 fi
 
-# Require ISSUE_ID environment variable (set by wrapper)
-if [ -z "${ISSUE_ID:-}" ]; then
+# Require CARD_ID environment variable (set by wrapper)
+if [ -z "${CARD_ID:-}" ]; then
   exit 0
 fi
 
@@ -52,8 +52,8 @@ if ! BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>&1); the
   exit 1  # Non-blocking, shows in verbose mode
 fi
 
-# Call session diff endpoint with ISSUE_ID from environment
-DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${ISSUE_ID}" 2>/dev/null) || {
+# Call session diff endpoint with CARD_ID from environment
+DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${CARD_ID}" 2>/dev/null) || {
   # Diff endpoint unavailable - continue silently
   exit 0
 }

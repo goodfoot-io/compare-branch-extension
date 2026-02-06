@@ -4,7 +4,7 @@ description: Implement approved plans in isolated worktree.
 ---
 
 <placeholder-variables>
-[BRANCH_NAME] — `issue-[ISSUE_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[BRANCH_NAME] — `issue-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -212,7 +212,7 @@ Before each agent delegation:
 git add -A
 git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION]
 
-Issue: [ISSUE_ID]
+Issue: [CARD_ID]
 Progress: [COMPLETED] of [TOTAL] tasks complete"
 ```
 
@@ -275,7 +275,7 @@ Agent prompt template:
 <parameter name="subagent_type">claude-code-cli:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
-Issue: [ISSUE_ID] - [TITLE]
+Issue: [CARD_ID] - [TITLE]
 Worktree: [WORKTREE_PATH]
 Checkpoint SHA: [TASK_CHECKPOINT]
 
@@ -338,7 +338,7 @@ Only proceed to **3. Refactor** when ALL validations pass.
 git add -A
 git commit --allow-empty -m "checkpoint: before refactoring
 
-Issue: [ISSUE_ID]
+Issue: [CARD_ID]
 State: Implementation complete"
 ```
 
@@ -351,7 +351,7 @@ Post checkpoint to issue.
 <parameter name="description">Refactor implementation</parameter>
 <parameter name="subagent_type">claude-code-cli:refactor</parameter>
 <parameter name="prompt">
-Issue: [ISSUE_ID] - [TITLE]
+Issue: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
 Worktree: [WORKTREE_PATH]
 
@@ -394,7 +394,7 @@ Based on agent status:
 git add -A
 git commit --allow-empty -m "checkpoint: before evaluation
 
-Issue: [ISSUE_ID]
+Issue: [CARD_ID]
 State: Implementation and refactoring complete"
 ```
 
@@ -407,7 +407,7 @@ Post checkpoint to issue.
 <parameter name="description">Evaluate implementation</parameter>
 <parameter name="subagent_type">claude-code-cli:implementation-evaluator</parameter>
 <parameter name="prompt">
-Issue: [ISSUE_ID] - [TITLE]
+Issue: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
 Worktree: [WORKTREE_PATH]
 
@@ -452,7 +452,7 @@ git commit -m "$(cat <<'EOF'
 
 [The solution. Then end on the truth—the thing that makes the reader pause.]
 
-Issue: [ISSUE_ID]
+Issue: [CARD_ID]
 EOF
 )"
 ```

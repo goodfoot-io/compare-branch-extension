@@ -216,7 +216,7 @@ For each spike, include:
   - WebSocket (Socket.io): Bidirectional communication working, <50ms latency, Redis pub/sub integration tested successfully
   - SSE (EventSource): Server->client only, requires separate POST endpoint for client->server
   - Polling: Functional but 23% higher server CPU usage, more complex state synchronization
-- **Artifacts**: `.spikes/[ISSUE_ID]/realtime-comparison/` (cleaned up before commit)
+- **Artifacts**: `.spikes/[CARD_ID]/realtime-comparison/` (cleaned up before commit)
 - **Impact**: Selected Socket.io as Technical Approach; enables bidirectional real-time features with horizontal scaling via Redis adapter
 
 ### Socket.io Redis Adapter Compatibility
@@ -227,7 +227,7 @@ For each spike, include:
 - **Approach Tested**: Created minimal Socket.io server with @socket.io/redis-adapter, tested multi-instance communication
 - **Result**: Confirmed v4.6.1 supports Redis adapter with connection state sharing
 - **Evidence**: Successfully broadcast messages across 3 server instances, verified in spike test
-- **Artifacts**: `.spikes/[ISSUE_ID]/socketio-redis-test/` (cleaned up before commit)
+- **Artifacts**: `.spikes/[CARD_ID]/socketio-redis-test/` (cleaned up before commit)
 - **Impact**: Can proceed with horizontal scaling approach; no single-server bottleneck
 ```
 </example>

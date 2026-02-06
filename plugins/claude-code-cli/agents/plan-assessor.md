@@ -10,7 +10,7 @@ skills: cards:api, claude-code-cli:plan
 Extract from the invoking context:
 
 **Required Fields:**
-- [ISSUE_ID] = The issue's unique identifier
+- [CARD_ID] = The issue's unique identifier
 - [TITLE] = The issue title
 - [DESCRIPTION] = The issue description with requirements
 
@@ -172,7 +172,7 @@ When evaluating plans with technical assumptions, assess whether empirical inves
 <parameter name="skill">claude-code-cli:spike</parameter>
 </invoke>
 ```
-Then provide: "Compare [Alternative A], [Alternative B], and [Alternative C] for [use case]. Compare [criteria]. Use spike path `.spikes/[ISSUE_ID]/[test-name]/`"
+Then provide: "Compare [Alternative A], [Alternative B], and [Alternative C] for [use case]. Compare [criteria]. Use spike path `.spikes/[CARD_ID]/[test-name]/`"
 
 #### Recommend Tactical Spikes When:
 
@@ -194,7 +194,7 @@ Then provide: "Compare [Alternative A], [Alternative B], and [Alternative C] for
 <parameter name="skill">claude-code-cli:spike</parameter>
 </invoke>
 ```
-Then provide: "Verify [Library@version] supports [specific capability]. Use spike path `.spikes/[ISSUE_ID]/[test-name]/`"
+Then provide: "Verify [Library@version] supports [specific capability]. Use spike path `.spikes/[CARD_ID]/[test-name]/`"
 
 #### Validate Spike Quality (If Spikes Included):
 
@@ -309,7 +309,7 @@ Report findings by priority level with specific remediation recommendations. Loa
 The assessment report should be displayed to the user:
 
 ```markdown
-# Strategic Assessment Report: [ISSUE_ID]
+# Strategic Assessment Report: [CARD_ID]
 
 ## Summary
 [Brief overview of plan quality, strategic soundness, and implementation readiness]
@@ -419,7 +419,7 @@ Based on assessment findings, determine implementation readiness:
 
 ### 1. Gather Context
 1. Extract issue information from prompt:
-   - Use the provided [ISSUE_ID], [TITLE], and [DESCRIPTION]
+   - Use the provided [CARD_ID], [TITLE], and [DESCRIPTION]
    - Identify plan type: initial plan vs. strategic revision
 2. Fetch plan content from the issues API:
    - Call `GET /cards/[CARD_ID]/plan` to retrieve the plan

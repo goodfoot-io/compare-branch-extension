@@ -585,9 +585,9 @@ function discoverApiUrl(logger2) {
     });
   }
 }
-async function postSessionComment(issueId, sessionId, baseUrl, logger2) {
+async function postSessionComment(cardId, sessionId, baseUrl, logger2) {
   try {
-    const response = await fetch(`${baseUrl}/cards/${issueId}/comments`, {
+    const response = await fetch(`${baseUrl}/cards/${cardId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId, author: "agent" }),
@@ -612,8 +612,8 @@ var session_start_session_register_default = sessionStartHook({}, async (input, 
   if (input.source === "resume") {
     return sessionStartOutput({});
   }
-  const issueId = process.env.CARD_ID;
-  if (!issueId) {
+  const cardId = process.env.CARD_ID;
+  if (!cardId) {
     logger2.warn("CARD_ID not set - this hook requires the issue launcher");
     return sessionStartOutput({
       stopReason: "CARD_ID not set. Launch Claude using the issue panel 'Launch Claude' button or use the agent-issue-dispatcher script."
@@ -621,7 +621,7 @@ var session_start_session_register_default = sessionStartHook({}, async (input, 
   }
   try {
     const baseUrl = discoverApiUrl(logger2);
-    const success = await postSessionComment(issueId, sessionId, baseUrl, logger2);
+    const success = await postSessionComment(cardId, sessionId, baseUrl, logger2);
     if (!success) {
       logger2.warn("Failed to register session with issue tracker");
     }

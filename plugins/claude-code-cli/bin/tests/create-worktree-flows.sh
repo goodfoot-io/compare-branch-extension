@@ -150,7 +150,7 @@ cd "$TEST_DIR/repo"
 
 echo -e "\n${YELLOW}=== Flow 1: Complete create/remove lifecycle ===${NC}"
 echo "Creating worktree with hooks..."
-create_output=$(ISSUE_ID="flow:1" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-test-1" 2>&1)
+create_output=$(CARD_ID="flow:1" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-test-1" 2>&1)
 create_exit=$?
 
 verify "Worktree created successfully" "[ $create_exit -eq 0 ]"
@@ -159,14 +159,14 @@ verify "Branch exists" "git branch --list flow-test-1 | grep -q flow-test-1"
 
 # Verify JSON output
 CREATE_BASE_SHA=$(echo "$create_output" | python3 -c 'import json,sys; print(json.load(sys.stdin)["baseSha"])' 2>/dev/null)
-CREATE_ISSUE_ID=$(echo "$create_output" | python3 -c 'import json,sys; print(json.load(sys.stdin)["issueId"])' 2>/dev/null)
+CREATE_CARD_ID=$(echo "$create_output" | python3 -c 'import json,sys; print(json.load(sys.stdin)["cardId"])' 2>/dev/null)
 verify "JSON output contains valid baseSha" "[ -n '$CREATE_BASE_SHA' ] && [ \${#CREATE_BASE_SHA} -eq 40 ]"
-verify "JSON output contains issueId" "[ '$CREATE_ISSUE_ID' = 'flow:1' ]"
+verify "JSON output contains cardId" "[ '$CREATE_CARD_ID' = 'flow:1' ]"
 
 # Capture SHA before removal
 EXPECTED_SHA=$(git rev-parse "flow-test-1" 2>/dev/null)
 verify "baseSha matches branch HEAD" "[ '$CREATE_BASE_SHA' = '$EXPECTED_SHA' ]"
-CREATE_BASE_BRANCH=$(git -C ".worktrees/flow-test-1" config --worktree issue.baseBranch 2>/dev/null)
+CREATE_BASE_BRANCH=$(git -C ".worktrees/flow-test-1" config --worktree card.baseBranch 2>/dev/null)
 verify "baseBranch stored for worktree" "[ '$CREATE_BASE_BRANCH' = 'main' ]"
 
 # Verify hooks exist
@@ -185,14 +185,14 @@ verify "SHA returned matches" "[ '$remove_output' = '$EXPECTED_SHA' ]"
 
 echo -e "\n${YELLOW}=== Flow 2: Create worktree, make commit, verify hook execution ===${NC}"
 echo "Creating worktree..."
-ISSUE_ID="flow:2" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-test-2" >/dev/null 2>&1
+CARD_ID="flow:2" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-test-2" >/dev/null 2>&1
 verify "Worktree created" "[ -d '.worktrees/flow-test-2' ]"
 
 # Verify config is set correctly for hooks to use
-STORED_ISSUE_ID=$(git -C ".worktrees/flow-test-2" config --worktree issue.id 2>/dev/null)
-STORED_PLUGIN_BIN=$(git -C ".worktrees/flow-test-2" config --worktree issue.pluginBinDir 2>/dev/null)
-verify "issue.id stored for hooks" "[ '$STORED_ISSUE_ID' = 'flow:2' ]"
-verify "issue.pluginBinDir stored for hooks" "[ -n '$STORED_PLUGIN_BIN' ]"
+STORED_CARD_ID=$(git -C ".worktrees/flow-test-2" config --worktree card.id 2>/dev/null)
+STORED_PLUGIN_BIN=$(git -C ".worktrees/flow-test-2" config --worktree card.pluginBinDir 2>/dev/null)
+verify "card.id stored for hooks" "[ '$STORED_CARD_ID' = 'flow:2' ]"
+verify "card.pluginBinDir stored for hooks" "[ -n '$STORED_PLUGIN_BIN' ]"
 
 echo "Making changes in worktree..."
 cd ".worktrees/flow-test-2"
@@ -216,15 +216,15 @@ verify "Directory cleaned up" "[ ! -d '.worktrees/flow-test-2' ]"
 
 echo -e "\n${YELLOW}=== Flow 3: Worktree git config persists across operations ===${NC}"
 echo "Creating worktree..."
-ISSUE_ID="flow:3:complex:id" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-test-3" >/dev/null 2>&1
+CARD_ID="flow:3:complex:id" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-test-3" >/dev/null 2>&1
 
 # Verify initial config
-INITIAL_ISSUE_ID=$(git -C ".worktrees/flow-test-3" config --worktree issue.id 2>/dev/null)
-INITIAL_BASE_SHA=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseSha 2>/dev/null)
-INITIAL_BASE_BRANCH=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseBranch 2>/dev/null)
-INITIAL_PLUGIN_BIN=$(git -C ".worktrees/flow-test-3" config --worktree issue.pluginBinDir 2>/dev/null)
+INITIAL_CARD_ID=$(git -C ".worktrees/flow-test-3" config --worktree card.id 2>/dev/null)
+INITIAL_BASE_SHA=$(git -C ".worktrees/flow-test-3" config --worktree card.baseSha 2>/dev/null)
+INITIAL_BASE_BRANCH=$(git -C ".worktrees/flow-test-3" config --worktree card.baseBranch 2>/dev/null)
+INITIAL_PLUGIN_BIN=$(git -C ".worktrees/flow-test-3" config --worktree card.pluginBinDir 2>/dev/null)
 
-verify "Initial issue.id correct" "[ '$INITIAL_ISSUE_ID' = 'flow:3:complex:id' ]"
+verify "Initial card.id correct" "[ '$INITIAL_CARD_ID' = 'flow:3:complex:id' ]"
 verify "Initial baseSha stored" "[ -n '$INITIAL_BASE_SHA' ]"
 verify "Initial baseBranch stored" "[ '$INITIAL_BASE_BRANCH' = 'main' ]"
 verify "Initial pluginBinDir stored" "[ -n '$INITIAL_PLUGIN_BIN' ]"
@@ -239,12 +239,12 @@ done
 cd "$TEST_DIR/repo"
 
 # Config should still be correct after commits
-POST_COMMIT_ISSUE_ID=$(git -C ".worktrees/flow-test-3" config --worktree issue.id 2>/dev/null)
-POST_COMMIT_BASE_SHA=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseSha 2>/dev/null)
-POST_COMMIT_BASE_BRANCH=$(git -C ".worktrees/flow-test-3" config --worktree issue.baseBranch 2>/dev/null)
-POST_COMMIT_PLUGIN_BIN=$(git -C ".worktrees/flow-test-3" config --worktree issue.pluginBinDir 2>/dev/null)
+POST_COMMIT_CARD_ID=$(git -C ".worktrees/flow-test-3" config --worktree card.id 2>/dev/null)
+POST_COMMIT_BASE_SHA=$(git -C ".worktrees/flow-test-3" config --worktree card.baseSha 2>/dev/null)
+POST_COMMIT_BASE_BRANCH=$(git -C ".worktrees/flow-test-3" config --worktree card.baseBranch 2>/dev/null)
+POST_COMMIT_PLUGIN_BIN=$(git -C ".worktrees/flow-test-3" config --worktree card.pluginBinDir 2>/dev/null)
 
-verify "issue.id persists after commits" "[ '$POST_COMMIT_ISSUE_ID' = '$INITIAL_ISSUE_ID' ]"
+verify "card.id persists after commits" "[ '$POST_COMMIT_CARD_ID' = '$INITIAL_CARD_ID' ]"
 verify "baseSha persists after commits" "[ '$POST_COMMIT_BASE_SHA' = '$INITIAL_BASE_SHA' ]"
 verify "baseBranch persists after commits" "[ '$POST_COMMIT_BASE_BRANCH' = '$INITIAL_BASE_BRANCH' ]"
 verify "pluginBinDir persists after commits" "[ '$POST_COMMIT_PLUGIN_BIN' = '$INITIAL_PLUGIN_BIN' ]"
@@ -254,16 +254,16 @@ verify "pluginBinDir persists after commits" "[ '$POST_COMMIT_PLUGIN_BIN' = '$IN
 
 echo -e "\n${YELLOW}=== Flow 4: Multiple worktrees with different issue IDs ===${NC}"
 echo "Creating multiple worktrees..."
-ISSUE_ID="issue:alpha" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parallel-1" >/dev/null 2>&1
-ISSUE_ID="issue:beta" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parallel-2" >/dev/null 2>&1
-ISSUE_ID="issue:gamma" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parallel-3" >/dev/null 2>&1
+CARD_ID="issue:alpha" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parallel-1" >/dev/null 2>&1
+CARD_ID="issue:beta" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parallel-2" >/dev/null 2>&1
+CARD_ID="issue:gamma" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parallel-3" >/dev/null 2>&1
 
 verify "All worktrees created" "[ -d '.worktrees/parallel-1' ] && [ -d '.worktrees/parallel-2' ] && [ -d '.worktrees/parallel-3' ]"
 
 # Verify each has correct issue ID
-ID1=$(git -C ".worktrees/parallel-1" config --worktree issue.id 2>/dev/null)
-ID2=$(git -C ".worktrees/parallel-2" config --worktree issue.id 2>/dev/null)
-ID3=$(git -C ".worktrees/parallel-3" config --worktree issue.id 2>/dev/null)
+ID1=$(git -C ".worktrees/parallel-1" config --worktree card.id 2>/dev/null)
+ID2=$(git -C ".worktrees/parallel-2" config --worktree card.id 2>/dev/null)
+ID3=$(git -C ".worktrees/parallel-3" config --worktree card.id 2>/dev/null)
 
 verify "parallel-1 has correct issue ID" "[ '$ID1' = 'issue:alpha' ]"
 verify "parallel-2 has correct issue ID" "[ '$ID2' = 'issue:beta' ]"
@@ -284,12 +284,12 @@ verify "All worktrees removed" "[ ! -d '.worktrees/parallel-1' ] && [ ! -d '.wor
 
 echo -e "\n${YELLOW}=== Flow 5: Create from within an existing worktree ===${NC}"
 echo "Creating parent worktree..."
-ISSUE_ID="issue:parent" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parent-worktree" >/dev/null 2>&1
+CARD_ID="issue:parent" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "parent-worktree" >/dev/null 2>&1
 verify "Parent worktree exists" "[ -d '.worktrees/parent-worktree' ]"
 
 # Run create from inside the parent worktree
 cd "$TEST_DIR/repo/.worktrees/parent-worktree"
-ISSUE_ID="issue:child" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "child-from-worktree" >/dev/null 2>&1
+CARD_ID="issue:child" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "child-from-worktree" >/dev/null 2>&1
 cd "$TEST_DIR/repo"
 
 # The new worktree should be at the main repo root, not nested
@@ -297,7 +297,7 @@ verify "Child worktree created at repo root (not nested)" "[ -d '.worktrees/chil
 verify "No nested .worktrees directory in parent" "[ ! -d '.worktrees/parent-worktree/.worktrees' ]"
 
 # Verify child has correct config
-CHILD_ISSUE=$(git -C ".worktrees/child-from-worktree" config --worktree issue.id 2>/dev/null)
+CHILD_ISSUE=$(git -C ".worktrees/child-from-worktree" config --worktree card.id 2>/dev/null)
 verify "Child has correct issue ID" "[ '$CHILD_ISSUE' = 'issue:child' ]"
 
 # Cleanup
@@ -306,7 +306,7 @@ verify "Child has correct issue ID" "[ '$CHILD_ISSUE' = 'issue:child' ]"
 
 echo -e "\n${YELLOW}=== Flow 6: Symlinks preserved during lifecycle ===${NC}"
 echo "Creating worktree and verifying symlinks..."
-ISSUE_ID="issue:symlink" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "symlink-test" >/dev/null 2>&1
+CARD_ID="issue:symlink" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "symlink-test" >/dev/null 2>&1
 
 verify "node_modules is symlinked" "[ -L '.worktrees/symlink-test/node_modules' ]"
 verify "dist is symlinked" "[ -L '.worktrees/symlink-test/dist' ]"
@@ -322,7 +322,7 @@ verify "Original node_modules still exists after removal" "[ -d 'node_modules' ]
 
 echo -e "\n${YELLOW}=== Flow 7: SHA recovery scenario ===${NC}"
 echo "Simulating branch recovery using returned SHA..."
-ISSUE_ID="issue:recovery" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "recovery-test" >/dev/null 2>&1
+CARD_ID="issue:recovery" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "recovery-test" >/dev/null 2>&1
 
 # Make some commits
 cd ".worktrees/recovery-test"
@@ -345,17 +345,17 @@ echo -e "\n${YELLOW}=== Flow 8: Error handling consistency ===${NC}"
 echo "Testing error conditions..."
 
 # Try to create with same issue but different branches (should succeed)
-ISSUE_ID="error:test" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "error-branch-1" >/dev/null 2>&1
-ISSUE_ID="error:test" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "error-branch-2" >/dev/null 2>&1
+CARD_ID="error:test" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "error-branch-1" >/dev/null 2>&1
+CARD_ID="error:test" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "error-branch-2" >/dev/null 2>&1
 verify "Same issue ID on different branches allowed" "[ -d '.worktrees/error-branch-1' ] && [ -d '.worktrees/error-branch-2' ]"
 
 # Both should have same issue ID
-ID_A=$(git -C ".worktrees/error-branch-1" config --worktree issue.id 2>/dev/null)
-ID_B=$(git -C ".worktrees/error-branch-2" config --worktree issue.id 2>/dev/null)
+ID_A=$(git -C ".worktrees/error-branch-1" config --worktree card.id 2>/dev/null)
+ID_B=$(git -C ".worktrees/error-branch-2" config --worktree card.id 2>/dev/null)
 verify "Both branches have same issue ID" "[ '$ID_A' = '$ID_B' ]"
 
 # Try to create duplicate branch (should fail)
-create_dup_exit=$(ISSUE_ID="error:dup" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "error-branch-1" 2>&1; echo $?)
+create_dup_exit=$(CARD_ID="error:dup" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "error-branch-1" 2>&1; echo $?)
 create_dup_exit=$(echo "$create_dup_exit" | tail -1)
 verify "Creating duplicate branch fails with exit 2" "[ '$create_dup_exit' = '2' ]"
 
@@ -365,21 +365,21 @@ verify "Creating duplicate branch fails with exit 2" "[ '$create_dup_exit' = '2'
 
 echo -e "\n${YELLOW}=== Flow 9: Hook content verification ===${NC}"
 echo "Verifying hook scripts have required content..."
-ISSUE_ID="hook:verify" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "hook-content-test" >/dev/null 2>&1
+CARD_ID="hook:verify" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "hook-content-test" >/dev/null 2>&1
 
 HOOK_GIT_DIR=$(git -C ".worktrees/hook-content-test" rev-parse --git-dir 2>/dev/null)
 POST_COMMIT_HOOK="$HOOK_GIT_DIR/hooks/post-commit"
 POST_REWRITE_HOOK="$HOOK_GIT_DIR/hooks/post-rewrite"
 
 # Verify post-commit hook has required elements (using grep directly on files)
-verify "post-commit reads issue.id from config" "grep -q 'issue.id' '$POST_COMMIT_HOOK'"
-verify "post-commit reads workspacePath from config" "grep -q 'issue.workspacePath' '$POST_COMMIT_HOOK'"
+verify "post-commit reads card.id from config" "grep -q 'card.id' '$POST_COMMIT_HOOK'"
+verify "post-commit reads workspacePath from config" "grep -q 'card.workspacePath' '$POST_COMMIT_HOOK'"
 verify "post-commit uses cards-api.json" "grep -q 'cards-api.json' '$POST_COMMIT_HOOK'"
-verify "post-commit posts to issues API" "grep -q 'issues/\$ISSUE_ID/comments' '$POST_COMMIT_HOOK'"
+verify "post-commit posts to issues API" "grep -q 'issues/\$CARD_ID/comments' '$POST_COMMIT_HOOK'"
 
 # Verify post-rewrite hook has required elements
-verify "post-rewrite reads issue.id from config" "grep -q 'issue.id' '$POST_REWRITE_HOOK'"
-verify "post-rewrite reads issue.baseBranch from config" "grep -q 'issue.baseBranch' '$POST_REWRITE_HOOK'"
+verify "post-rewrite reads card.id from config" "grep -q 'card.id' '$POST_REWRITE_HOOK'"
+verify "post-rewrite reads card.baseBranch from config" "grep -q 'card.baseBranch' '$POST_REWRITE_HOOK'"
 verify "post-rewrite recalculates baseSha" "grep -q 'merge-base' '$POST_REWRITE_HOOK'"
 verify "post-rewrite handles old SHA pairs" "grep -q 'OLD_SHAS' '$POST_REWRITE_HOOK'"
 verify "post-rewrite deletes old comments" "grep -q 'DELETE' '$POST_REWRITE_HOOK'"
@@ -388,15 +388,15 @@ verify "post-rewrite deletes old comments" "grep -q 'DELETE' '$POST_REWRITE_HOOK
 
 echo -e "\n${YELLOW}=== Flow 10: Recreate after removal ===${NC}"
 echo "Creating, removing, then recreating same branch with different issue..."
-ISSUE_ID="first:issue" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "recreate-test" >/dev/null 2>&1
-FIRST_ISSUE=$(git -C ".worktrees/recreate-test" config --worktree issue.id 2>/dev/null)
+CARD_ID="first:issue" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "recreate-test" >/dev/null 2>&1
+FIRST_ISSUE=$(git -C ".worktrees/recreate-test" config --worktree card.id 2>/dev/null)
 verify "First worktree has first issue ID" "[ '$FIRST_ISSUE' = 'first:issue' ]"
 
 "$REMOVE_UTILITY" "recreate-test" >/dev/null 2>&1
 verify "First worktree removed" "[ ! -d '.worktrees/recreate-test' ]"
 
-ISSUE_ID="second:issue" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "recreate-test" >/dev/null 2>&1
-SECOND_ISSUE=$(git -C ".worktrees/recreate-test" config --worktree issue.id 2>/dev/null)
+CARD_ID="second:issue" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "recreate-test" >/dev/null 2>&1
+SECOND_ISSUE=$(git -C ".worktrees/recreate-test" config --worktree card.id 2>/dev/null)
 verify "Second worktree has second issue ID" "[ '$SECOND_ISSUE' = 'second:issue' ]"
 verify "Issue IDs are different" "[ '$FIRST_ISSUE' != '$SECOND_ISSUE' ]"
 
@@ -445,13 +445,13 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1');
   const parts = url.pathname.split('/').filter(Boolean);
   if (parts.length >= 4 && parts[0] === 'api' && parts[1] === 'v1' && parts[2] === 'issues') {
-    const issueId = decodeURIComponent(parts[3] || '');
-    if (!state.issues[issueId]) {
-      state.issues[issueId] = [];
+    const cardId = decodeURIComponent(parts[3] || '');
+    if (!state.issues[cardId]) {
+      state.issues[cardId] = [];
     }
     if (parts.length === 5 && parts[4] === 'comments') {
       if (req.method === 'GET') {
-        sendJson(res, 200, state.issues[issueId]);
+        sendJson(res, 200, state.issues[cardId]);
         return;
       }
       if (req.method === 'POST') {
@@ -463,7 +463,7 @@ const server = http.createServer(async (req, res) => {
           body = {};
         }
         const comment = { id: String(state.nextId++), commitSha: body.commitSha || null };
-        state.issues[issueId].push(comment);
+        state.issues[cardId].push(comment);
         save();
         sendJson(res, 201, comment);
         return;
@@ -471,7 +471,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (parts.length === 6 && parts[4] === 'comments' && req.method === 'DELETE') {
       const commentId = parts[5];
-      state.issues[issueId] = state.issues[issueId].filter((c) => c.id !== commentId);
+      state.issues[cardId] = state.issues[cardId].filter((c) => c.id !== commentId);
       save();
       res.statusCode = 204;
       res.end('');
@@ -517,20 +517,20 @@ cat > "$MOCK_HOME/.cards/cards-api.json" << EOF
 }
 EOF
 
-ISSUE_ID="flow:rebase"
-ISSUE_ID_URL=$(ISSUE_ID="$ISSUE_ID" python3 - <<'PY'
+CARD_ID="flow:rebase"
+CARD_ID_URL=$(CARD_ID="$CARD_ID" python3 - <<'PY'
 import os
 import urllib.parse
-print(urllib.parse.quote(os.environ["ISSUE_ID"]))
+print(urllib.parse.quote(os.environ["CARD_ID"]))
 PY
 )
 
-create_output=$(HOME="$MOCK_HOME" ISSUE_ID="$ISSUE_ID" ISSUE_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-rebase" 2>&1)
+create_output=$(HOME="$MOCK_HOME" CARD_ID="$CARD_ID" CARD_WORKSPACE_PATH="$TEST_DIR/repo" "$CREATE_UTILITY" "flow-rebase" 2>&1)
 create_exit=$?
 verify "Worktree created for rebase flow" "[ $create_exit -eq 0 ]"
 
-BASE_SHA_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree issue.baseSha 2>/dev/null)
-BASE_COMMENT_ID_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree issue.baseShaCommentId 2>/dev/null)
+BASE_SHA_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree card.baseSha 2>/dev/null)
+BASE_COMMENT_ID_INITIAL=$(git -C ".worktrees/flow-rebase" config --worktree card.baseShaCommentId 2>/dev/null)
 
 cd ".worktrees/flow-rebase"
 echo "rebase feature" > src/rebase-feature.txt
@@ -539,7 +539,7 @@ HOME="$MOCK_HOME" git commit -m "Rebase feature" >/dev/null 2>&1
 COMMIT_SHA_BEFORE=$(git rev-parse HEAD)
 cd "$TEST_DIR/repo"
 
-COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/cards/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/cards/$CARD_ID_URL/comments" 2>/dev/null)
 verify "Commit comment matches feature commit" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
 
 echo "main update" >> README.md
@@ -550,13 +550,13 @@ MAIN_SHA=$(git rev-parse HEAD)
 cd ".worktrees/flow-rebase"
 HOME="$MOCK_HOME" git rebase main >/dev/null 2>&1
 COMMIT_SHA_AFTER=$(git rev-parse HEAD)
-BASE_SHA_UPDATED=$(git config --worktree issue.baseSha 2>/dev/null)
+BASE_SHA_UPDATED=$(git config --worktree card.baseSha 2>/dev/null)
 cd "$TEST_DIR/repo"
 
 verify "Rebase rewrote commit SHA" "[ '$COMMIT_SHA_AFTER' != '$COMMIT_SHA_BEFORE' ]"
 verify "BaseSha updated to new main" "[ '$BASE_SHA_UPDATED' = '$MAIN_SHA' ]"
 
-COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/cards/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/cards/$CARD_ID_URL/comments" 2>/dev/null)
 verify "Old baseSha comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$BASE_SHA_INITIAL' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "New commit comment posted after rebase" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Old commit comment removed" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_BEFORE' '.[] | select(.commitSha == \$sha)' >/dev/null"
@@ -565,13 +565,13 @@ cd ".worktrees/flow-rebase"
 sleep 1
 HOME="$MOCK_HOME" git commit --amend --no-edit >/dev/null 2>&1
 COMMIT_SHA_AMENDED=$(git rev-parse HEAD)
-BASE_SHA_AMENDED=$(git config --worktree issue.baseSha 2>/dev/null)
+BASE_SHA_AMENDED=$(git config --worktree card.baseSha 2>/dev/null)
 cd "$TEST_DIR/repo"
 
 verify "Amend rewrote commit SHA" "[ '$COMMIT_SHA_AMENDED' != '$COMMIT_SHA_AFTER' ]"
 verify "BaseSha unchanged on amend" "[ '$BASE_SHA_AMENDED' = '$BASE_SHA_UPDATED' ]"
 
-COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/api/v1/cards/$ISSUE_ID_URL/comments" 2>/dev/null)
+COMMENTS=$(curl -s "http://127.0.0.1:$MOCK_SERVER_PORT/cards/$CARD_ID_URL/comments" 2>/dev/null)
 verify "Amended commit comment posted" "echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AMENDED' '.[] | select(.commitSha == \$sha)' >/dev/null"
 verify "Prior commit comment removed on amend" "! echo '$COMMENTS' | jq -e --arg sha '$COMMIT_SHA_AFTER' '.[] | select(.commitSha == \$sha)' >/dev/null"
 

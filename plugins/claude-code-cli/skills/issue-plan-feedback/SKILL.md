@@ -7,7 +7,7 @@ description: Incorporate user feedback into an existing plan and re-assess.
 [LATEST_USER_COMMENT] — Most recent comment from `author: "user"` containing feedback
 [PLAN_CONTENT] — The existing plan markdown content from `planContent` field
 
-Note: [ISSUE_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
+Note: [CARD_ID], [TITLE], and [DESCRIPTION] are defined in `prompt.md`.
 </placeholder-variables>
 
 <instructions>
@@ -69,7 +69,7 @@ Launch both assessments in parallel (one message):
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-assessor</parameter>
-  <parameter name="prompt">Issue: [ISSUE_ID]
+  <parameter name="prompt">Issue: [CARD_ID]
 
 1. Read the plan:
 ```
@@ -83,7 +83,7 @@ GET /cards/[CARD_ID]/plan
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">claude-code-cli:plan-refactor</parameter>
-  <parameter name="prompt">Issue: [ISSUE_ID]
+  <parameter name="prompt">Issue: [CARD_ID]
 
 1. Read the plan:
 ```

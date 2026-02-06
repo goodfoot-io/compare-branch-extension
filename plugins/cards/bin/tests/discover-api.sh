@@ -90,95 +90,54 @@ echo "Script path: $DISCOVER_API"
 # Test 1: Discovery file not found
 echo -e "\n${YELLOW}=== Test 1: Discovery file not found ===${NC}"
 setup_mock_home
-run_test "No discovery file" 1
+run_test "No discovery file" 2
 
-# Test 2: Discovery file exists with current workspace
-echo -e "\n${YELLOW}=== Test 2: Current workspace in discovery file ===${NC}"
+# Test 2: Flat discovery file with port and host
+echo -e "\n${YELLOW}=== Test 2: Flat discovery file ===${NC}"
 setup_mock_home
-TEST_WORKSPACE="$TEST_DIR/test-workspace"
-mkdir -p "$TEST_WORKSPACE"
-cd "$TEST_WORKSPACE"
 
 cat > "$HOME/.cards/cards-api.json" <<EOF
 {
-  "$TEST_WORKSPACE": {
-    "port": 54321,
-    "host": "127.0.0.1",
-    "pid": 12345,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T10:00:00.000Z"
-  }
+  "port": 54321,
+  "host": "127.0.0.1",
+  "pid": 12345,
+
+  "accessToken": "abc123",
+  "startedAt": "2024-01-15T10:00:00.000Z"
 }
 EOF
 
-run_test "Current workspace found" 0 "http://127.0.0.1:54321/api/v1"
+run_test "Flat discovery file" 0 "http://127.0.0.1:54321"
 
-# Test 3: Workspace not in discovery file, fallback to first
-echo -e "\n${YELLOW}=== Test 3: Fallback to first available instance ===${NC}"
-setup_mock_home
-OTHER_WORKSPACE="$TEST_DIR/other-workspace"
-mkdir -p "$OTHER_WORKSPACE"
-cd "$TEST_WORKSPACE"
-
-cat > "$HOME/.cards/cards-api.json" <<EOF
-{
-  "/some/other/path": {
-    "port": 55555,
-    "host": "127.0.0.1",
-    "pid": 99999,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T10:00:00.000Z"
-  }
-}
-EOF
-
-run_test "Fallback to first instance" 0 "http://127.0.0.1:55555/api/v1"
-
-# Test 4: Empty discovery file
-echo -e "\n${YELLOW}=== Test 4: Empty discovery file ===${NC}"
+# Test 3: Empty discovery file (no port/host)
+echo -e "\n${YELLOW}=== Test 3: Empty discovery file ===${NC}"
 setup_mock_home
 echo '{}' > "$HOME/.cards/cards-api.json"
-run_test "Empty discovery file" 1
+run_test "Empty discovery file" 2
 
-# Test 5: Invalid JSON in discovery file
-echo -e "\n${YELLOW}=== Test 5: Invalid JSON in discovery file ===${NC}"
+# Test 4: Invalid JSON in discovery file
+echo -e "\n${YELLOW}=== Test 4: Invalid JSON in discovery file ===${NC}"
 setup_mock_home
 echo 'not valid json' > "$HOME/.cards/cards-api.json"
 # Note: jq returns exit code 4 for parse errors, which causes script to fail
 run_test "Invalid JSON in discovery file" 4
 
-# Test 6: Multiple workspaces, current workspace preferred
-echo -e "\n${YELLOW}=== Test 6: Multiple workspaces, current preferred ===${NC}"
+# Test 5: Discovery file with custom host
+echo -e "\n${YELLOW}=== Test 5: Custom host in discovery file ===${NC}"
 setup_mock_home
-cd "$TEST_WORKSPACE"
 
 cat > "$HOME/.cards/cards-api.json" <<EOF
 {
-  "/some/other/path": {
-    "port": 11111,
-    "host": "127.0.0.1",
-    "pid": 11111,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T09:00:00.000Z"
-  },
-  "$TEST_WORKSPACE": {
-    "port": 22222,
-    "host": "127.0.0.1",
-    "pid": 22222,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T10:00:00.000Z"
-  },
-  "/another/path": {
-    "port": 33333,
-    "host": "127.0.0.1",
-    "pid": 33333,
-    "apiVersion": "v1",
-    "startedAt": "2024-01-15T11:00:00.000Z"
-  }
+  "port": 9999,
+  "host": "0.0.0.0",
+  "pid": 67890,
+
+  "accessToken": "def456",
+  "startedAt": "2024-01-15T11:00:00.000Z"
 }
 EOF
 
-run_test "Current workspace preferred over others" 0 "http://127.0.0.1:22222/api/v1"
+run_test "Custom host" 0 "http://0.0.0.0:9999"
 
 # Cleanup
 cleanup_mock_home

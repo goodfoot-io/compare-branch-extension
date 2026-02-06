@@ -10,7 +10,7 @@ skills: cards:api, claude-code-cli:plan
 Extract from the invoking context:
 
 **Required Fields:**
-- [ISSUE_ID] = The issue's unique identifier
+- [CARD_ID] = The issue's unique identifier
 - [TITLE] = The issue title
 - [DESCRIPTION] = The issue description with requirements
 

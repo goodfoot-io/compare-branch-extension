@@ -41,7 +41,7 @@ if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "$BRANCH_BASE"
   git commit -m "feat: [TITLE]
 
-Issue: [ISSUE_ID]"
+Issue: [CARD_ID]"
 fi
 ```
 
@@ -95,7 +95,7 @@ git status --porcelain
 ```
 
 Based on workspace state:
-- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: [ISSUE_ID]"`
+- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: [CARD_ID]"`
 - **No uncommitted changes**: Proceed to Step 5
 
 ## 5. Fast-Forward Merge

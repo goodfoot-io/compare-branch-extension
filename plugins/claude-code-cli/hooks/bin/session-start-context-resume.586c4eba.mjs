@@ -585,8 +585,8 @@ function discoverApiUrl(logger2) {
     });
   }
 }
-async function fetchIssueDiff(sessionId, issueId, baseUrl, logger2) {
-  const url = `${baseUrl}/session/${sessionId}/diff?issueIds=${issueId}`;
+async function fetchCardDiff(sessionId, cardId, baseUrl, logger2) {
+  const url = `${baseUrl}/session/${sessionId}/diff?cardIds=${cardId}`;
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(5e3)
@@ -651,8 +651,8 @@ var session_start_context_resume_default = sessionStartHook({ matcher: "resume" 
   if (!sessionId) {
     return sessionStartOutput({});
   }
-  const issueId = process.env.CARD_ID;
-  if (!issueId) {
+  const cardId = process.env.CARD_ID;
+  if (!cardId) {
     logger2.warn("CARD_ID not set - this hook requires the issue launcher");
     return sessionStartOutput({
       stopReason: "CARD_ID not set. Launch Claude using the issue panel 'Launch Claude' button or use the agent-issue-dispatcher script."
@@ -661,16 +661,16 @@ var session_start_context_resume_default = sessionStartHook({ matcher: "resume" 
   let diffResponse;
   try {
     const baseUrl = discoverApiUrl(logger2);
-    diffResponse = await fetchIssueDiff(sessionId, issueId, baseUrl, logger2);
+    diffResponse = await fetchCardDiff(sessionId, cardId, baseUrl, logger2);
   } catch (error) {
     logger2.debug("API error", { error: String(error) });
     return sessionStartOutput({});
   }
   if (!hasUpdates(diffResponse)) {
     return sessionStartOutput({
-      systemMessage: `Issue \`${issueId}\` has no updates.`,
+      systemMessage: `Issue \`${cardId}\` has no updates.`,
       hookSpecificOutput: {
-        additionalContext: `**Issue \`${issueId}\` has no updates.**`
+        additionalContext: `**Issue \`${cardId}\` has no updates.**`
       }
     });
   }
@@ -679,7 +679,7 @@ var session_start_context_resume_default = sessionStartHook({ matcher: "resume" 
   return sessionStartOutput({
     systemMessage: systemMsg,
     hookSpecificOutput: {
-      additionalContext: `**Issue \`${issueId}\` JSON patch**
+      additionalContext: `**Issue \`${cardId}\` JSON patch**
 \`\`\`json
 ${patchJson}
 \`\`\``
