@@ -223,10 +223,17 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
 
     // Generate wrapper content based on handler type
+    // Stream transforms re-export raw init and default transform functions
     // Type validators use HTTP stdin/stdout protocol via executeValidation
     // Other handlers use environment variable extraction via execute
     let wrapperContent: string;
-    if (factoryType === 'typeValidator') {
+    if (factoryType === 'streamTransform') {
+      wrapperContent = `
+import cmd from '${sourcePath.replace(/\\/g, '/')}';
+export function init(ctx) { return cmd.init?.(ctx); }
+export default function transform(line, ctx) { return cmd(line, ctx); }
+`;
+    } else if (factoryType === 'typeValidator') {
       wrapperContent = `
 import handler from '${sourcePath.replace(/\\/g, '/')}';
 import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
@@ -250,19 +257,24 @@ execute(handler);
     fs.mkdirSync(outputDir, { recursive: true });
 
     // Build using esbuild
+    // Stream transforms run in vm.SourceTextModule sandbox with no imports,
+    // so they need fully self-contained bundles (no externals, no banner)
+    const isStreamTransform = factoryType === 'streamTransform';
     const result = await esbuild.build({
       entryPoints: [wrapperPath],
       outfile: outputPath,
       bundle: true,
       format: 'esm',
-      platform: 'node',
+      platform: isStreamTransform ? 'neutral' : 'node',
       target: 'es2022',
       sourcemap: sourcemap ? 'inline' : false,
       minify: false,
-      external: EXTERNALS,
-      banner: {
-        js: BANNER
-      },
+      external: isStreamTransform ? [] : EXTERNALS,
+      banner: isStreamTransform
+        ? {}
+        : {
+            js: BANNER
+          },
       logLevel: 'silent'
     });
 

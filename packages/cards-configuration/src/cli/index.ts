@@ -24,8 +24,8 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { SettingsConfig } from '../config.js';
-import type { Action, Command, Settings, TypeDefinition } from '../schema.js';
+import type { SettingsConfig, StreamConfigDefinition } from '../config.js';
+import type { Action, Command, Settings, StreamDefinition, TypeDefinition } from '../schema.js';
 import type { BuildArgs } from './args.js';
 import { compileHandler } from './compiler.js';
 
@@ -196,6 +196,18 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
             timeout: typeConfig.delete.timeout
           });
         }
+      }
+    }
+
+    // Extract stream transform commands
+    if (envConfig.streams) {
+      for (const streamConfig of Object.values(envConfig.streams)) {
+        commands.push({
+          factoryType: streamConfig.transform.factoryType,
+          name: streamConfig.transform.streamType,
+          sourcePath: streamConfig.transform.sourcePath,
+          timeout: streamConfig.transform.timeout
+        });
       }
     }
   }
@@ -422,6 +434,17 @@ function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], b
     if (types) {
       environments[envName].types = types;
     }
+
+    // Generate streams
+    if (envConfig.streams) {
+      const streams: Record<string, StreamDefinition> = {};
+      for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
+        const key = `${streamConfig.transform.factoryType}:${streamConfig.transform.streamType}`;
+        const compiled = compiledByKey.get(key);
+        streams[streamName] = generateStreamDefinition(streamConfig, compiled, binDir);
+      }
+      environments[envName].streams = streams;
+    }
   }
 
   return { environments };
@@ -452,6 +475,34 @@ function generateCommand(
   }
 
   return command;
+}
+
+/**
+ * Generates a StreamDefinition object for a stream config.
+ */
+function generateStreamDefinition(
+  streamConfig: StreamConfigDefinition,
+  compiled: CompiledHandler | undefined,
+  binDir: string
+): StreamDefinition {
+  const streamDef: StreamDefinition = {
+    version: streamConfig.version,
+    transform: {
+      path: compiled
+        ? path.posix.join(binDir, compiled.filename)
+        : `${streamConfig.transform.factoryType}-${streamConfig.transform.streamType}.js`
+    }
+  };
+  if (streamConfig.transform.timeout !== undefined) {
+    streamDef.transform.timeout = streamConfig.transform.timeout;
+  }
+  if (streamConfig.transform.maxLineLength !== undefined) {
+    streamDef.maxLineLength = streamConfig.transform.maxLineLength;
+  }
+  if (streamConfig.transform.maxStreamSize !== undefined) {
+    streamDef.maxStreamSize = streamConfig.transform.maxStreamSize;
+  }
+  return streamDef;
 }
 
 // ============================================================================

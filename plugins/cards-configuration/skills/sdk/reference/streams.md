@@ -10,7 +10,7 @@ This document describes stream transform configuration in `@cards/configuration`
 - Supports optional `init()` function for stream initialization
 - Shares state between `init()` and `transform()` via `Map<string, unknown>`
 - Runs in isolated worker thread with VM sandbox
-- No rebuild step required
+- Rebuild required if using `sourcePath` (compiled transforms); manual transforms in `.cards/transforms/` do not require rebuild
 - Cached after first load (restart server to reload)
 
 ## Stream Definition Schema
@@ -125,7 +125,7 @@ Stream transforms run in **isolated worker threads** with a VM sandbox for secur
 - Each stream gets its own dedicated worker
 - Workers cannot access the main application context
 - State Maps are confined to the worker lifecycle
-- No access to filesystem or network (except via explicit APIs)
+- No access to filesystem or network
 - Worker terminates when stream closes
 
 ### Sandbox Restrictions
@@ -133,8 +133,8 @@ The VM sandbox restricts access to global objects:
 
 - **Intentionally Excluded:** `setTimeout`, `setInterval` (prevent blocking)
 - **Available:** `console`, `Map`, `JSON`, `Array`, `Object`, `String` utilities
-- **Fetch:** Available for HTTP requests if needed
-- **Import:** Limited to safe modules within the transform module
+- **Fetch:** NOT available (blocked by sandbox)
+- **Import:** ALL imports rejected by VM linker — bundle must be completely self-contained
 
 ### State Map Lifecycle
 - **Created:** When stream starts, before `init()` is called
@@ -196,8 +196,7 @@ async function transform(line, context) {
   const event = JSON.parse(line);
 
   if (!cache.has(event.userId)) {
-    const res = await fetch(`https://api.example.com/users/${event.userId}`);
-    cache.set(event.userId, await res.json());
+    cache.set(event.userId, { name: `User ${event.userId}` });
   }
 
   const user = cache.get(event.userId);
@@ -258,6 +257,12 @@ For new transforms, **always use `defineStreamTransform`** to:
 - Enable state management via `init()`
 - Receive full context including headers and card metadata
 
+## Compiled vs Manual Transforms
+
+**Compiled transforms**: Defined in `src/` with `sourcePath` parameter, compiled by CLI into `dist/bin/`, can use imports (bundled by esbuild). Requires rebuild after changes.
+
+**Manual transforms**: Placed directly in `.cards/transforms/`, must be completely self-contained (no imports except `@cards/configuration`), no rebuild required. Useful for simple transforms that don't need external dependencies.
+
 ## Transform Path Resolution
 
 | Path Type | Resolution |
@@ -304,6 +309,7 @@ export default defineStreamTransform(
 - [ ] Transform handles parse errors gracefully with try/catch
 - [ ] State operations use `context.state.get()` and `context.state.set()`
 - [ ] Stream type configured in environment's `streams` object
+- [ ] If using `sourcePath`, run `npx @cards/configuration build` after changes
 - [ ] Server restarted after transform code changes (transforms are cached)
 
 </instructions>

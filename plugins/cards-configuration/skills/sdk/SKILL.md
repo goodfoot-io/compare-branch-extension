@@ -10,7 +10,7 @@ This skill provides SDK documentation and development guidance for the `@cards/c
 
 ## Build Process
 
-Actions and validators are compiled executables. Rebuild them after every code change.
+Actions, validators, and stream transforms are compiled executables. Rebuild them after every code change.
 
 ```bash
 npx @cards/configuration build -c settings.config.ts -o dist
@@ -122,6 +122,7 @@ import { defineConfig } from '@cards/configuration';
 import launchClaudeStart from './src/actions/launch-claude-start.js';
 import launchClaudeEnd from './src/actions/launch-claude-end.js';
 import adaptiveCardValidator from './src/validators/adaptive-card-validator.js';
+import chatTransform from './src/transforms/chat-formatter.js';
 
 export default defineConfig({
   environments: {
@@ -140,7 +141,7 @@ export default defineConfig({
       streams: {
         'chat-log': {
           version: 1,
-          transform: { path: 'chat-formatter.mjs' }
+          transform: chatTransform
         }
       }
     }
@@ -183,7 +184,7 @@ export const del = defineTypeDelete(
 
 ## Stream Configuration Example
 
-Stream transforms process JSONL lines as they arrive in isolated worker threads. Unlike actions and validators, transforms are plain ESM modules (not SDK factory functions) and don't require a rebuild step.
+Stream transforms process JSONL lines as they arrive in isolated worker threads. Transforms use the `defineStreamTransform` factory function for full feature support.
 
 Each stream gets its own isolated worker with a `state` Map shared between the optional `init()` function and the `transform()` function. This enables stateful stream processing while maintaining security through worker isolation.
 
@@ -242,6 +243,7 @@ Transforms are cached after first load. Restart the server to reload updated tra
 | `defineTypeCreate` | New file hook | `typeName`, `timeout?`, `sourcePath?` |
 | `defineTypeUpdate` | Modified file hook | `typeName`, `timeout?`, `sourcePath?` |
 | `defineTypeDelete` | Deleted file hook | `typeName`, `timeout?`, `sourcePath?` |
+| `defineStreamTransform` | Stream line transform | `streamType`, `timeout?`, `maxLineLength?`, `maxStreamSize?`, `sourcePath?` |
 
 ## Validation Response Builders
 
@@ -259,6 +261,7 @@ Before debugging issues, verify:
 - [ ] `@cards/configuration` is in `package.json` dependencies
 - [ ] Build script exists: `"build": "cards-configuration build -c settings.config.ts -o dist"`
 - [ ] Handlers rebuilt after last code change
+- [ ] Stream transforms rebuilt if using `sourcePath`
 - [ ] No `console.log` or `console.error` in handler code (use `logger`)
 - [ ] Handler files use `export default factoryFunction(...)` pattern
 - [ ] Handlers include `sourcePath: fileURLToPath(import.meta.url)`

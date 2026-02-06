@@ -1104,6 +1104,486 @@ export default {
   });
 });
 
+describe('builder CLI: stream transform builds', () => {
+  let testDir: string;
+
+  /**
+   * Path to the stream transform factory for test fixtures.
+   */
+  const STREAM_TRANSFORM_FACTORY_PATH = path.resolve(__dirname, '../../src/factories/stream-transform.js');
+
+  /**
+   * Creates a minimal valid stream transform handler.
+   */
+  function createStreamTransformHandler(streamType: string, handlerPath: string): string {
+    return `
+import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
+
+export default defineStreamTransform(
+  {
+    streamType: '${streamType}',
+    sourcePath: '${handlerPath.replace(/\\/g, '/')}'
+  },
+  (line) => \`[\${line}]\`,
+  (ctx) => { ctx.state.set('ready', true); }
+);
+`;
+  }
+
+  /**
+   * Creates a stream transform handler without init function.
+   */
+  function _createStreamTransformHandlerNoInit(streamType: string, handlerPath: string): string {
+    return `
+import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
+
+export default defineStreamTransform(
+  {
+    streamType: '${streamType}',
+    sourcePath: '${handlerPath.replace(/\\/g, '/')}'
+  },
+  (line) => \`[\${line}]\`
+);
+`;
+  }
+
+  /**
+   * Creates a stream transform handler with metadata.
+   */
+  function createStreamTransformHandlerWithMetadata(streamType: string, handlerPath: string): string {
+    return `
+import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
+
+export default defineStreamTransform(
+  {
+    streamType: '${streamType}',
+    sourcePath: '${handlerPath.replace(/\\/g, '/')}',
+    timeout: 10000,
+    maxLineLength: 2048,
+    maxStreamSize: 1048576
+  },
+  (line) => \`[\${line}]\`
+);
+`;
+  }
+
+  /**
+   * Creates a stream transform handler without sourcePath.
+   */
+  function createStreamTransformHandlerNoSourcePath(streamType: string): string {
+    return `
+import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
+
+export default defineStreamTransform(
+  { streamType: '${streamType}' },
+  (line) => \`[\${line}]\`
+);
+`;
+  }
+
+  beforeEach(() => {
+    testDir = createTestDir('stream-transform');
+  });
+
+  afterEach(() => {
+    fs.rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('should build config with stream transform and include streams section in settings.json', async () => {
+    // Create action (required) and stream handlers
+    writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
+    const _streamHandlerPath = writeHandler(
+      testDir,
+      'test-stream.ts',
+      createStreamTransformHandler('test-stream', path.join(testDir, 'test-stream.ts'))
+    );
+
+    // Create config with both action and stream
+    const configPath = writeConfig(
+      testDir,
+      `
+import actionStart from './action-start.js';
+import streamHandler from './test-stream.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: actionStart }],
+      streams: {
+        'test-stream': {
+          version: 1,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    const result = await build({ config: configPath, outdir });
+
+    expect(result.success).toBe(true);
+
+    // Verify settings.json has streams section
+    const settings = readSettings(outdir);
+    expect(settings.environments.default.streams).toBeDefined();
+    expect(settings.environments.default.streams?.['test-stream']).toBeDefined();
+    expect(settings.environments.default.streams?.['test-stream'].version).toBe(1);
+
+    // Verify transform.path matches bin/<name>.<hash>.mjs pattern
+    const transformPath = settings.environments.default.streams?.['test-stream'].transform?.path;
+    expect(transformPath).toMatch(/^bin\/test-stream\.[a-f0-9]{8}\.mjs$/);
+  });
+
+  it('should create compiled stream transform file in bin/ with content hash filename', async () => {
+    writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(
+      testDir,
+      'my-stream.ts',
+      createStreamTransformHandler('my-stream', path.join(testDir, 'my-stream.ts'))
+    );
+
+    const configPath = writeConfig(
+      testDir,
+      `
+import actionStart from './action-start.js';
+import streamHandler from './my-stream.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: actionStart }],
+      streams: {
+        'my-stream': {
+          version: 1,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    await build({ config: configPath, outdir });
+
+    // Verify bin/ contains the stream transform file
+    const binFiles = listBinFiles(outdir);
+    const streamFile = binFiles.find((f) => f.includes('my-stream'));
+    expect(streamFile).toBeDefined();
+
+    // Verify filename includes content hash pattern [name].[8chars].mjs
+    expect(streamFile).toMatch(/^my-stream\.[a-f0-9]{8}\.mjs$/);
+  });
+
+  it('should compile stream transform as valid ESM without bare imports', async () => {
+    writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(
+      testDir,
+      'transform.ts',
+      createStreamTransformHandler('transform', path.join(testDir, 'transform.ts'))
+    );
+
+    const configPath = writeConfig(
+      testDir,
+      `
+import actionStart from './action-start.js';
+import streamHandler from './transform.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: actionStart }],
+      streams: {
+        'transform': {
+          version: 1,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    await build({ config: configPath, outdir });
+
+    // Read the compiled stream transform file
+    const binFiles = listBinFiles(outdir);
+    const streamFile = binFiles.find((f) => f.includes('transform'));
+    expect(streamFile).toBeDefined();
+
+    const compiledPath = path.join(outdir, 'bin', streamFile!);
+    const compiledContent = fs.readFileSync(compiledPath, 'utf-8');
+
+    // Verify it exports init (either as named export or export declaration)
+    expect(compiledContent).toMatch(/export\s+(\{[^}]*init[^}]*\}|function init)/);
+    expect(compiledContent).toContain('export');
+    expect(compiledContent).toMatch(/export\s+\{[^}]*default[^}]*\}|export default/);
+
+    // Verify it does NOT contain bare import statements (fully bundled)
+    // Allow only the shebang line at the start
+    const lines = compiledContent.split('\n').filter((line) => !line.startsWith('#!'));
+    const hasImport = lines.some((line) => line.trim().startsWith('import '));
+    expect(hasImport).toBe(false);
+
+    // Verify it does NOT contain createRequire banner (stream transforms should not have it)
+    expect(compiledContent).not.toContain('createRequire');
+  });
+
+  it('should support stream transforms coexisting with actions and types', async () => {
+    // Create all three handler types
+    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'validator.ts', createTypeValidatorHandler('test-type', testDir));
+    writeHandler(testDir, 'stream.ts', createStreamTransformHandler('test-stream', path.join(testDir, 'stream.ts')));
+
+    const configPath = writeConfig(
+      testDir,
+      `
+import action from './action.js';
+import validator from './validator.js';
+import streamHandler from './stream.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: action }],
+      types: {
+        'test-type': {
+          version: '1.0.0',
+          validator: validator
+        }
+      },
+      streams: {
+        'test-stream': {
+          version: 1,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    const result = await build({ config: configPath, outdir });
+
+    expect(result.success).toBe(true);
+
+    // Verify settings.json has all three sections
+    const settings = readSettings(outdir);
+    expect(settings.environments.default.actions).toBeDefined();
+    expect(settings.environments.default.actions.length).toBe(1);
+    expect(settings.environments.default.types).toBeDefined();
+    expect(settings.environments.default.types?.['test-type']).toBeDefined();
+    expect(settings.environments.default.streams).toBeDefined();
+    expect(settings.environments.default.streams?.['test-stream']).toBeDefined();
+
+    // Verify bin/ has files for all three handler types
+    const binFiles = listBinFiles(outdir);
+    expect(binFiles.length).toBe(3);
+    expect(binFiles.some((f) => f.includes('action'))).toBe(true);
+    expect(binFiles.some((f) => f.includes('validator'))).toBe(true);
+    expect(binFiles.some((f) => f.includes('stream'))).toBe(true);
+  });
+
+  it('should include stream transform files in __generated.files', async () => {
+    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'stream.ts', createStreamTransformHandler('stream', path.join(testDir, 'stream.ts')));
+
+    const configPath = writeConfig(
+      testDir,
+      `
+import action from './action.js';
+import streamHandler from './stream.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: action }],
+      streams: {
+        'stream': {
+          version: 1,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    await build({ config: configPath, outdir });
+
+    // Verify __generated.files includes stream transform
+    const settings = readSettings(outdir);
+    expect(settings.__generated?.files).toBeDefined();
+    expect(settings.__generated?.files.length).toBe(2); // action + stream
+
+    const streamFile = settings.__generated?.files.find((f) => f.includes('stream'));
+    expect(streamFile).toBeDefined();
+    expect(streamFile).toMatch(/^stream\.[a-f0-9]{8}\.mjs$/);
+  });
+
+  it('should clean up stale stream transform files on rebuild', async () => {
+    // First build: config with stream + action
+    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'stream.ts', createStreamTransformHandler('stream', path.join(testDir, 'stream.ts')));
+
+    const configPath = writeConfig(
+      testDir,
+      `
+import action from './action.js';
+import streamHandler from './stream.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: action }],
+      streams: {
+        'stream': {
+          version: 1,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    await build({ config: configPath, outdir });
+
+    const filesAfterFirstBuild = listBinFiles(outdir);
+    expect(filesAfterFirstBuild.length).toBe(2); // action + stream
+    const streamFile = filesAfterFirstBuild.find((f) => f.includes('stream'));
+    expect(streamFile).toBeDefined();
+
+    // Second build: config with only action (no stream)
+    writeConfig(
+      testDir,
+      `
+import action from './action.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: action }]
+    }
+  }
+};
+`
+    );
+
+    await build({ config: configPath, outdir });
+
+    // Verify stream transform file is cleaned up
+    const filesAfterSecondBuild = listBinFiles(outdir);
+    expect(filesAfterSecondBuild.length).toBe(1); // only action
+    expect(filesAfterSecondBuild.some((f) => f.includes('stream'))).toBe(false);
+  });
+
+  it('should preserve stream metadata in settings.json', async () => {
+    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(
+      testDir,
+      'stream-with-metadata.ts',
+      createStreamTransformHandlerWithMetadata('stream-with-metadata', path.join(testDir, 'stream-with-metadata.ts'))
+    );
+
+    const configPath = writeConfig(
+      testDir,
+      `
+import action from './action.js';
+import streamHandler from './stream-with-metadata.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: action }],
+      streams: {
+        'stream-with-metadata': {
+          version: 2,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    await build({ config: configPath, outdir });
+
+    // Verify all metadata fields are in settings.json
+    const settings = readSettings(outdir);
+    const streamConfig = settings.environments.default.streams?.['stream-with-metadata'];
+    expect(streamConfig).toBeDefined();
+    expect(streamConfig?.version).toBe(2);
+    expect(streamConfig?.transform?.timeout).toBe(10000);
+    expect(streamConfig?.maxLineLength).toBe(2048);
+    expect(streamConfig?.maxStreamSize).toBe(1048576);
+  });
+
+  it('should produce placeholder path for stream transform without sourcePath', async () => {
+    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'stream-no-source.ts', createStreamTransformHandlerNoSourcePath('stream-no-source'));
+
+    const configPath = writeConfig(
+      testDir,
+      `
+import action from './action.js';
+import streamHandler from './stream-no-source.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [{ start: action }],
+      streams: {
+        'stream-no-source': {
+          version: 1,
+          transform: streamHandler
+        }
+      }
+    }
+  }
+};
+`
+    );
+
+    const outdir = path.join(testDir, 'dist');
+    await build({ config: configPath, outdir });
+
+    // Verify settings.json stream has placeholder-format path
+    const settings = readSettings(outdir);
+    const streamConfig = settings.environments.default.streams?.['stream-no-source'];
+    expect(streamConfig).toBeDefined();
+
+    // Stream without sourcePath should produce a placeholder path (not compiled)
+    const transformPath = streamConfig?.transform?.path;
+    expect(transformPath).toBeDefined();
+    // Placeholder paths follow the pattern: streamTransform-<streamType>.js
+    expect(transformPath).toMatch(/^streamTransform-stream-no-source\.js$/);
+  });
+});
+
 // ============================================================================
 // Cleanup
 // ============================================================================
