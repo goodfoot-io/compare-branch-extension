@@ -60,12 +60,12 @@
  * ```
  */
 export function defineActionEnd(config, handler) {
-    const fn = async (input, context) => {
-        await handler(input, context);
-    };
-    fn.factoryType = 'actionEnd';
-    fn.actionName = config.actionName;
-    fn.timeout = config.timeout;
-    fn.sourcePath = config.sourcePath;
-    return fn;
+  const fn = async (input, context) => {
+    await handler(input, context);
+  };
+  fn.factoryType = 'actionEnd';
+  fn.actionName = config.actionName;
+  fn.timeout = config.timeout;
+  fn.sourcePath = config.sourcePath;
+  return fn;
 }

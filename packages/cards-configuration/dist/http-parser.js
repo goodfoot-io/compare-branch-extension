@@ -47,95 +47,94 @@
  * ```
  */
 export function parseHttpRequest(input) {
-    let position = 0;
-    // Helper to find next line ending (CRLF or LF)
-    const findLineEnd = (start) => {
-        for (let i = start; i < input.length; i++) {
-            if (input[i] === 0x0a) {
-                // LF
-                return i;
-            }
-        }
-        return -1;
+  let position = 0;
+  // Helper to find next line ending (CRLF or LF)
+  const findLineEnd = (start) => {
+    for (let i = start; i < input.length; i++) {
+      if (input[i] === 0x0a) {
+        // LF
+        return i;
+      }
+    }
+    return -1;
+  };
+  // Helper to extract line and advance position
+  const readLine = () => {
+    const lineEnd = findLineEnd(position);
+    if (lineEnd === -1) {
+      return null;
+    }
+    let lineContent;
+    if (lineEnd > 0 && input[lineEnd - 1] === 0x0d) {
+      // CRLF - exclude both CR and LF
+      lineContent = input.subarray(position, lineEnd - 1).toString('utf-8');
+    } else {
+      // LF only - exclude just LF
+      lineContent = input.subarray(position, lineEnd).toString('utf-8');
+    }
+    position = lineEnd + 1; // Move past LF
+    return lineContent;
+  };
+  // Read request line
+  const requestLine = readLine();
+  if (!requestLine) {
+    return { success: false, error: 'Missing request line' };
+  }
+  const requestParts = requestLine.split(' ');
+  if (requestParts.length !== 3) {
+    return { success: false, error: 'Invalid request line format' };
+  }
+  const [method, path, httpVersion] = requestParts;
+  // Read headers until blank line
+  const headers = {};
+  while (true) {
+    const line = readLine();
+    if (line === null) {
+      return { success: false, error: 'Unexpected end of headers' };
+    }
+    // Blank line indicates end of headers
+    if (line === '') {
+      break;
+    }
+    // Parse header: "Name: Value"
+    const colonIndex = line.indexOf(':');
+    if (colonIndex === -1) {
+      return { success: false, error: `Invalid header format: ${line}` };
+    }
+    const headerName = line.substring(0, colonIndex).trim().toLowerCase();
+    const headerValue = line.substring(colonIndex + 1).trim();
+    headers[headerName] = headerValue;
+  }
+  // Verify Content-Length is present
+  const contentLengthStr = headers['content-length'];
+  if (!contentLengthStr) {
+    return { success: false, error: 'Missing Content-Length header' };
+  }
+  const contentLength = parseInt(contentLengthStr, 10);
+  if (Number.isNaN(contentLength) || contentLength < 0) {
+    return { success: false, error: 'Invalid Content-Length value' };
+  }
+  // Read exactly Content-Length bytes for body
+  if (position + contentLength > input.length) {
+    return {
+      success: false,
+      error: `Body too short: expected ${contentLength} bytes, got ${input.length - position}`
     };
-    // Helper to extract line and advance position
-    const readLine = () => {
-        const lineEnd = findLineEnd(position);
-        if (lineEnd === -1) {
-            return null;
-        }
-        let lineContent;
-        if (lineEnd > 0 && input[lineEnd - 1] === 0x0d) {
-            // CRLF - exclude both CR and LF
-            lineContent = input.subarray(position, lineEnd - 1).toString('utf-8');
-        }
-        else {
-            // LF only - exclude just LF
-            lineContent = input.subarray(position, lineEnd).toString('utf-8');
-        }
-        position = lineEnd + 1; // Move past LF
-        return lineContent;
-    };
-    // Read request line
-    const requestLine = readLine();
-    if (!requestLine) {
-        return { success: false, error: 'Missing request line' };
+  }
+  const body = input.subarray(position, position + contentLength);
+  // Create request object with convenience getters
+  const request = {
+    method,
+    path,
+    httpVersion,
+    headers,
+    body,
+    get bodyText() {
+      return body.toString('utf-8');
+    },
+    bodyJson() {
+      return JSON.parse(body.toString('utf-8'));
     }
-    const requestParts = requestLine.split(' ');
-    if (requestParts.length !== 3) {
-        return { success: false, error: 'Invalid request line format' };
-    }
-    const [method, path, httpVersion] = requestParts;
-    // Read headers until blank line
-    const headers = {};
-    while (true) {
-        const line = readLine();
-        if (line === null) {
-            return { success: false, error: 'Unexpected end of headers' };
-        }
-        // Blank line indicates end of headers
-        if (line === '') {
-            break;
-        }
-        // Parse header: "Name: Value"
-        const colonIndex = line.indexOf(':');
-        if (colonIndex === -1) {
-            return { success: false, error: `Invalid header format: ${line}` };
-        }
-        const headerName = line.substring(0, colonIndex).trim().toLowerCase();
-        const headerValue = line.substring(colonIndex + 1).trim();
-        headers[headerName] = headerValue;
-    }
-    // Verify Content-Length is present
-    const contentLengthStr = headers['content-length'];
-    if (!contentLengthStr) {
-        return { success: false, error: 'Missing Content-Length header' };
-    }
-    const contentLength = parseInt(contentLengthStr, 10);
-    if (Number.isNaN(contentLength) || contentLength < 0) {
-        return { success: false, error: 'Invalid Content-Length value' };
-    }
-    // Read exactly Content-Length bytes for body
-    if (position + contentLength > input.length) {
-        return {
-            success: false,
-            error: `Body too short: expected ${contentLength} bytes, got ${input.length - position}`
-        };
-    }
-    const body = input.subarray(position, position + contentLength);
-    // Create request object with convenience getters
-    const request = {
-        method,
-        path,
-        httpVersion,
-        headers,
-        body,
-        get bodyText() {
-            return body.toString('utf-8');
-        },
-        bodyJson() {
-            return JSON.parse(body.toString('utf-8'));
-        }
-    };
-    return { success: true, request };
+  };
+  return { success: true, request };
 }

@@ -51,385 +51,377 @@ export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'];
  * ```
  */
 export class Logger {
-    /**
-     * Registered event handlers by log level.
-     */
-    handlers = new Map();
-    /**
-     * File descriptor for log file output.
-     * Lazily initialized on first write.
-     */
-    logFileFd = null;
-    /**
-     * Path to the log file, if configured.
-     */
-    logFilePath = null;
-    /**
-     * Whether file initialization has been attempted.
-     */
-    fileInitialized = false;
-    /**
-     * Current hook context for enriching log events.
-     */
-    currentHookType;
-    /**
-     * Current hook input for enriching log events.
-     */
-    currentInput;
-    /**
-     * Creates a new Logger instance.
-     *
-     * Typically you should use the exported `logger` singleton rather than
-     * creating new instances.
-     * @param config - Optional configuration
-     * @example
-     * ```typescript
-     * // Use singleton (recommended)
-     * import { logger } from '@cards/configuration';
-     *
-     * // Or create custom instance
-     * const customLogger = new Logger({ logFilePath: '/var/log/hooks.log' });
-     * ```
-     */
-    constructor(config = {}) {
-        // Initialize handlers map for each level
-        for (const level of LOG_LEVELS) {
-            this.handlers.set(level, new Set());
-        }
-        // Set log file path from config or environment
-        this.logFilePath = config.logFilePath ?? process.env['CARDS_HOOKS_LOG_FILE'] ?? null;
+  /**
+   * Registered event handlers by log level.
+   */
+  handlers = new Map();
+  /**
+   * File descriptor for log file output.
+   * Lazily initialized on first write.
+   */
+  logFileFd = null;
+  /**
+   * Path to the log file, if configured.
+   */
+  logFilePath = null;
+  /**
+   * Whether file initialization has been attempted.
+   */
+  fileInitialized = false;
+  /**
+   * Current hook context for enriching log events.
+   */
+  currentHookType;
+  /**
+   * Current hook input for enriching log events.
+   */
+  currentInput;
+  /**
+   * Creates a new Logger instance.
+   *
+   * Typically you should use the exported `logger` singleton rather than
+   * creating new instances.
+   * @param config - Optional configuration
+   * @example
+   * ```typescript
+   * // Use singleton (recommended)
+   * import { logger } from '@cards/configuration';
+   *
+   * // Or create custom instance
+   * const customLogger = new Logger({ logFilePath: '/var/log/hooks.log' });
+   * ```
+   */
+  constructor(config = {}) {
+    // Initialize handlers map for each level
+    for (const level of LOG_LEVELS) {
+      this.handlers.set(level, new Set());
     }
-    /**
-     * Logs a debug message.
-     *
-     * Use for detailed debugging information that is typically only useful
-     * during development or troubleshooting.
-     * @param message - The debug message
-     * @param context - Optional additional context
-     * @example
-     * ```typescript
-     * logger.debug('Processing hook input', { taskId: 'task-123', inputSize: 256 });
-     * ```
-     */
-    debug(message, context) {
-        this.emit('debug', message, context);
+    // Set log file path from config or environment
+    this.logFilePath = config.logFilePath ?? process.env['CARDS_HOOKS_LOG_FILE'] ?? null;
+  }
+  /**
+   * Logs a debug message.
+   *
+   * Use for detailed debugging information that is typically only useful
+   * during development or troubleshooting.
+   * @param message - The debug message
+   * @param context - Optional additional context
+   * @example
+   * ```typescript
+   * logger.debug('Processing hook input', { taskId: 'task-123', inputSize: 256 });
+   * ```
+   */
+  debug(message, context) {
+    this.emit('debug', message, context);
+  }
+  /**
+   * Logs an info message.
+   *
+   * Use for general operational events like hook invocations, successful
+   * completions, or state changes.
+   * @param message - The info message
+   * @param context - Optional additional context
+   * @example
+   * ```typescript
+   * logger.info('Task started', { taskId: 'task-123', cardId: 'card-456' });
+   * ```
+   */
+  info(message, context) {
+    this.emit('info', message, context);
+  }
+  /**
+   * Logs a warning message.
+   *
+   * Use for conditions that may indicate cards but don't prevent
+   * operation, such as deprecated patterns or performance concerns.
+   * @param message - The warning message
+   * @param context - Optional additional context
+   * @example
+   * ```typescript
+   * logger.warn('Deprecated hook pattern detected', { pattern: 'legacyMatcher' });
+   * ```
+   */
+  warn(message, context) {
+    this.emit('warn', message, context);
+  }
+  /**
+   * Logs an error message.
+   *
+   * Use for error conditions that require attention but were handled
+   * gracefully. For exceptions, prefer {@link logError}.
+   * @param message - The error message
+   * @param context - Optional additional context
+   * @example
+   * ```typescript
+   * logger.error('Failed to validate hook input', { reason: 'empty taskId' });
+   * ```
+   */
+  error(message, context) {
+    this.emit('error', message, context);
+  }
+  /**
+   * Logs a structured error with full error details.
+   *
+   * Use this for caught exceptions. Non-Error values are normalized so handlers
+   * always receive a consistent error shape.
+   * @param error - The error to log
+   * @param message - Human-readable description of what failed
+   * @param context - Optional additional context
+   * @example
+   * ```typescript
+   * try {
+   *   await dangerousOperation();
+   * } catch (err) {
+   *   logger.logError(err, 'Failed to execute dangerous operation', {
+   *     operation: 'delete',
+   *     target: '/important/file.txt'
+   *   });
+   * }
+   * ```
+   */
+  logError(error, message, context) {
+    const errorInfo = this.extractErrorInfo(error);
+    const event = {
+      timestamp: new Date().toISOString(),
+      level: 'error',
+      hookType: this.currentHookType,
+      message,
+      input: this.currentInput,
+      error: errorInfo,
+      context
+    };
+    this.deliverEvent(event);
+  }
+  /**
+   * Subscribes a handler to log events at the specified level.
+   *
+   * The handler will be called for every log event at the specified level.
+   * Returns an unsubscribe function that should be called when the handler
+   * is no longer needed. Handler errors are ignored to avoid disrupting hooks.
+   * @param level - The log level to subscribe to
+   * @param handler - The handler function to call for each event
+   * @returns A function to unsubscribe the handler
+   * @example
+   * ```typescript
+   * // Subscribe to error events
+   * const unsubscribe = logger.on('error', (event) => {
+   *   console.error(`[${event.hookType}] ${event.message}`);
+   *   if (event.error) {
+   *     console.error(event.error.stack);
+   *   }
+   * });
+   *
+   * // Later, clean up
+   * unsubscribe();
+   * ```
+   * @example
+   * ```typescript
+   * // Forward to external logging library
+   * import pino from 'pino';
+   * const pinoLogger = pino();
+   *
+   * logger.on('info', (event) => pinoLogger.info(event, event.message));
+   * logger.on('warn', (event) => pinoLogger.warn(event, event.message));
+   * logger.on('error', (event) => pinoLogger.error(event, event.message));
+   * ```
+   */
+  on(level, handler) {
+    const levelHandlers = this.handlers.get(level);
+    if (levelHandlers) {
+      levelHandlers.add(handler);
     }
-    /**
-     * Logs an info message.
-     *
-     * Use for general operational events like hook invocations, successful
-     * completions, or state changes.
-     * @param message - The info message
-     * @param context - Optional additional context
-     * @example
-     * ```typescript
-     * logger.info('Task started', { taskId: 'task-123', cardId: 'card-456' });
-     * ```
-     */
-    info(message, context) {
-        this.emit('info', message, context);
+    return () => {
+      levelHandlers?.delete(handler);
+    };
+  }
+  /**
+   * Sets the current hook context for enriching log events.
+   *
+   * This is called internally by the runtime before invoking hook handlers.
+   * You typically don't need to call this directly.
+   * @param hookType - The type of hook being executed
+   * @param input - The hook input data
+   * @internal
+   */
+  setContext(hookType, input) {
+    this.currentHookType = hookType;
+    this.currentInput = input;
+  }
+  /**
+   * Clears the current hook context.
+   *
+   * Called internally by the runtime after hook execution completes.
+   * @internal
+   */
+  clearContext() {
+    this.currentHookType = undefined;
+    this.currentInput = undefined;
+  }
+  /**
+   * Configures the log file path at runtime.
+   *
+   * Call this to enable or change file logging. Setting to `null` disables
+   * file logging and closes any open file handle. Directories are created
+   * on demand when the first write occurs.
+   * @param filePath - Path to the log file, or null to disable
+   * @example
+   * ```typescript
+   * // Enable file logging at runtime
+   * logger.setLogFile('/var/log/cards-configuration.log');
+   *
+   * // Disable file logging
+   * logger.setLogFile(null);
+   * ```
+   */
+  setLogFile(filePath) {
+    // Close existing file if open
+    if (this.logFileFd !== null) {
+      try {
+        closeSync(this.logFileFd);
+      } catch {
+        // Ignore errors on close
+      }
+      this.logFileFd = null;
     }
-    /**
-     * Logs a warning message.
-     *
-     * Use for conditions that may indicate cards but don't prevent
-     * operation, such as deprecated patterns or performance concerns.
-     * @param message - The warning message
-     * @param context - Optional additional context
-     * @example
-     * ```typescript
-     * logger.warn('Deprecated hook pattern detected', { pattern: 'legacyMatcher' });
-     * ```
-     */
-    warn(message, context) {
-        this.emit('warn', message, context);
+    this.logFilePath = filePath;
+    this.fileInitialized = false;
+  }
+  /**
+   * Closes all resources held by the logger.
+   *
+   * Call this during graceful shutdown to ensure all log data is flushed.
+   * Safe to call multiple times.
+   * @example
+   * ```typescript
+   * process.on('exit', () => {
+   *   logger.close();
+   * });
+   * ```
+   */
+  close() {
+    if (this.logFileFd !== null) {
+      try {
+        closeSync(this.logFileFd);
+      } catch {
+        // Ignore errors on close
+      }
+      this.logFileFd = null;
     }
-    /**
-     * Logs an error message.
-     *
-     * Use for error conditions that require attention but were handled
-     * gracefully. For exceptions, prefer {@link logError}.
-     * @param message - The error message
-     * @param context - Optional additional context
-     * @example
-     * ```typescript
-     * logger.error('Failed to validate hook input', { reason: 'empty taskId' });
-     * ```
-     */
-    error(message, context) {
-        this.emit('error', message, context);
-    }
-    /**
-     * Logs a structured error with full error details.
-     *
-     * Use this for caught exceptions. Non-Error values are normalized so handlers
-     * always receive a consistent error shape.
-     * @param error - The error to log
-     * @param message - Human-readable description of what failed
-     * @param context - Optional additional context
-     * @example
-     * ```typescript
-     * try {
-     *   await dangerousOperation();
-     * } catch (err) {
-     *   logger.logError(err, 'Failed to execute dangerous operation', {
-     *     operation: 'delete',
-     *     target: '/important/file.txt'
-     *   });
-     * }
-     * ```
-     */
-    logError(error, message, context) {
-        const errorInfo = this.extractErrorInfo(error);
-        const event = {
-            timestamp: new Date().toISOString(),
-            level: 'error',
-            hookType: this.currentHookType,
-            message,
-            input: this.currentInput,
-            error: errorInfo,
-            context
-        };
-        this.deliverEvent(event);
-    }
-    /**
-     * Subscribes a handler to log events at the specified level.
-     *
-     * The handler will be called for every log event at the specified level.
-     * Returns an unsubscribe function that should be called when the handler
-     * is no longer needed. Handler errors are ignored to avoid disrupting hooks.
-     * @param level - The log level to subscribe to
-     * @param handler - The handler function to call for each event
-     * @returns A function to unsubscribe the handler
-     * @example
-     * ```typescript
-     * // Subscribe to error events
-     * const unsubscribe = logger.on('error', (event) => {
-     *   console.error(`[${event.hookType}] ${event.message}`);
-     *   if (event.error) {
-     *     console.error(event.error.stack);
-     *   }
-     * });
-     *
-     * // Later, clean up
-     * unsubscribe();
-     * ```
-     * @example
-     * ```typescript
-     * // Forward to external logging library
-     * import pino from 'pino';
-     * const pinoLogger = pino();
-     *
-     * logger.on('info', (event) => pinoLogger.info(event, event.message));
-     * logger.on('warn', (event) => pinoLogger.warn(event, event.message));
-     * logger.on('error', (event) => pinoLogger.error(event, event.message));
-     * ```
-     */
-    on(level, handler) {
-        const levelHandlers = this.handlers.get(level);
-        if (levelHandlers) {
-            levelHandlers.add(handler);
-        }
-        return () => {
-            levelHandlers?.delete(handler);
-        };
-    }
-    /**
-     * Sets the current hook context for enriching log events.
-     *
-     * This is called internally by the runtime before invoking hook handlers.
-     * You typically don't need to call this directly.
-     * @param hookType - The type of hook being executed
-     * @param input - The hook input data
-     * @internal
-     */
-    setContext(hookType, input) {
-        this.currentHookType = hookType;
-        this.currentInput = input;
-    }
-    /**
-     * Clears the current hook context.
-     *
-     * Called internally by the runtime after hook execution completes.
-     * @internal
-     */
-    clearContext() {
-        this.currentHookType = undefined;
-        this.currentInput = undefined;
-    }
-    /**
-     * Configures the log file path at runtime.
-     *
-     * Call this to enable or change file logging. Setting to `null` disables
-     * file logging and closes any open file handle. Directories are created
-     * on demand when the first write occurs.
-     * @param filePath - Path to the log file, or null to disable
-     * @example
-     * ```typescript
-     * // Enable file logging at runtime
-     * logger.setLogFile('/var/log/cards-configuration.log');
-     *
-     * // Disable file logging
-     * logger.setLogFile(null);
-     * ```
-     */
-    setLogFile(filePath) {
-        // Close existing file if open
-        if (this.logFileFd !== null) {
-            try {
-                closeSync(this.logFileFd);
-            }
-            catch {
-                // Ignore errors on close
-            }
-            this.logFileFd = null;
-        }
-        this.logFilePath = filePath;
-        this.fileInitialized = false;
-    }
-    /**
-     * Closes all resources held by the logger.
-     *
-     * Call this during graceful shutdown to ensure all log data is flushed.
-     * Safe to call multiple times.
-     * @example
-     * ```typescript
-     * process.on('exit', () => {
-     *   logger.close();
-     * });
-     * ```
-     */
-    close() {
-        if (this.logFileFd !== null) {
-            try {
-                closeSync(this.logFileFd);
-            }
-            catch {
-                // Ignore errors on close
-            }
-            this.logFileFd = null;
-        }
-        this.fileInitialized = false;
-    }
-    /**
-     * Checks if there are any active handlers or destinations.
-     *
-     * Returns true if any handlers are registered or file logging is enabled.
-     * Useful for deciding whether to compute expensive log context.
-     * @returns Whether the logger has any active output destinations
-     */
-    hasDestinations() {
-        const hasHandlers = Array.from(this.handlers.values()).some((handlers) => handlers.size > 0);
-        return hasHandlers || this.logFilePath !== null;
-    }
-    // ============================================================================
-    // Private Methods
-    // ============================================================================
-    /**
-     * Emits a log event.
-     * @param level - The severity level of the event
-     * @param message - The log message
-     * @param context - Optional additional context data
-     */
-    emit(level, message, context) {
-        const event = {
-            timestamp: new Date().toISOString(),
-            level,
-            hookType: this.currentHookType,
-            message,
-            input: this.currentInput,
-            context
-        };
-        this.deliverEvent(event);
-    }
-    /**
-     * Delivers an event to all registered destinations.
-     * @param event - The log event to deliver
-     */
-    deliverEvent(event) {
-        // Deliver to event handlers
-        const levelHandlers = this.handlers.get(event.level);
-        if (levelHandlers) {
-            for (const handler of levelHandlers) {
-                try {
-                    handler(event);
-                }
-                catch {
-                    // Silently ignore handler errors to not disrupt hook execution
-                }
-            }
-        }
-        // Write to file if configured
-        this.writeToFile(event);
-    }
-    /**
-     * Writes an event to the log file.
-     * @param event - The log event to write
-     */
-    writeToFile(event) {
-        if (!this.logFilePath)
-            return;
-        // Lazy initialization of file handle
-        if (!this.fileInitialized) {
-            this.initializeFile();
-        }
-        if (this.logFileFd === null)
-            return;
+    this.fileInitialized = false;
+  }
+  /**
+   * Checks if there are any active handlers or destinations.
+   *
+   * Returns true if any handlers are registered or file logging is enabled.
+   * Useful for deciding whether to compute expensive log context.
+   * @returns Whether the logger has any active output destinations
+   */
+  hasDestinations() {
+    const hasHandlers = Array.from(this.handlers.values()).some((handlers) => handlers.size > 0);
+    return hasHandlers || this.logFilePath !== null;
+  }
+  // ============================================================================
+  // Private Methods
+  // ============================================================================
+  /**
+   * Emits a log event.
+   * @param level - The severity level of the event
+   * @param message - The log message
+   * @param context - Optional additional context data
+   */
+  emit(level, message, context) {
+    const event = {
+      timestamp: new Date().toISOString(),
+      level,
+      hookType: this.currentHookType,
+      message,
+      input: this.currentInput,
+      context
+    };
+    this.deliverEvent(event);
+  }
+  /**
+   * Delivers an event to all registered destinations.
+   * @param event - The log event to deliver
+   */
+  deliverEvent(event) {
+    // Deliver to event handlers
+    const levelHandlers = this.handlers.get(event.level);
+    if (levelHandlers) {
+      for (const handler of levelHandlers) {
         try {
-            const line = `${JSON.stringify(event)}\n`;
-            writeSync(this.logFileFd, line);
+          handler(event);
+        } catch {
+          // Silently ignore handler errors to not disrupt hook execution
         }
-        catch {
-            // Silently ignore file write errors to not disrupt hook execution
-            // This follows the risk mitigation: "Graceful degradation - log write
-            // failures are silently ignored to not disrupt hook execution"
-        }
+      }
     }
-    /**
-     * Initializes the log file for writing.
-     */
-    initializeFile() {
-        this.fileInitialized = true;
-        if (!this.logFilePath)
-            return;
-        try {
-            // Ensure directory exists
-            const dir = dirname(this.logFilePath);
-            if (!existsSync(dir)) {
-                mkdirSync(dir, { recursive: true });
-            }
-            // Open file for appending
-            this.logFileFd = openSync(this.logFilePath, 'a');
-        }
-        catch {
-            // Silently ignore file initialization errors
-            this.logFileFd = null;
-        }
+    // Write to file if configured
+    this.writeToFile(event);
+  }
+  /**
+   * Writes an event to the log file.
+   * @param event - The log event to write
+   */
+  writeToFile(event) {
+    if (!this.logFilePath) return;
+    // Lazy initialization of file handle
+    if (!this.fileInitialized) {
+      this.initializeFile();
     }
-    /**
-     * Extracts structured error information from an unknown error.
-     * @param error - The error to extract information from
-     * @returns Structured error information
-     */
-    extractErrorInfo(error) {
-        if (error instanceof Error) {
-            const info = {
-                name: error.name,
-                message: error.message,
-                stack: error.stack
-            };
-            // Extract cause chain if present
-            if (error.cause !== undefined) {
-                info.cause = this.extractErrorInfo(error.cause);
-            }
-            return info;
-        }
-        // Handle non-Error values
-        return {
-            name: 'UnknownError',
-            message: String(error)
-        };
+    if (this.logFileFd === null) return;
+    try {
+      const line = `${JSON.stringify(event)}\n`;
+      writeSync(this.logFileFd, line);
+    } catch {
+      // Silently ignore file write errors to not disrupt hook execution
+      // This follows the risk mitigation: "Graceful degradation - log write
+      // failures are silently ignored to not disrupt hook execution"
     }
+  }
+  /**
+   * Initializes the log file for writing.
+   */
+  initializeFile() {
+    this.fileInitialized = true;
+    if (!this.logFilePath) return;
+    try {
+      // Ensure directory exists
+      const dir = dirname(this.logFilePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      // Open file for appending
+      this.logFileFd = openSync(this.logFilePath, 'a');
+    } catch {
+      // Silently ignore file initialization errors
+      this.logFileFd = null;
+    }
+  }
+  /**
+   * Extracts structured error information from an unknown error.
+   * @param error - The error to extract information from
+   * @returns Structured error information
+   */
+  extractErrorInfo(error) {
+    if (error instanceof Error) {
+      const info = {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      };
+      // Extract cause chain if present
+      if (error.cause !== undefined) {
+        info.cause = this.extractErrorInfo(error.cause);
+      }
+      return info;
+    }
+    // Handle non-Error values
+    return {
+      name: 'UnknownError',
+      message: String(error)
+    };
+  }
 }
 // ============================================================================
 // Singleton Export
