@@ -36,12 +36,7 @@ const CLAUDE_CODE_DIST = path.resolve(
 /**
  * Temporary directory for test fixtures.
  */
-const FIXTURES_DIR = path.join(
-  os.tmpdir(),
-  'cards-configuration-e2e',
-  crypto.randomUUID(),
-  'e2e-fixtures'
-);
+const FIXTURES_DIR = path.join(os.tmpdir(), 'cards-configuration-e2e', crypto.randomUUID(), 'e2e-fixtures');
 
 // ============================================================================
 // Settings.json Structure Validation

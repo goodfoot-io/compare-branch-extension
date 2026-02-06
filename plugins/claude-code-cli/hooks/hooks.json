@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.8b3837b8.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.8b3837b8.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context.679e4be5.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start-context.21572382.mjs"
           }
         ],
         "matcher": "startup"
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.6a6cc689.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.6a6cc689.mjs"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -36,9 +36,9 @@
   "__generated": {
     "files": [
       "stop.8b3837b8.mjs",
-      "session-start-context.679e4be5.mjs",
+      "session-start-context.21572382.mjs",
       "post-tool-use-edit.6a6cc689.mjs"
     ],
-    "timestamp": "2026-02-06T20:41:24.263Z"
+    "timestamp": "2026-02-06T21:39:59.681Z"
   }
 }
