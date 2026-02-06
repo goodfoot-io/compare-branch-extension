@@ -216,33 +216,30 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     // Create temp directory
     fs.mkdirSync(tempDir, { recursive: true });
 
-    // Resolve runtime path (the runtime.js file in the same package)
-    const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
-
-    // Resolve validation path for type validators
-    const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
-
     // Generate wrapper content based on handler type
-    // Stream transforms re-export raw init and default transform functions
-    // Type validators use HTTP stdin/stdout protocol via executeValidation
-    // Other handlers use environment variable extraction via execute
+    const normalizedSource = sourcePath.replace(/\\/g, '/');
     let wrapperContent: string;
     if (factoryType === 'streamTransform') {
+      // Stream transforms re-export raw init and default transform functions
       wrapperContent = `
-import cmd from '${sourcePath.replace(/\\/g, '/')}';
+import cmd from '${normalizedSource}';
 export function init(ctx) { return cmd.init?.(ctx); }
 export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === 'typeValidator') {
+      // Type validators use HTTP stdin/stdout protocol via executeValidation
+      const validationPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../validation.js');
       wrapperContent = `
-import handler from '${sourcePath.replace(/\\/g, '/')}';
+import handler from '${normalizedSource}';
 import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
 
 executeValidation(handler);
 `;
     } else {
+      // Other handlers use environment variable extraction via execute
+      const runtimePath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../runtime.js');
       wrapperContent = `
-import handler from '${sourcePath.replace(/\\/g, '/')}';
+import handler from '${normalizedSource}';
 import { execute } from '${runtimePath.replace(/\\/g, '/')}';
 
 execute(handler);

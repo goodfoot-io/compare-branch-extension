@@ -175,8 +175,7 @@ describe('builder CLI: build function', () => {
 
   describe('successful builds', () => {
     it('should build a config with a single action', async () => {
-      // Create handler
-      const _handlerPath = writeHandler(testDir, 'my-action-start.ts', createActionStartHandler('My Action', testDir));
+      writeHandler(testDir, 'my-action-start.ts', createActionStartHandler('My Action', testDir));
 
       // Create config
       const configPath = writeConfig(
@@ -1131,23 +1130,6 @@ export default defineStreamTransform(
   }
 
   /**
-   * Creates a stream transform handler without init function.
-   */
-  function _createStreamTransformHandlerNoInit(streamType: string, handlerPath: string): string {
-    return `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  {
-    streamType: '${streamType}',
-    sourcePath: '${handlerPath.replace(/\\/g, '/')}'
-  },
-  (line) => \`[\${line}]\`
-);
-`;
-  }
-
-  /**
    * Creates a stream transform handler with metadata.
    */
   function createStreamTransformHandlerWithMetadata(streamType: string, handlerPath: string): string {
@@ -1190,9 +1172,8 @@ export default defineStreamTransform(
   });
 
   it('should build config with stream transform and include streams section in settings.json', async () => {
-    // Create action (required) and stream handlers
     writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
-    const _streamHandlerPath = writeHandler(
+    writeHandler(
       testDir,
       'test-stream.ts',
       createStreamTransformHandler('test-stream', path.join(testDir, 'test-stream.ts'))

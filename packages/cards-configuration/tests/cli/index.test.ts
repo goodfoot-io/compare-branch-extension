@@ -414,23 +414,20 @@ export default {
 });
 
 describe('stream transforms', () => {
+  const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../src/factories/stream-transform.js');
   let testDir: string;
 
   beforeEach(() => {
-    // Create a unique test directory for each test
     testDir = join(FIXTURES_DIR, `stream-test-${Date.now()}`);
     mkdirSync(testDir, { recursive: true });
   });
 
   afterEach(() => {
-    // Clean up test directory
     rmSync(testDir, { recursive: true, force: true });
   });
 
   it('should extract stream transforms from config', async () => {
-    // Create a minimal stream transform handler
     const streamHandlerPath = join(testDir, 'test-stream.ts');
-    const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../src/factories/stream-transform.js');
 
     writeFileSync(
       streamHandlerPath,
@@ -561,7 +558,6 @@ export default {
 
   it('should include streams section with compiled path', async () => {
     const streamHandlerPath = join(testDir, 'jsonl-stream.ts');
-    const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../src/factories/stream-transform.js');
 
     writeFileSync(
       streamHandlerPath,
@@ -630,7 +626,6 @@ export default {
 
   it('should preserve stream metadata (timeout, maxLineLength, maxStreamSize)', async () => {
     const streamHandlerPath = join(testDir, 'metadata-stream.ts');
-    const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../src/factories/stream-transform.js');
 
     writeFileSync(
       streamHandlerPath,
@@ -747,7 +742,6 @@ export default {
 
   it('should produce settings.json with streams alongside actions and types', async () => {
     const streamHandlerPath = join(testDir, 'full-stream.ts');
-    const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../src/factories/stream-transform.js');
 
     writeFileSync(
       streamHandlerPath,
