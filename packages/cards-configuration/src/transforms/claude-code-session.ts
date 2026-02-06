@@ -1,16 +1,11 @@
 import type { StreamInitContext, TransformContext } from '../command-types.js';
 import { defineStreamTransform } from '../factories/stream-transform.js';
 
-// ============================================================================
-// State Key Constants
-// ============================================================================
-
+// State key constants
 const STATE_TURN = 'turn' as const;
 const STATE_MODEL = 'model' as const;
 
-// ============================================================================
-// Local TypeScript Interfaces (NO SDK import)
-// ============================================================================
+// -- Local interfaces for parsed JSON shapes (no SDK import) -----------------
 
 interface TextBlock {
   type: 'text';
@@ -31,46 +26,30 @@ interface ToolUseBlock {
 
 type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock;
 
-interface ErrorInfo {
-  type: string;
-  message: string;
-}
-
 interface AssistantMessage {
   type: 'assistant';
   message: {
     content: ContentBlock[];
     stop_reason?: string;
   };
-  error?: ErrorInfo;
+  error?: { type: string; message: string };
 }
 
 interface SystemMessage {
   type: 'system';
   subtype: string;
-  // Init-specific fields
   model?: string;
   available_tools?: Array<{ name: string }>;
   cwd?: string;
 }
 
-interface ResultSuccessMessage {
+interface ResultMessage {
   type: 'result';
-  subtype: 'success';
+  subtype: string;
   turn_count: number;
   duration_seconds: number;
   total_cost_usd: number;
 }
-
-interface ResultErrorMessage {
-  type: 'result';
-  subtype: string; // 'error_during_execution', etc.
-  turn_count: number;
-  duration_seconds: number;
-  total_cost_usd: number;
-}
-
-type ResultMessage = ResultSuccessMessage | ResultErrorMessage;
 
 interface ToolUseSummaryMessage {
   type: 'tool_use_summary';
@@ -85,56 +64,52 @@ interface ToolProgressMessage {
 
 type SDKMessage = AssistantMessage | SystemMessage | ResultMessage | ToolUseSummaryMessage | ToolProgressMessage;
 
-// ============================================================================
-// Internal Formatting Helper Functions
-// ============================================================================
+// -- Formatting helpers ------------------------------------------------------
 
-function formatTextBlock(block: TextBlock): string {
-  return block.text;
+/** Maps known tool names to the input field that should be displayed. */
+const TOOL_PARAM_KEY: Record<string, string> = {
+  Read: 'file_path',
+  Write: 'file_path',
+  Edit: 'file_path',
+  Bash: 'command',
+  Grep: 'pattern',
+  Glob: 'pattern',
+  Task: 'description'
+};
+
+const BASH_TRUNCATE_LENGTH = 80;
+
+function extractToolParam(block: ToolUseBlock): string | undefined {
+  const key = TOOL_PARAM_KEY[block.name];
+  if (!key) {
+    return undefined;
+  }
+
+  const value = block.input?.[key];
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  if (block.name === 'Bash' && value.length > BASH_TRUNCATE_LENGTH) {
+    return `${value.slice(0, BASH_TRUNCATE_LENGTH)}...`;
+  }
+
+  return value;
 }
 
-function formatThinkingBlock(block: ThinkingBlock): string {
-  return `> *thinking:* ${block.thinking}`;
-}
-
-function formatToolUseBlock(block: ToolUseBlock): string {
-  const toolName = block.name;
-  const input = block.input;
-
-  // Extract specific parameter based on tool name
-  let paramValue: string | undefined;
-
-  switch (toolName) {
-    case 'Read':
-    case 'Write':
-    case 'Edit':
-      paramValue = typeof input?.file_path === 'string' ? input.file_path : undefined;
-      break;
-    case 'Bash':
-      paramValue = typeof input?.command === 'string' ? input.command : undefined;
-      // Truncate command to ~80 chars
-      if (paramValue && paramValue.length > 80) {
-        paramValue = `${paramValue.slice(0, 80)}...`;
-      }
-      break;
-    case 'Grep':
-      paramValue = typeof input?.pattern === 'string' ? input.pattern : undefined;
-      break;
-    case 'Glob':
-      paramValue = typeof input?.pattern === 'string' ? input.pattern : undefined;
-      break;
-    case 'Task':
-      paramValue = typeof input?.description === 'string' ? input.description : undefined;
-      break;
+function formatContentBlock(block: ContentBlock): string {
+  switch (block.type) {
+    case 'text':
+      return block.text;
+    case 'thinking':
+      return `> *thinking:* ${block.thinking}`;
+    case 'tool_use': {
+      const param = extractToolParam(block);
+      return param ? `**${block.name}** ${param}` : `**${block.name}**`;
+    }
     default:
-      // Unknown tool - just render tool name
-      paramValue = undefined;
+      return '';
   }
-
-  if (paramValue) {
-    return `**${toolName}** ${paramValue}`;
-  }
-  return `**${toolName}**`;
 }
 
 function formatContentBlocks(blocks: ContentBlock[]): string {
@@ -142,58 +117,39 @@ function formatContentBlocks(blocks: ContentBlock[]): string {
     return '*(empty response)*';
   }
 
-  const formatted = blocks
-    .map((block) => {
-      switch (block.type) {
-        case 'text':
-          return formatTextBlock(block);
-        case 'thinking':
-          return formatThinkingBlock(block);
-        case 'tool_use':
-          return formatToolUseBlock(block);
-        default:
-          return '';
-      }
-    })
-    .filter(Boolean);
-
-  return formatted.join('\n\n');
+  return blocks.map(formatContentBlock).filter(Boolean).join('\n\n');
 }
 
-function formatAssistantMessage(message: AssistantMessage): string {
-  // Check for error first
+function formatAssistant(message: AssistantMessage): string {
   if (message.error) {
     const errorType = message.error.type || 'unknown';
-    const errorMessage = message.error.message || '';
-    return `**API Error** (${errorType})\n\n${errorMessage}`;
+    const parts = [`**API Error** (${errorType})`];
+    if (message.error.message) {
+      parts.push(message.error.message);
+    }
+    return parts.join('\n\n');
   }
 
   return formatContentBlocks(message.message?.content || []);
 }
 
-function formatSystemMessage(message: SystemMessage): string {
-  if (message.subtype === 'init') {
-    const model = message.model || '';
-    const toolsCount = message.available_tools?.length || 0;
-    const cwd = message.cwd || '';
-    return `**Session Started** | ${model} | ${toolsCount} tools | ${cwd}`;
-  }
-
-  // Unhandled subtype - return empty to trigger fallthrough
-  return '';
+function formatSystemInit(message: SystemMessage): string {
+  const model = message.model || '';
+  const toolsCount = message.available_tools?.length || 0;
+  const cwd = message.cwd || '';
+  return `**Session Started** | ${model} | ${toolsCount} tools | ${cwd}`;
 }
 
-function formatResultMessage(message: ResultMessage): string {
+function formatResult(message: ResultMessage): string {
   const turns = message.turn_count ?? 0;
   const duration = message.duration_seconds ?? 0;
   const cost = message.total_cost_usd ?? 0;
+  const stats = `${turns} turns | ${duration}s | $${cost}`;
 
   if (message.subtype === 'success') {
-    return `**Session Complete** | ${turns} turns | ${duration}s | $${cost}`;
+    return `**Session Complete** | ${stats}`;
   }
-
-  // Error result
-  return `**Session Error** (${message.subtype}) | ${turns} turns | ${duration}s | $${cost}`;
+  return `**Session Error** (${message.subtype}) | ${stats}`;
 }
 
 function formatToolUseSummary(message: ToolUseSummaryMessage): string {
@@ -206,21 +162,14 @@ function formatToolProgress(message: ToolProgressMessage): string {
   return `*${toolName} running... (${elapsed}s)*`;
 }
 
-// ============================================================================
-// Init Handler
-// ============================================================================
+// -- Init & Transform --------------------------------------------------------
 
 function handleInit(context: StreamInitContext): void {
   context.state.set(STATE_TURN, 0);
   context.state.set(STATE_MODEL, '');
 }
 
-// ============================================================================
-// Transform Handler
-// ============================================================================
-
 function handleTransform(line: string, context: TransformContext): string {
-  // Return empty/whitespace lines unchanged
   if (!line || line.trim().length === 0) {
     return line;
   }
@@ -228,39 +177,34 @@ function handleTransform(line: string, context: TransformContext): string {
   try {
     const message = JSON.parse(line) as SDKMessage;
 
-    // Increment turn counter for assistant messages (if state exists)
     if (message.type === 'assistant' && context.state) {
       const currentTurn = (context.state.get(STATE_TURN) as number) || 0;
       context.state.set(STATE_TURN, currentTurn + 1);
     }
 
-    // Format based on message type
     switch (message.type) {
       case 'assistant':
-        return formatAssistantMessage(message);
-      case 'system': {
-        const formatted = formatSystemMessage(message);
-        return formatted || line; // Fallthrough if unhandled subtype
-      }
+        return formatAssistant(message);
+      case 'system':
+        if (message.subtype === 'init') {
+          return formatSystemInit(message);
+        }
+        return line;
       case 'result':
-        return formatResultMessage(message);
+        return formatResult(message);
       case 'tool_use_summary':
         return formatToolUseSummary(message);
       case 'tool_progress':
         return formatToolProgress(message);
       default:
-        // Unknown type - return raw line
         return line;
     }
   } catch {
-    // Malformed JSON - return raw line
     return line;
   }
 }
 
-// ============================================================================
-// Export Transform
-// ============================================================================
+// -- Export ------------------------------------------------------------------
 
 export const claudeCodeSessionTransform = defineStreamTransform(
   {

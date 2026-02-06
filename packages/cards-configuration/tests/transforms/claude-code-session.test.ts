@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { StreamInitContext, TransformContext } from '../../src/command-types.js';
 import { claudeCodeSessionTransform } from '../../src/transforms/claude-code-session.js';
 
-// ============================================================================
-// Test Context Helpers
-// ============================================================================
-
 const createTestContext = (overrides?: Partial<TransformContext>): TransformContext => ({
   lineNumber: 1,
   streamType: 'claude-code-session',
@@ -22,9 +18,14 @@ const createTestInitContext = (overrides?: Partial<StreamInitContext>): StreamIn
   ...overrides
 });
 
-// ============================================================================
-// Tests
-// ============================================================================
+/** Build a JSON line containing a single tool_use content block. */
+const toolUseLine = (name: string, input: Record<string, unknown>): string =>
+  JSON.stringify({
+    type: 'assistant',
+    message: {
+      content: [{ type: 'tool_use', id: `tool_${name}`, name, input }]
+    }
+  });
 
 describe('claudeCodeSessionTransform', () => {
   describe('init handler', () => {
@@ -53,180 +54,83 @@ describe('claudeCodeSessionTransform', () => {
       expect(result).toContain('Hello, world!');
     });
 
-    it('assistant tool_use block - Read → contains **Read** and file_path value', async () => {
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_1',
-              name: 'Read',
-              input: { file_path: '/src/main.ts' }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+    it('tool_use Read renders **Read** with file_path', async () => {
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('Read', { file_path: '/src/main.ts' }),
+        createTestContext()
+      );
 
       expect(result).toContain('**Read**');
       expect(result).toContain('/src/main.ts');
     });
 
-    it('assistant tool_use block - Write → contains **Write** and file_path value', async () => {
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_2',
-              name: 'Write',
-              input: { file_path: '/src/new-file.ts' }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+    it('tool_use Write renders **Write** with file_path', async () => {
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('Write', { file_path: '/src/new-file.ts' }),
+        createTestContext()
+      );
 
       expect(result).toContain('**Write**');
       expect(result).toContain('/src/new-file.ts');
     });
 
-    it('assistant tool_use block - Edit → contains **Edit** and file_path value', async () => {
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_3',
-              name: 'Edit',
-              input: { file_path: '/src/main.ts' }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+    it('tool_use Edit renders **Edit** with file_path', async () => {
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('Edit', { file_path: '/src/main.ts' }),
+        createTestContext()
+      );
 
       expect(result).toContain('**Edit**');
       expect(result).toContain('/src/main.ts');
     });
 
-    it('assistant tool_use block - Bash → contains **Bash** and truncated command', async () => {
+    it('tool_use Bash renders **Bash** with truncated command', async () => {
       const longCommand = 'yarn test tests/very/long/path/to/some/test/file/that/exceeds/eighty/characters.test.ts';
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_4',
-              name: 'Bash',
-              input: { command: longCommand }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('Bash', { command: longCommand }),
+        createTestContext()
+      );
 
       expect(result).toContain('**Bash**');
       expect(result).toContain('yarn test');
-      // Command should be truncated around 80 chars
       expect(result.length).toBeLessThan(longCommand.length + 50);
     });
 
-    it('assistant tool_use block - Grep → contains **Grep** and pattern value', async () => {
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_5',
-              name: 'Grep',
-              input: { pattern: 'defineStreamTransform' }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+    it('tool_use Grep renders **Grep** with pattern', async () => {
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('Grep', { pattern: 'defineStreamTransform' }),
+        createTestContext()
+      );
 
       expect(result).toContain('**Grep**');
       expect(result).toContain('defineStreamTransform');
     });
 
-    it('assistant tool_use block - Glob → contains **Glob** and pattern value', async () => {
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_6',
-              name: 'Glob',
-              input: { pattern: '**/*.test.ts' }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+    it('tool_use Glob renders **Glob** with pattern', async () => {
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('Glob', { pattern: '**/*.test.ts' }),
+        createTestContext()
+      );
 
       expect(result).toContain('**Glob**');
       expect(result).toContain('**/*.test.ts');
     });
 
-    it('assistant tool_use block - Task → contains **Task** and description value', async () => {
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_7',
-              name: 'Task',
-              input: { description: 'Search for stream transform patterns' }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+    it('tool_use Task renders **Task** with description', async () => {
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('Task', { description: 'Search for stream transform patterns' }),
+        createTestContext()
+      );
 
       expect(result).toContain('**Task**');
       expect(result).toContain('Search for stream transform patterns');
     });
 
-    it('assistant tool_use block with unrecognized tool name renders **ToolName** only', async () => {
-      const line = JSON.stringify({
-        type: 'assistant',
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'tool_8',
-              name: 'UnknownTool',
-              input: { some_param: 'value' }
-            }
-          ]
-        }
-      });
-      const context = createTestContext();
-
-      const result = await claudeCodeSessionTransform(line, context);
+    it('tool_use with unrecognized tool renders only **ToolName**', async () => {
+      const result = await claudeCodeSessionTransform(
+        toolUseLine('UnknownTool', { some_param: 'value' }),
+        createTestContext()
+      );
 
       expect(result).toContain('**UnknownTool**');
       expect(result).not.toContain('some_param');
