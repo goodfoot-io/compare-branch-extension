@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test suite for discover-api utility
-# Tests API discovery and base URL output
+# Tests API discovery and eval-able variable output (API_BASE, ACCESS_TOKEN)
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -64,7 +64,12 @@ run_test() {
 
     # Check expected output if provided
     if [ -n "$expected_output" ]; then
-        if [ "$output" = "$expected_output" ]; then
+        # Normalize multi-line output for comparison
+        local normalized_output
+        normalized_output=$(echo "$output" | tr '\n' '|')
+        local normalized_expected
+        normalized_expected=$(echo "$expected_output" | tr '\n' '|')
+        if [ "$normalized_output" = "$normalized_expected" ]; then
             echo "Output: $output"
             echo -e "${GREEN}✓ PASS${NC}"
             TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -107,7 +112,8 @@ cat > "$HOME/.cards/cards-api.json" <<EOF
 }
 EOF
 
-run_test "Flat discovery file" 0 "http://127.0.0.1:54321"
+EXPECTED=$(printf 'API_BASE="http://127.0.0.1:54321"\nACCESS_TOKEN="abc123"')
+run_test "Flat discovery file" 0 "$EXPECTED"
 
 # Test 3: Empty discovery file (no port/host)
 echo -e "\n${YELLOW}=== Test 3: Empty discovery file ===${NC}"
@@ -122,8 +128,23 @@ echo 'not valid json' > "$HOME/.cards/cards-api.json"
 # Note: jq returns exit code 4 for parse errors, which causes script to fail
 run_test "Invalid JSON in discovery file" 4
 
-# Test 5: Discovery file with custom host
-echo -e "\n${YELLOW}=== Test 5: Custom host in discovery file ===${NC}"
+# Test 5: Discovery file missing accessToken
+echo -e "\n${YELLOW}=== Test 5: Missing accessToken ===${NC}"
+setup_mock_home
+
+cat > "$HOME/.cards/cards-api.json" <<EOF
+{
+  "port": 54321,
+  "host": "127.0.0.1",
+  "pid": 12345,
+  "startedAt": "2024-01-15T10:00:00.000Z"
+}
+EOF
+
+run_test "Missing accessToken" 2
+
+# Test 6: Discovery file with custom host
+echo -e "\n${YELLOW}=== Test 6: Custom host in discovery file ===${NC}"
 setup_mock_home
 
 cat > "$HOME/.cards/cards-api.json" <<EOF
@@ -137,7 +158,8 @@ cat > "$HOME/.cards/cards-api.json" <<EOF
 }
 EOF
 
-run_test "Custom host" 0 "http://0.0.0.0:9999"
+EXPECTED=$(printf 'API_BASE="http://0.0.0.0:9999"\nACCESS_TOKEN="def456"')
+run_test "Custom host" 0 "$EXPECTED"
 
 # Cleanup
 cleanup_mock_home

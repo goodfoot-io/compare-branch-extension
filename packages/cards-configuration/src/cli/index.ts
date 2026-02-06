@@ -612,8 +612,7 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
     const settingsWithMeta = {
       ...settings,
       __generated: {
-        files: uniqueFilenames,
-        timestamp: new Date().toISOString()
+        files: uniqueFilenames
       }
     };
 

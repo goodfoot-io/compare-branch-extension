@@ -141,7 +141,7 @@ export default defineTypeValidator(
 /**
  * Reads and parses settings.json from the output directory.
  */
-function readSettings(outdir: string): Settings & { __generated?: { files: string[]; timestamp: string } } {
+function readSettings(outdir: string): Settings & { __generated?: { files: string[] } } {
   const settingsPath = path.join(outdir, 'settings.json');
   const content = fs.readFileSync(settingsPath, 'utf-8');
   return JSON.parse(content);
@@ -427,11 +427,6 @@ export default {
       expect(settings.__generated).toBeDefined();
       expect(settings.__generated?.files).toBeInstanceOf(Array);
       expect(settings.__generated?.files.length).toBe(1);
-      expect(settings.__generated?.timestamp).toBeDefined();
-
-      // Timestamp should be valid ISO date
-      const timestamp = new Date(settings.__generated!.timestamp);
-      expect(timestamp.toString()).not.toBe('Invalid Date');
     });
 
     it('should list unique files in __generated.files', async () => {

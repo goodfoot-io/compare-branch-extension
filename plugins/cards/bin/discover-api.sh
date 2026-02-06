@@ -1,16 +1,19 @@
 #!/bin/bash
 #
-# Discovers the Cards API base URL for the current workspace.
+# Discovers the Cards API connection details for the current workspace.
 #
 # Usage:
-#   ./discover-api.sh
+#   eval "$(./discover-api.sh)"
+#   curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "$API_BASE/cards" | jq .
 #
 # Output:
-#   The base URL for the Cards API (e.g., http://127.0.0.1:12345)
+#   Shell-evaluable variable assignments:
+#     API_BASE="http://127.0.0.1:12345"
+#     ACCESS_TOKEN="..."
 #
 # Exit codes:
-#   0 - Success, base URL printed to stdout
-#   1 - Discovery file not found or API not available for workspace
+#   0 - Success, variable assignments printed to stdout
+#   2 - Discovery file not found or missing required fields
 #
 
 set -euo pipefail
@@ -28,10 +31,17 @@ fi
 #   { "port": N, "host": "...", "pid": N, "accessToken": "...", "startedAt": "..." }
 PORT=$(jq -r '.port // empty' "$DISCOVERY_FILE" 2>/dev/null)
 HOST=$(jq -r '.host // empty' "$DISCOVERY_FILE" 2>/dev/null)
+TOKEN=$(jq -r '.accessToken // empty' "$DISCOVERY_FILE" 2>/dev/null)
 
 if [ -z "$PORT" ] || [ -z "$HOST" ]; then
   echo "Error: No API instances found in discovery file" >&2
   exit 2
 fi
 
-echo "http://${HOST}:${PORT}"
+if [ -z "$TOKEN" ]; then
+  echo "Error: No accessToken found in discovery file" >&2
+  exit 2
+fi
+
+echo "API_BASE=\"http://${HOST}:${PORT}\""
+echo "ACCESS_TOKEN=\"${TOKEN}\""

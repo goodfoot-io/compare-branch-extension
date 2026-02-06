@@ -29,7 +29,7 @@ Use comments to ask the user for clarifications, to report error states, or to r
 Before starting work on a card, activate it to establish commit attribution:
 
 ```
-curl -s -X POST "$API_BASE/cards/{cardId}/activate"
+curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" "$API_BASE/cards/{cardId}/activate"
 ```
 
 This links your session to the card so that any git commits you make are automatically attributed to it. Always activate before your first code change.
@@ -49,15 +49,19 @@ The plan content is accessible via `GET /cards/{cardId}/plan`.
 You must reload this skill after compaction.
 </reload-after-compaction>
 
+<authentication>
+All API requests (except `GET /health`) require a Bearer token. The discover script outputs shell-evaluable assignments for both `API_BASE` and `ACCESS_TOKEN`. Use `eval` to set them, then include the token as an `Authorization: Bearer` header on every request.
+</authentication>
+
 <api>
 
 ```!
-API_BASE=$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)
-echo "# API Base URL (port may change between sessions)"
-echo "API_BASE=\"\$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)\""
+eval "$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)"
+echo "# API connection (port and token may change between sessions)"
+echo "eval \"\$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)\""
 echo ""
 echo "# Example: List all cards"
-echo "curl -s \"\$API_BASE/cards\" | jq ."
+echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?workspacePath=/workspace\" | jq ."
 ```
 
 ## Endpoints

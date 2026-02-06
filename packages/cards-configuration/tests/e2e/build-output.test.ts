@@ -43,7 +43,7 @@ const FIXTURES_DIR = path.join(os.tmpdir(), 'cards-configuration-e2e', crypto.ra
 // ============================================================================
 
 describe('build output: settings.json structure', () => {
-  let settings: Settings & { __generated?: { files: string[]; timestamp: string } };
+  let settings: Settings & { __generated?: { files: string[] } };
   let settingsPath: string;
 
   beforeAll(() => {
@@ -73,15 +73,7 @@ describe('build output: settings.json structure', () => {
     it('should have __generated metadata', () => {
       expect(settings).toHaveProperty('__generated');
       expect(settings.__generated).toHaveProperty('files');
-      expect(settings.__generated).toHaveProperty('timestamp');
       expect(Array.isArray(settings.__generated?.files)).toBe(true);
-    });
-
-    it('should have valid ISO timestamp', () => {
-      const timestamp = settings.__generated?.timestamp;
-      expect(timestamp).toBeTruthy();
-      const parsed = new Date(timestamp!);
-      expect(parsed.toString()).not.toBe('Invalid Date');
     });
   });
 

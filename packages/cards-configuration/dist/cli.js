@@ -614,8 +614,7 @@ ${errors.join("\n")}`
     const settingsWithMeta = {
       ...settings,
       __generated: {
-        files: uniqueFilenames,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        files: uniqueFilenames
       }
     };
     const tempPath = `${settingsPath}.tmp`;

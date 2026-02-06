@@ -45,15 +45,15 @@ if [ -z "${CARD_ID:-}" ]; then
   exit 0
 fi
 
-# Discover API URL
-if ! BASE_URL=$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>&1); then
+# Discover API connection
+if ! eval "$("${CLAUDE_PLUGIN_ROOT}/bin/discover-workspace-api.sh" 2>/dev/null)"; then
   echo "Warning: Issue tracking unavailable - VSCode extension not running or workspace not registered" >&2
   echo "Ensure VSCode is running with the Cards extension active in this workspace." >&2
   exit 1  # Non-blocking, shows in verbose mode
 fi
 
 # Call session diff endpoint with CARD_ID from environment
-DIFF_RESPONSE=$(curl -sf "${BASE_URL}/session/${SESSION_ID}/diff?issueIds=${CARD_ID}" 2>/dev/null) || {
+DIFF_RESPONSE=$(curl -sf -H "Authorization: Bearer ${ACCESS_TOKEN}" "${API_BASE}/session/${SESSION_ID}/diff?issueIds=${CARD_ID}" 2>/dev/null) || {
   # Diff endpoint unavailable - continue silently
   exit 0
 }
