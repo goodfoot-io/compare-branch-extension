@@ -46,14 +46,14 @@
  * ```
  */
 export function defineTypeValidator(config, handler) {
-  const fn = async (request, context) => {
-    return await Promise.resolve(handler(request, context));
-  };
-  fn.factoryType = 'typeValidator';
-  fn.typeName = config.typeName;
-  fn.timeout = config.timeout;
-  fn.sourcePath = config.sourcePath;
-  return fn;
+    const fn = async (request, context) => {
+        return await Promise.resolve(handler(request, context));
+    };
+    fn.factoryType = 'typeValidator';
+    fn.typeName = config.typeName;
+    fn.timeout = config.timeout;
+    fn.sourcePath = config.sourcePath;
+    return fn;
 }
 /**
  * Creates a type create hook for new file events.
@@ -90,14 +90,14 @@ export function defineTypeValidator(config, handler) {
  * ```
  */
 export function defineTypeCreate(config, handler) {
-  const fn = async (input, context) => {
-    await handler(input, context);
-  };
-  fn.factoryType = 'typeCreate';
-  fn.typeName = config.typeName;
-  fn.timeout = config.timeout;
-  fn.sourcePath = config.sourcePath;
-  return fn;
+    const fn = async (input, context) => {
+        await handler(input, context);
+    };
+    fn.factoryType = 'typeCreate';
+    fn.typeName = config.typeName;
+    fn.timeout = config.timeout;
+    fn.sourcePath = config.sourcePath;
+    return fn;
 }
 /**
  * Creates a type update hook for modified file events.
@@ -133,14 +133,14 @@ export function defineTypeCreate(config, handler) {
  * ```
  */
 export function defineTypeUpdate(config, handler) {
-  const fn = async (input, context) => {
-    await handler(input, context);
-  };
-  fn.factoryType = 'typeUpdate';
-  fn.typeName = config.typeName;
-  fn.timeout = config.timeout;
-  fn.sourcePath = config.sourcePath;
-  return fn;
+    const fn = async (input, context) => {
+        await handler(input, context);
+    };
+    fn.factoryType = 'typeUpdate';
+    fn.typeName = config.typeName;
+    fn.timeout = config.timeout;
+    fn.sourcePath = config.sourcePath;
+    return fn;
 }
 /**
  * Creates a type delete hook for file removal events.
@@ -174,12 +174,12 @@ export function defineTypeUpdate(config, handler) {
  * ```
  */
 export function defineTypeDelete(config, handler) {
-  const fn = async (input, context) => {
-    await handler(input, context);
-  };
-  fn.factoryType = 'typeDelete';
-  fn.typeName = config.typeName;
-  fn.timeout = config.timeout;
-  fn.sourcePath = config.sourcePath;
-  return fn;
+    const fn = async (input, context) => {
+        await handler(input, context);
+    };
+    fn.factoryType = 'typeDelete';
+    fn.typeName = config.typeName;
+    fn.timeout = config.timeout;
+    fn.sourcePath = config.sourcePath;
+    return fn;
 }

@@ -72,17 +72,17 @@
  * ```
  */
 export function defineActionStart(config, handler) {
-  const fn = async (input, context) => {
-    await handler(input, context);
-  };
-  fn.factoryType = 'actionStart';
-  fn.id = config.id;
-  fn.actionName = config.actionName;
-  fn.description = config.description;
-  fn.icon = config.icon;
-  fn.supportsBackgroundMode = config.supportsBackgroundMode;
-  fn.allowConcurrent = config.allowConcurrent;
-  fn.timeout = config.timeout;
-  fn.sourcePath = config.sourcePath;
-  return fn;
+    const fn = async (input, context) => {
+        await handler(input, context);
+    };
+    fn.factoryType = 'actionStart';
+    fn.id = config.id;
+    fn.actionName = config.actionName;
+    fn.description = config.description;
+    fn.icon = config.icon;
+    fn.supportsBackgroundMode = config.supportsBackgroundMode;
+    fn.allowConcurrent = config.allowConcurrent;
+    fn.timeout = config.timeout;
+    fn.sourcePath = config.sourcePath;
+    return fn;
 }
