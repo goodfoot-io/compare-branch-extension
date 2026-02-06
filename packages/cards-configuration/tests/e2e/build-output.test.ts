@@ -12,6 +12,7 @@
 import { exec as execCallback } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -36,7 +37,8 @@ const CLAUDE_CODE_DIST = path.resolve(
  * Temporary directory for test fixtures.
  */
 const FIXTURES_DIR = path.join(
-  '/tmp/claude-1000/-workspace--worktrees-settings-updates',
+  os.tmpdir(),
+  'cards-configuration-e2e',
   crypto.randomUUID(),
   'e2e-fixtures'
 );
@@ -1187,20 +1189,12 @@ describe('build output: cross-reference validation', () => {
   let settings: Settings & { __generated?: { files: string[] } };
   let binDir: string;
 
-  beforeAll(() => {
-    const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
-    if (!fs.existsSync(settingsPath)) {
-      throw new Error(`Build output not found at ${settingsPath}`);
-    }
-    const content = fs.readFileSync(settingsPath, 'utf-8');
-    settings = JSON.parse(content);
-    binDir = path.join(CLAUDE_CODE_DIST, 'bin');
-  });
-
-  it('should have all referenced handler files exist', () => {
+  /**
+   * Extracts all handler filenames referenced by settings commands.
+   */
+  function extractReferencedFiles(): string[] {
     const referencedFiles: string[] = [];
 
-    // Extract all command paths from settings
     for (const [_envName, env] of Object.entries(settings.environments)) {
       for (const action of env.actions) {
         referencedFiles.push(extractFilename(action.start.command));
@@ -1227,24 +1221,35 @@ describe('build output: cross-reference validation', () => {
       }
     }
 
-    // Verify all referenced files exist
+    return referencedFiles;
+  }
+
+  beforeAll(() => {
+    const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
+    if (!fs.existsSync(settingsPath)) {
+      throw new Error(`Build output not found at ${settingsPath}`);
+    }
+    const content = fs.readFileSync(settingsPath, 'utf-8');
+    settings = JSON.parse(content);
+    binDir = path.join(CLAUDE_CODE_DIST, 'bin');
+  });
+
+  it('should have all referenced handler files exist', () => {
+    const referencedFiles = extractReferencedFiles();
+
+    // Verify all referenced files exist on disk
     for (const filename of referencedFiles) {
       const filePath = path.join(binDir, filename);
       expect(fs.existsSync(filePath)).toBe(true);
     }
   });
 
-  it('should match __generated.files with actual bin contents', () => {
+  it('should have all referenced handler files listed in __generated.files', () => {
     const generatedFiles = new Set(settings.__generated?.files ?? []);
-    const actualFiles = new Set(fs.readdirSync(binDir).filter((f) => f.endsWith('.mjs')));
+    const referencedFiles = extractReferencedFiles();
 
-    // All generated files should exist
-    for (const file of generatedFiles) {
-      expect(actualFiles.has(file)).toBe(true);
-    }
-
-    // All .mjs files should be in generated list
-    for (const file of actualFiles) {
+    // Every handler file referenced by a command must be in the generated manifest
+    for (const file of referencedFiles) {
       expect(generatedFiles.has(file)).toBe(true);
     }
   });

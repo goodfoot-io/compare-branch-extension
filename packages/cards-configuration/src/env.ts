@@ -104,7 +104,19 @@ export const CARDS_ENV_VARS = {
    * MIME type of the content.
    * Available in type hooks only.
    */
-  CONTENT_TYPE: 'CONTENT_TYPE'
+  CONTENT_TYPE: 'CONTENT_TYPE',
+
+  /**
+   * Path to the VS Code bundled Node.js interpreter.
+   *
+   * Set by the extension host from `process.execPath` (with
+   * `ELECTRON_RUN_AS_NODE=1`). Commands in settings.json use
+   * `$VSCODE_NODE_PATH ./bin/...` so they work regardless of
+   * whether `node` is on the system PATH.
+   *
+   * Available in all actions and type hooks.
+   */
+  VSCODE_NODE_PATH: 'VSCODE_NODE_PATH'
 } as const;
 
 // ============================================================================
@@ -383,6 +395,29 @@ export function getContentType(): string {
   const value = process.env[CARDS_ENV_VARS.CONTENT_TYPE];
   if (value === undefined || value === '') {
     throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.CONTENT_TYPE}`);
+  }
+  return value;
+}
+
+/**
+ * Reads the VS Code bundled Node.js interpreter path from the environment.
+ *
+ * This is set by the extension during activation and injected into all
+ * spawned action/hook processes. Configuration authors can use it to invoke
+ * Node.js without relying on the system PATH.
+ *
+ * @returns The path to the Node.js interpreter
+ * @throws Error if VSCODE_NODE_PATH is missing or empty
+ * @example
+ * ```typescript
+ * const nodePath = getVscodeNodePath();
+ * execFileSync(nodePath, ['script.js']);
+ * ```
+ */
+export function getVscodeNodePath(): string {
+  const value = process.env[CARDS_ENV_VARS.VSCODE_NODE_PATH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.VSCODE_NODE_PATH}`);
   }
   return value;
 }

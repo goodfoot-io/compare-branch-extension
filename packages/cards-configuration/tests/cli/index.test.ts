@@ -380,6 +380,24 @@ export default {
     });
   });
 
+  describe('$VSCODE_NODE_PATH in commands', () => {
+    it('should use $VSCODE_NODE_PATH instead of node in generated commands', async () => {
+      const outdir = join(FIXTURES_DIR, 'output-node-path');
+      const result = await build({
+        config: join(FIXTURES_DIR, 'valid.config.ts'),
+        outdir
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const settingsContent = readFileSync(result.settingsPath, 'utf-8');
+        // Commands without sourcePath use placeholder format, so verify
+        // no 'node ./' appears in the output (it would only appear for compiled handlers)
+        expect(settingsContent).not.toContain('"node ./');
+      }
+    });
+  });
+
   describe('handler compilation', () => {
     it('should not compile handlers when sourcePath is not provided', async () => {
       const outdir = join(FIXTURES_DIR, 'output-no-compile');

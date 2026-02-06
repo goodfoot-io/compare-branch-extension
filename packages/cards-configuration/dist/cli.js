@@ -277,7 +277,7 @@ function getBaseName(sourcePath) {
 }
 function generateCommandString(filename, binDir) {
   const relativePath = path2.posix.join(binDir, filename);
-  return `node ./${relativePath}`;
+  return `$VSCODE_NODE_PATH ./${relativePath}`;
 }
 function extractCommands(config) {
   const commands = [];
