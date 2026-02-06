@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-card-association.4c18b9d5.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-card-association.42935cd0.mjs"
           }
         ],
         "matcher": "Bash"
@@ -25,8 +25,8 @@
   "__generated": {
     "files": [
       "stop.a31f2093.mjs",
-      "post-tool-use-card-association.4c18b9d5.mjs"
+      "post-tool-use-card-association.42935cd0.mjs"
     ],
-    "timestamp": "2026-02-06T22:32:37.792Z"
+    "timestamp": "2026-02-06T23:04:37.427Z"
   }
 }
