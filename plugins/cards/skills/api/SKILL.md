@@ -70,9 +70,9 @@ echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?wor
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | /cards/{cardId} | Get card details |
 | GET | /cards | List cards. Query: `workspacePath` (required), `status`, `tag`, `limit`, `offset`, `search` |
 | POST | /cards | Create card. Body: `workspacePath` (required), `title` (required), `description` (required), `tags`, `gates`, `environmentName`, `order` |
-| GET | /cards/{cardId} | Get card details |
 | PATCH | /cards/{cardId} | Update card. Body: `title`, `status`, `tags`, `description`, `isPinned`, `order` |
 | DELETE | /cards/{cardId} | Delete card |
 | GET | /cards/{cardId}/has-updates | Check updates since timestamp. Query: `since` (ISO 8601) |
