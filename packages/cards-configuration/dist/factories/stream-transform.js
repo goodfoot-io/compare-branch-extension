@@ -65,18 +65,18 @@
  * ```
  */
 export function defineStreamTransform(config, handler, init) {
-  const fn = async (line, context) => {
-    return await Promise.resolve(handler(line, context));
-  };
-  fn.factoryType = 'streamTransform';
-  fn.streamType = config.streamType;
-  fn.timeout = config.timeout;
-  fn.maxLineLength = config.maxLineLength;
-  fn.maxStreamSize = config.maxStreamSize;
-  fn.sourcePath = config.sourcePath;
-  // Attach init handler if provided
-  if (init) {
-    fn.init = init;
-  }
-  return fn;
+    const fn = async (line, context) => {
+        return await Promise.resolve(handler(line, context));
+    };
+    fn.factoryType = 'streamTransform';
+    fn.streamType = config.streamType;
+    fn.timeout = config.timeout;
+    fn.maxLineLength = config.maxLineLength;
+    fn.maxStreamSize = config.maxStreamSize;
+    fn.sourcePath = config.sourcePath;
+    // Attach init handler if provided
+    if (init) {
+        fn.init = init;
+    }
+    return fn;
 }

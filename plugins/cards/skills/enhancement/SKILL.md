@@ -1,15 +1,15 @@
 ---
 name: enhancement
-description: How to write a enhancement request issue
+description: How to write an enhancement request card
 ---
 
 <placeholder-variables>
 [PLAN_REQUIRED] — Whether plan approval is needed from `planRequired` field
 [USER_REQUESTED_APPROACH] — User explicitly asks to document a specific implementation approach or solution
-[HAS_SPECIFIC_SOLUTION] — Issue text or comments include concrete implementation steps or design choices
-[HIGH_RISK_CHANGE] — Cross-cutting refactor, migration, or performance-sensitive change described in issue
+[HAS_SPECIFIC_SOLUTION] — Card text or comments include concrete implementation steps or design choices
+[HIGH_RISK_CHANGE] — Cross-cutting refactor, migration, or performance-sensitive change described in card
 [MULTIPLE_APPROACHES] — Notes or discussion indicate more than one viable approach
-[DEPENDENCY_COORDINATION] — Issue mentions sequencing across components/teams or external dependencies
+[DEPENDENCY_COORDINATION] — Card mentions sequencing across components/teams or external dependencies
 [NEEDS_ACTIONABLE_NOW] — No plan step expected AND description must be sufficient to implement
 [APPROACH_DETAILS_PRESENT] — Sufficient detail exists to describe an approach without guessing
 [INCLUDE_IMPLEMENTATION_APPROACH] — True when any of: [USER_REQUESTED_APPROACH], [HAS_SPECIFIC_SOLUTION], [HIGH_RISK_CHANGE], [MULTIPLE_APPROACHES], [DEPENDENCY_COORDINATION], [NEEDS_ACTIONABLE_NOW]

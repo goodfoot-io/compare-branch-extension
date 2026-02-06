@@ -1,6 +1,6 @@
 ---
 name: investigation
-description: How to write a investigation request issue
+description: How to write an investigation request card
 ---
 
 

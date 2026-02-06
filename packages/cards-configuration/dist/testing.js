@@ -24,42 +24,45 @@ import { Logger } from './logger.js';
  * ```
  */
 export function createTestRequest(options = {}) {
-  const { method = 'PUT', path = '/test', httpVersion = 'HTTP/1.1', headers = {}, body } = options;
-  let bodyBuffer;
-  let contentType = headers['content-type'] || headers['Content-Type'];
-  if (body === undefined) {
-    bodyBuffer = Buffer.alloc(0);
-  } else if (Buffer.isBuffer(body)) {
-    bodyBuffer = body;
-  } else if (typeof body === 'string') {
-    bodyBuffer = Buffer.from(body, 'utf-8');
-  } else {
-    // Object - stringify as JSON
-    bodyBuffer = Buffer.from(JSON.stringify(body), 'utf-8');
-    if (!contentType) {
-      contentType = 'application/json';
+    const { method = 'PUT', path = '/test', httpVersion = 'HTTP/1.1', headers = {}, body } = options;
+    let bodyBuffer;
+    let contentType = headers['content-type'] || headers['Content-Type'];
+    if (body === undefined) {
+        bodyBuffer = Buffer.alloc(0);
     }
-  }
-  const finalHeaders = {
-    ...headers,
-    'content-length': String(bodyBuffer.length)
-  };
-  if (contentType) {
-    finalHeaders['content-type'] = contentType;
-  }
-  return {
-    method,
-    path,
-    httpVersion,
-    headers: finalHeaders,
-    body: bodyBuffer,
-    get bodyText() {
-      return bodyBuffer.toString('utf-8');
-    },
-    bodyJson() {
-      return JSON.parse(bodyBuffer.toString('utf-8'));
+    else if (Buffer.isBuffer(body)) {
+        bodyBuffer = body;
     }
-  };
+    else if (typeof body === 'string') {
+        bodyBuffer = Buffer.from(body, 'utf-8');
+    }
+    else {
+        // Object - stringify as JSON
+        bodyBuffer = Buffer.from(JSON.stringify(body), 'utf-8');
+        if (!contentType) {
+            contentType = 'application/json';
+        }
+    }
+    const finalHeaders = {
+        ...headers,
+        'content-length': String(bodyBuffer.length)
+    };
+    if (contentType) {
+        finalHeaders['content-type'] = contentType;
+    }
+    return {
+        method,
+        path,
+        httpVersion,
+        headers: finalHeaders,
+        body: bodyBuffer,
+        get bodyText() {
+            return bodyBuffer.toString('utf-8');
+        },
+        bodyJson() {
+            return JSON.parse(bodyBuffer.toString('utf-8'));
+        }
+    };
 }
 /**
  * Test harness for validators.
@@ -90,10 +93,10 @@ export function createTestRequest(options = {}) {
  * ```
  */
 export async function testValidation(validation, request, options = {}) {
-  const { logger = new Logger() } = options;
-  // Convert options to request if needed
-  const validationRequest = 'bodyText' in request && 'bodyJson' in request ? request : createTestRequest(request);
-  const context = { logger };
-  const response = await validation(validationRequest, context);
-  return { response, context };
+    const { logger = new Logger() } = options;
+    // Convert options to request if needed
+    const validationRequest = 'bodyText' in request && 'bodyJson' in request ? request : createTestRequest(request);
+    const context = { logger };
+    const response = await validation(validationRequest, context);
+    return { response, context };
 }

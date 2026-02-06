@@ -1,6 +1,6 @@
 ---
 name: operations
-description: How to write a operations request issue issue
+description: How to write an operations request card
 ---
 
 <how-to-write-an-operations-request>
