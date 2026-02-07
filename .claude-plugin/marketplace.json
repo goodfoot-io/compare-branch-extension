@@ -1,12 +1,12 @@
 {
-  "name": "cards-extension",
+  "name": "cards.management",
   "owner": {
     "name": "Cards",
-    "email": "team@example.com"
+    "email": "contact@goodfoot.io"
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.306",
+    "version": "1.0.307",
     "pluginRoot": "./plugins"
   },
   "plugins": [
