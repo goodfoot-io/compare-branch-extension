@@ -224,31 +224,40 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
       };
     }
 
-    // Generate wrapper content based on handler type
-    const normalizedSource = sourcePath.replace(/\\/g, '/');
+    // Generate wrapper content based on handler type.
+    // Use relative paths so that sourcesContent in the source map is
+    // identical regardless of which worktree or checkout directory the
+    // build runs from. esbuild resolves these via resolveDir.
+    const resolveDir = path.dirname(sourcePath);
+    const toRelativeImport = (absolute: string) => {
+      const rel = path.relative(resolveDir, absolute).replace(/\\/g, '/');
+      return rel.startsWith('.') ? rel : './' + rel;
+    };
+    const sourceImport = toRelativeImport(sourcePath);
+
     let wrapperContent: string;
     if (factoryType === 'streamTransform') {
       // Stream transforms re-export raw init and default transform functions
       wrapperContent = `
-import cmd from '${normalizedSource}';
+import cmd from '${sourceImport}';
 export function init(ctx) { return cmd.init?.(ctx); }
 export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === 'typeValidator') {
       // Type validators use HTTP stdin/stdout protocol via executeValidation
-      const validationPath = path.resolve(PACKAGE_ROOT, 'src/validation.ts');
+      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/validation.ts'));
       wrapperContent = `
-import handler from '${normalizedSource}';
-import { executeValidation } from '${validationPath.replace(/\\/g, '/')}';
+import handler from '${sourceImport}';
+import { executeValidation } from '${validationImport}';
 
 executeValidation(handler);
 `;
     } else {
       // Other handlers use environment variable extraction via execute
-      const runtimePath = path.resolve(PACKAGE_ROOT, 'src/runtime.ts');
+      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/runtime.ts'));
       wrapperContent = `
-import handler from '${normalizedSource}';
-import { execute } from '${runtimePath.replace(/\\/g, '/')}';
+import handler from '${sourceImport}';
+import { execute } from '${runtimeImport}';
 
 execute(handler);
 `;
@@ -267,7 +276,7 @@ execute(handler);
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
-        resolveDir: path.dirname(sourcePath),
+        resolveDir,
         sourcefile: 'hook-wrapper.ts',
         loader: 'ts'
       },
