@@ -188,27 +188,32 @@ async function compileHandler(options) {
         error: `Source file does not exist: ${sourcePath}`
       };
     }
-    const normalizedSource = sourcePath.replace(/\\/g, "/");
+    const resolveDir = path.dirname(sourcePath);
+    const toRelativeImport = (absolute) => {
+      const rel = path.relative(resolveDir, absolute).replace(/\\/g, "/");
+      return rel.startsWith(".") ? rel : "./" + rel;
+    };
+    const sourceImport = toRelativeImport(sourcePath);
     let wrapperContent;
     if (factoryType === "streamTransform") {
       wrapperContent = `
-import cmd from '${normalizedSource}';
+import cmd from '${sourceImport}';
 export function init(ctx) { return cmd.init?.(ctx); }
 export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === "typeValidator") {
-      const validationPath = path.resolve(PACKAGE_ROOT, "src/validation.ts");
+      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/validation.ts"));
       wrapperContent = `
-import handler from '${normalizedSource}';
-import { executeValidation } from '${validationPath.replace(/\\/g, "/")}';
+import handler from '${sourceImport}';
+import { executeValidation } from '${validationImport}';
 
 executeValidation(handler);
 `;
     } else {
-      const runtimePath = path.resolve(PACKAGE_ROOT, "src/runtime.ts");
+      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/runtime.ts"));
       wrapperContent = `
-import handler from '${normalizedSource}';
-import { execute } from '${runtimePath.replace(/\\/g, "/")}';
+import handler from '${sourceImport}';
+import { execute } from '${runtimeImport}';
 
 execute(handler);
 `;
@@ -219,7 +224,7 @@ execute(handler);
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
-        resolveDir: path.dirname(sourcePath),
+        resolveDir,
         sourcefile: "hook-wrapper.ts",
         loader: "ts"
       },
