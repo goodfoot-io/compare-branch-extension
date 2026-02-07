@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.6a6cc689.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-edit.38219b60.mjs"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -37,8 +37,8 @@
     "files": [
       "stop.655cb39c.mjs",
       "session-start-context.4cc1507d.mjs",
-      "post-tool-use-edit.6a6cc689.mjs"
+      "post-tool-use-edit.38219b60.mjs"
     ],
-    "timestamp": "2026-02-06T22:32:37.124Z"
+    "timestamp": "2026-02-07T20:31:55.155Z"
   }
 }
