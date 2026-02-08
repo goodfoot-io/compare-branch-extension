@@ -1,5 +1,5 @@
 /**
- * Factory function for creating action start handlers.
+ * Factory function for creating action handlers.
  *
  * This is the primary authoring API for action developers. It wraps a handler
  * function and attaches metadata for settings.json generation. The SameShape
@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { ActionStartCommand } from '../command-types.js';
-import type { ActionContext, ActionStartInput } from '../inputs.js';
+import type { ActionCommand } from '../command-types.js';
+import type { ActionContext, ActionInput } from '../inputs.js';
 import type { SameShape } from '../type-utils.js';
 
 // ============================================================================
@@ -17,7 +17,7 @@ import type { SameShape } from '../type-utils.js';
 // ============================================================================
 
 /**
- * Configuration for {@link defineActionStart} factory.
+ * Configuration for {@link defineAction} factory.
  *
  * All fields except `actionName` are optional and forwarded to settings.json.
  * The CLI extracts this metadata via AST analysis, so values must be string
@@ -25,7 +25,7 @@ import type { SameShape } from '../type-utils.js';
  *
  * @example
  * ```typescript
- * const config: ActionStartConfig = {
+ * const config: ActionConfig = {
  *   actionName: 'Launch Claude',
  *   description: 'Start a Claude coding session',
  *   icon: './icons/claude.svg',
@@ -34,7 +34,7 @@ import type { SameShape } from '../type-utils.js';
  * };
  * ```
  */
-export interface ActionStartConfig {
+export interface ActionConfig {
   /**
    * Stable identifier for the action used in telemetry, localization, and API lookups.
    *
@@ -44,10 +44,9 @@ export interface ActionStartConfig {
   id?: string;
 
   /**
-   * The action name used to group start/end commands in settings.json.
+   * The action name used to identify the action in settings.json.
    *
-   * This name appears in the UI and must match between actionStart and
-   * actionEnd if you have both. Keep it concise but descriptive.
+   * This name appears in the UI. Keep it concise but descriptive.
    */
   actionName: string;
 
@@ -101,7 +100,7 @@ export interface ActionStartConfig {
    *
    * @example
    * ```typescript
-   * defineActionStart({
+   * defineAction({
    *   actionName: 'Launch Claude',
    *   sourcePath: import.meta.filename // or import.meta.url
    * }, handler);
@@ -115,18 +114,22 @@ export interface ActionStartConfig {
 // ============================================================================
 
 /**
- * Handler function signature for action start events.
+ * Handler function signature for action events.
  *
  * Throwing an error signals action failure. The error message is logged and
  * surfaced to the user. For expected errors, throw with a descriptive message.
  *
  * @param input - Action input payload from environment variables
- * @param context - Runtime context with logger and cwd
+ * @param context - Runtime context with logger, cwd, and callback methods
  * @returns Promise that resolves when the action completes
  *
  * @example
  * ```typescript
- * const handler: ActionHandler = async (input, { logger }) => {
+ * const handler: ActionHandler = async (input, { logger, onCancel }) => {
+ *   onCancel(() => {
+ *     logger.info('Cancelling action');
+ *   });
+ *
  *   try {
  *     logger.info('Starting action', { cardId: input.cardId });
  *     await performAction(input);
@@ -138,23 +141,22 @@ export interface ActionStartConfig {
  * };
  * ```
  */
-export type ActionHandler = (input: ActionStartInput, context: ActionContext) => void | Promise<void>;
+export type ActionHandler = (input: ActionInput, context: ActionContext) => void | Promise<void>;
 
 // ============================================================================
 // Factory Function
 // ============================================================================
 
 /**
- * Creates an action start handler with metadata for settings.json generation.
+ * Creates an action handler with metadata for settings.json generation.
  *
  * This factory wraps your handler function and attaches metadata that the CLI
  * extracts when building settings.json. The returned command is both callable
  * (for the runtime) and inspectable (for the CLI).
  *
- * The generic parameter preserves the action name as a literal type, enabling
- * compile-time validation when pairing with action end handlers.
+ * The generic parameter preserves the action name as a literal type.
  *
- * @template T - The config type extending ActionStartConfig
+ * @template T - The config type extending ActionConfig
  * @param config - Action metadata (uses SameShape to catch typos)
  * @param handler - Async function that implements the action logic
  * @returns A callable command with attached metadata
@@ -162,7 +164,7 @@ export type ActionHandler = (input: ActionStartInput, context: ActionContext) =>
  * @example
  * ```typescript
  * // Basic usage
- * export default defineActionStart(
+ * export default defineAction(
  *   { actionName: 'Launch Claude' },
  *   async (input, { logger }) => {
  *     logger.info('Launching Claude', { cardId: input.cardId });
@@ -174,7 +176,7 @@ export type ActionHandler = (input: ActionStartInput, context: ActionContext) =>
  * @example
  * ```typescript
  * // With full configuration
- * export default defineActionStart(
+ * export default defineAction(
  *   {
  *     actionName: 'Deploy Application',
  *     description: 'Deploy to production',
@@ -184,36 +186,21 @@ export type ActionHandler = (input: ActionStartInput, context: ActionContext) =>
  *     timeout: 60000
  *   },
  *   async (input, context) => {
+ *     context.onCancel(() => cleanup());
  *     await deploy(input, context);
  *   }
  * );
  * ```
- *
- * @example
- * ```typescript
- * // Type-safe pairing with action end
- * const start = defineActionStart(
- *   { actionName: 'Launch' },
- *   async (input, ctx) => { ... }
- * );
- * // start has type: ActionStartCommand<'Launch'>
- *
- * // SameShape catches typos at compile time:
- * defineActionStart(
- *   { actionNme: 'Launch' }, // Error: Property 'actionNme' does not exist
- *   async (input, ctx) => { ... }
- * );
- * ```
  */
-export function defineActionStart<T extends ActionStartConfig>(
-  config: SameShape<ActionStartConfig, T>,
+export function defineAction<T extends ActionConfig>(
+  config: SameShape<ActionConfig, T>,
   handler: ActionHandler
-): ActionStartCommand<T['actionName']> {
-  const fn = async (input: ActionStartInput, context: ActionContext): Promise<void> => {
+): ActionCommand<T['actionName']> {
+  const fn = async (input: ActionInput, context: ActionContext): Promise<void> => {
     await handler(input, context);
   };
 
-  fn.factoryType = 'actionStart' as const;
+  fn.factoryType = 'action' as const;
   fn.id = config.id;
   fn.actionName = config.actionName;
   fn.description = config.description;
@@ -223,5 +210,5 @@ export function defineActionStart<T extends ActionStartConfig>(
   fn.timeout = config.timeout;
   fn.sourcePath = config.sourcePath;
 
-  return fn as ActionStartCommand<T['actionName']>;
+  return fn as ActionCommand<T['actionName']>;
 }

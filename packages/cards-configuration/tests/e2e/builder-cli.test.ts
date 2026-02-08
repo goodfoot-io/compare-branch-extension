@@ -75,14 +75,14 @@ function writeHandler(dir: string, filename: string, content: string): string {
 }
 
 /**
- * Creates a minimal valid action start handler.
+ * Creates a minimal valid action handler.
  */
-function createActionStartHandler(actionName: string, _handlerPath: string): string {
+function createActionHandler(actionName: string, _handlerPath: string): string {
   return `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 import { fileURLToPath } from 'node:url';
 
-export default defineActionStart(
+export default defineAction(
   {
     actionName: '${actionName}',
     timeout: 30000,
@@ -90,27 +90,6 @@ export default defineActionStart(
   },
   async (input, { logger }) => {
     logger.info('${actionName} executed');
-  }
-);
-`;
-}
-
-/**
- * Creates a minimal valid action end handler.
- */
-function createActionEndHandler(actionName: string, _handlerPath: string): string {
-  return `
-import { defineActionEnd } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-import { fileURLToPath } from 'node:url';
-
-export default defineActionEnd(
-  {
-    actionName: '${actionName}',
-    timeout: 30000,
-    sourcePath: fileURLToPath(import.meta.url)
-  },
-  async (input, { logger }) => {
-    logger.info('${actionName} end executed');
   }
 );
 `;
@@ -175,7 +154,7 @@ describe('builder CLI: build function', () => {
 
   describe('successful builds', () => {
     it('should build a config with a single action', async () => {
-      writeHandler(testDir, 'my-action-start.ts', createActionStartHandler('My Action', testDir));
+      writeHandler(testDir, 'my-action-start.ts', createActionHandler('My Action', testDir));
 
       // Create config
       const configPath = writeConfig(
@@ -187,7 +166,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: handler }]
+      actions: [handler]
     }
   }
 };
@@ -199,6 +178,9 @@ export default {
       // Build
       const result = await build({ config: configPath, outdir });
 
+      if (!result.success) {
+        console.error('Build failed:', result.error);
+      }
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.settingsPath).toBe(path.join(outdir, 'settings.json'));
@@ -210,31 +192,31 @@ export default {
       expect(settings.environments.default).toBeDefined();
       expect(settings.environments.default.actions).toHaveLength(1);
       expect(settings.environments.default.actions[0].name).toBe('My Action');
-      expect(settings.environments.default.actions[0].start.command).toMatch(/\.mjs$/);
+      expect(settings.environments.default.actions[0].command.command).toMatch(/\.mjs$/);
 
       // Verify compiled handler exists
       const binFiles = listBinFiles(outdir);
       expect(binFiles.length).toBe(1);
-      expect(binFiles[0]).toMatch(/my-action-start\.[a-f0-9]{8}\.mjs$/);
+      expect(binFiles[0]).toMatch(/action-my-action\.[a-f0-9]{8}\.mjs$/);
     });
 
-    it('should build a config with action start and end', async () => {
+    it('should build a config with multiple actions', async () => {
       // Create handlers
-      writeHandler(testDir, 'launch-start.ts', createActionStartHandler('Launch', testDir));
-      writeHandler(testDir, 'launch-end.ts', createActionEndHandler('Launch', testDir));
+      writeHandler(testDir, 'launch.ts', createActionHandler('Launch', testDir));
+      writeHandler(testDir, 'deploy.ts', createActionHandler('Deploy', testDir));
 
       // Create config
       const configPath = writeConfig(
         testDir,
         `
-import startHandler from './launch-start.js';
-import endHandler from './launch-end.js';
+import launchHandler from './launch.js';
+import deployHandler from './deploy.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: startHandler, end: endHandler }]
+      actions: [launchHandler, deployHandler]
     }
   }
 };
@@ -251,9 +233,9 @@ export default {
 
       // Verify settings.json
       const settings = readSettings(outdir);
-      const action = settings.environments.default.actions[0];
-      expect(action.start.command).toMatch(/launch-start\.[a-f0-9]{8}\.mjs$/);
-      expect(action.end?.command).toMatch(/launch-end\.[a-f0-9]{8}\.mjs$/);
+      expect(settings.environments.default.actions).toHaveLength(2);
+      expect(settings.environments.default.actions[0].command.command).toMatch(/action-launch\.[a-f0-9]{8}\.mjs$/);
+      expect(settings.environments.default.actions[1].command.command).toMatch(/action-deploy\.[a-f0-9]{8}\.mjs$/);
 
       // Verify both handlers compiled
       const binFiles = listBinFiles(outdir);
@@ -262,7 +244,7 @@ export default {
 
     it('should build a config with type validators', async () => {
       // Create handlers
-      writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
+      writeHandler(testDir, 'action-start.ts', createActionHandler('Test Action', testDir));
       writeHandler(testDir, 'note-validator.ts', createTypeValidatorHandler('note', testDir));
 
       // Create config
@@ -276,7 +258,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [actionStart],
       types: {
         note: {
           version: '1.0.0',
@@ -304,8 +286,8 @@ export default {
 
     it('should build a config with multiple environments', async () => {
       // Create handlers
-      writeHandler(testDir, 'dev-action.ts', createActionStartHandler('Dev Action', testDir));
-      writeHandler(testDir, 'prod-action.ts', createActionStartHandler('Prod Action', testDir));
+      writeHandler(testDir, 'dev-action.ts', createActionHandler('Dev Action', testDir));
+      writeHandler(testDir, 'prod-action.ts', createActionHandler('Prod Action', testDir));
 
       // Create config
       const configPath = writeConfig(
@@ -319,12 +301,12 @@ export default {
     development: {
       version: 1,
       description: 'Development environment',
-      actions: [{ start: devAction }]
+      actions: [devAction]
     },
     production: {
       version: 1,
       description: 'Production environment',
-      actions: [{ start: prodAction }]
+      actions: [prodAction]
     }
   }
 };
@@ -376,7 +358,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -396,13 +378,13 @@ export default {
       expect(action.icon).toBe('rocket');
       expect(action.supportsBackgroundMode).toBe(true);
       expect(action.allowConcurrent).toBe(false);
-      expect(action.start.timeout).toBe(60000);
+      expect(action.command.timeout).toBe(60000);
     });
   });
 
   describe('__generated metadata', () => {
     it('should include __generated metadata with file list', async () => {
-      writeHandler(testDir, 'action.ts', createActionStartHandler('Test', testDir));
+      writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
 
       const configPath = writeConfig(
         testDir,
@@ -413,7 +395,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -431,7 +413,7 @@ export default {
 
     it('should list unique files in __generated.files', async () => {
       // Create handlers where one is used twice
-      writeHandler(testDir, 'shared-handler.ts', createActionStartHandler('Shared', testDir));
+      writeHandler(testDir, 'shared-handler.ts', createActionHandler('Shared', testDir));
 
       const configPath = writeConfig(
         testDir,
@@ -442,11 +424,11 @@ export default {
   environments: {
     env1: {
       version: 1,
-      actions: [{ start: handler }]
+      actions: [handler]
     },
     env2: {
       version: 1,
-      actions: [{ start: handler }]
+      actions: [handler]
     }
   }
 };
@@ -464,7 +446,7 @@ export default {
 
   describe('content hashing', () => {
     it('should generate deterministic hashes for same content', async () => {
-      writeHandler(testDir, 'action.ts', createActionStartHandler('Test', testDir));
+      writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
 
       const configPath = writeConfig(
         testDir,
@@ -475,7 +457,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -496,8 +478,8 @@ export default {
     });
 
     it('should generate different hashes for different content', async () => {
-      writeHandler(testDir, 'action1.ts', createActionStartHandler('Action One', testDir));
-      writeHandler(testDir, 'action2.ts', createActionStartHandler('Action Two', testDir));
+      writeHandler(testDir, 'action1.ts', createActionHandler('Action One', testDir));
+      writeHandler(testDir, 'action2.ts', createActionHandler('Action Two', testDir));
 
       const configPath = writeConfig(
         testDir,
@@ -509,7 +491,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action1 }, { start: action2 }]
+      actions: [action1, action2]
     }
   }
 };
@@ -535,8 +517,8 @@ export default {
   describe('stale file cleanup', () => {
     it('should remove stale files from previous build', async () => {
       // First build with two actions
-      writeHandler(testDir, 'action1.ts', createActionStartHandler('Action 1', testDir));
-      writeHandler(testDir, 'action2.ts', createActionStartHandler('Action 2', testDir));
+      writeHandler(testDir, 'action1.ts', createActionHandler('Action 1', testDir));
+      writeHandler(testDir, 'action2.ts', createActionHandler('Action 2', testDir));
 
       const configPath = writeConfig(
         testDir,
@@ -548,7 +530,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action1 }, { start: action2 }]
+      actions: [action1, action2]
     }
   }
 };
@@ -571,7 +553,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action1 }]
+      actions: [action1]
     }
   }
 };
@@ -668,7 +650,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: broken }]
+      actions: [broken]
     }
   }
 };
@@ -686,35 +668,6 @@ export default {
       }
     });
 
-    it('should fail for action without start command', async () => {
-      writeHandler(testDir, 'end-only.ts', createActionEndHandler('Test', testDir));
-
-      const configPath = writeConfig(
-        testDir,
-        `
-import endHandler from './end-only.js';
-
-export default {
-  environments: {
-    default: {
-      version: 1,
-      actions: [{ end: endHandler }]
-    }
-  }
-};
-`
-      );
-
-      const result = await build({
-        config: configPath,
-        outdir: path.join(testDir, 'dist')
-      });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('start');
-      }
-    });
   });
 });
 
@@ -815,7 +768,7 @@ describe('builder CLI: compiled handler execution', () => {
   }
 
   it('should compile handlers that execute successfully', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Executable', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Executable', testDir));
 
     const configPath = writeConfig(
       testDir,
@@ -826,7 +779,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -852,7 +805,7 @@ export default {
   });
 
   it('should compile type validators that execute successfully', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
     writeHandler(testDir, 'validator.ts', createTypeValidatorHandler('test-type', testDir));
 
     const configPath = writeConfig(
@@ -865,7 +818,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }],
+      actions: [action],
       types: {
         'test-type': {
           version: '1.0.0',
@@ -940,7 +893,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -977,7 +930,7 @@ describe('builder CLI: directory and file handling', () => {
   });
 
   it('should create output directory if it does not exist', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
 
     const configPath = writeConfig(
       testDir,
@@ -988,7 +941,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -1007,7 +960,7 @@ export default {
   });
 
   it('should create bin directory for compiled handlers', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
 
     const configPath = writeConfig(
       testDir,
@@ -1018,7 +971,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -1034,7 +987,7 @@ export default {
   });
 
   it('should make compiled handlers executable', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
 
     const configPath = writeConfig(
       testDir,
@@ -1045,7 +998,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -1066,7 +1019,7 @@ export default {
   });
 
   it('should write settings.json with proper formatting', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
 
     const configPath = writeConfig(
       testDir,
@@ -1077,7 +1030,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -1167,7 +1120,7 @@ export default defineStreamTransform(
   });
 
   it('should build config with stream transform and include streams section in settings.json', async () => {
-    writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action-start.ts', createActionHandler('Test Action', testDir));
     writeHandler(
       testDir,
       'test-stream.ts',
@@ -1185,7 +1138,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [actionStart],
       streams: {
         'test-stream': {
           version: 1,
@@ -1215,7 +1168,7 @@ export default {
   });
 
   it('should create compiled stream transform file in bin/ with content hash filename', async () => {
-    writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action-start.ts', createActionHandler('Test Action', testDir));
     writeHandler(
       testDir,
       'my-stream.ts',
@@ -1232,7 +1185,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [actionStart],
       streams: {
         'my-stream': {
           version: 1,
@@ -1258,7 +1211,7 @@ export default {
   });
 
   it('should compile stream transform as valid ESM without bare imports', async () => {
-    writeHandler(testDir, 'action-start.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action-start.ts', createActionHandler('Test Action', testDir));
     writeHandler(
       testDir,
       'transform.ts',
@@ -1275,7 +1228,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [actionStart],
       streams: {
         'transform': {
           version: 1,
@@ -1316,7 +1269,7 @@ export default {
 
   it('should support stream transforms coexisting with actions and types', async () => {
     // Create all three handler types
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
     writeHandler(testDir, 'validator.ts', createTypeValidatorHandler('test-type', testDir));
     writeHandler(testDir, 'stream.ts', createStreamTransformHandler('test-stream', path.join(testDir, 'stream.ts')));
 
@@ -1331,7 +1284,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }],
+      actions: [action],
       types: {
         'test-type': {
           version: '1.0.0',
@@ -1373,7 +1326,7 @@ export default {
   });
 
   it('should include stream transform files in __generated.files', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
     writeHandler(testDir, 'stream.ts', createStreamTransformHandler('stream', path.join(testDir, 'stream.ts')));
 
     const configPath = writeConfig(
@@ -1386,7 +1339,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }],
+      actions: [action],
       streams: {
         'stream': {
           version: 1,
@@ -1414,7 +1367,7 @@ export default {
 
   it('should clean up stale stream transform files on rebuild', async () => {
     // First build: config with stream + action
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
     writeHandler(testDir, 'stream.ts', createStreamTransformHandler('stream', path.join(testDir, 'stream.ts')));
 
     const configPath = writeConfig(
@@ -1427,7 +1380,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }],
+      actions: [action],
       streams: {
         'stream': {
           version: 1,
@@ -1458,7 +1411,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }]
+      actions: [action]
     }
   }
 };
@@ -1474,7 +1427,7 @@ export default {
   });
 
   it('should preserve stream metadata in settings.json', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
     writeHandler(
       testDir,
       'stream-with-metadata.ts',
@@ -1491,7 +1444,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }],
+      actions: [action],
       streams: {
         'stream-with-metadata': {
           version: 2,
@@ -1518,7 +1471,7 @@ export default {
   });
 
   it('should produce placeholder path for stream transform without sourcePath', async () => {
-    writeHandler(testDir, 'action.ts', createActionStartHandler('Test Action', testDir));
+    writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
     writeHandler(testDir, 'stream-no-source.ts', createStreamTransformHandlerNoSourcePath('stream-no-source'));
 
     const configPath = writeConfig(
@@ -1531,7 +1484,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: action }],
+      actions: [action],
       streams: {
         'stream-no-source': {
           version: 1,

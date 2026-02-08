@@ -14,7 +14,7 @@
  *
  * 1. Extract input payload from environment variables based on command type
  * 2. Set logger context with command type and input
- * 3. Build ActionContext with logger and cwd
+ * 3. Build ActionContext with logger, cwd, and callback stubs
  * 4. Invoke the command with input and context
  * 5. On success: clean up and exit with code 0
  * 6. On error: log error, write to stderr, clean up and exit with code 1
@@ -33,15 +33,14 @@
  */
 
 import type {
-  ActionEndCommand,
-  ActionStartCommand,
+  ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand
 } from './command-types.js';
 import { extractActionInput, extractTypeInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
-import type { ActionContext, ActionEndInput, ActionStartInput, TypeHookInput } from './inputs.js';
+import type { ActionContext, ActionInput, TypeHookInput } from './inputs.js';
 import { logger } from './logger.js';
 
 // ============================================================================
@@ -60,7 +59,7 @@ import { logger } from './logger.js';
  *
  * @internal
  */
-type AnyCommand = ActionStartCommand | ActionEndCommand | TypeCreateCommand | TypeUpdateCommand | TypeDeleteCommand;
+type AnyCommand = ActionCommand | TypeCreateCommand | TypeUpdateCommand | TypeDeleteCommand;
 
 // ============================================================================
 // Helper Functions
@@ -156,8 +155,7 @@ function handleHandlerError(error: unknown): never {
  *
  * ## Supported Command Types
  *
- * - **Action Start** (`actionStart`): Invoked when an action begins
- * - **Action End** (`actionEnd`): Invoked after successful action completion
+ * - **Action** (`action`): Invoked when an action is triggered
  * - **Type Create** (`typeCreate`): Runs after new typed file creation
  * - **Type Update** (`typeUpdate`): Runs after typed file modification
  * - **Type Delete** (`typeDelete`): Runs when typed file is deleted
@@ -196,10 +194,10 @@ export async function execute(command: AnyCommand): Promise<void> {
   try {
     // Determine command type and extract appropriate input
     const factoryType = command.factoryType;
-    let input: ActionStartInput | ActionEndInput | TypeHookInput;
+    let input: ActionInput | TypeHookInput;
 
     try {
-      if (factoryType === 'actionStart' || factoryType === 'actionEnd') {
+      if (factoryType === 'action') {
         input = extractActionInput();
       } else {
         // Type commands: validator, create, update, delete
@@ -216,10 +214,13 @@ export async function execute(command: AnyCommand): Promise<void> {
     // Set logger context with command type
     logger.setContext(factoryType, input as unknown as Record<string, unknown>);
 
-    // Build ActionContext with logger and cwd
+    // Build ActionContext with logger, cwd, and callback stubs
+    // Task 3 will implement socket wiring for these callbacks
     const context: ActionContext = {
       logger,
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      onCancel: () => {},
+      onSwitchToInteractive: () => {}
     };
 
     // Execute the command handler

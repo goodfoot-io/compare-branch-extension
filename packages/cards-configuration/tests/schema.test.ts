@@ -41,17 +41,17 @@ describe('Command', () => {
 // ============================================================================
 
 describe('Action', () => {
-  it('should require name and start properties', () => {
+  it('should require name and command properties', () => {
     expectTypeOf<Action>().toMatchTypeOf<{
       name: string;
-      start: Command;
+      command: Command;
     }>();
   });
 
   it('should allow minimal action with only required fields', () => {
     const minimalAction: Action = {
       name: 'Test Action',
-      start: { command: 'node ./bin/test.js' }
+      command: { command: 'node ./bin/test.js' }
     };
     expectTypeOf(minimalAction).toMatchTypeOf<Action>();
   });
@@ -60,7 +60,7 @@ describe('Action', () => {
     const actionWithId: Action = {
       id: 'test-action',
       name: 'Test Action',
-      start: { command: 'node ./bin/test.js' }
+      command: { command: 'node ./bin/test.js' }
     };
     expectTypeOf(actionWithId.id).toEqualTypeOf<string | undefined>();
   });
@@ -69,7 +69,7 @@ describe('Action', () => {
     const actionWithDescription: Action = {
       name: 'Test Action',
       description: 'A test action',
-      start: { command: 'node ./bin/test.js' }
+      command: { command: 'node ./bin/test.js' }
     };
     expectTypeOf(actionWithDescription.description).toEqualTypeOf<string | undefined>();
   });
@@ -78,24 +78,15 @@ describe('Action', () => {
     const actionWithIcon: Action = {
       name: 'Test Action',
       icon: 'rocket',
-      start: { command: 'node ./bin/test.js' }
+      command: { command: 'node ./bin/test.js' }
     };
     expectTypeOf(actionWithIcon.icon).toEqualTypeOf<string | undefined>();
-  });
-
-  it('should allow optional end command', () => {
-    const actionWithEnd: Action = {
-      name: 'Test Action',
-      start: { command: 'node ./bin/test-start.js' },
-      end: { command: 'node ./bin/test-end.js' }
-    };
-    expectTypeOf(actionWithEnd.end).toEqualTypeOf<Command | undefined>();
   });
 
   it('should allow optional supportsBackgroundMode property', () => {
     const actionWithBackground: Action = {
       name: 'Test Action',
-      start: { command: 'node ./bin/test.js' },
+      command: { command: 'node ./bin/test.js' },
       supportsBackgroundMode: true
     };
     expectTypeOf(actionWithBackground.supportsBackgroundMode).toEqualTypeOf<boolean | undefined>();
@@ -104,7 +95,7 @@ describe('Action', () => {
   it('should allow optional allowConcurrent property', () => {
     const actionWithConcurrent: Action = {
       name: 'Test Action',
-      start: { command: 'node ./bin/test.js' },
+      command: { command: 'node ./bin/test.js' },
       allowConcurrent: false
     };
     expectTypeOf(actionWithConcurrent.allowConcurrent).toEqualTypeOf<boolean | undefined>();
@@ -116,8 +107,7 @@ describe('Action', () => {
       name: 'Test Action',
       description: 'A test action',
       icon: 'rocket',
-      start: { command: 'node ./bin/test-start.js', timeout: 30000 },
-      end: { command: 'node ./bin/test-end.js', timeout: 10000 },
+      command: { command: 'node ./bin/test.js', timeout: 30000 },
       supportsBackgroundMode: true,
       allowConcurrent: false
     };
@@ -284,7 +274,7 @@ describe('Environment', () => {
       actions: [
         {
           name: 'Test',
-          start: { command: 'node ./bin/test.js' }
+          command: { command: 'node ./bin/test.js' }
         }
       ]
     };
@@ -368,7 +358,7 @@ describe('Environment', () => {
       actions: [
         {
           name: 'Test Action',
-          start: { command: 'node ./bin/test.js' }
+          command: { command: 'node ./bin/test.js' }
         }
       ],
       types: {
@@ -442,8 +432,7 @@ describe('Settings', () => {
               name: 'Launch Claude',
               description: 'Launch Claude in a new window',
               icon: 'rocket',
-              start: { command: 'node ./bin/launch-start.js', timeout: 30000 },
-              end: { command: 'node ./bin/launch-end.js', timeout: 10000 },
+              command: { command: 'node ./bin/launch.js', timeout: 30000 },
               supportsBackgroundMode: true,
               allowConcurrent: false
             }

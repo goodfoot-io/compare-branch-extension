@@ -16,15 +16,10 @@ export {
   validationUpdated
 } from '../validation.js';
 export {
-  type ActionEndConfig,
-  type ActionEndHandler,
-  defineActionEnd
-} from './action-end.js';
-export {
+  type ActionConfig,
   type ActionHandler,
-  type ActionStartConfig,
-  defineActionStart
-} from './action-start.js';
+  defineAction
+} from './action.js';
 export {
   defineStreamTransform,
   type StreamInitHandler,

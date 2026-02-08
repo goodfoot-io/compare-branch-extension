@@ -7,8 +7,7 @@
 
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
-  ActionEndCommand,
-  ActionStartCommand,
+  ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
@@ -16,8 +15,7 @@ import type {
 } from '../src/command-types.js';
 import type {
   ActionContext,
-  ActionEndInput,
-  ActionStartInput,
+  ActionInput,
   TypeHookInput,
   TypeValidatorContext,
   TypeValidatorRequest
@@ -25,24 +23,24 @@ import type {
 import type { ValidationResponse } from '../src/validation.js';
 
 describe('command-types', () => {
-  describe('ActionStartCommand', () => {
-    it('should be callable with ActionStartInput and ActionContext', () => {
-      const fn = async (input: ActionStartInput, context: ActionContext) => {
-        expectTypeOf(input).toEqualTypeOf<ActionStartInput>();
+  describe('ActionCommand', () => {
+    it('should be callable with ActionInput and ActionContext', () => {
+      const fn = async (input: ActionInput, context: ActionContext) => {
+        expectTypeOf(input).toEqualTypeOf<ActionInput>();
         expectTypeOf(context).toEqualTypeOf<ActionContext>();
       };
       const command = Object.assign(fn, {
-        factoryType: 'actionStart' as const,
+        factoryType: 'action' as const,
         actionName: 'Test'
       });
 
-      expectTypeOf(command).toBeCallableWith({} as ActionStartInput, {} as ActionContext);
+      expectTypeOf(command).toBeCallableWith({} as ActionInput, {} as ActionContext);
     });
 
     it('should return Promise<void>', () => {
       const fn = async () => {};
       const command = Object.assign(fn, {
-        factoryType: 'actionStart' as const,
+        factoryType: 'action' as const,
         actionName: 'Test'
       });
 
@@ -50,17 +48,18 @@ describe('command-types', () => {
     });
 
     it('should have factoryType property', () => {
-      expectTypeOf<ActionStartCommand>().toHaveProperty('factoryType');
-      expectTypeOf<ActionStartCommand['factoryType']>().toEqualTypeOf<'actionStart'>();
+      expectTypeOf<ActionCommand>().toHaveProperty('factoryType');
+      expectTypeOf<ActionCommand['factoryType']>().toEqualTypeOf<'action'>();
     });
 
     it('should have actionName property', () => {
-      expectTypeOf<ActionStartCommand>().toHaveProperty('actionName');
-      expectTypeOf<ActionStartCommand['actionName']>().toEqualTypeOf<string>();
+      expectTypeOf<ActionCommand>().toHaveProperty('actionName');
+      expectTypeOf<ActionCommand['actionName']>().toEqualTypeOf<string>();
     });
 
     it('should have optional metadata properties', () => {
-      expectTypeOf<ActionStartCommand>().toMatchTypeOf<{
+      expectTypeOf<ActionCommand>().toMatchTypeOf<{
+        id?: string;
         description?: string;
         icon?: string;
         supportsBackgroundMode?: boolean;
@@ -71,8 +70,8 @@ describe('command-types', () => {
 
     it('should preserve literal action name type', () => {
       const fn = async () => {};
-      const command: ActionStartCommand<'Launch Claude'> = Object.assign(fn, {
-        factoryType: 'actionStart' as const,
+      const command: ActionCommand<'Launch Claude'> = Object.assign(fn, {
+        factoryType: 'action' as const,
         actionName: 'Launch Claude' as const
       });
 
@@ -81,8 +80,8 @@ describe('command-types', () => {
 
     it('should default to string when no generic provided', () => {
       const fn = async () => {};
-      const command: ActionStartCommand = Object.assign(fn, {
-        factoryType: 'actionStart' as const,
+      const command: ActionCommand = Object.assign(fn, {
+        factoryType: 'action' as const,
         actionName: 'Any Action Name'
       });
 
@@ -91,98 +90,20 @@ describe('command-types', () => {
 
     it('should allow different literal types for different commands', () => {
       const launchFn = async () => {};
-      const launchCommand: ActionStartCommand<'Launch'> = Object.assign(launchFn, {
-        factoryType: 'actionStart' as const,
+      const launchCommand: ActionCommand<'Launch'> = Object.assign(launchFn, {
+        factoryType: 'action' as const,
         actionName: 'Launch' as const
       });
 
       const deployFn = async () => {};
-      const deployCommand: ActionStartCommand<'Deploy'> = Object.assign(deployFn, {
-        factoryType: 'actionStart' as const,
+      const deployCommand: ActionCommand<'Deploy'> = Object.assign(deployFn, {
+        factoryType: 'action' as const,
         actionName: 'Deploy' as const
       });
 
       expectTypeOf(launchCommand.actionName).toEqualTypeOf<'Launch'>();
       expectTypeOf(deployCommand.actionName).toEqualTypeOf<'Deploy'>();
       expectTypeOf(launchCommand.actionName).not.toEqualTypeOf<'Deploy'>();
-    });
-  });
-
-  describe('ActionEndCommand', () => {
-    it('should be callable with ActionEndInput and ActionContext', () => {
-      const fn = async (input: ActionEndInput, context: ActionContext) => {
-        expectTypeOf(input).toEqualTypeOf<ActionEndInput>();
-        expectTypeOf(context).toEqualTypeOf<ActionContext>();
-      };
-      const command = Object.assign(fn, {
-        factoryType: 'actionEnd' as const,
-        actionName: 'Test'
-      });
-
-      expectTypeOf(command).toBeCallableWith({} as ActionEndInput, {} as ActionContext);
-    });
-
-    it('should return Promise<void>', () => {
-      const fn = async () => {};
-      const command = Object.assign(fn, {
-        factoryType: 'actionEnd' as const,
-        actionName: 'Test'
-      });
-
-      expectTypeOf(command).returns.toEqualTypeOf<Promise<void>>();
-    });
-
-    it('should have factoryType property', () => {
-      expectTypeOf<ActionEndCommand>().toHaveProperty('factoryType');
-      expectTypeOf<ActionEndCommand['factoryType']>().toEqualTypeOf<'actionEnd'>();
-    });
-
-    it('should have actionName property', () => {
-      expectTypeOf<ActionEndCommand>().toHaveProperty('actionName');
-      expectTypeOf<ActionEndCommand['actionName']>().toEqualTypeOf<string>();
-    });
-
-    it('should have optional timeout property', () => {
-      expectTypeOf<ActionEndCommand>().toMatchTypeOf<{
-        timeout?: number;
-      }>();
-    });
-
-    it('should preserve literal action name type', () => {
-      const fn = async () => {};
-      const command: ActionEndCommand<'Launch Claude'> = Object.assign(fn, {
-        factoryType: 'actionEnd' as const,
-        actionName: 'Launch Claude' as const
-      });
-
-      expectTypeOf(command.actionName).toEqualTypeOf<'Launch Claude'>();
-    });
-
-    it('should allow matching action name for pairing', () => {
-      const startFn = async () => {};
-      const startCommand: ActionStartCommand<'Deploy'> = Object.assign(startFn, {
-        factoryType: 'actionStart' as const,
-        actionName: 'Deploy' as const
-      });
-
-      const endFn = async () => {};
-      const endCommand: ActionEndCommand<'Deploy'> = Object.assign(endFn, {
-        factoryType: 'actionEnd' as const,
-        actionName: 'Deploy' as const
-      });
-
-      // Both should have the same action name type
-      expectTypeOf(startCommand.actionName).toEqualTypeOf(endCommand.actionName);
-    });
-
-    it('should default to string when no generic provided', () => {
-      const fn = async () => {};
-      const command: ActionEndCommand = Object.assign(fn, {
-        factoryType: 'actionEnd' as const,
-        actionName: 'Any Action Name'
-      });
-
-      expectTypeOf(command.actionName).toEqualTypeOf<string>();
     });
   });
 
@@ -379,12 +300,9 @@ describe('command-types', () => {
 
   describe('Generic type preservation across all commands', () => {
     it('should preserve literal types for action commands', () => {
-      type StartCmd = ActionStartCommand<'Build'>;
-      type EndCmd = ActionEndCommand<'Build'>;
+      type Cmd = ActionCommand<'Build'>;
 
-      expectTypeOf<StartCmd['actionName']>().toEqualTypeOf<'Build'>();
-      expectTypeOf<EndCmd['actionName']>().toEqualTypeOf<'Build'>();
-      expectTypeOf<StartCmd['actionName']>().toEqualTypeOf<EndCmd['actionName']>();
+      expectTypeOf<Cmd['actionName']>().toEqualTypeOf<'Build'>();
     });
 
     it('should preserve literal types for type commands', () => {
@@ -400,12 +318,10 @@ describe('command-types', () => {
     });
 
     it('should allow string as default generic', () => {
-      type StartCmd = ActionStartCommand;
-      type EndCmd = ActionEndCommand;
+      type Cmd = ActionCommand;
       type ValidatorCmd = TypeValidatorCommand;
 
-      expectTypeOf<StartCmd['actionName']>().toEqualTypeOf<string>();
-      expectTypeOf<EndCmd['actionName']>().toEqualTypeOf<string>();
+      expectTypeOf<Cmd['actionName']>().toEqualTypeOf<string>();
       expectTypeOf<ValidatorCmd['typeName']>().toEqualTypeOf<string>();
     });
   });

@@ -1,15 +1,14 @@
 /**
- * Tests for settings configuration types with compile-time pairing validation.
+ * Tests for settings configuration types.
  *
  * These are primarily type-level tests that verify compile-time guarantees
- * using expectTypeOf from vitest. The tests ensure that ActionPair enforces
- * matching action names between start and end commands.
+ * using expectTypeOf from vitest. The tests ensure that ActionCommand and
+ * related configuration types work correctly.
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
-  ActionEndCommand,
-  ActionStartCommand,
+  ActionCommand,
   StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
@@ -17,7 +16,6 @@ import type {
   TypeValidatorCommand
 } from '../src/command-types.js';
 import type {
-  ActionPair,
   EnvironmentConfig,
   SettingsConfig,
   StreamConfigDefinition,
@@ -29,107 +27,73 @@ import type {
 // ============================================================================
 
 describe('config types', () => {
-  describe('ActionPair', () => {
-    it('should accept matching action names', () => {
-      // Create mock commands with matching action names
-      const start: ActionStartCommand<'Launch'> = {
-        factoryType: 'actionStart',
+  describe('ActionCommand', () => {
+    it('should accept action command with required properties', () => {
+      // Create mock command with action name
+      const command: ActionCommand<'Launch'> = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand<'Launch'>;
-
-      const end: ActionEndCommand<'Launch'> = {
-        factoryType: 'actionEnd',
-        actionName: 'Launch'
-      } as ActionEndCommand<'Launch'>;
-
-      // This should compile: names match
-      const pair: ActionPair<'Launch'> = { start, end };
+      } as ActionCommand<'Launch'>;
 
       // Type assertions
-      expectTypeOf(pair.start).toEqualTypeOf<ActionStartCommand<'Launch'>>();
-      expectTypeOf(pair.end).toEqualTypeOf<ActionEndCommand<'Launch'> | undefined>();
+      expectTypeOf(command).toEqualTypeOf<ActionCommand<'Launch'>>();
+      expectTypeOf(command.actionName).toEqualTypeOf<'Launch'>();
 
       // Runtime assertion
-      expect(pair.start.actionName).toBe('Launch');
-      expect(pair.end?.actionName).toBe('Launch');
+      expect(command.actionName).toBe('Launch');
+      expect(command.factoryType).toBe('action');
     });
 
-    it('should enforce matching action names through generic parameter', () => {
-      // Type-level verification that mismatched names don't compile
-      // We verify this by checking that the type system requires N to match
-      type ValidPair = ActionPair<'Launch'>;
-
-      // Valid: start and end both use 'Launch'
-      expectTypeOf<ValidPair['start']>().toHaveProperty('actionName').toEqualTypeOf<'Launch'>();
-      expectTypeOf<ValidPair['end']>().toEqualTypeOf<ActionEndCommand<'Launch'> | undefined>();
-    });
-
-    it('should accept action pair without end command', () => {
-      const start: ActionStartCommand<'Launch'> = {
-        factoryType: 'actionStart',
-        actionName: 'Launch'
-      } as ActionStartCommand<'Launch'>;
-
-      // End is optional
-      const pair: ActionPair<'Launch'> = { start };
-
-      expectTypeOf(pair.start).toEqualTypeOf<ActionStartCommand<'Launch'>>();
-      expectTypeOf(pair.end).toEqualTypeOf<ActionEndCommand<'Launch'> | undefined>();
-
-      expect(pair.start.actionName).toBe('Launch');
-      expect(pair.end).toBeUndefined();
-    });
-
-    it('should verify start is required in ActionPair type', () => {
-      // Type-level check that start is required
-      type PairType = ActionPair<'Launch'>;
-
-      // Verify start property exists and is required
-      expectTypeOf<PairType>().toHaveProperty('start');
-      expectTypeOf<PairType['start']>().toEqualTypeOf<ActionStartCommand<'Launch'>>();
-    });
-
-    it('should accept ActionPair with default string parameter', () => {
-      const start: ActionStartCommand = {
-        factoryType: 'actionStart',
-        actionName: 'AnyAction'
-      } as ActionStartCommand;
-
-      const end: ActionEndCommand = {
-        factoryType: 'actionEnd',
-        actionName: 'AnyAction'
-      } as ActionEndCommand;
-
-      // Default string parameter allows any action name
-      const pair: ActionPair = { start, end };
-
-      expectTypeOf(pair.start).toEqualTypeOf<ActionStartCommand<string>>();
-      expectTypeOf(pair.end).toEqualTypeOf<ActionEndCommand<string> | undefined>();
-    });
-
-    it('should preserve literal types through ActionPair', () => {
-      const start: ActionStartCommand<'SpecificAction'> = {
-        factoryType: 'actionStart',
+    it('should preserve literal types for action names', () => {
+      const command: ActionCommand<'SpecificAction'> = {
+        factoryType: 'action',
         actionName: 'SpecificAction'
-      } as ActionStartCommand<'SpecificAction'>;
-
-      const pair: ActionPair<'SpecificAction'> = { start };
+      } as ActionCommand<'SpecificAction'>;
 
       // The literal type should be preserved
-      expectTypeOf(pair.start.actionName).toEqualTypeOf<'SpecificAction'>();
+      expectTypeOf(command.actionName).toEqualTypeOf<'SpecificAction'>();
+    });
+
+    it('should accept ActionCommand with default string parameter', () => {
+      const command: ActionCommand = {
+        factoryType: 'action',
+        actionName: 'AnyAction'
+      } as ActionCommand;
+
+      // Default string parameter allows any action name
+      expectTypeOf(command).toEqualTypeOf<ActionCommand<string>>();
+      expectTypeOf(command.actionName).toEqualTypeOf<string>();
     });
 
     it('should work with union types for action names', () => {
       type Actions = 'Launch' | 'Deploy' | 'Build';
 
-      const start: ActionStartCommand<Actions> = {
-        factoryType: 'actionStart',
+      const command: ActionCommand<Actions> = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand<Actions>;
+      } as ActionCommand<Actions>;
 
-      const pair: ActionPair<Actions> = { start };
+      expectTypeOf(command.actionName).toEqualTypeOf<Actions>();
+    });
 
-      expectTypeOf(pair.start.actionName).toEqualTypeOf<Actions>();
+    it('should accept optional metadata properties', () => {
+      const command: ActionCommand<'Launch'> = {
+        factoryType: 'action',
+        actionName: 'Launch',
+        description: 'Launch the app',
+        icon: 'rocket',
+        supportsBackgroundMode: true,
+        allowConcurrent: false,
+        timeout: 30000,
+        id: 'custom-id'
+      } as ActionCommand<'Launch'>;
+
+      expect(command.description).toBe('Launch the app');
+      expect(command.icon).toBe('rocket');
+      expect(command.supportsBackgroundMode).toBe(true);
+      expect(command.allowConcurrent).toBe(false);
+      expect(command.timeout).toBe(30000);
+      expect(command.id).toBe('custom-id');
     });
   });
 
@@ -249,10 +213,10 @@ describe('config types', () => {
 
   describe('EnvironmentConfig', () => {
     it('should accept full environment configuration', () => {
-      const start: ActionStartCommand<'Launch'> = {
-        factoryType: 'actionStart',
+      const command: ActionCommand<'Launch'> = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand<'Launch'>;
+      } as ActionCommand<'Launch'>;
 
       const typeConfig: TypeConfigDefinition = {
         version: '1.0.0'
@@ -261,7 +225,7 @@ describe('config types', () => {
       const envConfig: EnvironmentConfig = {
         version: 1,
         description: 'Test environment',
-        actions: [{ start }],
+        actions: [command],
         types: {
           'test-type': typeConfig
         }
@@ -274,13 +238,13 @@ describe('config types', () => {
     });
 
     it('should accept minimal environment with only actions', () => {
-      const start: ActionStartCommand = {
-        factoryType: 'actionStart',
+      const command: ActionCommand = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand;
+      } as ActionCommand;
 
       const envConfig: EnvironmentConfig = {
-        actions: [{ start }]
+        actions: [command]
       };
 
       expect(envConfig.actions).toHaveLength(1);
@@ -294,7 +258,7 @@ describe('config types', () => {
       type EnvType = EnvironmentConfig;
 
       expectTypeOf<EnvType>().toHaveProperty('actions');
-      expectTypeOf<EnvType['actions']>().toEqualTypeOf<ActionPair[]>();
+      expectTypeOf<EnvType['actions']>().toEqualTypeOf<ActionCommand[]>();
     });
 
     it('should accept empty actions array', () => {
@@ -315,10 +279,10 @@ describe('config types', () => {
     });
 
     it('should accept environment with streams', () => {
-      const start: ActionStartCommand = {
-        factoryType: 'actionStart',
+      const command: ActionCommand = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand;
+      } as ActionCommand;
 
       const transform: StreamTransformCommand<'jsonl'> = {
         factoryType: 'streamTransform',
@@ -331,7 +295,7 @@ describe('config types', () => {
       };
 
       const envConfig: EnvironmentConfig = {
-        actions: [{ start }],
+        actions: [command],
         streams: {
           jsonl: streamConfig
         }
@@ -342,13 +306,13 @@ describe('config types', () => {
     });
 
     it('should accept environment without streams', () => {
-      const start: ActionStartCommand = {
-        factoryType: 'actionStart',
+      const command: ActionCommand = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand;
+      } as ActionCommand;
 
       const envConfig: EnvironmentConfig = {
-        actions: [{ start }]
+        actions: [command]
       };
 
       expect(envConfig.streams).toBeUndefined();
@@ -362,10 +326,10 @@ describe('config types', () => {
     });
 
     it('should accept multiple stream definitions', () => {
-      const start: ActionStartCommand = {
-        factoryType: 'actionStart',
+      const command: ActionCommand = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand;
+      } as ActionCommand;
 
       const jsonlTransform: StreamTransformCommand<'jsonl'> = {
         factoryType: 'streamTransform',
@@ -378,7 +342,7 @@ describe('config types', () => {
       } as StreamTransformCommand<'logs'>;
 
       const envConfig: EnvironmentConfig = {
-        actions: [{ start }],
+        actions: [command],
         streams: {
           jsonl: { version: 1, transform: jsonlTransform },
           logs: { version: 2, transform: logsTransform }
@@ -393,20 +357,20 @@ describe('config types', () => {
 
   describe('SettingsConfig', () => {
     it('should accept multiple environments', () => {
-      const start: ActionStartCommand = {
-        factoryType: 'actionStart',
+      const command: ActionCommand = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand;
+      } as ActionCommand;
 
       const config: SettingsConfig = {
         environments: {
           default: {
-            actions: [{ start }]
+            actions: [command]
           },
           production: {
             version: 1,
             description: 'Production environment',
-            actions: [{ start }]
+            actions: [command]
           }
         }
       };
@@ -417,15 +381,15 @@ describe('config types', () => {
     });
 
     it('should accept single environment', () => {
-      const start: ActionStartCommand = {
-        factoryType: 'actionStart',
+      const command: ActionCommand = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand;
+      } as ActionCommand;
 
       const config: SettingsConfig = {
         environments: {
           default: {
-            actions: [{ start }]
+            actions: [command]
           }
         }
       };
@@ -454,24 +418,19 @@ describe('config types', () => {
   describe('integration scenarios', () => {
     it('should support real-world configuration pattern', () => {
       // Simulate real-world usage with multiple actions and types
-      const launchStart: ActionStartCommand<'Launch'> = {
-        factoryType: 'actionStart',
+      const launchCommand: ActionCommand<'Launch'> = {
+        factoryType: 'action',
         actionName: 'Launch',
         description: 'Launch the application',
         icon: 'play'
-      } as ActionStartCommand<'Launch'>;
+      } as ActionCommand<'Launch'>;
 
-      const launchEnd: ActionEndCommand<'Launch'> = {
-        factoryType: 'actionEnd',
-        actionName: 'Launch'
-      } as ActionEndCommand<'Launch'>;
-
-      const deployStart: ActionStartCommand<'Deploy'> = {
-        factoryType: 'actionStart',
+      const deployCommand: ActionCommand<'Deploy'> = {
+        factoryType: 'action',
         actionName: 'Deploy',
         description: 'Deploy to production',
         supportsBackgroundMode: true
-      } as ActionStartCommand<'Deploy'>;
+      } as ActionCommand<'Deploy'>;
 
       const validator: TypeValidatorCommand<'adaptive-card'> = {
         factoryType: 'typeValidator',
@@ -483,7 +442,7 @@ describe('config types', () => {
           development: {
             version: 1,
             description: 'Development environment',
-            actions: [{ start: launchStart, end: launchEnd }, { start: deployStart }],
+            actions: [launchCommand, deployCommand],
             types: {
               'adaptive-card': {
                 version: '1.0.0',
@@ -494,7 +453,7 @@ describe('config types', () => {
           production: {
             version: 1,
             description: 'Production environment',
-            actions: [{ start: deployStart }]
+            actions: [deployCommand]
           }
         }
       };
@@ -505,26 +464,20 @@ describe('config types', () => {
     });
 
     it('should enforce type safety across nested structures', () => {
-      const start: ActionStartCommand<'TestAction'> = {
-        factoryType: 'actionStart',
+      const command: ActionCommand<'TestAction'> = {
+        factoryType: 'action',
         actionName: 'TestAction'
-      } as ActionStartCommand<'TestAction'>;
-
-      const end: ActionEndCommand<'TestAction'> = {
-        factoryType: 'actionEnd',
-        actionName: 'TestAction'
-      } as ActionEndCommand<'TestAction'>;
+      } as ActionCommand<'TestAction'>;
 
       // Verify types flow through the entire structure
-      const pair: ActionPair<'TestAction'> = { start, end };
-      const env: EnvironmentConfig = { actions: [pair] };
+      const env: EnvironmentConfig = { actions: [command] };
       const config: SettingsConfig = { environments: { default: env } };
 
       // When widened to EnvironmentConfig/SettingsConfig, the literal type becomes string
-      expectTypeOf(config.environments.default.actions[0].start.actionName).toEqualTypeOf<string>();
+      expectTypeOf(config.environments.default.actions[0].actionName).toEqualTypeOf<string>();
 
-      // But the ActionPair itself preserves the literal type
-      expectTypeOf(pair.start.actionName).toEqualTypeOf<'TestAction'>();
+      // But the command itself preserves the literal type
+      expectTypeOf(command.actionName).toEqualTypeOf<'TestAction'>();
     });
 
     it('should preserve literal action names through configuration layers', () => {
@@ -532,32 +485,32 @@ describe('config types', () => {
       type Config = SettingsConfig & {
         environments: {
           default: EnvironmentConfig & {
-            actions: [ActionPair<'SpecificAction'>];
+            actions: [ActionCommand<'SpecificAction'>];
           };
         };
       };
 
-      const start: ActionStartCommand<'SpecificAction'> = {
-        factoryType: 'actionStart',
+      const command: ActionCommand<'SpecificAction'> = {
+        factoryType: 'action',
         actionName: 'SpecificAction'
-      } as ActionStartCommand<'SpecificAction'>;
+      } as ActionCommand<'SpecificAction'>;
 
       const config: Config = {
         environments: {
           default: {
-            actions: [{ start }]
+            actions: [command]
           }
         }
       };
 
-      expectTypeOf(config.environments.default.actions[0].start.actionName).toEqualTypeOf<'SpecificAction'>();
+      expectTypeOf(config.environments.default.actions[0].actionName).toEqualTypeOf<'SpecificAction'>();
     });
 
     it('should support configuration with streams alongside actions and types', () => {
-      const start: ActionStartCommand<'Launch'> = {
-        factoryType: 'actionStart',
+      const command: ActionCommand<'Launch'> = {
+        factoryType: 'action',
         actionName: 'Launch'
-      } as ActionStartCommand<'Launch'>;
+      } as ActionCommand<'Launch'>;
 
       const validator: TypeValidatorCommand<'adaptive-card'> = {
         factoryType: 'typeValidator',
@@ -574,7 +527,7 @@ describe('config types', () => {
           default: {
             version: 1,
             description: 'Full environment with streams',
-            actions: [{ start }],
+            actions: [command],
             types: {
               'adaptive-card': { version: '1.0.0', validator }
             },

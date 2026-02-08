@@ -1,24 +1,26 @@
 /**
- * Tests for defineActionStart factory function.
+ * Tests for defineAction factory function.
  *
  * These tests verify the factory creates proper command objects with correct
  * metadata attachment and callable behavior.
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { defineActionStart } from '../../src/factories/action-start.js';
-import type { ActionContext, ActionStartInput } from '../../src/inputs.js';
+import { defineAction } from '../../src/factories/action.js';
+import type { ActionContext, ActionInput } from '../../src/inputs.js';
 import type { ILogger } from '../../src/logger.js';
 
-describe('defineActionStart', () => {
+describe('defineAction', () => {
   // Sample input and context for testing
-  const mockInput: ActionStartInput = {
+  const mockInput: ActionInput = {
     cardId: 'card-123',
     environment: 'default',
     executionMode: 'interactive',
     apiBaseUrl: 'https://api.example.com',
     apiAccessToken: 'token-abc',
-    codingAgent: 'claude'
+    codingAgent: 'claude',
+    workspacePath: '/workspace',
+    cardRepoPath: '/workspace/.cards/card-123'
   };
 
   const mockLogger: ILogger = {
@@ -31,13 +33,15 @@ describe('defineActionStart', () => {
 
   const mockContext: ActionContext = {
     logger: mockLogger,
-    cwd: '/workspace'
+    cwd: '/workspace',
+    onCancel: vi.fn(),
+    onSwitchToInteractive: vi.fn()
   };
 
   describe('basic functionality', () => {
     it('returns a callable function', async () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Test Action' }, handler);
+      const command = defineAction({ actionName: 'Test Action' }, handler);
 
       expect(typeof command).toBe('function');
       await command(mockInput, mockContext);
@@ -46,7 +50,7 @@ describe('defineActionStart', () => {
 
     it('invokes handler with correct arguments', async () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Launch' }, handler);
+      const command = defineAction({ actionName: 'Launch' }, handler);
 
       await command(mockInput, mockContext);
 
@@ -56,7 +60,7 @@ describe('defineActionStart', () => {
 
     it('returns a promise that resolves when handler completes', async () => {
       const handler = vi.fn().mockResolvedValue(undefined);
-      const command = defineActionStart({ actionName: 'Deploy' }, handler);
+      const command = defineAction({ actionName: 'Deploy' }, handler);
 
       const result = command(mockInput, mockContext);
 
@@ -66,23 +70,23 @@ describe('defineActionStart', () => {
   });
 
   describe('metadata attachment', () => {
-    it('attaches factoryType as "actionStart"', () => {
+    it('attaches factoryType as "action"', () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Test' }, handler);
+      const command = defineAction({ actionName: 'Test' }, handler);
 
-      expect(command.factoryType).toBe('actionStart');
+      expect(command.factoryType).toBe('action');
     });
 
     it('attaches actionName from config', () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Launch Claude' }, handler);
+      const command = defineAction({ actionName: 'Launch Claude' }, handler);
 
       expect(command.actionName).toBe('Launch Claude');
     });
 
     it('attaches description when provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart(
+      const command = defineAction(
         {
           actionName: 'Deploy',
           description: 'Deploy to production'
@@ -95,14 +99,14 @@ describe('defineActionStart', () => {
 
     it('leaves description undefined when not provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Launch' }, handler);
+      const command = defineAction({ actionName: 'Launch' }, handler);
 
       expect(command.description).toBeUndefined();
     });
 
     it('attaches icon when provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart(
+      const command = defineAction(
         {
           actionName: 'Launch',
           icon: './icons/launch.svg'
@@ -115,14 +119,14 @@ describe('defineActionStart', () => {
 
     it('leaves icon undefined when not provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Launch' }, handler);
+      const command = defineAction({ actionName: 'Launch' }, handler);
 
       expect(command.icon).toBeUndefined();
     });
 
     it('attaches supportsBackgroundMode when provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart(
+      const command = defineAction(
         {
           actionName: 'Deploy',
           supportsBackgroundMode: true
@@ -135,14 +139,14 @@ describe('defineActionStart', () => {
 
     it('leaves supportsBackgroundMode undefined when not provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Launch' }, handler);
+      const command = defineAction({ actionName: 'Launch' }, handler);
 
       expect(command.supportsBackgroundMode).toBeUndefined();
     });
 
     it('attaches allowConcurrent when provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart(
+      const command = defineAction(
         {
           actionName: 'Monitor',
           allowConcurrent: true
@@ -155,14 +159,14 @@ describe('defineActionStart', () => {
 
     it('leaves allowConcurrent undefined when not provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Launch' }, handler);
+      const command = defineAction({ actionName: 'Launch' }, handler);
 
       expect(command.allowConcurrent).toBeUndefined();
     });
 
     it('attaches timeout when provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart(
+      const command = defineAction(
         {
           actionName: 'Deploy',
           timeout: 60000
@@ -175,14 +179,34 @@ describe('defineActionStart', () => {
 
     it('leaves timeout undefined when not provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart({ actionName: 'Launch' }, handler);
+      const command = defineAction({ actionName: 'Launch' }, handler);
 
       expect(command.timeout).toBeUndefined();
     });
 
+    it('attaches id when provided', () => {
+      const handler = vi.fn();
+      const command = defineAction(
+        {
+          actionName: 'Launch Claude',
+          id: 'launch-claude'
+        },
+        handler
+      );
+
+      expect(command.id).toBe('launch-claude');
+    });
+
+    it('leaves id undefined when not provided', () => {
+      const handler = vi.fn();
+      const command = defineAction({ actionName: 'Launch' }, handler);
+
+      expect(command.id).toBeUndefined();
+    });
+
     it('attaches all optional fields when provided', () => {
       const handler = vi.fn();
-      const command = defineActionStart(
+      const command = defineAction(
         {
           actionName: 'Deploy Application',
           description: 'Deploy to production',
@@ -194,7 +218,7 @@ describe('defineActionStart', () => {
         handler
       );
 
-      expect(command.factoryType).toBe('actionStart');
+      expect(command.factoryType).toBe('action');
       expect(command.actionName).toBe('Deploy Application');
       expect(command.description).toBe('Deploy to production');
       expect(command.icon).toBe('./icons/deploy.svg');
@@ -212,7 +236,7 @@ describe('defineActionStart', () => {
         executed = true;
       };
 
-      const command = defineActionStart({ actionName: 'Async Action' }, handler);
+      const command = defineAction({ actionName: 'Async Action' }, handler);
 
       await command(mockInput, mockContext);
       expect(executed).toBe(true);
@@ -224,7 +248,7 @@ describe('defineActionStart', () => {
         executed = true;
       };
 
-      const command = defineActionStart({ actionName: 'Sync Action' }, handler);
+      const command = defineAction({ actionName: 'Sync Action' }, handler);
 
       await command(mockInput, mockContext);
       expect(executed).toBe(true);
@@ -234,7 +258,7 @@ describe('defineActionStart', () => {
       const error = new Error('Handler failed');
       const handler = vi.fn().mockRejectedValue(error);
 
-      const command = defineActionStart({ actionName: 'Failing Action' }, handler);
+      const command = defineAction({ actionName: 'Failing Action' }, handler);
 
       await expect(command(mockInput, mockContext)).rejects.toThrow('Handler failed');
     });
@@ -244,7 +268,7 @@ describe('defineActionStart', () => {
         throw new Error('Sync error');
       };
 
-      const command = defineActionStart({ actionName: 'Sync Failing Action' }, handler);
+      const command = defineAction({ actionName: 'Sync Failing Action' }, handler);
 
       await expect(command(mockInput, mockContext)).rejects.toThrow('Sync error');
     });
@@ -254,9 +278,9 @@ describe('defineActionStart', () => {
     it('preserves action name as literal type', () => {
       const handler = vi.fn();
 
-      // Type preservation test: the return type should be ActionStartCommand<'Launch'>
-      // not ActionStartCommand<string>. This is verified at compile time by TypeScript.
-      const command = defineActionStart({ actionName: 'Launch' }, handler);
+      // Type preservation test: the return type should be ActionCommand<'Launch'>
+      // not ActionCommand<string>. This is verified at compile time by TypeScript.
+      const command = defineAction({ actionName: 'Launch' }, handler);
 
       // Runtime verification that the action name is correct
       expect(command.actionName).toBe('Launch');

@@ -10,23 +10,23 @@
  * @example
  * ```typescript
  * import { defineConfig } from '@cards/configuration';
- * import { defineActionStart } from '@cards/configuration/factories';
+ * import { defineAction } from '@cards/configuration/factories';
  *
- * const launchStart = defineActionStart({ actionName: 'Launch' }, async () => {});
+ * const launch = defineAction({ actionName: 'Launch' }, async () => {});
  *
  * export default defineConfig({
  *   environments: {
  *     default: {
  *       version: 1,
- *       actions: [{ start: launchStart }]
+ *       actions: [launch]
  *     }
  *   }
  * });
  * ```
  */
 
+import type { ActionCommand } from './command-types.js';
 import type {
-  ActionPair,
   EnvironmentConfig,
   SettingsConfig,
   StreamConfigDefinition,
@@ -42,6 +42,21 @@ interface TypeHookCommand {
   factoryType: string;
   typeName: string;
   timeout?: number;
+}
+
+/**
+ * Converts a string to a URL-safe slug.
+ *
+ * @param name - The string to slugify
+ * @returns A lowercase string with non-alphanumeric characters replaced by hyphens
+ *
+ * @internal
+ */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 /**
@@ -91,50 +106,36 @@ function serializeStreamConfig(streamConfig: StreamConfigDefinition): StreamDefi
 }
 
 /**
- * Serializes an action pair to an Action object.
- * Extracts metadata from start/end commands and generates command paths.
+ * Serializes an action command to an Action object.
+ * Extracts metadata from the command and generates the command path.
  */
-function serializeActionPair(actionPair: ActionPair): Action {
-  if (!actionPair.start) {
-    throw new Error('Action must have a start command');
-  }
-
-  const { start } = actionPair;
+function serializeAction(actionCommand: ActionCommand): Action {
   const action: Action = {
-    name: start.actionName,
-    start: {
-      command: `${start.factoryType}-${start.actionName}.js`
+    id: actionCommand.id ?? slugify(actionCommand.actionName),
+    name: actionCommand.actionName,
+    command: {
+      command: `${actionCommand.factoryType}-${actionCommand.actionName}.js`
     }
   };
 
-  if (start.timeout !== undefined) {
-    action.start.timeout = start.timeout;
+  if (actionCommand.timeout !== undefined) {
+    action.command.timeout = actionCommand.timeout;
   }
 
-  if (start.description !== undefined) {
-    action.description = start.description;
+  if (actionCommand.description !== undefined) {
+    action.description = actionCommand.description;
   }
 
-  if (start.icon !== undefined) {
-    action.icon = start.icon;
+  if (actionCommand.icon !== undefined) {
+    action.icon = actionCommand.icon;
   }
 
-  if (start.supportsBackgroundMode !== undefined) {
-    action.supportsBackgroundMode = start.supportsBackgroundMode;
+  if (actionCommand.supportsBackgroundMode !== undefined) {
+    action.supportsBackgroundMode = actionCommand.supportsBackgroundMode;
   }
 
-  if (start.allowConcurrent !== undefined) {
-    action.allowConcurrent = start.allowConcurrent;
-  }
-
-  if (actionPair.end) {
-    const { end } = actionPair;
-    action.end = {
-      command: `${end.factoryType}-${end.actionName}.js`
-    };
-    if (end.timeout !== undefined) {
-      action.end.timeout = end.timeout;
-    }
+  if (actionCommand.allowConcurrent !== undefined) {
+    action.allowConcurrent = actionCommand.allowConcurrent;
   }
 
   return action;
@@ -163,7 +164,7 @@ function serializeTypeConfig(typeName: string, typeConfig: TypeConfigDefinition)
 function serializeEnvironment(envConfig: EnvironmentConfig): Environment {
   const env: Environment = {
     version: envConfig.version ?? 1,
-    actions: envConfig.actions.map(serializeActionPair)
+    actions: envConfig.actions.map(serializeAction)
   };
 
   if (envConfig.description !== undefined) {
@@ -223,8 +224,7 @@ export function defineConfig(config: SettingsConfig): SettingsConfig {
  * used in settings.json (plain objects with command strings).
  *
  * The transformation extracts metadata from command objects:
- * - Action metadata (name, description, icon, etc.) from ActionStartCommand
- * - End command metadata from ActionEndCommand
+ * - Action metadata (name, description, icon, etc.) from ActionCommand
  * - Type hook metadata from TypeValidatorCommand, TypeCreateCommand, etc.
  *
  * @param config - The settings configuration with command objects
@@ -234,7 +234,7 @@ export function defineConfig(config: SettingsConfig): SettingsConfig {
  *
  * @example
  * ```typescript
- * const launchStart = defineActionStart({
+ * const launch = defineAction({
  *   actionName: 'Launch',
  *   description: 'Launch Claude',
  *   icon: 'rocket'
@@ -244,7 +244,7 @@ export function defineConfig(config: SettingsConfig): SettingsConfig {
  *   environments: {
  *     default: {
  *       version: 1,
- *       actions: [{ start: launchStart }]
+ *       actions: [launch]
  *     }
  *   }
  * };
@@ -256,10 +256,11 @@ export function defineConfig(config: SettingsConfig): SettingsConfig {
  * //     default: {
  * //       version: 1,
  * //       actions: [{
+ * //         id: 'launch',
  * //         name: 'Launch',
  * //         description: 'Launch Claude',
  * //         icon: 'rocket',
- * //         start: { command: 'actionStart-Launch.js' }
+ * //         command: { command: 'action-Launch.js' }
  * //       }]
  * //     }
  * //   }

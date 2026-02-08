@@ -66,7 +66,12 @@ describe('env', () => {
         FILE_SIZE: 'FILE_SIZE',
         SHA256: 'SHA256',
         CONTENT_TYPE: 'CONTENT_TYPE',
-        VSCODE_NODE_PATH: 'VSCODE_NODE_PATH'
+        VSCODE_NODE_PATH: 'VSCODE_NODE_PATH',
+        SOCKET_PATH: 'SOCKET_PATH',
+        SWITCH_TO_INTERACTIVE_DATA_PATH: 'SWITCH_TO_INTERACTIVE_DATA_PATH',
+        CONFIG_PATH: 'CONFIG_PATH',
+        WORKSPACE_PATH: 'WORKSPACE_PATH',
+        CARD_REPO_PATH: 'CARD_REPO_PATH'
       });
     });
   });
@@ -331,6 +336,8 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
       process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
       process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
+      process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace/project';
+      process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/project/.cards/repo';
     }
 
     it('should extract all action input fields when all are set', () => {
@@ -345,7 +352,10 @@ describe('env', () => {
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc123',
-        codingAgent: 'claude'
+        codingAgent: 'claude',
+        switchToInteractiveData: undefined,
+        workspacePath: '/workspace/project',
+        cardRepoPath: '/workspace/project/.cards/repo'
       });
     });
 
@@ -360,7 +370,10 @@ describe('env', () => {
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc123',
-        codingAgent: undefined
+        codingAgent: undefined,
+        switchToInteractiveData: undefined,
+        workspacePath: '/workspace/project',
+        cardRepoPath: '/workspace/project/.cards/repo'
       });
     });
 

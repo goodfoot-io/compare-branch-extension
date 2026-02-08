@@ -8,8 +8,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type {
-  ActionEndCommand,
-  ActionStartCommand,
+  ActionCommand,
   StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
@@ -57,15 +56,15 @@ describe('defineConfig', () => {
   });
 
   it('should work with complex config objects', () => {
-    const mockCommand = vi.fn() as unknown as ActionStartCommand;
-    mockCommand.factoryType = 'actionStart';
+    const mockCommand = vi.fn() as unknown as ActionCommand;
+    mockCommand.factoryType = 'action';
     mockCommand.actionName = 'Test';
 
     const config: SettingsConfig = {
       environments: {
         default: {
           version: 1,
-          actions: [{ start: mockCommand }]
+          actions: [mockCommand]
         },
         production: {
           version: 2,
@@ -87,15 +86,15 @@ describe('defineConfig', () => {
 describe('serializeSettings', () => {
   describe('action metadata extraction', () => {
     it('should extract actionName as name', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Launch Claude';
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Launch Claude';
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
           }
         }
       };
@@ -105,17 +104,17 @@ describe('serializeSettings', () => {
       expect(result.environments.default.actions[0].name).toBe('Launch Claude');
     });
 
-    it('should extract description from start command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Deploy';
-      startCommand.description = 'Deploy to production';
+    it('should extract description from action command', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Deploy';
+      actionCommand.description = 'Deploy to production';
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
           }
         }
       };
@@ -125,17 +124,17 @@ describe('serializeSettings', () => {
       expect(result.environments.default.actions[0].description).toBe('Deploy to production');
     });
 
-    it('should extract icon from start command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Launch';
-      startCommand.icon = 'rocket';
+    it('should extract icon from action command', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Launch';
+      actionCommand.icon = 'rocket';
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
           }
         }
       };
@@ -145,17 +144,17 @@ describe('serializeSettings', () => {
       expect(result.environments.default.actions[0].icon).toBe('rocket');
     });
 
-    it('should extract supportsBackgroundMode from start command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Background Action';
-      startCommand.supportsBackgroundMode = true;
+    it('should extract supportsBackgroundMode from action command', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Background Action';
+      actionCommand.supportsBackgroundMode = true;
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
           }
         }
       };
@@ -165,17 +164,17 @@ describe('serializeSettings', () => {
       expect(result.environments.default.actions[0].supportsBackgroundMode).toBe(true);
     });
 
-    it('should extract allowConcurrent from start command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Concurrent Action';
-      startCommand.allowConcurrent = false;
+    it('should extract allowConcurrent from action command', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Concurrent Action';
+      actionCommand.allowConcurrent = false;
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
           }
         }
       };
@@ -185,57 +184,128 @@ describe('serializeSettings', () => {
       expect(result.environments.default.actions[0].allowConcurrent).toBe(false);
     });
 
-    it('should generate placeholder command path for start command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Test Action';
+    it('should generate placeholder command path for action command', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Test Action';
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
           }
         }
       };
 
       const result = serializeSettings(config);
 
-      expect(result.environments.default.actions[0].start.command).toBe('actionStart-Test Action.js');
+      expect(result.environments.default.actions[0].command.command).toBe('action-Test Action.js');
     });
 
-    it('should extract timeout from start command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Slow Action';
-      startCommand.timeout = 60000;
+    it('should extract timeout from action command', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Slow Action';
+      actionCommand.timeout = 60000;
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
           }
         }
       };
 
       const result = serializeSettings(config);
 
-      expect(result.environments.default.actions[0].start.timeout).toBe(60000);
+      expect(result.environments.default.actions[0].command.timeout).toBe(60000);
+    });
+
+    it('should generate action id from actionName when not provided', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Launch Claude';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [actionCommand]
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+
+      expect(result.environments.default.actions[0].id).toBe('launch-claude');
+    });
+
+    it('should use explicit id when provided', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Launch Claude';
+      actionCommand.id = 'custom-id';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [actionCommand]
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+
+      expect(result.environments.default.actions[0].id).toBe('custom-id');
     });
   });
 
-  describe('ActionPair to Action conversion', () => {
-    it('should convert ActionPair with only start command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Simple Action';
+  describe('ActionCommand to Action conversion', () => {
+    it('should convert ActionCommand with all metadata', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Full Action';
+      actionCommand.description = 'A full action';
+      actionCommand.icon = 'star';
+      actionCommand.supportsBackgroundMode = true;
+      actionCommand.allowConcurrent = false;
+      actionCommand.timeout = 30000;
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: startCommand }]
+            actions: [actionCommand]
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const action = result.environments.default.actions[0];
+
+      expect(action.name).toBe('Full Action');
+      expect(action.description).toBe('A full action');
+      expect(action.icon).toBe('star');
+      expect(action.supportsBackgroundMode).toBe(true);
+      expect(action.allowConcurrent).toBe(false);
+      expect(action.command).toBeDefined();
+      expect(action.command.command).toBe('action-Full Action.js');
+      expect(action.command.timeout).toBe(30000);
+    });
+
+    it('should convert ActionCommand with minimal metadata', () => {
+      const actionCommand = vi.fn() as unknown as ActionCommand;
+      actionCommand.factoryType = 'action';
+      actionCommand.actionName = 'Simple Action';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [actionCommand]
           }
         }
       };
@@ -244,80 +314,9 @@ describe('serializeSettings', () => {
       const action = result.environments.default.actions[0];
 
       expect(action.name).toBe('Simple Action');
-      expect(action.start).toBeDefined();
-      expect(action.end).toBeUndefined();
-    });
-
-    it('should handle optional end command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Full Action';
-
-      const endCommand = vi.fn() as unknown as ActionEndCommand;
-      endCommand.factoryType = 'actionEnd';
-      endCommand.actionName = 'Full Action';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [{ start: startCommand, end: endCommand }]
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const action = result.environments.default.actions[0];
-
-      expect(action.start).toBeDefined();
-      expect(action.end).toBeDefined();
-    });
-
-    it('should generate placeholder command path for end command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Action With End';
-
-      const endCommand = vi.fn() as unknown as ActionEndCommand;
-      endCommand.factoryType = 'actionEnd';
-      endCommand.actionName = 'Action With End';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [{ start: startCommand, end: endCommand }]
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-
-      expect(result.environments.default.actions[0].end?.command).toBe('actionEnd-Action With End.js');
-    });
-
-    it('should extract timeout from end command', () => {
-      const startCommand = vi.fn() as unknown as ActionStartCommand;
-      startCommand.factoryType = 'actionStart';
-      startCommand.actionName = 'Action';
-
-      const endCommand = vi.fn() as unknown as ActionEndCommand;
-      endCommand.factoryType = 'actionEnd';
-      endCommand.actionName = 'Action';
-      endCommand.timeout = 5000;
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [{ start: startCommand, end: endCommand }]
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-
-      expect(result.environments.default.actions[0].end?.timeout).toBe(5000);
+      expect(action.command).toBeDefined();
+      expect(action.description).toBeUndefined();
+      expect(action.icon).toBeUndefined();
     });
   });
 
@@ -791,19 +790,19 @@ describe('serializeSettings', () => {
     });
 
     it('should convert multiple actions in an environment', () => {
-      const action1 = vi.fn() as unknown as ActionStartCommand;
-      action1.factoryType = 'actionStart';
+      const action1 = vi.fn() as unknown as ActionCommand;
+      action1.factoryType = 'action';
       action1.actionName = 'Action 1';
 
-      const action2 = vi.fn() as unknown as ActionStartCommand;
-      action2.factoryType = 'actionStart';
+      const action2 = vi.fn() as unknown as ActionCommand;
+      action2.factoryType = 'action';
       action2.actionName = 'Action 2';
 
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
-            actions: [{ start: action1 }, { start: action2 }]
+            actions: [action1, action2]
           }
         }
       };
@@ -818,23 +817,23 @@ describe('serializeSettings', () => {
 
   describe('multiple environments', () => {
     it('should handle multiple environments', () => {
-      const devAction = vi.fn() as unknown as ActionStartCommand;
-      devAction.factoryType = 'actionStart';
+      const devAction = vi.fn() as unknown as ActionCommand;
+      devAction.factoryType = 'action';
       devAction.actionName = 'Dev Action';
 
-      const prodAction = vi.fn() as unknown as ActionStartCommand;
-      prodAction.factoryType = 'actionStart';
+      const prodAction = vi.fn() as unknown as ActionCommand;
+      prodAction.factoryType = 'action';
       prodAction.actionName = 'Prod Action';
 
       const config: SettingsConfig = {
         environments: {
           development: {
             version: 1,
-            actions: [{ start: devAction }]
+            actions: [devAction]
           },
           production: {
             version: 1,
-            actions: [{ start: prodAction }]
+            actions: [prodAction]
           }
         }
       };
@@ -865,19 +864,14 @@ describe('serializeSettings', () => {
 
   describe('complex integration', () => {
     it('should handle full config with actions and types', () => {
-      const launchStart = vi.fn() as unknown as ActionStartCommand;
-      launchStart.factoryType = 'actionStart';
-      launchStart.actionName = 'Launch Claude';
-      launchStart.description = 'Launch Claude in a new window';
-      launchStart.icon = 'rocket';
-      launchStart.supportsBackgroundMode = true;
-      launchStart.allowConcurrent = false;
-      launchStart.timeout = 30000;
-
-      const launchEnd = vi.fn() as unknown as ActionEndCommand;
-      launchEnd.factoryType = 'actionEnd';
-      launchEnd.actionName = 'Launch Claude';
-      launchEnd.timeout = 5000;
+      const launchAction = vi.fn() as unknown as ActionCommand;
+      launchAction.factoryType = 'action';
+      launchAction.actionName = 'Launch Claude';
+      launchAction.description = 'Launch Claude in a new window';
+      launchAction.icon = 'rocket';
+      launchAction.supportsBackgroundMode = true;
+      launchAction.allowConcurrent = false;
+      launchAction.timeout = 30000;
 
       const noteValidator = vi.fn() as unknown as TypeValidatorCommand;
       noteValidator.factoryType = 'typeValidator';
@@ -889,7 +883,7 @@ describe('serializeSettings', () => {
           default: {
             version: 1,
             description: 'Default environment',
-            actions: [{ start: launchStart, end: launchEnd }],
+            actions: [launchAction],
             types: {
               note: {
                 version: '1.0.0',
@@ -913,10 +907,9 @@ describe('serializeSettings', () => {
       expect(action.icon).toBe('rocket');
       expect(action.supportsBackgroundMode).toBe(true);
       expect(action.allowConcurrent).toBe(false);
-      expect(action.start.command).toBe('actionStart-Launch Claude.js');
-      expect(action.start.timeout).toBe(30000);
-      expect(action.end?.command).toBe('actionEnd-Launch Claude.js');
-      expect(action.end?.timeout).toBe(5000);
+      expect(action.command.command).toBe('action-Launch Claude.js');
+      expect(action.command.timeout).toBe(30000);
+      expect(action.id).toBe('launch-claude');
 
       // Verify type
       const typeDef = result.environments.default.types?.note;
@@ -927,19 +920,6 @@ describe('serializeSettings', () => {
   });
 
   describe('error handling', () => {
-    it('should throw for action without start command', () => {
-      const config = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [{}]
-          }
-        }
-      } as unknown as SettingsConfig;
-
-      expect(() => serializeSettings(config)).toThrow();
-    });
-
     it('should throw for type without version', () => {
       const config = {
         environments: {

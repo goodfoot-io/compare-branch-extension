@@ -92,19 +92,13 @@ describe('build output: settings.json structure', () => {
         for (const action of env.actions) {
           expect(action).toHaveProperty('name');
           expect(typeof action.name).toBe('string');
-          expect(action).toHaveProperty('start');
-          expect(action.start).toHaveProperty('command');
-          expect(typeof action.start.command).toBe('string');
+          expect(action).toHaveProperty('command');
+          expect(action.command).toHaveProperty('command');
+          expect(typeof action.command.command).toBe('string');
 
           // ID should be present (generated from name)
           expect(action).toHaveProperty('id');
           expect(typeof action.id).toBe('string');
-
-          // If end command exists, validate it
-          if (action.end) {
-            expect(action.end).toHaveProperty('command');
-            expect(typeof action.end.command).toBe('string');
-          }
         }
       }
     });
@@ -140,11 +134,7 @@ describe('build output: settings.json structure', () => {
       for (const [_envName, env] of Object.entries(settings.environments)) {
         for (const action of env.actions) {
           // Commands should reference bin directory (either ./bin/ or $CARDS_PLUGIN_ROOT/bin/)
-          expect(action.start.command).toMatch(/bin\//);
-
-          if (action.end) {
-            expect(action.end.command).toMatch(/bin\//);
-          }
+          expect(action.command.command).toMatch(/bin\//);
         }
 
         if (env.types) {
@@ -163,11 +153,7 @@ describe('build output: settings.json structure', () => {
 
       for (const [_envName, env] of Object.entries(settings.environments)) {
         for (const action of env.actions) {
-          expect(action.start.command).toMatch(hashPattern);
-
-          if (action.end) {
-            expect(action.end.command).toMatch(hashPattern);
-          }
+          expect(action.command.command).toMatch(hashPattern);
         }
 
         if (env.types) {
@@ -438,10 +424,10 @@ describe('build output: handler execution', () => {
   describe('action handlers', () => {
     it('should fail with missing environment variables', async () => {
       const files = settings.__generated?.files ?? [];
-      const actionHandler = files.find((f) => f.includes('launch-claude-start'));
+      const actionHandler = files.find((f) => f.includes('action-launch-claude') || f.includes('launch-claude'));
 
       if (!actionHandler) {
-        throw new Error('No action start handler found in build output');
+        throw new Error('No action handler found in build output');
       }
 
       const handlerPath = path.join(binDir, actionHandler);
@@ -455,10 +441,10 @@ describe('build output: handler execution', () => {
 
     it('should execute successfully with valid environment', async () => {
       const files = settings.__generated?.files ?? [];
-      const actionHandler = files.find((f) => f.includes('launch-claude-start'));
+      const actionHandler = files.find((f) => f.includes('action-launch-claude') || f.includes('launch-claude'));
 
       if (!actionHandler) {
-        throw new Error('No action start handler found in build output');
+        throw new Error('No action handler found in build output');
       }
 
       const handlerPath = path.join(binDir, actionHandler);
@@ -472,10 +458,10 @@ describe('build output: handler execution', () => {
 
     it('should fail with invalid execution mode', async () => {
       const files = settings.__generated?.files ?? [];
-      const actionHandler = files.find((f) => f.includes('launch-claude-start'));
+      const actionHandler = files.find((f) => f.includes('action-launch-claude') || f.includes('launch-claude'));
 
       if (!actionHandler) {
-        throw new Error('No action start handler found in build output');
+        throw new Error('No action handler found in build output');
       }
 
       const handlerPath = path.join(binDir, actionHandler);
@@ -485,22 +471,6 @@ describe('build output: handler execution', () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('Invalid EXECUTION_MODE');
-    });
-
-    it('should execute end handlers successfully', async () => {
-      const files = settings.__generated?.files ?? [];
-      const endHandler = files.find((f) => f.includes('launch-claude-end'));
-
-      if (!endHandler) {
-        throw new Error('No action end handler found in build output');
-      }
-
-      const handlerPath = path.join(binDir, endHandler);
-      const env = createActionEnv();
-
-      const result = await executeHandler(handlerPath, env);
-
-      expect(result.exitCode).toBe(0);
     });
   });
 
@@ -829,7 +799,7 @@ describe('build output: input/output handling', () => {
   describe('environment variable input', () => {
     it('should read CARD_ID from environment', async () => {
       const files = settings.__generated?.files ?? [];
-      const handler = files.find((f) => f.includes('launch-claude-start'));
+      const handler = files.find((f) => f.includes('action-launch-claude') || f.includes('launch-claude'));
       if (!handler) throw new Error('Handler not found');
 
       const handlerPath = path.join(binDir, handler);
@@ -848,7 +818,7 @@ describe('build output: input/output handling', () => {
 
     it('should read EXECUTION_MODE and validate it', async () => {
       const files = settings.__generated?.files ?? [];
-      const handler = files.find((f) => f.includes('launch-claude-start'));
+      const handler = files.find((f) => f.includes('action-launch-claude') || f.includes('launch-claude'));
       if (!handler) throw new Error('Handler not found');
 
       const handlerPath = path.join(binDir, handler);
@@ -870,7 +840,7 @@ describe('build output: input/output handling', () => {
 
     it('should accept both interactive and background execution modes', async () => {
       const files = settings.__generated?.files ?? [];
-      const handler = files.find((f) => f.includes('launch-claude-start'));
+      const handler = files.find((f) => f.includes('action-launch-claude') || f.includes('launch-claude'));
       if (!handler) throw new Error('Handler not found');
 
       const handlerPath = path.join(binDir, handler);
@@ -1062,7 +1032,7 @@ Valid content.
 
     it('should exit with code 1 on environment extraction failure', async () => {
       const files = settings.__generated?.files ?? [];
-      const handler = files.find((f) => f.includes('launch-claude-start'));
+      const handler = files.find((f) => f.includes('action-launch-claude') || f.includes('launch-claude'));
       if (!handler) throw new Error('Handler not found');
 
       const handlerPath = path.join(binDir, handler);
@@ -1184,10 +1154,7 @@ describe('build output: cross-reference validation', () => {
 
     for (const [_envName, env] of Object.entries(settings.environments)) {
       for (const action of env.actions) {
-        referencedFiles.push(extractFilename(action.start.command));
-        if (action.end) {
-          referencedFiles.push(extractFilename(action.end.command));
-        }
+        referencedFiles.push(extractFilename(action.command.command));
       }
 
       if (env.types) {

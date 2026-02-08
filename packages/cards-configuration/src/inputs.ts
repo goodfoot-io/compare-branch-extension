@@ -9,7 +9,7 @@
  */
 
 /**
- * Input payload for action start and end handlers.
+ * Input payload for action handlers.
  *
  * These values are injected as environment variables by the action dispatcher
  * when spawning action commands. The runtime extracts them and passes them to
@@ -21,7 +21,7 @@
  *
  * @example
  * ```typescript
- * async (input: ActionStartInput, { logger }) => {
+ * async (input: ActionInput, { logger }) => {
  *   // Access card context
  *   logger.info(`Processing card ${input.cardId}`);
  *
@@ -32,7 +32,7 @@
  * }
  * ```
  */
-export interface ActionStartInput {
+export interface ActionInput {
   /**
    * Unique identifier for the current card.
    *
@@ -80,18 +80,29 @@ export interface ActionStartInput {
    * can use this to customize behavior or prompts for different agents.
    */
   codingAgent?: string;
-}
 
-/**
- * Input payload for action end handlers.
- *
- * Structurally identical to {@link ActionStartInput}. The end handler is only
- * invoked when the start handler exits successfully (code 0), so no exit code
- * or error information is included.
- *
- * @see {@link ActionStartInput} for field descriptions
- */
-export type ActionEndInput = ActionStartInput;
+  /**
+   * Data passed from a previous switchToInteractive response.
+   *
+   * When an action is relaunched in interactive mode after a background-to-interactive
+   * switch, this field contains the serialized data returned by the previous handler's
+   * `onSwitchToInteractive` callback. The data is read from a file at
+   * `SWITCH_TO_INTERACTIVE_DATA_PATH`.
+   *
+   * Undefined when the action is launched normally (not via switchToInteractive).
+   */
+  switchToInteractiveData?: unknown;
+
+  /**
+   * Path to the VS Code workspace root directory.
+   */
+  workspacePath: string;
+
+  /**
+   * Path to the card's repository directory.
+   */
+  cardRepoPath: string;
+}
 
 /**
  * Input payload for type lifecycle hooks.
@@ -195,14 +206,22 @@ export interface TypeHookInput {
 /**
  * Runtime context injected when an action executes.
  *
- * The context is created by the runtime and provides utilities for logging
- * and accessing the working directory. It is intentionally minimal to avoid
- * coupling actions to runtime internals.
+ * The context is created by the runtime and provides utilities for logging,
+ * accessing the working directory, and registering lifecycle callbacks.
  *
  * @example
  * ```typescript
  * async (input, context: ActionContext) => {
  *   context.logger.info('Action started', { cwd: context.cwd });
+ *
+ *   // Register lifecycle callbacks
+ *   context.onCancel(() => {
+ *     context.logger.info('Action cancelled');
+ *   });
+ *
+ *   context.onSwitchToInteractive(() => {
+ *     return { sessionId: 'abc123' };
+ *   });
  *
  *   // Use cwd for file operations
  *   const configPath = path.join(context.cwd, 'config.json');
@@ -235,6 +254,31 @@ export interface ActionContext {
    * as the base for relative file operations.
    */
   cwd: string;
+
+  /**
+   * Register a callback to be invoked when the action is cancelled.
+   *
+   * The callback is called when the runtime receives a cancel command
+   * via the socket connection. If no callback is registered, the runtime
+   * will send SIGTERM to terminate the process.
+   *
+   * @param callback - Function to call on cancellation
+   */
+  onCancel(callback: () => void | Promise<void>): void;
+
+  /**
+   * Register a callback to handle switching from background to interactive mode.
+   *
+   * The callback should return serializable data that will be passed to the
+   * relaunched handler via `ActionInput.switchToInteractiveData`. The runtime
+   * will send this data back to the dispatcher and exit with a special exit code.
+   *
+   * If no callback is registered when the switchToInteractive command arrives,
+   * the command is ignored (no-op).
+   *
+   * @param callback - Function that returns data to pass to the relaunched handler
+   */
+  onSwitchToInteractive(callback: () => unknown | Promise<unknown>): void;
 }
 
 // ============================================================================

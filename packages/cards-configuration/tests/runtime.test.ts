@@ -4,8 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
-  ActionEndCommand,
-  ActionStartCommand,
+  ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand
@@ -45,6 +44,8 @@ describe('runtime', () => {
     process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
     process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
     process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-456';
+    process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace';
+    process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/cards';
   });
 
   afterEach(() => {
@@ -55,11 +56,11 @@ describe('runtime', () => {
   });
 
   describe('execute', () => {
-    describe('action start commands', () => {
-      it('should execute action start command with extracted input', async () => {
+    describe('action commands', () => {
+      it('should execute action command with extracted input', async () => {
         const handler = vi.fn().mockResolvedValue(undefined);
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -76,13 +77,15 @@ describe('runtime', () => {
           }),
           expect.objectContaining({
             logger: expect.any(Object),
-            cwd: expect.any(String)
+            cwd: expect.any(String),
+            onCancel: expect.any(Function),
+            onSwitchToInteractive: expect.any(Function)
           })
         );
 
         // Should set logger context
         expect(loggerSetContextSpy).toHaveBeenCalledWith(
-          'actionStart',
+          'action',
           expect.objectContaining({ cardId: 'card-123' })
         );
 
@@ -92,11 +95,11 @@ describe('runtime', () => {
         expect(loggerCloseSpy).toHaveBeenCalled();
       });
 
-      it('should handle handler errors in action start', async () => {
+      it('should handle handler errors in action', async () => {
         const error = new Error('Handler failed');
         const handler = vi.fn().mockRejectedValue(error);
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -118,8 +121,8 @@ describe('runtime', () => {
         process.env[CARDS_ENV_VARS.CODING_AGENT] = 'claude';
 
         const handler = vi.fn().mockResolvedValue(undefined);
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -131,54 +134,6 @@ describe('runtime', () => {
           }),
           expect.any(Object)
         );
-      });
-    });
-
-    describe('action end commands', () => {
-      it('should execute action end command with extracted input', async () => {
-        const handler = vi.fn().mockResolvedValue(undefined);
-        const command: ActionEndCommand = Object.assign(handler, {
-          factoryType: 'actionEnd' as const,
-          actionName: 'Test Action'
-        });
-
-        await execute(command);
-
-        // Should extract action input (same as start)
-        expect(handler).toHaveBeenCalledWith(
-          expect.objectContaining({
-            cardId: 'card-123',
-            environment: 'default',
-            executionMode: 'interactive'
-          }),
-          expect.objectContaining({
-            logger: expect.any(Object),
-            cwd: expect.any(String)
-          })
-        );
-
-        // Should set logger context
-        expect(loggerSetContextSpy).toHaveBeenCalledWith('actionEnd', expect.objectContaining({ cardId: 'card-123' }));
-
-        // Should exit successfully
-        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
-      });
-
-      it('should handle handler errors in action end', async () => {
-        const error = new Error('End handler failed');
-        const handler = vi.fn().mockRejectedValue(error);
-        const command: ActionEndCommand = Object.assign(handler, {
-          factoryType: 'actionEnd' as const,
-          actionName: 'Test Action'
-        });
-
-        await execute(command);
-
-        // Should write error to stderr
-        expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('End handler failed'));
-
-        // Should exit with error
-        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
     });
 
@@ -353,8 +308,8 @@ describe('runtime', () => {
         delete process.env[CARDS_ENV_VARS.CARD_ID];
 
         const handler = vi.fn().mockResolvedValue(undefined);
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -379,8 +334,8 @@ describe('runtime', () => {
     describe('context management', () => {
       it('should set and clear logger context', async () => {
         const handler = vi.fn().mockResolvedValue(undefined);
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -395,8 +350,8 @@ describe('runtime', () => {
 
       it('should clear context even when handler throws', async () => {
         const handler = vi.fn().mockRejectedValue(new Error('Handler error'));
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -409,8 +364,8 @@ describe('runtime', () => {
 
       it('should provide cwd in action context', async () => {
         const handler = vi.fn().mockResolvedValue(undefined);
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -428,8 +383,8 @@ describe('runtime', () => {
     describe('non-Error throw values', () => {
       it('should handle string throws', async () => {
         const handler = vi.fn().mockRejectedValue('String error');
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 
@@ -444,8 +399,8 @@ describe('runtime', () => {
 
       it('should handle object throws', async () => {
         const handler = vi.fn().mockRejectedValue({ code: 'ERR_CUSTOM' });
-        const command: ActionStartCommand = Object.assign(handler, {
-          factoryType: 'actionStart' as const,
+        const command: ActionCommand = Object.assign(handler, {
+          factoryType: 'action' as const,
           actionName: 'Test Action'
         });
 

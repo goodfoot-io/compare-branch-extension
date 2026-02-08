@@ -6,101 +6,87 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
-import type { ActionContext, ActionEndInput, ActionStartInput, TypeHookInput } from '../src/inputs.js';
+import type { ActionContext, ActionInput, TypeHookInput } from '../src/inputs.js';
 import type { ILogger } from '../src/logger.js';
 
 describe('inputs', () => {
-  describe('ActionStartInput', () => {
+  describe('ActionInput', () => {
     it('should have all required fields with correct types', () => {
-      expectTypeOf<ActionStartInput>().toMatchTypeOf<{
+      expectTypeOf<ActionInput>().toMatchTypeOf<{
         cardId: string;
         environment: string;
         executionMode: 'interactive' | 'background';
         apiBaseUrl: string;
         apiAccessToken: string;
+        workspacePath: string;
+        cardRepoPath: string;
       }>();
     });
 
     it('should have optional codingAgent field', () => {
-      expectTypeOf<ActionStartInput>().toMatchTypeOf<{
+      expectTypeOf<ActionInput>().toMatchTypeOf<{
         codingAgent?: string;
       }>();
     });
 
+    it('should have optional switchToInteractiveData field', () => {
+      expectTypeOf<ActionInput>().toMatchTypeOf<{
+        switchToInteractiveData?: unknown;
+      }>();
+    });
+
     it('should allow interactive execution mode', () => {
-      const input: ActionStartInput = {
+      const input: ActionInput = {
         cardId: 'card-123',
         environment: 'default',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc'
+        apiAccessToken: 'token-abc',
+        workspacePath: '/workspace',
+        cardRepoPath: '/workspace/.cards/card-123'
       };
 
       expectTypeOf(input.executionMode).toEqualTypeOf<'interactive' | 'background'>();
     });
 
     it('should allow background execution mode', () => {
-      const input: ActionStartInput = {
+      const input: ActionInput = {
         cardId: 'card-123',
         environment: 'default',
         executionMode: 'background',
         apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc'
+        apiAccessToken: 'token-abc',
+        workspacePath: '/workspace',
+        cardRepoPath: '/workspace/.cards/card-123'
       };
 
       expectTypeOf(input.executionMode).toEqualTypeOf<'interactive' | 'background'>();
     });
 
     it('should allow optional codingAgent', () => {
-      const inputWithAgent: ActionStartInput = {
+      const inputWithAgent: ActionInput = {
         cardId: 'card-123',
         environment: 'default',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
-        codingAgent: 'claude'
+        codingAgent: 'claude',
+        workspacePath: '/workspace',
+        cardRepoPath: '/workspace/.cards/card-123'
       };
 
-      const inputWithoutAgent: ActionStartInput = {
+      const inputWithoutAgent: ActionInput = {
         cardId: 'card-123',
         environment: 'default',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc'
+        apiAccessToken: 'token-abc',
+        workspacePath: '/workspace',
+        cardRepoPath: '/workspace/.cards/card-123'
       };
 
       expectTypeOf(inputWithAgent.codingAgent).toEqualTypeOf<string | undefined>();
       expectTypeOf(inputWithoutAgent.codingAgent).toEqualTypeOf<string | undefined>();
-    });
-  });
-
-  describe('ActionEndInput', () => {
-    it('should be identical to ActionStartInput', () => {
-      expectTypeOf<ActionEndInput>().toEqualTypeOf<ActionStartInput>();
-    });
-
-    it('should have all the same fields as ActionStartInput', () => {
-      expectTypeOf<ActionEndInput>().toMatchTypeOf<{
-        cardId: string;
-        environment: string;
-        executionMode: 'interactive' | 'background';
-        apiBaseUrl: string;
-        apiAccessToken: string;
-        codingAgent?: string;
-      }>();
-    });
-
-    it('should be assignable to ActionStartInput', () => {
-      const endInput: ActionEndInput = {
-        cardId: 'card-123',
-        environment: 'default',
-        executionMode: 'interactive',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc'
-      };
-
-      const startInput: ActionStartInput = endInput;
-      expectTypeOf(startInput).toEqualTypeOf<ActionStartInput>();
     });
   });
 
@@ -177,24 +163,38 @@ describe('inputs', () => {
       expectTypeOf<ActionContext['cwd']>().toEqualTypeOf<string>();
     });
 
+    it('should have onCancel method', () => {
+      expectTypeOf<ActionContext>().toHaveProperty('onCancel');
+      expectTypeOf<ActionContext['onCancel']>().toBeFunction();
+    });
+
+    it('should have onSwitchToInteractive method', () => {
+      expectTypeOf<ActionContext>().toHaveProperty('onSwitchToInteractive');
+      expectTypeOf<ActionContext['onSwitchToInteractive']>().toBeFunction();
+    });
+
     it('should be usable in handler signature', () => {
-      const handler = async (input: ActionStartInput, context: ActionContext): Promise<void> => {
+      const handler = async (input: ActionInput, context: ActionContext): Promise<void> => {
         context.logger.info('test', { cardId: input.cardId });
+        context.onCancel(() => {});
+        context.onSwitchToInteractive(() => ({ sessionId: 'abc' }));
         const configPath = `${context.cwd}/config.json`;
         expectTypeOf(configPath).toEqualTypeOf<string>();
       };
 
-      expectTypeOf(handler).toMatchTypeOf<(input: ActionStartInput, context: ActionContext) => Promise<void>>();
+      expectTypeOf(handler).toMatchTypeOf<(input: ActionInput, context: ActionContext) => Promise<void>>();
     });
 
     it('should allow destructuring in handler', () => {
-      const handler = async (_input: ActionStartInput, { logger, cwd }: ActionContext): Promise<void> => {
+      const handler = async (_input: ActionInput, { logger, cwd, onCancel, onSwitchToInteractive }: ActionContext): Promise<void> => {
         logger.info('test');
+        onCancel(() => {});
+        onSwitchToInteractive(() => ({}));
         expectTypeOf(logger).toEqualTypeOf<ILogger>();
         expectTypeOf(cwd).toEqualTypeOf<string>();
       };
 
-      expectTypeOf(handler).parameters.toMatchTypeOf<[ActionStartInput, ActionContext]>();
+      expectTypeOf(handler).parameters.toMatchTypeOf<[ActionInput, ActionContext]>();
     });
   });
 });

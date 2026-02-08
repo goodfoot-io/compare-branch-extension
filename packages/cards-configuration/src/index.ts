@@ -16,15 +16,10 @@
 // ============================================================================
 
 export {
-  type ActionEndConfig,
-  type ActionEndHandler,
-  defineActionEnd
-} from './factories/action-end.js';
-export {
+  type ActionConfig,
   type ActionHandler,
-  type ActionStartConfig,
-  defineActionStart
-} from './factories/action-start.js';
+  defineAction
+} from './factories/action.js';
 
 // ============================================================================
 // Type Hook Factories
@@ -56,7 +51,6 @@ export {
 // ============================================================================
 
 export type {
-  ActionPair,
   EnvironmentConfig,
   SettingsConfig,
   StreamConfigDefinition,
@@ -83,8 +77,7 @@ export type {
 
 export type {
   ActionContext,
-  ActionEndInput,
-  ActionStartInput,
+  ActionInput,
   TypeHookInput,
   TypeValidatorContext,
   TypeValidatorRequest
@@ -95,8 +88,7 @@ export type {
 // ============================================================================
 
 export type {
-  ActionEndCommand,
-  ActionStartCommand,
+  ActionCommand,
   StreamInitContext,
   StreamInitHandler as StreamInitHandlerType,
   StreamTransformCommand,
@@ -124,7 +116,9 @@ export {
   getApiAccessToken,
   getApiBaseUrl,
   getCardId,
+  getCardRepoPath,
   getCodingAgent,
+  getConfigPath,
   getContentType,
   getEnvironment,
   getExecutionMode,
@@ -132,8 +126,13 @@ export {
   getFilePath,
   getFileSize,
   getSha256,
+  getSocketPath,
+  getSwitchToInteractiveDataPath,
   getTypeName,
-  getTypeVersion
+  getTypeVersion,
+  getVscodeNodePath,
+  getWorkspacePath,
+  readSwitchToInteractiveData
 } from './env.js';
 
 // ============================================================================

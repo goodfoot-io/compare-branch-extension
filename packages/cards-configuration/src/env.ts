@@ -12,7 +12,8 @@
  * @module
  */
 
-import type { ActionStartInput, TypeHookInput } from './inputs.js';
+import { readFileSync } from 'node:fs';
+import type { ActionInput, TypeHookInput } from './inputs.js';
 
 // ============================================================================
 // Constants
@@ -116,7 +117,37 @@ export const CARDS_ENV_VARS = {
    *
    * Available in all actions and type hooks.
    */
-  VSCODE_NODE_PATH: 'VSCODE_NODE_PATH'
+  VSCODE_NODE_PATH: 'VSCODE_NODE_PATH',
+
+  /**
+   * Path to the Unix domain socket for runtime-to-dispatcher communication.
+   * Available in actions only.
+   */
+  SOCKET_PATH: 'SOCKET_PATH',
+
+  /**
+   * Path to a JSON file containing switchToInteractive data from a previous handler.
+   * Available in actions only. Optional.
+   */
+  SWITCH_TO_INTERACTIVE_DATA_PATH: 'SWITCH_TO_INTERACTIVE_DATA_PATH',
+
+  /**
+   * Path to the settings configuration directory.
+   * Available in actions only.
+   */
+  CONFIG_PATH: 'CONFIG_PATH',
+
+  /**
+   * Path to the VS Code workspace root directory.
+   * Available in actions only.
+   */
+  WORKSPACE_PATH: 'WORKSPACE_PATH',
+
+  /**
+   * Path to the card's repository directory.
+   * Available in actions only.
+   */
+  CARD_REPO_PATH: 'CARD_REPO_PATH'
 } as const;
 
 // ============================================================================
@@ -422,6 +453,96 @@ export function getVscodeNodePath(): string {
   return value;
 }
 
+/**
+ * Reads the Unix domain socket path for runtime-to-dispatcher communication.
+ *
+ * @returns The socket path
+ * @throws Error if SOCKET_PATH is missing or empty
+ */
+export function getSocketPath(): string {
+  const value = process.env[CARDS_ENV_VARS.SOCKET_PATH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.SOCKET_PATH}`);
+  }
+  return value;
+}
+
+/**
+ * Reads the path to the switchToInteractive data file.
+ *
+ * This is optional — returns undefined when not set (i.e., the action
+ * was not relaunched via switchToInteractive).
+ *
+ * @returns The file path, or undefined if not set
+ */
+export function getSwitchToInteractiveDataPath(): string | undefined {
+  const value = process.env[CARDS_ENV_VARS.SWITCH_TO_INTERACTIVE_DATA_PATH];
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+  return value;
+}
+
+/**
+ * Reads the settings configuration directory path.
+ *
+ * @returns The config path
+ * @throws Error if CONFIG_PATH is missing or empty
+ */
+export function getConfigPath(): string {
+  const value = process.env[CARDS_ENV_VARS.CONFIG_PATH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.CONFIG_PATH}`);
+  }
+  return value;
+}
+
+/**
+ * Reads the VS Code workspace root directory path.
+ *
+ * @returns The workspace path
+ * @throws Error if WORKSPACE_PATH is missing or empty
+ */
+export function getWorkspacePath(): string {
+  const value = process.env[CARDS_ENV_VARS.WORKSPACE_PATH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.WORKSPACE_PATH}`);
+  }
+  return value;
+}
+
+/**
+ * Reads the card's repository directory path.
+ *
+ * @returns The card repo path
+ * @throws Error if CARD_REPO_PATH is missing or empty
+ */
+export function getCardRepoPath(): string {
+  const value = process.env[CARDS_ENV_VARS.CARD_REPO_PATH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.CARD_REPO_PATH}`);
+  }
+  return value;
+}
+
+/**
+ * Reads and parses the switchToInteractive data file.
+ *
+ * When `SWITCH_TO_INTERACTIVE_DATA_PATH` is set, reads the file at that path
+ * and parses it as JSON. Returns undefined if the env var is not set.
+ *
+ * @returns The parsed data, or undefined if the path is not set
+ * @throws Error if the file cannot be read or contains invalid JSON
+ */
+export function readSwitchToInteractiveData(): unknown | undefined {
+  const dataPath = getSwitchToInteractiveDataPath();
+  if (dataPath === undefined) {
+    return undefined;
+  }
+  const content = readFileSync(dataPath, 'utf-8');
+  return JSON.parse(content);
+}
+
 // ============================================================================
 // Typed Input Extraction
 // ============================================================================
@@ -429,9 +550,9 @@ export function getVscodeNodePath(): string {
 /**
  * Builds a typed action input object from environment variables.
  *
- * Extracts all fields required for action start and end handlers.
+ * Extracts all fields required for action handlers.
  *
- * @returns Typed ActionStartInput object
+ * @returns Typed ActionInput object
  * @throws Error if required env vars are missing or invalid
  * @example
  * ```typescript
@@ -441,14 +562,17 @@ export function getVscodeNodePath(): string {
  * console.log(input.executionMode);
  * ```
  */
-export function extractActionInput(): ActionStartInput {
+export function extractActionInput(): ActionInput {
   return {
     cardId: getCardId(),
     environment: getEnvironment(),
     executionMode: getExecutionMode(),
     apiBaseUrl: getApiBaseUrl(),
     apiAccessToken: getApiAccessToken(),
-    codingAgent: getCodingAgent()
+    codingAgent: getCodingAgent(),
+    switchToInteractiveData: readSwitchToInteractiveData(),
+    workspacePath: getWorkspacePath(),
+    cardRepoPath: getCardRepoPath()
   };
 }
 

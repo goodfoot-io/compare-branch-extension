@@ -1,28 +1,23 @@
 /**
- * Settings configuration types with compile-time action pairing validation.
+ * Settings configuration types for defineConfig().
  *
  * These types define the input format for `defineConfig()` - what users write
- * in their settings.config.ts files. The key innovation is `ActionPair<N>`
- * which enforces that start and end commands have matching action names at
- * compile time using generic constraints.
+ * in their settings.config.ts files.
  *
  * @module
  *
  * @example
  * ```typescript
  * import { defineConfig } from '@cards/configuration';
- * import { defineActionStart, defineActionEnd } from '@cards/configuration/factories';
+ * import { defineAction } from '@cards/configuration/factories';
  *
- * const launchStart = defineActionStart({ actionName: 'Launch' }, async () => {});
- * const launchEnd = defineActionEnd({ actionName: 'Launch' }, async () => {});
+ * const launch = defineAction({ actionName: 'Launch' }, async () => {});
  *
  * export default defineConfig({
  *   environments: {
  *     default: {
  *       version: 1,
- *       actions: [
- *         { start: launchStart, end: launchEnd } // Type-safe: names match
- *       ]
+ *       actions: [launch]
  *     }
  *   }
  * });
@@ -30,60 +25,13 @@
  */
 
 import type {
-  ActionEndCommand,
-  ActionStartCommand,
+  ActionCommand,
   StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
   TypeValidatorCommand
 } from './command-types.js';
-
-// ============================================================================
-// Action Configuration
-// ============================================================================
-
-/**
- * Action pair with compile-time name matching.
- *
- * The generic parameter `N` enforces that the start and end commands have the
- * same action name. TypeScript will error if you try to pair a start command
- * with an end command that has a different action name.
- *
- * @template N - The literal action name type (e.g., 'Launch Claude')
- *
- * @example
- * ```typescript
- * // Valid: matching action names
- * const start: ActionStartCommand<'Deploy'> = defineActionStart({ actionName: 'Deploy' }, handler);
- * const end: ActionEndCommand<'Deploy'> = defineActionEnd({ actionName: 'Deploy' }, handler);
- * const pair: ActionPair<'Deploy'> = { start, end };
- *
- * // Type error: mismatched action names
- * const wrongEnd: ActionEndCommand<'Build'> = defineActionEnd({ actionName: 'Build' }, handler);
- * const invalidPair: ActionPair<'Deploy'> = { start, end: wrongEnd }; // Error!
- *
- * // Valid: end is optional
- * const pairWithoutEnd: ActionPair<'Deploy'> = { start };
- * ```
- */
-export interface ActionPair<N extends string = string> {
-  /**
-   * Action start command.
-   *
-   * This command runs when the action is triggered. The action name is
-   * preserved as a literal type to enable compile-time pairing validation.
-   */
-  start: ActionStartCommand<N>;
-
-  /**
-   * Optional action end command.
-   *
-   * This command runs after the start command exits with code 0. The action
-   * name must match the start command's action name, enforced by TypeScript.
-   */
-  end?: ActionEndCommand<N>;
-}
 
 // ============================================================================
 // Stream Configuration
@@ -205,9 +153,7 @@ export interface TypeConfigDefinition {
  * const devEnvironment: EnvironmentConfig = {
  *   version: 1,
  *   description: 'Development environment with debug actions',
- *   actions: [
- *     { start: launchDebugStart, end: launchDebugEnd }
- *   ],
+ *   actions: [launch, deploy],
  *   types: {
  *     'adaptive-card': adaptiveCardTypeConfig
  *   }
@@ -232,11 +178,9 @@ export interface EnvironmentConfig {
   /**
    * Actions available in this environment.
    *
-   * Array of action pairs (start command with optional end command). The
-   * ActionPair type enforces that start and end commands have matching
-   * action names.
+   * Array of action commands created by the defineAction factory.
    */
-  actions: ActionPair[];
+  actions: ActionCommand[];
 
   /**
    * Optional type definitions.
@@ -271,15 +215,11 @@ export interface EnvironmentConfig {
  *   environments: {
  *     default: {
  *       version: 1,
- *       actions: [
- *         { start: launchStart, end: launchEnd }
- *       ]
+ *       actions: [launch, deploy]
  *     },
  *     production: {
  *       version: 1,
- *       actions: [
- *         { start: deployStart }
- *       ]
+ *       actions: [deploy]
  *     }
  *   }
  * };

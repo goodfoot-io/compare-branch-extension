@@ -44,7 +44,9 @@ const createMockContext = (): ActionContext => ({
     error: vi.fn(),
     logError: vi.fn()
   } satisfies ILogger,
-  cwd: '/workspace'
+  cwd: '/workspace',
+  onCancel: vi.fn(),
+  onSwitchToInteractive: vi.fn()
 });
 
 // Mock validator request and context

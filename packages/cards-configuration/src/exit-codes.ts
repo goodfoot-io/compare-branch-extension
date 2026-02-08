@@ -20,7 +20,9 @@ export const EXIT_CODES = {
   /** Handler completed successfully. */
   SUCCESS: 0,
   /** Handler threw an error. */
-  ERROR: 1
+  ERROR: 1,
+  /** Handler processed switchToInteractive and is exiting for relaunch. */
+  SWITCH_TO_INTERACTIVE: 42
 } as const;
 
 /**

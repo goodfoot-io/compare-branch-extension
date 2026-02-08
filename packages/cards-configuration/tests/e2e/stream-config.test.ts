@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  defineActionStart,
+  defineAction,
   defineStreamTransform,
   defineTypeValidator,
   type SettingsConfig,
@@ -223,7 +223,7 @@ describe('stream configuration serialization', () => {
     it('should serialize streams alongside actions', () => {
       const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
 
-      const startAction = defineActionStart({ actionName: 'test-action' }, async () => {
+      const actionCommand = defineAction({ actionName: 'test-action' }, async () => {
         // Action implementation
       });
 
@@ -231,11 +231,7 @@ describe('stream configuration serialization', () => {
         environments: {
           default: {
             version: 1,
-            actions: [
-              {
-                start: startAction
-              }
-            ],
+            actions: [actionCommand],
             streams: {
               'test-stream': {
                 version: 1,
@@ -295,7 +291,7 @@ describe('stream configuration serialization', () => {
     it('should serialize full config with actions, types, and streams', () => {
       const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
 
-      const startAction = defineActionStart({ actionName: 'test-action' }, async () => {
+      const actionCommand = defineAction({ actionName: 'test-action' }, async () => {
         // Action implementation
       });
 
@@ -305,11 +301,7 @@ describe('stream configuration serialization', () => {
         environments: {
           default: {
             version: 1,
-            actions: [
-              {
-                start: startAction
-              }
-            ],
+            actions: [actionCommand],
             types: {
               note: {
                 version: '1.0.0',

@@ -36,11 +36,10 @@ export interface Command {
 // ============================================================================
 
 /**
- * Represents an action with start and optional end commands.
+ * Represents an action with a single command.
  *
  * Actions are user-facing operations that can be triggered through the UI.
- * Each action must have a start command and can optionally have an end command
- * for cleanup or state management.
+ * Each action has a single command that handles the full action lifecycle.
  *
  * @example
  * ```typescript
@@ -49,8 +48,7 @@ export interface Command {
  *   name: 'Launch Claude',
  *   description: 'Launch Claude in a new window',
  *   icon: 'rocket',
- *   start: { command: 'node ./bin/launch-start.js' },
- *   end: { command: 'node ./bin/launch-end.js' },
+ *   command: { command: 'node ./bin/action-Launch Claude.js' },
  *   supportsBackgroundMode: true,
  *   allowConcurrent: false
  * };
@@ -65,10 +63,8 @@ export interface Action {
   description?: string;
   /** Optional icon identifier */
   icon?: string;
-  /** Command to execute when action starts */
-  start: Command;
-  /** Optional command to execute when action ends */
-  end?: Command;
+  /** Command to execute for this action */
+  command: Command;
   /** Whether the action can run in background mode */
   supportsBackgroundMode?: boolean;
   /** Whether multiple instances can run concurrently */
