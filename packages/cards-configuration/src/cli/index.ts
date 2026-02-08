@@ -85,6 +85,20 @@ export type BuildResult = BuildSuccess | BuildFailure;
 // ============================================================================
 
 /**
+ * Removes a file, ignoring ENOENT (already deleted).
+ * Logs a warning for other errors.
+ */
+function tryUnlink(filePath: string): void {
+  try {
+    fs.unlinkSync(filePath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn('[cards-configuration] Failed to clean up file %s: %s', filePath, (err as Error).message);
+    }
+  }
+}
+
+/**
  * Generates an 8-character content hash for cache busting.
  */
 function generateContentHash(content: string): string {
@@ -151,38 +165,18 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
 
     // Extract type commands
     if (envConfig.types) {
+      const typeHookKeys = ['validator', 'create', 'update', 'delete'] as const;
       for (const typeConfig of Object.values(envConfig.types)) {
-        if (typeConfig.validator) {
-          commands.push({
-            factoryType: typeConfig.validator.factoryType,
-            name: typeConfig.validator.typeName,
-            sourcePath: typeConfig.validator.sourcePath,
-            timeout: typeConfig.validator.timeout
-          });
-        }
-        if (typeConfig.create) {
-          commands.push({
-            factoryType: typeConfig.create.factoryType,
-            name: typeConfig.create.typeName,
-            sourcePath: typeConfig.create.sourcePath,
-            timeout: typeConfig.create.timeout
-          });
-        }
-        if (typeConfig.update) {
-          commands.push({
-            factoryType: typeConfig.update.factoryType,
-            name: typeConfig.update.typeName,
-            sourcePath: typeConfig.update.sourcePath,
-            timeout: typeConfig.update.timeout
-          });
-        }
-        if (typeConfig.delete) {
-          commands.push({
-            factoryType: typeConfig.delete.factoryType,
-            name: typeConfig.delete.typeName,
-            sourcePath: typeConfig.delete.sourcePath,
-            timeout: typeConfig.delete.timeout
-          });
+        for (const hookKey of typeHookKeys) {
+          const hook = typeConfig[hookKey];
+          if (hook) {
+            commands.push({
+              factoryType: hook.factoryType,
+              name: hook.typeName,
+              sourcePath: hook.sourcePath,
+              timeout: hook.timeout
+            });
+          }
         }
       }
     }
@@ -274,35 +268,12 @@ async function compileHandlers(
 
     if (!finalResult.success) {
       errors.push(`Failed to compile ${cmd.sourcePath} with sourcemaps: ${finalResult.error}`);
-      // Clean up temp file
-      try {
-        fs.unlinkSync(tempOutputPath);
-      } catch (err) {
-        // Ignore ENOENT (file already deleted), log other errors
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-          console.warn(
-            '[cards-configuration] Failed to clean up temp file %s: %s',
-            tempOutputPath,
-            (err as Error).message
-          );
-        }
-      }
+      tryUnlink(tempOutputPath);
       continue;
     }
 
     // Clean up temp file used for hashing
-    try {
-      fs.unlinkSync(tempOutputPath);
-    } catch (err) {
-      // Ignore ENOENT (file already deleted), log other errors
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.warn(
-          '[cards-configuration] Failed to clean up temp file %s: %s',
-          tempOutputPath,
-          (err as Error).message
-        );
-      }
-    }
+    tryUnlink(tempOutputPath);
 
     // Make executable
     fs.chmodSync(finalOutputPath, 0o755);
@@ -502,17 +473,7 @@ function cleanupStaleFiles(settingsPath: string, binDir: string): void {
     const previousFiles = existingSettings.__generated?.files ?? [];
 
     for (const filename of previousFiles) {
-      const filePath = path.join(binDir, filename);
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (err) {
-        // Ignore ENOENT (file already deleted), log other errors
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-          console.warn('[cards-configuration] Failed to clean up stale file %s: %s', filePath, (err as Error).message);
-        }
-      }
+      tryUnlink(path.join(binDir, filename));
     }
   } catch (err) {
     // Ignore ENOENT (settings file doesn't exist), log other errors

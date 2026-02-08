@@ -192,15 +192,12 @@ export async function execute(command: AnyCommand): Promise<void> {
   let socketClient: SocketClient | undefined;
 
   try {
-    // Determine command type and extract appropriate input
-    const factoryType = command.factoryType;
     let input: ActionInput | TypeHookInput;
 
     try {
-      if (factoryType === 'action') {
+      if (command.factoryType === 'action') {
         input = extractActionInput();
       } else {
-        // Type commands: validator, create, update, delete
         input = extractTypeInput();
       }
     } catch (error) {
@@ -212,10 +209,10 @@ export async function execute(command: AnyCommand): Promise<void> {
     }
 
     // Set logger context with command type
-    logger.setContext(factoryType, input as unknown as Record<string, unknown>);
+    logger.setContext(command.factoryType, input as unknown as Record<string, unknown>);
 
     // Attempt socket connection for action commands (fail-open)
-    if (factoryType === 'action') {
+    if (command.factoryType === 'action') {
       const socketPath = process.env[CARDS_ENV_VARS.SOCKET_PATH];
       if (socketPath) {
         try {
@@ -285,6 +282,21 @@ export async function execute(command: AnyCommand): Promise<void> {
 // ============================================================================
 
 /**
+ * Resolves a callback result that may be sync or async into a Promise.
+ *
+ * User-registered callbacks may return void, a value, or a Promise.
+ * This normalizes all cases into a single Promise for consistent handling.
+ *
+ * @internal
+ */
+function toPromise<T>(result: T | Promise<T>): Promise<T> {
+  if (result && typeof (result as Promise<T>).then === 'function') {
+    return result as Promise<T>;
+  }
+  return Promise.resolve(result);
+}
+
+/**
  * Handles a `cancel` command from the socket.
  *
  * If a cancel callback was registered, it is invoked. Otherwise, SIGTERM
@@ -300,27 +312,21 @@ function handleCancelCommand(
   callback: (() => void | Promise<void>) | undefined,
   socketClient: SocketClient | undefined
 ): void {
-  if (callback) {
-    const result = callback();
-    if (result && typeof (result as Promise<void>).then === 'function') {
-      (result as Promise<void>).then(
-        () => {
-          socketClient?.close();
-          cleanupAndExit(EXIT_CODES.ERROR);
-        },
-        () => {
-          socketClient?.close();
-          cleanupAndExit(EXIT_CODES.ERROR);
-        }
-      );
-    } else {
+  if (!callback) {
+    process.kill(process.pid, 'SIGTERM');
+    return;
+  }
+
+  toPromise(callback()).then(
+    () => {
+      socketClient?.close();
+      cleanupAndExit(EXIT_CODES.ERROR);
+    },
+    () => {
       socketClient?.close();
       cleanupAndExit(EXIT_CODES.ERROR);
     }
-  } else {
-    // No callback registered - send SIGTERM as fallback
-    process.kill(process.pid, 'SIGTERM');
-  }
+  );
 }
 
 /**
@@ -342,31 +348,19 @@ function handleSwitchToInteractiveCommand(
   socketClient: SocketClient
 ): void {
   if (!callback) {
-    // No callback registered - ignore the command (no-op)
     return;
   }
 
-  const result = callback();
-  if (result && typeof (result as Promise<unknown>).then === 'function') {
-    (result as Promise<unknown>).then(
-      (data) => {
-        socketClient.sendResponseThen({ type: 'switchToInteractiveResponse', data }, () => {
-          logger.clearContext();
-          logger.close();
-          process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
-        });
-      },
-      (error) => {
-        logger.error(`switchToInteractive callback error: ${getErrorMessage(error)}`);
-        socketClient.close();
-        cleanupAndExit(EXIT_CODES.ERROR);
-      }
-    );
-  } else {
-    socketClient.sendResponseThen({ type: 'switchToInteractiveResponse', data: result }, () => {
-      logger.clearContext();
-      logger.close();
-      process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
-    });
-  }
+  toPromise(callback()).then(
+    (data) => {
+      socketClient.sendResponseThen({ type: 'switchToInteractiveResponse', data }, () => {
+        cleanupAndExit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
+      });
+    },
+    (error) => {
+      logger.error(`switchToInteractive callback error: ${getErrorMessage(error)}`);
+      socketClient.close();
+      cleanupAndExit(EXIT_CODES.ERROR);
+    }
+  );
 }
