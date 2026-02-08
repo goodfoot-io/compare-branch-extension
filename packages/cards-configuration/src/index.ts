@@ -80,7 +80,7 @@ export type {
   ActionInput,
   TypeHookInput,
   TypeValidatorContext,
-  TypeValidatorRequest
+  ValidatorFileRequest
 } from './inputs.js';
 
 // ============================================================================
@@ -175,23 +175,29 @@ export { execute } from './runtime.js';
 // Validation
 // ============================================================================
 
+export type { ValidationRequest } from './http-parser.js';
 export { parseHttpRequest } from './http-parser.js';
 export type {
   ValidationConfig,
   ValidationContext,
-  ValidationError,
   ValidationFunction,
-  ValidationHandler,
-  ValidationRequest,
-  ValidationResponse
+  ValidationHandler
 } from './validation.js';
 export {
   executeValidation,
-  validationCreated,
   validationError,
-  validationResponse,
-  validationUpdated
+  validationSuccess
 } from './validation.js';
+
+// ============================================================================
+// Validation Result Types (from @cards/protocol)
+// ============================================================================
+
+export type {
+  ValidationFailure,
+  ValidationResult,
+  ValidationSuccess
+} from '@cards/protocol';
 
 // ============================================================================
 // Testing Utilities

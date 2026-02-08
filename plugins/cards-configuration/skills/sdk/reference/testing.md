@@ -4,50 +4,29 @@ This document describes the testing utilities in `@cards/configuration`.
 
 ## Testing Utilities Overview
 
-The testing module provides utilities for unit testing validators without stdin/stdout:
-- `createTestRequest()` - Build mock HTTP requests
+The testing module provides utilities for unit testing validators without process I/O:
+- `createTestRequest()` - Build mock `ValidatorFileRequest` objects
 - `testValidation()` - Execute validators in test context
 
 ## createTestRequest
 
-Build mock `ValidationRequest` objects for testing.
+Build mock `ValidatorFileRequest` objects for testing.
 
 ```typescript
 import { createTestRequest } from '@cards/configuration';
 
-// Minimal request (empty body)
+// Minimal request (default file path)
 const request = createTestRequest();
 
-// With JSON body
+// With custom file path
 const request = createTestRequest({
-  method: 'PUT',
-  path: '/note/my-note.md',
-  body: { title: 'My Note', content: 'Hello world' }
+  filePath: '/path/to/my-note.md'
 });
 
-// With string body
+// With file path and sidecar metadata
 const request = createTestRequest({
-  method: 'PUT',
-  path: '/contract/api.yaml',
-  body: 'openapi: "3.0.0"'
-});
-
-// With Buffer body
-const request = createTestRequest({
-  method: 'PUT',
-  path: '/image/photo.png',
-  body: Buffer.from([0x89, 0x50, 0x4E, 0x47])
-});
-
-// With custom headers
-const request = createTestRequest({
-  method: 'PUT',
-  path: '/file.json',
-  headers: {
-    'content-type': 'application/json',
-    'x-custom-header': 'value'
-  },
-  body: { key: 'value' }
+  filePath: '/path/to/contract.json',
+  metadata: { version: '1.0', previousChecksum: 'abc123' }
 });
 ```
 
@@ -55,40 +34,35 @@ const request = createTestRequest({
 
 ```typescript
 interface TestRequestOptions {
-  method?: string;                    // Default: 'PUT'
-  path?: string;                      // Default: '/test'
-  httpVersion?: string;               // Default: 'HTTP/1.1'
-  headers?: Record<string, string>;   // Additional headers
-  body?: string | Buffer | object;    // Request body
+  filePath?: string;                      // Default: '/test/file.json'
+  metadata?: Record<string, unknown>;     // Parsed .meta.json sidecar content
 }
 ```
-
-**Automatic behaviors:**
-- Object bodies are JSON-stringified
-- Content-Length header is auto-computed
-- Content-Type defaults to `application/json` for object bodies
 
 ## testValidation
 
 Execute a validator and get the result without process I/O.
 
 ```typescript
-import { testValidation, createTestRequest, typeValidation, validationCreated } from '@cards/configuration';
+import { testValidation, createTestRequest, typeValidation, validationSuccess } from '@cards/configuration';
 
 // Define a validator
 const validator = typeValidation({}, async (request) => {
-  const data = request.bodyJson<{ name: string }>();
-  return validationCreated({ name: data.name });
+  // In real validators you'd read request.filePath from disk;
+  // in tests, mock the file read or test logic directly
+  return validationSuccess({ name: 'test' });
 });
 
 // Test it
-const result = await testValidation(validator, {
-  body: { name: 'test' }
+const { result } = await testValidation(validator, {
+  filePath: '/path/to/file.json'
 });
 
 // Assert
-expect(result.response.status).toBe(201);
-expect(result.response.metadata).toEqual({ name: 'test' });
+expect(result.valid).toBe(true);
+if (result.valid) {
+  expect(result.metadata).toEqual({ name: 'test' });
+}
 ```
 
 ### TestValidationOptions
@@ -103,8 +77,24 @@ interface TestValidationOptions {
 
 ```typescript
 interface TestValidationResult {
-  response: ValidationResponse;     // The response returned by the validator
-  context: ValidationContext;       // The context that was passed to the validator
+  result: ValidationResult;           // The result returned by the validator
+  context: ValidationContext;         // The context that was passed to the validator
+}
+```
+
+Where `ValidationResult` is:
+
+```typescript
+type ValidationResult = ValidationSuccess | ValidationFailure;
+
+interface ValidationSuccess {
+  valid: true;
+  metadata?: Record<string, unknown>;
+}
+
+interface ValidationFailure {
+  valid: false;
+  errors: string[];
 }
 ```
 
@@ -119,20 +109,24 @@ import myValidator from '../src/validators/my-validator.js';
 
 describe('myValidator', () => {
   it('should accept valid input', async () => {
-    const result = await testValidation(myValidator, {
-      body: { type: 'AdaptiveCard', version: '1.5' }
+    const { result } = await testValidation(myValidator, {
+      filePath: '/path/to/valid-card.json'
     });
 
-    expect(result.response.status).toBe(201);
+    expect(result.valid).toBe(true);
   });
 
-  it('should reject invalid type', async () => {
-    const result = await testValidation(myValidator, {
-      body: { type: 'Invalid', version: '1.5' }
+  it('should reject invalid input', async () => {
+    const { result } = await testValidation(myValidator, {
+      filePath: '/path/to/invalid-card.json'
     });
 
-    expect(result.response.status).toBe(422);
-    expect(result.response.body).toContain('INVALID_TYPE');
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors).toContainEqual(
+        expect.stringContaining('type')
+      );
+    }
   });
 });
 ```
@@ -146,24 +140,24 @@ import noteValidator from '../src/validators/note-validator.js';
 
 describe('noteValidator', () => {
   it('should reject missing frontmatter', async () => {
-    const result = await testValidation(noteValidator, {
-      body: '# Just a heading\n\nNo frontmatter here.'
+    const { result } = await testValidation(noteValidator, {
+      filePath: '/path/to/no-frontmatter.md'
     });
 
-    expect(result.response.status).toBe(422);
-    const body = JSON.parse(result.response.body as string);
-    expect(body.errors).toContainEqual(
-      expect.objectContaining({ code: 'MISSING_FRONTMATTER' })
-    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors).toContainEqual(
+        expect.stringContaining('frontmatter')
+      );
+    }
   });
 
   it('should reject invalid JSON', async () => {
-    const result = await testValidation(noteValidator, {
-      body: 'not valid json {{{',
-      headers: { 'content-type': 'application/json' }
+    const { result } = await testValidation(noteValidator, {
+      filePath: '/path/to/invalid.json'
     });
 
-    expect(result.response.status).toBe(400);
+    expect(result.valid).toBe(false);
   });
 });
 ```
@@ -171,14 +165,17 @@ describe('noteValidator', () => {
 ### Testing Metadata
 
 ```typescript
+import type { ValidationSuccess } from '@cards/configuration';
+
 describe('validator metadata', () => {
   it('should return computed metadata', async () => {
-    const result = await testValidation(myValidator, {
-      body: { type: 'Contract', version: '2.0' }
+    const { result } = await testValidation(myValidator, {
+      filePath: '/path/to/contract.json'
     });
 
-    expect(result.response.status).toBe(201);
-    expect(result.response.metadata).toEqual({
+    expect(result.valid).toBe(true);
+    const success = result as ValidationSuccess;
+    expect(success.metadata).toEqual({
       contractVersion: '2.0',
       validatedAt: expect.any(Number)
     });
@@ -186,28 +183,31 @@ describe('validator metadata', () => {
 });
 ```
 
-### Testing Request Properties
+### Testing with Sidecar Metadata
 
 ```typescript
-describe('validator request handling', () => {
-  it('should access request headers', async () => {
-    const result = await testValidation(myValidator, {
-      headers: { 'x-custom': 'value' },
-      body: {}
+describe('validator with existing metadata', () => {
+  it('should use sidecar metadata for version checking', async () => {
+    const { result } = await testValidation(myValidator, {
+      filePath: '/path/to/config.json',
+      metadata: { version: 3 }
     });
 
-    // Validator can access context.request.headers
-    expect(result.response.status).toBe(201);
+    expect(result.valid).toBe(true);
   });
 
-  it('should handle binary content', async () => {
-    const buffer = Buffer.from([0x00, 0x01, 0x02]);
-    const result = await testValidation(binaryValidator, {
-      body: buffer,
-      headers: { 'content-type': 'application/octet-stream' }
+  it('should reject version downgrade', async () => {
+    const { result } = await testValidation(myValidator, {
+      filePath: '/path/to/config.json',
+      metadata: { version: 5 }
     });
 
-    expect(result.response.status).toBe(201);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors).toContainEqual(
+        expect.stringContaining('version')
+      );
+    }
   });
 });
 ```
@@ -265,24 +265,26 @@ describe('launchClaude', () => {
 
 ```typescript
 // src/validators/utils/validate-card.ts
-export function validateCard(card: unknown): ValidationError[] {
-  const errors: ValidationError[] = [];
-  // ... validation logic
+export function validateCard(card: unknown): string[] {
+  const errors: string[] = [];
+  // ... validation logic returning markdown error strings
   return errors;
 }
 
 // src/validators/card-validator.ts
+import { readFileSync } from 'node:fs';
 import { validateCard } from './utils/validate-card.js';
 
 export default defineTypeValidator(
   { typeName: 'card', sourcePath: fileURLToPath(import.meta.url) },
   async (request, context) => {
-    const card = request.bodyJson();
+    const content = readFileSync(request.filePath, 'utf-8');
+    const card = JSON.parse(content);
     const errors = validateCard(card);
     if (errors.length > 0) {
-      return validationError(422, errors);
+      return validationError(errors);
     }
-    return validationCreated();
+    return validationSuccess();
   }
 );
 
@@ -301,22 +303,26 @@ describe('validateCard', () => {
 
 ```typescript
 describe('edge cases', () => {
-  it('should handle empty body', async () => {
-    const result = await testValidation(validator, { body: '' });
-    expect(result.response.status).toBe(400);
-  });
-
-  it('should handle large payload', async () => {
-    const largeBody = { data: 'x'.repeat(10000) };
-    const result = await testValidation(validator, { body: largeBody });
-    expect(result.response.status).toBe(201);
-  });
-
-  it('should handle unicode content', async () => {
-    const result = await testValidation(validator, {
-      body: { title: 'Test' }
+  it('should handle missing file gracefully', async () => {
+    const { result } = await testValidation(validator, {
+      filePath: '/nonexistent/file.json'
     });
-    expect(result.response.status).toBe(201);
+    expect(result.valid).toBe(false);
+  });
+
+  it('should handle file with metadata sidecar', async () => {
+    const { result } = await testValidation(validator, {
+      filePath: '/path/to/file.json',
+      metadata: { previousVersion: '1.0' }
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('should handle file without metadata sidecar', async () => {
+    const { result } = await testValidation(validator, {
+      filePath: '/path/to/file.json'
+    });
+    expect(result.valid).toBe(true);
   });
 });
 ```

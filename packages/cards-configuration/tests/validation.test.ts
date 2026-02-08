@@ -1,22 +1,22 @@
 /**
- * Tests for validation factory and HTTP parser.
+ * Tests for validation factory, output builders, executeValidation, and HTTP parser.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineTypeValidator } from '../src/factories/type-hooks.js';
 import { parseHttpRequest } from '../src/http-parser.js';
+import type { ValidatorFileRequest } from '../src/inputs.js';
 import { Logger } from '../src/logger.js';
 import {
   executeValidation,
   typeValidation,
   type ValidationContext,
-  type ValidationError,
   type ValidationFunction,
-  type ValidationRequest,
-  validationCreated,
   validationError,
-  validationResponse,
-  validationUpdated
+  validationSuccess
 } from '../src/validation.js';
 
 // Create a mock context
@@ -162,27 +162,21 @@ describe('HTTP Parser', () => {
 describe('Validation Factory', () => {
   describe('typeValidation', () => {
     it('creates a validation function with timeout', () => {
-      const validation = typeValidation({ timeout: 5000 }, () => validationCreated());
+      const validation = typeValidation({ timeout: 5000 }, () => validationSuccess());
       expect(validation.timeout).toBe(5000);
     });
 
     it('has undefined timeout when not configured', () => {
-      const validation = typeValidation({}, () => validationCreated());
+      const validation = typeValidation({}, () => validationSuccess());
       expect(validation.timeout).toBeUndefined();
     });
 
     it('calls handler with request and context', async () => {
-      const handler = vi.fn(() => validationCreated());
+      const handler = vi.fn(() => validationSuccess());
       const validation = typeValidation({}, handler);
 
-      const request: ValidationRequest = {
-        method: 'PUT',
-        path: '/file',
-        httpVersion: 'HTTP/1.1',
-        headers: {},
-        body: Buffer.from('test'),
-        bodyText: 'test',
-        bodyJson: <T = unknown>() => JSON.parse('test') as T
+      const request: ValidatorFileRequest = {
+        filePath: '/test/file.json'
       };
       const context = createMockContext();
 
@@ -196,17 +190,11 @@ describe('Validation Factory', () => {
       const validation = typeValidation({}, async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         completed = true;
-        return validationCreated();
+        return validationSuccess();
       });
 
-      const request: ValidationRequest = {
-        method: 'PUT',
-        path: '/file',
-        httpVersion: 'HTTP/1.1',
-        headers: {},
-        body: Buffer.from('test'),
-        bodyText: 'test',
-        bodyJson: <T = unknown>() => JSON.parse('test') as T
+      const request: ValidatorFileRequest = {
+        filePath: '/test/file.json'
       };
 
       await validation(request, createMockContext());
@@ -214,153 +202,437 @@ describe('Validation Factory', () => {
     });
 
     it('returns handler result', async () => {
-      const expectedResponse = validationCreated({ customField: 'value' });
-      const validation = typeValidation({}, () => expectedResponse);
+      const expectedResult = validationSuccess({ customField: 'value' });
+      const validation = typeValidation({}, () => expectedResult);
 
-      const request: ValidationRequest = {
-        method: 'PUT',
-        path: '/file',
-        httpVersion: 'HTTP/1.1',
-        headers: {},
-        body: Buffer.from('test'),
-        bodyText: 'test',
-        bodyJson: <T = unknown>() => JSON.parse('test') as T
+      const request: ValidatorFileRequest = {
+        filePath: '/test/file.json'
       };
 
       const result = await validation(request, createMockContext());
-      expect(result).toEqual(expectedResponse);
+      expect(result).toEqual(expectedResult);
     });
   });
 
   describe('ValidationFunction type', () => {
     it('is callable', async () => {
-      const validation: ValidationFunction = typeValidation({}, () => validationCreated());
+      const validation: ValidationFunction = typeValidation({}, () => validationSuccess());
       expect(typeof validation).toBe('function');
     });
 
     it('has required metadata properties', () => {
-      const validation = typeValidation({ timeout: 10000 }, () => validationCreated());
+      const validation = typeValidation({ timeout: 10000 }, () => validationSuccess());
       expect(validation).toHaveProperty('timeout');
     });
   });
 });
 
 describe('Output Builders', () => {
-  describe('validationCreated', () => {
-    it('returns 201 status', () => {
-      const response = validationCreated();
-      expect(response.status).toBe(201);
+  describe('validationSuccess', () => {
+    it('returns valid: true', () => {
+      const result = validationSuccess();
+      expect(result.valid).toBe(true);
     });
 
     it('includes metadata when provided', () => {
       const metadata = { key: 'value', count: 42 };
-      const response = validationCreated(metadata);
-      expect(response.status).toBe(201);
-      expect(response.metadata).toEqual(metadata);
+      const result = validationSuccess(metadata);
+      expect(result.valid).toBe(true);
+      expect((result as { valid: true; metadata?: Record<string, unknown> }).metadata).toEqual(metadata);
     });
 
     it('works without metadata', () => {
-      const response = validationCreated();
-      expect(response.status).toBe(201);
-      expect(response.metadata).toBeUndefined();
-    });
-  });
-
-  describe('validationUpdated', () => {
-    it('returns 200 status', () => {
-      const response = validationUpdated();
-      expect(response.status).toBe(200);
+      const result = validationSuccess();
+      expect(result.valid).toBe(true);
+      expect((result as { valid: true; metadata?: Record<string, unknown> }).metadata).toBeUndefined();
     });
 
-    it('includes metadata when provided', () => {
-      const metadata = { updated: true };
-      const response = validationUpdated(metadata);
-      expect(response.status).toBe(200);
-      expect(response.metadata).toEqual(metadata);
+    it('writes { valid: true } with no metadata key when metadata is omitted', () => {
+      const result = validationSuccess();
+      expect(JSON.stringify(result)).toBe('{"valid":true}');
     });
 
-    it('works without metadata', () => {
-      const response = validationUpdated();
-      expect(response.status).toBe(200);
-      expect(response.metadata).toBeUndefined();
+    it('writes { valid: true, metadata: { key: "val" } } when metadata is provided', () => {
+      const result = validationSuccess({ key: 'val' });
+      expect(JSON.parse(JSON.stringify(result))).toEqual({ valid: true, metadata: { key: 'val' } });
     });
   });
 
   describe('validationError', () => {
-    it('returns specified status code', () => {
-      const errors: ValidationError[] = [{ code: 'ERR_TEST', message: 'Test error' }];
-      const response = validationError(422, errors);
-      expect(response.status).toBe(422);
+    it('returns valid: false with errors', () => {
+      const result = validationError(['error 1', 'error 2']);
+      expect(result.valid).toBe(false);
+      expect((result as { valid: false; errors: string[] }).errors).toEqual(['error 1', 'error 2']);
     });
 
-    it('includes errors in JSON body', () => {
-      const errors: ValidationError[] = [
-        { code: 'ERR_REQUIRED', message: 'Field is required', field: 'name' },
-        { code: 'ERR_TYPE', message: 'Invalid type' }
-      ];
-      const response = validationError(400, errors);
-      expect(response.body).toBeDefined();
-      expect(response.headers?.['Content-Type']).toBe('application/json');
-
-      const parsed = JSON.parse(response.body as string);
-      expect(parsed.errors).toEqual(errors);
+    it('supports markdown-formatted error messages', () => {
+      const result = validationError(['**Bold** error msg']);
+      expect(result.valid).toBe(false);
+      const parsed = JSON.parse(JSON.stringify(result));
+      expect(parsed).toEqual({ valid: false, errors: ['**Bold** error msg'] });
     });
 
-    it('includes message when provided', () => {
-      const errors: ValidationError[] = [{ code: 'ERR_TEST', message: 'Test' }];
-      const response = validationError(400, errors, 'Validation failed');
-      const parsed = JSON.parse(response.body as string);
-      expect(parsed.message).toBe('Validation failed');
-    });
-
-    it('works without message', () => {
-      const errors: ValidationError[] = [{ code: 'ERR_TEST', message: 'Test' }];
-      const response = validationError(400, errors);
-      const parsed = JSON.parse(response.body as string);
-      expect(parsed.message).toBeUndefined();
-    });
-
-    it('sets Content-Type header to application/json', () => {
-      const errors: ValidationError[] = [{ code: 'ERR_TEST', message: 'Test' }];
-      const response = validationError(400, errors);
-      expect(response.headers?.['Content-Type']).toBe('application/json');
-    });
-  });
-
-  describe('validationResponse', () => {
-    it('passes through the response', () => {
-      const customResponse = {
-        status: 418,
-        headers: { 'X-Custom': 'header' },
-        body: 'teapot',
-        metadata: { custom: true }
-      };
-      const response = validationResponse(customResponse);
-      expect(response).toEqual(customResponse);
-    });
-
-    it('works with minimal response', () => {
-      const minimalResponse = {};
-      const response = validationResponse(minimalResponse);
-      expect(response).toEqual(minimalResponse);
+    it('works with empty errors array', () => {
+      const result = validationError([]);
+      expect(result.valid).toBe(false);
+      expect((result as { valid: false; errors: string[] }).errors).toEqual([]);
     });
   });
 });
 
 describe('executeValidation', () => {
-  // Note: Full integration tests for executeValidation would require
-  // mocking stdin/stdout and process.exit, which is complex.
-  // These tests verify the basic structure and can be extended as needed.
+  let tmpDir: string;
 
-  it('is a function', () => {
-    expect(typeof executeValidation).toBe('function');
+  beforeEach(() => {
+    tmpDir = join(tmpdir(), `cards-validation-test-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
   });
 
-  it('accepts a TypeValidatorCommand', () => {
-    const validation = defineTypeValidator({ typeName: 'test' }, () => validationCreated());
-    // Just verify it can be passed without type errors
-    expect(() => {
-      void executeValidation(validation);
-    }).toBeDefined();
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('reads FILE_PATH from env and passes to handler as request.filePath', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{"hello":"world"}');
+
+    let receivedRequest: ValidatorFileRequest | undefined;
+    const validation = defineTypeValidator({ typeName: 'test' }, (request) => {
+      receivedRequest = request;
+      return validationSuccess();
+    });
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    expect(receivedRequest).toBeDefined();
+    expect(receivedRequest!.filePath).toBe(filePath);
+    expect(exitMock).toHaveBeenCalledWith(0);
+  });
+
+  it('reads existing .meta.json sidecar and passes parsed object as request.metadata', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{"hello":"world"}');
+    writeFileSync(`${filePath}.meta.json`, JSON.stringify({ version: '2.0', custom: true }));
+
+    let receivedMetadata: Record<string, unknown> | undefined;
+    const validation = defineTypeValidator({ typeName: 'test' }, (request) => {
+      receivedMetadata = request.metadata;
+      return validationSuccess();
+    });
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    expect(receivedMetadata).toEqual({ version: '2.0', custom: true });
+  });
+
+  it('passes metadata as undefined when no .meta.json exists', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{"hello":"world"}');
+
+    let receivedMetadata: Record<string, unknown> | undefined = { sentinel: true };
+    const validation = defineTypeValidator({ typeName: 'test' }, (request) => {
+      receivedMetadata = request.metadata;
+      return validationSuccess();
+    });
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    expect(receivedMetadata).toBeUndefined();
+  });
+
+  it('extracts type context from env vars', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    let receivedContext: unknown;
+    const validation = defineTypeValidator({ typeName: 'test' }, (_request, context) => {
+      receivedContext = context;
+      return validationSuccess();
+    });
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'my-type';
+    process.env.TYPE_VERSION = '2.1';
+    process.env.FILE_NAME = 'data.json';
+    process.env.CARD_ID = 'card-42';
+    process.env.ENVIRONMENT = 'staging';
+    process.env.API_BASE_URL = 'https://api.example.com';
+    process.env.API_ACCESS_TOKEN = 'secret-token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const ctx = receivedContext as Record<string, unknown>;
+    expect(ctx.typeName).toBe('my-type');
+    expect(ctx.typeVersion).toBe('2.1');
+    expect(ctx.fileName).toBe('data.json');
+    expect(ctx.cardId).toBe('card-42');
+    expect(ctx.environment).toBe('staging');
+    expect(ctx.apiBaseUrl).toBe('https://api.example.com');
+    expect(ctx.apiAccessToken).toBe('secret-token');
+  });
+
+  it('handler returning validationSuccess() writes { valid: true } to stdout', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    const validation = defineTypeValidator({ typeName: 'test' }, () => validationSuccess());
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const output = JSON.parse(writtenChunks.join(''));
+    expect(output).toEqual({ valid: true });
+  });
+
+  it('handler returning validationSuccess({ key: "val" }) writes { valid: true, metadata: { key: "val" } } to stdout', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    const validation = defineTypeValidator({ typeName: 'test' }, () => validationSuccess({ key: 'val' }));
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const output = JSON.parse(writtenChunks.join(''));
+    expect(output).toEqual({ valid: true, metadata: { key: 'val' } });
+  });
+
+  it('handler returning validationError(["**Bold** error msg"]) writes { valid: false, errors: [...] } to stdout', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    const validation = defineTypeValidator({ typeName: 'test' }, () => validationError(['**Bold** error msg']));
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const output = JSON.parse(writtenChunks.join(''));
+    expect(output).toEqual({ valid: false, errors: ['**Bold** error msg'] });
+  });
+
+  it('exits 0 for both success and error results', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    // Test success
+    const successValidation = defineTypeValidator({ typeName: 'test' }, () => validationSuccess());
+    try {
+      await executeValidation(successValidation);
+    } finally {
+      // keep env for second call
+    }
+    expect(exitMock).toHaveBeenCalledWith(0);
+
+    exitMock.mockClear();
+
+    // Test error
+    const errorValidation = defineTypeValidator({ typeName: 'test' }, () => validationError(['err']));
+    try {
+      await executeValidation(errorValidation);
+    } finally {
+      process.env = savedEnv;
+    }
+    expect(exitMock).toHaveBeenCalledWith(0);
+  });
+
+  it('writes { valid: false, errors: [...] } on handler exception', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    const validation = defineTypeValidator({ typeName: 'test' }, () => {
+      throw new Error('Something went wrong');
+    });
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const output = JSON.parse(writtenChunks.join(''));
+    expect(output.valid).toBe(false);
+    expect(output.errors).toEqual(['Something went wrong']);
+  });
+
+  it('writes { valid: false, errors: [...] } when FILE_PATH env missing', async () => {
+    const validation = defineTypeValidator({ typeName: 'test' }, () => validationSuccess());
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    delete process.env.FILE_PATH;
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const output = JSON.parse(writtenChunks.join(''));
+    expect(output.valid).toBe(false);
+    expect(output.errors).toEqual(['FILE_PATH environment variable is not set']);
   });
 });

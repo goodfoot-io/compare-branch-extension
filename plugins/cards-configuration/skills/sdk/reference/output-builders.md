@@ -1,124 +1,85 @@
 <instructions>
 
-This document describes the validation response builders and output patterns in `@cards/configuration`.
+This document describes the validation result builders and output patterns in `@cards/configuration`.
 
-## Validation Response Builders
+## Validation Result Builders
 
-Type validators must return a `ValidationResponse` indicating success or failure.
-
-### validationCreated
-
-Creates a 201 Created response for new resources.
+Type validators must return a `ValidationResult` (from `@cards/protocol`) indicating success or failure. The result is a discriminated union:
 
 ```typescript
-import { validationCreated } from '@cards/configuration';
+type ValidationResult = ValidationSuccess | ValidationFailure;
+
+interface ValidationSuccess {
+  valid: true;
+  metadata?: Record<string, unknown>;
+}
+
+interface ValidationFailure {
+  valid: false;
+  errors: string[];  // Markdown-formatted error messages
+}
+```
+
+### validationSuccess
+
+Creates a successful validation result. Optionally include metadata to store in the `.meta.json` sidecar file.
+
+```typescript
+import { validationSuccess } from '@cards/configuration';
 
 // Basic success
-return validationCreated();
+return validationSuccess();
 
 // With metadata (stored in .meta.json)
-return validationCreated({
+return validationSuccess({
   version: '1.0',
   checksum: 'abc123',
   validatedAt: Date.now()
 });
 ```
 
-**Response Structure:**
+**Result Structure:**
 ```typescript
-{ status: 201, metadata?: Record<string, unknown> }
-```
-
-### validationUpdated
-
-Creates a 200 OK response for updated resources.
-
-```typescript
-import { validationUpdated } from '@cards/configuration';
-
-// Basic success
-return validationUpdated();
-
-// With metadata
-return validationUpdated({
-  version: '1.1',
-  lastModified: Date.now()
-});
-```
-
-**Response Structure:**
-```typescript
-{ status: 200, metadata?: Record<string, unknown> }
+{ valid: true, metadata?: Record<string, unknown> }
 ```
 
 ### validationError
 
-Creates an error response with structured error details.
+Creates a failed validation result with markdown-formatted error strings.
 
 ```typescript
-import { validationError, type ValidationError } from '@cards/configuration';
+import { validationError } from '@cards/configuration';
 
-const errors: ValidationError[] = [
-  { code: 'ERR_REQUIRED', message: 'Name is required', field: 'name' },
-  { code: 'ERR_TYPE', message: 'Age must be a number', field: 'age' }
-];
+// Single error
+return validationError([
+  '**name**: Field is required'
+]);
 
-// With errors only
-return validationError(422, errors);
-
-// With errors and message
-return validationError(422, errors, 'Validation failed');
+// Multiple errors
+return validationError([
+  '**name**: Field is required',
+  '`age` must be a positive number',
+  '**payload.type**: Must be `AdaptiveCard`'
+]);
 ```
 
-**Response Structure:**
+**Result Structure:**
 ```typescript
-{
-  status: number,
-  body: '{"errors":[...],"message":"..."}',
-  headers: { 'Content-Type': 'application/json' }
-}
+{ valid: false, errors: string[] }
 ```
 
-**ValidationError Interface:**
-```typescript
-interface ValidationError {
-  code: string;     // Machine-readable error code
-  message: string;  // Human-readable error message
-  field?: string;   // Optional field name that caused the error
-}
-```
-
-### validationResponse
-
-Pass through a custom validation response for full control.
-
-```typescript
-import { validationResponse } from '@cards/configuration';
-
-return validationResponse({
-  status: 418,
-  headers: { 'X-Custom': 'teapot' },
-  body: 'I am a teapot',
-  metadata: { custom: true }
-});
-```
-
-**Full Response Interface:**
-```typescript
-interface ValidationResponse {
-  status?: number;                       // HTTP status code
-  headers?: Record<string, string>;      // HTTP response headers
-  body?: string | Buffer;                // Response body
-  metadata?: Record<string, unknown>;    // Metadata for .meta.json
-}
-```
+Errors are markdown-formatted strings surfaced directly to the git client. Use markdown formatting for readability:
+- `**fieldName**:` for field-specific errors
+- Backticks for code references (e.g., `` `AdaptiveCard` ``)
+- Plain text for general messages
 
 ## Common Validation Patterns
 
-### JSON Schema Validation
+### JSON File Validation
 
 ```typescript
-import { defineTypeValidator, validationCreated, validationError } from '@cards/configuration';
+import { readFileSync } from 'node:fs';
+import { defineTypeValidator, validationSuccess, validationError } from '@cards/configuration';
 
 interface Contract {
   openapi: string;
@@ -128,33 +89,32 @@ interface Contract {
 export default defineTypeValidator(
   { typeName: 'openapi-contract', sourcePath: fileURLToPath(import.meta.url) },
   async (request, context) => {
-    // Parse JSON
+    // Read the file from disk
     let contract: Contract;
     try {
-      contract = request.bodyJson<Contract>();
-    } catch (err) {
-      return validationError(400, [
-        { code: 'PARSE_ERROR', message: 'Invalid JSON', field: 'body' }
-      ]);
+      const content = readFileSync(request.filePath, 'utf-8');
+      contract = JSON.parse(content) as Contract;
+    } catch {
+      return validationError(['File must contain valid JSON']);
     }
 
     // Validate required fields
-    const errors: ValidationError[] = [];
+    const errors: string[] = [];
 
     if (!contract.openapi) {
-      errors.push({ code: 'MISSING_FIELD', message: 'openapi version required', field: 'openapi' });
+      errors.push('**openapi**: Version is required');
     }
 
     if (!contract.info?.title) {
-      errors.push({ code: 'MISSING_FIELD', message: 'info.title required', field: 'info.title' });
+      errors.push('**info.title**: Title is required');
     }
 
     if (errors.length > 0) {
-      return validationError(422, errors, 'OpenAPI validation failed');
+      return validationError(errors);
     }
 
     // Success with metadata
-    return validationCreated({
+    return validationSuccess({
       openapiVersion: contract.openapi,
       title: contract.info.title
     });
@@ -162,154 +122,135 @@ export default defineTypeValidator(
 );
 ```
 
-### Content Type Validation
+### Binary File Validation
 
 ```typescript
+import { readFileSync } from 'node:fs';
+
 export default defineTypeValidator(
   { typeName: 'image', sourcePath: fileURLToPath(import.meta.url) },
   async (request, context) => {
-    const contentType = request.headers['content-type'] ?? '';
+    // Read the file as a buffer
+    const buffer = readFileSync(request.filePath);
 
-    // Validate content type
-    if (!contentType.startsWith('image/')) {
-      return validationError(415, [
-        { code: 'INVALID_CONTENT_TYPE', message: `Expected image/*, got ${contentType}` }
-      ]);
-    }
-
-    // Check file size (from body buffer)
+    // Check file size
     const maxSize = 5 * 1024 * 1024; // 5MB
-    if (request.body.length > maxSize) {
-      return validationError(413, [
-        { code: 'FILE_TOO_LARGE', message: `Max size is ${maxSize} bytes` }
-      ]);
+    if (buffer.length > maxSize) {
+      return validationError([`File size exceeds maximum of ${maxSize} bytes`]);
     }
 
-    return validationCreated({
-      contentType,
-      size: request.body.length
+    // Check magic bytes for PNG
+    const isPng = buffer[0] === 0x89 && buffer[1] === 0x50;
+    if (!isPng) {
+      return validationError(['File must be a valid PNG image']);
+    }
+
+    return validationSuccess({
+      size: buffer.length
     });
   }
 );
 ```
 
-### Markdown Validation
+### Markdown File Validation
 
 ```typescript
+import { readFileSync } from 'node:fs';
+
 export default defineTypeValidator(
   { typeName: 'note', sourcePath: fileURLToPath(import.meta.url) },
   async (request, context) => {
-    const content = request.bodyText;
+    const content = readFileSync(request.filePath, 'utf-8');
 
     // Check for required frontmatter
     if (!content.startsWith('---')) {
-      return validationError(422, [
-        { code: 'MISSING_FRONTMATTER', message: 'Note must start with YAML frontmatter' }
-      ]);
+      return validationError(['Note must start with YAML frontmatter']);
     }
 
     // Parse frontmatter
     const frontmatterEnd = content.indexOf('---', 3);
     if (frontmatterEnd === -1) {
-      return validationError(422, [
-        { code: 'INVALID_FRONTMATTER', message: 'Frontmatter must be closed with ---' }
-      ]);
+      return validationError(['Frontmatter must be closed with `---`']);
     }
 
     const frontmatter = content.slice(4, frontmatterEnd).trim();
 
     // Check required fields in frontmatter
     if (!frontmatter.includes('title:')) {
-      return validationError(422, [
-        { code: 'MISSING_TITLE', message: 'Frontmatter must include title', field: 'title' }
-      ]);
+      return validationError(['**title**: Required in frontmatter']);
     }
 
     context.logger.info('Note validated', { file: context.fileName });
-    return validationCreated();
+    return validationSuccess();
   }
 );
 ```
 
-### Conditional Updates
+### Using Sidecar Metadata
+
+Validators can check existing `.meta.json` sidecar data via `request.metadata`:
 
 ```typescript
+import { readFileSync } from 'node:fs';
+
 export default defineTypeValidator(
   { typeName: 'config', sourcePath: fileURLToPath(import.meta.url) },
   async (request, context) => {
-    const config = request.bodyJson<{ version: number }>();
+    const content = readFileSync(request.filePath, 'utf-8');
+    const config = JSON.parse(content) as { version: number };
 
-    // Check if this is a create or update based on HTTP method
-    const isUpdate = request.method === 'PUT';
-
-    if (isUpdate) {
-      // For updates, validate version increment
-      if (config.version <= 1) {
-        return validationError(409, [
-          { code: 'VERSION_CONFLICT', message: 'Version must be incremented' }
+    // Check previous metadata if sidecar exists
+    if (request.metadata) {
+      const previousVersion = request.metadata['version'] as number | undefined;
+      if (previousVersion !== undefined && config.version <= previousVersion) {
+        return validationError([
+          `**version**: Must be greater than previous version (${previousVersion})`
         ]);
       }
-      return validationUpdated({ version: config.version });
     }
 
-    // For creates
-    return validationCreated({ version: config.version });
+    return validationSuccess({ version: config.version });
   }
 );
 ```
 
 ## Error Handling Best Practices
 
-### Structured Error Codes
+### Use Descriptive Markdown Errors
 
-Use consistent, machine-readable error codes:
+Format errors as readable markdown strings:
 
 ```typescript
-const ErrorCodes = {
-  PARSE_ERROR: 'PARSE_ERROR',
-  MISSING_FIELD: 'MISSING_FIELD',
-  INVALID_FORMAT: 'INVALID_FORMAT',
-  FILE_TOO_LARGE: 'FILE_TOO_LARGE',
-  UNSUPPORTED_TYPE: 'UNSUPPORTED_TYPE',
-  VERSION_CONFLICT: 'VERSION_CONFLICT'
-} as const;
+// Good: descriptive, markdown-formatted
+return validationError([
+  '**name**: Field is required',
+  '**payload.type**: Must be `AdaptiveCard`',
+  'File size exceeds the 5 MB limit'
+]);
 
-// Usage
-return validationError(422, [
-  { code: ErrorCodes.MISSING_FIELD, message: 'Name is required', field: 'name' }
+// Bad: terse, no formatting
+return validationError([
+  'missing name',
+  'wrong type'
 ]);
 ```
 
-### HTTP Status Code Guidelines
-
-| Status | Use Case |
-|--------|----------|
-| 200 | Update succeeded |
-| 201 | Create succeeded |
-| 400 | Malformed request (parse error, bad JSON) |
-| 409 | Conflict (version mismatch, duplicate) |
-| 413 | Payload too large |
-| 415 | Unsupported media type |
-| 422 | Validation failed (semantic errors) |
-| 500 | Internal error (caught exceptions) |
-
 ### Catching Internal Errors
 
-The `executeValidation` runtime converts uncaught exceptions to 500 responses:
+The `executeValidation` runtime converts uncaught exceptions to failure results:
 
 ```typescript
 export default defineTypeValidator(
   { typeName: 'risky', sourcePath: fileURLToPath(import.meta.url) },
   async (request, context) => {
     try {
-      const result = await riskyOperation(request.bodyJson());
-      return validationCreated(result);
+      const content = readFileSync(request.filePath, 'utf-8');
+      const result = await riskyOperation(JSON.parse(content));
+      return validationSuccess(result);
     } catch (error) {
       // Log and return controlled error
       context.logger.logError(error, 'Validation failed');
-      return validationError(500, [
-        { code: 'INTERNAL_ERROR', message: 'Validation failed unexpectedly' }
-      ]);
+      return validationError(['Validation failed unexpectedly']);
     }
   }
 );
@@ -317,11 +258,11 @@ export default defineTypeValidator(
 
 ## Metadata Storage
 
-Metadata from `validationCreated()` and `validationUpdated()` is stored in a `.meta.json` file alongside the validated file.
+Metadata from `validationSuccess()` is stored in a `.meta.json` sidecar file alongside the validated file.
 
 ```typescript
 // Validator returns:
-return validationCreated({
+return validationSuccess({
   schema: 'openapi-3.0',
   validatedAt: Date.now(),
   checksum: computeChecksum(content)

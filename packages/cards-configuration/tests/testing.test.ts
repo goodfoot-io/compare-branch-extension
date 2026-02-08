@@ -1,126 +1,98 @@
 import { describe, expect, it } from 'vitest';
+import type { ValidatorFileRequest } from '../src/inputs.js';
 import { createTestRequest, testValidation } from '../src/testing.js';
-import type { ValidationRequest } from '../src/validation.js';
-import { typeValidation, validationCreated, validationError } from '../src/validation.js';
+import { typeValidation, validationError, validationSuccess } from '../src/validation.js';
 
 describe('Testing Utilities', () => {
   describe('createTestRequest', () => {
     it('creates request with defaults', () => {
       const request = createTestRequest();
-      expect(request.method).toBe('PUT');
-      expect(request.path).toBe('/test');
-      expect(request.httpVersion).toBe('HTTP/1.1');
-      expect(request.body).toEqual(Buffer.alloc(0));
+      expect(request.filePath).toBe('/test/file.json');
+      expect(request.metadata).toBeUndefined();
     });
 
-    it('creates request with custom method and path', () => {
+    it('creates request with custom filePath', () => {
       const request = createTestRequest({
-        method: 'POST',
-        path: '/custom/path'
+        filePath: '/custom/path/data.json'
       });
-      expect(request.method).toBe('POST');
-      expect(request.path).toBe('/custom/path');
+      expect(request.filePath).toBe('/custom/path/data.json');
     });
 
-    it('handles string body', () => {
-      const request = createTestRequest({ body: 'test content' });
-      expect(request.bodyText).toBe('test content');
-      expect(request.headers['content-length']).toBe('12');
-    });
-
-    it('handles Buffer body', () => {
-      const buffer = Buffer.from([0x00, 0x01, 0x02]);
-      const request = createTestRequest({ body: buffer });
-      expect(request.body).toEqual(buffer);
-      expect(request.headers['content-length']).toBe('3');
-    });
-
-    it('handles object body as JSON', () => {
-      const request = createTestRequest({ body: { key: 'value' } });
-      expect(request.bodyJson()).toEqual({ key: 'value' });
-      expect(request.headers['content-type']).toBe('application/json');
-    });
-
-    it('preserves custom content-type for object body', () => {
+    it('creates request with metadata', () => {
       const request = createTestRequest({
-        body: { key: 'value' },
-        headers: { 'content-type': 'application/vnd.custom+json' }
+        filePath: '/test/file.json',
+        metadata: { version: '1.0', custom: true }
       });
-      expect(request.headers['content-type']).toBe('application/vnd.custom+json');
+      expect(request.metadata).toEqual({ version: '1.0', custom: true });
     });
 
-    it('includes custom headers', () => {
-      const request = createTestRequest({
-        headers: {
-          'x-custom-header': 'custom-value',
-          authorization: 'Bearer token'
-        }
-      });
-      expect(request.headers['x-custom-header']).toBe('custom-value');
-      expect(request.headers['authorization']).toBe('Bearer token');
+    it('creates request without metadata', () => {
+      const request = createTestRequest({ filePath: '/test/file.json' });
+      expect(request.metadata).toBeUndefined();
     });
   });
 
   describe('testValidation', () => {
     it('invokes validator with request and context', async () => {
-      let receivedRequest: ValidationRequest | undefined;
+      let receivedRequest: ValidatorFileRequest | undefined;
 
       const validator = typeValidation({}, async (request) => {
         receivedRequest = request;
-        return validationCreated();
+        return validationSuccess();
       });
 
-      await testValidation(validator, { body: 'test' });
+      await testValidation(validator, { filePath: '/test/data.json' });
 
       expect(receivedRequest).toBeDefined();
-      expect(receivedRequest!.bodyText).toBe('test');
+      expect(receivedRequest!.filePath).toBe('/test/data.json');
     });
 
-    it('returns response from validator', async () => {
+    it('returns result from validator', async () => {
       const validator = typeValidation({}, async () => {
-        return validationCreated({ processed: true });
+        return validationSuccess({ processed: true });
       });
 
-      const result = await testValidation(validator, {});
+      const { result } = await testValidation(validator, {});
 
-      expect(result.response.status).toBe(201);
-      expect(result.response.metadata).toEqual({ processed: true });
+      expect(result.valid).toBe(true);
+      expect((result as { valid: true; metadata?: Record<string, unknown> }).metadata).toEqual({ processed: true });
     });
 
     it('handles validation errors', async () => {
       const validator = typeValidation({}, async () => {
-        return validationError(400, [{ code: 'INVALID', message: 'Invalid input' }]);
+        return validationError(['Invalid input']);
       });
 
-      const result = await testValidation(validator, {});
+      const { result } = await testValidation(validator, {});
 
-      expect(result.response.status).toBe(400);
-      const body = JSON.parse(result.response.body as string);
-      expect(body.errors).toHaveLength(1);
+      expect(result.valid).toBe(false);
+      expect((result as { valid: false; errors: string[] }).errors).toHaveLength(1);
     });
 
     it('accepts TestRequestOptions directly', async () => {
       const validator = typeValidation({}, async (request) => {
-        return validationCreated({ path: request.path });
+        return validationSuccess({ path: request.filePath });
       });
 
-      const result = await testValidation(validator, {
+      const { result } = await testValidation(validator, {
+        filePath: '/contract.json'
+      });
+
+      expect((result as { valid: true; metadata?: Record<string, unknown> }).metadata).toEqual({
         path: '/contract.json'
       });
-
-      expect(result.response.metadata).toEqual({ path: '/contract.json' });
     });
 
-    it('accepts ValidationRequest directly', async () => {
-      const request = createTestRequest({ body: { id: 1 } });
+    it('accepts ValidatorFileRequest directly', async () => {
+      const request = createTestRequest({ filePath: '/test/data.json', metadata: { id: 1 } });
 
       const validator = typeValidation({}, async (req) => {
-        return validationCreated({ id: req.bodyJson<{ id: number }>().id });
+        return validationSuccess({ id: req.metadata?.id });
       });
 
-      const result = await testValidation(validator, request);
+      const { result } = await testValidation(validator, request);
 
-      expect(result.response.metadata).toEqual({ id: 1 });
+      expect((result as { valid: true; metadata?: Record<string, unknown> }).metadata).toEqual({ id: 1 });
     });
 
     it('provides context to validator', async () => {
@@ -128,13 +100,13 @@ describe('Testing Utilities', () => {
 
       const validator = typeValidation({}, async (_request, context) => {
         receivedContext = context;
-        return validationCreated();
+        return validationSuccess();
       });
 
-      const result = await testValidation(validator, {});
+      const { context } = await testValidation(validator, {});
 
-      expect(receivedContext).toBe(result.context);
-      expect(result.context.logger).toBeDefined();
+      expect(receivedContext).toBe(context);
+      expect(context.logger).toBeDefined();
     });
   });
 });

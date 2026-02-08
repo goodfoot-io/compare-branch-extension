@@ -3,6 +3,10 @@
  *
  * Parses a single HTTP request from a complete Buffer. It is intentionally
  * strict: Content-Length is required and chunked encoding is not supported.
+ *
+ * @deprecated This module is no longer used by the validation system.
+ * Validators now use the file-path protocol via `ValidatorFileRequest`
+ * instead of parsing HTTP requests from stdin.
  * @module
  */
 

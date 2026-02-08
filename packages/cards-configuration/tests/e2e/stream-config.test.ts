@@ -20,7 +20,7 @@ import {
   type StreamDefinition,
   serializeSettings,
   type TransformContext,
-  validationCreated
+  validationSuccess
 } from '../../src/index.js';
 
 // ============================================================================
@@ -255,7 +255,7 @@ describe('stream configuration serialization', () => {
     it('should serialize streams alongside types', () => {
       const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
 
-      const validator = defineTypeValidator({ typeName: 'note' }, async () => validationCreated());
+      const validator = defineTypeValidator({ typeName: 'note' }, async () => validationSuccess());
 
       const config: SettingsConfig = {
         environments: {
@@ -295,7 +295,7 @@ describe('stream configuration serialization', () => {
         // Action implementation
       });
 
-      const validator = defineTypeValidator({ typeName: 'note' }, async () => validationCreated());
+      const validator = defineTypeValidator({ typeName: 'note' }, async () => validationSuccess());
 
       const config: SettingsConfig = {
         environments: {

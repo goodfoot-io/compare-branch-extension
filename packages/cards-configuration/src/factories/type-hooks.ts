@@ -8,15 +8,15 @@
  * @module factories/type-hooks
  */
 
+import type { ValidationResult } from '@cards/protocol';
 import type {
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
   TypeValidatorCommand
 } from '../command-types.js';
-import type { ActionContext, TypeHookInput, TypeValidatorContext, TypeValidatorRequest } from '../inputs.js';
+import type { ActionContext, TypeHookInput, TypeValidatorContext, ValidatorFileRequest } from '../inputs.js';
 import type { SameShape } from '../type-utils.js';
-import type { ValidationResponse } from '../validation.js';
 
 /**
  * Configuration for type lifecycle hooks.
@@ -46,52 +46,49 @@ export type TypeHandler = (input: TypeHookInput, context: ActionContext) => void
 /**
  * Handler function for type validators.
  *
- * Receives an HTTP request with the file content in the body.
- * The file is NOT saved to disk until validation passes.
+ * Receives a file request with the path and optional sidecar metadata.
+ * The file is already on disk; validators read it themselves.
  *
- * @param request - HTTP request with headers and body
+ * @param request - File request with path and optional metadata
  * @param context - Validator context with type metadata
- * @returns Validation response indicating success or failure
+ * @returns Validation result indicating success or failure
  */
 export type TypeValidatorHandler = (
-  request: TypeValidatorRequest,
+  request: ValidatorFileRequest,
   context: TypeValidatorContext
-) => ValidationResponse | Promise<ValidationResponse>;
+) => ValidationResult | Promise<ValidationResult>;
 
 /**
  * Creates a type validator hook for file validation.
  *
- * Validators receive the HTTP request with file content in the body.
- * The file is NOT saved to disk until validation passes. Return a
- * validation response to indicate success (2xx) or failure (4xx/5xx).
+ * Validators receive the file path and optional sidecar metadata.
+ * The file is already on disk; validators read it themselves. Return a
+ * `ValidationResult` to indicate success or failure.
  *
  * @template T - Config type (inferred)
  * @param config - Type metadata including the type name
- * @param handler - Function that validates the content and returns a response
+ * @param handler - Function that validates the file and returns a result
  * @returns A command wrapper suitable for default export
  *
  * @example
  * ```typescript
  * // validators/adaptive-card-validator.ts
- * import { defineTypeValidator, validationCreated, validationError } from '@cards/configuration';
+ * import { readFileSync } from 'node:fs';
+ * import { defineTypeValidator, validationSuccess, validationError } from '@cards/configuration';
  *
  * export default defineTypeValidator(
  *   { typeName: 'adaptive-card', sourcePath: fileURLToPath(import.meta.url) },
  *   async (request, context) => {
- *     // Parse the request body (file not yet saved to disk)
- *     const card = request.bodyJson<AdaptiveCard>();
+ *     const content = readFileSync(request.filePath, 'utf-8');
+ *     const card = JSON.parse(content) as AdaptiveCard;
  *
- *     // Access HTTP headers if needed
- *     const contentType = request.headers['content-type'];
- *
- *     // Validate
  *     const errors = validateAdaptiveCard(card);
  *     if (errors.length > 0) {
- *       return validationError(400, errors);
+ *       return validationError(errors.map(e => e.message));
  *     }
  *
  *     context.logger.info('Validation passed', { file: context.fileName });
- *     return validationCreated({ cardId: card.id });
+ *     return validationSuccess({ cardId: card.id });
  *   }
  * );
  * ```
@@ -100,7 +97,7 @@ export function defineTypeValidator<T extends TypeConfig>(
   config: SameShape<TypeConfig, T>,
   handler: TypeValidatorHandler
 ): TypeValidatorCommand<T['typeName']> {
-  const fn = async (request: TypeValidatorRequest, context: TypeValidatorContext): Promise<ValidationResponse> => {
+  const fn = async (request: ValidatorFileRequest, context: TypeValidatorContext): Promise<ValidationResult> => {
     return await Promise.resolve(handler(request, context));
   };
 

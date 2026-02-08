@@ -6,8 +6,10 @@
  * @module
  */
 
+import type { ValidationResult } from '@cards/protocol';
+import type { ValidatorFileRequest } from './inputs.js';
 import { Logger } from './logger.js';
-import type { ValidationContext, ValidationFunction, ValidationRequest, ValidationResponse } from './validation.js';
+import type { ValidationContext, ValidationFunction } from './validation.js';
 
 // ============================================================================
 // Test Request Builder
@@ -17,76 +19,30 @@ import type { ValidationContext, ValidationFunction, ValidationRequest, Validati
  * Options for creating a test request.
  */
 export interface TestRequestOptions {
-  /** HTTP method (default: 'PUT') */
-  method?: string;
-  /** Request path (default: '/test') */
-  path?: string;
-  /** HTTP version (default: 'HTTP/1.1') */
-  httpVersion?: string;
-  /** Request headers */
-  headers?: Record<string, string>;
-  /** Request body as string, Buffer, or object (object will be JSON-stringified) */
-  body?: string | Buffer | object;
+  /** Absolute file path (default: '/test/file.json') */
+  filePath?: string;
+  /** Parsed .meta.json sidecar content */
+  metadata?: Record<string, unknown>;
 }
 
 /**
- * Creates a test ValidationRequest from options.
+ * Creates a test ValidatorFileRequest from options.
  *
- * This helper normalizes headers, sets Content-Length, and JSON-stringifies
- * object bodies. It mirrors the runtime's ValidationRequest shape without
- * going through stdin parsing.
+ * This helper builds a file request for testing validators without
+ * actually reading files from disk.
  * @param options - Request options
- * @returns A ValidationRequest suitable for testing
+ * @returns A ValidatorFileRequest suitable for testing
  * @example
  * ```typescript
  * const request = createTestRequest({
- *   method: 'PUT',
- *   path: '/contract/api.json',
- *   body: { openapi: '3.0.0' }
+ *   filePath: '/path/to/contract.json',
+ *   metadata: { version: '1.0' }
  * });
  * ```
  */
-export function createTestRequest(options: TestRequestOptions = {}): ValidationRequest {
-  const { method = 'PUT', path = '/test', httpVersion = 'HTTP/1.1', headers = {}, body } = options;
-
-  let bodyBuffer: Buffer;
-  let contentType = headers['content-type'] || headers['Content-Type'];
-
-  if (body === undefined) {
-    bodyBuffer = Buffer.alloc(0);
-  } else if (Buffer.isBuffer(body)) {
-    bodyBuffer = body;
-  } else if (typeof body === 'string') {
-    bodyBuffer = Buffer.from(body, 'utf-8');
-  } else {
-    // Object - stringify as JSON
-    bodyBuffer = Buffer.from(JSON.stringify(body), 'utf-8');
-    if (!contentType) {
-      contentType = 'application/json';
-    }
-  }
-
-  const finalHeaders: Record<string, string> = {
-    ...headers,
-    'content-length': String(bodyBuffer.length)
-  };
-  if (contentType) {
-    finalHeaders['content-type'] = contentType;
-  }
-
-  return {
-    method,
-    path,
-    httpVersion,
-    headers: finalHeaders,
-    body: bodyBuffer,
-    get bodyText() {
-      return bodyBuffer.toString('utf-8');
-    },
-    bodyJson<T = unknown>(): T {
-      return JSON.parse(bodyBuffer.toString('utf-8')) as T;
-    }
-  };
+export function createTestRequest(options: TestRequestOptions = {}): ValidatorFileRequest {
+  const { filePath = '/test/file.json', metadata } = options;
+  return { filePath, metadata };
 }
 
 // ============================================================================
@@ -105,8 +61,8 @@ export interface TestValidationOptions {
  * Test harness result.
  */
 export interface TestValidationResult {
-  /** The response returned by the validator */
-  response: ValidationResponse;
+  /** The result returned by the validator */
+  result: ValidationResult;
   /** The context that was passed to the validator */
   context: ValidationContext;
 }
@@ -124,34 +80,35 @@ export interface TestValidationResult {
  * @returns The validation result
  * @example
  * ```typescript
- * import { testValidation, createTestRequest, typeValidation, validationCreated } from '@cards/configuration';
+ * import { testValidation, createTestRequest, typeValidation, validationSuccess } from '@cards/configuration';
  *
  * const validator = typeValidation({}, async (request) => {
- *   const data = request.bodyJson<{ name: string }>();
- *   return validationCreated({ name: data.name });
+ *   // read file at request.filePath and validate...
+ *   return validationSuccess({ name: 'test' });
  * });
  *
- * const result = await testValidation(validator, {
- *   body: { name: 'test' }
+ * const { result } = await testValidation(validator, {
+ *   filePath: '/path/to/file.json'
  * });
  *
- * expect(result.response.status).toBe(201);
- * expect(result.response.metadata).toEqual({ name: 'test' });
+ * expect(result.valid).toBe(true);
  * ```
  */
 export async function testValidation(
   validation: ValidationFunction,
-  request: ValidationRequest | TestRequestOptions,
+  request: ValidatorFileRequest | TestRequestOptions,
   options: TestValidationOptions = {}
 ): Promise<TestValidationResult> {
   const { logger = new Logger() } = options;
 
   // Convert options to request if needed
-  const validationRequest: ValidationRequest =
-    'bodyText' in request && 'bodyJson' in request ? request : createTestRequest(request);
+  const validationRequest: ValidatorFileRequest =
+    'filePath' in request && typeof request.filePath === 'string'
+      ? (request as ValidatorFileRequest)
+      : createTestRequest(request);
 
   const context: ValidationContext = { logger };
-  const response = await validation(validationRequest, context);
+  const result = await validation(validationRequest, context);
 
-  return { response, context };
+  return { result, context };
 }

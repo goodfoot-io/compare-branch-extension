@@ -100,37 +100,40 @@ async (input: TypeHookInput, { logger }) => {
 }
 ```
 
-### TypeValidatorRequest
+### ValidatorFileRequest
 
-HTTP request for type validators. The file is NOT saved to disk until validation passes.
+File-oriented request for type validators. The validator reads the file from disk using the provided path. If a `.meta.json` sidecar exists alongside the file, its parsed contents are provided as `metadata`.
 
 ```typescript
-interface TypeValidatorRequest {
-  method: string;                      // HTTP method (e.g., 'PUT')
-  path: string;                        // Request path (e.g., '/note/my-note.md')
-  httpVersion: string;                 // HTTP version (e.g., 'HTTP/1.1')
-  headers: Record<string, string>;     // HTTP headers (lowercase keys)
-  body: Buffer;                        // Raw body content
-  bodyText: string;                    // Body as UTF-8 string (getter)
-  bodyJson: <T = unknown>() => T;      // Parse body as JSON
+interface ValidatorFileRequest {
+  filePath: string;                        // Absolute path to the file being validated
+  metadata?: Record<string, unknown>;      // Parsed .meta.json sidecar content (if exists)
 }
 ```
 
 **Usage Example:**
 
 ```typescript
-async (request: TypeValidatorRequest, context) => {
-  // Access HTTP headers
-  const contentType = request.headers['content-type'];
+import { readFileSync } from 'node:fs';
 
-  // Get raw body
-  const rawContent = request.body;
+async (request: ValidatorFileRequest, context) => {
+  // Read the file from disk
+  const content = readFileSync(request.filePath, 'utf-8');
 
-  // Get body as string
-  const textContent = request.bodyText;
+  // Parse content
+  const data = JSON.parse(content) as MyType;
 
-  // Parse body as JSON (throws on invalid JSON)
-  const jsonData = request.bodyJson<MyType>();
+  // Check existing sidecar metadata
+  if (request.metadata) {
+    const previousVersion = request.metadata['version'] as number;
+    // Use previous metadata for comparison
+  }
+
+  // Validate and return result
+  if (!data.id) {
+    return validationError(['`id` field is required']);
+  }
+  return validationSuccess({ version: data.version });
 }
 ```
 

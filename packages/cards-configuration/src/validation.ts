@@ -1,23 +1,19 @@
 /**
  * Validation factory and output builders for custom type validators.
  *
- * Validators run as a stdin/stdout protocol: they receive an HTTP request on
- * stdin and emit a JSON response on stdout. This module provides the handler
- * types, response helpers, and the runtime executor.
+ * Validators run as a file-path protocol: they read FILE_PATH from the
+ * environment, optionally load a `.meta.json` sidecar, and write a
+ * `ValidationResult` JSON object to stdout. This module provides the handler
+ * types, result helpers, and the runtime executor.
  * @module
  */
 
+import { readFileSync } from 'node:fs';
+import type { ValidationResult } from '@cards/protocol';
 import type { TypeValidatorCommand } from './command-types.js';
 import { CARDS_ENV_VARS } from './env.js';
-import { parseHttpRequest } from './http-parser.js';
-import type { TypeValidatorContext, TypeValidatorRequest } from './inputs.js';
+import type { TypeValidatorContext, ValidatorFileRequest } from './inputs.js';
 import { Logger } from './logger.js';
-
-// ============================================================================
-// Re-export ValidationRequest from http-parser
-// ============================================================================
-
-export type { ValidationRequest } from './http-parser.js';
 
 // ============================================================================
 // Configuration Types
@@ -51,7 +47,7 @@ export interface ValidationConfig {
  * or a log file).
  * @example
  * ```typescript
- * function handler(request: ValidationRequest, context: ValidationContext) {
+ * function handler(request: ValidatorFileRequest, context: ValidationContext) {
  *   context.logger.info('Validating request');
  * }
  * ```
@@ -64,106 +60,34 @@ export interface ValidationContext {
 }
 
 // ============================================================================
-// Error Types
-// ============================================================================
-
-/**
- * Structured validation error.
- *
- * Used to report specific validation failures with context.
- * @example
- * ```typescript
- * const error: ValidationError = {
- *   code: 'ERR_REQUIRED',
- *   message: 'Field is required',
- *   field: 'name'
- * };
- * ```
- */
-export interface ValidationError {
-  /**
-   * Machine-readable error code.
-   */
-  code: string;
-
-  /**
-   * Human-readable error message.
-   */
-  message: string;
-
-  /**
-   * Optional field name that caused the error.
-   */
-  field?: string;
-}
-
-// ============================================================================
-// Response Types
-// ============================================================================
-
-/**
- * Response from a validation handler.
- *
- * Contains HTTP status, headers, body, and optional metadata.
- * Use output builder functions to construct responses.
- * @example
- * ```typescript
- * const response: ValidationResponse = {
- *   status: 201,
- *   metadata: { checksum: 'abc123' }
- * };
- * ```
- */
-export interface ValidationResponse {
-  /**
-   * HTTP status code (e.g., 200, 201, 400, 422, 500).
-   */
-  status?: number;
-
-  /**
-   * HTTP response headers.
-   */
-  headers?: Record<string, string>;
-
-  /**
-   * Response body as string or Buffer.
-   */
-  body?: string | Buffer;
-
-  /**
-   * Optional metadata to store in .meta.json file.
-   */
-  metadata?: Record<string, unknown>;
-}
-
-// ============================================================================
 // Handler Types
 // ============================================================================
 
 /**
  * Validation handler function.
  *
- * Receives an HTTP request and context, returns a validation response.
+ * Receives a file request and context, returns a validation result.
  * Can be sync or async. If the handler throws, {@link executeValidation}
- * converts the failure into a 500 response.
- * @template TRequest - The request type (defaults to ValidationRequest)
+ * converts the failure into a `{ valid: false, errors: [...] }` result.
+ *
  * @example
  * ```typescript
+ * import { readFileSync } from 'node:fs';
+ *
  * const handler: ValidationHandler = (request, context) => {
- *   const data = request.bodyJson<MyType>();
+ *   const content = readFileSync(request.filePath, 'utf-8');
+ *   const data = JSON.parse(content);
  *   if (!data.name) {
- *     return validationError(400, [
- *       { code: 'ERR_REQUIRED', message: 'Name is required', field: 'name' }
- *     ]);
+ *     return validationError(['**name** field is required']);
  *   }
- *   return validationCreated({ version: '1.0' });
+ *   return validationSuccess({ version: '1.0' });
  * };
  * ```
  */
-export type ValidationHandler<TRequest = import('./http-parser.js').ValidationRequest> = (
-  request: TRequest,
+export type ValidationHandler = (
+  request: ValidatorFileRequest,
   context: ValidationContext
-) => ValidationResponse | Promise<ValidationResponse>;
+) => ValidationResult | Promise<ValidationResult>;
 
 /**
  * Validation function created by the factory.
@@ -174,14 +98,14 @@ export type ValidationHandler<TRequest = import('./http-parser.js').ValidationRe
  * ```typescript
  * const validate: ValidationFunction = typeValidation(
  *   { timeout: 5000 },
- *   (request, context) => validationCreated()
+ *   (request, context) => validationSuccess()
  * );
  *
  * console.log(validate.timeout); // 5000
  * ```
  */
 export interface ValidationFunction {
-  (request: import('./http-parser.js').ValidationRequest, context: ValidationContext): Promise<ValidationResponse>;
+  (request: ValidatorFileRequest, context: ValidationContext): Promise<ValidationResult>;
   timeout?: number;
 }
 
@@ -200,25 +124,23 @@ export interface ValidationFunction {
  * @returns A ValidationFunction with attached metadata
  * @example
  * ```typescript
+ * import { readFileSync } from 'node:fs';
+ *
  * const validate = typeValidation(
  *   { timeout: 30000 },
  *   (request, context) => {
- *     const data = request.bodyJson<Contract>();
+ *     const content = readFileSync(request.filePath, 'utf-8');
+ *     const data = JSON.parse(content);
  *     if (!isValidContract(data)) {
- *       return validationError(422, [
- *         { code: 'ERR_INVALID_CONTRACT', message: 'Contract validation failed' }
- *       ]);
+ *       return validationError(['Contract validation failed']);
  *     }
- *     return validationCreated({ version: data.version });
+ *     return validationSuccess({ version: data.version });
  *   }
  * );
  * ```
  */
 export function typeValidation(config: ValidationConfig, handler: ValidationHandler): ValidationFunction {
-  const fn = (
-    request: import('./http-parser.js').ValidationRequest,
-    context: ValidationContext
-  ): Promise<ValidationResponse> => {
+  const fn = (request: ValidatorFileRequest, context: ValidationContext): Promise<ValidationResult> => {
     return Promise.resolve(handler(request, context));
   };
 
@@ -231,86 +153,41 @@ export function typeValidation(config: ValidationConfig, handler: ValidationHand
 // ============================================================================
 
 /**
- * Creates a 201 Created response.
+ * Creates a successful validation result.
  *
- * Use when validation succeeds for a new resource.
- * This helper only sets status and metadata; use {@link validationResponse}
- * if you need headers or a body.
+ * Use when validation passes. Optionally include metadata to store in the
+ * `.meta.json` sidecar file.
  * @param metadata - Optional metadata to store in .meta.json
- * @returns ValidationResponse with status 201
+ * @returns ValidationResult with `valid: true`
  * @example
  * ```typescript
- * return validationCreated({ version: '1.0', checksum: 'abc123' });
+ * return validationSuccess({ version: '1.0', checksum: 'abc123' });
  * ```
  */
-export function validationCreated(metadata?: Record<string, unknown>): ValidationResponse {
-  return { status: 201, metadata };
-}
-
-/**
- * Creates a 200 OK response.
- *
- * Use when validation succeeds for updating an existing resource.
- * This helper only sets status and metadata; use {@link validationResponse}
- * if you need headers or a body.
- * @param metadata - Optional metadata to store in .meta.json
- * @returns ValidationResponse with status 200
- * @example
- * ```typescript
- * return validationUpdated({ version: '1.1', lastModified: Date.now() });
- * ```
- */
-export function validationUpdated(metadata?: Record<string, unknown>): ValidationResponse {
-  return { status: 200, metadata };
-}
-
-/**
- * Creates an error response.
- *
- * Use when validation fails. Automatically sets Content-Type to application/json
- * and formats errors in the response body. Metadata is omitted for errors.
- * @param status - HTTP status code (typically 400, 422, or 500)
- * @param errors - Array of validation errors
- * @param message - Optional human-readable error message
- * @returns ValidationResponse with structured error body
- * @example
- * ```typescript
- * return validationError(422, [
- *   { code: 'ERR_REQUIRED', message: 'Name is required', field: 'name' },
- *   { code: 'ERR_TYPE', message: 'Age must be a number', field: 'age' }
- * ], 'Validation failed');
- * ```
- */
-export function validationError(status: number, errors: ValidationError[], message?: string): ValidationResponse {
-  const body: { errors: ValidationError[]; message?: string } = { errors };
-  if (message !== undefined) {
-    body.message = message;
+export function validationSuccess(metadata?: Record<string, unknown>): ValidationResult {
+  if (metadata !== undefined) {
+    return { valid: true, metadata };
   }
-
-  return {
-    status,
-    body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' }
-  };
+  return { valid: true };
 }
 
 /**
- * Passes through a custom validation response.
+ * Creates a failed validation result.
  *
- * Use when you need full control over the response structure.
- * @param response - The validation response to return
- * @returns The same ValidationResponse
+ * Use when validation fails. Errors are markdown-formatted strings surfaced
+ * to the git client.
+ * @param errors - Array of markdown-formatted error messages
+ * @returns ValidationResult with `valid: false`
  * @example
  * ```typescript
- * return validationResponse({
- *   status: 418,
- *   headers: { 'X-Custom': 'teapot' },
- *   body: 'I am a teapot'
- * });
+ * return validationError([
+ *   '**name** field is required',
+ *   '`age` must be a positive number'
+ * ]);
  * ```
  */
-export function validationResponse(response: ValidationResponse): ValidationResponse {
-  return response;
+export function validationError(errors: string[]): ValidationResult {
+  return { valid: false, errors };
 }
 
 // ============================================================================
@@ -318,45 +195,45 @@ export function validationResponse(response: ValidationResponse): ValidationResp
 // ============================================================================
 
 /**
- * Executes a type validator command with stdin/stdout protocol.
+ * Executes a type validator command with file-path protocol.
  *
- * Reads an HTTP request from stdin, extracts type context from environment
- * variables, invokes the validation handler, and writes the JSON response
- * to stdout. Always exits with code 0 for handled cases (including validation
- * errors). Non-zero exit codes indicate unhandled crashes or process-level failures.
+ * Reads the file path from the `FILE_PATH` environment variable, loads the
+ * `.meta.json` sidecar if present, extracts type context from environment
+ * variables, invokes the validation handler, and writes the JSON result
+ * to stdout. Always exits with code 0 for all cases.
  *
  * ## Protocol
  *
- * - **Input**: HTTP request on stdin (request line, headers, body)
+ * - **Input**: `FILE_PATH` environment variable pointing to the file
+ * - **Sidecar**: `{FILE_PATH}.meta.json` parsed as metadata if present
  * - **Environment**: Type metadata from environment variables
- * - **Output**: JSON response on stdout
- * - **Exit Code**: 0 for all handled cases (2xx, 4xx, 5xx), non-zero for crashes
+ * - **Output**: `ValidationResult` JSON on stdout
+ * - **Exit Code**: 0 for all cases
  *
  * ## Error Handling
  *
- * | Error Type | Status | Exit Code |
+ * | Error Type | Output | Exit Code |
  * |------------|--------|-----------|
- * | Parse error | 400 | 0 |
- * | Validation error | 4xx | 0 |
- * | Handler exception | 500 | 0 |
- * | Unhandled crash | - | non-zero |
+ * | Missing FILE_PATH | `{ valid: false, errors: [...] }` | 0 |
+ * | Validation failure | `{ valid: false, errors: [...] }` | 0 |
+ * | Handler exception | `{ valid: false, errors: [...] }` | 0 |
+ * | Validation success | `{ valid: true, ... }` | 0 |
  *
- * This function reads all of stdin into memory before parsing. The request
- * must include a valid Content-Length header; chunked encoding is unsupported.
  * @param validation - The type validator command to execute
  * @returns A promise that resolves only if process.exit is mocked
  * @example
  * ```typescript
  * // validator.mjs
- * import { defineTypeValidator, executeValidation, validationCreated } from '@cards/configuration';
+ * import { readFileSync } from 'node:fs';
+ * import { defineTypeValidator, executeValidation, validationSuccess } from '@cards/configuration';
  *
  * const validate = defineTypeValidator(
  *   { typeName: 'note', timeout: 30000 },
  *   (request, context) => {
- *     context.logger.info('Validating request');
- *     const data = request.bodyJson();
+ *     context.logger.info('Validating file', { path: request.filePath });
+ *     const content = readFileSync(request.filePath, 'utf-8');
  *     // ... validation logic
- *     return validationCreated();
+ *     return validationSuccess();
  *   }
  * );
  *
@@ -367,24 +244,28 @@ export async function executeValidation(validation: TypeValidatorCommand): Promi
   const logger = new Logger();
 
   try {
-    // Read all of stdin
-    const chunks: Buffer[] = [];
-    for await (const chunk of process.stdin) {
-      chunks.push(chunk as Buffer);
+    // Read FILE_PATH from environment
+    const filePath = process.env[CARDS_ENV_VARS.FILE_PATH];
+    if (!filePath) {
+      process.stdout.write(JSON.stringify({ valid: false, errors: ['FILE_PATH environment variable is not set'] }));
+      process.exit(0);
+      return; // Unreachable in production but needed when process.exit is mocked
     }
-    const input = Buffer.concat(chunks);
 
-    // Parse HTTP request
-    const parseResult = parseHttpRequest(input);
-    if (!parseResult.success) {
-      const errorResponse = {
-        status: 400,
-        body: JSON.stringify({ error: parseResult.error }),
-        headers: { 'Content-Type': 'application/json' }
-      };
-      process.stdout.write(JSON.stringify(errorResponse));
-      process.exit(0); // Exit 0 even for validation errors
+    // Look for .meta.json sidecar
+    let metadata: Record<string, unknown> | undefined;
+    try {
+      const sidecarContent = readFileSync(`${filePath}.meta.json`, 'utf-8');
+      metadata = JSON.parse(sidecarContent) as Record<string, unknown>;
+    } catch {
+      // Sidecar doesn't exist or is invalid - metadata stays undefined
     }
+
+    // Build ValidatorFileRequest
+    const request: ValidatorFileRequest = {
+      filePath,
+      metadata
+    };
 
     // Extract type context from environment variables
     const context: TypeValidatorContext = {
@@ -399,33 +280,17 @@ export async function executeValidation(validation: TypeValidatorCommand): Promi
       apiAccessToken: process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] ?? ''
     };
 
-    // Create TypeValidatorRequest from parsed HTTP request
-    const request: TypeValidatorRequest = {
-      method: parseResult.request.method,
-      path: parseResult.request.path,
-      httpVersion: parseResult.request.httpVersion,
-      headers: parseResult.request.headers,
-      body: parseResult.request.body,
-      bodyText: parseResult.request.bodyText,
-      bodyJson: parseResult.request.bodyJson
-    };
-
     // Execute handler
-    const response = await validation(request, context);
+    const result = await validation(request, context);
 
-    // Write response
-    process.stdout.write(JSON.stringify(response));
+    // Write result
+    process.stdout.write(JSON.stringify(result));
     process.exit(0);
   } catch (error) {
-    // Unhandled error - return 500
+    // Unhandled error - return failure result
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('Validation error', { error: errorMessage });
-    const errorResponse = {
-      status: 500,
-      body: JSON.stringify({ error: 'Internal validation error', message: errorMessage }),
-      headers: { 'Content-Type': 'application/json' }
-    };
-    process.stdout.write(JSON.stringify(errorResponse));
-    process.exit(0); // Exit 0 - non-zero only for crashes
+    process.stdout.write(JSON.stringify({ valid: false, errors: [errorMessage] }));
+    process.exit(0);
   }
 }

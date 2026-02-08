@@ -5,6 +5,7 @@
  * preservation of command types used by factory functions.
  */
 
+import type { ValidationResult } from '@cards/protocol';
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
   ActionCommand,
@@ -18,9 +19,8 @@ import type {
   ActionInput,
   TypeHookInput,
   TypeValidatorContext,
-  TypeValidatorRequest
+  ValidatorFileRequest
 } from '../src/inputs.js';
-import type { ValidationResponse } from '../src/validation.js';
 
 describe('command-types', () => {
   describe('ActionCommand', () => {
@@ -108,28 +108,28 @@ describe('command-types', () => {
   });
 
   describe('TypeValidatorCommand', () => {
-    it('should be callable with TypeValidatorRequest and TypeValidatorContext', () => {
-      const fn = async (request: TypeValidatorRequest, context: TypeValidatorContext): Promise<ValidationResponse> => {
-        expectTypeOf(request).toEqualTypeOf<TypeValidatorRequest>();
+    it('should be callable with ValidatorFileRequest and TypeValidatorContext', () => {
+      const fn = async (request: ValidatorFileRequest, context: TypeValidatorContext): Promise<ValidationResult> => {
+        expectTypeOf(request).toEqualTypeOf<ValidatorFileRequest>();
         expectTypeOf(context).toEqualTypeOf<TypeValidatorContext>();
-        return { status: 201 };
+        return { valid: true };
       };
       const command = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'test-type'
       });
 
-      expectTypeOf(command).toBeCallableWith({} as TypeValidatorRequest, {} as TypeValidatorContext);
+      expectTypeOf(command).toBeCallableWith({} as ValidatorFileRequest, {} as TypeValidatorContext);
     });
 
-    it('should return Promise<ValidationResponse>', () => {
-      const fn = async (): Promise<ValidationResponse> => ({ status: 201 });
+    it('should return Promise<ValidationResult>', () => {
+      const fn = async (): Promise<ValidationResult> => ({ valid: true });
       const command = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'test-type'
       });
 
-      expectTypeOf(command).returns.toEqualTypeOf<Promise<ValidationResponse>>();
+      expectTypeOf(command).returns.toEqualTypeOf<Promise<ValidationResult>>();
     });
 
     it('should have factoryType property', () => {
@@ -149,7 +149,7 @@ describe('command-types', () => {
     });
 
     it('should preserve literal type name', () => {
-      const fn = async (): Promise<ValidationResponse> => ({ status: 201 });
+      const fn = async (): Promise<ValidationResult> => ({ valid: true });
       const command: TypeValidatorCommand<'adaptive-card'> = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'adaptive-card' as const
@@ -159,7 +159,7 @@ describe('command-types', () => {
     });
 
     it('should default to string when no generic provided', () => {
-      const fn = async (): Promise<ValidationResponse> => ({ status: 201 });
+      const fn = async (): Promise<ValidationResult> => ({ valid: true });
       const command: TypeValidatorCommand = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
         typeName: 'any-type'

@@ -100,7 +100,7 @@ export default defineAction(
  */
 function createTypeValidatorHandler(typeName: string, _handlerPath: string): string {
   return `
-import { defineTypeValidator, validationCreated } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineTypeValidator, validationSuccess } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 import { fileURLToPath } from 'node:url';
 
 export default defineTypeValidator(
@@ -111,7 +111,7 @@ export default defineTypeValidator(
   },
   async (request, context) => {
     context.logger.info('${typeName} validated');
-    return validationCreated({ typeName: '${typeName}' });
+    return validationSuccess({ typeName: '${typeName}' });
   }
 );
 `;
@@ -705,32 +705,33 @@ describe('builder CLI: compiled handler execution', () => {
   }
 
   /**
-   * Helper to execute a validator handler with HTTP stdin protocol.
+   * Helper to execute a validator handler with file-path protocol.
+   *
+   * Creates a temporary file with the given content, sets FILE_PATH in env,
+   * and executes the handler. Returns the parsed ValidationResult from stdout.
    */
   async function executeValidator(
     handlerPath: string,
     content: string | Buffer,
     env: Record<string, string>,
-    options: { method?: string; contentType?: string } = {}
-  ): Promise<{ exitCode: number; stdout: string; stderr: string; response?: { status?: number } }> {
+    _options: { method?: string; contentType?: string } = {}
+  ): Promise<{
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+    response?: { valid?: boolean; metadata?: Record<string, unknown> };
+  }> {
     const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs');
 
-    const method = options.method ?? 'PUT';
-    const contentType = options.contentType ?? 'application/octet-stream';
+    // Write content to a temp file and pass FILE_PATH
+    const filePath = path.join(testDir, `validator-input-${Date.now()}.tmp`);
     const body = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf-8');
-
-    // Build HTTP request
-    const httpRequest =
-      `${method} /type/${env.TYPE_NAME ?? 'test'}/${env.FILE_NAME ?? 'test.txt'} HTTP/1.1\r\n` +
-      `Content-Type: ${contentType}\r\n` +
-      `Content-Length: ${body.length}\r\n` +
-      `\r\n`;
-
-    const fullRequest = Buffer.concat([Buffer.from(httpRequest, 'utf-8'), body]);
+    fs.writeFileSync(filePath, body);
 
     return new Promise((resolve) => {
       const proc = spawn('node', [handlerPath], {
-        env: { ...process.env, ...env },
+        env: { ...process.env, ...env, FILE_PATH: filePath },
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
@@ -746,11 +747,17 @@ describe('builder CLI: compiled handler execution', () => {
       });
 
       proc.on('close', (code) => {
-        let response: { status?: number } | undefined;
+        let response: { valid?: boolean; metadata?: Record<string, unknown> } | undefined;
         try {
           response = JSON.parse(stdout);
         } catch {
           // Ignore parse errors
+        }
+        // Clean up temp file
+        try {
+          fs.unlinkSync(filePath);
+        } catch {
+          /* ignore */
         }
         resolve({
           exitCode: code ?? 0,
@@ -760,8 +767,7 @@ describe('builder CLI: compiled handler execution', () => {
         });
       });
 
-      // Write HTTP request to stdin
-      proc.stdin.write(fullRequest);
+      // Close stdin immediately (no longer needed)
       proc.stdin.end();
     });
   }
@@ -861,7 +867,7 @@ export default {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.response?.status).toBe(201);
+    expect(result.response?.valid).toBe(true);
   });
 
   it('should compile handlers with CommonJS dependencies', async () => {

@@ -11,14 +11,14 @@
  * @module
  */
 
+import type { ValidationResult } from '@cards/protocol';
 import type {
   ActionContext,
   ActionInput,
   TypeHookInput,
   TypeValidatorContext,
-  TypeValidatorRequest
+  ValidatorFileRequest
 } from './inputs.js';
-import type { ValidationResponse } from './validation.js';
 
 // ============================================================================
 // Command Types
@@ -91,14 +91,14 @@ export interface ActionCommand<N extends string = string> {
 /**
  * Callable command returned by type validator factory.
  *
- * Validators receive the HTTP request with file content in the body.
- * The file is NOT saved to disk until validation passes. Return a
- * validation response to indicate success (2xx) or failure (4xx/5xx).
+ * Validators receive the file path and optional sidecar metadata.
+ * The file is already on disk; validators read it themselves. Return a
+ * `ValidationResult` to indicate success or failure.
  *
  * @template T - The literal type name (e.g., 'adaptive-card')
  */
 export interface TypeValidatorCommand<T extends string = string> {
-  (request: TypeValidatorRequest, context: TypeValidatorContext): Promise<ValidationResponse>;
+  (request: ValidatorFileRequest, context: TypeValidatorContext): Promise<ValidationResult>;
   factoryType: 'typeValidator';
   /** Type name from config - preserved as literal type. */
   typeName: T;

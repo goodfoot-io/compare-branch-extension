@@ -294,67 +294,33 @@ export interface ActionContext {
 // ============================================================================
 
 /**
- * HTTP request for type validators.
+ * File-oriented request for type validators.
  *
- * Validators receive the full HTTP request including headers and body.
- * The file is NOT saved to disk until validation passes, so validators
- * work with the request body directly.
+ * Validators receive the file path and optional sidecar metadata. The file
+ * is already written to disk; validators read it themselves. If a `.meta.json`
+ * sidecar exists alongside the file, its parsed contents are provided as
+ * `metadata`.
  *
  * @example
  * ```typescript
- * async (request: TypeValidatorRequest, context) => {
- *   // Access HTTP headers
- *   const contentType = request.headers['content-type'];
+ * import { readFileSync } from 'node:fs';
  *
- *   // Parse body as JSON
- *   const data = request.bodyJson<MyType>();
+ * async (request: ValidatorFileRequest, context) => {
+ *   const content = readFileSync(request.filePath, 'utf-8');
+ *   const data = JSON.parse(content);
  *
- *   // Validate and return response
  *   if (!data.id) {
- *     return validationError(400, [{ code: 'MISSING_ID', message: 'id is required' }]);
+ *     return validationError(['`id` field is required']);
  *   }
- *   return validationCreated();
+ *   return validationSuccess({ version: data.version });
  * }
  * ```
  */
-export interface TypeValidatorRequest {
-  /**
-   * HTTP method (e.g., 'PUT', 'POST').
-   */
-  method: string;
-
-  /**
-   * Request path (e.g., '/note/my-note.md').
-   */
-  path: string;
-
-  /**
-   * HTTP version (e.g., 'HTTP/1.1').
-   */
-  httpVersion: string;
-
-  /**
-   * HTTP headers as key-value pairs.
-   * Header names are normalized to lowercase.
-   */
-  headers: Record<string, string>;
-
-  /**
-   * Raw body content as a Buffer.
-   * This is the file content being validated.
-   */
-  body: Buffer;
-
-  /**
-   * Body as UTF-8 string.
-   */
-  bodyText: string;
-
-  /**
-   * Parse body as JSON.
-   * @throws {SyntaxError} If body is not valid JSON
-   */
-  bodyJson: <T = unknown>() => T;
+export interface ValidatorFileRequest {
+  /** Absolute path to the file being validated. Validators read the file themselves. */
+  filePath: string;
+  /** Parsed .meta.json content if a sidecar already exists, undefined otherwise. */
+  metadata?: Record<string, unknown>;
 }
 
 /**
