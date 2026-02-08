@@ -21,17 +21,11 @@ beforeAll(() => {
   writeFileSync(
     join(FIXTURES_DIR, 'valid.config.ts'),
     `
-const launchStart = {
-  factoryType: 'actionStart',
+const launch = {
+  factoryType: 'action',
   actionName: 'Launch',
   description: 'Launch Claude',
   icon: 'rocket',
-  handler: async () => {}
-};
-
-const launchEnd = {
-  factoryType: 'actionEnd',
-  actionName: 'Launch',
   handler: async () => {}
 };
 
@@ -40,9 +34,7 @@ export default {
     default: {
       version: 1,
       description: 'Default environment',
-      actions: [
-        { start: launchStart, end: launchEnd }
-      ]
+      actions: [launch]
     }
   }
 };
@@ -53,14 +45,14 @@ export default {
   writeFileSync(
     join(FIXTURES_DIR, 'multi-env.config.ts'),
     `
-const start1 = {
-  factoryType: 'actionStart',
+const action1 = {
+  factoryType: 'action',
   actionName: 'Action1',
   handler: async () => {}
 };
 
-const start2 = {
-  factoryType: 'actionStart',
+const action2 = {
+  factoryType: 'action',
   actionName: 'Action2',
   handler: async () => {}
 };
@@ -69,11 +61,11 @@ export default {
   environments: {
     development: {
       version: 1,
-      actions: [{ start: start1 }]
+      actions: [action1]
     },
     production: {
       version: 1,
-      actions: [{ start: start2 }]
+      actions: [action2]
     }
   }
 };
@@ -90,8 +82,8 @@ const noteValidator = {
   handler: async () => {}
 };
 
-const actionStart = {
-  factoryType: 'actionStart',
+const action = {
+  factoryType: 'action',
   actionName: 'CreateNote',
   handler: async () => {}
 };
@@ -100,7 +92,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [action],
       types: {
         note: {
           version: '1.0.0',
@@ -172,8 +164,7 @@ describe('build', () => {
         expect(settings.environments.default.actions[0].description).toBe('Launch Claude');
         expect(settings.environments.default.actions[0].icon).toBe('rocket');
         // Without sourcePath, commands use placeholder format
-        expect(settings.environments.default.actions[0].start.command).toBe('actionStart-placeholder.js');
-        expect(settings.environments.default.actions[0].end.command).toBe('actionEnd-placeholder.js');
+        expect(settings.environments.default.actions[0].command.command).toBe('action-placeholder.js');
       }
     });
 
@@ -317,31 +308,20 @@ describe('build', () => {
   });
 
   describe('error handling - serialization', () => {
-    it('should return error for config with missing action start', async () => {
-      // Create a config with invalid action structure
-      const invalidConfigPath = join(FIXTURES_DIR, 'no-start.config.ts');
-      writeFileSync(
-        invalidConfigPath,
-        `
-export default {
-  environments: {
-    default: {
-      version: 1,
-      actions: [{ end: { factoryType: 'actionEnd', actionName: 'Test', handler: async () => {} } }]
-    }
-  }
-};
-        `.trim()
-      );
-
+    it('should handle actions without sourcePath gracefully', async () => {
+      // Actions are now direct ActionCommand objects with factoryType 'action'
+      // Commands without sourcePath get placeholder format
+      const outdir = join(FIXTURES_DIR, 'output-no-source');
       const result = await build({
-        config: invalidConfigPath,
-        outdir: join(FIXTURES_DIR, 'output-error')
+        config: join(FIXTURES_DIR, 'valid.config.ts'),
+        outdir
       });
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('start');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const settingsContent = readFileSync(result.settingsPath, 'utf-8');
+        const settings = JSON.parse(settingsContent);
+        expect(settings.environments.default.actions[0].command.command).toBe('action-placeholder.js');
       }
     });
   });
@@ -468,7 +448,7 @@ export default defineStreamTransform(
       actionHandlerPath,
       `
 export default {
-  factoryType: 'actionStart',
+  factoryType: 'action',
   actionName: 'Test',
   handler: async () => {}
 };
@@ -481,13 +461,13 @@ export default {
       configPath,
       `
 import streamHandler from './test-stream.js';
-import actionStart from './action.js';
+import action from './action.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [action],
       streams: {
         'test-stream': {
           version: 1,
@@ -522,7 +502,7 @@ export default {
       actionHandlerPath,
       `
 export default {
-  factoryType: 'actionStart',
+  factoryType: 'action',
   actionName: 'Test',
   handler: async () => {}
 };
@@ -534,7 +514,7 @@ export default {
     writeFileSync(
       configPath,
       `
-import actionStart from './action.js';
+import action from './action.js';
 
 const streamHandler = {
   factoryType: 'streamTransform',
@@ -546,7 +526,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [action],
       streams: {
         'no-source': {
           version: 1,
@@ -597,7 +577,7 @@ export default defineStreamTransform(
       actionHandlerPath,
       `
 export default {
-  factoryType: 'actionStart',
+  factoryType: 'action',
   actionName: 'Test',
   handler: async () => {}
 };
@@ -609,13 +589,13 @@ export default {
       configPath,
       `
 import streamHandler from './jsonl-stream.js';
-import actionStart from './action.js';
+import action from './action.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [action],
       streams: {
         'jsonl': {
           version: 1,
@@ -668,7 +648,7 @@ export default defineStreamTransform(
       actionHandlerPath,
       `
 export default {
-  factoryType: 'actionStart',
+  factoryType: 'action',
   actionName: 'Test',
   handler: async () => {}
 };
@@ -680,13 +660,13 @@ export default {
       configPath,
       `
 import streamHandler from './metadata-stream.js';
-import actionStart from './action.js';
+import action from './action.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [action],
       streams: {
         'metadata': {
           version: 1,
@@ -721,7 +701,7 @@ export default {
       actionHandlerPath,
       `
 export default {
-  factoryType: 'actionStart',
+  factoryType: 'action',
   actionName: 'Test',
   handler: async () => {}
 };
@@ -732,13 +712,13 @@ export default {
     writeFileSync(
       configPath,
       `
-import actionStart from './action.js';
+import action from './action.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }]
+      actions: [action]
     }
   }
 };
@@ -781,7 +761,7 @@ export default defineStreamTransform(
       actionHandlerPath,
       `
 export default {
-  factoryType: 'actionStart',
+  factoryType: 'action',
   actionName: 'Test',
   handler: async () => {}
 };
@@ -793,7 +773,7 @@ export default {
       configPath,
       `
 import streamHandler from './full-stream.js';
-import actionStart from './action.js';
+import action from './action.js';
 
 const noteValidator = {
   factoryType: 'typeValidator',
@@ -805,7 +785,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: actionStart }],
+      actions: [action],
       types: {
         note: {
           version: '1.0.0',

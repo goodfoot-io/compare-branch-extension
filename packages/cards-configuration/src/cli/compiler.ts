@@ -231,7 +231,7 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     const resolveDir = path.dirname(sourcePath);
     const toRelativeImport = (absolute: string) => {
       const rel = path.relative(resolveDir, absolute).replace(/\\/g, '/');
-      return rel.startsWith('.') ? rel : './' + rel;
+      return rel.startsWith('.') ? rel : `./${rel}`;
     };
     const sourceImport = toRelativeImport(sourcePath);
 

@@ -186,7 +186,10 @@ describe('inputs', () => {
     });
 
     it('should allow destructuring in handler', () => {
-      const handler = async (_input: ActionInput, { logger, cwd, onCancel, onSwitchToInteractive }: ActionContext): Promise<void> => {
+      const handler = async (
+        _input: ActionInput,
+        { logger, cwd, onCancel, onSwitchToInteractive }: ActionContext
+      ): Promise<void> => {
         logger.info('test');
         onCancel(() => {});
         onSwitchToInteractive(() => ({}));

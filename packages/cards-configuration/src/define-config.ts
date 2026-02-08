@@ -26,12 +26,7 @@
  */
 
 import type { ActionCommand } from './command-types.js';
-import type {
-  EnvironmentConfig,
-  SettingsConfig,
-  StreamConfigDefinition,
-  TypeConfigDefinition
-} from './config.js';
+import type { EnvironmentConfig, SettingsConfig, StreamConfigDefinition, TypeConfigDefinition } from './config.js';
 import type { Action, Command, Environment, Settings, StreamDefinition, TypeDefinition } from './schema.js';
 
 /**

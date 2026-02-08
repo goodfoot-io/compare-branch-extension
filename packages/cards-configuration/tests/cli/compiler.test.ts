@@ -83,9 +83,9 @@ describe('compileHandler', () => {
   it('should compile a simple JavaScript handler to ESM bundle', async () => {
     // Create a simple handler that imports from the real source path
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
   async (input, context) => {
     context.logger.info('Action started');
@@ -120,12 +120,12 @@ export default defineActionStart(
   it('should compile a TypeScript handler to ESM bundle', async () => {
     // Create a TypeScript handler that imports from the real source path
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-import type { ActionStartInput, ActionContext } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import type { ActionInput, ActionContext } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
-  async (input: ActionStartInput, context: ActionContext) => {
+  async (input: ActionInput, context: ActionContext) => {
     context.logger.info('Action started');
   }
 );
@@ -157,9 +157,9 @@ export default defineActionStart(
   it('should inject runtime wrapper code that calls execute', async () => {
     // Create a simple handler
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
   async (input, context) => {
     context.logger.info('Test');
@@ -196,9 +196,9 @@ export default defineActionStart(
 
   it('should generate inline source maps when requested', async () => {
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
   async (input, context) => {
     context.logger.info('Test');
@@ -225,9 +225,9 @@ export default defineActionStart(
 
   it('should not generate source maps when not requested', async () => {
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
   async (input, context) => {
     context.logger.info('Test');
@@ -266,10 +266,10 @@ export function greet(name) {
     writeTestHandler(testDir, 'util.js', utilContent);
 
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 import { greet } from './util.js';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
   async (input, context) => {
     context.logger.info(greet('World'));
@@ -321,9 +321,9 @@ export default defineActionStart(
   it('should return error for handler with syntax errors', async () => {
     // Create a handler with syntax errors
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
   async (input, context) => {
     // Missing closing brace
@@ -352,9 +352,9 @@ export default defineActionStart(
 
   it('should create output directory if it does not exist', async () => {
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Test', timeout: 30000 },
   async (input, context) => {
     context.logger.info('Test');

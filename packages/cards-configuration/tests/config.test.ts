@@ -15,12 +15,7 @@ import type {
   TypeUpdateCommand,
   TypeValidatorCommand
 } from '../src/command-types.js';
-import type {
-  EnvironmentConfig,
-  SettingsConfig,
-  StreamConfigDefinition,
-  TypeConfigDefinition
-} from '../src/config.js';
+import type { EnvironmentConfig, SettingsConfig, StreamConfigDefinition, TypeConfigDefinition } from '../src/config.js';
 
 // ============================================================================
 // Type-Level Tests

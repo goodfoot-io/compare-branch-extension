@@ -136,29 +136,17 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
 
   for (const envConfig of Object.values(config.environments)) {
     // Extract action commands
-    for (const actionPair of envConfig.actions) {
-      // Note: We extract commands even if start is missing - validation happens later
-      if (actionPair.start) {
-        commands.push({
-          factoryType: actionPair.start.factoryType,
-          name: actionPair.start.actionName,
-          sourcePath: actionPair.start.sourcePath,
-          timeout: actionPair.start.timeout,
-          description: actionPair.start.description,
-          icon: actionPair.start.icon,
-          supportsBackgroundMode: actionPair.start.supportsBackgroundMode,
-          allowConcurrent: actionPair.start.allowConcurrent
-        });
-      }
-
-      if (actionPair.end) {
-        commands.push({
-          factoryType: actionPair.end.factoryType,
-          name: actionPair.end.actionName,
-          sourcePath: actionPair.end.sourcePath,
-          timeout: actionPair.end.timeout
-        });
-      }
+    for (const action of envConfig.actions) {
+      commands.push({
+        factoryType: action.factoryType,
+        name: action.actionName,
+        sourcePath: action.sourcePath,
+        timeout: action.timeout,
+        description: action.description,
+        icon: action.icon,
+        supportsBackgroundMode: action.supportsBackgroundMode,
+        allowConcurrent: action.allowConcurrent
+      });
     }
 
     // Extract type commands
@@ -349,39 +337,28 @@ function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], b
   for (const [envName, envConfig] of Object.entries(config.environments)) {
     // Generate actions
     const actions: Action[] = [];
-    for (const actionPair of envConfig.actions) {
-      if (!actionPair.start) {
-        throw new Error('Action must have a start command');
-      }
-
-      const startKey = `${actionPair.start.factoryType}:${actionPair.start.actionName}`;
-      const startCompiled = compiledByKey.get(startKey);
+    for (const actionCmd of envConfig.actions) {
+      const key = `${actionCmd.factoryType}:${actionCmd.actionName}`;
+      const compiled = compiledByKey.get(key);
 
       const action: Action = {
-        id: actionPair.start.id ?? slugify(actionPair.start.actionName),
-        name: actionPair.start.actionName,
-        start: generateCommand(actionPair.start, startCompiled, binDir)
+        id: actionCmd.id ?? slugify(actionCmd.actionName),
+        name: actionCmd.actionName,
+        command: generateCommand(actionCmd, compiled, binDir)
       };
 
       // Add optional metadata
-      if (actionPair.start.description !== undefined) {
-        action.description = actionPair.start.description;
+      if (actionCmd.description !== undefined) {
+        action.description = actionCmd.description;
       }
-      if (actionPair.start.icon !== undefined) {
-        action.icon = actionPair.start.icon;
+      if (actionCmd.icon !== undefined) {
+        action.icon = actionCmd.icon;
       }
-      if (actionPair.start.supportsBackgroundMode !== undefined) {
-        action.supportsBackgroundMode = actionPair.start.supportsBackgroundMode;
+      if (actionCmd.supportsBackgroundMode !== undefined) {
+        action.supportsBackgroundMode = actionCmd.supportsBackgroundMode;
       }
-      if (actionPair.start.allowConcurrent !== undefined) {
-        action.allowConcurrent = actionPair.start.allowConcurrent;
-      }
-
-      // Add end command if present
-      if (actionPair.end) {
-        const endKey = `${actionPair.end.factoryType}:${actionPair.end.actionName}`;
-        const endCompiled = compiledByKey.get(endKey);
-        action.end = generateCommand(actionPair.end, endCompiled, binDir);
+      if (actionCmd.allowConcurrent !== undefined) {
+        action.allowConcurrent = actionCmd.allowConcurrent;
       }
 
       actions.push(action);

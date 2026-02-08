@@ -14,11 +14,16 @@ describe('EXIT_CODES', () => {
     expect(EXIT_CODES.ERROR).toBe(1);
   });
 
-  it('only has SUCCESS and ERROR', () => {
+  it('has SWITCH_TO_INTERACTIVE as 42', () => {
+    expect(EXIT_CODES.SWITCH_TO_INTERACTIVE).toBe(42);
+  });
+
+  it('only has SUCCESS, ERROR, and SWITCH_TO_INTERACTIVE', () => {
     const keys = Object.keys(EXIT_CODES);
-    expect(keys).toHaveLength(2);
+    expect(keys).toHaveLength(3);
     expect(keys).toContain('SUCCESS');
     expect(keys).toContain('ERROR');
+    expect(keys).toContain('SWITCH_TO_INTERACTIVE');
   });
 });
 

@@ -2,13 +2,12 @@
  * Unit tests for runtime execution orchestration.
  */
 
+import * as fs from 'node:fs';
+import * as net from 'node:net';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand
-} from '../src/command-types.js';
+import type { ActionCommand, TypeCreateCommand, TypeDeleteCommand, TypeUpdateCommand } from '../src/command-types.js';
 import { CARDS_ENV_VARS } from '../src/env.js';
 import { EXIT_CODES } from '../src/exit-codes.js';
 import { logger } from '../src/logger.js';
@@ -84,10 +83,7 @@ describe('runtime', () => {
         );
 
         // Should set logger context
-        expect(loggerSetContextSpy).toHaveBeenCalledWith(
-          'action',
-          expect.objectContaining({ cardId: 'card-123' })
-        );
+        expect(loggerSetContextSpy).toHaveBeenCalledWith('action', expect.objectContaining({ cardId: 'card-123' }));
 
         // Should exit successfully
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
@@ -410,6 +406,329 @@ describe('runtime', () => {
         expect(stderrSpy).toHaveBeenCalledWith(expect.any(String));
 
         // Should exit with error
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
+      });
+    });
+
+    describe('socket integration', () => {
+      let server: net.Server;
+      let socketPath: string;
+      let serverConnection: net.Socket | undefined;
+      let loggerWarnSpy: ReturnType<typeof vi.spyOn>;
+      let killSpy: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        socketPath = path.join(os.tmpdir(), `test-runtime-socket-${process.pid}-${Date.now()}.sock`);
+        serverConnection = undefined;
+        loggerWarnSpy = vi.spyOn(logger, 'warn');
+        killSpy = vi.spyOn(process, 'kill').mockImplementation((() => {}) as never);
+      });
+
+      afterEach(async () => {
+        serverConnection?.destroy();
+        if (server?.listening) {
+          await new Promise<void>((resolve) => {
+            server.close(() => resolve());
+          });
+        }
+        try {
+          fs.unlinkSync(socketPath);
+        } catch {
+          // Ignore
+        }
+      });
+
+      function startServer(): Promise<void> {
+        return new Promise((resolve) => {
+          server = net.createServer((socket) => {
+            serverConnection = socket;
+          });
+          server.listen(socketPath, () => resolve());
+        });
+      }
+
+      function waitForServerConnection(): Promise<net.Socket> {
+        return new Promise((resolve) => {
+          if (serverConnection) {
+            resolve(serverConnection);
+            return;
+          }
+          server.once('connection', (socket) => {
+            serverConnection = socket;
+            resolve(socket);
+          });
+        });
+      }
+
+      function makeCommand(handler: ReturnType<typeof vi.fn>): ActionCommand {
+        return Object.assign(handler, {
+          factoryType: 'action' as const,
+          actionName: 'Test Action'
+        }) as unknown as ActionCommand;
+      }
+
+      it('should skip socket connection when SOCKET_PATH not set', async () => {
+        // Ensure SOCKET_PATH is not set
+        delete process.env[CARDS_ENV_VARS.SOCKET_PATH];
+
+        const handler = vi.fn().mockResolvedValue(undefined);
+        const command = makeCommand(handler);
+
+        await execute(command);
+
+        expect(handler).toHaveBeenCalled();
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it('should continue when socket connection fails (fail-open)', async () => {
+        // Point to non-existent socket
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = '/tmp/nonexistent-runtime-socket.sock';
+
+        const handler = vi.fn().mockResolvedValue(undefined);
+        const command = makeCommand(handler);
+
+        await execute(command);
+
+        // Should warn about connection failure
+        expect(loggerWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to connect to socket'));
+
+        // Should still execute handler and exit successfully
+        expect(handler).toHaveBeenCalled();
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it('should invoke onCancel callback on cancel command', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const cancelFn = vi.fn();
+        const handler = vi
+          .fn()
+          .mockImplementation(async (_input: unknown, context: { onCancel: (cb: () => void) => void }) => {
+            context.onCancel(cancelFn);
+            // Wait to give socket time to dispatch the cancel
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          });
+        const command = makeCommand(handler);
+
+        const executePromise = execute(command);
+
+        // Wait for handler to register callback and server to accept connection
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const conn = await waitForServerConnection();
+
+        // Send cancel command
+        conn.write('{"type":"cancel"}\n');
+
+        await executePromise;
+
+        expect(cancelFn).toHaveBeenCalledOnce();
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
+      });
+
+      it('should invoke onSwitchToInteractive callback and send response', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const switchCallback = vi.fn().mockReturnValue({ sessionId: 'abc123' });
+        const handler = vi
+          .fn()
+          .mockImplementation(
+            async (_input: unknown, context: { onSwitchToInteractive: (cb: () => unknown) => void }) => {
+              context.onSwitchToInteractive(switchCallback);
+              // Wait to give socket time to dispatch the command
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+          );
+        const command = makeCommand(handler);
+
+        // Collect data received by server
+        const serverReceived: string[] = [];
+
+        const executePromise = execute(command);
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const conn = await waitForServerConnection();
+        conn.on('data', (chunk) => serverReceived.push(chunk.toString()));
+
+        // Send switchToInteractive command
+        conn.write('{"type":"switchToInteractive"}\n');
+
+        await executePromise;
+
+        expect(switchCallback).toHaveBeenCalledOnce();
+
+        // Verify response was sent on socket
+        const combined = serverReceived.join('');
+        const parsed = JSON.parse(combined.trim());
+        expect(parsed).toEqual({
+          type: 'switchToInteractiveResponse',
+          data: { sessionId: 'abc123' }
+        });
+
+        // Should exit with SWITCH_TO_INTERACTIVE code
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SWITCH_TO_INTERACTIVE);
+      });
+
+      it('should ignore second command (first-wins semantics)', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const cancelFn = vi.fn();
+        const switchFn = vi.fn().mockReturnValue({ data: 'test' });
+        const handler = vi
+          .fn()
+          .mockImplementation(
+            async (
+              _input: unknown,
+              context: { onCancel: (cb: () => void) => void; onSwitchToInteractive: (cb: () => unknown) => void }
+            ) => {
+              context.onCancel(cancelFn);
+              context.onSwitchToInteractive(switchFn);
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+          );
+        const command = makeCommand(handler);
+
+        const executePromise = execute(command);
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const conn = await waitForServerConnection();
+
+        // Send cancel first, then switchToInteractive
+        conn.write('{"type":"cancel"}\n{"type":"switchToInteractive"}\n');
+
+        await executePromise;
+
+        // Only the first command (cancel) should be processed
+        expect(cancelFn).toHaveBeenCalledOnce();
+        expect(switchFn).not.toHaveBeenCalled();
+      });
+
+      it('should ignore switchToInteractive when no callback registered', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const handler = vi.fn().mockImplementation(async () => {
+          // Do NOT register onSwitchToInteractive callback
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        });
+        const command = makeCommand(handler);
+
+        const executePromise = execute(command);
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const conn = await waitForServerConnection();
+
+        // Send switchToInteractive - should be no-op
+        conn.write('{"type":"switchToInteractive"}\n');
+
+        // Wait for the handler to complete naturally
+        await executePromise;
+
+        // Should exit successfully (command was ignored, handler completed)
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it('should complete normally when no socket commands received', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const handler = vi.fn().mockResolvedValue(undefined);
+        const command = makeCommand(handler);
+
+        await execute(command);
+
+        expect(handler).toHaveBeenCalled();
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it('should handle cancel with no callback by sending SIGTERM', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const handler = vi.fn().mockImplementation(async () => {
+          // Do NOT register onCancel callback
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        });
+        const command = makeCommand(handler);
+
+        const executePromise = execute(command);
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const conn = await waitForServerConnection();
+
+        // Send cancel command without registering a callback
+        conn.write('{"type":"cancel"}\n');
+
+        await executePromise;
+
+        // Should send SIGTERM to self
+        expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGTERM');
+      });
+
+      it('should handle async onSwitchToInteractive callback', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const switchCallback = vi.fn().mockResolvedValue({ asyncData: true });
+        const handler = vi
+          .fn()
+          .mockImplementation(
+            async (_input: unknown, context: { onSwitchToInteractive: (cb: () => Promise<unknown>) => void }) => {
+              context.onSwitchToInteractive(switchCallback);
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+          );
+        const command = makeCommand(handler);
+
+        const serverReceived: string[] = [];
+
+        const executePromise = execute(command);
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const conn = await waitForServerConnection();
+        conn.on('data', (chunk) => serverReceived.push(chunk.toString()));
+
+        conn.write('{"type":"switchToInteractive"}\n');
+
+        await executePromise;
+
+        expect(switchCallback).toHaveBeenCalledOnce();
+
+        const combined = serverReceived.join('');
+        const parsed = JSON.parse(combined.trim());
+        expect(parsed).toEqual({
+          type: 'switchToInteractiveResponse',
+          data: { asyncData: true }
+        });
+
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SWITCH_TO_INTERACTIVE);
+      });
+
+      it('should handle async onCancel callback', async () => {
+        await startServer();
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
+
+        const cancelFn = vi.fn().mockResolvedValue(undefined);
+        const handler = vi
+          .fn()
+          .mockImplementation(async (_input: unknown, context: { onCancel: (cb: () => Promise<void>) => void }) => {
+            context.onCancel(cancelFn);
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          });
+        const command = makeCommand(handler);
+
+        const executePromise = execute(command);
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const conn = await waitForServerConnection();
+
+        conn.write('{"type":"cancel"}\n');
+
+        await executePromise;
+
+        expect(cancelFn).toHaveBeenCalledOnce();
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
     });

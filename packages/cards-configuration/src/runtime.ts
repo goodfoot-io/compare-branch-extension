@@ -14,10 +14,11 @@
  *
  * 1. Extract input payload from environment variables based on command type
  * 2. Set logger context with command type and input
- * 3. Build ActionContext with logger, cwd, and callback stubs
- * 4. Invoke the command with input and context
- * 5. On success: clean up and exit with code 0
- * 6. On error: log error, write to stderr, clean up and exit with code 1
+ * 3. Optionally connect to SOCKET_PATH for command dispatch (fail-open)
+ * 4. Build ActionContext with logger, cwd, and socket-backed callbacks
+ * 5. Invoke the command with input and context
+ * 6. On success: clean up socket and exit with code 0
+ * 7. On error: log error, write to stderr, clean up and exit with code 1
  *
  * @module
  * @see {@link execute} for the main entry point
@@ -32,16 +33,13 @@
  * ```
  */
 
-import type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand
-} from './command-types.js';
-import { extractActionInput, extractTypeInput } from './env.js';
+import type { ActionCommand, TypeCreateCommand, TypeDeleteCommand, TypeUpdateCommand } from './command-types.js';
+import { CARDS_ENV_VARS, extractActionInput, extractTypeInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
 import type { ActionContext, ActionInput, TypeHookInput } from './inputs.js';
 import { logger } from './logger.js';
+import type { SocketCommand } from './socket-client.js';
+import { SocketClient } from './socket-client.js';
 
 // ============================================================================
 // Command Type Union
@@ -191,6 +189,8 @@ function handleHandlerError(error: unknown): never {
  * ```
  */
 export async function execute(command: AnyCommand): Promise<void> {
+  let socketClient: SocketClient | undefined;
+
   try {
     // Determine command type and extract appropriate input
     const factoryType = command.factoryType;
@@ -214,29 +214,159 @@ export async function execute(command: AnyCommand): Promise<void> {
     // Set logger context with command type
     logger.setContext(factoryType, input as unknown as Record<string, unknown>);
 
-    // Build ActionContext with logger, cwd, and callback stubs
-    // Task 3 will implement socket wiring for these callbacks
+    // Attempt socket connection for action commands (fail-open)
+    if (factoryType === 'action') {
+      const socketPath = process.env[CARDS_ENV_VARS.SOCKET_PATH];
+      if (socketPath) {
+        try {
+          socketClient = await SocketClient.connect(socketPath);
+        } catch (error) {
+          logger.warn(`Failed to connect to socket at ${socketPath}: ${getErrorMessage(error)}`);
+          // Fail-open: continue without socket
+        }
+      }
+    }
+
+    // Callback registration state
+    let cancelCallback: (() => void | Promise<void>) | undefined;
+    let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
+    let commandProcessed = false;
+
+    // Build ActionContext with logger, cwd, and socket-backed callbacks
     const context: ActionContext = {
       logger,
       cwd: process.cwd(),
-      onCancel: () => {},
-      onSwitchToInteractive: () => {}
+      onCancel: (callback) => {
+        cancelCallback = callback;
+      },
+      onSwitchToInteractive: (callback) => {
+        switchToInteractiveCallback = callback;
+      }
     };
+
+    // Wire socket command dispatch
+    if (socketClient) {
+      socketClient.onCommand((cmd: SocketCommand) => {
+        // First-wins semantics: ignore subsequent commands
+        if (commandProcessed) return;
+        commandProcessed = true;
+
+        if (cmd.type === 'cancel') {
+          handleCancelCommand(cancelCallback, socketClient);
+        } else if (cmd.type === 'switchToInteractive') {
+          handleSwitchToInteractiveCommand(switchToInteractiveCallback, socketClient!);
+        }
+      });
+    }
 
     // Execute the command handler
     try {
       await command(input as never, context);
     } catch (error) {
+      socketClient?.close();
       handleHandlerError(error);
       // Same guard for tests with mocked process.exit
       return;
     }
 
-    // Clean up and exit successfully
+    // Clean up socket and exit successfully
+    socketClient?.close();
     cleanupAndExit(EXIT_CODES.SUCCESS);
   } catch (error) {
     // Unexpected error - try to clean up and exit
+    socketClient?.close();
     logger.error(`Unexpected runtime error: ${getErrorMessage(error)}`);
     cleanupAndExit(EXIT_CODES.ERROR);
+  }
+}
+
+// ============================================================================
+// Socket Command Handlers
+// ============================================================================
+
+/**
+ * Handles a `cancel` command from the socket.
+ *
+ * If a cancel callback was registered, it is invoked. Otherwise, SIGTERM
+ * is sent to the current process as a fallback. After the callback completes
+ * (or immediately if no callback), the process exits with error code.
+ *
+ * @param callback - The registered cancel callback, if any
+ * @param socketClient - The socket client to close before exiting
+ *
+ * @internal
+ */
+function handleCancelCommand(
+  callback: (() => void | Promise<void>) | undefined,
+  socketClient: SocketClient | undefined
+): void {
+  if (callback) {
+    const result = callback();
+    if (result && typeof (result as Promise<void>).then === 'function') {
+      (result as Promise<void>).then(
+        () => {
+          socketClient?.close();
+          cleanupAndExit(EXIT_CODES.ERROR);
+        },
+        () => {
+          socketClient?.close();
+          cleanupAndExit(EXIT_CODES.ERROR);
+        }
+      );
+    } else {
+      socketClient?.close();
+      cleanupAndExit(EXIT_CODES.ERROR);
+    }
+  } else {
+    // No callback registered - send SIGTERM as fallback
+    process.kill(process.pid, 'SIGTERM');
+  }
+}
+
+/**
+ * Handles a `switchToInteractive` command from the socket.
+ *
+ * If no callback was registered, the command is ignored (no-op). Otherwise,
+ * the callback is invoked and its return value is sent as
+ * `switchToInteractiveResponse` on the socket. `process.exit(42)` is called
+ * inside the `write()` callback to guarantee the response is flushed before
+ * the event loop tears down.
+ *
+ * @param callback - The registered switchToInteractive callback, if any
+ * @param socketClient - The socket client used to send the response
+ *
+ * @internal
+ */
+function handleSwitchToInteractiveCommand(
+  callback: (() => unknown | Promise<unknown>) | undefined,
+  socketClient: SocketClient
+): void {
+  if (!callback) {
+    // No callback registered - ignore the command (no-op)
+    return;
+  }
+
+  const result = callback();
+  if (result && typeof (result as Promise<unknown>).then === 'function') {
+    (result as Promise<unknown>).then(
+      (data) => {
+        socketClient.sendResponseThen({ type: 'switchToInteractiveResponse', data }, () => {
+          logger.clearContext();
+          logger.close();
+          process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
+        });
+      },
+      (error) => {
+        logger.error(`switchToInteractive callback error: ${getErrorMessage(error)}`);
+        socketClient.close();
+        cleanupAndExit(EXIT_CODES.ERROR);
+      }
+    );
+  } else {
+    socketClient.sendResponseThen({ type: 'switchToInteractiveResponse', data: result }, () => {
+      logger.clearContext();
+      logger.close();
+      process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
+    });
   }
 }

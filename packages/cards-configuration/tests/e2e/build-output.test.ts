@@ -377,6 +377,8 @@ describe('build output: handler execution', () => {
       EXECUTION_MODE: 'interactive',
       API_BASE_URL: 'http://localhost:3000',
       API_ACCESS_TOKEN: 'test-token-abc',
+      WORKSPACE_PATH: FIXTURES_DIR,
+      CARD_REPO_PATH: FIXTURES_DIR,
       ...overrides
     };
   }

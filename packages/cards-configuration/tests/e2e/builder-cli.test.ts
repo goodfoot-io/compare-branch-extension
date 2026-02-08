@@ -154,13 +154,13 @@ describe('builder CLI: build function', () => {
 
   describe('successful builds', () => {
     it('should build a config with a single action', async () => {
-      writeHandler(testDir, 'my-action-start.ts', createActionHandler('My Action', testDir));
+      writeHandler(testDir, 'my-action.ts', createActionHandler('My Action', testDir));
 
       // Create config
       const configPath = writeConfig(
         testDir,
         `
-import handler from './my-action-start.js';
+import handler from './my-action.js';
 
 export default {
   environments: {
@@ -197,7 +197,7 @@ export default {
       // Verify compiled handler exists
       const binFiles = listBinFiles(outdir);
       expect(binFiles.length).toBe(1);
-      expect(binFiles[0]).toMatch(/action-my-action\.[a-f0-9]{8}\.mjs$/);
+      expect(binFiles[0]).toMatch(/my-action\.[a-f0-9]{8}\.mjs$/);
     });
 
     it('should build a config with multiple actions', async () => {
@@ -234,8 +234,8 @@ export default {
       // Verify settings.json
       const settings = readSettings(outdir);
       expect(settings.environments.default.actions).toHaveLength(2);
-      expect(settings.environments.default.actions[0].command.command).toMatch(/action-launch\.[a-f0-9]{8}\.mjs$/);
-      expect(settings.environments.default.actions[1].command.command).toMatch(/action-deploy\.[a-f0-9]{8}\.mjs$/);
+      expect(settings.environments.default.actions[0].command.command).toMatch(/launch\.[a-f0-9]{8}\.mjs$/);
+      expect(settings.environments.default.actions[1].command.command).toMatch(/deploy\.[a-f0-9]{8}\.mjs$/);
 
       // Verify both handlers compiled
       const binFiles = listBinFiles(outdir);
@@ -251,14 +251,14 @@ export default {
       const configPath = writeConfig(
         testDir,
         `
-import actionStart from './action-start.js';
+import action from './action-start.js';
 import noteValidator from './note-validator.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [actionStart],
+      actions: [action],
       types: {
         note: {
           version: '1.0.0',
@@ -329,10 +329,10 @@ export default {
     it('should include action metadata in settings.json', async () => {
       // Create handler with all metadata
       const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 import { fileURLToPath } from 'node:url';
 
-export default defineActionStart(
+export default defineAction(
   {
     actionName: 'Full Metadata Action',
     description: 'An action with all metadata',
@@ -631,9 +631,9 @@ export default {
         testDir,
         'broken.ts',
         `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'Broken', timeout: 30000, sourcePath: '/broken.ts' },
   async (input, { logger }) => {
     // Missing closing brace
@@ -667,7 +667,6 @@ export default {
         expect(result.error).toBeTruthy();
       }
     });
-
   });
 });
 
@@ -798,7 +797,9 @@ export default {
       ENVIRONMENT: 'default',
       EXECUTION_MODE: 'interactive',
       API_BASE_URL: 'http://localhost',
-      API_ACCESS_TOKEN: 'token'
+      API_ACCESS_TOKEN: 'token',
+      WORKSPACE_PATH: testDir,
+      CARD_REPO_PATH: testDir
     });
 
     expect(result.exitCode).toBe(0);
@@ -865,11 +866,11 @@ export default {
   it('should compile handlers with CommonJS dependencies', async () => {
     // Create a handler that would need CommonJS support
     const handlerContent = `
-import { defineActionStart } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 
-export default defineActionStart(
+export default defineAction(
   {
     actionName: 'CJS Test',
     timeout: 30000,
@@ -911,7 +912,9 @@ export default {
       ENVIRONMENT: 'default',
       EXECUTION_MODE: 'interactive',
       API_BASE_URL: 'http://localhost',
-      API_ACCESS_TOKEN: 'token'
+      API_ACCESS_TOKEN: 'token',
+      WORKSPACE_PATH: testDir,
+      CARD_REPO_PATH: testDir
     });
 
     expect(result.exitCode).toBe(0);
@@ -1131,14 +1134,14 @@ export default defineStreamTransform(
     const configPath = writeConfig(
       testDir,
       `
-import actionStart from './action-start.js';
+import action from './action-start.js';
 import streamHandler from './test-stream.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [actionStart],
+      actions: [action],
       streams: {
         'test-stream': {
           version: 1,
@@ -1178,14 +1181,14 @@ export default {
     const configPath = writeConfig(
       testDir,
       `
-import actionStart from './action-start.js';
+import action from './action-start.js';
 import streamHandler from './my-stream.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [actionStart],
+      actions: [action],
       streams: {
         'my-stream': {
           version: 1,
@@ -1221,14 +1224,14 @@ export default {
     const configPath = writeConfig(
       testDir,
       `
-import actionStart from './action-start.js';
+import action from './action-start.js';
 import streamHandler from './transform.js';
 
 export default {
   environments: {
     default: {
       version: 1,
-      actions: [actionStart],
+      actions: [action],
       streams: {
         'transform': {
           version: 1,

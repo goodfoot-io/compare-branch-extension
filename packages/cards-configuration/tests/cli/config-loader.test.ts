@@ -22,8 +22,8 @@ describe('loadConfig', () => {
     writeFileSync(
       join(FIXTURES_DIR, 'valid.config.ts'),
       `
-const testStart = {
-  factoryType: 'actionStart',
+const testAction = {
+  factoryType: 'action',
   actionName: 'Test',
   handler: async () => {}
 };
@@ -32,7 +32,7 @@ export default {
   environments: {
     default: {
       version: 1,
-      actions: [{ start: testStart }]
+      actions: [testAction]
     }
   }
 };
