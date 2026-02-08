@@ -1,0 +1,9 @@
+{
+  "name": "claude-code-cli-v2",
+  "version": "1.0.0",
+  "description": "Plugin for Claude CLI sessions spawned by the Cards extension Launch action",
+  "author": {
+    "name": "Goodfoot Media LLC"
+  },
+  "license": "proprietary"
+}

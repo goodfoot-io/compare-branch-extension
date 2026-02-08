@@ -39,6 +39,16 @@
         "name": "Goodfoot Media LLC"
       },
       "license": "proprietary"
+    },
+    {
+      "name": "claude-code-cli-v2",
+      "version": "1.0.0",
+      "source": "./plugins/claude-code-cli-v2",
+      "description": "Plugin for Claude CLI sessions spawned by the Cards extension Launch action",
+      "author": {
+        "name": "Goodfoot Media LLC"
+      },
+      "license": "proprietary"
     }
   ]
 }
