@@ -50,23 +50,25 @@ describe('Action', () => {
 
   it('should allow minimal action with only required fields', () => {
     const minimalAction: Action = {
+      id: 'test-action',
       name: 'Test Action',
       command: { command: 'node ./bin/test.js' }
     };
     expectTypeOf(minimalAction).toMatchTypeOf<Action>();
   });
 
-  it('should allow optional id property', () => {
+  it('should require id property', () => {
     const actionWithId: Action = {
       id: 'test-action',
       name: 'Test Action',
       command: { command: 'node ./bin/test.js' }
     };
-    expectTypeOf(actionWithId.id).toEqualTypeOf<string | undefined>();
+    expectTypeOf(actionWithId.id).toEqualTypeOf<string>();
   });
 
   it('should allow optional description property', () => {
     const actionWithDescription: Action = {
+      id: 'test-action',
       name: 'Test Action',
       description: 'A test action',
       command: { command: 'node ./bin/test.js' }
@@ -76,6 +78,7 @@ describe('Action', () => {
 
   it('should allow optional icon property', () => {
     const actionWithIcon: Action = {
+      id: 'test-action',
       name: 'Test Action',
       icon: 'rocket',
       command: { command: 'node ./bin/test.js' }
@@ -85,6 +88,7 @@ describe('Action', () => {
 
   it('should allow optional supportsBackgroundMode property', () => {
     const actionWithBackground: Action = {
+      id: 'test-action',
       name: 'Test Action',
       command: { command: 'node ./bin/test.js' },
       supportsBackgroundMode: true
@@ -94,6 +98,7 @@ describe('Action', () => {
 
   it('should allow optional allowConcurrent property', () => {
     const actionWithConcurrent: Action = {
+      id: 'test-action',
       name: 'Test Action',
       command: { command: 'node ./bin/test.js' },
       allowConcurrent: false
@@ -273,6 +278,7 @@ describe('Environment', () => {
       version: 1,
       actions: [
         {
+          id: 'test',
           name: 'Test',
           command: { command: 'node ./bin/test.js' }
         }
@@ -357,6 +363,7 @@ describe('Environment', () => {
       description: 'Full environment',
       actions: [
         {
+          id: 'test-action',
           name: 'Test Action',
           command: { command: 'node ./bin/test.js' }
         }

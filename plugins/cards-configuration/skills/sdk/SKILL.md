@@ -48,8 +48,9 @@ export default defineAction(
     });
 
     // Handle switch to interactive mode
-    onSwitchToInteractive((data) => {
-      logger.info('Switched to interactive mode', { data });
+    onSwitchToInteractive(() => {
+      logger.info('Switching to interactive mode');
+      return { cardId: input.cardId };
     });
 
     const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
