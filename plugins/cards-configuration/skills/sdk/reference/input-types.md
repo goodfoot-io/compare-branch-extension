@@ -178,8 +178,8 @@ Runtime context injected for **action** handlers. Not used for type lifecycle ho
 interface ActionContext {
   logger: ILogger;  // Logger for structured, context-aware logging
   cwd: string;      // Current working directory for the action
-  onCancel(callback: () => void): void;  // Register cancellation handler
-  onSwitchToInteractive(callback: (data: unknown) => void): void;  // Register switch handler
+  onCancel(callback: () => void | Promise<void>): void;  // Register cancellation handler
+  onSwitchToInteractive(callback: () => unknown | Promise<unknown>): void;  // Register switch handler
 }
 ```
 
@@ -198,9 +198,9 @@ async (input: ActionInput, context: ActionContext) => {
   });
 
   // Register handler for user switching to interactive mode
-  onSwitchToInteractive((data) => {
-    logger.info('User switched to interactive mode', { data });
-    // Adjust behavior here if needed
+  onSwitchToInteractive(() => {
+    logger.info('Switching to interactive mode');
+    return { sessionId: 'abc123' };  // Data passed to relaunched handler
   });
 
   // Use cwd for file operations

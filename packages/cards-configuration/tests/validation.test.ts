@@ -1,5 +1,5 @@
 /**
- * Tests for validation factory, output builders, executeValidation, and HTTP parser.
+ * Tests for output builders, executeValidation, and HTTP parser.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';

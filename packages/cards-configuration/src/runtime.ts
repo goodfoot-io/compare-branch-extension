@@ -143,7 +143,7 @@ function handleHandlerError(error: unknown): never {
  *
  * This is the main entry point that compiled handlers use. The CLI generates
  * wrapper code that imports the user's command and passes it to this function.
- * From there, execute handles all the ceremony: environment parsing, logging
+ * From there, executeCommand handles all the ceremony: environment parsing, logging
  * setup, handler invocation, error handling, and process termination.
  *
  * The function exits the process in all normal code paths. The returned
@@ -158,7 +158,7 @@ function handleHandlerError(error: unknown): never {
  * - **Type Update** (`typeUpdate`): Runs after typed file modification
  * - **Type Delete** (`typeDelete`): Runs when typed file is deleted
  *
- * Note: Type validators use a different execution model (HTTP stdin/stdout)
+ * Note: Type validators use a different execution model (file-path protocol)
  * and should be executed via {@link executeValidation} instead.
  *
  * ## Error Handling

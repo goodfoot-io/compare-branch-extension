@@ -55,7 +55,7 @@ describe('runtime', () => {
     process.chdir(originalCwd);
   });
 
-  describe('execute', () => {
+  describe('executeCommand', () => {
     describe('action commands', () => {
       it('should execute action command with extracted input', async () => {
         const handler = vi.fn().mockResolvedValue(undefined);
@@ -135,7 +135,7 @@ describe('runtime', () => {
     });
 
     // Note: Type validator commands are not tested here because they use
-    // executeValidation (HTTP stdin/stdout protocol) instead of execute
+    // executeValidation (file-path protocol) instead of executeCommand
 
     describe('type create commands', () => {
       beforeEach(() => {

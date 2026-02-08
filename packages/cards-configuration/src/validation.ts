@@ -1,10 +1,10 @@
 /**
- * Validation factory and output builders for custom type validators.
+ * Output builders and runtime executor for custom type validators.
  *
  * Validators run as a file-path protocol: they read FILE_PATH from the
  * environment, optionally load a `.meta.json` sidecar, and write a
- * `ValidationResult` JSON object to stdout. This module provides the handler
- * types, result helpers, and the runtime executor.
+ * `ValidationResult` JSON object to stdout. This module provides
+ * result helpers and the runtime executor.
  * @module
  */
 

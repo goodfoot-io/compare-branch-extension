@@ -4,7 +4,7 @@
  * This module provides functionality to compile handler files into standalone
  * ESM bundles that can be executed by the runtime. The compiler uses esbuild
  * to bundle each handler file with its dependencies and injects a wrapper
- * that calls the execute function.
+ * that calls the executeCommand function.
  *
  * ## Compilation Process
  *
@@ -244,7 +244,7 @@ export function init(ctx) { return cmd.init?.(ctx); }
 export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === 'typeValidator') {
-      // Type validators use HTTP stdin/stdout protocol via executeValidation
+      // Type validators use file-path protocol via executeValidation
       const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/validation.ts'));
       wrapperContent = `
 import handler from '${sourceImport}';
