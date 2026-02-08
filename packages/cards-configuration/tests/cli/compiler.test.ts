@@ -154,7 +154,7 @@ export default defineAction(
   // Wrapper Injection
   // ==========================================================================
 
-  it('should inject runtime wrapper code that calls execute', async () => {
+  it('should inject runtime wrapper code that calls executeCommand', async () => {
     // Create a simple handler
     const handlerContent = `
 import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
@@ -182,12 +182,12 @@ export default defineAction(
     // Read output and verify wrapper code
     const output = readCompiledOutput(outputPath);
 
-    // The output should import execute from the runtime
-    expect(output).toContain('execute');
+    // The output should import executeCommand from the runtime
+    expect(output).toContain('executeCommand');
 
-    // The output should call execute (either directly or through bundled code)
-    // We're looking for the pattern where execute is invoked
-    expect(output).toMatch(/execute\s*\(/);
+    // The output should call executeCommand (either directly or through bundled code)
+    // We're looking for the pattern where executeCommand is invoked
+    expect(output).toMatch(/executeCommand\s*\(/);
   });
 
   // ==========================================================================

@@ -11,142 +11,18 @@
 import { readFileSync } from 'node:fs';
 import type { ValidationResult } from '@cards/protocol';
 import type { TypeValidatorCommand } from './command-types.js';
-import { CARDS_ENV_VARS } from './env.js';
+import {
+  CARDS_ENV_VARS,
+  getApiAccessToken,
+  getApiBaseUrl,
+  getCardId,
+  getEnvironment,
+  getFileName,
+  getTypeName,
+  getTypeVersion
+} from './env.js';
 import type { TypeValidatorContext, ValidatorFileRequest } from './inputs.js';
 import { Logger } from './logger.js';
-
-// ============================================================================
-// Configuration Types
-// ============================================================================
-
-/**
- * Configuration options for a type validator.
- *
- * @example
- * ```typescript
- * const config: ValidationConfig = {
- *   timeout: 30000 // 30 seconds
- * };
- * ```
- */
-export interface ValidationConfig {
-  /**
-   * Maximum time in milliseconds for validation to complete.
-   *
-   * This value is attached as metadata on the validation function. The SDK
-   * does not enforce timeouts itself.
-   */
-  timeout?: number;
-}
-
-/**
- * Context provided to validation handlers.
- *
- * Contains utilities and services available during validation execution.
- * The logger is a fresh instance (silent unless configured with handlers
- * or a log file).
- * @example
- * ```typescript
- * function handler(request: ValidatorFileRequest, context: ValidationContext) {
- *   context.logger.info('Validating request');
- * }
- * ```
- */
-export interface ValidationContext {
-  /**
-   * Logger for structured logging during validation.
-   */
-  logger: Logger;
-}
-
-// ============================================================================
-// Handler Types
-// ============================================================================
-
-/**
- * Validation handler function.
- *
- * Receives a file request and context, returns a validation result.
- * Can be sync or async. If the handler throws, {@link executeValidation}
- * converts the failure into a `{ valid: false, errors: [...] }` result.
- *
- * @example
- * ```typescript
- * import { readFileSync } from 'node:fs';
- *
- * const handler: ValidationHandler = (request, context) => {
- *   const content = readFileSync(request.filePath, 'utf-8');
- *   const data = JSON.parse(content);
- *   if (!data.name) {
- *     return validationError(['**name** field is required']);
- *   }
- *   return validationSuccess({ version: '1.0' });
- * };
- * ```
- */
-export type ValidationHandler = (
-  request: ValidatorFileRequest,
-  context: ValidationContext
-) => ValidationResult | Promise<ValidationResult>;
-
-/**
- * Validation function created by the factory.
- *
- * A callable function with attached metadata (timeout).
- * The timeout is informational unless enforced by the execution environment.
- * @example
- * ```typescript
- * const validate: ValidationFunction = typeValidation(
- *   { timeout: 5000 },
- *   (request, context) => validationSuccess()
- * );
- *
- * console.log(validate.timeout); // 5000
- * ```
- */
-export interface ValidationFunction {
-  (request: ValidatorFileRequest, context: ValidationContext): Promise<ValidationResult>;
-  timeout?: number;
-}
-
-// ============================================================================
-// Factory Function
-// ============================================================================
-
-/**
- * Creates a type validation function.
- *
- * Factory that wraps a validation handler with configuration metadata.
- * The returned function can be executed directly or passed to executeValidation.
- * The timeout is attached as metadata for external tooling.
- * @param config - Validation configuration (timeout, etc.)
- * @param handler - The validation handler function
- * @returns A ValidationFunction with attached metadata
- * @example
- * ```typescript
- * import { readFileSync } from 'node:fs';
- *
- * const validate = typeValidation(
- *   { timeout: 30000 },
- *   (request, context) => {
- *     const content = readFileSync(request.filePath, 'utf-8');
- *     const data = JSON.parse(content);
- *     if (!isValidContract(data)) {
- *       return validationError(['Contract validation failed']);
- *     }
- *     return validationSuccess({ version: data.version });
- *   }
- * );
- * ```
- */
-export function typeValidation(config: ValidationConfig, handler: ValidationHandler): ValidationFunction {
-  const fn = (request: ValidatorFileRequest, context: ValidationContext): Promise<ValidationResult> => {
-    return Promise.resolve(handler(request, context));
-  };
-
-  fn.timeout = config.timeout;
-  return fn;
-}
 
 // ============================================================================
 // Output Builders
@@ -271,13 +147,13 @@ export async function executeValidation(validation: TypeValidatorCommand): Promi
     const context: TypeValidatorContext = {
       logger,
       cwd: process.cwd(),
-      typeName: process.env[CARDS_ENV_VARS.TYPE_NAME] ?? '',
-      typeVersion: process.env[CARDS_ENV_VARS.TYPE_VERSION] ?? '',
-      fileName: process.env[CARDS_ENV_VARS.FILE_NAME] ?? '',
-      cardId: process.env[CARDS_ENV_VARS.CARD_ID] ?? '',
-      environment: process.env[CARDS_ENV_VARS.ENVIRONMENT] ?? '',
-      apiBaseUrl: process.env[CARDS_ENV_VARS.API_BASE_URL] ?? '',
-      apiAccessToken: process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] ?? ''
+      typeName: getTypeName(),
+      typeVersion: getTypeVersion(),
+      fileName: getFileName(),
+      cardId: getCardId(),
+      environment: getEnvironment(),
+      apiBaseUrl: getApiBaseUrl(),
+      apiAccessToken: getApiAccessToken()
     };
 
     // Execute handler

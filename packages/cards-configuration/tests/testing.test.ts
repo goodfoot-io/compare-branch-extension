@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { defineTypeValidator } from '../src/factories/type-hooks.js';
 import type { ValidatorFileRequest } from '../src/inputs.js';
 import { createTestRequest, testValidation } from '../src/testing.js';
-import { typeValidation, validationError, validationSuccess } from '../src/validation.js';
+import { validationError, validationSuccess } from '../src/validation.js';
 
 describe('Testing Utilities', () => {
   describe('createTestRequest', () => {
@@ -36,7 +37,7 @@ describe('Testing Utilities', () => {
     it('invokes validator with request and context', async () => {
       let receivedRequest: ValidatorFileRequest | undefined;
 
-      const validator = typeValidation({}, async (request) => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
         receivedRequest = request;
         return validationSuccess();
       });
@@ -48,7 +49,7 @@ describe('Testing Utilities', () => {
     });
 
     it('returns result from validator', async () => {
-      const validator = typeValidation({}, async () => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async () => {
         return validationSuccess({ processed: true });
       });
 
@@ -59,7 +60,7 @@ describe('Testing Utilities', () => {
     });
 
     it('handles validation errors', async () => {
-      const validator = typeValidation({}, async () => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async () => {
         return validationError(['Invalid input']);
       });
 
@@ -70,7 +71,7 @@ describe('Testing Utilities', () => {
     });
 
     it('accepts TestRequestOptions directly', async () => {
-      const validator = typeValidation({}, async (request) => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
         return validationSuccess({ path: request.filePath });
       });
 
@@ -86,7 +87,7 @@ describe('Testing Utilities', () => {
     it('accepts ValidatorFileRequest directly', async () => {
       const request = createTestRequest({ filePath: '/test/data.json', metadata: { id: 1 } });
 
-      const validator = typeValidation({}, async (req) => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async (req) => {
         return validationSuccess({ id: req.metadata?.id });
       });
 
@@ -98,7 +99,7 @@ describe('Testing Utilities', () => {
     it('provides context to validator', async () => {
       let receivedContext: unknown;
 
-      const validator = typeValidation({}, async (_request, context) => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async (_request, context) => {
         receivedContext = context;
         return validationSuccess();
       });
@@ -107,6 +108,79 @@ describe('Testing Utilities', () => {
 
       expect(receivedContext).toBe(context);
       expect(context.logger).toBeDefined();
+      expect(context.typeName).toBeDefined();
+      expect(context.cwd).toBeDefined();
+    });
+
+    it('testValidation accepts TypeValidatorCommand directly', async () => {
+      const validator = defineTypeValidator({ typeName: 'my-type' }, async () => {
+        return validationSuccess();
+      });
+
+      const { result } = await testValidation(validator, {});
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('TestValidationResult.context is TypeValidatorContext', async () => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async () => {
+        return validationSuccess();
+      });
+
+      const { context } = await testValidation(validator, {});
+
+      expect(context).toHaveProperty('logger');
+      expect(context).toHaveProperty('cwd');
+      expect(context).toHaveProperty('typeName');
+      expect(context).toHaveProperty('typeVersion');
+      expect(context).toHaveProperty('fileName');
+      expect(context).toHaveProperty('cardId');
+      expect(context).toHaveProperty('environment');
+      expect(context).toHaveProperty('apiBaseUrl');
+      expect(context).toHaveProperty('apiAccessToken');
+    });
+
+    it('testValidation uses default context values', async () => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async (_request, context) => {
+        expect(context.typeName).toBe('');
+        expect(context.typeVersion).toBe('');
+        expect(context.fileName).toBe('');
+        expect(context.cardId).toBe('');
+        expect(context.environment).toBe('');
+        expect(context.apiBaseUrl).toBe('');
+        expect(context.apiAccessToken).toBe('');
+        expect(context.cwd).toBe(process.cwd());
+        return validationSuccess();
+      });
+
+      await testValidation(validator, {});
+    });
+
+    it('testValidation accepts context overrides via options', async () => {
+      const validator = defineTypeValidator({ typeName: 'test' }, async (_request, context) => {
+        expect(context.typeName).toBe('custom-type');
+        expect(context.typeVersion).toBe('2.0');
+        expect(context.fileName).toBe('custom.json');
+        expect(context.cardId).toBe('card-123');
+        expect(context.environment).toBe('staging');
+        expect(context.apiBaseUrl).toBe('https://api.example.com');
+        expect(context.apiAccessToken).toBe('token-abc');
+        expect(context.cwd).toBe('/custom/cwd');
+        return validationSuccess();
+      });
+
+      await testValidation(validator, {}, {
+        context: {
+          typeName: 'custom-type',
+          typeVersion: '2.0',
+          fileName: 'custom.json',
+          cardId: 'card-123',
+          environment: 'staging',
+          apiBaseUrl: 'https://api.example.com',
+          apiAccessToken: 'token-abc',
+          cwd: '/custom/cwd'
+        }
+      });
     });
   });
 });

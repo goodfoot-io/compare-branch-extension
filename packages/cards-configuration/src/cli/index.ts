@@ -12,7 +12,7 @@
  * When handlers have a `sourcePath` property, the CLI compiles them into
  * standalone .mjs bundles using esbuild. The compiled files include:
  * - A content hash for cache busting (e.g., `launch-claude.abc12345.mjs`)
- * - The runtime wrapper that calls `execute(handler)`
+ * - The runtime wrapper that calls `executeCommand(handler)`
  *
  * This matches V1 feature parity where handlers are bundled as executables.
  *

@@ -46,8 +46,8 @@ function handleInit(context: StreamInitContext): void {
 
 function handleTransform(line: string, context: TransformContext): string {
   // Called for each line. Return the transformed line.
-  const count = ((context.state?.get('count') as number) ?? 0) + 1;
-  context.state?.set('count', count);
+  const count = ((context.state.get('count') as number) ?? 0) + 1;
+  context.state.set('count', count);
 
   try {
     const data = JSON.parse(line);
@@ -129,8 +129,8 @@ interface TransformContext {
   /** Stream type key from configuration. */
   streamType: string;
 
-  /** Same state Map from init() — undefined if init was not provided. */
-  state?: Map<string, unknown>;
+  /** Mutable state Map shared with init(). */
+  state: Map<string, unknown>;
 }
 ```
 
@@ -244,9 +244,9 @@ function handleInit(ctx: StreamInitContext): void {
 }
 
 function handleTransform(line: string, context: TransformContext): string {
-  const count = ((context.state?.get('count') as number) ?? 0) + 1;
-  context.state?.set('count', count);
-  const sessionId = context.state?.get('sessionId') as string;
+  const count = ((context.state.get('count') as number) ?? 0) + 1;
+  context.state.set('count', count);
+  const sessionId = context.state.get('sessionId') as string;
   return `[Session: ${sessionId}] [#${count}] ${line}`;
 }
 
@@ -276,7 +276,7 @@ function handleTransform(line: string, context: TransformContext): string {
   try {
     const message = JSON.parse(line) as SDKMessage;
 
-    if (message.type === 'assistant' && context.state) {
+    if (message.type === 'assistant') {
       const turn = (context.state.get('turn') as number) || 0;
       context.state.set('turn', turn + 1);
     }
@@ -312,7 +312,7 @@ export default defineStreamTransform(
 - [ ] `sourcePath` is provided for CLI compilation
 - [ ] Transform handler accepts `(line: string, context: TransformContext)` and returns `string | Promise<string>`
 - [ ] Parse errors handled gracefully with try/catch (fail-open)
-- [ ] State operations use `context.state?.get()` / `context.state?.set()` (optional chaining)
+- [ ] State operations use `context.state.get()` / `context.state.set()`
 - [ ] No use of `require`, `fetch`, `setTimeout`, `fs`, `process`, or dynamic `import()` (sandbox rejects them)
 - [ ] Run `yarn build` after every code change
 - [ ] Tests run against the compiled `.mjs` bundle from `dist/bin/`

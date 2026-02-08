@@ -16,9 +16,9 @@
  * ## Wrapper Code
  *
  * The compiler injects a wrapper that:
- * - Imports the execute function from the runtime
+ * - Imports the executeCommand function from the runtime
  * - Imports the user's handler default export
- * - Calls execute(handler) to start the runtime orchestration
+ * - Calls executeCommand(handler) to start the runtime orchestration
  *
  * @module
  * @see {@link compileHandler} for the main compilation function
@@ -78,7 +78,7 @@ export interface CompileOptions {
    *
    * When 'typeValidator', the wrapper will use executeValidation() which
    * reads HTTP input from stdin and writes JSON response to stdout.
-   * For other types, the wrapper uses execute() which reads from env vars.
+   * For other types, the wrapper uses executeCommand() which reads from env vars.
    */
   factoryType?: string;
 }
@@ -183,7 +183,7 @@ const require = __createRequire(import.meta.url);`;
  * - **Target**: Node.js compatible (ES2022)
  * - **External modules**: Node built-ins are externalized
  * - **Wrapper injection**: Feeds wrapper code to esbuild via stdin that
- *   imports the handler and calls execute()
+ *   imports the handler and calls executeCommand()
  *
  * ## Error Handling
  *
@@ -253,13 +253,13 @@ import { executeValidation } from '${validationImport}';
 executeValidation(handler);
 `;
     } else {
-      // Other handlers use environment variable extraction via execute
+      // Other handlers use environment variable extraction via executeCommand
       const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/runtime.ts'));
       wrapperContent = `
 import handler from '${sourceImport}';
-import { execute } from '${runtimeImport}';
+import { executeCommand } from '${runtimeImport}';
 
-execute(handler);
+executeCommand(handler);
 `;
     }
 

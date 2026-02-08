@@ -15,6 +15,7 @@ import type { ValidationResult } from '@cards/protocol';
 import type {
   ActionContext,
   ActionInput,
+  TypeHookContext,
   TypeHookInput,
   TypeValidatorContext,
   ValidatorFileRequest
@@ -117,7 +118,7 @@ export interface TypeValidatorCommand<T extends string = string> {
  * @template T - The literal type name (e.g., 'adaptive-card')
  */
 export interface TypeCreateCommand<T extends string = string> {
-  (input: TypeHookInput, context: ActionContext): Promise<void>;
+  (input: TypeHookInput, context: TypeHookContext): Promise<void>;
   factoryType: 'typeCreate';
   /** Type name from config - preserved as literal type. */
   typeName: T;
@@ -136,7 +137,7 @@ export interface TypeCreateCommand<T extends string = string> {
  * @template T - The literal type name (e.g., 'adaptive-card')
  */
 export interface TypeUpdateCommand<T extends string = string> {
-  (input: TypeHookInput, context: ActionContext): Promise<void>;
+  (input: TypeHookInput, context: TypeHookContext): Promise<void>;
   factoryType: 'typeUpdate';
   /** Type name from config - preserved as literal type. */
   typeName: T;
@@ -157,7 +158,7 @@ export interface TypeUpdateCommand<T extends string = string> {
  * @template T - The literal type name (e.g., 'adaptive-card')
  */
 export interface TypeDeleteCommand<T extends string = string> {
-  (input: TypeHookInput, context: ActionContext): Promise<void>;
+  (input: TypeHookInput, context: TypeHookContext): Promise<void>;
   factoryType: 'typeDelete';
   /** Type name from config - preserved as literal type. */
   typeName: T;
@@ -224,9 +225,8 @@ export interface TransformContext {
   streamType: string;
   /**
    * Mutable state Map shared with init.
-   * Optional for backward compatibility with existing transforms.
    */
-  state?: Map<string, unknown>;
+  state: Map<string, unknown>;
 }
 
 /**

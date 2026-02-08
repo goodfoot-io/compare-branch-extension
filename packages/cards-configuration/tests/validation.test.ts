@@ -9,20 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineTypeValidator } from '../src/factories/type-hooks.js';
 import { parseHttpRequest } from '../src/http-parser.js';
 import type { ValidatorFileRequest } from '../src/inputs.js';
-import { Logger } from '../src/logger.js';
-import {
-  executeValidation,
-  typeValidation,
-  type ValidationContext,
-  type ValidationFunction,
-  validationError,
-  validationSuccess
-} from '../src/validation.js';
-
-// Create a mock context
-const createMockContext = (): ValidationContext => ({
-  logger: new Logger()
-});
+import { executeValidation, validationError, validationSuccess } from '../src/validation.js';
 
 describe('HTTP Parser', () => {
   describe('parseHttpRequest', () => {
@@ -155,74 +142,6 @@ describe('HTTP Parser', () => {
         expect(result.request.headers['content-type']).toBe('text/plain');
         expect(result.request.headers['x-custom-header']).toBe('value');
       }
-    });
-  });
-});
-
-describe('Validation Factory', () => {
-  describe('typeValidation', () => {
-    it('creates a validation function with timeout', () => {
-      const validation = typeValidation({ timeout: 5000 }, () => validationSuccess());
-      expect(validation.timeout).toBe(5000);
-    });
-
-    it('has undefined timeout when not configured', () => {
-      const validation = typeValidation({}, () => validationSuccess());
-      expect(validation.timeout).toBeUndefined();
-    });
-
-    it('calls handler with request and context', async () => {
-      const handler = vi.fn(() => validationSuccess());
-      const validation = typeValidation({}, handler);
-
-      const request: ValidatorFileRequest = {
-        filePath: '/test/file.json'
-      };
-      const context = createMockContext();
-
-      await validation(request, context);
-
-      expect(handler).toHaveBeenCalledWith(request, context);
-    });
-
-    it('awaits async handlers', async () => {
-      let completed = false;
-      const validation = typeValidation({}, async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        completed = true;
-        return validationSuccess();
-      });
-
-      const request: ValidatorFileRequest = {
-        filePath: '/test/file.json'
-      };
-
-      await validation(request, createMockContext());
-      expect(completed).toBe(true);
-    });
-
-    it('returns handler result', async () => {
-      const expectedResult = validationSuccess({ customField: 'value' });
-      const validation = typeValidation({}, () => expectedResult);
-
-      const request: ValidatorFileRequest = {
-        filePath: '/test/file.json'
-      };
-
-      const result = await validation(request, createMockContext());
-      expect(result).toEqual(expectedResult);
-    });
-  });
-
-  describe('ValidationFunction type', () => {
-    it('is callable', async () => {
-      const validation: ValidationFunction = typeValidation({}, () => validationSuccess());
-      expect(typeof validation).toBe('function');
-    });
-
-    it('has required metadata properties', () => {
-      const validation = typeValidation({ timeout: 10000 }, () => validationSuccess());
-      expect(validation).toHaveProperty('timeout');
     });
   });
 });
@@ -634,5 +553,75 @@ describe('executeValidation', () => {
     const output = JSON.parse(writtenChunks.join(''));
     expect(output.valid).toBe(false);
     expect(output.errors).toEqual(['FILE_PATH environment variable is not set']);
+  });
+
+  it('produces { valid: false, errors: [...] } when TYPE_NAME env var is missing', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    const validation = defineTypeValidator({ typeName: 'test' }, () => validationSuccess());
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    // Deliberately NOT setting TYPE_NAME
+    delete process.env.TYPE_NAME;
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    process.env.CARD_ID = 'card-1';
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const output = JSON.parse(writtenChunks.join(''));
+    expect(output.valid).toBe(false);
+    expect(output.errors[0]).toContain('TYPE_NAME');
+  });
+
+  it('produces { valid: false, errors: [...] } when CARD_ID env var is missing', async () => {
+    const filePath = join(tmpDir, 'test.json');
+    writeFileSync(filePath, '{}');
+
+    const validation = defineTypeValidator({ typeName: 'test' }, () => validationSuccess());
+
+    const writtenChunks: string[] = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writtenChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+    const savedEnv = { ...process.env };
+    process.env.FILE_PATH = filePath;
+    process.env.TYPE_NAME = 'test';
+    process.env.TYPE_VERSION = '1.0';
+    process.env.FILE_NAME = 'test.json';
+    // Deliberately NOT setting CARD_ID
+    delete process.env.CARD_ID;
+    process.env.ENVIRONMENT = 'dev';
+    process.env.API_BASE_URL = 'http://localhost';
+    process.env.API_ACCESS_TOKEN = 'token';
+
+    try {
+      await executeValidation(validation);
+    } finally {
+      process.env = savedEnv;
+    }
+
+    const output = JSON.parse(writtenChunks.join(''));
+    expect(output.valid).toBe(false);
+    expect(output.errors[0]).toContain('CARD_ID');
   });
 });

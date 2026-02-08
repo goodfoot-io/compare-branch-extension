@@ -15,7 +15,7 @@ import type {
   TypeUpdateCommand,
   TypeValidatorCommand
 } from '../command-types.js';
-import type { ActionContext, TypeHookInput, TypeValidatorContext, ValidatorFileRequest } from '../inputs.js';
+import type { TypeHookContext, TypeHookInput, TypeValidatorContext, ValidatorFileRequest } from '../inputs.js';
 import type { SameShape } from '../type-utils.js';
 
 /**
@@ -41,7 +41,7 @@ export interface TypeConfig {
  * @param input - Type hook input containing file metadata
  * @param context - Action context with logger and utilities
  */
-export type TypeHandler = (input: TypeHookInput, context: ActionContext) => void | Promise<void>;
+export type TypeHandler = (input: TypeHookInput, context: TypeHookContext) => void | Promise<void>;
 
 /**
  * Handler function for type validators.
@@ -147,7 +147,7 @@ export function defineTypeCreate<T extends TypeConfig>(
   config: SameShape<TypeConfig, T>,
   handler: TypeHandler
 ): TypeCreateCommand<T['typeName']> {
-  const fn = async (input: TypeHookInput, context: ActionContext): Promise<void> => {
+  const fn = async (input: TypeHookInput, context: TypeHookContext): Promise<void> => {
     await handler(input, context);
   };
 
@@ -196,7 +196,7 @@ export function defineTypeUpdate<T extends TypeConfig>(
   config: SameShape<TypeConfig, T>,
   handler: TypeHandler
 ): TypeUpdateCommand<T['typeName']> {
-  const fn = async (input: TypeHookInput, context: ActionContext): Promise<void> => {
+  const fn = async (input: TypeHookInput, context: TypeHookContext): Promise<void> => {
     await handler(input, context);
   };
 
@@ -243,7 +243,7 @@ export function defineTypeDelete<T extends TypeConfig>(
   config: SameShape<TypeConfig, T>,
   handler: TypeHandler
 ): TypeDeleteCommand<T['typeName']> {
-  const fn = async (input: TypeHookInput, context: ActionContext): Promise<void> => {
+  const fn = async (input: TypeHookInput, context: TypeHookContext): Promise<void> => {
     await handler(input, context);
   };
 

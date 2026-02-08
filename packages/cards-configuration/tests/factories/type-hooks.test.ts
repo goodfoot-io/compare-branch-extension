@@ -18,7 +18,7 @@ import {
   type TypeHandler,
   type TypeValidatorHandler
 } from '../../src/factories/type-hooks.js';
-import type { ActionContext, TypeHookInput, TypeValidatorContext, ValidatorFileRequest } from '../../src/inputs.js';
+import type { TypeHookContext, TypeHookInput, TypeValidatorContext, ValidatorFileRequest } from '../../src/inputs.js';
 import type { ILogger } from '../../src/logger.js';
 
 // Mock input and context for testing
@@ -36,7 +36,7 @@ const createMockInput = (): TypeHookInput => ({
   apiAccessToken: 'token-123'
 });
 
-const createMockContext = (): ActionContext => ({
+const createMockContext = (): TypeHookContext => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -44,9 +44,7 @@ const createMockContext = (): ActionContext => ({
     error: vi.fn(),
     logError: vi.fn()
   } satisfies ILogger,
-  cwd: '/workspace',
-  onCancel: vi.fn(),
-  onSwitchToInteractive: vi.fn()
+  cwd: '/workspace'
 });
 
 // Mock validator request and context

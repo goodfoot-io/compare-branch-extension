@@ -213,9 +213,9 @@ executeValidation(handler);
       const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/runtime.ts"));
       wrapperContent = `
 import handler from '${sourceImport}';
-import { execute } from '${runtimeImport}';
+import { executeCommand } from '${runtimeImport}';
 
-execute(handler);
+executeCommand(handler);
 `;
     }
     const outputDir = path.dirname(outputPath);

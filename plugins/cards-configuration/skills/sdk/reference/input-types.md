@@ -172,7 +172,7 @@ async (request, context: TypeValidatorContext) => {
 
 ### ActionContext
 
-Runtime context injected for action handlers.
+Runtime context injected for **action** handlers. Not used for type lifecycle hooks — see `TypeHookContext`.
 
 ```typescript
 interface ActionContext {
@@ -208,6 +208,29 @@ async (input: ActionInput, context: ActionContext) => {
   if (await fs.exists(configPath)) {
     const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
   }
+}
+```
+
+### TypeHookContext
+
+Runtime context injected for type lifecycle hooks (create, update, delete). Unlike `ActionContext`, type hooks do not have `onCancel` or `onSwitchToInteractive` callbacks.
+
+```typescript
+interface TypeHookContext {
+  logger: ILogger;  // Logger for structured logging
+  cwd: string;      // Current working directory
+}
+```
+
+**Usage Example:**
+
+```typescript
+async (input: TypeHookInput, context: TypeHookContext) => {
+  context.logger.info('Processing type event', {
+    type: input.typeName,
+    file: input.fileName,
+    cwd: context.cwd
+  });
 }
 ```
 

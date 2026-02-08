@@ -17,6 +17,7 @@ import type {
 import type {
   ActionContext,
   ActionInput,
+  TypeHookContext,
   TypeHookInput,
   TypeValidatorContext,
   ValidatorFileRequest
@@ -170,17 +171,17 @@ describe('command-types', () => {
   });
 
   describe('TypeCreateCommand', () => {
-    it('should be callable with TypeHookInput and ActionContext', () => {
-      const fn = async (input: TypeHookInput, context: ActionContext) => {
+    it('should be callable with TypeHookInput and TypeHookContext', () => {
+      const fn = async (input: TypeHookInput, context: TypeHookContext) => {
         expectTypeOf(input).toEqualTypeOf<TypeHookInput>();
-        expectTypeOf(context).toEqualTypeOf<ActionContext>();
+        expectTypeOf(context).toEqualTypeOf<TypeHookContext>();
       };
       const command = Object.assign(fn, {
         factoryType: 'typeCreate' as const,
         typeName: 'test-type'
       });
 
-      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as ActionContext);
+      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as TypeHookContext);
     });
 
     it('should return Promise<void>', () => {
@@ -213,17 +214,17 @@ describe('command-types', () => {
   });
 
   describe('TypeUpdateCommand', () => {
-    it('should be callable with TypeHookInput and ActionContext', () => {
-      const fn = async (input: TypeHookInput, context: ActionContext) => {
+    it('should be callable with TypeHookInput and TypeHookContext', () => {
+      const fn = async (input: TypeHookInput, context: TypeHookContext) => {
         expectTypeOf(input).toEqualTypeOf<TypeHookInput>();
-        expectTypeOf(context).toEqualTypeOf<ActionContext>();
+        expectTypeOf(context).toEqualTypeOf<TypeHookContext>();
       };
       const command = Object.assign(fn, {
         factoryType: 'typeUpdate' as const,
         typeName: 'test-type'
       });
 
-      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as ActionContext);
+      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as TypeHookContext);
     });
 
     it('should return Promise<void>', () => {
@@ -256,17 +257,17 @@ describe('command-types', () => {
   });
 
   describe('TypeDeleteCommand', () => {
-    it('should be callable with TypeHookInput and ActionContext', () => {
-      const fn = async (input: TypeHookInput, context: ActionContext) => {
+    it('should be callable with TypeHookInput and TypeHookContext', () => {
+      const fn = async (input: TypeHookInput, context: TypeHookContext) => {
         expectTypeOf(input).toEqualTypeOf<TypeHookInput>();
-        expectTypeOf(context).toEqualTypeOf<ActionContext>();
+        expectTypeOf(context).toEqualTypeOf<TypeHookContext>();
       };
       const command = Object.assign(fn, {
         factoryType: 'typeDelete' as const,
         typeName: 'test-type'
       });
 
-      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as ActionContext);
+      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as TypeHookContext);
     });
 
     it('should return Promise<void>', () => {

@@ -11,7 +11,7 @@ import type { ActionCommand, TypeCreateCommand, TypeDeleteCommand, TypeUpdateCom
 import { CARDS_ENV_VARS } from '../src/env.js';
 import { EXIT_CODES } from '../src/exit-codes.js';
 import { logger } from '../src/logger.js';
-import { execute } from '../src/runtime.js';
+import { executeCommand } from '../src/runtime.js';
 
 describe('runtime', () => {
   // Store original env vars
@@ -64,7 +64,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should extract action input
         expect(handler).toHaveBeenCalledWith(
@@ -100,7 +100,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should write error to stderr
         expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Handler failed'));
@@ -123,7 +123,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         expect(handler).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -156,7 +156,7 @@ describe('runtime', () => {
           typeName: 'adaptive-card'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should extract type input
         expect(handler).toHaveBeenCalledWith(
@@ -164,8 +164,16 @@ describe('runtime', () => {
             typeName: 'adaptive-card',
             fileName: 'card.json'
           }),
-          expect.any(Object)
+          expect.objectContaining({
+            logger: expect.any(Object),
+            cwd: expect.any(String)
+          })
         );
+
+        // Should receive TypeHookContext without action-specific callbacks
+        const receivedContext = handler.mock.calls[0][1];
+        expect(receivedContext).not.toHaveProperty('onCancel');
+        expect(receivedContext).not.toHaveProperty('onSwitchToInteractive');
 
         // Should set logger context
         expect(loggerSetContextSpy).toHaveBeenCalledWith(
@@ -185,7 +193,7 @@ describe('runtime', () => {
           typeName: 'adaptive-card'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
@@ -210,7 +218,7 @@ describe('runtime', () => {
           typeName: 'adaptive-card'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should extract type input
         expect(handler).toHaveBeenCalledWith(
@@ -218,8 +226,16 @@ describe('runtime', () => {
             typeName: 'adaptive-card',
             fileName: 'card.json'
           }),
-          expect.any(Object)
+          expect.objectContaining({
+            logger: expect.any(Object),
+            cwd: expect.any(String)
+          })
         );
+
+        // Should receive TypeHookContext without action-specific callbacks
+        const receivedContext = handler.mock.calls[0][1];
+        expect(receivedContext).not.toHaveProperty('onCancel');
+        expect(receivedContext).not.toHaveProperty('onSwitchToInteractive');
 
         // Should set logger context
         expect(loggerSetContextSpy).toHaveBeenCalledWith(
@@ -239,7 +255,7 @@ describe('runtime', () => {
           typeName: 'adaptive-card'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
@@ -264,7 +280,7 @@ describe('runtime', () => {
           typeName: 'adaptive-card'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should extract type input
         expect(handler).toHaveBeenCalledWith(
@@ -272,8 +288,16 @@ describe('runtime', () => {
             typeName: 'adaptive-card',
             fileName: 'card.json'
           }),
-          expect.any(Object)
+          expect.objectContaining({
+            logger: expect.any(Object),
+            cwd: expect.any(String)
+          })
         );
+
+        // Should receive TypeHookContext without action-specific callbacks
+        const receivedContext = handler.mock.calls[0][1];
+        expect(receivedContext).not.toHaveProperty('onCancel');
+        expect(receivedContext).not.toHaveProperty('onSwitchToInteractive');
 
         // Should set logger context
         expect(loggerSetContextSpy).toHaveBeenCalledWith(
@@ -293,7 +317,7 @@ describe('runtime', () => {
           typeName: 'adaptive-card'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
@@ -310,7 +334,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should not call handler
         expect(handler).not.toHaveBeenCalled();
@@ -336,7 +360,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should set context before handler
         expect(loggerSetContextSpy).toHaveBeenCalled();
@@ -352,7 +376,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should still clear context
         expect(loggerClearContextSpy).toHaveBeenCalled();
@@ -366,7 +390,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         expect(handler).toHaveBeenCalledWith(
           expect.any(Object),
@@ -385,7 +409,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should write string to stderr
         expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('String error'));
@@ -401,7 +425,7 @@ describe('runtime', () => {
           actionName: 'Test Action'
         });
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should convert object to string
         expect(stderrSpy).toHaveBeenCalledWith(expect.any(String));
@@ -475,7 +499,7 @@ describe('runtime', () => {
         const handler = vi.fn().mockResolvedValue(undefined);
         const command = makeCommand(handler);
 
-        await execute(command);
+        await executeCommand(command);
 
         expect(handler).toHaveBeenCalled();
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
@@ -488,7 +512,7 @@ describe('runtime', () => {
         const handler = vi.fn().mockResolvedValue(undefined);
         const command = makeCommand(handler);
 
-        await execute(command);
+        await executeCommand(command);
 
         // Should warn about connection failure
         expect(loggerWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to connect to socket'));
@@ -512,7 +536,7 @@ describe('runtime', () => {
           });
         const command = makeCommand(handler);
 
-        const executePromise = execute(command);
+        const executePromise = executeCommand(command);
 
         // Wait for handler to register callback and server to accept connection
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -546,7 +570,7 @@ describe('runtime', () => {
         // Collect data received by server
         const serverReceived: string[] = [];
 
-        const executePromise = execute(command);
+        const executePromise = executeCommand(command);
 
         await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
@@ -591,7 +615,7 @@ describe('runtime', () => {
           );
         const command = makeCommand(handler);
 
-        const executePromise = execute(command);
+        const executePromise = executeCommand(command);
 
         await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
@@ -616,7 +640,7 @@ describe('runtime', () => {
         });
         const command = makeCommand(handler);
 
-        const executePromise = execute(command);
+        const executePromise = executeCommand(command);
 
         await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
@@ -638,7 +662,7 @@ describe('runtime', () => {
         const handler = vi.fn().mockResolvedValue(undefined);
         const command = makeCommand(handler);
 
-        await execute(command);
+        await executeCommand(command);
 
         expect(handler).toHaveBeenCalled();
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
@@ -654,7 +678,7 @@ describe('runtime', () => {
         });
         const command = makeCommand(handler);
 
-        const executePromise = execute(command);
+        const executePromise = executeCommand(command);
 
         await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
@@ -685,7 +709,7 @@ describe('runtime', () => {
 
         const serverReceived: string[] = [];
 
-        const executePromise = execute(command);
+        const executePromise = executeCommand(command);
 
         await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
@@ -720,7 +744,7 @@ describe('runtime', () => {
           });
         const command = makeCommand(handler);
 
-        const executePromise = execute(command);
+        const executePromise = executeCommand(command);
 
         await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();

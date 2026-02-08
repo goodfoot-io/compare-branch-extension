@@ -21,22 +21,22 @@
  * 7. On error: log error, write to stderr, clean up and exit with code 1
  *
  * @module
- * @see {@link execute} for the main entry point
+ * @see {@link executeCommand} for the main entry point
  *
  * @example
  * ```typescript
  * // This is what compiled handlers look like internally
- * import { execute } from '@cards/configuration/runtime';
+ * import { executeCommand } from '@cards/configuration/runtime';
  * import myCommand from './my-command.js';
  *
- * execute(myCommand);
+ * executeCommand(myCommand);
  * ```
  */
 
 import type { ActionCommand, TypeCreateCommand, TypeDeleteCommand, TypeUpdateCommand } from './command-types.js';
 import { CARDS_ENV_VARS, extractActionInput, extractTypeInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
-import type { ActionContext, ActionInput, TypeHookInput } from './inputs.js';
+import type { ActionContext, ActionInput, TypeHookContext, TypeHookInput } from './inputs.js';
 import { logger } from './logger.js';
 import type { SocketCommand } from './socket-client.js';
 import { SocketClient } from './socket-client.js';
@@ -48,12 +48,12 @@ import { SocketClient } from './socket-client.js';
 /**
  * Union of all command types supported by the runtime.
  *
- * This type union allows {@link execute} to accept any command returned by
+ * This type union allows {@link executeCommand} to accept any command returned by
  * the factory functions. The runtime dispatches based on the `factoryType`
  * discriminant.
  *
  * Note: TypeValidatorCommand is excluded because validators use a different
- * execution model (HTTP stdin/stdout via {@link executeValidation}).
+ * execution model (file-path protocol via {@link executeValidation}).
  *
  * @internal
  */
@@ -181,16 +181,14 @@ function handleHandlerError(error: unknown): never {
  * @example
  * ```typescript
  * // Generated wrapper code (produced by CLI)
- * import { execute } from '@cards/configuration/runtime';
+ * import { executeCommand } from '@cards/configuration/runtime';
  * import command from './user-command.js';
  *
  * // This call never returns in production
- * execute(command);
+ * executeCommand(command);
  * ```
  */
-export async function execute(command: AnyCommand): Promise<void> {
-  let socketClient: SocketClient | undefined;
-
+export async function executeCommand(command: AnyCommand): Promise<void> {
   try {
     let input: ActionInput | TypeHookInput;
 
@@ -211,8 +209,9 @@ export async function execute(command: AnyCommand): Promise<void> {
     // Set logger context with command type
     logger.setContext(command.factoryType, input as unknown as Record<string, unknown>);
 
-    // Attempt socket connection for action commands (fail-open)
     if (command.factoryType === 'action') {
+      // Socket connection and ActionContext for action commands
+      let socketClient: SocketClient | undefined;
       const socketPath = process.env[CARDS_ENV_VARS.SOCKET_PATH];
       if (socketPath) {
         try {
@@ -222,56 +221,72 @@ export async function execute(command: AnyCommand): Promise<void> {
           // Fail-open: continue without socket
         }
       }
-    }
 
-    // Callback registration state
-    let cancelCallback: (() => void | Promise<void>) | undefined;
-    let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
-    let commandProcessed = false;
+      // Callback registration state
+      let cancelCallback: (() => void | Promise<void>) | undefined;
+      let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
+      let commandProcessed = false;
 
-    // Build ActionContext with logger, cwd, and socket-backed callbacks
-    const context: ActionContext = {
-      logger,
-      cwd: process.cwd(),
-      onCancel: (callback) => {
-        cancelCallback = callback;
-      },
-      onSwitchToInteractive: (callback) => {
-        switchToInteractiveCallback = callback;
-      }
-    };
-
-    // Wire socket command dispatch
-    if (socketClient) {
-      socketClient.onCommand((cmd: SocketCommand) => {
-        // First-wins semantics: ignore subsequent commands
-        if (commandProcessed) return;
-        commandProcessed = true;
-
-        if (cmd.type === 'cancel') {
-          handleCancelCommand(cancelCallback, socketClient);
-        } else if (cmd.type === 'switchToInteractive') {
-          handleSwitchToInteractiveCommand(switchToInteractiveCallback, socketClient!);
+      // Build ActionContext with logger, cwd, and socket-backed callbacks
+      const context: ActionContext = {
+        logger,
+        cwd: process.cwd(),
+        onCancel: (callback) => {
+          cancelCallback = callback;
+        },
+        onSwitchToInteractive: (callback) => {
+          switchToInteractiveCallback = callback;
         }
-      });
-    }
+      };
 
-    // Execute the command handler
-    try {
-      await command(input as never, context);
-    } catch (error) {
+      // Wire socket command dispatch
+      if (socketClient) {
+        socketClient.onCommand((cmd: SocketCommand) => {
+          // First-wins semantics: ignore subsequent commands
+          if (commandProcessed) return;
+          commandProcessed = true;
+
+          if (cmd.type === 'cancel') {
+            handleCancelCommand(cancelCallback, socketClient);
+          } else if (cmd.type === 'switchToInteractive') {
+            handleSwitchToInteractiveCommand(switchToInteractiveCallback, socketClient!);
+          }
+        });
+      }
+
+      // Execute the action command handler
+      try {
+        await command(input as ActionInput, context);
+      } catch (error) {
+        socketClient?.close();
+        handleHandlerError(error);
+        // Same guard for tests with mocked process.exit
+        return;
+      }
+
+      // Clean up socket and exit successfully
       socketClient?.close();
-      handleHandlerError(error);
-      // Same guard for tests with mocked process.exit
-      return;
-    }
+      cleanupAndExit(EXIT_CODES.SUCCESS);
+    } else {
+      // TypeHookContext for type lifecycle hooks
+      const context: TypeHookContext = {
+        logger,
+        cwd: process.cwd()
+      };
 
-    // Clean up socket and exit successfully
-    socketClient?.close();
-    cleanupAndExit(EXIT_CODES.SUCCESS);
+      // Execute the type hook command handler
+      try {
+        await command(input as TypeHookInput, context);
+      } catch (error) {
+        handleHandlerError(error);
+        // Same guard for tests with mocked process.exit
+        return;
+      }
+
+      cleanupAndExit(EXIT_CODES.SUCCESS);
+    }
   } catch (error) {
     // Unexpected error - try to clean up and exit
-    socketClient?.close();
     logger.error(`Unexpected runtime error: ${getErrorMessage(error)}`);
     cleanupAndExit(EXIT_CODES.ERROR);
   }

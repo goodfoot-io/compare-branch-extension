@@ -44,10 +44,10 @@ interface TestRequestOptions {
 Execute a validator and get the result without process I/O.
 
 ```typescript
-import { testValidation, createTestRequest, typeValidation, validationSuccess } from '@cards/configuration';
+import { testValidation, createTestRequest, defineTypeValidator, validationSuccess } from '@cards/configuration';
 
 // Define a validator
-const validator = typeValidation({}, async (request) => {
+const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
   // In real validators you'd read request.filePath from disk;
   // in tests, mock the file read or test logic directly
   return validationSuccess({ name: 'test' });
@@ -70,6 +70,7 @@ if (result.valid) {
 ```typescript
 interface TestValidationOptions {
   logger?: Logger;  // Custom logger (default: new Logger())
+  context?: Partial<Omit<TypeValidatorContext, 'logger'>>;  // Optional context overrides
 }
 ```
 
@@ -78,7 +79,7 @@ interface TestValidationOptions {
 ```typescript
 interface TestValidationResult {
   result: ValidationResult;           // The result returned by the validator
-  context: ValidationContext;         // The context that was passed to the validator
+  context: TypeValidatorContext;         // The context that was passed to the validator
 }
 ```
 

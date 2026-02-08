@@ -78,6 +78,7 @@ export type {
 export type {
   ActionContext,
   ActionInput,
+  TypeHookContext,
   TypeHookInput,
   TypeValidatorContext,
   ValidatorFileRequest
@@ -90,7 +91,6 @@ export type {
 export type {
   ActionCommand,
   StreamInitContext,
-  StreamInitHandler as StreamInitHandlerType,
   StreamTransformCommand,
   TransformContext,
   TypeCreateCommand,
@@ -113,26 +113,7 @@ export {
   CARDS_ENV_VARS,
   extractActionInput,
   extractTypeInput,
-  getActionName,
-  getApiAccessToken,
-  getApiBaseUrl,
-  getCardId,
-  getCardRepoPath,
-  getCodingAgent,
-  getConfigPath,
-  getContentType,
-  getEnvironment,
   getExecutionMode,
-  getFileName,
-  getFilePath,
-  getFileSize,
-  getSha256,
-  getSocketPath,
-  getSwitchToInteractiveDataPath,
-  getTypeName,
-  getTypeVersion,
-  getVscodeNodePath,
-  getWorkspacePath,
   readSwitchToInteractiveData
 } from './env.js';
 
@@ -144,7 +125,6 @@ export {
   EXIT_CODES,
   type ExitCode,
   exitWithError,
-  type HookExecutionResult,
   writeError
 } from './exit-codes.js';
 
@@ -169,20 +149,12 @@ export {
 // Runtime
 // ============================================================================
 
-export { execute } from './runtime.js';
+export { executeCommand } from './runtime.js';
 
 // ============================================================================
 // Validation
 // ============================================================================
 
-export type { ValidationRequest } from './http-parser.js';
-export { parseHttpRequest } from './http-parser.js';
-export type {
-  ValidationConfig,
-  ValidationContext,
-  ValidationFunction,
-  ValidationHandler
-} from './validation.js';
 export {
   executeValidation,
   validationError,

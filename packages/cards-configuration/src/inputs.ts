@@ -289,6 +289,32 @@ export interface ActionContext {
   onSwitchToInteractive(callback: () => unknown | Promise<unknown>): void;
 }
 
+/**
+ * Runtime context injected when a type lifecycle hook executes.
+ *
+ * Unlike {@link ActionContext}, type hooks do not support `onCancel` or
+ * `onSwitchToInteractive` callbacks because the runtime does not connect
+ * a socket for type commands.
+ *
+ * @example
+ * ```typescript
+ * async (input: TypeHookInput, context: TypeHookContext) => {
+ *   context.logger.info('Processing type event', { cwd: context.cwd });
+ * }
+ * ```
+ */
+export interface TypeHookContext {
+  /**
+   * Logger for structured, context-aware logging.
+   */
+  logger: import('./logger.js').ILogger;
+
+  /**
+   * Current working directory.
+   */
+  cwd: string;
+}
+
 // ============================================================================
 // Type Validator Types
 // ============================================================================

@@ -7,9 +7,9 @@
  */
 
 import type { ValidationResult } from '@cards/protocol';
-import type { ValidatorFileRequest } from './inputs.js';
+import type { TypeValidatorCommand } from './command-types.js';
+import type { TypeValidatorContext, ValidatorFileRequest } from './inputs.js';
 import { Logger } from './logger.js';
-import type { ValidationContext, ValidationFunction } from './validation.js';
 
 // ============================================================================
 // Test Request Builder
@@ -55,6 +55,8 @@ export function createTestRequest(options: TestRequestOptions = {}): ValidatorFi
 export interface TestValidationOptions {
   /** Custom logger (default: creates new Logger) */
   logger?: Logger;
+  /** Optional context overrides (default: empty strings for all fields) */
+  context?: Partial<Omit<TypeValidatorContext, 'logger'>>;
 }
 
 /**
@@ -64,7 +66,7 @@ export interface TestValidationResult {
   /** The result returned by the validator */
   result: ValidationResult;
   /** The context that was passed to the validator */
-  context: ValidationContext;
+  context: TypeValidatorContext;
 }
 
 /**
@@ -74,15 +76,15 @@ export interface TestValidationResult {
  * Does not involve process I/O - suitable for unit testing. Errors thrown
  * by the validation function will reject the promise.
  *
- * @param validation - The validation function to test
+ * @param validation - The type validator command to test
  * @param request - Test request (or options to create one)
  * @param options - Test options
  * @returns The validation result
  * @example
  * ```typescript
- * import { testValidation, createTestRequest, typeValidation, validationSuccess } from '@cards/configuration';
+ * import { testValidation, createTestRequest, defineTypeValidator, validationSuccess } from '@cards/configuration';
  *
- * const validator = typeValidation({}, async (request) => {
+ * const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
  *   // read file at request.filePath and validate...
  *   return validationSuccess({ name: 'test' });
  * });
@@ -95,11 +97,11 @@ export interface TestValidationResult {
  * ```
  */
 export async function testValidation(
-  validation: ValidationFunction,
+  validation: TypeValidatorCommand,
   request: ValidatorFileRequest | TestRequestOptions,
   options: TestValidationOptions = {}
 ): Promise<TestValidationResult> {
-  const { logger = new Logger() } = options;
+  const { logger = new Logger(), context: contextOverrides = {} } = options;
 
   // Convert options to request if needed
   const validationRequest: ValidatorFileRequest =
@@ -107,7 +109,18 @@ export async function testValidation(
       ? (request as ValidatorFileRequest)
       : createTestRequest(request);
 
-  const context: ValidationContext = { logger };
+  const context: TypeValidatorContext = {
+    logger,
+    cwd: process.cwd(),
+    typeName: '',
+    typeVersion: '',
+    fileName: '',
+    cardId: '',
+    environment: '',
+    apiBaseUrl: '',
+    apiAccessToken: '',
+    ...contextOverrides
+  };
   const result = await validation(validationRequest, context);
 
   return { result, context };
