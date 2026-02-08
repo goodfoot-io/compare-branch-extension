@@ -270,6 +270,15 @@ execute(handler);
 }
 
 // src/cli/index.ts
+function tryUnlink(filePath) {
+  try {
+    fs2.unlinkSync(filePath);
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.warn("[cards-configuration] Failed to clean up file %s: %s", filePath, err.message);
+    }
+  }
+}
 function generateContentHash(content) {
   return crypto.createHash("sha256").update(content).digest("hex").substring(0, 8);
 }
@@ -300,38 +309,18 @@ function extractCommands(config) {
       });
     }
     if (envConfig.types) {
+      const typeHookKeys = ["validator", "create", "update", "delete"];
       for (const typeConfig of Object.values(envConfig.types)) {
-        if (typeConfig.validator) {
-          commands.push({
-            factoryType: typeConfig.validator.factoryType,
-            name: typeConfig.validator.typeName,
-            sourcePath: typeConfig.validator.sourcePath,
-            timeout: typeConfig.validator.timeout
-          });
-        }
-        if (typeConfig.create) {
-          commands.push({
-            factoryType: typeConfig.create.factoryType,
-            name: typeConfig.create.typeName,
-            sourcePath: typeConfig.create.sourcePath,
-            timeout: typeConfig.create.timeout
-          });
-        }
-        if (typeConfig.update) {
-          commands.push({
-            factoryType: typeConfig.update.factoryType,
-            name: typeConfig.update.typeName,
-            sourcePath: typeConfig.update.sourcePath,
-            timeout: typeConfig.update.timeout
-          });
-        }
-        if (typeConfig.delete) {
-          commands.push({
-            factoryType: typeConfig.delete.factoryType,
-            name: typeConfig.delete.typeName,
-            sourcePath: typeConfig.delete.sourcePath,
-            timeout: typeConfig.delete.timeout
-          });
+        for (const hookKey of typeHookKeys) {
+          const hook = typeConfig[hookKey];
+          if (hook) {
+            commands.push({
+              factoryType: hook.factoryType,
+              name: hook.typeName,
+              sourcePath: hook.sourcePath,
+              timeout: hook.timeout
+            });
+          }
         }
       }
     }
@@ -393,30 +382,10 @@ async function compileHandlers(commands, binDir) {
     });
     if (!finalResult.success) {
       errors.push(`Failed to compile ${cmd.sourcePath} with sourcemaps: ${finalResult.error}`);
-      try {
-        fs2.unlinkSync(tempOutputPath);
-      } catch (err) {
-        if (err.code !== "ENOENT") {
-          console.warn(
-            "[cards-configuration] Failed to clean up temp file %s: %s",
-            tempOutputPath,
-            err.message
-          );
-        }
-      }
+      tryUnlink(tempOutputPath);
       continue;
     }
-    try {
-      fs2.unlinkSync(tempOutputPath);
-    } catch (err) {
-      if (err.code !== "ENOENT") {
-        console.warn(
-          "[cards-configuration] Failed to clean up temp file %s: %s",
-          tempOutputPath,
-          err.message
-        );
-      }
-    }
+    tryUnlink(tempOutputPath);
     fs2.chmodSync(finalOutputPath, 493);
     compiled.push({
       info: cmd,
@@ -548,16 +517,7 @@ function cleanupStaleFiles(settingsPath, binDir) {
     const existingSettings = JSON.parse(fs2.readFileSync(settingsPath, "utf-8"));
     const previousFiles = existingSettings.__generated?.files ?? [];
     for (const filename of previousFiles) {
-      const filePath = path2.join(binDir, filename);
-      try {
-        if (fs2.existsSync(filePath)) {
-          fs2.unlinkSync(filePath);
-        }
-      } catch (err) {
-        if (err.code !== "ENOENT") {
-          console.warn("[cards-configuration] Failed to clean up stale file %s: %s", filePath, err.message);
-        }
-      }
+      tryUnlink(path2.join(binDir, filename));
     }
   } catch (err) {
     if (err.code !== "ENOENT") {
