@@ -11,6 +11,7 @@ Input payload for action handlers. Extracted from environment variables by the r
 ```typescript
 interface ActionInput {
   cardId: string;                         // Unique card identifier
+  actionName: string;                     // Action button display name (e.g., "Launch Claude")
   environment: string;                    // Environment name (e.g., "default")
   executionMode: 'interactive' | 'background';  // UI interaction model
   apiBaseUrl: string;                     // Cards server base URL
@@ -30,6 +31,7 @@ async (input: ActionInput, context) => {
 
   // Access card context
   logger.info(`Processing card ${input.cardId}`);
+  logger.info(`Action: ${input.actionName}`);
   logger.info(`Environment: ${input.environment}`);
 
   // Handle cancellation

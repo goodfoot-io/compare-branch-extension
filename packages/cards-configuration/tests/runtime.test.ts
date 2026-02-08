@@ -39,6 +39,7 @@ describe('runtime', () => {
 
     // Setup action environment variables
     process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+    process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Test Action';
     process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'default';
     process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
     process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';

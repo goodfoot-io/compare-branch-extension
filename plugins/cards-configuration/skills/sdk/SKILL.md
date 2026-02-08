@@ -40,7 +40,7 @@ export default defineAction(
   async (input, context) => {
     const { logger, onCancel, onSwitchToInteractive } = context;
 
-    logger.info('Launching Claude', { cardId: input.cardId });
+    logger.info('Launching Claude', { action: input.actionName, cardId: input.cardId });
 
     // Handle cancellation
     onCancel(() => {

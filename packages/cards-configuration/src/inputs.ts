@@ -42,6 +42,14 @@ export interface ActionInput {
   cardId: string;
 
   /**
+   * Display name of the action button that triggered this handler.
+   *
+   * Matches the `actionName` field from the `defineAction` factory config
+   * (e.g., "Launch Claude", "Interview"). Useful for logging and analytics.
+   */
+  actionName: string;
+
+  /**
    * The environment name this action belongs to.
    *
    * Matches the environment key in settings.json (e.g., "default", "staging").

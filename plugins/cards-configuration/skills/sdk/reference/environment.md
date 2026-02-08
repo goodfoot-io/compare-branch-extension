@@ -11,6 +11,7 @@ import { CARDS_ENV_VARS } from '@cards/configuration';
 
 // All environment variable names
 CARDS_ENV_VARS.CARD_ID                       // 'CARD_ID'
+CARDS_ENV_VARS.ACTION_NAME                   // 'ACTION_NAME'
 CARDS_ENV_VARS.ENVIRONMENT                   // 'ENVIRONMENT'
 CARDS_ENV_VARS.EXECUTION_MODE                // 'EXECUTION_MODE'
 CARDS_ENV_VARS.API_BASE_URL                  // 'API_BASE_URL'
@@ -35,6 +36,7 @@ CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 | Variable | Actions | Type Validators | Type Lifecycle |
 |----------|---------|-----------------|----------------|
 | `CARD_ID` | Yes | Yes | Yes |
+| `ACTION_NAME` | Yes | No | No |
 | `ENVIRONMENT` | Yes | Yes | Yes |
 | `EXECUTION_MODE` | Yes | No | No |
 | `API_BASE_URL` | Yes | Yes | Yes |
@@ -78,6 +80,7 @@ const apiAccessToken = getApiAccessToken();
 
 ```typescript
 import {
+  getActionName,
   getExecutionMode,
   getCodingAgent,
   getSocketPath,
@@ -86,6 +89,9 @@ import {
   getWorkspacePath,
   getCardRepoPath
 } from '@cards/configuration';
+
+// Throws if missing, returns the action button display name
+const actionName = getActionName();          // e.g., 'Launch Claude'
 
 // Throws if missing, returns 'interactive' | 'background'
 const mode = getExecutionMode();
@@ -142,6 +148,7 @@ import { extractActionInput } from '@cards/configuration';
 const input = extractActionInput();
 // {
 //   cardId: string,
+//   actionName: string,
 //   environment: string,
 //   executionMode: 'interactive' | 'background',
 //   apiBaseUrl: string,

@@ -113,6 +113,7 @@ export {
   CARDS_ENV_VARS,
   extractActionInput,
   extractTypeInput,
+  getActionName,
   getApiAccessToken,
   getApiBaseUrl,
   getCardId,

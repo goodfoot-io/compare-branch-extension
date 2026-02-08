@@ -7,6 +7,7 @@ import {
   CARDS_ENV_VARS,
   extractActionInput,
   extractTypeInput,
+  getActionName,
   getApiAccessToken,
   getApiBaseUrl,
   getCardId,
@@ -30,6 +31,7 @@ describe('env', () => {
   beforeEach(() => {
     // Clear all relevant env vars before each test
     delete process.env[CARDS_ENV_VARS.CARD_ID];
+    delete process.env[CARDS_ENV_VARS.ACTION_NAME];
     delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
     delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
     delete process.env[CARDS_ENV_VARS.API_BASE_URL];
@@ -54,6 +56,7 @@ describe('env', () => {
     it('should define all environment variable names', () => {
       expect(CARDS_ENV_VARS).toEqual({
         CARD_ID: 'CARD_ID',
+        ACTION_NAME: 'ACTION_NAME',
         ENVIRONMENT: 'ENVIRONMENT',
         EXECUTION_MODE: 'EXECUTION_MODE',
         API_BASE_URL: 'API_BASE_URL',
@@ -89,6 +92,22 @@ describe('env', () => {
     it('should throw when CARD_ID is empty string', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = '';
       expect(() => getCardId()).toThrow('Missing required environment variable: CARD_ID');
+    });
+  });
+
+  describe('getActionName', () => {
+    it('should return action name when set', () => {
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
+      expect(getActionName()).toBe('Launch Claude');
+    });
+
+    it('should throw when ACTION_NAME is undefined', () => {
+      expect(() => getActionName()).toThrow('Missing required environment variable: ACTION_NAME');
+    });
+
+    it('should throw when ACTION_NAME is empty string', () => {
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = '';
+      expect(() => getActionName()).toThrow('Missing required environment variable: ACTION_NAME');
     });
   });
 
@@ -332,6 +351,7 @@ describe('env', () => {
     // Helper to set up action environment variables
     function setupActionEnv() {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
       process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
@@ -348,6 +368,7 @@ describe('env', () => {
 
       expect(input).toEqual({
         cardId: 'card-123',
+        actionName: 'Launch Claude',
         environment: 'production',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
@@ -366,6 +387,7 @@ describe('env', () => {
 
       expect(input).toEqual({
         cardId: 'card-123',
+        actionName: 'Launch Claude',
         environment: 'production',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
@@ -387,6 +409,7 @@ describe('env', () => {
     });
 
     it('should throw when required CARD_ID is missing', () => {
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
       process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
@@ -395,8 +418,19 @@ describe('env', () => {
       expect(() => extractActionInput()).toThrow('Missing required environment variable: CARD_ID');
     });
 
+    it('should throw when required ACTION_NAME is missing', () => {
+      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
+      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
+      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
+      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
+
+      expect(() => extractActionInput()).toThrow('Missing required environment variable: ACTION_NAME');
+    });
+
     it('should throw when required ENVIRONMENT is missing', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
       process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
       process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
@@ -406,6 +440,7 @@ describe('env', () => {
 
     it('should throw when required EXECUTION_MODE is missing', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
       process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
@@ -415,6 +450,7 @@ describe('env', () => {
 
     it('should throw when required API_BASE_URL is missing', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
       process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
@@ -424,6 +460,7 @@ describe('env', () => {
 
     it('should throw when required API_ACCESS_TOKEN is missing', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
+      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
       process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';

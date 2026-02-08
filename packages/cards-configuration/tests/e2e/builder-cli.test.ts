@@ -794,6 +794,7 @@ export default {
     const handlerPath = path.join(outdir, 'bin', binFiles[0]);
     const result = await executeHandler(handlerPath, {
       CARD_ID: 'test-card',
+      ACTION_NAME: 'Test',
       ENVIRONMENT: 'default',
       EXECUTION_MODE: 'interactive',
       API_BASE_URL: 'http://localhost',
@@ -909,6 +910,7 @@ export default {
     const handlerPath = path.join(outdir, 'bin', binFiles[0]);
     const result = await executeHandler(handlerPath, {
       CARD_ID: 'test-card',
+      ACTION_NAME: 'CJS Test',
       ENVIRONMENT: 'default',
       EXECUTION_MODE: 'interactive',
       API_BASE_URL: 'http://localhost',

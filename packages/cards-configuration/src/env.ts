@@ -40,6 +40,12 @@ export const CARDS_ENV_VARS = {
   ENVIRONMENT: 'ENVIRONMENT',
 
   /**
+   * Display name of the action button that triggered this handler.
+   * Available in actions only (not type hooks).
+   */
+  ACTION_NAME: 'ACTION_NAME',
+
+  /**
    * Card's execution mode, determining UI interaction model.
    * Available in actions only (not type hooks).
    * Valid values: 'interactive' | 'background'
@@ -190,6 +196,27 @@ export function getEnvironment(): string {
   const value = process.env[CARDS_ENV_VARS.ENVIRONMENT];
   if (value === undefined || value === '') {
     throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.ENVIRONMENT}`);
+  }
+  return value;
+}
+
+/**
+ * Reads the action button name from the environment.
+ *
+ * This is the display name of the action that triggered the handler, matching
+ * the `actionName` field from `defineAction`.
+ * @returns The action name
+ * @throws Error if ACTION_NAME is missing or empty
+ * @example
+ * ```typescript
+ * const actionName = getActionName();
+ * console.log(`Running action: ${actionName}`);
+ * ```
+ */
+export function getActionName(): string {
+  const value = process.env[CARDS_ENV_VARS.ACTION_NAME];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.ACTION_NAME}`);
   }
   return value;
 }
@@ -565,6 +592,7 @@ export function readSwitchToInteractiveData(): unknown | undefined {
 export function extractActionInput(): ActionInput {
   return {
     cardId: getCardId(),
+    actionName: getActionName(),
     environment: getEnvironment(),
     executionMode: getExecutionMode(),
     apiBaseUrl: getApiBaseUrl(),

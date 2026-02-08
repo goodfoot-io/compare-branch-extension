@@ -14,6 +14,7 @@ describe('inputs', () => {
     it('should have all required fields with correct types', () => {
       expectTypeOf<ActionInput>().toMatchTypeOf<{
         cardId: string;
+        actionName: string;
         environment: string;
         executionMode: 'interactive' | 'background';
         apiBaseUrl: string;
@@ -38,6 +39,7 @@ describe('inputs', () => {
     it('should allow interactive execution mode', () => {
       const input: ActionInput = {
         cardId: 'card-123',
+        actionName: 'Test Action',
         environment: 'default',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
@@ -52,6 +54,7 @@ describe('inputs', () => {
     it('should allow background execution mode', () => {
       const input: ActionInput = {
         cardId: 'card-123',
+        actionName: 'Test Action',
         environment: 'default',
         executionMode: 'background',
         apiBaseUrl: 'https://api.example.com',
@@ -66,6 +69,7 @@ describe('inputs', () => {
     it('should allow optional codingAgent', () => {
       const inputWithAgent: ActionInput = {
         cardId: 'card-123',
+        actionName: 'Test Action',
         environment: 'default',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
@@ -77,6 +81,7 @@ describe('inputs', () => {
 
       const inputWithoutAgent: ActionInput = {
         cardId: 'card-123',
+        actionName: 'Test Action',
         environment: 'default',
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',

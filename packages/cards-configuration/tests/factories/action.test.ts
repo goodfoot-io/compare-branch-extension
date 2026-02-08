@@ -14,6 +14,7 @@ describe('defineAction', () => {
   // Sample input and context for testing
   const mockInput: ActionInput = {
     cardId: 'card-123',
+    actionName: 'Test Action',
     environment: 'default',
     executionMode: 'interactive',
     apiBaseUrl: 'https://api.example.com',
