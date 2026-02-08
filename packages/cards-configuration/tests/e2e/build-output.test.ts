@@ -850,7 +850,9 @@ describe('build output: input/output handling', () => {
         CARD_ID: 'test-card',
         ENVIRONMENT: 'default',
         API_BASE_URL: 'http://localhost',
-        API_ACCESS_TOKEN: 'token'
+        API_ACCESS_TOKEN: 'token',
+        WORKSPACE_PATH: FIXTURES_DIR,
+        CARD_REPO_PATH: FIXTURES_DIR
       };
 
       // Interactive mode

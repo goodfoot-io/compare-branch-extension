@@ -1,6 +1,6 @@
 ---
 name: Cards Configuration SDK
-description: This skill should be used when the user asks about "@cards/configuration", "cards extension settings", "defineActionStart", "defineActionEnd", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationCreated", "validationError", "stream transforms", "TransformContext", "JSONL streaming", or mentions building settings.json for Cards Extension.
+description: This skill should be used when the user asks about "@cards/configuration", "cards extension settings", "defineAction", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationCreated", "validationError", "stream transforms", "TransformContext", "JSONL streaming", or mentions building settings.json for Cards Extension.
 version: 1.0.0
 ---
 
@@ -22,14 +22,14 @@ npx @cards/configuration build -c settings.config.ts -o dist
 
 ## Action Handler Example
 
-Create action start handlers with `defineActionStart`:
+Create action handlers with `defineAction`:
 
 ```typescript
-// src/actions/launch-claude-start.ts
-import { defineActionStart } from '@cards/configuration';
+// src/actions/launch-claude.ts
+import { defineAction } from '@cards/configuration';
 import { fileURLToPath } from 'node:url';
 
-export default defineActionStart(
+export default defineAction(
   {
     actionName: 'Launch Claude',
     description: 'Start a Claude coding session',
@@ -37,8 +37,20 @@ export default defineActionStart(
     supportsBackgroundMode: true,
     sourcePath: fileURLToPath(import.meta.url)
   },
-  async (input, { logger }) => {
+  async (input, context) => {
+    const { logger, onCancel, onSwitchToInteractive } = context;
+
     logger.info('Launching Claude', { cardId: input.cardId });
+
+    // Handle cancellation
+    onCancel(() => {
+      logger.info('Action cancelled by user');
+    });
+
+    // Handle switch to interactive mode
+    onSwitchToInteractive((data) => {
+      logger.info('Switched to interactive mode', { data });
+    });
 
     const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
       headers: { Authorization: `Bearer ${input.apiAccessToken}` }
@@ -47,24 +59,8 @@ export default defineActionStart(
     if (!response.ok) {
       throw new Error(`Failed to fetch card: ${response.status}`);
     }
-  }
-);
-```
 
-Create paired end handlers with `defineActionEnd`:
-
-```typescript
-// src/actions/launch-claude-end.ts
-import { defineActionEnd } from '@cards/configuration';
-import { fileURLToPath } from 'node:url';
-
-export default defineActionEnd(
-  {
-    actionName: 'Launch Claude',  // Must match start handler
-    sourcePath: fileURLToPath(import.meta.url)
-  },
-  async (input, { logger }) => {
-    logger.info('Claude session ended', { cardId: input.cardId });
+    logger.info('Claude session completed', { cardId: input.cardId });
   }
 );
 ```
@@ -119,8 +115,7 @@ Define environments, actions, and types in `settings.config.ts`:
 
 ```typescript
 import { defineConfig } from '@cards/configuration';
-import launchClaudeStart from './src/actions/launch-claude-start.js';
-import launchClaudeEnd from './src/actions/launch-claude-end.js';
+import launchClaude from './src/actions/launch-claude.js';
 import adaptiveCardValidator from './src/validators/adaptive-card-validator.js';
 import chatTransform from './src/transforms/chat-formatter.js';
 
@@ -129,9 +124,7 @@ export default defineConfig({
     default: {
       version: 1,
       description: 'Default environment',
-      actions: [
-        { start: launchClaudeStart, end: launchClaudeEnd }
-      ],
+      actions: [launchClaude],
       types: {
         'adaptive-card': {
           version: '1.0.0',
@@ -241,8 +234,7 @@ After `yarn build`, the CLI compiles stream transforms into self-contained `.mjs
 
 | Factory | Purpose | Config Fields |
 |---------|---------|---------------|
-| `defineActionStart` | Action entry point | `id?`, `actionName`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?`, `sourcePath?` |
-| `defineActionEnd` | Post-action cleanup | `actionName`, `timeout?`, `sourcePath?` |
+| `defineAction` | Action handler | `actionName`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?`, `sourcePath?` |
 | `defineTypeValidator` | Pre-save validation | `typeName`, `timeout?`, `sourcePath?` |
 | `defineTypeCreate` | New file hook | `typeName`, `timeout?`, `sourcePath?` |
 | `defineTypeUpdate` | Modified file hook | `typeName`, `timeout?`, `sourcePath?` |
@@ -274,7 +266,7 @@ Before debugging issues, verify:
 
 Consult these reference files for detailed information:
 
-- **[reference/input-types.md](reference/input-types.md)**: ActionStartInput, TypeHookInput, TypeValidatorRequest
+- **[reference/input-types.md](reference/input-types.md)**: ActionInput, TypeHookInput, TypeValidatorRequest
 - **[reference/output-builders.md](reference/output-builders.md)**: Validation responses and error handling patterns
 - **[reference/environment.md](reference/environment.md)**: CARDS_ENV_VARS and extraction utilities
 - **[reference/logging.md](reference/logging.md)**: Logger API and configuration

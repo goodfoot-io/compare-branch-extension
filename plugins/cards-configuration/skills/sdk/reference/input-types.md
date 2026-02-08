@@ -4,28 +4,43 @@ This document describes the typed input structures available in `@cards/configur
 
 ## Action Input Types
 
-### ActionStartInput
+### ActionInput
 
-Input payload for action start handlers. Extracted from environment variables by the runtime.
+Input payload for action handlers. Extracted from environment variables by the runtime.
 
 ```typescript
-interface ActionStartInput {
+interface ActionInput {
   cardId: string;                         // Unique card identifier
   environment: string;                    // Environment name (e.g., "default")
   executionMode: 'interactive' | 'background';  // UI interaction model
   apiBaseUrl: string;                     // Cards server base URL
   apiAccessToken: string;                 // Bearer token for API calls
   codingAgent?: string;                   // Configured AI coding assistant
+  switchToInteractiveData?: unknown;      // Data from user switching to interactive mode
+  workspacePath: string;                  // Root workspace path
+  cardRepoPath: string;                   // Card repository path
 }
 ```
 
 **Usage Example:**
 
 ```typescript
-async (input: ActionStartInput, { logger }) => {
+async (input: ActionInput, context) => {
+  const { logger, onCancel, onSwitchToInteractive } = context;
+
   // Access card context
   logger.info(`Processing card ${input.cardId}`);
   logger.info(`Environment: ${input.environment}`);
+
+  // Handle cancellation
+  onCancel(() => {
+    logger.info('Action cancelled');
+  });
+
+  // Handle switch to interactive mode
+  if (input.switchToInteractiveData) {
+    logger.info('User switched to interactive', { data: input.switchToInteractiveData });
+  }
 
   // Make authenticated API calls
   const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
@@ -36,18 +51,11 @@ async (input: ActionStartInput, { logger }) => {
   if (input.executionMode === 'interactive') {
     // Show progress indicators
   }
+
+  // Use workspace paths
+  const configFile = path.join(input.workspacePath, 'config.json');
 }
 ```
-
-### ActionEndInput
-
-Input payload for action end handlers. Identical structure to `ActionStartInput`.
-
-```typescript
-type ActionEndInput = ActionStartInput;
-```
-
-**Note:** The end handler only runs when the start handler exits successfully (code 0).
 
 ## Type Hook Input Types
 
@@ -159,20 +167,36 @@ async (request, context: TypeValidatorContext) => {
 
 ### ActionContext
 
-Runtime context injected for all action and type handlers.
+Runtime context injected for action handlers.
 
 ```typescript
 interface ActionContext {
   logger: ILogger;  // Logger for structured, context-aware logging
   cwd: string;      // Current working directory for the action
+  onCancel(callback: () => void): void;  // Register cancellation handler
+  onSwitchToInteractive(callback: (data: unknown) => void): void;  // Register switch handler
 }
 ```
 
 **Usage Example:**
 
 ```typescript
-async (input, context: ActionContext) => {
-  context.logger.info('Action started', { cwd: context.cwd });
+async (input: ActionInput, context: ActionContext) => {
+  const { logger, onCancel, onSwitchToInteractive } = context;
+
+  logger.info('Action started', { cwd: context.cwd });
+
+  // Register cancellation handler
+  onCancel(() => {
+    logger.info('User cancelled the action');
+    // Cleanup code here
+  });
+
+  // Register handler for user switching to interactive mode
+  onSwitchToInteractive((data) => {
+    logger.info('User switched to interactive mode', { data });
+    // Adjust behavior here if needed
+  });
 
   // Use cwd for file operations
   const configPath = path.join(context.cwd, 'config.json');
@@ -191,11 +215,88 @@ import { extractActionInput, extractTypeInput } from '@cards/configuration';
 
 // For action handlers
 const actionInput = extractActionInput();
-// Returns ActionStartInput with all fields
+// Returns ActionInput with all fields
 
 // For type hooks
 const typeInput = extractTypeInput();
 // Returns TypeHookInput with all fields
 ```
+
+## Switch to Interactive Flow
+
+Actions can signal a need to switch from background to interactive mode. This allows long-running background tasks to transition to interactive user control when needed.
+
+### Initiating a Switch
+
+From an action running in background mode, signal a switch to interactive:
+
+```typescript
+import { EXIT_CODES } from '@cards/configuration';
+
+export default defineAction(
+  { actionName: 'Long Task', sourcePath: fileURLToPath(import.meta.url) },
+  async (input, context) => {
+    const { logger, onSwitchToInteractive } = context;
+
+    // Perform initial background work
+    logger.info('Starting background phase');
+
+    // When user requests interactive mode, prepare data and exit with special code
+    onSwitchToInteractive((data) => {
+      logger.info('User initiated switch to interactive', { data });
+
+      // Save state to file for next run
+      const stateData = {
+        phase: 'interactive',
+        previousProgress: { completed: 100 }
+      };
+
+      const switchDataPath = getenv('SWITCH_TO_INTERACTIVE_DATA_PATH');
+      fs.writeFileSync(switchDataPath, JSON.stringify(stateData));
+
+      // Exit with SWITCH_TO_INTERACTIVE code
+      process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
+    });
+
+    // Continue background work...
+  }
+);
+```
+
+### Resuming with Interactive Data
+
+When the action is rerun in interactive mode, the saved data is available:
+
+```typescript
+export default defineAction(
+  { actionName: 'Long Task', sourcePath: fileURLToPath(import.meta.url) },
+  async (input: ActionInput, context) => {
+    const { logger } = context;
+
+    // Check if we're resuming from a background phase
+    if (input.switchToInteractiveData) {
+      logger.info('Resuming in interactive mode', {
+        previousData: input.switchToInteractiveData
+      });
+
+      // Resume from saved state
+      const state = input.switchToInteractiveData as { phase: string; previousProgress: unknown };
+      logger.info(`Continuing from phase: ${state.phase}`);
+    } else {
+      logger.info('Starting fresh in interactive mode');
+    }
+  }
+);
+```
+
+### Key Differences in Interactive Mode
+
+| Aspect | Background Mode | Interactive Mode |
+|--------|-----------------|------------------|
+| User can see output | No | Yes |
+| Can wait for user input | No | Yes |
+| Timeout | Shorter (background ops) | Longer (user interactions) |
+| Cancellation | Silent | Visible in UI |
+| Data persistence | Via `SWITCH_TO_INTERACTIVE_DATA_PATH` | Via input.switchToInteractiveData |
 
 </instructions>

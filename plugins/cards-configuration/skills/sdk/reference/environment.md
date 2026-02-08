@@ -10,19 +10,24 @@ The `CARDS_ENV_VARS` object provides the canonical names for all environment var
 import { CARDS_ENV_VARS } from '@cards/configuration';
 
 // All environment variable names
-CARDS_ENV_VARS.CARD_ID           // 'CARD_ID'
-CARDS_ENV_VARS.ENVIRONMENT       // 'ENVIRONMENT'
-CARDS_ENV_VARS.EXECUTION_MODE    // 'EXECUTION_MODE'
-CARDS_ENV_VARS.API_BASE_URL      // 'API_BASE_URL'
-CARDS_ENV_VARS.API_ACCESS_TOKEN  // 'API_ACCESS_TOKEN'
-CARDS_ENV_VARS.CODING_AGENT      // 'CODING_AGENT'
-CARDS_ENV_VARS.TYPE_NAME         // 'TYPE_NAME'
-CARDS_ENV_VARS.TYPE_VERSION      // 'TYPE_VERSION'
-CARDS_ENV_VARS.FILE_NAME         // 'FILE_NAME'
-CARDS_ENV_VARS.FILE_PATH         // 'FILE_PATH'
-CARDS_ENV_VARS.FILE_SIZE         // 'FILE_SIZE'
-CARDS_ENV_VARS.SHA256            // 'SHA256'
-CARDS_ENV_VARS.CONTENT_TYPE      // 'CONTENT_TYPE'
+CARDS_ENV_VARS.CARD_ID                       // 'CARD_ID'
+CARDS_ENV_VARS.ENVIRONMENT                   // 'ENVIRONMENT'
+CARDS_ENV_VARS.EXECUTION_MODE                // 'EXECUTION_MODE'
+CARDS_ENV_VARS.API_BASE_URL                  // 'API_BASE_URL'
+CARDS_ENV_VARS.API_ACCESS_TOKEN              // 'API_ACCESS_TOKEN'
+CARDS_ENV_VARS.CODING_AGENT                  // 'CODING_AGENT'
+CARDS_ENV_VARS.TYPE_NAME                     // 'TYPE_NAME'
+CARDS_ENV_VARS.TYPE_VERSION                  // 'TYPE_VERSION'
+CARDS_ENV_VARS.FILE_NAME                     // 'FILE_NAME'
+CARDS_ENV_VARS.FILE_PATH                     // 'FILE_PATH'
+CARDS_ENV_VARS.FILE_SIZE                     // 'FILE_SIZE'
+CARDS_ENV_VARS.SHA256                        // 'SHA256'
+CARDS_ENV_VARS.CONTENT_TYPE                  // 'CONTENT_TYPE'
+CARDS_ENV_VARS.SOCKET_PATH                   // 'SOCKET_PATH'
+CARDS_ENV_VARS.SWITCH_TO_INTERACTIVE_DATA_PATH // 'SWITCH_TO_INTERACTIVE_DATA_PATH'
+CARDS_ENV_VARS.CONFIG_PATH                   // 'CONFIG_PATH'
+CARDS_ENV_VARS.WORKSPACE_PATH                // 'WORKSPACE_PATH'
+CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 ```
 
 ## Variable Availability
@@ -42,6 +47,11 @@ CARDS_ENV_VARS.CONTENT_TYPE      // 'CONTENT_TYPE'
 | `FILE_SIZE` | No | No | Yes |
 | `SHA256` | No | No | Yes |
 | `CONTENT_TYPE` | No | Yes | Yes |
+| `SOCKET_PATH` | Yes | No | No |
+| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes | No | No |
+| `CONFIG_PATH` | Yes | No | No |
+| `WORKSPACE_PATH` | Yes | No | No |
+| `CARD_REPO_PATH` | Yes | No | No |
 
 ## Individual Getters
 
@@ -67,13 +77,29 @@ const apiAccessToken = getApiAccessToken();
 ### Action-Specific Variables
 
 ```typescript
-import { getExecutionMode, getCodingAgent } from '@cards/configuration';
+import {
+  getExecutionMode,
+  getCodingAgent,
+  getSocketPath,
+  getSwitchToInteractiveDataPath,
+  getConfigPath,
+  getWorkspacePath,
+  getCardRepoPath
+} from '@cards/configuration';
 
 // Throws if missing, returns 'interactive' | 'background'
 const mode = getExecutionMode();
 
 // Returns string | undefined (does not throw)
 const codingAgent = getCodingAgent();
+
+// New variables (Action-specific)
+// All throw Error if missing or empty
+const socketPath = getSocketPath();                        // e.g., '/tmp/socket-123'
+const switchToInteractiveDataPath = getSwitchToInteractiveDataPath(); // Path to switch data
+const configPath = getConfigPath();                        // Path to action config
+const workspacePath = getWorkspacePath();                  // Workspace root path
+const cardRepoPath = getCardRepoPath();                    // Card repository path
 ```
 
 ### Type Hook Variables
@@ -112,7 +138,7 @@ For convenience, extract complete typed input objects.
 ```typescript
 import { extractActionInput } from '@cards/configuration';
 
-// Returns ActionStartInput with all action variables
+// Returns ActionInput with all action variables
 const input = extractActionInput();
 // {
 //   cardId: string,
@@ -120,7 +146,10 @@ const input = extractActionInput();
 //   executionMode: 'interactive' | 'background',
 //   apiBaseUrl: string,
 //   apiAccessToken: string,
-//   codingAgent?: string
+//   codingAgent?: string,
+//   switchToInteractiveData?: unknown,
+//   workspacePath: string,
+//   cardRepoPath: string
 // }
 ```
 
@@ -193,5 +222,33 @@ async (input, { logger }) => {
   logger.info('Fetched card data', { cardId: input.cardId });
 }
 ```
+
+## Action Exit Codes
+
+Actions can exit with specific codes to signal different outcomes:
+
+```typescript
+import { EXIT_CODES } from '@cards/configuration';
+
+export default defineAction(
+  { actionName: 'My Action', sourcePath: fileURLToPath(import.meta.url) },
+  async (input, context) => {
+    // Normal completion (default exit code 0)
+
+    // Signal switch to interactive mode
+    process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);  // exit code 42
+  }
+);
+```
+
+| Exit Code | Name | Meaning |
+|-----------|------|---------|
+| 0 | (normal) | Action completed successfully |
+| 42 | `SWITCH_TO_INTERACTIVE` | User switched from background to interactive mode; action will be rerun with interactive context |
+| Non-zero | (error) | Action failed with error |
+
+When an action exits with `SWITCH_TO_INTERACTIVE` (42), the runtime will:
+1. Store any pending data in the path specified by `SWITCH_TO_INTERACTIVE_DATA_PATH`
+2. Rerun the action in interactive mode with `switchToInteractiveData` populated in `ActionInput`
 
 </instructions>

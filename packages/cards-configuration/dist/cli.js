@@ -191,7 +191,7 @@ async function compileHandler(options) {
     const resolveDir = path.dirname(sourcePath);
     const toRelativeImport = (absolute) => {
       const rel = path.relative(resolveDir, absolute).replace(/\\/g, "/");
-      return rel.startsWith(".") ? rel : "./" + rel;
+      return rel.startsWith(".") ? rel : `./${rel}`;
     };
     const sourceImport = toRelativeImport(sourcePath);
     let wrapperContent;
@@ -287,27 +287,17 @@ function generateCommandString(filename, binDir) {
 function extractCommands(config) {
   const commands = [];
   for (const envConfig of Object.values(config.environments)) {
-    for (const actionPair of envConfig.actions) {
-      if (actionPair.start) {
-        commands.push({
-          factoryType: actionPair.start.factoryType,
-          name: actionPair.start.actionName,
-          sourcePath: actionPair.start.sourcePath,
-          timeout: actionPair.start.timeout,
-          description: actionPair.start.description,
-          icon: actionPair.start.icon,
-          supportsBackgroundMode: actionPair.start.supportsBackgroundMode,
-          allowConcurrent: actionPair.start.allowConcurrent
-        });
-      }
-      if (actionPair.end) {
-        commands.push({
-          factoryType: actionPair.end.factoryType,
-          name: actionPair.end.actionName,
-          sourcePath: actionPair.end.sourcePath,
-          timeout: actionPair.end.timeout
-        });
-      }
+    for (const action of envConfig.actions) {
+      commands.push({
+        factoryType: action.factoryType,
+        name: action.actionName,
+        sourcePath: action.sourcePath,
+        timeout: action.timeout,
+        description: action.description,
+        icon: action.icon,
+        supportsBackgroundMode: action.supportsBackgroundMode,
+        allowConcurrent: action.allowConcurrent
+      });
     }
     if (envConfig.types) {
       for (const typeConfig of Object.values(envConfig.types)) {
@@ -445,33 +435,25 @@ function generateSettings(config, compiled, binDir) {
   const environments = {};
   for (const [envName, envConfig] of Object.entries(config.environments)) {
     const actions = [];
-    for (const actionPair of envConfig.actions) {
-      if (!actionPair.start) {
-        throw new Error("Action must have a start command");
-      }
-      const startKey = `${actionPair.start.factoryType}:${actionPair.start.actionName}`;
-      const startCompiled = compiledByKey.get(startKey);
+    for (const actionCmd of envConfig.actions) {
+      const key = `${actionCmd.factoryType}:${actionCmd.actionName}`;
+      const compiled2 = compiledByKey.get(key);
       const action = {
-        id: actionPair.start.id ?? slugify(actionPair.start.actionName),
-        name: actionPair.start.actionName,
-        start: generateCommand(actionPair.start, startCompiled, binDir)
+        id: actionCmd.id ?? slugify(actionCmd.actionName),
+        name: actionCmd.actionName,
+        command: generateCommand(actionCmd, compiled2, binDir)
       };
-      if (actionPair.start.description !== void 0) {
-        action.description = actionPair.start.description;
+      if (actionCmd.description !== void 0) {
+        action.description = actionCmd.description;
       }
-      if (actionPair.start.icon !== void 0) {
-        action.icon = actionPair.start.icon;
+      if (actionCmd.icon !== void 0) {
+        action.icon = actionCmd.icon;
       }
-      if (actionPair.start.supportsBackgroundMode !== void 0) {
-        action.supportsBackgroundMode = actionPair.start.supportsBackgroundMode;
+      if (actionCmd.supportsBackgroundMode !== void 0) {
+        action.supportsBackgroundMode = actionCmd.supportsBackgroundMode;
       }
-      if (actionPair.start.allowConcurrent !== void 0) {
-        action.allowConcurrent = actionPair.start.allowConcurrent;
-      }
-      if (actionPair.end) {
-        const endKey = `${actionPair.end.factoryType}:${actionPair.end.actionName}`;
-        const endCompiled = compiledByKey.get(endKey);
-        action.end = generateCommand(actionPair.end, endCompiled, binDir);
+      if (actionCmd.allowConcurrent !== void 0) {
+        action.allowConcurrent = actionCmd.allowConcurrent;
       }
       actions.push(action);
     }

@@ -27,11 +27,13 @@ interface ILogger {
 The logger is available via context in all handlers:
 
 ```typescript
-import { defineActionStart } from '@cards/configuration';
+import { defineAction } from '@cards/configuration';
 
-export default defineActionStart(
+export default defineAction(
   { actionName: 'My Action', sourcePath: fileURLToPath(import.meta.url) },
-  async (input, { logger }) => {
+  async (input, context) => {
+    const { logger } = context;
+
     // Log at different levels
     logger.debug('Detailed debugging info', { step: 1 });
     logger.info('Action started', { cardId: input.cardId });

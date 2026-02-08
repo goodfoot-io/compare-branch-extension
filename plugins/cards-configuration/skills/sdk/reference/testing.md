@@ -221,9 +221,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { Logger } from '@cards/configuration';
 
 // Import the handler module
-import launchStart from '../src/actions/launch-claude-start.js';
+import launchClaude from '../src/actions/launch-claude.js';
 
-describe('launchClaudeStart', () => {
+describe('launchClaude', () => {
   it('should process action input', async () => {
     const logger = new Logger();
     const logSpy = vi.fn();
@@ -234,11 +234,21 @@ describe('launchClaudeStart', () => {
       environment: 'default',
       executionMode: 'interactive' as const,
       apiBaseUrl: 'https://api.example.com',
-      apiAccessToken: 'test-token'
+      apiAccessToken: 'test-token',
+      workspacePath: '/test/workspace',
+      cardRepoPath: '/test/repo'
     };
 
+    const onCancelFn = vi.fn();
+    const onSwitchToInteractiveFn = vi.fn();
+
     // Call the handler directly
-    await launchStart(mockInput, { logger, cwd: '/test/cwd' });
+    await launchClaude(mockInput, {
+      logger,
+      cwd: '/test/cwd',
+      onCancel: (cb) => { onCancelFn(); cb(); },
+      onSwitchToInteractive: (cb) => { onSwitchToInteractiveFn(); cb({}); }
+    });
 
     expect(logSpy).toHaveBeenCalledWith(
       expect.objectContaining({
