@@ -1,6 +1,6 @@
 ---
 name: Cards Configuration SDK
-description: This skill should be used when the user asks about "@cards/configuration", "cards extension settings", "defineAction", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationCreated", "validationError", "stream transforms", "TransformContext", "JSONL streaming", or mentions building settings.json for Cards Extension.
+description: This skill should be used when the user asks about "@cards/configuration", "cards extension settings", "defineAction", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationSuccess", "validationError", "stream transforms", "TransformContext", "JSONL streaming", or mentions building settings.json for Cards Extension.
 version: 1.0.0
 ---
 
@@ -68,15 +68,15 @@ export default defineAction(
 
 ## Type Validator Example
 
-Validators run before files are saved using HTTP stdin/stdout protocol:
+Validators receive the file path via `ValidatorFileRequest` and read the file from disk themselves. Return a `ValidationResult` using `validationSuccess()` or `validationError()`:
 
 ```typescript
 // src/validators/adaptive-card-validator.ts
+import { readFileSync } from 'node:fs';
 import {
   defineTypeValidator,
-  validationCreated,
-  validationError,
-  type ValidationError
+  validationSuccess,
+  validationError
 } from '@cards/configuration';
 import { fileURLToPath } from 'node:url';
 
@@ -88,24 +88,23 @@ export default defineTypeValidator(
   async (request, context) => {
     let card: { type: string; version: string };
     try {
-      card = request.bodyJson();
+      const content = readFileSync(request.filePath, 'utf-8');
+      card = JSON.parse(content) as { type: string; version: string };
     } catch {
-      return validationError(400, [
-        { code: 'PARSE_ERROR', message: 'Invalid JSON' }
-      ]);
+      return validationError(['File must contain valid JSON']);
     }
 
-    const errors: ValidationError[] = [];
+    const errors: string[] = [];
     if (card.type !== 'AdaptiveCard') {
-      errors.push({ code: 'INVALID_TYPE', message: 'type must be "AdaptiveCard"', field: 'type' });
+      errors.push('**type**: Must be `AdaptiveCard`');
     }
 
     if (errors.length > 0) {
-      return validationError(422, errors, 'Validation failed');
+      return validationError(errors);
     }
 
     context.logger.info('Validation passed', { file: context.fileName });
-    return validationCreated({ cardId: card.type });
+    return validationSuccess({ cardId: card.type });
   }
 );
 ```
@@ -193,8 +192,8 @@ function handleInit(ctx: StreamInitContext): void {
 }
 
 function handleTransform(line: string, ctx: TransformContext): string {
-  const count = ((ctx.state?.get('counter') as number) ?? 0) + 1;
-  ctx.state?.set('counter', count);
+  const count = ((ctx.state.get('counter') as number) ?? 0) + 1;
+  ctx.state.set('counter', count);
   return `[${count}] ${line}`;
 }
 
@@ -235,7 +234,7 @@ After `yarn build`, the CLI compiles stream transforms into self-contained `.mjs
 
 | Factory | Purpose | Config Fields |
 |---------|---------|---------------|
-| `defineAction` | Action handler | `actionName`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?`, `sourcePath?` |
+| `defineAction` | Action handler | `actionName`, `id?`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?`, `sourcePath?` |
 | `defineTypeValidator` | Pre-save validation | `typeName`, `timeout?`, `sourcePath?` |
 | `defineTypeCreate` | New file hook | `typeName`, `timeout?`, `sourcePath?` |
 | `defineTypeUpdate` | Modified file hook | `typeName`, `timeout?`, `sourcePath?` |
@@ -244,12 +243,10 @@ After `yarn build`, the CLI compiles stream transforms into self-contained `.mjs
 
 ## Validation Response Builders
 
-| Builder | Status | Use Case |
+| Builder | Result | Use Case |
 |---------|--------|----------|
-| `validationCreated(metadata?)` | 201 | New resource validated successfully |
-| `validationUpdated(metadata?)` | 200 | Existing resource updated successfully |
-| `validationError(status, errors, message?)` | 4xx/5xx | Validation failed |
-| `validationResponse(response)` | Custom | Full control over response |
+| `validationSuccess(metadata?)` | `{ valid: true, metadata? }` | Validation passed; optional metadata stored in `.meta.json` sidecar |
+| `validationError(errors)` | `{ valid: false, errors }` | Validation failed; `errors` is `string[]` of markdown-formatted messages |
 
 ## Development Checklist
 
@@ -267,7 +264,7 @@ Before debugging issues, verify:
 
 Consult these reference files for detailed information:
 
-- **[reference/input-types.md](reference/input-types.md)**: ActionInput, TypeHookInput, TypeValidatorRequest
+- **[reference/input-types.md](reference/input-types.md)**: ActionInput, TypeHookInput, ValidatorFileRequest
 - **[reference/output-builders.md](reference/output-builders.md)**: Validation responses and error handling patterns
 - **[reference/environment.md](reference/environment.md)**: CARDS_ENV_VARS and extraction utilities
 - **[reference/logging.md](reference/logging.md)**: Logger API and configuration

@@ -254,13 +254,11 @@ const typeInput = extractTypeInput();
 
 Actions can signal a need to switch from background to interactive mode. This allows long-running background tasks to transition to interactive user control when needed.
 
-### Initiating a Switch
+### Registering the Switch Callback
 
-From an action running in background mode, signal a switch to interactive:
+Register a callback with `onSwitchToInteractive()`. The callback takes **no arguments** and returns serializable data. The runtime handles everything else automatically: it sends the data via socket, then exits with code 42.
 
 ```typescript
-import { EXIT_CODES } from '@cards/configuration';
-
 export default defineAction(
   { actionName: 'Long Task', sourcePath: fileURLToPath(import.meta.url) },
   async (input, context) => {
@@ -269,21 +267,16 @@ export default defineAction(
     // Perform initial background work
     logger.info('Starting background phase');
 
-    // When user requests interactive mode, prepare data and exit with special code
-    onSwitchToInteractive((data) => {
-      logger.info('User initiated switch to interactive', { data });
+    // Register callback — runtime calls this when user requests interactive mode
+    onSwitchToInteractive(() => {
+      logger.info('Switching to interactive mode');
 
-      // Save state to file for next run
-      const stateData = {
+      // Return data to pass to the relaunched handler
+      // The runtime sends this via socket and exits with code 42 automatically
+      return {
         phase: 'interactive',
         previousProgress: { completed: 100 }
       };
-
-      const switchDataPath = getenv('SWITCH_TO_INTERACTIVE_DATA_PATH');
-      fs.writeFileSync(switchDataPath, JSON.stringify(stateData));
-
-      // Exit with SWITCH_TO_INTERACTIVE code
-      process.exit(EXIT_CODES.SWITCH_TO_INTERACTIVE);
     });
 
     // Continue background work...
@@ -293,7 +286,7 @@ export default defineAction(
 
 ### Resuming with Interactive Data
 
-When the action is rerun in interactive mode, the saved data is available:
+When the action is rerun in interactive mode, the data returned by the callback is available via `input.switchToInteractiveData`:
 
 ```typescript
 export default defineAction(
@@ -325,6 +318,6 @@ export default defineAction(
 | Can wait for user input | No | Yes |
 | Timeout | Shorter (background ops) | Longer (user interactions) |
 | Cancellation | Silent | Visible in UI |
-| Data persistence | Via `SWITCH_TO_INTERACTIVE_DATA_PATH` | Via input.switchToInteractiveData |
+| Data persistence | Callback return value sent via socket | Via `input.switchToInteractiveData` |
 
 </instructions>

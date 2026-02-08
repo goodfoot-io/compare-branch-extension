@@ -24,6 +24,7 @@ CARDS_ENV_VARS.FILE_PATH                     // 'FILE_PATH'
 CARDS_ENV_VARS.FILE_SIZE                     // 'FILE_SIZE'
 CARDS_ENV_VARS.SHA256                        // 'SHA256'
 CARDS_ENV_VARS.CONTENT_TYPE                  // 'CONTENT_TYPE'
+CARDS_ENV_VARS.VSCODE_NODE_PATH               // 'VSCODE_NODE_PATH'
 CARDS_ENV_VARS.SOCKET_PATH                   // 'SOCKET_PATH'
 CARDS_ENV_VARS.SWITCH_TO_INTERACTIVE_DATA_PATH // 'SWITCH_TO_INTERACTIVE_DATA_PATH'
 CARDS_ENV_VARS.CONFIG_PATH                   // 'CONFIG_PATH'
@@ -49,6 +50,7 @@ CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 | `FILE_SIZE` | No | No | Yes |
 | `SHA256` | No | No | Yes |
 | `CONTENT_TYPE` | No | Yes | Yes |
+| `VSCODE_NODE_PATH` | Yes | Yes | Yes |
 | `SOCKET_PATH` | Yes | No | No |
 | `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes | No | No |
 | `CONFIG_PATH` | Yes | No | No |
@@ -76,6 +78,16 @@ const apiBaseUrl = getApiBaseUrl();
 const apiAccessToken = getApiAccessToken();
 ```
 
+### Common Variables (All Handlers) — continued
+
+```typescript
+import { getVscodeNodePath } from '@cards/configuration';
+
+// Path to VS Code's bundled Node.js interpreter
+// Used in settings.json command paths ($VSCODE_NODE_PATH ./bin/handler.mjs)
+const nodePath = getVscodeNodePath();       // e.g., '/usr/share/code/node'
+```
+
 ### Action-Specific Variables
 
 ```typescript
@@ -99,9 +111,10 @@ const mode = getExecutionMode();
 // Returns string | undefined (does not throw)
 const codingAgent = getCodingAgent();
 
-// New variables (Action-specific)
-// All throw Error if missing or empty
+// Additional action-specific variables
+// socketPath, configPath, workspacePath, cardRepoPath throw Error if missing
 const socketPath = getSocketPath();                        // e.g., '/tmp/socket-123'
+// getSwitchToInteractiveDataPath returns string | undefined (does not throw)
 const switchToInteractiveDataPath = getSwitchToInteractiveDataPath(); // Path to switch data
 const configPath = getConfigPath();                        // Path to action config
 const workspacePath = getWorkspacePath();                  // Workspace root path
