@@ -169,18 +169,22 @@ describe('Testing Utilities', () => {
         return validationSuccess();
       });
 
-      await testValidation(validator, {}, {
-        context: {
-          typeName: 'custom-type',
-          typeVersion: '2.0',
-          fileName: 'custom.json',
-          cardId: 'card-123',
-          environment: 'staging',
-          apiBaseUrl: 'https://api.example.com',
-          apiAccessToken: 'token-abc',
-          cwd: '/custom/cwd'
+      await testValidation(
+        validator,
+        {},
+        {
+          context: {
+            typeName: 'custom-type',
+            typeVersion: '2.0',
+            fileName: 'custom.json',
+            cardId: 'card-123',
+            environment: 'staging',
+            apiBaseUrl: 'https://api.example.com',
+            apiAccessToken: 'token-abc',
+            cwd: '/custom/cwd'
+          }
         }
-      });
+      );
     });
   });
 });
