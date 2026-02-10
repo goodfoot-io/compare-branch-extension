@@ -1,0 +1,679 @@
+/**
+ * HTTP client for the Cards V2 REST API.
+ *
+ * @module sdk/CardsClient
+ */
+
+import type { Card, HttpClient, StreamMeta, TimelineItem } from '../protocol/index.js';
+import type {
+  AttachmentResponse,
+  CardCreateData,
+  CardsClientOptions,
+  CardUpdateData,
+  Comment,
+  CommentCreateData,
+  CommentUpdateData,
+  CommitInfo,
+  GateApprovalResponse,
+  ListCardsOptions,
+  TimelineOptions
+} from './types/client.js';
+import { ApiError, NetworkError } from './types/errors.js';
+
+/** Initial request timeout in milliseconds (1 second for fast failure detection). */
+const INITIAL_TIMEOUT_MS = 1_000;
+
+/** Maximum request timeout in milliseconds after exponential backoff. */
+const MAX_TIMEOUT_MS = 10_000;
+
+/**
+ * Type-safe HTTP client for the Cards V2 REST API.
+ *
+ * Uses the Fetch API by default and supports dependency injection of an
+ * alternate {@link HttpClient} for tests or custom transports. All public
+ * methods surface server failures as {@link ApiError} and transport failures
+ * as {@link NetworkError}.
+ *
+ * The default HTTP client applies an exponential backoff timeout to fetch
+ * requests: starting at 1 second, doubling on each consecutive failure up
+ * to a 10-second cap, and resetting on any successful response. This ensures
+ * fast failure detection when the server is down while allowing slower
+ * responses during recovery.
+ *
+ * @example
+ * ```typescript
+ * const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'token' });
+ *
+ * const cards = await client.listCards({ status: 'in_progress' });
+ * await client.updateCard(cardId, { status: 'done' });
+ * ```
+ */
+export class CardsClient {
+  private readonly _httpClient?: HttpClient;
+
+  /** Current timeout in milliseconds, increases with consecutive failures. */
+  private _currentTimeoutMs = INITIAL_TIMEOUT_MS;
+
+  /**
+   * Creates a new CardsClient instance.
+   *
+   * @param options - Configuration options including base URL and auth token.
+   * @param httpClient - Optional HTTP client for dependency injection.
+   */
+  constructor(
+    private readonly options: CardsClientOptions,
+    httpClient?: HttpClient
+  ) {
+    this._httpClient = httpClient;
+  }
+
+  /**
+   * Returns the base URL used to build API requests.
+   *
+   * @returns The base URL string as provided in {@link CardsClientOptions}.
+   */
+  getBaseUrl(): string {
+    return this.options.baseUrl;
+  }
+
+  /**
+   * Returns whether an HTTP client was injected.
+   *
+   * @returns True if an HTTP client was provided during construction.
+   * @internal Used for testing dependency injection.
+   */
+  hasHttpClient(): boolean {
+    return this._httpClient !== undefined;
+  }
+  /**
+   * Returns an AbortSignal that fires after the current backoff timeout.
+   * Uses caller's signal if provided (for DI/testing), otherwise applies the backoff timeout.
+   */
+  private getTimeoutSignal(existingSignal?: AbortSignal | null): AbortSignal {
+    if (existingSignal) return existingSignal;
+    return AbortSignal.timeout(this._currentTimeoutMs);
+  }
+
+  /**
+   * Records a successful request and resets the timeout backoff.
+   */
+  private onRequestSuccess(): void {
+    this._currentTimeoutMs = INITIAL_TIMEOUT_MS;
+  }
+
+  /**
+   * Records a failed request and increases the timeout via exponential backoff.
+   */
+  private onRequestFailure(): void {
+    this._currentTimeoutMs = Math.min(this._currentTimeoutMs * 2, MAX_TIMEOUT_MS);
+  }
+
+  /**
+   * Default HTTP client implementation using fetch + JSON payloads.
+   *
+   * Each fetch call includes an AbortSignal.timeout that starts at 1 second
+   * and doubles on consecutive failures up to 10 seconds.
+   */
+  private defaultHttpClient: HttpClient = {
+    get: async <T>(url: string, options?: RequestInit): Promise<T> => {
+      const response = await fetch(url, {
+        ...options,
+        headers: { ...this.getHeaders(), ...options?.headers },
+        signal: this.getTimeoutSignal(options?.signal)
+      });
+      if (!response.ok) throw response;
+      return response.json() as Promise<T>;
+    },
+    post: async <T>(url: string, body: unknown, options?: RequestInit): Promise<T> => {
+      const response = await fetch(url, {
+        ...options,
+        method: 'POST',
+        headers: { ...this.getHeaders(), ...options?.headers },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: this.getTimeoutSignal(options?.signal)
+      });
+      if (!response.ok) throw response;
+      return response.json() as Promise<T>;
+    },
+    put: async <T>(url: string, body: unknown, options?: RequestInit): Promise<T> => {
+      const response = await fetch(url, {
+        ...options,
+        method: 'PUT',
+        headers: { ...this.getHeaders(), ...options?.headers },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: this.getTimeoutSignal(options?.signal)
+      });
+      if (!response.ok) throw response;
+      return response.json() as Promise<T>;
+    },
+    patch: async <T>(url: string, body: unknown, options?: RequestInit): Promise<T> => {
+      const response = await fetch(url, {
+        ...options,
+        method: 'PATCH',
+        headers: { ...this.getHeaders(), ...options?.headers },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: this.getTimeoutSignal(options?.signal)
+      });
+      if (!response.ok) throw response;
+      return response.json() as Promise<T>;
+    },
+    delete: async (url: string, options?: RequestInit): Promise<void> => {
+      const response = await fetch(url, {
+        ...options,
+        method: 'DELETE',
+        headers: { ...this.getHeaders(), ...options?.headers },
+        signal: this.getTimeoutSignal(options?.signal)
+      });
+      if (!response.ok) throw response;
+    }
+  };
+
+  /**
+   * Gets HTTP headers for JSON API requests.
+   *
+   * @returns Headers with JSON content type and optional bearer token.
+   */
+  private getHeaders(): HeadersInit {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (this.options.accessToken) {
+      headers['Authorization'] = `Bearer ${this.options.accessToken}`;
+    }
+    return headers;
+  }
+
+  /**
+   * Gets the HTTP client to use for requests.
+   */
+  private getHttpClient(): HttpClient {
+    return this._httpClient ?? this.defaultHttpClient;
+  }
+
+  /**
+   * Builds a URL relative to the configured base URL.
+   *
+   * Undefined and null query params are omitted. Values are stringified.
+   */
+  private buildUrl(path: string, params?: Record<string, unknown>): string {
+    const url = new URL(path, this.options.baseUrl);
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) {
+          url.searchParams.set(key, String(value));
+        }
+      }
+    }
+    return url.toString();
+  }
+
+  /**
+   * Wraps a request with consistent error handling.
+   *
+   * @param fn - Async request function to execute.
+   * @returns The resolved value from the request function.
+   * @throws ApiError when the server responds with a non-2xx status.
+   * @throws NetworkError for network failures or unexpected exceptions.
+   */
+  private async request<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      const result = await fn();
+      this.onRequestSuccess();
+      return result;
+    } catch (error) {
+      if (error instanceof Response) {
+        // Server responded (even with an error status) - connection is alive, reset backoff
+        this.onRequestSuccess();
+        let body: Record<string, unknown> = {};
+        try {
+          body = await error.json();
+        } catch (parseError) {
+          // SyntaxError is expected when server returns non-JSON error response (e.g., HTML error page)
+          if (!(parseError instanceof SyntaxError)) {
+            console.warn('[CardsClient] Unexpected error parsing error response:', parseError);
+          }
+        }
+        const message = (body['message'] as string | undefined) || error.statusText;
+        const code = (body['code'] as string | undefined) || String(error.status);
+        const fields = body['fields'] as Array<{ field: string; message: string }> | undefined;
+        throw new ApiError(message, code, fields);
+      }
+      // Network or timeout failure - increase backoff for next attempt
+      this.onRequestFailure();
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        throw new NetworkError('Request timed out', error);
+      }
+      throw new NetworkError('Request failed', error instanceof Error ? error : undefined);
+    }
+  }
+
+  // --- Card Operations ---
+
+  /**
+   * Lists cards with optional filtering.
+   *
+   * @param options - Optional filter and pagination options.
+   * @returns Promise resolving to matching cards.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async listCards(options?: ListCardsOptions): Promise<Card[]> {
+    const url = this.buildUrl('/cards', {
+      workspacePath: this.options.workspacePath,
+      status: options?.status,
+      tag: options?.tag,
+      search: options?.search,
+      limit: options?.limit,
+      offset: options?.offset
+    });
+    return this.request(() => this.getHttpClient().get<Card[]>(url));
+  }
+
+  /**
+   * Gets a single card by id.
+   *
+   * @param cardId - The id of the card to retrieve.
+   * @returns Promise resolving to the card.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getCard(cardId: string): Promise<Card> {
+    const url = this.buildUrl(`/cards/${cardId}`);
+    return this.request(() => this.getHttpClient().get<Card>(url));
+  }
+
+  /**
+   * Creates a new card.
+   *
+   * @param data - Card creation payload.
+   * @returns Promise resolving to the created card.
+   * @throws ApiError when the server rejects the payload.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async createCard(data: CardCreateData): Promise<Card> {
+    const url = this.buildUrl('/cards');
+    const body = {
+      ...data,
+      workspacePath: this.options.workspacePath
+    };
+    return this.request(() => this.getHttpClient().post<Card>(url, body));
+  }
+
+  /**
+   * Updates an existing card.
+   *
+   * @param cardId - The id of the card to update.
+   * @param data - The fields to update.
+   * @returns Promise resolving to the updated card.
+   * @throws ApiError when the server rejects the update.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async updateCard(cardId: string, data: CardUpdateData): Promise<Card> {
+    const url = this.buildUrl(`/cards/${cardId}`);
+    return this.request(() => this.getHttpClient().patch<Card>(url, data));
+  }
+
+  /**
+   * Deletes a card.
+   *
+   * @param cardId - The id of the card to delete.
+   * @returns Promise resolving when deletion is complete.
+   * @throws ApiError when the server rejects the delete.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async deleteCard(cardId: string): Promise<void> {
+    const url = this.buildUrl(`/cards/${cardId}`);
+    return this.request(() => this.getHttpClient().delete(url));
+  }
+
+  // --- Comment Operations ---
+
+  /**
+   * Gets all comments for a card.
+   *
+   * @param cardId - The card id.
+   * @returns Promise resolving to the comment list.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getComments(cardId: string): Promise<Comment[]> {
+    const url = this.buildUrl(`/cards/${cardId}/comments`);
+    return this.request(() => this.getHttpClient().get<Comment[]>(url));
+  }
+
+  /**
+   * Gets a single comment by id.
+   *
+   * @param cardId - The card id.
+   * @param commentId - The comment id.
+   * @returns Promise resolving to the comment.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getComment(cardId: string, commentId: string): Promise<Comment> {
+    const url = this.buildUrl(`/cards/${cardId}/comments/${commentId}`);
+    return this.request(() => this.getHttpClient().get<Comment>(url));
+  }
+
+  /**
+   * Creates a new comment on a card.
+   *
+   * @param cardId - The card id.
+   * @param data - Comment creation payload.
+   * @returns Promise resolving to the created comment.
+   * @throws ApiError when the server rejects the payload.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async createComment(cardId: string, data: CommentCreateData): Promise<Comment> {
+    const url = this.buildUrl(`/cards/${cardId}/comments`);
+    return this.request(() => this.getHttpClient().post<Comment>(url, data));
+  }
+
+  /**
+   * Updates an existing comment.
+   *
+   * @param cardId - The card id.
+   * @param commentId - The comment id.
+   * @param data - Comment update payload.
+   * @returns Promise resolving to the updated comment.
+   * @throws ApiError when the server rejects the update.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async updateComment(cardId: string, commentId: string, data: CommentUpdateData): Promise<Comment> {
+    const url = this.buildUrl(`/cards/${cardId}/comments/${commentId}`);
+    return this.request(() => this.getHttpClient().patch<Comment>(url, data));
+  }
+
+  /**
+   * Deletes a comment.
+   *
+   * @param cardId - The card id.
+   * @param commentId - The comment id.
+   * @returns Promise resolving when deletion is complete.
+   * @throws ApiError when the server rejects the delete.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async deleteComment(cardId: string, commentId: string): Promise<void> {
+    const url = this.buildUrl(`/cards/${cardId}/comments/${commentId}`);
+    return this.request(() => this.getHttpClient().delete(url));
+  }
+
+  // --- Attachment Operations ---
+
+  /**
+   * Uploads an attachment to a card using binary PUT.
+   *
+   * This is the preferred method - sends raw binary data directly without
+   * base64 encoding, resulting in 33% smaller payloads.
+   *
+   * @param cardId - The card id.
+   * @param name - File name including extension.
+   * @param data - Binary data as Blob, ArrayBuffer, or base64 string.
+   * @returns Promise resolving to attachment metadata.
+   * @throws ApiError when the server rejects the upload.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async uploadAttachment(cardId: string, name: string, data: Blob | ArrayBuffer | string): Promise<AttachmentResponse> {
+    const url = this.buildUrl(`/cards/${cardId}/attachments/${encodeURIComponent(name)}`);
+
+    // Convert data to Blob for fetch body
+    let body: Blob;
+    if (data instanceof Blob) {
+      body = data;
+    } else if (data instanceof ArrayBuffer) {
+      body = new Blob([data]);
+    } else {
+      // base64 string - decode to binary
+      const binaryString = atob(data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      body = new Blob([bytes]);
+    }
+
+    return this.request(async () => {
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          ...this.getHeaders(),
+          'Content-Type': 'application/octet-stream'
+        },
+        body,
+        signal: this.getTimeoutSignal()
+      });
+      if (!response.ok) throw response;
+      return response.json() as Promise<AttachmentResponse>;
+    });
+  }
+
+  /**
+   * Downloads an attachment as a Blob.
+   *
+   * This method uses `fetch` directly so binary data is preserved.
+   *
+   * @param cardId - The card id.
+   * @param attachmentId - The attachment id.
+   * @returns Promise resolving to an attachment Blob.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getAttachment(cardId: string, attachmentId: string): Promise<Blob> {
+    const url = this.buildUrl(`/cards/${cardId}/attachments/${attachmentId}`);
+    return this.request(async () => {
+      const response = await fetch(url, {
+        headers: this.getHeaders(),
+        signal: this.getTimeoutSignal()
+      });
+      if (!response.ok) throw response;
+      return response.blob();
+    });
+  }
+
+  /**
+   * Lists attachments for a card.
+   *
+   * @param cardId - The card id.
+   * @returns Promise resolving to attachment metadata.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async listAttachments(cardId: string): Promise<AttachmentResponse[]> {
+    const url = this.buildUrl(`/cards/${cardId}/attachments`);
+    return this.request(() => this.getHttpClient().get<AttachmentResponse[]>(url));
+  }
+
+  // --- Timeline Operations ---
+
+  /**
+   * Gets timeline entries for a card with optional pagination.
+   *
+   * @param cardId - The card id.
+   * @param options - Optional pagination controls.
+   * @returns Promise resolving to timeline entries.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getTimeline(cardId: string, options?: TimelineOptions): Promise<TimelineItem[]> {
+    const url = this.buildUrl(`/cards/${cardId}/timeline`, {
+      before: options?.before,
+      limit: options?.limit
+    });
+    return this.request(() => this.getHttpClient().get<TimelineItem[]>(url));
+  }
+
+  // --- Plan Operations ---
+
+  /**
+   * Gets the plan document for a card as markdown.
+   *
+   * @param cardId - The card id.
+   * @returns Promise resolving to plan markdown.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getPlan(cardId: string): Promise<string> {
+    const url = this.buildUrl(`/cards/${cardId}/plan`);
+    return this.request(() => this.getHttpClient().get<string>(url));
+  }
+
+  /**
+   * Updates the plan document for a card.
+   *
+   * @param cardId - The card id.
+   * @param content - Plan markdown content.
+   * @returns Promise resolving when the plan is saved.
+   * @throws ApiError when the server rejects the update.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async updatePlan(cardId: string, content: string): Promise<void> {
+    const url = this.buildUrl(`/cards/${cardId}/plan`);
+    return this.request(() => this.getHttpClient().put<void>(url, content));
+  }
+
+  // --- Gate Operations ---
+
+  /**
+   * Approves a gate for a card.
+   *
+   * @param cardId - The card id.
+   * @param gateName - Gate name to approve.
+   * @returns Promise resolving to gate approval metadata.
+   * @throws ApiError when the server rejects the approval.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async approveGate(cardId: string, gateName: 'plan' | 'review'): Promise<GateApprovalResponse> {
+    const url = this.buildUrl(`/cards/${cardId}/gates/${gateName}/approve`);
+    return this.request(() => this.getHttpClient().post<GateApprovalResponse>(url, undefined));
+  }
+
+  // --- Commit Operations ---
+
+  /**
+   * Gets all commits associated with a card.
+   *
+   * @param cardId - The card id.
+   * @returns Promise resolving to commit metadata.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getCommits(cardId: string): Promise<CommitInfo[]> {
+    const url = this.buildUrl(`/cards/${cardId}/commits`);
+    return this.request(() => this.getHttpClient().get<CommitInfo[]>(url));
+  }
+
+  /**
+   * Adds a commit to a card.
+   *
+   * @param cardId - The card id.
+   * @param sha - Git commit sha.
+   * @returns Promise resolving to commit metadata.
+   * @throws ApiError when the server rejects the update.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async addCommit(cardId: string, sha: string): Promise<CommitInfo> {
+    const url = this.buildUrl(`/cards/${cardId}/commits`);
+    return this.request(() => this.getHttpClient().post<CommitInfo>(url, { sha }));
+  }
+
+  /**
+   * Removes a commit from a card.
+   *
+   * @param cardId - The card id.
+   * @param sha - Git commit sha.
+   * @returns Promise resolving when removal is complete.
+   * @throws ApiError when the server rejects the update.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async removeCommit(cardId: string, sha: string): Promise<void> {
+    const url = this.buildUrl(`/cards/${cardId}/commits/${sha}`);
+    return this.request(() => this.getHttpClient().delete(url));
+  }
+
+  // --- Tag Operations ---
+
+  /**
+   * Gets all available tags.
+   *
+   * @returns Promise resolving to tag strings.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getTags(): Promise<string[]> {
+    const url = this.buildUrl('/tags', {
+      workspacePath: this.options.workspacePath
+    });
+    return this.request(() => this.getHttpClient().get<string[]>(url));
+  }
+
+  // --- Environment Operations ---
+
+  /**
+   * Fetches available agent environments.
+   *
+   * @returns Promise resolving to environment metadata.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getEnvironments(): Promise<Array<{ name: string; description?: string }>> {
+    const url = this.buildUrl('/environments');
+    return this.request(() => this.getHttpClient().get<Array<{ name: string; description?: string }>>(url));
+  }
+
+  // --- Typed File Operations ---
+
+  /**
+   * Submits an adaptive card action by writing an `adaptive-card-submission` typed file.
+   *
+   * @param cardId - The card containing the adaptive card.
+   * @param actionId - The action ID from the adaptive card submit action.
+   * @param data - The form data collected by the adaptive card.
+   * @returns Promise resolving when the submission is persisted.
+   * @throws ApiError when the server rejects the submission (e.g. validation failure).
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async submitCardAction(cardId: string, actionId: string, data: Record<string, unknown>): Promise<void> {
+    const fileName = `${actionId}-${Date.now()}.json`;
+    const url = this.buildUrl(`/cards/${cardId}/adaptive-card-submission/${encodeURIComponent(fileName)}`);
+    const body = { cardId, actionId, data };
+    await this.request(() => this.getHttpClient().put<unknown>(url, body));
+  }
+
+  // --- Stream Operations ---
+
+  /**
+   * Lists all streams attached to a card, sorted by creation time.
+   *
+   * @param cardId - Card ID to query.
+   * @returns Stream metadata array (may be empty).
+   * @throws ApiError when the server responds with an error (e.g., 404 for unknown card).
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async listStreams(cardId: string): Promise<StreamMeta[]> {
+    const url = this.buildUrl(`/cards/${cardId}/streams`);
+    return this.request(() => this.getHttpClient().get<StreamMeta[]>(url));
+  }
+
+  /**
+   * Retrieves a stream's metadata and all raw lines.
+   *
+   * The `filename` is URI-encoded automatically. For completed streams the
+   * returned `lines` array is the full content; for active streams it is a
+   * snapshot that may grow while the caller processes it.
+   *
+   * @param cardId - Card ID.
+   * @param filename - Stream filename (e.g., `"session.log"`).
+   * @returns Metadata and content lines.
+   * @throws ApiError on 404 (unknown card or stream) or other server errors.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getStream(cardId: string, filename: string): Promise<{ meta: StreamMeta; lines: string[] }> {
+    const url = this.buildUrl(`/cards/${cardId}/streams/${encodeURIComponent(filename)}`);
+    return this.request(() => this.getHttpClient().get<{ meta: StreamMeta; lines: string[] }>(url));
+  }
+}

@@ -1,19 +1,19 @@
 ---
 name: Cards Configuration SDK
-description: This skill should be used when the user asks about "@cards/configuration", "cards extension settings", "defineAction", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationSuccess", "validationError", "stream transforms", "TransformContext", "JSONL streaming", or mentions building settings.json for Cards Extension.
+description: This skill should be used when the user asks about "@cards/sdk/config", "cards extension settings", "defineAction", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationSuccess", "validationError", "stream transforms", "TransformContext", "JSONL streaming", or mentions building settings.json for Cards Extension.
 version: 1.0.0
 ---
 
 ## Purpose
 
-This skill provides SDK documentation and development guidance for the `@cards/configuration` library. Use it to create type-safe action handlers, type validators, and lifecycle hooks for the Cards Extension.
+This skill provides SDK documentation and development guidance for the `@cards/sdk/config` library. Use it to create type-safe action handlers, type validators, and lifecycle hooks for the Cards Extension.
 
 ## Build Process
 
 Actions, validators, and stream transforms are compiled executables. Rebuild them after every code change.
 
 ```bash
-npx @cards/configuration build -c settings.config.ts -o dist
+npx @cards/sdk/config build -c settings.config.ts -o dist
 ```
 
 **Parameters:**
@@ -26,7 +26,7 @@ Create action handlers with `defineAction`:
 
 ```typescript
 // src/actions/launch-claude.ts
-import { defineAction } from '@cards/configuration';
+import { defineAction } from '@cards/sdk/config';
 import { fileURLToPath } from 'node:url';
 
 export default defineAction(
@@ -77,7 +77,7 @@ import {
   defineTypeValidator,
   validationSuccess,
   validationError
-} from '@cards/configuration';
+} from '@cards/sdk/config';
 import { fileURLToPath } from 'node:url';
 
 export default defineTypeValidator(
@@ -114,7 +114,7 @@ export default defineTypeValidator(
 Define environments, actions, and types in `settings.config.ts`:
 
 ```typescript
-import { defineConfig } from '@cards/configuration';
+import { defineConfig } from '@cards/sdk/config';
 import launchClaude from './src/actions/launch-claude.js';
 import adaptiveCardValidator from './src/validators/adaptive-card-validator.js';
 import chatTransform from './src/transforms/chat-formatter.js';
@@ -147,7 +147,7 @@ export default defineConfig({
 Define hooks for create, update, and delete events:
 
 ```typescript
-import { defineTypeCreate, defineTypeUpdate, defineTypeDelete } from '@cards/configuration';
+import { defineTypeCreate, defineTypeUpdate, defineTypeDelete } from '@cards/sdk/config';
 import { fileURLToPath } from 'node:url';
 
 // Create hook
@@ -183,8 +183,8 @@ Create transform source files alongside other handlers:
 
 ```typescript
 // src/transforms/session-counter.ts
-import type { StreamInitContext, TransformContext } from '@cards/configuration';
-import { defineStreamTransform } from '@cards/configuration/factories/stream-transform';
+import type { StreamInitContext, TransformContext } from '@cards/sdk/config';
+import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 function handleInit(ctx: StreamInitContext): void {
   ctx.state.set('counter', 0);
@@ -252,7 +252,7 @@ After `yarn build`, the CLI compiles stream transforms into self-contained `.mjs
 
 Before debugging issues, verify:
 
-- [ ] `@cards/configuration` is in `package.json` dependencies
+- [ ] `@cards/sdk/config` is in `package.json` dependencies
 - [ ] Build script exists: `"build": "cards-configuration build -c settings.config.ts -o dist"`
 - [ ] Handlers rebuilt after last code change (`yarn build`)
 - [ ] Handler files use `export default factoryFunction(...)` pattern

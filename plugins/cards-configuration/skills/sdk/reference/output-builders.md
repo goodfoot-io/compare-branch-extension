@@ -1,10 +1,10 @@
 <instructions>
 
-This document describes the validation result builders and output patterns in `@cards/configuration`.
+This document describes the validation result builders and output patterns in `@cards/sdk/config`.
 
 ## Validation Result Builders
 
-Type validators must return a `ValidationResult` (from `@cards/protocol`) indicating success or failure. The result is a discriminated union:
+Type validators must return a `ValidationResult` (from `@cards/sdk/protocol`) indicating success or failure. The result is a discriminated union:
 
 ```typescript
 type ValidationResult = ValidationSuccess | ValidationFailure;
@@ -25,7 +25,7 @@ interface ValidationFailure {
 Creates a successful validation result. Optionally include metadata to store in the `.meta.json` sidecar file.
 
 ```typescript
-import { validationSuccess } from '@cards/configuration';
+import { validationSuccess } from '@cards/sdk/config';
 
 // Basic success
 return validationSuccess();
@@ -48,7 +48,7 @@ return validationSuccess({
 Creates a failed validation result with markdown-formatted error strings.
 
 ```typescript
-import { validationError } from '@cards/configuration';
+import { validationError } from '@cards/sdk/config';
 
 // Single error
 return validationError([
@@ -79,7 +79,7 @@ Errors are markdown-formatted strings surfaced directly to the git client. Use m
 
 ```typescript
 import { readFileSync } from 'node:fs';
-import { defineTypeValidator, validationSuccess, validationError } from '@cards/configuration';
+import { defineTypeValidator, validationSuccess, validationError } from '@cards/sdk/config';
 
 interface Contract {
   openapi: string;

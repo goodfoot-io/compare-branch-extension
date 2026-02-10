@@ -1,6 +1,6 @@
 <instructions>
 
-This document describes the testing utilities in `@cards/configuration`.
+This document describes the testing utilities in `@cards/sdk/config`.
 
 ## Testing Utilities Overview
 
@@ -13,7 +13,7 @@ The testing module provides utilities for unit testing validators without proces
 Build mock `ValidatorFileRequest` objects for testing.
 
 ```typescript
-import { createTestRequest } from '@cards/configuration';
+import { createTestRequest } from '@cards/sdk/config';
 
 // Minimal request (default file path)
 const request = createTestRequest();
@@ -44,7 +44,7 @@ interface TestRequestOptions {
 Execute a validator and get the result without process I/O.
 
 ```typescript
-import { testValidation, createTestRequest, defineTypeValidator, validationSuccess } from '@cards/configuration';
+import { testValidation, createTestRequest, defineTypeValidator, validationSuccess } from '@cards/sdk/config';
 
 // Define a validator
 const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
@@ -105,7 +105,7 @@ interface ValidationFailure {
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { testValidation } from '@cards/configuration';
+import { testValidation } from '@cards/sdk/config';
 import myValidator from '../src/validators/my-validator.js';
 
 describe('myValidator', () => {
@@ -136,7 +136,7 @@ describe('myValidator', () => {
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { testValidation } from '@cards/configuration';
+import { testValidation } from '@cards/sdk/config';
 import noteValidator from '../src/validators/note-validator.js';
 
 describe('noteValidator', () => {
@@ -166,7 +166,7 @@ describe('noteValidator', () => {
 ### Testing Metadata
 
 ```typescript
-import type { ValidationSuccess } from '@cards/configuration';
+import type { ValidationSuccess } from '@cards/sdk/config';
 
 describe('validator metadata', () => {
   it('should return computed metadata', async () => {
@@ -219,7 +219,7 @@ For action handlers, mock the environment and context directly:
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
-import { Logger } from '@cards/configuration';
+import { Logger } from '@cards/sdk/config';
 
 // Import the handler module
 import launchClaude from '../src/actions/launch-claude.js';

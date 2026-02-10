@@ -1,13 +1,13 @@
 <instructions>
 
-This document describes the environment variable system in `@cards/configuration`.
+This document describes the environment variable system in `@cards/sdk/config`.
 
 ## Environment Variable Constants
 
 The `CARDS_ENV_VARS` object provides the canonical names for all environment variables.
 
 ```typescript
-import { CARDS_ENV_VARS } from '@cards/configuration';
+import { CARDS_ENV_VARS } from '@cards/sdk/config';
 
 // All environment variable names
 CARDS_ENV_VARS.CARD_ID                       // 'CARD_ID'
@@ -69,7 +69,7 @@ import {
   getEnvironment,
   getApiBaseUrl,
   getApiAccessToken
-} from '@cards/configuration';
+} from '@cards/sdk/config';
 
 // All throw Error if missing or empty
 const cardId = getCardId();
@@ -81,7 +81,7 @@ const apiAccessToken = getApiAccessToken();
 ### Common Variables (All Handlers) — continued
 
 ```typescript
-import { getVscodeNodePath } from '@cards/configuration';
+import { getVscodeNodePath } from '@cards/sdk/config';
 
 // Path to VS Code's bundled Node.js interpreter
 // Used in settings.json command paths ($VSCODE_NODE_PATH ./bin/handler.mjs)
@@ -100,7 +100,7 @@ import {
   getConfigPath,
   getWorkspacePath,
   getCardRepoPath
-} from '@cards/configuration';
+} from '@cards/sdk/config';
 
 // Throws if missing, returns the action button display name
 const actionName = getActionName();          // e.g., 'Launch Claude'
@@ -132,7 +132,7 @@ import {
   getFileSize,
   getSha256,
   getContentType
-} from '@cards/configuration';
+} from '@cards/sdk/config';
 
 // All throw Error if missing or empty
 const typeName = getTypeName();      // e.g., 'adaptive-card'
@@ -155,7 +155,7 @@ For convenience, extract complete typed input objects.
 ### Action Input
 
 ```typescript
-import { extractActionInput } from '@cards/configuration';
+import { extractActionInput } from '@cards/sdk/config';
 
 // Returns ActionInput with all action variables
 const input = extractActionInput();
@@ -176,7 +176,7 @@ const input = extractActionInput();
 ### Type Hook Input
 
 ```typescript
-import { extractTypeInput } from '@cards/configuration';
+import { extractTypeInput } from '@cards/sdk/config';
 
 // Returns TypeHookInput with all type hook variables
 const input = extractTypeInput();
@@ -248,7 +248,7 @@ async (input, { logger }) => {
 Actions can exit with specific codes to signal different outcomes:
 
 ```typescript
-import { EXIT_CODES } from '@cards/configuration';
+import { EXIT_CODES } from '@cards/sdk/config';
 
 export default defineAction(
   { actionName: 'My Action', sourcePath: fileURLToPath(import.meta.url) },

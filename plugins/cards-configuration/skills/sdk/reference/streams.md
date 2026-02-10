@@ -1,6 +1,6 @@
 <instructions>
 
-This document describes stream transform development with `@cards/configuration`.
+This document describes stream transform development with `@cards/sdk/config`.
 
 ## Overview
 
@@ -35,8 +35,8 @@ Every transform module must default-export the result of `defineStreamTransform`
 
 ```typescript
 // src/transforms/my-transform.ts
-import type { StreamInitContext, TransformContext } from '@cards/configuration';
-import { defineStreamTransform } from '@cards/configuration/factories/stream-transform';
+import type { StreamInitContext, TransformContext } from '@cards/sdk/config';
+import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 function handleInit(context: StreamInitContext): void {
   // Called once when the stream starts. Seed state here.
@@ -139,7 +139,7 @@ interface TransformContext {
 Import the transform module and pass the command object directly:
 
 ```typescript
-import { defineConfig } from '@cards/configuration';
+import { defineConfig } from '@cards/sdk/config';
 import myTransform from './src/transforms/my-transform.js';
 
 export default defineConfig({
@@ -204,7 +204,7 @@ function handleTransform(line: string, context: TransformContext): string {
 ### Simple Line Prefix
 
 ```typescript
-import { defineStreamTransform } from '@cards/configuration/factories/stream-transform';
+import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 export default defineStreamTransform(
   { streamType: 'logs', sourcePath: new URL(import.meta.url).pathname },
@@ -215,8 +215,8 @@ export default defineStreamTransform(
 ### JSON Pretty-Printer
 
 ```typescript
-import type { TransformContext } from '@cards/configuration';
-import { defineStreamTransform } from '@cards/configuration/factories/stream-transform';
+import type { TransformContext } from '@cards/sdk/config';
+import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 export default defineStreamTransform(
   { streamType: 'json-log', sourcePath: new URL(import.meta.url).pathname },
@@ -234,8 +234,8 @@ export default defineStreamTransform(
 ### Stateful Session Counter
 
 ```typescript
-import type { StreamInitContext, TransformContext } from '@cards/configuration';
-import { defineStreamTransform } from '@cards/configuration/factories/stream-transform';
+import type { StreamInitContext, TransformContext } from '@cards/sdk/config';
+import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 function handleInit(ctx: StreamInitContext): void {
   ctx.state.set('count', 0);
@@ -263,8 +263,8 @@ The `claude-code-session` transform in the default configuration parses Claude A
 
 ```typescript
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { StreamInitContext, TransformContext } from '@cards/configuration';
-import { defineStreamTransform } from '@cards/configuration/factories/stream-transform';
+import type { StreamInitContext, TransformContext } from '@cards/sdk/config';
+import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 function handleInit(context: StreamInitContext): void {
   context.state.set('turn', 0);
