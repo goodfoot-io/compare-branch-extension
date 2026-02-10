@@ -507,185 +507,41 @@ exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/pre-push"
 
-# Install post-commit hook (Cards API + passthrough)
+# Install post-commit hook (passthrough only)
 cat > "${HOOKS_DIR}/post-commit" << HOOK_EOF
 #!/bin/bash
-# post-commit hook - posts commit info to Cards API, then chains to original hook
+# post-commit hook - passthrough to original hooks
 # Installed by create-worktree.sh
-# Errors are logged to stderr but do not block git operations
-#
-# This hook handles:
-# 1. Posting the new commit SHA to the Cards API
-# 2. Chained hooks that create additional commits (e.g., git subtree split --rejoin)
-# 3. Cleaning up orphaned commitSha comments after squash operations
-#
-# The orphan cleanup runs after every commit. It identifies commits that are no
-# longer reachable from HEAD (e.g., after git reset --soft + commit) and deletes
-# their associated commitSha comments from the issue.
-
-set -o pipefail
 
 $HOOK_CHAIN_HELPER
 
-# Helper function to post a commit SHA to the Cards API
-post_commit_sha() {
-    local sha="\$1"
-    local issue_id="\$2"
-    local api_base="\$3"
-
-    curl -s -X POST "\$api_base/cards/\$issue_id/comments" \\
-        -H "Content-Type: application/json" \\
-        -d "{\"author\": \"agent\", \"commitSha\": \"\$sha\"}" \\
-        >/dev/null 2>&1 || true
-}
-
-# --- Setup API connection ---
-CARD_ID=\$(git config --worktree card.id 2>/dev/null)
-WORKSPACE_PATH=\$(git config --worktree card.workspacePath 2>/dev/null)
-API_BASE=""
-
-if [ -n "\$CARD_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.cards/cards-api.json"
-    if [ -f "\$DISCOVERY_FILE" ]; then
-        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-
-        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
-            API_BASE="http://\${HOST}:\${PORT}"
-        fi
-    fi
-fi
-
-# --- Record HEAD before any operations ---
-HEAD_BEFORE=\$(git rev-parse HEAD 2>/dev/null)
-
-# --- Post the current commit ---
-if [ -n "\$API_BASE" ] && [ -n "\$HEAD_BEFORE" ]; then
-    post_commit_sha "\$HEAD_BEFORE" "\$CARD_ID" "\$API_BASE"
-fi
-
-# --- Chain to original hook ---
 ORIGINAL_HOOK=\$(get_original_hook "post-commit")
 if [ -n "\$ORIGINAL_HOOK" ]; then
-    "\$ORIGINAL_HOOK" "\$@"
+    exec "\$ORIGINAL_HOOK" "\$@"
 fi
-
-# --- Check if HEAD changed after chaining ---
-# Chained hooks may create additional commits (e.g., subtree split --rejoin)
-HEAD_AFTER=\$(git rev-parse HEAD 2>/dev/null)
-if [ -n "\$API_BASE" ] && [ -n "\$HEAD_AFTER" ] && [ "\$HEAD_AFTER" != "\$HEAD_BEFORE" ]; then
-    post_commit_sha "\$HEAD_AFTER" "\$CARD_ID" "\$API_BASE"
-fi
-
-# --- Clean up orphaned commit comments ---
-# After squash (git reset --soft + commit), old commits become unreachable.
-# This cleanup removes commitSha comments for commits no longer on the branch.
-# Valid commits: baseSha + all commits between baseSha and current HEAD.
-if [ -n "\$API_BASE" ]; then
-    BASE_SHA=\$(git config --worktree card.baseSha 2>/dev/null)
-    if [ -n "\$BASE_SHA" ]; then
-        # Build set of valid SHAs (baseSha + descendants)
-        VALID_SHAS=\$(git rev-list "\$BASE_SHA"..HEAD 2>/dev/null || true)
-        VALID_SHAS="\$BASE_SHA"\$'\\n'"\$VALID_SHAS"
-
-        # Fetch all comments and delete orphaned commitSha comments
-        COMMENTS=\$(curl -s "\$API_BASE/cards/\$CARD_ID/comments" 2>/dev/null) || true
-        if [ -n "\$COMMENTS" ]; then
-            echo "\$COMMENTS" | jq -r '.[] | select(.commitSha != null) | "\\(.id) \\(.commitSha)"' 2>/dev/null | \\
-            while read -r comment_id commit_sha; do
-                if [ -n "\$commit_sha" ] && ! echo "\$VALID_SHAS" | grep -qx "\$commit_sha"; then
-                    curl -s -X DELETE "\$API_BASE/cards/\$CARD_ID/comments/\$comment_id" >/dev/null 2>&1 || true
-                fi
-            done
-        fi
-    fi
-fi
-
 exit 0
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/post-commit"
 
-# Install post-rewrite hook (Cards API + passthrough)
+# Install post-rewrite hook (baseSha update + passthrough)
 cat > "${HOOKS_DIR}/post-rewrite" << HOOK_EOF
 #!/bin/bash
-# post-rewrite hook - handles rebase/amend, then chains to original hook
+# post-rewrite hook - updates baseSha after rebase/amend, then chains to original hook
 # Installed by create-worktree.sh
-# Errors are logged to stderr but do not block git operations
-
-set -o pipefail
 
 $HOOK_CHAIN_HELPER
 
 # Capture stdin for potential passthrough (post-rewrite receives old/new SHA pairs)
 STDIN_DATA=\$(cat)
 
-# --- Cards API posting ---
-CARD_ID=\$(git config --worktree card.id 2>/dev/null)
-WORKSPACE_PATH=\$(git config --worktree card.workspacePath 2>/dev/null)
 # Update baseSha after rewrite using stored baseBranch
 BASE_BRANCH=\$(git config --worktree card.baseBranch 2>/dev/null)
 BASE_SHA_OLD=\$(git config --worktree card.baseSha 2>/dev/null)
-BASE_SHA_NEW=""
-BASE_SHA_UPDATED=false
-BASE_SHA_SHOULD_REPLACE=false
 
 if [ -n "\$BASE_BRANCH" ]; then
     BASE_SHA_NEW=\$(git merge-base HEAD "\$BASE_BRANCH" 2>/dev/null || true)
-fi
-
-if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
-    BASE_SHA_SHOULD_REPLACE=true
-    if git config --worktree card.baseSha "\$BASE_SHA_NEW" 2>/dev/null; then
-        BASE_SHA_UPDATED=true
-    fi
-fi
-
-if [ -n "\$CARD_ID" ] && [ -n "\$WORKSPACE_PATH" ]; then
-    DISCOVERY_FILE="\$HOME/.cards/cards-api.json"
-    if [ -f "\$DISCOVERY_FILE" ]; then
-        PORT=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].port // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-        HOST=\$(jq -r --arg ws "\$WORKSPACE_PATH" '.[\$ws].host // empty' "\$DISCOVERY_FILE" 2>/dev/null)
-
-        if [ -n "\$PORT" ] && [ -n "\$HOST" ]; then
-            API_BASE="http://\${HOST}:\${PORT}"
-            NEW_SHA=\$(git rev-parse HEAD)
-
-            # Collect old SHAs from stdin data
-            OLD_SHAS=()
-            while read old_sha new_sha extra; do
-                OLD_SHAS+=("\$old_sha")
-            done <<< "\$STDIN_DATA"
-
-            BASE_SHA_OLD_DERIVED=""
-            if [ -n "\$BASE_BRANCH" ] && [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
-                BASE_SHA_OLD_DERIVED=\$(git merge-base "\${OLD_SHAS[0]}" "\$BASE_BRANCH" 2>/dev/null || true)
-            fi
-            if [ -n "\$BASE_SHA_OLD_DERIVED" ] && [ "\$BASE_SHA_OLD_DERIVED" != "\$BASE_SHA_NEW" ]; then
-                BASE_SHA_OLD="\$BASE_SHA_OLD_DERIVED"
-                BASE_SHA_SHOULD_REPLACE=true
-            fi
-
-            COMMENTS=""
-            if [ "\${#OLD_SHAS[@]}" -gt 0 ]; then
-                COMMENTS=\$(curl -s "\$API_BASE/cards/\$CARD_ID/comments" 2>/dev/null) || true
-            fi
-
-            # Post new commit comment
-            curl -s -X POST "\$API_BASE/cards/\$CARD_ID/comments" \\
-                -H "Content-Type: application/json" \\
-                -d "{\"author\": \"agent\", \"commitSha\": \"\$NEW_SHA\"}" \\
-                >/dev/null 2>&1 || true
-
-            # Delete old commit comments
-            if [ -n "\$COMMENTS" ]; then
-                for old_sha in "\${OLD_SHAS[@]}"; do
-                    COMMENT_ID=\$(echo "\$COMMENTS" | jq -r --arg sha "\$old_sha" '.[] | select(.commitSha == $sha) | .id' 2>/dev/null)
-                    if [ -n "\$COMMENT_ID" ] && [ "\$COMMENT_ID" != "null" ]; then
-                        curl -s -X DELETE "\$API_BASE/cards/\$CARD_ID/comments/\$COMMENT_ID" >/dev/null 2>&1 || true
-                    fi
-                done
-            fi
-        fi
+    if [ -n "\$BASE_SHA_NEW" ] && [ "\$BASE_SHA_NEW" != "\$BASE_SHA_OLD" ]; then
+        git config --worktree card.baseSha "\$BASE_SHA_NEW" 2>/dev/null || true
     fi
 fi
 
