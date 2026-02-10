@@ -61,10 +61,7 @@ const injectSourcePath: esbuild.Plugin = {
       // Reset lastIndex after test()
       FACTORY_CALL_RE.lastIndex = 0;
 
-      const contents = source.replaceAll(
-        FACTORY_CALL_RE,
-        `$1({ sourcePath: ${JSON.stringify(args.path)},`
-      );
+      const contents = source.replaceAll(FACTORY_CALL_RE, `$1({ sourcePath: ${JSON.stringify(args.path)},`);
 
       const ext = extname(args.path);
       const loader: esbuild.Loader =
