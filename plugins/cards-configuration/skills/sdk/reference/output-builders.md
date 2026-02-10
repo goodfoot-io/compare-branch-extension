@@ -87,7 +87,7 @@ interface Contract {
 }
 
 export default defineTypeValidator(
-  { typeName: 'openapi-contract', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'openapi-contract' },
   async (request, context) => {
     // Read the file from disk
     let contract: Contract;
@@ -128,7 +128,7 @@ export default defineTypeValidator(
 import { readFileSync } from 'node:fs';
 
 export default defineTypeValidator(
-  { typeName: 'image', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'image' },
   async (request, context) => {
     // Read the file as a buffer
     const buffer = readFileSync(request.filePath);
@@ -158,7 +158,7 @@ export default defineTypeValidator(
 import { readFileSync } from 'node:fs';
 
 export default defineTypeValidator(
-  { typeName: 'note', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'note' },
   async (request, context) => {
     const content = readFileSync(request.filePath, 'utf-8');
 
@@ -194,7 +194,7 @@ Validators can check existing `.meta.json` sidecar data via `request.metadata`:
 import { readFileSync } from 'node:fs';
 
 export default defineTypeValidator(
-  { typeName: 'config', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'config' },
   async (request, context) => {
     const content = readFileSync(request.filePath, 'utf-8');
     const config = JSON.parse(content) as { version: number };
@@ -241,7 +241,7 @@ The `executeValidation` runtime converts uncaught exceptions to failure results:
 
 ```typescript
 export default defineTypeValidator(
-  { typeName: 'risky', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'risky' },
   async (request, context) => {
     try {
       const content = readFileSync(request.filePath, 'utf-8');

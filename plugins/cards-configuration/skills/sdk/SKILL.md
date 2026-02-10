@@ -27,15 +27,13 @@ Create action handlers with `defineAction`:
 ```typescript
 // src/actions/launch-claude.ts
 import { defineAction } from '@cards/sdk/config';
-import { fileURLToPath } from 'node:url';
 
 export default defineAction(
   {
     actionName: 'Launch Claude',
     description: 'Start a Claude coding session',
     icon: './icons/claude.svg',
-    supportsBackgroundMode: true,
-    sourcePath: fileURLToPath(import.meta.url)
+    supportsBackgroundMode: true
   },
   async (input, context) => {
     const { logger, onCancel, onSwitchToInteractive } = context;
@@ -78,12 +76,9 @@ import {
   validationSuccess,
   validationError
 } from '@cards/sdk/config';
-import { fileURLToPath } from 'node:url';
-
 export default defineTypeValidator(
   {
-    typeName: 'adaptive-card',
-    sourcePath: fileURLToPath(import.meta.url)
+    typeName: 'adaptive-card'
   },
   async (request, context) => {
     let card: { type: string; version: string };
@@ -148,11 +143,10 @@ Define hooks for create, update, and delete events:
 
 ```typescript
 import { defineTypeCreate, defineTypeUpdate, defineTypeDelete } from '@cards/sdk/config';
-import { fileURLToPath } from 'node:url';
 
 // Create hook
 export const create = defineTypeCreate(
-  { typeName: 'adaptive-card', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'adaptive-card' },
   async (input, { logger }) => {
     logger.info('Card created', { file: input.fileName, hash: input.fileSha256.slice(0, 8) });
   }
@@ -160,7 +154,7 @@ export const create = defineTypeCreate(
 
 // Update hook
 export const update = defineTypeUpdate(
-  { typeName: 'adaptive-card', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'adaptive-card' },
   async (input, { logger }) => {
     logger.info('Card updated', { file: input.fileName });
   }
@@ -168,7 +162,7 @@ export const update = defineTypeUpdate(
 
 // Delete hook
 export const del = defineTypeDelete(
-  { typeName: 'adaptive-card', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'adaptive-card' },
   async (input, { logger }) => {
     logger.info('Card deleted', { file: input.fileName });
   }
@@ -200,7 +194,6 @@ function handleTransform(line: string, ctx: TransformContext): string {
 export default defineStreamTransform(
   {
     streamType: 'session-log',
-    sourcePath: typeof URL !== 'undefined' ? new URL(import.meta.url).pathname : undefined,
     maxLineLength: 1_048_576
   },
   handleTransform,
@@ -234,12 +227,12 @@ After `yarn build`, the CLI compiles stream transforms into self-contained `.mjs
 
 | Factory | Purpose | Config Fields |
 |---------|---------|---------------|
-| `defineAction` | Action handler | `actionName`, `id?`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?`, `sourcePath?` |
-| `defineTypeValidator` | Pre-save validation | `typeName`, `timeout?`, `sourcePath?` |
-| `defineTypeCreate` | New file hook | `typeName`, `timeout?`, `sourcePath?` |
-| `defineTypeUpdate` | Modified file hook | `typeName`, `timeout?`, `sourcePath?` |
-| `defineTypeDelete` | Deleted file hook | `typeName`, `timeout?`, `sourcePath?` |
-| `defineStreamTransform` | Stream line transform | `streamType`, `timeout?`, `maxLineLength?`, `maxStreamSize?`, `sourcePath?` |
+| `defineAction` | Action handler | `actionName`, `id?`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?` |
+| `defineTypeValidator` | Pre-save validation | `typeName`, `timeout?` |
+| `defineTypeCreate` | New file hook | `typeName`, `timeout?` |
+| `defineTypeUpdate` | Modified file hook | `typeName`, `timeout?` |
+| `defineTypeDelete` | Deleted file hook | `typeName`, `timeout?` |
+| `defineStreamTransform` | Stream line transform | `streamType`, `timeout?`, `maxLineLength?`, `maxStreamSize?` |
 
 ## Validation Response Builders
 
@@ -256,7 +249,6 @@ Before debugging issues, verify:
 - [ ] Build script exists: `"build": "cards-configuration build -c settings.config.ts -o dist"`
 - [ ] Handlers rebuilt after last code change (`yarn build`)
 - [ ] Handler files use `export default factoryFunction(...)` pattern
-- [ ] Handlers include `sourcePath` (e.g. `new URL(import.meta.url).pathname`)
 - [ ] Stream transforms do not use `require`, `fetch`, `setTimeout`, `fs`, or dynamic `import()` (sandbox forbids them)
 - [ ] Stream transform tests run against the compiled `.mjs` bundle from `dist/bin/`
 

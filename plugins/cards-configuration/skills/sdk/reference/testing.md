@@ -277,7 +277,7 @@ import { readFileSync } from 'node:fs';
 import { validateCard } from './utils/validate-card.js';
 
 export default defineTypeValidator(
-  { typeName: 'card', sourcePath: fileURLToPath(import.meta.url) },
+  { typeName: 'card' },
   async (request, context) => {
     const content = readFileSync(request.filePath, 'utf-8');
     const card = JSON.parse(content);

@@ -60,7 +60,6 @@ function handleTransform(line: string, context: TransformContext): string {
 export default defineStreamTransform(
   {
     streamType: 'my-stream',
-    sourcePath: typeof URL !== 'undefined' ? new URL(import.meta.url).pathname : undefined,
     maxLineLength: 1_048_576  // 1 MB per line
   },
   handleTransform,
@@ -73,22 +72,9 @@ export default defineStreamTransform(
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `streamType` | `string` | (required) | Key matching the environment config entry |
-| `sourcePath` | `string?` | `undefined` | Path to source file for CLI compilation |
 | `maxLineLength` | `number?` | 1 MB | Max bytes per line before truncation |
 | `maxStreamSize` | `number?` | 100 MB | Max cumulative bytes before auto-close |
 | `timeout` | `number?` | 5000 | Per-call timeout in milliseconds |
-
-### sourcePath Convention
-
-Always provide `sourcePath` so the CLI knows where to find the source for compilation:
-
-```typescript
-// Preferred — works in all environments
-sourcePath: typeof URL !== 'undefined' ? new URL(import.meta.url).pathname : undefined
-
-// Alternative
-sourcePath: import.meta.filename
-```
 
 ## StreamInitContext Interface
 
@@ -207,7 +193,7 @@ function handleTransform(line: string, context: TransformContext): string {
 import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 export default defineStreamTransform(
-  { streamType: 'logs', sourcePath: new URL(import.meta.url).pathname },
+  { streamType: 'logs' },
   (line, ctx) => `[${ctx.lineNumber}] ${line}`
 );
 ```
@@ -219,7 +205,7 @@ import type { TransformContext } from '@cards/sdk/config';
 import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
 
 export default defineStreamTransform(
-  { streamType: 'json-log', sourcePath: new URL(import.meta.url).pathname },
+  { streamType: 'json-log' },
   (line: string, context: TransformContext): string => {
     try {
       const obj = JSON.parse(line);
@@ -251,7 +237,7 @@ function handleTransform(line: string, context: TransformContext): string {
 }
 
 export default defineStreamTransform(
-  { streamType: 'session', sourcePath: new URL(import.meta.url).pathname },
+  { streamType: 'session' },
   handleTransform,
   handleInit
 );
@@ -297,7 +283,6 @@ function handleTransform(line: string, context: TransformContext): string {
 export default defineStreamTransform(
   {
     streamType: 'claude-code-session',
-    sourcePath: typeof URL !== 'undefined' ? new URL(import.meta.url).pathname : undefined,
     maxLineLength: 1_048_576
   },
   handleTransform,
@@ -309,7 +294,6 @@ export default defineStreamTransform(
 
 - [ ] Transform uses `export default defineStreamTransform(config, handler, init?)` pattern
 - [ ] `streamType` in factory config matches the key in `settings.config.ts` `streams` object
-- [ ] `sourcePath` is provided for CLI compilation
 - [ ] Transform handler accepts `(line: string, context: TransformContext)` and returns `string | Promise<string>`
 - [ ] Parse errors handled gracefully with try/catch (fail-open)
 - [ ] State operations use `context.state.get()` / `context.state.set()`

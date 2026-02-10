@@ -202,7 +202,22 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
 // ============================================================================
 
 /**
+ * Strips the trailing inline sourcemap comment from compiled output.
+ *
+ * esbuild appends `//# sourceMappingURL=data:...` as the last line.
+ * Stripping it before hashing produces deterministic hashes that reflect
+ * actual bundled content (including dependencies) without being affected
+ * by sourcemap data that varies across builds.
+ */
+function stripSourceMapComment(content: string): string {
+  return content.replace(/\n\/\/# sourceMappingURL=data:.*$/s, '');
+}
+
+/**
  * Compiles all handlers that have sourcePath and returns compiled info.
+ *
+ * Single-pass: compiles each handler once with inline sourcemaps, then
+ * strips the sourcemap line to generate a deterministic content hash.
  */
 async function compileHandlers(
   commands: CommandInfo[],
@@ -223,7 +238,6 @@ async function compileHandlers(
 
     // Skip if we've already compiled this source (deduplication)
     if (seenPaths.has(cmd.sourcePath)) {
-      // Find the already compiled handler for this source
       const existing = compiled.find((c) => c.info.sourcePath === cmd.sourcePath);
       if (existing) {
         compiled.push({
@@ -239,44 +253,28 @@ async function compileHandlers(
     const baseName = getBaseName(cmd.sourcePath);
     const tempOutputPath = path.join(binDir, `${baseName}.temp.mjs`);
 
-    // Step 1: Compile WITHOUT sourcemaps to generate stable content hash
-    // (Sourcemaps can contain timestamps or paths that change the hash)
-    const hashResult = await compileHandler({
+    // Single-pass: compile with inline sourcemaps
+    const result = await compileHandler({
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
-      sourcemap: false,
-      factoryType: cmd.factoryType,
-      logFile
-    });
-
-    if (!hashResult.success) {
-      errors.push(`Failed to compile ${cmd.sourcePath}: ${hashResult.error}`);
-      continue;
-    }
-
-    // Generate hash from sourcemap-free content
-    const hashContent = fs.readFileSync(tempOutputPath, 'utf-8');
-    const hash = generateContentHash(hashContent);
-    const filename = `${baseName}.${hash}.mjs`;
-    const finalOutputPath = path.join(binDir, filename);
-
-    // Step 2: Compile WITH sourcemaps for debugging
-    const finalResult = await compileHandler({
-      sourcePath: cmd.sourcePath,
-      outputPath: finalOutputPath,
       sourcemap: true,
       factoryType: cmd.factoryType,
       logFile
     });
 
-    if (!finalResult.success) {
-      errors.push(`Failed to compile ${cmd.sourcePath} with sourcemaps: ${finalResult.error}`);
-      tryUnlink(tempOutputPath);
+    if (!result.success) {
+      errors.push(`Failed to compile ${cmd.sourcePath}: ${result.error}`);
       continue;
     }
 
-    // Clean up temp file used for hashing
-    tryUnlink(tempOutputPath);
+    // Hash the content WITHOUT the sourcemap comment for deterministic hashes
+    const fullContent = fs.readFileSync(tempOutputPath, 'utf-8');
+    const hash = generateContentHash(stripSourceMapComment(fullContent));
+    const filename = `${baseName}.${hash}.mjs`;
+    const finalOutputPath = path.join(binDir, filename);
+
+    // Rename to final content-hashed filename
+    fs.renameSync(tempOutputPath, finalOutputPath);
 
     // Make executable
     fs.chmodSync(finalOutputPath, 0o755);

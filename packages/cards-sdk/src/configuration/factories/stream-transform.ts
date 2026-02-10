@@ -24,11 +24,12 @@ export interface StreamTransformConfig {
   maxLineLength?: number;
   /** Maximum stream size in bytes. */
   maxStreamSize?: number;
+
   /**
-   * Path to the handler source file for CLI compilation.
+   * Handler source file path, injected by the `injectSourcePath` esbuild
+   * plugin during config loading. Do not set manually.
    *
-   * When provided, the CLI will compile this file into a standalone bundle.
-   * Use `import.meta.filename` or `import.meta.url` for the current file.
+   * @internal
    */
   sourcePath?: string;
 }
@@ -77,8 +78,7 @@ export type StreamInitHandler = (context: StreamInitContext) => void | Promise<v
  * export default defineStreamTransform(
  *   {
  *     streamType: 'jsonl',
- *     maxLineLength: 1024 * 1024, // 1MB per line
- *     sourcePath: import.meta.filename
+ *     maxLineLength: 1024 * 1024 // 1MB per line
  *   },
  *   async (line, context) => {
  *     // Remove any PII before processing
@@ -95,10 +95,7 @@ export type StreamInitHandler = (context: StreamInitContext) => void | Promise<v
  * import { defineStreamTransform } from '@cards/configuration';
  *
  * export default defineStreamTransform(
- *   {
- *     streamType: 'jsonl',
- *     sourcePath: import.meta.filename
- *   },
+ *   { streamType: 'jsonl' },
  *   async (line, context) => {
  *     // Access session state set during init
  *     const prefix = context.state?.get('prefix') as string || '';

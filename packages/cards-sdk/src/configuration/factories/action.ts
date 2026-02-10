@@ -90,21 +90,10 @@ export interface ActionConfig {
   timeout?: number;
 
   /**
-   * Path to the handler source file for CLI compilation.
+   * Handler source file path, injected by the `injectSourcePath` esbuild
+   * plugin during config loading. Do not set manually.
    *
-   * When provided, the CLI will compile this file into a standalone bundle
-   * and generate proper command paths (e.g., `node ./bin/handler.abc123.mjs`).
-   *
-   * If omitted, the CLI generates placeholder command strings. For full
-   * feature parity with v1, always provide sourcePath.
-   *
-   * @example
-   * ```typescript
-   * defineAction({
-   *   actionName: 'Launch Claude',
-   *   sourcePath: import.meta.filename // or import.meta.url
-   * }, handler);
-   * ```
+   * @internal
    */
   sourcePath?: string;
 }

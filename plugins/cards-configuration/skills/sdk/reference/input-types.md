@@ -260,7 +260,7 @@ Register a callback with `onSwitchToInteractive()`. The callback takes **no argu
 
 ```typescript
 export default defineAction(
-  { actionName: 'Long Task', sourcePath: fileURLToPath(import.meta.url) },
+  { actionName: 'Long Task' },
   async (input, context) => {
     const { logger, onSwitchToInteractive } = context;
 
@@ -290,7 +290,7 @@ When the action is rerun in interactive mode, the data returned by the callback 
 
 ```typescript
 export default defineAction(
-  { actionName: 'Long Task', sourcePath: fileURLToPath(import.meta.url) },
+  { actionName: 'Long Task' },
   async (input: ActionInput, context) => {
     const { logger } = context;
 

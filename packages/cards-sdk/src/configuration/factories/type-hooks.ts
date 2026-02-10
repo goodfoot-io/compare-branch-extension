@@ -26,11 +26,12 @@ export interface TypeConfig {
   typeName: string;
   /** Optional timeout in milliseconds. */
   timeout?: number;
+
   /**
-   * Path to the handler source file for CLI compilation.
+   * Handler source file path, injected by the `injectSourcePath` esbuild
+   * plugin during config loading. Do not set manually.
    *
-   * When provided, the CLI will compile this file into a standalone bundle.
-   * Use `import.meta.filename` or `import.meta.url` for the current file.
+   * @internal
    */
   sourcePath?: string;
 }
@@ -77,7 +78,7 @@ export type TypeValidatorHandler = (
  * import { defineTypeValidator, validationSuccess, validationError } from '@cards/configuration';
  *
  * export default defineTypeValidator(
- *   { typeName: 'adaptive-card', sourcePath: fileURLToPath(import.meta.url) },
+ *   { typeName: 'adaptive-card' },
  *   async (request, context) => {
  *     const content = readFileSync(request.filePath, 'utf-8');
  *     const card = JSON.parse(content) as AdaptiveCard;

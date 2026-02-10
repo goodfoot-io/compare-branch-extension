@@ -251,7 +251,7 @@ Actions can exit with specific codes to signal different outcomes:
 import { EXIT_CODES } from '@cards/sdk/config';
 
 export default defineAction(
-  { actionName: 'My Action', sourcePath: fileURLToPath(import.meta.url) },
+  { actionName: 'My Action' },
   async (input, context) => {
     // Normal completion (default exit code 0)
 

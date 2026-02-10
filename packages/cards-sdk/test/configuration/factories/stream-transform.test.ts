@@ -179,21 +179,13 @@ describe('defineStreamTransform', () => {
       expect(command.maxStreamSize).toBeUndefined();
     });
 
-    it('should attach optional sourcePath', () => {
-      const handler = vi.fn(async (line: string) => line);
-      const config: StreamTransformConfig = { streamType: 'jsonl', sourcePath: '/path/to/handler.ts' };
-
-      const command = defineStreamTransform(config, handler);
-
-      expect(command.sourcePath).toBe('/path/to/handler.ts');
-    });
-
-    it('should not attach sourcePath when not provided', () => {
+    it('should leave sourcePath undefined when not provided', () => {
       const handler = vi.fn(async (line: string) => line);
       const config: StreamTransformConfig = { streamType: 'jsonl' };
 
       const command = defineStreamTransform(config, handler);
 
+      // sourcePath is only injected by the injectSourcePath esbuild plugin during config loading
       expect(command.sourcePath).toBeUndefined();
     });
 
@@ -203,8 +195,7 @@ describe('defineStreamTransform', () => {
         streamType: 'jsonl',
         timeout: 3000,
         maxLineLength: 2048,
-        maxStreamSize: 20971520,
-        sourcePath: '/handlers/transform.ts'
+        maxStreamSize: 20971520
       };
 
       const command = defineStreamTransform(config, handler);
@@ -214,7 +205,6 @@ describe('defineStreamTransform', () => {
       expect(command.timeout).toBe(3000);
       expect(command.maxLineLength).toBe(2048);
       expect(command.maxStreamSize).toBe(20971520);
-      expect(command.sourcePath).toBe('/handlers/transform.ts');
     });
 
     it('should propagate handler errors', async () => {

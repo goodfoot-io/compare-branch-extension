@@ -29,28 +29,42 @@ import * as esbuild from 'esbuild';
 import type { SettingsConfig } from '../config.js';
 
 /**
- * esbuild plugin that preserves `import.meta.url` and `import.meta.filename`
- * per source file during bundling.
+ * Pattern matching factory call sites in handler files.
  *
- * Without this, all `import.meta.url` references in a bundle resolve to the
- * output file's URL. Handlers use `import.meta.url` to set their `sourcePath`
- * metadata, so we need each module to retain its original file identity.
+ * Matches `defineAction({`, `defineTypeValidator({`, etc. at the start of a
+ * config object literal. The plugin injects `sourcePath` as the first property
+ * so that the V8-based `getCallerFile()` fallback (which returns the temp
+ * bundle path) is never reached.
  */
-const preserveImportMeta: esbuild.Plugin = {
-  name: 'preserve-import-meta',
+const FACTORY_CALL_RE =
+  /\b(define(?:Action|TypeValidator|TypeCreate|TypeUpdate|TypeDelete|StreamTransform))\s*\(\s*\{/g;
+
+/**
+ * esbuild plugin that injects `sourcePath` into factory config objects during
+ * config bundling.
+ *
+ * When esbuild bundles a settings.config.ts, all handler source files are
+ * merged into a single temp file. This plugin runs before bundling and injects
+ * each file's real path into the factory config object so that the CLI knows
+ * which source file to compile for each handler.
+ */
+const injectSourcePath: esbuild.Plugin = {
+  name: 'inject-source-path',
   setup(build) {
     build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
       const source = readFileSync(args.path, 'utf-8');
 
-      // Only transform files that actually use import.meta
-      if (!source.includes('import.meta.url') && !source.includes('import.meta.filename')) {
+      if (!FACTORY_CALL_RE.test(source)) {
         return undefined;
       }
 
-      const fileUrl = pathToFileURL(args.path).href;
-      const contents = source
-        .replaceAll('import.meta.url', JSON.stringify(fileUrl))
-        .replaceAll('import.meta.filename', JSON.stringify(args.path));
+      // Reset lastIndex after test()
+      FACTORY_CALL_RE.lastIndex = 0;
+
+      const contents = source.replaceAll(
+        FACTORY_CALL_RE,
+        `$1({ sourcePath: ${JSON.stringify(args.path)},`
+      );
 
       const ext = extname(args.path);
       const loader: esbuild.Loader =
@@ -153,7 +167,7 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
       format: 'esm',
       platform: 'node',
       target: 'es2022',
-      plugins: [preserveImportMeta],
+      plugins: [injectSourcePath],
       banner: {
         js: `import { createRequire as __createRequire } from 'node:module';\nconst require = __createRequire(import.meta.url);`
       },

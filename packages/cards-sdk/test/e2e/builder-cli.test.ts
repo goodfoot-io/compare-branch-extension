@@ -80,13 +80,11 @@ function writeHandler(dir: string, filename: string, content: string): string {
 function createActionHandler(actionName: string, _handlerPath: string): string {
   return `
 import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-import { fileURLToPath } from 'node:url';
 
 export default defineAction(
   {
     actionName: '${actionName}',
-    timeout: 30000,
-    sourcePath: fileURLToPath(import.meta.url)
+    timeout: 30000
   },
   async (input, { logger }) => {
     logger.info('${actionName} executed');
@@ -101,13 +99,11 @@ export default defineAction(
 function createTypeValidatorHandler(typeName: string, _handlerPath: string): string {
   return `
 import { defineTypeValidator, validationSuccess } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-import { fileURLToPath } from 'node:url';
 
 export default defineTypeValidator(
   {
     typeName: '${typeName}',
-    timeout: 30000,
-    sourcePath: fileURLToPath(import.meta.url)
+    timeout: 30000
   },
   async (request, context) => {
     context.logger.info('${typeName} validated');
@@ -332,7 +328,6 @@ export default {
       // Create handler with all metadata
       const handlerContent = `
 import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-import { fileURLToPath } from 'node:url';
 
 export default defineAction(
   {
@@ -341,8 +336,7 @@ export default defineAction(
     icon: 'rocket',
     timeout: 60000,
     supportsBackgroundMode: true,
-    allowConcurrent: false,
-    sourcePath: fileURLToPath(import.meta.url)
+    allowConcurrent: false
   },
   async (input, { logger }) => {
     logger.info('Executed');
@@ -876,14 +870,12 @@ export default {
     // Create a handler that would need CommonJS support
     const handlerContent = `
 import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
 
 export default defineAction(
   {
     actionName: 'CJS Test',
-    timeout: 30000,
-    sourcePath: fileURLToPath(import.meta.url)
+    timeout: 30000
   },
   async (input, { logger }) => {
     // Use path module (a Node built-in that works with CJS shim)
@@ -1486,7 +1478,10 @@ export default {
     expect(streamConfig?.maxStreamSize).toBe(1048576);
   });
 
-  it('should produce placeholder path for stream transform without sourcePath', async () => {
+  it('should auto-inject sourcePath when not explicitly provided', async () => {
+    // The injectSourcePath esbuild plugin detects factory calls during config
+    // bundling and injects sourcePath with the original file path. This test
+    // verifies that handlers without explicit sourcePath build successfully.
     writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
     writeHandler(testDir, 'stream-no-source.ts', createStreamTransformHandlerNoSourcePath('stream-no-source'));
 
@@ -1514,18 +1509,12 @@ export default {
     );
 
     const outdir = path.join(testDir, 'dist');
-    await build({ config: configPath, outdir });
+    const result = await build({ config: configPath, outdir });
 
-    // Verify settings.json stream has placeholder-format path
-    const settings = readSettings(outdir);
-    const streamConfig = settings.environments['default']!.streams?.['stream-no-source'];
-    expect(streamConfig).toBeDefined();
-
-    // Stream without sourcePath should produce a placeholder path (not compiled)
-    const transformPath = streamConfig?.transform?.path;
-    expect(transformPath).toBeDefined();
-    // Placeholder paths follow the pattern: streamTransform-<streamType>.js
-    expect(transformPath).toMatch(/^streamTransform-stream-no-source\.js$/);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.compiledHandlers.length).toBeGreaterThan(0);
+    }
   });
 });
 

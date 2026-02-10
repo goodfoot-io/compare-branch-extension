@@ -30,7 +30,7 @@ The logger is available via context in all handlers:
 import { defineAction } from '@cards/sdk/config';
 
 export default defineAction(
-  { actionName: 'My Action', sourcePath: fileURLToPath(import.meta.url) },
+  { actionName: 'My Action' },
   async (input, context) => {
     const { logger } = context;
 
