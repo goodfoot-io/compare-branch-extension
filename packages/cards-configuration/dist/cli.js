@@ -14,10 +14,12 @@ var config_loader_exports = {};
 __export(config_loader_exports, {
   loadConfig: () => loadConfig
 });
-import { existsSync as existsSync2 } from "node:fs";
-import { createRequire } from "node:module";
-import { resolve as resolve2 } from "node:path";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
+import { existsSync as existsSync2, readFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { extname, join as join2, resolve as resolve2 } from "node:path";
+import { pathToFileURL } from "node:url";
+import * as esbuild2 from "esbuild";
 async function loadConfig(configPath) {
   const absolutePath = resolve2(configPath);
   if (!existsSync2(absolutePath)) {
@@ -26,20 +28,38 @@ async function loadConfig(configPath) {
       error: `Configuration file does not exist: ${absolutePath}`
     };
   }
+  const tempFile = join2(tmpdir(), `cards-config-${randomUUID()}.mjs`);
   try {
-    const currentFile = fileURLToPath(import.meta.url);
-    const jiti = createJiti(currentFile, {
-      interopDefault: true,
-      requireCache: false
+    const buildResult = await esbuild2.build({
+      entryPoints: [absolutePath],
+      outfile: tempFile,
+      bundle: true,
+      format: "esm",
+      platform: "node",
+      target: "es2022",
+      plugins: [preserveImportMeta],
+      banner: {
+        js: `import { createRequire as __createRequire } from 'node:module';
+const require = __createRequire(import.meta.url);`
+      },
+      logLevel: "silent"
     });
-    const module = await jiti.import(absolutePath, {});
-    if (!module || typeof module !== "object") {
+    if (buildResult.errors.length > 0) {
+      const errors = buildResult.errors.map((e) => e.text).join("\n");
+      return {
+        success: false,
+        error: `Failed to load configuration file: ${errors}`
+      };
+    }
+    const mod = await import(pathToFileURL(tempFile).href);
+    const config = mod.default;
+    if (!config || typeof config !== "object") {
       return {
         success: false,
         error: `Configuration file has no default export: ${absolutePath}`
       };
     }
-    const maybeConfig = module;
+    const maybeConfig = config;
     if (!maybeConfig.environments || typeof maybeConfig.environments !== "object") {
       return {
         success: false,
@@ -52,19 +72,46 @@ async function loadConfig(configPath) {
       configPath: absolutePath
     };
   } catch (error) {
+    if (error && typeof error === "object" && "errors" in error) {
+      const buildError = error;
+      const errors = buildError.errors.map((e) => e.text).join("\n");
+      return {
+        success: false,
+        error: `Failed to load configuration file: ${errors}`
+      };
+    }
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
       error: `Failed to load configuration file: ${errorMessage}`
     };
+  } finally {
+    try {
+      unlinkSync(tempFile);
+    } catch {
+    }
   }
 }
-var require2, createJiti;
+var preserveImportMeta;
 var init_config_loader = __esm({
   "src/cli/config-loader.ts"() {
     "use strict";
-    require2 = createRequire(import.meta.url);
-    createJiti = require2("jiti");
+    preserveImportMeta = {
+      name: "preserve-import-meta",
+      setup(build4) {
+        build4.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
+          const source = readFileSync(args.path, "utf-8");
+          if (!source.includes("import.meta.url") && !source.includes("import.meta.filename")) {
+            return void 0;
+          }
+          const fileUrl = pathToFileURL(args.path).href;
+          const contents = source.replaceAll("import.meta.url", JSON.stringify(fileUrl)).replaceAll("import.meta.filename", JSON.stringify(args.path));
+          const ext = extname(args.path);
+          const loader = ext === ".ts" || ext === ".mts" ? "ts" : ext === ".tsx" || ext === ".mtsx" ? "tsx" : "js";
+          return { contents, loader };
+        });
+      }
+    };
   }
 });
 
@@ -535,7 +582,7 @@ function cleanupStaleFiles(settingsPath, binDir) {
     }
   }
 }
-async function build2(args) {
+async function build3(args) {
   try {
     const { loadConfig: loadConfig2 } = await Promise.resolve().then(() => (init_config_loader(), config_loader_exports));
     const loadResult = await loadConfig2(args.config);
@@ -598,7 +645,7 @@ async function main() {
     console.error("\nUsage: cards-configuration-v2 build -c <config> -o <outdir>");
     process.exit(1);
   }
-  const buildResult = await build2(parseResult.args);
+  const buildResult = await build3(parseResult.args);
   if (!buildResult.success) {
     console.error("Build failed:", buildResult.error);
     process.exit(1);
