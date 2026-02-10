@@ -401,6 +401,10 @@ describe('runtime', () => {
       });
     });
 
+    // Note: Log file configuration is handled by the compiled wrapper preamble
+    // which sets process.env.CARDS_HOOKS_LOG_FILE before any Logger is constructed.
+    // See compiler.test.ts for tests covering log file embedding.
+
     describe('non-Error throw values', () => {
       it('should handle string throws', async () => {
         const handler = vi.fn().mockRejectedValue('String error');

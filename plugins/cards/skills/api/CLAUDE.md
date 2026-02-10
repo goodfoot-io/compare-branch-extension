@@ -1,0 +1,1 @@
+**This skill provides documentaton for `packages/cards/server` and should be kept up to date at all times.**

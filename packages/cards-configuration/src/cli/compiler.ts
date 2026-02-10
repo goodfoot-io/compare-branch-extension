@@ -81,6 +81,20 @@ export interface CompileOptions {
    * For other types, the wrapper uses executeCommand() which reads from env vars.
    */
   factoryType?: string;
+
+  /**
+   * Log file path to embed in the compiled handler as a const.
+   *
+   * When set, the wrapper preamble resolves this path against
+   * `CARD_REPO_PATH` and sets `process.env.CARDS_HOOKS_LOG_FILE`
+   * before any Logger is constructed. This is a no-op if the env var
+   * is already set, so an explicit runtime `CARDS_HOOKS_LOG_FILE` wins.
+   *
+   * Stream transforms are excluded (different execution model).
+   *
+   * Comes from the `--log` CLI build flag.
+   */
+  logFile?: string;
 }
 
 /**
@@ -213,7 +227,7 @@ const require = __createRequire(import.meta.url);`;
  * ```
  */
 export async function compileHandler(options: CompileOptions): Promise<CompileResult> {
-  const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
+  const { sourcePath, outputPath, sourcemap = false, factoryType, logFile } = options;
 
   try {
     // Verify source file exists
@@ -235,9 +249,26 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     };
     const sourceImport = toRelativeImport(sourcePath);
 
+    // When --log is provided, generate a preamble that sets CARDS_HOOKS_LOG_FILE
+    // resolved against CARD_REPO_PATH. This runs before any Logger is constructed,
+    // so both the singleton and new Logger() instances pick it up via the constructor.
+    // Only sets the env var when it isn't already set, so an explicit
+    // CARDS_HOOKS_LOG_FILE from the runtime environment still wins.
+    const logPreamble = logFile
+      ? `
+import { resolve as __resolve } from 'node:path';
+const __DEFAULT_LOG_DEST = ${JSON.stringify(logFile)};
+const __cardRepo = process.env['CARD_REPO_PATH'];
+if (__cardRepo && !process.env['CARDS_HOOKS_LOG_FILE']) {
+  process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__cardRepo, __DEFAULT_LOG_DEST);
+}
+`
+      : '';
+
     let wrapperContent: string;
     if (factoryType === 'streamTransform') {
       // Stream transforms re-export raw init and default transform functions
+      // (no logging integration - they run in a different execution model)
       wrapperContent = `
 import cmd from '${sourceImport}';
 export function init(ctx) { return cmd.init?.(ctx); }
@@ -246,7 +277,7 @@ export default function transform(line, ctx) { return cmd(line, ctx); }
     } else if (factoryType === 'typeValidator') {
       // Type validators use file-path protocol via executeValidation
       const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/validation.ts'));
-      wrapperContent = `
+      wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
 
@@ -255,7 +286,7 @@ executeValidation(handler);
     } else {
       // Other handlers use environment variable extraction via executeCommand
       const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/runtime.ts'));
-      wrapperContent = `
+      wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
 

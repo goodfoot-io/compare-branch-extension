@@ -499,6 +499,33 @@ export class Logger {
   }
 
   /**
+   * Sets a default log file path that only takes effect if no other source
+   * has configured file logging.
+   *
+   * This is the lowest-priority file path source. It will be ignored if
+   * any of these have already set a path:
+   * - `logFilePath` in the constructor config
+   * - `CARDS_HOOKS_LOG_FILE` environment variable
+   * - {@link setLogFile} called at runtime
+   *
+   * Intended for use by CLI entry points (e.g., the `--log` flag).
+   * @param filePath - Default path to the log file
+   * @example
+   * ```typescript
+   * // Wire --log CLI argument as a fallback
+   * if (args.log) {
+   *   logger.setDefaultLogFile(args.log);
+   * }
+   * ```
+   */
+  setDefaultLogFile(filePath: string): void {
+    if (this.logFilePath === null) {
+      this.logFilePath = filePath;
+      this.fileInitialized = false;
+    }
+  }
+
+  /**
    * Configures the log file path at runtime.
    *
    * Call this to enable or change file logging. Setting to `null` disables

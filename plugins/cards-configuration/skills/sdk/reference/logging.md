@@ -87,23 +87,44 @@ interface LogEventError {
 
 ### File Output
 
-Configure the log file path:
+Configure the log file path. Sources are listed from highest to lowest priority:
 
 ```typescript
 import { Logger } from '@cards/configuration';
 
-// Via constructor
+// 1. Via setLogFile() — highest priority, overrides all others
+logger.setLogFile('/var/log/hooks.log');
+
+// 2. Via constructor config
 const logger = new Logger({ logFilePath: '/var/log/hooks.log' });
 
-// Via environment variable
+// 3. Via environment variable (or compiled --log default, see below)
 // export CARDS_HOOKS_LOG_FILE=/var/log/hooks.log
-
-// At runtime
-logger.setLogFile('/var/log/hooks.log');
 
 // Disable file logging
 logger.setLogFile(null);
 ```
+
+### Build-Time Log Configuration (`--log`)
+
+The `--log` CLI flag embeds a default log destination into every compiled handler:
+
+```bash
+cards-configuration build -c settings.config.ts -o dist --log .cards/logs/hooks.log
+```
+
+The compiler generates a preamble in each handler bundle that resolves the path against `CARD_REPO_PATH` and sets `process.env.CARDS_HOOKS_LOG_FILE` as a compiled const — before any Logger is constructed:
+
+```javascript
+// Generated wrapper preamble (you don't write this — the compiler produces it)
+const __DEFAULT_LOG_DEST = ".cards/logs/hooks.log";
+const __cardRepo = process.env['CARD_REPO_PATH'];
+if (__cardRepo && !process.env['CARDS_HOOKS_LOG_FILE']) {
+  process.env['CARDS_HOOKS_LOG_FILE'] = resolve(__cardRepo, __DEFAULT_LOG_DEST);
+}
+```
+
+This is a no-op when `CARDS_HOOKS_LOG_FILE` is already set by the runtime environment, so an explicit env var always wins. Stream transforms are excluded since they run in a different execution model (VM sandbox).
 
 ### Event Handlers
 
@@ -236,5 +257,7 @@ logger.error('Failed to save', { reason: 'disk full' });
 | `warn(message, context?)` | Log warning message |
 | `error(message, context?)` | Log error message |
 | `logError(error, message, context?)` | Log caught exception with full details |
+| `setLogFile(path \| null)` | Set or disable log file (highest priority) |
+| `setDefaultLogFile(path)` | Set fallback log file (no-op if file logging already configured) |
 
 </instructions>

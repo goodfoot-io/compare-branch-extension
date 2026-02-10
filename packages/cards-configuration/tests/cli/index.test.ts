@@ -396,17 +396,26 @@ describe('build', () => {
   });
 
   describe('log file support', () => {
-    it('should accept log parameter (for future use)', async () => {
+    it('should embed --log path in compiled handler bundles', async () => {
       const outdir = join(FIXTURES_DIR, 'output-with-log');
       const result = await build({
         config: join(FIXTURES_DIR, 'valid.config.ts'),
         outdir,
-        log: join(FIXTURES_DIR, 'build.log')
+        log: '.cards/logs/hooks.log'
       });
 
       expect(result.success).toBe(true);
-      // Log file support is for future enhancement
-      // For now we just verify the parameter is accepted
+
+      // Verify the compiled handler bundles contain the embedded log path
+      if (result.success) {
+        for (const handlerPath of result.compiledHandlers) {
+          const content = readFileSync(handlerPath, 'utf-8');
+          // Stream transforms are excluded from log embedding
+          if (!content.includes('function init')) {
+            expect(content).toContain('.cards/logs/hooks.log');
+          }
+        }
+      }
     });
   });
 });

@@ -383,6 +383,99 @@ describe('Logger', () => {
       expect(event.message).toBe('After file - logged');
     });
 
+    it('setDefaultLogFile() sets path when no file is configured', () => {
+      logger = new Logger();
+
+      logger.setDefaultLogFile(logFilePath);
+      logger.info('Default file message');
+      logger.close();
+
+      const content = fs.readFileSync(logFilePath, 'utf-8');
+      const lines = content.trim().split('\n');
+
+      expect(lines).toHaveLength(1);
+      const event = JSON.parse(lines[0]) as LogEvent;
+      expect(event.message).toBe('Default file message');
+    });
+
+    it('setDefaultLogFile() is ignored when constructor logFilePath is set', () => {
+      const primaryPath = path.join(tempDir, 'primary.log');
+      const defaultPath = path.join(tempDir, 'default.log');
+      logger = new Logger({ logFilePath: primaryPath });
+
+      logger.setDefaultLogFile(defaultPath);
+      logger.info('Goes to primary');
+      logger.close();
+
+      // Primary file should have the message
+      const primaryContent = fs.readFileSync(primaryPath, 'utf-8');
+      expect(primaryContent.trim().split('\n')).toHaveLength(1);
+
+      // Default file should not exist
+      expect(fs.existsSync(defaultPath)).toBe(false);
+
+      // Cleanup primary
+      fs.unlinkSync(primaryPath);
+    });
+
+    it('setDefaultLogFile() is ignored when CARDS_HOOKS_LOG_FILE is set', () => {
+      const envPath = path.join(tempDir, 'env.log');
+      const defaultPath = path.join(tempDir, 'default.log');
+      const originalEnv = process.env['CARDS_HOOKS_LOG_FILE'];
+
+      try {
+        process.env['CARDS_HOOKS_LOG_FILE'] = envPath;
+        logger = new Logger();
+
+        logger.setDefaultLogFile(defaultPath);
+        logger.info('Goes to env file');
+        logger.close();
+
+        // Env file should have the message
+        const envContent = fs.readFileSync(envPath, 'utf-8');
+        expect(envContent.trim().split('\n')).toHaveLength(1);
+
+        // Default file should not exist
+        expect(fs.existsSync(defaultPath)).toBe(false);
+
+        // Cleanup env file
+        fs.unlinkSync(envPath);
+      } finally {
+        if (originalEnv === undefined) {
+          delete process.env['CARDS_HOOKS_LOG_FILE'];
+        } else {
+          process.env['CARDS_HOOKS_LOG_FILE'] = originalEnv;
+        }
+      }
+    });
+
+    it('setLogFile() overrides setDefaultLogFile()', () => {
+      const defaultPath = path.join(tempDir, 'default.log');
+      const overridePath = path.join(tempDir, 'override.log');
+      logger = new Logger();
+
+      logger.setDefaultLogFile(defaultPath);
+      logger.info('Goes to default');
+
+      logger.setLogFile(overridePath);
+      logger.info('Goes to override');
+      logger.close();
+
+      // Default file should have only the first message
+      const defaultContent = fs.readFileSync(defaultPath, 'utf-8');
+      expect(defaultContent.trim().split('\n')).toHaveLength(1);
+      expect(JSON.parse(defaultContent.trim()).message).toBe('Goes to default');
+
+      // Override file should have only the second message
+      const overrideContent = fs.readFileSync(overridePath, 'utf-8');
+      expect(overrideContent.trim().split('\n')).toHaveLength(1);
+      expect(JSON.parse(overrideContent.trim()).message).toBe('Goes to override');
+
+      // Cleanup
+      fs.unlinkSync(defaultPath);
+      fs.unlinkSync(overridePath);
+    });
+
     it('setLogFile(null) disables file logging', () => {
       logger = new Logger({ logFilePath });
 

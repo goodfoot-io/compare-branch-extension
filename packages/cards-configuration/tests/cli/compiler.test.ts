@@ -384,6 +384,120 @@ export default defineAction(
   });
 
   // ==========================================================================
+  // Log File Embedding
+  // ==========================================================================
+
+  describe('logFile option', () => {
+    it('should compile log dest as a const that sets CARDS_HOOKS_LOG_FILE for action handlers', async () => {
+      const handlerContent = `
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+
+export default defineAction(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Test');
+  }
+);
+`;
+      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
+      const outputPath = path.join(testDir, 'output.mjs');
+
+      const result = await compileHandler({
+        sourcePath,
+        outputPath,
+        sourcemap: false,
+        logFile: '.cards/logs/hooks.log'
+      });
+
+      expect(result.success).toBe(true);
+      const output = readCompiledOutput(outputPath);
+      expect(output).toContain('.cards/logs/hooks.log');
+      expect(output).toContain('CARDS_HOOKS_LOG_FILE');
+      expect(output).toContain('CARD_REPO_PATH');
+    });
+
+    it('should compile log dest as a const that sets CARDS_HOOKS_LOG_FILE for type validators', async () => {
+      const handlerContent = `
+import { defineTypeValidator, validationSuccess } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+
+export default defineTypeValidator(
+  { typeName: 'test', timeout: 30000 },
+  async (request, context) => validationSuccess()
+);
+`;
+      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
+      const outputPath = path.join(testDir, 'output.mjs');
+
+      const result = await compileHandler({
+        sourcePath,
+        outputPath,
+        sourcemap: false,
+        factoryType: 'typeValidator',
+        logFile: '.cards/logs/hooks.log'
+      });
+
+      expect(result.success).toBe(true);
+      const output = readCompiledOutput(outputPath);
+      expect(output).toContain('.cards/logs/hooks.log');
+      expect(output).toContain('CARDS_HOOKS_LOG_FILE');
+      expect(output).toContain('CARD_REPO_PATH');
+    });
+
+    it('should not embed logFile when option is not set', async () => {
+      const handlerContent = `
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+
+export default defineAction(
+  { actionName: 'Test', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Test');
+  }
+);
+`;
+      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
+      const outputPath = path.join(testDir, 'output.mjs');
+
+      const result = await compileHandler({
+        sourcePath,
+        outputPath,
+        sourcemap: false
+      });
+
+      expect(result.success).toBe(true);
+      const output = readCompiledOutput(outputPath);
+      // The bundled Logger code references CARDS_HOOKS_LOG_FILE naturally,
+      // but the preamble const should NOT be present
+      expect(output).not.toContain('__DEFAULT_LOG_DEST');
+    });
+
+    it('should not embed logFile for stream transforms', async () => {
+      const handlerContent = `
+import { defineStreamTransform } from '${STREAM_TRANSFORM_PATH.replace(/\\/g, '/')}';
+
+export default defineStreamTransform(
+  { streamType: 'test-stream', sourcePath: '/workspace/handler.js' },
+  (line) => line
+);
+`;
+      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
+      const outputPath = path.join(testDir, 'output.mjs');
+
+      const result = await compileHandler({
+        sourcePath,
+        outputPath,
+        sourcemap: false,
+        factoryType: 'streamTransform',
+        logFile: '.cards/logs/hooks.log'
+      });
+
+      expect(result.success).toBe(true);
+      const output = readCompiledOutput(outputPath);
+      // Stream transforms don't use executeCommand/executeValidation
+      expect(output).not.toContain('__DEFAULT_LOG_DEST');
+    });
+  });
+
+  // ==========================================================================
   // Stream Transform Compilation
   // ==========================================================================
 

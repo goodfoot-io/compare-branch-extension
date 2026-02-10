@@ -180,7 +180,7 @@ var EXTERNALS = [
 var BANNER = `import { createRequire as __createRequire } from 'node:module';
 const require = __createRequire(import.meta.url);`;
 async function compileHandler(options) {
-  const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
+  const { sourcePath, outputPath, sourcemap = false, factoryType, logFile } = options;
   try {
     if (!fs.existsSync(sourcePath)) {
       return {
@@ -194,6 +194,14 @@ async function compileHandler(options) {
       return rel.startsWith(".") ? rel : `./${rel}`;
     };
     const sourceImport = toRelativeImport(sourcePath);
+    const logPreamble = logFile ? `
+import { resolve as __resolve } from 'node:path';
+const __DEFAULT_LOG_DEST = ${JSON.stringify(logFile)};
+const __cardRepo = process.env['CARD_REPO_PATH'];
+if (__cardRepo && !process.env['CARDS_HOOKS_LOG_FILE']) {
+  process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__cardRepo, __DEFAULT_LOG_DEST);
+}
+` : "";
     let wrapperContent;
     if (factoryType === "streamTransform") {
       wrapperContent = `
@@ -203,7 +211,7 @@ export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === "typeValidator") {
       const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/validation.ts"));
-      wrapperContent = `
+      wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
 
@@ -211,7 +219,7 @@ executeValidation(handler);
 `;
     } else {
       const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/runtime.ts"));
-      wrapperContent = `
+      wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
 
@@ -337,7 +345,7 @@ function extractCommands(config) {
   }
   return commands;
 }
-async function compileHandlers(commands, binDir) {
+async function compileHandlers(commands, binDir, logFile) {
   const compiled = [];
   const errors = [];
   const seenPaths = /* @__PURE__ */ new Set();
@@ -364,7 +372,8 @@ async function compileHandlers(commands, binDir) {
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
       sourcemap: false,
-      factoryType: cmd.factoryType
+      factoryType: cmd.factoryType,
+      logFile
     });
     if (!hashResult.success) {
       errors.push(`Failed to compile ${cmd.sourcePath}: ${hashResult.error}`);
@@ -378,7 +387,8 @@ async function compileHandlers(commands, binDir) {
       sourcePath: cmd.sourcePath,
       outputPath: finalOutputPath,
       sourcemap: true,
-      factoryType: cmd.factoryType
+      factoryType: cmd.factoryType,
+      logFile
     });
     if (!finalResult.success) {
       errors.push(`Failed to compile ${cmd.sourcePath} with sourcemaps: ${finalResult.error}`);
@@ -548,7 +558,7 @@ async function build2(args) {
     fs2.mkdirSync(outdir, { recursive: true });
     cleanupStaleFiles(settingsPath, binDir);
     const commands = extractCommands(config);
-    const { compiled, errors } = await compileHandlers(commands, binDir);
+    const { compiled, errors } = await compileHandlers(commands, binDir, args.log);
     if (errors.length > 0) {
       return {
         success: false,

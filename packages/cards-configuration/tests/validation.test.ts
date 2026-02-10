@@ -624,4 +624,8 @@ describe('executeValidation', () => {
     expect(output.valid).toBe(false);
     expect(output.errors[0]).toContain('CARD_ID');
   });
+
+  // Note: Log file configuration is handled by the compiled wrapper preamble
+  // which sets process.env.CARDS_HOOKS_LOG_FILE before any Logger is constructed.
+  // See compiler.test.ts for tests covering log file embedding.
 });

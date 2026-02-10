@@ -45,7 +45,6 @@
     "@cards/protocol": "workspace:*",
     "esbuild": "^0.25.0",
     "glob": "^11.0.0",
-    "jiti": "^1.21.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {

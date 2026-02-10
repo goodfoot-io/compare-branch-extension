@@ -206,7 +206,8 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
  */
 async function compileHandlers(
   commands: CommandInfo[],
-  binDir: string
+  binDir: string,
+  logFile?: string
 ): Promise<{ compiled: CompiledHandler[]; errors: string[] }> {
   const compiled: CompiledHandler[] = [];
   const errors: string[] = [];
@@ -244,7 +245,8 @@ async function compileHandlers(
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
       sourcemap: false,
-      factoryType: cmd.factoryType
+      factoryType: cmd.factoryType,
+      logFile
     });
 
     if (!hashResult.success) {
@@ -263,7 +265,8 @@ async function compileHandlers(
       sourcePath: cmd.sourcePath,
       outputPath: finalOutputPath,
       sourcemap: true,
-      factoryType: cmd.factoryType
+      factoryType: cmd.factoryType,
+      logFile
     });
 
     if (!finalResult.success) {
@@ -532,8 +535,8 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
     // 4. Extract commands from config
     const commands = extractCommands(config);
 
-    // 5. Compile handlers
-    const { compiled, errors } = await compileHandlers(commands, binDir);
+    // 5. Compile handlers (pass --log path for embedding in compiled bundles)
+    const { compiled, errors } = await compileHandlers(commands, binDir, args.log);
 
     if (errors.length > 0) {
       return {

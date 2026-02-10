@@ -1,9 +1,10 @@
 /**
  * Configuration file loader for settings.config.ts files.
  *
- * Loads and validates TypeScript configuration files using jiti for runtime
- * TypeScript execution. Validates that the loaded module exports a valid
- * SettingsConfig with the required 'environments' property.
+ * Loads and validates TypeScript configuration files using esbuild to bundle
+ * them into a temporary ESM module, then dynamically imports the result.
+ * Validates that the loaded module exports a valid SettingsConfig with the
+ * required 'environments' property.
  *
  * @module
  *
@@ -19,29 +20,45 @@
  * ```
  */
 
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { extname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import * as esbuild from 'esbuild';
 import type { SettingsConfig } from '../config.js';
 
-// Use createRequire to import jiti, which is more reliable in nested jiti contexts
-const require = createRequire(import.meta.url);
-const createJiti = require('jiti') as JitiFunction;
-
 /**
- * JITI function type for creating a module loader.
+ * esbuild plugin that preserves `import.meta.url` and `import.meta.filename`
+ * per source file during bundling.
+ *
+ * Without this, all `import.meta.url` references in a bundle resolve to the
+ * output file's URL. Handlers use `import.meta.url` to set their `sourcePath`
+ * metadata, so we need each module to retain its original file identity.
  */
-type JitiFunction = (
-  filename: string,
-  opts?: {
-    interopDefault?: boolean;
-    requireCache?: boolean;
-    cache?: boolean | string;
-    esmResolve?: boolean;
+const preserveImportMeta: esbuild.Plugin = {
+  name: 'preserve-import-meta',
+  setup(build) {
+    build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
+      const source = readFileSync(args.path, 'utf-8');
+
+      // Only transform files that actually use import.meta
+      if (!source.includes('import.meta.url') && !source.includes('import.meta.filename')) {
+        return undefined;
+      }
+
+      const fileUrl = pathToFileURL(args.path).href;
+      const contents = source
+        .replaceAll('import.meta.url', JSON.stringify(fileUrl))
+        .replaceAll('import.meta.filename', JSON.stringify(args.path));
+
+      const ext = extname(args.path);
+      const loader: esbuild.Loader =
+        ext === '.ts' || ext === '.mts' ? 'ts' : ext === '.tsx' || ext === '.mtsx' ? 'tsx' : 'js';
+
+      return { contents, loader };
+    });
   }
-) => {
-  import: (id: string, importOptions: Record<string, unknown>) => Promise<unknown>;
 };
 
 /**
@@ -90,9 +107,10 @@ export type LoadResult = LoadSuccess | LoadFailure;
 /**
  * Load and validate a settings configuration file.
  *
- * Loads a TypeScript or JavaScript configuration file using jiti for runtime
- * TypeScript execution. The file must have a default export containing a
- * valid SettingsConfig object with an 'environments' property.
+ * Bundles a TypeScript or JavaScript configuration file using esbuild into a
+ * temporary ESM module, then dynamically imports it. The file must have a
+ * default export containing a valid SettingsConfig object with an
+ * 'environments' property.
  *
  * @param configPath - Path to the configuration file (relative or absolute)
  * @returns Promise resolving to a LoadResult indicating success or failure
@@ -110,22 +128,6 @@ export type LoadResult = LoadSuccess | LoadFailure;
  *   console.error('Failed to load:', result.error);
  * }
  * ```
- *
- * @example
- * ```typescript
- * // Handle different error cases
- * const result = await loadConfig('/path/to/config.ts');
- *
- * if (!result.success) {
- *   if (result.error.includes('does not exist')) {
- *     console.error('Config file not found');
- *   } else if (result.error.includes('no default export')) {
- *     console.error('Config must export default');
- *   } else if (result.error.includes('invalid structure')) {
- *     console.error('Config missing environments');
- *   }
- * }
- * ```
  */
 export async function loadConfig(configPath: string): Promise<LoadResult> {
   // Resolve to absolute path
@@ -139,29 +141,46 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
     };
   }
 
-  try {
-    // Get the current file path for jiti
-    // In ESM, we need to convert import.meta.url to a file path
-    const currentFile = fileURLToPath(import.meta.url);
+  const tempFile = join(tmpdir(), `cards-config-${randomUUID()}.mjs`);
 
-    // Create jiti instance for TypeScript execution
-    const jiti = createJiti(currentFile, {
-      interopDefault: true,
-      requireCache: false
+  try {
+    // Bundle the config file with esbuild. This handles TypeScript
+    // transpilation and resolves all imports into a single ESM file.
+    const buildResult = await esbuild.build({
+      entryPoints: [absolutePath],
+      outfile: tempFile,
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      target: 'es2022',
+      plugins: [preserveImportMeta],
+      banner: {
+        js: `import { createRequire as __createRequire } from 'node:module';\nconst require = __createRequire(import.meta.url);`
+      },
+      logLevel: 'silent'
     });
 
-    // Import the configuration file
-    const module = (await jiti.import(absolutePath, {})) as unknown;
+    if (buildResult.errors.length > 0) {
+      const errors = buildResult.errors.map((e) => e.text).join('\n');
+      return {
+        success: false,
+        error: `Failed to load configuration file: ${errors}`
+      };
+    }
+
+    // Dynamically import the bundled config
+    const mod = await import(pathToFileURL(tempFile).href);
+    const config = mod.default;
 
     // Check for default export
-    if (!module || typeof module !== 'object') {
+    if (!config || typeof config !== 'object') {
       return {
         success: false,
         error: `Configuration file has no default export: ${absolutePath}`
       };
     }
 
-    const maybeConfig = module as Record<string, unknown>;
+    const maybeConfig = config as Record<string, unknown>;
 
     // Validate basic structure (must have environments property)
     if (!maybeConfig.environments || typeof maybeConfig.environments !== 'object') {
@@ -178,11 +197,25 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
       configPath: absolutePath
     };
   } catch (error) {
-    // Handle import errors
+    // Handle esbuild build errors
+    if (error && typeof error === 'object' && 'errors' in error) {
+      const buildError = error as esbuild.BuildFailure;
+      const errors = buildError.errors.map((e) => e.text).join('\n');
+      return {
+        success: false,
+        error: `Failed to load configuration file: ${errors}`
+      };
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
       error: `Failed to load configuration file: ${errorMessage}`
     };
+  } finally {
+    // Clean up temp file
+    try {
+      unlinkSync(tempFile);
+    } catch {}
   }
 }

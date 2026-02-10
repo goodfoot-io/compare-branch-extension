@@ -189,10 +189,8 @@ export default {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        // When there's no default export, jiti returns module namespace
-        // which won't have 'environments' at the top level
-        expect(result.error).toContain('invalid structure');
-        expect(result.error).toContain('environments');
+        // Without a default export, module.default is undefined
+        expect(result.error).toContain('no default export');
       }
     });
 
@@ -202,10 +200,8 @@ export default {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        // Null default is wrapped as { default: null } by jiti,
-        // so it fails the environments check
-        expect(result.error).toContain('invalid structure');
-        expect(result.error).toContain('environments');
+        // null fails the !config check
+        expect(result.error).toContain('no default export');
       }
     });
 
