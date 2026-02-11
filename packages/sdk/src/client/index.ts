@@ -15,6 +15,9 @@ export type {
   CardsClientOptions,
   CardUpdateData,
   ListCardsOptions,
+  StreamResult,
+  StreamWriter,
+  StreamWriterOptions,
   TimelineOptions
 } from './types/client.js';
 // Error classes

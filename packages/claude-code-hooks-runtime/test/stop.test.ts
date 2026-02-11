@@ -3,11 +3,22 @@
  */
 
 import { Logger } from '@goodfoot/claude-code-hooks';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import hook from '../src/stop.js';
 
-// Logger is silent by default (no stdout/stderr output) — no mocking needed
 const logger = new Logger();
+
+/** Minimal set of env vars required by extractActionInput. */
+const ACTION_ENV = {
+  CARD_ID: 'card-456',
+  ACTION_NAME: 'Launch Claude',
+  ENVIRONMENT: 'staging',
+  EXECUTION_MODE: 'interactive',
+  API_BASE_URL: 'http://localhost:3000',
+  API_ACCESS_TOKEN: 'test-token',
+  WORKSPACE_PATH: '/workspace',
+  CARD_REPO_PATH: '/workspace/.cards/repo'
+} as const;
 
 describe('Stop Hook', () => {
   it('exports a valid hook function', () => {
@@ -19,16 +30,45 @@ describe('Stop Hook', () => {
     expect(hook.hookEventName).toBe('Stop');
   });
 
-  it('returns a valid output shape', async () => {
-    const mockInput = {} as Parameters<typeof hook>[0];
-    const context = { logger };
+  describe('inside an action subprocess', () => {
+    beforeEach(() => {
+      for (const [key, value] of Object.entries(ACTION_ENV)) {
+        process.env[key] = value;
+      }
+    });
 
-    const result = await hook(mockInput, context);
+    afterEach(() => {
+      for (const key of Object.keys(ACTION_ENV)) {
+        delete process.env[key];
+      }
+    });
 
-    // Verify output has expected structure
-    expect(result).toBeDefined();
-    expect(result).toHaveProperty('_type', 'Stop');
-    expect(result).toHaveProperty('stdout');
-    expect(typeof result.stdout).toBe('object');
+    it('approves stop with action context in systemMessage', async () => {
+      const mockInput = {} as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      const result = await hook(mockInput, context);
+
+      expect(result).toHaveProperty('_type', 'Stop');
+      expect(result).toHaveProperty('stdout');
+
+      const stdout = result.stdout as { systemMessage?: string };
+      expect(stdout.systemMessage).toContain('Launch Claude');
+      expect(stdout.systemMessage).toContain('card-456');
+      expect(stdout.systemMessage).toContain('interactive');
+    });
+  });
+
+  describe('outside an action subprocess', () => {
+    it('approves stop with an error message when action env vars are missing', async () => {
+      const mockInput = {} as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      const result = await hook(mockInput, context);
+
+      expect(result).toHaveProperty('_type', 'Stop');
+      const stdout = result.stdout as { systemMessage?: string };
+      expect(stdout.systemMessage).toContain('not running inside an action subprocess');
+    });
   });
 });

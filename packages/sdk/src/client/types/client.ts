@@ -197,3 +197,45 @@ export interface CommitInfo {
   /** ISO 8601 timestamp when the commit was added. */
   createdAt: string;
 }
+
+// ============================================================================
+// Stream Writer Types
+// ============================================================================
+
+/**
+ * Options for opening a stream writer.
+ */
+export interface StreamWriterOptions {
+  /** Human-readable stream title (sent as `X-Stream-Title` header). */
+  title?: string;
+  /** Session grouping identifier (sent as `X-Stream-Session-Id` header). */
+  sessionId?: string;
+}
+
+/**
+ * Server response after a stream is closed.
+ */
+export interface StreamResult {
+  /** The stream filename. */
+  filename: string;
+  /** The stream type key from settings.json. */
+  streamType: string;
+  /** Total number of lines ingested. */
+  lineCount: number;
+  /** Final stream status. */
+  status: string;
+}
+
+/**
+ * A writer for streaming JSONL lines to the server.
+ *
+ * Returned by {@link CardsClient.openStream}. Lines are sent in real-time
+ * over a chunked HTTP POST. Call {@link close} when the stream is finished
+ * to end the request and retrieve the server response.
+ */
+export interface StreamWriter {
+  /** Enqueue a single JSONL line to the stream. */
+  write(line: string): void;
+  /** Close the stream and await the server response. */
+  close(): Promise<StreamResult>;
+}

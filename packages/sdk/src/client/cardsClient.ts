@@ -16,6 +16,9 @@ import type {
   CommitInfo,
   GateApprovalResponse,
   ListCardsOptions,
+  StreamResult,
+  StreamWriter,
+  StreamWriterOptions,
   TimelineOptions
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
@@ -675,5 +678,79 @@ export class CardsClient {
   async getStream(cardId: string, filename: string): Promise<{ meta: StreamMeta; lines: string[] }> {
     const url = this.buildUrl(`/cards/${cardId}/streams/${encodeURIComponent(filename)}`);
     return this.request(() => this.getHttpClient().get<{ meta: StreamMeta; lines: string[] }>(url));
+  }
+
+  /**
+   * Opens a chunked JSONL stream to the server and returns a writer.
+   *
+   * The writer sends each line in real-time over a single HTTP POST using a
+   * `ReadableStream` body. Call {@link StreamWriter.close} when the producer
+   * is finished to end the request and retrieve the server's summary.
+   *
+   * @param cardId - Card ID to attach the stream to.
+   * @param streamType - Stream type key from settings.json (e.g., `"claude-code-session"`).
+   * @param filename - Stream filename (e.g., `"session-abc.jsonl"`).
+   * @param options - Optional title and session ID metadata.
+   * @returns A {@link StreamWriter} for pushing lines and closing the stream.
+   *
+   * @example
+   * ```typescript
+   * const stream = client.openStream(cardId, 'claude-code-session', 'run.jsonl');
+   * stream.write(JSON.stringify({ type: 'init' }));
+   * stream.write(JSON.stringify({ type: 'result' }));
+   * const result = await stream.close();
+   * ```
+   */
+  openStream(cardId: string, streamType: string, filename: string, options?: StreamWriterOptions): StreamWriter {
+    const encoder = new TextEncoder();
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+      }
+    });
+
+    const url = this.buildUrl(
+      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodeURIComponent(filename)}`
+    );
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/x-ndjson'
+    };
+    if (this.options.accessToken) {
+      headers['Authorization'] = `Bearer ${this.options.accessToken}`;
+    }
+    if (options?.title) {
+      headers['X-Stream-Title'] = options.title;
+    }
+    if (options?.sessionId) {
+      headers['X-Stream-Session-Id'] = options.sessionId;
+    }
+
+    // `duplex: 'half'` is required by undici for streaming request bodies
+    // but is not yet in the standard lib.dom RequestInit type.
+    const fetchOptions: RequestInit & { duplex: string } = {
+      method: 'POST',
+      headers,
+      body,
+      duplex: 'half'
+    };
+
+    const responsePromise = fetch(url, fetchOptions);
+
+    return {
+      write(line: string): void {
+        controller.enqueue(encoder.encode(`${line}\n`));
+      },
+      close: async (): Promise<StreamResult> => {
+        controller.close();
+        return this.request(async () => {
+          const response = await responsePromise;
+          if (!response.ok) throw response;
+          return response.json() as Promise<StreamResult>;
+        });
+      }
+    };
   }
 }

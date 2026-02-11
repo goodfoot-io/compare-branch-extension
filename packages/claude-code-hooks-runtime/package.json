@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cards/sdk": "workspace:*",
     "@goodfoot/claude-code-hooks": "^1.0.20"
   },
   "devDependencies": {
