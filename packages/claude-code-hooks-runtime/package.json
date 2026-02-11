@@ -1,9 +1,9 @@
 {
-  "name": "@cards/claude-code-hooks",
+  "name": "@cards/claude-code-hooks-runtime",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/claude-code-cli/hooks/hooks.json\" --log \"../../../.cards/logs/claude-code-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node)\"",
+    "build": "claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/runtime/hooks/hooks.json\" --log \"../../../.cards/logs/runtime-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node)\"",
     "test": "vitest run",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"
