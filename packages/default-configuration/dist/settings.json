@@ -1,0 +1,61 @@
+{
+  "environments": {
+    "default": {
+      "version": 1,
+      "actions": [
+        {
+          "id": "launch",
+          "name": "Launch",
+          "command": {
+            "command": "$VSCODE_NODE_PATH ./bin/launch.01c3f071.mjs",
+            "timeout": 3600000
+          },
+          "description": "Start a Claude session for the card",
+          "supportsBackgroundMode": true
+        }
+      ],
+      "description": "Standard Claude Code workflows",
+      "types": {
+        "adaptive-card": {
+          "version": "1.0.0",
+          "validator": {
+            "command": "$VSCODE_NODE_PATH ./bin/adaptive-card-validator.57d406da.mjs",
+            "timeout": 30000
+          }
+        },
+        "adaptive-card-submission": {
+          "version": "1.0.0",
+          "validator": {
+            "command": "$VSCODE_NODE_PATH ./bin/adaptive-card-submission-validator.d6e04c3f.mjs",
+            "timeout": 30000
+          }
+        },
+        "note": {
+          "version": "1.0.0",
+          "validator": {
+            "command": "$VSCODE_NODE_PATH ./bin/note-validator.d4e43c0a.mjs",
+            "timeout": 30000
+          }
+        }
+      },
+      "streams": {
+        "claude-code-session": {
+          "version": 1,
+          "transform": {
+            "path": "bin/claude-code-session.cf9e4344.mjs"
+          },
+          "maxLineLength": 1048576
+        }
+      }
+    }
+  },
+  "__generated": {
+    "files": [
+      "launch.01c3f071.mjs",
+      "adaptive-card-validator.57d406da.mjs",
+      "adaptive-card-submission-validator.d6e04c3f.mjs",
+      "note-validator.d4e43c0a.mjs",
+      "claude-code-session.cf9e4344.mjs"
+    ]
+  }
+}

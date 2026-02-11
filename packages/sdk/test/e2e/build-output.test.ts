@@ -22,10 +22,7 @@ import type { Settings } from '../../src/config/schema.js';
  * Path to the real build output from claude-code configuration.
  * This tests against actual built artifacts rather than mocked fixtures.
  */
-const CLAUDE_CODE_DIST = path.resolve(
-  __dirname,
-  '../../../../../packages/cards/default-configuration/claude-code/dist'
-);
+const CLAUDE_CODE_DIST = path.resolve(__dirname, '../../../default-configuration/dist');
 
 // ============================================================================
 // Settings.json Structure Validation

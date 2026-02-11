@@ -9,7 +9,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// src/configuration/cli/config-loader.ts
+// src/config/cli/config-loader.ts
 var config_loader_exports = {};
 __export(config_loader_exports, {
   loadConfig: () => loadConfig
@@ -94,7 +94,7 @@ const require = __createRequire(import.meta.url);`
 }
 var FACTORY_CALL_RE, injectSourcePath;
 var init_config_loader = __esm({
-  "src/configuration/cli/config-loader.ts"() {
+  "src/config/cli/config-loader.ts"() {
     "use strict";
     FACTORY_CALL_RE = /\b(define(?:Action|TypeValidator|TypeCreate|TypeUpdate|TypeDelete|StreamTransform))\s*\(\s*\{/g;
     injectSourcePath = {
@@ -116,14 +116,14 @@ var init_config_loader = __esm({
   }
 });
 
-// src/configuration/cli/args.ts
+// src/config/cli/args.ts
 var args_exports = {};
 __export(args_exports, {
   parseArgs: () => parseArgs
 });
 function parseArgs(argv) {
   if (argv.length === 0) {
-    return { success: false, error: "Missing command. Usage: cards-configuration-v2 build [options]" };
+    return { success: false, error: "Missing command. Usage: cards-sdk build [options]" };
   }
   const command = argv[0];
   if (command !== "build") {
@@ -181,17 +181,17 @@ function parseArgs(argv) {
   };
 }
 var init_args = __esm({
-  "src/configuration/cli/args.ts"() {
+  "src/config/cli/args.ts"() {
     "use strict";
   }
 });
 
-// src/configuration/cli/index.ts
+// src/config/cli/index.ts
 import * as crypto from "node:crypto";
 import * as fs2 from "node:fs";
 import * as path2 from "node:path";
 
-// src/configuration/cli/compiler.ts
+// src/config/cli/compiler.ts
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as esbuild from "esbuild";
@@ -258,7 +258,7 @@ export function init(ctx) { return cmd.init?.(ctx); }
 export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === "typeValidator") {
-      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/configuration/validation.ts"));
+      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/config/validation.ts"));
       wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
@@ -266,7 +266,7 @@ import { executeValidation } from '${validationImport}';
 executeValidation(handler);
 `;
     } else {
-      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/configuration/runtime.ts"));
+      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/config/runtime.ts"));
       wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
@@ -325,13 +325,13 @@ executeCommand(handler);
   }
 }
 
-// src/configuration/cli/index.ts
+// src/config/cli/index.ts
 function tryUnlink(filePath) {
   try {
     fs2.unlinkSync(filePath);
   } catch (err) {
     if (err.code !== "ENOENT") {
-      console.warn("[cards-configuration] Failed to clean up file %s: %s", filePath, err.message);
+      console.warn("[cards-sdk] Failed to clean up file %s: %s", filePath, err.message);
     }
   }
 }
@@ -570,7 +570,7 @@ function cleanupStaleFiles(settingsPath, binDir) {
     }
   } catch (err) {
     if (err.code !== "ENOENT") {
-      console.warn("[cards-configuration] Failed to read previous settings for cleanup: %s", err.message);
+      console.warn("[cards-sdk] Failed to read previous settings for cleanup: %s", err.message);
     }
   }
 }
@@ -634,7 +634,7 @@ async function main() {
   const parseResult = parseArgs2(process.argv.slice(2));
   if (!parseResult.success) {
     console.error("Error:", parseResult.error);
-    console.error("\nUsage: cards-configuration-v2 build -c <config> -o <outdir>");
+    console.error("\nUsage: cards-sdk build -c <config> -o <outdir>");
     process.exit(1);
   }
   const buildResult = await build3(parseResult.args);
@@ -650,5 +650,5 @@ async function main() {
   process.exit(0);
 }
 
-// src/configuration/cli.ts
+// src/config/cli.ts
 main();
