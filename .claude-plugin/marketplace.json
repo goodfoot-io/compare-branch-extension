@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.321",
+    "version": "1.0.322",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "cards",
-      "version": "1.0.81",
+      "version": "1.0.82",
       "source": "./plugins/cards",
       "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {
@@ -22,7 +22,7 @@
     },
     {
       "name": "cards-configuration",
-      "version": "1.0.18",
+      "version": "1.0.19",
       "source": "./plugins/cards-configuration",
       "description": "Claude Code plugin for interacting with Cards extension's Cards Configuration SDK",
       "author": {
@@ -32,7 +32,7 @@
     },
     {
       "name": "claude-code-cli",
-      "version": "2.0.118",
+      "version": "1.0.1",
       "source": "./plugins/claude-code-cli",
       "description": "Hooks for session tracking with Cards extension's Cards API",
       "author": {

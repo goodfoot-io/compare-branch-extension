@@ -1,7 +1,7 @@
 {
   "name": "claude-code-cli",
-  "version": "2.0.118",
-  "description": "Hooks for session tracking with Cards extension's Cards API",
+  "version": "1.0.1",
+  "description": "Plugin for Claude CLI sessions spawned by the Cards extension Launch action",
   "author": {
     "name": "Goodfoot Media LLC"
   },
