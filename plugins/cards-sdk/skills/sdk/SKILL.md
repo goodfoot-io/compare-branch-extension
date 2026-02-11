@@ -246,7 +246,7 @@ After `yarn build`, the CLI compiles stream transforms into self-contained `.mjs
 Before debugging issues, verify:
 
 - [ ] `@cards/sdk/config` is in `package.json` dependencies
-- [ ] Build script exists: `"build": "cards-configuration build -c settings.config.ts -o dist"`
+- [ ] Build script exists: `"build": "cards-sdk build -c settings.config.ts -o dist"`
 - [ ] Handlers rebuilt after last code change (`yarn build`)
 - [ ] Handler files use `export default factoryFunction(...)` pattern
 - [ ] Stream transforms do not use `require`, `fetch`, `setTimeout`, `fs`, or dynamic `import()` (sandbox forbids them)

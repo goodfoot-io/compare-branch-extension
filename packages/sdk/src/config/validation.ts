@@ -101,7 +101,7 @@ export function validationError(errors: string[]): ValidationResult {
  * ```typescript
  * // validator.mjs
  * import { readFileSync } from 'node:fs';
- * import { defineTypeValidator, executeValidation, validationSuccess } from '@cards/configuration';
+ * import { defineTypeValidator, executeValidation, validationSuccess } from '@cards/sdk/config';
  *
  * const validate = defineTypeValidator(
  *   { typeName: 'note', timeout: 30000 },

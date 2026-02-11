@@ -110,7 +110,7 @@ logger.setLogFile(null);
 The `--log` CLI flag embeds a default log destination into every compiled handler:
 
 ```bash
-cards-configuration build -c settings.config.ts -o dist --log .cards/logs/hooks.log
+cards-sdk build -c settings.config.ts -o dist --log .cards/logs/hooks.log
 ```
 
 The compiler generates a preamble in each handler bundle that resolves the path against `CARD_REPO_PATH` and sets `process.env.CARDS_HOOKS_LOG_FILE` as a compiled const — before any Logger is constructed:

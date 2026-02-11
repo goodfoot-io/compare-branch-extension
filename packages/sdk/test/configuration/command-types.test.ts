@@ -12,7 +12,7 @@ import type {
   TypeDeleteCommand,
   TypeUpdateCommand,
   TypeValidatorCommand
-} from '../../src/configuration/command-types.js';
+} from '../../src/config/command-types.js';
 import type {
   ActionContext,
   ActionInput,
@@ -20,7 +20,7 @@ import type {
   TypeHookInput,
   TypeValidatorContext,
   ValidatorFileRequest
-} from '../../src/configuration/inputs.js';
+} from '../../src/config/inputs.js';
 import type { ValidationResult } from '../../src/protocol/index.js';
 
 describe('command-types', () => {

@@ -9,7 +9,7 @@ import {
   exitWithError,
   type HookExecutionResult,
   writeError
-} from '../../src/configuration/exit-codes.js';
+} from '../../src/config/exit-codes.js';
 
 describe('EXIT_CODES', () => {
   it('has SUCCESS as 0', () => {

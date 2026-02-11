@@ -10,12 +10,12 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { compileHandler } from '../../../src/configuration/cli/compiler.js';
+import { compileHandler } from '../../../src/config/cli/compiler.js';
 
 // Resolve the path to the factories module for test fixtures
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FACTORIES_PATH = path.resolve(__dirname, '../../../src/configuration/factories/index.js');
-const STREAM_TRANSFORM_PATH = path.resolve(__dirname, '../../../src/configuration/factories/stream-transform.js');
+const FACTORIES_PATH = path.resolve(__dirname, '../../../src/config/factories/index.js');
+const STREAM_TRANSFORM_PATH = path.resolve(__dirname, '../../../src/config/factories/stream-transform.js');
 
 // ============================================================================
 // Test Helpers

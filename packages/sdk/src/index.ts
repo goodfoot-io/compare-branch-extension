@@ -27,15 +27,15 @@ export type {
   TypeDeleteCommand,
   TypeUpdateCommand,
   TypeValidatorCommand
-} from './configuration/command-types.js';
+} from './config/command-types.js';
 // --- Configuration ---
 export type {
   EnvironmentConfig,
   SettingsConfig,
   StreamConfigDefinition,
   TypeConfigDefinition
-} from './configuration/config.js';
-export { defineConfig, serializeSettings } from './configuration/define-config.js';
+} from './config/config.js';
+export { defineConfig, serializeSettings } from './config/define-config.js';
 // --- Environment Variables ---
 export {
   CARDS_ENV_VARS,
@@ -43,27 +43,27 @@ export {
   extractTypeInput,
   getExecutionMode,
   readSwitchToInteractiveData
-} from './configuration/env.js';
+} from './config/env.js';
 // --- Exit Codes ---
 export {
   EXIT_CODES,
   type ExitCode,
   exitWithError,
   writeError
-} from './configuration/exit-codes.js';
+} from './config/exit-codes.js';
 // --- Action Factories ---
 export {
   type ActionConfig,
   type ActionHandler,
   defineAction
-} from './configuration/factories/action.js';
+} from './config/factories/action.js';
 // --- Stream Transform Factories ---
 export {
   defineStreamTransform,
   type StreamInitHandler,
   type StreamTransformConfig,
   type StreamTransformHandler
-} from './configuration/factories/stream-transform.js';
+} from './config/factories/stream-transform.js';
 // --- Type Hook Factories (excluding TypeConfig) ---
 export {
   defineTypeCreate,
@@ -72,7 +72,7 @@ export {
   defineTypeValidator,
   type TypeHandler,
   type TypeValidatorHandler
-} from './configuration/factories/type-hooks.js';
+} from './config/factories/type-hooks.js';
 // --- Input Types ---
 export type {
   ActionContext,
@@ -81,7 +81,7 @@ export type {
   TypeHookInput,
   TypeValidatorContext,
   ValidatorFileRequest
-} from './configuration/inputs.js';
+} from './config/inputs.js';
 // --- Logger ---
 export {
   type ILogger,
@@ -94,21 +94,21 @@ export {
   type LogLevel,
   logger,
   type Unsubscribe
-} from './configuration/logger.js';
+} from './config/logger.js';
 // --- Runtime ---
-export { executeCommand } from './configuration/runtime.js';
+export { executeCommand } from './config/runtime.js';
 // --- Testing Utilities ---
 export type {
   TestRequestOptions,
   TestValidationOptions,
   TestValidationResult
-} from './configuration/testing.js';
-export { createTestRequest, testValidation } from './configuration/testing.js';
+} from './config/testing.js';
+export { createTestRequest, testValidation } from './config/testing.js';
 // --- Type Utilities ---
-export type { SameShape } from './configuration/type-utils.js';
+export type { SameShape } from './config/type-utils.js';
 // --- Validation ---
 export {
   executeValidation,
   validationError,
   validationSuccess
-} from './configuration/validation.js';
+} from './config/validation.js';

@@ -5,7 +5,7 @@
  * the SameShape utility catches typos and excess properties at compile time.
  */
 import { describe, expectTypeOf, it } from 'vitest';
-import type { SameShape } from '../../src/configuration/type-utils.js';
+import type { SameShape } from '../../src/config/type-utils.js';
 
 // ============================================================================
 // Test Types

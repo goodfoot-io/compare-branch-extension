@@ -14,13 +14,13 @@ import type {
   TypeDeleteCommand,
   TypeUpdateCommand,
   TypeValidatorCommand
-} from '../../src/configuration/command-types.js';
+} from '../../src/config/command-types.js';
 import type {
   EnvironmentConfig,
   SettingsConfig,
   StreamConfigDefinition,
   TypeConfigDefinition
-} from '../../src/configuration/config.js';
+} from '../../src/config/config.js';
 
 // ============================================================================
 // Type-Level Tests

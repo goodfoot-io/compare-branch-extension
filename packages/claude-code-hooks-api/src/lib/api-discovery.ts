@@ -10,12 +10,12 @@
  * @module lib/api-discovery
  */
 
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { CardsClient } from "@cards/sdk/client";
-import type { CardsApiInfo, SessionBaseline } from "@cards/sdk/protocol";
-import type { Logger } from "@goodfoot/claude-code-hooks";
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { CardsClient } from '@cards/sdk/client';
+import type { CardsApiInfo, SessionBaseline } from '@cards/sdk/protocol';
+import type { Logger } from '@goodfoot/claude-code-hooks';
 
 /**
  * Reads the Cards API discovery file and returns the full typed payload.
@@ -27,30 +27,30 @@ import type { Logger } from "@goodfoot/claude-code-hooks";
  * @returns The CardsApiInfo payload, or null if discovery fails.
  */
 export async function discoverApiInfo(logger?: Logger): Promise<CardsApiInfo | null> {
-  if (process.env.API_TEST_MODE === "1") {
-    logger?.debug("API_TEST_MODE: Using mock API info");
+  if (process.env.API_TEST_MODE === '1') {
+    logger?.debug('API_TEST_MODE: Using mock API info');
     return {
-      host: "localhost",
+      host: 'localhost',
       port: 9999,
       pid: 99999,
-      accessToken: "test-token",
-      startedAt: "2024-01-01T00:00:00Z",
+      accessToken: 'test-token',
+      startedAt: '2024-01-01T00:00:00Z'
     };
   }
 
-  const configPath = join(homedir(), ".cards", "cards-api.json");
+  const configPath = join(homedir(), '.cards', 'cards-api.json');
   try {
-    const content = await readFile(configPath, "utf-8");
+    const content = await readFile(configPath, 'utf-8');
     const config = JSON.parse(content) as Record<string, unknown>;
 
     if (
-      typeof config.host !== "string" ||
-      typeof config.port !== "number" ||
-      typeof config.accessToken !== "string" ||
-      typeof config.pid !== "number" ||
-      typeof config.startedAt !== "string"
+      typeof config.host !== 'string' ||
+      typeof config.port !== 'number' ||
+      typeof config.accessToken !== 'string' ||
+      typeof config.pid !== 'number' ||
+      typeof config.startedAt !== 'string'
     ) {
-      logger?.debug("API info discovery failed", { error: "Config missing required fields" });
+      logger?.debug('API info discovery failed', { error: 'Config missing required fields' });
       return null;
     }
 
@@ -60,10 +60,10 @@ export async function discoverApiInfo(logger?: Logger): Promise<CardsApiInfo | n
       accessToken: config.accessToken,
       pid: config.pid,
       startedAt: config.startedAt,
-      sessionBaseline: config.sessionBaseline as SessionBaseline | undefined,
+      sessionBaseline: config.sessionBaseline as SessionBaseline | undefined
     };
   } catch (error) {
-    logger?.debug("API info discovery failed", { error: String(error) });
+    logger?.debug('API info discovery failed', { error: String(error) });
     return null;
   }
 }
@@ -83,6 +83,6 @@ export async function createCardsClient(logger?: Logger): Promise<CardsClient | 
 
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken,
+    accessToken: info.accessToken
   });
 }

@@ -13,8 +13,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { LogEvent } from '../../src/configuration/logger.js';
-import { LOG_LEVELS, Logger } from '../../src/configuration/logger.js';
+import type { LogEvent } from '../../src/config/logger.js';
+import { LOG_LEVELS, Logger } from '../../src/config/logger.js';
 
 describe('LOG_LEVELS constant', () => {
   it('defines all four log levels in severity order', () => {
@@ -576,7 +576,7 @@ describe('Logger', () => {
 describe('logger singleton', () => {
   it('exports a singleton logger instance', async () => {
     // Import the singleton
-    const { logger } = await import('../../src/configuration/logger.js');
+    const { logger } = await import('../../src/config/logger.js');
 
     expect(logger).toBeInstanceOf(Logger);
   });

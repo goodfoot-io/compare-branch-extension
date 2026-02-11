@@ -73,7 +73,7 @@ export type StreamInitHandler = (context: StreamInitContext) => void | Promise<v
  * @example
  * ```typescript
  * // transforms/jsonl-sanitize.ts
- * import { defineStreamTransform } from '@cards/configuration';
+ * import { defineStreamTransform } from '@cards/sdk/config';
  *
  * export default defineStreamTransform(
  *   {
@@ -92,7 +92,7 @@ export type StreamInitHandler = (context: StreamInitContext) => void | Promise<v
  * @example With init handler
  * ```typescript
  * // transforms/jsonl-with-state.ts
- * import { defineStreamTransform } from '@cards/configuration';
+ * import { defineStreamTransform } from '@cards/sdk/config';
  *
  * export default defineStreamTransform(
  *   { streamType: 'jsonl' },

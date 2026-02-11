@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { defineTypeValidator } from '../../src/configuration/factories/type-hooks.js';
-import type { ValidatorFileRequest } from '../../src/configuration/inputs.js';
-import { createTestRequest, testValidation } from '../../src/configuration/testing.js';
-import { validationError, validationSuccess } from '../../src/configuration/validation.js';
+import { defineTypeValidator } from '../../src/config/factories/type-hooks.js';
+import type { ValidatorFileRequest } from '../../src/config/inputs.js';
+import { createTestRequest, testValidation } from '../../src/config/testing.js';
+import { validationError, validationSuccess } from '../../src/config/validation.js';
 
 describe('Testing Utilities', () => {
   describe('createTestRequest', () => {

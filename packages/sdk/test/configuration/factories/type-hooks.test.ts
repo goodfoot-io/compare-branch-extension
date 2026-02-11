@@ -16,14 +16,14 @@ import {
   type TypeConfig,
   type TypeHandler,
   type TypeValidatorHandler
-} from '../../../src/configuration/factories/type-hooks.js';
+} from '../../../src/config/factories/type-hooks.js';
 import type {
   TypeHookContext,
   TypeHookInput,
   TypeValidatorContext,
   ValidatorFileRequest
-} from '../../../src/configuration/inputs.js';
-import type { ILogger } from '../../../src/configuration/logger.js';
+} from '../../../src/config/inputs.js';
+import type { ILogger } from '../../../src/config/logger.js';
 import type { ValidationResult } from '../../../src/protocol/index.js';
 
 // Mock input and context for testing

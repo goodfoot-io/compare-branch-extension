@@ -1,5 +1,5 @@
 /**
- * @cards/configuration
+ * @cards/sdk/config
  *
  * Type-safe configuration library v2 for the Cards Extension with hooks,
  * validators, and type configurations.

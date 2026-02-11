@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parseHttpRequest } from '../../src/configuration/http-parser.js';
+import { parseHttpRequest } from '../../src/config/http-parser.js';
 
 describe('HTTP Parser', () => {
   describe('parseHttpRequest', () => {

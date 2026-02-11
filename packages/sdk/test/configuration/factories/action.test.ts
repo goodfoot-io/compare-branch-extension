@@ -6,9 +6,9 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { defineAction } from '../../../src/configuration/factories/action.js';
-import type { ActionContext, ActionInput } from '../../../src/configuration/inputs.js';
-import type { ILogger } from '../../../src/configuration/logger.js';
+import { defineAction } from '../../../src/config/factories/action.js';
+import type { ActionContext, ActionInput } from '../../../src/config/inputs.js';
+import type { ILogger } from '../../../src/config/logger.js';
 
 describe('defineAction', () => {
   // Sample input and context for testing

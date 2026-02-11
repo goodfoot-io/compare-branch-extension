@@ -93,7 +93,7 @@ function tryUnlink(filePath: string): void {
     fs.unlinkSync(filePath);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.warn('[cards-configuration] Failed to clean up file %s: %s', filePath, (err as Error).message);
+      console.warn('[cards-sdk] Failed to clean up file %s: %s', filePath, (err as Error).message);
     }
   }
 }
@@ -479,7 +479,7 @@ function cleanupStaleFiles(settingsPath: string, binDir: string): void {
   } catch (err) {
     // Ignore ENOENT (settings file doesn't exist), log other errors
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.warn('[cards-configuration] Failed to read previous settings for cleanup: %s', (err as Error).message);
+      console.warn('[cards-sdk] Failed to read previous settings for cleanup: %s', (err as Error).message);
     }
   }
 }
@@ -583,7 +583,7 @@ export async function main(): Promise<void> {
 
   if (!parseResult.success) {
     console.error('Error:', parseResult.error);
-    console.error('\nUsage: cards-configuration-v2 build -c <config> -o <outdir>');
+    console.error('\nUsage: cards-sdk build -c <config> -o <outdir>');
     process.exit(1);
   }
 

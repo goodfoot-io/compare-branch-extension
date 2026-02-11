@@ -6,14 +6,14 @@
  * @module stop
  */
 
-import { stopHook, stopOutput } from "@goodfoot/claude-code-hooks";
-import { removePidEntry } from "./lib/claude-sessions.js";
-import { findClaudePid } from "./lib/process-tree.js";
+import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
+import { removePidEntry } from './lib/claude-sessions.js';
+import { findClaudePid } from './lib/process-tree.js';
 
 export default stopHook({}, async (_input, { logger }) => {
   // If CARD_ID is set, the execution wrapper manages lifecycle
   if (process.env.CARD_ID) {
-    return stopOutput({ decision: "approve" });
+    return stopOutput({ decision: 'approve' });
   }
 
   try {
@@ -23,8 +23,8 @@ export default stopHook({}, async (_input, { logger }) => {
     }
   } catch (error) {
     // Fail-open: never block Claude from stopping
-    logger.debug("Stop hook cleanup error", { error: String(error) });
+    logger.debug('Stop hook cleanup error', { error: String(error) });
   }
 
-  return stopOutput({ decision: "approve" });
+  return stopOutput({ decision: 'approve' });
 });

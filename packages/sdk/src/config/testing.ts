@@ -82,7 +82,7 @@ export interface TestValidationResult {
  * @returns The validation result
  * @example
  * ```typescript
- * import { testValidation, createTestRequest, defineTypeValidator, validationSuccess } from '@cards/configuration';
+ * import { testValidation, createTestRequest, defineTypeValidator, validationSuccess } from '@cards/sdk/config';
  *
  * const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
  *   // read file at request.filePath and validate...

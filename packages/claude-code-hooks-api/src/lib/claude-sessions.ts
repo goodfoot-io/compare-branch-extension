@@ -14,22 +14,22 @@
  * @module lib/claude-sessions
  */
 
-import { mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import type { Logger } from "@goodfoot/claude-code-hooks";
-import { isProcessAlive } from "./ipc.js";
+import { mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import type { Logger } from '@goodfoot/claude-code-hooks';
+import { isProcessAlive } from './ipc.js';
 
 function getCardsDir(): string {
-  return join(homedir(), ".cards");
+  return join(homedir(), '.cards');
 }
 
 export function getRegistryPath(): string {
-  return join(getCardsDir(), "claude-sessions.json");
+  return join(getCardsDir(), 'claude-sessions.json');
 }
 
 export function getLockPath(): string {
-  return join(getCardsDir(), "claude-sessions.lock");
+  return join(getCardsDir(), 'claude-sessions.lock');
 }
 
 export const LOCK_TIMEOUT_MS = 2000;
@@ -58,15 +58,15 @@ function acquireLock(logger?: Logger): boolean {
   while (Date.now() - startTime < LOCK_TIMEOUT_MS) {
     try {
       mkdirSync(getCardsDir(), { recursive: true, mode: 0o700 });
-      const fd = openSync(lockPath, "wx", 0o600);
+      const fd = openSync(lockPath, 'wx', 0o600);
       writeFileSync(fd, String(process.pid));
       return true;
     } catch (error) {
-      if (error instanceof Error && "code" in error) {
+      if (error instanceof Error && 'code' in error) {
         const code = (error as NodeJS.ErrnoException).code;
-        if (code === "EEXIST") {
+        if (code === 'EEXIST') {
           try {
-            const lockContent = readFileSync(lockPath, "utf-8");
+            const lockContent = readFileSync(lockPath, 'utf-8');
             const holderPid = Number.parseInt(lockContent.trim(), 10);
 
             if (!Number.isNaN(holderPid) && !isProcessAlive(holderPid)) {
@@ -98,7 +98,7 @@ function acquireLock(logger?: Logger): boolean {
     }
   }
 
-  logger?.warn?.("Lock acquisition timeout, proceeding without lock (fail-open)");
+  logger?.warn?.('Lock acquisition timeout, proceeding without lock (fail-open)');
   return false;
 }
 
@@ -112,7 +112,7 @@ function releaseLock(logger?: Logger): void {
 
 function readRegistryLocked(): ClaudeSessionRegistry {
   try {
-    const content = readFileSync(getRegistryPath(), "utf-8");
+    const content = readFileSync(getRegistryPath(), 'utf-8');
     return JSON.parse(content) as ClaudeSessionRegistry;
   } catch {
     return { sessions: {} };
@@ -205,7 +205,7 @@ export async function associatePidWithCard(pid: number, cardId: string, logger?:
       registry.sessions[pidStr] = {
         cardId,
         pendingCommits: [],
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       return pendingCommits;
@@ -226,7 +226,7 @@ export async function recordPendingCommit(pid: number, sha: string, logger?: Log
       const pidStr = String(pid);
       const entry = registry.sessions[pidStr] ?? {
         pendingCommits: [],
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       if (!entry.pendingCommits.includes(sha)) {

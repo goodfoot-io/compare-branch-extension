@@ -18,8 +18,8 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { build } from '../../src/configuration/cli/index.js';
-import type { Settings } from '../../src/configuration/schema.js';
+import { build } from '../../src/config/cli/index.js';
+import type { Settings } from '../../src/config/schema.js';
 
 const exec = promisify(execCallback);
 
@@ -32,7 +32,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /**
  * Path to the factories module for creating valid handlers.
  */
-const FACTORIES_PATH = path.resolve(__dirname, '../../src/configuration/factories/index.js');
+const FACTORIES_PATH = path.resolve(__dirname, '../../src/config/factories/index.js');
 
 /**
  * Temporary directory for test fixtures.
@@ -1062,10 +1062,7 @@ describe('builder CLI: stream transform builds', () => {
   /**
    * Path to the stream transform factory for test fixtures.
    */
-  const STREAM_TRANSFORM_FACTORY_PATH = path.resolve(
-    __dirname,
-    '../../src/configuration/factories/stream-transform.js'
-  );
+  const STREAM_TRANSFORM_FACTORY_PATH = path.resolve(__dirname, '../../src/config/factories/stream-transform.js');
 
   /**
    * Creates a minimal valid stream transform handler.

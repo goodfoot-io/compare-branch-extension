@@ -13,7 +13,7 @@ import type {
   Settings,
   StreamDefinition,
   TypeDefinition
-} from '../../src/configuration/schema.js';
+} from '../../src/config/schema.js';
 
 // ============================================================================
 // Command Tests

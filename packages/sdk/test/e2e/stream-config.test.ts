@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { TransformContext } from '../../src/configuration/command-types.js';
+import type { TransformContext } from '../../src/config/command-types.js';
 import {
   defineAction,
   defineStreamTransform,

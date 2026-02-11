@@ -12,11 +12,11 @@ import type {
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand
-} from '../../src/configuration/command-types.js';
-import { CARDS_ENV_VARS } from '../../src/configuration/env.js';
-import { EXIT_CODES } from '../../src/configuration/exit-codes.js';
-import { logger } from '../../src/configuration/logger.js';
-import { executeCommand } from '../../src/configuration/runtime.js';
+} from '../../src/config/command-types.js';
+import { CARDS_ENV_VARS } from '../../src/config/env.js';
+import { EXIT_CODES } from '../../src/config/exit-codes.js';
+import { logger } from '../../src/config/logger.js';
+import { executeCommand } from '../../src/config/runtime.js';
 
 describe('runtime', () => {
   // Store original env vars

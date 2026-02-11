@@ -7,8 +7,8 @@ import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SwitchToInteractiveResponse } from '../../src/configuration/socket-client.js';
-import { SocketClient } from '../../src/configuration/socket-client.js';
+import type { SwitchToInteractiveResponse } from '../../src/config/socket-client.js';
+import { SocketClient } from '../../src/config/socket-client.js';
 
 describe('SocketClient', () => {
   let server: net.Server;

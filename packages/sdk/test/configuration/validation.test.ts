@@ -6,10 +6,10 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineTypeValidator } from '../../src/configuration/factories/type-hooks.js';
-import { parseHttpRequest } from '../../src/configuration/http-parser.js';
-import type { ValidatorFileRequest } from '../../src/configuration/inputs.js';
-import { executeValidation, validationError, validationSuccess } from '../../src/configuration/validation.js';
+import { defineTypeValidator } from '../../src/config/factories/type-hooks.js';
+import { parseHttpRequest } from '../../src/config/http-parser.js';
+import type { ValidatorFileRequest } from '../../src/config/inputs.js';
+import { executeValidation, validationError, validationSuccess } from '../../src/config/validation.js';
 
 describe('HTTP Parser', () => {
   describe('parseHttpRequest', () => {

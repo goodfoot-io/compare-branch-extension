@@ -6,4 +6,4 @@
  * @module
  */
 
-export * from './configuration/testing.js';
+export * from './config/testing.js';

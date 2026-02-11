@@ -7,10 +7,10 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { build, main } from '../../../src/configuration/cli/index.js';
+import { build, main } from '../../../src/config/cli/index.js';
 
 // Test fixtures directory - use a stable path for this test file
-const FIXTURES_DIR = '/tmp/cards-configuration-cli-index-test-fixtures';
+const FIXTURES_DIR = '/tmp/cards-sdk-cli-index-test-fixtures';
 
 // Module-level setup/teardown so fixtures are available to all describe blocks
 beforeAll(() => {
@@ -421,7 +421,7 @@ describe('build', () => {
 });
 
 describe('stream transforms', () => {
-  const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../../src/configuration/factories/stream-transform.js');
+  const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../../src/config/factories/stream-transform.js');
   let testDir: string;
 
   beforeEach(() => {

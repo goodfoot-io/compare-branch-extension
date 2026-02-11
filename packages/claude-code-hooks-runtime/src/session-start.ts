@@ -4,12 +4,12 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { sessionStartHook, sessionStartOutput } from "@goodfoot/claude-code-hooks";
+import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
 
 export default sessionStartHook({}, (input, { logger }) => {
-  logger.info("SessionStart hook triggered", { input });
+  logger.info('SessionStart hook triggered', { input });
   return sessionStartOutput({
-    systemMessage: "Session initialized by SessionStart hook.",
-    hookSpecificOutput: { additionalContext: "Environment ready." },
+    systemMessage: 'Session initialized by SessionStart hook.',
+    hookSpecificOutput: { additionalContext: 'Environment ready.' }
   });
 });

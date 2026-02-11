@@ -33,7 +33,7 @@ export interface ErrorResult {
 export type ParseResult = SuccessResult | ErrorResult;
 
 /**
- * Parse command-line arguments for the cards-configuration-v2 CLI.
+ * Parse command-line arguments for the cards-sdk CLI.
  *
  * Supports the build command with the following arguments:
  * - `-c, --config <path>` - Path to settings.config.ts (required)
@@ -56,7 +56,7 @@ export type ParseResult = SuccessResult | ErrorResult;
 export function parseArgs(argv: string[]): ParseResult {
   // Check for command
   if (argv.length === 0) {
-    return { success: false, error: 'Missing command. Usage: cards-configuration-v2 build [options]' };
+    return { success: false, error: 'Missing command. Usage: cards-sdk build [options]' };
   }
 
   const command = argv[0];

@@ -25,7 +25,7 @@
  *
  * @example
  * ```typescript
- * import { compileHandler } from '@cards/configuration/cli/compiler';
+ * import { compileHandler } from '@cards/sdk/config/cli/compiler';
  *
  * const result = await compileHandler({
  *   sourcePath: '/path/to/handler.ts',
@@ -276,7 +276,7 @@ export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === 'typeValidator') {
       // Type validators use file-path protocol via executeValidation
-      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/configuration/validation.ts'));
+      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/config/validation.ts'));
       wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
@@ -285,7 +285,7 @@ executeValidation(handler);
 `;
     } else {
       // Other handlers use environment variable extraction via executeCommand
-      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/configuration/runtime.ts'));
+      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/config/runtime.ts'));
       wrapperContent = `${logPreamble}
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';

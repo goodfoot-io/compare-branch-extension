@@ -20,10 +20,10 @@ export function isProcessAlive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    if (error instanceof Error && "code" in error) {
+    if (error instanceof Error && 'code' in error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code === "ESRCH") return false;
-      if (code === "EPERM") return true;
+      if (code === 'ESRCH') return false;
+      if (code === 'EPERM') return true;
     }
     throw error;
   }

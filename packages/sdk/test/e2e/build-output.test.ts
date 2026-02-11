@@ -12,7 +12,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { Settings } from '../../src/configuration/schema.js';
+import type { Settings } from '../../src/config/schema.js';
 
 // ============================================================================
 // Test Constants

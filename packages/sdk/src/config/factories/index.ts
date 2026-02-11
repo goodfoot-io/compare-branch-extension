@@ -1,5 +1,5 @@
 /**
- * @cards/configuration/factories
+ * @cards/sdk/config/factories
  *
  * Factory functions for creating action handlers and type hooks.
  *

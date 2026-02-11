@@ -1,7 +1,7 @@
 /**
- * CLI entry point for Cards Configuration v2.
+ * CLI entry point for Cards SDK.
  *
- * This file serves as the executable entry point for the `cards-configuration-v2` CLI.
+ * This file serves as the executable entry point for the `cards-sdk` CLI.
  * It simply imports and runs the main function from the CLI module.
  *
  * @module cli

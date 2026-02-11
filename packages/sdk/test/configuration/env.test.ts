@@ -22,7 +22,7 @@ import {
   getTypeName,
   getTypeVersion,
   getVscodeNodePath
-} from '../../src/configuration/env.js';
+} from '../../src/config/env.js';
 
 describe('env', () => {
   // Store original env vars

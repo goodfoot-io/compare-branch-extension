@@ -14,9 +14,9 @@ import type {
   TypeDeleteCommand,
   TypeUpdateCommand,
   TypeValidatorCommand
-} from '../../src/configuration/command-types.js';
-import type { SettingsConfig } from '../../src/configuration/config.js';
-import { defineConfig, serializeSettings } from '../../src/configuration/define-config.js';
+} from '../../src/config/command-types.js';
+import type { SettingsConfig } from '../../src/config/config.js';
+import { defineConfig, serializeSettings } from '../../src/config/define-config.js';
 
 // ============================================================================
 // defineConfig Tests

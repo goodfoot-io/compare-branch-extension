@@ -4,8 +4,8 @@
  * @module lib/process-tree
  */
 
-import { execSync } from "node:child_process";
-import { basename } from "node:path";
+import { execSync } from 'node:child_process';
+import { basename } from 'node:path';
 
 /** Maximum depth to walk up the process tree. */
 export const PROCESS_TREE_MAX_DEPTH = 10;
@@ -19,10 +19,10 @@ export const PROCESS_TREE_MAX_DEPTH = 10;
  */
 function isClaude(pid: number): boolean {
   try {
-    const comm = execSync(`ps -p ${pid} -o comm=`, { encoding: "utf8" }).trim();
-    if (basename(comm).toLowerCase() === "claude") return true;
+    const comm = execSync(`ps -p ${pid} -o comm=`, { encoding: 'utf8' }).trim();
+    if (basename(comm).toLowerCase() === 'claude') return true;
 
-    const args = execSync(`ps -p ${pid} -o args=`, { encoding: "utf8" }).trim();
+    const args = execSync(`ps -p ${pid} -o args=`, { encoding: 'utf8' }).trim();
     return /\bclaude\b/i.test(args);
   } catch {
     return false;
@@ -34,7 +34,7 @@ function isClaude(pid: number): boolean {
  */
 function getParentPid(pid: number): number | null {
   try {
-    const ppidStr = execSync(`ps -p ${pid} -o ppid=`, { encoding: "utf8" }).trim();
+    const ppidStr = execSync(`ps -p ${pid} -o ppid=`, { encoding: 'utf8' }).trim();
     const parentPid = Number.parseInt(ppidStr, 10);
     if (Number.isNaN(parentPid) || parentPid === pid) return null;
     return parentPid;

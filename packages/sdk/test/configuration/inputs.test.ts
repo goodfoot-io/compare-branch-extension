@@ -6,13 +6,8 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
-import type {
-  ActionContext,
-  ActionInput,
-  TypeHookInput,
-  ValidatorFileRequest
-} from '../../src/configuration/inputs.js';
-import type { ILogger } from '../../src/configuration/logger.js';
+import type { ActionContext, ActionInput, TypeHookInput, ValidatorFileRequest } from '../../src/config/inputs.js';
+import type { ILogger } from '../../src/config/logger.js';
 
 describe('inputs', () => {
   describe('ActionInput', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArgs } from '../../../src/configuration/cli/args.js';
+import { parseArgs } from '../../../src/config/cli/args.js';
 
 describe('parseArgs', () => {
   describe('successful parsing', () => {

@@ -11,12 +11,12 @@
  */
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import type { StreamInitContext, TransformContext } from '../../../src/configuration/command-types.js';
+import type { StreamInitContext, TransformContext } from '../../../src/config/command-types.js';
 import {
   defineStreamTransform,
   type StreamTransformConfig,
   type StreamTransformHandler
-} from '../../../src/configuration/factories/stream-transform.js';
+} from '../../../src/config/factories/stream-transform.js';
 
 // Mock context for testing
 const createMockContext = (lineNumber: number = 1, streamType: string = 'jsonl'): TransformContext => ({

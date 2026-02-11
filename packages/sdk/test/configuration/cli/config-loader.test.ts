@@ -7,7 +7,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { loadConfig } from '../../../src/configuration/cli/config-loader.js';
+import { loadConfig } from '../../../src/config/cli/config-loader.js';
 
 // Test fixtures directory
 const FIXTURES_DIR =

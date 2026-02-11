@@ -8,13 +8,13 @@
  * @module post-tool-use-card-association
  */
 
-import { execSync } from "node:child_process";
-import { postToolUseHook, postToolUseOutput } from "@goodfoot/claude-code-hooks";
-import { createCardsClient, discoverApiInfo } from "./lib/api-discovery.js";
-import { associatePidWithCard, getPidCardId } from "./lib/claude-sessions.js";
-import { findClaudePid } from "./lib/process-tree.js";
+import { execSync } from 'node:child_process';
+import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
+import { createCardsClient, discoverApiInfo } from './lib/api-discovery.js';
+import { associatePidWithCard, getPidCardId } from './lib/claude-sessions.js';
+import { findClaudePid } from './lib/process-tree.js';
 
-const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CARD_URL_PATTERN = /\/cards\/([a-zA-Z0-9][a-zA-Z0-9_-]*\d)/;
 const EXPLICIT_METHOD_PATTERN = /-X\s+(\w+)|--request\s+(\w+)/;
 const IMPLICIT_POST_PATTERN = /(?:^|\s)(?:-d|--data|--data-raw|--data-binary)(?:\s|=)/;
@@ -25,11 +25,11 @@ const IMPLICIT_POST_PATTERN = /(?:^|\s)(?:-d|--data|--data-raw|--data-binary)(?:
  * endpoint.
  */
 export function parseCurlWriteCardId(command: string): string | null {
-  if (!command.includes("curl")) return null;
+  if (!command.includes('curl')) return null;
 
   const explicitMatch = command.match(EXPLICIT_METHOD_PATTERN);
   if (explicitMatch) {
-    const method = (explicitMatch[1] ?? explicitMatch[2])?.toUpperCase() ?? "";
+    const method = (explicitMatch[1] ?? explicitMatch[2])?.toUpperCase() ?? '';
     if (!WRITE_METHODS.has(method)) return null;
   } else if (!IMPLICIT_POST_PATTERN.test(command)) {
     return null;
@@ -38,7 +38,7 @@ export function parseCurlWriteCardId(command: string): string | null {
   return command.match(CARD_URL_PATTERN)?.[1] ?? null;
 }
 
-export default postToolUseHook({ matcher: "Bash" }, async (input, { logger }) => {
+export default postToolUseHook({ matcher: 'Bash' }, async (input, { logger }) => {
   // Skip entirely when CARD_ID is set (execution wrapper handles attribution)
   if (process.env.CARD_ID) {
     return postToolUseOutput({});
@@ -66,7 +66,7 @@ export default postToolUseHook({ matcher: "Bash" }, async (input, { logger }) =>
 
     if (!client) {
       return postToolUseOutput({
-        systemMessage: `PID ${pid} associated with card ${cardId}. 0 pending commit(s) attributed (no API connection).`,
+        systemMessage: `PID ${pid} associated with card ${cardId}. 0 pending commit(s) attributed (no API connection).`
       });
     }
 
@@ -74,7 +74,7 @@ export default postToolUseHook({ matcher: "Bash" }, async (input, { logger }) =>
     let flushedCount = 0;
     for (const sha of pendingCommits) {
       try {
-        execSync(`git merge-base --is-ancestor ${sha} HEAD`, { stdio: "pipe" });
+        execSync(`git merge-base --is-ancestor ${sha} HEAD`, { stdio: 'pipe' });
       } catch {
         continue; // SHA is unreachable (rebased/amended), skip it
       }
@@ -88,7 +88,7 @@ export default postToolUseHook({ matcher: "Bash" }, async (input, { logger }) =>
     }
 
     return postToolUseOutput({
-      systemMessage: `PID ${pid} associated with card ${cardId}. ${flushedCount} pending commit(s) attributed.`,
+      systemMessage: `PID ${pid} associated with card ${cardId}. ${flushedCount} pending commit(s) attributed.`
     });
   } catch {
     return postToolUseOutput({});
