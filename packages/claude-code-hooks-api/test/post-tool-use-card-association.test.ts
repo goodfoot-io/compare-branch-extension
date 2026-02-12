@@ -77,9 +77,8 @@ describe('post-tool-use-card-association hook', () => {
   });
 
   /** Write the Cards API discovery file so discoverApiInfo succeeds. */
-  function writeDiscoveryFile(
-    config = { host: 'localhost', port: 3000, accessToken: 'test-token', pid: 99999, startedAt: '2024-01-01T00:00:00Z' }
-  ): void {
+  function writeDiscoveryFile(): void {
+    const config = { host: 'localhost', port: 3000, accessToken: 'test-token', pid: 99999, startedAt: '2024-01-01T00:00:00Z' };
     mkdirSync(join(testDir, '.cards'), { recursive: true });
     writeFileSync(join(testDir, '.cards', 'cards-api.json'), JSON.stringify(config));
   }
