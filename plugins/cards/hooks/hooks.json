@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.61a439f6.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.fe8bebb1.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-card-association.7fa42f91.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/post-tool-use-card-association.12e296ab.mjs"
           }
         ],
         "matcher": "Bash"
@@ -24,9 +24,9 @@
   },
   "__generated": {
     "files": [
-      "stop.61a439f6.mjs",
-      "post-tool-use-card-association.7fa42f91.mjs"
+      "stop.fe8bebb1.mjs",
+      "post-tool-use-card-association.12e296ab.mjs"
     ],
-    "timestamp": "2026-02-11T21:56:59.874Z"
+    "timestamp": "2026-02-12T05:45:43.106Z"
   }
 }
