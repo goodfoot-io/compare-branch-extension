@@ -201,7 +201,11 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       const sourcePath = path.join(sourceRoot, dir);
       try {
         await fs.lstat(sourcePath);
-      } catch {
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          return false;
+        }
+        process.stderr.write(`create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}\n`);
         return false;
       }
       const destPath = path.join(worktreeDir, dir);
@@ -211,7 +215,12 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       }
       await fs.symlink(sourcePath, destPath);
       return true;
-    } catch {
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST' || code === 'ENOENT') {
+        return false;
+      }
+      process.stderr.write(`create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}\n`);
       return false;
     }
   };
@@ -221,7 +230,11 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       const sourcePath = path.join(sourceRoot, file);
       try {
         await fs.lstat(sourcePath);
-      } catch {
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          return false;
+        }
+        process.stderr.write(`create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}\n`);
         return false;
       }
       const destPath = path.join(worktreeDir, file);
@@ -231,7 +244,12 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       }
       await fs.symlink(sourcePath, destPath);
       return true;
-    } catch {
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST' || code === 'ENOENT') {
+        return false;
+      }
+      process.stderr.write(`create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}\n`);
       return false;
     }
   };
