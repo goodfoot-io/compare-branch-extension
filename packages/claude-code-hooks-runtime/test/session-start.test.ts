@@ -40,6 +40,21 @@ afterAll(() => {
 });
 
 describe('resolveHeadSha', () => {
+  let realExecSync: typeof execSync;
+
+  beforeAll(async () => {
+    const real = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    realExecSync = real.execSync;
+  });
+
+  beforeEach(() => {
+    vi.mocked(execSync).mockImplementation(realExecSync as typeof execSync);
+  });
+
+  afterEach(() => {
+    vi.mocked(execSync).mockReset();
+  });
+
   it('returns trimmed sha on success', async () => {
     const sha = resolveHeadSha(repoPath);
     const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
@@ -94,6 +109,8 @@ describe('SessionStart Hook', () => {
     });
 
     it('returns action context in additionalContext', async () => {
+      const realSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
+      vi.mocked(execSync).mockReturnValue(`${realSha}\n`);
       const persistEnvVar = vi.fn();
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger, persistEnvVar, persistEnvVars: () => {} };
@@ -121,6 +138,7 @@ describe('SessionStart Hook', () => {
 
     it('persists git HEAD sha via persistEnvVar', async () => {
       const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
+      vi.mocked(execSync).mockReturnValue(`${expectedSha}\n`);
       const persistEnvVar = vi.fn();
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger, persistEnvVar, persistEnvVars: () => {} };
