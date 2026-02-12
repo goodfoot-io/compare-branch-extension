@@ -35,14 +35,14 @@ export function getLockPath(): string {
 export const LOCK_TIMEOUT_MS = 2000;
 export const MAX_ENTRY_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-/** Single session entry in the registry. */
+/** Session data stored per PID in the registry file. */
 export interface ClaudeSessionEntry {
   cardId?: string;
   pendingCommits: string[];
   updatedAt: string;
 }
 
-/** Full registry structure stored at `~/.cards/claude-sessions.json`. */
+/** JSON payload stored at `~/.cards/claude-sessions.json`. */
 export interface ClaudeSessionRegistry {
   sessions: Record<string, ClaudeSessionEntry>;
 }
@@ -191,6 +191,11 @@ async function executeTransaction<T>(operation: (registry: ClaudeSessionRegistry
  * Associates PID with card. If the entry already has a `cardId`, returns `[]`
  * (first-write-wins). Otherwise sets `cardId`, extracts and clears
  * `pendingCommits`, and returns the extracted commits.
+ *
+ * @param pid - Claude process ID to associate.
+ * @param cardId - Card identifier to bind to the PID.
+ * @param logger - Optional logger used for fail-open diagnostics.
+ * @returns Pending SHAs captured before association, or `[]` on failure/first-write conflict.
  */
 export async function associatePidWithCard(pid: number, cardId: string, logger?: Logger): Promise<string[]> {
   try {
@@ -219,6 +224,11 @@ export async function associatePidWithCard(pid: number, cardId: string, logger?:
 /**
  * Appends SHA to `pendingCommits` for PID (deduplicating). Creates the entry
  * if it does not exist.
+ *
+ * @param pid - Claude process ID that produced the commit.
+ * @param sha - Commit SHA to record for later attribution.
+ * @param logger - Optional logger used for fail-open diagnostics.
+ * @returns Resolves after best-effort persistence.
  */
 export async function recordPendingCommit(pid: number, sha: string, logger?: Logger): Promise<void> {
   try {
@@ -243,6 +253,10 @@ export async function recordPendingCommit(pid: number, sha: string, logger?: Log
 
 /**
  * Returns `cardId` for PID if it exists, null otherwise.
+ *
+ * @param pid - Claude process ID to resolve.
+ * @param logger - Optional logger used for fail-open diagnostics.
+ * @returns Associated card ID, or `null` when unknown or on recoverable failure.
  */
 export async function getPidCardId(pid: number, logger?: Logger): Promise<string | null> {
   try {
@@ -258,6 +272,10 @@ export async function getPidCardId(pid: number, logger?: Logger): Promise<string
 
 /**
  * Removes and returns the PID's entry. Returns null if not found.
+ *
+ * @param pid - Claude process ID to remove.
+ * @param logger - Optional logger used for fail-open diagnostics.
+ * @returns Removed registry entry, or `null` when no entry existed.
  */
 export async function removePidEntry(pid: number, logger?: Logger): Promise<ClaudeSessionEntry | null> {
   try {

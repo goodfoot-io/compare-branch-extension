@@ -39,6 +39,10 @@ function errorMessage(error: unknown): string {
 /**
  * Returns all commit SHAs between sinceSha and HEAD in the given repo.
  * Runs: git log --format=%H sinceSha..HEAD
+ *
+ * @param repoPath - Card repository path where git commands should execute.
+ * @param sinceSha - Baseline SHA captured at session start.
+ * @returns Newer commit SHAs in reverse chronological order (newest first).
  */
 export function getCommitsSince(repoPath: string, sinceSha: string): string[] {
   const output = execSync(`git log --format=%H ${sinceSha}..HEAD`, {
@@ -53,6 +57,10 @@ export function getCommitsSince(repoPath: string, sinceSha: string): string[] {
 
 /**
  * Returns commits from allCommits that are NOT in sessionCommits.
+ *
+ * @param allCommits - Full commit list detected since session start.
+ * @param sessionCommits - Commits already attributed to the current session.
+ * @returns SHAs that still need attribution review.
  */
 export function getUnattributedCommits(allCommits: string[], sessionCommits: string[]): string[] {
   const sessionSet = new Set(sessionCommits);
@@ -63,6 +71,10 @@ export function getUnattributedCommits(allCommits: string[], sessionCommits: str
  * Returns the combined diff content for the given commit SHAs.
  * Uses the range from oldest unattributed commit's parent to HEAD.
  * Falls back to empty tree SHA if oldest commit is the initial commit.
+ *
+ * @param repoPath - Card repository path where git commands should execute.
+ * @param shas - Unattributed commit SHAs (newest first from {@link getCommitsSince}).
+ * @returns Unified diff text for all unattributed changes.
  */
 export function getDiffForCommits(repoPath: string, shas: string[]): string {
   if (shas.length === 0) return '';
@@ -175,7 +187,14 @@ export default stopHook({}, async (input, { logger }) => {
   });
 });
 
-/** Records unattributed commits so they won't be shown again on next stop. */
+/**
+ * Records unattributed commits so they are treated as acknowledged on the next stop.
+ *
+ * @param sessionId - Session ID whose commit CSV should be updated.
+ * @param shas - Unattributed commit SHAs to persist.
+ * @param logger - Hook logger for best-effort error reporting.
+ * @returns Resolves after all SHAs have been attempted.
+ */
 async function recordUnattributedCommits(sessionId: string, shas: string[], logger: Logger): Promise<void> {
   for (const sha of shas) {
     try {
@@ -186,6 +205,13 @@ async function recordUnattributedCommits(sessionId: string, shas: string[], logg
   }
 }
 
+/**
+ * Removes PID/session artifacts created during session-start.
+ *
+ * @param logger - Hook logger used for diagnostic output.
+ * @param sessionId - Session ID whose CSV buffer should be cleaned up.
+ * @returns Resolves after best-effort cleanup.
+ */
 async function cleanupSession(logger: Logger, sessionId: string): Promise<void> {
   // Use persisted PID from session-start, fall back to findClaudePid()
   const envPid = process.env['SESSION_CLAUDE_PID'];

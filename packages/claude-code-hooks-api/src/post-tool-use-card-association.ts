@@ -23,6 +23,10 @@ const IMPLICIT_POST_PATTERN = /(?:^|\s)(?:-d|--data|--data-raw|--data-binary)(?:
  * Detects whether a curl command performs a write operation and extracts the
  * card ID. Returns null if the command is not a curl write to a Cards API
  * endpoint.
+ *
+ * @param command - Raw shell command captured by the PostToolUse hook.
+ * @returns Target card ID for write operations, or `null` when the command
+ *   is read-only or unrelated to Cards endpoints.
  */
 export function parseCurlWriteCardId(command: string): string | null {
   if (!command.includes('curl')) return null;

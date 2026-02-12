@@ -1,7 +1,8 @@
 /**
  * Stop hook that cleans up PID registry entries.
  *
- * Always approves: never blocks Claude from stopping.
+ * Always approves: cleanup is best-effort and never blocks Claude from
+ * stopping, even when session registry IO fails.
  *
  * @module stop
  */

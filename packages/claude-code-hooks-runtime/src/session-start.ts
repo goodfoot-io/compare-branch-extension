@@ -21,6 +21,9 @@ import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hook
  * Returns `null` when the path is not a git repository or git is
  * unavailable. Intentionally fails open so hook failures do not block
  * Claude.
+ *
+ * @param repoPath - Repository directory where `git rev-parse HEAD` should run.
+ * @returns Current `HEAD` SHA, or `null` when unavailable.
  */
 export function resolveHeadSha(repoPath: string): string | null {
   try {
