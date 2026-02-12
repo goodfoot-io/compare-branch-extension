@@ -3,7 +3,12 @@
  */
 
 import { execSync } from 'node:child_process';
-import { appendCommitToSession, getSessionCommits, removeSessionPid } from '@cards/git-hooks/lib/card-repo-sessions';
+import {
+  appendCommitToSession,
+  getSessionCommits,
+  removeSessionCsv,
+  removeSessionPid
+} from '@cards/git-hooks/lib/card-repo-sessions';
 import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,7 +21,8 @@ vi.mock('node:child_process', () => ({
 vi.mock('@cards/git-hooks/lib/card-repo-sessions', () => ({
   getSessionCommits: vi.fn(),
   appendCommitToSession: vi.fn(),
-  removeSessionPid: vi.fn()
+  removeSessionPid: vi.fn(),
+  removeSessionCsv: vi.fn()
 }));
 
 vi.mock('@cards/git-hooks/lib/process-tree', () => ({
@@ -27,6 +33,7 @@ const mockExecSync = vi.mocked(execSync);
 const mockGetSessionCommits = vi.mocked(getSessionCommits);
 const mockAppendCommitToSession = vi.mocked(appendCommitToSession);
 const mockRemoveSessionPid = vi.mocked(removeSessionPid);
+const mockRemoveSessionCsv = vi.mocked(removeSessionCsv);
 const mockFindClaudePid = vi.mocked(findClaudePid);
 
 const logger = new Logger();
@@ -65,10 +72,12 @@ describe('Stop Hook', () => {
         delete process.env[key];
       }
       delete process.env['SESSION_GIT_HEAD_SHA'];
+      delete process.env['SESSION_CLAUDE_PID'];
       mockExecSync.mockReset();
       mockGetSessionCommits.mockReset();
       mockAppendCommitToSession.mockReset();
       mockRemoveSessionPid.mockReset();
+      mockRemoveSessionCsv.mockReset();
       mockFindClaudePid.mockReset();
     });
 
@@ -233,6 +242,59 @@ describe('Stop Hook', () => {
       expect(mockAppendCommitToSession).toHaveBeenCalledWith('sess-1', 'sha1');
       expect(mockAppendCommitToSession).toHaveBeenCalledWith('sess-1', 'sha2');
     });
+
+    it('uses SESSION_CLAUDE_PID for removeSessionPid when env var is set', async () => {
+      process.env['SESSION_GIT_HEAD_SHA'] = 'abc123';
+      process.env['SESSION_CLAUDE_PID'] = '99';
+      mockExecSync.mockReturnValue('');
+      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      await hook(mockInput, context);
+
+      expect(mockRemoveSessionPid).toHaveBeenCalledWith(99);
+      expect(mockFindClaudePid).not.toHaveBeenCalled();
+    });
+
+    it('falls back to findClaudePid when SESSION_CLAUDE_PID not set', async () => {
+      process.env['SESSION_GIT_HEAD_SHA'] = 'abc123';
+      // SESSION_CLAUDE_PID not set
+      mockExecSync.mockReturnValue('');
+      mockFindClaudePid.mockReturnValue(42);
+      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      await hook(mockInput, context);
+
+      expect(mockFindClaudePid).toHaveBeenCalled();
+      expect(mockRemoveSessionPid).toHaveBeenCalledWith(42);
+    });
+
+    it('calls removeSessionCsv during cleanup', async () => {
+      process.env['SESSION_GIT_HEAD_SHA'] = 'abc123';
+      mockExecSync.mockReturnValue('');
+      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      await hook(mockInput, context);
+
+      expect(mockRemoveSessionCsv).toHaveBeenCalledWith('sess-1');
+    });
+
+    it('gracefully handles removeSessionCsv throwing', async () => {
+      process.env['SESSION_GIT_HEAD_SHA'] = 'abc123';
+      mockExecSync.mockReturnValue('');
+      mockRemoveSessionCsv.mockImplementation(() => {
+        throw new Error('unlink failed');
+      });
+      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      // Should not throw
+      const result = await hook(mockInput, context);
+      const stdout = result.stdout as { decision?: string };
+      expect(stdout.decision).toBe('approve');
+    });
   });
 
   describe('outside an action subprocess', () => {
@@ -287,6 +349,41 @@ describe('Stop Hook', () => {
 
       expect(result).toBe('diff output');
       expect(mockExecSync).toHaveBeenCalledWith('git diff sha1~1..HEAD', expect.objectContaining({ cwd: '/repo' }));
+    });
+
+    it('getDiffForCommits falls back to empty tree SHA when oldest~1 fails (initial commit)', () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (typeof cmd === 'string' && cmd.includes('~1')) {
+          throw new Error('unknown revision');
+        }
+        if (typeof cmd === 'string' && cmd.includes('4b825dc642cb6eb9a060e54bf899d15363d7aa09')) {
+          return 'initial commit diff';
+        }
+        return '';
+      });
+
+      const result = getDiffForCommits('/repo', ['sha1']);
+
+      expect(result).toBe('initial commit diff');
+      // Verify it tried the parent first, then fell back to empty tree
+      expect(mockExecSync).toHaveBeenCalledWith('git diff sha1~1..HEAD', expect.objectContaining({ cwd: '/repo' }));
+      expect(mockExecSync).toHaveBeenCalledWith(
+        'git diff 4b825dc642cb6eb9a060e54bf899d15363d7aa09..HEAD',
+        expect.objectContaining({ cwd: '/repo' })
+      );
+    });
+
+    it('getDiffForCommits handles single initial commit SHA', () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (typeof cmd === 'string' && cmd.includes('~1')) {
+          throw new Error('unknown revision');
+        }
+        return 'single commit diff';
+      });
+
+      const result = getDiffForCommits('/repo', ['initial-sha']);
+
+      expect(result).toBe('single commit diff');
     });
   });
 });

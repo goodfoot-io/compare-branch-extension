@@ -171,9 +171,7 @@ describe('SessionStart Hook', () => {
 
     it('includes error in systemMessage when registerSessionPid throws', async () => {
       mockFindClaudePid.mockReturnValue(42);
-      mockRegisterSessionPid.mockImplementation(() => {
-        throw new Error('disk full');
-      });
+      mockRegisterSessionPid.mockRejectedValue(new Error('disk full'));
       vi.mocked(execSync).mockReturnValue('abc123\n');
       const persistEnvVar = vi.fn();
       const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
@@ -183,6 +181,18 @@ describe('SessionStart Hook', () => {
 
       const stdout = result.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).toContain('Commit attribution disabled: disk full');
+    });
+
+    it('persists SESSION_CLAUDE_PID via persistEnvVar after successful registration', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execSync).mockReturnValue('abc123\n');
+      const persistEnvVar = vi.fn();
+      const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+
+      await hook(mockInput, context);
+
+      expect(persistEnvVar).toHaveBeenCalledWith('SESSION_CLAUDE_PID', '42');
     });
   });
 

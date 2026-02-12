@@ -14,12 +14,23 @@
  */
 
 import { execSync } from 'node:child_process';
-import { appendCommitToSession, getSessionCommits, removeSessionPid } from '@cards/git-hooks/lib/card-repo-sessions';
+import {
+  appendCommitToSession,
+  getSessionCommits,
+  removeSessionCsv,
+  removeSessionPid
+} from '@cards/git-hooks/lib/card-repo-sessions';
 import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
+
+/**
+ * Well-known git empty tree SHA, used as a diff base for initial commits.
+ * This is a deterministic value that never changes.
+ */
+const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf899d15363d7aa09';
 
 /**
  * Returns all commit SHAs between sinceSha and HEAD in the given repo.
@@ -47,21 +58,32 @@ export function getUnattributedCommits(allCommits: string[], sessionCommits: str
 /**
  * Returns the combined diff content for the given commit SHAs.
  * Uses the range from oldest unattributed commit's parent to HEAD.
+ * Falls back to empty tree SHA if oldest commit is the initial commit.
  */
 export function getDiffForCommits(repoPath: string, shas: string[]): string {
   if (shas.length === 0) return '';
   // shas are in reverse chronological order (newest first from git log)
   // oldest is last element
   const oldest = shas[shas.length - 1]!;
-  return execSync(`git diff ${oldest}~1..HEAD`, {
-    cwd: repoPath,
-    encoding: 'utf-8',
-    timeout: 10000,
-    stdio: ['pipe', 'pipe', 'pipe']
-  }).trim();
+  try {
+    return execSync(`git diff ${oldest}~1..HEAD`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+      timeout: 10000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+  } catch {
+    // Fallback for initial commits that have no parent
+    return execSync(`git diff ${EMPTY_TREE_SHA}..HEAD`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+      timeout: 10000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+  }
 }
 
-export default stopHook({}, (input, { logger }) => {
+export default stopHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
     actionInput = extractActionInput();
@@ -100,7 +122,7 @@ export default stopHook({}, (input, { logger }) => {
 
   if (allCommits.length === 0) {
     // No commits since session start — approve
-    cleanupPid(logger);
+    await cleanupPid(logger, sessionId);
     return stopOutput({
       decision: 'approve',
       systemMessage: 'Stop approved — no commits since session start.'
@@ -124,7 +146,7 @@ export default stopHook({}, (input, { logger }) => {
 
   if (unattributed.length === 0) {
     // All commits attributed — approve
-    cleanupPid(logger);
+    await cleanupPid(logger, sessionId);
     return stopOutput({
       decision: 'approve',
       systemMessage: `Stop approved — all ${allCommits.length} commits attributed to this session.`
@@ -143,13 +165,13 @@ export default stopHook({}, (input, { logger }) => {
   // Record unattributed commits so they won't be shown again on next stop
   for (const sha of unattributed) {
     try {
-      appendCommitToSession(sessionId, sha);
+      await appendCommitToSession(sessionId, sha);
     } catch (error) {
       logger.error('Failed to record unattributed commit', { sha, error });
     }
   }
 
-  cleanupPid(logger);
+  await cleanupPid(logger, sessionId);
 
   return stopOutput({
     decision: 'block',
@@ -157,14 +179,25 @@ export default stopHook({}, (input, { logger }) => {
   });
 });
 
-function cleanupPid(logger: Logger): void {
-  try {
-    const pid = findClaudePid();
-    if (pid) {
-      removeSessionPid(pid);
-      logger.info('Cleaned up PID registration', { pid });
+async function cleanupPid(logger: Logger, sessionId: string): Promise<void> {
+  // Use persisted PID from session-start, fall back to findClaudePid()
+  const envPid = process.env['SESSION_CLAUDE_PID'];
+  const pid = envPid ? Number.parseInt(envPid, 10) : null;
+  const resolvedPid = pid && !Number.isNaN(pid) ? pid : findClaudePid();
+
+  if (resolvedPid) {
+    try {
+      await removeSessionPid(resolvedPid);
+      logger.info('Cleaned up PID registration', { pid: resolvedPid });
+    } catch (error) {
+      logger.error('Failed to clean up PID registration', { error });
     }
+  }
+
+  try {
+    removeSessionCsv(sessionId);
+    logger.info('Cleaned up session CSV', { sessionId });
   } catch (error) {
-    logger.error('Failed to clean up PID registration', { error });
+    logger.error('Failed to clean up session CSV', { error });
   }
 }

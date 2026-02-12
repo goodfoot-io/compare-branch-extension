@@ -35,7 +35,7 @@ export function resolveHeadSha(repoPath: string): string | null {
   }
 }
 
-export default sessionStartHook({}, (input, { logger, persistEnvVar }) => {
+export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => {
   let actionInput: ActionInput;
   try {
     actionInput = extractActionInput();
@@ -60,7 +60,8 @@ export default sessionStartHook({}, (input, { logger, persistEnvVar }) => {
   const claudePid = findClaudePid();
   if (claudePid) {
     try {
-      registerSessionPid(claudePid, input.session_id);
+      await registerSessionPid(claudePid, input.session_id);
+      persistEnvVar('SESSION_CLAUDE_PID', String(claudePid));
       logger.info('Registered PID for commit attribution', { pid: claudePid, sessionId: input.session_id });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
