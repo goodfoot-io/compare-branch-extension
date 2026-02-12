@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@cards/sdk": "workspace:*",
-    "@goodfoot/claude-code-hooks": "^1.0.20"
+    "@goodfoot/claude-code-hooks": "^1.0.21"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
