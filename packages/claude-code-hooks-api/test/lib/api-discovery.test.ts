@@ -1,18 +1,18 @@
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir as realTmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('node:fs/promises', () => ({
-  readFile: vi.fn()
-}));
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return {
+    ...actual,
+    homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp')
+  };
+});
 
-vi.mock('node:os', () => ({
-  homedir: vi.fn(() => '/mock-home')
-}));
-
-import { readFile } from 'node:fs/promises';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { createCardsClient, discoverApiInfo } from '../../src/lib/api-discovery.js';
-
-const mockReadFile = vi.mocked(readFile);
 
 const mockLogger = {
   debug: vi.fn(),
@@ -23,14 +23,19 @@ const mockLogger = {
 
 describe('api-discovery', () => {
   const originalEnv = process.env;
+  let testDir: string;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    testDir = join(realTmpdir(), `api-discovery-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(testDir, { recursive: true });
+    process.env.MOCK_HOMEDIR = testDir;
     vi.clearAllMocks();
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    rmSync(testDir, { recursive: true, force: true });
   });
 
   describe('discoverApiInfo', () => {
@@ -55,7 +60,8 @@ describe('api-discovery', () => {
         pid: 12345,
         startedAt: '2024-06-01T12:00:00Z'
       };
-      mockReadFile.mockResolvedValue(JSON.stringify(config));
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(join(testDir, '.cards', 'cards-api.json'), JSON.stringify(config));
 
       const info = await discoverApiInfo(mockLogger);
       expect(info).toEqual(config);
@@ -70,35 +76,39 @@ describe('api-discovery', () => {
         startedAt: '2024-06-01T12:00:00Z',
         sessionBaseline: { cardId: 'card-1', updatedAt: '2024-06-01T12:00:00Z' }
       };
-      mockReadFile.mockResolvedValue(JSON.stringify(config));
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(join(testDir, '.cards', 'cards-api.json'), JSON.stringify(config));
 
       const info = await discoverApiInfo(mockLogger);
       expect(info?.sessionBaseline).toEqual({ cardId: 'card-1', updatedAt: '2024-06-01T12:00:00Z' });
     });
 
     it('should return null when config is missing required fields', async () => {
-      mockReadFile.mockResolvedValue(JSON.stringify({ host: 'localhost' }));
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(join(testDir, '.cards', 'cards-api.json'), JSON.stringify({ host: 'localhost' }));
 
       const info = await discoverApiInfo(mockLogger);
       expect(info).toBeNull();
     });
 
     it('should return null when config file is missing', async () => {
-      mockReadFile.mockRejectedValue(new Error('ENOENT'));
-
+      // Don't create the file - it naturally doesn't exist
       const info = await discoverApiInfo(mockLogger);
       expect(info).toBeNull();
     });
 
     it('should return null when config file contains invalid JSON', async () => {
-      mockReadFile.mockResolvedValue('not valid json');
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(join(testDir, '.cards', 'cards-api.json'), 'not valid json');
 
       const info = await discoverApiInfo(mockLogger);
       expect(info).toBeNull();
     });
 
     it('should return null when host is not a string', async () => {
-      mockReadFile.mockResolvedValue(
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(
+        join(testDir, '.cards', 'cards-api.json'),
         JSON.stringify({ host: 123, port: 3000, accessToken: 'tok', pid: 1, startedAt: '2024-01-01T00:00:00Z' })
       );
 
@@ -107,7 +117,9 @@ describe('api-discovery', () => {
     });
 
     it('should return null when port is not a number', async () => {
-      mockReadFile.mockResolvedValue(
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(
+        join(testDir, '.cards', 'cards-api.json'),
         JSON.stringify({
           host: 'localhost',
           port: '3000',
@@ -124,8 +136,7 @@ describe('api-discovery', () => {
 
   describe('createCardsClient', () => {
     it('should return null when discovery fails', async () => {
-      mockReadFile.mockRejectedValue(new Error('ENOENT'));
-
+      // Don't create the config file
       const client = await createCardsClient(mockLogger);
       expect(client).toBeNull();
     });
@@ -138,7 +149,8 @@ describe('api-discovery', () => {
         pid: 99,
         startedAt: '2024-01-01T00:00:00Z'
       };
-      mockReadFile.mockResolvedValue(JSON.stringify(config));
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(join(testDir, '.cards', 'cards-api.json'), JSON.stringify(config));
 
       const client = await createCardsClient(mockLogger);
       expect(client).not.toBeNull();

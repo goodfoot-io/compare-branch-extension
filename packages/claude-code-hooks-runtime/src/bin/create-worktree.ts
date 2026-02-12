@@ -36,7 +36,7 @@ export function isInternalSymlink(target: string): boolean {
     '../apps/',
     '../../../libs/',
     '../../libs/',
-    '../libs/',
+    '../libs/'
   ];
   return INTERNAL_PREFIXES.some((prefix) => target.startsWith(prefix));
 }
@@ -57,7 +57,7 @@ export async function createWorktree(branchName: string): Promise<CreateWorktree
 
   const [worktreeExists, branchExists] = await Promise.all([
     checkWorktreeExists(repoRoot, worktreeDir),
-    checkBranchExists(repoRoot, branchName),
+    checkBranchExists(repoRoot, branchName)
   ]);
 
   if (worktreeExists) {
@@ -74,13 +74,13 @@ export async function createWorktree(branchName: string): Promise<CreateWorktree
 
   const [, baseSha] = await Promise.all([
     updateGitExclude({ worktreeDir, repoRoot, directories: ignored.directories, files: ignored.files }),
-    resolveHead(worktreeDir),
+    resolveHead(worktreeDir)
   ]);
 
   const result: CreateWorktreeResult = {
     branch: branchName,
     worktree: worktreeDir,
-    baseSha,
+    baseSha
   };
 
   if (reroutedCount > 0) {
@@ -104,7 +104,7 @@ export async function findGitRoots(startDir: string): Promise<GitRoots> {
       if (stats.isDirectory()) {
         return {
           sourceRoot: currentDir,
-          repoRoot: currentDir,
+          repoRoot: currentDir
         };
       }
       if (stats.isFile()) {
@@ -115,7 +115,7 @@ export async function findGitRoots(startDir: string): Promise<GitRoots> {
         const repoRoot = mainGitDir.replace(/\/\.git$/, '');
         return {
           sourceRoot: currentDir,
-          repoRoot,
+          repoRoot
         };
       }
     } catch (error: unknown) {
@@ -141,7 +141,7 @@ export async function checkWorktreeExists(repoRoot: string, worktreeDir: string)
 export async function checkBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
   const { stdout } = await execFileAsync('git', ['branch', '--list', branchName], {
     cwd: repoRoot,
-    timeout: 30_000,
+    timeout: 30_000
   });
   return stdout.trim().length > 0;
 }
@@ -170,7 +170,7 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
   const { stdout } = await execFileAsync(
     'git',
     ['-C', sourceRoot, 'ls-files', '--ignored', '--exclude-standard', '--directory', '--others'],
-    { cwd: sourceRoot, timeout: 30_000 },
+    { cwd: sourceRoot, timeout: 30_000 }
   );
 
   const lines = stdout.split('\n').filter((line) => line.length > 0 && !line.startsWith('.worktrees'));
@@ -335,14 +335,14 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
               await fs.symlink(scopeSourcePath, scopeDestPath);
               return 0;
             }
-          }),
+          })
         );
         return scopeCounts.reduce((sum, c) => sum + c, 0);
       } else {
         await fs.symlink(sourcePath, destPath);
         return 0;
       }
-    }),
+    })
   );
 
   return counts.reduce((sum, c) => sum + c, 0);
@@ -376,7 +376,7 @@ export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions):
 
   totalCount += await rerouteNodeModules({
     sourceNodeModules: path.join(sourceRoot, 'node_modules'),
-    destNodeModules: path.join(worktreeDir, 'node_modules'),
+    destNodeModules: path.join(worktreeDir, 'node_modules')
   });
 
   const packagesDir = path.join(sourceRoot, 'packages');
@@ -399,7 +399,7 @@ export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions):
           await fs.mkdir(destPackageDir, { recursive: true });
           totalCount += await rerouteNodeModules({
             sourceNodeModules: pkgNodeModules,
-            destNodeModules: path.join(destPackageDir, 'node_modules'),
+            destNodeModules: path.join(destPackageDir, 'node_modules')
           });
         }
       }
@@ -424,7 +424,7 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
   const { worktreeDir, repoRoot, directories, files } = opts;
 
   const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreeDir, 'rev-parse', '--git-dir'], {
-    timeout: 5_000,
+    timeout: 5_000
   });
   const excludePath = path.join(gitDir.trim(), 'info', 'exclude');
   await fs.mkdir(path.dirname(excludePath), { recursive: true });
@@ -451,7 +451,7 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
     }
   }
 
-  await fs.appendFile(excludePath, lines.join('\n') + '\n');
+  await fs.appendFile(excludePath, `${lines.join('\n')}\n`);
 
   try {
     await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], { timeout: 5_000 });
@@ -461,7 +461,7 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
 
   try {
     await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.excludesFile', excludePath], {
-      timeout: 5_000,
+      timeout: 5_000
     });
   } catch {
     // skip

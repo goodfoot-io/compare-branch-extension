@@ -2,52 +2,36 @@
  * Tests for the SessionStart hook.
  */
 
-import { execSync } from 'node:child_process';
+import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook, { resolveHeadSha } from '../src/session-start.js';
-
-vi.mock('node:child_process', () => ({
-  execSync: vi.fn()
-}));
 
 const logger = new Logger();
 
-/** Minimal set of env vars required by extractActionInput. */
-const ACTION_ENV = {
-  CARD_ID: 'card-123',
-  ACTION_NAME: 'Launch Claude',
-  ENVIRONMENT: 'default',
-  EXECUTION_MODE: 'background',
-  API_BASE_URL: 'http://localhost:3000',
-  API_ACCESS_TOKEN: 'test-token',
-  WORKSPACE_PATH: '/workspace',
-  CARD_REPO_PATH: '/workspace/.cards/repo'
-} as const;
+let testRepo: TestGitWorkspace;
+let repoPath: string;
+
+beforeAll(async () => {
+  testRepo = new TestGitWorkspace();
+  repoPath = await testRepo.create();
+});
+
+afterAll(() => {
+  testRepo.destroy();
+});
 
 describe('resolveHeadSha', () => {
-  afterEach(() => {
-    vi.mocked(execSync).mockReset();
-  });
+  it('returns trimmed sha on success', async () => {
+    const sha = resolveHeadSha(repoPath);
+    const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
 
-  it('returns trimmed sha on success', () => {
-    vi.mocked(execSync).mockReturnValue('abc123def456\n');
-    const sha = resolveHeadSha('/some/repo');
-
-    expect(sha).toBe('abc123def456');
-    expect(execSync).toHaveBeenCalledWith('git rev-parse HEAD', {
-      cwd: '/some/repo',
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    expect(sha).toBe(expectedSha);
+    expect(sha).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it('returns null when git command fails', () => {
-    vi.mocked(execSync).mockImplementation(() => {
-      throw new Error('not a git repository');
-    });
-    expect(resolveHeadSha('/not/a/repo')).toBeNull();
+    expect(resolveHeadSha('/tmp/not-a-repo')).toBeNull();
   });
 });
 
@@ -62,7 +46,21 @@ describe('SessionStart Hook', () => {
   });
 
   describe('inside an action subprocess', () => {
-    beforeEach(() => {
+    /** Minimal set of env vars required by extractActionInput. */
+    let ACTION_ENV: Record<string, string>;
+
+    beforeEach(async () => {
+      // Get the real HEAD SHA for assertions
+      ACTION_ENV = {
+        CARD_ID: 'card-123',
+        ACTION_NAME: 'Launch Claude',
+        ENVIRONMENT: 'default',
+        EXECUTION_MODE: 'background',
+        API_BASE_URL: 'http://localhost:3000',
+        API_ACCESS_TOKEN: 'test-token',
+        WORKSPACE_PATH: '/workspace',
+        CARD_REPO_PATH: repoPath
+      };
       for (const [key, value] of Object.entries(ACTION_ENV)) {
         process.env[key] = value;
       }
@@ -72,11 +70,9 @@ describe('SessionStart Hook', () => {
       for (const key of Object.keys(ACTION_ENV)) {
         delete process.env[key];
       }
-      vi.mocked(execSync).mockReset();
     });
 
     it('returns action context in additionalContext', async () => {
-      vi.mocked(execSync).mockReturnValue('abc123\n');
       const persistEnvVar = vi.fn();
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger, persistEnvVar, persistEnvVars: () => {} };
@@ -91,7 +87,7 @@ describe('SessionStart Hook', () => {
       expect(stdout.systemMessage).toContain('card-123');
       expect(stdout.systemMessage).toContain('default');
       expect(stdout.systemMessage).toContain('background');
-      expect(stdout.systemMessage).toContain('HEAD: abc123');
+      expect(stdout.systemMessage).toContain('HEAD:');
 
       const parsed = JSON.parse(stdout.hookSpecificOutput!.additionalContext!);
       expect(parsed.cardId).toBe('card-123');
@@ -103,20 +99,18 @@ describe('SessionStart Hook', () => {
     });
 
     it('persists git HEAD sha via persistEnvVar', async () => {
-      vi.mocked(execSync).mockReturnValue('abc123def456\n');
+      const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
       const persistEnvVar = vi.fn();
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger, persistEnvVar, persistEnvVars: () => {} };
 
       await hook(mockInput, context);
 
-      expect(persistEnvVar).toHaveBeenCalledWith('SESSION_GIT_HEAD_SHA', 'abc123def456');
+      expect(persistEnvVar).toHaveBeenCalledWith('SESSION_GIT_HEAD_SHA', expectedSha);
     });
 
     it('does not call persistEnvVar or include HEAD in systemMessage when git fails', async () => {
-      vi.mocked(execSync).mockImplementation(() => {
-        throw new Error('not a git repository');
-      });
+      process.env.CARD_REPO_PATH = '/tmp/not-a-git-repo';
       const persistEnvVar = vi.fn();
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger, persistEnvVar, persistEnvVars: () => {} };

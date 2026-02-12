@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
+    "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

@@ -1,33 +1,36 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir as realTmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('node:child_process', () => ({
-  execSync: vi.fn()
-}));
-vi.mock('../src/lib/api-discovery.js', () => ({
-  discoverApiInfo: vi.fn(),
-  createCardsClient: vi.fn()
-}));
-vi.mock('../src/lib/claude-sessions.js', () => ({
-  associatePidWithCard: vi.fn(),
-  getPidCardId: vi.fn()
-}));
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return {
+    ...actual,
+    homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp')
+  };
+});
+
 vi.mock('../src/lib/process-tree.js', () => ({
   findClaudePid: vi.fn()
 }));
 
-import { execSync } from 'node:child_process';
+vi.mock('../src/lib/api-discovery.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/lib/api-discovery.js')>();
+  return {
+    ...actual,
+    createCardsClient: vi.fn()
+  };
+});
+
+import { TestGitWorkspace } from '@cards/test-utils';
 import type { Logger } from '@goodfoot/claude-code-hooks';
-import { createCardsClient, discoverApiInfo } from '../src/lib/api-discovery.js';
-import { associatePidWithCard, getPidCardId } from '../src/lib/claude-sessions.js';
+import { createCardsClient } from '../src/lib/api-discovery.js';
 import { findClaudePid } from '../src/lib/process-tree.js';
 import hookFn from '../src/post-tool-use-card-association.js';
 
 describe('post-tool-use-card-association hook', () => {
-  const mockExecSync = vi.mocked(execSync);
-  const mockDiscoverApiInfo = vi.mocked(discoverApiInfo);
   const mockCreateCardsClient = vi.mocked(createCardsClient);
-  const mockAssociatePidWithCard = vi.mocked(associatePidWithCard);
-  const mockGetPidCardId = vi.mocked(getPidCardId);
   const mockFindClaudePid = vi.mocked(findClaudePid);
   const mockLogger = {
     debug: vi.fn(),
@@ -40,14 +43,28 @@ describe('post-tool-use-card-association hook', () => {
   const mockAddCommit = vi.fn();
   const mockClient = { addCommit: mockAddCommit } as never;
 
+  // Use the current process PID so claude-sessions doesn't prune entries as dead
+  const testPid = process.pid;
+
+  let testDir: string;
+  let testRepo: TestGitWorkspace;
+
+  beforeAll(async () => {
+    testRepo = new TestGitWorkspace();
+    await testRepo.create();
+  });
+
+  afterAll(() => {
+    testRepo.destroy();
+  });
+
   beforeEach(() => {
-    vi.resetModules();
-    mockExecSync.mockReset();
-    mockDiscoverApiInfo.mockReset();
-    mockCreateCardsClient.mockReset();
-    mockAssociatePidWithCard.mockReset();
-    mockGetPidCardId.mockReset();
+    testDir = join(realTmpdir(), `hook-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(testDir, { recursive: true });
+    process.env.MOCK_HOMEDIR = testDir;
+
     mockFindClaudePid.mockReset();
+    mockCreateCardsClient.mockReset();
     mockAddCommit.mockReset();
     vi.clearAllMocks();
     delete process.env.CARD_ID;
@@ -55,7 +72,17 @@ describe('post-tool-use-card-association hook', () => {
 
   afterEach(() => {
     delete process.env.CARD_ID;
+    delete process.env.MOCK_HOMEDIR;
+    rmSync(testDir, { recursive: true, force: true });
   });
+
+  /** Write the Cards API discovery file so discoverApiInfo succeeds. */
+  function writeDiscoveryFile(
+    config = { host: 'localhost', port: 3000, accessToken: 'test-token', pid: 99999, startedAt: '2024-01-01T00:00:00Z' }
+  ): void {
+    mkdirSync(join(testDir, '.cards'), { recursive: true });
+    writeFileSync(join(testDir, '.cards', 'cards-api.json'), JSON.stringify(config));
+  }
 
   describe('gating conditions', () => {
     it('should skip entirely when CARD_ID env var is set', async () => {
@@ -90,8 +117,12 @@ describe('post-tool-use-card-association hook', () => {
     });
 
     it('should skip when PID already has cardId in registry (first-write-wins)', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue('existing-card-id');
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
+
+      // Pre-populate the registry with a card association for our PID
+      const { associatePidWithCard } = await import('../src/lib/claude-sessions.js');
+      await associatePidWithCard(testPid, 'existing-card-id', mockLogger);
 
       const result = await hookFn(
         {
@@ -102,8 +133,6 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       expect(result.stdout).toEqual({});
-      expect(mockGetPidCardId).toHaveBeenCalledWith(12345, mockLogger);
-      expect(mockAssociatePidWithCard).not.toHaveBeenCalled();
     });
 
     it('should return empty output when no Claude PID found', async () => {
@@ -119,7 +148,6 @@ describe('post-tool-use-card-association hook', () => {
 
       expect(result.stdout).toEqual({});
       expect(mockFindClaudePid).toHaveBeenCalled();
-      expect(mockAssociatePidWithCard).not.toHaveBeenCalled();
     });
 
     it('should return empty output when card ID not found in URL', async () => {
@@ -148,25 +176,15 @@ describe('post-tool-use-card-association hook', () => {
   });
 
   describe('write detection', () => {
-    const apiInfo = {
-      host: 'localhost',
-      port: 3000,
-      accessToken: 'test-token',
-      pid: 99999,
-      startedAt: '2024-01-01T00:00:00Z'
-    };
-
     function setupForWriteDetection(): void {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(apiInfo);
-      mockAssociatePidWithCard.mockResolvedValue([]);
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
     }
 
     it('should detect POST to card endpoints', async () => {
       setupForWriteDetection();
 
-      await hookFn(
+      const _result = await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
@@ -174,13 +192,16 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-123', mockLogger);
+      // Association happened (not empty output); the hook attempted to flush commits
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-123');
     });
 
     it('should detect PUT to card endpoints', async () => {
       setupForWriteDetection();
 
-      await hookFn(
+      const _result = await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl -X PUT http://localhost:3000/cards/card-123 -d "{\\"status\\": \\"done\\"}"' }
@@ -188,13 +209,15 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-123', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-123');
     });
 
     it('should detect PATCH to card endpoints', async () => {
       setupForWriteDetection();
 
-      await hookFn(
+      const _result = await hookFn(
         {
           tool_name: 'Bash',
           tool_input: {
@@ -204,13 +227,15 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-123', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-123');
     });
 
     it('should detect DELETE to card endpoints', async () => {
       setupForWriteDetection();
 
-      await hookFn(
+      const _result = await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl -X DELETE http://localhost:3000/cards/card-123/attachments/att-1' }
@@ -218,13 +243,15 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-123', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-123');
     });
 
     it('should detect implicit POST when -d flag is used without -X', async () => {
       setupForWriteDetection();
 
-      await hookFn(
+      const _result = await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl http://localhost:3000/cards/card-123/comments -d "test comment"' }
@@ -232,13 +259,15 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-123', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-123');
     });
 
     it('should detect implicit POST when --data flag is used', async () => {
       setupForWriteDetection();
 
-      await hookFn(
+      const _result = await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl http://localhost:3000/cards/card-123/notes --data "note content"' }
@@ -246,13 +275,15 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-123', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-123');
     });
 
     it('should detect --request POST (long form of -X)', async () => {
       setupForWriteDetection();
 
-      await hookFn(
+      const _result = await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl --request POST http://localhost:3000/cards/card-123/comments -d "test"' }
@@ -260,24 +291,16 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-123', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-123');
     });
   });
 
   describe('card ID extraction', () => {
-    const apiInfo = {
-      host: 'localhost',
-      port: 3000,
-      accessToken: 'test-token',
-      pid: 99999,
-      startedAt: '2024-01-01T00:00:00Z'
-    };
-
     function setupForExtraction(): void {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(apiInfo);
-      mockAssociatePidWithCard.mockResolvedValue([]);
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
     }
 
     it('should extract card ID from /cards/{cardId} pattern', async () => {
@@ -291,7 +314,9 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'my-card-456', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('my-card-456');
     });
 
     it('should extract card ID when URL uses a shell variable for base', async () => {
@@ -308,7 +333,9 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'jsonl-strea-1', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('jsonl-strea-1');
     });
 
     it('should extract card ID when URL uses a braced shell variable', async () => {
@@ -324,7 +351,9 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-456', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-456');
     });
 
     it('should not match file paths containing /cards/', async () => {
@@ -352,25 +381,18 @@ describe('post-tool-use-card-association hook', () => {
         { logger: mockLogger }
       );
 
-      expect(mockAssociatePidWithCard).toHaveBeenCalledWith(12345, 'card-789', mockLogger);
+      const { getPidCardId } = await import('../src/lib/claude-sessions.js');
+      const cardId = await getPidCardId(testPid, mockLogger);
+      expect(cardId).toBe('card-789');
     });
   });
 
   describe('PID association and commit flushing', () => {
-    const apiInfo = {
-      host: 'localhost',
-      port: 3000,
-      accessToken: 'test-token',
-      pid: 99999,
-      startedAt: '2024-01-01T00:00:00Z'
-    };
-
     it('should return empty output when already associated (first-write-wins)', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(apiInfo);
-      mockAssociatePidWithCard.mockResolvedValue([]);
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
 
+      // No pending commits → returns empty
       const result = await hookFn(
         {
           tool_name: 'Bash',
@@ -384,65 +406,98 @@ describe('post-tool-use-card-association hook', () => {
     });
 
     it('should verify SHA reachability before adding commits via CardsClient', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(apiInfo);
-      mockAssociatePidWithCard.mockResolvedValue(['abc123', 'def456', 'unreachable789']);
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
+
+      // Create real commits in test repo for reachability checks
+      await testRepo.createAndCommitFile('file1.txt', 'content1', 'commit 1');
+      const reachableSha1 = (await testRepo.getGit().revparse(['HEAD'])).trim();
+
+      await testRepo.createAndCommitFile('file2.txt', 'content2', 'commit 2');
+      const reachableSha2 = (await testRepo.getGit().revparse(['HEAD'])).trim();
+
+      const unreachableSha = 'a'.repeat(40); // A SHA that doesn't exist in the repo
+
+      // Pre-populate pending commits for this PID
+      const { recordPendingCommit } = await import('../src/lib/claude-sessions.js');
+      await recordPendingCommit(testPid, reachableSha1, mockLogger);
+      await recordPendingCommit(testPid, reachableSha2, mockLogger);
+      await recordPendingCommit(testPid, unreachableSha, mockLogger);
+
       mockCreateCardsClient.mockResolvedValue(mockClient);
       mockAddCommit.mockResolvedValue({ sha: '', createdAt: '' });
-      mockExecSync
-        .mockReturnValueOnce(Buffer.from('')) // abc123 reachable
-        .mockReturnValueOnce(Buffer.from('')) // def456 reachable
-        .mockImplementationOnce(() => {
-          throw new Error('not an ancestor');
-        });
 
-      const result = await hookFn(
-        {
-          tool_name: 'Bash',
-          tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
-        } as never,
-        { logger: mockLogger }
-      );
+      // The hook's execSync runs git merge-base from cwd; set cwd to test repo
+      const originalCwd = process.cwd();
+      process.chdir(testRepo.getPath());
 
-      expect(mockExecSync).toHaveBeenCalledWith('git merge-base --is-ancestor abc123 HEAD', { stdio: 'pipe' });
-      expect(mockExecSync).toHaveBeenCalledWith('git merge-base --is-ancestor def456 HEAD', { stdio: 'pipe' });
-      expect(mockExecSync).toHaveBeenCalledWith('git merge-base --is-ancestor unreachable789 HEAD', { stdio: 'pipe' });
+      try {
+        const result = await hookFn(
+          {
+            tool_name: 'Bash',
+            tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
+          } as never,
+          { logger: mockLogger }
+        );
 
-      expect(mockAddCommit).toHaveBeenCalledTimes(2);
-      expect(mockAddCommit).toHaveBeenCalledWith('card-123', 'abc123');
-      expect(mockAddCommit).toHaveBeenCalledWith('card-123', 'def456');
-      expect(result.stdout.systemMessage).toContain('2 pending commit(s) attributed');
+        // Only the 2 reachable commits should be flushed
+        expect(mockAddCommit).toHaveBeenCalledTimes(2);
+        expect(mockAddCommit).toHaveBeenCalledWith('card-123', reachableSha1);
+        expect(mockAddCommit).toHaveBeenCalledWith('card-123', reachableSha2);
+        expect(result.stdout.systemMessage).toContain('2 pending commit(s) attributed');
+      } finally {
+        process.chdir(originalCwd);
+      }
     });
 
     it('should add each reachable commit via CardsClient', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(apiInfo);
-      mockAssociatePidWithCard.mockResolvedValue(['abc123', 'def456']);
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
+
+      // Create real commits
+      await testRepo.createAndCommitFile('file3.txt', 'content3', 'commit 3');
+      const sha1 = (await testRepo.getGit().revparse(['HEAD'])).trim();
+
+      await testRepo.createAndCommitFile('file4.txt', 'content4', 'commit 4');
+      const sha2 = (await testRepo.getGit().revparse(['HEAD'])).trim();
+
+      // Pre-populate pending commits
+      const { recordPendingCommit } = await import('../src/lib/claude-sessions.js');
+      await recordPendingCommit(testPid, sha1, mockLogger);
+      await recordPendingCommit(testPid, sha2, mockLogger);
+
       mockCreateCardsClient.mockResolvedValue(mockClient);
       mockAddCommit.mockResolvedValue({ sha: '', createdAt: '' });
-      mockExecSync.mockReturnValue(Buffer.from(''));
 
-      const result = await hookFn(
-        {
-          tool_name: 'Bash',
-          tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
-        } as never,
-        { logger: mockLogger }
-      );
+      const originalCwd = process.cwd();
+      process.chdir(testRepo.getPath());
 
-      expect(mockAddCommit).toHaveBeenCalledWith('card-123', 'abc123');
-      expect(mockAddCommit).toHaveBeenCalledWith('card-123', 'def456');
-      expect(result.stdout.systemMessage).toContain('2 pending commit(s) attributed');
+      try {
+        const result = await hookFn(
+          {
+            tool_name: 'Bash',
+            tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
+          } as never,
+          { logger: mockLogger }
+        );
+
+        expect(mockAddCommit).toHaveBeenCalledWith('card-123', sha1);
+        expect(mockAddCommit).toHaveBeenCalledWith('card-123', sha2);
+        expect(result.stdout.systemMessage).toContain('2 pending commit(s) attributed');
+      } finally {
+        process.chdir(originalCwd);
+      }
     });
 
     it('should return no-API-connection message when client creation fails', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(null);
+      mockFindClaudePid.mockReturnValue(testPid);
+      // Don't write discovery file → discoverApiInfo returns null
+
+      // Pre-populate pending commits
+      const { recordPendingCommit } = await import('../src/lib/claude-sessions.js');
+      await recordPendingCommit(testPid, `abc123def456${'0'.repeat(28)}`, mockLogger);
+
       mockCreateCardsClient.mockResolvedValue(null);
-      mockAssociatePidWithCard.mockResolvedValue(['abc123']);
 
       const result = await hookFn(
         {
@@ -456,35 +511,54 @@ describe('post-tool-use-card-association hook', () => {
     });
 
     it('should return success message after flushing commits', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(apiInfo);
-      mockAssociatePidWithCard.mockResolvedValue(['abc123', 'def456']);
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
+
+      // Create real commits
+      await testRepo.createAndCommitFile('file5.txt', 'content5', 'commit 5');
+      const sha1 = (await testRepo.getGit().revparse(['HEAD'])).trim();
+
+      await testRepo.createAndCommitFile('file6.txt', 'content6', 'commit 6');
+      const sha2 = (await testRepo.getGit().revparse(['HEAD'])).trim();
+
+      // Pre-populate pending commits
+      const { recordPendingCommit } = await import('../src/lib/claude-sessions.js');
+      await recordPendingCommit(testPid, sha1, mockLogger);
+      await recordPendingCommit(testPid, sha2, mockLogger);
+
       mockCreateCardsClient.mockResolvedValue(mockClient);
       mockAddCommit.mockResolvedValue({ sha: '', createdAt: '' });
-      mockExecSync.mockReturnValue(Buffer.from(''));
 
-      const result = await hookFn(
-        {
-          tool_name: 'Bash',
-          tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
-        } as never,
-        { logger: mockLogger }
-      );
+      const originalCwd = process.cwd();
+      process.chdir(testRepo.getPath());
 
-      expect(result.stdout).toEqual({
-        systemMessage: 'PID 12345 associated with card card-123. 2 pending commit(s) attributed.'
-      });
+      try {
+        const result = await hookFn(
+          {
+            tool_name: 'Bash',
+            tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
+          } as never,
+          { logger: mockLogger }
+        );
+
+        expect(result.stdout).toEqual({
+          systemMessage: `PID ${testPid} associated with card card-123. 2 pending commit(s) attributed.`
+        });
+      } finally {
+        process.chdir(originalCwd);
+      }
     });
   });
 
   describe('fail-open behavior', () => {
     it('should return empty output when discoverApiInfo and createCardsClient both fail', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue(null);
+      mockFindClaudePid.mockReturnValue(testPid);
+      // Don't write discovery file → discoverApiInfo returns null
       mockCreateCardsClient.mockResolvedValue(null);
-      mockAssociatePidWithCard.mockResolvedValue(['abc123']);
+
+      // Pre-populate pending commits
+      const { recordPendingCommit } = await import('../src/lib/claude-sessions.js');
+      await recordPendingCommit(testPid, `abc123def456${'0'.repeat(28)}`, mockLogger);
 
       const result = await hookFn(
         {
@@ -499,31 +573,38 @@ describe('post-tool-use-card-association hook', () => {
     });
 
     it('should return success message even when addCommit errors occur', async () => {
-      mockFindClaudePid.mockReturnValue(12345);
-      mockGetPidCardId.mockResolvedValue(null);
-      mockDiscoverApiInfo.mockResolvedValue({
-        host: 'localhost',
-        port: 3000,
-        accessToken: 'test-token',
-        pid: 99999,
-        startedAt: '2024-01-01T00:00:00Z'
-      });
-      mockAssociatePidWithCard.mockResolvedValue(['abc123']);
+      mockFindClaudePid.mockReturnValue(testPid);
+      writeDiscoveryFile();
+
+      // Create a real commit
+      await testRepo.createAndCommitFile('file7.txt', 'content7', 'commit 7');
+      const sha = (await testRepo.getGit().revparse(['HEAD'])).trim();
+
+      // Pre-populate pending commits
+      const { recordPendingCommit } = await import('../src/lib/claude-sessions.js');
+      await recordPendingCommit(testPid, sha, mockLogger);
+
       mockCreateCardsClient.mockResolvedValue(mockClient);
-      mockExecSync.mockReturnValue(Buffer.from(''));
       mockAddCommit.mockRejectedValue(new Error('Network error'));
 
-      const result = await hookFn(
-        {
-          tool_name: 'Bash',
-          tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
-        } as never,
-        { logger: mockLogger }
-      );
+      const originalCwd = process.cwd();
+      process.chdir(testRepo.getPath());
 
-      expect(result.stdout).toEqual({
-        systemMessage: 'PID 12345 associated with card card-123. 0 pending commit(s) attributed.'
-      });
+      try {
+        const result = await hookFn(
+          {
+            tool_name: 'Bash',
+            tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
+          } as never,
+          { logger: mockLogger }
+        );
+
+        expect(result.stdout).toEqual({
+          systemMessage: `PID ${testPid} associated with card card-123. 0 pending commit(s) attributed.`
+        });
+      } finally {
+        process.chdir(originalCwd);
+      }
     });
 
     it('should return empty output on any unexpected error', async () => {

@@ -341,7 +341,8 @@ async function updateGitExclude(opts) {
     } catch {
     }
   }
-  await fs.appendFile(excludePath, lines.join("\n") + "\n");
+  await fs.appendFile(excludePath, `${lines.join("\n")}
+`);
   try {
     await execFileAsync("git", ["-C", repoRoot, "config", "extensions.worktreeConfig", "true"], { timeout: 5e3 });
   } catch {

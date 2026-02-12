@@ -1,27 +1,37 @@
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir as realTmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return {
+    ...actual,
+    homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp')
+  };
+});
 
 vi.mock('../src/lib/process-tree.js', () => ({
   findClaudePid: vi.fn()
 }));
 
-vi.mock('../src/lib/claude-sessions.js', () => ({
-  removePidEntry: vi.fn()
-}));
-
-import { removePidEntry } from '../src/lib/claude-sessions.js';
 import { findClaudePid } from '../src/lib/process-tree.js';
 import hookFn from '../src/stop.js';
 
 describe('cards stop hook', () => {
   const originalEnv = process.env;
   const mockFindClaudePid = vi.mocked(findClaudePid);
-  const mockRemovePidEntry = vi.mocked(removePidEntry);
   const mockLogger = {
     debug: vi.fn(),
     warn: vi.fn(),
     info: vi.fn()
   };
+
+  // Use the current process PID so claude-sessions doesn't prune entries as dead
+  const testPid = process.pid;
+
+  let testDir: string;
 
   const baseInput = {
     transcript_path: '/tmp/transcript.jsonl',
@@ -32,8 +42,10 @@ describe('cards stop hook', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    testDir = join(realTmpdir(), `stop-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(testDir, { recursive: true });
+    process.env.MOCK_HOMEDIR = testDir;
     mockFindClaudePid.mockReset();
-    mockRemovePidEntry.mockReset();
     mockLogger.debug.mockReset();
     mockLogger.warn.mockReset();
     mockLogger.info.mockReset();
@@ -41,7 +53,25 @@ describe('cards stop hook', () => {
 
   afterEach(() => {
     process.env = originalEnv;
+    rmSync(testDir, { recursive: true, force: true });
   });
+
+  /** Write a session registry file with the given PID entry. */
+  function writeRegistry(pid: number, entry: { cardId?: string; pendingCommits: string[]; updatedAt: string }): void {
+    const cardsDir = join(testDir, '.cards');
+    mkdirSync(cardsDir, { recursive: true });
+    const registry = { sessions: { [String(pid)]: entry } };
+    writeFileSync(join(cardsDir, 'claude-sessions.json'), JSON.stringify(registry, null, 2));
+  }
+
+  /** Read the registry file and return parsed content. */
+  function readRegistry(): { sessions: Record<string, unknown> } {
+    try {
+      return JSON.parse(readFileSync(join(testDir, '.cards', 'claude-sessions.json'), 'utf-8'));
+    } catch {
+      return { sessions: {} };
+    }
+  }
 
   it('has correct hookEventName', () => {
     expect(hookFn.hookEventName).toBe('Stop');
@@ -55,13 +85,14 @@ describe('cards stop hook', () => {
     );
     expect(result.stdout.decision).toBe('approve');
     expect(mockFindClaudePid).not.toHaveBeenCalled();
-    expect(mockRemovePidEntry).not.toHaveBeenCalled();
   });
 
-  it('calls findClaudePid when CARD_ID not set', async () => {
+  it('calls findClaudePid and removes registry entry when CARD_ID not set', async () => {
     process.env.CARD_ID = undefined;
-    mockFindClaudePid.mockReturnValue(12345);
-    mockRemovePidEntry.mockResolvedValue(null);
+    mockFindClaudePid.mockReturnValue(testPid);
+
+    // Pre-populate registry with an entry for our PID
+    writeRegistry(testPid, { cardId: 'card-456', pendingCommits: [], updatedAt: new Date().toISOString() });
 
     const result = await hookFn(
       { ...baseInput, session_id: 'test-session' },
@@ -69,7 +100,10 @@ describe('cards stop hook', () => {
     );
     expect(result.stdout.decision).toBe('approve');
     expect(mockFindClaudePid).toHaveBeenCalled();
-    expect(mockRemovePidEntry).toHaveBeenCalledWith(12345, mockLogger);
+
+    // Verify the entry was actually removed from the real registry
+    const registry = readRegistry();
+    expect(registry.sessions[String(testPid)]).toBeUndefined();
   });
 
   it('approves when findClaudePid returns null', async () => {
@@ -81,13 +115,16 @@ describe('cards stop hook', () => {
       { logger: mockLogger as unknown as Logger }
     );
     expect(result.stdout.decision).toBe('approve');
-    expect(mockRemovePidEntry).not.toHaveBeenCalled();
   });
 
-  it('approves even when removePidEntry throws', async () => {
+  it('approves even when removePidEntry encounters corrupt registry', async () => {
     process.env.CARD_ID = undefined;
-    mockFindClaudePid.mockReturnValue(12345);
-    mockRemovePidEntry.mockRejectedValue(new Error('Registry error'));
+    mockFindClaudePid.mockReturnValue(testPid);
+
+    // Write corrupt registry file
+    const cardsDir = join(testDir, '.cards');
+    mkdirSync(cardsDir, { recursive: true });
+    writeFileSync(join(cardsDir, 'claude-sessions.json'), 'not valid json');
 
     const result = await hookFn(
       { ...baseInput, session_id: 'test-session' },
