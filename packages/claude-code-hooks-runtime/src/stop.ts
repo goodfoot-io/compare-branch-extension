@@ -32,6 +32,10 @@ import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
  */
 const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf899d15363d7aa09';
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Returns all commit SHAs between sinceSha and HEAD in the given repo.
  * Runs: git log --format=%H sinceSha..HEAD
@@ -88,7 +92,7 @@ export default stopHook({}, async (input, { logger }) => {
   try {
     actionInput = extractActionInput();
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     logger.error('Not running inside an action subprocess', { error: message });
     return stopOutput({
       decision: 'approve',
@@ -112,7 +116,7 @@ export default stopHook({}, async (input, { logger }) => {
   try {
     allCommits = getCommitsSince(actionInput.cardRepoPath, headSha);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     logger.error('Failed to get commits since session start', { error: message });
     return stopOutput({
       decision: 'block',
@@ -122,7 +126,7 @@ export default stopHook({}, async (input, { logger }) => {
 
   if (allCommits.length === 0) {
     // No commits since session start — approve
-    await cleanupPid(logger, sessionId);
+    await cleanupSession(logger, sessionId);
     return stopOutput({
       decision: 'approve',
       systemMessage: 'Stop approved — no commits since session start.'
@@ -134,7 +138,7 @@ export default stopHook({}, async (input, { logger }) => {
   try {
     sessionCommits = getSessionCommits(sessionId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     logger.error('Failed to read session commits', { error: message });
     return stopOutput({
       decision: 'block',
@@ -146,7 +150,7 @@ export default stopHook({}, async (input, { logger }) => {
 
   if (unattributed.length === 0) {
     // All commits attributed — approve
-    await cleanupPid(logger, sessionId);
+    await cleanupSession(logger, sessionId);
     return stopOutput({
       decision: 'approve',
       systemMessage: `Stop approved — all ${allCommits.length} commits attributed to this session.`
@@ -158,20 +162,12 @@ export default stopHook({}, async (input, { logger }) => {
   try {
     diffContent = getDiffForCommits(actionInput.cardRepoPath, unattributed);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     diffContent = `(Could not generate diff: ${message})`;
   }
 
-  // Record unattributed commits so they won't be shown again on next stop
-  for (const sha of unattributed) {
-    try {
-      await appendCommitToSession(sessionId, sha);
-    } catch (error) {
-      logger.error('Failed to record unattributed commit', { sha, error });
-    }
-  }
-
-  await cleanupPid(logger, sessionId);
+  await recordUnattributedCommits(sessionId, unattributed, logger);
+  await cleanupSession(logger, sessionId);
 
   return stopOutput({
     decision: 'block',
@@ -179,7 +175,18 @@ export default stopHook({}, async (input, { logger }) => {
   });
 });
 
-async function cleanupPid(logger: Logger, sessionId: string): Promise<void> {
+/** Records unattributed commits so they won't be shown again on next stop. */
+async function recordUnattributedCommits(sessionId: string, shas: string[], logger: Logger): Promise<void> {
+  for (const sha of shas) {
+    try {
+      await appendCommitToSession(sessionId, sha);
+    } catch (error) {
+      logger.error('Failed to record unattributed commit', { sha, error });
+    }
+  }
+}
+
+async function cleanupSession(logger: Logger, sessionId: string): Promise<void> {
   // Use persisted PID from session-start, fall back to findClaudePid()
   const envPid = process.env['SESSION_CLAUDE_PID'];
   const pid = envPid ? Number.parseInt(envPid, 10) : null;
