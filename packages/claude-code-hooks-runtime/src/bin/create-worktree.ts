@@ -276,19 +276,18 @@ export async function copyExistingSymlinks(sourceRoot: string, worktreeDir: stri
   const symlinks = entries.filter((e) => e.isSymbolicLink() && e.name !== '.git' && e.name !== '.worktrees');
 
   const copySymlink = async (name: string): Promise<boolean> => {
+    const destPath = path.join(worktreeDir, name);
     try {
-      const destPath = path.join(worktreeDir, name);
       await fs.lstat(destPath);
-      return false;
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
-        const sourceLinkPath = path.join(sourceRoot, name);
-        const destPath = path.join(worktreeDir, name);
-        await fs.symlink(sourceLinkPath, destPath);
-        return true;
+      return false; // Destination already exists
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
       }
-      return false;
     }
+    const sourceLinkPath = path.join(sourceRoot, name);
+    await fs.symlink(sourceLinkPath, destPath);
+    return true;
   };
 
   const results = await Promise.all(symlinks.map((e) => copySymlink(e.name)));
@@ -462,8 +461,10 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
     try {
       const stats = await fs.lstat(path.join(worktreeDir, dir));
       if (stats.isSymbolicLink()) lines.push(dir);
-    } catch {
-      // skip
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
     }
   }
 
@@ -472,8 +473,10 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
     try {
       const stats = await fs.lstat(path.join(worktreeDir, file));
       if (stats.isSymbolicLink()) lines.push(file);
-    } catch {
-      // skip
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
     }
   }
 
@@ -481,16 +484,20 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
 
   try {
     await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], { timeout: 5_000 });
-  } catch {
-    // skip
+  } catch (error: unknown) {
+    process.stderr.write(
+      `create-worktree: failed to set worktreeConfig extension: ${error instanceof Error ? error.message : String(error)}\n`
+    );
   }
 
   try {
     await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.excludesFile', excludePath], {
       timeout: 5_000
     });
-  } catch {
-    // skip
+  } catch (error: unknown) {
+    process.stderr.write(
+      `create-worktree: failed to set core.excludesFile: ${error instanceof Error ? error.message : String(error)}\n`
+    );
   }
 }
 
