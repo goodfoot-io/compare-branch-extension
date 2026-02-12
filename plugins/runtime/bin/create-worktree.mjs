@@ -139,7 +139,14 @@ async function symlinkIgnoredPaths(opts) {
       const sourcePath = path.join(sourceRoot, dir);
       try {
         await fs.lstat(sourcePath);
-      } catch {
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          return false;
+        }
+        process.stderr.write(
+          `create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}
+`
+        );
         return false;
       }
       const destPath = path.join(worktreeDir, dir);
@@ -149,7 +156,15 @@ async function symlinkIgnoredPaths(opts) {
       }
       await fs.symlink(sourcePath, destPath);
       return true;
-    } catch {
+    } catch (error) {
+      const code = error.code;
+      if (code === "EEXIST" || code === "ENOENT") {
+        return false;
+      }
+      process.stderr.write(
+        `create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}
+`
+      );
       return false;
     }
   };
@@ -158,7 +173,14 @@ async function symlinkIgnoredPaths(opts) {
       const sourcePath = path.join(sourceRoot, file);
       try {
         await fs.lstat(sourcePath);
-      } catch {
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          return false;
+        }
+        process.stderr.write(
+          `create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}
+`
+        );
         return false;
       }
       const destPath = path.join(worktreeDir, file);
@@ -168,7 +190,15 @@ async function symlinkIgnoredPaths(opts) {
       }
       await fs.symlink(sourcePath, destPath);
       return true;
-    } catch {
+    } catch (error) {
+      const code = error.code;
+      if (code === "EEXIST" || code === "ENOENT") {
+        return false;
+      }
+      process.stderr.write(
+        `create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}
+`
+      );
       return false;
     }
   };
@@ -182,19 +212,18 @@ async function copyExistingSymlinks(sourceRoot, worktreeDir) {
   const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
   const symlinks = entries.filter((e) => e.isSymbolicLink() && e.name !== ".git" && e.name !== ".worktrees");
   const copySymlink = async (name) => {
+    const destPath = path.join(worktreeDir, name);
     try {
-      const destPath = path.join(worktreeDir, name);
       await fs.lstat(destPath);
       return false;
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "ENOENT") {
-        const sourceLinkPath = path.join(sourceRoot, name);
-        const destPath = path.join(worktreeDir, name);
-        await fs.symlink(sourceLinkPath, destPath);
-        return true;
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
       }
-      return false;
     }
+    const sourceLinkPath = path.join(sourceRoot, name);
+    await fs.symlink(sourceLinkPath, destPath);
+    return true;
   };
   const results = await Promise.all(symlinks.map((e) => copySymlink(e.name)));
   return results.filter((r) => r).length;
@@ -330,7 +359,10 @@ async function updateGitExclude(opts) {
     try {
       const stats = await fs.lstat(path.join(worktreeDir, dir));
       if (stats.isSymbolicLink()) lines.push(dir);
-    } catch {
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
     }
   }
   for (const file of files) {
@@ -338,20 +370,31 @@ async function updateGitExclude(opts) {
     try {
       const stats = await fs.lstat(path.join(worktreeDir, file));
       if (stats.isSymbolicLink()) lines.push(file);
-    } catch {
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
     }
   }
   await fs.appendFile(excludePath, `${lines.join("\n")}
 `);
   try {
     await execFileAsync("git", ["-C", repoRoot, "config", "extensions.worktreeConfig", "true"], { timeout: 5e3 });
-  } catch {
+  } catch (error) {
+    process.stderr.write(
+      `create-worktree: failed to set worktreeConfig extension: ${error instanceof Error ? error.message : String(error)}
+`
+    );
   }
   try {
     await execFileAsync("git", ["-C", worktreeDir, "config", "--worktree", "core.excludesFile", excludePath], {
       timeout: 5e3
     });
-  } catch {
+  } catch (error) {
+    process.stderr.write(
+      `create-worktree: failed to set core.excludesFile: ${error instanceof Error ? error.message : String(error)}
+`
+    );
   }
 }
 if (process.argv[1]?.endsWith("create-worktree.mjs")) {
