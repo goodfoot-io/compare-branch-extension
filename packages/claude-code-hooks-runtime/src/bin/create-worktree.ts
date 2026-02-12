@@ -205,7 +205,9 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           return false;
         }
-        process.stderr.write(`create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.stderr.write(
+          `create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}\n`
+        );
         return false;
       }
       const destPath = path.join(worktreeDir, dir);
@@ -220,7 +222,9 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       if (code === 'EEXIST' || code === 'ENOENT') {
         return false;
       }
-      process.stderr.write(`create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.stderr.write(
+        `create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}\n`
+      );
       return false;
     }
   };
@@ -234,7 +238,9 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           return false;
         }
-        process.stderr.write(`create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.stderr.write(
+          `create-worktree: unexpected error in lstat: ${error instanceof Error ? error.message : String(error)}\n`
+        );
         return false;
       }
       const destPath = path.join(worktreeDir, file);
@@ -249,7 +255,9 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       if (code === 'EEXIST' || code === 'ENOENT') {
         return false;
       }
-      process.stderr.write(`create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.stderr.write(
+        `create-worktree: unexpected error in symlink: ${error instanceof Error ? error.message : String(error)}\n`
+      );
       return false;
     }
   };
