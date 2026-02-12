@@ -9,6 +9,8 @@
  */
 
 import { execSync } from 'node:child_process';
+import { registerSessionPid } from '@cards/git-hooks/lib/card-repo-sessions';
+import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
@@ -33,7 +35,7 @@ export function resolveHeadSha(repoPath: string): string | null {
   }
 }
 
-export default sessionStartHook({}, (_input, { logger, persistEnvVar }) => {
+export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => {
   let actionInput: ActionInput;
   try {
     actionInput = extractActionInput();
@@ -53,6 +55,23 @@ export default sessionStartHook({}, (_input, { logger, persistEnvVar }) => {
     logger.warn('Could not resolve git HEAD sha', { repoPath: actionInput.cardRepoPath });
   }
 
+  // Register PID→sessionId for commit attribution
+  let commitAttributionError: string | null = null;
+  const claudePid = findClaudePid();
+  if (claudePid) {
+    try {
+      await registerSessionPid(claudePid, input.session_id);
+      persistEnvVar('SESSION_CLAUDE_PID', String(claudePid));
+      logger.info('Registered PID for commit attribution', { pid: claudePid, sessionId: input.session_id });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      commitAttributionError = message;
+      logger.error('Failed to register PID for commit attribution', { error: message });
+    }
+  } else {
+    logger.warn('Could not find Claude PID for commit attribution');
+  }
+
   logger.info('Action subprocess confirmed', {
     cardId: actionInput.cardId,
     actionName: actionInput.actionName,
@@ -66,7 +85,8 @@ export default sessionStartHook({}, (_input, { logger, persistEnvVar }) => {
       `Card: ${actionInput.cardId}`,
       `Environment: ${actionInput.environment}`,
       `Mode: ${actionInput.executionMode}`,
-      ...(headSha ? [`HEAD: ${headSha}`] : [])
+      ...(headSha ? [`HEAD: ${headSha}`] : []),
+      ...(commitAttributionError ? [`Commit attribution disabled: ${commitAttributionError}`] : [])
     ].join(' | '),
     hookSpecificOutput: {
       additionalContext: JSON.stringify(actionInput)

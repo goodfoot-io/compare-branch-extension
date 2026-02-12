@@ -2,10 +2,28 @@
  * Tests for the SessionStart hook.
  */
 
+import { execSync } from 'node:child_process';
+import { registerSessionPid } from '@cards/git-hooks/lib/card-repo-sessions';
+import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook, { resolveHeadSha } from '../src/session-start.js';
+
+const mockFindClaudePid = vi.mocked(findClaudePid);
+const mockRegisterSessionPid = vi.mocked(registerSessionPid);
+
+vi.mock('node:child_process', () => ({
+  execSync: vi.fn()
+}));
+
+vi.mock('@cards/git-hooks/lib/process-tree', () => ({
+  findClaudePid: vi.fn()
+}));
+
+vi.mock('@cards/git-hooks/lib/card-repo-sessions', () => ({
+  registerSessionPid: vi.fn()
+}));
 
 const logger = new Logger();
 
@@ -70,6 +88,9 @@ describe('SessionStart Hook', () => {
       for (const key of Object.keys(ACTION_ENV)) {
         delete process.env[key];
       }
+      vi.mocked(execSync).mockReset();
+      mockFindClaudePid.mockReset();
+      mockRegisterSessionPid.mockReset();
     });
 
     it('returns action context in additionalContext', async () => {
@@ -121,9 +142,66 @@ describe('SessionStart Hook', () => {
       const stdout = result.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).not.toContain('HEAD:');
     });
+
+    it('calls findClaudePid and registerSessionPid with correct args when inside action subprocess', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execSync).mockReturnValue('abc123\n');
+      const persistEnvVar = vi.fn();
+      const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+
+      await hook(mockInput, context);
+
+      expect(mockFindClaudePid).toHaveBeenCalled();
+      expect(mockRegisterSessionPid).toHaveBeenCalledWith(42, 'sess-123');
+    });
+
+    it('does not call registerSessionPid when findClaudePid returns null (logs warning)', async () => {
+      mockFindClaudePid.mockReturnValue(null);
+      vi.mocked(execSync).mockReturnValue('abc123\n');
+      const persistEnvVar = vi.fn();
+      const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+
+      await hook(mockInput, context);
+
+      expect(mockFindClaudePid).toHaveBeenCalled();
+      expect(mockRegisterSessionPid).not.toHaveBeenCalled();
+    });
+
+    it('includes error in systemMessage when registerSessionPid throws', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      mockRegisterSessionPid.mockRejectedValue(new Error('disk full'));
+      vi.mocked(execSync).mockReturnValue('abc123\n');
+      const persistEnvVar = vi.fn();
+      const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+
+      const result = await hook(mockInput, context);
+
+      const stdout = result.stdout as { systemMessage?: string };
+      expect(stdout.systemMessage).toContain('Commit attribution disabled: disk full');
+    });
+
+    it('persists SESSION_CLAUDE_PID via persistEnvVar after successful registration', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execSync).mockReturnValue('abc123\n');
+      const persistEnvVar = vi.fn();
+      const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+
+      await hook(mockInput, context);
+
+      expect(persistEnvVar).toHaveBeenCalledWith('SESSION_CLAUDE_PID', '42');
+    });
   });
 
   describe('outside an action subprocess', () => {
+    afterEach(() => {
+      mockFindClaudePid.mockReset();
+      mockRegisterSessionPid.mockReset();
+    });
+
     it('returns an error message when action env vars are missing', async () => {
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger, persistEnvVar: () => {}, persistEnvVars: () => {} };
@@ -133,6 +211,16 @@ describe('SessionStart Hook', () => {
       expect(result).toHaveProperty('_type', 'SessionStart');
       const stdout = result.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).toContain('not running inside an action subprocess');
+    });
+
+    it('does not call findClaudePid or registerSessionPid when outside action subprocess', async () => {
+      const mockInput = {} as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar: () => {}, persistEnvVars: () => {} };
+
+      await hook(mockInput, context);
+
+      expect(mockFindClaudePid).not.toHaveBeenCalled();
+      expect(mockRegisterSessionPid).not.toHaveBeenCalled();
     });
   });
 });

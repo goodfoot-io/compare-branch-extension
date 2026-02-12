@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cards/git-hooks": "workspace:*",
     "@cards/sdk": "workspace:*",
     "@goodfoot/claude-code-hooks": "^1.0.21",
     "esbuild": "^0.25.0"
