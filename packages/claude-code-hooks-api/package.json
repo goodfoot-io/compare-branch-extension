@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
     "@goodfoot/claude-code-hooks": "^1.0.21"
   },

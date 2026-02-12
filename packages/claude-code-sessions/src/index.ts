@@ -11,14 +11,20 @@
  * - **Stale-entry pruning**: entries older than 24 h or belonging to dead PIDs
  *   are removed on every transaction.
  *
- * @module lib/claude-sessions
+ * @module claude-code-sessions
  */
 
-import { mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { Logger } from '@goodfoot/claude-code-hooks';
 import { isProcessAlive } from './ipc.js';
+
+/** Minimal logger interface matching the methods used by this module. */
+interface Logger {
+  debug?(...args: unknown[]): void;
+  warn?(...args: unknown[]): void;
+  error?(...args: unknown[]): void;
+}
 
 function getCardsDir(): string {
   return join(homedir(), '.cards');
@@ -51,50 +57,67 @@ export interface ClaudeSessionRegistry {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function acquireLock(logger?: Logger): boolean {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function hasErrnoCode(error: unknown, code: string): boolean {
+  return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === code;
+}
+
+function tryRemoveStaleLock(lockPath: string, logger?: Logger): boolean {
+  try {
+    const lockContent = readFileSync(lockPath, 'utf-8');
+    const holderPid = Number.parseInt(lockContent.trim(), 10);
+
+    if (!Number.isNaN(holderPid) && !isProcessAlive(holderPid)) {
+      logger?.debug?.(`Removing stale lock from dead process ${holderPid}`);
+      // Re-read lock file to reduce TOCTOU race window before unlinking.
+      if (readFileSync(lockPath, 'utf-8') === lockContent) {
+        unlinkSync(lockPath);
+        return true;
+      }
+    }
+  } catch {
+    try {
+      unlinkSync(lockPath);
+      return true;
+    } catch (unlinkError) {
+      if (!hasErrnoCode(unlinkError, 'ENOENT')) {
+        logger?.debug?.(`Failed to remove stale lock: ${String(unlinkError)}`);
+      }
+    }
+  }
+
+  return false;
+}
+
+function writeLockHolderPid(lockPath: string): void {
+  const fd = openSync(lockPath, 'wx', 0o600);
+  try {
+    writeFileSync(fd, String(process.pid));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+async function acquireLock(logger?: Logger): Promise<boolean> {
   const startTime = Date.now();
   const lockPath = getLockPath();
 
   while (Date.now() - startTime < LOCK_TIMEOUT_MS) {
     try {
       mkdirSync(getCardsDir(), { recursive: true, mode: 0o700 });
-      const fd = openSync(lockPath, 'wx', 0o600);
-      writeFileSync(fd, String(process.pid));
+      writeLockHolderPid(lockPath);
       return true;
     } catch (error) {
-      if (error instanceof Error && 'code' in error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code === 'EEXIST') {
-          try {
-            const lockContent = readFileSync(lockPath, 'utf-8');
-            const holderPid = Number.parseInt(lockContent.trim(), 10);
+      if (!hasErrnoCode(error, 'EEXIST')) throw error;
+      if (tryRemoveStaleLock(lockPath, logger)) continue;
 
-            if (!Number.isNaN(holderPid) && !isProcessAlive(holderPid)) {
-              logger?.debug?.(`Removing stale lock from dead process ${holderPid}`);
-              unlinkSync(lockPath);
-              continue;
-            }
-          } catch {
-            try {
-              unlinkSync(lockPath);
-              continue;
-            } catch {
-              // Ignore
-            }
-          }
-
-          const elapsed = Date.now() - startTime;
-          if (elapsed < LOCK_TIMEOUT_MS) {
-            const sleepTime = Math.min(50, LOCK_TIMEOUT_MS - elapsed);
-            const sleepUntil = Date.now() + sleepTime;
-            while (Date.now() < sleepUntil) {
-              // Busy wait
-            }
-          }
-          continue;
-        }
+      const remaining = LOCK_TIMEOUT_MS - (Date.now() - startTime);
+      if (remaining > 0) {
+        await sleep(Math.min(50, remaining));
       }
-      throw error;
     }
   }
 
@@ -165,7 +188,7 @@ function pruneStaleEntries(registry: ClaudeSessionRegistry, logger?: Logger): vo
 }
 
 async function executeTransaction<T>(operation: (registry: ClaudeSessionRegistry) => T, logger?: Logger): Promise<T> {
-  const lockAcquired = acquireLock(logger);
+  const lockAcquired = await acquireLock(logger);
 
   try {
     const registry = readRegistryLocked();

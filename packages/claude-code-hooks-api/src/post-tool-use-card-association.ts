@@ -8,16 +8,32 @@
  * @module post-tool-use-card-association
  */
 
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 import { createCardsClient, discoverApiInfo } from './lib/api-discovery.js';
-import { associatePidWithCard, getPidCardId } from './lib/claude-sessions.js';
+import { associatePidWithCard, getPidCardId } from '@cards/claude-code-sessions';
 import { findClaudePid } from './lib/process-tree.js';
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CARD_URL_PATTERN = /\/cards\/([a-zA-Z0-9][a-zA-Z0-9_-]*\d)/;
 const EXPLICIT_METHOD_PATTERN = /-X\s+(\w+)|--request\s+(\w+)/;
 const IMPLICIT_POST_PATTERN = /(?:^|\s)(?:-d|--data|--data-raw|--data-binary)(?:\s|=)/;
+const SHA_PATTERN = /^[0-9a-f]{40}$/i;
+
+function isValidSha(sha: string): boolean {
+  return SHA_PATTERN.test(sha);
+}
+
+function isAncestorOfHead(sha: string): boolean {
+  if (!isValidSha(sha)) return false;
+
+  const result = spawnSync('git', ['merge-base', '--is-ancestor', sha, 'HEAD'], {
+    stdio: 'ignore',
+    timeout: 3000
+  });
+
+  return !result.error && result.status === 0;
+}
 
 /**
  * Detects whether a curl command performs a write operation and extracts the
@@ -77,9 +93,7 @@ export default postToolUseHook({ matcher: 'Bash' }, async (input, { logger }) =>
     // Flush pending commits: verify reachability, then add via CardsClient
     let flushedCount = 0;
     for (const sha of pendingCommits) {
-      try {
-        execSync(`git merge-base --is-ancestor ${sha} HEAD`, { stdio: 'pipe' });
-      } catch {
+      if (!isAncestorOfHead(sha)) {
         continue; // SHA is unreachable (rebased/amended), skip it
       }
 

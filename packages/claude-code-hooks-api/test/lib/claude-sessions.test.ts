@@ -19,7 +19,7 @@ import {
   MAX_ENTRY_AGE_MS,
   recordPendingCommit,
   removePidEntry
-} from '../../src/lib/claude-sessions.js';
+} from '@cards/claude-code-sessions';
 
 describe('claude-sessions', () => {
   let testDir: string;

@@ -13,7 +13,7 @@
  * @see https://code.claude.com/docs/en/hooks#stop
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   appendCommitToSession,
   getSessionCommits,
@@ -31,9 +31,16 @@ import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
  * This is a deterministic value that never changes.
  */
 const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf899d15363d7aa09';
+const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function assertValidSha(sha: string, label: string): void {
+  if (!SHA_PATTERN.test(sha)) {
+    throw new Error(`Invalid ${label}: ${sha}`);
+  }
 }
 
 /**
@@ -45,14 +52,20 @@ function errorMessage(error: unknown): string {
  * @returns Newer commit SHAs in reverse chronological order (newest first).
  */
 export function getCommitsSince(repoPath: string, sinceSha: string): string[] {
-  const output = execSync(`git log --format=%H ${sinceSha}..HEAD`, {
+  assertValidSha(sinceSha, 'since SHA');
+
+  const output = execFileSync('git', ['log', '--format=%H', `${sinceSha}..HEAD`], {
     cwd: repoPath,
     encoding: 'utf-8',
     timeout: 10000,
     stdio: ['pipe', 'pipe', 'pipe']
   }).trim();
   if (!output) return [];
-  return output.split('\n');
+  const shas = output.split('\n');
+  for (const sha of shas) {
+    assertValidSha(sha, 'commit SHA');
+  }
+  return shas;
 }
 
 /**
@@ -81,8 +94,9 @@ export function getDiffForCommits(repoPath: string, shas: string[]): string {
   // shas are in reverse chronological order (newest first from git log)
   // oldest is last element
   const oldest = shas[shas.length - 1]!;
+  assertValidSha(oldest, 'oldest commit SHA');
   try {
-    return execSync(`git diff ${oldest}~1..HEAD`, {
+    return execFileSync('git', ['diff', `${oldest}~1..HEAD`], {
       cwd: repoPath,
       encoding: 'utf-8',
       timeout: 10000,
@@ -90,7 +104,7 @@ export function getDiffForCommits(repoPath: string, shas: string[]): string {
     }).trim();
   } catch {
     // Fallback for initial commits that have no parent
-    return execSync(`git diff ${EMPTY_TREE_SHA}..HEAD`, {
+    return execFileSync('git', ['diff', `${EMPTY_TREE_SHA}..HEAD`], {
       cwd: repoPath,
       encoding: 'utf-8',
       timeout: 10000,

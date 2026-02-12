@@ -8,7 +8,7 @@
  */
 
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
-import { removePidEntry } from './lib/claude-sessions.js';
+import { removePidEntry } from '@cards/claude-code-sessions';
 import { findClaudePid } from './lib/process-tree.js';
 
 export default stopHook({}, async (_input, { logger }) => {
