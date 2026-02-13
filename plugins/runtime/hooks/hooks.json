@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.243993ff.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.0efdfd78.mjs"
           }
         ]
       }
@@ -23,9 +23,9 @@
   },
   "__generated": {
     "files": [
-      "stop.243993ff.mjs",
+      "stop.0efdfd78.mjs",
       "session-start.a68c841c.mjs"
     ],
-    "timestamp": "2026-02-12T17:30:27.528Z"
+    "timestamp": "2026-02-12T22:22:18.279Z"
   }
 }

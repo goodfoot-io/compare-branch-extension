@@ -9,9 +9,9 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { associatePidWithCard, getPidCardId } from '@cards/claude-code-sessions';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 import { createCardsClient, discoverApiInfo } from './lib/api-discovery.js';
-import { associatePidWithCard, getPidCardId } from '@cards/claude-code-sessions';
 import { findClaudePid } from './lib/process-tree.js';
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
