@@ -92,52 +92,53 @@ export default defineTypeValidator(
     timeout: 30000
   },
   async (request, context) => {
-  const errors: ValError[] = [];
+    const errors: ValError[] = [];
 
-  context.logger.info('Validating adaptive card', { fileName: context.fileName });
+    context.logger.info('Validating adaptive card', { fileName: context.fileName });
 
-  // Parse JSON from file
-  let data: AdaptiveCardInput;
-  try {
-    const content = readFileSync(request.filePath, 'utf-8');
-    data = JSON.parse(content) as AdaptiveCardInput;
-  } catch {
-    return validationError(['File must contain valid JSON']);
-  }
+    // Parse JSON from file
+    let data: AdaptiveCardInput;
+    try {
+      const content = readFileSync(request.filePath, 'utf-8');
+      data = JSON.parse(content) as AdaptiveCardInput;
+    } catch {
+      return validationError(['File must contain valid JSON']);
+    }
 
-  // Validate id field
-  validateRequiredString(data, 'id', errors);
+    // Validate id field
+    validateRequiredString(data, 'id', errors);
 
-  // Validate summary field with length constraint
-  validateRequiredString(data, 'summary', errors);
-  if (typeof data.summary === 'string' && data.summary.length > MAX_SUMMARY_LENGTH) {
-    errors.push({
-      code: 'SUMMARY_TOO_LONG',
-      message: `summary must not exceed ${MAX_SUMMARY_LENGTH} characters`,
-      field: 'summary'
+    // Validate summary field with length constraint
+    validateRequiredString(data, 'summary', errors);
+    if (typeof data.summary === 'string' && data.summary.length > MAX_SUMMARY_LENGTH) {
+      errors.push({
+        code: 'SUMMARY_TOO_LONG',
+        message: `summary must not exceed ${MAX_SUMMARY_LENGTH} characters`,
+        field: 'summary'
+      });
+    }
+
+    // Validate author field
+    validateRequiredString(data, 'author', errors);
+
+    // Validate payload field (required object with Adaptive Card schema)
+    if (data.payload === undefined || data.payload === null) {
+      errors.push({ code: 'REQUIRED', message: 'payload is required', field: 'payload' });
+    } else if (!isObject(data.payload)) {
+      errors.push({ code: 'INVALID_TYPE', message: 'payload must be an object', field: 'payload' });
+    } else {
+      validateAdaptiveCardSchema(data.payload, errors);
+    }
+
+    if (errors.length > 0) {
+      return validationError(errors.map((e) => (e.field ? `**${e.field}**: ${e.message}` : e.message)));
+    }
+
+    context.logger.info('Adaptive card validation succeeded', {
+      cardId: data.id as string,
+      author: data.author as string
     });
+
+    return validationSuccess({ cardId: data.id as string });
   }
-
-  // Validate author field
-  validateRequiredString(data, 'author', errors);
-
-  // Validate payload field (required object with Adaptive Card schema)
-  if (data.payload === undefined || data.payload === null) {
-    errors.push({ code: 'REQUIRED', message: 'payload is required', field: 'payload' });
-  } else if (!isObject(data.payload)) {
-    errors.push({ code: 'INVALID_TYPE', message: 'payload must be an object', field: 'payload' });
-  } else {
-    validateAdaptiveCardSchema(data.payload, errors);
-  }
-
-  if (errors.length > 0) {
-    return validationError(errors.map((e) => (e.field ? `**${e.field}**: ${e.message}` : e.message)));
-  }
-
-  context.logger.info('Adaptive card validation succeeded', {
-    cardId: data.id as string,
-    author: data.author as string
-  });
-
-  return validationSuccess({ cardId: data.id as string });
-});
+);

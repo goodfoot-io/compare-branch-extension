@@ -71,50 +71,51 @@ export default defineTypeValidator(
     timeout: 30000
   },
   async (request, context) => {
-  const errors: ValError[] = [];
+    const errors: ValError[] = [];
 
-  context.logger.info('Validating note', { fileName: context.fileName });
+    context.logger.info('Validating note', { fileName: context.fileName });
 
-  // Read content from file
-  const content = readFileSync(request.filePath, 'utf-8');
+    // Read content from file
+    const content = readFileSync(request.filePath, 'utf-8');
 
-  // Validate frontmatter structure (must have both opening and closing delimiters)
-  if (!FRONTMATTER_REGEX.test(content)) {
-    return validationError(['Note must have YAML frontmatter']);
-  }
-
-  // Parse markdown with frontmatter using gray-matter
-  let parsed: matter.GrayMatterFile<string>;
-  try {
-    parsed = matter(content);
-  } catch (error) {
-    context.logger.error('Failed to parse frontmatter', { error });
-    return validationError(['Invalid YAML in frontmatter']);
-  }
-
-  const frontmatter = parsed.data as Record<string, unknown>;
-
-  // Validate required fields
-  const requiredFields: Array<keyof NoteFrontmatter> = ['id', 'author', 'title'];
-  for (const field of requiredFields) {
-    const error = validateRequiredField(frontmatter, field);
-    if (error) {
-      errors.push(error);
+    // Validate frontmatter structure (must have both opening and closing delimiters)
+    if (!FRONTMATTER_REGEX.test(content)) {
+      return validationError(['Note must have YAML frontmatter']);
     }
+
+    // Parse markdown with frontmatter using gray-matter
+    let parsed: matter.GrayMatterFile<string>;
+    try {
+      parsed = matter(content);
+    } catch (error) {
+      context.logger.error('Failed to parse frontmatter', { error });
+      return validationError(['Invalid YAML in frontmatter']);
+    }
+
+    const frontmatter = parsed.data as Record<string, unknown>;
+
+    // Validate required fields
+    const requiredFields: Array<keyof NoteFrontmatter> = ['id', 'author', 'title'];
+    for (const field of requiredFields) {
+      const error = validateRequiredField(frontmatter, field);
+      if (error) {
+        errors.push(error);
+      }
+    }
+
+    // Return validation errors if any
+    if (errors.length > 0) {
+      context.logger.warn('Note validation failed', { errorCount: errors.length });
+      return validationError(errors.map((e) => (e.field ? `**${e.field}**: ${e.message}` : e.message)));
+    }
+
+    // Validation succeeded
+    context.logger.info('Note validation succeeded', {
+      noteId: frontmatter['id'],
+      author: frontmatter['author'],
+      title: frontmatter['title']
+    });
+
+    return validationSuccess({ noteId: frontmatter['id'] as string });
   }
-
-  // Return validation errors if any
-  if (errors.length > 0) {
-    context.logger.warn('Note validation failed', { errorCount: errors.length });
-    return validationError(errors.map((e) => (e.field ? `**${e.field}**: ${e.message}` : e.message)));
-  }
-
-  // Validation succeeded
-  context.logger.info('Note validation succeeded', {
-    noteId: frontmatter['id'],
-    author: frontmatter['author'],
-    title: frontmatter['title']
-  });
-
-  return validationSuccess({ noteId: frontmatter['id'] as string });
-});
+);

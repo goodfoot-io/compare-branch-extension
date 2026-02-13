@@ -217,10 +217,13 @@ describe('executeValidation', () => {
     writeFileSync(filePath, '{"hello":"world"}');
 
     let receivedRequest: ValidatorFileRequest | undefined;
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, (request) => {
-      receivedRequest = request;
-      return validationSuccess();
-    });
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      (request) => {
+        receivedRequest = request;
+        return validationSuccess();
+      }
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -256,10 +259,13 @@ describe('executeValidation', () => {
     writeFileSync(`${filePath}.meta.json`, JSON.stringify({ version: '2.0', custom: true }));
 
     let receivedMetadata: Record<string, unknown> | undefined;
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, (request) => {
-      receivedMetadata = request.metadata;
-      return validationSuccess();
-    });
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      (request) => {
+        receivedMetadata = request.metadata;
+        return validationSuccess();
+      }
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -292,10 +298,13 @@ describe('executeValidation', () => {
     writeFileSync(filePath, '{"hello":"world"}');
 
     let receivedMetadata: Record<string, unknown> | undefined = { sentinel: true };
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, (request) => {
-      receivedMetadata = request.metadata;
-      return validationSuccess();
-    });
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      (request) => {
+        receivedMetadata = request.metadata;
+        return validationSuccess();
+      }
+    );
 
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
@@ -324,10 +333,13 @@ describe('executeValidation', () => {
     writeFileSync(filePath, '{}');
 
     let receivedContext: unknown;
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, (_request, context) => {
-      receivedContext = context;
-      return validationSuccess();
-    });
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      (_request, context) => {
+        receivedContext = context;
+        return validationSuccess();
+      }
+    );
 
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
@@ -362,7 +374,10 @@ describe('executeValidation', () => {
     const filePath = join(tmpDir, 'test.json');
     writeFileSync(filePath, '{}');
 
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationSuccess());
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationSuccess()
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -395,7 +410,10 @@ describe('executeValidation', () => {
     const filePath = join(tmpDir, 'test.json');
     writeFileSync(filePath, '{}');
 
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationSuccess({ key: 'val' }));
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationSuccess({ key: 'val' })
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -428,7 +446,10 @@ describe('executeValidation', () => {
     const filePath = join(tmpDir, 'test.json');
     writeFileSync(filePath, '{}');
 
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationError(['**Bold** error msg']));
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationError(['**Bold** error msg'])
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -475,7 +496,10 @@ describe('executeValidation', () => {
     process.env['API_ACCESS_TOKEN'] = 'token';
 
     // Test success
-    const successValidation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationSuccess());
+    const successValidation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationSuccess()
+    );
     try {
       await executeValidation(successValidation);
     } finally {
@@ -486,7 +510,10 @@ describe('executeValidation', () => {
     exitMock.mockClear();
 
     // Test error
-    const errorValidation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationError(['err']));
+    const errorValidation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationError(['err'])
+    );
     try {
       await executeValidation(errorValidation);
     } finally {
@@ -499,9 +526,12 @@ describe('executeValidation', () => {
     const filePath = join(tmpDir, 'test.json');
     writeFileSync(filePath, '{}');
 
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => {
-      throw new Error('Something went wrong');
-    });
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => {
+        throw new Error('Something went wrong');
+      }
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -532,7 +562,10 @@ describe('executeValidation', () => {
   });
 
   it('writes { valid: false, errors: [...] } when FILE_PATH env missing', async () => {
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationSuccess());
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationSuccess()
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -559,7 +592,10 @@ describe('executeValidation', () => {
     const filePath = join(tmpDir, 'test.json');
     writeFileSync(filePath, '{}');
 
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationSuccess());
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationSuccess()
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
@@ -594,7 +630,10 @@ describe('executeValidation', () => {
     const filePath = join(tmpDir, 'test.json');
     writeFileSync(filePath, '{}');
 
-    const validation = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, () => validationSuccess());
+    const validation = defineTypeValidator(
+      { typeName: 'test', schema: 'Test schema', description: 'Test description' },
+      () => validationSuccess()
+    );
 
     const writtenChunks: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
