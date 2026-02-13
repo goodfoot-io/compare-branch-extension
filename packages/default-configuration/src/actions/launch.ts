@@ -40,7 +40,13 @@ const PLUGIN_SETTINGS = JSON.stringify({
   }
 });
 
-function buildArgs(prompt: string, sessionId: string, resume: boolean, mode: ActionInput['executionMode']): string[] {
+function buildArgs(
+  prompt: string,
+  sessionId: string,
+  resume: boolean,
+  mode: ActionInput['executionMode'],
+  cardRepoPath: string
+): string[] {
   const args: string[] = [];
 
   if (resume) {
@@ -49,9 +55,9 @@ function buildArgs(prompt: string, sessionId: string, resume: boolean, mode: Act
     args.push(prompt);
     args.push('--session-id', sessionId);
   }
-
+  args.push('--agent', 'runtime:router');
   args.push('--settings', PLUGIN_SETTINGS);
-
+  args.push('--add-dir', cardRepoPath);
   if (mode === 'background') {
     args.push('--print', '--output-format', 'stream-json');
   }
@@ -78,7 +84,7 @@ export default defineAction(
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
-    const prompt = `You are working on card ${input.cardId}. The card repository is at ${input.cardRepoPath}. Read the card files to understand the task.`;
+    const prompt = `Review the card repo and stop.`;
 
     context.logger.info('Launch action started', {
       cardId: input.cardId,
@@ -87,7 +93,7 @@ export default defineAction(
       sessionId
     });
 
-    const args = buildArgs(prompt, sessionId, resume, input.executionMode);
+    const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath);
     const isInteractive = input.executionMode === 'interactive';
 
     const child: ChildProcess = spawn('claude', args, {
