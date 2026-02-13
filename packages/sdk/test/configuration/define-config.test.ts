@@ -521,6 +521,62 @@ describe('serializeSettings', () => {
       expect(typeDef?.update?.command).toBe('typeUpdate-full-type.js');
       expect(typeDef?.delete?.command).toBe('typeDelete-full-type.js');
     });
+
+    it('should include schema and description from validator command', () => {
+      const validatorCommand = vi.fn() as unknown as TypeValidatorCommand;
+      validatorCommand.factoryType = 'typeValidator';
+      validatorCommand.typeName = 'noted';
+      validatorCommand.schema = 'YAML frontmatter with id, author, title + markdown body';
+      validatorCommand.description = 'Structured notes with metadata';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            types: {
+              noted: {
+                version: '1.0.0',
+                validator: validatorCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const typeDef = result.environments['default']!.types?.['noted'];
+
+      expect(typeDef?.schema).toBe('YAML frontmatter with id, author, title + markdown body');
+      expect(typeDef?.description).toBe('Structured notes with metadata');
+    });
+
+    it('should not include schema and description when not on validator', () => {
+      const validatorCommand = vi.fn() as unknown as TypeValidatorCommand;
+      validatorCommand.factoryType = 'typeValidator';
+      validatorCommand.typeName = 'basic';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: [],
+            types: {
+              basic: {
+                version: '1.0.0',
+                validator: validatorCommand
+              }
+            }
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+      const typeDef = result.environments['default']!.types?.['basic'];
+
+      expect(typeDef?.schema).toBeUndefined();
+      expect(typeDef?.description).toBeUndefined();
+    });
   });
 
   describe('stream transform to StreamDefinition conversion', () => {

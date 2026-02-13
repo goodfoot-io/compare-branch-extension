@@ -144,13 +144,22 @@ function serializeTypeConfig(typeName: string, typeConfig: TypeConfigDefinition)
     throw new Error(`Type "${typeName}" must have a version`);
   }
 
-  return {
+  const typeDef: TypeDefinition = {
     version: typeConfig.version,
     validator: serializeTypeHook(typeConfig.validator),
     create: serializeTypeHook(typeConfig.create),
     update: serializeTypeHook(typeConfig.update),
     delete: serializeTypeHook(typeConfig.delete)
   };
+
+  if (typeConfig.validator?.schema !== undefined) {
+    typeDef.schema = typeConfig.validator.schema;
+  }
+  if (typeConfig.validator?.description !== undefined) {
+    typeDef.description = typeConfig.validator.description;
+  }
+
+  return typeDef;
 }
 
 /**

@@ -54,7 +54,12 @@ function validateRequiredString(obj: Record<string, unknown>, field: string, err
  * Does not validate that the referenced card exists - that's handled at the store level.
  */
 export default defineTypeValidator(
-  { typeName: 'adaptive-card-submission', timeout: 30000 },
+  {
+    typeName: 'adaptive-card-submission',
+    schema: 'JSON object with cardId, actionId, and data (object with form submission values)',
+    description: 'Submission responses captured when users interact with Adaptive Cards',
+    timeout: 30000
+  },
   async (request, context) => {
     const errors: ValError[] = [];
 

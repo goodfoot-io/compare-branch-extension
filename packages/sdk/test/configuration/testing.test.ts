@@ -37,7 +37,7 @@ describe('Testing Utilities', () => {
     it('invokes validator with request and context', async () => {
       let receivedRequest: ValidatorFileRequest | undefined;
 
-      const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async (request) => {
         receivedRequest = request;
         return validationSuccess();
       });
@@ -49,7 +49,7 @@ describe('Testing Utilities', () => {
     });
 
     it('returns result from validator', async () => {
-      const validator = defineTypeValidator({ typeName: 'test' }, async () => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async () => {
         return validationSuccess({ processed: true });
       });
 
@@ -60,7 +60,7 @@ describe('Testing Utilities', () => {
     });
 
     it('handles validation errors', async () => {
-      const validator = defineTypeValidator({ typeName: 'test' }, async () => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async () => {
         return validationError(['Invalid input']);
       });
 
@@ -71,7 +71,7 @@ describe('Testing Utilities', () => {
     });
 
     it('accepts TestRequestOptions directly', async () => {
-      const validator = defineTypeValidator({ typeName: 'test' }, async (request) => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async (request) => {
         return validationSuccess({ path: request.filePath });
       });
 
@@ -87,7 +87,7 @@ describe('Testing Utilities', () => {
     it('accepts ValidatorFileRequest directly', async () => {
       const request = createTestRequest({ filePath: '/test/data.json', metadata: { id: 1 } });
 
-      const validator = defineTypeValidator({ typeName: 'test' }, async (req) => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async (req) => {
         return validationSuccess({ id: req.metadata?.['id'] });
       });
 
@@ -99,7 +99,7 @@ describe('Testing Utilities', () => {
     it('provides context to validator', async () => {
       let receivedContext: unknown;
 
-      const validator = defineTypeValidator({ typeName: 'test' }, async (_request, context) => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async (_request, context) => {
         receivedContext = context;
         return validationSuccess();
       });
@@ -113,7 +113,7 @@ describe('Testing Utilities', () => {
     });
 
     it('testValidation accepts TypeValidatorCommand directly', async () => {
-      const validator = defineTypeValidator({ typeName: 'my-type' }, async () => {
+      const validator = defineTypeValidator({ typeName: 'my-type', schema: 'Test schema', description: 'Test description' }, async () => {
         return validationSuccess();
       });
 
@@ -123,7 +123,7 @@ describe('Testing Utilities', () => {
     });
 
     it('TestValidationResult.context is TypeValidatorContext', async () => {
-      const validator = defineTypeValidator({ typeName: 'test' }, async () => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async () => {
         return validationSuccess();
       });
 
@@ -141,7 +141,7 @@ describe('Testing Utilities', () => {
     });
 
     it('testValidation uses default context values', async () => {
-      const validator = defineTypeValidator({ typeName: 'test' }, async (_request, context) => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async (_request, context) => {
         expect(context.typeName).toBe('');
         expect(context.typeVersion).toBe('');
         expect(context.fileName).toBe('');
@@ -157,7 +157,7 @@ describe('Testing Utilities', () => {
     });
 
     it('testValidation accepts context overrides via options', async () => {
-      const validator = defineTypeValidator({ typeName: 'test' }, async (_request, context) => {
+      const validator = defineTypeValidator({ typeName: 'test', schema: 'Test schema', description: 'Test description' }, async (_request, context) => {
         expect(context.typeName).toBe('custom-type');
         expect(context.typeVersion).toBe('2.0');
         expect(context.fileName).toBe('custom.json');

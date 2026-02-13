@@ -84,7 +84,14 @@ function validateAdaptiveCardSchema(adaptiveCard: Record<string, unknown>, error
  * Validates JSON structure including required fields (id, summary, author, payload)
  * and the Adaptive Card schema within the payload.
  */
-export default defineTypeValidator({ typeName: 'adaptive-card', timeout: 30000 }, async (request, context) => {
+export default defineTypeValidator(
+  {
+    typeName: 'adaptive-card',
+    schema: 'JSON object with id, summary, author, and payload (Adaptive Card schema with type, body, actions)',
+    description: 'Interactive Adaptive Card definitions for user-facing UI components',
+    timeout: 30000
+  },
+  async (request, context) => {
   const errors: ValError[] = [];
 
   context.logger.info('Validating adaptive card', { fileName: context.fileName });

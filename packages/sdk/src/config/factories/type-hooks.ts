@@ -37,6 +37,16 @@ export interface TypeConfig {
 }
 
 /**
+ * Configuration for type validators, extending TypeConfig with schema metadata.
+ */
+export interface TypeValidatorConfig extends TypeConfig {
+  /** Human-readable schema describing the expected file format. */
+  schema: string;
+  /** Description of the type's purpose. */
+  description: string;
+}
+
+/**
  * Handler function for type lifecycle events (create, update, delete).
  *
  * @param input - Type hook input containing file metadata
@@ -94,8 +104,8 @@ export type TypeValidatorHandler = (
  * );
  * ```
  */
-export function defineTypeValidator<T extends TypeConfig>(
-  config: SameShape<TypeConfig, T>,
+export function defineTypeValidator<T extends TypeValidatorConfig>(
+  config: SameShape<TypeValidatorConfig, T>,
   handler: TypeValidatorHandler
 ): TypeValidatorCommand<T['typeName']> {
   const fn = async (request: ValidatorFileRequest, context: TypeValidatorContext): Promise<ValidationResult> => {
@@ -106,6 +116,8 @@ export function defineTypeValidator<T extends TypeConfig>(
   fn.typeName = config.typeName;
   fn.timeout = config.timeout;
   fn.sourcePath = config.sourcePath;
+  fn.schema = config.schema;
+  fn.description = config.description;
 
   return fn as unknown as TypeValidatorCommand<T['typeName']>;
 }

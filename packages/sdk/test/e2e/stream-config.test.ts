@@ -255,7 +255,10 @@ describe('stream configuration serialization', () => {
     it('should serialize streams alongside types', () => {
       const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
 
-      const validator = defineTypeValidator({ typeName: 'note' }, async () => validationSuccess());
+      const validator = defineTypeValidator(
+        { typeName: 'note', schema: 'Note format', description: 'Validates notes' },
+        async () => validationSuccess()
+      );
 
       const config: SettingsConfig = {
         environments: {
@@ -295,7 +298,10 @@ describe('stream configuration serialization', () => {
         // Action implementation
       });
 
-      const validator = defineTypeValidator({ typeName: 'note' }, async () => validationSuccess());
+      const validator = defineTypeValidator(
+        { typeName: 'note', schema: 'Note format', description: 'Validates notes' },
+        async () => validationSuccess()
+      );
 
       const config: SettingsConfig = {
         environments: {

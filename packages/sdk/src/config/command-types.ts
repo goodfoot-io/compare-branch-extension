@@ -108,6 +108,10 @@ export interface TypeValidatorCommand<T extends string = string> {
    * Path to the handler source file for CLI compilation.
    */
   sourcePath?: string;
+  /** Human-readable schema describing the expected file format. */
+  schema: string;
+  /** Description of the type's purpose. */
+  description: string;
 }
 
 /**

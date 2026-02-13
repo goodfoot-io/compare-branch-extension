@@ -21,6 +21,10 @@ export interface TypeConfig {
     /** Optional timeout in milliseconds before the validator is terminated. */
     timeout?: number;
   };
+  /** Human-readable schema describing the expected file format. */
+  schema?: string;
+  /** Description of the type's purpose. */
+  description?: string;
 }
 
 /**

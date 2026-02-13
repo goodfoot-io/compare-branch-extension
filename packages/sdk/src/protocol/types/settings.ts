@@ -198,6 +198,17 @@ export interface TypeDefinition {
    * Receives {@link TypedFileHookInput} as JSON on stdin.
    */
   delete?: Command;
+
+  /**
+   * Human-readable schema describing the expected file format.
+   * Opaque string — no validation is performed on the content.
+   */
+  schema?: string;
+
+  /**
+   * Description of the type's purpose.
+   */
+  description?: string;
 }
 
 // --- Environment ---

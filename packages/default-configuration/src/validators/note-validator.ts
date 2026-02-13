@@ -63,7 +63,14 @@ function validateRequiredField(
  * Validates markdown files with YAML frontmatter containing required fields:
  * id, author, and title.
  */
-export default defineTypeValidator({ typeName: 'note', timeout: 30000 }, async (request, context) => {
+export default defineTypeValidator(
+  {
+    typeName: 'note',
+    schema: 'YAML frontmatter (id, author, title) followed by markdown body',
+    description: 'Markdown notes with structured YAML frontmatter metadata',
+    timeout: 30000
+  },
+  async (request, context) => {
   const errors: ValError[] = [];
 
   context.logger.info('Validating note', { fileName: context.fileName });

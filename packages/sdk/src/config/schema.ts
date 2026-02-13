@@ -103,6 +103,10 @@ export interface TypeDefinition {
   update?: Command;
   /** Optional command for deleting typed files */
   delete?: Command;
+  /** Human-readable schema describing the expected file format. */
+  schema?: string;
+  /** Description of the type's purpose. */
+  description?: string;
 }
 
 // ============================================================================

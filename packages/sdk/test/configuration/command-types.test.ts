@@ -153,7 +153,9 @@ describe('command-types', () => {
       const fn = async (): Promise<ValidationResult> => ({ valid: true });
       const command: TypeValidatorCommand<'adaptive-card'> = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
-        typeName: 'adaptive-card' as const
+        typeName: 'adaptive-card' as const,
+        schema: 'test schema',
+        description: 'test description'
       });
 
       expectTypeOf(command.typeName).toEqualTypeOf<'adaptive-card'>();
@@ -163,7 +165,9 @@ describe('command-types', () => {
       const fn = async (): Promise<ValidationResult> => ({ valid: true });
       const command: TypeValidatorCommand = Object.assign(fn, {
         factoryType: 'typeValidator' as const,
-        typeName: 'any-type'
+        typeName: 'any-type',
+        schema: 'test schema',
+        description: 'test description'
       });
 
       expectTypeOf(command.typeName).toEqualTypeOf<string>();

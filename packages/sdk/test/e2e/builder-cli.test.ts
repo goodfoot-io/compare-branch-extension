@@ -103,6 +103,8 @@ import { defineTypeValidator, validationSuccess } from '${FACTORIES_PATH.replace
 export default defineTypeValidator(
   {
     typeName: '${typeName}',
+    schema: '${typeName} file content',
+    description: 'Validates ${typeName} files',
     timeout: 30000
   },
   async (request, context) => {

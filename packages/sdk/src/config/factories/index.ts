@@ -28,5 +28,6 @@ export {
   defineTypeUpdate,
   defineTypeValidator,
   type TypeConfig,
-  type TypeHandler
+  type TypeHandler,
+  type TypeValidatorConfig
 } from './type-hooks.js';
