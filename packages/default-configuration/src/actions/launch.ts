@@ -84,7 +84,7 @@ export default defineAction(
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
-    const prompt = `Review the card repo and stop.`;
+    const prompt = `Route the card ${input.cardId} at ${input.cardRepoPath}.`;
 
     context.logger.info('Launch action started', {
       cardId: input.cardId,
