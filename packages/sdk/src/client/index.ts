@@ -18,7 +18,9 @@ export type {
   StreamResult,
   StreamWriter,
   StreamWriterOptions,
-  TimelineOptions
+  TimelineOptions,
+  TypeSchemaInfo,
+  TypeSchemasResponse
 } from './types/client.js';
 // Error classes
 export { ApiError, NetworkError } from './types/errors.js';

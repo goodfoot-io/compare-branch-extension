@@ -19,7 +19,8 @@ import type {
   StreamResult,
   StreamWriter,
   StreamWriterOptions,
-  TimelineOptions
+  TimelineOptions,
+  TypeSchemasResponse
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
 
@@ -645,6 +646,24 @@ export class CardsClient {
     const url = this.buildUrl(`/cards/${cardId}/adaptive-card-submission/${encodeURIComponent(fileName)}`);
     const body = { cardId, actionId, data };
     await this.request(() => this.getHttpClient().put<unknown>(url, body));
+  }
+
+  // --- Type Schema Operations ---
+
+  /**
+   * Gets type schemas and descriptions for a card's environment.
+   *
+   * Returns metadata about each registered type in the card's environment,
+   * including version, schema, and description. Command details are excluded.
+   *
+   * @param cardId - The card id.
+   * @returns Promise resolving to type schema information.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getTypeSchemas(cardId: string): Promise<TypeSchemasResponse> {
+    const url = this.buildUrl(`/cards/${cardId}/schema`);
+    return this.request(() => this.getHttpClient().get<TypeSchemasResponse>(url));
   }
 
   // --- Stream Operations ---

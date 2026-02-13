@@ -143,6 +143,7 @@ Extensible content system for custom file types with optional validation (config
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | /cards/{cardId}/schema | List registered type schemas and descriptions for card's environment |
 | GET | /cards/{cardId}/{typeName} | List files of a specific type |
 | GET | /cards/{cardId}/{typeName}/{fileName} | Retrieve typed file |
 | PUT | /cards/{cardId}/{typeName}/{fileName} | Create/replace typed file |

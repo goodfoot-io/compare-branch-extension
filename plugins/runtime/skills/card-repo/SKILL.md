@@ -96,8 +96,26 @@ Typed files live in directories named by type (e.g., `contract/invoice.json`).
 Type definitions come from `.cards/settings.json`.
 
 - Type names match `/^[a-z][a-z0-9-]*$/`
-- Reserved names: `attachment`, `comment`, `cards`, `api`, `internal`, `health`, `ws`
+- Reserved names: `attachment`, `comment`, `cards`, `api`, `internal`, `health`, `ws`, `schema`
 - Each typed file gets a `.meta.json` sidecar after validation
+
+```!
+eval "$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)" 2>/dev/null
+
+if [ -n "$API_BASE" ] && [ -n "$ACCESS_TOKEN" ]; then
+  # Find first available card to query type schemas
+  CARD_ID=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "$API_BASE/cards?workspacePath=$(pwd)&limit=1" | jq -r '.[0].id // empty' 2>/dev/null)
+  if [ -n "$CARD_ID" ]; then
+    echo "### Registered Type Schemas"
+    echo ""
+    curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "$API_BASE/cards/$CARD_ID/schema" | jq -r '.types | to_entries[] | "**\(.key)** (v\(.value.version))\n- Schema: \(.value.schema // "not defined")\n- Description: \(.value.description // "not defined")\n"' 2>/dev/null
+  else
+    echo "No cards found in current workspace. Create a card to see registered type schemas."
+  fi
+else
+  echo "API not available. Type schemas can be queried via \`GET /cards/{cardId}/schema\`."
+fi
+```
 
 See `references/custom-types.md` for type configuration, validator protocol, and
 sidecar schema.

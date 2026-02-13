@@ -12,6 +12,8 @@ Types are defined in `.cards/settings.json` under an environment's `types` key:
       "types": {
         "contract": {
           "version": "1.0.0",
+          "schema": "JSON object conforming to the contract specification",
+          "description": "Legal contract definitions with validation",
           "validator": {
             "command": "node ./validators/contract.mjs",
             "timeout": 30000
@@ -27,7 +29,7 @@ Types are defined in `.cards/settings.json` under an environment's `types` key:
 
 - Pattern: `/^[a-z][a-z0-9-]*$/` (must start with lowercase letter)
 - Reserved names that cannot be used as type names:
-  `attachment`, `comment`, `cards`, `api`, `internal`, `health`, `ws`
+  `attachment`, `comment`, `cards`, `api`, `internal`, `health`, `ws`, `schema`
 
 ## Validator Protocol
 
