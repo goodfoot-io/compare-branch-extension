@@ -6,6 +6,8 @@
  * Validates that the loaded module exports a valid SettingsConfig with the
  * required 'environments' property.
  *
+ *
+ * @summary Configuration file loader for settings.config.ts files
  * @module
  *
  * @example

@@ -1,5 +1,7 @@
 /**
  * Tests for the Stop hook.
+ *
+ * @summary Tests for the Stop hook
  */
 
 import { execFileSync } from 'node:child_process';

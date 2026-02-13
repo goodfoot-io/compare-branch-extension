@@ -1,3 +1,11 @@
+/**
+ * Implements claude code session behavior for the transforms area.
+ * The module captures domain rules in one place so callers can compose workflows without
+ * duplicating edge-case handling.
+ *
+ * @summary Claude Code Session logic for transforms
+ */
+
 import type {
   SDKAssistantMessage,
   SDKMessage,

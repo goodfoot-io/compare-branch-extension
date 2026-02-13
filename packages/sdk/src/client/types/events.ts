@@ -3,6 +3,8 @@
  *
  * These types describe the payloads delivered over the real-time event stream.
  *
+ *
+ * @summary Event subscription type definitions for the Cards V2 WebSocket API
  * @module types/events
  */
 

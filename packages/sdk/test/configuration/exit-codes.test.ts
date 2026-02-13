@@ -1,5 +1,7 @@
 /**
  * Tests for exit codes module.
+ *
+ * @summary Tests for exit codes module
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

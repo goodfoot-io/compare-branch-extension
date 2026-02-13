@@ -4,6 +4,14 @@ import { CardsClient } from '../../src/client/cardsClient.js';
 import { ApiError, NetworkError } from '../../src/client/types/errors.js';
 import type { StreamMeta } from '../../src/protocol/index.js';
 
+/**
+ * Exercises cards client behavior in the client area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests cards client behavior in client
+ */
+
 describe('CardsClient', () => {
   const options = {
     baseUrl: 'http://localhost:3000',

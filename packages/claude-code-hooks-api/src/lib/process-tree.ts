@@ -1,6 +1,8 @@
 /**
  * Process tree utilities for locating Claude Code ancestor processes.
  *
+ *
+ * @summary Process tree utilities for locating Claude Code ancestor processes
  * @module lib/process-tree
  */
 

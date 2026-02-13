@@ -4,6 +4,14 @@ import { fileURLToPath } from 'node:url';
 import { TestStreamTransformHarness } from '@cards/test-utils';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+/**
+ * Exercises claude code session behavior in the transforms area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests claude code session behavior in transforms
+ */
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distBin = path.resolve(__dirname, '../../dist/bin');
 

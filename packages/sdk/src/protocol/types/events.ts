@@ -4,6 +4,8 @@
  * These shapes are shared between servers and clients to ensure consistent
  * event handling over WebSocket transports.
  *
+ *
+ * @summary Domain event payloads emitted by the Cards V2 backend
  * @module types/events
  */
 

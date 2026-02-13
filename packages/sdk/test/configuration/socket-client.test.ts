@@ -1,5 +1,7 @@
 /**
  * Unit tests for SocketClient.
+ *
+ * @summary Unit tests for SocketClient
  */
 
 import * as fs from 'node:fs';

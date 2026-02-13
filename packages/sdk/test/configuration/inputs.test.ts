@@ -3,6 +3,8 @@
  *
  * These are type-level tests that verify the structure and properties of
  * input types used by action and type lifecycle handlers.
+ *
+ * @summary Tests for input type definitions
  */
 
 import { describe, expectTypeOf, it } from 'vitest';

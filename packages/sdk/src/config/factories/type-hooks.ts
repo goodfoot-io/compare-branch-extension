@@ -5,6 +5,8 @@
  * They use SameShape for compile-time typo detection and preserve the type name
  * as a generic parameter.
  *
+ *
+ * @summary Type lifecycle hook factories
  * @module factories/type-hooks
  */
 

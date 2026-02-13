@@ -5,6 +5,8 @@
  * function and attaches metadata for settings.json generation. The SameShape
  * utility provides compile-time typo detection.
  *
+ *
+ * @summary Factory function for creating action handlers
  * @module
  */
 

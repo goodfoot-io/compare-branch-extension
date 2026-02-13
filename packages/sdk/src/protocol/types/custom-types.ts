@@ -5,6 +5,8 @@
  * with metadata. The protocol models the validator handshake and the metadata
  * stored alongside typed files.
  *
+ *
+ * @summary Custom type system contracts for Cards V2 typed files
  * @module types/custom-types
  */
 

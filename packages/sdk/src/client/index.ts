@@ -1,4 +1,10 @@
 /**
+ *
+ * Re-exports the public surface for the client module.
+ * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
+ * maintainers.
+ *
+ * @summary Public exports for the client module
  * @cards/sdk/client
  *
  * REST client and WebSocket event subscriber for Cards V2 API.

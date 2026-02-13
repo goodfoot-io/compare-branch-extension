@@ -8,6 +8,8 @@
  * - Return value propagation
  * - Error propagation
  * - Sync/async handler support
+ *
+ * @summary Tests for stream transform factory
  */
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';

@@ -6,6 +6,8 @@
  * 2. Reference compiled handlers that exist
  * 3. Compiled handler files are well-formed
  *
+ *
+ * @summary End-to-end tests for build output validation
  * @module
  */
 

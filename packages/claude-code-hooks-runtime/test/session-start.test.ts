@@ -1,5 +1,7 @@
 /**
  * Tests for the SessionStart hook.
+ *
+ * @summary Tests for the SessionStart hook
  */
 
 import { execSync } from 'node:child_process';

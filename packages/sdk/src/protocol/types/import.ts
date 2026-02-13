@@ -5,6 +5,8 @@
  * the system. It intentionally keeps defaults optional so older exports can be
  * imported without losing fidelity.
  *
+ *
+ * @summary Import/export schemas for Cards V2 cards
  * @module types/import
  */
 

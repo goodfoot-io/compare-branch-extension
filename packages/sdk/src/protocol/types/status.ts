@@ -5,6 +5,8 @@
  * the wire, and shown in UI. Treat additions or renames as compatibility
  * changes across the ecosystem.
  *
+ *
+ * @summary Lifecycle and runtime status vocabularies used by Cards V2
  * @module types/status
  */
 

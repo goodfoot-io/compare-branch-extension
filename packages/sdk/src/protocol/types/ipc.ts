@@ -4,6 +4,8 @@
  * Messages use a `type` discriminator so consumers can safely narrow the union
  * and handle unknown message types without crashing older clients.
  *
+ *
+ * @summary IPC message payloads exchanged between Cards V2 processes
  * @module types/ipc
  */
 

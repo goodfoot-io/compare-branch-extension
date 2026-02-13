@@ -1,5 +1,7 @@
 /**
  * Arguments for the build command
+ *
+ * @summary Arguments for the build command
  */
 export interface BuildArgs {
   /** Path to settings.config.ts file */

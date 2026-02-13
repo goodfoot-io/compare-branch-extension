@@ -9,6 +9,8 @@
  * {@link extractActionInput} or {@link extractTypeInput} when you need a full
  * typed payload for an action or type hook.
  *
+ *
+ * @summary Environment variable utilities for Cards Extension actions and type hooks
  * @module
  */
 

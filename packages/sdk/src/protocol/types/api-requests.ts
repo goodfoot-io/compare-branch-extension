@@ -9,6 +9,8 @@
  * Response types model the JSON structures returned by endpoints. All
  * timestamps use ISO 8601 format for consistent parsing across platforms.
  *
+ *
+ * @summary Shared API request and response types for the Cards V2 REST API
  * @example
  * ```typescript
  * // Creating a card

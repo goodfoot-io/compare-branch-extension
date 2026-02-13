@@ -3,6 +3,8 @@
  *
  * These tests verify that the schema types enforce correct structure
  * for settings.json using TypeScript's type system.
+ *
+ * @summary Type-level tests for schema types
  */
 
 import { describe, expectTypeOf, it } from 'vitest';

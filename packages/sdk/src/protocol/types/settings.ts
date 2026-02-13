@@ -13,6 +13,8 @@
  * - **Actions** define executable workflows with start/end lifecycle commands
  * - **Type definitions** specify validators and lifecycle hooks for typed files
  *
+ *
+ * @summary Settings schema types for the actions-based execution system
  * @example
  * ```json
  * // settings.json

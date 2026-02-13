@@ -19,6 +19,14 @@ import type {
   WebviewToExtensionMessage
 } from '../../../src/protocol/types/webview.js';
 
+/**
+ * Exercises webview behavior in the types area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests webview behavior in types
+ */
+
 describe('webview types', () => {
   describe('WebviewToExtensionMessage discriminated union', () => {
     it('should narrow types correctly for webview:didConnect', () => {

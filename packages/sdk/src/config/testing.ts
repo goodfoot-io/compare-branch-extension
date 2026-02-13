@@ -3,6 +3,8 @@
  *
  * Provides a test harness that executes validators without stdin/stdout,
  * making it suitable for unit tests and fast feedback loops.
+ *
+ * @summary Testing utilities for validation handlers
  * @module
  */
 

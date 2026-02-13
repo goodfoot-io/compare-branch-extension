@@ -9,6 +9,8 @@
  * folder containing `CARD.json` (metadata), `DESCRIPTION.md` (description),
  * optional plan documents, attachments, and typed files.
  *
+ *
+ * @summary Core card metadata for the Cards V2 protocol
  * @example
  * ```json
  * // CARD.json metadata

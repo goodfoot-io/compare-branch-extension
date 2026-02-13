@@ -3,6 +3,8 @@
  *
  * Required fields: id, author, title
  * Content after frontmatter is optional.
+ *
+ * @summary Tests for Note validator - validates markdown files with YAML frontmatter
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

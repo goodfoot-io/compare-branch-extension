@@ -1,5 +1,7 @@
 /**
  * Smoke tests for create-worktree stubs.
+ *
+ * @summary Smoke tests for create-worktree stubs
  */
 
 import { execFile } from 'node:child_process';

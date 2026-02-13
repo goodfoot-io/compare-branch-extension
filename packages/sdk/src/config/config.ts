@@ -4,6 +4,8 @@
  * These types define the input format for `defineConfig()` - what users write
  * in their settings.config.ts files.
  *
+ *
+ * @summary Settings configuration types for defineConfig()
  * @module
  *
  * @example

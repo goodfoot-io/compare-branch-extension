@@ -4,6 +4,8 @@
  * The protocol uses this interface so callers can swap between real network
  * clients and test doubles without changing card logic.
  *
+ *
+ * @summary HTTP client interface for dependency injection
  * @module types/http
  */
 

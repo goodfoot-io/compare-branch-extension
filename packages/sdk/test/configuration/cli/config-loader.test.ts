@@ -1,6 +1,8 @@
 /**
  * Tests for configuration file loader.
  *
+ *
+ * @summary Tests for configuration file loader
  * @module
  */
 

@@ -1,4 +1,10 @@
 /**
+ *
+ * Re-exports the public surface for the config module.
+ * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
+ * maintainers.
+ *
+ * @summary Public exports for the config module
  * @cards/sdk/config
  *
  * Type-safe configuration library v2 for the Cards Extension with hooks,

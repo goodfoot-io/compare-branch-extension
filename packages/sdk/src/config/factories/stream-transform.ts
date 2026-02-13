@@ -6,6 +6,8 @@
  * SameShape for compile-time typo detection and preserving the stream type
  * as a generic parameter.
  *
+ *
+ * @summary Stream transform factory
  * @module factories/stream-transform
  */
 

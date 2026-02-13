@@ -8,6 +8,14 @@ import type {
   TimelineOptions
 } from '../../../src/client/types/client.js';
 
+/**
+ * Exercises client behavior in the types area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests client behavior in types
+ */
+
 describe('Client Types', () => {
   describe('CardsClientOptions', () => {
     it('should accept required baseUrl', () => {

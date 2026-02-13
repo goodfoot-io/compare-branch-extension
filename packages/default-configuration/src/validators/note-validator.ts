@@ -4,6 +4,8 @@
  * Validates note markdown files with YAML frontmatter.
  * Required fields: id, author, title
  * Content after frontmatter is optional.
+ *
+ * @summary Note validator for custom types system
  */
 
 import { readFileSync } from 'node:fs';

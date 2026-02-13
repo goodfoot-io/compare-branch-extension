@@ -4,6 +4,8 @@
  * These tests verify that defineConfig provides IDE intellisense (identity function)
  * and that serializeSettings correctly transforms config with command objects
  * into settings.json-compatible schema.
+ *
+ * @summary Tests for defineConfig and serializeSettings functions
  */
 
 import { describe, expect, it, vi } from 'vitest';

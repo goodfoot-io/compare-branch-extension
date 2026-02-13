@@ -11,6 +11,8 @@
  * - **Stale-entry pruning**: entries older than 24 h or belonging to dead PIDs
  *   are removed on every transaction.
  *
+ *
+ * @summary File-based PID-to-card session registry
  * @module claude-code-sessions
  */
 

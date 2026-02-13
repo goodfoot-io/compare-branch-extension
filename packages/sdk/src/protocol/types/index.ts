@@ -15,6 +15,8 @@
  * - **Messaging types**: IPC and webview communication protocols
  * - **Constraint constants**: Validation boundaries for input fields
  *
+ *
+ * @summary Curated export surface for Cards V2 protocol types and constants
  * @example
  * ```typescript
  * import type { Card, CardStatus, CreateCardRequest } from '@cards/protocol/types';

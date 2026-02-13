@@ -6,6 +6,8 @@
  *
  * IMPORTANT: Status is NOT stored in the file - it's derived at read time from
  * adaptive-card-submission existence. The validator does NOT validate status field.
+ *
+ * @summary Adaptive Card validator for custom types validation system
  */
 
 import { readFileSync } from 'node:fs';

@@ -8,6 +8,8 @@
  * 4. Stale file cleanup between builds
  * 5. Error handling for various failure scenarios
  *
+ *
+ * @summary End-to-end tests for the builder CLI
  * @module
  */
 

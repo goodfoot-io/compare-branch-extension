@@ -5,6 +5,8 @@
  * environment, optionally load a `.meta.json` sidecar, and write a
  * `ValidationResult` JSON object to stdout. This module provides
  * result helpers and the runtime executor.
+ *
+ * @summary Output builders and runtime executor for custom type validators
  * @module
  */
 

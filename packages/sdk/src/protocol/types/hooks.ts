@@ -14,6 +14,8 @@
  * defined in {@link Settings}. New integrations should prefer actions with
  * typed file lifecycle commands.
  *
+ *
+ * @summary Hook configuration types for Cards V2 lifecycle events
  * @example
  * ```json
  * // settings.json

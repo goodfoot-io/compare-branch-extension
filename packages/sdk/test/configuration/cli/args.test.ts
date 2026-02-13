@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { parseArgs } from '../../../src/config/cli/args.js';
 
+/**
+ * Exercises args behavior in the cli area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests args behavior in cli
+ */
+
 describe('parseArgs', () => {
   describe('successful parsing', () => {
     it('should parse short flags (-c, -o)', () => {

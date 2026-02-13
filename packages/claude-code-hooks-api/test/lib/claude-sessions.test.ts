@@ -2,6 +2,14 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+/**
+ * Exercises claude sessions behavior in the lib area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests claude sessions behavior in lib
+ */
+
 vi.mock('node:os', () => {
   return {
     tmpdir: vi.fn(() => '/tmp'),

@@ -8,6 +8,8 @@
  * 4. Streams work alongside actions and types
  * 5. Optional stream fields serialize correctly
  *
+ *
+ * @summary End-to-end tests for stream configuration serialization
  * @module
  */
 

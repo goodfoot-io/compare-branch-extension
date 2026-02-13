@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { EventCallback, EventMap, EventSubscriberOptions } from '../../../src/client/types/events.js';
 
+/**
+ * Exercises events behavior in the types area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests events behavior in types
+ */
+
 describe('Event Types', () => {
   describe('EventSubscriberOptions', () => {
     it('should accept required wsUrl', () => {

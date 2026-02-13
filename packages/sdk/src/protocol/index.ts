@@ -1,4 +1,10 @@
 /**
+ *
+ * Re-exports the public surface for the protocol module.
+ * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
+ * maintainers.
+ *
+ * @summary Public exports for the protocol module
  * @cards/protocol
  *
  * Canonical wire-level contracts for the Cards V2 ecosystem.

@@ -3,6 +3,8 @@
  *
  * These tests verify that the compiler correctly bundles handler files into
  * standalone ESM bundles with runtime wrapper code injected.
+ *
+ * @summary Tests for the handler compiler
  */
 
 import * as fs from 'node:fs';

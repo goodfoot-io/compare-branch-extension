@@ -5,6 +5,8 @@
  * for Claude Code card-based workflows. The configuration is transformed to
  * settings.json at build time via the build-settings script.
  *
+ *
+ * @summary Settings configuration for default Claude Code workflows
  * @module
  */
 

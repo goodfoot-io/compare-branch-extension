@@ -4,6 +4,8 @@
  * Cards hooks communicate success and failure via process exit codes and
  * stderr output. This module centralizes those conventions so the runtime
  * and hooks speak the same protocol.
+ *
+ * @summary Exit code constants and helpers for Cards Extension hooks
  * @module
  */
 

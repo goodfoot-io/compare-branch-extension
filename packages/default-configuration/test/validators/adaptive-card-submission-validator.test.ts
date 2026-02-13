@@ -3,6 +3,8 @@
  *
  * Adaptive Card submissions track when a user submits a response to an Adaptive Card.
  * They reference the Adaptive Card ID and contain the action data.
+ *
+ * @summary Tests for Adaptive Card submission validator
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

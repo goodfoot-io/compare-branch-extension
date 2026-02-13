@@ -7,6 +7,8 @@
  * - logError structured error logging
  * - File output functionality
  * - Context setting/clearing
+ *
+ * @summary Unit tests for the logger system
  */
 
 import * as fs from 'node:fs';

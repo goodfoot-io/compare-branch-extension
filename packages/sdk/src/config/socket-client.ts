@@ -5,6 +5,8 @@
  * NDJSON (newline-delimited JSON) protocol for receiving commands and sending
  * responses.
  *
+ *
+ * @summary Socket client for runtime-to-dispatcher communication
  * @module
  */
 

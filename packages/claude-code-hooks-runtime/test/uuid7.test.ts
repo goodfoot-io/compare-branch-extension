@@ -1,5 +1,7 @@
 /**
  * Tests for UUID v7 generator.
+ *
+ * @summary Tests for UUID v7 generator
  */
 import { describe, expect, it } from 'vitest';
 import { generateUUID7 } from '../src/bin/uuid7.js';

@@ -6,6 +6,8 @@ import type { WebSocketFactory } from '../../src/client/types/websocket.js';
 /**
  * Test WebSocket factory that creates real WebSocket connections.
  * Used with TestWebSocketServer for integration testing.
+ *
+ * @summary Tests event subscriber behavior in client
  */
 class RealWebSocketFactory implements WebSocketFactory {
   public createdSockets: Array<{ url: string; protocols?: string | string[] }> = [];

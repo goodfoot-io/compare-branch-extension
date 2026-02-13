@@ -2,6 +2,14 @@ import { execSync } from 'node:child_process';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { findClaudePid, PROCESS_TREE_MAX_DEPTH } from '../../src/lib/process-tree.js';
 
+/**
+ * Exercises process tree behavior in the lib area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests process tree behavior in lib
+ */
+
 vi.mock('node:child_process', () => ({
   execSync: vi.fn()
 }));

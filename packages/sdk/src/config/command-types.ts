@@ -8,6 +8,8 @@
  * The generic parameter `N` preserves the action/type name as a literal type,
  * enabling compile-time validation of action references.
  *
+ *
+ * @summary Command type definitions for action and type lifecycle handlers
  * @module
  */
 

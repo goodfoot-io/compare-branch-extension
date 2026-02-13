@@ -4,6 +4,8 @@
  * This module provides SDK-specific types (configuration, convenience options)
  * and re-exports shared API types from @cards/protocol for consistency.
  *
+ *
+ * @summary Client SDK type definitions for the Cards V2 HTTP API
  * @module types/client
  */
 

@@ -1,3 +1,11 @@
+/**
+ * Implements uuid7 behavior for the bin area.
+ * The module captures domain rules in one place so callers can compose workflows without
+ * duplicating edge-case handling.
+ *
+ * @summary Uuid7 logic for bin
+ */
+
 export function generateUUID7(): string {
   const now = Date.now();
   const bytes = new Uint8Array(16);

@@ -1,6 +1,8 @@
 /**
  * Tests for CLI main entry point.
  *
+ *
+ * @summary Tests for CLI main entry point
  * @module
  */
 

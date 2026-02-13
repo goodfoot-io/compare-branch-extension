@@ -11,6 +11,14 @@ import type {
   TimelineTypedFileUpdatedEvent
 } from '../../../src/protocol/types/events.js';
 
+/**
+ * Exercises timeline events behavior in the types area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests timeline events behavior in types
+ */
+
 describe('timeline event types', () => {
   describe('TimelineCommentAddedEvent', () => {
     it('should have correct properties', () => {

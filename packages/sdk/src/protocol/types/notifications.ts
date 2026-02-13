@@ -4,6 +4,8 @@
  * These types keep the UI and server aligned on what constitutes a notification
  * and how severity is interpreted.
  *
+ *
+ * @summary Notification payloads shared between Cards V2 clients and services
  * @module types/notifications
  */
 

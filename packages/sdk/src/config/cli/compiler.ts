@@ -20,6 +20,8 @@
  * - Imports the user's handler default export
  * - Calls executeCommand(handler) to start the runtime orchestration
  *
+ *
+ * @summary Handler compiler for Cards Configuration
  * @module
  * @see {@link compileHandler} for the main compilation function
  *

@@ -4,6 +4,8 @@
  * These are primarily type-level tests that verify compile-time guarantees
  * using expectTypeOf from vitest. The tests ensure that ActionCommand and
  * related configuration types work correctly.
+ *
+ * @summary Tests for settings configuration types
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest';

@@ -5,6 +5,8 @@
  * configured log file. If you configure nothing, the logger politely says
  * nothing at all. It never writes to stdout and avoids stderr to keep hook
  * protocols clean.
+ *
+ * @summary Structured logging for Cards Extension hooks
  * @module
  * @example
  * ```typescript

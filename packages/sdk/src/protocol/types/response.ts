@@ -4,6 +4,8 @@
  * These wrappers keep success and error payloads consistent across endpoints
  * without dictating the shape of the actual data payloads.
  *
+ *
+ * @summary API response envelopes shared across Cards V2 services
  * @module types/response
  */
 

@@ -1,5 +1,7 @@
 /**
  * Unit tests for runtime execution orchestration.
+ *
+ * @summary Unit tests for runtime execution orchestration
  */
 
 import * as fs from 'node:fs';

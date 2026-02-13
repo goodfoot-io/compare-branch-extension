@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { ApiError, NetworkError } from '../../../src/client/types/errors.js';
 import type { FieldError } from '../../../src/protocol/index.js';
 
+/**
+ * Exercises errors behavior in the types area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests errors behavior in types
+ */
+
 describe('Error Types', () => {
   describe('ApiError', () => {
     it('should create with message and code', () => {

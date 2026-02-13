@@ -5,6 +5,8 @@
  * tests, or sandboxes) by providing filesystem access as arguments rather than
  * hard-coding `fs` usage.
  *
+ *
+ * @summary Filesystem callback contracts for dependency injection
  * @module types/fs-callbacks
  */
 

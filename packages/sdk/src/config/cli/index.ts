@@ -16,6 +16,8 @@
  *
  * This matches V1 feature parity where handlers are bundled as executables.
  *
+ *
+ * @summary CLI main entry point for Cards Configuration v2
  * @module cli/index
  */
 

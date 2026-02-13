@@ -5,6 +5,8 @@
  * confirm we are inside an action subprocess and to expose the action
  * process environment variables to the session context.
  *
+ *
+ * @summary SessionStart hook implementation
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 

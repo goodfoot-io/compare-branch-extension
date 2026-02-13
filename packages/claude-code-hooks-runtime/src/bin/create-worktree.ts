@@ -3,6 +3,14 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
+/**
+ * Implements create worktree behavior for the bin area.
+ * The module captures domain rules in one place so callers can compose workflows without
+ * duplicating edge-case handling.
+ *
+ * @summary Create Worktree logic for bin
+ */
+
 const execFileAsync = promisify(execFile);
 
 export function validateBranchName(name: string): void {

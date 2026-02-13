@@ -5,6 +5,8 @@
  * associates the Claude PID with the card and retroactively flushes any
  * pending commits that were recorded before the association was established.
  *
+ *
+ * @summary PostToolUse hook that watches for Cards API write operations via curl
  * @module post-tool-use-card-association
  */
 

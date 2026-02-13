@@ -5,6 +5,8 @@
  * authentication. These values are sensitive and should be treated as secrets
  * when written to disk or logged.
  *
+ *
+ * @summary API discovery payloads published by the Cards V2 server
  * @module types/api
  */
 

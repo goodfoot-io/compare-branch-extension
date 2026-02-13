@@ -4,6 +4,8 @@
  * Timeline items capture user-authored content, adaptive card updates, and
  * commit metadata so the UI can render a chronological history of work.
  *
+ *
+ * @summary Timeline entity types for Cards V2 activity streams
  * @module types/timeline
  */
 

@@ -4,6 +4,8 @@
  * These errors normalize server responses and network failures so callers can
  * distinguish API validation problems from transport issues.
  *
+ *
+ * @summary Error classes for the Cards V2 SDK
  * @module types/errors
  */
 

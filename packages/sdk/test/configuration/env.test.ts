@@ -1,5 +1,7 @@
 /**
  * Unit tests for environment variable extraction utilities.
+ *
+ * @summary Unit tests for environment variable extraction utilities
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

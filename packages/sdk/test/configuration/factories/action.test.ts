@@ -3,6 +3,8 @@
  *
  * These tests verify the factory creates proper command objects with correct
  * metadata attachment and callable behavior.
+ *
+ * @summary Tests for defineAction factory function
  */
 
 import { describe, expect, it, vi } from 'vitest';

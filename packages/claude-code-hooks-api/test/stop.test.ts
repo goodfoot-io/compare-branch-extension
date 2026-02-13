@@ -4,6 +4,14 @@ import { join } from 'node:path';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+/**
+ * Exercises stop behavior in the test area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests stop behavior in test
+ */
+
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
   return {

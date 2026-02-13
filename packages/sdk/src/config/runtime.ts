@@ -20,6 +20,8 @@
  * 6. On success: clean up socket and exit with code 0
  * 7. On error: log error, write to stderr, clean up and exit with code 1
  *
+ *
+ * @summary Runtime orchestration for compiled Cards action and type handlers
  * @module
  * @see {@link executeCommand} for the main entry point
  *

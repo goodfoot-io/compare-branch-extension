@@ -1,6 +1,8 @@
 /**
  * HTTP client for the Cards V2 REST API.
  *
+ *
+ * @summary HTTP client for the Cards V2 REST API
  * @module sdk/CardsClient
  */
 

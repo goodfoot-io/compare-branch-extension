@@ -1,5 +1,7 @@
 /**
  * Tests for HTTP parser.
+ *
+ * @summary Tests http parser behavior in configuration
  */
 
 import { describe, expect, it } from 'vitest';

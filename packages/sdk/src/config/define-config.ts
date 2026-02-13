@@ -5,6 +5,8 @@
  * - `defineConfig()`: IDE intellisense helper (identity function)
  * - `serializeSettings()`: Transforms config with command objects to settings.json schema
  *
+ *
+ * @summary Configuration utilities for Cards settings
  * @module define-config
  *
  * @example

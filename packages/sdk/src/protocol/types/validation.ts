@@ -3,6 +3,8 @@
  *
  * These codes are serialized across API boundaries and should remain stable.
  *
+ *
+ * @summary Validation error codes used for structured error handling
  * @module types/validation
  */
 

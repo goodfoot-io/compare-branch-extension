@@ -6,6 +6,8 @@
  *
  * NOTE: This validator validates the structure only. Verification that the
  * referenced Adaptive Card exists is handled at the HybridStore level when writing the file.
+ *
+ * @summary Adaptive Card submission validator for custom types validation system
  */
 
 import { readFileSync } from 'node:fs';

@@ -10,6 +10,8 @@
  * `SESSION_GIT_HEAD_SHA`). Unattributed commits are those not recorded
  * in the session's CSV by the card-repo post-commit hook.
  *
+ *
+ * @summary Stop hook implementation
  * @see https://code.claude.com/docs/en/hooks#stop
  */
 

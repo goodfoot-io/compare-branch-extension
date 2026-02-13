@@ -1,4 +1,10 @@
 /**
+ *
+ * Re-exports the public surface for the src module.
+ * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
+ * maintainers.
+ *
+ * @summary Public exports for the src module
  * @cards/sdk
  *
  * Unified SDK for the Cards V2 extension ecosystem.

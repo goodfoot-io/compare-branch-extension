@@ -8,6 +8,8 @@
  * The protocol uses JSON-encoded messages with a `type` discriminator field.
  * Commands flow from the extension to the wrapper; responses flow back.
  *
+ *
+ * @summary Wrapper socket command protocol for Cards V2 execution control
  * @example
  * ```typescript
  * // Extension sending a cancel request

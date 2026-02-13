@@ -5,6 +5,8 @@
  * the embedded webview. Messages are discriminated by a `type` field so the UI
  * can handle them safely and evolve without breaking older clients.
  *
+ *
+ * @summary Webview messaging contracts for the VS Code extension UI
  * @module types/webview
  */
 

@@ -3,6 +3,8 @@
  *
  * These are type-level tests that verify the structure and generic type
  * preservation of command types used by factory functions.
+ *
+ * @summary Tests for command type definitions
  */
 
 import { describe, expectTypeOf, it } from 'vitest';

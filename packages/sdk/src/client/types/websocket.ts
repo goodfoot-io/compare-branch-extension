@@ -1,6 +1,8 @@
 /**
  * WebSocket factory interface for dependency injection.
  *
+ *
+ * @summary WebSocket factory interface for dependency injection
  * @module types/websocket
  */
 

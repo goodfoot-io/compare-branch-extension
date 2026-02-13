@@ -5,6 +5,8 @@
  * triggered or type lifecycle events occur. The runtime extracts these values
  * from environment variables and passes them to handlers as typed objects.
  *
+ *
+ * @summary Input types for action and type lifecycle handlers
  * @module
  */
 

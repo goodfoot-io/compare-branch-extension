@@ -7,6 +7,8 @@
  * WebSocket in real time. Metadata lives in a sibling `.meta.json` file and
  * is committed to the card repository at stream creation and close.
  *
+ *
+ * @summary Stream protocol types for JSONL streaming
  * @module types/stream
  */
 

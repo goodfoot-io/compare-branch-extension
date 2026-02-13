@@ -9,6 +9,8 @@
  *
  * The action awaits process exit before resolving, so the terminal closes
  * only after Claude finishes and cleanup is complete.
+ *
+ * @summary Launch action for Claude Code workflows
  * @module
  * @see {@link defineAction} for factory behavior and metadata attachment
  */

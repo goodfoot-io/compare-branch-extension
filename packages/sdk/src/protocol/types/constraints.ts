@@ -5,6 +5,8 @@
  * deliberately centralized so limits can be changed in one place without
  * drifting between clients.
  *
+ *
+ * @summary Input validation boundaries for Cards V2 user-facing fields
  * @module types/constraints
  */
 

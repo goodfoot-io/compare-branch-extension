@@ -24,6 +24,14 @@ import {
   TAG_PATTERN
 } from '../../src/protocol/index.js';
 
+/**
+ * Exercises protocol behavior in the protocol area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests protocol behavior in protocol
+ */
+
 describe('Card', () => {
   it('should include isPinned field', () => {
     const card: Card = {

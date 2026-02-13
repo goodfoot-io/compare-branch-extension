@@ -7,6 +7,8 @@
  * All functions intentionally fail open so hook failures do not block Claude.
  * Set `API_TEST_MODE=1` to force deterministic, local values in tests.
  *
+ *
+ * @summary Cards API discovery utilities
  * @module lib/api-discovery
  */
 

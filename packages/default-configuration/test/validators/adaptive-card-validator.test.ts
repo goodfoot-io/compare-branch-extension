@@ -3,6 +3,9 @@
  *
  * IMPORTANT: Status is NOT stored in the file - it's derived at read time.
  * The validator should NOT validate status field.
+ *
+ * @summary Tests for Adaptive Card validator - validates Adaptive Card structure for custom types
+ * system
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

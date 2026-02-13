@@ -4,6 +4,8 @@
  * These types make message dispatch explicit without coupling to any particular
  * IPC transport implementation.
  *
+ *
+ * @summary Callback contracts for IPC message handling
  * @module types/callbacks
  */
 

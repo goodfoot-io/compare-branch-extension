@@ -4,6 +4,14 @@ import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+/**
+ * Exercises actions behavior in the test area through focused scenarios.
+ * The cases lock in edge handling and regression coverage so refactors preserve expected state
+ * transitions and output.
+ *
+ * @summary Tests actions behavior in test
+ */
+
 vi.mock('node:child_process', () => ({
   spawn: vi.fn()
 }));

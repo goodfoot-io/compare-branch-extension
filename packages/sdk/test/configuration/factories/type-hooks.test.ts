@@ -5,6 +5,8 @@
  * - Function invocation and handler execution
  * - Metadata attachment (factoryType, typeName, timeout)
  * - Type-level preservation of literal type names
+ *
+ * @summary Tests for type lifecycle hook factories
  */
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';

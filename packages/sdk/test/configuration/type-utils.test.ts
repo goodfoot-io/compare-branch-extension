@@ -3,6 +3,8 @@
  *
  * These are primarily type-level tests using expectTypeOf to verify that
  * the SameShape utility catches typos and excess properties at compile time.
+ *
+ * @summary Tests for type utilities
  */
 import { describe, expectTypeOf, it } from 'vitest';
 import type { SameShape } from '../../src/config/type-utils.js';

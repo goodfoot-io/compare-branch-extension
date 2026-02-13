@@ -4,6 +4,8 @@
  * Always approves: cleanup is best-effort and never blocks Claude from
  * stopping, even when session registry IO fails.
  *
+ *
+ * @summary Stop hook that cleans up PID registry entries
  * @module stop
  */
 

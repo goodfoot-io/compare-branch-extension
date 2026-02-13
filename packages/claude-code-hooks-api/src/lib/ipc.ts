@@ -1,6 +1,8 @@
 /**
  * Process-level helpers for checking process liveness.
  *
+ *
+ * @summary Process-level helpers for checking process liveness
  * @module lib/ipc
  */
 

@@ -1,6 +1,8 @@
 /**
  * WebSocket event subscriber for the Cards V2 real-time API.
  *
+ *
+ * @summary WebSocket event subscriber for the Cards V2 real-time API
  * @module sdk/EventSubscriber
  */
 
