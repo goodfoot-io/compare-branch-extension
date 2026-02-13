@@ -62,6 +62,14 @@ export type {
   UpdateCommentRequest,
   UpdatePlanRequest
 } from './api-requests.js';
+// --- Branch Types ---
+export type {
+  AddBranchRequest,
+  BranchesResponse,
+  BranchInfo,
+  WorkspaceBlock,
+  WorkspaceBranch
+} from './branch.js';
 // --- Callback Types ---
 export type { IpcMessageCallback } from './callbacks.js';
 // --- Card Types ---

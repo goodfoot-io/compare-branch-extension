@@ -14,7 +14,10 @@ import type { CardStatus, Comment as ProtocolComment } from '../../protocol/inde
 // Re-export shared API types from protocol for backwards compatibility
 // These are the canonical wire-level types used by both client and server
 export type {
+  AddBranchRequest,
   AttachmentResponse,
+  BranchesResponse,
+  BranchInfo,
   CardCreateGates,
   CardResponse,
   CommitAttributionResponse,

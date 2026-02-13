@@ -106,7 +106,7 @@ echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?wor
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /cards/{cardId}/activate | Activate card for this session. Establishes commit attribution — call before starting work |
+| POST | /cards/{cardId}/activate | Activate card for this session. Establishes commit attribution and registers current branch — call before starting work. Query: `workspacePath` (optional, for branch detection) |
 
 ### Commits
 
@@ -115,6 +115,37 @@ echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?wor
 | GET | /cards/{cardId}/commits | List commit attributions |
 | POST | /cards/{cardId}/commits | Add commit. Body: `sha` (full 40-char), `repoPath` (optional) |
 | DELETE | /cards/{cardId}/commits/{sha} | Remove commit attribution |
+
+### Branches
+
+Track workspace branches and worktrees associated with a card. The `/activate` endpoint also registers the current branch automatically.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /cards/{cardId}/branches | List tracked branches. Query: `workspacePath` (optional, for computing isMerged and commit containment) |
+| POST | /cards/{cardId}/branches | Add branch. Body: `name` (required), `worktree` (optional path) |
+| DELETE | /cards/{cardId}/branches/{branchName} | Remove branch. Branch names with `/` are URL-encoded |
+
+**Computed fields** (returned by GET when `workspacePath` is provided):
+- `exists`: Whether the branch still exists in git
+- `isMerged`: Whether the branch tip is merged into the workspace HEAD
+- `commits`: Commit SHAs reachable from the branch but not from HEAD
+
+**Response shape:**
+```json
+{
+  "branches": [
+    {
+      "name": "feature/auth",
+      "worktree": "/path/to/worktree",
+      "addedAt": "2026-02-13T10:00:00Z",
+      "exists": true,
+      "isMerged": false,
+      "commits": ["abc123", "def456"]
+    }
+  ]
+}
+```
 
 ### Timeline
 
