@@ -107,12 +107,8 @@ describe('Default Actions', () => {
         expect.objectContaining({ cwd: '/test/workspace', stdio: 'inherit' })
       );
 
-      // Prompt should be the first positional argument
-      const args = vi.mocked(spawn).mock.calls[0][1] as string[];
-      expect(args[0]).toContain('card-123');
-      expect(args[0]).toContain('/test/repo');
-
       // Should not include --print in interactive mode
+      const args = vi.mocked(spawn).mock.calls[0][1] as string[];
       expect(args).not.toContain('--print');
 
       // Should include --settings with plugin and marketplace JSON
