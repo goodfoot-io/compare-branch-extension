@@ -97,7 +97,7 @@ export function buildCardRepoListing(cardId: string, rootPath: string): string {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         // Include the directory itself in the listing
-        lines.push(relative(rootPath, fullPath) + '/');
+        lines.push(`${relative(rootPath, fullPath)}/`);
         walk(fullPath);
       } else {
         const relPath = relative(rootPath, fullPath);
@@ -160,7 +160,7 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
           'Commit attribution requires a valid PID-to-session mapping. To resolve:',
           '1. Verify the session registry is accessible and not locked by another process',
           '2. Ensure sufficient disk space for the session registry file',
-          '3. Check that the Claude process (PID ' + String(error.pid) + ') is still running'
+          `3. Check that the Claude process (PID ${String(error.pid)}) is still running`
         ].join('\n'),
         stopReason: `Session registration failed: ${error.message}`
       });

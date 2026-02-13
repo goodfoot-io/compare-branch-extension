@@ -15,11 +15,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook, {
   CommitDiffError,
   CommitLogError,
-  CommitRecordError,
   getCommitsSince,
   getDiffForCommits,
-  getUnattributedCommits,
-  SessionCleanupError
+  getUnattributedCommits
 } from '../src/stop.js';
 
 vi.mock('node:child_process', () => ({

@@ -10,12 +10,7 @@ import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import hook, {
-  buildCardRepoListing,
-  CardRepoAccessError,
-  resolveHeadSha,
-  SessionRegistrationError
-} from '../src/session-start.js';
+import hook, { buildCardRepoListing, CardRepoAccessError, resolveHeadSha } from '../src/session-start.js';
 
 const mockFindClaudePid = vi.mocked(findClaudePid);
 const mockRegisterSessionPid = vi.mocked(registerSessionPid);

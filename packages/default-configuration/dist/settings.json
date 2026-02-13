@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE_PATH ./bin/launch.d2f813e1.mjs",
+            "command": "$VSCODE_NODE_PATH ./bin/launch.e4e6dd82.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -19,21 +19,21 @@
         "adaptive-card": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE_PATH ./bin/adaptive-card-validator.57d406da.mjs",
+            "command": "$VSCODE_NODE_PATH ./bin/adaptive-card-validator.a343b262.mjs",
             "timeout": 30000
           }
         },
         "adaptive-card-submission": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE_PATH ./bin/adaptive-card-submission-validator.d6e04c3f.mjs",
+            "command": "$VSCODE_NODE_PATH ./bin/adaptive-card-submission-validator.7c05a209.mjs",
             "timeout": 30000
           }
         },
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE_PATH ./bin/note-validator.d4e43c0a.mjs",
+            "command": "$VSCODE_NODE_PATH ./bin/note-validator.c7a2d7d7.mjs",
             "timeout": 30000
           }
         }
@@ -51,10 +51,10 @@
   },
   "__generated": {
     "files": [
-      "launch.d2f813e1.mjs",
-      "adaptive-card-validator.57d406da.mjs",
-      "adaptive-card-submission-validator.d6e04c3f.mjs",
-      "note-validator.d4e43c0a.mjs",
+      "launch.e4e6dd82.mjs",
+      "adaptive-card-validator.a343b262.mjs",
+      "adaptive-card-submission-validator.7c05a209.mjs",
+      "note-validator.c7a2d7d7.mjs",
       "claude-code-session.cf9e4344.mjs"
     ]
   }
