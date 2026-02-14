@@ -34,6 +34,7 @@
  * @module types/card
  */
 
+import type { WorkspaceBlock } from './branch.js';
 import type { CardStatus } from './status.js';
 
 // --- Card Gates ---
@@ -182,6 +183,13 @@ export interface CardMetadata {
    * Optional for backward compatibility with legacy cards.
    */
   repositoryId?: string;
+
+  /**
+   * Workspace tracking block for branch and commit attribution.
+   * Contains tracked branches with optional worktree paths and commit SHAs.
+   * Stored in CARD.meta.json when present.
+   */
+  workspace?: WorkspaceBlock;
 }
 
 // --- Card ---

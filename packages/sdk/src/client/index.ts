@@ -12,7 +12,10 @@ export { CardsClient } from './cardsClient.js';
 export { calculateBackoffMs, EventSubscriber } from './eventSubscriber.js';
 // Client types
 export type {
+  AddBranchRequest,
   AttachmentResponse,
+  BranchesResponse,
+  BranchInfo,
   CardCreateData,
   CardsClientOptions,
   CardUpdateData,

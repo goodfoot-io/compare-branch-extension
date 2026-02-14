@@ -346,6 +346,71 @@ describe('CardsClient', () => {
     });
   });
 
+  describe('Branch Operations', () => {
+    it('should GET /cards/:id/branches when getting branches', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.getBranches('card-123');
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'GET',
+        url: expect.stringContaining('/cards/card-123/branches')
+      });
+    });
+
+    it('should GET /cards/:id/branches with workspacePath query param', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.getBranches('card-123', { workspacePath: '/workspace' });
+      expect(httpClient.requests).toHaveLength(1);
+      expect(httpClient.requests[0]?.url).toContain('workspacePath=%2Fworkspace');
+    });
+
+    it('should POST /cards/:id/branches with name and worktree when adding branch', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.addBranch('card-123', { name: 'feature/test', worktree: '/path/to/worktree' });
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'POST',
+        url: expect.stringContaining('/cards/card-123/branches'),
+        body: { name: 'feature/test', worktree: '/path/to/worktree' }
+      });
+    });
+
+    it('should DELETE /cards/:id/branches/:name when removing branch', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.removeBranch('card-123', 'feature/test');
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'DELETE',
+        url: expect.stringContaining('/cards/card-123/branches/feature%2Ftest')
+      });
+    });
+
+    it('should URL-encode branch name with slashes when removing', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.removeBranch('card-123', 'feature/sub/branch');
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'DELETE',
+        url: expect.stringContaining('feature%2Fsub%2Fbranch')
+      });
+    });
+
+    it('should throw ApiError on server error response', async () => {
+      const client = new CardsClient(options);
+      const errorResponse = new Response(JSON.stringify({ message: 'Card not found' }), {
+        status: 404,
+        statusText: 'Not Found'
+      });
+
+      // Mock fetch to return 404
+      vi.spyOn(global, 'fetch').mockResolvedValue(errorResponse);
+
+      await expect(client.getBranches('card-123')).rejects.toThrow(ApiError);
+      vi.restoreAllMocks();
+    });
+  });
+
   describe('Tag Operations', () => {
     it('should GET /tags when fetching tags', async () => {
       const httpClient = new TestHttpClient();

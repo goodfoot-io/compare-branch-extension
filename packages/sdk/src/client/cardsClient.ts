@@ -8,7 +8,9 @@
 
 import type { Card, HttpClient, StreamMeta, TimelineItem } from '../protocol/index.js';
 import type {
+  AddBranchRequest,
   AttachmentResponse,
+  BranchesResponse,
   CardCreateData,
   CardsClientOptions,
   CardUpdateData,
@@ -607,6 +609,47 @@ export class CardsClient {
    */
   async removeCommit(cardId: string, sha: string): Promise<void> {
     const url = this.buildUrl(`/cards/${cardId}/commits/${sha}`);
+    return this.request(() => this.getHttpClient().delete(url));
+  }
+
+  // --- Branch Operations ---
+
+  /**
+   * Gets all branches tracked on a card.
+   *
+   * @param cardId - The card id.
+   * @param options - Optional query parameters.
+   * @param options.workspacePath - Workspace path for computing isMerged and commit containment.
+   * @returns Promise resolving to branches response.
+   */
+  async getBranches(cardId: string, options?: { workspacePath?: string }): Promise<BranchesResponse> {
+    const url = this.buildUrl(`/cards/${cardId}/branches`, {
+      workspacePath: options?.workspacePath
+    });
+    return this.request(() => this.getHttpClient().get<BranchesResponse>(url));
+  }
+
+  /**
+   * Adds a branch to a card.
+   *
+   * @param cardId - The card id.
+   * @param data - Branch data including name and optional worktree path.
+   * @returns Promise resolving when the branch is added.
+   */
+  async addBranch(cardId: string, data: AddBranchRequest): Promise<void> {
+    const url = this.buildUrl(`/cards/${cardId}/branches`);
+    await this.request(() => this.getHttpClient().post<unknown>(url, data));
+  }
+
+  /**
+   * Removes a branch from a card.
+   *
+   * @param cardId - The card id.
+   * @param name - Branch name to remove (will be URL-encoded).
+   * @returns Promise resolving when the branch is removed.
+   */
+  async removeBranch(cardId: string, name: string): Promise<void> {
+    const url = this.buildUrl(`/cards/${cardId}/branches/${encodeURIComponent(name)}`);
     return this.request(() => this.getHttpClient().delete(url));
   }
 
