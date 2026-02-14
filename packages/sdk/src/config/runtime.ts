@@ -296,6 +296,8 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
  * User-registered callbacks may return void, a value, or a Promise.
  * This normalizes all cases into a single Promise for consistent handling.
  *
+ * @param result - Callback return value that may already be a promise.
+ * @returns Promise resolving to the callback result.
  * @internal
  */
 function toPromise<T>(result: T | Promise<T>): Promise<T> {

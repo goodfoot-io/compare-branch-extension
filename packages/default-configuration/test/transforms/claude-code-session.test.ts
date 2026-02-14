@@ -39,7 +39,12 @@ afterEach(async () => {
   }
 });
 
-/** Stringify an object and transform it through the harness. */
+/**
+ * Stringifies an SDK-like message object and runs it through the harness.
+ *
+ * @param obj Message payload to serialize into NDJSON line format.
+ * @returns Harness transform result containing either output or error.
+ */
 async function transformJson(obj: Record<string, unknown>): Promise<{ result?: string; error?: string }> {
   return harness.transform(JSON.stringify(obj));
 }

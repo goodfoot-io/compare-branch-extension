@@ -89,6 +89,8 @@ export type BuildResult = BuildSuccess | BuildFailure;
 /**
  * Removes a file, ignoring ENOENT (already deleted).
  * Logs a warning for other errors.
+ *
+ * @param filePath - Absolute path to the file that should be removed.
  */
 function tryUnlink(filePath: string): void {
   try {
@@ -102,6 +104,9 @@ function tryUnlink(filePath: string): void {
 
 /**
  * Generates an 8-character content hash for cache busting.
+ *
+ * @param content - File content used as hash input.
+ * @returns First eight characters of the SHA-256 digest.
  */
 function generateContentHash(content: string): string {
   return crypto.createHash('sha256').update(content).digest('hex').substring(0, 8);
@@ -110,6 +115,9 @@ function generateContentHash(content: string): string {
 /**
  * Converts an action name to a slug (lowercase, hyphens).
  * E.g., "Launch Claude" -> "launch-claude"
+ *
+ * @param name - Human-readable action label from configuration.
+ * @returns URL-safe slug suitable for IDs and filenames.
  */
 function slugify(name: string): string {
   return name
@@ -121,6 +129,9 @@ function slugify(name: string): string {
 /**
  * Extracts the base filename from a source path without extension.
  * E.g., "/path/to/launch-claude-start.ts" -> "launch-claude-start"
+ *
+ * @param sourcePath - Handler source file path.
+ * @returns Basename with common JS/TS extensions removed.
  */
 function getBaseName(sourcePath: string): string {
   const basename = path.basename(sourcePath);
@@ -134,6 +145,10 @@ function getBaseName(sourcePath: string): string {
  * Uses `$VSCODE_NODE_PATH` so the bundled Node.js interpreter is used
  * regardless of whether `node` is on the system PATH.
  * E.g., "$VSCODE_NODE_PATH ./bin/launch-claude.abc12345.mjs"
+ *
+ * @param filename - Compiled handler filename placed under the bin directory.
+ * @param binDir - Relative output subdirectory containing compiled handlers.
+ * @returns Command string to execute the compiled handler with VS Code's Node binary.
  */
 function generateCommandString(filename: string, binDir: string): string {
   const relativePath = path.posix.join(binDir, filename);
@@ -146,6 +161,9 @@ function generateCommandString(filename: string, binDir: string): string {
 
 /**
  * Extracts all command info from a loaded config.
+ *
+ * @param config - Parsed settings configuration from `settings.config.ts`.
+ * @returns Flattened command descriptors for actions, type hooks, and streams.
  */
 function extractCommands(config: SettingsConfig): CommandInfo[] {
   const commands: CommandInfo[] = [];
@@ -210,6 +228,9 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
  * Stripping it before hashing produces deterministic hashes that reflect
  * actual bundled content (including dependencies) without being affected
  * by sourcemap data that varies across builds.
+ *
+ * @param content - Bundled handler output that may include an inline source map.
+ * @returns Bundle content without the trailing inline source map directive.
  */
 function stripSourceMapComment(content: string): string {
   return content.replace(/\n\/\/# sourceMappingURL=data:.*$/s, '');
@@ -220,6 +241,11 @@ function stripSourceMapComment(content: string): string {
  *
  * Single-pass: compiles each handler once with inline sourcemaps, then
  * strips the sourcemap line to generate a deterministic content hash.
+ *
+ * @param commands - Flattened command descriptors extracted from configuration.
+ * @param binDir - Absolute output directory for compiled handler bundles.
+ * @param logFile - Optional relative log destination embedded into compiled wrappers.
+ * @returns Compiled handler metadata plus a list of compilation error strings.
  */
 async function compileHandlers(
   commands: CommandInfo[],
@@ -297,6 +323,11 @@ async function compileHandlers(
 
 /**
  * Generates settings.json with proper command paths.
+ *
+ * @param config - Original typed configuration object.
+ * @param compiled - Metadata for successfully compiled handlers.
+ * @param binDir - Relative bin directory used in generated command strings.
+ * @returns Settings schema object ready to serialize as `settings.json`.
  */
 function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], binDir: string): Settings {
   // Build lookup maps for compiled handlers
@@ -403,6 +434,14 @@ function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], b
 
 /**
  * Generates a Command object for a handler.
+ *
+ * @param cmd - Command metadata from the source configuration.
+ * @param cmd.factoryType - Factory identifier used to build fallback command names.
+ * @param cmd.timeout - Optional timeout value propagated to generated command metadata.
+ * @param cmd.sourcePath - Optional source path that indicates the command can be compiled.
+ * @param compiled - Matching compiled handler metadata when compilation succeeded.
+ * @param binDir - Relative bin directory used when constructing executable paths.
+ * @returns Command object consumable by the runtime settings schema.
  */
 function generateCommand(
   cmd: { factoryType: string; timeout?: number; sourcePath?: string },
@@ -430,6 +469,11 @@ function generateCommand(
 
 /**
  * Generates a StreamDefinition object for a stream config.
+ *
+ * @param streamConfig - Source stream configuration including transform metadata.
+ * @param compiled - Matching compiled transform handler, if one was produced.
+ * @param binDir - Relative bin directory used when constructing transform paths.
+ * @returns Stream definition object compatible with settings schema.
  */
 function generateStreamDefinition(
   streamConfig: StreamConfigDefinition,
@@ -462,6 +506,9 @@ function generateStreamDefinition(
 
 /**
  * Removes stale compiled files from a previous build.
+ *
+ * @param settingsPath - Path to the previous `settings.json` file, if present.
+ * @param binDir - Directory where compiled handler files are stored.
  */
 function cleanupStaleFiles(settingsPath: string, binDir: string): void {
   try {
@@ -498,6 +545,9 @@ function cleanupStaleFiles(settingsPath: string, binDir: string): void {
  * 2. Compiles handlers with sourcePath into standalone bundles
  * 3. Generates settings.json with proper command paths
  * 4. Cleans up stale files from previous builds
+ *
+ * @param args - Parsed CLI arguments describing config and output locations.
+ * @returns Build result containing generated paths or a failure message.
  */
 export async function build(args: BuildArgs): Promise<BuildResult> {
   try {

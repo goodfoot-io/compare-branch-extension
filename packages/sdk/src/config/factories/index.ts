@@ -1,14 +1,10 @@
 /**
- *
  * Re-exports the public surface for the factories module.
  * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
  * maintainers.
- *
- * @summary Public exports for the factories module
- * @cards/sdk/config/factories
- *
  * Factory functions for creating action handlers and type hooks.
  *
+ * @summary Public exports for the factories module
  * @module
  */
 

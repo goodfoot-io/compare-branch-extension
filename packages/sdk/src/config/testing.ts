@@ -32,7 +32,7 @@ export interface TestRequestOptions {
  *
  * This helper builds a file request for testing validators without
  * actually reading files from disk.
- * @param options - Request options
+ * @param options - Optional overrides for file path and parsed metadata payload.
  * @returns A ValidatorFileRequest suitable for testing
  * @example
  * ```typescript
@@ -80,7 +80,7 @@ export interface TestValidationResult {
  *
  * @param validation - The type validator command to test
  * @param request - Test request (or options to create one)
- * @param options - Test options
+ * @param options - Optional logger and context overrides for the test invocation.
  * @returns The validation result
  * @example
  * ```typescript

@@ -67,22 +67,38 @@ export class EventSubscriber {
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? 10;
   }
 
-  /** Returns whether a WebSocket factory was provided (for testing). */
+  /**
+   * Returns whether a WebSocket factory was provided (for testing).
+   *
+   * @returns True when a custom WebSocket factory was injected.
+   */
   hasWebSocketFactory(): boolean {
     return this.wsFactory !== undefined;
   }
 
-  /** Gets the WebSocket factory to use for creating connections. */
+  /**
+   * Gets the WebSocket factory to use for creating connections.
+   *
+   * @returns The injected factory, or the default browser-backed implementation.
+   */
   private getWsFactory(): WebSocketFactory {
     return this.wsFactory ?? this.defaultWsFactory;
   }
 
-  /** Gets the WebSocket URL. */
+  /**
+   * Gets the WebSocket URL.
+   *
+   * @returns The configured WebSocket endpoint URL.
+   */
   getWsUrl(): string {
     return this.options.wsUrl;
   }
 
-  /** Returns whether the subscriber is currently connected. */
+  /**
+   * Returns whether the subscriber is currently connected.
+   *
+   * @returns True when the active socket connection is open.
+   */
   isConnected(): boolean {
     return this.connected;
   }
@@ -244,6 +260,8 @@ export class EventSubscriber {
    * Handles incoming WebSocket messages and dispatches to registered callbacks.
    *
    * Messages are expected to be JSON with a `type` field matching {@link EventMap}.
+   *
+   * @param event - Browser WebSocket message event containing the serialized payload.
    */
   private handleMessage(event: MessageEvent): void {
     try {

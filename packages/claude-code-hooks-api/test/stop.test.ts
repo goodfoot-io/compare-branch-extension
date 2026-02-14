@@ -64,7 +64,16 @@ describe('cards stop hook', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  /** Write a session registry file with the given PID entry. */
+  /**
+   * Write a session registry file with the given PID entry.
+   *
+   * @param pid - Process ID used as the session key.
+   * @param entry - Session entry payload stored for the PID.
+   * @param entry.cardId - Optional associated card identifier.
+   * @param entry.pendingCommits - Pending commit SHAs tied to the session.
+   * @param entry.updatedAt - ISO timestamp for the last session update.
+   * @returns Nothing.
+   */
   function writeRegistry(pid: number, entry: { cardId?: string; pendingCommits: string[]; updatedAt: string }): void {
     const cardsDir = join(testDir, '.cards');
     mkdirSync(cardsDir, { recursive: true });
@@ -72,7 +81,11 @@ describe('cards stop hook', () => {
     writeFileSync(join(cardsDir, 'claude-sessions.json'), JSON.stringify(registry, null, 2));
   }
 
-  /** Read the registry file and return parsed content. */
+  /**
+   * Read the registry file and return parsed content.
+   *
+   * @returns Parsed registry data, or an empty sessions map when unreadable.
+   */
   function readRegistry(): { sessions: Record<string, unknown> } {
     try {
       return JSON.parse(readFileSync(join(testDir, '.cards', 'claude-sessions.json'), 'utf-8'));

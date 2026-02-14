@@ -94,6 +94,9 @@ export class CardsClient {
   /**
    * Returns an AbortSignal that fires after the current backoff timeout.
    * Uses caller's signal if provided (for DI/testing), otherwise applies the backoff timeout.
+   *
+   * @param existingSignal - Optional caller-provided signal to reuse instead of creating a timeout signal.
+   * @returns AbortSignal that controls request cancellation for the current operation.
    */
   private getTimeoutSignal(existingSignal?: AbortSignal | null): AbortSignal {
     if (existingSignal) return existingSignal;
@@ -189,6 +192,8 @@ export class CardsClient {
 
   /**
    * Gets the HTTP client to use for requests.
+   *
+   * @returns Injected HTTP client when provided, otherwise the default fetch-based client.
    */
   private getHttpClient(): HttpClient {
     return this._httpClient ?? this.defaultHttpClient;
@@ -198,6 +203,10 @@ export class CardsClient {
    * Builds a URL relative to the configured base URL.
    *
    * Undefined and null query params are omitted. Values are stringified.
+   *
+   * @param path - Relative API path to append to the configured base URL.
+   * @param params - Optional query parameters to encode onto the URL.
+   * @returns Fully-qualified request URL string.
    */
   private buildUrl(path: string, params?: Record<string, unknown>): string {
     const url = new URL(path, this.options.baseUrl);
@@ -337,7 +346,7 @@ export class CardsClient {
   /**
    * Gets all comments for a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the target card for this request.
    * @returns Promise resolving to the comment list.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
@@ -350,8 +359,8 @@ export class CardsClient {
   /**
    * Gets a single comment by id.
    *
-   * @param cardId - The card id.
-   * @param commentId - The comment id.
+   * @param cardId - Identifier of the card that owns the requested comment.
+   * @param commentId - Identifier of the comment to retrieve.
    * @returns Promise resolving to the comment.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
@@ -364,7 +373,7 @@ export class CardsClient {
   /**
    * Creates a new comment on a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card that will receive the new comment.
    * @param data - Comment creation payload.
    * @returns Promise resolving to the created comment.
    * @throws ApiError when the server rejects the payload.
@@ -379,8 +388,8 @@ export class CardsClient {
   /**
    * Updates an existing comment.
    *
-   * @param cardId - The card id.
-   * @param commentId - The comment id.
+   * @param cardId - Identifier of the card that owns the comment.
+   * @param commentId - Identifier of the comment to update.
    * @param data - Comment update payload.
    * @returns Promise resolving to the updated comment.
    * @throws ApiError when the server rejects the update.
@@ -395,8 +404,8 @@ export class CardsClient {
   /**
    * Deletes a comment.
    *
-   * @param cardId - The card id.
-   * @param commentId - The comment id.
+   * @param cardId - Identifier of the card that owns the comment.
+   * @param commentId - Identifier of the comment to remove.
    * @returns Promise resolving when deletion is complete.
    * @throws ApiError when the server rejects the delete.
    * @throws NetworkError when the request fails to reach the server.
@@ -415,7 +424,7 @@ export class CardsClient {
    * This is the preferred method - sends raw binary data directly without
    * base64 encoding, resulting in 33% smaller payloads.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card that will receive the attachment.
    * @param name - File name including extension.
    * @param data - Binary data as Blob, ArrayBuffer, or base64 string.
    * @returns Promise resolving to attachment metadata.
@@ -461,8 +470,8 @@ export class CardsClient {
    *
    * This method uses `fetch` directly so binary data is preserved.
    *
-   * @param cardId - The card id.
-   * @param attachmentId - The attachment id.
+   * @param cardId - Identifier of the card that owns the attachment.
+   * @param attachmentId - Identifier of the attachment blob to download.
    * @returns Promise resolving to an attachment Blob.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
@@ -482,7 +491,7 @@ export class CardsClient {
   /**
    * Lists attachments for a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card whose attachments should be listed.
    * @returns Promise resolving to attachment metadata.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
@@ -497,7 +506,7 @@ export class CardsClient {
   /**
    * Gets timeline entries for a card with optional pagination.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card whose timeline entries should be returned.
    * @param options - Optional pagination controls.
    * @returns Promise resolving to timeline entries.
    * @throws ApiError when the server responds with an error.
@@ -516,7 +525,7 @@ export class CardsClient {
   /**
    * Gets the plan document for a card as markdown.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card whose plan markdown should be returned.
    * @returns Promise resolving to plan markdown.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
@@ -529,7 +538,7 @@ export class CardsClient {
   /**
    * Updates the plan document for a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card whose plan markdown should be updated.
    * @param content - Plan markdown content.
    * @returns Promise resolving when the plan is saved.
    * @throws ApiError when the server rejects the update.
@@ -546,7 +555,7 @@ export class CardsClient {
   /**
    * Approves a gate for a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card whose gate state should be updated.
    * @param gateName - Gate name to approve.
    * @returns Promise resolving to gate approval metadata.
    * @throws ApiError when the server rejects the approval.
@@ -563,7 +572,7 @@ export class CardsClient {
   /**
    * Gets all commits associated with a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card whose commits should be returned.
    * @returns Promise resolving to commit metadata.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
@@ -576,7 +585,7 @@ export class CardsClient {
   /**
    * Adds a commit to a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card to associate with the commit SHA.
    * @param sha - Git commit sha.
    * @returns Promise resolving to commit metadata.
    * @throws ApiError when the server rejects the update.
@@ -590,7 +599,7 @@ export class CardsClient {
   /**
    * Removes a commit from a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card to detach from the commit SHA.
    * @param sha - Git commit sha.
    * @returns Promise resolving when removal is complete.
    * @throws ApiError when the server rejects the update.
@@ -658,7 +667,7 @@ export class CardsClient {
    * Returns metadata about each registered type in the card's environment,
    * including version, schema, and description. Command details are excluded.
    *
-   * @param cardId - The card id.
+   * @param cardId - Identifier of the card whose type schema metadata should be fetched.
    * @returns Promise resolving to type schema information.
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
@@ -690,7 +699,7 @@ export class CardsClient {
    * returned `lines` array is the full content; for active streams it is a
    * snapshot that may grow while the caller processes it.
    *
-   * @param cardId - Card ID.
+   * @param cardId - Identifier of the card that owns the requested stream.
    * @param filename - Stream filename (e.g., `"session.log"`).
    * @returns Metadata and content lines.
    * @throws ApiError on 404 (unknown card or stream) or other server errors.

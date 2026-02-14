@@ -51,6 +51,9 @@ const FIXTURES_BASE = path.join(
 
 /**
  * Creates a unique test directory for each test.
+ *
+ * @param name - Logical suite name used as part of the temporary directory path.
+ * @returns Absolute path to the created test directory.
  */
 function createTestDir(name: string): string {
   const dir = path.join(FIXTURES_BASE, name, crypto.randomUUID().slice(0, 8));
@@ -60,6 +63,10 @@ function createTestDir(name: string): string {
 
 /**
  * Writes a configuration file that imports handlers.
+ *
+ * @param dir - Directory where `settings.config.ts` should be written.
+ * @param content - TypeScript configuration source text.
+ * @returns Absolute path to the generated config file.
  */
 function writeConfig(dir: string, content: string): string {
   const configPath = path.join(dir, 'settings.config.ts');
@@ -69,6 +76,11 @@ function writeConfig(dir: string, content: string): string {
 
 /**
  * Writes a handler file.
+ *
+ * @param dir - Directory where the handler file should be created.
+ * @param filename - Handler file name to write.
+ * @param content - Handler source code.
+ * @returns Absolute path to the written handler file.
  */
 function writeHandler(dir: string, filename: string, content: string): string {
   const handlerPath = path.join(dir, filename);
@@ -78,6 +90,10 @@ function writeHandler(dir: string, filename: string, content: string): string {
 
 /**
  * Creates a minimal valid action handler.
+ *
+ * @param actionName - Action label embedded into the generated fixture.
+ * @param _handlerPath - Reserved argument kept for API symmetry with other fixture builders.
+ * @returns Handler module source code string.
  */
 function createActionHandler(actionName: string, _handlerPath: string): string {
   return `
@@ -97,6 +113,10 @@ export default defineAction(
 
 /**
  * Creates a minimal valid type validator handler.
+ *
+ * @param typeName - Type name embedded into validator fixture source.
+ * @param _handlerPath - Reserved argument kept for API symmetry with other fixture builders.
+ * @returns Handler module source code string.
  */
 function createTypeValidatorHandler(typeName: string, _handlerPath: string): string {
   return `
@@ -119,6 +139,9 @@ export default defineTypeValidator(
 
 /**
  * Reads and parses settings.json from the output directory.
+ *
+ * @param outdir - Build output directory expected to contain `settings.json`.
+ * @returns Parsed settings object with optional generated-files metadata.
  */
 function readSettings(outdir: string): Settings & { __generated?: { files: string[] } } {
   const settingsPath = path.join(outdir, 'settings.json');
@@ -128,6 +151,9 @@ function readSettings(outdir: string): Settings & { __generated?: { files: strin
 
 /**
  * Lists files in the bin directory.
+ *
+ * @param outdir - Build output directory expected to contain a `bin` subdirectory.
+ * @returns Compiled `.mjs` filenames from the bin directory.
  */
 function listBinFiles(outdir: string): string[] {
   const binDir = path.join(outdir, 'bin');
@@ -683,6 +709,10 @@ describe('builder CLI: compiled handler execution', () => {
 
   /**
    * Helper to execute a compiled handler.
+   *
+   * @param handlerPath - Absolute path to the compiled handler executable.
+   * @param env - Environment variable overrides supplied to the process.
+   * @returns Exit code and captured stdio from the spawned process.
    */
   async function executeHandler(
     handlerPath: string,
@@ -709,6 +739,14 @@ describe('builder CLI: compiled handler execution', () => {
    *
    * Creates a temporary file with the given content, sets FILE_PATH in env,
    * and executes the handler. Returns the parsed ValidationResult from stdout.
+   *
+   * @param handlerPath - Absolute path to the compiled validator executable.
+   * @param content - File contents to place in the temporary validator input file.
+   * @param env - Environment variable overrides supplied to the process.
+   * @param _options - Reserved options bag for future validator protocol variants.
+   * @param _options.method - Reserved HTTP method override for future use.
+   * @param _options.contentType - Reserved content type override for future use.
+   * @returns Exit code, captured stdio, and parsed JSON response when available.
    */
   async function executeValidator(
     handlerPath: string,
@@ -1070,6 +1108,10 @@ describe('builder CLI: stream transform builds', () => {
 
   /**
    * Creates a minimal valid stream transform handler.
+   *
+   * @param streamType - Stream type key embedded into the generated fixture.
+   * @param handlerPath - Source-path value embedded in the fixture configuration.
+   * @returns Stream transform handler module source code.
    */
   function createStreamTransformHandler(streamType: string, handlerPath: string): string {
     return `
@@ -1088,6 +1130,10 @@ export default defineStreamTransform(
 
   /**
    * Creates a stream transform handler with metadata.
+   *
+   * @param streamType - Stream type key embedded into the generated fixture.
+   * @param handlerPath - Source-path value embedded in the fixture configuration.
+   * @returns Stream transform handler module source code including limits and timeout.
    */
   function createStreamTransformHandlerWithMetadata(streamType: string, handlerPath: string): string {
     return `
@@ -1108,6 +1154,9 @@ export default defineStreamTransform(
 
   /**
    * Creates a stream transform handler without sourcePath.
+   *
+   * @param streamType - Stream type key embedded into the generated fixture.
+   * @returns Stream transform handler module source code that omits `sourcePath`.
    */
   function createStreamTransformHandlerNoSourcePath(streamType: string): string {
     return `

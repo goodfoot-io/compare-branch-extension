@@ -115,10 +115,23 @@ function formatToolProgress(message: SDKToolProgressMessage): string {
 
 // -- Init & Transform --------------------------------------------------------
 
+/**
+ * Initializes stream state for a new Claude Code session transform.
+ *
+ * @param context Transform initialization context with mutable state storage.
+ * @returns Nothing. The function seeds state in place.
+ */
 export function handleInit(context: StreamInitContext): void {
   context.state.set('turn', 0);
 }
 
+/**
+ * Transforms one NDJSON Claude SDK message line into display-friendly text.
+ *
+ * @param line Raw line read from the stream.
+ * @param context Transform context that stores per-session state.
+ * @returns Formatted output for known message types, or the original line.
+ */
 export function handleTransform(line: string, context: TransformContext): string {
   if (!line || line.trim().length === 0) {
     return line;

@@ -59,6 +59,9 @@ function slugify(name: string): string {
 /**
  * Serializes a type hook command to a Command object.
  * Returns undefined if the hook is not present.
+ *
+ * @param hook - Type hook command metadata from a type lifecycle definition.
+ * @returns Serialized command descriptor, or undefined when no hook is configured.
  */
 function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefined {
   if (!hook) {
@@ -76,6 +79,9 @@ function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefin
 /**
  * Serializes a stream configuration to a StreamDefinition object.
  * Extracts metadata from the transform command and generates the command path.
+ *
+ * @param streamConfig - Stream configuration from a specific environment.
+ * @returns Stream definition object compatible with `settings.json`.
  */
 function serializeStreamConfig(streamConfig: StreamConfigDefinition): StreamDefinition {
   const { version, transform } = streamConfig;
@@ -105,6 +111,9 @@ function serializeStreamConfig(streamConfig: StreamConfigDefinition): StreamDefi
 /**
  * Serializes an action command to an Action object.
  * Extracts metadata from the command and generates the command path.
+ *
+ * @param actionCommand - Action command definition produced by `defineAction`.
+ * @returns Action schema object ready for serialization.
  */
 function serializeAction(actionCommand: ActionCommand): Action {
   const action: Action = {
@@ -140,6 +149,11 @@ function serializeAction(actionCommand: ActionCommand): Action {
 
 /**
  * Serializes a type configuration to a TypeDefinition object.
+ *
+ * @param typeName - Type key used in the environment's `types` map.
+ * @param typeConfig - Type configuration containing validator and lifecycle hooks.
+ * @returns Serialized type definition for `settings.json`.
+ * @throws Error if the type configuration omits the required `version` field.
  */
 function serializeTypeConfig(typeName: string, typeConfig: TypeConfigDefinition): TypeDefinition {
   if (!typeConfig.version) {
@@ -166,6 +180,9 @@ function serializeTypeConfig(typeName: string, typeConfig: TypeConfigDefinition)
 
 /**
  * Serializes an environment configuration to an Environment object.
+ *
+ * @param envConfig - Environment-level configuration containing actions and optional hooks.
+ * @returns Serialized environment definition for `settings.json`.
  */
 function serializeEnvironment(envConfig: EnvironmentConfig): Environment {
   const env: Environment = {

@@ -1,12 +1,7 @@
 /**
- *
  * Re-exports the public surface for the protocol module.
  * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
  * maintainers.
- *
- * @summary Public exports for the protocol module
- * @cards/protocol
- *
  * Canonical wire-level contracts for the Cards V2 ecosystem.
  *
  * This package serves as the shared vocabulary for cards, webview messaging, IPC,
@@ -17,6 +12,9 @@
  * The module only re-exports types and constants; it intentionally contains no
  * runtime behavior. All shapes are designed for JSON serialization over HTTP,
  * WebSocket, or IPC channels.
+ *
+ * @summary Public exports for the protocol module
+ * @module
  *
  * @example
  * ```typescript
@@ -34,8 +32,6 @@
  * @see {@link Card} for the core card representation
  * @see {@link Settings} for the actions-based execution configuration
  * @see {@link WrapperCommand} for process control messages
- *
- * @packageDocumentation
  */
 
 // --- Status Types ---

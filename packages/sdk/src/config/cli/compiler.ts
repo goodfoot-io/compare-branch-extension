@@ -141,6 +141,10 @@ import * as esbuild from 'esbuild';
  * Finds the package root by traversing up from a starting directory
  * looking for package.json. Works whether invoked from src/ (tests)
  * or dist/ (bundled CLI).
+ *
+ * @param startDir - Directory to start traversing upward from.
+ * @returns Absolute path to the first ancestor containing `package.json`.
+ * @throws Error if no `package.json` is found before reaching the filesystem root.
  */
 function findPackageRoot(startDir: string): string {
   let dir = startDir;

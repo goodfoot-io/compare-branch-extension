@@ -48,7 +48,13 @@ function createMockChild(overrides?: Partial<ChildProcess>): ChildProcess {
     kill: vi.fn(),
     stdout: null,
     stderr: null,
-    /** Emit a registered event for testing. */
+    /**
+     * Emits a registered child-process event for test control flow.
+     *
+     * @param event Event name to emit.
+     * @param args Event payload arguments.
+     * @returns True to match EventEmitter-style emit behavior.
+     */
     emit(event: string, ...args: unknown[]) {
       handlers.get(event)?.(...args);
       return true;

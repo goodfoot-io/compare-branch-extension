@@ -88,6 +88,9 @@ export function resolveHeadSha(repoPath: string): string | null {
  * Each non-meta entry is a relative path (from `rootPath`). Meta-JSON files
  * are rendered as `path/to/file.meta.json:\n\`\`\`json\n<content>\n\`\`\``.
  *
+ * @param cardId - Card identifier used in the listing header message.
+ * @param rootPath - Root directory of the card repository to traverse.
+ * @returns Multi-line listing string used as additional session context.
  * @throws {CardRepoAccessError} When the directory cannot be read.
  */
 export function buildCardRepoListing(cardId: string, rootPath: string): string {

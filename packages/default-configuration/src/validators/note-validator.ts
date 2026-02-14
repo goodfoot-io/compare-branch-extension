@@ -34,6 +34,10 @@ const FRONTMATTER_REGEX = /^---\r?\n[\s\S]*?\r?\n---/;
 
 /**
  * Validates required field exists and is a non-empty string.
+ *
+ * @param frontmatter Parsed note frontmatter object.
+ * @param fieldName Required frontmatter field to validate.
+ * @returns A validation error when invalid; otherwise null.
  */
 function validateRequiredField(
   frontmatter: Record<string, unknown>,

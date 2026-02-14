@@ -51,6 +51,8 @@ describe('SocketClient', () => {
 
   /**
    * Helper to wait for the server to accept a connection.
+   *
+   * @returns Promise resolving with the accepted server-side socket connection.
    */
   function waitForServerConnection(): Promise<net.Socket> {
     return new Promise((resolve) => {

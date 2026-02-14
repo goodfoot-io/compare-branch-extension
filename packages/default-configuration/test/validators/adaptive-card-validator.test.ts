@@ -23,6 +23,10 @@ const tempDirs: string[] = [];
 
 /**
  * Creates a temp file with the given content and returns a ValidatorFileRequest.
+ *
+ * @param content JSON payload string or object to persist.
+ * @param fileName File name to create in the temp directory.
+ * @returns Validator file request pointing to the generated temp file.
  */
 function createRequestFile(content: string | object, fileName = 'test.json'): ValidatorFileRequest {
   const dir = mkdtempSync(join(tmpdir(), 'validator-test-'));
@@ -35,6 +39,9 @@ function createRequestFile(content: string | object, fileName = 'test.json'): Va
 
 /**
  * Creates a mock TypeValidatorContext.
+ *
+ * @param overrides Optional context field overrides for a test case.
+ * @returns A complete validator context with defaults plus overrides.
  */
 function createContext(overrides: Partial<TypeValidatorContext> = {}): TypeValidatorContext {
   return {
@@ -59,6 +66,9 @@ function createContext(overrides: Partial<TypeValidatorContext> = {}): TypeValid
 
 /**
  * Helper to get error messages from a failed ValidationResult.
+ *
+ * @param result Validation result returned by the validator.
+ * @returns Error messages when invalid; otherwise an empty array.
  */
 function getErrors(result: ValidationResult): string[] {
   if (!result.valid) {

@@ -207,7 +207,7 @@ export function getEnvironment(): string {
  *
  * This is the display name of the action that triggered the handler, matching
  * the `actionName` field from `defineAction`.
- * @returns The action name
+ * @returns Display name of the action that triggered the current handler run.
  * @throws Error if ACTION_NAME is missing or empty
  * @example
  * ```typescript
@@ -253,7 +253,7 @@ export function getExecutionMode(): 'interactive' | 'background' {
  *
  * Use this as the base for constructing API endpoints. The URL does not include
  * a trailing slash.
- * @returns The API base URL
+ * @returns Base URL used to construct Cards API endpoints for this execution.
  * @throws Error if API_BASE_URL is missing or empty
  * @example
  * ```typescript
@@ -274,7 +274,7 @@ export function getApiBaseUrl(): string {
  *
  * Bearer token valid for the duration of this action or type hook execution.
  * Include in Authorization headers when calling the Cards API.
- * @returns The API access token
+ * @returns Bearer token that authorizes API requests for this execution context.
  * @throws Error if API_ACCESS_TOKEN is missing or empty
  * @example
  * ```typescript
@@ -485,7 +485,7 @@ export function getVscodeNodePath(): string {
 /**
  * Reads the Unix domain socket path for runtime-to-dispatcher communication.
  *
- * @returns The socket path
+ * @returns Unix socket path used to send runtime control messages.
  * @throws Error if SOCKET_PATH is missing or empty
  */
 export function getSocketPath(): string {
@@ -515,7 +515,7 @@ export function getSwitchToInteractiveDataPath(): string | undefined {
 /**
  * Reads the settings configuration directory path.
  *
- * @returns The config path
+ * @returns Absolute path to the directory containing generated settings artifacts.
  * @throws Error if CONFIG_PATH is missing or empty
  */
 export function getConfigPath(): string {
@@ -529,7 +529,7 @@ export function getConfigPath(): string {
 /**
  * Reads the VS Code workspace root directory path.
  *
- * @returns The workspace path
+ * @returns Absolute path to the active VS Code workspace root.
  * @throws Error if WORKSPACE_PATH is missing or empty
  */
 export function getWorkspacePath(): string {
@@ -543,7 +543,7 @@ export function getWorkspacePath(): string {
 /**
  * Reads the card's repository directory path.
  *
- * @returns The card repo path
+ * @returns Absolute path to the repository associated with the active card.
  * @throws Error if CARD_REPO_PATH is missing or empty
  */
 export function getCardRepoPath(): string {

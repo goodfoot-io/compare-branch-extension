@@ -213,29 +213,29 @@ export interface LoggerConfig {
 export interface ILogger {
   /**
    * Logs a debug message.
-   * @param message - The debug message
-   * @param context - Optional additional context
+   * @param message - Diagnostic text describing low-level execution details.
+   * @param context - Optional structured metadata merged into the emitted event.
    */
   debug(message: string, context?: Record<string, unknown>): void;
 
   /**
    * Logs an info message.
-   * @param message - The info message
-   * @param context - Optional additional context
+   * @param message - Operational message describing normal hook progress.
+   * @param context - Optional structured metadata merged into the emitted event.
    */
   info(message: string, context?: Record<string, unknown>): void;
 
   /**
    * Logs a warning message.
-   * @param message - The warning message
-   * @param context - Optional additional context
+   * @param message - Warning text for recoverable or suspicious conditions.
+   * @param context - Optional structured metadata merged into the emitted event.
    */
   warn(message: string, context?: Record<string, unknown>): void;
 
   /**
    * Logs an error message.
-   * @param message - The error message
-   * @param context - Optional additional context
+   * @param message - Error text describing a handled failure condition.
+   * @param context - Optional structured metadata merged into the emitted event.
    */
   error(message: string, context?: Record<string, unknown>): void;
 
@@ -243,7 +243,7 @@ export interface ILogger {
    * Logs a structured error with full error details.
    * @param error - The error to log
    * @param message - Human-readable description of what failed
-   * @param context - Optional additional context
+   * @param context - Optional structured metadata merged into the emitted event.
    */
   logError(error: unknown, message: string, context?: Record<string, unknown>): void;
 }
@@ -336,8 +336,8 @@ export class Logger {
    *
    * Use for detailed debugging information that is typically only useful
    * during development or troubleshooting.
-   * @param message - The debug message
-   * @param context - Optional additional context
+   * @param message - Diagnostic text describing low-level execution details.
+   * @param context - Optional structured metadata merged into the emitted event.
    * @example
    * ```typescript
    * logger.debug('Processing hook input', { taskId: 'task-123', inputSize: 256 });
@@ -352,8 +352,8 @@ export class Logger {
    *
    * Use for general operational events like hook invocations, successful
    * completions, or state changes.
-   * @param message - The info message
-   * @param context - Optional additional context
+   * @param message - Operational message describing normal hook progress.
+   * @param context - Optional structured metadata merged into the emitted event.
    * @example
    * ```typescript
    * logger.info('Task started', { taskId: 'task-123', cardId: 'card-456' });
@@ -368,8 +368,8 @@ export class Logger {
    *
    * Use for conditions that may indicate cards but don't prevent
    * operation, such as deprecated patterns or performance concerns.
-   * @param message - The warning message
-   * @param context - Optional additional context
+   * @param message - Warning text for recoverable or suspicious conditions.
+   * @param context - Optional structured metadata merged into the emitted event.
    * @example
    * ```typescript
    * logger.warn('Deprecated hook pattern detected', { pattern: 'legacyMatcher' });
@@ -384,8 +384,8 @@ export class Logger {
    *
    * Use for error conditions that require attention but were handled
    * gracefully. For exceptions, prefer {@link logError}.
-   * @param message - The error message
-   * @param context - Optional additional context
+   * @param message - Error text describing a handled failure condition.
+   * @param context - Optional structured metadata merged into the emitted event.
    * @example
    * ```typescript
    * logger.error('Failed to validate hook input', { reason: 'empty taskId' });
@@ -402,7 +402,7 @@ export class Logger {
    * always receive a consistent error shape.
    * @param error - The error to log
    * @param message - Human-readable description of what failed
-   * @param context - Optional additional context
+   * @param context - Optional structured metadata merged into the emitted event.
    * @example
    * ```typescript
    * try {

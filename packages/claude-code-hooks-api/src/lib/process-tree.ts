@@ -18,6 +18,9 @@ export const PROCESS_TREE_MAX_DEPTH = 10;
  * Two-step matching:
  * 1. Primary: `ps -p PID -o comm=` -> basename -> compare "claude" (case-insensitive)
  * 2. Fallback: `ps -p PID -o args=` -> test /\bclaude\b/i
+ *
+ * @param pid - Process ID to inspect.
+ * @returns True when the process command or args identify Claude; otherwise false.
  */
 function isClaude(pid: number): boolean {
   try {
@@ -33,6 +36,9 @@ function isClaude(pid: number): boolean {
 
 /**
  * Returns the parent PID for a given PID, or null if it cannot be determined.
+ *
+ * @param pid - Process ID whose parent should be looked up.
+ * @returns Parent PID, or null when unavailable, invalid, or self-referential.
  */
 function getParentPid(pid: number): number | null {
   try {

@@ -251,6 +251,8 @@ describe('build output: cross-reference validation', () => {
 
   /**
    * Extracts all handler filenames referenced by settings commands.
+   *
+   * @returns Filenames referenced by action and type command entries in settings.
    */
   function extractReferencedFiles(): string[] {
     const referencedFiles: string[] = [];
@@ -340,6 +342,9 @@ describe('build output: cross-reference validation', () => {
 /**
  * Extracts the filename from a command string.
  * Handles both "./bin/file.mjs" and "$VSCODE_NODE_PATH ./bin/file.mjs" formats.
+ *
+ * @param command - Command string from settings that may include executable prefix.
+ * @returns Basename of the compiled handler file referenced by the command.
  */
 function extractFilename(command: string): string {
   // Extract just the filename from the last path segment

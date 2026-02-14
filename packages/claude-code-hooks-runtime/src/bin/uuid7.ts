@@ -6,6 +6,14 @@
  * @summary Uuid7 logic for bin
  */
 
+/**
+ * Generates a UUIDv7 string using current time and random bytes.
+ *
+ * The first 48 bits encode millisecond time, then version and variant bits are
+ * applied per RFC UUID layout requirements.
+ *
+ * @returns Canonical lowercase UUID string in 8-4-4-4-12 format.
+ */
 export function generateUUID7(): string {
   const now = Date.now();
   const bytes = new Uint8Array(16);

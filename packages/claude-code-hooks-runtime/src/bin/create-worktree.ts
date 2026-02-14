@@ -13,6 +13,16 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Validates a branch name against the CLI's safe subset.
+ *
+ * The name must start with an alphanumeric character and may then include
+ * alphanumerics, slashes, underscores, or dashes.
+ *
+ * @param name - Candidate branch name supplied by the caller.
+ * @throws {Error} When the branch name does not match the supported format.
+ * @returns No value. Throws on invalid input.
+ */
 export function validateBranchName(name: string): void {
   const branchNameRegex = /^[a-zA-Z0-9][a-zA-Z0-9/_-]*$/;
   if (!branchNameRegex.test(name)) {
@@ -20,6 +30,16 @@ export function validateBranchName(name: string): void {
   }
 }
 
+/**
+ * Determines whether a relative path is nested under any known parent path.
+ *
+ * The check walks ancestor segments of `dir` and returns true on the first
+ * match in `parentSet`.
+ *
+ * @param dir - Relative path to test.
+ * @param parentSet - Candidate parent directories represented as relative paths.
+ * @returns True when `dir` is nested under a path in `parentSet`.
+ */
 export function isNestedUnder(dir: string, parentSet: Set<string>): boolean {
   let current = dir;
   while (current.includes('/')) {
@@ -31,6 +51,15 @@ export function isNestedUnder(dir: string, parentSet: Set<string>): boolean {
   return false;
 }
 
+/**
+ * Checks whether a symlink target points to known monorepo-internal locations.
+ *
+ * Internal targets are preserved as relative links during node_modules reroute
+ * so workspace links keep working inside a worktree.
+ *
+ * @param target - Symlink target read from the source node_modules entry.
+ * @returns True when the target starts with an internal prefix.
+ */
 export function isInternalSymlink(target: string): boolean {
   const INTERNAL_PREFIXES = [
     '../../../packages/',
@@ -56,6 +85,16 @@ interface CreateWorktreeResult {
   reroutedSymlinks?: number;
 }
 
+/**
+ * Creates and configures a new git worktree for a branch.
+ *
+ * The workflow validates the branch name, creates the worktree, mirrors
+ * existing root symlinks, symlinks ignored paths, reroutes node_modules links,
+ * and updates per-worktree git excludes.
+ *
+ * @param branchName - Name of the branch to create or attach.
+ * @returns Metadata describing the created worktree and base commit.
+ */
 export async function createWorktree(branchName: string): Promise<CreateWorktreeResult> {
   validateBranchName(branchName);
 
@@ -103,6 +142,16 @@ interface GitRoots {
   repoRoot: string;
 }
 
+/**
+ * Locates the current git source root and primary repository root.
+ *
+ * Supports both standard checkouts (`.git` directory) and worktree checkouts
+ * (`.git` file pointing into `.git/worktrees/...`).
+ *
+ * @param startDir - Directory where upward search begins.
+ * @throws {Error} When no git repository marker is found.
+ * @returns Paths for the current checkout root and the primary repo root.
+ */
 export async function findGitRoots(startDir: string): Promise<GitRoots> {
   let currentDir = path.resolve(startDir);
   while (currentDir !== '/') {
@@ -136,16 +185,36 @@ export async function findGitRoots(startDir: string): Promise<GitRoots> {
   throw new Error('Not in a git repository');
 }
 
+/**
+ * Resolves the HEAD commit SHA for a repository directory.
+ *
+ * @param cwd - Repository directory passed to `git rev-parse HEAD`.
+ * @returns Trimmed commit SHA string.
+ */
 export async function resolveHead(cwd: string): Promise<string> {
   const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd, timeout: 5_000 });
   return stdout.trim();
 }
 
+/**
+ * Checks whether a worktree path is already registered with git.
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param worktreeDir - Absolute worktree path being created.
+ * @returns True when `git worktree list` already contains `worktreeDir`.
+ */
 export async function checkWorktreeExists(repoRoot: string, worktreeDir: string): Promise<boolean> {
   const { stdout } = await execFileAsync('git', ['worktree', 'list'], { cwd: repoRoot, timeout: 30_000 });
   return stdout.includes(worktreeDir);
 }
 
+/**
+ * Checks whether a branch already exists in the repository.
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param branchName - Branch name to query.
+ * @returns True when at least one matching local branch is listed.
+ */
 export async function checkBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
   const { stdout } = await execFileAsync('git', ['branch', '--list', branchName], {
     cwd: repoRoot,
@@ -162,6 +231,15 @@ interface AddWorktreeOptions {
   startPoint: string;
 }
 
+/**
+ * Adds a git worktree, creating the branch when needed.
+ *
+ * Uses `git worktree add -b` for new branches and plain `git worktree add`
+ * when attaching to an existing branch.
+ *
+ * @param opts - Worktree creation options and branch existence state.
+ * @returns No value.
+ */
 export async function addWorktree(opts: AddWorktreeOptions): Promise<void> {
   const args = opts.branchExists
     ? ['worktree', 'add', opts.worktreeDir, opts.branchName]
@@ -174,6 +252,15 @@ interface IgnoredPaths {
   files: string[];
 }
 
+/**
+ * Discovers ignored files and directories under a source root.
+ *
+ * Paths are returned relative to `sourceRoot` and `.worktrees` content is
+ * filtered out to avoid self-referential symlinking.
+ *
+ * @param sourceRoot - Source checkout root used for git discovery.
+ * @returns Separate lists of ignored directories and ignored files.
+ */
 export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredPaths> {
   const { stdout } = await execFileAsync(
     'git',
@@ -199,6 +286,15 @@ interface SymlinkIgnoredPathsResult {
   fileCount: number;
 }
 
+/**
+ * Symlinks ignored directories and files from source checkout into a worktree.
+ *
+ * Nested ignored directories are collapsed so only top-level ignored directory
+ * links are created.
+ *
+ * @param opts - Source root, destination worktree, and ignored path lists.
+ * @returns Counts of successfully created directory and file symlinks.
+ */
 export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Promise<SymlinkIgnoredPathsResult> {
   const { sourceRoot, worktreeDir, ignored } = opts;
   const dirSet = new Set(ignored.directories);
@@ -279,6 +375,15 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
   return { dirCount, fileCount };
 }
 
+/**
+ * Replicates root-level symlinks from the source checkout into the worktree.
+ *
+ * Existing destination entries are left untouched.
+ *
+ * @param sourceRoot - Source checkout root.
+ * @param worktreeDir - Destination worktree root.
+ * @returns Number of symlinks created in the destination root.
+ */
 export async function copyExistingSymlinks(sourceRoot: string, worktreeDir: string): Promise<number> {
   const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
   const symlinks = entries.filter((e) => e.isSymbolicLink() && e.name !== '.git' && e.name !== '.worktrees');
@@ -307,6 +412,15 @@ interface RerouteNodeModulesOptions {
   destNodeModules: string;
 }
 
+/**
+ * Mirrors a node_modules tree into the worktree using symlinks.
+ *
+ * Internal workspace links keep their original relative targets while external
+ * links and non-link entries are represented as symlinks to source paths.
+ *
+ * @param opts - Source and destination node_modules directories.
+ * @returns Count of internal workspace symlinks recreated by target path.
+ */
 export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promise<number> {
   const { sourceNodeModules, destNodeModules } = opts;
 
@@ -387,6 +501,14 @@ interface RerouteAllNodeModulesOptions {
   repoRoot: string;
 }
 
+/**
+ * Reroutes root and per-package node_modules directories into the worktree.
+ *
+ * The operation is skipped when the repository has no workspace configuration.
+ *
+ * @param opts - Source root, destination worktree root, and repo root.
+ * @returns Total number of recreated internal workspace symlinks.
+ */
 export async function rerouteAllNodeModules(opts: RerouteAllNodeModulesOptions): Promise<number> {
   const { sourceRoot, worktreeDir, repoRoot } = opts;
 
@@ -453,6 +575,15 @@ interface UpdateGitExcludeOptions {
   files: string[];
 }
 
+/**
+ * Appends symlinked ignored paths to the worktree-specific git exclude file.
+ *
+ * Also enables `extensions.worktreeConfig` and sets worktree-local
+ * `core.excludesFile` so git status in the worktree ignores injected links.
+ *
+ * @param opts - Worktree path, repo root, and ignored path candidates.
+ * @returns No value.
+ */
 export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<void> {
   const { worktreeDir, repoRoot, directories, files } = opts;
 

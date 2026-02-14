@@ -30,6 +30,9 @@ type ValError = { code: string; message: string; field?: string };
 
 /**
  * Checks if a value is a non-null, non-array object.
+ *
+ * @param value Value to test as a plain object.
+ * @returns True when the value is an object record.
  */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -37,6 +40,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 /**
  * Validates required string field.
+ *
+ * @param obj Object being validated.
+ * @param field Field name that must be a non-empty string.
+ * @param errors Collection where validation errors are accumulated.
  */
 function validateRequiredString(obj: Record<string, unknown>, field: string, errors: ValError[]): void {
   const value = obj[field];

@@ -83,6 +83,6 @@ export interface EventMap {
 /**
  * Callback function type for event subscriptions.
  *
- * @typeParam K - The event key from EventMap.
+ * @template K - Event key from {@link EventMap} used to type the callback payload.
  */
 export type EventCallback<K extends keyof EventMap> = (event: EventMap[K]) => void;

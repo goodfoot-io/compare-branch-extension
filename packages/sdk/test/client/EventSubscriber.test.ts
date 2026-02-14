@@ -105,13 +105,23 @@ class MockWebSocketFactory implements WebSocketFactory {
     return ws as unknown as WebSocket;
   }
 
-  /** Gets the most recently created MockWebSocket */
+  /**
+   * Gets the most recently created MockWebSocket.
+   *
+   * @returns Most recently created mock socket instance.
+   */
   get latest(): MockWebSocket {
     return this.instances[this.instances.length - 1]!;
   }
 }
 
-/** Helper to get the last setTimeout callback from a spy */
+/**
+ * Helper to get the last setTimeout callback from a spy.
+ *
+ * @param spy - Mocked `setTimeout` spy containing captured calls.
+ * @returns Callback function from the most recent `setTimeout` call.
+ * @throws Error if no timeout calls were recorded on the spy.
+ */
 function getLastTimeoutCallback(spy: MockInstance): () => void {
   const calls = spy.mock.calls;
   const lastCall = calls[calls.length - 1];
@@ -119,7 +129,13 @@ function getLastTimeoutCallback(spy: MockInstance): () => void {
   return lastCall[0] as () => void;
 }
 
-/** Helper to get the last setTimeout delay from a spy */
+/**
+ * Helper to get the last setTimeout delay from a spy.
+ *
+ * @param spy - Mocked `setTimeout` spy containing captured calls.
+ * @returns Delay argument from the most recent `setTimeout` call.
+ * @throws Error if no timeout calls were recorded on the spy.
+ */
 function getLastTimeoutDelay(spy: MockInstance): number {
   const calls = spy.mock.calls;
   const lastCall = calls[calls.length - 1];

@@ -25,6 +25,8 @@ const STREAM_TRANSFORM_PATH = path.resolve(__dirname, '../../../src/config/facto
 
 /**
  * Creates a temporary directory for test files.
+ *
+ * @returns Absolute path to a newly created temporary directory.
  */
 function createTestDir(): string {
   const scratchpad = path.join(
@@ -40,6 +42,11 @@ function createTestDir(): string {
 
 /**
  * Writes a test handler file and returns its path.
+ *
+ * @param dir - Directory where the handler fixture should be written.
+ * @param filename - Filename to assign to the handler fixture.
+ * @param content - Source code content to write into the fixture file.
+ * @returns Absolute path to the written handler fixture.
  */
 function writeTestHandler(dir: string, filename: string, content: string): string {
   const filePath = path.join(dir, filename);
@@ -49,6 +56,9 @@ function writeTestHandler(dir: string, filename: string, content: string): strin
 
 /**
  * Reads the compiled output file.
+ *
+ * @param outputPath - Absolute path to the compiled bundle to inspect.
+ * @returns UTF-8 source text of the compiled bundle.
  */
 function readCompiledOutput(outputPath: string): string {
   return fs.readFileSync(outputPath, 'utf-8');
@@ -56,6 +66,8 @@ function readCompiledOutput(outputPath: string): string {
 
 /**
  * Cleans up a test directory.
+ *
+ * @param dir - Directory path to recursively remove.
  */
 function cleanupTestDir(dir: string): void {
   if (fs.existsSync(dir)) {
@@ -507,6 +519,11 @@ export default defineStreamTransform(
     /**
      * Compiles a stream transform handler and returns the compiled output string.
      * Asserts compilation success before returning.
+     *
+     * @param handlerContent - Stream transform fixture source code to compile.
+     * @param options - Optional compilation flags for this helper.
+     * @param options.sourcemap - Whether to request inline source maps from the compiler.
+     * @returns Compiled bundle source text.
      */
     async function compileStreamTransform(
       handlerContent: string,

@@ -28,6 +28,9 @@ const MAX_SUMMARY_LENGTH = 200;
 
 /**
  * Checks if a value is a non-null, non-array object.
+ *
+ * @param value Value to test as a plain object.
+ * @returns True when the value is an object record.
  */
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -40,6 +43,10 @@ type ValError = { code: string; message: string; field?: string };
 
 /**
  * Validates required string field.
+ *
+ * @param obj Object being validated.
+ * @param field Field name that must be a non-empty string.
+ * @param errors Collection where validation errors are accumulated.
  */
 function validateRequiredString(obj: Record<string, unknown>, field: string, errors: ValError[]): void {
   const value = obj[field];
@@ -54,6 +61,11 @@ function validateRequiredString(obj: Record<string, unknown>, field: string, err
 
 /**
  * Validates that an optional field is an array if present.
+ *
+ * @param obj Object being validated.
+ * @param field Field name that may contain an array.
+ * @param path Error field path used in messages.
+ * @param errors Collection where validation errors are accumulated.
  */
 function validateOptionalArray(obj: Record<string, unknown>, field: string, path: string, errors: ValError[]): void {
   const value = obj[field];
@@ -64,6 +76,9 @@ function validateOptionalArray(obj: Record<string, unknown>, field: string, path
 
 /**
  * Validates the Adaptive Card schema.
+ *
+ * @param adaptiveCard Payload object expected to match Adaptive Card schema.
+ * @param errors Collection where schema validation errors are accumulated.
  */
 function validateAdaptiveCardSchema(adaptiveCard: Record<string, unknown>, errors: ValError[]): void {
   // type is required and must be 'AdaptiveCard'

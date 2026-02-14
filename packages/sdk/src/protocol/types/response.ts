@@ -26,7 +26,7 @@ export interface FieldError {
 /**
  * Successful API response envelope.
  *
- * @typeParam T - Response payload type for the endpoint.
+ * @template T - Response payload type returned by the endpoint.
  */
 export interface ApiSuccess<T> {
   /** Response payload returned by the endpoint. */

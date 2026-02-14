@@ -32,10 +32,20 @@ function getCardsDir(): string {
   return join(homedir(), '.cards');
 }
 
+/**
+ * Returns the canonical on-disk location for the session registry JSON file.
+ *
+ * @returns Absolute path to `~/.cards/claude-sessions.json`.
+ */
 export function getRegistryPath(): string {
   return join(getCardsDir(), 'claude-sessions.json');
 }
 
+/**
+ * Returns the canonical on-disk location for the session lock file.
+ *
+ * @returns Absolute path to `~/.cards/claude-sessions.lock`.
+ */
 export function getLockPath(): string {
   return join(getCardsDir(), 'claude-sessions.lock');
 }
