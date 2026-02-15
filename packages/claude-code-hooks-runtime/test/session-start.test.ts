@@ -326,7 +326,6 @@ describe('SessionStart Hook', () => {
       expect(stdout.systemMessage).toContain('To resolve:');
       expect(stdout.systemMessage).toContain('CARD_REPO_PATH');
     });
-
   });
 
   describe('outside an action subprocess', () => {
