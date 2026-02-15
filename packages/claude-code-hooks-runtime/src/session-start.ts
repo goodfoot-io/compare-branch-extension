@@ -99,6 +99,7 @@ export function buildCardRepoListing(cardId: string, rootPath: string): string {
   function walk(dir: string): void {
     const entries = readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
+      if (entry.name === '.git') continue;
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         // Include the directory itself in the listing

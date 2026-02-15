@@ -77,7 +77,7 @@ describe('buildCardRepoListing', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = join(repoPath, '..', `listing-test-${Date.now()}`);
+    tmpDir = join(repoPath, '..', `listing-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     mkdirSync(tmpDir, { recursive: true });
   });
 
@@ -144,6 +144,21 @@ describe('buildCardRepoListing', () => {
       expect((error as CardRepoAccessError).repoPath).toBe(badPath);
       expect((error as CardRepoAccessError).cause).toBeInstanceOf(Error);
     }
+  });
+
+  it('excludes .git directory from listing', () => {
+    mkdirSync(join(tmpDir, '.git', 'objects'), { recursive: true });
+    writeFileSync(join(tmpDir, '.git', 'HEAD'), 'ref: refs/heads/main');
+    writeFileSync(join(tmpDir, 'README.md'), '# Hello');
+
+    const listing = buildCardRepoListing(TEST_CARD_ID, tmpDir);
+    const lines = listing.split('\n');
+
+    expect(lines).toContain('README.md');
+    expect(lines).not.toContain('.git/');
+    expect(lines).not.toContain('.git/HEAD');
+    expect(lines).not.toContain('.git/objects/');
+    expect(listing).not.toContain('.git');
   });
 
   it('returns only the intro line for empty directory', () => {
