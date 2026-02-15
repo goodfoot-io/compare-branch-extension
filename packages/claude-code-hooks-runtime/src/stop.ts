@@ -233,6 +233,46 @@ async function cleanupSession(logger: Logger, sessionId: string): Promise<void> 
   }
 }
 
+/**
+ * Runs session cleanup and returns an approve output. When cleanup fails
+ * with a {@link SessionCleanupError}, the approval message is augmented
+ * with a warning rather than failing the hook.
+ *
+ * @param logger - Hook logger used for diagnostic output.
+ * @param sessionId - Session whose artifacts should be cleaned up.
+ * @param approvalMessage - Message returned on success.
+ * @returns Stop output with decision "approve".
+ * @throws Re-throws non-{@link SessionCleanupError} errors.
+ */
+async function cleanupAndApprove(
+  logger: Logger,
+  sessionId: string,
+  approvalMessage: string
+): Promise<ReturnType<typeof stopOutput>> {
+  try {
+    await cleanupSession(logger, sessionId);
+  } catch (error) {
+    if (error instanceof SessionCleanupError) {
+      logger.error('Session cleanup failed', { sessionId: error.sessionId, error: error.message });
+      return stopOutput({
+        decision: 'approve',
+        systemMessage: [
+          approvalMessage,
+          '',
+          `Warning: ${error.message}`,
+          '',
+          'Stale session artifacts may remain. To clean up manually:',
+          '1. Check for leftover PID entries in the session registry',
+          `2. Remove the session CSV for session ${sessionId} if it exists`
+        ].join('\n'),
+        reason: `Cleanup failed: ${error.message}`
+      });
+    }
+    throw error;
+  }
+  return stopOutput({ decision: 'approve', systemMessage: approvalMessage });
+}
+
 export default stopHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
@@ -248,7 +288,7 @@ export default stopHook({}, async (input, { logger }) => {
 
   const headSha = readSessionHeadSha(input.session_id);
   if (!headSha) {
-    logger.info('No SESSION_GIT_HEAD_SHA — skipping commit attribution check');
+    logger.info('No HEAD SHA on file — skipping commit attribution check');
     return stopOutput({
       decision: 'approve',
       systemMessage: 'Stop approved (no HEAD SHA tracked for this session).'
@@ -283,32 +323,7 @@ export default stopHook({}, async (input, { logger }) => {
   }
 
   if (allCommits.length === 0) {
-    // No commits since session start — approve (include cleanup warnings if any)
-    try {
-      await cleanupSession(logger, sessionId);
-    } catch (error) {
-      if (error instanceof SessionCleanupError) {
-        logger.error('Session cleanup failed', { sessionId: error.sessionId, error: error.message });
-        return stopOutput({
-          decision: 'approve',
-          systemMessage: [
-            'Stop approved — no commits since session start.',
-            '',
-            `Warning: ${error.message}`,
-            '',
-            'Stale session artifacts may remain. To clean up manually:',
-            '1. Check for leftover PID entries in the session registry',
-            `2. Remove the session CSV for session ${sessionId} if it exists`
-          ].join('\n'),
-          reason: `Cleanup failed: ${error.message}`
-        });
-      }
-      throw error;
-    }
-    return stopOutput({
-      decision: 'approve',
-      systemMessage: 'Stop approved — no commits since session start.'
-    });
+    return cleanupAndApprove(logger, sessionId, 'Stop approved — no commits since session start.');
   }
 
   // Get session's attributed commits
@@ -336,32 +351,11 @@ export default stopHook({}, async (input, { logger }) => {
   const unattributed = getUnattributedCommits(allCommits, sessionCommits);
 
   if (unattributed.length === 0) {
-    // All commits attributed — approve (include cleanup warnings if any)
-    try {
-      await cleanupSession(logger, sessionId);
-    } catch (error) {
-      if (error instanceof SessionCleanupError) {
-        logger.error('Session cleanup failed', { sessionId: error.sessionId, error: error.message });
-        return stopOutput({
-          decision: 'approve',
-          systemMessage: [
-            `Stop approved — all ${allCommits.length} commits attributed to this session.`,
-            '',
-            `Warning: ${error.message}`,
-            '',
-            'Stale session artifacts may remain. To clean up manually:',
-            '1. Check for leftover PID entries in the session registry',
-            `2. Remove the session CSV for session ${sessionId} if it exists`
-          ].join('\n'),
-          reason: `Cleanup failed: ${error.message}`
-        });
-      }
-      throw error;
-    }
-    return stopOutput({
-      decision: 'approve',
-      systemMessage: `Stop approved — all ${allCommits.length} commits attributed to this session.`
-    });
+    return cleanupAndApprove(
+      logger,
+      sessionId,
+      `Stop approved — all ${allCommits.length} commits attributed to this session.`
+    );
   }
 
   // Unattributed commits found — gather diff, record, cleanup, then block.
