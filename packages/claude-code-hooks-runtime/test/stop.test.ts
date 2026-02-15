@@ -8,7 +8,9 @@ import { execFileSync } from 'node:child_process';
 import {
   appendCommitToSession,
   getSessionCommits,
+  readSessionHeadSha,
   removeSessionCsv,
+  removeSessionHeadSha,
   removeSessionPid
 } from '@cards/git-hooks/lib/card-repo-sessions';
 import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
@@ -29,8 +31,10 @@ vi.mock('node:child_process', () => ({
 vi.mock('@cards/git-hooks/lib/card-repo-sessions', () => ({
   getSessionCommits: vi.fn(),
   appendCommitToSession: vi.fn(),
-  removeSessionPid: vi.fn(),
-  removeSessionCsv: vi.fn()
+  readSessionHeadSha: vi.fn(),
+  removeSessionCsv: vi.fn(),
+  removeSessionHeadSha: vi.fn(),
+  removeSessionPid: vi.fn()
 }));
 
 vi.mock('@cards/git-hooks/lib/process-tree', () => ({
@@ -40,8 +44,10 @@ vi.mock('@cards/git-hooks/lib/process-tree', () => ({
 const mockExecFileSync = vi.mocked(execFileSync);
 const mockGetSessionCommits = vi.mocked(getSessionCommits);
 const mockAppendCommitToSession = vi.mocked(appendCommitToSession);
-const mockRemoveSessionPid = vi.mocked(removeSessionPid);
+const mockReadSessionHeadSha = vi.mocked(readSessionHeadSha);
 const mockRemoveSessionCsv = vi.mocked(removeSessionCsv);
+const mockRemoveSessionHeadSha = vi.mocked(removeSessionHeadSha);
+const mockRemoveSessionPid = vi.mocked(removeSessionPid);
 const mockFindClaudePid = vi.mocked(findClaudePid);
 
 const logger = new Logger();
@@ -84,17 +90,18 @@ describe('Stop Hook', () => {
       for (const key of Object.keys(ACTION_ENV)) {
         delete process.env[key];
       }
-      delete process.env['SESSION_GIT_HEAD_SHA'];
-      delete process.env['SESSION_CLAUDE_PID'];
       mockExecFileSync.mockReset();
       mockGetSessionCommits.mockReset();
       mockAppendCommitToSession.mockReset();
-      mockRemoveSessionPid.mockReset();
+      mockReadSessionHeadSha.mockReset();
       mockRemoveSessionCsv.mockReset();
+      mockRemoveSessionHeadSha.mockReset();
+      mockRemoveSessionPid.mockReset();
       mockFindClaudePid.mockReset();
     });
 
-    it('approves when no SESSION_GIT_HEAD_SHA set', async () => {
+    it('approves when no HEAD SHA stored for session', async () => {
+      mockReadSessionHeadSha.mockReturnValue(null);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -107,7 +114,7 @@ describe('Stop Hook', () => {
     });
 
     it('approves when no commits since HEAD SHA', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue('');
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
@@ -121,7 +128,7 @@ describe('Stop Hook', () => {
     });
 
     it('approves when all commits are attributed to session', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue(`${SHA_1}\n${SHA_2}\n`);
       mockGetSessionCommits.mockReturnValue([SHA_1, SHA_2]);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -136,7 +143,7 @@ describe('Stop Hook', () => {
     });
 
     it('blocks with diff content when unattributed commits exist', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
         if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
@@ -157,7 +164,7 @@ describe('Stop Hook', () => {
     });
 
     it('appends unattributed SHAs to CSV after blocking', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
         if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
@@ -175,7 +182,7 @@ describe('Stop Hook', () => {
     });
 
     it('calls removeSessionPid(findClaudePid()) on cleanup', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue('');
       mockFindClaudePid.mockReturnValue(42);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -188,7 +195,7 @@ describe('Stop Hook', () => {
     });
 
     it('approves with actionable error when git log fails', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation(() => {
         throw new Error('not a git repo');
       });
@@ -207,7 +214,7 @@ describe('Stop Hook', () => {
     });
 
     it('approves with actionable error when CSV read fails', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue(`${SHA_1}\n`);
       mockGetSessionCommits.mockImplementation(() => {
         throw new Error('permission denied');
@@ -226,7 +233,7 @@ describe('Stop Hook', () => {
     });
 
     it('treats all commits as unattributed when CSV is missing (empty array from getSessionCommits)', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log') return `${SHA_1}\n${SHA_2}\n`;
         if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
@@ -246,21 +253,8 @@ describe('Stop Hook', () => {
       expect(mockAppendCommitToSession).toHaveBeenCalledWith('sess-1', SHA_2);
     });
 
-    it('uses SESSION_CLAUDE_PID for removeSessionPid when env var is set', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
-      process.env['SESSION_CLAUDE_PID'] = '99';
-      mockExecFileSync.mockReturnValue('');
-      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
-      const context = { logger };
-
-      await hook(mockInput, context);
-
-      expect(mockRemoveSessionPid).toHaveBeenCalledWith(99);
-      expect(mockFindClaudePid).not.toHaveBeenCalled();
-    });
-
-    it('falls back to findClaudePid when SESSION_CLAUDE_PID not set', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+    it('uses findClaudePid for PID resolution', async () => {
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue('');
       mockFindClaudePid.mockReturnValue(42);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -273,7 +267,7 @@ describe('Stop Hook', () => {
     });
 
     it('calls removeSessionCsv during cleanup', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue('');
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
@@ -283,8 +277,19 @@ describe('Stop Hook', () => {
       expect(mockRemoveSessionCsv).toHaveBeenCalledWith('sess-1');
     });
 
+    it('calls removeSessionHeadSha during cleanup', async () => {
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
+      mockExecFileSync.mockReturnValue('');
+      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      await hook(mockInput, context);
+
+      expect(mockRemoveSessionHeadSha).toHaveBeenCalledWith('sess-1');
+    });
+
     it('approves with cleanup warning when removeSessionCsv throws', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue('');
       mockRemoveSessionCsv.mockImplementation(() => {
         throw new Error('unlink failed');
@@ -303,7 +308,7 @@ describe('Stop Hook', () => {
     });
 
     it('includes warnings in block reason when diff generation fails', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
         // Both rev-list and diff fail
@@ -325,7 +330,7 @@ describe('Stop Hook', () => {
     });
 
     it('includes warnings when recordUnattributedCommits fails', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
         if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
@@ -349,7 +354,7 @@ describe('Stop Hook', () => {
     });
 
     it('includes warnings when cleanupSession fails in the block path', async () => {
-      process.env['SESSION_GIT_HEAD_SHA'] = START_SHA;
+      mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
         if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;

@@ -6,8 +6,8 @@
  * process environment variables.
  *
  * After confirming the action context, the hook checks for unattributed
- * commits in the card repo since the session started (tracked via
- * `SESSION_GIT_HEAD_SHA`). Unattributed commits are those not recorded
+ * commits in the card repo since the session started (tracked via a
+ * per-session `.head` file). Unattributed commits are those not recorded
  * in the session's CSV by the card-repo post-commit hook.
  *
  *
@@ -19,7 +19,9 @@ import { execFileSync } from 'node:child_process';
 import {
   appendCommitToSession,
   getSessionCommits,
+  readSessionHeadSha,
   removeSessionCsv,
+  removeSessionHeadSha,
   removeSessionPid
 } from '@cards/git-hooks/lib/card-repo-sessions';
 import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
@@ -215,10 +217,7 @@ async function recordUnattributedCommits(sessionId: string, shas: string[]): Pro
  * @throws {SessionCleanupError} When PID or CSV cleanup fails.
  */
 async function cleanupSession(logger: Logger, sessionId: string): Promise<void> {
-  // Use persisted PID from session-start, fall back to findClaudePid()
-  const envPid = process.env['SESSION_CLAUDE_PID'];
-  const pid = envPid ? Number.parseInt(envPid, 10) : null;
-  const resolvedPid = pid && !Number.isNaN(pid) ? pid : findClaudePid();
+  const resolvedPid = findClaudePid();
 
   try {
     if (resolvedPid) {
@@ -226,6 +225,7 @@ async function cleanupSession(logger: Logger, sessionId: string): Promise<void> 
       logger.info('Cleaned up PID registration', { pid: resolvedPid });
     }
 
+    removeSessionHeadSha(sessionId);
     removeSessionCsv(sessionId);
     logger.info('Cleaned up session CSV', { sessionId });
   } catch (error) {
@@ -246,7 +246,7 @@ export default stopHook({}, async (input, { logger }) => {
     });
   }
 
-  const headSha = process.env['SESSION_GIT_HEAD_SHA'];
+  const headSha = readSessionHeadSha(input.session_id);
   if (!headSha) {
     logger.info('No SESSION_GIT_HEAD_SHA — skipping commit attribution check');
     return stopOutput({

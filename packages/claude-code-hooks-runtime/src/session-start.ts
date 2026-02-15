@@ -13,7 +13,7 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { registerSessionPid } from '@cards/git-hooks/lib/card-repo-sessions';
+import { registerSessionPid, writeSessionHeadSha } from '@cards/git-hooks/lib/card-repo-sessions';
 import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
@@ -126,7 +126,7 @@ export function buildCardRepoListing(cardId: string, rootPath: string): string {
   return lines.join('\n');
 }
 
-export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => {
+export default sessionStartHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
     actionInput = extractActionInput();
@@ -140,7 +140,7 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
 
   const headSha = resolveHeadSha(actionInput.cardRepoPath);
   if (headSha) {
-    persistEnvVar('SESSION_GIT_HEAD_SHA', headSha);
+    writeSessionHeadSha(input.session_id, headSha);
     logger.info('Stored git HEAD sha', { headSha, repoPath: actionInput.cardRepoPath });
   } else {
     logger.warn('Could not resolve git HEAD sha', { repoPath: actionInput.cardRepoPath });
@@ -151,7 +151,6 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
   if (claudePid) {
     try {
       await registerSessionPid(claudePid, input.session_id);
-      persistEnvVar('SESSION_CLAUDE_PID', String(claudePid));
       logger.info('Registered PID for commit attribution', { pid: claudePid, sessionId: input.session_id });
     } catch (cause) {
       const error = new SessionRegistrationError(claudePid, input.session_id, cause);

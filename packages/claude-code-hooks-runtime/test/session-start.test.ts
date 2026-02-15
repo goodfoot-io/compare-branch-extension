@@ -7,7 +7,7 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { registerSessionPid } from '@cards/git-hooks/lib/card-repo-sessions';
+import { registerSessionPid, writeSessionHeadSha } from '@cards/git-hooks/lib/card-repo-sessions';
 import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
@@ -16,6 +16,7 @@ import hook, { buildCardRepoListing, CardRepoAccessError, resolveHeadSha } from 
 
 const mockFindClaudePid = vi.mocked(findClaudePid);
 const mockRegisterSessionPid = vi.mocked(registerSessionPid);
+const mockWriteSessionHeadSha = vi.mocked(writeSessionHeadSha);
 
 vi.mock('node:child_process', () => ({
   execSync: vi.fn()
@@ -26,7 +27,8 @@ vi.mock('@cards/git-hooks/lib/process-tree', () => ({
 }));
 
 vi.mock('@cards/git-hooks/lib/card-repo-sessions', () => ({
-  registerSessionPid: vi.fn()
+  registerSessionPid: vi.fn(),
+  writeSessionHeadSha: vi.fn()
 }));
 
 const logger = new Logger();
@@ -206,14 +208,14 @@ describe('SessionStart Hook', () => {
       vi.mocked(execSync).mockReset();
       mockFindClaudePid.mockReset();
       mockRegisterSessionPid.mockReset();
+      mockWriteSessionHeadSha.mockReset();
     });
 
     it('returns card repo directory listing in additionalContext', async () => {
       const realSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
       vi.mocked(execSync).mockReturnValue(`${realSha}\n`);
-      const persistEnvVar = vi.fn();
       const mockInput = {} as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       const result = await hook(mockInput, context);
 
@@ -230,30 +232,28 @@ describe('SessionStart Hook', () => {
       expect(listing).toBe(stdout.systemMessage);
     });
 
-    it('persists git HEAD sha via persistEnvVar', async () => {
+    it('persists git HEAD sha via writeSessionHeadSha', async () => {
       const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
       vi.mocked(execSync).mockReturnValue(`${expectedSha}\n`);
-      const persistEnvVar = vi.fn();
-      const mockInput = {} as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+      const mockInput = { session_id: 'sess-sha' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       await hook(mockInput, context);
 
-      expect(persistEnvVar).toHaveBeenCalledWith('SESSION_GIT_HEAD_SHA', expectedSha);
+      expect(mockWriteSessionHeadSha).toHaveBeenCalledWith('sess-sha', expectedSha);
     });
 
-    it('does not call persistEnvVar or include HEAD in systemMessage when git fails', async () => {
+    it('does not call writeSessionHeadSha when git fails', async () => {
       // Use a real directory that exists but is not a git repo
       const tmpDir = join(repoPath, '..', `no-git-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
       process.env.CARD_REPO_PATH = tmpDir;
-      const persistEnvVar = vi.fn();
       const mockInput = {} as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       const result = await hook(mockInput, context);
 
-      expect(persistEnvVar).not.toHaveBeenCalled();
+      expect(mockWriteSessionHeadSha).not.toHaveBeenCalled();
       const stdout = result.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).not.toContain('HEAD:');
     });
@@ -261,9 +261,8 @@ describe('SessionStart Hook', () => {
     it('calls findClaudePid and registerSessionPid with correct args when inside action subprocess', async () => {
       mockFindClaudePid.mockReturnValue(42);
       vi.mocked(execSync).mockReturnValue('abc123\n');
-      const persistEnvVar = vi.fn();
       const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       await hook(mockInput, context);
 
@@ -274,9 +273,8 @@ describe('SessionStart Hook', () => {
     it('does not call registerSessionPid when findClaudePid returns null (logs warning)', async () => {
       mockFindClaudePid.mockReturnValue(null);
       vi.mocked(execSync).mockReturnValue('abc123\n');
-      const persistEnvVar = vi.fn();
       const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       await hook(mockInput, context);
 
@@ -288,9 +286,8 @@ describe('SessionStart Hook', () => {
       mockFindClaudePid.mockReturnValue(42);
       mockRegisterSessionPid.mockRejectedValue(new Error('disk full'));
       vi.mocked(execSync).mockReturnValue('abc123\n');
-      const persistEnvVar = vi.fn();
       const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       const result = await hook(mockInput, context);
 
@@ -311,9 +308,8 @@ describe('SessionStart Hook', () => {
     it('returns continue:false with stopReason when card repo is inaccessible', async () => {
       process.env.CARD_REPO_PATH = '/tmp/does-not-exist-xyz-123';
       vi.mocked(execSync).mockReturnValue('abc123\n');
-      const persistEnvVar = vi.fn();
       const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       const result = await hook(mockInput, context);
 
@@ -331,17 +327,6 @@ describe('SessionStart Hook', () => {
       expect(stdout.systemMessage).toContain('CARD_REPO_PATH');
     });
 
-    it('persists SESSION_CLAUDE_PID via persistEnvVar after successful registration', async () => {
-      mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execSync).mockReturnValue('abc123\n');
-      const persistEnvVar = vi.fn();
-      const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar, persistEnvVars: () => {} };
-
-      await hook(mockInput, context);
-
-      expect(persistEnvVar).toHaveBeenCalledWith('SESSION_CLAUDE_PID', '42');
-    });
   });
 
   describe('outside an action subprocess', () => {
@@ -352,7 +337,7 @@ describe('SessionStart Hook', () => {
 
     it('returns an error message when action env vars are missing', async () => {
       const mockInput = {} as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar: () => {}, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       const result = await hook(mockInput, context);
 
@@ -363,7 +348,7 @@ describe('SessionStart Hook', () => {
 
     it('does not call findClaudePid or registerSessionPid when outside action subprocess', async () => {
       const mockInput = {} as Parameters<typeof hook>[0];
-      const context = { logger, persistEnvVar: () => {}, persistEnvVars: () => {} };
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       await hook(mockInput, context);
 
