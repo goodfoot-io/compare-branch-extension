@@ -1,9 +1,9 @@
 /**
- * Defines the barrel surface for lib module.
- * This file gives agents and maintainers a stable module entry point while preserving clear
- * package boundaries.
+ * Tests for shared library utilities used by the Claude Code hooks API,
+ * covering API discovery, session management, IPC communication, and
+ * process tree traversal.
  *
- * @summary Barrel exports for lib module
+ * @summary Test suite for Claude Code hooks API library utilities
  */
 
 export {};

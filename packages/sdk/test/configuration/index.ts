@@ -1,9 +1,9 @@
 /**
- * Defines the barrel surface for configuration module.
- * This file gives agents and maintainers a stable module entry point while preserving clear
- * package boundaries.
+ * Tests for the SDK configuration subsystem covering schema validation,
+ * config definition, environment helpers, exit codes, input parsing,
+ * logging, runtime execution, and type utilities.
  *
- * @summary Barrel exports for configuration module
+ * @summary Test suite for Cards SDK configuration and build tooling
  */
 
 export {};

@@ -1,10 +1,10 @@
 /**
- * Re-exports the public surface for the factories module.
- * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
- * maintainers.
- * Factory functions for creating action handlers and type hooks.
+ * Factory functions for declaring type-safe action handlers, type lifecycle
+ * hooks (create, update, delete, validate), and stream transform pipelines.
+ * Each factory captures handler metadata and wires up validation helpers for
+ * consistent error reporting.
  *
- * @summary Public exports for the factories module
+ * @summary Factories for defining actions, type hooks, and stream transforms
  * @module
  */
 

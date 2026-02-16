@@ -1,28 +1,9 @@
 /**
- * Curated export surface for Cards V2 protocol types and constants.
+ * Individual protocol type definitions organized by domain: card structures,
+ * lifecycle statuses, REST request/response shapes, WebSocket events, settings
+ * schemas, IPC and webview messaging contracts, and input constraint constants.
  *
- * Consumers should import from this module to avoid deep, brittle paths and to
- * keep the public protocol surface explicit. This file contains no behavior;
- * it only re-exports shapes defined in sibling modules.
- *
- * The exports are organized by domain:
- *
- * - **Card types**: Core card representation and metadata
- * - **Status types**: Lifecycle and state enumerations
- * - **API types**: Request/response shapes for REST endpoints
- * - **Event types**: WebSocket domain events for real-time updates
- * - **Settings types**: Configuration for actions and environments
- * - **Messaging types**: IPC and webview communication protocols
- * - **Constraint constants**: Validation boundaries for input fields
- *
- *
- * @summary Curated export surface for Cards V2 protocol types and constants
- * @example
- * ```typescript
- * import type { Card, CardStatus, CreateCardRequest } from '@cards/protocol/types';
- * import { MAX_TITLE_LENGTH, DEFAULT_CARD_GATES } from '@cards/protocol/types';
- * ```
- *
+ * @summary Domain-organized protocol types, events, and constraint constants
  * @module types
  */
 

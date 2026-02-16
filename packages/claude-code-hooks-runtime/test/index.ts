@@ -1,9 +1,9 @@
 /**
- * Defines the barrel surface for test module.
- * This file gives agents and maintainers a stable module entry point while preserving clear
- * package boundaries.
+ * Tests for runtime hook behaviors including worktree creation,
+ * session lifecycle management, process stop handling, and UUID
+ * generation.
  *
- * @summary Barrel exports for test module
+ * @summary Test suite for Claude Code hooks runtime operations
  */
 
 export {};

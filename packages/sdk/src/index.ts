@@ -1,11 +1,9 @@
 /**
- * Re-exports the public surface for the src module.
- * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
- * maintainers.
- * Unified SDK for the Cards V2 extension ecosystem.
- * Consolidates protocol types, client SDK, and configuration into a single package.
+ * Unified SDK for the Cards V2 extension ecosystem, consolidating protocol
+ * type definitions, HTTP/WebSocket client capabilities, and type-safe
+ * configuration authoring into a single importable surface.
  *
- * @summary Public exports for the src module
+ * @summary Cards V2 SDK combining protocol types, client, and configuration utilities
  * @module
  */
 

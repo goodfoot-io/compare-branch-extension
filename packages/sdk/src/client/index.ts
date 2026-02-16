@@ -1,10 +1,9 @@
 /**
- * Re-exports the public surface for the client module.
- * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
- * maintainers.
- * REST client and WebSocket event subscriber for Cards V2 API.
+ * HTTP client for CRUD operations against the Cards V2 REST API and a
+ * WebSocket event subscriber for real-time card, timeline, and stream
+ * change notifications.
  *
- * @summary Public exports for the client module
+ * @summary REST client and WebSocket event subscriber for the Cards V2 API
  * @module
  */
 

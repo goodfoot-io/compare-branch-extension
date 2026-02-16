@@ -617,7 +617,7 @@ export class CardsClient {
   /**
    * Gets all branches tracked on a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Unique identifier of the card whose branches to retrieve.
    * @param options - Optional query parameters.
    * @param options.workspacePath - Workspace path for computing isMerged and commit containment.
    * @returns Promise resolving to branches response.
@@ -632,7 +632,7 @@ export class CardsClient {
   /**
    * Adds a branch to a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Unique identifier of the card to add the branch to.
    * @param data - Branch data including name and optional worktree path.
    * @returns Promise resolving when the branch is added.
    */
@@ -644,7 +644,7 @@ export class CardsClient {
   /**
    * Removes a branch from a card.
    *
-   * @param cardId - The card id.
+   * @param cardId - Unique identifier of the card to remove the branch from.
    * @param name - Branch name to remove (will be URL-encoded).
    * @returns Promise resolving when the branch is removed.
    */

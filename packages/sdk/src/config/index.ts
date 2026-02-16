@@ -1,15 +1,10 @@
 /**
- * Re-exports the public surface for the config module.
- * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
- * maintainers.
- * Type-safe configuration library v2 for the Cards Extension with hooks,
- * validators, and type configurations.
+ * Type-safe configuration authoring for the Cards extension, providing factory
+ * functions to define actions, type hooks, and stream transforms along with
+ * environment helpers, structured logging, validation utilities, and a runtime
+ * executor that compiles configuration into deployable settings.
  *
- * This module provides action factories, type hook factories, configuration
- * utilities, environment helpers, logging, validation tools, and runtime
- * execution capabilities for Cards Extension integration.
- *
- * @summary Public exports for the config module
+ * @summary Configuration authoring, validation, and runtime execution for Cards extensions
  * @module
  */
 

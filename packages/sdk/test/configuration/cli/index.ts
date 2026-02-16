@@ -1,9 +1,9 @@
 /**
- * Defines the barrel surface for cli module.
- * This file gives agents and maintainers a stable module entry point while preserving clear
- * package boundaries.
+ * Tests for the CLI build pipeline covering argument parsing, handler
+ * compilation, configuration loading, and end-to-end build output
+ * verification.
  *
- * @summary Barrel exports for cli module
+ * @summary Test suite for the Cards SDK CLI build pipeline
  */
 
 export {};

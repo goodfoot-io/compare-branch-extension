@@ -18,6 +18,10 @@
  * File-persisted metadata for a card attachment.
  *
  * Stored in the card's attachment metadata sidecar.
+ * Timestamps (`createdAt`) are derived from Git history at read time
+ * and not persisted in the JSON file.
+ *
+ * @see AttachmentInfo for the API shape that includes computed timestamps.
  *
  * @example
  * ```typescript
@@ -26,8 +30,7 @@
  *   name: 'screenshot-2024-01-15.png',
  *   originalName: 'Screenshot 2024-01-15 at 10.30.00.png',
  *   size: 1024000,
- *   mimeType: 'image/png',
- *   createdAt: '2024-01-15T10:30:00.000Z'
+ *   mimeType: 'image/png'
  * };
  * ```
  */
@@ -46,9 +49,6 @@ export interface AttachmentInfoFile {
 
   /** MIME type of the attachment. */
   mimeType: string;
-
-  /** ISO 8601 timestamp when the attachment was created. */
-  createdAt: string;
 }
 
 /**

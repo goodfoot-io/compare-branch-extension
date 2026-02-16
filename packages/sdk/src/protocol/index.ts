@@ -1,37 +1,12 @@
 /**
- * Re-exports the public surface for the protocol module.
- * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
- * maintainers.
- * Canonical wire-level contracts for the Cards V2 ecosystem.
+ * Canonical wire-level type definitions and constraint constants shared across
+ * the Cards V2 ecosystem. Defines the JSON-serializable shapes for cards,
+ * REST API requests and responses, WebSocket domain events, IPC messages,
+ * webview communication, settings, and validation boundaries. Contains no
+ * runtime behavior.
  *
- * This package serves as the shared vocabulary for cards, webview messaging, IPC,
- * WebSocket events, and validation boundaries. Downstream services and clients
- * compile against these shapes, so changes here should be treated as
- * compatibility decisions rather than refactors.
- *
- * The module only re-exports types and constants; it intentionally contains no
- * runtime behavior. All shapes are designed for JSON serialization over HTTP,
- * WebSocket, or IPC channels.
- *
- * @summary Public exports for the protocol module
+ * @summary Shared protocol types and constants for the Cards V2 wire format
  * @module
- *
- * @example
- * ```typescript
- * import type { Card, CardStatus, CreateCardRequest } from '@cards/protocol';
- * import { MAX_TITLE_LENGTH, DEFAULT_CARD_GATES } from '@cards/protocol';
- *
- * const request: CreateCardRequest = {
- *   title: title.slice(0, MAX_TITLE_LENGTH),
- *   description: 'Implement feature X',
- *   workspacePath: '/home/user/project',
- *   gates: DEFAULT_CARD_GATES
- * };
- * ```
- *
- * @see {@link Card} for the core card representation
- * @see {@link Settings} for the actions-based execution configuration
- * @see {@link WrapperCommand} for process control messages
  */
 
 // --- Status Types ---

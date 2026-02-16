@@ -1,23 +1,10 @@
 /**
- * CLI main entry point for Cards Configuration v2.
+ * Build pipeline that compiles Cards configuration handlers into content-hashed
+ * standalone ESM bundles and generates the corresponding settings.json with
+ * correct command paths. Orchestrates argument parsing, handler compilation
+ * via esbuild, and stale artifact cleanup.
  *
- * This module orchestrates the build process:
- * 1. Parses command-line arguments
- * 2. Loads the configuration file
- * 3. Compiles handlers into standalone ESM bundles
- * 4. Generates settings.json with proper command paths
- *
- * ## Handler Compilation
- *
- * When handlers have a `sourcePath` property, the CLI compiles them into
- * standalone .mjs bundles using esbuild. The compiled files include:
- * - A content hash for cache busting (e.g., `launch-claude.abc12345.mjs`)
- * - The runtime wrapper that calls `executeCommand(handler)`
- *
- * This matches V1 feature parity where handlers are bundled as executables.
- *
- *
- * @summary CLI main entry point for Cards Configuration v2
+ * @summary CLI build pipeline for compiling Cards configuration into deployable settings
  * @module cli/index
  */
 

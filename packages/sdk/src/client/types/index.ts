@@ -1,9 +1,9 @@
 /**
- * Defines the barrel surface for types module.
- * This file gives agents and maintainers a stable module entry point while preserving clear
- * package boundaries.
+ * Type definitions consumed by the Cards V2 client, covering request/response
+ * shapes, error classes, event callback signatures, and WebSocket factory
+ * contracts.
  *
- * @summary Barrel exports for types module
+ * @summary Client type definitions for requests, errors, events, and WebSocket support
  */
 
 export * from './client.js';

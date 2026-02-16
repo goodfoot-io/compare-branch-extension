@@ -2,11 +2,11 @@
 // This package does not export library functions.
 
 /**
- * Re-exports the public surface for the src module.
- * Centralizing exports here keeps import paths stable and makes module boundaries explicit to
- * maintainers.
+ * Default card actions, type validators, and stream transforms shipped with
+ * the extension. All handlers are compiled to standalone binaries at build
+ * time and have no importable runtime API.
  *
- * @summary Public exports for the src module
+ * @summary Built-in actions, validators, and stream transforms for the Cards extension
  */
 
 export {};

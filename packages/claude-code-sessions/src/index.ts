@@ -1,18 +1,10 @@
 /**
- * File-based PID-to-card session registry.
+ * Tracks associations between Claude process IDs and cards on disk, buffering
+ * pending commit SHAs until an association is established. The registry uses
+ * atomic file writes, advisory file locking, and automatic stale-entry pruning
+ * to remain correct under concurrent access while failing open on errors.
  *
- * Hooks use this registry to track which Claude PID is associated with which
- * card, and to buffer pending commit SHAs until an association is established.
- *
- * Design invariants:
- * - **First-write-wins**: once a PID has a cardId it cannot be overwritten.
- * - **Fail-open**: every public function catches errors and returns a safe default.
- * - **Atomic writes**: the registry file is written via temp file + rename.
- * - **Stale-entry pruning**: entries older than 24 h or belonging to dead PIDs
- *   are removed on every transaction.
- *
- *
- * @summary File-based PID-to-card session registry
+ * @summary PID-to-card session registry with commit buffering
  * @module claude-code-sessions
  */
 
