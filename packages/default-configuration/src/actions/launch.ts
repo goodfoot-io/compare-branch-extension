@@ -250,28 +250,10 @@ export default defineAction(
       accessToken: input.apiAccessToken
     });
 
-    // Resolve worktree — fail-open to workspacePath
-    let cwd = input.workspacePath;
-    let baseBranch: string | undefined;
-    let parentBranch: string | undefined;
-
-    try {
-      baseBranch = await resolveBaseBranch(input.workspacePath);
-      const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
-      cwd = worktreeResult.worktreePath;
-      parentBranch = worktreeResult.parentBranch;
-      context.logger.info('Using worktree', {
-        cwd,
-        branch: worktreeResult.branchName,
-        baseBranch,
-        parentBranch
-      });
-    } catch (error) {
-      context.logger.warn('Worktree setup failed, falling back to workspacePath', {
-        error: errorMessage(error),
-        workspacePath: input.workspacePath
-      });
-    }
+    const baseBranch = await resolveBaseBranch(input.workspacePath);
+    const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
+    const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
+    context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
     const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath);
     const isInteractive = input.executionMode === 'interactive';
@@ -283,8 +265,8 @@ export default defineAction(
         ...process.env,
         CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
         CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-        ...(baseBranch ? { BASE_BRANCH: baseBranch } : {}),
-        ...(parentBranch ? { PARENT_BRANCH: parentBranch } : {})
+        BASE_BRANCH: baseBranch,
+        PARENT_BRANCH: parentBranch
       }
     });
 
@@ -335,14 +317,12 @@ export default defineAction(
     }
 
     // Post-exit cleanup: remove fully-merged branches
-    if (baseBranch) {
-      try {
-        await cleanupMergedBranches(input, client, baseBranch, context.logger);
-      } catch (error) {
-        context.logger.warn('Branch cleanup failed', {
-          error: errorMessage(error)
-        });
-      }
+    try {
+      await cleanupMergedBranches(input, client, baseBranch, context.logger);
+    } catch (error) {
+      context.logger.warn('Branch cleanup failed', {
+        error: errorMessage(error)
+      });
     }
   }
 );

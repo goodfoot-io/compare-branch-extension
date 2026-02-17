@@ -35,13 +35,41 @@ const originalFetch = globalThis.fetch;
 beforeEach(async () => {
   vi.clearAllMocks();
 
-  // Default: execFile rejects so worktree setup fails open → falls back to workspacePath.
-  // Individual tests that need worktree behavior override this.
+  // Default: worktree setup succeeds so all tests can call the action.
+  // resolveBaseBranch → 'main', getBranches → [] (empty), createWorktree → default path.
   const { execFile } = await import('node:child_process');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
     const cb = args[args.length - 1];
-    if (typeof cb === 'function') cb(new Error('mock: not configured'));
+    const cmd = args[0] as string;
+    const cmdArgs = args[1] as string[];
+    const key = `${cmd} ${cmdArgs.join(' ')}`;
+
+    if (typeof cb === 'function') {
+      if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
+        cb(null, { stdout: 'main\n', stderr: '' });
+      } else {
+        cb(new Error(`mock: unhandled command: ${key}`));
+      }
+    }
     return {} as ReturnType<typeof execFile>;
+  });
+
+  // Default: no existing branches → createWorktree is called
+  globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+    if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+      return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
+    }
+    if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
+      return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+  });
+
+  const { createWorktree } = await import('../src/lib/create-worktree.js');
+  vi.mocked(createWorktree).mockResolvedValue({
+    branch: 'cards/card-123/1',
+    worktree: '/test/workspace/.worktrees/cards/card-123/1',
+    baseSha: 'abc123'
   });
 });
 
@@ -105,8 +133,8 @@ function createMockChildWithStreams(): ChildProcess & { emitStdout(data: string)
 }
 
 /**
- * Flushes the microtask queue so that async operations (like the worktree
- * setup fail-open path) complete before test assertions run.
+ * Flushes the microtask queue so that async operations (like worktree
+ * setup) complete before test assertions run.
  */
 async function flushMicrotasks(): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -146,7 +174,7 @@ describe('Default Actions', () => {
       expect(spawn).toHaveBeenCalledWith(
         'claude',
         expect.arrayContaining(['--session-id', 'test-uuid-1234']),
-        expect.objectContaining({ cwd: '/test/workspace', stdio: 'inherit' })
+        expect.objectContaining({ cwd: '/test/workspace/.worktrees/cards/card-123/1', stdio: 'inherit' })
       );
 
       // Should not include --print in interactive mode
@@ -168,17 +196,25 @@ describe('Default Actions', () => {
     });
 
     it('spawns claude with --print and stream-json in background mode', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            filename: 'test.jsonl',
-            streamType: 'claude-code-session',
-            lineCount: 0,
-            status: 'completed'
-          }),
-          { status: 200 }
-        )
-      );
+      globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
+        }
+        if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
+          return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              filename: 'test.jsonl',
+              streamType: 'claude-code-session',
+              lineCount: 0,
+              status: 'completed'
+            }),
+            { status: 200 }
+          )
+        );
+      });
 
       const { spawn } = await import('node:child_process');
       const child = createMockChildWithStreams();
@@ -201,17 +237,25 @@ describe('Default Actions', () => {
     });
 
     it('streams background stdout lines to the server via openStream', async () => {
-      const fetchMock = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            filename: 'test.jsonl',
-            streamType: 'claude-code-session',
-            lineCount: 2,
-            status: 'completed'
-          }),
-          { status: 200 }
-        )
-      );
+      const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
+        }
+        if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
+          return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              filename: 'test.jsonl',
+              streamType: 'claude-code-session',
+              lineCount: 2,
+              status: 'completed'
+            }),
+            { status: 200 }
+          )
+        );
+      });
       globalThis.fetch = fetchMock;
 
       const { spawn } = await import('node:child_process');
@@ -326,7 +370,7 @@ describe('Default Actions', () => {
         resolved = true;
       });
 
-      // Flush microtasks so worktree fail-open path completes and spawn is called
+      // Flush microtasks so worktree setup completes and spawn is called
       await flushMicrotasks();
 
       // Should not resolve before close event
@@ -391,22 +435,16 @@ describe('Default Actions', () => {
         });
       }
 
-      it('falls back to workspacePath when resolveBaseBranch fails', async () => {
-        // Default execFile rejects → resolveBaseBranch throws → fail-open
-        const { spawn } = await import('node:child_process');
-        const child = createMockChild();
-        vi.mocked(spawn).mockReturnValue(child);
+      it('throws when resolveBaseBranch fails', async () => {
+        const { execFile } = await import('node:child_process');
+        vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+          const cb = args[args.length - 1];
+          if (typeof cb === 'function') cb(new Error('not a git repo'));
+          return {} as ReturnType<typeof execFile>;
+        });
 
         const action = (await import('../src/actions/launch.js')).default;
-        const promise = action(baseInput(), createMockContext());
-        await flushMicrotasks();
-
-        // spawn should use workspacePath as cwd (fallback)
-        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
-        expect(spawnOpts.cwd).toBe('/test/workspace');
-
-        child.emit('close', 0);
-        await promise;
+        await expect(action(baseInput(), createMockContext())).rejects.toThrow('not a git repo');
       });
 
       it('creates a new worktree when no branches exist', async () => {
@@ -752,22 +790,12 @@ describe('Default Actions', () => {
         await promise;
       });
 
-      it('does not set BASE_BRANCH or PARENT_BRANCH when worktree setup fails', async () => {
-        // Default execFile rejects → worktree setup fails → no env vars
-        const { spawn } = await import('node:child_process');
-        const child = createMockChild();
-        vi.mocked(spawn).mockReturnValue(child);
+      it('throws when createWorktree fails', async () => {
+        const { createWorktree } = await import('../src/lib/create-worktree.js');
+        vi.mocked(createWorktree).mockRejectedValue(new Error('disk full'));
 
         const action = (await import('../src/actions/launch.js')).default;
-        const promise = action(baseInput(), createMockContext());
-        await flushMicrotasks();
-
-        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
-        expect(spawnOpts.env.BASE_BRANCH).toBeUndefined();
-        expect(spawnOpts.env.PARENT_BRANCH).toBeUndefined();
-
-        child.emit('close', 0);
-        await promise;
+        await expect(action(baseInput(), createMockContext())).rejects.toThrow('disk full');
       });
     });
   });
