@@ -11,10 +11,9 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { associatePidWithCard, getPidCardId } from '@cards/claude-code-sessions';
+import { associatePidWithCard, findClaudePid, getPidCardId } from '@cards/claude-code-sessions';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 import { createCardsClient, discoverApiInfo } from './lib/api-discovery.js';
-import { findClaudePid } from '@cards/claude-code-sessions';
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CARD_URL_PATTERN = /\/cards\/([a-zA-Z0-9][a-zA-Z0-9_-]*\d)/;

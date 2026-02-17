@@ -63,10 +63,8 @@ export function tryRemoveStaleLock(lockPath: string): boolean {
     try {
       unlinkSync(lockPath);
       return true;
-    } catch (unlinkError) {
-      if (!hasErrnoCode(unlinkError, 'ENOENT')) {
-        // ignore
-      }
+    } catch {
+      // ENOENT: lock already removed; other errors: best-effort cleanup
     }
   }
 
