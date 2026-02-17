@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cards/git-hooks": "workspace:*",
+    "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
     "@goodfoot/claude-code-hooks": "^1.1.0",
     "esbuild": "^0.25.0"

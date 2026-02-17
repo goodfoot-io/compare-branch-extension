@@ -291,32 +291,23 @@ describe('claude-sessions', () => {
       expect(cardId).toBe('card-123');
     });
 
-    it('should handle missing or corrupt registry file', async () => {
+    it('should throw on corrupt JSON in registry file (fail-closed)', async () => {
       expect(existsSync(getRegistryPath())).toBe(false);
 
       await recordPendingCommit(12345, 'sha1');
-
       expect(existsSync(getRegistryPath())).toBe(true);
 
       writeFileSync(getRegistryPath(), 'invalid json');
 
-      await recordPendingCommit(67890, 'sha2');
-
-      const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const registry: ClaudeSessionRegistry = JSON.parse(registryContent);
-      expect(registry.sessions['67890']).toBeDefined();
+      await expect(recordPendingCommit(67890, 'sha2')).rejects.toThrow();
     });
 
-    it('should fail open on lock timeout', async () => {
+    it('should throw on lock timeout (fail-closed)', async () => {
       const cardsDir = join(testDir, '.cards');
       mkdirSync(cardsDir, { recursive: true });
       writeFileSync(getLockPath(), String(process.pid));
 
-      const startTime = Date.now();
-      await recordPendingCommit(12345, 'sha1');
-      const duration = Date.now() - startTime;
-
-      expect(duration).toBeLessThan(5000);
+      await expect(recordPendingCommit(12345, 'sha1')).rejects.toThrow('Lock acquisition timeout');
     });
   });
 
@@ -340,18 +331,16 @@ describe('claude-sessions', () => {
     });
   });
 
-  describe('error handling', () => {
-    it('should fail open and return safe defaults on errors', async () => {
-      const result = await associatePidWithCard(-1, 'card-123');
-      expect(Array.isArray(result)).toBe(true);
+  describe('error handling (fail-closed)', () => {
+    it('should throw on corrupt registry JSON', async () => {
+      const cardsDir = join(testDir, '.cards');
+      mkdirSync(cardsDir, { recursive: true });
+      writeFileSync(getRegistryPath(), '{{invalid');
 
-      const cardId = await getPidCardId(-1);
-      expect(cardId === null || typeof cardId === 'string').toBe(true);
-
-      const entry = await removePidEntry(-1);
-      expect(entry === null || typeof entry === 'object').toBe(true);
-
-      await expect(recordPendingCommit(-1, 'sha1')).resolves.not.toThrow();
+      await expect(associatePidWithCard(process.pid, 'card-123')).rejects.toThrow();
+      await expect(getPidCardId(process.pid)).rejects.toThrow();
+      await expect(removePidEntry(process.pid)).rejects.toThrow();
+      await expect(recordPendingCommit(process.pid, 'sha1')).rejects.toThrow();
     });
   });
 });

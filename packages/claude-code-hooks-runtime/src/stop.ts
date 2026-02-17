@@ -16,15 +16,14 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { findClaudePid, removeSessionPid } from '@cards/claude-code-sessions';
 import {
   appendCommitToSession,
   getSessionCommits,
   readSessionHeadSha,
   removeSessionCsv,
-  removeSessionHeadSha,
-  removeSessionPid
-} from '@cards/git-hooks/lib/card-repo-sessions';
-import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
+  removeSessionHeadSha
+} from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import type { Logger } from '@goodfoot/claude-code-hooks';

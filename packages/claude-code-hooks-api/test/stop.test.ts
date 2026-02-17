@@ -20,11 +20,15 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/lib/process-tree.js', () => ({
-  findClaudePid: vi.fn()
-}));
+vi.mock('@cards/claude-code-sessions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/claude-code-sessions')>();
+  return {
+    ...actual,
+    findClaudePid: vi.fn()
+  };
+});
 
-import { findClaudePid } from '../src/lib/process-tree.js';
+import { findClaudePid } from '@cards/claude-code-sessions';
 import hookFn from '../src/stop.js';
 
 describe('cards stop hook', () => {

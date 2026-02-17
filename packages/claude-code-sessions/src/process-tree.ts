@@ -20,7 +20,7 @@ export const PROCESS_TREE_MAX_DEPTH = 10;
  * 2. Fallback: `ps -p PID -o args=` -> test /\bclaude\b/i
  *
  * @param pid - Process ID to inspect.
- * @returns True when the process command or args identify Claude; otherwise false.
+ * @returns `true` when the process command matches Claude; otherwise `false`.
  */
 function isClaude(pid: number): boolean {
   try {
@@ -35,10 +35,13 @@ function isClaude(pid: number): boolean {
 }
 
 /**
- * Returns the parent PID for a given PID, or null if it cannot be determined.
+ * Returns the parent PID for a process, or `null` when traversal should stop.
  *
- * @param pid - Process ID whose parent should be looked up.
- * @returns Parent PID, or null when unavailable, invalid, or self-referential.
+ * `null` is returned for missing processes, malformed `ps` output, and
+ * self-parenting values that would otherwise create a loop.
+ *
+ * @param pid - Process ID whose parent should be queried.
+ * @returns Parent PID when available, otherwise `null`.
  */
 function getParentPid(pid: number): number | null {
   try {
@@ -55,8 +58,10 @@ function getParentPid(pid: number): number | null {
  * Walks the process tree upward from `startPid` (default: `process.ppid`)
  * looking for the nearest ancestor named "claude".
  *
- * @param startPid - PID to start walking from. Defaults to `process.ppid`.
- * @returns Claude PID if found, null otherwise. Never throws.
+ * @param startPid - Optional root PID for traversal. When omitted, traversal
+ *   starts at the parent of the current hook process.
+ * @returns The nearest matching Claude ancestor PID, or `null` when no match
+ *   is found within {@link PROCESS_TREE_MAX_DEPTH}.
  */
 export function findClaudePid(startPid?: number): number | null {
   const pids = findAllClaudePids(startPid);
@@ -70,9 +75,12 @@ export function findClaudePid(startPid?: number): number | null {
  * Useful when multiple Claude sessions are nested (e.g. a Task subagent
  * spawned by an outer Claude) and the correct card association may belong
  * to an ancestor further up the tree.
+ * If Claude launched Claude which launched Claude, this returns that breadcrumb
+ * trail nearest-first.
  *
- * @param startPid - PID to start walking from. Defaults to `process.ppid`.
- * @returns Array of Claude PIDs found in the ancestor chain, nearest first.
+ * @param startPid - Optional root PID for traversal. When omitted, traversal
+ *   starts at the parent of the current hook process.
+ * @returns All matching Claude ancestor PIDs discovered before traversal stops.
  */
 export function findAllClaudePids(startPid?: number): number[] {
   const results: number[] = [];
