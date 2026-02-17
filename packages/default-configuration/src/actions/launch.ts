@@ -25,7 +25,11 @@ import { createWorktree } from '../lib/create-worktree.js';
 
 const execFileAsync = promisify(execFile);
 
-/** Extracts a human-readable message from an unknown catch value. */
+/**
+ * Extracts a human-readable message from an unknown catch value.
+ * @param error - The caught value to extract a message from.
+ * @returns The error message string.
+ */
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

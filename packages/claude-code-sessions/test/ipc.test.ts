@@ -1,3 +1,7 @@
+/**
+ * @file Tests for IPC utilities.
+ * @summary Tests for IPC process-liveness utilities.
+ */
 import { describe, expect, it, vi } from 'vitest';
 import { isProcessAlive } from '../src/ipc.js';
 

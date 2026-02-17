@@ -386,6 +386,7 @@ describe('Default Actions', () => {
       /**
        * Configures execFile mock to handle specific git commands.
        * Commands not matched fall through to a default error callback.
+       * @param handlers - Map of command strings to their mock stdout/stderr responses.
        */
       async function configureExecFile(handlers: Record<string, { stdout: string; stderr?: string }>): Promise<void> {
         const { execFile } = await import('node:child_process');
