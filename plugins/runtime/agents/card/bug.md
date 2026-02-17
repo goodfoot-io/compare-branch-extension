@@ -58,15 +58,7 @@ Enforce strict test-first verification:
 
 ## 1. Prepare Environment
 
-Read card context from the card repository first:
-
-```bash
-cat CARD.meta.json
-cat CARD.md
-ls comment/ 2>/dev/null && for f in comment/*.md; do echo "--- $f ---"; cat "$f"; done
-```
-
-Remove any existing worktree and branch, then create fresh:
+Remove any existing workspace worktree and branch, then create fresh:
 
 ```bash
 # Clean up any existing worktree/branch
@@ -84,7 +76,7 @@ WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
 cd "$WORKTREE_DIR"
 ```
 
-Launch parallel Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the card content:
+Launch parallel Explore subagents (haiku model) in the workspace repository. Launch multiple subagents with distinct, targeted prompts based on the card content:
 
 ```xml
 <invoke name="Task">
@@ -128,11 +120,11 @@ Evaluate whether the title and description clearly describe the bug. A good bug 
 
 Do not expand scope beyond the reported bug.
 
-If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description), then commit:
+If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
 ```bash
 git add CARD.meta.json CARD.md
-git commit -m "Clarify card title and description"
+git commit -m "[what was clarified about the bug, corrections made, and context enriched from exploration]"
 ```
 
 Skip the commit entirely if no clarification is needed.
@@ -225,40 +217,22 @@ TEST_EXIT_CODE=$?
 
 Based on subagent response and test result:
 
-- **BLOCKED or CANNOT_COMPLETE**: Write comment with SUBAGENT_REASONING to card, add `blocked` tag to `CARD.meta.json`, commit. **STOP** -- Awaiting user intervention.
+- **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** -- Awaiting user intervention.
 
 - **Test FAILS (expected)**:
-  - Commit: `git add -A && git commit -m "test: add reproduction test for [CARD_ID]"`
+  - Commit the test in the workspace worktree: `git add -A && git commit -m "[what the reproduction test checks and why it fails]"`
   - Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
-  - Write a progress comment informing the user that you have created a test demonstrating the bug. Explain what the test checks and why it currently fails.
-    ```bash
-    COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-    cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-    [Explanation of reproduction test and why it fails]
-    COMMENT
-
-    git add "comment/${COMMENT_ID}.md"
-    git commit -m "Add reproduction test comment"
-    ```
+  - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
   - Proceed to Step 3
 
 - **Test PASSES (unexpected) and attempts < 3**:
   - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
-  - Revert: `git checkout "$WORKTREE_BASELINE" -- . && git clean -fd`
+  - Revert in workspace worktree: `git checkout "$WORKTREE_BASELINE" -- . && git clean -fd`
   - Return to Delegate to Subagent
 
 - **Test PASSES (unexpected) and attempts >= 3**:
-  Write a comment reporting that you were unable to create a test that reproduces the reported bug. Summarize what you tried in each attempt and share your hypothesis about why reproduction failed.
-  ```bash
-  COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-  cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-  [Summary of reproduction attempts and failure hypothesis]
-  COMMENT
-
-  git add "comment/${COMMENT_ID}.md"
-  git commit -m "Report reproduction failure"
-  ```
+  Write a comment to the card repository reporting that you were unable to create a test that reproduces the reported bug. Summarize what you tried in each attempt and share your hypothesis about why reproduction failed. Commit to the card repository.
   **STOP** -- Reproduction failed after maximum attempts.
 
 ## 3. Resolve Bug
@@ -351,7 +325,7 @@ SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 
 Based on changes detected:
 
-- **BLOCKED or CANNOT_COMPLETE**: Write comment with RESOLVER_REASONING to card, add `blocked` tag to `CARD.meta.json`, commit. **STOP** -- Awaiting user intervention.
+- **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with RESOLVER_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** -- Awaiting user intervention.
 
 - **Test modified**: Go to Test Correction Flow (Step 3.5)
 
@@ -360,31 +334,13 @@ Based on changes detected:
 - **Only source changed and test FAILS**:
   - Capture `PREVIOUS_FAILURE_OUTPUT=$TEST_OUTPUT`
   - **If attempts < 3**: Return to Step 3.2
-  - **If attempts >= 3**: Write a comment explaining that you could not resolve the bug despite multiple attempts. Describe what you tried and identify the specific technical obstacle preventing resolution.
-    ```bash
-    COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-    cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-    [Description of resolution attempts and blocking obstacle]
-    COMMENT
-
-    git add "comment/${COMMENT_ID}.md"
-    git commit -m "Report resolution failure"
-    ```
+  - **If attempts >= 3**: Write a comment to the card repository explaining what you tried and the specific technical obstacle preventing resolution. Commit to the card repository.
     **STOP** -- Resolution failed after maximum attempts.
 
 ### 3.5 Test Correction Flow
 
 1. Increment TEST_CORRECTION_COUNT
-2. **If > 2**: Write a comment reporting that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it cannot be trusted to verify the fix.
-   ```bash
-   COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-   cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-   [Description of test reliability failure]
-   COMMENT
-
-   git add "comment/${COMMENT_ID}.md"
-   git commit -m "Report test reliability failure"
-   ```
+2. **If > 2**: Write a comment to the card repository reporting that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it cannot be trusted to verify the fix. Commit to the card repository.
    **STOP** -- Test became unreliable.
 3. Revert source changes: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
@@ -434,20 +390,13 @@ Based on validation result:
 
 ### 5.1 Squash Commits
 
+Squash all workspace worktree commits since baseline into one:
+
 ```bash
 COMMIT_COUNT=$(git rev-list --count "$WORKTREE_BASELINE"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "$WORKTREE_BASELINE"
-  git commit -m "$(cat <<'EOF'
-fix: [TITLE]
-
-Card: [CARD_ID]
-Bug: ${BUG_DESCRIPTION}
-Root cause: ${RESOLVER_REASONING}
-
-Test: ${TEST_FILE_PATH}
-EOF
-)"
+  git commit -m "[bug description, root cause analysis, fix approach, data flow from source to symptom, and test file path]"
 fi
 ```
 
@@ -456,39 +405,31 @@ fi
 Based on review requirement:
 
 - **Review required (gates.reviewRequired is true)**:
-  Write a comment telling the user the bug fix is complete and awaiting their review. Summarize what the bug was, explain how you fixed it, and confirm that both the reproduction test and full test suite pass.
+  Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Update `CARD.meta.json` to set status to `needs_review`. Commit to the card repository:
+
   ```bash
-  COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-  cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-  [Bug fix summary, approach, and test confirmation]
-
-  **Test file:** [${TEST_FILE_PATH}](${TEST_FILE_PATH})
-  COMMENT
-
-  git add "comment/${COMMENT_ID}.md"
-  git commit -m "Add bug fix summary for review"
+  git add CARD.meta.json comment/
+  git commit -m "[bug summary, root cause, fix approach, test file path, and what the reviewer should focus on]"
   ```
-
-  Update `CARD.meta.json` to set status to `needs_review`, then commit.
 
   **STOP** -- Merge occurs after user approval.
 
 - **Review NOT required (gates.reviewRequired is false or unset)**:
-  Write a comment announcing that you have completed the bug fix. Summarize the bug, explain your fix approach, and confirm all tests pass. Since no review is required, proceed directly to merge.
-  ```bash
-  COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-  cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-  [Bug fix summary, approach, and test confirmation]
+  Write a completion comment to the card repository summarizing the bug, the fix approach, and confirming all tests pass. Commit to the card repository. Then launch the merge agent:
 
-  **Test file:** [${TEST_FILE_PATH}](${TEST_FILE_PATH})
+  ```xml
+  <invoke name="Task">
+  <parameter name="description">Merge [TITLE]</parameter>
+  <parameter name="subagent_type">merge</parameter>
+  <parameter name="prompt">
+  Card: [CARD_ID] - [TITLE]
+  Branch: [BRANCH_NAME]
+  Worktree: [WORKTREE_PATH]
+  Base branch: [BASE_BRANCH]
 
-  No review required -- proceeding to merge.
-  COMMENT
-
-  git add "comment/${COMMENT_ID}.md"
-  git commit -m "Add bug fix completion comment"
+  Merge the worktree branch to the base branch.
+  </parameter>
+  </invoke>
   ```
-
-  Proceed to merge the worktree branch.
 
 </instructions>

@@ -61,21 +61,7 @@ export function isNestedUnder(dir: string, parentSet: Set<string>): boolean {
  * @returns True when the target starts with an internal prefix.
  */
 export function isInternalSymlink(target: string): boolean {
-  const INTERNAL_PREFIXES = [
-    '../../../packages/',
-    '../../packages/',
-    '../packages/',
-    '../../../.yarn/',
-    '../../.yarn/',
-    '../.yarn/',
-    '../../../apps/',
-    '../../apps/',
-    '../apps/',
-    '../../../libs/',
-    '../../libs/',
-    '../libs/'
-  ];
-  return INTERNAL_PREFIXES.some((prefix) => target.startsWith(prefix));
+  return target.startsWith('../');
 }
 
 interface CreateWorktreeResult {

@@ -3,7 +3,7 @@ name: investigation
 description: Interview agent for improving investigation card titles and descriptions.
 model: inherit
 tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
-skills: runtime:card-repo
+skills: runtime:card-repo, runtime:investigation
 ---
 
 ```!
@@ -47,33 +47,21 @@ Before asking the user what to investigate, follow this protocol.
 
 <instructions>
 
-1. Load the `cards:investigation` skill and review how to write a world-class investigation request.
+## 1. Conduct Interview
 
-2. Read the card metadata and description from the card repository:
+Conduct an interview to improve only the card title and description (do not modify plan content or other fields) so they clearly describe the investigation.
 
-```bash
-cat CARD.meta.json
-cat CARD.md
-ls comment/ 2>/dev/null && for f in comment/*.md; do echo "--- $f ---"; cat "$f"; done
-```
+Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
 
-3. Conduct an interview to improve only the card title and description (do not modify plan content or other fields) so they align with this guidance.
+## 2. Update Card
 
-4. Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
 
-5. Update the card with the revised title and description by editing the files directly in the card repository:
+## 3. Commit
 
 ```bash
-# Update title in CARD.meta.json using jq
-jq '.title = "[updated title]"' CARD.meta.json > CARD.meta.json.tmp && mv CARD.meta.json.tmp CARD.meta.json
-
-# Update description by writing the new content to CARD.md
-cat > CARD.md << 'DESCRIPTION'
-[updated description]
-DESCRIPTION
-
 git add CARD.meta.json CARD.md
-git commit -m "Refine card title and description"
+git commit -m "[summary of title/description changes, key decisions from the interview, and rationale for the investigation's focus and boundaries]"
 ```
 
 </instructions>

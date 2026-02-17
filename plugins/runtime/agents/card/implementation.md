@@ -55,14 +55,6 @@ Git hooks automatically track commits. Squashed commits are cleaned up automatic
 
 ## 1. Prepare Environment
 
-Read card context from the card repository first:
-
-```bash
-cat CARD.meta.json
-cat CARD.md
-ls comment/ 2>/dev/null && for f in comment/*.md; do echo "--- $f ---"; cat "$f"; done
-```
-
 Determine environment path using the first matching condition:
 - **Worktree exists**: Resume -- Navigate to existing worktree
 - **Branch exists (no worktree)**: Recreate -- Attach worktree to branch
@@ -145,11 +137,11 @@ If an "Implementation Complete" comment exists on the card, skip to **4. Finaliz
 
    Do not expand scope beyond user intent.
 
-   If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description), then commit:
+   If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
    ```bash
    git add CARD.meta.json CARD.md
-   git commit -m "Clarify card title and description"
+   git commit -m "[what was clarified, what was enriched from exploration, and any corrections made]"
    ```
 
    Skip the commit entirely if no clarification is needed.
@@ -218,12 +210,11 @@ When uncertain between Coherent and Sequential, choose **Coherent** for planless
 
 ### 2.4 Checkpoint Before Implementation
 
+Commit a checkpoint in the workspace worktree:
+
 ```bash
 git add -A
-git commit --allow-empty -m "checkpoint: before implementation
-
-Card: [CARD_ID]
-Tasks: [TASK_COUNT] derived from card"
+git commit --allow-empty -m "checkpoint: before implementation — [TASK_COUNT] tasks derived from card [CARD_ID]"
 ```
 
 If resuming: `git stash pop` to restore prior work.
@@ -246,6 +237,7 @@ Choose the [MODEL] based on the tasks:
 ```xml
 <invoke name="Task">
 <parameter name="description">Implement [TITLE]</parameter>
+<parameter name="subagent_type">implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
@@ -280,6 +272,7 @@ Checkpoint SHA: [CHECKPOINT_SHA]
 ```xml
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
+<parameter name="subagent_type">implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
@@ -295,6 +288,7 @@ Worktree: [WORKTREE_PATH]
 </invoke>
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
+<parameter name="subagent_type">implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
@@ -322,19 +316,11 @@ Based on implementer status:
   - **If attempts >= 3**: Write failure details as comment, add `blocked` tag, **STOP**
 - **BLOCKED**: Write blocking details as comment, add `blocked` tag, **STOP**
 
-**On COMPLETED:** Write a progress comment summarizing what was implemented:
+**On COMPLETED:** Write a progress comment to the card repository summarizing what was implemented, key decisions made, and files modified. Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Summary of implementation: what was built, key decisions made]
-
-**Files modified:**
-- [path/to/file.ts#L10-L20](path/to/file.ts#L10-L20)
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Add implementation progress comment"
+git add comment/
+git commit -m "[what was implemented, key decisions, and files modified in the workspace]"
 ```
 
 ### 3.3 Validation Gate
@@ -355,27 +341,34 @@ Only proceed to **4. Finalize** when ALL validations pass.
 
 ### If review is required (gates.reviewRequired is true):
 
-Write a summary comment explaining what you implemented and key decisions made. List the main files modified and confirm all validation passed. Indicate you are waiting for approval before merge.
+Write a summary comment to the card repository explaining what you implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate you are waiting for approval before merge.
+
+Update `CARD.meta.json` to set status to `needs_review`. Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Summary with validation results and files modified]
-
-**Files modified:**
-- [path/to/file.ts#L10-L20](path/to/file.ts#L10-L20)
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Add implementation complete comment"
+git add CARD.meta.json comment/
+git commit -m "[summary of implementation, key decisions, validation results, and what the reviewer should focus on]"
 ```
-
-Update `CARD.meta.json` to set status to `needs_review`, then commit.
 
 **STOP** -- Merge occurs after user approval.
 
 ### If review is NOT required:
 
-Write a completion comment and proceed to merge the worktree branch.
+Write a completion comment to the card repository. Commit to the card repository. Then launch the merge agent:
+
+```xml
+<invoke name="Task">
+<parameter name="description">Merge [TITLE]</parameter>
+<parameter name="subagent_type">merge</parameter>
+<parameter name="prompt">
+Card: [CARD_ID] - [TITLE]
+Branch: [BRANCH_NAME]
+Worktree: [WORKTREE_PATH]
+Base branch: [BASE_BRANCH]
+
+Merge the worktree branch to the base branch.
+</parameter>
+</invoke>
+```
 
 </instructions>

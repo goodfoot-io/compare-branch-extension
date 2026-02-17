@@ -14,55 +14,25 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 
 ## 1. Validate Reopen Request
 
-Read `CARD.meta.json` and the most recent user comment from the `comment/` directory.
-
-```bash
-cat CARD.meta.json
-ls -t comment/
-```
-
-Read the latest user comment to determine the reopen request.
+Read the latest user comment in the card repository to determine the reopen request.
 
 Based on the latest user comment:
-- **Empty or does not indicate what additional work is needed**: Post a comment requesting clarification, **STOP**
+- **Empty or does not indicate what additional work is needed**: Write a comment to the card repository requesting clarification, commit, and **STOP**
 - **Contains clear request for additional work**: Proceed to Step 2
 
-If clarification is needed:
+## 2. Acknowledge and Reopen
+
+Write a comment to the card repository summarizing the user's request to confirm you understand what additional work they want done.
+
+Update `CARD.meta.json` to set the status back to `in_progress`.
+
+## 3. Commit
+
+Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-Could you clarify what additional work you would like done on this card? Please describe the specific changes or additions needed.
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Request clarification for reopen"
-```
-
-**STOP** -- Awaiting clarification.
-
-## 2. Post Acknowledgment
-
-Summarize the user's request from their latest comment to confirm you understand what additional work they want done.
-
-```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Summary of the user's request confirming understanding of what additional work is needed]
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Acknowledge reopen request"
-```
-
-## 3. Update Card Status
-
-Update `CARD.meta.json` to set the status back to `in_progress`:
-
-```bash
-# Use jq or manual edit to update status in CARD.meta.json
-git add CARD.meta.json
-git commit -m "Reopen card for additional work"
+git add CARD.meta.json comment/
+git commit -m "[summary of what was requested, how it differs from the original scope, and what the reopen entails]"
 ```
 
 ## 4. Delegate to Implementation

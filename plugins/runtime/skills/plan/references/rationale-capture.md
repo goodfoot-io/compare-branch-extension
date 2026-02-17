@@ -83,10 +83,10 @@ For significant decisions, use a Rationale & Context section:
   handling and room support rather than implementing from scratch.
 ```
 
-### Decision Records in Issue Comments
-For evolving projects, capture decisions in issue comments as they happen.
+### Decision Records in Card Comments
+For evolving projects, capture decisions in card comments as they happen.
 
-Post a Decision Record comment via `POST /cards/[CARD_ID]/comments` whenever:
+Write a Decision Record as a comment file in `comment/{uuidv7}.md` whenever:
 - A technology selection is made
 - Scope is changed (features added or removed)
 - Trade-offs are resolved

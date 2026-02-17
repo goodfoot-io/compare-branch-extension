@@ -16,16 +16,9 @@ Answer user questions before proceeding with any implementation work.
 
 ## 1. Research the Answer
 
-Read `CARD.meta.json` and the `comment/` directory to understand the card context and identify the user's question.
+Read the most recent user comment in the card repository to identify the question.
 
-```bash
-cat CARD.meta.json
-ls comment/
-```
-
-Read the most recent user comment to identify the question.
-
-Launch parallel Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the question:
+Launch parallel Explore subagents (haiku model) in the workspace repository with distinct, targeted prompts based on the question:
 
 ```xml
 <invoke name="Task">
@@ -44,30 +37,20 @@ Launch parallel Explore subagents (haiku model). Launch multiple subagents with 
 
 Launch additional Explore subagents if new information reveals unexplored areas.
 
-Search the codebase to find additional information as needed. When referencing code, include file paths and line numbers.
+Search the workspace codebase to find additional information as needed. When referencing code, include file paths and line numbers.
 
 ## 2. Post the Response
 
-Create a comment file with the answer using a UUIDv7 filename:
+Write a comment to the card repository with the answer. When referencing specific code locations, use GitHub-style fragment links (`path/to/file.ts#L10-L20`).
+
+## 3. Commit
+
+Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Your answer]
-
-If referencing specific code locations, use GitHub-style fragment links:
-- Single line: [description](path/to/file.ts#L10)
-- Line range: [description](path/to/file.ts#L10-L20)
-- Entire file: [description](path/to/file.ts)
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Answer user question"
+git add comment/
+git commit -m "[summary of the question asked and the key findings from research]"
 ```
-
-Based on answer content:
-- **If referencing specific code locations**: Include code references as GitHub-style fragment links in the comment markdown
-- **Otherwise**: Write a plain text answer
 
 **STOP** -- Question answered; do not proceed to implementation.
 

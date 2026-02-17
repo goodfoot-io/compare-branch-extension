@@ -14,36 +14,22 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 
 ## 1. Verify State
 
-Read `CARD.meta.json` and the `comment/` directory to confirm that:
+Confirm from the card repository that:
 - A completion comment exists from the agent
 - No user feedback has been provided yet
 - This is not an error state
 
-```bash
-cat CARD.meta.json
-ls comment/
-```
-
 ## 2. Notify User
 
-Post a comment that briefly summarizes what was completed and clarifies you are waiting for user review before taking further action.
+Write a comment to the card repository that briefly summarizes what was completed and clarifies you are waiting for user review before taking further action.
 
-Create a new comment file using a UUIDv7 filename in the `comment/` directory:
+## 3. Commit
 
-```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')  # Generate and adapt to UUIDv7 format
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Summary of completed work]
-
-Awaiting your review before taking further action.
-COMMENT
-```
-
-Then stage and commit the comment:
+Commit to the card repository:
 
 ```bash
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Add awaiting-review comment"
+git add comment/
+git commit -m "[summary of completed work and what the reviewer should focus on]"
 ```
 
 **STOP** -- Wait for user to provide review feedback. No agent action required until a user comments.

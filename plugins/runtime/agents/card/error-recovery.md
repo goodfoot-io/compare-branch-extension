@@ -65,58 +65,19 @@ Based on validation result:
 
 ## 3. Report and Block
 
-Read `CARD.meta.json` to check the current tags:
-
-```bash
-cat CARD.meta.json
-```
-
 Based on card state:
 - **Card already has "blocked" tag** (from a previous recovery attempt): Skip to section 4 without posting a duplicate comment
-- **Otherwise**: Post a comment documenting the error. Create a new comment file in the `comment/` directory:
-
-```bash
-mkdir -p comment
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-## Error Report
-
-**Error**: [description of what happened]
-
-**Repository state**:
-- Base branch status: [status]
-- Worktree location: [path]
-- Failed step: [which step failed]
-
-**Error output**:
-```
-[relevant error output]
-```
-
-**Manual resolution steps**:
-1. [step-by-step instructions]
-
-**To retry**: [how to retry after fixing]
-COMMENT
-```
-
-Stage and commit the comment:
-
-```bash
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Report error and block"
-```
+- **Otherwise**: Write a comment to the card repository documenting the error, including: what happened, the repository state (base branch status, worktree location, failed step), the relevant error output, manual resolution steps, and how to retry after fixing
 
 Then proceed to section 4.
 
 ## 4. Mark as Blocked
 
-Update `CARD.meta.json` to add the "blocked" tag to the existing tags array. Read the current metadata, add the tag, write it back, and commit:
+Add the "blocked" tag to the `tags` array in `CARD.meta.json`. Commit to the card repository:
 
 ```bash
-# Read CARD.meta.json, add "blocked" to tags array if not already present
-git add CARD.meta.json
-git commit -m "Mark card as blocked"
+git add CARD.meta.json comment/
+git commit -m "[what error occurred, which step failed, what recovery was attempted, and what manual intervention is needed]"
 ```
 
 </instructions>

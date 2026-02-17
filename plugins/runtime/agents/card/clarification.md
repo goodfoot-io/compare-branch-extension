@@ -14,38 +14,15 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 
 ## 1. Check for Existing Clarification
 
-Read `CARD.md` and all comment files in `comment/` to understand the card description, requirements, and comment history:
-
-```bash
-cat CARD.md
-for f in comment/*.md; do echo "--- $f ---"; cat "$f"; done
-```
+Read the card description and comments in the card repository to understand the requirements and comment history.
 
 Based on comments and prior clarification requests:
 
 - **No existing "## Clarification Needed" comment**: Proceed to Step 2
 
-- **Existing clarification request AND later comment from non-agent author**: Acknowledge the new information and explain how it affects requirements analysis. Create a new comment file:
+- **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit and **STOP** -- the router will re-evaluate with the new information.
 
-  ```bash
-  COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-  cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-  [Acknowledgment of new information and impact on requirements]
-  COMMENT
-  ```
-
-  Stage and commit. Then **STOP** -- the router will re-evaluate with the new information.
-
-- **Existing clarification request AND no new user response**: Confirm you are still waiting for the previously requested information. Reference which questions remain unanswered. Create a new comment file:
-
-  ```bash
-  COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-  cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-  [Confirmation that previous questions remain unanswered, with references]
-  COMMENT
-  ```
-
-  Stage and commit. Then **STOP** -- already waiting for user clarification.
+- **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** -- already waiting for user clarification.
 
 ## 2. Identify Missing Requirements
 
@@ -59,37 +36,26 @@ Mark as MISSING if not present or inferable from the card description and commen
 
 ## 3. Research Context
 
-1. Search for keywords from the card description in code and documentation
-2. Look for similar implementations
-3. Check tests for expected behavior
+Search the workspace codebase for keywords from the card description:
+1. Look for similar implementations
+2. Check tests for expected behavior
+3. Identify relevant file paths for code references
 
 Based on research results:
-- **If research resolves all gaps**: Post findings as a comment and **STOP** -- the router will route to implementation
+- **If research resolves all gaps**: Write findings as a comment to the card repository, commit, and **STOP** -- the router will route to implementation
 - **If gaps remain**: Note findings for the clarification request, proceed to Step 4
 
 ## 4. Post Clarification Request
 
-Create a new comment file presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant code where applicable.
+Write a comment to the card repository presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant workspace code where applicable.
 
-```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-## Clarification Needed
+## 5. Commit
 
-[Specific questions organized by priority, with explanations and code references]
-
-- [Question 1 — why it matters, relevant code: `path/to/file.ts#L10-L20`]
-- [Question 2 — why it matters]
-COMMENT
-```
-
-## 5. Stage and Commit
-
-Stage and commit all changes:
+Commit to the card repository:
 
 ```bash
 git add comment/
-git commit -m "Request clarification for missing requirements"
+git commit -m "[which requirements are missing, what questions were asked, and what research was done to try to answer them first]"
 ```
 
 **STOP**

@@ -20,23 +20,9 @@ Incorporate user feedback into an existing implementation plan and re-run assess
 
 ## 1. Review Feedback
 
-### 1.1 Load Card Context
+### 1.1 Analyze User Feedback
 
-Read the card metadata and plan content from the card repository:
-
-```bash
-cat CARD.meta.json
-cat PLAN.md
-```
-
-Read all comments to find the most recent user feedback:
-
-```bash
-ls -1 comment/ | sort | tail -5
-# Read the latest comment files to find user feedback
-```
-
-### 1.2 Analyze User Feedback
+Read `PLAN.md` and the most recent comments in the card repository to find the user feedback.
 
 From the latest user comment, identify:
 
@@ -49,7 +35,7 @@ From the latest user comment, identify:
 
 ### 2.1 Research (If Needed)
 
-If feedback requires additional investigation:
+If feedback requires additional investigation in the workspace repository:
 
 - Read relevant files in the workspace codebase (track paths for code references)
 - Understand implications of requested changes
@@ -66,15 +52,11 @@ Update the plan to address all feedback points:
 
 ### 2.3 Store Revised Plan
 
-Write the updated plan to `PLAN.md`, then stage and commit:
+Write the updated plan to `PLAN.md` in the card repository. Commit to the card repository:
 
 ```bash
-cat > PLAN.md << 'PLAN'
-[revised plan markdown]
-PLAN
-
 git add PLAN.md
-git commit -m "Revise plan based on user feedback"
+git commit -m "[what feedback was incorporated, how the plan changed, and what tradeoffs were considered]"
 ```
 
 ## 3. Assess Revised Plan
@@ -86,6 +68,7 @@ Launch both assessments in parallel (one message):
 ```xml
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
+  <parameter name="subagent_type">plan-assessor</parameter>
   <parameter name="prompt">Card: [CARD_ID]
 
 1. Read the plan from PLAN.md
@@ -95,6 +78,7 @@ Launch both assessments in parallel (one message):
 
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
+  <parameter name="subagent_type">plan-refactor</parameter>
   <parameter name="prompt">Card: [CARD_ID]
 
 1. Read the plan from PLAN.md
@@ -139,20 +123,11 @@ Return to **2.2 Incorporate Feedback** and revise.
 
 #### If Both Assessments Pass (Ready: Yes + READY/DISCUSS)
 
-If any strategic concerns were accepted, write a comment documenting them:
+If any strategic concerns were accepted, write a comment to the card repository documenting them with rationale. Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-## Accepted Concerns
-
-The following strategic concerns were noted but accepted:
-- [Concern from assessment]
-- [Rationale for accepting]
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Document accepted concerns"
+git add comment/
+git commit -m "[which concerns were accepted and why they do not block implementation]"
 ```
 
 Proceed to **4. Submit for Re-Approval**
@@ -165,22 +140,11 @@ Explain how you incorporated the feedback, especially where interpretation was r
 
 When feedback was ambiguous, surface your interpretation as a question with your selected answer inline. Include surprises, new assumptions, or risks discovered during revision when they would help the reviewer. Write naturally -- only include what is genuinely useful.
 
-```bash
-COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[process-oriented comment]
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Submit revised plan for re-approval"
-```
-
-Update `CARD.meta.json` to set the status to `needs_review` if not already set:
+Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review` if not already set. Commit to the card repository:
 
 ```bash
-# Update status to needs_review
-git add CARD.meta.json
-git commit -m "Set status to needs_review"
+git add CARD.meta.json comment/
+git commit -m "[how feedback was interpreted, what changed in the plan, judgment calls made, and what the reviewer should focus on]"
 ```
 
 **STOP** -- Wait for user feedback or approval.

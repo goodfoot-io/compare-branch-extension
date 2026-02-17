@@ -3,7 +3,7 @@ name: documentation
 description: Interview for improving documentation card titles and descriptions.
 model: inherit
 tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"]
-skills: runtime:card-repo
+skills: runtime:card-repo, runtime:documentation
 ---
 
 ```!
@@ -47,39 +47,21 @@ Before asking the user about audience, location, or content, follow this protoco
 
 <instructions>
 
-## 1. Load Context
-
-Read the card metadata, description, and any existing comments:
-
-```bash
-cat CARD.meta.json
-cat CARD.md
-ls comment/ 2>/dev/null && for f in comment/*.md; do echo "--- $f ---"; cat "$f"; done
-```
-
-Review the documentation writing guidance from the `cards:documentation` skill if available.
-
-## 2. Conduct Interview
+## 1. Conduct Interview
 
 Conduct an interview to improve only the card title and description (do not modify plan content or other fields) so they clearly describe the documentation request.
 
 Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
 
-## 3. Update Card Title and Description
+## 2. Update Card
 
-Update `CARD.meta.json` with the revised title and `CARD.md` with the revised description, then commit:
+Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
+
+## 3. Commit
 
 ```bash
-# Update title in CARD.meta.json using jq
-jq '.title = "updated title"' CARD.meta.json > CARD.meta.json.tmp && mv CARD.meta.json.tmp CARD.meta.json
-
-# Write updated description to CARD.md
-cat > CARD.md << 'DESCRIPTION'
-[updated description]
-DESCRIPTION
-
 git add CARD.meta.json CARD.md
-git commit -m "Refine documentation card title and description"
+git commit -m "[summary of title/description changes, key decisions from the interview, and rationale for scope and audience choices]"
 ```
 
 **STOP**

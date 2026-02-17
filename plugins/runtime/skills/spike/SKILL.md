@@ -24,7 +24,7 @@ Based on decision context:
 - `[SPIKE_QUESTION]`: Format as "Which approach ([A] vs [B] vs [C]) best supports [use case] with [constraints]?"
 - `[SPIKE_PATH]`: Format as `.spikes/[CARD_ID]/[test-name]/`
   - `[test-name]`: Use kebab-case like `realtime-comparison` or `socketio-vs-sse`
-  - `[CARD_ID]` is a placeholder for the issue identifier (e.g., `123` or `feature-auth`)
+  - `[CARD_ID]` is a placeholder for the card identifier (e.g., `main-0001` or `feature-auth`)
 - `[APPROACHES]`: List 2-3 technologies with versions (e.g., `["Socket.io v4.6.1 (WebSocket)", "EventSource (SSE)", "long-polling"]`)
 - `[COMPARISON_CRITERIA]`: Measurable aspects (e.g., `"Developer experience, bidirectional communication, horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -41,7 +41,7 @@ Based on decision context:
 - `[SPIKE_QUESTION]`: Format as "Does [Library@version] support [specific capability]?"
 - `[SPIKE_PATH]`: Format as `.spikes/[CARD_ID]/[test-name]/`
   - `[test-name]`: Use kebab-case like `redis-compatibility-check` or `react-query-types-export`
-  - The `[CARD_ID]` placeholder represents the issue identifier (e.g., `123` or `feature-auth`)
+  - The `[CARD_ID]` placeholder represents the card identifier (e.g., `main-0001` or `feature-auth`)
 - `[APPROACH]`: Single technology to validate (e.g., `"Socket.io v4.6.1 with @socket.io/redis-adapter"`)
 - `[VALIDATION_CRITERIA]`: What needs verification (e.g., `"Redis adapter compatibility for horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -52,7 +52,7 @@ Based on decision context:
 
 
 <subagent-context>
-Subagents have no context from this conversation. Provide issue-relative paths:
+Subagents have no context from this conversation. Provide card-relative paths:
 - Spike directory: `.spikes/[CARD_ID]/[test-name]/`
 - Codebase files: `packages/api/src/server.ts` (no prefix needed)
 

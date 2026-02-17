@@ -32,6 +32,8 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 
 ## 1. Check for Changes
 
+In the workspace worktree:
+
 ```bash
 cd ".worktrees/$BRANCH_NAME"
 BRANCH_BASE=$(git merge-base HEAD $BASE_BRANCH)
@@ -39,33 +41,21 @@ COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
 ```
 
 Based on commit count:
-- **COMMIT_COUNT = 0**: No changes to merge. Run `"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "$BRANCH_NAME"`, post comment "No changes found in worktree. Cleaned up branch without merging.", **STOP**
+- **COMMIT_COUNT = 0**: No changes to merge. Run `"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "$BRANCH_NAME"`. Write a comment to the card repository noting no changes were found and the branch was cleaned up. Commit to the card repository and **STOP**.
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
 
-If no changes, create a comment in the card repository:
-
-```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-No changes found in worktree. Cleaned up branch without merging.
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Report no changes to merge"
-```
-
 ## 2. Squash Commits
+
+In the workspace worktree, squash all commits since baseline:
 
 ```bash
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "$BRANCH_BASE"
-  git commit -m "feat: [TITLE]
-
-Card: [CARD_ID]"
+  git commit -m "[comprehensive summary of all changes: what was built, key design decisions, and card reference]"
 fi
 ```
 
-## 3. Rebase and Validate (in Worktree)
+## 3. Rebase and Validate (in Workspace Worktree)
 
 Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
 
@@ -75,15 +65,7 @@ git rebase $BASE_BRANCH
 
 Based on rebase result:
 - **Conflicts occur**: Resolve conflicts, run `git add -A && git rebase --continue`
-- **Conflicts cannot be resolved**: Post error comment, add `blocked` tag, **STOP** -- Awaiting user intervention.
-
-If blocked, update `CARD.meta.json` to add the `blocked` tag:
-
-```bash
-# Use jq or manual edit to add "blocked" to the tags array in CARD.meta.json
-git add CARD.meta.json
-git commit -m "Add blocked tag due to unresolvable conflicts"
-```
+- **Conflicts cannot be resolved**: Write an error comment to the card repository, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** -- Awaiting user intervention.
 
 After rebase completes, run linting, type checking, and tests.
 
@@ -98,22 +80,8 @@ Blocking is not failure -- it is honest acknowledgment that human intervention i
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 4
-- **Validation fails and attempts < 3**: Fix errors, re-run validation
-- **Validation fails and attempts >= 3**: Post error comment explaining what failed and what you attempted, add `blocked` tag, **STOP** -- Awaiting user intervention.
-
-If blocked after validation failures:
-
-```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Description of validation failures and attempted fixes]
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-# Also add "blocked" tag to CARD.meta.json
-git add CARD.meta.json
-git commit -m "Report validation failure and add blocked tag"
-```
+- **Validation fails and attempts < 3**: Fix errors in the workspace worktree, re-run validation
+- **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** -- Awaiting user intervention.
 
 ## 4. Prepare Main Workspace
 

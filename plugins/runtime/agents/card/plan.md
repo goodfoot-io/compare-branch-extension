@@ -24,35 +24,19 @@ Create implementation plans for cards requiring user approval before coding begi
 
 ## 1. Create Plan
 
-### 1.1 Load Context
-
-Read the card metadata and description to understand the requirements:
-
-```bash
-cat CARD.meta.json
-cat CARD.md
-ls comment/
-```
-
-Read the most recent user comments for additional context.
-
-### 1.2 Research
+### 1.1 Research
 
 - Read relevant files in the codebase (track paths for code references in step 3)
 - Understand existing patterns and architecture
 - Identify dependencies and risks
 
-### 1.3 Write and Store Plan
+### 1.2 Write and Store Plan
 
-Create a plan and store it as `PLAN.md` in the card repository:
+Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
 
 ```bash
-cat > PLAN.md << 'PLAN'
-[Drafted plan markdown content]
-PLAN
-
 git add PLAN.md
-git commit -m "Draft implementation plan"
+git commit -m "[summary of the plan's approach, key design decisions, and identified risks]"
 ```
 
 ## 2. Assess Plan
@@ -64,7 +48,7 @@ Launch both assessments in parallel (one message):
 ```xml
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
-  <parameter name="subagent_type">claude-code-cli:plan-assessor</parameter>
+  <parameter name="subagent_type">plan-assessor</parameter>
   <parameter name="prompt">Card: [CARD_ID]
 
 1. Read the plan from PLAN.md in the card repository.
@@ -74,7 +58,7 @@ Launch both assessments in parallel (one message):
 
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
-  <parameter name="subagent_type">claude-code-cli:plan-refactor</parameter>
+  <parameter name="subagent_type">plan-refactor</parameter>
   <parameter name="prompt">Card: [CARD_ID]
 
 1. Read the plan from PLAN.md in the card repository.
@@ -115,24 +99,15 @@ Based on combined assessment results:
 
 #### If Either Assessment Fails (Ready: No OR CRITICAL/RECONSIDER OR HIGH/MEDIUM/CONCERNS issues)
 
-Return to **1.3 Write and Store Plan** and revise.
+Return to **1.2 Write and Store Plan** and revise.
 
 #### If Both Assessments Pass (Ready: Yes + READY/DISCUSS)
 
-If Plan Refactor returned DISCUSS, log accepted concerns as a comment:
+If Plan Refactor returned DISCUSS, write a comment to the card repository documenting the accepted concerns and rationale. Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-## Accepted Concerns
-
-The following strategic concerns were noted but accepted:
-- [Concern from plan-refactor evaluation]
-- [Rationale for accepting]
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Log accepted concerns from plan assessment"
+git add comment/
+git commit -m "[which concerns were accepted and why they do not block implementation]"
 ```
 
 Proceed to **3. Submit for Approval**
@@ -145,22 +120,11 @@ Focus on what the reviewer cannot see: your reasoning process, what you learned,
 
 Include surprises, dead ends, assumptions, or risks when they would help the reviewer focus their attention. Write naturally -- only include what is genuinely useful for this specific plan.
 
-```bash
-COMMENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Process-oriented comment about reasoning, judgment calls, and areas of uncertainty]
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Submit plan for approval"
-```
-
-Update `CARD.meta.json` to set the status to `needs_review`:
+Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review`. Commit to the card repository:
 
 ```bash
-# Use jq or manual edit to set status: "needs_review" in CARD.meta.json
-git add CARD.meta.json
-git commit -m "Set card status to needs_review"
+git add CARD.meta.json comment/
+git commit -m "[reasoning process, key judgment calls, areas of uncertainty, and what the reviewer should focus on]"
 ```
 
 **STOP** -- Wait for user feedback on plan.

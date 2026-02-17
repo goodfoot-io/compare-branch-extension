@@ -1,13 +1,13 @@
 ---
 name: plan
-description: This skill should be used when the user asks to "create a plan", "write an implementation plan", "plan this feature", "review a plan", "assess plan quality", or when structuring implementation plans posted as card comments that require user approval before implementation begins.
+description: This skill should be used when the user asks to "create a plan", "write an implementation plan", "plan this feature", "review a plan", "assess plan quality", or when structuring implementation plans stored as PLAN.md in card repositories that require user approval before implementation begins.
 ---
 
-This skill defines how to structure implementation plans posted as issue comments. Plans require user approval before implementation begins.
+This skill defines how to structure implementation plans stored as PLAN.md in card repositories. Plans require user approval before implementation begins.
 
 ## Complexity Tiers
 
-Select sections based on issue scope:
+Select sections based on card scope:
 
 ### Tier 1: Simple Changes
 *1-3 files, clear requirements*
@@ -50,7 +50,7 @@ The application currently lacks real-time notification capabilities, requiring u
 </example>
 
 <instructions>
-Plans inherit their title from the parent issue. Start every plan with `## Implementation Plan` followed directly by the problem statement (2-4 sentences).
+Plans inherit their title from the parent card. Start every plan with `## Implementation Plan` followed directly by the problem statement (2-4 sentences).
 
 The problem statement must:
 1. Explain the current state and its limitations
@@ -735,7 +735,7 @@ Good: Post meta-analysis as a separate comment; keep plan standalone
 9. **Evolution Readiness**: Structure plans for change — modular sections,
    explicit uncertainties.
 
-10. **Decisions in Comments**: The issue comment thread preserves decision history.
+10. **Decisions in Comments**: The card comment thread preserves decision history.
     Plans reference outcomes; rationale lives in separate meta-analysis comments.
 
 11. **Standalone Plans**: Each plan comment must be self-contained and readable

@@ -1,10 +1,10 @@
 ---
-name: maintenence
+name: maintenance
 description: How to write a maintenance request card
 ---
 
 
-<how-to-write-a-maintenence-request>
+<how-to-write-a-maintenance-request>
 
 Maintenance requests should explain **why the work matters** and **what success looks like** without prescribing how to implement it. The document should make the debt visible, bound the scope, and protect critical behavior.
 
@@ -166,4 +166,4 @@ Upgrades and migrations fail when dependencies and rollback paths are ignored. M
 - Only say "refactor/cleanup" with no outcomes
 - Lack scope boundaries or success criteria
 - Hide risks or required coordination
-</how-to-write-a-maintenence-request>
+</how-to-write-a-maintenance-request>

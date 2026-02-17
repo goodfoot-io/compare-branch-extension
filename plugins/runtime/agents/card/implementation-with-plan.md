@@ -109,15 +109,6 @@ Git hooks automatically track commits. Squashed commits are cleaned up automatic
 
 ## 1. Prepare Environment
 
-Read card context from the card repository first:
-
-```bash
-cat CARD.meta.json
-cat CARD.md
-cat PLAN.md
-ls comment/ 2>/dev/null && for f in comment/*.md; do echo "--- $f ---"; cat "$f"; done
-```
-
 Determine path using the first matching condition:
 - **Worktree exists**: Resume -- Navigate to existing worktree
 - **Branch exists (no worktree)**: Recreate -- Attach worktree to branch
@@ -168,14 +159,11 @@ If resuming: `git stash pop` to restore prior work.
 
 ### 2.2 Task Checkpoint
 
-Before each agent delegation:
+Before each agent delegation, commit a checkpoint in the workspace worktree:
 
 ```bash
 git add -A
-git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION]
-
-Card: [CARD_ID]
-Progress: [COMPLETED] of [TOTAL] tasks complete"
+git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card [CARD_ID]"
 ```
 
 ### 2.3 Assess Coherence
@@ -232,6 +220,7 @@ Agent prompt template:
 ```xml
 <invoke name="Task">
 <parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
+<parameter name="subagent_type">implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
@@ -259,16 +248,11 @@ Based on agent status:
   - **If attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue
 
-**COMPLETED:** Write a brief progress update as a comment indicating which task was completed and what was actually done. Keep it concise.
+**COMPLETED:** Write a brief progress comment to the card repository indicating which task was completed and what was actually done. Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[comment content]
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Add progress comment"
+git add comment/
+git commit -m "[which task was completed, what was done, and what comes next]"
 ```
 
 **After all todos:**
@@ -296,21 +280,19 @@ Only proceed to **3. Refactor** when ALL validations pass.
 
 ### 3.1 Pre-Refactoring Checkpoint
 
+Commit a checkpoint in the workspace worktree:
+
 ```bash
 git add -A
-git commit --allow-empty -m "checkpoint: before refactoring
-
-Card: [CARD_ID]
-State: Implementation complete"
+git commit --allow-empty -m "checkpoint: before refactoring — implementation complete for card [CARD_ID]"
 ```
-
-Write a checkpoint comment to the card.
 
 ### 3.2 Delegate Refactoring
 
 ```xml
 <invoke name="Task">
 <parameter name="description">Refactor implementation</parameter>
+<parameter name="subagent_type">refactor</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
@@ -351,21 +333,19 @@ Based on agent status:
 
 ### 4.1 Pre-Evaluation Checkpoint
 
+Commit a checkpoint in the workspace worktree:
+
 ```bash
 git add -A
-git commit --allow-empty -m "checkpoint: before evaluation
-
-Card: [CARD_ID]
-State: Implementation and refactoring complete"
+git commit --allow-empty -m "checkpoint: before evaluation — implementation and refactoring complete for card [CARD_ID]"
 ```
-
-Write a checkpoint comment to the card.
 
 ### 4.2 Delegate Evaluation
 
 ```xml
 <invoke name="Task">
 <parameter name="description">Evaluate implementation</parameter>
+<parameter name="subagent_type">implementation-evaluator</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
@@ -401,48 +381,39 @@ Before completing, synthesize Decision Narratives from all subagent reports into
 4. **Weave**: A unified story, not a list
 5. **Scale**: 2 paragraphs for small changes, up to 5 for substantial ones
 
-**Create the final commit:**
-
-```bash
-git add -A
-git commit -m "$(cat <<'EOF'
-[TYPE]([SCOPE]): [SUBJECT]
-
-[The hook. The problem. The journey if it matters.]
-
-[The solution. Then end on the truth -- the thing that makes the reader pause.]
-
-Card: [CARD_ID]
-EOF
-)"
-```
+**Create the final commit in the workspace worktree** following `<commit-message-artistry>` guidelines.
 
 ### 5.2 Complete or Await Review
 
 **If review is NOT required (gates.reviewRequired is false or unset):**
 
-Proceed to merge the worktree branch.
+Launch the merge agent:
+
+```xml
+<invoke name="Task">
+<parameter name="description">Merge [TITLE]</parameter>
+<parameter name="subagent_type">merge</parameter>
+<parameter name="prompt">
+Card: [CARD_ID] - [TITLE]
+Branch: [BRANCH_NAME]
+Worktree: [WORKTREE_PATH]
+Base branch: [BASE_BRANCH]
+
+Merge the worktree branch to the base branch.
+</parameter>
+</invoke>
+```
 
 **If review is required (gates.reviewRequired is true):**
 
-Write a summary comment explaining what you implemented and how it aligns with the approved plan. List the key files modified and confirm all validation passed. Indicate you are awaiting approval.
+Write a summary comment to the card repository explaining what you implemented and how it aligns with the approved plan. List the key workspace files modified and confirm all validation passed. Indicate you are awaiting approval.
+
+Update `CARD.meta.json` to set status to `needs_review`. Commit to the card repository:
 
 ```bash
-COMMENT_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
-cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
-[Summary of implementation aligned with approved plan]
-
-**Files modified:**
-- [path/to/file.ts#L10-L20](path/to/file.ts#L10-L20)
-
-All validation passed. Awaiting review approval before merge.
-COMMENT
-
-git add "comment/${COMMENT_ID}.md"
-git commit -m "Add implementation summary for review"
+git add CARD.meta.json comment/
+git commit -m "[summary of implementation against the plan, key decisions, validation results, and what the reviewer should focus on]"
 ```
-
-Update `CARD.meta.json` to set status to `needs_review`, then commit.
 
 **STOP** -- Merge occurs after user approval.
 

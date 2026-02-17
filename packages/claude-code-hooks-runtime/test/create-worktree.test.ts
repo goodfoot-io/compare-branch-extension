@@ -706,12 +706,12 @@ describe('isInternalSymlink', () => {
     expect(isInternalSymlink('../libs/shared')).toBe(true);
   });
 
-  it('returns false for ../../node_modules/.cache', () => {
-    expect(isInternalSymlink('../../node_modules/.cache')).toBe(false);
+  it('returns true for ../../node_modules/.cache', () => {
+    expect(isInternalSymlink('../../node_modules/.cache')).toBe(true);
   });
 
-  it('returns false for ../some-external-path', () => {
-    expect(isInternalSymlink('../some-external-path')).toBe(false);
+  it('returns true for ../some-external-path', () => {
+    expect(isInternalSymlink('../some-external-path')).toBe(true);
   });
 
   it('returns false for absolute paths', () => {
