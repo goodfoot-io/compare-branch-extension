@@ -8,8 +8,9 @@
  * @module claude-code-sessions
  */
 
+import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { executeTransaction, isProcessAlive, pruneStaleEntries } from './internal.js';
 
 export { findAllClaudePids, findClaudePid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
@@ -184,4 +185,150 @@ export async function removePidEntry(pid: number, _logger?: Logger): Promise<Cla
     { sessions: {} } as ClaudeSessionRegistry,
     LOCK_TIMEOUT_MS
   );
+}
+
+// ---------------------------------------------------------------------------
+// Card-repo PID registry (pids.json)
+// ---------------------------------------------------------------------------
+
+/** JSON payload stored at `~/.cards/card-repo-commits/pids.json`. */
+interface CardRepoPidRegistry {
+  sessions: Record<string, PidSessionEntry>;
+}
+
+function getCardRepoPidsRegistryPath(): string {
+  return join(getCardsDir(), 'card-repo-commits', 'pids.json');
+}
+
+function getCardRepoPidsLockPath(): string {
+  return join(getCardsDir(), 'card-repo-commits', 'pids.lock');
+}
+
+/**
+ * Registers a session for a Claude process ID in the card-repo PID registry.
+ *
+ * @param pid - Claude process ID to register.
+ * @param sessionId - Session identifier to associate with the PID.
+ * @param transcriptPath - Path to the transcript file for this session.
+ */
+export async function registerSession(pid: number, sessionId: string, transcriptPath: string): Promise<void> {
+  await executeTransaction<CardRepoPidRegistry, void>(
+    getCardRepoPidsRegistryPath(),
+    getCardRepoPidsLockPath(),
+    (registry) => {
+      registry.sessions[String(pid)] = {
+        sessionId,
+        transcriptPath,
+        updatedAt: new Date().toISOString()
+      };
+    },
+    undefined,
+    { sessions: {} } as CardRepoPidRegistry,
+    LOCK_TIMEOUT_MS
+  );
+}
+
+/**
+ * Removes a PID entry from the card-repo PID registry.
+ *
+ * @param pid - Claude process ID to remove.
+ */
+export async function removeSessionPid(pid: number): Promise<void> {
+  await executeTransaction<CardRepoPidRegistry, void>(
+    getCardRepoPidsRegistryPath(),
+    getCardRepoPidsLockPath(),
+    (registry) => {
+      delete registry.sessions[String(pid)];
+    },
+    undefined,
+    { sessions: {} } as CardRepoPidRegistry,
+    LOCK_TIMEOUT_MS
+  );
+}
+
+function readRegistryEntry(registryPath: string, pid: number): PidSessionEntry | null {
+  try {
+    const content = readFileSync(registryPath, 'utf-8');
+    const registry = JSON.parse(content) as CardRepoPidRegistry;
+    return registry.sessions[String(pid)] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function waitForPidEntry<T>(
+  pid: number,
+  timeout: number | undefined,
+  extract: (entry: PidSessionEntry) => T
+): Promise<T | null> {
+  const registryPath = getCardRepoPidsRegistryPath();
+
+  // 1. Immediate read
+  const immediate = readRegistryEntry(registryPath, pid);
+  if (immediate) return extract(immediate);
+
+  // 2. No timeout → return null
+  if (timeout === undefined || timeout <= 0) return null;
+
+  // 3. Watch for changes
+  const dir = dirname(registryPath);
+  mkdirSync(dir, { recursive: true });
+  // Touch file if absent so fs.watch has something to watch
+  if (!existsSync(registryPath)) {
+    writeFileSync(registryPath, JSON.stringify({ sessions: {} }, null, 2), { mode: 0o600 });
+  }
+
+  return new Promise<T | null>((resolve) => {
+    let resolved = false;
+    const cleanup = () => {
+      if (!resolved) {
+        resolved = true;
+        watcher.close();
+        clearTimeout(timer);
+      }
+    };
+
+    const watcher = watch(registryPath, () => {
+      const entry = readRegistryEntry(registryPath, pid);
+      if (entry) {
+        cleanup();
+        resolve(extract(entry));
+      }
+    });
+
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, timeout);
+
+    // Handle watcher errors gracefully
+    watcher.on('error', () => {
+      cleanup();
+      resolve(null);
+    });
+  });
+}
+
+/**
+ * Returns the session ID for a Claude process ID, optionally waiting for it
+ * to appear in the registry.
+ *
+ * @param pid - Claude process ID to look up.
+ * @param timeout - Maximum time to wait in milliseconds. If omitted, returns immediately.
+ * @returns Session ID, or `null` when the entry is absent (or timeout expires).
+ */
+export async function getSessionIdForPid(pid: number, timeout?: number): Promise<string | null> {
+  return waitForPidEntry(pid, timeout, (e) => e.sessionId);
+}
+
+/**
+ * Returns the transcript path for a Claude process ID, optionally waiting for it
+ * to appear in the registry.
+ *
+ * @param pid - Claude process ID to look up.
+ * @param timeout - Maximum time to wait in milliseconds. If omitted, returns immediately.
+ * @returns Transcript path, or `null` when the entry is absent (or timeout expires).
+ */
+export async function getTranscriptPathForPid(pid: number, timeout?: number): Promise<string | null> {
+  return waitForPidEntry(pid, timeout, (e) => e.transcriptPath);
 }
