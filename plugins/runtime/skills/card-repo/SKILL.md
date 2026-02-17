@@ -14,7 +14,6 @@ removed (`git clean -fd`) after the session ends — commit everything that must
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
 PLAN.md                     # Optional plan document
-workspace-commit-shas.csv   # Attributed workspace commit SHAs (one per line)
 comment/                    # Created on first comment
   {uuidv7}.md               # Pure markdown, no frontmatter
 attachment/                 # Created on first attachment

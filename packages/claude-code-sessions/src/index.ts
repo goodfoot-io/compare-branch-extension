@@ -2,16 +2,17 @@
  * Tracks associations between Claude process IDs and cards on disk, buffering
  * pending commit SHAs until an association is established. The registry uses
  * atomic file writes, advisory file locking, and automatic stale-entry pruning
- * to remain correct under concurrent access while failing open on errors.
+ * to remain correct under concurrent access.
  *
  * @summary PID-to-card session registry with commit buffering
  * @module claude-code-sessions
  */
 
-import { closeSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { isProcessAlive } from './ipc.js';
+import { executeTransaction, isProcessAlive, pruneStaleEntries } from './internal.js';
+
+export { findAllClaudePids, findClaudePid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 
 /** Minimal logger interface matching the methods used by this module. */
 interface Logger {
@@ -57,157 +58,11 @@ export interface ClaudeSessionRegistry {
   sessions: Record<string, ClaudeSessionEntry>;
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function hasErrnoCode(error: unknown, code: string): boolean {
-  return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === code;
-}
-
-function tryRemoveStaleLock(lockPath: string, logger?: Logger): boolean {
-  try {
-    const lockContent = readFileSync(lockPath, 'utf-8');
-    const holderPid = Number.parseInt(lockContent.trim(), 10);
-
-    if (!Number.isNaN(holderPid) && !isProcessAlive(holderPid)) {
-      logger?.debug?.(`Removing stale lock from dead process ${holderPid}`);
-      // Re-read lock file to reduce TOCTOU race window before unlinking.
-      if (readFileSync(lockPath, 'utf-8') === lockContent) {
-        unlinkSync(lockPath);
-        return true;
-      }
-    }
-  } catch {
-    try {
-      unlinkSync(lockPath);
-      return true;
-    } catch (unlinkError) {
-      if (!hasErrnoCode(unlinkError, 'ENOENT')) {
-        logger?.debug?.(`Failed to remove stale lock: ${String(unlinkError)}`);
-      }
-    }
-  }
-
-  return false;
-}
-
-function writeLockHolderPid(lockPath: string): void {
-  const fd = openSync(lockPath, 'wx', 0o600);
-  try {
-    writeFileSync(fd, String(process.pid));
-  } finally {
-    closeSync(fd);
-  }
-}
-
-async function acquireLock(logger?: Logger): Promise<boolean> {
-  const startTime = Date.now();
-  const lockPath = getLockPath();
-
-  while (Date.now() - startTime < LOCK_TIMEOUT_MS) {
-    try {
-      mkdirSync(getCardsDir(), { recursive: true, mode: 0o700 });
-      writeLockHolderPid(lockPath);
-      return true;
-    } catch (error) {
-      if (!hasErrnoCode(error, 'EEXIST')) throw error;
-      if (tryRemoveStaleLock(lockPath, logger)) continue;
-
-      const remaining = LOCK_TIMEOUT_MS - (Date.now() - startTime);
-      if (remaining > 0) {
-        await sleep(Math.min(50, remaining));
-      }
-    }
-  }
-
-  logger?.warn?.('Lock acquisition timeout, proceeding without lock (fail-open)');
-  return false;
-}
-
-function releaseLock(logger?: Logger): void {
-  try {
-    unlinkSync(getLockPath());
-  } catch (error) {
-    logger?.debug?.(`Error releasing lock: ${error}`);
-  }
-}
-
-function readRegistryLocked(): ClaudeSessionRegistry {
-  try {
-    const content = readFileSync(getRegistryPath(), 'utf-8');
-    return JSON.parse(content) as ClaudeSessionRegistry;
-  } catch {
-    return { sessions: {} };
-  }
-}
-
-function writeRegistryLocked(registry: ClaudeSessionRegistry): void {
-  mkdirSync(getCardsDir(), { recursive: true, mode: 0o700 });
-
-  const registryPath = getRegistryPath();
-  const tempPath = `${registryPath}.tmp`;
-  writeFileSync(tempPath, JSON.stringify(registry, null, 2), { mode: 0o600 });
-  renameSync(tempPath, registryPath);
-}
-
-function pruneStaleEntries(registry: ClaudeSessionRegistry, logger?: Logger): void {
-  const now = Date.now();
-
-  for (const [pidStr, entry] of Object.entries(registry.sessions)) {
-    const pid = Number.parseInt(pidStr, 10);
-
-    if (Number.isNaN(pid)) {
-      logger?.debug?.(`Removing entry for invalid PID: ${pidStr}`);
-      delete registry.sessions[pidStr];
-      continue;
-    }
-
-    try {
-      const updatedAt = new Date(entry.updatedAt).getTime();
-      if (now - updatedAt > MAX_ENTRY_AGE_MS) {
-        logger?.debug?.(`Removing stale entry for PID ${pid} (age: ${now - updatedAt}ms)`);
-        delete registry.sessions[pidStr];
-        continue;
-      }
-    } catch {
-      logger?.debug?.(`Removing entry for PID ${pid} with invalid timestamp`);
-      delete registry.sessions[pidStr];
-      continue;
-    }
-
-    try {
-      if (!isProcessAlive(pid)) {
-        logger?.debug?.(`Removing entry for dead PID ${pid}`);
-        delete registry.sessions[pidStr];
-      }
-    } catch (error) {
-      logger?.debug?.(`Error checking liveness of PID ${pid}: ${error}`);
-    }
-  }
-}
-
-async function executeTransaction<T>(operation: (registry: ClaudeSessionRegistry) => T, logger?: Logger): Promise<T> {
-  const lockAcquired = await acquireLock(logger);
-
-  try {
-    const registry = readRegistryLocked();
-    pruneStaleEntries(registry, logger);
-    const result = operation(registry);
-    writeRegistryLocked(registry);
-    return result;
-  } catch (error) {
-    logger?.error?.(`Transaction error: ${error}`);
-    throw error;
-  } finally {
-    if (lockAcquired) {
-      releaseLock(logger);
-    }
-  }
+/** Extended session entry that includes session ID and transcript path. */
+export interface PidSessionEntry {
+  sessionId: string;
+  transcriptPath: string;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,12 +76,14 @@ async function executeTransaction<T>(operation: (registry: ClaudeSessionRegistry
  *
  * @param pid - Claude process ID to associate.
  * @param cardId - Card identifier to bind to the PID.
- * @param logger - Optional logger used for fail-open diagnostics.
- * @returns Pending SHAs captured before association, or `[]` on failure/first-write conflict.
+ * @param logger - Optional logger (kept for API compatibility).
+ * @returns Pending SHAs captured before association, or `[]` on first-write conflict.
  */
-export async function associatePidWithCard(pid: number, cardId: string, logger?: Logger): Promise<string[]> {
-  try {
-    return await executeTransaction((registry) => {
+export async function associatePidWithCard(pid: number, cardId: string, _logger?: Logger): Promise<string[]> {
+  return executeTransaction<ClaudeSessionRegistry, string[]>(
+    getRegistryPath(),
+    getLockPath(),
+    (registry) => {
       const pidStr = String(pid);
       const entry = registry.sessions[pidStr];
 
@@ -241,11 +98,11 @@ export async function associatePidWithCard(pid: number, cardId: string, logger?:
       };
 
       return pendingCommits;
-    }, logger);
-  } catch (error) {
-    logger?.error?.(`Error in associatePidWithCard: ${error}`);
-    return [];
-  }
+    },
+    (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
+    { sessions: {} } as ClaudeSessionRegistry,
+    LOCK_TIMEOUT_MS
+  );
 }
 
 /**
@@ -254,12 +111,13 @@ export async function associatePidWithCard(pid: number, cardId: string, logger?:
  *
  * @param pid - Claude process ID that produced the commit.
  * @param sha - Commit SHA to record for later attribution.
- * @param logger - Optional logger used for fail-open diagnostics.
- * @returns Resolves after best-effort persistence.
+ * @param logger - Optional logger (kept for API compatibility).
  */
-export async function recordPendingCommit(pid: number, sha: string, logger?: Logger): Promise<void> {
-  try {
-    await executeTransaction((registry) => {
+export async function recordPendingCommit(pid: number, sha: string, _logger?: Logger): Promise<void> {
+  await executeTransaction<ClaudeSessionRegistry, void>(
+    getRegistryPath(),
+    getLockPath(),
+    (registry) => {
       const pidStr = String(pid);
       const entry = registry.sessions[pidStr] ?? {
         pendingCommits: [],
@@ -272,41 +130,46 @@ export async function recordPendingCommit(pid: number, sha: string, logger?: Log
 
       entry.updatedAt = new Date().toISOString();
       registry.sessions[pidStr] = entry;
-    }, logger);
-  } catch (error) {
-    logger?.error?.(`Error in recordPendingCommit: ${error}`);
-  }
+    },
+    (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
+    { sessions: {} } as ClaudeSessionRegistry,
+    LOCK_TIMEOUT_MS
+  );
 }
 
 /**
  * Returns `cardId` for PID if it exists, null otherwise.
  *
  * @param pid - Claude process ID to resolve.
- * @param logger - Optional logger used for fail-open diagnostics.
- * @returns Associated card ID, or `null` when unknown or on recoverable failure.
+ * @param logger - Optional logger (kept for API compatibility).
+ * @returns Associated card ID, or `null` when unknown.
  */
-export async function getPidCardId(pid: number, logger?: Logger): Promise<string | null> {
-  try {
-    return await executeTransaction((registry) => {
+export async function getPidCardId(pid: number, _logger?: Logger): Promise<string | null> {
+  return executeTransaction<ClaudeSessionRegistry, string | null>(
+    getRegistryPath(),
+    getLockPath(),
+    (registry) => {
       const pidStr = String(pid);
       return registry.sessions[pidStr]?.cardId ?? null;
-    }, logger);
-  } catch (error) {
-    logger?.error?.(`Error in getPidCardId: ${error}`);
-    return null;
-  }
+    },
+    (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
+    { sessions: {} } as ClaudeSessionRegistry,
+    LOCK_TIMEOUT_MS
+  );
 }
 
 /**
  * Removes and returns the PID's entry. Returns null if not found.
  *
  * @param pid - Claude process ID to remove.
- * @param logger - Optional logger used for fail-open diagnostics.
+ * @param logger - Optional logger (kept for API compatibility).
  * @returns Removed registry entry, or `null` when no entry existed.
  */
-export async function removePidEntry(pid: number, logger?: Logger): Promise<ClaudeSessionEntry | null> {
-  try {
-    return await executeTransaction((registry) => {
+export async function removePidEntry(pid: number, _logger?: Logger): Promise<ClaudeSessionEntry | null> {
+  return executeTransaction<ClaudeSessionRegistry, ClaudeSessionEntry | null>(
+    getRegistryPath(),
+    getLockPath(),
+    (registry) => {
       const pidStr = String(pid);
       const entry = registry.sessions[pidStr];
 
@@ -316,9 +179,9 @@ export async function removePidEntry(pid: number, logger?: Logger): Promise<Clau
       }
 
       return null;
-    }, logger);
-  } catch (error) {
-    logger?.error?.(`Error in removePidEntry: ${error}`);
-    return null;
-  }
+    },
+    (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
+    { sessions: {} } as ClaudeSessionRegistry,
+    LOCK_TIMEOUT_MS
+  );
 }

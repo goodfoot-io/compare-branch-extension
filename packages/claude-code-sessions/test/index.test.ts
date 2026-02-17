@@ -100,9 +100,12 @@ describe('claude-code-sessions', () => {
       expect(mode).toBe(0o700);
     });
 
-    it('returns [] on error (fail-open)', async () => {
-      const result = await associatePidWithCard(-1, 'card-1');
-      expect(Array.isArray(result)).toBe(true);
+    it('throws on transaction error (fail-closed)', async () => {
+      const cardsDir = join(testDir, '.cards');
+      mkdirSync(cardsDir, { recursive: true });
+      writeFileSync(getRegistryPath(), '{{invalid json');
+
+      await expect(associatePidWithCard(process.pid, 'card-1')).rejects.toThrow();
     });
   });
 
@@ -153,8 +156,12 @@ describe('claude-code-sessions', () => {
       expect(new Date(String(ts2)).getTime()).toBeGreaterThan(new Date(String(ts1)).getTime());
     });
 
-    it('does not throw on error (fail-open)', async () => {
-      await expect(recordPendingCommit(-1, 'sha-1')).resolves.not.toThrow();
+    it('throws on transaction error (fail-closed)', async () => {
+      const cardsDir = join(testDir, '.cards');
+      mkdirSync(cardsDir, { recursive: true });
+      writeFileSync(getRegistryPath(), '{{invalid json');
+
+      await expect(recordPendingCommit(process.pid, 'sha-1')).rejects.toThrow();
     });
   });
 
@@ -177,9 +184,12 @@ describe('claude-code-sessions', () => {
       expect(await getPidCardId(process.pid)).toBeNull();
     });
 
-    it('returns null on error (fail-open)', async () => {
-      const result = await getPidCardId(-1);
-      expect(result === null || typeof result === 'string').toBe(true);
+    it('throws on transaction error (fail-closed)', async () => {
+      const cardsDir = join(testDir, '.cards');
+      mkdirSync(cardsDir, { recursive: true });
+      writeFileSync(getRegistryPath(), '{{invalid json');
+
+      await expect(getPidCardId(process.pid)).rejects.toThrow();
     });
   });
 
@@ -204,7 +214,7 @@ describe('claude-code-sessions', () => {
     it('preserves other entries', async () => {
       await recordPendingCommit(process.pid, 'sha-x');
 
-      // Use a different alive PID value — we write it manually so pruning won't remove it
+      // Use a different alive PID value -- we write it manually so pruning won't remove it
       const otherPid = process.pid;
       const secondPid = process.pid + 100000;
 
@@ -228,9 +238,12 @@ describe('claude-code-sessions', () => {
       expect(rawAfter.sessions[String(otherPid)]).toBeUndefined();
     });
 
-    it('returns null on error (fail-open)', async () => {
-      const entry = await removePidEntry(-1);
-      expect(entry === null || typeof entry === 'object').toBe(true);
+    it('throws on transaction error (fail-closed)', async () => {
+      const cardsDir = join(testDir, '.cards');
+      mkdirSync(cardsDir, { recursive: true });
+      writeFileSync(getRegistryPath(), '{{invalid json');
+
+      await expect(removePidEntry(process.pid)).rejects.toThrow();
     });
   });
 
@@ -368,16 +381,18 @@ describe('claude-code-sessions', () => {
       expect(await getPidCardId(process.pid)).toBe('card-1');
     });
 
-    it('fails open on lock timeout when lock is held by a live process', async () => {
+    it('throws on lock timeout when lock is held by a live process', async () => {
       const cardsDir = join(testDir, '.cards');
       mkdirSync(cardsDir, { recursive: true });
-      writeFileSync(getLockPath(), String(process.pid)); // our own PID — alive
+      writeFileSync(getLockPath(), String(process.pid)); // our own PID -- alive
 
       const start = Date.now();
-      await recordPendingCommit(process.pid, 'sha-timeout');
+      await expect(recordPendingCommit(process.pid, 'sha-timeout')).rejects.toThrow(
+        'Lock acquisition timeout'
+      );
       const elapsed = Date.now() - start;
 
-      // Should have waited up to LOCK_TIMEOUT_MS then proceeded
+      // Should have waited up to LOCK_TIMEOUT_MS before throwing
       expect(elapsed).toBeGreaterThanOrEqual(LOCK_TIMEOUT_MS - 100);
       expect(elapsed).toBeLessThan(LOCK_TIMEOUT_MS + 2000);
     });
@@ -394,15 +409,12 @@ describe('claude-code-sessions', () => {
       expect(existsSync(getRegistryPath())).toBe(true);
     });
 
-    it('recovers from corrupt JSON in registry file', async () => {
+    it('throws on corrupt JSON in registry file (fail-closed)', async () => {
       const cardsDir = join(testDir, '.cards');
       mkdirSync(cardsDir, { recursive: true });
       writeFileSync(getRegistryPath(), '{{invalid json');
 
-      await recordPendingCommit(process.pid, 'sha-1');
-
-      const raw = JSON.parse(readFileSync(getRegistryPath(), 'utf-8')) as ClaudeSessionRegistry;
-      expect(raw.sessions[String(process.pid)]?.pendingCommits).toEqual(['sha-1']);
+      await expect(recordPendingCommit(process.pid, 'sha-1')).rejects.toThrow();
     });
   });
 
