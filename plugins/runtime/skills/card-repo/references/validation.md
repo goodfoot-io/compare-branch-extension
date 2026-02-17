@@ -1,4 +1,4 @@
-# Card Validation Reference
+## Card Validation Reference
 
 ## CARD.meta.json Field Constraints
 

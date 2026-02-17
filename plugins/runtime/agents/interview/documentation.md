@@ -64,6 +64,6 @@ git add CARD.meta.json CARD.md
 git commit -m "[summary of title/description changes, key decisions from the interview, and rationale for scope and audience choices]"
 ```
 
-**STOP**
+**STOP** — Interview complete; card has been updated and committed.
 
 </instructions>

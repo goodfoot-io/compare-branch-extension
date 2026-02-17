@@ -1,4 +1,4 @@
-# Scope Management
+## Scope Management
 
 <purpose>
 Maintain clear project boundaries to prevent scope creep and ensure focused delivery

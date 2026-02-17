@@ -31,6 +31,6 @@ git add comment/
 git commit -m "[what was acknowledged and why no further action is needed]"
 ```
 
-**STOP** -- No further action required.
+**STOP** — No further action required.
 
 </instructions>

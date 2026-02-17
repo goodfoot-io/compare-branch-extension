@@ -34,15 +34,13 @@ The router classifies and routes — it does NOT interview the user or modify ca
 
 Select the **first** matching condition:
 
-| # | Condition | Agent |
-|---|-----------|-------|
-| 1 | IS_BUG_REPORT OR HAS_ERROR_EVIDENCE | `runtime:interview:bug-report` |
-| 2 | IS_OPERATIONS_REQUEST | `runtime:interview:operations` |
-| 3 | IS_DOCUMENTATION_REQUEST | `runtime:interview:documentation` |
-| 4 | IS_INVESTIGATION_REQUEST | `runtime:interview:investigation` |
-| 5 | IS_MAINTENANCE_REQUEST | `runtime:interview:maintenance` |
-| 6 | IS_ENHANCEMENT_REQUEST | `runtime:interview:enhancement` |
-| 7 | Otherwise | `runtime:interview:enhancement` |
+- **IS_BUG_REPORT OR HAS_ERROR_EVIDENCE**: `runtime:interview:bug-report`
+- **IS_OPERATIONS_REQUEST**: `runtime:interview:operations`
+- **IS_DOCUMENTATION_REQUEST**: `runtime:interview:documentation`
+- **IS_INVESTIGATION_REQUEST**: `runtime:interview:investigation`
+- **IS_MAINTENANCE_REQUEST**: `runtime:interview:maintenance`
+- **IS_ENHANCEMENT_REQUEST**: `runtime:interview:enhancement`
+- **Otherwise**: `runtime:interview:enhancement`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
 
@@ -83,6 +81,6 @@ When the card repository is updated or a teammate completes:
 
 1. Send shutdown requests to any active teammates
 2. Delete the team
-3. **STOP**
+3. **STOP** — Card processing is complete.
 
 </instructions>

@@ -11,7 +11,7 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 ```
 
 <placeholder-variables>
-[CARD_ID] -- The card's unique identifier from `id` field in CARD.meta.json
+[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 </placeholder-variables>
 
 <instructions>
@@ -103,7 +103,7 @@ Based on combined assessment results:
 
 - **Ready: Yes AND READY**: Proceed to step 4
 - **Ready: Yes AND DISCUSS**: Proceed, but document accepted concerns
-- **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" -- address strategic issues
+- **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" — address strategic issues
 - **Ready: Yes (suggestions) AND READY/DISCUSS**: Proceed with awareness of suggestions
 - **Ready: No**: Address structural issues first
 - **RECONSIDER (any Ready state)**: Address strategic issues before proceeding
@@ -134,11 +134,11 @@ Proceed to **4. Submit for Re-Approval**
 
 ## 4. Submit for Re-Approval
 
-**Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` -- do not summarize it.
+**Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
 
 Explain how you incorporated the feedback, especially where interpretation was required. Focus on what the reviewer cannot see: your reasoning process, what you learned from the revision, where you made judgment calls, and where you are less certain. Mention the plan version.
 
-When feedback was ambiguous, surface your interpretation as a question with your selected answer inline. Include surprises, new assumptions, or risks discovered during revision when they would help the reviewer. Write naturally -- only include what is genuinely useful.
+When feedback was ambiguous, surface your interpretation as a question with your selected answer inline. Include surprises, new assumptions, or risks discovered during revision when they would help the reviewer. Write naturally — only include what is genuinely useful.
 
 Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review` if not already set. Commit to the card repository:
 
@@ -147,6 +147,6 @@ git add CARD.meta.json comment/
 git commit -m "[how feedback was interpreted, what changed in the plan, judgment calls made, and what the reviewer should focus on]"
 ```
 
-**STOP** -- Wait for user feedback or approval.
+**STOP** — Wait for user feedback or approval.
 
 </instructions>

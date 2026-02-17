@@ -1,4 +1,4 @@
-# Rationale Capture
+## Rationale Capture
 
 <purpose>
 Ensure project plans document the reasoning behind decisions, enabling future

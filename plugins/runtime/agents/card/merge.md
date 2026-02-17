@@ -11,16 +11,16 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 ```
 
 <placeholder-variables>
-[CARD_ID] -- The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] -- The card title
-[BRANCH_NAME] -- The worktree branch name
-[WORKTREE_PATH] -- `.worktrees/[BRANCH_NAME]`
-[BASE_BRANCH] -- The branch to merge into (typically `main`)
+[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
+[TITLE] — The card title
+[BRANCH_NAME] — The worktree branch name
+[WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
+[BASE_BRANCH] — The branch to merge into (typically `main`)
 </placeholder-variables>
 
 <tools>
 
-**remove-worktree** -- Removes a worktree and deletes its associated branch. Returns the branch's final commit SHA.
+**remove-worktree** — Removes a worktree and deletes its associated branch. Returns the branch's final commit SHA.
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "[BRANCH_NAME]"
@@ -65,23 +65,23 @@ git rebase $BASE_BRANCH
 
 Based on rebase result:
 - **Conflicts occur**: Resolve conflicts, run `git add -A && git rebase --continue`
-- **Conflicts cannot be resolved**: Write an error comment to the card repository, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** -- Awaiting user intervention.
+- **Conflicts cannot be resolved**: Write an error comment to the card repository, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** — Awaiting user intervention.
 
 After rebase completes, run linting, type checking, and tests.
 
 **Validation rules:**
 - All validation commands must execute and pass. A command that errors before producing results is a failure.
-- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" -- resolve them or block.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
 - "Resolve or block" is the only valid outcome. There is no "proceed despite errors" path.
 - Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
 - If blocked, report the failure by adding to existing open cards about the block, or by creating a new card with "backlog" status.
 
-Blocking is not failure -- it is honest acknowledgment that human intervention is needed. A clean block with clear documentation serves the project better than a rationalized merge.
+Blocking is not failure — it is honest acknowledgment that human intervention is needed. A clean block with clear documentation serves the project better than a rationalized merge.
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 4
 - **Validation fails and attempts < 3**: Fix errors in the workspace worktree, re-run validation
-- **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** -- Awaiting user intervention.
+- **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** — Awaiting user intervention.
 
 ## 4. Prepare Main Workspace
 
@@ -102,7 +102,7 @@ git merge --ff-only "$BRANCH_NAME"
 
 Based on merge result:
 - **Merge succeeds**: Proceed to Step 6
-- **Merge fails**: Post error comment, add `blocked` tag, **STOP** -- Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
+- **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
 
 ## 6. Restore Stashed Work
 
@@ -116,6 +116,6 @@ Based on stash state:
 "${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "$BRANCH_NAME"
 ```
 
-**STOP** -- Merge complete. Awaiting user verification.
+**STOP** — Merge complete. Awaiting user verification.
 
 </instructions>

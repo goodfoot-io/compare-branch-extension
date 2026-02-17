@@ -14,7 +14,7 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 
 ## 1. Constraint
 
-Provide information only -- no code changes, worktrees, or commits to the workspace repository. If the card contains implementation requests, explain that implementation requires moving the card to "todo" status first.
+Provide information only — no code changes, worktrees, or commits to the workspace repository. If the card contains implementation requests, explain that implementation requires moving the card to "todo" status first.
 
 ## 2. Determine Response
 
@@ -36,6 +36,6 @@ git add comment/
 git commit -m "[summary of the response: what was addressed, what recommendation was made, and why]"
 ```
 
-**STOP** -- Do not proceed to implementation protocols.
+**STOP** — Do not proceed to implementation protocols.
 
 </instructions>

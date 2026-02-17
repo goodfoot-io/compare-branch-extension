@@ -11,18 +11,18 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 ```
 
 <placeholder-variables>
-[CARD_ID] -- The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] -- The card title from CARD.meta.json
-[CARD_DESCRIPTION] -- The card description text from CARD.md
-[BRANCH_NAME] -- `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-[WORKTREE_PATH] -- `.worktrees/[BRANCH_NAME]`
-[CHECKPOINT_SHA] -- Commit SHA recorded at the pre-implementation checkpoint
-[TASK_COUNT] -- Number of implementation tasks derived from the card
-[MODEL] -- LLM model selection for subagent delegation (opus, sonnet, or haiku)
+[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
+[TITLE] — The card title from CARD.meta.json
+[CARD_DESCRIPTION] — The card description text from CARD.md
+[BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
+[CHECKPOINT_SHA] — Commit SHA recorded at the pre-implementation checkpoint
+[TASK_COUNT] — Number of implementation tasks derived from the card
+[MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 </placeholder-variables>
 
 <orchestrator-constraints>
-The orchestrator prepares, plans, and coordinates -- it does NOT implement code.
+The orchestrator prepares, plans, and coordinates — it does NOT implement code.
 
 | Orchestrator handles directly | Implementer handles via delegation |
 |-------------------------------|-----------------------------------|
@@ -34,12 +34,12 @@ The orchestrator prepares, plans, and coordinates -- it does NOT implement code.
 
 Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation work.
 
-**Never update card status directly. Never include commitSha in comments after commits** -- hooks handle commit tracking automatically.
+**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
 </orchestrator-constraints>
 
 <tools>
 
-**create-worktree** -- Creates git worktree with automatic commit tracking via hooks.
+**create-worktree** — Creates git worktree with automatic commit tracking via hooks.
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
@@ -56,9 +56,9 @@ Git hooks automatically track commits. Squashed commits are cleaned up automatic
 ## 1. Prepare Environment
 
 Determine environment path using the first matching condition:
-- **Worktree exists**: Resume -- Navigate to existing worktree
-- **Branch exists (no worktree)**: Recreate -- Attach worktree to branch
-- **Otherwise**: New -- Create worktree
+- **Worktree exists**: Resume — Navigate to existing worktree
+- **Branch exists (no worktree)**: Recreate — Attach worktree to branch
+- **Otherwise**: New — Create worktree
 
 ### Resume (worktree exists)
 
@@ -126,7 +126,7 @@ If an "Implementation Complete" comment exists on the card, skip to **4. Finaliz
 
    **Clarification principles:**
    - Preserve all user-provided details, requirements, and constraints
-   - Maintain user intent -- the clarified version must request the same outcome
+   - Maintain user intent — the clarified version must request the same outcome
    - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
 
    **Enrich descriptions** with context discovered during exploration:
@@ -202,9 +202,9 @@ Analyze tasks along three dimensions:
 | **Size** | Substantial tasks with clear completion gates? |
 
 Route based on assessment:
-- **Independent files OR uniform tasks**: Parallel -- concurrent agent delegations
-- **Dependent + varied + small**: Coherent -- single agent for all tasks
-- **Dependent + varied + substantial with clear gates**: Sequential -- ordered delegations with checkpoints
+- **Independent files OR uniform tasks**: Parallel — concurrent agent delegations
+- **Dependent + varied + small**: Coherent — single agent for all tasks
+- **Dependent + varied + substantial with clear gates**: Sequential — ordered delegations with checkpoints
 
 When uncertain between Coherent and Sequential, choose **Coherent** for planless cards.
 
@@ -350,7 +350,7 @@ git add CARD.meta.json comment/
 git commit -m "[summary of implementation, key decisions, validation results, and what the reviewer should focus on]"
 ```
 
-**STOP** -- Merge occurs after user approval.
+**STOP** — Merge occurs after user approval.
 
 ### If review is NOT required:
 

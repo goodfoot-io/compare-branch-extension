@@ -39,6 +39,6 @@ git add comment/
 git commit -m "[what the blocker is, which card or dependency it references, and what resolution is needed]"
 ```
 
-**STOP** -- Do not proceed until the blocker is resolved and the "blocked" tag is removed. Routing will re-evaluate once the tag is removed.
+**STOP** — Do not proceed until the blocker is resolved and the "blocked" tag is removed. Routing will re-evaluate once the tag is removed.
 
 </instructions>

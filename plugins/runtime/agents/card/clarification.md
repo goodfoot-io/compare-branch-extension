@@ -20,9 +20,9 @@ Based on comments and prior clarification requests:
 
 - **No existing "## Clarification Needed" comment**: Proceed to Step 2
 
-- **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit and **STOP** -- the router will re-evaluate with the new information.
+- **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit and **STOP** — the router will re-evaluate with the new information.
 
-- **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** -- already waiting for user clarification.
+- **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** — already waiting for user clarification.
 
 ## 2. Identify Missing Requirements
 
@@ -42,7 +42,7 @@ Search the workspace codebase for keywords from the card description:
 3. Identify relevant file paths for code references
 
 Based on research results:
-- **If research resolves all gaps**: Write findings as a comment to the card repository, commit, and **STOP** -- the router will route to implementation
+- **If research resolves all gaps**: Write findings as a comment to the card repository, commit, and **STOP** — the router will route to implementation
 - **If gaps remain**: Note findings for the clarification request, proceed to Step 4
 
 ## 4. Post Clarification Request

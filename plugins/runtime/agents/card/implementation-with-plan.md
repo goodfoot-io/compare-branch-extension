@@ -11,19 +11,19 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 ```
 
 <placeholder-variables>
-[CARD_ID] -- The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] -- The card title from CARD.meta.json
-[DESCRIPTION] -- The card description text from CARD.md
-[BRANCH_NAME] -- `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-[WORKTREE_PATH] -- `.worktrees/[BRANCH_NAME]`
-[TASK_CHECKPOINT] -- Commit SHA recorded before each agent delegation
-[TASK_DESCRIPTION] -- Human-readable description of the current task phase
-[EVALUATION_CYCLE] -- Counter tracking evaluation iterations (max 2)
-[MODEL] -- LLM model selection for subagent delegation (opus, sonnet, or haiku)
+[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
+[TITLE] — The card title from CARD.meta.json
+[DESCRIPTION] — The card description text from CARD.md
+[BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
+[TASK_CHECKPOINT] — Commit SHA recorded before each agent delegation
+[TASK_DESCRIPTION] — Human-readable description of the current task phase
+[EVALUATION_CYCLE] — Counter tracking evaluation iterations (max 2)
+[MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 </placeholder-variables>
 
 <orchestrator-constraints>
-The orchestrator coordinates -- it does NOT implement code.
+The orchestrator coordinates — it does NOT implement code.
 
 | Orchestrator handles directly | Agents handle via delegation |
 |------------------------------|------------------------------|
@@ -38,44 +38,44 @@ The orchestrator coordinates -- it does NOT implement code.
 Plan says "implement" -> delegate to implementer agent.
 Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
 
-**Never update card status directly. Never include commitSha in comments after commits** -- hooks handle commit tracking automatically.
+**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
 </orchestrator-constraints>
 
 <commit-message-artistry>
 ## Crafting World-Class Commit Messages
 
-Commit messages are the narrative layer of code history. Future developers will read these messages to understand not just *what* changed, but *why* and *how* -- the human story behind the code. Write commit messages that are technically precise, contextually rich, and genuinely engaging.
+Commit messages are the narrative layer of code history. Future developers will read these messages to understand not just *what* changed, but *why* and *how* — the human story behind the code. Write commit messages that are technically precise, contextually rich, and genuinely engaging.
 
 ### Message Structure
 
-Every significant commit (non-checkpoint) should follow this 2-5 paragraph structure. Length scales with change scope -- a focused fix may need only 2 paragraphs; a multi-module feature deserves the full 5.
+Every significant commit (non-checkpoint) should follow this 2-5 paragraph structure. Length scales with change scope — a focused fix may need only 2 paragraphs; a multi-module feature deserves the full 5.
 
-**Paragraph 1 -- The Hook (Subject + Context)**
+**Paragraph 1 — The Hook (Subject + Context)**
 Start with a conventional commit prefix and concise subject line. Follow immediately with a sentence that establishes *why this change matters* in the broader context of the system.
 
-**Paragraph 2 -- The Problem**
+**Paragraph 2 — The Problem**
 What challenge, requirement, or deficiency prompted this work? Paint the "before" picture. What would happen without this change? Why now?
 
-**Paragraph 3 -- The Journey (for substantial changes)**
-What alternatives were considered? What made this approach win? Were there pivots, dead ends, or "aha" moments? This paragraph is the heart of the narrative -- it is what makes the commit message memorable and educational.
+**Paragraph 3 — The Journey (for substantial changes)**
+What alternatives were considered? What made this approach win? Were there pivots, dead ends, or "aha" moments? This paragraph is the heart of the narrative — it is what makes the commit message memorable and educational.
 
-**Paragraph 4 -- The Solution**
+**Paragraph 4 — The Solution**
 What was actually built? Focus on the *design* rather than listing files. What patterns were established or followed? What tradeoffs were accepted?
 
-**Paragraph 5 -- The Future (optional, for large changes)**
+**Paragraph 5 — The Future (optional, for large changes)**
 What does this enable? What related work remains? What should future maintainers know?
 
 ### The Undeniable Truth
 
 Every commit teaches something. Your job is to say what, for someone who needs to understand this code later.
 
-Do not optimize for profundity. The reader needs to understand what changed and why. Sometimes genuine insight emerges -- a surprising discovery, an irony worth noting, a lesson that only became clear after the work was done. When that happens, include it. When it does not, move on. Manufactured insight is worse than none.
+Do not optimize for profundity. The reader needs to understand what changed and why. Sometimes genuine insight emerges — a surprising discovery, an irony worth noting, a lesson that only became clear after the work was done. When that happens, include it. When it does not, move on. Manufactured insight is worse than none.
 
 The test: would this help someone debugging at 2am? If you would mutter "just tell me what you did" while reading it, rewrite it.
 
 ### Voice and Tone
 
-Write for two readers: the one debugging at 2am who needs speed, and the one on a calm Tuesday who needs context. Active voice, present tense. Match your energy to the change -- a small fix deserves small prose.
+Write for two readers: the one debugging at 2am who needs speed, and the one on a calm Tuesday who needs context. Active voice, present tense. Match your energy to the change — a small fix deserves small prose.
 
 ### Synthesizing from Subagent Reports
 
@@ -93,7 +93,7 @@ Collect the Decision Narratives. Extract: what changed, what was learned, what t
 
 <tools>
 
-**create-worktree** -- Creates git worktree with automatic commit tracking via hooks.
+**create-worktree** — Creates git worktree with automatic commit tracking via hooks.
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
@@ -110,9 +110,9 @@ Git hooks automatically track commits. Squashed commits are cleaned up automatic
 ## 1. Prepare Environment
 
 Determine path using the first matching condition:
-- **Worktree exists**: Resume -- Navigate to existing worktree
-- **Branch exists (no worktree)**: Recreate -- Attach worktree to branch
-- **Otherwise**: New -- Create worktree
+- **Worktree exists**: Resume — Navigate to existing worktree
+- **Branch exists (no worktree)**: Recreate — Attach worktree to branch
+- **Otherwise**: New — Create worktree
 
 ### Resume
 
@@ -321,7 +321,7 @@ Based on agent status:
 - **COMPLETED**: Commit with `refactor:` prefix, then capture and report refactoring changes:
   1. Find the checkpoint: `git log --grep="checkpoint: before refactoring" --format=%H -1`
   2. Run `git diff <checkpoint> HEAD --stat` to capture changes
-  3. If diff is empty: Write brief comment "No refactoring changes were made -- code already met quality standards"
+  3. If diff is empty: Write brief comment "No refactoring changes were made — code already met quality standards"
   4. If diff has content: Write a comment with a paragraph summarizing what was refactored and why (derived from the diff stat and refactoring focus areas), followed by the diff stat
   5. Proceed to Step 4
 - **HAS_RECOMMENDATIONS**: Log recommendations, proceed to Step 4
@@ -415,6 +415,6 @@ git add CARD.meta.json comment/
 git commit -m "[summary of implementation against the plan, key decisions, validation results, and what the reviewer should focus on]"
 ```
 
-**STOP** -- Merge occurs after user approval.
+**STOP** — Merge occurs after user approval.
 
 </instructions>

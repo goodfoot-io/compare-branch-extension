@@ -11,7 +11,7 @@ Good requests are time-aware but not time-bound: they include urgency, change wi
 
 ## Writing Process
 
-### Define the Operational Objective and Urgency
+### 1. Define the Operational Objective and Urgency
 
 Anchor the request in what needs to be true after the work:
 
@@ -19,7 +19,7 @@ Anchor the request in what needs to be true after the work:
 - What user or business impact is at risk (SLA/SLO, error budget, support volume)?
 - How urgent is this and why (incident impact, upcoming launch, compliance deadline)?
 
-### Ground the Request in Evidence
+### 2. Ground the Request in Evidence
 
 Operational work should be grounded in observable signals:
 
@@ -27,7 +27,7 @@ Operational work should be grounded in observable signals:
 - Baselines (current build time, failure rate, latency, cost)
 - Reproducible conditions if applicable
 
-### State Desired Outcomes and Verification
+### 3. State Desired Outcomes and Verification
 
 Define outcomes in measurable, testable terms:
 
@@ -35,7 +35,7 @@ Define outcomes in measurable, testable terms:
 - Verification steps (dashboard checks, runbook validation, canary signals)
 - Must-have vs nice-to-have outcomes
 
-### Classify Change Type and Constraints
+### 4. Classify Change Type and Constraints
 
 Operational work benefits from explicit change classification:
 
@@ -44,7 +44,7 @@ Operational work benefits from explicit change classification:
 - Change windows, approvals, or compliance requirements
 - Dependencies on other teams or systems
 
-### Make Risk and Reversibility Explicit
+### 5. Make Risk and Reversibility Explicit
 
 Capture safety and failure considerations:
 
@@ -52,7 +52,7 @@ Capture safety and failure considerations:
 - Rollback/backout expectations or safe-stop criteria
 - Preconditions (access, feature flags, backups, capacity headroom)
 
-### Clarify Ownership and Communication
+### 6. Clarify Ownership and Communication
 
 Define who leads and how updates flow:
 
@@ -60,7 +60,7 @@ Define who leads and how updates flow:
 - Stakeholder updates or comms expectations
 - Links to existing runbooks, SOPs, or prior incidents
 
-### Call Out Toil and Automation Opportunities (Optional)
+### 7. Call Out Toil and Automation Opportunities (Optional)
 
 If the work is recurring or manual, note if explicitly:
 

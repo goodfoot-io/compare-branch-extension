@@ -17,7 +17,7 @@ Before asking the user about operational procedures, follow this protocol.
 
 ### Step 1: Conduct Research
 
-1.  **Analyze Safety & Recovery:** Use `Task` (explore) to look for "undo buttons" -- rollback scripts, backup procedures.
+1.  **Analyze Safety & Recovery:** Use `Task` (explore) to look for "undo buttons" — rollback scripts, backup procedures.
 2.  **Gap Analysis:** Explicitly check for *missing* automation. Does a `deploy` script exist but no `rollback`?
 3.  **Map the Config Surface:** Use `Bash` (`find`, `grep`) to identify what can be changed via environment variables.
 
@@ -64,5 +64,7 @@ Update the `title` field in `CARD.meta.json` with the revised title. Replace the
 git add CARD.meta.json CARD.md
 git commit -m "[summary of title/description changes, key decisions from the interview, and rationale for the operational scope and risk assessment]"
 ```
+
+**STOP** — Interview complete; card has been updated and committed.
 
 </instructions>

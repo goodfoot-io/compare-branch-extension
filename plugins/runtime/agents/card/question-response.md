@@ -52,6 +52,6 @@ git add comment/
 git commit -m "[summary of the question asked and the key findings from research]"
 ```
 
-**STOP** -- Question answered; do not proceed to implementation.
+**STOP** — Question answered; do not proceed to implementation.
 
 </instructions>

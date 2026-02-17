@@ -12,7 +12,7 @@ Good requests are scannable and timeless: they front-load the most important inf
 
 ## Writing Process
 
-### Clarify the User Need and Context
+### 1. Clarify the User Need and Context
 
 Anchor the request in the real task or decision the reader needs to make:
 
@@ -24,7 +24,7 @@ Anchor the request in the real task or decision the reader needs to make:
 If helpful, express the need in a user story format to make the audience and value explicit:
 - "As a [persona], I want [goal], so that [value]."
 
-### Classify the Documentation Type
+### 2. Classify the Documentation Type
 
 Different doc types serve different needs. If the user knows the type, record it; if not, infer it from the task:
 
@@ -36,7 +36,7 @@ Different doc types serve different needs. If the user knows the type, record it
 - **Knowledge-base Article**: Support-facing diagnosis and resolution
 - **Examples**: Concrete, runnable or copyable usage patterns
 
-### Define the Desired Outcome (Success Criteria)
+### 3. Define the Desired Outcome (Success Criteria)
 
 Describe what the reader should be able to do or understand after reading:
 
@@ -44,7 +44,7 @@ Describe what the reader should be able to do or understand after reading:
 - How to verify success (observable results, expected output, or confirmation signals)
 - Any must-have vs nice-to-have outcomes
 
-### Record Source of Truth and Constraints
+### 4. Record Source of Truth and Constraints
 
 Docs must align with reality. Capture:
 
@@ -54,7 +54,7 @@ Docs must align with reality. Capture:
 - Update cadence expectations (one-off, per release, after incidents)
 - Time sensitivity (avoid "new" or "currently"; use versions or dates if needed)
 
-### Separate Intent from Implementation
+### 5. Separate Intent from Implementation
 
 State outcomes, not the exact file or format unless required:
 
@@ -63,7 +63,7 @@ State outcomes, not the exact file or format unless required:
 
 If a location or template is required by policy, include it as a constraint, not a solution.
 
-### Make the Request Scannable
+### 6. Make the Request Scannable
 
 Readers often scan, so front-load the essentials:
 
@@ -71,7 +71,7 @@ Readers often scan, so front-load the essentials:
 - Use short sections with clear headings
 - Prefer concise, direct language over narrative
 
-### Decide How Prescriptive the Docs Should Be
+### 7. Decide How Prescriptive the Docs Should Be
 
 Some docs should recommend a specific path (prescriptive), while others should enumerate options (reference). If prescriptive guidance is needed:
 

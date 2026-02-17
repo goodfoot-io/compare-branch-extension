@@ -11,16 +11,16 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 ```
 
 <placeholder-variables>
-[CARD_ID] -- The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] -- The card title from CARD.meta.json
-[DESCRIPTION] -- The card description text from CARD.md
-[LATEST_USER_COMMENT] -- Most recent comment from a user (if any)
-[PLAN_CONTENT] -- The plan markdown content from PLAN.md (or null if not set)
+[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
+[TITLE] — The card title from CARD.meta.json
+[DESCRIPTION] — The card description text from CARD.md
+[LATEST_USER_COMMENT] — Most recent comment from a user (if any)
+[PLAN_CONTENT] — The plan markdown content from PLAN.md (or null if not set)
 </placeholder-variables>
 
 <instructions>
 
-Create implementation plans for cards requiring user approval before coding begins. Do NOT create worktrees or make code changes -- plans must be approved before any implementation begins.
+Create implementation plans for cards requiring user approval before coding begins. Do NOT create worktrees or make code changes — plans must be approved before any implementation begins.
 
 ## 1. Create Plan
 
@@ -83,7 +83,7 @@ Based on combined assessment results:
 
 - **Ready: Yes AND READY**: Proceed to step 3
 - **Ready: Yes AND DISCUSS**: Proceed, but document accepted concerns
-- **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" -- address strategic issues
+- **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" — address strategic issues
 - **Ready: Yes (suggestions) AND READY/DISCUSS**: Proceed with awareness of suggestions
 - **Ready: No**: Address structural issues first
 - **RECONSIDER (any Ready state)**: Address strategic issues before proceeding
@@ -114,11 +114,11 @@ Proceed to **3. Submit for Approval**
 
 ## 3. Submit for Approval
 
-**Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` -- do not summarize it.
+**Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
 
 Focus on what the reviewer cannot see: your reasoning process, what you learned, where you made judgment calls, and where you are less certain. Mention the plan version. Surface decisions as questions with your selected answer inline when the right path was not obvious.
 
-Include surprises, dead ends, assumptions, or risks when they would help the reviewer focus their attention. Write naturally -- only include what is genuinely useful for this specific plan.
+Include surprises, dead ends, assumptions, or risks when they would help the reviewer focus their attention. Write naturally — only include what is genuinely useful for this specific plan.
 
 Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review`. Commit to the card repository:
 
@@ -127,6 +127,6 @@ git add CARD.meta.json comment/
 git commit -m "[reasoning process, key judgment calls, areas of uncertainty, and what the reviewer should focus on]"
 ```
 
-**STOP** -- Wait for user feedback on plan.
+**STOP** — Wait for user feedback on plan.
 
 </instructions>

@@ -21,14 +21,14 @@ An investigation request should make the intent and outcomes explicit: what need
 | Decision Criteria | How results influence next steps | "How will we decide what to do next?" |
 | Risks & Assumptions | Known uncertainties and dependencies | "What could invalidate or skew results?" |
 
-## Summary (Do not include header in final description output)
+## 1. Summary (Do not include header in final description output)
 
 State the investigation intent in one or two sentences. Focus on the learning objective and the decision it will inform.
 
 **Guidance:**
 Write the summary as a question or uncertainty paired with impact. Example: "Assess whether the current indexing pipeline can meet a 2x throughput target without new infrastructure; results will decide whether to pursue a rewrite or incremental tuning."
 
-## Background
+## 2. Background
 
 Provide only the context required to understand the investigation and why it is needed now.
 
@@ -43,7 +43,7 @@ Provide only the context required to understand the investigation and why it is 
 **Guidance:**
 Keep this concise and factual. The goal is to frame, not to argue for a solution.
 
-## Key Questions / Hypotheses
+## 3. Key Questions / Hypotheses
 
 Enumerate the unknowns that must be resolved. This is the heart of an investigation request.
 
@@ -55,7 +55,7 @@ Enumerate the unknowns that must be resolved. This is the heart of an investigat
 **Guidance:**
 Phrase questions so they can be answered with data. Replace vague "Is this scalable?" with "What throughput is sustainable under current resource constraints?"
 
-## Scope & Constraints
+## 4. Scope & Constraints
 
 Define the boundaries and guardrails for the investigation.
 
@@ -68,7 +68,7 @@ Define the boundaries and guardrails for the investigation.
 **Guidance:**
 Scope should be narrow enough to complete but broad enough to answer the key questions.
 
-## Approach & Evidence Sources
+## 5. Approach & Evidence Sources
 
 Describe how evidence will be gathered to answer the key questions.
 
@@ -80,7 +80,7 @@ Describe how evidence will be gathered to answer the key questions.
 **Guidance:**
 Favor evidence that is repeatable and verifiable. Avoid approaches that depend on tribal knowledge without documentation.
 
-## Deliverables
+## 6. Deliverables
 
 List the expected outputs from the investigation.
 
@@ -90,7 +90,7 @@ List the expected outputs from the investigation.
 - Prototype results or benchmark data
 - Decision log or go/no-go criteria
 
-## Decision Criteria
+## 7. Decision Criteria
 
 Define how the investigation results will drive next steps.
 
@@ -99,7 +99,7 @@ Define how the investigation results will drive next steps.
 - How uncertainty will be handled
 - Who signs off on the decision
 
-## Risks & Assumptions
+## 8. Risks & Assumptions
 
 Surface what could skew the investigation or limit its conclusions.
 

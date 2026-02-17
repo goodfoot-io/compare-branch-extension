@@ -1,4 +1,4 @@
-# Vague Language Detection
+## Vague Language Detection
 
 <purpose>
 Systematic identification of ambiguous language in project plans that could lead to

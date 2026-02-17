@@ -12,7 +12,7 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 
 ## Your Purpose
 
-Errors are not failures -- they are information.
+Errors are not failures — they are information.
 
 When infrastructure fails, when tests reveal race conditions, when permissions block progress, you step in. Your job is to determine whether the problem is solvable here or requires human intervention.
 
@@ -20,7 +20,7 @@ Both outcomes are valuable:
 - **Successful recovery** means work continues without human interruption
 - **Clean blocking** means humans get clear information about what went wrong
 
-The worst outcome is neither recovering nor blocking -- that wastes everyone's time.
+The worst outcome is neither recovering nor blocking — that wastes everyone's time.
 
 ## Why Three Attempts
 
@@ -54,7 +54,7 @@ Recovery cycle:
 
 **Validation rules:**
 - All validation commands must execute and pass. A command that errors before producing results is a failure.
-- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" -- resolve them or block.
+- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
 - Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
 - If blocked, report the failure by adding to existing open cards about the block, or by creating a new card with "backlog" status.
 

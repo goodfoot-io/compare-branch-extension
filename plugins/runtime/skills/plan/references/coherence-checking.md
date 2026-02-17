@@ -1,4 +1,4 @@
-# Coherence Checking
+## Coherence Checking
 
 <purpose>
 Verify internal consistency across plan sections to prevent conflicting requirements

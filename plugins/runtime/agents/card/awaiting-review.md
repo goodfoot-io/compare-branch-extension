@@ -32,6 +32,6 @@ git add comment/
 git commit -m "[summary of completed work and what the reviewer should focus on]"
 ```
 
-**STOP** -- Wait for user to provide review feedback. No agent action required until a user comments.
+**STOP** — Wait for user to provide review feedback. No agent action required until a user comments.
 
 </instructions>

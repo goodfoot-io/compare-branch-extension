@@ -1,4 +1,4 @@
-# Custom Types Reference
+## Custom Types Reference
 
 ## Type Configuration
 

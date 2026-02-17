@@ -9,7 +9,7 @@ Good reports capture what happened with enough precision that someone else can e
 
 ## Writing Process
 
-### Document Observable Facts
+### 1. Document Observable Facts
 
 Start with what you can verify:
 
@@ -19,7 +19,7 @@ Start with what you can verify:
 - Environment details (versions, configuration)
 - Timestamps if relevant to the behavior
 
-### Provide Reproduction Steps
+### 2. Provide Reproduction Steps
 
 Include the sequence of actions:
 
@@ -29,20 +29,18 @@ Include the sequence of actions:
 - Indicate whether you can reproduce consistently
 - If intermittent, say so explicitly
 
-### Separate Observation from Speculation
+### 3. Separate Observation from Speculation
 
 Share investigation without overstating conclusions:
 
-| Pattern | Example |
-|---------|---------|
-| Observation | "I noticed X happens when Y" |
-| Hypothesis | "This suggests the issue might involve Z" |
-| Investigation | "I checked A and found B" |
-| Avoid | "The bug is caused by..." (unless verified) |
+- **Observation**: "I noticed X happens when Y"
+- **Hypothesis**: "This suggests the issue might involve Z"
+- **Investigation**: "I checked A and found B"
+- **Avoid**: "The bug is caused by..." (unless verified)
 
 Speculation about root causes provides investigative leads, but premature conclusions can mislead. Frame hypotheses as exploration to invite consideration while remaining open to alternatives.
 
-### Write for the Investigator
+### 4. Write for the Investigator
 
 Include context you might take for granted:
 - What you were trying to accomplish

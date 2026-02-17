@@ -1,4 +1,4 @@
-# Duplication Judgment
+## Duplication Judgment
 
 <purpose>
 This document provides guidance for deciding whether to consolidate duplicated code or tolerate it. Use this framework when you encounter similar code in multiple locations and must determine the appropriate action.

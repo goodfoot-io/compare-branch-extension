@@ -11,30 +11,30 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 ```
 
 <placeholder-variables>
-[CARD_ID] -- The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] -- Card title for commit messages
-[DESCRIPTION] -- Card description text
-[COMMENTS] -- User comments on the card
-[BRANCH_NAME] -- `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-[FILES_TO_MODIFY] -- Files referenced in [DESCRIPTION] or [COMMENTS]
-[BUG_DESCRIPTION] -- One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
-[SCOPE_HINT] -- Files, packages, or functions mentioned in card (extracted in Step 2)
-[WORKTREE_DIR] -- Worktree directory path (`.worktrees/[BRANCH_NAME]`)
-[WORKTREE_BASELINE] -- Base commit SHA when worktree created
-[TEST_FILE_PATH] -- Absolute path to reproduction test
-[TEST_READY_SHA] -- Commit SHA after reproduction test committed
-[TEST_FAILURE_OUTPUT] -- Captured test output when test fails
-[TEST_PASS_ANALYSIS] -- Synthesized explanation when test unexpectedly passes
-[PREVIOUS_FAILURE_OUTPUT] -- Captured output from failed fix attempt
-[RESOLVER_REASONING] -- Fix explanation from resolver subagent
-[DATA_FLOW_SOURCE] -- Where the bad data originates (file:line or component)
-[DATA_FLOW_SYMPTOM] -- Where the bad data causes the bug (file:line or component)
-[DATA_FLOW_PATH] -- Chain from source to symptom: `SOURCE -> [intermediates] -> SYMPTOM`
+[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
+[TITLE] — Card title for commit messages
+[DESCRIPTION] — Card description text
+[COMMENTS] — User comments on the card
+[BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
+[BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
+[SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)
+[WORKTREE_DIR] — Worktree directory path (`.worktrees/[BRANCH_NAME]`)
+[WORKTREE_BASELINE] — Base commit SHA when worktree created
+[TEST_FILE_PATH] — Absolute path to reproduction test
+[TEST_READY_SHA] — Commit SHA after reproduction test committed
+[TEST_FAILURE_OUTPUT] — Captured test output when test fails
+[TEST_PASS_ANALYSIS] — Synthesized explanation when test unexpectedly passes
+[PREVIOUS_FAILURE_OUTPUT] — Captured output from failed fix attempt
+[RESOLVER_REASONING] — Fix explanation from resolver subagent
+[DATA_FLOW_SOURCE] — Where the bad data originates (file:line or component)
+[DATA_FLOW_SYMPTOM] — Where the bad data causes the bug (file:line or component)
+[DATA_FLOW_PATH] — Chain from source to symptom: `SOURCE -> [intermediates] -> SYMPTOM`
 </placeholder-variables>
 
 <tools>
 
-**create-worktree** -- Creates git worktree with automatic commit tracking via hooks.
+**create-worktree** — Creates git worktree with automatic commit tracking via hooks.
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
@@ -110,7 +110,7 @@ Evaluate whether the title and description clearly describe the bug. A good bug 
 
 **Clarification principles:**
 - Preserve all user-provided details, especially error messages and reproduction steps
-- Maintain user intent -- the clarified version must describe the same bug
+- Maintain user intent — the clarified version must describe the same bug
 - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
 
 **Enrich descriptions** with context discovered during exploration:
@@ -137,9 +137,9 @@ Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
 
 Extract from [DESCRIPTION] and [COMMENTS]:
 
-- BUG_DESCRIPTION -- One-sentence summary: "[Expected behavior] but [actual behavior]"
+- BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
 - Error messages / stack traces (verbatim)
-- SCOPE_HINT -- Files, packages, or functions mentioned
+- SCOPE_HINT — Files, packages, or functions mentioned
 
 ### 2.2 Delegate to Subagent
 
@@ -204,7 +204,7 @@ fi
 MODIFIED_FILES=$(git diff "$WORKTREE_BASELINE" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
   # Write comment asking user: proceed or revert?
-  # Set needs_review, STOP -- await user direction
+  # Set needs_review, STOP — await user direction
 fi
 
 # Run test
@@ -217,7 +217,7 @@ TEST_EXIT_CODE=$?
 
 Based on subagent response and test result:
 
-- **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** -- Awaiting user intervention.
+- **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** — Awaiting user intervention.
 
 - **Test FAILS (expected)**:
   - Commit the test in the workspace worktree: `git add -A && git commit -m "[what the reproduction test checks and why it fails]"`
@@ -233,7 +233,7 @@ Based on subagent response and test result:
 
 - **Test PASSES (unexpected) and attempts >= 3**:
   Write a comment to the card repository reporting that you were unable to create a test that reproduces the reported bug. Summarize what you tried in each attempt and share your hypothesis about why reproduction failed. Commit to the card repository.
-  **STOP** -- Reproduction failed after maximum attempts.
+  **STOP** — Reproduction failed after maximum attempts.
 
 ## 3. Resolve Bug
 
@@ -243,9 +243,9 @@ Initialize: RESOLVE_ATTEMPT = 0 (max 3), TEST_CORRECTION_COUNT = 0 (max 2)
 
 Before proposing a fix, map how bad data flows from origin to symptom:
 
-1. **Find [DATA_FLOW_SYMPTOM]** -- Where in code does the bug manifest? (from [TEST_FAILURE_OUTPUT])
-2. **Find [DATA_FLOW_SOURCE]** -- Trace backward: what data/state causes it? Where is that set?
-3. **Map [DATA_FLOW_PATH]** -- Document the chain: `[DATA_FLOW_SOURCE] -> [...] -> [DATA_FLOW_SYMPTOM]`
+1. **Find [DATA_FLOW_SYMPTOM]** — Where in code does the bug manifest? (from [TEST_FAILURE_OUTPUT])
+2. **Find [DATA_FLOW_SOURCE]** — Trace backward: what data/state causes it? Where is that set?
+3. **Map [DATA_FLOW_PATH]** — Document the chain: `[DATA_FLOW_SOURCE] -> [...] -> [DATA_FLOW_SYMPTOM]`
 
 **Verification rule:** Any fix must modify [DATA_FLOW_PATH] such that correct data flows from source to symptom.
 
@@ -254,7 +254,7 @@ Before proposing a fix, map how bad data flows from origin to symptom:
 - If fix adds new parameter -> verify callers pass it
 - If fix adds new branch -> verify production code triggers it
 
-Fixes that fail this check create "dead code" -- new capabilities that are never exercised.
+Fixes that fail this check create "dead code" — new capabilities that are never exercised.
 
 ### 3.2 Delegate to Subagent
 
@@ -325,7 +325,7 @@ SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 
 Based on changes detected:
 
-- **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with RESOLVER_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** -- Awaiting user intervention.
+- **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with RESOLVER_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** — Awaiting user intervention.
 
 - **Test modified**: Go to Test Correction Flow (Step 3.5)
 
@@ -335,18 +335,18 @@ Based on changes detected:
   - Capture `PREVIOUS_FAILURE_OUTPUT=$TEST_OUTPUT`
   - **If attempts < 3**: Return to Step 3.2
   - **If attempts >= 3**: Write a comment to the card repository explaining what you tried and the specific technical obstacle preventing resolution. Commit to the card repository.
-    **STOP** -- Resolution failed after maximum attempts.
+    **STOP** — Resolution failed after maximum attempts.
 
 ### 3.5 Test Correction Flow
 
 1. Increment TEST_CORRECTION_COUNT
 2. **If > 2**: Write a comment to the card repository reporting that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it cannot be trusted to verify the fix. Commit to the card repository.
-   **STOP** -- Test became unreliable.
+   **STOP** — Test became unreliable.
 3. Revert source changes: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
    - **FAILS (valid)**: Commit correction, update TEST_READY_SHA, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
-   - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP** -- Test correction failed.
+   - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP** — Test correction failed.
 
 ## 4. Validate Full Suite
 
@@ -373,18 +373,18 @@ There is no "probably fine" state. If you cannot make validation pass, you MUST 
 
 **When validation fails:**
 - If the error is in code you can modify, fix it and re-run
-- If the error is in infrastructure or code outside your scope, block immediately -- do not retry hoping it resolves itself
+- If the error is in infrastructure or code outside your scope, block immediately — do not retry hoping it resolves itself
 
 **When blocked:**
 1. Write error comment with exact failure output to the card
 2. Add `blocked` tag to `CARD.meta.json`
 3. Commit changes
-4. **STOP** -- Do not proceed under any circumstances
+4. **STOP** — Do not proceed under any circumstances
 </validation-gate>
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 5
-- **Validation fails**: Write comment listing failures, add `blocked` tag, commit, **STOP** -- Validation failed.
+- **Validation fails**: Write comment listing failures, add `blocked` tag, commit, **STOP** — Validation failed.
 
 ## 5. Finalize
 
@@ -412,7 +412,7 @@ Based on review requirement:
   git commit -m "[bug summary, root cause, fix approach, test file path, and what the reviewer should focus on]"
   ```
 
-  **STOP** -- Merge occurs after user approval.
+  **STOP** — Merge occurs after user approval.
 
 - **Review NOT required (gates.reviewRequired is false or unset)**:
   Write a completion comment to the card repository summarizing the bug, the fix approach, and confirming all tests pass. Commit to the card repository. Then launch the merge agent:

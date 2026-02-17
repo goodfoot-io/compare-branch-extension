@@ -21,7 +21,7 @@ Maintenance requests follow a six-section structure:
 | Risks & Dependencies | Surface coordination and rollout needs | "What could go wrong or block us?" |
 | Acceptance Signals | Make completion verifiable | "How do we know it's done?" |
 
-## Motivation & Impact (Do not include header in final description output)
+## 1. Motivation & Impact (Do not include header in final description output)
 
 Anchor the request in measurable impact: operational risk, developer time, reliability, cost, or looming deprecations.
 
@@ -41,7 +41,7 @@ Use the technical-debt metaphor: call out the "interest" (ongoing cost) and the 
 - **The Urgency Claim**: "We must do this soon" without evidence of risk or cost
 - **The Invisible Cost**: No mention of how this work reduces future effort or failure
 
-## Current State
+## 2. Current State
 
 Describe the maintenance burden so readers can verify it and estimate effort.
 
@@ -58,7 +58,7 @@ Stick to observable facts. Use code references, metrics, or links to past cards.
 - **The Hunch**: Speculating about debt without verifiable references
 - **The Anatomy Dump**: Listing every file touched without explaining the burden
 
-## Desired Outcomes
+## 3. Desired Outcomes
 
 Define outcomes that reduce maintenance cost while preserving behavior.
 
@@ -75,7 +75,7 @@ Write outcomes as verifiable statements. Avoid prescribing solutions unless requ
 - **The Refactor Command**: "Refactor module X" with no outcome
 - **The Vague Goal**: "Cleaner code" without measurable signals
 
-## Scope & Constraints
+## 4. Scope & Constraints
 
 Prevent scope creep and protect critical behaviors.
 
@@ -92,7 +92,7 @@ Be explicit about what must not change, especially user-facing behavior. Mainten
 - **The Unlimited Cleanup**: "Clean up the codebase" with no boundaries
 - **The Constraint Omission**: Forgetting API or data compatibility
 
-## Risks & Dependencies
+## 5. Risks & Dependencies
 
 Surface coordination needs and migration hazards early.
 
@@ -109,7 +109,7 @@ Identify risks without demanding a full plan. For large migrations, note if phas
 - **The Hidden Risk**: Omitting deprecation timelines or rollback concerns
 - **The Plan Trap**: Writing a detailed implementation plan here
 
-## Acceptance Signals
+## 6. Acceptance Signals
 
 Make completion verifiable without prescribing detailed steps.
 

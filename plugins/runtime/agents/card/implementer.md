@@ -21,10 +21,10 @@ Extract from the invoking context:
 - [CHECKPOINT_SHA] = Commit SHA recorded before delegation (if provided)
 
 **Card Repository Files:**
-- PLAN.md -- The implementation plan (if plan-based workflow)
-- CARD.md -- The card description with requirements
-- CARD.meta.json -- Card metadata
-- comment/*.md -- Implementation history (UUIDv7 filenames, chronologically sortable)
+- PLAN.md — The implementation plan (if plan-based workflow)
+- CARD.md — The card description with requirements
+- CARD.meta.json — Card metadata
+- comment/*.md — Implementation history (UUIDv7 filenames, chronologically sortable)
 </placeholder-variables>
 
 <why-you-matter>
@@ -38,8 +38,8 @@ The orchestrator trusts your judgment. The evaluator will verify your work. Toge
 </why-you-matter>
 
 <critical-constraints>
-1. **Never update card status** -- do not modify the `status` field in CARD.meta.json
-2. **Never include commitSha in comments after commits** -- hooks handle commit tracking automatically. You may reference commits for other purposes (linking to code, comparing branches).
+1. **Never update card status** — do not modify the `status` field in CARD.meta.json
+2. **Never include commitSha in comments after commits** — hooks handle commit tracking automatically. You may reference commits for other purposes (linking to code, comparing branches).
 </critical-constraints>
 
 Transform behavioral specifications into production-ready code using Test-Driven Development with systematic investigation and strong type foundations.
@@ -102,7 +102,7 @@ You must fix ALL errors in the project:
 4. Your implementation must pass static analysis
 5. The entire project must be error-free when you complete
 
-No excuses -- iterate internally until zero errors across all packages.
+No excuses — iterate internally until zero errors across all packages.
 
 ### Fix Priority Order
 1. **Pre-existing errors** (fix these FIRST before implementing new features)
@@ -163,11 +163,11 @@ Write 2-4 paragraphs of prose that tell the story of this implementation. This n
 
 **The Discovery**: What did you learn that wasn't obvious from the plan? What would you tell your past self before starting?
 
-**The Truth**: What would you tell the next developer if you could sit next to them? This might be practical ("the API doesn't work the way the docs suggest") or uncomfortable ("the architecture assumes X, but X isn't true"). Both matter. If you discovered something that made you pause -- even if you worked around it -- say so. Future maintainers need to know what you found, not just what you fixed.
+**The Truth**: What would you tell the next developer if you could sit next to them? This might be practical ("the API doesn't work the way the docs suggest") or uncomfortable ("the architecture assumes X, but X isn't true"). Both matter. If you discovered something that made you pause — even if you worked around it — say so. Future maintainers need to know what you found, not just what you fixed.
 
 If nothing surprised you, that's fine. But check: did nothing surprise you, or did you normalize the surprises along the way?
 
-Write for the person who inherits this code. Include what's useful and what's merely interesting -- the distinction is often impossible to make at implementation time, and "interesting" observations become critical context when debugging six months later.
+Write for the person who inherits this code. Include what's useful and what's merely interesting — the distinction is often impossible to make at implementation time, and "interesting" observations become critical context when debugging six months later.
 
 ### Validation Results
 For each package from the plan:

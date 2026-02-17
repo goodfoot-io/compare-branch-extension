@@ -1,4 +1,4 @@
-# Document Evolution
+## Document Evolution
 
 <purpose>
 Ensure project plans are structured to support healthy iteration as understanding

@@ -22,7 +22,7 @@ Enhancement requests bridge understanding between what exists, what should exist
 
 The document should enable someone unfamiliar with the system's history to understand the full context: what decisions led to the current state, what the current state actually does, what it should do instead, and how to get there.
 
-## Document Structure
+## 1. Document Structure
 
 Enhancement requests follow a four-section structure that builds understanding progressively:
 
@@ -33,7 +33,7 @@ Enhancement requests follow a four-section structure that builds understanding p
 | Desired Functionality | State requirements clearly | "What should it do?" |
 | Implementation Approach (Optional) | Describe the path forward | "How could we get there?" |
 
-## Historical Context (Do not include header in final description output)
+## 2. Historical Context (Do not include header in final description output)
 
 **Purpose:**
 Establish the narrative of how the system evolved to its current state. This section preserves decision history that would otherwise be lost and helps readers understand why things are the way they are.
@@ -68,7 +68,7 @@ When referencing commits or PRs, explain what they did rather than just citing t
 - **The Blame Game**: Framing past decisions as mistakes rather than trade-offs made with different information or priorities.
 - **The Archaeology Report**: Exhaustive commit-by-commit history without synthesis. Readers need narrative, not a changelog.
 
-## Current Functionality
+## 3. Current Functionality
 
 **Purpose:**
 Document what the system actually does today, with sufficient detail that readers can verify claims against the codebase. This section establishes shared understanding of the starting point.
@@ -100,7 +100,7 @@ Distinguish between intentional behavior and incidental behavior. Some behavior 
 - **The Vague Gesture**: "The system handles this somehow" without specifics. If you don't know, investigate or note the gap.
 - **The Stale Reference**: File paths or line numbers that don't match the current codebase. Verify before including.
 
-## Desired Functionality
+## 4. Desired Functionality
 
 **Purpose:**
 State clearly what the system should do. This section defines the target state against which implementation will be measured.
@@ -135,7 +135,7 @@ Distinguish between must-have and nice-to-have. If some requirements are negotia
 - **The Moving Target**: Requirements so vague they can't be verified. "Better performance" is not a requirement; "Response time under 200ms" is.
 - **The Scope Creep Invitation**: Failing to state what's out of scope, inviting unbounded expansion.
 
-## Implementation Approach (Optional)
+## 5. Implementation Approach (Optional)
 
 Determine whether to include this section:
 - **[INCLUDE_IMPLEMENTATION_APPROACH]**: Include this section

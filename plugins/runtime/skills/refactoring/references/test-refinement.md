@@ -1,4 +1,4 @@
-# Test Refinement
+## Test Refinement
 
 <purpose>
 This document provides guidance for refactoring test code during pre-validation cleanup. Tests are first-class code that requires the same attention to clarity and maintainability as production code. Use this framework when evaluating and improving test quality.

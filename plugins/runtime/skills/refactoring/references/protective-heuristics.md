@@ -1,4 +1,4 @@
-# Protective Heuristics
+## Protective Heuristics
 
 ## Why This Methodology Matters
 
