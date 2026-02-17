@@ -19,6 +19,7 @@ import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { promisify } from 'node:util';
+import { getTranscriptPathForPid } from '@cards/claude-code-sessions';
 import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
 import { createWorktree } from '../lib/create-worktree.js';
@@ -64,7 +65,7 @@ function buildArgs(
     args.push(prompt);
     args.push('--session-id', sessionId);
   }
-  args.push('--agent', 'runtime:router');
+  args.push('--agent', 'runtime:card:router');
   args.push('--settings', PLUGIN_SETTINGS);
   args.push('--add-dir', cardRepoPath);
   if (mode === 'background') {
@@ -240,7 +241,7 @@ export default defineAction(
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
-    const prompt = `Review the card repo and stop.`;
+    const prompt = `Route to the appropriate agent.`;
 
     context.logger.info('Launch action started', {
       cardId: input.cardId,
@@ -313,11 +314,31 @@ export default defineAction(
       const result = await stream.close();
       context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
     } else {
+      const transcriptPathPromise = getTranscriptPathForPid(child.pid!, 30_000);
+
       const exitCode = await new Promise<number | null>((resolve) => {
         child.on('close', resolve);
       });
 
-      context.logger.info('Launch action completed', { sessionId, exitCode });
+      const transcriptPath = await transcriptPathPromise;
+      if (!transcriptPath) {
+        throw new Error(`Failed to resolve transcript path for PID ${child.pid}`);
+      }
+
+      const transcript = await fs.readFile(transcriptPath, 'utf-8');
+      const stream = client.openStream(input.cardId, 'claude-code-session', `${sessionId}.jsonl`, {
+        title: `Claude session for ${input.cardId}`,
+        sessionId
+      });
+
+      for (const line of transcript.split('\n')) {
+        if (line.trim()) {
+          stream.write(line);
+        }
+      }
+
+      const result = await stream.close();
+      context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
     }
 
     // Post-exit cleanup: remove fully-merged branches

@@ -21,6 +21,7 @@ export { isProcessAlive } from './ipc.js';
  * Returns a promise that resolves after `ms` milliseconds.
  *
  * @param ms - Duration to sleep in milliseconds.
+ * @returns A promise that resolves after the specified delay.
  */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -128,6 +129,7 @@ export async function acquireLock(lockPath: string, timeoutMs: number): Promise<
  * errors propagate.
  *
  * @param lockPath - Absolute path to the lock file.
+ * @throws {NodeJS.ErrnoException} When the unlink fails for reasons other than `ENOENT`.
  */
 export function releaseLock(lockPath: string): void {
   try {
@@ -194,6 +196,8 @@ export function pruneStaleEntries<T extends { updatedAt: string }>(
  * @param path - Absolute path to the registry JSON file.
  * @param defaultValue - Value returned when the file does not exist.
  * @returns Parsed registry contents, or `defaultValue` on `ENOENT`.
+ * @throws {SyntaxError} When the file contains invalid JSON.
+ * @throws {NodeJS.ErrnoException} On I/O errors other than `ENOENT`.
  */
 export function readRegistry<T>(path: string, defaultValue: T): T {
   try {
@@ -213,6 +217,7 @@ export function readRegistry<T>(path: string, defaultValue: T): T {
  *
  * @param registry - Object to serialize.
  * @param registryPath - Absolute path to the target registry file.
+ * @throws {NodeJS.ErrnoException} On filesystem write or rename failures.
  */
 export function writeRegistryLocked<T>(registry: T, registryPath: string): void {
   const dir = dirname(registryPath);

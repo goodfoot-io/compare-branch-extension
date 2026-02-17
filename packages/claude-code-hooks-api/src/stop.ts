@@ -21,7 +21,7 @@ export default stopHook({}, async (_input, { logger }) => {
   try {
     const claudePid = findClaudePid();
     if (claudePid) {
-      await removePidEntry(claudePid, logger);
+      await removePidEntry(claudePid);
     }
   } catch (error) {
     // Fail-open: never block Claude from stopping

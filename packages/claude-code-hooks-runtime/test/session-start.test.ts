@@ -261,7 +261,9 @@ describe('SessionStart Hook', () => {
     it('calls findClaudePid and registerSession with correct args when inside action subprocess', async () => {
       mockFindClaudePid.mockReturnValue(42);
       vi.mocked(execSync).mockReturnValue('abc123\n');
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<typeof hook>[0];
+      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
       const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       await hook(mockInput, context);
@@ -273,7 +275,9 @@ describe('SessionStart Hook', () => {
     it('does not call registerSession when findClaudePid returns null (logs warning)', async () => {
       mockFindClaudePid.mockReturnValue(null);
       vi.mocked(execSync).mockReturnValue('abc123\n');
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<typeof hook>[0];
+      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
       const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       await hook(mockInput, context);
@@ -286,7 +290,9 @@ describe('SessionStart Hook', () => {
       mockFindClaudePid.mockReturnValue(42);
       mockRegisterSession.mockRejectedValue(new Error('disk full'));
       vi.mocked(execSync).mockReturnValue('abc123\n');
-      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<typeof hook>[0];
+      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
       const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
       const result = await hook(mockInput, context);

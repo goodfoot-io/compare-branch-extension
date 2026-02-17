@@ -15,6 +15,7 @@
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test"
   },
   "dependencies": {
+    "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
     "gray-matter": "^4.0.3"
   },

@@ -72,12 +72,12 @@ export default postToolUseHook({ matcher: 'Bash' }, async (input, { logger }) =>
     const pid = findClaudePid();
     if (!pid) return postToolUseOutput({});
 
-    const existingCardId = await getPidCardId(pid, logger);
+    const existingCardId = await getPidCardId(pid);
     if (existingCardId) return postToolUseOutput({});
 
     // Associate PID with card and retrieve pending commits
     const apiInfo = await discoverApiInfo(logger);
-    const pendingCommits = await associatePidWithCard(pid, cardId, logger);
+    const pendingCommits = await associatePidWithCard(pid, cardId);
     if (pendingCommits.length === 0) {
       return postToolUseOutput({});
     }

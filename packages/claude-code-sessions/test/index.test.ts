@@ -395,9 +395,7 @@ describe('claude-code-sessions', () => {
       writeFileSync(getLockPath(), String(process.pid)); // our own PID -- alive
 
       const start = Date.now();
-      await expect(recordPendingCommit(process.pid, 'sha-timeout')).rejects.toThrow(
-        'Lock acquisition timeout'
-      );
+      await expect(recordPendingCommit(process.pid, 'sha-timeout')).rejects.toThrow('Lock acquisition timeout');
       const elapsed = Date.now() - start;
 
       // Should have waited up to LOCK_TIMEOUT_MS before throwing
@@ -480,7 +478,9 @@ describe('claude-code-sessions', () => {
       await registerSession(pid, 'sess-abc', '/tmp/transcript.jsonl');
 
       const pidsPath = join(testDir, '.cards', 'card-repo-commits', 'pids.json');
-      const raw = JSON.parse(readFileSync(pidsPath, 'utf-8')) as { sessions: Record<string, { sessionId: string; transcriptPath: string; updatedAt: string }> };
+      const raw = JSON.parse(readFileSync(pidsPath, 'utf-8')) as {
+        sessions: Record<string, { sessionId: string; transcriptPath: string; updatedAt: string }>;
+      };
       expect(raw.sessions[String(pid)]?.sessionId).toBe('sess-abc');
       expect(raw.sessions[String(pid)]?.transcriptPath).toBe('/tmp/transcript.jsonl');
       expect(raw.sessions[String(pid)]?.updatedAt).toBeDefined();
@@ -497,7 +497,9 @@ describe('claude-code-sessions', () => {
       await new Promise((resolve) => setTimeout(resolve, 15));
 
       await registerSession(pid, 'sess-2', '/tmp/t2.jsonl');
-      const raw2 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as { sessions: Record<string, { sessionId: string; updatedAt: string }> };
+      const raw2 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as {
+        sessions: Record<string, { sessionId: string; updatedAt: string }>;
+      };
       const ts2 = raw2.sessions[String(pid)]?.updatedAt;
 
       expect(ts1).toBeDefined();
@@ -564,7 +566,11 @@ describe('claude-code-sessions', () => {
       // Write the entry after a short delay
       await new Promise((resolve) => setTimeout(resolve, 100));
       mkdirSync(dirname(pidsRegistryPath), { recursive: true });
-      const registry = { sessions: { [String(pid)]: { sessionId: 'sess-123', transcriptPath: '/tmp/t.jsonl', updatedAt: new Date().toISOString() } } };
+      const registry = {
+        sessions: {
+          [String(pid)]: { sessionId: 'sess-123', transcriptPath: '/tmp/t.jsonl', updatedAt: new Date().toISOString() }
+        }
+      };
       writeFileSync(pidsRegistryPath, JSON.stringify(registry, null, 2));
 
       const result = await promise;
@@ -605,7 +611,15 @@ describe('claude-code-sessions', () => {
       // Write the entry after a short delay
       await new Promise((resolve) => setTimeout(resolve, 100));
       mkdirSync(dirname(pidsRegistryPath), { recursive: true });
-      const registry = { sessions: { [String(pid)]: { sessionId: 'sess-tp-wait', transcriptPath: '/tmp/waited.jsonl', updatedAt: new Date().toISOString() } } };
+      const registry = {
+        sessions: {
+          [String(pid)]: {
+            sessionId: 'sess-tp-wait',
+            transcriptPath: '/tmp/waited.jsonl',
+            updatedAt: new Date().toISOString()
+          }
+        }
+      };
       writeFileSync(pidsRegistryPath, JSON.stringify(registry, null, 2));
 
       const result = await promise;

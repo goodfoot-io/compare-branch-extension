@@ -1,3 +1,8 @@
+/**
+ * Tests for the card-repo PID registry module.
+ *
+ * @summary Tests for card-repo PID registry
+ */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

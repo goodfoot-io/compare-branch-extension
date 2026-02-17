@@ -35,10 +35,10 @@ vi.mock('../src/lib/api-discovery.js', async (importOriginal) => {
   };
 });
 
+import { findClaudePid } from '@cards/claude-code-sessions';
 import { TestGitWorkspace } from '@cards/test-utils';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { createCardsClient } from '../src/lib/api-discovery.js';
-import { findClaudePid } from '@cards/claude-code-sessions';
 import hookFn from '../src/post-tool-use-card-association.js';
 
 describe('post-tool-use-card-association hook', () => {
@@ -139,7 +139,7 @@ describe('post-tool-use-card-association hook', () => {
 
       // Pre-populate the registry with a card association for our PID
       const { associatePidWithCard } = await import('@cards/claude-code-sessions');
-      await associatePidWithCard(testPid, 'existing-card-id', mockLogger);
+      await associatePidWithCard(testPid, 'existing-card-id');
 
       const result = await hookFn(
         {
@@ -211,7 +211,7 @@ describe('post-tool-use-card-association hook', () => {
 
       // Association happened (not empty output); the hook attempted to flush commits
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-123');
     });
 
@@ -227,7 +227,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-123');
     });
 
@@ -245,7 +245,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-123');
     });
 
@@ -261,7 +261,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-123');
     });
 
@@ -277,7 +277,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-123');
     });
 
@@ -293,7 +293,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-123');
     });
 
@@ -309,7 +309,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-123');
     });
   });
@@ -332,7 +332,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('my-card-456');
     });
 
@@ -351,7 +351,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('jsonl-strea-1');
     });
 
@@ -369,7 +369,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-456');
     });
 
@@ -399,7 +399,7 @@ describe('post-tool-use-card-association hook', () => {
       );
 
       const { getPidCardId } = await import('@cards/claude-code-sessions');
-      const cardId = await getPidCardId(testPid, mockLogger);
+      const cardId = await getPidCardId(testPid);
       expect(cardId).toBe('card-789');
     });
   });
@@ -437,9 +437,9 @@ describe('post-tool-use-card-association hook', () => {
 
       // Pre-populate pending commits for this PID
       const { recordPendingCommit } = await import('@cards/claude-code-sessions');
-      await recordPendingCommit(testPid, reachableSha1, mockLogger);
-      await recordPendingCommit(testPid, reachableSha2, mockLogger);
-      await recordPendingCommit(testPid, unreachableSha, mockLogger);
+      await recordPendingCommit(testPid, reachableSha1);
+      await recordPendingCommit(testPid, reachableSha2);
+      await recordPendingCommit(testPid, unreachableSha);
 
       mockCreateCardsClient.mockResolvedValue(mockClient);
       mockAddCommit.mockResolvedValue({ sha: '', createdAt: '' });
@@ -480,8 +480,8 @@ describe('post-tool-use-card-association hook', () => {
 
       // Pre-populate pending commits
       const { recordPendingCommit } = await import('@cards/claude-code-sessions');
-      await recordPendingCommit(testPid, sha1, mockLogger);
-      await recordPendingCommit(testPid, sha2, mockLogger);
+      await recordPendingCommit(testPid, sha1);
+      await recordPendingCommit(testPid, sha2);
 
       mockCreateCardsClient.mockResolvedValue(mockClient);
       mockAddCommit.mockResolvedValue({ sha: '', createdAt: '' });
@@ -512,7 +512,7 @@ describe('post-tool-use-card-association hook', () => {
 
       // Pre-populate pending commits
       const { recordPendingCommit } = await import('@cards/claude-code-sessions');
-      await recordPendingCommit(testPid, `abc123def456${'0'.repeat(28)}`, mockLogger);
+      await recordPendingCommit(testPid, `abc123def456${'0'.repeat(28)}`);
 
       mockCreateCardsClient.mockResolvedValue(null);
 
@@ -540,8 +540,8 @@ describe('post-tool-use-card-association hook', () => {
 
       // Pre-populate pending commits
       const { recordPendingCommit } = await import('@cards/claude-code-sessions');
-      await recordPendingCommit(testPid, sha1, mockLogger);
-      await recordPendingCommit(testPid, sha2, mockLogger);
+      await recordPendingCommit(testPid, sha1);
+      await recordPendingCommit(testPid, sha2);
 
       mockCreateCardsClient.mockResolvedValue(mockClient);
       mockAddCommit.mockResolvedValue({ sha: '', createdAt: '' });
@@ -575,7 +575,7 @@ describe('post-tool-use-card-association hook', () => {
 
       // Pre-populate pending commits
       const { recordPendingCommit } = await import('@cards/claude-code-sessions');
-      await recordPendingCommit(testPid, `abc123def456${'0'.repeat(28)}`, mockLogger);
+      await recordPendingCommit(testPid, `abc123def456${'0'.repeat(28)}`);
 
       const result = await hookFn(
         {
@@ -599,7 +599,7 @@ describe('post-tool-use-card-association hook', () => {
 
       // Pre-populate pending commits
       const { recordPendingCommit } = await import('@cards/claude-code-sessions');
-      await recordPendingCommit(testPid, sha, mockLogger);
+      await recordPendingCommit(testPid, sha);
 
       mockCreateCardsClient.mockResolvedValue(mockClient);
       mockAddCommit.mockRejectedValue(new Error('Network error'));

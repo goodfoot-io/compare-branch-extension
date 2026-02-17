@@ -1,3 +1,8 @@
+/**
+ * Tests for the process-tree PID resolution utilities.
+ *
+ * @summary Tests for process-tree PID resolution
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({
@@ -17,10 +22,10 @@ describe('process-tree', () => {
   /**
    * Helper to configure mockExecSync responses for a chain of processes.
    * Each entry maps a PID to { comm, args, ppid }.
+   *
+   * @param tree - Process tree entries keyed by PID.
    */
-  function setupProcessTree(
-    tree: Record<number, { comm: string; args?: string; ppid: number | null }>
-  ): void {
+  function setupProcessTree(tree: Record<number, { comm: string; args?: string; ppid: number | null }>): void {
     mockExecSync.mockImplementation((cmd: string) => {
       const commMatch = cmd.match(/ps -p (\d+) -o comm=/);
       if (commMatch) {

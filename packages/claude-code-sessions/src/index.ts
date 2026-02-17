@@ -15,13 +15,6 @@ import { executeTransaction, isProcessAlive, pruneStaleEntries } from './interna
 
 export { findAllClaudePids, findClaudePid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 
-/** Minimal logger interface matching the methods used by this module. */
-interface Logger {
-  debug?(...args: unknown[]): void;
-  warn?(...args: unknown[]): void;
-  error?(...args: unknown[]): void;
-}
-
 function getCardsDir(): string {
   return join(homedir(), '.cards');
 }
@@ -77,10 +70,9 @@ export interface PidSessionEntry {
  *
  * @param pid - Claude process ID to associate.
  * @param cardId - Card identifier to bind to the PID.
- * @param logger - Optional logger (kept for API compatibility).
  * @returns Pending SHAs captured before association, or `[]` on first-write conflict.
  */
-export async function associatePidWithCard(pid: number, cardId: string, _logger?: Logger): Promise<string[]> {
+export async function associatePidWithCard(pid: number, cardId: string): Promise<string[]> {
   return executeTransaction<ClaudeSessionRegistry, string[]>(
     getRegistryPath(),
     getLockPath(),
@@ -112,9 +104,8 @@ export async function associatePidWithCard(pid: number, cardId: string, _logger?
  *
  * @param pid - Claude process ID that produced the commit.
  * @param sha - Commit SHA to record for later attribution.
- * @param logger - Optional logger (kept for API compatibility).
  */
-export async function recordPendingCommit(pid: number, sha: string, _logger?: Logger): Promise<void> {
+export async function recordPendingCommit(pid: number, sha: string): Promise<void> {
   await executeTransaction<ClaudeSessionRegistry, void>(
     getRegistryPath(),
     getLockPath(),
@@ -142,10 +133,9 @@ export async function recordPendingCommit(pid: number, sha: string, _logger?: Lo
  * Returns `cardId` for PID if it exists, null otherwise.
  *
  * @param pid - Claude process ID to resolve.
- * @param logger - Optional logger (kept for API compatibility).
  * @returns Associated card ID, or `null` when unknown.
  */
-export async function getPidCardId(pid: number, _logger?: Logger): Promise<string | null> {
+export async function getPidCardId(pid: number): Promise<string | null> {
   return executeTransaction<ClaudeSessionRegistry, string | null>(
     getRegistryPath(),
     getLockPath(),
@@ -163,10 +153,9 @@ export async function getPidCardId(pid: number, _logger?: Logger): Promise<strin
  * Removes and returns the PID's entry. Returns null if not found.
  *
  * @param pid - Claude process ID to remove.
- * @param logger - Optional logger (kept for API compatibility).
  * @returns Removed registry entry, or `null` when no entry existed.
  */
-export async function removePidEntry(pid: number, _logger?: Logger): Promise<ClaudeSessionEntry | null> {
+export async function removePidEntry(pid: number): Promise<ClaudeSessionEntry | null> {
   return executeTransaction<ClaudeSessionRegistry, ClaudeSessionEntry | null>(
     getRegistryPath(),
     getLockPath(),

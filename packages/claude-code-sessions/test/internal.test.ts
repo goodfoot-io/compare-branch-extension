@@ -1,3 +1,8 @@
+/**
+ * Tests for the internal locking, read/write, and pruning helpers.
+ *
+ * @summary Tests for internal registry helpers
+ */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
