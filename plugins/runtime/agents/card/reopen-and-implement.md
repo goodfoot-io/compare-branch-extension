@@ -6,6 +6,10 @@ tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Skill", "Task"]
 skills: runtime:card-repo
 ---
 
+```!
+cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
+```
+
 <instructions>
 
 ## 1. Validate Reopen Request

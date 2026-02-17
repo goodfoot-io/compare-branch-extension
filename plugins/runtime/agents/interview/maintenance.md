@@ -6,6 +6,10 @@ tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Skill", "AskUserQuesti
 skills: runtime:card-repo
 ---
 
+```!
+cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
+```
+
 <research-before-asking>
 ## Research-Before-Asking Protocol
 

@@ -6,6 +6,10 @@ tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TaskOutput", "
 skills: runtime:card-repo
 ---
 
+```!
+cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
+```
+
 <placeholder-variables>
 [CARD_ID] -- The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] -- The card title from CARD.meta.json

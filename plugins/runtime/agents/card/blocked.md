@@ -6,6 +6,10 @@ tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
 skills: runtime:card-repo
 ---
 
+```!
+cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
+```
+
 <instructions>
 
 Do not attempt implementation until the blocker is resolved.
