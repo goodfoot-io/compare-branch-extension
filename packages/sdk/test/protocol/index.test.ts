@@ -186,13 +186,19 @@ describe('DomainEvent discriminated union', () => {
     }
   });
 
-  it('should have all 3 event types in the union', () => {
-    // Compile-time check: all event types are assignable to DomainEvent
+  it('accepts representative event types in the union', () => {
+    // Compile-time check: selected event types are assignable to DomainEvent
     const events: DomainEvent[] = [
       { type: 'card:metadataChanged', cardId: 'id', changes: ['status'] },
       { type: 'card:contentChanged', cardId: 'id' },
       { type: 'comment:created', cardId: 'id', commentId: 'cid' },
-      { type: 'stream:resumed', cardId: 'id', meta: { filename: 'f', streamType: 'jsonl', status: 'active', lineCount: 0, createdAt: '2024-01-01' }, previousStatus: 'completed', previousLineCount: 5 }
+      {
+        type: 'stream:resumed',
+        cardId: 'id',
+        meta: { filename: 'f', streamType: 'jsonl', status: 'active', lineCount: 0, createdAt: '2024-01-01' },
+        previousStatus: 'completed',
+        previousLineCount: 5
+      }
     ];
     expect(events).toHaveLength(4);
   });
