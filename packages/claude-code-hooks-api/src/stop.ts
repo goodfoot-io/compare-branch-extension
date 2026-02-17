@@ -11,7 +11,7 @@
 
 import { removePidEntry } from '@cards/claude-code-sessions';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
-import { findClaudePid } from './lib/process-tree.js';
+import { findClaudePid } from '@cards/claude-code-sessions';
 
 export default stopHook({}, async (_input, { logger }) => {
   // If CARD_ID is set, the execution wrapper manages lifecycle

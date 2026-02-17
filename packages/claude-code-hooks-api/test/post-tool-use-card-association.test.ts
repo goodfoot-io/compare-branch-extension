@@ -19,9 +19,13 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/lib/process-tree.js', () => ({
-  findClaudePid: vi.fn()
-}));
+vi.mock('@cards/claude-code-sessions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/claude-code-sessions')>();
+  return {
+    ...actual,
+    findClaudePid: vi.fn()
+  };
+});
 
 vi.mock('../src/lib/api-discovery.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/lib/api-discovery.js')>();
@@ -34,7 +38,7 @@ vi.mock('../src/lib/api-discovery.js', async (importOriginal) => {
 import { TestGitWorkspace } from '@cards/test-utils';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { createCardsClient } from '../src/lib/api-discovery.js';
-import { findClaudePid } from '../src/lib/process-tree.js';
+import { findClaudePid } from '@cards/claude-code-sessions';
 import hookFn from '../src/post-tool-use-card-association.js';
 
 describe('post-tool-use-card-association hook', () => {

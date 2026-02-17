@@ -13,8 +13,8 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { registerSessionPid, writeSessionHeadSha } from '@cards/git-hooks/lib/card-repo-sessions';
-import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
+import { findClaudePid, registerSession } from '@cards/claude-code-sessions';
+import { writeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
@@ -150,7 +150,7 @@ export default sessionStartHook({}, async (input, { logger }) => {
   const claudePid = findClaudePid();
   if (claudePid) {
     try {
-      await registerSessionPid(claudePid, input.session_id);
+      await registerSession(claudePid, input.session_id, input.transcript_path);
       logger.info('Registered PID for commit attribution', { pid: claudePid, sessionId: input.session_id });
     } catch (cause) {
       const error = new SessionRegistrationError(claudePid, input.session_id, cause);

@@ -5,15 +5,14 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { findClaudePid, removeSessionPid } from '@cards/claude-code-sessions';
 import {
   appendCommitToSession,
   getSessionCommits,
   readSessionHeadSha,
   removeSessionCsv,
-  removeSessionHeadSha,
-  removeSessionPid
-} from '@cards/git-hooks/lib/card-repo-sessions';
-import { findClaudePid } from '@cards/git-hooks/lib/process-tree';
+  removeSessionHeadSha
+} from '@cards/claude-code-sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook, {
@@ -28,17 +27,17 @@ vi.mock('node:child_process', () => ({
   execFileSync: vi.fn()
 }));
 
-vi.mock('@cards/git-hooks/lib/card-repo-sessions', () => ({
+vi.mock('@cards/claude-code-sessions', () => ({
+  findClaudePid: vi.fn(),
+  removeSessionPid: vi.fn()
+}));
+
+vi.mock('@cards/claude-code-sessions/card-repo', () => ({
   getSessionCommits: vi.fn(),
   appendCommitToSession: vi.fn(),
   readSessionHeadSha: vi.fn(),
   removeSessionCsv: vi.fn(),
-  removeSessionHeadSha: vi.fn(),
-  removeSessionPid: vi.fn()
-}));
-
-vi.mock('@cards/git-hooks/lib/process-tree', () => ({
-  findClaudePid: vi.fn()
+  removeSessionHeadSha: vi.fn()
 }));
 
 const mockExecFileSync = vi.mocked(execFileSync);
