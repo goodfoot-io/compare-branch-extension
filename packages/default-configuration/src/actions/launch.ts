@@ -25,13 +25,11 @@ import { createWorktree } from '../lib/create-worktree.js';
 
 const execFileAsync = promisify(execFile);
 
-/**
- * Build the argument list for the `claude` CLI.
- *
- * Interactive mode inherits stdio and passes the prompt as an initial
- * argument. Background mode adds `--print` and `--output-format stream-json`
- * for non-interactive, streaming execution.
- */
+/** Extracts a human-readable message from an unknown catch value. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Settings JSON that enables the `claude-code-cli-v2` plugin and includes
  * the `cards.management` marketplace source so the spawned `claude` process
@@ -86,6 +84,67 @@ async function resolveBaseBranch(workspacePath: string): Promise<string> {
 }
 
 /**
+ * Attempts to fast-forward a branch to its parent HEAD when no unique commits exist.
+ *
+ * Silently skips when the parent branch is missing, git log fails, or the
+ * branch already has unique commits.
+ *
+ * @param branchName - Name of the branch to fast-forward.
+ * @param worktreePath - Worktree directory for the branch.
+ * @param parentBranch - Parent branch to fast-forward to.
+ * @param workspacePath - Workspace root for git operations.
+ * @param logger - Logger for diagnostic output.
+ */
+async function tryFastForward(
+  branchName: string,
+  worktreePath: string,
+  parentBranch: string,
+  workspacePath: string,
+  logger: ActionContext['logger']
+): Promise<void> {
+  let uniqueCommits: string;
+  try {
+    const { stdout } = await execFileAsync('git', ['log', branchName, '--not', parentBranch, '--oneline'], {
+      cwd: workspacePath
+    });
+    uniqueCommits = stdout.trim();
+  } catch (logError) {
+    // Parent branch may not exist or git log failed — skip fast-forward
+    logger.debug('Skipping fast-forward check', { branch: branchName, error: errorMessage(logError) });
+    return;
+  }
+
+  if (uniqueCommits) return;
+
+  try {
+    await execFileAsync('git', ['-C', worktreePath, 'merge', '--ff-only', parentBranch], {
+      cwd: worktreePath
+    });
+    logger.info('Fast-forwarded branch to parent HEAD', { branch: branchName, parentBranch });
+  } catch (ffError) {
+    logger.warn('Fast-forward failed, continuing with existing state', {
+      branch: branchName,
+      error: errorMessage(ffError)
+    });
+  }
+}
+
+/**
+ * Checks whether a worktree path exists on disk.
+ *
+ * @param worktreePath - Absolute path to test.
+ * @returns True when the path is accessible.
+ */
+async function worktreeExistsOnDisk(worktreePath: string): Promise<boolean> {
+  try {
+    await fs.access(worktreePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Finds or creates a worktree for the card.
  *
  * Tries to reuse an existing branch whose worktree is still on disk. If the
@@ -109,40 +168,14 @@ async function resolveOrCreateWorktree(
 
   // Try to reuse an existing branch with a valid worktree on disk
   for (const branch of branches) {
-    if (branch.exists && branch.worktree) {
-      try {
-        await fs.access(branch.worktree);
-      } catch {
-        continue; // Worktree path doesn't exist on disk
-      }
+    if (!branch.exists || !branch.worktree) continue;
+    if (!(await worktreeExistsOnDisk(branch.worktree))) continue;
 
-      const parentBranch = branch.parentBranch ?? baseBranch;
+    const parentBranch = branch.parentBranch ?? baseBranch;
+    await tryFastForward(branch.name, branch.worktree, parentBranch, input.workspacePath, logger);
 
-      // Fast-forward if branch has no unique commits
-      try {
-        const { stdout } = await execFileAsync('git', ['log', branch.name, '--not', parentBranch, '--oneline'], {
-          cwd: input.workspacePath
-        });
-        if (!stdout.trim()) {
-          try {
-            await execFileAsync('git', ['-C', branch.worktree, 'merge', '--ff-only', parentBranch], {
-              cwd: branch.worktree
-            });
-            logger.info('Fast-forwarded branch to parent HEAD', { branch: branch.name, parentBranch });
-          } catch (ffError) {
-            logger.warn('Fast-forward failed, continuing with existing state', {
-              branch: branch.name,
-              error: ffError instanceof Error ? ffError.message : String(ffError)
-            });
-          }
-        }
-      } catch {
-        // Parent branch may not exist — skip fast-forward
-      }
-
-      logger.info('Reusing existing worktree', { branch: branch.name, worktree: branch.worktree });
-      return { worktreePath: branch.worktree, branchName: branch.name, parentBranch };
-    }
+    logger.info('Reusing existing worktree', { branch: branch.name, worktree: branch.worktree });
+    return { worktreePath: branch.worktree, branchName: branch.name, parentBranch };
   }
 
   // No valid existing branch — create new one
@@ -199,7 +232,7 @@ async function cleanupMergedBranches(
         } catch (wtError) {
           logger.warn('Failed to remove worktree', {
             branch: branch.name,
-            error: wtError instanceof Error ? wtError.message : String(wtError)
+            error: errorMessage(wtError)
           });
         }
       }
@@ -211,7 +244,7 @@ async function cleanupMergedBranches(
       } catch (brError) {
         logger.warn('Failed to delete branch', {
           branch: branch.name,
-          error: brError instanceof Error ? brError.message : String(brError)
+          error: errorMessage(brError)
         });
       }
 
@@ -220,14 +253,15 @@ async function cleanupMergedBranches(
       } catch (apiError) {
         logger.warn('Failed to remove branch from API', {
           branch: branch.name,
-          error: apiError instanceof Error ? apiError.message : String(apiError)
+          error: errorMessage(apiError)
         });
       }
 
       logger.info('Cleaned up merged branch', { branch: branch.name });
     } catch {
       // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
-      // This is expected for unmerged branches — skip silently.
+      // This is expected for unmerged branches — no action needed.
+      logger.debug('Branch not merged, skipping cleanup', { branch: branch.name });
     }
   }
 }
@@ -283,7 +317,7 @@ export default defineAction(
       });
     } catch (error) {
       context.logger.warn('Worktree setup failed, falling back to workspacePath', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
         workspacePath: input.workspacePath
       });
     }
@@ -355,7 +389,7 @@ export default defineAction(
         await cleanupMergedBranches(input, client, baseBranch, context.logger);
       } catch (error) {
         context.logger.warn('Branch cleanup failed', {
-          error: error instanceof Error ? error.message : String(error)
+          error: errorMessage(error)
         });
       }
     }
