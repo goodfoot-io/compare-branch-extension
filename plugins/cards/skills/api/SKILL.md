@@ -158,7 +158,7 @@ Track workspace branches and worktrees associated with a card. The `/activate` e
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /cards/{cardId}/attachments | List attachments |
-| PUT | /cards/{cardId}/attachments/{filename} | Upload binary. Raw body, 50MB max |
+| PUT | /cards/{cardId}/attachments/{filename} | Upload binary. Raw body, 50MB max. Header: `X-Cards-Author` (optional, git author identity) |
 | POST | /cards/{cardId}/attachments | Upload base64 (legacy). Body: `name` (filename), `data` (base64 encoded) |
 | GET | /cards/{cardId}/attachments/{attachmentId} | Download attachment |
 
@@ -186,7 +186,7 @@ JSONL streaming with server-side transforms. Stream types are defined in the car
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /cards/{cardId}/streams/{streamType}/{filename} | Stream JSONL data. Raw line-delimited JSON body (chunked transfer). Headers: `X-Stream-Title` (optional), `X-Stream-Session-Id` (optional). Returns `{ filename, streamType, lineCount, status }` |
+| POST | /cards/{cardId}/streams/{streamType}/{filename} | Stream JSONL data. Raw line-delimited JSON body (chunked transfer). Headers: `X-Stream-Title` (optional), `X-Stream-Session-Id` (optional), `X-Cards-Author` (optional, git author identity). Returns `{ filename, streamType, lineCount, status }` |
 | GET | /cards/{cardId}/streams | List streams for a card |
 | GET | /cards/{cardId}/streams/{filename} | Retrieve stream metadata and lines |
 
