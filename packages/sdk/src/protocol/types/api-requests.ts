@@ -136,6 +136,12 @@ export interface CreateCardRequest {
    * Omitted gates default to `false` (not required).
    */
   gates?: CardCreateGates;
+
+  /**
+   * Full git author identity for commit attribution, e.g. `user <user@cards.local>`.
+   * When omitted, commits use the card repo's git config default.
+   */
+  author?: string;
 }
 
 /**
@@ -190,6 +196,12 @@ export interface UpdateCardRequest {
    * Only affects position among cards with the same pinned state.
    */
   order?: number;
+
+  /**
+   * Full git author identity for commit attribution, e.g. `user <user@cards.local>`.
+   * When omitted, commits use the card repo's git config default.
+   */
+  author?: string;
 }
 
 /**
@@ -288,8 +300,8 @@ export interface HasUpdatesResponse {
  */
 export interface CreateCommentRequest {
   /**
-   * Display name or handle of the comment author.
-   * This is a free-form string, not validated against user accounts.
+   * Full git author identity for commit attribution, e.g. `user <user@cards.local>`.
+   * Passed verbatim as the git `--author` flag.
    */
   author: string;
 

@@ -91,7 +91,7 @@ echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?wor
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /cards/{cardId}/comments | List comments |
-| POST | /cards/{cardId}/comments | Add comment. Body: `author` ("agent" or "user"), `content` (markdown) |
+| POST | /cards/{cardId}/comments | Add comment. Body: `author` (full git identity, e.g. `"agent <agent@cards.local>"`), `content` (markdown) |
 | PATCH | /cards/{cardId}/comments/{commentId} | Update comment. Body: `content` |
 | DELETE | /cards/{cardId}/comments/{commentId} | Delete comment |
 
