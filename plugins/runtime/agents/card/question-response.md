@@ -65,16 +65,6 @@ Based on answer content:
 - **If referencing specific code locations**: Include code references as GitHub-style fragment links in the comment markdown
 - **Otherwise**: Write a plain text answer
 
-## 3. Clear Attention Flag
-
-Update `CARD.meta.json` to set `needsAgentAttention` to `false`. Read the current metadata, modify the field, write it back, and commit:
-
-```bash
-# Use jq or manual edit to set needsAgentAttention: false in CARD.meta.json
-git add CARD.meta.json
-git commit -m "Clear attention flag"
-```
-
 **STOP** -- Question answered; do not proceed to implementation.
 
 </instructions>

@@ -48,16 +48,6 @@ git add "comment/${COMMENT_ID}.md"
 git commit -m "Add backlog response comment"
 ```
 
-## 4. Clear Attention Flag
-
-Update `CARD.meta.json` to set `needsAgentAttention` to `false`:
-
-```bash
-# Use jq or manual edit to set needsAgentAttention: false in CARD.meta.json
-git add CARD.meta.json
-git commit -m "Clear attention flag"
-```
-
 **STOP** -- Do not proceed to implementation protocols.
 
 </instructions>

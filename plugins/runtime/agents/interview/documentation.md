@@ -78,16 +78,6 @@ git add CARD.meta.json CARD.md
 git commit -m "Refine documentation card title and description"
 ```
 
-## 4. Clear Attention Flag and Commit
-
-Update `CARD.meta.json` to set `needsAgentAttention` to `false`. Stage and commit:
-
-```bash
-jq '.needsAgentAttention = false' CARD.meta.json > CARD.meta.json.tmp && mv CARD.meta.json.tmp CARD.meta.json
-git add CARD.meta.json
-git commit -m "Clear agent attention flag after interview"
-```
-
 **STOP**
 
 </instructions>

@@ -30,7 +30,7 @@ Based on comments and prior clarification requests:
   COMMENT
   ```
 
-  Update `CARD.meta.json` to set `needsAgentAttention` to `false`, stage, and commit. Then **STOP** -- the router will re-evaluate with the new information.
+  Stage and commit. Then **STOP** -- the router will re-evaluate with the new information.
 
 - **Existing clarification request AND no new user response**: Confirm you are still waiting for the previously requested information. Reference which questions remain unanswered. Create a new comment file:
 
@@ -41,7 +41,7 @@ Based on comments and prior clarification requests:
   COMMENT
   ```
 
-  Update `CARD.meta.json` to set `needsAgentAttention` to `false`, stage, and commit. Then **STOP** -- already waiting for user clarification.
+  Stage and commit. Then **STOP** -- already waiting for user clarification.
 
 ## 2. Identify Missing Requirements
 
@@ -79,12 +79,12 @@ cat > "comment/${COMMENT_ID}.md" << 'COMMENT'
 COMMENT
 ```
 
-## 5. Clear Attention Flag and Commit
+## 5. Stage and Commit
 
-Update `CARD.meta.json` to set `needsAgentAttention` to `false`. Stage and commit all changes:
+Stage and commit all changes:
 
 ```bash
-git add comment/ CARD.meta.json
+git add comment/
 git commit -m "Request clarification for missing requirements"
 ```
 

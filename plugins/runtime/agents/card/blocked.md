@@ -23,7 +23,7 @@ Based on blocker analysis:
 - **Blocker references another card**: Check its status
   - **If resolved (status = "done")**: Remove the "blocked" tag from `CARD.meta.json` and re-invoke skill routing
   - **If not resolved**: Continue to Step 2
-- **Blocker cannot be identified**: Post a comment asking for clarification, set `needsAgentAttention` to `false` in `CARD.meta.json`, and stop
+- **Blocker cannot be identified**: Post a comment asking for clarification and stop
 
 ## 2. Report Blocked Status
 
@@ -44,12 +44,12 @@ Work will resume once the blocker is cleared and the "blocked" tag is removed.
 COMMENT
 ```
 
-### Update Card
+### Commit
 
-Update `CARD.meta.json` to set `needsAgentAttention` to `false`. Stage and commit all changes:
+Stage and commit the comment:
 
 ```bash
-git add "comment/${COMMENT_ID}.md" CARD.meta.json
+git add "comment/${COMMENT_ID}.md"
 git commit -m "Report blocked status"
 ```
 

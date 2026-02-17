@@ -53,10 +53,10 @@ git commit -m "Acknowledge reopen request"
 
 ## 3. Update Card Status
 
-Update `CARD.meta.json` to set the status back to `in_progress` and `needsAgentAttention` to `false`:
+Update `CARD.meta.json` to set the status back to `in_progress`:
 
 ```bash
-# Use jq or manual edit to update status and attention flag in CARD.meta.json
+# Use jq or manual edit to update status in CARD.meta.json
 git add CARD.meta.json
 git commit -m "Reopen card for additional work"
 ```

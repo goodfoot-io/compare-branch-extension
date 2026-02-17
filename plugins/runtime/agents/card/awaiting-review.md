@@ -42,16 +42,6 @@ git add "comment/${COMMENT_ID}.md"
 git commit -m "Add awaiting-review comment"
 ```
 
-## 3. Clear Attention Flag
-
-Update `CARD.meta.json` to set `needsAgentAttention` to `false` to prevent repeated no-op invocations. Read the current metadata, modify the field, write it back, and commit:
-
-```bash
-# Use jq or manual edit to set needsAgentAttention: false in CARD.meta.json
-git add CARD.meta.json
-git commit -m "Clear attention flag"
-```
-
 **STOP** -- Wait for user to provide review feedback. No agent action required until a user comments.
 
 </instructions>
