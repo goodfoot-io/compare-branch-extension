@@ -449,9 +449,7 @@ describe('Default Actions', () => {
         const { createWorktree } = await import('../src/lib/create-worktree.js');
 
         await configureExecFile({
-          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
-          // Branch has unique commits (not empty) — skip fast-forward
-          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc123 some commit\n' }
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
         });
 
         configureBranchesResponse([
@@ -483,55 +481,12 @@ describe('Default Actions', () => {
         await promise;
       });
 
-      it('fast-forwards branch when it has no unique commits', async () => {
-        const { spawn, execFile } = await import('node:child_process');
-        const { access } = await import('node:fs/promises');
-
-        await configureExecFile({
-          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
-          // No unique commits → empty stdout
-          'git log cards/card-123/1 --not main --oneline': { stdout: '' },
-          // Fast-forward succeeds
-          'git -C /test/workspace/.worktrees/cards/card-123/1 merge --ff-only main': { stdout: '' }
-        });
-
-        configureBranchesResponse([
-          {
-            name: 'cards/card-123/1',
-            worktree: '/test/workspace/.worktrees/cards/card-123/1',
-            parentBranch: 'main',
-            addedAt: '2025-01-01T00:00:00Z',
-            exists: true
-          }
-        ]);
-
-        vi.mocked(access).mockResolvedValue(undefined);
-
-        const child = createMockChild();
-        vi.mocked(spawn).mockReturnValue(child);
-
-        const action = (await import('../src/actions/launch.js')).default;
-        const promise = action(baseInput(), createMockContext());
-        await flushMicrotasks();
-
-        // Verify fast-forward merge was attempted
-        const calls = vi.mocked(execFile).mock.calls;
-        const ffCall = calls.find(
-          (c) => (c[1] as string[])?.includes('merge') && (c[1] as string[])?.includes('--ff-only')
-        );
-        expect(ffCall).toBeDefined();
-
-        child.emit('close', 0);
-        await promise;
-      });
-
       it('sets BASE_BRANCH and PARENT_BRANCH env vars when worktree succeeds', async () => {
         const { spawn } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
 
         await configureExecFile({
-          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
-          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc commit\n' }
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
         });
 
         configureBranchesResponse([
@@ -620,7 +575,6 @@ describe('Default Actions', () => {
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
-          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc commit\n' },
           [mergeBaseKey]: { stdout: '' },
           [worktreeRemoveKey]: { stdout: '' },
           [branchDeleteKey]: { stdout: '' }
@@ -690,8 +644,7 @@ describe('Default Actions', () => {
 
         // merge-base --is-ancestor will fail for unmerged branches (exit code 1)
         const handlers: Record<string, { stdout: string }> = {
-          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
-          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc commit\n' }
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
         };
 
         vi.mocked(execFile).mockImplementation((...args: unknown[]) => {

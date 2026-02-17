@@ -84,52 +84,6 @@ async function resolveBaseBranch(workspacePath: string): Promise<string> {
 }
 
 /**
- * Attempts to fast-forward a branch to its parent HEAD when no unique commits exist.
- *
- * Silently skips when the parent branch is missing, git log fails, or the
- * branch already has unique commits.
- *
- * @param branchName - Name of the branch to fast-forward.
- * @param worktreePath - Worktree directory for the branch.
- * @param parentBranch - Parent branch to fast-forward to.
- * @param workspacePath - Workspace root for git operations.
- * @param logger - Logger for diagnostic output.
- */
-async function tryFastForward(
-  branchName: string,
-  worktreePath: string,
-  parentBranch: string,
-  workspacePath: string,
-  logger: ActionContext['logger']
-): Promise<void> {
-  let uniqueCommits: string;
-  try {
-    const { stdout } = await execFileAsync('git', ['log', branchName, '--not', parentBranch, '--oneline'], {
-      cwd: workspacePath
-    });
-    uniqueCommits = stdout.trim();
-  } catch (logError) {
-    // Parent branch may not exist or git log failed — skip fast-forward
-    logger.debug('Skipping fast-forward check', { branch: branchName, error: errorMessage(logError) });
-    return;
-  }
-
-  if (uniqueCommits) return;
-
-  try {
-    await execFileAsync('git', ['-C', worktreePath, 'merge', '--ff-only', parentBranch], {
-      cwd: worktreePath
-    });
-    logger.info('Fast-forwarded branch to parent HEAD', { branch: branchName, parentBranch });
-  } catch (ffError) {
-    logger.warn('Fast-forward failed, continuing with existing state', {
-      branch: branchName,
-      error: errorMessage(ffError)
-    });
-  }
-}
-
-/**
  * Checks whether a worktree path exists on disk.
  *
  * @param worktreePath - Absolute path to test.
@@ -147,10 +101,8 @@ async function worktreeExistsOnDisk(worktreePath: string): Promise<boolean> {
 /**
  * Finds or creates a worktree for the card.
  *
- * Tries to reuse an existing branch whose worktree is still on disk. If the
- * branch has no unique commits relative to its parent, attempts a fast-forward
- * merge. When no valid branch exists, creates a new one and registers it with
- * the API.
+ * Tries to reuse an existing branch whose worktree is still on disk. When no
+ * valid branch exists, creates a new one and registers it with the API.
  *
  * @param input - Action input containing cardId and workspace paths.
  * @param client - Cards API client for branch CRUD.
@@ -172,7 +124,6 @@ async function resolveOrCreateWorktree(
     if (!(await worktreeExistsOnDisk(branch.worktree))) continue;
 
     const parentBranch = branch.parentBranch ?? baseBranch;
-    await tryFastForward(branch.name, branch.worktree, parentBranch, input.workspacePath, logger);
 
     logger.info('Reusing existing worktree', { branch: branch.name, worktree: branch.worktree });
     return { worktreePath: branch.worktree, branchName: branch.name, parentBranch };
