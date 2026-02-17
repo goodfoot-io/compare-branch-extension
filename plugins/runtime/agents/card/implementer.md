@@ -2,7 +2,7 @@
 name: implementer
 description: Only use this agent when it is requested by name.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

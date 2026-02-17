@@ -2,7 +2,7 @@
 name: blocked
 description: Handle blocked cards by reporting blockers.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

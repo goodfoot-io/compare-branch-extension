@@ -2,7 +2,7 @@
 name: maintenance
 description: Interview to improve maintenance card titles and descriptions.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Skill", "AskUserQuestion"]
+tools: "*"
 skills: runtime:card-repo, runtime:maintenance
 ---
 

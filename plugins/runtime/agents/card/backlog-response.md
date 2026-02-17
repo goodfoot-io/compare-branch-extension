@@ -2,7 +2,7 @@
 name: backlog-response
 description: Respond to backlog cards without code changes.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

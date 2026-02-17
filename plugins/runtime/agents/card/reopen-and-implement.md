@@ -2,7 +2,7 @@
 name: reopen-and-implement
 description: Reopen completed cards for additional work.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Skill", "Task"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

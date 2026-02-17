@@ -2,7 +2,7 @@
 name: implementation-evaluator
 description: Evaluate implementation quality and determine production readiness.
 model: inherit
-tools: ["Read", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo, runtime:plan
 ---
 

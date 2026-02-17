@@ -2,7 +2,7 @@
 name: implementation
 description: Implement cards in isolated git worktree.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TaskOutput", "TaskStop", "TaskGet", "TaskList"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

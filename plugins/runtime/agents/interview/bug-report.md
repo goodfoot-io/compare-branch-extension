@@ -2,7 +2,7 @@
 name: bug-report
 description: Guide for writing effective bug reports when the user asks to create a card about bugs, errors, or broken functionality.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"]
+tools: "*"
 skills: runtime:card-repo, runtime:bug-report
 ---
 

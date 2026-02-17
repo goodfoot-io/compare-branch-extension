@@ -2,7 +2,7 @@
 name: merge
 description: Merge worktree implementation to base branch.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

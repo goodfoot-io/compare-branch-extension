@@ -2,7 +2,7 @@
 name: operations
 description: Interview to improve operations card titles and descriptions.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Skill", "AskUserQuestion"]
+tools: "*"
 skills: runtime:card-repo, runtime:operations
 ---
 

@@ -2,7 +2,7 @@
 name: refactor
 description: Plan-aware pre-validation cleanup on implemented code.
 model: sonnet
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo, runtime:plan, runtime:refactoring
 ---
 

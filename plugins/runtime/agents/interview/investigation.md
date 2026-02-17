@@ -2,7 +2,7 @@
 name: investigation
 description: Interview agent for improving investigation card titles and descriptions.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo, runtime:investigation
 ---
 

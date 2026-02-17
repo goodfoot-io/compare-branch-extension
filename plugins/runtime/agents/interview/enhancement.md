@@ -2,7 +2,7 @@
 name: enhancement
 description: Guide for writing enhancement requests that document system evolution, current behavior, and desired functionality.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo, runtime:enhancement
 ---
 

@@ -2,7 +2,7 @@
 name: documentation
 description: Interview for improving documentation card titles and descriptions.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"]
+tools: "*"
 skills: runtime:card-repo, runtime:documentation
 ---
 

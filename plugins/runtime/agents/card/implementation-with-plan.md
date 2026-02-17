@@ -2,7 +2,7 @@
 name: implementation-with-plan
 description: Implement approved plans in isolated worktree.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TaskOutput", "TaskStop", "TaskGet", "TaskList"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

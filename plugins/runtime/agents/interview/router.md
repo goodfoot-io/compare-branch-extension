@@ -2,7 +2,7 @@
 name: router
 description: Route interview cards to the appropriate agent based on request type.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TaskOutput", "TaskStop", "TaskGet", "TaskList", "TeamCreate", "TeamDelete", "SendMessage"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

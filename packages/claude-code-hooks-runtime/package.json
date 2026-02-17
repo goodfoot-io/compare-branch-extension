@@ -13,7 +13,7 @@
   "dependencies": {
     "@cards/git-hooks": "workspace:*",
     "@cards/sdk": "workspace:*",
-    "@goodfoot/claude-code-hooks": "^1.0.21",
+    "@goodfoot/claude-code-hooks": "^1.1.0",
     "esbuild": "^0.25.0"
   },
   "devDependencies": {

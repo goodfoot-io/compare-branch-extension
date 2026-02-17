@@ -2,7 +2,7 @@
 name: question-response
 description: Respond to user questions without code changes.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

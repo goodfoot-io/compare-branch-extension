@@ -2,7 +2,7 @@
 name: bug
 description: Fix testable bugs using test-first methodology.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TaskOutput", "TaskStop", "TaskGet", "TaskList"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

@@ -2,7 +2,7 @@
 name: plan-assessor
 description: Evaluate implementation plans for quality, feasibility, and completeness.
 model: haiku
-tools: ["Read", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo, runtime:plan
 ---
 

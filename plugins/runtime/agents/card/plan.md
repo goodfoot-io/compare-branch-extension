@@ -2,7 +2,7 @@
 name: plan
 description: Create implementation plans for user approval.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"]
+tools: "*"
 skills: runtime:card-repo, runtime:plan
 ---
 

@@ -2,7 +2,7 @@
 name: router
 description: Route cards to the appropriate agent based on card state.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TaskOutput", "TaskStop", "TaskGet", "TaskList", "TeamCreate", "TeamDelete", "SendMessage"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

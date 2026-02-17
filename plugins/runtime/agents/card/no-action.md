@@ -2,7 +2,7 @@
 name: no-action
 description: Handle completed or unroutable cards.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

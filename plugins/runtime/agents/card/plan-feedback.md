@@ -2,7 +2,7 @@
 name: plan-feedback
 description: Incorporate user feedback into an existing plan and re-assess.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TaskOutput", "TaskStop"]
+tools: "*"
 skills: runtime:card-repo, runtime:plan
 ---
 

@@ -2,7 +2,7 @@
 name: awaiting-review
 description: Await user review when no feedback exists.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

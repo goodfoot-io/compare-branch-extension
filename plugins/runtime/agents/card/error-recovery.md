@@ -2,7 +2,7 @@
 name: error-recovery
 description: Recover from errors during protocol execution.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 

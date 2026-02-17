@@ -2,7 +2,7 @@
 name: clarification
 description: Request clarification when Definition of Ready is unmet.
 model: inherit
-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+tools: "*"
 skills: runtime:card-repo
 ---
 
