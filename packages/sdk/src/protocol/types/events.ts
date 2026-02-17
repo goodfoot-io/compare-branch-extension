@@ -177,6 +177,26 @@ export interface StreamStartedEvent {
 }
 
 /**
+ * Broadcast when a terminated stream is reopened and ready to receive new lines.
+ *
+ * Fired immediately after the stream transitions from a terminal status back to
+ * `'active'`. Subscribers can use this to re-enable stream viewer widgets and
+ * reattach listeners that were released when the stream ended.
+ */
+export interface StreamResumedEvent {
+  /** Event type discriminator. */
+  type: 'stream:resumed';
+  /** ID of the parent card. */
+  cardId: string;
+  /** Full stream metadata snapshot after resume (status will be 'active'). */
+  meta: StreamMeta;
+  /** Status the stream had before resume. */
+  previousStatus: StreamStatus;
+  /** Number of lines the stream had before resume. */
+  previousLineCount: number;
+}
+
+/**
  * Broadcast for each line appended to a stream.
  *
  * Contains the *transformed* output (not the raw line stored on disk).
@@ -274,6 +294,7 @@ export type DomainEvent =
   | TimelineTypedFileUpdatedEvent
   | TimelineTypedFileRemovedEvent
   | StreamStartedEvent
+  | StreamResumedEvent
   | StreamLineEvent
   | StreamEndedEvent
   | StreamErrorEvent;

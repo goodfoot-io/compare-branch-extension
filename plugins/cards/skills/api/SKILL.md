@@ -187,7 +187,7 @@ JSONL streaming with server-side transforms. Stream types are defined in the car
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /cards/{cardId}/streams/{streamType}/{filename} | Stream JSONL data. Raw line-delimited JSON body (chunked transfer). Headers: `X-Stream-Title` (optional), `X-Stream-Session-Id` (optional), `X-Cards-Author` (optional, git author identity). Returns `{ filename, streamType, lineCount, status }` |
+| POST | /cards/{cardId}/streams/{streamType}/{filename} | Stream JSONL data. Raw line-delimited JSON body (chunked transfer). If a stream with the same filename already exists in a terminal state (`completed`, `error`, `interrupted`, `size_limit`, `recovered`), it is **resumed** — new lines are appended and `lineNumber` continues from where the previous stream left off. Returns 409 if `X-Stream-Title`, `X-Stream-Session-Id`, or URL `{streamType}` differs from the existing stream's metadata (absent headers are accepted). On resume, broadcasts `stream:resumed` instead of `stream:started`. Headers: `X-Stream-Title` (optional), `X-Stream-Session-Id` (optional), `X-Cards-Author` (optional, git author identity). Returns `{ filename, streamType, lineCount, status }` where `lineCount` is the cumulative total across all segments. |
 | GET | /cards/{cardId}/streams | List streams for a card |
 | GET | /cards/{cardId}/streams/{filename} | Retrieve stream metadata and lines |
 

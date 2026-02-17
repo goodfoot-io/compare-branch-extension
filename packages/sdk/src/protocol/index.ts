@@ -110,6 +110,7 @@ export type {
   StreamLineEvent,
   StreamMeta,
   StreamMetaFile,
+  StreamResumedEvent,
   StreamStartedEvent,
   StreamStatus,
   SwitchToInteractiveCommand,

@@ -319,6 +319,8 @@ describe('timeline event types', () => {
             return 'timeline-typedFile-removed';
           case 'stream:started':
             return 'stream-started';
+          case 'stream:resumed':
+            return 'stream-resumed';
           case 'stream:line':
             return 'stream-line';
           case 'stream:ended':

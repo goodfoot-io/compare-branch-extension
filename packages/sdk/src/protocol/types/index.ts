@@ -86,6 +86,7 @@ export type {
   StreamEndedEvent,
   StreamErrorEvent,
   StreamLineEvent,
+  StreamResumedEvent,
   StreamStartedEvent,
   TimelineCommentAddedEvent,
   TimelineCommentRemovedEvent,

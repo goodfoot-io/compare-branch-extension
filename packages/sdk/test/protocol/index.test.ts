@@ -191,9 +191,10 @@ describe('DomainEvent discriminated union', () => {
     const events: DomainEvent[] = [
       { type: 'card:metadataChanged', cardId: 'id', changes: ['status'] },
       { type: 'card:contentChanged', cardId: 'id' },
-      { type: 'comment:created', cardId: 'id', commentId: 'cid' }
+      { type: 'comment:created', cardId: 'id', commentId: 'cid' },
+      { type: 'stream:resumed', cardId: 'id', meta: { filename: 'f', streamType: 'jsonl', status: 'active', lineCount: 0, createdAt: '2024-01-01' }, previousStatus: 'completed', previousLineCount: 5 }
     ];
-    expect(events).toHaveLength(3);
+    expect(events).toHaveLength(4);
   });
 });
 

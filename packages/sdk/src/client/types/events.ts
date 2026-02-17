@@ -15,6 +15,7 @@ import type {
   StreamEndedEvent,
   StreamErrorEvent,
   StreamLineEvent,
+  StreamResumedEvent,
   StreamStartedEvent,
   TimelineCommentAddedEvent,
   TimelineCommentRemovedEvent,
@@ -70,6 +71,8 @@ export interface EventMap {
   'timeline:commit:removed': TimelineCommitRemovedEvent;
   /** Fired when a new stream is created and ready to receive lines. */
   'stream:started': StreamStartedEvent;
+  /** Fired when a terminated stream is reopened and ready to receive new lines. */
+  'stream:resumed': StreamResumedEvent;
   /** Fired for each line received. Carries the transformed (not raw) content. */
   'stream:line': StreamLineEvent;
   /** Fired when a stream reaches a terminal status. No further `stream:line` events follow. */
