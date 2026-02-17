@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/runtime/hooks/hooks.json\" --log \"../../../.cards/logs/runtime-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node)\" && yarn build:worktree && yarn build:uuid7",
-    "build:worktree": "esbuild src/bin/create-worktree.ts --bundle --platform=node --format=esm --outfile=../../plugins/runtime/bin/create-worktree.mjs --packages=external",
+    "build": "claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/runtime/hooks/hooks.json\" --log \"../../../.cards/logs/runtime-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE_PATH 2>/dev/null || echo node)\" && yarn build:uuid7",
     "build:uuid7": "esbuild src/bin/uuid7.ts --bundle --platform=node --format=esm --outfile=../../plugins/runtime/bin/uuid7.mjs --packages=external",
     "test": "vitest run",
     "lint": "biome check .",
@@ -19,10 +18,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
     "@cards/test-utils": "workspace:*",
-    "@types/fs-extra": "^11.0.4",
     "@types/node": "24.x",
-    "fs-extra": "^11.3.0",
-    "simple-git": "^3.27.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },

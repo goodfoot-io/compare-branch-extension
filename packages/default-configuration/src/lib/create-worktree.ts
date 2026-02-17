@@ -4,11 +4,11 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 
 /**
- * Implements create worktree behavior for the bin area.
+ * Implements create worktree behavior for the default-configuration package.
  * The module captures domain rules in one place so callers can compose workflows without
  * duplicating edge-case handling.
  *
- * @summary Create Worktree logic for bin
+ * @summary Create Worktree logic for lib
  */
 
 const execFileAsync = promisify(execFile);
@@ -624,21 +624,4 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
       `create-worktree: failed to set core.excludesFile: ${error instanceof Error ? error.message : String(error)}\n`
     );
   }
-}
-
-// CLI entrypoint
-if (process.argv[1]?.endsWith('create-worktree.mjs')) {
-  const branchName = process.argv[2];
-  if (!branchName) {
-    console.error('Usage: node create-worktree.mjs <branch-name>');
-    process.exit(2);
-  }
-  createWorktree(branchName)
-    .then((result) => {
-      console.log(JSON.stringify(result));
-    })
-    .catch((error) => {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exit(2);
-    });
 }

@@ -31,7 +31,7 @@ import {
   symlinkIgnoredPaths,
   updateGitExclude,
   validateBranchName
-} from '../src/bin/create-worktree.js';
+} from '../src/lib/create-worktree.js';
 
 describe('create-worktree stubs', () => {
   it('exports all expected functions', () => {
@@ -1231,82 +1231,5 @@ describe('createWorktree end-to-end', () => {
 
   it('a second call with the same branch name rejects', async () => {
     await expect(createWorktree('e2e-test-branch')).rejects.toThrow('Worktree already exists');
-  });
-});
-
-describe('CLI entrypoint', () => {
-  const CLI_PATH = path.resolve(__dirname, '..', '..', '..', 'plugins', 'runtime', 'bin', 'create-worktree.mjs');
-
-  let workspace: TestGitWorkspace;
-  let repoPath: string;
-
-  beforeAll(async () => {
-    workspace = new TestGitWorkspace();
-    await workspace.create();
-    repoPath = workspace.getPath();
-    const git = workspace.getGit();
-
-    // Set up a minimal fixture
-    await fs.writeFile(path.join(repoPath, '.gitignore'), 'node_modules/\ndist/\n');
-    await fs.writeFile(path.join(repoPath, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }));
-    await fsExtra.ensureDir(path.join(repoPath, 'node_modules'));
-    await fsExtra.ensureDir(path.join(repoPath, 'dist'));
-    await git.add(['.gitignore', 'package.json']);
-    await git.commit('Add project structure');
-  });
-
-  afterAll(async () => {
-    if (workspace) {
-      const git = workspace.getGit();
-      const worktreeDir = path.join(repoPath, '.worktrees', 'cli-test-branch');
-      try {
-        await git.raw(['worktree', 'remove', worktreeDir, '--force']);
-      } catch {
-        // Ignore errors during cleanup
-      }
-      await workspace.destroy();
-    }
-  });
-
-  it('writes JSON to stdout on success', async () => {
-    const { stdout } = await execFileAsync('node', [CLI_PATH, 'cli-test-branch'], {
-      cwd: repoPath,
-      timeout: 30_000
-    });
-
-    const result = JSON.parse(stdout.trim());
-    expect(result.branch).toBe('cli-test-branch');
-    expect(result.worktree).toBe(path.join(repoPath, '.worktrees', 'cli-test-branch'));
-    expect(result.baseSha).toMatch(/^[0-9a-f]{40}$/);
-  });
-
-  it('writes error to stderr and exits with code 2 on validation error', async () => {
-    try {
-      await execFileAsync('node', [CLI_PATH, '-invalid-branch'], {
-        cwd: repoPath,
-        timeout: 30_000
-      });
-      // Should not reach here
-      expect.unreachable('Should have thrown');
-    } catch (error) {
-      const err = error as { code: number; stderr: string };
-      expect(err.code).toBe(2);
-      expect(err.stderr).toContain('Invalid branch name');
-    }
-  });
-
-  it('exits with code 2 when no branch name argument provided', async () => {
-    try {
-      await execFileAsync('node', [CLI_PATH], {
-        cwd: repoPath,
-        timeout: 30_000
-      });
-      // Should not reach here
-      expect.unreachable('Should have thrown');
-    } catch (error) {
-      const err = error as { code: number; stderr: string };
-      expect(err.code).toBe(2);
-      expect(err.stderr).toContain('Usage:');
-    }
   });
 });
