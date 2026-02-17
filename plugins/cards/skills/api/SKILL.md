@@ -123,7 +123,7 @@ Track workspace branches and worktrees associated with a card. The `/activate` e
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /cards/{cardId}/branches | List tracked branches. Query: `workspacePath` (optional, for computing isMerged and commit containment) |
-| POST | /cards/{cardId}/branches | Add branch. Body: `name` (required), `worktree` (optional path) |
+| POST | /cards/{cardId}/branches | Add branch. Body: `name` (required), `worktree` (optional path), `parentBranch` (optional, parent branch name) |
 | DELETE | /cards/{cardId}/branches/{branchName} | Remove branch. Branch names with `/` are URL-encoded |
 
 **Computed fields** (returned by GET when `workspacePath` is provided):
@@ -138,6 +138,7 @@ Track workspace branches and worktrees associated with a card. The `/activate` e
     {
       "name": "feature/auth",
       "worktree": "/path/to/worktree",
+      "parentBranch": "main",
       "addedAt": "2026-02-13T10:00:00Z",
       "exists": true,
       "isMerged": false,

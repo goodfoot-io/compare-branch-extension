@@ -15,10 +15,15 @@
  * @see {@link defineAction} for factory behavior and metadata attachment
  */
 
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import { createWorktree } from '../lib/create-worktree.js';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Build the argument list for the `claude` CLI.
@@ -68,6 +73,166 @@ function buildArgs(
 }
 
 /**
+ * Resolves the current branch name in the given workspace.
+ *
+ * @param workspacePath - Directory where `git rev-parse` runs.
+ * @returns The abbreviated branch name at HEAD.
+ */
+async function resolveBaseBranch(workspacePath: string): Promise<string> {
+  const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+    cwd: workspacePath
+  });
+  return stdout.trim();
+}
+
+/**
+ * Finds or creates a worktree for the card.
+ *
+ * Tries to reuse an existing branch whose worktree is still on disk. If the
+ * branch has no unique commits relative to its parent, attempts a fast-forward
+ * merge. When no valid branch exists, creates a new one and registers it with
+ * the API.
+ *
+ * @param input - Action input containing cardId and workspace paths.
+ * @param client - Cards API client for branch CRUD.
+ * @param baseBranch - Current branch in the workspace (used as parent).
+ * @param logger - Logger for diagnostic output.
+ * @returns Worktree path, branch name, and parent branch name.
+ */
+async function resolveOrCreateWorktree(
+  input: ActionInput,
+  client: CardsClient,
+  baseBranch: string,
+  logger: ActionContext['logger']
+): Promise<{ worktreePath: string; branchName: string; parentBranch: string }> {
+  const { branches } = await client.getBranches(input.cardId, { workspacePath: input.workspacePath });
+
+  // Try to reuse an existing branch with a valid worktree on disk
+  for (const branch of branches) {
+    if (branch.exists && branch.worktree) {
+      try {
+        await fs.access(branch.worktree);
+      } catch {
+        continue; // Worktree path doesn't exist on disk
+      }
+
+      const parentBranch = branch.parentBranch ?? baseBranch;
+
+      // Fast-forward if branch has no unique commits
+      try {
+        const { stdout } = await execFileAsync('git', ['log', branch.name, '--not', parentBranch, '--oneline'], {
+          cwd: input.workspacePath
+        });
+        if (!stdout.trim()) {
+          try {
+            await execFileAsync('git', ['-C', branch.worktree, 'merge', '--ff-only', parentBranch], {
+              cwd: branch.worktree
+            });
+            logger.info('Fast-forwarded branch to parent HEAD', { branch: branch.name, parentBranch });
+          } catch (ffError) {
+            logger.warn('Fast-forward failed, continuing with existing state', {
+              branch: branch.name,
+              error: ffError instanceof Error ? ffError.message : String(ffError)
+            });
+          }
+        }
+      } catch {
+        // Parent branch may not exist — skip fast-forward
+      }
+
+      logger.info('Reusing existing worktree', { branch: branch.name, worktree: branch.worktree });
+      return { worktreePath: branch.worktree, branchName: branch.name, parentBranch };
+    }
+  }
+
+  // No valid existing branch — create new one
+  const prefix = `cards/${input.cardId}/`;
+  const existingNumbers = branches
+    .filter((b) => b.name.startsWith(prefix))
+    .map((b) => parseInt(b.name.slice(prefix.length), 10))
+    .filter((n) => !Number.isNaN(n));
+  const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+  const branchName = `${prefix}${nextNumber}`;
+
+  const result = await createWorktree(branchName, { cwd: input.workspacePath });
+  await client.addBranch(input.cardId, { name: branchName, worktree: result.worktree, parentBranch: baseBranch });
+
+  logger.info('Created new worktree', { branch: branchName, worktree: result.worktree });
+  return { worktreePath: result.worktree, branchName, parentBranch: baseBranch };
+}
+
+/**
+ * Removes branches that are fully merged into the base branch.
+ *
+ * For each merged branch the worktree directory is removed, the local branch
+ * ref is deleted, and the branch record is removed from the API.  Individual
+ * failures are logged and do not abort the sweep.
+ *
+ * @param input - Action input containing cardId and workspace paths.
+ * @param client - Cards API client for branch removal.
+ * @param baseBranch - Branch to check merge status against.
+ * @param logger - Logger for diagnostic output.
+ */
+async function cleanupMergedBranches(
+  input: ActionInput,
+  client: CardsClient,
+  baseBranch: string,
+  logger: ActionContext['logger']
+): Promise<void> {
+  const { branches } = await client.getBranches(input.cardId, { workspacePath: input.workspacePath });
+
+  for (const branch of branches) {
+    if (!branch.exists) continue;
+
+    try {
+      // Check if branch is merged into baseBranch (exits non-zero when NOT merged)
+      await execFileAsync('git', ['merge-base', '--is-ancestor', branch.name, baseBranch], {
+        cwd: input.workspacePath
+      });
+
+      // Branch is merged — clean up worktree, branch ref, and API record
+      if (branch.worktree) {
+        try {
+          await execFileAsync('git', ['worktree', 'remove', branch.worktree], {
+            cwd: input.workspacePath
+          });
+        } catch (wtError) {
+          logger.warn('Failed to remove worktree', {
+            branch: branch.name,
+            error: wtError instanceof Error ? wtError.message : String(wtError)
+          });
+        }
+      }
+
+      try {
+        await execFileAsync('git', ['branch', '-d', branch.name], {
+          cwd: input.workspacePath
+        });
+      } catch (brError) {
+        logger.warn('Failed to delete branch', {
+          branch: branch.name,
+          error: brError instanceof Error ? brError.message : String(brError)
+        });
+      }
+
+      try {
+        await client.removeBranch(input.cardId, branch.name);
+      } catch (apiError) {
+        logger.warn('Failed to remove branch from API', {
+          branch: branch.name,
+          error: apiError instanceof Error ? apiError.message : String(apiError)
+        });
+      }
+
+      logger.info('Cleaned up merged branch', { branch: branch.name });
+    } catch {
+      // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
+      // This is expected for unmerged branches — skip silently.
+    }
+  }
+}
+
+/**
  * Launch action handler.
  *
  * Spawns the `claude` CLI as a child process, providing the card ID and
@@ -95,16 +260,46 @@ export default defineAction(
       sessionId
     });
 
+    const client = new CardsClient({
+      baseUrl: input.apiBaseUrl,
+      accessToken: input.apiAccessToken
+    });
+
+    // Resolve worktree — fail-open to workspacePath
+    let cwd = input.workspacePath;
+    let baseBranch: string | undefined;
+    let parentBranch: string | undefined;
+
+    try {
+      baseBranch = await resolveBaseBranch(input.workspacePath);
+      const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
+      cwd = worktreeResult.worktreePath;
+      parentBranch = worktreeResult.parentBranch;
+      context.logger.info('Using worktree', {
+        cwd,
+        branch: worktreeResult.branchName,
+        baseBranch,
+        parentBranch
+      });
+    } catch (error) {
+      context.logger.warn('Worktree setup failed, falling back to workspacePath', {
+        error: error instanceof Error ? error.message : String(error),
+        workspacePath: input.workspacePath
+      });
+    }
+
     const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath);
     const isInteractive = input.executionMode === 'interactive';
 
     const child: ChildProcess = spawn('claude', args, {
-      cwd: input.workspacePath,
+      cwd,
       stdio: isInteractive ? 'inherit' : ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
-        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1'
+        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+        ...(baseBranch ? { BASE_BRANCH: baseBranch } : {}),
+        ...(parentBranch ? { PARENT_BRANCH: parentBranch } : {})
       }
     });
 
@@ -120,11 +315,6 @@ export default defineAction(
     });
 
     if (!isInteractive) {
-      const client = new CardsClient({
-        baseUrl: input.apiBaseUrl,
-        accessToken: input.apiAccessToken
-      });
-
       const stream = client.openStream(input.cardId, 'claude-code-session', `${sessionId}.jsonl`, {
         title: `Claude session for ${input.cardId}`,
         sessionId
@@ -151,13 +341,23 @@ export default defineAction(
 
       const result = await stream.close();
       context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
-      return;
+    } else {
+      const exitCode = await new Promise<number | null>((resolve) => {
+        child.on('close', resolve);
+      });
+
+      context.logger.info('Launch action completed', { sessionId, exitCode });
     }
 
-    const exitCode = await new Promise<number | null>((resolve) => {
-      child.on('close', resolve);
-    });
-
-    context.logger.info('Launch action completed', { sessionId, exitCode });
+    // Post-exit cleanup: remove fully-merged branches
+    if (baseBranch) {
+      try {
+        await cleanupMergedBranches(input, client, baseBranch, context.logger);
+      } catch (error) {
+        context.logger.warn('Branch cleanup failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
   }
 );

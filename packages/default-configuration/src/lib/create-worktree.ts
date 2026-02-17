@@ -79,12 +79,14 @@ interface CreateWorktreeResult {
  * and updates per-worktree git excludes.
  *
  * @param branchName - Name of the branch to create or attach.
+ * @param options - Optional configuration.
+ * @param options.cwd - Working directory to use when locating git roots. Defaults to `process.cwd()`.
  * @returns Metadata describing the created worktree and base commit.
  */
-export async function createWorktree(branchName: string): Promise<CreateWorktreeResult> {
+export async function createWorktree(branchName: string, options?: { cwd?: string }): Promise<CreateWorktreeResult> {
   validateBranchName(branchName);
 
-  const { sourceRoot, repoRoot } = await findGitRoots(process.cwd());
+  const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
   const startPoint = await resolveHead(sourceRoot);
   const worktreeDir = path.join(repoRoot, '.worktrees', branchName);
 

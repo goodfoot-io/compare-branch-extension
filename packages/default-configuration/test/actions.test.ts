@@ -2,6 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
+import type { BranchInfo } from '@cards/sdk/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -13,7 +14,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn()
+  spawn: vi.fn(),
+  execFile: vi.fn()
+}));
+
+vi.mock('node:fs/promises', () => ({
+  access: vi.fn()
+}));
+
+vi.mock('../src/lib/create-worktree.js', () => ({
+  createWorktree: vi.fn()
 }));
 
 vi.mock('node:crypto', () => ({
@@ -22,8 +32,17 @@ vi.mock('node:crypto', () => ({
 
 const originalFetch = globalThis.fetch;
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
+
+  // Default: execFile rejects so worktree setup fails open → falls back to workspacePath.
+  // Individual tests that need worktree behavior override this.
+  const { execFile } = await import('node:child_process');
+  vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+    const cb = args[args.length - 1];
+    if (typeof cb === 'function') cb(new Error('mock: not configured'));
+    return {} as ReturnType<typeof execFile>;
+  });
 });
 
 afterEach(() => {
@@ -85,6 +104,14 @@ function createMockChildWithStreams(): ChildProcess & { emitStdout(data: string)
   return child;
 }
 
+/**
+ * Flushes the microtask queue so that async operations (like the worktree
+ * setup fail-open path) complete before test assertions run.
+ */
+async function flushMicrotasks(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 function baseInput(overrides?: Partial<ActionInput>): ActionInput {
   return {
     cardId: 'card-123',
@@ -114,6 +141,7 @@ describe('Default Actions', () => {
 
       const action = (await import('../src/actions/launch.js')).default;
       const promise = action(baseInput(), createMockContext());
+      await flushMicrotasks();
 
       expect(spawn).toHaveBeenCalledWith(
         'claude',
@@ -158,6 +186,7 @@ describe('Default Actions', () => {
 
       const action = (await import('../src/actions/launch.js')).default;
       const promise = action(baseInput({ executionMode: 'background' }), createMockContext());
+      await flushMicrotasks();
 
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
       expect(args).toContain('--print');
@@ -192,6 +221,7 @@ describe('Default Actions', () => {
       const action = (await import('../src/actions/launch.js')).default;
       const context = createMockContext();
       const promise = action(baseInput({ executionMode: 'background' }), context);
+      await flushMicrotasks();
 
       // Verify fetch was called with the stream endpoint
       expect(fetchMock).toHaveBeenCalledWith(
@@ -229,6 +259,7 @@ describe('Default Actions', () => {
       const action = (await import('../src/actions/launch.js')).default;
       const context = createMockContext();
       const promise = action(baseInput(), context);
+      await flushMicrotasks();
 
       expect(context.onCancel).toHaveBeenCalledWith(expect.any(Function));
 
@@ -249,6 +280,7 @@ describe('Default Actions', () => {
       const action = (await import('../src/actions/launch.js')).default;
       const context = createMockContext();
       const promise = action(baseInput(), context);
+      await flushMicrotasks();
 
       expect(context.onSwitchToInteractive).toHaveBeenCalledWith(expect.any(Function));
 
@@ -272,6 +304,7 @@ describe('Default Actions', () => {
         baseInput({ switchToInteractiveData: { sessionId: 'existing-session-456' } }),
         createMockContext()
       );
+      await flushMicrotasks();
 
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
       expect(args).toContain('--resume');
@@ -293,6 +326,9 @@ describe('Default Actions', () => {
         resolved = true;
       });
 
+      // Flush microtasks so worktree fail-open path completes and spawn is called
+      await flushMicrotasks();
+
       // Should not resolve before close event
       await Promise.resolve();
       expect(resolved).toBe(false);
@@ -300,6 +336,486 @@ describe('Default Actions', () => {
       child.emit('close', 0);
       await promise;
       expect(resolved).toBe(true);
+    });
+
+    describe('worktree lifecycle', () => {
+      /**
+       * Configures execFile mock to handle specific git commands.
+       * Commands not matched fall through to a default error callback.
+       */
+      async function configureExecFile(handlers: Record<string, { stdout: string; stderr?: string }>): Promise<void> {
+        const { execFile } = await import('node:child_process');
+        vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+          const cb = args[args.length - 1];
+          const cmd = args[0] as string;
+          const cmdArgs = args[1] as string[];
+          const key = `${cmd} ${cmdArgs.join(' ')}`;
+
+          if (typeof cb === 'function') {
+            // Match against registered handlers by prefix
+            for (const [pattern, result] of Object.entries(handlers)) {
+              if (key.startsWith(pattern) || key.includes(pattern)) {
+                cb(null, { stdout: result.stdout, stderr: result.stderr ?? '' });
+                return {} as ReturnType<typeof execFile>;
+              }
+            }
+            cb(new Error(`mock: unhandled command: ${key}`));
+          }
+          return {} as ReturnType<typeof execFile>;
+        });
+      }
+
+      function configureBranchesResponse(branches: BranchInfo[]): void {
+        globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+          if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+            return Promise.resolve(new Response(JSON.stringify({ branches }), { status: 200 }));
+          }
+          if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
+            return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
+          }
+          if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
+            return Promise.resolve(new Response(null, { status: 204 }));
+          }
+          // Fallback for stream endpoints
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                filename: 'test.jsonl',
+                streamType: 'claude-code-session',
+                lineCount: 0,
+                status: 'completed'
+              }),
+              { status: 200 }
+            )
+          );
+        });
+      }
+
+      it('falls back to workspacePath when resolveBaseBranch fails', async () => {
+        // Default execFile rejects → resolveBaseBranch throws → fail-open
+        const { spawn } = await import('node:child_process');
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        // spawn should use workspacePath as cwd (fallback)
+        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
+        expect(spawnOpts.cwd).toBe('/test/workspace');
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('creates a new worktree when no branches exist', async () => {
+        const { spawn } = await import('node:child_process');
+        const { createWorktree } = await import('../src/lib/create-worktree.js');
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
+        });
+
+        configureBranchesResponse([]);
+
+        vi.mocked(createWorktree).mockResolvedValue({
+          branch: 'cards/card-123/1',
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          baseSha: 'abc123'
+        });
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
+          cwd: '/test/workspace'
+        });
+
+        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
+        expect(spawnOpts.cwd).toBe('/test/workspace/.worktrees/cards/card-123/1');
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('reuses existing worktree when branch exists on disk', async () => {
+        const { spawn } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+        const { createWorktree } = await import('../src/lib/create-worktree.js');
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
+          // Branch has unique commits (not empty) — skip fast-forward
+          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc123 some commit\n' }
+        });
+
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: true
+          }
+        ]);
+
+        vi.mocked(access).mockResolvedValue(undefined);
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        // Should NOT create a new worktree
+        expect(createWorktree).not.toHaveBeenCalled();
+
+        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
+        expect(spawnOpts.cwd).toBe('/test/workspace/.worktrees/cards/card-123/1');
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('fast-forwards branch when it has no unique commits', async () => {
+        const { spawn, execFile } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
+          // No unique commits → empty stdout
+          'git log cards/card-123/1 --not main --oneline': { stdout: '' },
+          // Fast-forward succeeds
+          'git -C /test/workspace/.worktrees/cards/card-123/1 merge --ff-only main': { stdout: '' }
+        });
+
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: true
+          }
+        ]);
+
+        vi.mocked(access).mockResolvedValue(undefined);
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        // Verify fast-forward merge was attempted
+        const calls = vi.mocked(execFile).mock.calls;
+        const ffCall = calls.find(
+          (c) => (c[1] as string[])?.includes('merge') && (c[1] as string[])?.includes('--ff-only')
+        );
+        expect(ffCall).toBeDefined();
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('sets BASE_BRANCH and PARENT_BRANCH env vars when worktree succeeds', async () => {
+        const { spawn } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
+          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc commit\n' }
+        });
+
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: true
+          }
+        ]);
+
+        vi.mocked(access).mockResolvedValue(undefined);
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
+        expect(spawnOpts.env.BASE_BRANCH).toBe('main');
+        expect(spawnOpts.env.PARENT_BRANCH).toBe('main');
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('computes next branch number from existing branches', async () => {
+        const { spawn } = await import('node:child_process');
+        const { createWorktree } = await import('../src/lib/create-worktree.js');
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
+        });
+
+        // Existing branch exists=false (no worktree on disk), so must create new
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/old/path',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: false
+          },
+          {
+            name: 'cards/card-123/3',
+            worktree: '/old/path2',
+            parentBranch: 'main',
+            addedAt: '2025-01-02T00:00:00Z',
+            exists: false
+          }
+        ]);
+
+        vi.mocked(createWorktree).mockResolvedValue({
+          branch: 'cards/card-123/4',
+          worktree: '/test/workspace/.worktrees/cards/card-123/4',
+          baseSha: 'abc123'
+        });
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        // Should pick max(1,3)+1 = 4
+        expect(createWorktree).toHaveBeenCalledWith('cards/card-123/4', {
+          cwd: '/test/workspace'
+        });
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('cleans up fully-merged branches after claude exits', async () => {
+        const { spawn, execFile } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+
+        // Configure git commands: base branch, log for reuse, merge-base for cleanup
+        const mergeBaseKey = 'git merge-base --is-ancestor cards/card-123/1 main';
+        const worktreeRemoveKey = 'git worktree remove';
+        const branchDeleteKey = 'git branch -d cards/card-123/1';
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
+          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc commit\n' },
+          [mergeBaseKey]: { stdout: '' },
+          [worktreeRemoveKey]: { stdout: '' },
+          [branchDeleteKey]: { stdout: '' }
+        });
+
+        const branch: BranchInfo = {
+          name: 'cards/card-123/1',
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          parentBranch: 'main',
+          addedAt: '2025-01-01T00:00:00Z',
+          exists: true
+        };
+
+        // First call: getBranches for resolveOrCreateWorktree
+        // Second call: getBranches for cleanupMergedBranches (post-exit)
+        globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+          if (typeof url === 'string' && url.includes('/branches')) {
+            if (!opts?.method || opts.method === 'GET') {
+              return Promise.resolve(new Response(JSON.stringify({ branches: [branch] }), { status: 200 }));
+            }
+            if (opts?.method === 'DELETE') {
+              return Promise.resolve(new Response(null, { status: 204 }));
+            }
+          }
+          return Promise.resolve(
+            new Response(JSON.stringify({ status: 'completed', lineCount: 0, filename: 'x' }), {
+              status: 200
+            })
+          );
+        });
+
+        vi.mocked(access).mockResolvedValue(undefined);
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        child.emit('close', 0);
+        await promise;
+
+        // Verify cleanup was attempted: worktree remove, branch delete, API remove
+        const execCalls = vi.mocked(execFile).mock.calls;
+        const worktreeRemoveCall = execCalls.find(
+          (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
+        );
+        expect(worktreeRemoveCall).toBeDefined();
+
+        const branchDeleteCall = execCalls.find(
+          (c) => (c[1] as string[])?.includes('branch') && (c[1] as string[])?.includes('-d')
+        );
+        expect(branchDeleteCall).toBeDefined();
+
+        // Verify removeBranch API call (DELETE to /branches/...)
+        const fetchCalls = vi.mocked(globalThis.fetch).mock.calls;
+        const deleteCall = fetchCalls.find(
+          (c) => (c[1] as RequestInit)?.method === 'DELETE' && (c[0] as string).includes('/branches/')
+        );
+        expect(deleteCall).toBeDefined();
+      });
+
+      it('skips cleanup for unmerged branches', async () => {
+        const { spawn, execFile } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+
+        // merge-base --is-ancestor will fail for unmerged branches (exit code 1)
+        const handlers: Record<string, { stdout: string }> = {
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
+          'git log cards/card-123/1 --not main --oneline': { stdout: 'abc commit\n' }
+        };
+
+        vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+          const cb = args[args.length - 1];
+          const cmd = args[0] as string;
+          const cmdArgs = args[1] as string[];
+          const key = `${cmd} ${cmdArgs.join(' ')}`;
+
+          if (typeof cb === 'function') {
+            // merge-base --is-ancestor should fail (branch not merged)
+            if (key.includes('merge-base --is-ancestor')) {
+              cb(new Error('exit code 1'));
+              return {} as ReturnType<typeof execFile>;
+            }
+            for (const [pattern, result] of Object.entries(handlers)) {
+              if (key.startsWith(pattern) || key.includes(pattern)) {
+                cb(null, { stdout: result.stdout, stderr: '' });
+                return {} as ReturnType<typeof execFile>;
+              }
+            }
+            cb(new Error(`mock: unhandled command: ${key}`));
+          }
+          return {} as ReturnType<typeof execFile>;
+        });
+
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: true
+          }
+        ]);
+
+        vi.mocked(access).mockResolvedValue(undefined);
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        child.emit('close', 0);
+        await promise;
+
+        // Verify NO worktree remove or branch delete was called
+        const execCalls = vi.mocked(execFile).mock.calls;
+        const worktreeRemoveCall = execCalls.find(
+          (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
+        );
+        expect(worktreeRemoveCall).toBeUndefined();
+
+        const branchDeleteCall = execCalls.find(
+          (c) => (c[1] as string[])?.includes('branch') && (c[1] as string[])?.includes('-d')
+        );
+        expect(branchDeleteCall).toBeUndefined();
+      });
+
+      it('skips worktree with nonexistent path on disk', async () => {
+        const { spawn } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+        const { createWorktree } = await import('../src/lib/create-worktree.js');
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
+        });
+
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/nonexistent/worktree/path',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: true
+          }
+        ]);
+
+        // fs.access rejects — worktree path doesn't exist on disk
+        vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+
+        vi.mocked(createWorktree).mockResolvedValue({
+          branch: 'cards/card-123/2',
+          worktree: '/test/workspace/.worktrees/cards/card-123/2',
+          baseSha: 'abc123'
+        });
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        // Should create a new worktree since the existing one's path doesn't exist
+        expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', {
+          cwd: '/test/workspace'
+        });
+
+        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
+        expect(spawnOpts.cwd).toBe('/test/workspace/.worktrees/cards/card-123/2');
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('does not set BASE_BRANCH or PARENT_BRANCH when worktree setup fails', async () => {
+        // Default execFile rejects → worktree setup fails → no env vars
+        const { spawn } = await import('node:child_process');
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
+        expect(spawnOpts.env.BASE_BRANCH).toBeUndefined();
+        expect(spawnOpts.env.PARENT_BRANCH).toBeUndefined();
+
+        child.emit('close', 0);
+        await promise;
+      });
     });
   });
 });

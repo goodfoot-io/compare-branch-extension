@@ -29,6 +29,12 @@ export interface WorkspaceBranch {
   worktree?: string;
 
   /**
+   * Optional name of the branch this was created from (e.g., 'main').
+   * Used for fast-forward detection and rebase targeting.
+   */
+  parentBranch?: string;
+
+  /**
    * ISO 8601 timestamp when branch was added to the card.
    * Used for chronological sorting and audit trails.
    */
@@ -75,6 +81,12 @@ export interface BranchInfo {
    * Copied from WorkspaceBranch.worktree if present.
    */
   worktree?: string;
+
+  /**
+   * Parent branch name from which this branch was created.
+   * Copied from WorkspaceBranch.parentBranch if present.
+   */
+  parentBranch?: string;
 
   /**
    * ISO 8601 timestamp when branch was added.
@@ -131,4 +143,9 @@ export interface AddBranchRequest {
    * Should be an absolute path to a valid worktree directory.
    */
   worktree?: string;
+
+  /**
+   * Optional parent branch name to record as the creation base.
+   */
+  parentBranch?: string;
 }

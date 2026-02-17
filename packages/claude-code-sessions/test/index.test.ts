@@ -442,10 +442,7 @@ describe('claude-code-sessions', () => {
       const pid1 = process.pid;
 
       // Run two operations concurrently
-      await Promise.all([
-        recordPendingCommit(pid1, 'sha-a'),
-        associatePidWithCard(pid1, 'card-concurrent')
-      ]);
+      await Promise.all([recordPendingCommit(pid1, 'sha-a'), associatePidWithCard(pid1, 'card-concurrent')]);
 
       // The PID should have an entry regardless of ordering
       const cardId = await getPidCardId(pid1);

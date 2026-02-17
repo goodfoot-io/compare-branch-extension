@@ -1232,4 +1232,30 @@ describe('createWorktree end-to-end', () => {
   it('a second call with the same branch name rejects', async () => {
     await expect(createWorktree('e2e-test-branch')).rejects.toThrow('Worktree already exists');
   });
+
+  it('accepts explicit cwd option instead of process.cwd()', async () => {
+    // This test uses a second temp repo while process.cwd() points elsewhere
+    // Create a fresh workspace
+    const workspace2 = new TestGitWorkspace();
+    await workspace2.create();
+    const repoPath2 = workspace2.getPath();
+    const git2 = workspace2.getGit();
+
+    // Set up minimal git content
+    await fs.writeFile(path.join(repoPath2, '.gitignore'), 'node_modules/\n');
+    await git2.add('.gitignore');
+    await git2.commit('init');
+
+    // process.cwd() points to the original repoPath (from beforeAll), NOT repoPath2
+    // So this proves cwd option is used instead of process.cwd()
+    const result = await createWorktree('cwd-test-branch', { cwd: repoPath2 });
+
+    expect(result.branch).toBe('cwd-test-branch');
+    expect(result.worktree).toBe(path.join(repoPath2, '.worktrees', 'cwd-test-branch'));
+    expect(result.baseSha).toMatch(/^[0-9a-f]{40}$/);
+
+    // Cleanup
+    await git2.raw(['worktree', 'remove', result.worktree, '--force']);
+    await workspace2.destroy();
+  });
 });
