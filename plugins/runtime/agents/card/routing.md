@@ -1,7 +1,7 @@
 ---
 name: routing
 description: Recommend the appropriate skill based on card state.
-model: inherit
+model: haiku
 tools: "*"
 skills: runtime:card-repo, runtime:card-routing
 ---
