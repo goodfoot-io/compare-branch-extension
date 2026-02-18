@@ -248,8 +248,7 @@ const __DEFAULT_LOG_DEST = ${JSON.stringify(logFile)};
 const __cardRepo = process.env['CARD_REPO_PATH'];
 if (__cardRepo && !process.env['CARDS_HOOKS_LOG_FILE']) {
   process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__cardRepo, __DEFAULT_LOG_DEST);
-}
-` : "";
+}` : "";
     let wrapperContent;
     if (factoryType === "streamTransform") {
       wrapperContent = `
@@ -259,7 +258,7 @@ export default function transform(line, ctx) { return cmd(line, ctx); }
 `;
     } else if (factoryType === "typeValidator") {
       const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/config/validation.ts"));
-      wrapperContent = `${logPreamble}
+      wrapperContent = `
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
 
@@ -267,7 +266,7 @@ executeValidation(handler);
 `;
     } else {
       const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/config/runtime.ts"));
-      wrapperContent = `${logPreamble}
+      wrapperContent = `
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
 
@@ -277,6 +276,8 @@ executeCommand(handler);
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
     const isStreamTransform = factoryType === "streamTransform";
+    const jsBanner = isStreamTransform ? void 0 : logPreamble ? `${BANNER}
+${logPreamble}` : BANNER;
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
@@ -292,9 +293,7 @@ executeCommand(handler);
       sourcemap: sourcemap ? "inline" : false,
       minify: false,
       external: isStreamTransform ? [] : EXTERNALS,
-      banner: isStreamTransform ? {} : {
-        js: BANNER
-      },
+      banner: jsBanner != null ? { js: jsBanner } : {},
       logLevel: "silent"
     });
     if (result.errors.length > 0) {
