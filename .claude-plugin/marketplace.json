@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Plugins for the Cards VSCode extension",
-    "version": "1.0.357",
+    "version": "1.0.358",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "cards",
-      "version": "1.0.101",
+      "version": "1.0.102",
       "source": "./plugins/cards",
       "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {

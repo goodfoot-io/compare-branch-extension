@@ -164,7 +164,7 @@ describe('CardsClient', () => {
         ok: false,
         status: 404,
         statusText: 'Not Found',
-        json: async () => ({ message: 'Attachment not found' })
+        json: async () => ({ error: 'Attachment not found' })
       } as Response);
       await expect(client.getAttachment('card-123', 'attachment-456')).rejects.toThrow();
       vi.restoreAllMocks();
@@ -398,15 +398,19 @@ describe('CardsClient', () => {
 
     it('should throw ApiError on server error response', async () => {
       const client = new CardsClient(options);
-      const errorResponse = new Response(JSON.stringify({ message: 'Card not found' }), {
-        status: 404,
-        statusText: 'Not Found'
+
+      // Mock fetch to return 404 — fresh Response per call since body is single-use
+      vi.spyOn(global, 'fetch').mockImplementation(async () => {
+        return new Response(JSON.stringify({ error: 'Card not found', code: 'NOT_FOUND' }), {
+          status: 404,
+          statusText: 'Not Found'
+        });
       });
 
-      // Mock fetch to return 404
-      vi.spyOn(global, 'fetch').mockResolvedValue(errorResponse);
-
-      await expect(client.getBranches('card-123')).rejects.toThrow(ApiError);
+      const err = await client.getBranches('card-123').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).message).toBe('Card not found');
+      expect((err as ApiError).code).toBe('NOT_FOUND');
       vi.restoreAllMocks();
     });
   });
@@ -527,7 +531,7 @@ describe('CardsClient', () => {
 
     it('getStream throws ApiError on 404', async () => {
       const client = new CardsClient(options);
-      const errorResponse = new Response(JSON.stringify({ message: 'Stream not found' }), {
+      const errorResponse = new Response(JSON.stringify({ error: 'Stream not found' }), {
         status: 404,
         statusText: 'Not Found'
       });
@@ -698,7 +702,7 @@ describe('CardsClient', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
-        json: async () => ({ message: 'Server error' })
+        json: async () => ({ error: 'Server error' })
       } as Response);
       await expect(client.listCards()).rejects.toThrow(); // ApiError, not NetworkError
 

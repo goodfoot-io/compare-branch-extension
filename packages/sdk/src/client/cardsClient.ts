@@ -248,7 +248,7 @@ export class CardsClient {
             console.warn('[CardsClient] Unexpected error parsing error response:', parseError);
           }
         }
-        const message = (body['message'] as string | undefined) || error.statusText;
+        const message = (body['error'] as string | undefined) || (body['message'] as string | undefined) || error.statusText;
         const code = (body['code'] as string | undefined) || String(error.status);
         const fields = body['fields'] as Array<{ field: string; message: string }> | undefined;
         throw new ApiError(message, code, fields);
