@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE_PATH ./bin/launch.66426a5d.mjs",
+            "command": "$VSCODE_NODE_PATH ./bin/launch.5e3ffc08.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -51,7 +51,7 @@
   },
   "__generated": {
     "files": [
-      "launch.66426a5d.mjs",
+      "launch.5e3ffc08.mjs",
       "adaptive-card-validator.d1ef9e80.mjs",
       "adaptive-card-submission-validator.67fcad21.mjs",
       "note-validator.1c0ad82d.mjs",
