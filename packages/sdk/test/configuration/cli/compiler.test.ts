@@ -427,7 +427,7 @@ export default defineAction(
       const output = readCompiledOutput(outputPath);
       expect(output).toContain('.cards/logs/hooks.log');
       expect(output).toContain('CARDS_HOOKS_LOG_FILE');
-      expect(output).toContain('CARD_REPO_PATH');
+      expect(output).toContain("process.env['WORKSPACE_PATH']");
     });
 
     it('should compile log dest as a const that sets CARDS_HOOKS_LOG_FILE for type validators', async () => {
@@ -454,7 +454,7 @@ export default defineTypeValidator(
       const output = readCompiledOutput(outputPath);
       expect(output).toContain('.cards/logs/hooks.log');
       expect(output).toContain('CARDS_HOOKS_LOG_FILE');
-      expect(output).toContain('CARD_REPO_PATH');
+      expect(output).toContain("process.env['WORKSPACE_PATH']");
     });
 
     it('should not embed logFile when option is not set', async () => {
