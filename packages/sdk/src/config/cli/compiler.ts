@@ -256,8 +256,9 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     const sourceImport = toRelativeImport(sourcePath);
 
     // When --log is provided, generate a preamble that sets CARDS_HOOKS_LOG_FILE
-    // resolved against CARD_REPO_PATH. This runs before any Logger is constructed,
-    // so both the singleton and new Logger() instances pick it up via the constructor.
+    // resolved against CARD_REPO_PATH. This is injected via the esbuild banner
+    // (not the stdin wrapper) so that it executes before any bundled dependency
+    // code — in particular before the Logger singleton is constructed.
     // Only sets the env var when it isn't already set, so an explicit
     // CARDS_HOOKS_LOG_FILE from the runtime environment still wins.
     const logPreamble = logFile
@@ -267,8 +268,7 @@ const __DEFAULT_LOG_DEST = ${JSON.stringify(logFile)};
 const __cardRepo = process.env['CARD_REPO_PATH'];
 if (__cardRepo && !process.env['CARDS_HOOKS_LOG_FILE']) {
   process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__cardRepo, __DEFAULT_LOG_DEST);
-}
-`
+}`
       : '';
 
     let wrapperContent: string;
@@ -283,7 +283,7 @@ export default function transform(line, ctx) { return cmd(line, ctx); }
     } else if (factoryType === 'typeValidator') {
       // Type validators use file-path protocol via executeValidation
       const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/config/validation.ts'));
-      wrapperContent = `${logPreamble}
+      wrapperContent = `
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
 
@@ -292,7 +292,7 @@ executeValidation(handler);
     } else {
       // Other handlers use environment variable extraction via executeCommand
       const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/config/runtime.ts'));
-      wrapperContent = `${logPreamble}
+      wrapperContent = `
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
 
@@ -310,6 +310,7 @@ executeCommand(handler);
     // handler file that the wrapper imports (esbuild treats sourcefile
     // as the virtual filename for the stdin content).
     const isStreamTransform = factoryType === 'streamTransform';
+    const jsBanner = isStreamTransform ? undefined : logPreamble ? `${BANNER}\n${logPreamble}` : BANNER;
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
@@ -325,11 +326,7 @@ executeCommand(handler);
       sourcemap: sourcemap ? 'inline' : false,
       minify: false,
       external: isStreamTransform ? [] : EXTERNALS,
-      banner: isStreamTransform
-        ? {}
-        : {
-            js: BANNER
-          },
+      banner: jsBanner != null ? { js: jsBanner } : {},
       logLevel: 'silent'
     });
 
