@@ -1,14 +1,7 @@
 ---
-name: router
+name: card-routing
 description: Route cards to the appropriate agent based on card state.
-model: inherit
-tools: "*"
-skills: runtime:card-repo
 ---
-
-```!
-cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
-```
 
 <routing-constraints>
 The router evaluates, routes, and coordinates — it does NOT implement, plan, or modify card content.

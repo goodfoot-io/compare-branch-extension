@@ -28,7 +28,9 @@ vi.mock('@cards/claude-code-sessions', () => ({
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
-  createWorktree: vi.fn()
+  createWorktree: vi.fn(),
+  checkWorktreeExists: vi.fn(),
+  findGitRoots: vi.fn()
 }));
 
 vi.mock('node:crypto', () => ({
@@ -70,7 +72,9 @@ beforeEach(async () => {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
-  const { createWorktree } = await import('../src/lib/create-worktree.js');
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('../src/lib/create-worktree.js');
+  vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
+  vi.mocked(checkWorktreeExists).mockResolvedValue(false);
   vi.mocked(createWorktree).mockResolvedValue({
     branch: 'cards/card-123/1',
     worktree: '/test/workspace/.worktrees/cards/card-123/1',

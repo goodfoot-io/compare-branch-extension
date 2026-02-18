@@ -23,7 +23,7 @@ import { promisify } from 'node:util';
 import { getTranscriptPathForPid } from '@cards/claude-code-sessions';
 import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import { createWorktree } from '../lib/create-worktree.js';
+import { checkWorktreeExists, createWorktree, findGitRoots } from '../lib/create-worktree.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -75,7 +75,6 @@ function buildArgs(
     args.push(prompt);
     args.push('--session-id', sessionId);
   }
-  args.push('--agent', 'runtime:card:router');
   args.push('--settings', buildPluginSettings(worktreePath));
   args.push('--add-dir', cardRepoPath);
   if (mode === 'background') {
@@ -144,15 +143,27 @@ async function resolveOrCreateWorktree(
     return { worktreePath: branch.worktree, branchName: branch.name, parentBranch };
   }
 
-  // No valid existing branch — create new one
+  // No valid existing branch — create new one.
+  // The API may be out of sync with git (e.g. a previous worktree was created
+  // but never registered, or its API record was deleted). To avoid colliding
+  // with worktrees git already knows about, probe git's actual state and
+  // increment past any occupied slots.
   const prefix = `cards/${input.cardId}/`;
   const existingNumbers = branches
     .filter((b) => b.name.startsWith(prefix))
     .map((b) => parseInt(b.name.slice(prefix.length), 10))
     .filter((n) => !Number.isNaN(n));
-  const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
-  const branchName = `${prefix}${nextNumber}`;
+  let nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 
+  const { repoRoot } = await findGitRoots(input.workspacePath);
+  while (await checkWorktreeExists(repoRoot, path.join(repoRoot, '.worktrees', `${prefix}${nextNumber}`))) {
+    logger.warn('Worktree already exists in git but not in API, skipping', {
+      branch: `${prefix}${nextNumber}`
+    });
+    nextNumber++;
+  }
+
+  const branchName = `${prefix}${nextNumber}`;
   const result = await createWorktree(branchName, { cwd: input.workspacePath });
   await client.addBranch(input.cardId, { name: branchName, worktree: result.worktree, parentBranch: baseBranch });
 
@@ -251,7 +262,7 @@ export default defineAction(
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
-    const prompt = `Route to the appropriate agent.`;
+    const prompt = `Say hello world`;
 
     context.logger.info('Launch action started', {
       cardId: input.cardId,
@@ -266,7 +277,9 @@ export default defineAction(
     });
 
     const baseBranch = await resolveBaseBranch(input.workspacePath);
+
     const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
+
     const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
     context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 

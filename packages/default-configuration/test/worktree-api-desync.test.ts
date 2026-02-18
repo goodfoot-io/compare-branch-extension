@@ -33,7 +33,9 @@ vi.mock('@cards/claude-code-sessions', () => ({
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
-  createWorktree: vi.fn()
+  createWorktree: vi.fn(),
+  checkWorktreeExists: vi.fn(),
+  findGitRoots: vi.fn()
 }));
 
 vi.mock('node:crypto', () => ({
@@ -74,8 +76,12 @@ beforeEach(async () => {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
+  // Default: findGitRoots returns workspace as both roots, checkWorktreeExists returns false (no conflict)
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('../src/lib/create-worktree.js');
+  vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
+  vi.mocked(checkWorktreeExists).mockResolvedValue(false);
+
   // Default createWorktree succeeds (overridden per-test below)
-  const { createWorktree } = await import('../src/lib/create-worktree.js');
   vi.mocked(createWorktree).mockResolvedValue({
     branch: 'cards/card-123/1',
     worktree: '/test/workspace/.worktrees/cards/card-123/1',
@@ -141,103 +147,70 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 }
 
 describe('worktree-API desync', () => {
-  it('handles worktree that exists in git but not in API', async () => {
+  it('skips occupied slot and creates worktree at next available number', async () => {
     const { spawn } = await import('node:child_process');
-    const { createWorktree } = await import('../src/lib/create-worktree.js');
+    const { createWorktree, checkWorktreeExists } = await import('../src/lib/create-worktree.js');
 
     // API returns NO branches — it has no record of any worktree.
-    // This simulates the desync: git has cards/card-123/1 registered,
-    // but the API doesn't know about it.
-    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-        return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
-      }
-      if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
-        return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
-      }
-      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-    });
+    // But git has cards/card-123/1 registered (checkWorktreeExists returns true for slot 1).
+    vi.mocked(checkWorktreeExists)
+      .mockResolvedValueOnce(true) // slot 1 occupied in git
+      .mockResolvedValueOnce(false); // slot 2 free
 
-    // createWorktree rejects because git already has this worktree registered.
-    // The numbering logic (which only consults the API) picks "cards/card-123/1",
-    // but git's `worktree list` already contains it.
-    vi.mocked(createWorktree).mockRejectedValue(
-      new Error('Error: Worktree already exists at /test/workspace/.worktrees/cards/card-123/1')
-    );
+    vi.mocked(createWorktree).mockResolvedValue({
+      branch: 'cards/card-123/2',
+      worktree: '/test/workspace/.worktrees/cards/card-123/2',
+      baseSha: 'abc123'
+    });
 
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
 
     const action = (await import('../src/actions/launch.js')).default;
-
-    // The action should NOT throw — it should handle the desync gracefully
-    // (e.g., by incrementing the branch number and retrying, or by reusing
-    // the existing git worktree).
-    //
-    // With the current buggy code, resolveOrCreateWorktree lets the
-    // "Worktree already exists" error propagate unhandled, so the action
-    // rejects. This assertion therefore FAILS, demonstrating the bug.
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
-    await expect(promise).resolves.not.toThrow();
-
-    child.emit('close', 0);
-  });
-
-  it('calls createWorktree with a conflicting branch name derived solely from API state', async () => {
-    const { createWorktree } = await import('../src/lib/create-worktree.js');
-
-    // API returns NO branches — same desync scenario.
-    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-        return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
-      }
-      if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
-        return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
-      }
-      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-    });
-
-    // First call rejects (git already has cards/card-123/1),
-    // second call would succeed with an incremented name.
-    vi.mocked(createWorktree)
-      .mockRejectedValueOnce(new Error('Error: Worktree already exists at /test/workspace/.worktrees/cards/card-123/1'))
-      .mockResolvedValueOnce({
-        branch: 'cards/card-123/2',
-        worktree: '/test/workspace/.worktrees/cards/card-123/2',
-        baseSha: 'abc123'
-      });
-
-    const action = (await import('../src/actions/launch.js')).default;
-
-    // The action should recover from the first "already exists" error by
-    // retrying with the next branch number. With the current buggy code,
-    // createWorktree is called exactly once with the conflicting name and
-    // then the error propagates — no retry happens.
-    //
-    // This assertion FAILS with the current code, demonstrating that
-    // createWorktree is never called with the non-conflicting name.
-    try {
-      const { spawn } = await import('node:child_process');
-      const child = createMockChild();
-      vi.mocked(spawn).mockReturnValue(child);
-
-      const promise = action(baseInput(), createMockContext());
-      await flushMicrotasks();
-
-      child.emit('close', 0);
-      await promise;
-    } catch {
-      // The action throws with current code; that's the bug.
-      // We still assert that a retry was attempted.
-    }
-
-    // After the fix, createWorktree should be called twice:
-    // 1st with 'cards/card-123/1' (fails), 2nd with 'cards/card-123/2' (succeeds).
-    // With the current buggy code, it's only called once — this assertion FAILS.
+    // createWorktree should be called once with slot 2 (skipping occupied slot 1)
+    expect(createWorktree).toHaveBeenCalledTimes(1);
     expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', {
       cwd: '/test/workspace'
     });
+
+    child.emit('close', 0);
+    await promise;
+  });
+
+  it('skips multiple occupied slots to find the first free one', async () => {
+    const { spawn } = await import('node:child_process');
+    const { createWorktree, checkWorktreeExists } = await import('../src/lib/create-worktree.js');
+
+    // Git has slots 1-15 registered but the API knows nothing about them.
+    const occupied = 15;
+    for (let i = 0; i < occupied; i++) {
+      vi.mocked(checkWorktreeExists).mockResolvedValueOnce(true);
+    }
+    vi.mocked(checkWorktreeExists).mockResolvedValueOnce(false); // slot 16 free
+
+    vi.mocked(createWorktree).mockResolvedValue({
+      branch: 'cards/card-123/16',
+      worktree: '/test/workspace/.worktrees/cards/card-123/16',
+      baseSha: 'abc123'
+    });
+
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/launch.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+
+    // Should skip slots 1-15 and create at 16
+    expect(createWorktree).toHaveBeenCalledTimes(1);
+    expect(createWorktree).toHaveBeenCalledWith('cards/card-123/16', {
+      cwd: '/test/workspace'
+    });
+
+    child.emit('close', 0);
+    await promise;
   });
 });

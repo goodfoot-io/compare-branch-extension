@@ -9,7 +9,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "cards-sdk build -c settings.config.ts -o dist --log .cards/logs/hooks.log",
+    "build": "cards-sdk build -c settings.config.ts -o dist --log .cards/logs/hooks.log && cp -r ./dist/* ../../../.cards/",
+    "watch": "chokidar 'src/**/*.ts' -c 'yarn build' --initial",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --experimental.fsModuleCache",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test"
@@ -28,6 +29,7 @@
     "@cards/test-utils": "workspace:*",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "24.x",
+    "chokidar-cli": "^3.0.0",
     "fs-extra": "^11.3.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
