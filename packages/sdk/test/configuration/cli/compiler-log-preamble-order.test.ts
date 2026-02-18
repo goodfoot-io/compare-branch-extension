@@ -127,4 +127,41 @@ export default defineAction(
 
     expect(preambleIndex).toBeLessThan(loggerIndex);
   });
+
+  it('should resolve the log path against WORKSPACE_PATH, not CARD_REPO_PATH', async () => {
+    // The --log path is intended to be relative to the workspace root.
+    // WORKSPACE_PATH points to the VS Code workspace root (e.g., /workspace).
+    // CARD_REPO_PATH points to the card's git repo in extension storage
+    // (e.g., ~/.vscode-server/.../cards-repos/main-1), which is a
+    // completely different directory. Resolving against CARD_REPO_PATH
+    // puts the log file in the wrong location.
+    const handlerContent = `
+import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
+
+export default defineAction(
+  { actionName: 'TestLogBase', timeout: 30000 },
+  async (input, context) => {
+    context.logger.info('Testing log base path');
+  }
+);
+`;
+    const sourcePath = writeTestHandler(testDir, 'handler.ts', handlerContent);
+    const outputPath = path.join(testDir, 'output.mjs');
+
+    const result = await compileHandler({
+      sourcePath,
+      outputPath,
+      sourcemap: false,
+      logFile: '.cards/logs/hooks.log'
+    });
+
+    expect(result.success).toBe(true);
+
+    const output = readCompiledOutput(outputPath);
+
+    // The preamble must use WORKSPACE_PATH as the base for resolving
+    // the log file path, not CARD_REPO_PATH.
+    expect(output).toContain("process.env['WORKSPACE_PATH']");
+    expect(output).not.toMatch(/process\.env\[['"]CARD_REPO_PATH['"]\]/);
+  });
 });
