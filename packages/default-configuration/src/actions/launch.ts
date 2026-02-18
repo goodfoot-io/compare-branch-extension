@@ -262,7 +262,7 @@ export default defineAction(
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
-    const prompt = `Say hello world`;
+    const prompt = `Say hello world!!`;
 
     context.logger.info('Launch action started', {
       cardId: input.cardId,
