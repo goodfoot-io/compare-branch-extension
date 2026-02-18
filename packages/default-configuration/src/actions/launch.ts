@@ -18,6 +18,7 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { getTranscriptPathForPid } from '@cards/claude-code-sessions';
 import { CardsClient } from '@cards/sdk/client';
@@ -36,26 +37,35 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Settings JSON that enables the `claude-code-cli-v2` plugin and includes
+ * Builds the `--settings` JSON that enables the `runtime` plugin and registers
  * the `cards.management` marketplace source so the spawned `claude` process
  * can resolve the plugin independently of the parent session's settings.
+ *
+ * The marketplace `directory` source path must be absolute because inline JSON
+ * passed via `--settings` has no file-system anchor for relative-path resolution
+ * (same class of bug as Card #11278).
+ *
+ * @param worktreePath - Absolute path to the worktree where `claude` runs.
+ * @returns Serialised settings JSON string.
  */
-const PLUGIN_SETTINGS = JSON.stringify({
-  enabledPlugins: { 'runtime@cards.management': true },
-  extraKnownMarketplaces: {
-    'cards.management': {
-      //      source: { source: 'github', repo: 'goodfoot-io/compare-branch-extension' }
-      source: { source: 'directory', path: 'public' }
+function buildPluginSettings(worktreePath: string): string {
+  return JSON.stringify({
+    enabledPlugins: { 'runtime@cards.management': true },
+    extraKnownMarketplaces: {
+      'cards.management': {
+        source: { source: 'directory', path: path.join(worktreePath, 'public') }
+      }
     }
-  }
-});
+  });
+}
 
 function buildArgs(
   prompt: string,
   sessionId: string,
   resume: boolean,
   mode: ActionInput['executionMode'],
-  cardRepoPath: string
+  cardRepoPath: string,
+  worktreePath: string
 ): string[] {
   const args: string[] = [];
 
@@ -66,7 +76,7 @@ function buildArgs(
     args.push('--session-id', sessionId);
   }
   args.push('--agent', 'runtime:card:router');
-  args.push('--settings', PLUGIN_SETTINGS);
+  args.push('--settings', buildPluginSettings(worktreePath));
   args.push('--add-dir', cardRepoPath);
   if (mode === 'background') {
     args.push('--print', '--output-format', 'stream-json');
@@ -260,7 +270,7 @@ export default defineAction(
     const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
     context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-    const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath);
+    const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath, cwd);
     const isInteractive = input.executionMode === 'interactive';
 
     const child: ChildProcess = spawn('claude', args, {

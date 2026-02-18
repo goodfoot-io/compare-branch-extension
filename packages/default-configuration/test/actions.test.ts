@@ -202,7 +202,7 @@ describe('Default Actions', () => {
       expect(settingsJson.enabledPlugins['runtime@cards.management']).toBe(true);
       expect(settingsJson.extraKnownMarketplaces['cards.management'].source).toEqual({
         source: 'directory',
-        path: 'public'
+        path: '/test/workspace/.worktrees/cards/card-123/1/public'
       });
 
       child.emit('close', 0);
