@@ -205,7 +205,7 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
     }
 
     // Set logger context with command type
-    logger.setContext(command.factoryType, input as unknown as Record<string, unknown>);
+    logger.setContext(command.factoryType, { ...input });
 
     if (command.factoryType === 'action') {
       // Socket connection and ActionContext for action commands

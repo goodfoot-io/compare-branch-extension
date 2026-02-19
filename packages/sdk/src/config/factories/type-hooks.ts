@@ -114,14 +114,14 @@ export function defineTypeValidator<T extends TypeValidatorConfig>(
     return await Promise.resolve(handler(request, context));
   };
 
-  fn.factoryType = 'typeValidator' as const;
-  fn.typeName = config.typeName;
-  fn.timeout = config.timeout;
-  fn.sourcePath = config.sourcePath;
-  fn.schema = config.schema;
-  fn.description = config.description;
-
-  return fn as unknown as TypeValidatorCommand<T['typeName']>;
+  return Object.assign(fn, {
+    factoryType: 'typeValidator' as const,
+    typeName: config.typeName,
+    timeout: config.timeout,
+    sourcePath: config.sourcePath,
+    schema: config.schema,
+    description: config.description
+  }) as TypeValidatorCommand<T['typeName']>;
 }
 
 /**
