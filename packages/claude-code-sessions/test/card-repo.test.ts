@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:os', () => ({
-  homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp'),
+  homedir: vi.fn(() => process.env['MOCK_HOMEDIR'] || '/tmp'),
   tmpdir: vi.fn(() => '/tmp')
 }));
 
@@ -30,7 +30,7 @@ describe('card-repo', () => {
   beforeEach(() => {
     testDir = join(realTmpdir(), `card-repo-test-${Date.now()}-${Math.random()}`);
     mkdirSync(testDir, { recursive: true });
-    process.env.MOCK_HOMEDIR = testDir;
+    process.env['MOCK_HOMEDIR'] = testDir;
     cardRepoCommitsDir = join(testDir, '.cards', 'card-repo-commits');
   });
 
@@ -38,7 +38,7 @@ describe('card-repo', () => {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
-    delete process.env.MOCK_HOMEDIR;
+    delete process.env['MOCK_HOMEDIR'];
   });
 
   // -------------------------------------------------------------------------

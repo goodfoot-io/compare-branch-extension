@@ -29,7 +29,7 @@ describe('process-tree', () => {
     mockExecSync.mockImplementation((cmd: string) => {
       const commMatch = cmd.match(/ps -p (\d+) -o comm=/);
       if (commMatch) {
-        const pid = Number.parseInt(commMatch[1], 10);
+        const pid = Number.parseInt(commMatch[1]!, 10);
         const entry = tree[pid];
         if (!entry) throw new Error(`ps: pid ${pid} not found`);
         return `${entry.comm}\n`;
@@ -37,7 +37,7 @@ describe('process-tree', () => {
 
       const argsMatch = cmd.match(/ps -p (\d+) -o args=/);
       if (argsMatch) {
-        const pid = Number.parseInt(argsMatch[1], 10);
+        const pid = Number.parseInt(argsMatch[1]!, 10);
         const entry = tree[pid];
         if (!entry) throw new Error(`ps: pid ${pid} not found`);
         return `${entry.args ?? entry.comm}\n`;
@@ -45,7 +45,7 @@ describe('process-tree', () => {
 
       const ppidMatch = cmd.match(/ps -p (\d+) -o ppid=/);
       if (ppidMatch) {
-        const pid = Number.parseInt(ppidMatch[1], 10);
+        const pid = Number.parseInt(ppidMatch[1]!, 10);
         const entry = tree[pid];
         if (!entry || entry.ppid === null) throw new Error(`ps: pid ${pid} not found`);
         return `${entry.ppid}\n`;
