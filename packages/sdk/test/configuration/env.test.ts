@@ -77,7 +77,8 @@ describe('env', () => {
         CONFIG_PATH: 'CONFIG_PATH',
         WORKSPACE_PATH: 'WORKSPACE_PATH',
         CARD_REPO_PATH: 'CARD_REPO_PATH',
-        ACTION_COMMAND: 'ACTION_COMMAND'
+        ACTION_COMMAND: 'ACTION_COMMAND',
+        WORKSPACE_BRANCH: 'WORKSPACE_BRANCH'
       });
     });
   });

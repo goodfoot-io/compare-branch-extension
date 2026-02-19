@@ -8,7 +8,7 @@ description: Implement cards.
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title from CARD.meta.json
 [CARD_DESCRIPTION] — The card description text from CARD.md
-[BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
 [CHECKPOINT_SHA] — Commit SHA recorded at the pre-implementation checkpoint
 [TASK_COUNT] — Number of implementation tasks derived from the card
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)

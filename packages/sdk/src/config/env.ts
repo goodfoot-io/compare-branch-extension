@@ -161,7 +161,14 @@ export const CARDS_ENV_VARS = {
    * Resolved shell command for the wrapper to spawn as the action handler.
    * Set by ActionDispatcher; consumed by the wrapper (not by action handlers).
    */
-  ACTION_COMMAND: 'ACTION_COMMAND'
+  ACTION_COMMAND: 'ACTION_COMMAND',
+
+  /**
+   * Git branch name for the card's workspace implementation.
+   * Set by the launch action after resolving or creating the worktree.
+   * Available in actions only.
+   */
+  WORKSPACE_BRANCH: 'WORKSPACE_BRANCH'
 } as const;
 
 // ============================================================================

@@ -294,7 +294,8 @@ export default defineAction(
         CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
         CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
         BASE_BRANCH: baseBranch,
-        PARENT_BRANCH: parentBranch
+        PARENT_BRANCH: parentBranch,
+        WORKSPACE_BRANCH: branchName
       }
     });
 

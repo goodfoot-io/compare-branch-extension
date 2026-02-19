@@ -9,7 +9,7 @@ description: Fix testable bugs using test-first methodology.
 [TITLE] — Card title for commit messages
 [DESCRIPTION] — Card description text
 [COMMENTS] — User comments on the card
-[BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
 [FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
 [BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
 [SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)

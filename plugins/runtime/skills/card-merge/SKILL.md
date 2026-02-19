@@ -7,7 +7,7 @@ description: Merge implementation branch to base branch.
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title
-[BRANCH_NAME] — The implementation branch name
+[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
 [BASE_BRANCH] — The branch to merge into (typically `main`)
 </placeholder-variables>
 
@@ -78,7 +78,7 @@ Based on workspace state:
 - **No uncommitted changes**: Continue
 
 ```bash
-git merge --ff-only "$BRANCH_NAME"
+git merge --ff-only "$WORKSPACE_BRANCH"
 ```
 
 Based on merge result:

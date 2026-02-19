@@ -8,7 +8,7 @@ description: Implement approved plans.
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title from CARD.meta.json
 [DESCRIPTION] — The card description text from CARD.md
-[BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
+[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
 [TASK_CHECKPOINT] — Commit SHA recorded before each agent delegation
 [TASK_DESCRIPTION] — Human-readable description of the current task phase
 [EVALUATION_CYCLE] — Counter tracking evaluation iterations (max 2)
