@@ -155,7 +155,13 @@ export const CARDS_ENV_VARS = {
    * Path to the card's repository directory.
    * Available in actions only.
    */
-  CARD_REPO_PATH: 'CARD_REPO_PATH'
+  CARD_REPO_PATH: 'CARD_REPO_PATH',
+
+  /**
+   * Resolved shell command for the wrapper to spawn as the action handler.
+   * Set by ActionDispatcher; consumed by the wrapper (not by action handlers).
+   */
+  ACTION_COMMAND: 'ACTION_COMMAND'
 } as const;
 
 // ============================================================================

@@ -1,6 +1,6 @@
 ---
 name: implementation-with-plan
-description: Implement approved plans in isolated worktree.
+description: Implement approved plans.
 ---
 
 
@@ -9,7 +9,6 @@ description: Implement approved plans in isolated worktree.
 [TITLE] — The card title from CARD.meta.json
 [DESCRIPTION] — The card description text from CARD.md
 [BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-[WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
 [TASK_CHECKPOINT] — Commit SHA recorded before each agent delegation
 [TASK_DESCRIPTION] — Human-readable description of the current task phase
 [EVALUATION_CYCLE] — Counter tracking evaluation iterations (max 2)
@@ -85,59 +84,17 @@ Collect the Decision Narratives. Extract: what changed, what was learned, what t
 
 </commit-message-artistry>
 
-<tools>
-
-**create-worktree** — Creates git worktree with automatic commit tracking via hooks.
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
-```
-
-Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it does not exist, or attaches to an existing branch. Fails if worktree path is already occupied.
-
-Git hooks automatically track commits. Squashed commits are cleaned up automatically.
-
-</tools>
-
 <instructions>
 
 ## 1. Prepare Environment
 
-Determine path using the first matching condition:
-- **Worktree exists**: Resume — Navigate to existing worktree
-- **Branch exists (no worktree)**: Recreate — Attach worktree to branch
-- **Otherwise**: New — Create worktree
-
-### Resume
+Stash any uncommitted changes:
 
 ```bash
-cd ".worktrees/[BRANCH_NAME]"
 git stash --include-untracked
 ```
 
-Continue to Step 2. Restore stash after todo initialization.
-
-### Recreate
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
-cd ".worktrees/[BRANCH_NAME]"
-```
-
-Continue to Step 2.
-
-### New
-
-Create worktree:
-
-```bash
-WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
-WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
-BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
-cd "$WORKTREE_DIR"
-```
-
-On worktree creation failure: write an error comment to the card, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+Restore stash after todo initialization in Step 2.
 
 ---
 
@@ -153,7 +110,7 @@ If resuming: `git stash pop` to restore prior work.
 
 ### 2.2 Task Checkpoint
 
-Before each agent delegation, commit a checkpoint in the workspace worktree:
+Before each agent delegation, commit a checkpoint:
 
 ```bash
 git add -A
@@ -218,7 +175,6 @@ Agent prompt template:
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
-Worktree: [WORKTREE_PATH]
 Checkpoint SHA: [TASK_CHECKPOINT]
 
 ## Setup
@@ -274,7 +230,7 @@ Only proceed to **3. Refactor** when ALL validations pass.
 
 ### 3.1 Pre-Refactoring Checkpoint
 
-Commit a checkpoint in the workspace worktree:
+Commit a checkpoint:
 
 ```bash
 git add -A
@@ -290,7 +246,6 @@ git commit --allow-empty -m "checkpoint: before refactoring — implementation c
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
-Worktree: [WORKTREE_PATH]
 
 ## Focus Areas
 1. Eliminate dead code
@@ -327,7 +282,7 @@ Based on agent status:
 
 ### 4.1 Pre-Evaluation Checkpoint
 
-Commit a checkpoint in the workspace worktree:
+Commit a checkpoint:
 
 ```bash
 git add -A
@@ -343,7 +298,6 @@ git commit --allow-empty -m "checkpoint: before evaluation — implementation an
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
-Worktree: [WORKTREE_PATH]
 
 Evaluate for production readiness.
 </parameter>
@@ -375,7 +329,7 @@ Before completing, synthesize Decision Narratives from all subagent reports into
 4. **Weave**: A unified story, not a list
 5. **Scale**: 2 paragraphs for small changes, up to 5 for substantial ones
 
-**Create the final commit in the workspace worktree** following `<commit-message-artistry>` guidelines.
+**Create the final commit** following `<commit-message-artistry>` guidelines.
 
 ### 5.2 Complete or Await Review
 
@@ -390,10 +344,9 @@ Launch the merge agent:
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Branch: [BRANCH_NAME]
-Worktree: [WORKTREE_PATH]
 Base branch: [BASE_BRANCH]
 
-Merge the worktree branch to the base branch.
+Merge the branch to the base branch.
 </parameter>
 </invoke>
 ```

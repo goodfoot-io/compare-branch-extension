@@ -8,7 +8,7 @@ description: Respond to backlog cards without code changes.
 
 ## 1. Constraint
 
-Provide information only — no code changes, worktrees, or commits to the workspace repository. If the card contains implementation requests, explain that implementation requires moving the card to "todo" status first.
+Provide information only — no code changes or commits to the workspace repository. If the card contains implementation requests, explain that implementation requires moving the card to "todo" status first.
 
 ## 2. Determine Response
 

@@ -1,6 +1,6 @@
 ---
 name: implementation
-description: Implement cards in isolated git worktree.
+description: Implement cards.
 ---
 
 
@@ -9,7 +9,6 @@ description: Implement cards in isolated git worktree.
 [TITLE] — The card title from CARD.meta.json
 [CARD_DESCRIPTION] — The card description text from CARD.md
 [BRANCH_NAME] — `card-[CARD_ID]-[slugified-title]` (`:` and `/` replaced with `-`)
-[WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
 [CHECKPOINT_SHA] — Commit SHA recorded at the pre-implementation checkpoint
 [TASK_COUNT] — Number of implementation tasks derived from the card
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
@@ -20,71 +19,30 @@ The orchestrator prepares, plans, and coordinates — it does NOT implement code
 
 | Orchestrator handles directly | Implementer handles via delegation |
 |-------------------------------|-----------------------------------|
-| Worktree creation/navigation | Feature implementation |
-| Card clarification | Code changes |
-| Codebase exploration | Test writing |
-| Task derivation | Validation execution |
-| Result processing | Bug fixes |
+| Card clarification | Feature implementation |
+| Codebase exploration | Code changes |
+| Task derivation | Test writing |
+| Result processing | Validation execution |
+|                               | Bug fixes |
 
 Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation work.
 
 **Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
 </orchestrator-constraints>
 
-<tools>
-
-**create-worktree** — Creates git worktree with automatic commit tracking via hooks.
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
-```
-
-Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates a new branch if it does not exist, or attaches to an existing branch. Fails if worktree path is already occupied.
-
-Git hooks automatically track commits. Squashed commits are cleaned up automatically.
-
-</tools>
-
 <instructions>
 
 ## 1. Prepare Environment
 
-Determine environment path using the first matching condition:
-- **Worktree exists**: Resume — Navigate to existing worktree
-- **Branch exists (no worktree)**: Recreate — Attach worktree to branch
-- **Otherwise**: New — Create worktree
-
-### Resume (worktree exists)
+Stash any uncommitted changes:
 
 ```bash
-cd ".worktrees/[BRANCH_NAME]"
-git stash --include-untracked  # Save uncommitted work; restore after task derivation
+git stash --include-untracked
 ```
 
-If an "Implementation Complete" comment exists on the card, skip to **4. Finalize**. Otherwise continue to **2. Derive Tasks**.
+If an "Implementation Complete" comment exists on the card, skip to **4. Finalize**.
 
-### Recreate (branch exists, no worktree)
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
-cd ".worktrees/[BRANCH_NAME]"
-```
-
-If an "Implementation Complete" comment exists on the card, skip to **4. Finalize**. Otherwise continue to **2. Derive Tasks**.
-
-### New (fresh start)
-
-1. Create worktree:
-   ```bash
-   WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
-   WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
-   BASE_SHA=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
-   cd "$WORKTREE_DIR"
-   ```
-
-   On worktree creation failure: write an error comment to the card, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
-
-2. Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the card content:
+Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the card content:
 
    ```xml
    <invoke name="Task">
@@ -204,7 +162,7 @@ When uncertain between Coherent and Sequential, choose **Coherent** for planless
 
 ### 2.4 Checkpoint Before Implementation
 
-Commit a checkpoint in the workspace worktree:
+Commit a checkpoint:
 
 ```bash
 git add -A
@@ -235,7 +193,6 @@ Choose the [MODEL] based on the tasks:
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
-Worktree: [WORKTREE_PATH]
 Checkpoint SHA: [CHECKPOINT_SHA]
 
 ## Description
@@ -270,7 +227,6 @@ Checkpoint SHA: [CHECKPOINT_SHA]
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
-Worktree: [WORKTREE_PATH]
 
 ## Tasks to Complete
 [Group A tasks only]
@@ -286,7 +242,6 @@ Worktree: [WORKTREE_PATH]
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
-Worktree: [WORKTREE_PATH]
 
 ## Tasks to Complete
 [Group B tasks only]
@@ -357,10 +312,9 @@ Write a completion comment to the card repository. Commit to the card repository
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Branch: [BRANCH_NAME]
-Worktree: [WORKTREE_PATH]
 Base branch: [BASE_BRANCH]
 
-Merge the worktree branch to the base branch.
+Merge the branch to the base branch.
 </parameter>
 </invoke>
 ```

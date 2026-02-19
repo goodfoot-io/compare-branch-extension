@@ -11,7 +11,6 @@ Extract from the invoking context:
 - [CARD_ID] = The card's unique identifier from CARD.meta.json
 - [TITLE] = The card title from CARD.meta.json
 - [DESCRIPTION] = The card description from CARD.md
-- [WORKTREE_PATH] = The worktree path provided by the orchestrator
 - [CHECKPOINT_SHA] = Commit SHA recorded before delegation (if provided)
 
 **Card Repository Files:**
@@ -200,8 +199,6 @@ For each package from the plan:
 </validation-and-reporting>
 
 <instructions>
-
-**WORKTREE CONTEXT**: If working in a worktree, you'll be in a worktree subdirectory, NOT the main workspace directly. Adjust all paths accordingly.
 
 <preparation-phase>
 ## Phase 1: Prepare Clean Workspace

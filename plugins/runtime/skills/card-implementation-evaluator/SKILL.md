@@ -11,7 +11,6 @@ Extract from the invoking context:
 - [CARD_ID] = The card's unique identifier from CARD.meta.json
 - [TITLE] = The card title from CARD.meta.json
 - [DESCRIPTION] = The card description from CARD.md
-- [WORKTREE_PATH] = The worktree path provided by the orchestrator
 
 **Card Repository Files:**
 - PLAN.md — The implementation plan (read for validation commands)

@@ -13,8 +13,7 @@ description: Fix testable bugs using test-first methodology.
 [FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
 [BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
 [SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)
-[WORKTREE_DIR] — Worktree directory path (`.worktrees/[BRANCH_NAME]`)
-[WORKTREE_BASELINE] — Base commit SHA when worktree created
+[BASELINE_SHA] — Commit SHA at the start of the session (`git rev-parse HEAD`)
 [TEST_FILE_PATH] — Absolute path to reproduction test
 [TEST_READY_SHA] — Commit SHA after reproduction test committed
 [TEST_FAILURE_OUTPUT] — Captured test output when test fails
@@ -27,14 +26,6 @@ description: Fix testable bugs using test-first methodology.
 </placeholder-variables>
 
 <tools>
-
-**create-worktree** — Creates git worktree with automatic commit tracking via hooks.
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]"
-```
-
-Creates worktree at `.worktrees/[BRANCH_NAME]`. Creates new branch if needed, or attaches to existing branch.
 
 Git hooks automatically track commits. Squashed commits are cleaned up automatically.
 
@@ -50,24 +41,12 @@ Enforce strict test-first verification:
 
 <instructions>
 
-## 1. Prepare Environment
+## 1. Explore Workspace based on Card Content
 
-Remove any existing workspace worktree and branch, then create fresh:
+Record the starting commit for change tracking:
 
 ```bash
-# Clean up any existing worktree/branch
-if [ -d ".worktrees/[BRANCH_NAME]" ]; then
-  git worktree remove ".worktrees/[BRANCH_NAME]" --force
-fi
-if git show-ref --verify --quiet "refs/heads/[BRANCH_NAME]"; then
-  git branch -D "[BRANCH_NAME]"
-fi
-
-# Create fresh worktree
-WORKTREE_JSON=$("${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.sh" "[BRANCH_NAME]")
-WORKTREE_DIR=$(echo "$WORKTREE_JSON" | jq -r '.worktree')
-WORKTREE_BASELINE=$(echo "$WORKTREE_JSON" | jq -r '.baseSha')
-cd "$WORKTREE_DIR"
+BASELINE_SHA=$(git rev-parse HEAD)
 ```
 
 Launch parallel Explore subagents (haiku model) in the workspace repository. Launch multiple subagents with distinct, targeted prompts based on the card content:
@@ -195,7 +174,7 @@ if [ ! -f "$TEST_FILE_PATH" ]; then
 fi
 
 # Check for unexpected modifications
-MODIFIED_FILES=$(git diff "$WORKTREE_BASELINE" --name-only --diff-filter=M)
+MODIFIED_FILES=$(git diff "$BASELINE_SHA" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
   # Write comment asking user: proceed or revert?
   # Set needs_review, STOP — await user direction
@@ -214,7 +193,7 @@ Based on subagent response and test result:
 - **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** — Awaiting user intervention.
 
 - **Test FAILS (expected)**:
-  - Commit the test in the workspace worktree: `git add -A && git commit -m "[what the reproduction test checks and why it fails]"`
+  - Commit the test: `git add -A && git commit -m "[what the reproduction test checks and why it fails]"`
   - Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
@@ -222,7 +201,7 @@ Based on subagent response and test result:
 
 - **Test PASSES (unexpected) and attempts < 3**:
   - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
-  - Revert in workspace worktree: `git checkout "$WORKTREE_BASELINE" -- . && git clean -fd`
+  - Revert to baseline: `git checkout "$BASELINE_SHA" -- . && git clean -fd`
   - Return to Delegate to Subagent
 
 - **Test PASSES (unexpected) and attempts >= 3**:
@@ -384,12 +363,12 @@ Based on validation result:
 
 ### 5.1 Squash Commits
 
-Squash all workspace worktree commits since baseline into one:
+Squash all commits since baseline into one:
 
 ```bash
-COMMIT_COUNT=$(git rev-list --count "$WORKTREE_BASELINE"..HEAD)
+COMMIT_COUNT=$(git rev-list --count "$BASELINE_SHA"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft "$WORKTREE_BASELINE"
+  git reset --soft "$BASELINE_SHA"
   git commit -m "[bug description, root cause analysis, fix approach, data flow from source to symptom, and test file path]"
 fi
 ```
@@ -418,10 +397,9 @@ Based on review requirement:
   <parameter name="prompt">
   Card: [CARD_ID] - [TITLE]
   Branch: [BRANCH_NAME]
-  Worktree: [WORKTREE_PATH]
   Base branch: [BASE_BRANCH]
 
-  Merge the worktree branch to the base branch.
+  Merge the branch to the base branch.
   </parameter>
   </invoke>
   ```

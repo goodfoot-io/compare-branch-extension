@@ -14,7 +14,7 @@ description: Create implementation plans for user approval.
 
 <instructions>
 
-Create implementation plans for cards requiring user approval before coding begins. Do NOT create worktrees or make code changes — plans must be approved before any implementation begins.
+Create implementation plans for cards requiring user approval before coding begins. Do NOT make code changes — plans must be approved before any implementation begins.
 
 ## 1. Create Plan
 

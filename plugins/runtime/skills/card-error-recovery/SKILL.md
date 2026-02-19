@@ -43,7 +43,7 @@ Based on error type:
 
 Recovery cycle:
 1. Analyze the error
-2. Fix in worktree
+2. Apply fix
 3. Run linting, type checking, and tests
 
 **Validation rules:**
@@ -61,7 +61,7 @@ Based on validation result:
 
 Based on card state:
 - **Card already has "blocked" tag** (from a previous recovery attempt): Skip to section 4 without posting a duplicate comment
-- **Otherwise**: Write a comment to the card repository documenting the error, including: what happened, the repository state (base branch status, worktree location, failed step), the relevant error output, manual resolution steps, and how to retry after fixing
+- **Otherwise**: Write a comment to the card repository documenting the error, including: what happened, the repository state (base branch status, failed step), the relevant error output, manual resolution steps, and how to retry after fixing
 
 Then proceed to section 4.
 

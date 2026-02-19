@@ -1,46 +1,32 @@
 ---
 name: merge
-description: Merge worktree implementation to base branch.
+description: Merge implementation branch to base branch.
 ---
 
 
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title
-[BRANCH_NAME] — The worktree branch name
-[WORKTREE_PATH] — `.worktrees/[BRANCH_NAME]`
+[BRANCH_NAME] — The implementation branch name
 [BASE_BRANCH] — The branch to merge into (typically `main`)
 </placeholder-variables>
-
-<tools>
-
-**remove-worktree** — Removes a worktree and deletes its associated branch. Returns the branch's final commit SHA.
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "[BRANCH_NAME]"
-```
-
-</tools>
 
 <instructions>
 
 ## 1. Check for Changes
 
-In the workspace worktree:
-
 ```bash
-cd ".worktrees/$BRANCH_NAME"
 BRANCH_BASE=$(git merge-base HEAD $BASE_BRANCH)
 COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
 ```
 
 Based on commit count:
-- **COMMIT_COUNT = 0**: No changes to merge. Run `"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "$BRANCH_NAME"`. Write a comment to the card repository noting no changes were found and the branch was cleaned up. Commit to the card repository and **STOP**.
+- **COMMIT_COUNT = 0**: No changes to merge. Write a comment to the card repository noting no changes were found. Commit to the card repository and **STOP**.
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
 
 ## 2. Squash Commits
 
-In the workspace worktree, squash all commits since baseline:
+Squash all commits since the branch diverged:
 
 ```bash
 if [ "$COMMIT_COUNT" -gt 1 ]; then
@@ -49,7 +35,7 @@ if [ "$COMMIT_COUNT" -gt 1 ]; then
 fi
 ```
 
-## 3. Rebase and Validate (in Workspace Worktree)
+## 3. Rebase and Validate
 
 Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
 
@@ -74,42 +60,29 @@ Blocking is not failure — it is honest acknowledgment that human intervention 
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 4
-- **Validation fails and attempts < 3**: Fix errors in the workspace worktree, re-run validation
+- **Validation fails and attempts < 3**: Fix errors, re-run validation
 - **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** — Awaiting user intervention.
 
-## 4. Prepare Main Workspace
+## 4. Fast-Forward Merge
+
+Navigate to the repository root:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+cd "$REPO_ROOT"
 git status --porcelain
 ```
 
 Based on workspace state:
 - **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: [CARD_ID]"`
-- **No uncommitted changes**: Proceed to Step 5
-
-## 5. Fast-Forward Merge
+- **No uncommitted changes**: Continue
 
 ```bash
 git merge --ff-only "$BRANCH_NAME"
 ```
 
 Based on merge result:
-- **Merge succeeds**: Proceed to Step 6
+- **Merge succeeds**: Pop stash if applicable (`git stash pop`). **STOP** — Merge complete. Awaiting user verification.
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
-
-## 6. Restore Stashed Work
-
-Based on stash state:
-- **Work was stashed in Step 4**: Run `git stash pop`
-- **No stashed work**: Proceed to Step 7
-
-## 7. Clean Up
-
-```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/remove-worktree.sh" "$BRANCH_NAME"
-```
-
-**STOP** — Merge complete. Awaiting user verification.
 
 </instructions>
