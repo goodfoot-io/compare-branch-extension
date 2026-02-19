@@ -42,7 +42,7 @@ Launch both assessments in parallel (one message):
 ```xml
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
-  <parameter name="subagent_type">plan-assessor</parameter>
+  <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
   <parameter name="prompt">Card: [CARD_ID]
 
 1. Read the plan from PLAN.md in the card repository.
@@ -52,7 +52,7 @@ Launch both assessments in parallel (one message):
 
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
-  <parameter name="subagent_type">plan-refactor</parameter>
+  <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
   <parameter name="prompt">Card: [CARD_ID]
 
 1. Read the plan from PLAN.md in the card repository.

@@ -171,7 +171,7 @@ Agent prompt template:
 ```xml
 <invoke name="Task">
 <parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
-<parameter name="subagent_type">implementer</parameter>
+<parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
@@ -242,7 +242,7 @@ git commit --allow-empty -m "checkpoint: before refactoring — implementation c
 ```xml
 <invoke name="Task">
 <parameter name="description">Refactor implementation</parameter>
-<parameter name="subagent_type">refactor</parameter>
+<parameter name="subagent_type">runtime:card:refactor</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
@@ -294,7 +294,7 @@ git commit --allow-empty -m "checkpoint: before evaluation — implementation an
 ```xml
 <invoke name="Task">
 <parameter name="description">Evaluate implementation</parameter>
-<parameter name="subagent_type">implementation-evaluator</parameter>
+<parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Description: [DESCRIPTION]
@@ -340,7 +340,7 @@ Launch the merge agent:
 ```xml
 <invoke name="Task">
 <parameter name="description">Merge [TITLE]</parameter>
-<parameter name="subagent_type">merge</parameter>
+<parameter name="subagent_type">runtime:card:merge</parameter>
 <parameter name="prompt">
 Card: [CARD_ID] - [TITLE]
 Branch: [BRANCH_NAME]
