@@ -355,7 +355,8 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
   };
 
   const dirResults = await Promise.all(nonNestedDirs.map(createDirSymlink));
-  const fileResults = await Promise.all(ignored.files.map(createFileSymlink));
+  const nonNestedFiles = ignored.files.filter((file) => !isNestedUnder(file, dirSet));
+  const fileResults = await Promise.all(nonNestedFiles.map(createFileSymlink));
 
   const dirCount = dirResults.filter((r) => r).length;
   const fileCount = fileResults.filter((r) => r).length;
