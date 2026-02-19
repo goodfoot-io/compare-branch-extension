@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { executeTransaction, isProcessAlive, pruneStaleEntries } from './internal.js';
+import { executeTransaction, hasErrnoCode, isProcessAlive, pruneStaleEntries } from './internal.js';
 
 export { findAllClaudePids, findClaudePid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 
@@ -240,8 +240,9 @@ function readRegistryEntry(registryPath: string, pid: number): PidSessionEntry |
     const content = readFileSync(registryPath, 'utf-8');
     const registry = JSON.parse(content) as CardRepoPidRegistry;
     return registry.sessions[String(pid)] ?? null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (hasErrnoCode(error, 'ENOENT')) return null;
+    throw error;
   }
 }
 
@@ -278,10 +279,17 @@ async function waitForPidEntry<T>(
     };
 
     const watcher = watch(registryPath, () => {
-      const entry = readRegistryEntry(registryPath, pid);
-      if (entry) {
+      try {
+        const entry = readRegistryEntry(registryPath, pid);
+        if (entry) {
+          cleanup();
+          resolve(extract(entry));
+        }
+      } catch {
+        // readRegistryEntry only throws on non-ENOENT errors (corrupt JSON, permission denied).
+        // In the watch callback context, we cannot propagate — clean up and resolve null.
         cleanup();
-        resolve(extract(entry));
+        resolve(null);
       }
     });
 
