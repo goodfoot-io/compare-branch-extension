@@ -46,7 +46,7 @@ describe('env', () => {
     delete process.env[CARDS_ENV_VARS.FILE_SIZE];
     delete process.env[CARDS_ENV_VARS.SHA256];
     delete process.env[CARDS_ENV_VARS.CONTENT_TYPE];
-    delete process.env[CARDS_ENV_VARS.VSCODE_NODE_PATH];
+    delete process.env[CARDS_ENV_VARS.VSCODE_NODE];
   });
 
   afterEach(() => {
@@ -71,7 +71,8 @@ describe('env', () => {
         FILE_SIZE: 'FILE_SIZE',
         SHA256: 'SHA256',
         CONTENT_TYPE: 'CONTENT_TYPE',
-        VSCODE_NODE_PATH: 'VSCODE_NODE_PATH',
+        VSCODE_NODE: 'VSCODE_NODE',
+        NODE: 'NODE',
         SOCKET_PATH: 'SOCKET_PATH',
         SWITCH_TO_INTERACTIVE_DATA_PATH: 'SWITCH_TO_INTERACTIVE_DATA_PATH',
         CONFIG_PATH: 'CONFIG_PATH',
@@ -339,17 +340,17 @@ describe('env', () => {
 
   describe('getVscodeNodePath', () => {
     it('should return node path when set', () => {
-      process.env[CARDS_ENV_VARS.VSCODE_NODE_PATH] = '/usr/bin/node';
+      process.env[CARDS_ENV_VARS.VSCODE_NODE] = '/usr/bin/node';
       expect(getVscodeNodePath()).toBe('/usr/bin/node');
     });
 
-    it('should throw when VSCODE_NODE_PATH is undefined', () => {
-      expect(() => getVscodeNodePath()).toThrow('Missing required environment variable: VSCODE_NODE_PATH');
+    it('should throw when VSCODE_NODE is undefined', () => {
+      expect(() => getVscodeNodePath()).toThrow('Missing required environment variable: VSCODE_NODE');
     });
 
-    it('should throw when VSCODE_NODE_PATH is empty string', () => {
-      process.env[CARDS_ENV_VARS.VSCODE_NODE_PATH] = '';
-      expect(() => getVscodeNodePath()).toThrow('Missing required environment variable: VSCODE_NODE_PATH');
+    it('should throw when VSCODE_NODE is empty string', () => {
+      process.env[CARDS_ENV_VARS.VSCODE_NODE] = '';
+      expect(() => getVscodeNodePath()).toThrow('Missing required environment variable: VSCODE_NODE');
     });
   });
 

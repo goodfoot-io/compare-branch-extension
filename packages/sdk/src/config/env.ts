@@ -120,12 +120,22 @@ export const CARDS_ENV_VARS = {
    *
    * Set by the extension host from `process.execPath` (with
    * `ELECTRON_RUN_AS_NODE=1`). Commands in settings.json use
-   * `$VSCODE_NODE_PATH ./bin/...` so they work regardless of
+   * `$VSCODE_NODE ./bin/...` so they work regardless of
    * whether `node` is on the system PATH.
    *
    * Available in all actions and type hooks.
    */
-  VSCODE_NODE_PATH: 'VSCODE_NODE_PATH',
+  VSCODE_NODE: 'VSCODE_NODE',
+
+  /**
+   * Path to the Node.js interpreter running the wrapper process.
+   *
+   * Set by the wrapper from `process.execPath`. Use `$NODE` in embedded
+   * bash statements to invoke Node scripts portably.
+   *
+   * Available in all actions.
+   */
+  NODE: 'NODE',
 
   /**
    * Path to the Unix domain socket for runtime-to-dispatcher communication.
@@ -497,7 +507,7 @@ export function getContentType(): string {
  * Node.js without relying on the system PATH.
  *
  * @returns The path to the Node.js interpreter
- * @throws Error if VSCODE_NODE_PATH is missing or empty
+ * @throws Error if VSCODE_NODE is missing or empty
  * @example
  * ```typescript
  * const nodePath = getVscodeNodePath();
@@ -505,9 +515,9 @@ export function getContentType(): string {
  * ```
  */
 export function getVscodeNodePath(): string {
-  const value = process.env[CARDS_ENV_VARS.VSCODE_NODE_PATH];
+  const value = process.env[CARDS_ENV_VARS.VSCODE_NODE];
   if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.VSCODE_NODE_PATH}`);
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.VSCODE_NODE}`);
   }
   return value;
 }

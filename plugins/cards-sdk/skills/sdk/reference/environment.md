@@ -24,7 +24,7 @@ CARDS_ENV_VARS.FILE_PATH                     // 'FILE_PATH'
 CARDS_ENV_VARS.FILE_SIZE                     // 'FILE_SIZE'
 CARDS_ENV_VARS.SHA256                        // 'SHA256'
 CARDS_ENV_VARS.CONTENT_TYPE                  // 'CONTENT_TYPE'
-CARDS_ENV_VARS.VSCODE_NODE_PATH               // 'VSCODE_NODE_PATH'
+CARDS_ENV_VARS.VSCODE_NODE               // 'VSCODE_NODE'
 CARDS_ENV_VARS.SOCKET_PATH                   // 'SOCKET_PATH'
 CARDS_ENV_VARS.SWITCH_TO_INTERACTIVE_DATA_PATH // 'SWITCH_TO_INTERACTIVE_DATA_PATH'
 CARDS_ENV_VARS.CONFIG_PATH                   // 'CONFIG_PATH'
@@ -50,7 +50,7 @@ CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 | `FILE_SIZE` | No | No | Yes |
 | `SHA256` | No | No | Yes |
 | `CONTENT_TYPE` | No | Yes | Yes |
-| `VSCODE_NODE_PATH` | Yes | Yes | Yes |
+| `VSCODE_NODE` | Yes | Yes | Yes |
 | `SOCKET_PATH` | Yes | No | No |
 | `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes | No | No |
 | `CONFIG_PATH` | Yes | No | No |
@@ -84,7 +84,7 @@ const apiAccessToken = getApiAccessToken();
 import { getVscodeNodePath } from '@cards/sdk/config';
 
 // Path to VS Code's bundled Node.js interpreter
-// Used in settings.json command paths ($VSCODE_NODE_PATH ./bin/handler.mjs)
+// Used in settings.json command paths ($VSCODE_NODE ./bin/handler.mjs)
 const nodePath = getVscodeNodePath();       // e.g., '/usr/share/code/node'
 ```
 

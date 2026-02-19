@@ -341,7 +341,7 @@ describe('build output: cross-reference validation', () => {
 
 /**
  * Extracts the filename from a command string.
- * Handles both "./bin/file.mjs" and "$VSCODE_NODE_PATH ./bin/file.mjs" formats.
+ * Handles both "./bin/file.mjs" and "$VSCODE_NODE ./bin/file.mjs" formats.
  *
  * @param command - Command string from settings that may include executable prefix.
  * @returns Basename of the compiled handler file referenced by the command.

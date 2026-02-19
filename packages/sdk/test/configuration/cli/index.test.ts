@@ -362,8 +362,8 @@ describe('build', () => {
     });
   });
 
-  describe('$VSCODE_NODE_PATH in commands', () => {
-    it('should use $VSCODE_NODE_PATH instead of node in generated commands', async () => {
+  describe('$VSCODE_NODE in commands', () => {
+    it('should use $VSCODE_NODE instead of node in generated commands', async () => {
       const outdir = join(FIXTURES_DIR, 'output-node-path');
       const result = await build({
         config: join(FIXTURES_DIR, 'valid.config.ts'),

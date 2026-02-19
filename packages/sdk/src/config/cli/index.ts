@@ -129,9 +129,9 @@ function getBaseName(sourcePath: string): string {
 /**
  * Generates the command string for settings.json.
  * Paths are relative to the settings.json file location.
- * Uses `$VSCODE_NODE_PATH` so the bundled Node.js interpreter is used
+ * Uses `$VSCODE_NODE` so the bundled Node.js interpreter is used
  * regardless of whether `node` is on the system PATH.
- * E.g., "$VSCODE_NODE_PATH ./bin/launch-claude.abc12345.mjs"
+ * E.g., "$VSCODE_NODE ./bin/launch-claude.abc12345.mjs"
  *
  * @param filename - Compiled handler filename placed under the bin directory.
  * @param binDir - Relative output subdirectory containing compiled handlers.
@@ -139,7 +139,7 @@ function getBaseName(sourcePath: string): string {
  */
 function generateCommandString(filename: string, binDir: string): string {
   const relativePath = path.posix.join(binDir, filename);
-  return `$VSCODE_NODE_PATH ./${relativePath}`;
+  return `$VSCODE_NODE ./${relativePath}`;
 }
 
 // ============================================================================
