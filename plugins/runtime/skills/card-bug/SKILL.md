@@ -5,12 +5,9 @@ description: Fix testable bugs using test-first methodology.
 
 
 <placeholder-variables>
-[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — Card title for commit messages
 [DESCRIPTION] — Card description text
 [COMMENTS] — User comments on the card
-[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
-[FILES_TO_MODIFY] — Files referenced in [DESCRIPTION] or [COMMENTS]
 [BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
 [SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)
 [BASELINE_SHA] — Commit SHA at the start of the session (`git rev-parse HEAD`)
@@ -394,13 +391,7 @@ Based on review requirement:
   <invoke name="Task">
   <parameter name="description">Merge [TITLE]</parameter>
   <parameter name="subagent_type">runtime:card:merge</parameter>
-  <parameter name="prompt">
-  Card: [CARD_ID] - [TITLE]
-  Branch: [BRANCH_NAME]
-  Base branch: [BASE_BRANCH]
-
-  Merge the branch to the base branch.
-  </parameter>
+  <parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch." `</parameter>
   </invoke>
   ```
 

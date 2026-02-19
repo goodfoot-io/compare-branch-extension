@@ -4,10 +4,6 @@ description: Incorporate user feedback into an existing plan and re-assess.
 ---
 
 
-<placeholder-variables>
-[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
-</placeholder-variables>
-
 <instructions>
 
 Incorporate user feedback into an existing implementation plan and re-run assessments.
@@ -63,8 +59,7 @@ Launch both assessments in parallel (one message):
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
-  <parameter name="prompt">Card: [CARD_ID]
-
+  <parameter name="prompt">
 1. Read the plan from PLAN.md
 2. Assess the plan and post a report per your instructions.
 </parameter>
@@ -73,8 +68,7 @@ Launch both assessments in parallel (one message):
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
-  <parameter name="prompt">Card: [CARD_ID]
-
+  <parameter name="prompt">
 1. Read the plan from PLAN.md
 2. Assess the plan and post a report per your instructions.
 </parameter>

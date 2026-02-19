@@ -7,9 +7,6 @@ description: Implement approved plans.
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title from CARD.meta.json
-[DESCRIPTION] — The card description text from CARD.md
-[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
-[TASK_CHECKPOINT] — Commit SHA recorded before each agent delegation
 [TASK_DESCRIPTION] — Human-readable description of the current task phase
 [EVALUATION_CYCLE] — Counter tracking evaluation iterations (max 2)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
@@ -174,13 +171,6 @@ Agent prompt template:
 <parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-Checkpoint SHA: [TASK_CHECKPOINT]
-
-## Setup
-1. Read the plan from PLAN.md in the card repository
-2. Read CARD.md for requirements context
-
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
 [Sequential: Complete phase [N] todos: [phase todo descriptions]. Stop at gate: [GATE_CONDITION].]
@@ -244,9 +234,6 @@ git commit --allow-empty -m "checkpoint: before refactoring — implementation c
 <parameter name="description">Refactor implementation</parameter>
 <parameter name="subagent_type">runtime:card:refactor</parameter>
 <parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-Description: [DESCRIPTION]
-
 ## Focus Areas
 1. Eliminate dead code
 2. Simplify logic (guard clauses, smaller functions)
@@ -295,12 +282,7 @@ git commit --allow-empty -m "checkpoint: before evaluation — implementation an
 <invoke name="Task">
 <parameter name="description">Evaluate implementation</parameter>
 <parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
-<parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-Description: [DESCRIPTION]
-
-Evaluate for production readiness.
-</parameter>
+<parameter name="prompt">Evaluate for production readiness.</parameter>
 </invoke>
 ```
 
@@ -341,13 +323,7 @@ Launch the merge agent:
 <invoke name="Task">
 <parameter name="description">Merge [TITLE]</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-Branch: [BRANCH_NAME]
-Base branch: [BASE_BRANCH]
-
-Merge the branch to the base branch.
-</parameter>
+<parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch." `</parameter>
 </invoke>
 ```
 

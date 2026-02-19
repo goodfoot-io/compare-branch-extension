@@ -4,14 +4,6 @@ description: Create implementation plans for user approval.
 ---
 
 
-<placeholder-variables>
-[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] — The card title from CARD.meta.json
-[DESCRIPTION] — The card description text from CARD.md
-[LATEST_USER_COMMENT] — Most recent comment from a user (if any)
-[PLAN_CONTENT] — The plan markdown content from PLAN.md (or null if not set)
-</placeholder-variables>
-
 <instructions>
 
 Create implementation plans for cards requiring user approval before coding begins. Do NOT make code changes — plans must be approved before any implementation begins.
@@ -43,8 +35,7 @@ Launch both assessments in parallel (one message):
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
-  <parameter name="prompt">Card: [CARD_ID]
-
+  <parameter name="prompt">
 1. Read the plan from PLAN.md in the card repository.
 2. Assess the plan and post a report per your instructions.
 </parameter>
@@ -53,8 +44,7 @@ Launch both assessments in parallel (one message):
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
-  <parameter name="prompt">Card: [CARD_ID]
-
+  <parameter name="prompt">
 1. Read the plan from PLAN.md in the card repository.
 2. Assess the plan and post a report per your instructions.
 </parameter>

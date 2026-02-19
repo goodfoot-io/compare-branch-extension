@@ -7,9 +7,6 @@ description: Implement cards.
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title from CARD.meta.json
-[CARD_DESCRIPTION] — The card description text from CARD.md
-[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
-[CHECKPOINT_SHA] — Commit SHA recorded at the pre-implementation checkpoint
 [TASK_COUNT] — Number of implementation tasks derived from the card
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 </placeholder-variables>
@@ -192,12 +189,6 @@ Choose the [MODEL] based on the tasks:
 <parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-Checkpoint SHA: [CHECKPOINT_SHA]
-
-## Description
-[CARD_DESCRIPTION]
-
 ## Tasks to Complete
 
 1. **[Task 1 name]** (`[file-path]`)
@@ -226,8 +217,6 @@ Checkpoint SHA: [CHECKPOINT_SHA]
 <parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-
 ## Tasks to Complete
 [Group A tasks only]
 
@@ -241,8 +230,6 @@ Card: [CARD_ID] - [TITLE]
 <parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-
 ## Tasks to Complete
 [Group B tasks only]
 
@@ -309,13 +296,7 @@ Write a completion comment to the card repository. Commit to the card repository
 <invoke name="Task">
 <parameter name="description">Merge [TITLE]</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">
-Card: [CARD_ID] - [TITLE]
-Branch: [BRANCH_NAME]
-Base branch: [BASE_BRANCH]
-
-Merge the branch to the base branch.
-</parameter>
+<parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch." `</parameter>
 </invoke>
 ```
 

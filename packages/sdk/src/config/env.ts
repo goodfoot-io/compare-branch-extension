@@ -164,6 +164,23 @@ export const CARDS_ENV_VARS = {
   ACTION_COMMAND: 'ACTION_COMMAND',
 
   /**
+   * Git branch that the card's workspace branch will merge into.
+   * Resolved from the workspace HEAD at launch time.
+   * Set by the launch action.
+   * Available in actions only.
+   */
+  BASE_BRANCH: 'BASE_BRANCH',
+
+  /**
+   * Git branch from which the card's workspace branch was created.
+   * May differ from BASE_BRANCH when the worktree was created against
+   * a different ref than the current workspace HEAD.
+   * Set by the launch action.
+   * Available in actions only.
+   */
+  PARENT_BRANCH: 'PARENT_BRANCH',
+
+  /**
    * Git branch name for the card's workspace implementation.
    * Set by the launch action after resolving or creating the worktree.
    * Available in actions only.

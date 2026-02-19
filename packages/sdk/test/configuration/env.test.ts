@@ -78,6 +78,8 @@ describe('env', () => {
         WORKSPACE_PATH: 'WORKSPACE_PATH',
         CARD_REPO_PATH: 'CARD_REPO_PATH',
         ACTION_COMMAND: 'ACTION_COMMAND',
+        BASE_BRANCH: 'BASE_BRANCH',
+        PARENT_BRANCH: 'PARENT_BRANCH',
         WORKSPACE_BRANCH: 'WORKSPACE_BRANCH'
       });
     });

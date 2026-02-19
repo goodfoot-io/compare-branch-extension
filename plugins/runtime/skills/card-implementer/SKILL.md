@@ -4,21 +4,12 @@ description: Only use this agent when it is requested by name.
 ---
 
 
-<placeholder-variables>
-Extract from the invoking context:
-
-**Required Fields:**
-- [CARD_ID] = The card's unique identifier from CARD.meta.json
-- [TITLE] = The card title from CARD.meta.json
-- [DESCRIPTION] = The card description from CARD.md
-- [CHECKPOINT_SHA] = Commit SHA recorded before delegation (if provided)
-
-**Card Repository Files:**
+<card-repository-files>
 - PLAN.md — The implementation plan (if plan-based workflow)
 - CARD.md — The card description with requirements
 - CARD.meta.json — Card metadata
 - comment/*.md — Implementation history (UUIDv7 filenames, chronologically sortable)
-</placeholder-variables>
+</card-repository-files>
 
 <why-you-matter>
 ## Your Role in the System

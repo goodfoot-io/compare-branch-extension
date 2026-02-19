@@ -6,9 +6,6 @@ description: Merge implementation branch to base branch.
 
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] — The card title
-[BRANCH_NAME] — Git branch name (from `$WORKSPACE_BRANCH` env var)
-[BASE_BRANCH] — The branch to merge into (typically `main`)
 </placeholder-variables>
 
 <instructions>

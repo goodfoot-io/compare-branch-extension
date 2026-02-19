@@ -4,19 +4,11 @@ description: Evaluate implementation quality and determine production readiness.
 ---
 
 
-<placeholder-variables>
-Extract from the invoking context:
-
-**Required Fields:**
-- [CARD_ID] = The card's unique identifier from CARD.meta.json
-- [TITLE] = The card title from CARD.meta.json
-- [DESCRIPTION] = The card description from CARD.md
-
-**Card Repository Files:**
+<card-repository-files>
 - PLAN.md — The implementation plan (read for validation commands)
 - CARD.md — The card description with requirements
 - comment/*.md — Implementation history (UUIDv7 filenames, chronologically sortable)
-</placeholder-variables>
+</card-repository-files>
 
 You are an implementation quality evaluator that systematically verifies implementation quality and determines production readiness status for completed features.
 

@@ -16,7 +16,7 @@ import { join, relative } from 'node:path';
 import { findClaudePid, registerSession } from '@cards/claude-code-sessions';
 import { writeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
-import { extractActionInput } from '@cards/sdk/config';
+import { CARDS_ENV_VARS, extractActionInput } from '@cards/sdk/config';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
 
 /**
@@ -126,6 +126,33 @@ export function buildCardRepoListing(cardId: string, rootPath: string): string {
   return lines.join('\n');
 }
 
+/**
+ * Builds a prose paragraph describing the runtime context for this session.
+ *
+ * Surfaces env vars that are not stored in CARD.meta.json so skills and
+ * subagents can access them without placeholder passthrough.
+ *
+ * @param actionInput - Parsed action input from the environment.
+ * @returns A natural-language paragraph describing the session context.
+ */
+export function buildRuntimeContext(actionInput: ActionInput): string {
+  const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
+  const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
+
+  let sentence = `This session is running the ${actionInput.actionName} action in ${actionInput.executionMode} mode`;
+
+  if (workspaceBranch) {
+    sentence += ` on branch \`${workspaceBranch}\``;
+    if (baseBranch) {
+      sentence += `, merging into \`${baseBranch}\``;
+    }
+  }
+
+  sentence += `.`;
+
+  return `${sentence} The card repository is at ${actionInput.cardRepoPath}.`;
+}
+
 export default sessionStartHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
@@ -205,10 +232,13 @@ export default sessionStartHook({}, async (input, { logger }) => {
     throw error;
   }
 
+  const runtimeContext = buildRuntimeContext(actionInput);
+  const systemMessage = `${runtimeContext}\n\n${cardRepoListing}`;
+
   return sessionStartOutput({
-    systemMessage: cardRepoListing,
+    systemMessage,
     hookSpecificOutput: {
-      additionalContext: cardRepoListing
+      additionalContext: systemMessage
     }
   });
 });

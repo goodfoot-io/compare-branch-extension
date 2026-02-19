@@ -12,7 +12,12 @@ import { writeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import hook, { buildCardRepoListing, CardRepoAccessError, resolveHeadSha } from '../src/session-start.js';
+import hook, {
+  buildCardRepoListing,
+  buildRuntimeContext,
+  CardRepoAccessError,
+  resolveHeadSha
+} from '../src/session-start.js';
 
 const mockFindClaudePid = vi.mocked(findClaudePid);
 const mockRegisterSession = vi.mocked(registerSession);
@@ -170,6 +175,60 @@ describe('buildCardRepoListing', () => {
   });
 });
 
+describe('buildRuntimeContext', () => {
+  const baseInput = {
+    cardId: 'card-123',
+    actionName: 'Launch',
+    environment: 'default',
+    executionMode: 'interactive' as const,
+    apiBaseUrl: 'http://localhost:3000',
+    apiAccessToken: 'test-token',
+    workspacePath: '/workspace',
+    cardRepoPath: '/tmp/card-repos/card-123',
+    switchToInteractiveData: undefined,
+    codingAgent: undefined
+  };
+
+  afterEach(() => {
+    delete process.env['WORKSPACE_BRANCH'];
+    delete process.env['BASE_BRANCH'];
+  });
+
+  it('includes action name, execution mode, and card repo path', () => {
+    const result = buildRuntimeContext(baseInput);
+
+    expect(result).toContain('Launch action');
+    expect(result).toContain('interactive mode');
+    expect(result).toContain('/tmp/card-repos/card-123');
+  });
+
+  it('includes workspace branch and base branch when set', () => {
+    process.env['WORKSPACE_BRANCH'] = 'cards/card-123/1';
+    process.env['BASE_BRANCH'] = 'main';
+
+    const result = buildRuntimeContext(baseInput);
+
+    expect(result).toContain('`cards/card-123/1`');
+    expect(result).toContain('`main`');
+  });
+
+  it('includes workspace branch without base branch', () => {
+    process.env['WORKSPACE_BRANCH'] = 'cards/card-123/1';
+
+    const result = buildRuntimeContext(baseInput);
+
+    expect(result).toContain('`cards/card-123/1`');
+    expect(result).not.toContain('merging into');
+  });
+
+  it('omits branch info when WORKSPACE_BRANCH is not set', () => {
+    const result = buildRuntimeContext(baseInput);
+
+    expect(result).not.toContain('on branch');
+    expect(result).not.toContain('merging into');
+  });
+});
+
 describe('SessionStart Hook', () => {
   it('exports a valid hook function', () => {
     expect(hook).toBeDefined();
@@ -223,13 +282,18 @@ describe('SessionStart Hook', () => {
       expect(result).toHaveProperty('stdout');
 
       const stdout = result.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
-      // systemMessage is the card repo listing with card ID and path
+      // systemMessage starts with runtime context paragraph
+      expect(stdout.systemMessage).toContain('Launch Claude action');
+      expect(stdout.systemMessage).toContain('background mode');
+      expect(stdout.systemMessage).toContain(repoPath);
+
+      // followed by card repo listing
       expect(stdout.systemMessage).toContain('The card `card-123` repository at');
       expect(stdout.systemMessage).toContain('contains the following files:');
 
       // additionalContext mirrors systemMessage
-      const listing = stdout.hookSpecificOutput!.additionalContext!;
-      expect(listing).toBe(stdout.systemMessage);
+      const additional = stdout.hookSpecificOutput!.additionalContext!;
+      expect(additional).toBe(stdout.systemMessage);
     });
 
     it('persists git HEAD sha via writeSessionHeadSha', async () => {
