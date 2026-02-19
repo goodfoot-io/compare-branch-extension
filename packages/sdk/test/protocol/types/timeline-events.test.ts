@@ -299,6 +299,8 @@ describe('timeline event types', () => {
             return 'card-metadata';
           case 'card:contentChanged':
             return 'card-content';
+          case 'card:deleted':
+            return 'card-deleted';
           case 'comment:created':
             return 'comment-created';
           case 'timeline:comment:added':

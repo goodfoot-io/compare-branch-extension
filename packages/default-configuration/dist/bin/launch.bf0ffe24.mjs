@@ -3,9 +3,9 @@ const require = __createRequire(import.meta.url);
 
 import { resolve as __resolve } from 'node:path';
 const __DEFAULT_LOG_DEST = ".cards/logs/hooks.log";
-const __cardRepo = process.env['CARD_REPO_PATH'];
-if (__cardRepo && !process.env['CARDS_HOOKS_LOG_FILE']) {
-  process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__cardRepo, __DEFAULT_LOG_DEST);
+const __workspace = process.env['WORKSPACE_PATH'];
+if (__workspace && !process.env['CARDS_HOOKS_LOG_FILE']) {
+  process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__workspace, __DEFAULT_LOG_DEST);
 }
 
 // src/actions/launch.ts
