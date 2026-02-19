@@ -107,6 +107,7 @@ function createMockContext(): ActionContext {
 function createMockChild(overrides?: Partial<ChildProcess>): ChildProcess {
   const handlers = new Map<string, (...args: unknown[]) => void>();
   return {
+    pid: 12345,
     on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
       handlers.set(event, cb);
     }),
@@ -133,6 +134,7 @@ function createMockChildWithStreams(): ChildProcess & { emitStdout(data: string)
   const stdout = new EventEmitter();
   const stderr = new EventEmitter();
   const child = {
+    pid: 12345,
     on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
       handlers.set(event, cb);
     }),

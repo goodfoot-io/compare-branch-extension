@@ -337,7 +337,10 @@ export default defineAction(
       const result = await stream.close();
       context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
     } else {
-      const transcriptPathPromise = getTranscriptPathForPid(child.pid!, 30_000);
+      if (child.pid === undefined) {
+        throw new Error('Failed to spawn Claude process: child.pid is undefined');
+      }
+      const transcriptPathPromise = getTranscriptPathForPid(child.pid, 30_000);
 
       const exitCode = await new Promise<number | null>((resolve) => {
         child.on('close', resolve);
