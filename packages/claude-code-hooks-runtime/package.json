@@ -7,7 +7,7 @@
     "build:uuid7": "esbuild src/bin/uuid7.ts --bundle --platform=node --format=esm --outfile=../../plugins/runtime/bin/uuid7.mjs --packages=external",
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
     "test": "vitest run",
-    "lint": "biome check .",
+    "lint": "biome check . && jsdoczoom -l",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

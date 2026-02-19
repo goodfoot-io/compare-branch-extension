@@ -13,7 +13,7 @@
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --experimental.fsModuleCache",
-    "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test"
+    "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l"
   },
   "dependencies": {
     "@cards/claude-code-sessions": "workspace:*",
