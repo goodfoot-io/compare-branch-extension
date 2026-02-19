@@ -5,13 +5,14 @@ description: This skill should be used when the user asks to "look up a session"
 
 ## Card Sessions
 
-All sessions are stored in the card repository under `streams/`. Each session
+All sessions are stored in the card repository under `streams/claude-code-session/`. Each session
 produces one NDJSON stream file and a `.meta.json` sidecar:
 
 ```
 streams/
-  {sessionId}.jsonl              # NDJSON transcript (one SDK message per line)
-  {sessionId}.jsonl.meta.json    # Stream metadata sidecar
+  claude-code-session/
+    {sessionId}.jsonl              # NDJSON transcript (one SDK message per line)
+    {sessionId}.jsonl.meta.json    # Stream metadata sidecar
 ```
 
 ### Sidecar Structure (`.meta.json`)
@@ -48,13 +49,13 @@ Common message types:
 List all sessions for the current card:
 
 ```bash
-ls streams/*.jsonl 2>/dev/null
+ls streams/claude-code-session/*.jsonl 2>/dev/null
 ```
 
 Read sidecar metadata for a specific session:
 
 ```bash
-cat "streams/${SESSION_ID}.jsonl.meta.json" | jq .
+cat "streams/claude-code-session/${SESSION_ID}.jsonl.meta.json" | jq .
 ```
 
 ### Searching Session Content
@@ -63,22 +64,22 @@ The transcript is NDJSON (one JSON object per line). Avoid reading the entire fi
 
 **Find user messages:**
 ```bash
-grep '"type":"user"' "streams/${SESSION_ID}.jsonl" | jq -c '.message.content' | head -20
+grep '"type":"user"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content' | head -20
 ```
 
 **Find assistant text responses:**
 ```bash
-grep '"type":"assistant"' "streams/${SESSION_ID}.jsonl" | jq -c '.message.content[] | select(.type=="text") | .text' 2>/dev/null | head -50
+grep '"type":"assistant"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content[] | select(.type=="text") | .text' 2>/dev/null | head -50
 ```
 
 **Search for specific content:**
 ```bash
-grep -i 'keyword' "streams/${SESSION_ID}.jsonl" | jq -c '.message.content // .toolUseResult // empty' | head -20
+grep -i 'keyword' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content // .toolUseResult // empty' | head -20
 ```
 
 **List tool calls made:**
 ```bash
-grep '"type":"assistant"' "streams/${SESSION_ID}.jsonl" | jq -rc '.message.content[]? | select(.type=="tool_use") | .name' 2>/dev/null | sort | uniq -c | sort -rn
+grep '"type":"assistant"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -rc '.message.content[]? | select(.type=="tool_use") | .name' 2>/dev/null | sort | uniq -c | sort -rn
 ```
 
 ## Local Sessions (outside card repos)

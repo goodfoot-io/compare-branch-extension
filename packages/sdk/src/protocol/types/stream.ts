@@ -3,7 +3,7 @@
  *
  * A stream is an append-only JSONL file attached to a card. The server accepts
  * chunked POST requests, applies a per-line transform (ESM module), persists
- * raw lines to `streams/{filename}`, and broadcasts transformed output over
+ * raw lines to `streams/{streamType}/{filename}`, and broadcasts transformed output over
  * WebSocket in real time. Metadata lives in a sibling `.meta.json` file and
  * is committed to the card repository at stream creation and close.
  *
@@ -69,7 +69,7 @@ export type StreamStatus = 'active' | 'completed' | 'error' | 'interrupted' | 's
 /**
  * File-persisted metadata for a single stream.
  *
- * Stored as `streams/{filename}.meta.json` inside the card directory.
+ * Stored as `streams/{streamType}/{filename}.meta.json` inside the card directory.
  * Timestamps (`createdAt`, `closedAt`) are derived from Git history at read time
  * and not persisted in the JSON file.
  *

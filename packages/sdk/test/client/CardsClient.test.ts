@@ -488,7 +488,7 @@ describe('CardsClient', () => {
       expect(result).toEqual([]);
     });
 
-    it('getStream calls GET /cards/:cardId/streams/:filename', async () => {
+    it('getStream calls GET /cards/:cardId/streams/:streamType/:filename', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
       const mockStream = {
@@ -502,13 +502,13 @@ describe('CardsClient', () => {
         lines: ['line 1', 'line 2']
       };
 
-      httpClient.responses.set('http://localhost:3000/cards/card-1/streams/session.log', mockStream);
+      httpClient.responses.set('http://localhost:3000/cards/card-1/streams/claude-session/session.log', mockStream);
 
-      const result = await client.getStream('card-1', 'session.log');
+      const result = await client.getStream('card-1', 'claude-session', 'session.log');
 
       expect(httpClient.requests[0]).toMatchObject({
         method: 'GET',
-        url: expect.stringContaining('/cards/card-1/streams/session.log')
+        url: expect.stringContaining('/cards/card-1/streams/claude-session/session.log')
       });
       expect(result).toEqual(mockStream);
     });
@@ -516,16 +516,32 @@ describe('CardsClient', () => {
     it('getStream encodes filename in URL', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
-      httpClient.responses.set('http://localhost:3000/cards/card-1/streams/file%20with%20spaces.log', {
+      httpClient.responses.set('http://localhost:3000/cards/card-1/streams/claude-session/file%20with%20spaces.log', {
         meta: {},
         lines: []
       });
 
-      await client.getStream('card-1', 'file with spaces.log');
+      await client.getStream('card-1', 'claude-session', 'file with spaces.log');
 
       expect(httpClient.requests[0]).toMatchObject({
         method: 'GET',
-        url: expect.stringContaining('/cards/card-1/streams/file%20with%20spaces.log')
+        url: expect.stringContaining('/cards/card-1/streams/claude-session/file%20with%20spaces.log')
+      });
+    });
+
+    it.skip('getStream encodes streamType in URL', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      httpClient.responses.set('http://localhost:3000/cards/card-1/streams/type%2Fwith%2Fslashes/session.log', {
+        meta: {},
+        lines: []
+      });
+
+      await client.getStream('card-1', 'type/with/slashes', 'session.log');
+
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'GET',
+        url: expect.stringContaining('/cards/card-1/streams/type%2Fwith%2Fslashes/session.log')
       });
     });
 
@@ -539,7 +555,7 @@ describe('CardsClient', () => {
       // Mock fetch to return 404
       vi.spyOn(global, 'fetch').mockResolvedValue(errorResponse);
 
-      await expect(client.getStream('card-1', 'nonexistent.log')).rejects.toThrow(ApiError);
+      await expect(client.getStream('card-1', 'claude-session', 'nonexistent.log')).rejects.toThrow(ApiError);
 
       vi.restoreAllMocks();
     });

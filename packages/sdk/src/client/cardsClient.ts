@@ -739,18 +739,25 @@ export class CardsClient {
   /**
    * Retrieves a stream's metadata and all raw lines.
    *
-   * The `filename` is URI-encoded automatically. For completed streams the
-   * returned `lines` array is the full content; for active streams it is a
-   * snapshot that may grow while the caller processes it.
+   * The `streamType` and `filename` are URI-encoded automatically. For completed
+   * streams the returned `lines` array is the full content; for active streams it
+   * is a snapshot that may grow while the caller processes it.
    *
    * @param cardId - Identifier of the card that owns the requested stream.
+   * @param streamType - Stream type key (e.g., `"claude-code-session"`).
    * @param filename - Stream filename (e.g., `"session.log"`).
    * @returns Metadata and content lines.
    * @throws ApiError on 404 (unknown card or stream) or other server errors.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async getStream(cardId: string, filename: string): Promise<{ meta: StreamMeta; lines: string[] }> {
-    const url = this.buildUrl(`/cards/${cardId}/streams/${encodeURIComponent(filename)}`);
+  async getStream(
+    cardId: string,
+    streamType: string,
+    filename: string
+  ): Promise<{ meta: StreamMeta; lines: string[] }> {
+    const url = this.buildUrl(
+      `/cards/${cardId}/streams/${encodeURIComponent(streamType)}/${encodeURIComponent(filename)}`
+    );
     return this.request(() => this.getHttpClient().get<{ meta: StreamMeta; lines: string[] }>(url));
   }
 

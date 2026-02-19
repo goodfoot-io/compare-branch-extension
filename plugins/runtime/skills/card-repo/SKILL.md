@@ -20,8 +20,9 @@ attachment/                 # Created on first attachment
   att-{uuid4}_{name}        # Binary content
   att-{uuid4}_{name}.meta.json
 streams/                    # Append-only JSONL
-  {filename}
-  {filename}.meta.json
+  {streamType}/
+    {filename}
+    {filename}.meta.json
 {typeName}/                 # Custom typed files
   {fileName}
   {fileName}.meta.json
@@ -118,7 +119,7 @@ validation are automatically staged by the hook.
 
 ## Streams
 
-Streams are append-only JSONL files in `streams/`. Each stream has a `.meta.json`
+Streams are append-only JSONL files in `streams/{streamType}/`. Each stream has a `.meta.json`
 sidecar tracking `filename`, `streamType`, `status`, `lineCount`, and optional
 `title` and `sessionId`.
 
