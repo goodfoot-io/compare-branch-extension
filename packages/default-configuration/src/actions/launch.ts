@@ -262,24 +262,7 @@ export default defineAction(
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
-    const prompt = [
-      'Create a team for this card and spawn the routing agent:',
-      '',
-      '<invoke name="TeamCreate">',
-      `<parameter name="team_name">card-${input.cardId}</parameter>`,
-      `<parameter name="description">${input.cardId}: Card processing</parameter>`,
-      '</invoke>',
-      '',
-      '<invoke name="Task">',
-      '<parameter name="description">card-router</parameter>',
-      '<parameter name="subagent_type">card</parameter>',
-      `<parameter name="team_name">card-${input.cardId}</parameter>`,
-      '<parameter name="name">card-router</parameter>',
-      '<parameter name="prompt">Review the card state and recommend the appropriate skill.</parameter>',
-      '</invoke>',
-      '',
-      'Halt, then load the skill the `card-router` recommends. Follow the `<instructions>` contained in the skill.'
-    ].join('\n');
+    const prompt = 'Load the `runtime:card-repo` and `runtime:card-routing` skills then follow the `<instructions>`.';
 
     context.logger.info('Launch action started', {
       cardId: input.cardId,

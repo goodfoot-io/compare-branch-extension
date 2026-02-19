@@ -1,16 +1,16 @@
 ---
 name: card-routing
-description: Recommend the appropriate skill based on card state.
+description: Evaluate card state and load the appropriate skill.
 ---
 
 <routing-constraints>
-The router evaluates, routes, and coordinates — it does NOT implement, plan, or modify card content.
+The routing phase evaluates and selects — it does NOT implement, plan, or modify card content. After routing, the matched skill is loaded and its instructions take over.
 
-| Router handles directly | Other skills handle |
+| Routing phase | Loaded skill handles |
 |------------------------|--------------------------------|
 | Evaluating routing conditions | Implementation work |
-| Recommending the appropriate skill | Plan creation and revision |
-| | Bug fixing |
+| Selecting the appropriate skill | Plan creation and revision |
+| Loading the matched skill | Bug fixing |
 | | Merging, clarification, and responses |
 
 **Never update card status directly** — hooks handle status transitions automatically.
@@ -58,19 +58,14 @@ Select the **first** matching condition:
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
 
-## 3. Send Skill Recommendation
+## 3. Load Routed Skill
 
-Send the matched skill name to the team lead:
+Load the matched skill using the Skill tool:
 
 ```xml
-<invoke name="SendMessage">
-<parameter name="type">message</parameter>
-<parameter name="recipient">team-lead</parameter>
-<parameter name="content">Recommended skill: [MATCHED_SKILL]</parameter>
-<parameter name="summary">Route: [MATCHED_SKILL]</parameter>
+<invoke name="Skill">
+<parameter name="skill">[MATCHED_SKILL]</parameter>
 </invoke>
 ```
-
-Then **STOP**.
 
 </instructions>
