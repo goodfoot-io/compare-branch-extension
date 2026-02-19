@@ -61,7 +61,7 @@ export function parseCurlWriteCardId(command: string): string | null {
 
 export default postToolUseHook({ matcher: 'Bash' }, async (input, { logger }) => {
   // Skip entirely when CARD_ID is set (execution wrapper handles attribution)
-  if (process.env.CARD_ID) {
+  if (process.env['CARD_ID']) {
     return postToolUseOutput({});
   }
 
@@ -101,15 +101,16 @@ export default postToolUseHook({ matcher: 'Bash' }, async (input, { logger }) =>
       try {
         await client.addCommit(cardId, sha);
         flushedCount++;
-      } catch {
-        // Fail open per commit
+      } catch (error) {
+        logger.debug('Failed to flush pending commit', { sha, error: String(error) });
       }
     }
 
     return postToolUseOutput({
       systemMessage: `PID ${pid} associated with card ${cardId}. ${flushedCount} pending commit(s) attributed.`
     });
-  } catch {
+  } catch (error) {
+    logger.debug('Post-tool-use hook error', { error: String(error) });
     return postToolUseOutput({});
   }
 });

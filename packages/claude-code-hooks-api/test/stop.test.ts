@@ -16,7 +16,7 @@ vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
   return {
     ...actual,
-    homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp')
+    homedir: vi.fn(() => process.env['MOCK_HOMEDIR'] || '/tmp')
   };
 });
 
@@ -56,7 +56,7 @@ describe('cards stop hook', () => {
     process.env = { ...originalEnv };
     testDir = join(realTmpdir(), `stop-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
-    process.env.MOCK_HOMEDIR = testDir;
+    process.env['MOCK_HOMEDIR'] = testDir;
     mockFindClaudePid.mockReset();
     mockLogger.debug.mockReset();
     mockLogger.warn.mockReset();
@@ -103,7 +103,7 @@ describe('cards stop hook', () => {
   });
 
   it('approves when CARD_ID is set', async () => {
-    process.env.CARD_ID = 'card-123';
+    process.env['CARD_ID'] = 'card-123';
     const result = await hookFn(
       { ...baseInput, session_id: 'test-session' },
       { logger: mockLogger as unknown as Logger }
@@ -113,7 +113,7 @@ describe('cards stop hook', () => {
   });
 
   it('calls findClaudePid and removes registry entry when CARD_ID not set', async () => {
-    process.env.CARD_ID = undefined;
+    process.env['CARD_ID'] = undefined;
     mockFindClaudePid.mockReturnValue(testPid);
 
     // Pre-populate registry with an entry for our PID
@@ -132,7 +132,7 @@ describe('cards stop hook', () => {
   });
 
   it('approves when findClaudePid returns null', async () => {
-    process.env.CARD_ID = undefined;
+    process.env['CARD_ID'] = undefined;
     mockFindClaudePid.mockReturnValue(null);
 
     const result = await hookFn(
@@ -143,7 +143,7 @@ describe('cards stop hook', () => {
   });
 
   it('approves even when removePidEntry encounters corrupt registry', async () => {
-    process.env.CARD_ID = undefined;
+    process.env['CARD_ID'] = undefined;
     mockFindClaudePid.mockReturnValue(testPid);
 
     // Write corrupt registry file
@@ -159,7 +159,7 @@ describe('cards stop hook', () => {
   });
 
   it('always returns decision approve', async () => {
-    process.env.CARD_ID = undefined;
+    process.env['CARD_ID'] = undefined;
     mockFindClaudePid.mockImplementation(() => {
       throw new Error('Process error');
     });

@@ -15,7 +15,7 @@ vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
   return {
     ...actual,
-    homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp')
+    homedir: vi.fn(() => process.env['MOCK_HOMEDIR'] || '/tmp')
   };
 });
 
@@ -73,18 +73,18 @@ describe('post-tool-use-card-association hook', () => {
   beforeEach(() => {
     testDir = join(realTmpdir(), `hook-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
-    process.env.MOCK_HOMEDIR = testDir;
+    process.env['MOCK_HOMEDIR'] = testDir;
 
     mockFindClaudePid.mockReset();
     mockCreateCardsClient.mockReset();
     mockAddCommit.mockReset();
     vi.clearAllMocks();
-    delete process.env.CARD_ID;
+    delete process.env['CARD_ID'];
   });
 
   afterEach(() => {
-    delete process.env.CARD_ID;
-    delete process.env.MOCK_HOMEDIR;
+    delete process.env['CARD_ID'];
+    delete process.env['MOCK_HOMEDIR'];
     rmSync(testDir, { recursive: true, force: true });
   });
 
@@ -103,7 +103,7 @@ describe('post-tool-use-card-association hook', () => {
 
   describe('gating conditions', () => {
     it('should skip entirely when CARD_ID env var is set', async () => {
-      process.env.CARD_ID = 'test-card-123';
+      process.env['CARD_ID'] = 'test-card-123';
       const result = await hookFn(
         {
           tool_name: 'Bash',
@@ -201,7 +201,7 @@ describe('post-tool-use-card-association hook', () => {
     it('should detect POST to card endpoints', async () => {
       setupForWriteDetection();
 
-      const _result = await hookFn(
+      await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl -X POST http://localhost:3000/cards/card-123/comments -d "test"' }
@@ -218,7 +218,7 @@ describe('post-tool-use-card-association hook', () => {
     it('should detect PUT to card endpoints', async () => {
       setupForWriteDetection();
 
-      const _result = await hookFn(
+      await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl -X PUT http://localhost:3000/cards/card-123 -d "{\\"status\\": \\"done\\"}"' }
@@ -234,7 +234,7 @@ describe('post-tool-use-card-association hook', () => {
     it('should detect PATCH to card endpoints', async () => {
       setupForWriteDetection();
 
-      const _result = await hookFn(
+      await hookFn(
         {
           tool_name: 'Bash',
           tool_input: {
@@ -252,7 +252,7 @@ describe('post-tool-use-card-association hook', () => {
     it('should detect DELETE to card endpoints', async () => {
       setupForWriteDetection();
 
-      const _result = await hookFn(
+      await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl -X DELETE http://localhost:3000/cards/card-123/attachments/att-1' }
@@ -268,7 +268,7 @@ describe('post-tool-use-card-association hook', () => {
     it('should detect implicit POST when -d flag is used without -X', async () => {
       setupForWriteDetection();
 
-      const _result = await hookFn(
+      await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl http://localhost:3000/cards/card-123/comments -d "test comment"' }
@@ -284,7 +284,7 @@ describe('post-tool-use-card-association hook', () => {
     it('should detect implicit POST when --data flag is used', async () => {
       setupForWriteDetection();
 
-      const _result = await hookFn(
+      await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl http://localhost:3000/cards/card-123/notes --data "note content"' }
@@ -300,7 +300,7 @@ describe('post-tool-use-card-association hook', () => {
     it('should detect --request POST (long form of -X)', async () => {
       setupForWriteDetection();
 
-      const _result = await hookFn(
+      await hookFn(
         {
           tool_name: 'Bash',
           tool_input: { command: 'curl --request POST http://localhost:3000/cards/card-123/comments -d "test"' }

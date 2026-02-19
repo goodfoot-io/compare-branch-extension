@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('node:os', () => {
   return {
     tmpdir: vi.fn(() => '/tmp'),
-    homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp')
+    homedir: vi.fn(() => process.env['MOCK_HOMEDIR'] || '/tmp')
   };
 });
 
@@ -35,14 +35,14 @@ describe('claude-sessions', () => {
   beforeEach(() => {
     testDir = join(realTmpdir(), `claude-sessions-test-${Date.now()}-${Math.random()}`);
     mkdirSync(testDir, { recursive: true });
-    process.env.MOCK_HOMEDIR = testDir;
+    process.env['MOCK_HOMEDIR'] = testDir;
   });
 
   afterEach(() => {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
-    delete process.env.MOCK_HOMEDIR;
+    delete process.env['MOCK_HOMEDIR'];
   });
 
   describe('associatePidWithCard', () => {

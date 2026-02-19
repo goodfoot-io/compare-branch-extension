@@ -14,7 +14,7 @@ import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 
 export default stopHook({}, async (_input, { logger }) => {
   // If CARD_ID is set, the execution wrapper manages lifecycle
-  if (process.env.CARD_ID) {
+  if (process.env['CARD_ID']) {
     return stopOutput({ decision: 'approve' });
   }
 

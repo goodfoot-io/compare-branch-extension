@@ -15,7 +15,7 @@ vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
   return {
     ...actual,
-    homedir: vi.fn(() => process.env.MOCK_HOMEDIR || '/tmp')
+    homedir: vi.fn(() => process.env['MOCK_HOMEDIR'] || '/tmp')
   };
 });
 
@@ -37,7 +37,7 @@ describe('api-discovery', () => {
     process.env = { ...originalEnv };
     testDir = join(realTmpdir(), `api-discovery-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
-    process.env.MOCK_HOMEDIR = testDir;
+    process.env['MOCK_HOMEDIR'] = testDir;
     vi.clearAllMocks();
   });
 
@@ -48,7 +48,7 @@ describe('api-discovery', () => {
 
   describe('discoverApiInfo', () => {
     it('should return mock info in API_TEST_MODE', async () => {
-      process.env.API_TEST_MODE = '1';
+      process.env['API_TEST_MODE'] = '1';
 
       const info = await discoverApiInfo(mockLogger);
       expect(info).toEqual({
@@ -166,7 +166,7 @@ describe('api-discovery', () => {
     });
 
     it('should return a CardsClient in API_TEST_MODE', async () => {
-      process.env.API_TEST_MODE = '1';
+      process.env['API_TEST_MODE'] = '1';
 
       const client = await createCardsClient(mockLogger);
       expect(client).not.toBeNull();
