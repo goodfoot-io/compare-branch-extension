@@ -112,7 +112,7 @@ describe('buildCardRepoListing', () => {
     const listing = buildCardRepoListing(TEST_CARD_ID, tmpDir);
 
     expect(listing).toContain('card.meta.json:');
-    expect(listing).toContain('```card.meta.json');
+    expect(listing).toContain('```json');
     expect(listing).toContain(meta);
     expect(listing).toContain('```');
     // Should NOT contain a bare line with just the filename
