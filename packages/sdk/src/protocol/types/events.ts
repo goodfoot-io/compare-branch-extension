@@ -15,6 +15,22 @@ import type { CommentTimelineItem, CommitTimelineItem, TypedFileTimelineItem } f
 // --- Card Events ---
 
 /**
+ * Metadata field names that can appear in {@link CardMetadataChangedEvent.changes}.
+ *
+ * Must stay in sync with `CardUpdateData` in `packages/cards/hybrid-store/src/store/HybridStore.ts`.
+ */
+export type CardUpdateDataField =
+  | 'status'
+  | 'title'
+  | 'description'
+  | 'tags'
+  | 'gates'
+  | 'isPinned'
+  | 'order'
+  | 'created'
+  | 'updated';
+
+/**
  * Event payload when card metadata (not content) changes.
  */
 export interface CardMetadataChangedEvent {
@@ -23,7 +39,17 @@ export interface CardMetadataChangedEvent {
   /** ID of the card that changed. */
   cardId: string;
   /** List of metadata fields that changed, for targeted UI updates. */
-  changes: Array<'status' | 'title' | 'tags'>;
+  changes: CardUpdateDataField[];
+}
+
+/**
+ * Event payload when a card is deleted.
+ */
+export interface CardDeletedEvent {
+  /** Event type discriminator. */
+  type: 'card:deleted';
+  /** ID of the deleted card. */
+  cardId: string;
 }
 
 /**
@@ -284,6 +310,7 @@ export interface StreamErrorEvent {
 export type DomainEvent =
   | CardMetadataChangedEvent
   | CardContentChangedEvent
+  | CardDeletedEvent
   | CommentCreatedEvent
   | TimelineCommentAddedEvent
   | TimelineCommentUpdatedEvent
