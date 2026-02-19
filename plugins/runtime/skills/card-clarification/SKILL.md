@@ -48,7 +48,11 @@ Write a comment to the card repository presenting the specific questions needed 
 Commit to the card repository:
 
 ```bash
-git add comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
+COMMENT
+git add comment/$COMMENT_ID.md
 git commit -m "[which requirements are missing, what questions were asked, and what research was done to try to answer them first]"
 ```
 

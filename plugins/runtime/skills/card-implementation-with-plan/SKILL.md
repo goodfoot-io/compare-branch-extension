@@ -191,7 +191,11 @@ Based on agent status:
 **COMPLETED:** Write a brief progress comment to the card repository indicating which task was completed and what was actually done. Commit to the card repository:
 
 ```bash
-git add comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[which task was completed and what was actually done]
+COMMENT
+git add comment/$COMMENT_ID.md
 git commit -m "[which task was completed, what was done, and what comes next]"
 ```
 
@@ -323,7 +327,7 @@ Launch the merge agent:
 <invoke name="Task">
 <parameter name="description">Merge [TITLE]</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch." `</parameter>
+<parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
 </invoke>
 ```
 
@@ -334,7 +338,11 @@ Write a summary comment to the card repository explaining what you implemented a
 Update `CARD.meta.json` to set status to `needs_review`. Commit to the card repository:
 
 ```bash
-git add CARD.meta.json comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
+COMMENT
+git add CARD.meta.json comment/$COMMENT_ID.md
 git commit -m "[summary of implementation against the plan, key decisions, validation results, and what the reviewer should focus on]"
 ```
 

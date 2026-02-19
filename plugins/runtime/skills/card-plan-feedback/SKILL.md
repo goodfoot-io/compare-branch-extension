@@ -114,7 +114,11 @@ Return to **2.2 Incorporate Feedback** and revise.
 If any strategic concerns were accepted, write a comment to the card repository documenting them with rationale. Commit to the card repository:
 
 ```bash
-git add comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[accepted strategic concerns and rationale for why each does not block implementation]
+COMMENT
+git add comment/$COMMENT_ID.md
 git commit -m "[which concerns were accepted and why they do not block implementation]"
 ```
 
@@ -131,7 +135,11 @@ When feedback was ambiguous, surface your interpretation as a question with your
 Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review` if not already set. Commit to the card repository:
 
 ```bash
-git add CARD.meta.json comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
+COMMENT
+git add CARD.meta.json comment/$COMMENT_ID.md
 git commit -m "[how feedback was interpreted, what changed in the plan, judgment calls made, and what the reviewer should focus on]"
 ```
 

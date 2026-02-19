@@ -6,8 +6,6 @@ description: Fix testable bugs using test-first methodology.
 
 <placeholder-variables>
 [TITLE] — Card title for commit messages
-[DESCRIPTION] — Card description text
-[COMMENTS] — User comments on the card
 [BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
 [SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)
 [BASELINE_SHA] — Commit SHA at the start of the session (`git rev-parse HEAD`)
@@ -105,7 +103,7 @@ Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
 
 ### 2.1 Prepare Context
 
-Extract from [DESCRIPTION] and [COMMENTS]:
+Extract from !` echo $CARD_REPO_PATH `/CARD.md and !` echo $CARD_REPO_PATH `/comments/*.md:
 
 - BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
 - Error messages / stack traces (verbatim)
@@ -378,7 +376,11 @@ Based on review requirement:
   Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Update `CARD.meta.json` to set status to `needs_review`. Commit to the card repository:
 
   ```bash
-  git add CARD.meta.json comment/
+  export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'COMMENT' > comment/$COMMENT_ID.md
+  [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
+  COMMENT
+  git add CARD.meta.json comment/$COMMENT_ID.md
   git commit -m "[bug summary, root cause, fix approach, test file path, and what the reviewer should focus on]"
   ```
 
@@ -391,7 +393,7 @@ Based on review requirement:
   <invoke name="Task">
   <parameter name="description">Merge [TITLE]</parameter>
   <parameter name="subagent_type">runtime:card:merge</parameter>
-  <parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch." `</parameter>
+  <parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
   </invoke>
   ```
 

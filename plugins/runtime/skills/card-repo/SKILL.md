@@ -56,14 +56,15 @@ Validation rules for each field are in `references/validation.md`.
 All markdown files (`CARD.md`, `PLAN.md`, `comment/*.md`) are **pure markdown with
 no YAML frontmatter**. Never wrap content in `---` delimiters.
 
-Comment filenames must be UUIDv7 (RFC 9562), validated by the pre-commit hook:
-
-```
-Pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/
-Example: 019371a2-d5c0-7b3a-8f1e-4a5b6c7d8e9f.md
-```
-
+Comment filenames must be UUIDv7 (RFC 9562), validated by the pre-commit hook.
 UUIDv7 encodes a timestamp prefix, making comments chronologically sortable by filename.
+
+```bash
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[COMMENT CONTENT]
+COMMENT
+```
 
 ## Attachments
 

@@ -21,7 +21,11 @@ Based on comment type:
 If acknowledgment was written, commit to the card repository:
 
 ```bash
-git add comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[brief acknowledgment restating the key point to show understanding]
+COMMENT
+git add comment/$COMMENT_ID.md
 git commit -m "[what was acknowledged and why no further action is needed]"
 ```
 

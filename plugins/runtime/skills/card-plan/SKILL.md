@@ -90,7 +90,11 @@ Return to **1.2 Write and Store Plan** and revise.
 If Plan Refactor returned DISCUSS, write a comment to the card repository documenting the accepted concerns and rationale. Commit to the card repository:
 
 ```bash
-git add comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[accepted concerns from the strategic assessment and rationale for why they do not block implementation]
+COMMENT
+git add comment/$COMMENT_ID.md
 git commit -m "[which concerns were accepted and why they do not block implementation]"
 ```
 
@@ -107,7 +111,11 @@ Include surprises, dead ends, assumptions, or risks when they would help the rev
 Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review`. Commit to the card repository:
 
 ```bash
-git add CARD.meta.json comment/
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'COMMENT' > comment/$COMMENT_ID.md
+[reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
+COMMENT
+git add CARD.meta.json comment/$COMMENT_ID.md
 git commit -m "[reasoning process, key judgment calls, areas of uncertainty, and what the reviewer should focus on]"
 ```
 
