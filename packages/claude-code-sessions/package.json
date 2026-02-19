@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --changed --passWithNoTests",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src && jsdoczoom -l"
   },
   "devDependencies": {
