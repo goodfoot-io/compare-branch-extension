@@ -10,7 +10,7 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { findClaudePid, registerSession } from '@cards/claude-code-sessions';
@@ -70,7 +70,7 @@ export class SessionRegistrationError extends Error {
  */
 export function resolveHeadSha(repoPath: string): string | null {
   try {
-    return execSync('git rev-parse HEAD', {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
       cwd: repoPath,
       encoding: 'utf-8',
       timeout: 5000,

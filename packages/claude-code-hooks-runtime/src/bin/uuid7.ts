@@ -28,10 +28,10 @@ export function generateUUID7(): string {
   bytes[5] = now & 0xff;
 
   // Set version 7
-  bytes[6] = (bytes[6] & 0x0f) | 0x70;
+  bytes[6] = (bytes[6]! & 0x0f) | 0x70;
 
   // Set variant 10xx
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
 
   const hex = Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
