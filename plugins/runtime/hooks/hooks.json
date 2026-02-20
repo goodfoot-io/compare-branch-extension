@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.f2f0ef0e.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.41e20635.mjs"
           }
         ]
       }
@@ -15,7 +15,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.4d102735.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.388d1069.mjs"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end.4a86ebba.mjs"
           }
         ]
       }
@@ -23,9 +33,10 @@
   },
   "__generated": {
     "files": [
-      "stop.f2f0ef0e.mjs",
-      "session-start.4d102735.mjs"
+      "stop.41e20635.mjs",
+      "session-start.388d1069.mjs",
+      "session-end.4a86ebba.mjs"
     ],
-    "timestamp": "2026-02-19T21:20:05.916Z"
+    "timestamp": "2026-02-20T02:57:18.882Z"
   }
 }
