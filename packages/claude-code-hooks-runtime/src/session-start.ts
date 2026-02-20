@@ -10,9 +10,11 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { findClaudePid, registerSession } from '@cards/claude-code-sessions';
 import { writeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
@@ -153,6 +155,42 @@ export function buildRuntimeContext(actionInput: ActionInput): string {
   return `${sentence} The card repository is at ${actionInput.cardRepoPath}.`;
 }
 
+/**
+ * Spawns a detached transcript watcher process for crash-resilient transcript upload.
+ *
+ * The watcher monitors the Claude PID and uploads the transcript if the process
+ * exits without the session-end hook having run (crash/SIGKILL).
+ *
+ * @param pid - Claude process ID to monitor.
+ * @param sessionId - Session identifier for the transcript.
+ * @param transcriptPath - Path to the transcript file.
+ * @param cardId - Card identifier for the upload target.
+ * @param cardRepoPath - Path to the card repository.
+ */
+export function spawnTranscriptWatcher(
+  pid: number,
+  sessionId: string,
+  transcriptPath: string,
+  cardId: string,
+  cardRepoPath: string
+): void {
+  const watcherPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../bin/transcript-watcher.mjs');
+
+  // Resolve node executable: prefer VSCODE_NODE env var, fallback to file, then 'node'
+  let nodeBin: string;
+  try {
+    nodeBin = process.env['VSCODE_NODE'] ?? readFileSync(join(homedir(), '.cards', 'VSCODE_NODE'), 'utf-8').trim();
+  } catch {
+    nodeBin = 'node';
+  }
+
+  const child = spawn(nodeBin, [watcherPath, String(pid), sessionId, transcriptPath, cardId, cardRepoPath], {
+    detached: true,
+    stdio: 'ignore'
+  });
+  child.unref();
+}
+
 export default sessionStartHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
@@ -177,7 +215,7 @@ export default sessionStartHook({}, async (input, { logger }) => {
   const claudePid = findClaudePid();
   if (claudePid) {
     try {
-      await registerSession(claudePid, input.session_id, input.transcript_path);
+      await registerSession(claudePid, input.session_id);
       logger.info('Registered PID for commit attribution', { pid: claudePid, sessionId: input.session_id });
     } catch (cause) {
       const error = new SessionRegistrationError(claudePid, input.session_id, cause);
@@ -196,6 +234,20 @@ export default sessionStartHook({}, async (input, { logger }) => {
         ].join('\n'),
         stopReason: `Session registration failed: ${error.message}`
       });
+    }
+
+    try {
+      spawnTranscriptWatcher(
+        claudePid,
+        input.session_id,
+        input.transcript_path,
+        actionInput.cardId,
+        actionInput.cardRepoPath
+      );
+      logger.info('Spawned transcript watcher', { pid: claudePid, sessionId: input.session_id });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn('Transcript watcher spawn failed', { error: message });
     }
   } else {
     logger.warn('Could not find Claude PID for commit attribution');

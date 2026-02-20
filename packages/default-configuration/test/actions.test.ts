@@ -19,12 +19,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:fs/promises', () => ({
-  access: vi.fn(),
-  readFile: vi.fn()
-}));
-
-vi.mock('@cards/claude-code-sessions', () => ({
-  getTranscriptPathForPid: vi.fn()
+  access: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
@@ -80,15 +75,6 @@ beforeEach(async () => {
     worktree: '/test/workspace/.worktrees/cards/card-123/1',
     baseSha: 'abc123'
   });
-
-  // Default: getTranscriptPathForPid resolves to a path, readFile returns minimal transcript
-  const { getTranscriptPathForPid } = await import('@cards/claude-code-sessions');
-  vi.mocked(getTranscriptPathForPid).mockResolvedValue('/tmp/transcript.jsonl');
-
-  const { readFile } = await import('node:fs/promises');
-  vi.mocked(readFile).mockResolvedValue(
-    '{"type":"system","subtype":"init","model":"claude","tools":[],"cwd":"/test"}\n'
-  );
 });
 
 afterEach(() => {

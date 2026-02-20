@@ -20,7 +20,6 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { getTranscriptPathForPid } from '@cards/claude-code-sessions';
 import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
 import { checkWorktreeExists, createWorktree, findGitRoots } from '../lib/create-worktree.js';
@@ -338,34 +337,11 @@ export default defineAction(
       const result = await stream.close();
       context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
     } else {
-      if (child.pid === undefined) {
-        throw new Error('Failed to spawn Claude process: child.pid is undefined');
-      }
-      const transcriptPathPromise = getTranscriptPathForPid(child.pid, 30_000);
-
       const exitCode = await new Promise<number | null>((resolve) => {
         child.on('close', resolve);
       });
 
-      const transcriptPath = await transcriptPathPromise;
-      if (!transcriptPath) {
-        throw new Error(`Failed to resolve transcript path for PID ${child.pid}`);
-      }
-
-      const transcript = await fs.readFile(transcriptPath, 'utf-8');
-      const stream = client.openStream(input.cardId, 'claude-code-session', `${sessionId}.jsonl`, {
-        title: `Claude session for ${input.cardId}`,
-        sessionId
-      });
-
-      for (const line of transcript.split('\n')) {
-        if (line.trim()) {
-          stream.write(line);
-        }
-      }
-
-      const result = await stream.close();
-      context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
+      context.logger.info('Launch action completed', { sessionId, exitCode });
     }
 
     // Post-exit cleanup: remove fully-merged branches
