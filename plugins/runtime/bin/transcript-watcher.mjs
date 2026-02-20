@@ -813,7 +813,7 @@ function logViaSocket(level, message) {
     const entry = { type: "log", level, message };
     logSocket.write(`${JSON.stringify(entry)}
 `);
-  } catch {
+  } catch (_) {
   }
 }
 function parseArgs(argv) {
@@ -879,9 +879,8 @@ async function uploadTranscript(args) {
       title: `Claude session for ${args.cardId}`,
       sessionId: args.sessionId
     });
-    const lines = content.split("\n");
-    for (const line of lines) {
-      if (line.length > 0) {
+    for (const line of content.split("\n")) {
+      if (line.trim()) {
         stream.write(line);
       }
     }
@@ -895,7 +894,7 @@ async function main() {
   if (socketPath) {
     try {
       await connectLogSocket(socketPath);
-    } catch {
+    } catch (_) {
     }
   }
   const args = parseArgs(process.argv);

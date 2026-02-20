@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.388d1069.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.94dbb151.mjs"
           }
         ]
       }
@@ -34,9 +34,9 @@
   "__generated": {
     "files": [
       "stop.41e20635.mjs",
-      "session-start.388d1069.mjs",
+      "session-start.94dbb151.mjs",
       "session-end.4a86ebba.mjs"
     ],
-    "timestamp": "2026-02-20T02:57:18.882Z"
+    "timestamp": "2026-02-20T03:04:04.340Z"
   }
 }
