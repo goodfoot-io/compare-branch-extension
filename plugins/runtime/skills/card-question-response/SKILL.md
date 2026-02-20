@@ -33,17 +33,15 @@ Launch additional Explore subagents if new information reveals unexplored areas.
 
 Search the workspace codebase to find additional information as needed. When referencing code, include file paths and line numbers.
 
-## 2. Post the Response
+## 2. Write Comment and Commit
 
 Write a comment to the card repository with the answer. When referencing specific code locations, use GitHub-style fragment links (`path/to/file.ts#L10-L20`).
-
-## 3. Commit
 
 Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [answer to the question with GitHub-style fragment links for any code references]
 EOF

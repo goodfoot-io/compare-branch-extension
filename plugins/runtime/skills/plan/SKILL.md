@@ -39,7 +39,7 @@ Add to Tier 2:
 
 <annotated-plan-example>
 
-## Header Format
+### Header Format
 
 <example>
 ```markdown
@@ -61,7 +61,7 @@ The problem statement must:
 
 ---
 
-## Goals & Objectives
+### Goals & Objectives
 
 <example>
 ```markdown
@@ -89,7 +89,7 @@ Good: "Process 100+ notifications/second without UI lag", "Unread count updates 
 
 ---
 
-## Scope
+### Scope
 
 <example>
 ```markdown
@@ -132,7 +132,7 @@ The Exclude section saves more time than any other part by preventing scope cree
 
 ---
 
-## Framework & Technology Stack
+### Framework & Technology Stack
 
 <example>
 ```markdown
@@ -185,7 +185,7 @@ Document all framework and library versions that constrain the implementation. I
 
 ---
 
-## Technical Spike Results (When Needed)
+### Technical Spike Results (When Needed)
 
 <instructions>
 Include this section for Tier 3 complexity when technical investigations were conducted. Document spike results that informed the Technical Approach.
@@ -234,7 +234,7 @@ For each spike, include:
 
 ---
 
-## Technical Approach
+### Technical Approach
 
 <example>
 ```markdown
@@ -340,7 +340,7 @@ Keep examples minimal - just enough to clarify without constraining implementati
 
 ---
 
-## Dependency Analysis
+### Dependency Analysis
 
 <example>
 ```markdown
@@ -376,7 +376,7 @@ List files where your new code connects to existing systems with brief descripti
 
 ---
 
-## Validation Commands
+### Validation Commands
 
 <example>
 ```markdown
@@ -407,7 +407,7 @@ Provide ALL quality validation commands that must pass for implementation to be 
 **Process**:
 1. Identify affected packages from your Technical Approach
 2. Check each package's package.json for validation scripts
-3. Format as executable commands from workspace root
+3. Format as self-contained commands that `cd` into the affected package before invoking the script, e.g. `cd packages/[package] && yarn typecheck`. Validation scripts are package-scoped and will not resolve if run directly from the workspace root.
 4. Include ALL validation commands - never skip tests
 
 **For multiple packages**:
@@ -429,7 +429,7 @@ Provide ALL quality validation commands that must pass for implementation to be 
 
 ---
 
-## Other Package Commands (Optional)
+### Other Package Commands (Optional)
 
 <example>
 ```markdown
@@ -461,7 +461,7 @@ Skip this section entirely if there are no operational commands to document.
 
 ---
 
-## Risks & Mitigations
+### Risks & Mitigations
 
 <example>
 ```markdown
@@ -505,7 +505,7 @@ Include 3-5 most significant risks. More than 5 suggests over-analysis.
 
 ---
 
-## Implementation References (Optional)
+### Implementation References (Optional)
 
 <example>
 ```markdown
@@ -538,7 +538,7 @@ Skip this section if you don't have genuinely useful references.
 
 ---
 
-## Open Questions (Optional)
+### Open Questions (Optional)
 
 <example>
 ```markdown
@@ -560,10 +560,7 @@ Document uncertainties explicitly:
 - Include deadlines or dependencies where applicable
 - List assumptions separately — these are risks if wrong
 - Update as questions resolve in comment thread
-</instructions>
-
-<instructions>
-This signals the user that action is required. The horizontal rule visually separates the request from plan content. This section is always required.
+- After the Open Questions section, include a `---` horizontal rule to visually signal to the user that their input is required. This separator is always required in plans submitted for user approval.
 </instructions>
 
 </annotated-plan-example>

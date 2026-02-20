@@ -20,6 +20,14 @@ The routing phase evaluates and selects — it does NOT implement, plan, or modi
 
 ## 1. Evaluate Routing Signals
 
+### 1.1 Read Card State
+
+Read `CARD.meta.json` to obtain `status`, `gates.*`, and `tags`. Read `comment/*.md` files sorted by modification time (newest first) to identify the latest user comment and the most recent agent comment.
+
+### 1.2 Derive Routing Signals
+
+> **Comment authorship convention**: Agent-authored comments contain structured report headers (e.g., `## Implementation Summary`, `## Implementation Evaluation`, `## Plan Assessment Report`). Comments lacking these headers are treated as user-authored. Sort `comment/*.md` by modification time; the most recent file not matching the agent pattern is the "latest user comment."
+
 | Signal | Derivation |
 |--------|------------|
 | STATUS | `status` in CARD.meta.json |
@@ -34,7 +42,7 @@ The routing phase evaluates and selects — it does NOT implement, plan, or modi
 | IS_STALE | No activity for 30+ days AND status not "done" or "archived" |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
 | DOR_MET | Problem statement exists, acceptance criteria inferable, technical approach determinable |
-| USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the agent comment that submitted the plan for approval |
+| USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the agent comment that submitted the plan for approval. Identify the plan-submission agent comment as the most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's modification time. |
 
 ## 2. Route
 

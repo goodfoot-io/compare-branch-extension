@@ -16,7 +16,27 @@ Based on comments and prior clarification requests:
 
 - **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit and **STOP** — the router will re-evaluate with the new information.
 
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [acknowledge the new information and explain how it affects requirements analysis]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "[acknowledge new information and its impact on requirements]"
+  ```
+
 - **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** — already waiting for user clarification.
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "[still waiting for clarification on specific questions]"
+  ```
 
 ## 2. Identify Missing Requirements
 
@@ -37,19 +57,26 @@ Search the workspace codebase for keywords from the card description:
 
 Based on research results:
 - **If research resolves all gaps**: Write findings as a comment to the card repository, commit, and **STOP** — the router will route to implementation
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "[research findings that resolve requirement gaps]"
+  ```
+
 - **If gaps remain**: Note findings for the clarification request, proceed to Step 4
 
-## 4. Post Clarification Request
+## 4. Write Comment and Commit
 
 Write a comment to the card repository presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant workspace code where applicable.
 
-## 5. Commit
-
-Commit to the card repository:
-
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
 EOF

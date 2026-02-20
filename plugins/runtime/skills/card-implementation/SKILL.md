@@ -7,7 +7,7 @@ description: Implement cards.
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title from CARD.meta.json
-[TASK_COUNT] — Number of implementation tasks derived from the card
+[TASK_COUNT] — Number of implementation tasks derived from the card (set in Step 2.2 after writing todos with TodoWrite; count equals the number of todos created)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 </placeholder-variables>
 
@@ -31,6 +31,8 @@ Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEd
 
 ## 1. Prepare Environment
 
+### 1.1 Stash Changes
+
 Stash any uncommitted changes:
 
 ```bash
@@ -38,7 +40,16 @@ cd $WORKSPACE_PATH
 git stash --include-untracked
 ```
 
+Read recent comment files to determine whether an "Implementation Complete" comment already exists:
+
+```bash
+cd $CARD_REPO_PATH
+ls comment/*.md 2>/dev/null | sort | tail -5
+```
+
 If an "Implementation Complete" comment exists on the card, skip to **4. Finalize**.
+
+### 1.2 Launch Explore Subagents
 
 Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the card content:
 
@@ -59,7 +70,7 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
    </invoke>
    ```
 
-3. Clarify card:
+### 1.3 Clarify Card
 
    Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 
@@ -97,13 +108,20 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
 
    Skip the commit entirely if no clarification is needed.
 
-   Make sure to kill any Explore subagents that have not returned before moving to the next step.
+   Collect TaskOutput for every background Explore agent launched in Step 1.2. Results from agents not collected via TaskOutput are discarded before proceeding to Section 2.
 
 ---
 
 ## 2. Derive Tasks
 
-Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
+Collect background exploration results by retrieving TaskOutput for each Explore agent launched in Step 1.2. Launch additional Explore subagents if new information reveals unexplored areas.
+
+If changes were stashed in Step 1.1, restore them now.
+
+```bash
+cd $WORKSPACE_PATH
+git stash pop  # only if changes were stashed in Step 1.1
+```
 
 ### 2.1 Analyze Requirements
 
@@ -142,6 +160,8 @@ Example task derivation for "Add rate limiting to /api/submit endpoint":
 ```
 </example>
 
+After writing all todos, record [TASK_COUNT] as the total number of todos created.
+
 ### 2.3 Assess Coherence
 
 Analyze tasks along three dimensions:
@@ -165,11 +185,9 @@ Commit a checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
-git add -A
+git add -A  # checkpoint: stage all workspace files, including generated or untracked artifacts not yet indexed
 git commit --allow-empty -m "checkpoint: before implementation — [TASK_COUNT] tasks derived from card [CARD_ID]"
 ```
-
-If resuming: `git stash pop` to restore prior work.
 
 ---
 
@@ -255,11 +273,22 @@ Based on implementer status:
   - **If attempts >= 3**: Write failure details as comment, add `blocked` tag, **STOP**
 - **BLOCKED**: Write blocking details as comment, add `blocked` tag, **STOP**
 
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[blocking details: what is blocked, why, and what is needed to unblock]
+EOF
+git add comment/$COMMENT_ID.md CARD.meta.json
+git commit -m "blocked: [reason]"
+```
+
 **On COMPLETED:** Write a progress comment to the card repository summarizing what was implemented, key decisions made, and files modified. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented, key decisions made, and files modified]
 EOF
@@ -277,6 +306,17 @@ git commit -m "[what was implemented, key decisions, and files modified in the w
 
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
 
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[exact validation failure output]
+EOF
+git add comment/$COMMENT_ID.md CARD.meta.json
+git commit -m "blocked: [reason]"
+```
+
 Only proceed to **4. Finalize** when ALL validations pass.
 
 ---
@@ -289,7 +329,7 @@ Write a summary comment to the card repository explaining what you implemented a
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
 EOF
@@ -303,11 +343,21 @@ git commit -m "[summary of implementation, key decisions, validation results, an
 
 Write a completion comment to the card repository. Commit to the card repository. Then launch the merge agent:
 
+```bash
+cd $CARD_REPO_PATH
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[completion summary: what was implemented, key decisions, files modified, validation confirmation]
+EOF
+git add comment/$COMMENT_ID.md
+git commit -m "[implementation summary]"
+```
+
 ```xml
 <invoke name="Task">
 <parameter name="description">Merge</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
+<parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
 </invoke>
 ```
 

@@ -116,7 +116,7 @@ describe('buildCardRepoListing', () => {
 
     const listing = buildCardRepoListing(TEST_CARD_ID, tmpDir);
 
-    expect(listing).toContain('card.meta.json:');
+    expect(listing).toContain('card.meta.json content:');
     expect(listing).toContain('```json');
     expect(listing).toContain(meta);
     expect(listing).toContain('```');
@@ -133,7 +133,7 @@ describe('buildCardRepoListing', () => {
 
     const listing = buildCardRepoListing(TEST_CARD_ID, tmpDir);
 
-    expect(listing).toContain('actions/deploy.meta.json:');
+    expect(listing).toContain('actions/deploy.meta.json content:');
     expect(listing).toContain(meta);
     expect(listing).toContain('actions/deploy.sh');
   });

@@ -273,19 +273,24 @@ Do not post to card comments directly — the orchestrator controls logging form
 </output-method>
 
 <instructions>
-## Execution Steps
+
+Card repository files are available at the path provided in your invocation context. Workspace source files are at the workspace path provided separately.
+
+## Execution Steps and Artifacts
 
 ### 1. Gather Context
 
 1. Read CARD.meta.json and CARD.md for card context
 2. Read PLAN.md for the plan to evaluate
    - If PLAN.md is empty or missing, report error and stop
-3. Read recent comment/*.md files for:
+3. Read the 5 most recently modified comment/*.md files (sorted by file modification time, descending) for:
    - Revision context
    - Previous implementation attempts
    - Abandoned approaches and reasons
 
 ### 2. Build Mental Model
+
+Using the content read in step 1, answer the following questions to build your mental model. If any question cannot be answered from those files, record it as an implicit assumption in your report.
 
 Before applying principles, ensure you understand:
 - What problem is being solved?

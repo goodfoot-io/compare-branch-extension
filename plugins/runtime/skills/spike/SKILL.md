@@ -213,7 +213,6 @@ Use the `Task()` tool to launch the spike investigation:
 <invoke name="Task">
 <parameter name="description">realtime-comparison-spike</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
-<parameter name="model">sonnet</parameter>
 <parameter name="prompt">
 <spike-purpose>
 Notification system requires real-time delivery with horizontal scaling. Multiple approaches exist but no clear winner without empirical testing. This spike will inform the Technical Approach section by selecting the optimal technology.
@@ -366,14 +365,16 @@ Document findings using the Validation Result Template.
 ```
 </example>
 
-<behavioral-guidelines>
+<spike-execution-principles>
 ## Spike Execution Principles
 
 1. **Always use spike isolation**: All spike artifacts must be in the specified spike path, never in main codebase
 2. **Require empirical evidence**: Spikes must produce working code or concrete test results, not documentation research
 3. **Focus on the question**: Stay narrowly focused on answering the specific technical uncertainty
 4. **Document for decisions**: Results must clearly inform implementation decisions with actionable recommendations
+</spike-execution-principles>
 
+<running-multiple-spikes>
 ## Running Multiple Spikes
 
 When multiple independent spike questions need investigation, launch all spikes in parallel by combining all `Task()` calls into a single message:
@@ -382,7 +383,6 @@ When multiple independent spike questions need investigation, launch all spikes 
 <invoke name="Task">
 <parameter name="description">spike-question-1</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
-<parameter name="model">sonnet</parameter>
 <parameter name="prompt">
 [SPIKE_CONTEXT for question 1]
 
@@ -395,7 +395,6 @@ When multiple independent spike questions need investigation, launch all spikes 
 <invoke name="Task">
 <parameter name="description">spike-question-2</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
-<parameter name="model">sonnet</parameter>
 <parameter name="prompt">
 [SPIKE_CONTEXT for question 2]
 
@@ -408,7 +407,6 @@ When multiple independent spike questions need investigation, launch all spikes 
 <invoke name="Task">
 <parameter name="description">spike-question-3</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
-<parameter name="model">sonnet</parameter>
 <parameter name="prompt">
 [SPIKE_CONTEXT for question 3]
 
@@ -420,7 +418,7 @@ When multiple independent spike questions need investigation, launch all spikes 
 ```
 
 **Important**: All `Task()` invocations must be in a SINGLE message to execute simultaneously. This maximizes efficiency when investigating multiple independent technical questions.
-</behavioral-guidelines>
+</running-multiple-spikes>
 
 <processing-spike-results>
 ## Post-Spike Processing

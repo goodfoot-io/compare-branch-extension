@@ -3,6 +3,9 @@ name: error-recovery
 description: Recover from errors during protocol execution.
 ---
 
+<placeholder-variables>
+[BLOCKING CARD ID] — The card ID of an existing card that covers the current block, identified during recovery analysis
+</placeholder-variables>
 
 ## Your Purpose
 
@@ -53,6 +56,26 @@ Recovery cycle:
 - Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
 - If blocked, report the failure by adding to existing open cards about the block, or by creating a new card with "backlog" status.
 
+  **If an existing card covers this block**, look up its repository path, then write a comment to it:
+
+  ```bash
+  $NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/card.mjs [BLOCKING CARD ID]
+  ```
+
+  Extract `repositoryPath` from the JSON output, then write a comment:
+
+  ```bash
+  cd [blocking card repositoryPath]
+  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [describe the failure encountered, how it relates to this card's blocker, and any additional context from the recovery attempt]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "[failure context related to this card's blocker]"
+  ```
+
+  **If no existing card covers this block**, create a new card with "backlog" status using the appropriate card creation tool.
+
 Based on validation result:
 - **Validation passes**: Return to the invoking protocol and continue from the step after the one that failed
 - **Validation fails and attempts < 3**: Repeat the recovery cycle from step 1
@@ -61,6 +84,11 @@ Based on validation result:
 ## 3. Report and Block
 
 Add the "blocked" tag to the `tags` array in `CARD.meta.json`.
+
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+```
 
 Based on card state:
 
@@ -76,7 +104,7 @@ Based on card state:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]
   EOF

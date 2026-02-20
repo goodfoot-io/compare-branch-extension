@@ -15,6 +15,17 @@ COMMIT_COUNT=$(git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH)
 
 Based on commit count:
 - **COMMIT_COUNT = 0**: No changes to merge. Write a comment to the card repository noting no changes were found. Commit to the card repository and **STOP**.
+
+```bash
+cd $CARD_REPO_PATH
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[No changes were found on $WORKSPACE_BRANCH relative to $BASE_BRANCH. Nothing to merge.]
+EOF
+git add comment/$COMMENT_ID.md
+git commit -m "comment: no changes to merge for $CARD_ID"
+```
+
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
 
 ## 2. Squash Commits
@@ -39,8 +50,34 @@ git rebase $BASE_BRANCH
 ```
 
 Based on rebase result:
-- **Conflicts occur**: Resolve conflicts, run `git add -A && git rebase --continue`
+- **Conflicts occur**: Run the command above to identify all conflicted files before resolving.
+
+```bash
+cd $WORKSPACE_PATH
+git diff --name-only --diff-filter=U
+```
+
+Identify conflicted files first (see below) and stage each resolved file by name rather than using `git add -A`.
+
+```bash
+cd $WORKSPACE_PATH
+# Stage only the conflict-resolved files by name
+git add <resolved-file-1> <resolved-file-2>
+git rebase --continue
+```
+
 - **Conflicts cannot be resolved**: Write an error comment to the card repository, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** — Awaiting user intervention.
+
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[rebase conflict details, files involved, manual resolution steps]
+EOF
+git add CARD.meta.json comment/$COMMENT_ID.md
+git commit -m "blocked: unresolvable rebase conflict on $CARD_ID"
+```
 
 After rebase completes, run linting, type checking, and tests.
 
@@ -58,19 +95,32 @@ Based on validation result:
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
 - **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** — Awaiting user intervention.
 
-## 4. Fast-Forward Merge
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[validation failure details, what was attempted, what intervention is needed]
+EOF
+git add CARD.meta.json comment/$COMMENT_ID.md
+git commit -m "blocked: unresolvable rebase conflict on $CARD_ID"
+```
 
-Navigate to the repository root:
+## 4. Stash, Fast-Forward Merge, and Unstash
 
 ```bash
 cd $WORKSPACE_PATH
-REPO_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
-cd "$REPO_ROOT"
 git status --porcelain
 ```
 
 Based on workspace state:
 - **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: ${CARD_ID}"`
+
+```bash
+cd $WORKSPACE_PATH
+git stash push -m "pre-merge: ${CARD_ID}"
+```
+
 - **No uncommitted changes**: Continue
 
 ```bash
@@ -79,7 +129,25 @@ git merge --ff-only "$WORKSPACE_BRANCH"
 ```
 
 Based on merge result:
-- **Merge succeeds**: Pop stash if applicable (`git stash pop`). **STOP** — Merge complete. Awaiting user verification.
+- **Merge succeeds**: Pop stash if applicable.
+
+```bash
+cd $WORKSPACE_PATH
+git stash pop
+```
+
+**STOP** — Merge complete. Awaiting user verification.
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
+
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[merge failure details: branch is not a fast-forward of $BASE_BRANCH, likely cause and resolution steps]
+EOF
+git add CARD.meta.json comment/$COMMENT_ID.md
+git commit -m "blocked: unresolvable rebase conflict on $CARD_ID"
+```
 
 </instructions>

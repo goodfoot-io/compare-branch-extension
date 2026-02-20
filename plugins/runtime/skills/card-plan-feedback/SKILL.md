@@ -10,9 +10,15 @@ Incorporate user feedback into an existing implementation plan and re-run assess
 
 ## 1. Review Feedback
 
-### 1.1 Analyze User Feedback
+### 1.1 Read Card State
 
-Read `PLAN.md` and the most recent comments in the card repository to find the user feedback.
+```bash
+cd $CARD_REPO_PATH
+```
+
+Read `PLAN.md` and the most recent `comment/*.md` files in the card repository.
+
+### 1.2 Analyze User Feedback
 
 From the latest user comment, identify:
 
@@ -61,7 +67,7 @@ Launch both assessments in parallel (one message):
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
   <parameter name="prompt">
-1. Read the plan from PLAN.md
+1. Read the plan from PLAN.md in the card repository.
 2. Assess the plan and post a report per your instructions.
 </parameter>
 </invoke>
@@ -70,27 +76,28 @@ Launch both assessments in parallel (one message):
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
   <parameter name="prompt">
-1. Read the plan from PLAN.md
+1. Read the plan from PLAN.md in the card repository.
 2. Assess the plan and post a report per your instructions.
 </parameter>
 </invoke>
 ```
 
-### 3.2 Address Assessment Findings
+### 3.2 Collect Assessment Results
 
-Read any assessment outputs produced by subagents.
+Use `TaskOutput` to retrieve results from the Structural Assessment and Strategic Assessment tasks launched above. Both results must be present before proceeding.
 
-### Combined Assessment Priority Levels
+### 3.3 Priority Reference
+
 - **CRITICAL/RECONSIDER**: Must be addressed before implementation
 - **HIGH/CONCERNS**: Should be addressed or explicitly accepted
 - **MEDIUM**: Implementation clarity, risk coverage, dependency analysis
 - **LOW**: Style suggestions, format variations
 
-### Interpreting Combined Results
+### 3.4 Interpret and Act
 
 Based on combined assessment results:
 
-- **Ready: Yes AND READY**: Proceed to step 4
+- **Ready: Yes AND READY**: Proceed to **5. Submit for Re-Approval**
 - **Ready: Yes AND DISCUSS**: Proceed, but document accepted concerns
 - **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" — address strategic issues
 - **Ready: Yes (suggestions) AND READY/DISCUSS**: Proceed with awareness of suggestions
@@ -104,11 +111,16 @@ Based on combined assessment results:
 3. **Track subjective decisions**: Collect design choices and judgment calls (not factual resolutions like "Is X compatible with Y?") for inclusion in the process comment. These help reviewers know where to focus.
 4. **Make decisions** for non-blocking issues and document them in the plan revision
 5. **Only ask the user** for blocking issues or intent clarity
-6. **Determine next action** based on combined results (see "Interpreting Combined Results" above)
+6. **Determine next action** based on combined results (see decision table above)
 
 #### If Either Assessment Fails (Ready: No OR CRITICAL/RECONSIDER OR HIGH/MEDIUM/CONCERNS issues)
 
 Return to **2.2 Incorporate Feedback** and revise.
+
+```bash
+cd $CARD_REPO_PATH
+# Assessment failed — revise PLAN.md per findings above, then re-run section 3.1 Launch Assessment Subagents
+```
 
 #### If Both Assessments Pass (Ready: Yes + READY/DISCUSS)
 
@@ -116,7 +128,7 @@ If any strategic concerns were accepted, write a comment to the card repository 
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted strategic concerns and rationale for why each does not block implementation]
 EOF
@@ -124,9 +136,15 @@ git add comment/$COMMENT_ID.md
 git commit -m "[which concerns were accepted and why they do not block implementation]"
 ```
 
-Proceed to **4. Submit for Re-Approval**
+If no strategic concerns were accepted (Plan Refactor returned READY):
 
-## 4. Submit for Re-Approval
+```bash
+cd $CARD_REPO_PATH  # no comment to write; proceeding directly to step 5
+```
+
+Proceed to **5. Submit for Re-Approval**
+
+## 5. Submit for Re-Approval
 
 **Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
 
@@ -138,7 +156,7 @@ Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 EOF

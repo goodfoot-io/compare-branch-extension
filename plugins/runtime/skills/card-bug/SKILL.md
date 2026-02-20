@@ -17,12 +17,6 @@ description: Fix testable bugs using test-first methodology.
 [DATA_FLOW_PATH] — Chain from source to symptom: `SOURCE -> [intermediates] -> SYMPTOM`
 </placeholder-variables>
 
-<tools>
-
-Git hooks automatically track commits. Squashed commits are cleaned up automatically.
-
-</tools>
-
 <test-first-invariant>
 Enforce strict test-first verification:
 

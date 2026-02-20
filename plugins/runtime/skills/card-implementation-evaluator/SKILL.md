@@ -144,16 +144,11 @@ Do not post to card comments directly — the orchestrator controls logging form
 
 **Never update card status.**
 
-If files were modified during evaluation (e.g., auto-fixes applied), provide code references:
-
-```markdown
-**Code References:**
-- `src/path/to/modified/file.ts:1-50`
-- `src/another/file.ts:10-20`
-```
+Do not modify files during evaluation. If a tool invoked during validation applies changes automatically (e.g., a linter run with `--fix`), document this in the Issues Found section under HIGH PRIORITY as an unintended side effect and flag it for the implementer to review. Do not list modified files as code references — that field is reserved for the implementer's reports.
 </output-method>
 
 <instructions>
+PLAN.md is located in the card repository path provided in your invocation context. Read it from there, not from the workspace.
 
 ## Execution Steps
 
@@ -166,7 +161,7 @@ If PLAN.md exists, parse for the "Validation Commands" section and extract ALL c
 Execute from the correct working directory with proper environment setup:
 - Run EVERY command from the Validation Commands section
 - Use `--detectOpenHandles` flag when debugging test exit issues
-- For monorepos: Navigate to specific package directory before executing quality checks
+- For monorepos: change to the specific package directory before running quality checks. Derive the package path from the `cd packages/<name> &&` prefixes in the Validation Commands section of PLAN.md. If no such prefix exists, derive the path from the package name in the plan's Framework & Technology Stack section, forming `packages/<name>`.
 - Verify package.json contains required scripts and dependencies
 
 Based on Bash tool timeout behavior:
@@ -174,7 +169,12 @@ Based on Bash tool timeout behavior:
 - **Timeout occurs AND tests appear frozen**: Report as exit issues in evaluation, status must be CONTINUE or BLOCKED (not PRODUCTION_READY)
 
 ### 2. Analyze Type-Driven Effectiveness
-Evaluate type-driven effectiveness through type safety and native usage indicators: Analyze type completeness, search for 'any' types, verify native type percentage, apply decision framework, generate comprehensive report.
+
+Apply the following reference sections in sequence:
+1. **Type safety and native usage** — apply `<evaluation-approach>` criteria: type contract clarity, native type percentage (target >80%), 'any' type detection, weak contract identification
+2. **Test quality** — apply `<test-quality-philosophy>`: behavioral focus, anti-pattern detection (coverage-driven tests, redundant assertions)
+3. **Production readiness** — verify all eight criteria listed in `<production-ready-requirements>` are met
+4. **Status determination** — apply the status decision logic from `<evaluation-approach>` to select PRODUCTION_READY, CONTINUE, or BLOCKED
 
 ### 3. Generate Report
 Create evaluation report using the implementation-report-format template. Output the report as your final message.

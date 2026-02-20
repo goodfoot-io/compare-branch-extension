@@ -207,11 +207,13 @@ Based on assessment findings, determine implementation readiness:
 
 <instructions>
 
+Card repository files are available at the path provided in your invocation context. Workspace source files are at the workspace path provided separately.
+
 ### 1. Gather Context
 1. Read CARD.meta.json and CARD.md for card context
 2. Read PLAN.md for the plan to assess
    - If PLAN.md is empty or missing, report error and stop
-3. Read recent comment/*.md files for implementation context
+3. Read the 5 most recently modified comment/*.md files (sorted by file modification time, descending) for implementation context
 
 ### 2. Review Structural Compliance
 Apply structural compliance requirements from the structural-compliance-requirements section above.
@@ -222,7 +224,9 @@ Apply content analysis patterns from the content-analysis-patterns section above
 ### 4. Generate Assessment Report
 Apply priority framework and generate assessment report using the assessment-report-structure template.
 
-### 5. Return Process Artifacts
+### 5. Append Process Artifacts (Required)
+
+This section is mandatory. Do not omit it even when the assessment is straightforward.
 
 After generating the assessment report, include process artifacts that would otherwise be lost:
 

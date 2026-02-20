@@ -38,7 +38,7 @@ Provide only the context required to understand the investigation and why it is 
 - Stakeholders affected by the outcome
 
 **What not to include:**
-- A "Summary" section header
+- A "Background" section header
 
 **Guidance:**
 Keep this concise and factual. The goal is to frame, not to argue for a solution.

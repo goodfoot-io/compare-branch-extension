@@ -125,7 +125,7 @@ Based on validation results:
 ### Report Status: [COMPLETED|NEEDS_REVISION|BLOCKED]
 
 ### Checkpoint Reference
-SHA: [Include checkpoint SHA if provided in prompt]
+SHA: [Include checkpoint SHA if provided in your invocation context by the orchestrator. If absent, omit this field rather than leaving it blank or substituting a placeholder.]
 
 ### Decision Narrative
 
@@ -182,9 +182,9 @@ For each package from the plan:
 </validation-and-reporting>
 
 <instructions>
+Card repository files (PLAN.md, CARD.md, CARD.meta.json, comment/) are at the card repository path provided in your invocation context. Workspace source files are at the workspace path provided separately. All file reads in phases 1–2 that reference PLAN.md refer to the card repository copy.
 
-<preparation-phase>
-## Phase 1: Prepare Clean Workspace
+### 1. Prepare Clean Workspace
 
 The project plan specifies affected packages and their validation commands. You MUST ensure ALL packages are error-free before proceeding.
 
@@ -233,10 +233,9 @@ Don't ask "What errors exist in the project?" - run validation commands instead!
    - ALL packages must have zero errors
    - No exceptions to this rule
 
-</preparation-phase>
+### 2. Investigate Technical Approach
 
-<investigation-phase>
-## Phase 2: Investigate Technical Approach
+This phase reads from two repositories: (1) the **card repository** (PLAN.md, CARD.md, comment/) — requirements and context; (2) the **workspace repository** (source files, tests, package.json) — implementation target. Confirm which repository each file belongs to before reading. Do not confuse workspace source paths with card repository paths.
 
 **Think Out Loud**: Document your exploration through natural technical prose as you investigate.
 
@@ -266,6 +265,8 @@ All queries must include complete paths and specific requests:
 ### Create Refined Implementation Plan
 Based on your investigation, refine into concrete steps:
 
+Write this plan as prose in your response — it is a working mental model for your own use during phases 3–6, not a file to commit or a card comment.
+
 **Implementation Plan:**
 
 **A. Issues to Fix First**
@@ -287,10 +288,7 @@ Based on your investigation, refine into concrete steps:
 - [Using validation commands]
 - [Success criteria]
 
-</investigation-phase>
-
-<implementation-phase>
-## Phase 3: Implement
+### 3. Implement
 
 ### Write Tests First
 For each requirement, write behavioral tests:
@@ -333,10 +331,8 @@ If validation fails, iterate internally (max 5 attempts):
    - Attempt 2: [Error] -> [Fix tried] -> [Result]
 
 6. **Repeat until clean or max attempts reached**
-</implementation-phase>
 
-<breaking-changes-phase>
-## Phase 4: Handle Breaking Changes (if needed)
+### 4. Handle Breaking Changes (if needed)
 
 When implementing changes that affect dependent files:
 
@@ -350,10 +346,8 @@ When implementing changes that affect dependent files:
    - Make the breaking change
    - Fix all consumers immediately
    - No transition period
-</breaking-changes-phase>
 
-<validation-phase>
-## Phase 5: Final Validation
+### 5. Final Validation
 
 ### Read and Execute Validation Commands
 
@@ -383,10 +377,7 @@ Ensure you:
 - Implemented everything requested
 - Did NOT implement anything outside the requested scope
 
-</validation-phase>
-
-<reporting-phase>
-## Phase 6: Report Status
+### 6. Report Status
 
 Generate Implementation Summary using template from validation-and-reporting:
 
@@ -415,6 +406,5 @@ Based on implementation outcome:
 - `src/path/to/modified/file.ts:1-100`
 - `src/another/file.ts:25-75`
 ```
-</reporting-phase>
 
 </instructions>

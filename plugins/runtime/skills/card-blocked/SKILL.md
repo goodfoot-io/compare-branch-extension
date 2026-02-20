@@ -3,6 +3,9 @@ name: blocked
 description: Handle blocked cards by reporting blockers.
 ---
 
+<placeholder-variables>
+[REFERENCED CARD ID] — The card ID extracted from blocker keywords ("blocked by", "waiting on", "depends on") in the description or comments
+</placeholder-variables>
 
 <instructions>
 
@@ -13,24 +16,46 @@ Do not attempt implementation until the blocker is resolved.
 Search the card description and comments for blocker keywords ("blocked by", "waiting on", "depends on"). Identify the blocker reason and any referenced card ID.
 
 Based on blocker analysis:
-- **Blocker references another card**: Check its status
+- **Blocker references another card**: Look up its metadata and check its status
+
+  ```bash
+  $NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/card.mjs [REFERENCED CARD ID]
+  ```
+
+  The output is JSON containing the card's metadata (status, tags, gates) and `repositoryPath`.
+
   - **If resolved (status = "done")**: Remove the "blocked" tag from `CARD.meta.json` and re-invoke routing
+
+    ```bash
+    cd $CARD_REPO_PATH
+    node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.tags=d.tags.filter(t=>t!=='blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+    git add CARD.meta.json
+    ```
+
   - **If not resolved**: Continue to Step 2
 - **Blocker cannot be identified**: Post a comment asking for clarification and stop
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [clarification request: describe what blocker information is missing and what the user should provide]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "[clarification needed: blocker details missing]"
+  ```
 
 ## 2. Report Blocked Status
 
 Skip if a comment already exists containing "## Blocked" with the same blocker reason.
 
+## 3. Write Comment and Commit
+
 Write a comment to the card repository explaining what is preventing progress, identifying the specific blocker (including any referenced card IDs), describing what action is needed to resolve it, and indicating that work will resume once the blocker is cleared.
-
-## 3. Commit
-
-Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]
 EOF

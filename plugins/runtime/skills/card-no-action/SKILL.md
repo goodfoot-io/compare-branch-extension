@@ -16,13 +16,15 @@ Based on comment type:
 - **User comment directly addresses agent without requesting action**: Write a brief acknowledgment comment to the card repository restating the key point to show you understood
 - **Thank-you messages, status updates, or informational notes**: Skip acknowledgment and **STOP**
 
-## 2. Commit
+## 2. Write Acknowledgment and Commit
+
+Write a brief acknowledgment comment to the card repository restating the key point to show you understood.
 
 If acknowledgment was written, commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [brief acknowledgment restating the key point to show understanding]
 EOF

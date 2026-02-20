@@ -5,11 +5,11 @@ description: Implement approved plans.
 
 
 <placeholder-variables>
-[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
-[TASK_DESCRIPTION] — Human-readable description of the current task phase
-[EVALUATION_CYCLE] — Counter tracking evaluation iterations (max 2)
+[CARD_ID] — The card's unique identifier from the `id` field in CARD.meta.json (read in Step 2.1 from $CARD_REPO_PATH/CARD.meta.json)
+[TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each subsequent checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
+[EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 2 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 4.3 on each CONTINUE result)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
-[PLAN_FILES] — All files the plan intends to modify (from task file assignments)
+[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 2.6 for modification scope check, Step 3.3 for revert scope, and Step 5.3 cleanup annotation)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -107,7 +107,16 @@ Restore stash after todo initialization in Step 2.
 
 ### 2.1 Validate and Initialize
 
-If `PLAN.md` is empty or missing: write an error comment, add `blocked` tag, commit, and **STOP**.
+Extract the `id` field from `CARD.meta.json` and assign it to `[CARD_ID]`.
+
+Read `PLAN.md` from the card repository:
+
+```bash
+cd $CARD_REPO_PATH
+cat PLAN.md
+```
+
+If `PLAN.md` is empty or missing: write an error comment using the canonical comment pattern, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
 
 Create todos from the plan content using TodoWrite. Initialize `[EVALUATION_CYCLE] = 0`.
 
@@ -121,7 +130,7 @@ Before the first agent delegation, create a pre-implementation checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
-git add -A
+git add -A  # checkpoint: stage all workspace files before first task dispatch
 git commit --allow-empty -m "checkpoint: before implementation for card [CARD_ID]"
 git tag -f "implement/${CARD_ID}/pre-implementation" HEAD
 ```
@@ -130,13 +139,11 @@ Before each subsequent agent delegation, commit a checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
-git add -A
+git add -A  # checkpoint: stage all workspace files before [TASK_DESCRIPTION]
 git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card [CARD_ID]"
 ```
 
 ### 2.3 Assess Coherence
-
-Collect background exploration results via TaskOutput. Launch additional Explore subagents if new information reveals unexplored areas.
 
 Analyze tasks along three dimensions:
 
@@ -246,11 +253,18 @@ Based on agent status:
   - **If attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue
 
-**COMPLETED:** Write a brief progress comment to the card repository indicating which task was completed and what was actually done. Commit to the card repository:
+**COMPLETED:** Commit any workspace changes, then write a brief progress comment to the card repository indicating which task was completed and what was actually done.
+
+```bash
+cd $WORKSPACE_PATH
+git diff --quiet HEAD || git commit -am "[task name]: [brief description of what was implemented]"
+```
+
+Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [which task was completed and what was actually done]
 EOF
@@ -259,7 +273,21 @@ git commit -m "[which task was completed, what was done, and what comes next]"
 ```
 
 **After all todos:**
-- ALL blocked -> write summary comment, add `blocked` tag, **STOP**
+- ALL blocked -> write summary comment, add `blocked` tag, **STOP**:
+
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+All implementation tasks are blocked.
+
+[per-task blocker summary]
+EOF
+git add comment/$COMMENT_ID.md CARD.meta.json
+git commit -m "blocked: all tasks blocked — [reason summary]"
+```
+
 - SOME blocked -> note in summary, proceed to Step 3
 - NONE blocked -> proceed to Step 3
 
@@ -269,12 +297,19 @@ Create post-implementation checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
-git add -A
+git add -A  # checkpoint: stage all workspace files after implementation, before validation
 git commit --allow-empty -m "checkpoint: after implementation, before validation for card [CARD_ID]"
 git tag -f "implement/${CARD_ID}/post-implementation" HEAD
 ```
 
 #### Check for Unexpected Modifications
+
+Review all files modified since the first task dispatch to verify scope compliance before the unexpected-modifications check.
+
+```bash
+cd $WORKSPACE_PATH
+git diff "implement/${CARD_ID}/pre-implementation" HEAD --name-only
+```
 
 Verify that only plan-owned files were modified:
 
@@ -286,9 +321,25 @@ UNEXPECTED=$(comm -23 <(echo "$MODIFIED" | sort) <(echo "[PLAN_FILES]" | sort))
 
 If unexpected modifications exist:
 - **Formatting-only** (use `git diff --ignore-all-space --ignore-blank-lines` to check): Auto-keep, note in card comment
-- **Substantive changes**: Write a comment listing the unexpected files, add `blocked` tag to `CARD.meta.json`, commit, **STOP** — await user direction
+- **Substantive changes**: Add blocked tag and write comment:
 
-Do not discard modifications without user direction.
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+Blocked: unexpected file modifications outside plan scope.
+
+Unexpected files:
+[UNEXPECTED list, one per line]
+
+Awaiting user direction on whether to keep or revert these changes.
+EOF
+git add comment/$COMMENT_ID.md CARD.meta.json
+git commit -m "blocked: unexpected modifications outside plan scope"
+```
+
+**STOP** — await user direction. Do not discard modifications without user direction.
 
 **Requirement:** ALL validation commands must pass before proceeding.
 
@@ -298,7 +349,20 @@ Run validation per the plan's "Validation Commands" section.
 1. Error in code you can modify -> delegate fix to implementer, re-run validation
 2. Error outside your scope -> block immediately
 
-**When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+**When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
+
+```bash
+cd $CARD_REPO_PATH
+node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+Blocked: validation failure outside modifiable scope.
+
+[exact validation command and full output]
+EOF
+git add comment/$COMMENT_ID.md CARD.meta.json
+git commit -m "blocked: validation failure outside scope"
+```
 
 Only proceed to **3. Refactor** when ALL validations pass.
 
@@ -312,7 +376,7 @@ Commit a checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
-git add -A
+git add -A  # checkpoint: stage all workspace files before refactoring
 git commit --allow-empty -m "checkpoint: before refactoring — implementation complete for card [CARD_ID]"
 git tag -f "implement/${CARD_ID}/pre-refactor" HEAD
 ```
@@ -344,7 +408,14 @@ git tag -f "implement/${CARD_ID}/pre-refactor" HEAD
 ### 3.3 Process Result
 
 Based on agent status:
-- **COMPLETED**: Commit with `refactor:` prefix, then capture and report refactoring changes:
+- **COMPLETED**: Commit refactoring changes, then capture and report refactoring changes:
+
+```bash
+cd $WORKSPACE_PATH
+git add -A  # stage all refactoring changes
+git commit -m "refactor: [summary of what was refactored from agent report]"
+```
+
   1. Run `git diff "implement/${CARD_ID}/pre-refactor" HEAD --stat` to capture changes
   2. If diff is empty: Write brief comment "No refactoring changes were made — code already met quality standards"
   3. If diff has content: Run post-refactor validation (typecheck, test, lint)
@@ -363,7 +434,7 @@ Commit a checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
-git add -A
+git add -A  # checkpoint: stage all workspace files before evaluation
 git commit --allow-empty -m "checkpoint: before evaluation — implementation and refactoring complete for card [CARD_ID]"
 ```
 
@@ -402,11 +473,32 @@ Before completing, synthesize Decision Narratives from all subagent reports into
 4. **Weave**: A unified story, not a list
 5. **Scale**: 2 paragraphs for small changes, up to 5 for substantial ones
 
-**Create the final commit** following `<commit-message-artistry>` guidelines.
+**Create the final commit** following `<commit-message-artistry>` guidelines:
+
+```bash
+cd $WORKSPACE_PATH
+git add -A  # final: stage any uncommitted implementation artifacts
+git commit -m "$(cat <<'COMMITMSG'
+[artfully crafted commit message per <commit-message-artistry> structure: paragraph 1 hook, paragraph 2 problem, paragraph 3 journey, paragraph 4 solution]
+COMMITMSG
+)"
+```
 
 ### 5.2 Complete or Await Review
 
 **If review is NOT required (gates.reviewRequired is false or unset):**
+
+Write a completion summary comment to the card repository:
+
+```bash
+cd $CARD_REPO_PATH
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[completion summary: what was implemented and how it aligns with the plan, key files modified, validation confirmation]
+EOF
+git add comment/$COMMENT_ID.md
+git commit -m "[implementation completion summary]"
+```
 
 Launch the merge agent:
 
@@ -414,7 +506,7 @@ Launch the merge agent:
 <invoke name="Task">
 <parameter name="description">Merge</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
+<parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
 </invoke>
 ```
 
@@ -424,7 +516,7 @@ Write a summary comment to the card repository explaining what you implemented a
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
 EOF

@@ -3,10 +3,13 @@
  * WebSocket event subscriber for real-time card, timeline, and stream
  * change notifications.
  *
- * @summary REST client and WebSocket event subscriber for the Cards V2 API
+ * @summary REST client, WebSocket event subscriber, and API discovery for the Cards V2 API
  * @module
  */
 
+export type { DiscoveryLogger } from './api-discovery.js';
+// API discovery
+export { createCardsClient, discoverApiInfo } from './api-discovery.js';
 export { CardsClient } from './cardsClient.js';
 export { calculateBackoffMs, EventSubscriber } from './eventSubscriber.js';
 // Client types

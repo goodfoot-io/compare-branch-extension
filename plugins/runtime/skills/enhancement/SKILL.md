@@ -16,6 +16,8 @@ description: How to write an enhancement request card
 [ASK_FOR_APPROACH_DETAILS] — [INCLUDE_IMPLEMENTATION_APPROACH] is true AND [APPROACH_DETAILS_PRESENT] is false
 </placeholder-variables>
 
+Before evaluating any placeholder variables: (1) read `CARD.md` for the enhancement description and any embedded approach details; (2) read `CARD.meta.json` and extract the `planRequired` field to set `[PLAN_REQUIRED]`; (3) read all `comment/*.md` files to identify user-requested approaches or approach details already provided. Evaluate all `<placeholder-variables>` conditions from this content before proceeding.
+
 <how-to-write-an-enhancement-request>
 
 Enhancement requests bridge understanding between what exists, what should exist, and why the gap matters. They preserve institutional knowledge about how systems evolved while providing clear direction for future work.
@@ -141,7 +143,7 @@ Determine whether to include this section:
 - **[INCLUDE_IMPLEMENTATION_APPROACH]**: Include this section
 - **[INCLUDE_IMPLEMENTATION_APPROACH] is false and [PLAN_REQUIRED] is true**: Omit this section and defer approach details to the planning step
 
-If [ASK_FOR_APPROACH_DETAILS] is true, ask targeted questions using `AskUserQuestion` to capture the missing approach details. If the user asks you to proceed with the information available, include a minimal approach based on known constraints and explicitly call out unknowns; do not invent details.
+If [ASK_FOR_APPROACH_DETAILS] is true, ask targeted questions using `AskUserQuestion` to capture the missing approach details. (`AskUserQuestion` is a tool call (not a prose statement) that pauses execution and surfaces a question directly to the user in the IDE. Invoke it by calling the `AskUserQuestion` tool with a `questions` parameter containing the specific question, options, and header.) If the user asks you to proceed with the information available, include a minimal approach based on known constraints and explicitly call out unknowns; do not invent details.
 
 **Purpose:**
 Describe how the desired functionality could be achieved. This section provides direction without constraining implementation choices.

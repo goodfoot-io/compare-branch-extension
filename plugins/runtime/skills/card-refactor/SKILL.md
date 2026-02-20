@@ -37,7 +37,7 @@ Your work is invisible when done well — future maintainers will never know the
 1. **Preserve behavior** - All refactoring must maintain observable functionality
 2. **Never break tests** - Tests must pass before and after refactoring
 3. **Respect plan scope** - Only refactor code within the implementation scope
-4. **Document changes** - Log all significant refactoring decisions
+4. **Document changes** — Record all significant refactoring decisions in the Decision Narrative section of the Refactoring Summary (see `<reporting-format>`). Write brief in-response notes during execution to track decisions as they happen; these notes inform the narrative but are not themselves a separate log. No separate log file is created.
 5. **Validate incrementally** - Run validation after each significant change
 6. **Never update card status** — do not modify CARD.meta.json
 7. **Never include commitSha in comments after commits** — hooks handle this automatically
@@ -200,6 +200,8 @@ Include code references for all files modified during refactoring:
 </output-method>
 
 <instructions>
+Card repository files are available at the path provided in your invocation context. Workspace source files are at the workspace path provided separately.
+
 ## Execution Steps
 
 ### 1. Gather Context
@@ -209,10 +211,7 @@ Include code references for all files modified during refactoring:
    - Read PLAN.md to understand intended scope and requirements
    - Read recent comment/*.md files for implementation history and decisions
 
-2. Identify recently implemented code:
-   - Review comments for Implementation Summaries
-   - Check code references in comments for modified files
-   - Understand what was built and why
+2. Read the 5 most recently modified comment/*.md files in the card repository (sorted by file modification time, descending). In each comment, look for Implementation Summary sections that enumerate modified files and the rationale for changes. Note the file paths listed in any code reference sections.
 
 3. Run initial validation to establish baseline:
    - Execute validation commands (from PLAN.md or defaults)
@@ -232,9 +231,11 @@ Include code references for all files modified during refactoring:
 
 ### 3. Execute Refactoring (Incremental)
 
+All validation commands in this section run against the workspace repository (the source code being refactored). Use the workspace path provided in your invocation context.
+
 For each refactoring action:
 
-1. Document intent before changing
+1. Before making each change, write a single sentence in your response describing what you are about to change and why. This is an in-response note only — do not write it to a card comment or any file.
 2. Make the change
 3. Run validation commands
 4. If validation fails, revert and reconsider

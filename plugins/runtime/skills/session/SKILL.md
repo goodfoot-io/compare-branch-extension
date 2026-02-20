@@ -49,13 +49,17 @@ Common message types:
 List all sessions for the current card:
 
 ```bash
+cd "$CARD_REPO_PATH"
 ls streams/claude-code-session/*.jsonl 2>/dev/null
+# Must be run from the card repository root
 ```
+
+All commands in the 'Finding Sessions in the Card Repo' and 'Searching Session Content' sections must be run from the card repository root. Run `cd "$CARD_REPO_PATH"` once before issuing any of the commands below, or prefix each command with `cd "$CARD_REPO_PATH" &&`.
 
 Read sidecar metadata for a specific session:
 
 ```bash
-cat "streams/claude-code-session/${SESSION_ID}.jsonl.meta.json" | jq .
+cd "$CARD_REPO_PATH" && cat "streams/claude-code-session/${SESSION_ID}.jsonl.meta.json" | jq .
 ```
 
 ### Searching Session Content
@@ -64,22 +68,22 @@ The transcript is NDJSON (one JSON object per line). Avoid reading the entire fi
 
 **Find user messages:**
 ```bash
-grep '"type":"user"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content' | head -20
+cd "$CARD_REPO_PATH" && grep '"type":"user"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content' | head -20
 ```
 
 **Find assistant text responses:**
 ```bash
-grep '"type":"assistant"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content[] | select(.type=="text") | .text' 2>/dev/null | head -50
+cd "$CARD_REPO_PATH" && grep '"type":"assistant"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content[] | select(.type=="text") | .text' 2>/dev/null | head -50
 ```
 
 **Search for specific content:**
 ```bash
-grep -i 'keyword' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content // .toolUseResult // empty' | head -20
+cd "$CARD_REPO_PATH" && grep -i 'keyword' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -c '.message.content // .toolUseResult // empty' | head -20
 ```
 
 **List tool calls made:**
 ```bash
-grep '"type":"assistant"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -rc '.message.content[]? | select(.type=="tool_use") | .name' 2>/dev/null | sort | uniq -c | sort -rn
+cd "$CARD_REPO_PATH" && grep '"type":"assistant"' "streams/claude-code-session/${SESSION_ID}.jsonl" | jq -rc '.message.content[]? | select(.type=="tool_use") | .name' 2>/dev/null | sort | uniq -c | sort -rn
 ```
 
 ## Local Sessions (outside card repos)
@@ -92,4 +96,6 @@ Use `find-session-files.sh` to retrieve session metadata and file paths for a Cl
 ```
 
 The script outputs session metadata (prompt, summary, slug, timestamps) and file paths, followed by search instructions with example commands.
+
+After running `find-session-files.sh`, the script outputs session metadata (prompt, summary, timestamps) and file paths. Use the printed `.jsonl` file path with the search commands in the 'Searching Session Content' section above to inspect transcript content. The script output is informational only — the agent must issue additional bash read or search commands to access session content.
 </find-session-files-usage>

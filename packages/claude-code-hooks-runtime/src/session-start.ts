@@ -109,7 +109,7 @@ export function buildCardRepoListing(cardId: string, rootPath: string): string {
         const relPath = relative(rootPath, fullPath);
         if (entry.name.endsWith('.meta.json')) {
           const content = readFileSync(fullPath, 'utf-8');
-          lines.push(`${relPath}:\n\`\`\`json\n${content}\n\`\`\``);
+          lines.push(`${relPath} content:\n\`\`\`json\n${content}\n\`\`\``);
         } else {
           lines.push(relPath);
         }
