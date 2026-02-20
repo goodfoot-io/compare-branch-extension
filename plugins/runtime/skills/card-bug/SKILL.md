@@ -38,6 +38,7 @@ Enforce strict test-first verification:
 Check git state and establish baseline:
 
 ```bash
+cd $WORKSPACE_PATH
 # Verify clean working tree
 if [ -n "$(git status --porcelain)" ]; then
   # Write comment: working tree is dirty, cannot proceed safely
@@ -45,7 +46,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 CARD_ID=$(basename "$CARD_REPO_PATH")
-git tag -f "rr/!`echo $CARD_ID`/baseline" HEAD
+git tag -f "rr/${CARD_ID}/baseline" HEAD
 ```
 
 Launch parallel Explore subagents (haiku model) in the workspace repository. Launch multiple subagents with distinct, targeted prompts based on the card content:
@@ -95,6 +96,7 @@ Do not expand scope beyond the reported bug.
 If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 git add CARD.meta.json CARD.md
 git commit -m "[what was clarified about the bug, corrections made, and context enriched from exploration]"
 ```
@@ -163,6 +165,7 @@ Parse response: SUBAGENT_STATUS, TEST_FILE_PATH, SUBAGENT_REASONING
 Verify using git (do not rely solely on subagent status):
 
 ```bash
+cd $WORKSPACE_PATH
 # Verify file exists
 if [ ! -f "$TEST_FILE_PATH" ]; then
   if [ "$REPRODUCTION_ATTEMPT" -lt 3 ]; then
@@ -173,7 +176,7 @@ if [ ! -f "$TEST_FILE_PATH" ]; then
 fi
 
 # Check for unexpected modifications
-MODIFIED_FILES=$(git diff "rr/!`echo $CARD_ID`/baseline" --name-only --diff-filter=M)
+MODIFIED_FILES=$(git diff "rr/${CARD_ID}/baseline" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
   # Write comment asking user: proceed or revert?
   # STOP — await user direction
@@ -192,15 +195,15 @@ Based on subagent response and test result:
 - **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** — Awaiting user intervention.
 
 - **Test FAILS (expected)**:
-  - Commit the test: `git add -A && git commit -m "[what the reproduction test checks and why it fails]"`
-  - Tag: `git tag -f "bug/!`echo $CARD_ID`/reproduction" HEAD`
+  - Commit the test: `git add "$TEST_FILE_PATH" && git commit -m "[what the reproduction test checks and why it fails]"`
+  - Tag: `git tag -f "bug/${CARD_ID}/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
   - Proceed to Step 3
 
 - **Test PASSES (unexpected) and attempts < 3**:
   - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
-  - Revert to baseline: `git checkout "rr/!`echo $CARD_ID`/baseline" -- . && git clean -fd`
+  - Revert to baseline: `git checkout "rr/${CARD_ID}/baseline" -- . && git clean -fd`
   - Return to Delegate to Subagent
 
 - **Test PASSES (unexpected) and attempts >= 3**:
@@ -287,8 +290,9 @@ Capture RESOLVER_REASONING from response.
 ### 3.3 Validate
 
 ```bash
-ALL_CHANGES=$(git diff "bug/!`echo $CARD_ID`/reproduction" --name-only)
-git diff --quiet "bug/!`echo $CARD_ID`/reproduction" -- "$TEST_FILE_PATH"
+cd $WORKSPACE_PATH
+ALL_CHANGES=$(git diff "bug/${CARD_ID}/reproduction" --name-only)
+git diff --quiet "bug/${CARD_ID}/reproduction" -- "$TEST_FILE_PATH"
 TEST_FILE_MODIFIED=$?  # 0=unchanged, 1=modified
 SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 ```
@@ -314,10 +318,10 @@ Based on changes detected:
 1. Increment TEST_CORRECTION_COUNT
 2. **If > 2**: Write a comment to the card repository reporting that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it cannot be trusted to verify the fix. Commit to the card repository.
    **STOP** — Test became unreliable.
-3. Revert source changes: `git checkout "bug/!`echo $CARD_ID`/reproduction" -- $SOURCE_CHANGES`
+3. Revert source changes: `git checkout "bug/${CARD_ID}/reproduction" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
-   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/!`echo $CARD_ID`/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
+   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/${CARD_ID}/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
    - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP** — Test correction failed.
 
 ## 4. Validate Full Suite
@@ -365,9 +369,10 @@ Based on validation result:
 Squash all commits since baseline into one:
 
 ```bash
-COMMIT_COUNT=$(git rev-list --count "rr/!`echo $CARD_ID`/baseline"..HEAD)
+cd $WORKSPACE_PATH
+COMMIT_COUNT=$(git rev-list --count "rr/${CARD_ID}/baseline"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft "rr/!`echo $CARD_ID`/baseline"
+  git reset --soft "rr/${CARD_ID}/baseline"
   git commit -m "[bug description, root cause analysis, fix approach, data flow from source to symptom, and test file path]"
 fi
 ```
@@ -375,7 +380,8 @@ fi
 Clean up checkpoint tags:
 
 ```bash
-git tag -d "rr/!`echo $CARD_ID`/baseline" "bug/!`echo $CARD_ID`/reproduction" 2>/dev/null
+cd $WORKSPACE_PATH
+git tag -d "rr/${CARD_ID}/baseline" "bug/${CARD_ID}/reproduction" 2>/dev/null
 ```
 
 ### 5.2 Complete
@@ -386,10 +392,11 @@ Based on review requirement:
   Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Commit to the card repository:
 
   ```bash
+  cd $CARD_REPO_PATH
   export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-  cat <<'COMMENT' > comment/$COMMENT_ID.md
+  cat <<'EOF' > comment/$COMMENT_ID.md
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
-  COMMENT
+  EOF
   git add comment/$COMMENT_ID.md
   git commit -m "[bug summary, root cause, fix approach, test file path, and what the reviewer should focus on]"
   ```

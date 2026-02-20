@@ -208,6 +208,7 @@ When you encounter unclear code, use these techniques to understand its purpose:
 ### Search for References
 
 ```bash
+cd $WORKSPACE_PATH
 # Find all usages of a function
 grep -r "functionName" --include="*.ts"
 
@@ -218,6 +219,7 @@ grep -r "functionName" --include="*.test.ts"
 ### Review Git History
 
 ```bash
+cd $WORKSPACE_PATH
 # See when and why the code was added
 git log -p --follow -S "suspicious code snippet" -- path/to/file.ts
 

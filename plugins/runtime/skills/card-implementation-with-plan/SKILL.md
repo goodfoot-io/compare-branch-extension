@@ -88,12 +88,14 @@ Collect the Decision Narratives. Extract: what changed, what was learned, what t
 Stash any uncommitted changes:
 
 ```bash
+cd $WORKSPACE_PATH
 git stash --include-untracked
 ```
 
 Create baseline tag:
 
 ```bash
+cd $WORKSPACE_PATH
 git tag -f "implement/${CARD_ID}/baseline" HEAD
 ```
 
@@ -118,6 +120,7 @@ If resuming: `git stash pop` to restore prior work.
 Before the first agent delegation, create a pre-implementation checkpoint:
 
 ```bash
+cd $WORKSPACE_PATH
 git add -A
 git commit --allow-empty -m "checkpoint: before implementation for card [CARD_ID]"
 git tag -f "implement/${CARD_ID}/pre-implementation" HEAD
@@ -126,6 +129,7 @@ git tag -f "implement/${CARD_ID}/pre-implementation" HEAD
 Before each subsequent agent delegation, commit a checkpoint:
 
 ```bash
+cd $WORKSPACE_PATH
 git add -A
 git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card [CARD_ID]"
 ```
@@ -245,10 +249,11 @@ Based on agent status:
 **COMPLETED:** Write a brief progress comment to the card repository indicating which task was completed and what was actually done. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [which task was completed and what was actually done]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[which task was completed, what was done, and what comes next]"
 ```
@@ -263,6 +268,7 @@ git commit -m "[which task was completed, what was done, and what comes next]"
 Create post-implementation checkpoint:
 
 ```bash
+cd $WORKSPACE_PATH
 git add -A
 git commit --allow-empty -m "checkpoint: after implementation, before validation for card [CARD_ID]"
 git tag -f "implement/${CARD_ID}/post-implementation" HEAD
@@ -273,6 +279,7 @@ git tag -f "implement/${CARD_ID}/post-implementation" HEAD
 Verify that only plan-owned files were modified:
 
 ```bash
+cd $WORKSPACE_PATH
 MODIFIED=$(git diff "implement/${CARD_ID}/baseline" --name-only)
 UNEXPECTED=$(comm -23 <(echo "$MODIFIED" | sort) <(echo "[PLAN_FILES]" | sort))
 ```
@@ -304,6 +311,7 @@ Only proceed to **3. Refactor** when ALL validations pass.
 Commit a checkpoint:
 
 ```bash
+cd $WORKSPACE_PATH
 git add -A
 git commit --allow-empty -m "checkpoint: before refactoring — implementation complete for card [CARD_ID]"
 git tag -f "implement/${CARD_ID}/pre-refactor" HEAD
@@ -354,6 +362,7 @@ Based on agent status:
 Commit a checkpoint:
 
 ```bash
+cd $WORKSPACE_PATH
 git add -A
 git commit --allow-empty -m "checkpoint: before evaluation — implementation and refactoring complete for card [CARD_ID]"
 ```
@@ -414,10 +423,11 @@ Launch the merge agent:
 Write a summary comment to the card repository explaining what you implemented and how it aligns with the approved plan. List the key workspace files modified and confirm all validation passed. Indicate you are awaiting approval. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[summary of implementation against the plan, key decisions, validation results, and what the reviewer should focus on]"
 ```
@@ -429,6 +439,7 @@ git commit -m "[summary of implementation against the plan, key decisions, valid
 Clean up checkpoint tags:
 
 ```bash
+cd $WORKSPACE_PATH
 git tag -d "implement/${CARD_ID}/baseline" \
          "implement/${CARD_ID}/pre-implementation" \
          "implement/${CARD_ID}/post-implementation" \

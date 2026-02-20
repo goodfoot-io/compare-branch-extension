@@ -16,20 +16,21 @@ Based on the latest user comment:
 
 ## 2. Acknowledge and Reopen
 
-Write a comment to the card repository summarizing the user's request to confirm you understand what additional work they want done.
-
 Update `CARD.meta.json` to set the status back to `in_progress`.
 
-## 3. Commit
-
-Commit to the card repository:
+Write a comment to the card repository summarizing the user's request to confirm you understand what additional work they want done. Commit to the card repository:
 
 ```bash
-git add CARD.meta.json comment/
+cd $CARD_REPO_PATH
+export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[summary of the user's request, confirmation of understanding, and what additional work will be done]
+EOF
+git add CARD.meta.json comment/$COMMENT_ID.md
 git commit -m "[summary of what was requested, how it differs from the original scope, and what the reopen entails]"
 ```
 
-## 4. Delegate to Implementation
+## 3. Delegate to Implementation
 
 Re-evaluate the card's routing conditions based on the updated state and delegate to the appropriate implementation agent. Focus on addressing the specific request from the latest user comment.
 

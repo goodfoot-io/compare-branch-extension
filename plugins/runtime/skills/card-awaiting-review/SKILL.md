@@ -22,10 +22,11 @@ Write a comment to the card repository that briefly summarizes what was complete
 Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [brief summary of what was completed and a note that you are waiting for user review before taking further action]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[summary of completed work and what the reviewer should focus on]"
 ```

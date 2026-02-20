@@ -45,6 +45,7 @@ Update the plan to address all feedback points:
 Write the updated plan to `PLAN.md` in the card repository. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 git add PLAN.md
 git commit -m "[what feedback was incorporated, how the plan changed, and what tradeoffs were considered]"
 ```
@@ -114,10 +115,11 @@ Return to **2.2 Incorporate Feedback** and revise.
 If any strategic concerns were accepted, write a comment to the card repository documenting them with rationale. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted strategic concerns and rationale for why each does not block implementation]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[which concerns were accepted and why they do not block implementation]"
 ```
@@ -135,10 +137,11 @@ When feedback was ambiguous, surface your interpretation as a question with your
 Write the comment to the card repository. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[how feedback was interpreted, what changed in the plan, judgment calls made, and what the reviewer should focus on]"
 ```

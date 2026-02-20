@@ -34,6 +34,7 @@ Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEd
 Stash any uncommitted changes:
 
 ```bash
+cd $WORKSPACE_PATH
 git stash --include-untracked
 ```
 
@@ -89,6 +90,7 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
    If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
    ```bash
+   cd $CARD_REPO_PATH
    git add CARD.meta.json CARD.md
    git commit -m "[what was clarified, what was enriched from exploration, and any corrections made]"
    ```
@@ -162,6 +164,7 @@ When uncertain between Coherent and Sequential, choose **Coherent** for planless
 Commit a checkpoint:
 
 ```bash
+cd $WORKSPACE_PATH
 git add -A
 git commit --allow-empty -m "checkpoint: before implementation — [TASK_COUNT] tasks derived from card [CARD_ID]"
 ```
@@ -255,10 +258,11 @@ Based on implementer status:
 **On COMPLETED:** Write a progress comment to the card repository summarizing what was implemented, key decisions made, and files modified. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented, key decisions made, and files modified]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[what was implemented, key decisions, and files modified in the workspace]"
 ```
@@ -284,10 +288,11 @@ Only proceed to **4. Finalize** when ALL validations pass.
 Write a summary comment to the card repository explaining what you implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate you are waiting for approval before merge. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[summary of implementation, key decisions, validation results, and what the reviewer should focus on]"
 ```

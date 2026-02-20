@@ -9,6 +9,7 @@ description: Merge implementation branch to base branch.
 ## 1. Check for Changes
 
 ```bash
+cd $WORKSPACE_PATH
 COMMIT_COUNT=$(git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH)
 ```
 
@@ -21,6 +22,7 @@ Based on commit count:
 Squash all commits since the branch diverged:
 
 ```bash
+cd $WORKSPACE_PATH
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
   git commit -m "[comprehensive summary of all changes: what was built, key design decisions, and card reference]"
@@ -32,6 +34,7 @@ fi
 Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
 
 ```bash
+cd $WORKSPACE_PATH
 git rebase $BASE_BRANCH
 ```
 
@@ -60,16 +63,18 @@ Based on validation result:
 Navigate to the repository root:
 
 ```bash
+cd $WORKSPACE_PATH
 REPO_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 cd "$REPO_ROOT"
 git status --porcelain
 ```
 
 Based on workspace state:
-- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: !`echo $CARD_ID`"`
+- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: ${CARD_ID}"`
 - **No uncommitted changes**: Continue
 
 ```bash
+cd $WORKSPACE_PATH
 git merge --ff-only "$WORKSPACE_BRANCH"
 ```
 

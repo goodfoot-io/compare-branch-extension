@@ -29,10 +29,11 @@ Write a comment to the card repository explaining what is preventing progress, i
 Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[what the blocker is, which card or dependency it references, and what resolution is needed]"
 ```

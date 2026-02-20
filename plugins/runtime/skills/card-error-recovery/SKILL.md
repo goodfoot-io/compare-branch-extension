@@ -29,6 +29,7 @@ Report honestly. Block cleanly. Document thoroughly.
 Abort any incomplete git operations that could corrupt the base branch:
 
 ```bash
+cd $WORKSPACE_PATH
 git merge --abort 2>/dev/null || true
 git rebase --abort 2>/dev/null || true
 git cherry-pick --abort 2>/dev/null || true
@@ -59,19 +60,28 @@ Based on validation result:
 
 ## 3. Report and Block
 
+Add the "blocked" tag to the `tags` array in `CARD.meta.json`.
+
 Based on card state:
-- **Card already has "blocked" tag** (from a previous recovery attempt): Skip to section 4 without posting a duplicate comment
-- **Otherwise**: Write a comment to the card repository documenting the error, including: what happened, the repository state (base branch status, failed step), the relevant error output, manual resolution steps, and how to retry after fixing
 
-Then proceed to section 4.
+- **Card already has "blocked" tag** (from a previous recovery attempt): Commit without a duplicate comment:
 
-## 4. Mark as Blocked
+  ```bash
+  cd $CARD_REPO_PATH
+  git add CARD.meta.json
+  git commit -m "[what error occurred, which step failed, and what manual intervention is needed]"
+  ```
 
-Add the "blocked" tag to the `tags` array in `CARD.meta.json`. Commit to the card repository:
+- **Otherwise**: Write an error comment documenting what happened, then commit:
 
-```bash
-git add CARD.meta.json comment/
-git commit -m "[what error occurred, which step failed, what recovery was attempted, and what manual intervention is needed]"
-```
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]
+  EOF
+  git add CARD.meta.json comment/$COMMENT_ID.md
+  git commit -m "[what error occurred, which step failed, what recovery was attempted, and what manual intervention is needed]"
+  ```
 
 </instructions>

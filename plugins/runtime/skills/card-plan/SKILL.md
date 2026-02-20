@@ -21,6 +21,7 @@ Create implementation plans for cards requiring user approval before coding begi
 Write the plan to `PLAN.md` in the card repository following the `<annotated-plan-example>` from the `runtime:plan` skill. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 git add PLAN.md
 git commit -m "[summary of the plan's approach, key design decisions, and identified risks]"
 ```
@@ -90,10 +91,11 @@ Return to **1.2 Write and Store Plan** and revise.
 If Plan Refactor returned DISCUSS, write a comment to the card repository documenting the accepted concerns and rationale. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted concerns from the strategic assessment and rationale for why they do not block implementation]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[which concerns were accepted and why they do not block implementation]"
 ```
@@ -111,10 +113,11 @@ Include surprises, dead ends, assumptions, or risks when they would help the rev
 Write the comment to the card repository. Commit to the card repository:
 
 ```bash
+cd $CARD_REPO_PATH
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
-cat <<'COMMENT' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/$COMMENT_ID.md
 [reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
-COMMENT
+EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[reasoning process, key judgment calls, areas of uncertainty, and what the reviewer should focus on]"
 ```
