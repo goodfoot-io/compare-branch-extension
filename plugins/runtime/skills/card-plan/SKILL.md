@@ -108,14 +108,14 @@ Focus on what the reviewer cannot see: your reasoning process, what you learned,
 
 Include surprises, dead ends, assumptions, or risks when they would help the reviewer focus their attention. Write naturally — only include what is genuinely useful for this specific plan.
 
-Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review`. Commit to the card repository:
+Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'COMMENT' > comment/$COMMENT_ID.md
 [reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
 COMMENT
-git add CARD.meta.json comment/$COMMENT_ID.md
+git add comment/$COMMENT_ID.md
 git commit -m "[reasoning process, key judgment calls, areas of uncertainty, and what the reviewer should focus on]"
 ```
 

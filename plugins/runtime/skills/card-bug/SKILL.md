@@ -168,7 +168,7 @@ if [ ! -f "$TEST_FILE_PATH" ]; then
   if [ "$REPRODUCTION_ATTEMPT" -lt 3 ]; then
     # Return to Delegate to Subagent
   else
-    # Write failure comment, set needs_review, STOP
+    # Write failure comment, STOP
   fi
 fi
 
@@ -176,7 +176,7 @@ fi
 MODIFIED_FILES=$(git diff "rr/!`echo $CARD_ID`/baseline" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
   # Write comment asking user: proceed or revert?
-  # Set needs_review, STOP — await user direction
+  # STOP — await user direction
 fi
 
 # Run test
@@ -383,14 +383,14 @@ git tag -d "rr/!`echo $CARD_ID`/baseline" "bug/!`echo $CARD_ID`/reproduction" 2>
 Based on review requirement:
 
 - **Review required (gates.reviewRequired is true)**:
-  Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Update `CARD.meta.json` to set status to `needs_review`. Commit to the card repository:
+  Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Commit to the card repository:
 
   ```bash
   export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
   cat <<'COMMENT' > comment/$COMMENT_ID.md
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   COMMENT
-  git add CARD.meta.json comment/$COMMENT_ID.md
+  git add comment/$COMMENT_ID.md
   git commit -m "[bug summary, root cause, fix approach, test file path, and what the reviewer should focus on]"
   ```
 

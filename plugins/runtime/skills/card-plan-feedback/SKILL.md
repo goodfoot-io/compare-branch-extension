@@ -132,14 +132,14 @@ Explain how you incorporated the feedback, especially where interpretation was r
 
 When feedback was ambiguous, surface your interpretation as a question with your selected answer inline. Include surprises, new assumptions, or risks discovered during revision when they would help the reviewer. Write naturally — only include what is genuinely useful.
 
-Write the comment to the card repository. Update `CARD.meta.json` to set the status to `needs_review` if not already set. Commit to the card repository:
+Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'COMMENT' > comment/$COMMENT_ID.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 COMMENT
-git add CARD.meta.json comment/$COMMENT_ID.md
+git add comment/$COMMENT_ID.md
 git commit -m "[how feedback was interpreted, what changed in the plan, judgment calls made, and what the reviewer should focus on]"
 ```
 

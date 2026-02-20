@@ -281,16 +281,14 @@ Only proceed to **4. Finalize** when ALL validations pass.
 
 ### If review is required (gates.reviewRequired is true):
 
-Write a summary comment to the card repository explaining what you implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate you are waiting for approval before merge.
-
-Update `CARD.meta.json` to set status to `needs_review`. Commit to the card repository:
+Write a summary comment to the card repository explaining what you implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate you are waiting for approval before merge. Commit to the card repository:
 
 ```bash
 export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'COMMENT' > comment/$COMMENT_ID.md
 [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
 COMMENT
-git add CARD.meta.json comment/$COMMENT_ID.md
+git add comment/$COMMENT_ID.md
 git commit -m "[summary of implementation, key decisions, validation results, and what the reviewer should focus on]"
 ```
 
