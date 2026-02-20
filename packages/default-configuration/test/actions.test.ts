@@ -19,12 +19,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:fs/promises', () => ({
-  access: vi.fn(),
-  readFile: vi.fn()
-}));
-
-vi.mock('@cards/claude-code-sessions', () => ({
-  getTranscriptPathForPid: vi.fn()
+  access: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
@@ -80,15 +75,6 @@ beforeEach(async () => {
     worktree: '/test/workspace/.worktrees/cards/card-123/1',
     baseSha: 'abc123'
   });
-
-  // Default: getTranscriptPathForPid resolves to a path, readFile returns minimal transcript
-  const { getTranscriptPathForPid } = await import('@cards/claude-code-sessions');
-  vi.mocked(getTranscriptPathForPid).mockResolvedValue('/tmp/transcript.jsonl');
-
-  const { readFile } = await import('node:fs/promises');
-  vi.mocked(readFile).mockResolvedValue(
-    '{"type":"system","subtype":"init","model":"claude","tools":[],"cwd":"/test"}\n'
-  );
 });
 
 afterEach(() => {
@@ -127,29 +113,6 @@ function createMockChild(overrides?: Partial<ChildProcess>): ChildProcess {
     },
     ...overrides
   } as unknown as ChildProcess;
-}
-
-function createMockChildWithStreams(): ChildProcess & { emitStdout(data: string): void } {
-  const handlers = new Map<string, (...args: unknown[]) => void>();
-  const stdout = new EventEmitter();
-  const stderr = new EventEmitter();
-  const child = {
-    pid: 12345,
-    on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
-      handlers.set(event, cb);
-    }),
-    kill: vi.fn(),
-    stdout,
-    stderr,
-    emit(event: string, ...args: unknown[]) {
-      handlers.get(event)?.(...args);
-      return true;
-    },
-    emitStdout(data: string) {
-      stdout.emit('data', Buffer.from(data));
-    }
-  } as unknown as ChildProcess & { emitStdout(data: string): void };
-  return child;
 }
 
 /**
@@ -215,29 +178,9 @@ describe('Default Actions', () => {
       await promise;
     });
 
-    it('spawns claude with --print and stream-json in background mode', async () => {
-      globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-          return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
-        }
-        if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
-          return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
-        }
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              filename: 'test.jsonl',
-              streamType: 'claude-code-session',
-              lineCount: 0,
-              status: 'completed'
-            }),
-            { status: 200 }
-          )
-        );
-      });
-
+    it('spawns claude with --print but without --output-format in background mode', async () => {
       const { spawn } = await import('node:child_process');
-      const child = createMockChildWithStreams();
+      const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
 
       const action = (await import('../src/actions/launch.js')).default;
@@ -246,17 +189,17 @@ describe('Default Actions', () => {
 
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
       expect(args).toContain('--print');
-      expect(args).toContain('--output-format');
-      expect(args).toContain('stream-json');
+      expect(args).not.toContain('--output-format');
+      expect(args).not.toContain('stream-json');
 
       const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { stdio: unknown };
-      expect(spawnOpts.stdio).toEqual(['ignore', 'pipe', 'pipe']);
+      expect(spawnOpts.stdio).toEqual(['ignore', 'ignore', 'pipe']);
 
       child.emit('close', 0);
       await promise;
     });
 
-    it('streams background stdout lines to the server via openStream', async () => {
+    it('does not call openStream in background mode', async () => {
       const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
           return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
@@ -264,55 +207,59 @@ describe('Default Actions', () => {
         if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
           return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
         }
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              filename: 'test.jsonl',
-              streamType: 'claude-code-session',
-              lineCount: 2,
-              status: 'completed'
-            }),
-            { status: 200 }
-          )
-        );
+        return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
       });
       globalThis.fetch = fetchMock;
 
       const { spawn } = await import('node:child_process');
-      const child = createMockChildWithStreams();
+      const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
 
       const action = (await import('../src/actions/launch.js')).default;
-      const context = createMockContext();
-      const promise = action(baseInput({ executionMode: 'background' }), context);
+      const promise = action(baseInput({ executionMode: 'background' }), createMockContext());
       await flushMicrotasks();
-
-      // Verify fetch was called with the stream endpoint
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/cards/card-123/streams/claude-code-session/'),
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/x-ndjson',
-            Authorization: 'Bearer test-token'
-          })
-        })
-      );
-
-      // Emit stdout lines — these should be written to the stream, not logged
-      const sdkMessage = JSON.stringify({
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'Hello from Claude' }] }
-      });
-      child.emitStdout(`${sdkMessage}\n`);
 
       child.emit('close', 0);
       await promise;
 
-      // Verify the action logged completion with stream result metadata
-      const _logSpy = vi.spyOn(context.logger, 'info');
-      // The logger.info call before the spy was created won't be captured,
-      // but we can verify the action completed without error (promise resolved)
+      // No fetch call should target a stream endpoint
+      const streamCalls = fetchMock.mock.calls.filter(
+        (c: unknown[]) => typeof c[0] === 'string' && c[0].includes('/streams/')
+      );
+      expect(streamCalls).toHaveLength(0);
+    });
+
+    it('captures stderr for diagnostic logging in background mode', async () => {
+      const { spawn } = await import('node:child_process');
+      const handlers = new Map<string, (...args: unknown[]) => void>();
+      const stderr = new EventEmitter();
+      const child = {
+        pid: 12345,
+        on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+          handlers.set(event, cb);
+        }),
+        kill: vi.fn(),
+        stdout: null,
+        stderr,
+        emit(event: string, ...args: unknown[]) {
+          handlers.get(event)?.(...args);
+          return true;
+        }
+      } as unknown as ChildProcess;
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const action = (await import('../src/actions/launch.js')).default;
+      const context = createMockContext();
+      const warnSpy = vi.spyOn(context.logger, 'warn');
+      const promise = action(baseInput({ executionMode: 'background' }), context);
+      await flushMicrotasks();
+
+      stderr.emit('data', Buffer.from('something went wrong'));
+
+      child.emit('close', 1);
+      await promise;
+
+      expect(warnSpy).toHaveBeenCalledWith('something went wrong');
     });
 
     it('registers onCancel that kills the child process', async () => {

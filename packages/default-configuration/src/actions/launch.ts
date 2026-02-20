@@ -3,9 +3,9 @@
  *
  * Spawns the `claude` CLI for the current card. In interactive mode, the
  * process inherits stdio so the user gets direct terminal control. In
- * background mode, Claude runs with `--print --output-format stream-json`
- * and each stdout line is streamed to the server's `claude-code-session`
- * stream endpoint via {@link CardsClient.openStream}.
+ * background mode, Claude runs with `--print` so it executes non-interactively
+ * (takes a prompt, runs, and exits). The watcher handles all transcript
+ * streaming; launch.ts does not open any stream endpoint.
  *
  * The action awaits process exit before resolving, so the terminal closes
  * only after Claude finishes and cleanup is complete.
@@ -20,7 +20,6 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { getTranscriptPathForPid } from '@cards/claude-code-sessions';
 import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
 import { checkWorktreeExists, createWorktree, findGitRoots } from '../lib/create-worktree.js';
@@ -78,7 +77,7 @@ function buildArgs(
   args.push('--settings', buildPluginSettings(worktreePath));
   args.push('--add-dir', cardRepoPath);
   if (mode === 'background') {
-    args.push('--print', '--output-format', 'stream-json');
+    args.push('--print');
   }
 
   return args;
@@ -288,7 +287,7 @@ export default defineAction(
 
     const child: ChildProcess = spawn('claude', args, {
       cwd,
-      stdio: isInteractive ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+      stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
       env: {
         ...process.env,
         CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
@@ -310,63 +309,21 @@ export default defineAction(
       return { sessionId };
     });
 
+    // Background mode: capture stderr for diagnostic logging
     if (!isInteractive) {
-      const stream = client.openStream(input.cardId, 'claude-code-session', `${sessionId}.jsonl`, {
-        title: `Claude session for ${input.cardId}`,
-        sessionId
-      });
-
-      child.stdout?.on('data', (chunk: Buffer) => {
-        for (const line of chunk.toString().split('\n')) {
-          if (line.trim()) {
-            stream.write(line);
-          }
-        }
-      });
-
       child.stderr?.on('data', (chunk: Buffer) => {
         const text = chunk.toString().trim();
         if (text) {
           context.logger.warn(text);
         }
       });
-
-      const exitCode = await new Promise<number | null>((resolve) => {
-        child.on('close', resolve);
-      });
-
-      const result = await stream.close();
-      context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
-    } else {
-      if (child.pid === undefined) {
-        throw new Error('Failed to spawn Claude process: child.pid is undefined');
-      }
-      const transcriptPathPromise = getTranscriptPathForPid(child.pid, 30_000);
-
-      const exitCode = await new Promise<number | null>((resolve) => {
-        child.on('close', resolve);
-      });
-
-      const transcriptPath = await transcriptPathPromise;
-      if (!transcriptPath) {
-        throw new Error(`Failed to resolve transcript path for PID ${child.pid}`);
-      }
-
-      const transcript = await fs.readFile(transcriptPath, 'utf-8');
-      const stream = client.openStream(input.cardId, 'claude-code-session', `${sessionId}.jsonl`, {
-        title: `Claude session for ${input.cardId}`,
-        sessionId
-      });
-
-      for (const line of transcript.split('\n')) {
-        if (line.trim()) {
-          stream.write(line);
-        }
-      }
-
-      const result = await stream.close();
-      context.logger.info('Launch action completed', { sessionId, exitCode, ...result });
     }
+
+    const exitCode = await new Promise<number | null>((resolve) => {
+      child.on('close', resolve);
+    });
+
+    context.logger.info('Launch action completed', { sessionId, exitCode });
 
     // Post-exit cleanup: remove fully-merged branches
     try {

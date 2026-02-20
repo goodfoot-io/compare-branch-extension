@@ -3,7 +3,7 @@
  * @summary Tests for the claude-code-sessions package entry point.
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:os', () => ({
@@ -19,7 +19,6 @@ import {
   getPidCardId,
   getRegistryPath,
   getSessionIdForPid,
-  getTranscriptPathForPid,
   LOCK_TIMEOUT_MS,
   MAX_ENTRY_AGE_MS,
   recordPendingCommit,
@@ -473,22 +472,21 @@ describe('claude-code-sessions', () => {
   // -------------------------------------------------------------------------
 
   describe('registerSession', () => {
-    it('writes PID entry with sessionId and transcriptPath to pids.json', async () => {
+    it('writes PID entry with sessionId to pids.json', async () => {
       const pid = process.pid;
-      await registerSession(pid, 'sess-abc', '/tmp/transcript.jsonl');
+      await registerSession(pid, 'sess-abc');
 
       const pidsPath = join(testDir, '.cards', 'card-repo-commits', 'pids.json');
       const raw = JSON.parse(readFileSync(pidsPath, 'utf-8')) as {
-        sessions: Record<string, { sessionId: string; transcriptPath: string; updatedAt: string }>;
+        sessions: Record<string, { sessionId: string; updatedAt: string }>;
       };
       expect(raw.sessions[String(pid)]?.sessionId).toBe('sess-abc');
-      expect(raw.sessions[String(pid)]?.transcriptPath).toBe('/tmp/transcript.jsonl');
       expect(raw.sessions[String(pid)]?.updatedAt).toBeDefined();
     });
 
     it('updates timestamp on re-registration', async () => {
       const pid = process.pid;
-      await registerSession(pid, 'sess-1', '/tmp/t1.jsonl');
+      await registerSession(pid, 'sess-1');
 
       const pidsPath = join(testDir, '.cards', 'card-repo-commits', 'pids.json');
       const raw1 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as { sessions: Record<string, { updatedAt: string }> };
@@ -496,7 +494,7 @@ describe('claude-code-sessions', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 15));
 
-      await registerSession(pid, 'sess-2', '/tmp/t2.jsonl');
+      await registerSession(pid, 'sess-2');
       const raw2 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as {
         sessions: Record<string, { sessionId: string; updatedAt: string }>;
       };
@@ -512,7 +510,7 @@ describe('claude-code-sessions', () => {
       const dir = join(testDir, '.cards', 'card-repo-commits');
       expect(existsSync(dir)).toBe(false);
 
-      await registerSession(process.pid, 'sess-xyz', '/tmp/t.jsonl');
+      await registerSession(process.pid, 'sess-xyz');
       expect(existsSync(dir)).toBe(true);
     });
   });
@@ -524,7 +522,7 @@ describe('claude-code-sessions', () => {
   describe('removeSessionPid', () => {
     it('removes PID entry from pids.json', async () => {
       const pid = process.pid;
-      await registerSession(pid, 'sess-remove', '/tmp/t.jsonl');
+      await registerSession(pid, 'sess-remove');
       await removeSessionPid(pid);
 
       const pidsPath = join(testDir, '.cards', 'card-repo-commits', 'pids.json');
@@ -545,89 +543,14 @@ describe('claude-code-sessions', () => {
   describe('getSessionIdForPid', () => {
     it('resolves immediately with sessionId when entry exists', async () => {
       const pid = process.pid;
-      await registerSession(pid, 'sess-immediate', '/tmp/t.jsonl');
+      await registerSession(pid, 'sess-immediate');
 
       const result = await getSessionIdForPid(pid);
       expect(result).toBe('sess-immediate');
     });
 
-    it('returns null immediately when entry absent and no timeout given', async () => {
+    it('returns null when entry absent', async () => {
       const result = await getSessionIdForPid(999999);
-      expect(result).toBeNull();
-    });
-
-    it('waits and resolves when entry appears within timeout', async () => {
-      const pid = 12345;
-      const pidsRegistryPath = join(testDir, '.cards', 'card-repo-commits', 'pids.json');
-
-      // Start the watcher
-      const promise = getSessionIdForPid(pid, 2000);
-
-      // Write the entry after a short delay
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      mkdirSync(dirname(pidsRegistryPath), { recursive: true });
-      const registry = {
-        sessions: {
-          [String(pid)]: { sessionId: 'sess-123', transcriptPath: '/tmp/t.jsonl', updatedAt: new Date().toISOString() }
-        }
-      };
-      writeFileSync(pidsRegistryPath, JSON.stringify(registry, null, 2));
-
-      const result = await promise;
-      expect(result).toBe('sess-123');
-    });
-
-    it('returns null when timeout expires without entry appearing', async () => {
-      const result = await getSessionIdForPid(888888, 50);
-      expect(result).toBeNull();
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // getTranscriptPathForPid
-  // -------------------------------------------------------------------------
-
-  describe('getTranscriptPathForPid', () => {
-    it('resolves immediately with transcriptPath when entry exists', async () => {
-      const pid = process.pid;
-      await registerSession(pid, 'sess-tp', '/tmp/transcript-immediate.jsonl');
-
-      const result = await getTranscriptPathForPid(pid);
-      expect(result).toBe('/tmp/transcript-immediate.jsonl');
-    });
-
-    it('returns null immediately when entry absent and no timeout given', async () => {
-      const result = await getTranscriptPathForPid(999999);
-      expect(result).toBeNull();
-    });
-
-    it('waits and resolves when entry appears within timeout', async () => {
-      const pid = 54321;
-      const pidsRegistryPath = join(testDir, '.cards', 'card-repo-commits', 'pids.json');
-
-      // Start the watcher
-      const promise = getTranscriptPathForPid(pid, 2000);
-
-      // Write the entry after a short delay
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      mkdirSync(dirname(pidsRegistryPath), { recursive: true });
-      const registry = {
-        sessions: {
-          [String(pid)]: {
-            sessionId: 'sess-tp-wait',
-            transcriptPath: '/tmp/waited.jsonl',
-            updatedAt: new Date().toISOString()
-          }
-        }
-      };
-      writeFileSync(pidsRegistryPath, JSON.stringify(registry, null, 2));
-
-      const result = await promise;
-      expect(result).toBe('/tmp/waited.jsonl');
-    });
-
-    it('returns null when timeout expires', async () => {
-      const result = await getTranscriptPathForPid(777777, 50);
       expect(result).toBeNull();
     });
   });

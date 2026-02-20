@@ -4,7 +4,7 @@
  * @summary Tests for the SessionStart hook
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findClaudePid, registerSession } from '@cards/claude-code-sessions';
@@ -24,7 +24,8 @@ const mockRegisterSession = vi.mocked(registerSession);
 const mockWriteSessionHeadSha = vi.mocked(writeSessionHeadSha);
 
 vi.mock('node:child_process', () => ({
-  execFileSync: vi.fn()
+  execFileSync: vi.fn(),
+  spawn: vi.fn(() => ({ unref: vi.fn() }))
 }));
 
 vi.mock('@cards/claude-code-sessions', () => ({
@@ -333,7 +334,7 @@ describe('SessionStart Hook', () => {
       await hook(mockInput, context);
 
       expect(mockFindClaudePid).toHaveBeenCalled();
-      expect(mockRegisterSession).toHaveBeenCalledWith(42, 'sess-123', '/tmp/transcript.jsonl');
+      expect(mockRegisterSession).toHaveBeenCalledWith(42, 'sess-123');
     });
 
     it('does not call registerSession when findClaudePid returns null (logs warning)', async () => {
@@ -373,6 +374,39 @@ describe('SessionStart Hook', () => {
       expect(stdout.systemMessage).toContain('PID 42');
       expect(stdout.systemMessage).toContain('sess-123');
       expect(stdout.systemMessage).toContain('To resolve:');
+    });
+
+    it('spawns transcript watcher with correct args after successful registration', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
+
+      await hook(mockInput, context);
+
+      expect(vi.mocked(spawn)).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining(['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath]),
+        expect.objectContaining({ detached: true, stdio: 'ignore' })
+      );
+    });
+
+    it('continues when watcher spawn fails', async () => {
+      vi.mocked(spawn).mockImplementation(() => {
+        throw new Error('spawn failed');
+      });
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
+
+      // Should not throw — watcher spawn is best-effort
+      const result = await hook(mockInput, context);
+      expect(result).toHaveProperty('_type', 'SessionStart');
     });
 
     it('returns continue:false with stopReason when card repo is inaccessible', async () => {
