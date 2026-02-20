@@ -96,26 +96,15 @@ describe('Client Types', () => {
       expect(data.environmentName).toBe('production');
     });
 
-    it('should accept optional repositoryKey', () => {
-      const data: CardCreateData = {
-        title: 'Test Card',
-        description: 'Description',
-        repositoryKey: 'my-repo'
-      };
-      expect(data.repositoryKey).toBe('my-repo');
-    });
-
     it('should accept all optional fields together', () => {
       const data: CardCreateData = {
         title: 'Complete Card',
         description: 'Full description',
-        environmentName: 'staging',
-        repositoryKey: 'test-repo'
+        environmentName: 'staging'
       };
       expect(data.title).toBe('Complete Card');
       expect(data.description).toBe('Full description');
       expect(data.environmentName).toBe('staging');
-      expect(data.repositoryKey).toBe('test-repo');
     });
   });
 

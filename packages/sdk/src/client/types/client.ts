@@ -113,8 +113,6 @@ export interface CardCreateData {
   tags?: string[];
   /** Optional environment name for deployment targeting. */
   environmentName?: string;
-  /** Optional repository key for linking to source control. */
-  repositoryKey?: string;
   /** Optional gate requirements for the card. */
   gates?: {
     planRequired?: boolean;
