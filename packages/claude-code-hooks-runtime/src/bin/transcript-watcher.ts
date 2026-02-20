@@ -73,8 +73,10 @@ export function logViaSocket(level: string, message: string): void {
   try {
     const entry = { type: 'log', level, message };
     logSocket.write(`${JSON.stringify(entry)}\n`);
-  } catch {
-    // Fail-open: logging failures must not affect watcher operation
+  } catch (_) {
+    // Intentionally suppressed: this IS the logging function, so there is
+    // no higher-level logger to report to. The watcher must not crash
+    // because a log write failed.
   }
 }
 
@@ -194,9 +196,8 @@ export async function uploadTranscript(args: TranscriptWatcherArgs): Promise<voi
       sessionId: args.sessionId
     });
 
-    const lines = content.split('\n');
-    for (const line of lines) {
-      if (line.length > 0) {
+    for (const line of content.split('\n')) {
+      if (line.trim()) {
         stream.write(line);
       }
     }
@@ -218,8 +219,10 @@ export async function main(): Promise<void> {
   if (socketPath) {
     try {
       await connectLogSocket(socketPath);
-    } catch {
-      // Continue without logging — socket may not be available
+    } catch (_) {
+      // Intentionally suppressed: the socket is provided by the wrapper
+      // ancestor process and may have already closed. The watcher operates
+      // correctly without logging.
     }
   }
 

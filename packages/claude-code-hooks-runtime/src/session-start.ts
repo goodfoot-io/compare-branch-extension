@@ -191,6 +191,59 @@ export function spawnTranscriptWatcher(
   child.unref();
 }
 
+/**
+ * Registers the Claude PID for commit attribution and spawns the transcript watcher.
+ *
+ * Returns a failure output if PID registration fails (blocking), or `null` on
+ * success. Watcher spawn failure is non-fatal and only logged.
+ *
+ * @param claudePid - Claude process ID to register and monitor.
+ * @param sessionId - Session identifier for the registration.
+ * @param transcriptPath - Path to the transcript file for the watcher.
+ * @param actionInput - Parsed action input containing card context.
+ * @param logger - Logger for structured output.
+ * @returns A session-start failure output on registration error, or `null` on success.
+ */
+async function registerPidAndSpawnWatcher(
+  claudePid: number,
+  sessionId: string,
+  transcriptPath: string,
+  actionInput: ActionInput,
+  logger: Parameters<Parameters<typeof sessionStartHook>[1]>[1]['logger']
+): Promise<ReturnType<typeof sessionStartOutput> | null> {
+  try {
+    await registerSession(claudePid, sessionId);
+    logger.info('Registered PID for commit attribution', { pid: claudePid, sessionId });
+  } catch (cause) {
+    const error = new SessionRegistrationError(claudePid, sessionId, cause);
+    logger.error('Session registration failed', { pid: error.pid, sessionId: error.sessionId, error: error.message });
+    return sessionStartOutput({
+      continue: false,
+      systemMessage: [
+        `Session registration failed for PID ${error.pid} (session ${error.sessionId}).`,
+        '',
+        `Error: ${error.message}`,
+        '',
+        'Commit attribution requires a valid PID-to-session mapping. To resolve:',
+        '1. Verify the session registry is accessible and not locked by another process',
+        '2. Ensure sufficient disk space for the session registry file',
+        `3. Check that the Claude process (PID ${String(error.pid)}) is still running`
+      ].join('\n'),
+      stopReason: `Session registration failed: ${error.message}`
+    });
+  }
+
+  try {
+    spawnTranscriptWatcher(claudePid, sessionId, transcriptPath, actionInput.cardId, actionInput.cardRepoPath);
+    logger.info('Spawned transcript watcher', { pid: claudePid, sessionId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn('Transcript watcher spawn failed', { error: message });
+  }
+
+  return null;
+}
+
 export default sessionStartHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
@@ -211,44 +264,16 @@ export default sessionStartHook({}, async (input, { logger }) => {
     logger.warn('Could not resolve git HEAD sha', { repoPath: actionInput.cardRepoPath });
   }
 
-  // Register PID→sessionId for commit attribution
   const claudePid = findClaudePid();
   if (claudePid) {
-    try {
-      await registerSession(claudePid, input.session_id);
-      logger.info('Registered PID for commit attribution', { pid: claudePid, sessionId: input.session_id });
-    } catch (cause) {
-      const error = new SessionRegistrationError(claudePid, input.session_id, cause);
-      logger.error('Session registration failed', { pid: error.pid, sessionId: error.sessionId, error: error.message });
-      return sessionStartOutput({
-        continue: false,
-        systemMessage: [
-          `Session registration failed for PID ${error.pid} (session ${error.sessionId}).`,
-          '',
-          `Error: ${error.message}`,
-          '',
-          'Commit attribution requires a valid PID-to-session mapping. To resolve:',
-          '1. Verify the session registry is accessible and not locked by another process',
-          '2. Ensure sufficient disk space for the session registry file',
-          `3. Check that the Claude process (PID ${String(error.pid)}) is still running`
-        ].join('\n'),
-        stopReason: `Session registration failed: ${error.message}`
-      });
-    }
-
-    try {
-      spawnTranscriptWatcher(
-        claudePid,
-        input.session_id,
-        input.transcript_path,
-        actionInput.cardId,
-        actionInput.cardRepoPath
-      );
-      logger.info('Spawned transcript watcher', { pid: claudePid, sessionId: input.session_id });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.warn('Transcript watcher spawn failed', { error: message });
-    }
+    const failure = await registerPidAndSpawnWatcher(
+      claudePid,
+      input.session_id,
+      input.transcript_path,
+      actionInput,
+      logger
+    );
+    if (failure) return failure;
   } else {
     logger.warn('Could not find Claude PID for commit attribution');
   }
