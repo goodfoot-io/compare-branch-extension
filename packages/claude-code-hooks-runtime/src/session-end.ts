@@ -1,40 +1,37 @@
 /**
  * SessionEnd hook implementation.
  *
- * Runs on graceful session exit. Reads the transcript file and uploads
- * it to the card repository via {@link CardsClient.openStream}, producing
- * the stream file that the transcript watcher checks for as a coordination
- * mechanism between the two upload paths.
+ * Runs on graceful session exit. Writes a sentinel file to signal the
+ * transcript watcher to flush remaining lines and close the stream
+ * gracefully. The sentinel file also provides defense against PID reuse —
+ * it distinguishes a graceful exit from a new process reusing the same PID.
  *
  * Fails open on all errors — the transcript watcher provides crash resilience
- * so a failed hook upload does not lose the transcript.
+ * so a failed sentinel write does not lose the transcript.
  *
- * @summary SessionEnd hook — uploads transcript to card repo on graceful exit
+ * @summary SessionEnd hook — writes sentinel file to signal watcher on graceful exit
  * @see https://code.claude.com/docs/en/hooks#sessionend
  */
 
-import { readFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
 import { sessionEndHook, sessionEndOutput } from '@goodfoot/claude-code-hooks';
-import { createCardsClient } from './lib/api-discovery.js';
 
 /**
- * Error thrown when the transcript upload fails.
+ * Writes a sentinel file to signal the transcript watcher that the session
+ * has ended gracefully.
  *
- * Wraps the underlying error with the session ID for structured error
- * handling and logging in the session-end hook.
+ * Creates parent directories if they do not exist. The file content is empty;
+ * existence of the file is the signal.
+ *
+ * @param cardRepoPath - Absolute path to the card repository root
+ * @param sessionId - Claude session ID used as the sentinel filename stem
  */
-export class TranscriptUploadError extends Error {
-  override readonly name = 'TranscriptUploadError';
-
-  constructor(
-    public readonly sessionId: string,
-    cause: unknown
-  ) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`Transcript upload failed for session ${sessionId}: ${reason}`);
-    this.cause = cause;
-  }
+export async function writeSentinelFile(cardRepoPath: string, sessionId: string): Promise<void> {
+  const dir = join(cardRepoPath, 'streams', 'claude-code-session');
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, `${sessionId}.flush`), '');
 }
 
 export default sessionEndHook({}, async (input, { logger }) => {
@@ -46,42 +43,15 @@ export default sessionEndHook({}, async (input, { logger }) => {
     return sessionEndOutput({});
   }
 
-  // 2. Try to upload transcript (wrapped in try/catch — non-fatal)
+  // 2. Write sentinel file to signal the watcher (wrapped in try/catch — non-fatal)
   try {
-    // Read transcript
-    const transcript = await readFile(input.transcript_path, 'utf-8');
-
-    // Create client
-    const client = await createCardsClient(logger);
-    if (!client) {
-      logger.warn('API discovery failed, skipping transcript upload', { sessionId: input.session_id });
-      return sessionEndOutput({});
-    }
-
-    // Open stream
-    const stream = client.openStream(actionInput.cardId, 'claude-code-session', `${input.session_id}.jsonl`, {
-      title: `Claude session for ${actionInput.cardId}`,
-      sessionId: input.session_id
-    });
-
-    // Write non-empty lines
-    for (const line of transcript.split('\n')) {
-      if (line.trim()) {
-        stream.write(line);
-      }
-    }
-
-    await stream.close();
-    logger.info('Transcript uploaded', { sessionId: input.session_id, cardId: actionInput.cardId });
+    await writeSentinelFile(actionInput.cardRepoPath, input.session_id);
+    logger.info('Sentinel file written', { sessionId: input.session_id, cardRepoPath: actionInput.cardRepoPath });
   } catch (error) {
-    // Handle ENOENT (missing transcript) separately
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
-      logger.warn('Transcript file not found', { path: input.transcript_path });
-      return sessionEndOutput({});
-    }
-    // All other errors: construct TranscriptUploadError, log, return
-    const uploadError = new TranscriptUploadError(input.session_id, error);
-    logger.error('Transcript upload failed', { sessionId: uploadError.sessionId, error: uploadError.message });
+    logger.warn('Failed to write sentinel file', {
+      sessionId: input.session_id,
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 
   return sessionEndOutput({});

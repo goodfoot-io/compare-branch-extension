@@ -4,33 +4,24 @@
  * @summary Tests for the SessionEnd hook
  */
 
-import { readFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { extractActionInput } from '@cards/sdk/config';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createCardsClient } from '../src/lib/api-discovery.js';
-import hook, { TranscriptUploadError } from '../src/session-end.js';
+import hook from '../src/session-end.js';
 
 vi.mock('@cards/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 
 vi.mock('node:fs/promises', () => ({
-  readFile: vi.fn()
-}));
-
-vi.mock('../src/lib/api-discovery.js', () => ({
-  createCardsClient: vi.fn()
+  mkdir: vi.fn(),
+  writeFile: vi.fn()
 }));
 
 const mockExtractActionInput = vi.mocked(extractActionInput);
-const mockReadFile = vi.mocked(readFile);
-const mockCreateCardsClient = vi.mocked(createCardsClient);
-
-const mockWrite = vi.fn();
-const mockClose = vi.fn().mockResolvedValue({ lineCount: 5, status: 'completed' });
-const mockOpenStream = vi.fn().mockReturnValue({ write: mockWrite, close: mockClose });
-const mockClient = { openStream: mockOpenStream };
+const mockMkdir = vi.mocked(mkdir);
+const mockWriteFile = vi.mocked(writeFile);
 
 const logger = new Logger();
 
@@ -59,32 +50,12 @@ const context = { logger };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockClose.mockResolvedValue({ lineCount: 5, status: 'completed' });
-  mockOpenStream.mockReturnValue({ write: mockWrite, close: mockClose });
+  mockMkdir.mockResolvedValue(undefined as never);
+  mockWriteFile.mockResolvedValue(undefined as never);
 });
 
 afterEach(() => {
   vi.clearAllMocks();
-});
-
-describe('TranscriptUploadError', () => {
-  it('has correct name and message with Error cause', () => {
-    const cause = new Error('network timeout');
-    const err = new TranscriptUploadError('sess-xyz', cause);
-
-    expect(err.name).toBe('TranscriptUploadError');
-    expect(err.sessionId).toBe('sess-xyz');
-    expect(err.message).toContain('sess-xyz');
-    expect(err.message).toContain('network timeout');
-    expect(err.cause).toBe(cause);
-  });
-
-  it('has correct name and message with string cause', () => {
-    const err = new TranscriptUploadError('sess-xyz', 'raw error');
-
-    expect(err.name).toBe('TranscriptUploadError');
-    expect(err.message).toContain('raw error');
-  });
 });
 
 describe('SessionEnd Hook', () => {
@@ -100,91 +71,48 @@ describe('SessionEnd Hook', () => {
   describe('inside an action subprocess', () => {
     beforeEach(() => {
       mockExtractActionInput.mockReturnValue(baseActionInput);
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
     });
 
-    it('uploads transcript on graceful exit', async () => {
-      const transcript = '{"type":"init"}\n{"type":"result"}\n';
-      mockReadFile.mockResolvedValue(transcript as never);
-
+    it('writes empty sentinel file at {cardRepoPath}/streams/claude-code-session/{sessionId}.flush', async () => {
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SessionEnd');
-      expect(mockOpenStream).toHaveBeenCalledWith('card-123', 'claude-code-session', 'sess-abc.jsonl', {
-        title: 'Claude session for card-123',
-        sessionId: 'sess-abc'
-      });
-      expect(mockClose).toHaveBeenCalled();
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        '/tmp/card-repos/card-123/streams/claude-code-session/sess-abc.flush',
+        ''
+      );
     });
 
-    it('writes each non-empty transcript line to stream', async () => {
-      const transcript = '{"type":"init"}\n\n{"type":"result"}\n  \n{"type":"end"}\n';
-      mockReadFile.mockResolvedValue(transcript as never);
-
+    it('creates parent directories if missing', async () => {
       await hook(baseInput, context);
 
-      expect(mockWrite).toHaveBeenCalledTimes(3);
-      expect(mockWrite).toHaveBeenCalledWith('{"type":"init"}');
-      expect(mockWrite).toHaveBeenCalledWith('{"type":"result"}');
-      expect(mockWrite).toHaveBeenCalledWith('{"type":"end"}');
-    });
-
-    it('handles empty transcript file gracefully (zero lines written)', async () => {
-      mockReadFile.mockResolvedValue('' as never);
-
-      const result = await hook(baseInput, context);
-
-      expect(result).toHaveProperty('_type', 'SessionEnd');
-      expect(mockWrite).not.toHaveBeenCalled();
-      expect(mockClose).toHaveBeenCalled();
-    });
-
-    it('passes correct stream metadata (cardId, sessionId, title)', async () => {
-      mockReadFile.mockResolvedValue('{"type":"init"}\n' as never);
-
-      await hook(baseInput, context);
-
-      expect(mockOpenStream).toHaveBeenCalledWith('card-123', 'claude-code-session', 'sess-abc.jsonl', {
-        title: 'Claude session for card-123',
-        sessionId: 'sess-abc'
+      expect(mockMkdir).toHaveBeenCalledWith('/tmp/card-repos/card-123/streams/claude-code-session', {
+        recursive: true
       });
     });
 
-    it('reads from input.transcript_path', async () => {
-      mockReadFile.mockResolvedValue('line1\n' as never);
+    it('returns sessionEndOutput on success', async () => {
+      const result = await hook(baseInput, context);
 
-      await hook(baseInput, context);
-
-      expect(mockReadFile).toHaveBeenCalledWith('/tmp/transcript-abc.jsonl', 'utf-8');
+      expect(result).toHaveProperty('_type', 'SessionEnd');
     });
 
-    it('handles missing transcript file (ENOENT) — logs warning, returns sessionEndOutput', async () => {
-      const enoentError = Object.assign(new Error('no such file'), { code: 'ENOENT' });
-      mockReadFile.mockRejectedValue(enoentError);
+    it('handles write failure gracefully — logs warning, still returns sessionEndOutput', async () => {
+      mockWriteFile.mockRejectedValue(new Error('disk full'));
 
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SessionEnd');
-      expect(mockOpenStream).not.toHaveBeenCalled();
     });
 
-    it('handles API discovery failure (null client) — logs warning, returns sessionEndOutput', async () => {
-      mockReadFile.mockResolvedValue('{"type":"init"}\n' as never);
-      mockCreateCardsClient.mockResolvedValue(null);
-
+    it('does not call createCardsClient or openStream', async () => {
+      // Verify the module does not import or use createCardsClient
+      // The mock for api-discovery is not set up — if it were called, it would throw
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SessionEnd');
-      expect(mockOpenStream).not.toHaveBeenCalled();
-    });
-
-    it('handles openStream close failure — logs TranscriptUploadError, returns sessionEndOutput (non-fatal)', async () => {
-      mockReadFile.mockResolvedValue('{"type":"init"}\n' as never);
-      mockClose.mockRejectedValue(new Error('stream write failed'));
-
-      const result = await hook(baseInput, context);
-
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      // writeFile and mkdir are the only fs operations
+      expect(mockWriteFile).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -199,8 +127,8 @@ describe('SessionEnd Hook', () => {
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SessionEnd');
-      expect(mockReadFile).not.toHaveBeenCalled();
-      expect(mockOpenStream).not.toHaveBeenCalled();
+      expect(mockMkdir).not.toHaveBeenCalled();
+      expect(mockWriteFile).not.toHaveBeenCalled();
     });
   });
 });
