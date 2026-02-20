@@ -272,6 +272,171 @@ export async function openOrResumeStream(args: TranscriptWatcherArgs): Promise<S
 }
 
 /**
+ * Mutable state for the streaming loop, threaded through helper functions.
+ */
+interface StreamingState {
+  stream: StreamWriter | null;
+  fileHandle: FileHandle | null;
+  bytesRead: number;
+  lineBuffer: string;
+  idleIterations: number;
+  streamFailed: boolean;
+  sentinelDetected: boolean;
+}
+
+/**
+ * Filters lines to non-empty content suitable for streaming.
+ *
+ * @param lines - Raw lines from the transcript file.
+ * @returns Lines with non-empty trimmed content.
+ */
+function filterNonEmptyLines(lines: string[]): string[] {
+  return lines.filter((line) => line.trim() !== '');
+}
+
+/**
+ * Opens or resumes a stream, setting `streamFailed` on failure.
+ *
+ * Returns the opened stream, or null if the open failed. On failure,
+ * `state.streamFailed` is set to true so callers skip future write attempts.
+ *
+ * @param state - Mutable streaming state.
+ * @param args - Watcher arguments for API client creation.
+ * @param context - Human-readable context for log messages (e.g. "for final flush").
+ * @returns The opened StreamWriter, or null on failure.
+ */
+async function tryOpenStream(
+  state: StreamingState,
+  args: TranscriptWatcherArgs,
+  context: string
+): Promise<StreamWriter | null> {
+  try {
+    const stream = await openOrResumeStream(args);
+    if (!stream) {
+      logViaSocket('warn', `Failed to open stream ${context}(API unavailable), continuing to poll`);
+      state.streamFailed = true;
+      return null;
+    }
+    return stream;
+  } catch (error) {
+    logViaSocket('warn', `Failed to open stream ${context}: ${String(error)}`);
+    state.streamFailed = true;
+    return null;
+  }
+}
+
+/**
+ * Writes lines to an open stream. On the first write failure, sets
+ * `state.streamFailed` and stops writing further lines.
+ *
+ * @param stream - The stream writer to write to.
+ * @param lines - Non-empty lines to write.
+ * @param state - Mutable streaming state (for setting streamFailed).
+ * @param context - Human-readable context for log messages.
+ */
+function writeLinesToStream(stream: StreamWriter, lines: string[], state: StreamingState, context: string): void {
+  for (const line of lines) {
+    try {
+      stream.write(line);
+    } catch (error) {
+      logViaSocket('error', `Stream write failed ${context}: ${String(error)}`);
+      state.streamFailed = true;
+      break;
+    }
+  }
+}
+
+/**
+ * Ensures a stream is open (opening lazily if needed) and writes lines to it.
+ *
+ * Handles the full open-then-write sequence: if no stream exists, opens one;
+ * if the open fails, sets streamFailed. Then writes all lines if a stream is
+ * available.
+ *
+ * @param state - Mutable streaming state.
+ * @param args - Watcher arguments for stream opening.
+ * @param lines - Non-empty lines to write.
+ * @param context - Human-readable context for log messages.
+ */
+async function ensureStreamAndWriteLines(
+  state: StreamingState,
+  args: TranscriptWatcherArgs,
+  lines: string[],
+  context: string
+): Promise<void> {
+  if (!state.stream) {
+    state.stream = await tryOpenStream(state, args, context);
+  }
+  if (state.stream && !state.streamFailed) {
+    writeLinesToStream(state.stream, lines, state, context);
+  }
+}
+
+/**
+ * Reads remaining transcript data and flushes it to the stream.
+ *
+ * Performs a final read from the transcript file, collects any remaining
+ * complete lines plus the lineBuffer contents, and writes them to the stream.
+ *
+ * @param state - Mutable streaming state.
+ * @param args - Watcher arguments.
+ */
+async function flushRemainingLines(state: StreamingState, args: TranscriptWatcherArgs): Promise<void> {
+  if (!state.fileHandle) return;
+
+  try {
+    const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
+    const allRemainingLines = [...result.lines];
+    if (result.lineBuffer.trim() !== '') {
+      allRemainingLines.push(result.lineBuffer);
+    }
+
+    const nonEmptyFinalLines = filterNonEmptyLines(allRemainingLines);
+    if (nonEmptyFinalLines.length > 0 && !state.streamFailed) {
+      await ensureStreamAndWriteLines(state, args, nonEmptyFinalLines, 'for final flush ');
+    }
+  } catch (error) {
+    logViaSocket('error', `Failed to read transcript during final flush: ${String(error)}`);
+  }
+}
+
+/**
+ * Closes open resources after the streaming loop exits.
+ *
+ * Closes the stream writer, removes the sentinel file if it was detected,
+ * and closes the transcript file handle. Each step is independent and
+ * logs on failure without propagating.
+ *
+ * @param state - Mutable streaming state.
+ * @param args - Watcher arguments for sentinel file path.
+ */
+async function cleanupResources(state: StreamingState, args: TranscriptWatcherArgs): Promise<void> {
+  if (state.stream) {
+    try {
+      await state.stream.close();
+    } catch (error) {
+      logViaSocket('error', `Stream close failed during exit: ${String(error)}`);
+    }
+  }
+
+  if (state.sentinelDetected) {
+    try {
+      await removeSentinelFile(args.cardRepoPath, args.sessionId);
+    } catch (error) {
+      logViaSocket('error', `Failed to remove sentinel file: ${String(error)}`);
+    }
+  }
+
+  if (state.fileHandle) {
+    try {
+      await state.fileHandle.close();
+    } catch (error) {
+      logViaSocket('error', `Failed to close file handle: ${String(error)}`);
+    }
+  }
+}
+
+/**
  * Runs the main streaming loop that tails the transcript file and streams
  * lines to the Cards API in real-time.
  *
@@ -285,168 +450,72 @@ export async function openOrResumeStream(args: TranscriptWatcherArgs): Promise<S
  * @param args - Watcher arguments.
  */
 export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<void> {
-  let stream: StreamWriter | null = null;
-  let fileHandle: FileHandle | null = null;
-  let bytesRead = 0;
-  let lineBuffer = '';
-  let idleIterations = 0;
-  let streamFailed = false;
-  let sentinelDetected = false;
+  const state: StreamingState = {
+    stream: null,
+    fileHandle: null,
+    bytesRead: 0,
+    lineBuffer: '',
+    idleIterations: 0,
+    streamFailed: false,
+    sentinelDetected: false
+  };
 
   const startTime = Date.now();
-  let running = true;
 
   // Main polling loop
-  while (running) {
+  for (;;) {
     // 1. Read new lines from transcript
     let lines: string[];
     try {
-      const result = await readNewLines(fileHandle, bytesRead, lineBuffer, args.transcriptPath);
-      fileHandle = result.fileHandle;
-      bytesRead = result.bytesRead;
-      lineBuffer = result.lineBuffer;
+      const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
+      state.fileHandle = result.fileHandle;
+      state.bytesRead = result.bytesRead;
+      state.lineBuffer = result.lineBuffer;
       lines = result.lines;
     } catch (error) {
       logViaSocket('error', `Failed to read transcript: ${String(error)}`);
       lines = [];
     }
 
-    // Filter to non-empty lines for writing
-    const nonEmptyLines = lines.filter((line) => line.trim() !== '');
+    const nonEmptyLines = filterNonEmptyLines(lines);
 
     // 2. If new lines available AND NOT streamFailed, write them
-    if (nonEmptyLines.length > 0 && !streamFailed) {
-      // Open stream lazily on first data
-      if (!stream) {
-        try {
-          stream = await openOrResumeStream(args);
-          if (!stream) {
-            logViaSocket('warn', 'Failed to open stream (API unavailable), continuing to poll');
-            streamFailed = true;
-          }
-        } catch (error) {
-          logViaSocket('warn', `Failed to open stream: ${String(error)}`);
-          streamFailed = true;
-        }
-      }
-
-      if (stream && !streamFailed) {
-        for (const line of nonEmptyLines) {
-          try {
-            stream.write(line);
-          } catch (error) {
-            logViaSocket('error', `Stream write failed: ${String(error)}`);
-            streamFailed = true;
-            break;
-          }
-        }
-      }
-
-      idleIterations = 0;
+    if (nonEmptyLines.length > 0 && !state.streamFailed) {
+      await ensureStreamAndWriteLines(state, args, nonEmptyLines, '');
+      state.idleIterations = 0;
     } else if (nonEmptyLines.length === 0) {
-      // 3. No new lines — increment idle counter
-      idleIterations++;
+      // 3. No new lines -- increment idle counter and close stream if timed out
+      state.idleIterations++;
 
-      // Close stream after idle timeout
-      if (stream && idleIterations * POLL_INTERVAL_MS >= IDLE_TIMEOUT_MS) {
+      if (state.stream && state.idleIterations * POLL_INTERVAL_MS >= IDLE_TIMEOUT_MS) {
         try {
-          await stream.close();
+          await state.stream.close();
         } catch (error) {
           logViaSocket('error', `Stream close failed during idle timeout: ${String(error)}`);
         }
-        stream = null;
-        idleIterations = 0;
+        state.stream = null;
+        state.idleIterations = 0;
       }
     }
 
     // 4. Check exit conditions
     if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {
-      sentinelDetected = true;
-      running = false;
-    } else if (!isProcessAlive(args.pid)) {
-      running = false;
-    } else if (Date.now() - startTime >= MAX_LIFETIME_MS) {
+      state.sentinelDetected = true;
+      break;
+    }
+    if (!isProcessAlive(args.pid)) break;
+    if (Date.now() - startTime >= MAX_LIFETIME_MS) {
       logViaSocket('warn', `Watcher exceeded maximum lifetime (${MAX_LIFETIME_MS}ms), exiting`);
-      running = false;
+      break;
     }
 
-    // 5. Sleep (only if still running)
-    if (running) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    }
+    // 5. Sleep
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 
-  // Post-loop: Final flush
-  // Read any remaining data from the transcript
-  if (fileHandle) {
-    try {
-      const result = await readNewLines(fileHandle, bytesRead, lineBuffer, args.transcriptPath);
-      lineBuffer = result.lineBuffer;
-      const finalLines = result.lines;
-
-      // Collect all remaining lines (including lineBuffer content)
-      const allRemainingLines = [...finalLines];
-      if (lineBuffer.trim() !== '') {
-        allRemainingLines.push(lineBuffer);
-      }
-
-      const nonEmptyFinalLines = allRemainingLines.filter((line) => line.trim() !== '');
-
-      // Write remaining lines if stream is available
-      if (nonEmptyFinalLines.length > 0 && !streamFailed) {
-        if (!stream) {
-          try {
-            stream = await openOrResumeStream(args);
-            if (!stream) {
-              logViaSocket('warn', 'Failed to open stream for final flush');
-            }
-          } catch (error) {
-            logViaSocket('warn', `Failed to open stream for final flush: ${String(error)}`);
-          }
-        }
-
-        if (stream) {
-          for (const line of nonEmptyFinalLines) {
-            try {
-              stream.write(line);
-            } catch (error) {
-              logViaSocket('error', `Stream write failed during final flush: ${String(error)}`);
-              break;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      logViaSocket('error', `Failed to read transcript during final flush: ${String(error)}`);
-    }
-  }
-
-  // Close stream if open
-  if (stream) {
-    try {
-      await stream.close();
-    } catch (error) {
-      logViaSocket('error', `Stream close failed during exit: ${String(error)}`);
-    }
-  }
-
-  // Remove sentinel file if detected
-  if (sentinelDetected) {
-    try {
-      await removeSentinelFile(args.cardRepoPath, args.sessionId);
-    } catch (error) {
-      logViaSocket('error', `Failed to remove sentinel file: ${String(error)}`);
-    }
-  }
-
-  // Close file handle
-  if (fileHandle) {
-    try {
-      await fileHandle.close();
-    } catch (error) {
-      logViaSocket('error', `Failed to close file handle: ${String(error)}`);
-    }
-  }
+  // Post-loop: flush remaining data and clean up
+  await flushRemainingLines(state, args);
+  await cleanupResources(state, args);
 }
 
 /**
