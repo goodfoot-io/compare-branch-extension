@@ -80,7 +80,7 @@ Comment filenames must be UUIDv7 (RFC 9562), validated by the pre-commit hook.
 UUIDv7 encodes a timestamp prefix, making comments chronologically sortable by filename.
 
 ```bash
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [COMMENT CONTENT]
 EOF

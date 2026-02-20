@@ -53,7 +53,7 @@ Write the updated plan to `PLAN.md` in the card repository. Commit to the card r
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "[plan revised: incorporated feedback]"  # <card-repo-commit-style>
+git commit -m "plan revised: [what feedback was incorporated]"  # <card-repo-commit-style>
 ```
 
 ## 3. Assess Revised Plan
@@ -128,12 +128,12 @@ If any strategic concerns were accepted, write a comment to the card repository 
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted strategic concerns and rationale for why each does not block implementation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[accepted concerns: rationale]"  # <card-repo-commit-style>
+git commit -m "accepted concerns: [rationale]"  # <card-repo-commit-style>
 ```
 
 If no strategic concerns were accepted (Plan Refactor returned READY):
@@ -156,12 +156,12 @@ Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[plan revised, submitted for re-approval]"  # <card-repo-commit-style>
+git commit -m "plan revised, submitted for re-approval"  # <card-repo-commit-style>
 ```
 
 **STOP** — Wait for user feedback or approval.

@@ -59,19 +59,19 @@ Recovery cycle:
   **If an existing card covers this block**, look up its repository path, then write a comment to it:
 
   ```bash
-  $NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/card.mjs [BLOCKING CARD ID]
+  $NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/card.mjs [BLOCKING CARD ID]
   ```
 
   Extract `repositoryPath` from the JSON output, then write a comment:
 
   ```bash
   cd [blocking card repositoryPath]
-  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [describe the failure encountered, how it relates to this card's blocker, and any additional context from the recovery attempt]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[failure context related to this card's blocker]"  # <card-repo-commit-style>
+  git commit -m "blocked: [failure context for this blocker]"  # <card-repo-commit-style>
   ```
 
   **If no existing card covers this block**, create a new card with "backlog" status using the appropriate card creation tool.
@@ -97,19 +97,19 @@ Based on card state:
   ```bash
   cd $CARD_REPO_PATH
   git add CARD.meta.json
-  git commit -m "[blocked: error in step X — manual fix needed]"  # <card-repo-commit-style>
+  git commit -m "blocked: [error in step X — manual fix needed]"  # <card-repo-commit-style>
   ```
 
 - **Otherwise**: Write an error comment documenting what happened, then commit:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]
   EOF
   git add CARD.meta.json comment/$COMMENT_ID.md
-  git commit -m "[blocked: error in step X — recovery failed, manual fix needed]"  # <card-repo-commit-style>
+  git commit -m "blocked: [error — recovery failed, manual fix needed]"  # <card-repo-commit-style>
   ```
 
 </instructions>

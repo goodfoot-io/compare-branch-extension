@@ -18,7 +18,7 @@ Based on commit count:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [No changes were found on $WORKSPACE_BRANCH relative to $BASE_BRANCH. Nothing to merge.]
 EOF
@@ -36,7 +36,10 @@ Squash all commits since the branch diverged:
 cd $WORKSPACE_PATH
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
-  git commit -m "[squashed implementation]"  # <workspace-commit-style>
+  git commit -m "$(cat <<'COMMITMSG'
+[final commit message per <workspace-commit-style>]
+COMMITMSG
+)"
 fi
 ```
 
@@ -71,7 +74,7 @@ git rebase --continue
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [rebase conflict details, files involved, manual resolution steps]
 EOF
@@ -98,7 +101,7 @@ Based on validation result:
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [validation failure details, what was attempted, what intervention is needed]
 EOF
@@ -142,7 +145,7 @@ git stash pop
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [merge failure details: branch is not a fast-forward of $BASE_BRANCH, likely cause and resolution steps]
 EOF

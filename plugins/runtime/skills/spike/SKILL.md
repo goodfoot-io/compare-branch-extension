@@ -22,9 +22,8 @@ Based on decision context:
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Which approach ([A] vs [B] vs [C]) best supports [use case] with [constraints]?"
-- `[SPIKE_PATH]`: Format as `.spikes/[CARD_ID]/[test-name]/`
+- `[SPIKE_PATH]`: Format as `.spikes/!` echo $CARD_ID `/[test-name]/`
   - `[test-name]`: Use kebab-case like `realtime-comparison` or `socketio-vs-sse`
-  - `[CARD_ID]` is a placeholder for the card identifier (e.g., `main-0001` or `feature-auth`)
 - `[APPROACHES]`: List 2-3 technologies with versions (e.g., `["Socket.io v4.6.1 (WebSocket)", "EventSource (SSE)", "long-polling"]`)
 - `[COMPARISON_CRITERIA]`: Measurable aspects (e.g., `"Developer experience, bidirectional communication, horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -39,9 +38,8 @@ Based on decision context:
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Does [Library@version] support [specific capability]?"
-- `[SPIKE_PATH]`: Format as `.spikes/[CARD_ID]/[test-name]/`
+- `[SPIKE_PATH]`: Format as `.spikes/!` echo $CARD_ID `/[test-name]/`
   - `[test-name]`: Use kebab-case like `redis-compatibility-check` or `react-query-types-export`
-  - The `[CARD_ID]` placeholder represents the card identifier (e.g., `main-0001` or `feature-auth`)
 - `[APPROACH]`: Single technology to validate (e.g., `"Socket.io v4.6.1 with @socket.io/redis-adapter"`)
 - `[VALIDATION_CRITERIA]`: What needs verification (e.g., `"Redis adapter compatibility for horizontal scaling"`)
 - `[SPIKE_CONTEXT]`: XML-formatted technical context with absolute paths (see <subagent-context> section below)
@@ -53,7 +51,7 @@ Based on decision context:
 
 <subagent-context>
 Subagents have no context from this conversation. Provide card-relative paths:
-- Spike directory: `.spikes/[CARD_ID]/[test-name]/`
+- Spike directory: `.spikes/!` echo $CARD_ID `/[test-name]/`
 - Codebase files: `packages/api/src/server.ts` (no prefix needed)
 
 Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that organize technical details.
@@ -78,7 +76,7 @@ Based on spike type:
   </technical-context>
 
   <spike-path>
-  .spikes/[CARD_ID]/[test-name]/
+  .spikes/!` echo $CARD_ID `/[test-name]/
   </spike-path>
   ```
 - **Validation Spike**: Use the following XML structure:
@@ -100,7 +98,7 @@ Based on spike type:
   </technical-context>
 
   <spike-path>
-  .spikes/[CARD_ID]/[test-name]/
+  .spikes/`! echo $CARD_ID`/[test-name]/
   </spike-path>
   ```
 </subagent-context>
@@ -121,7 +119,7 @@ Based on spike type, use the appropriate result template:
     - [Approach 1]: [Specific findings from prototype]
     - [Approach 2]: [Specific findings from prototype]
     - [Approach 3]: [Specific findings from prototype]
-  - **Artifacts**: `.spikes/[CARD_ID]/[test-name]/` contains:
+  - **Artifacts**: `.spikes/`! echo $CARD_ID`/[test-name]/` contains:
     - `approach-[name1]/` - [Description]
     - `approach-[name2]/` - [Description]
     - `approach-[name3]/` - [Description]
@@ -138,7 +136,7 @@ Based on spike type, use the appropriate result template:
   - **Approach Tested**: [Technology/version being validated]
   - **Result**: [Pass/Fail or capability confirmation]
   - **Evidence**: [Concrete demonstration - working code, API output, test results]
-  - **Artifacts**: `.spikes/[CARD_ID]/[test-name]/` contains:
+  - **Artifacts**: `.spikes/`! echo $CARD_ID`/[test-name]/` contains:
     - `test-implementation/` - [Description]
     - `results.md` - Detailed findings
   - **Impact**: [How this result confirms feasibility or influences implementation details]

@@ -15,12 +15,12 @@ Based on the latest user comment:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [clarification request content]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[clarification needed: reopen request unclear]"  # <card-repo-commit-style>
+git commit -m "clarification needed: reopen request unclear"  # <card-repo-commit-style>
 ```
 
 Then **STOP**.
@@ -40,12 +40,12 @@ Write a comment to the card repository summarizing the user's request to confirm
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [summary of the user's request, confirmation of understanding, and what additional work will be done]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "[reopened: what additional work was requested]"  # <card-repo-commit-style>
+git commit -m "reopened: [what additional work was requested]"  # <card-repo-commit-style>
 ```
 
 ## 3. Delegate to Implementation

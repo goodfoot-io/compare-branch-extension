@@ -5,7 +5,6 @@ description: Implement approved plans.
 
 
 <placeholder-variables>
-[CARD_ID] — The card's unique identifier from the `id` field in CARD.meta.json (read in Step 2.1 from $CARD_REPO_PATH/CARD.meta.json)
 [TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
 [EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 2 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 4.3 on each CONTINUE result)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
@@ -56,8 +55,6 @@ Restore stash after todo initialization in Step 2.
 ## 2. Execute Implementation
 
 ### 2.1 Validate and Initialize
-
-Extract the `id` field from `CARD.meta.json` and assign it to `[CARD_ID]`.
 
 Read `PLAN.md` from the card repository:
 
@@ -213,12 +210,12 @@ Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [which task was completed and what was actually done]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[task completed, what was done]"  # <card-repo-commit-style>
+git commit -m "progress: [task completed (N/M)]"  # <card-repo-commit-style>
 ```
 
 **After all todos:**
@@ -227,7 +224,7 @@ git commit -m "[task completed, what was done]"  # <card-repo-commit-style>
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 All implementation tasks are blocked.
 
@@ -275,7 +272,7 @@ If unexpected modifications exist:
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 Blocked: unexpected file modifications outside plan scope.
 
@@ -303,7 +300,7 @@ Run validation per the plan's "Validation Commands" section.
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 Blocked: validation failure outside modifiable scope.
 
@@ -431,12 +428,12 @@ Write a completion summary comment to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented and how it aligns with the plan, key files modified, validation confirmation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[implementation complete]"  # <card-repo-commit-style>
+git commit -m "implementation complete"  # <card-repo-commit-style>
 ```
 
 Launch the merge agent:
@@ -445,7 +442,7 @@ Launch the merge agent:
 <invoke name="Task">
 <parameter name="description">Merge</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
+<parameter name="prompt">!` echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
 </invoke>
 ```
 
@@ -455,12 +452,12 @@ Write a summary comment to the card repository explaining what you implemented a
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[implementation complete, awaiting review]"  # <card-repo-commit-style>
+git commit -m "implementation complete, awaiting review"  # <card-repo-commit-style>
 ```
 
 **STOP** — Merge occurs after user approval.

@@ -24,12 +24,12 @@ Write a comment to the card repository with the appropriate response from Step 2
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [appropriate response: closure recommendation, answer to pending question, or backlog acknowledgment]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[response: what was addressed]"  # <card-repo-commit-style>
+git commit -m "response: [what was addressed]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Do not proceed to implementation protocols.

@@ -23,7 +23,7 @@ Write the plan to `PLAN.md` in the card repository following the `<annotated-pla
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "[plan: approach and key decisions]"  # <card-repo-commit-style>
+git commit -m "plan: [approach and key decisions]"  # <card-repo-commit-style>
 ```
 
 ## 2. Assess Plan
@@ -98,12 +98,12 @@ If Plan Refactor returned DISCUSS, write a comment to the card repository docume
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted concerns from the strategic assessment and rationale for why they do not block implementation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[accepted concerns: rationale]"  # <card-repo-commit-style>
+git commit -m "accepted concerns: [rationale]"  # <card-repo-commit-style>
 ```
 
 If Plan Refactor returned READY (no DISCUSS), no comment is needed:
@@ -126,12 +126,12 @@ Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[plan submitted for approval]"  # <card-repo-commit-style>
+git commit -m "plan submitted for approval"  # <card-repo-commit-style>
 ```
 
 **STOP** — Wait for user feedback on plan.

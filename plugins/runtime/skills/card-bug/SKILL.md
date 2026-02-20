@@ -41,7 +41,6 @@ if [ -n "$(git status --porcelain)" ]; then
   # Add `blocked` tag to CARD.meta.json, commit, STOP
 fi
 
-CARD_ID=$(basename "$CARD_REPO_PATH")
 git tag -f "bug/${CARD_ID}/baseline" HEAD
 ```
 
@@ -106,7 +105,7 @@ If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for
 ```bash
 cd $CARD_REPO_PATH
 git add CARD.meta.json CARD.md
-git commit -m "[what was clarified and corrected]"  # <card-repo-commit-style>
+git commit -m "clarify: [what was corrected]"  # <card-repo-commit-style>
 ```
 
 Skip the commit entirely if no clarification is needed.
@@ -381,7 +380,10 @@ cd $WORKSPACE_PATH
 COMMIT_COUNT=$(git rev-list --count "bug/${CARD_ID}/baseline"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "bug/${CARD_ID}/baseline"
-  git commit -m "[bug fix: root cause and approach]"  # <workspace-commit-style>
+  git commit -m "$(cat <<'COMMITMSG'
+[final commit message per <workspace-commit-style>]
+COMMITMSG
+)"
 fi
 ```
 
@@ -406,7 +408,7 @@ Based on review requirement:
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[bug fix complete, awaiting review]"  # <card-repo-commit-style>
+  git commit -m "bug fix complete, awaiting review"  # <card-repo-commit-style>
   ```
 
   **STOP** — Merge occurs after user approval.
@@ -421,7 +423,7 @@ Based on review requirement:
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[bug fix complete]"  # <card-repo-commit-style>
+  git commit -m "bug fix complete"  # <card-repo-commit-style>
   ```
 
   Then launch the merge agent:

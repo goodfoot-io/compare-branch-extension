@@ -24,12 +24,12 @@ If acknowledgment was written, commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [brief acknowledgment restating the key point to show understanding]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[acknowledged: no action needed]"  # <card-repo-commit-style>
+git commit -m "acknowledged: no action needed"  # <card-repo-commit-style>
 ```
 
 **STOP** — No further action required.

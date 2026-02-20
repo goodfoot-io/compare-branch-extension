@@ -21,12 +21,12 @@ Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [brief summary of what was completed and a note that you are waiting for user review before taking further action]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[awaiting review: work complete]"  # <card-repo-commit-style>
+git commit -m "awaiting review: work complete"  # <card-repo-commit-style>
 ```
 
 **STOP** — Wait for user to provide review feedback. No agent action required until a user comments.

@@ -148,7 +148,7 @@ Based on finding type, assign priority:
 
 <assessment-report-structure>
 ```markdown
-# Strategic Assessment Report: [CARD_ID]
+# Strategic Assessment Report: `! echo $CARD_ID`
 
 ## Summary
 [Brief overview of plan quality, strategic soundness, and implementation readiness]

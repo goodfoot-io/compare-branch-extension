@@ -5,7 +5,6 @@ description: Implement cards.
 
 
 <placeholder-variables>
-[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
 [TITLE] — The card title from CARD.meta.json
 [TASK_COUNT] — Number of implementation tasks derived from the card (set in Step 2.2 after writing todos with TodoWrite; count equals the number of todos created)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
@@ -38,7 +37,6 @@ Stash any uncommitted changes and create baseline tag:
 ```bash
 cd $WORKSPACE_PATH
 git stash --include-untracked
-CARD_ID=$(basename "$CARD_REPO_PATH")
 git tag -f "implement/${CARD_ID}/baseline" HEAD
 ```
 
@@ -105,7 +103,7 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
    ```bash
    cd $CARD_REPO_PATH
    git add CARD.meta.json CARD.md
-   git commit -m "[what was clarified and corrected]"  # <card-repo-commit-style>
+   git commit -m "clarify: [what was corrected]"  # <card-repo-commit-style>
    ```
 
    Skip the commit entirely if no clarification is needed.
@@ -276,7 +274,7 @@ Based on implementer status:
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [blocking details: what is blocked, why, and what is needed to unblock]
 EOF
@@ -288,12 +286,12 @@ git commit -m "blocked: [reason]"  # <card-repo-commit-style>
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented, key decisions made, and files modified]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[what was implemented]"  # <card-repo-commit-style>
+git commit -m "progress: [what was implemented]"  # <card-repo-commit-style>
 ```
 
 ### 3.3 Validation Gate
@@ -309,7 +307,7 @@ git commit -m "[what was implemented]"  # <card-repo-commit-style>
 ```bash
 cd $CARD_REPO_PATH
 node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [exact validation failure output]
 EOF
@@ -332,7 +330,10 @@ cd $WORKSPACE_PATH
 COMMIT_COUNT=$(git rev-list --count "implement/${CARD_ID}/baseline"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "implement/${CARD_ID}/baseline"
-  git commit -m "[implementation summary for card $CARD_ID]"  # <workspace-commit-style>
+  git commit -m "$(cat <<'COMMITMSG'
+[final commit message per <workspace-commit-style>]
+COMMITMSG
+)"
 fi
 ```
 
@@ -351,12 +352,12 @@ Write a summary comment to the card repository explaining what you implemented a
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[implementation complete, awaiting review]"  # <card-repo-commit-style>
+git commit -m "implementation complete, awaiting review"  # <card-repo-commit-style>
 ```
 
 **STOP** — Merge occurs after user approval.
@@ -367,19 +368,19 @@ Write a completion comment to the card repository. Commit to the card repository
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE `! echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented, key decisions, files modified, validation confirmation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[implementation complete]"  # <card-repo-commit-style>
+git commit -m "implementation complete"  # <card-repo-commit-style>
 ```
 
 ```xml
 <invoke name="Task">
 <parameter name="description">Merge</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">`! echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
+<parameter name="prompt">!` echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
 </invoke>
 ```
 
