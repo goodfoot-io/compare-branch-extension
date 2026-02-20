@@ -42,7 +42,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 CARD_ID=$(basename "$CARD_REPO_PATH")
-git tag -f "rr/${CARD_ID}/baseline" HEAD
+git tag -f "bug/${CARD_ID}/baseline" HEAD
 ```
 
 ### 1.2 Read Card and Extract Context
@@ -176,7 +176,7 @@ if [ ! -f "$TEST_FILE_PATH" ]; then
 fi
 
 # Check for unexpected modifications
-MODIFIED_FILES=$(git diff "rr/${CARD_ID}/baseline" --name-only --diff-filter=M)
+MODIFIED_FILES=$(git diff "bug/${CARD_ID}/baseline" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
   # Write comment asking user: proceed or revert?
   # STOP — await user direction
@@ -203,7 +203,15 @@ Based on subagent response and test result:
 
 - **Test PASSES (unexpected) and attempts < 3**:
   - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
-  - Revert to baseline: `git checkout "rr/${CARD_ID}/baseline" -- . && git clean -fd`
+  - Revert changed files to baseline:
+    ```bash
+    # Restore files modified or deleted since baseline
+    git diff "bug/${CARD_ID}/baseline" --name-only --diff-filter=MD | \
+      xargs -r git checkout "bug/${CARD_ID}/baseline" --
+    # Remove files added since baseline
+    git diff "bug/${CARD_ID}/baseline" --name-only --diff-filter=A | \
+      xargs -r git rm -f
+    ```
   - Return to Delegate to Subagent
 
 - **Test PASSES (unexpected) and attempts >= 3**:
@@ -370,9 +378,9 @@ Squash all commits since baseline into one:
 
 ```bash
 cd $WORKSPACE_PATH
-COMMIT_COUNT=$(git rev-list --count "rr/${CARD_ID}/baseline"..HEAD)
+COMMIT_COUNT=$(git rev-list --count "bug/${CARD_ID}/baseline"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft "rr/${CARD_ID}/baseline"
+  git reset --soft "bug/${CARD_ID}/baseline"
   git commit -m "[bug description, root cause analysis, fix approach, data flow from source to symptom, and test file path]"
 fi
 ```
@@ -381,7 +389,7 @@ Clean up checkpoint tags:
 
 ```bash
 cd $WORKSPACE_PATH
-git tag -d "rr/${CARD_ID}/baseline" "bug/${CARD_ID}/reproduction" 2>/dev/null
+git tag -d "bug/${CARD_ID}/baseline" "bug/${CARD_ID}/reproduction" 2>/dev/null
 ```
 
 ### 5.2 Complete

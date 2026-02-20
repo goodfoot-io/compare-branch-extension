@@ -248,7 +248,15 @@ For new functions or methods, load the `goodfoot:tdd-implementation` skill and f
 
 Based on agent status:
 - **COMPLETED**: Mark todo completed, commit if changes exist, write comment to card, continue
-- **NEEDS_REVISION**: Update todo with attempt count, revert to checkpoint
+- **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
+  ```bash
+  # Restore files modified or deleted since checkpoint
+  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=MD | \
+    xargs -r git checkout "implement/${CARD_ID}/pre-implementation" --
+  # Remove files added since checkpoint
+  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=A | \
+    xargs -r git rm -f
+  ```
   - **If attempts < 3**: Re-delegate to agent
   - **If attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue

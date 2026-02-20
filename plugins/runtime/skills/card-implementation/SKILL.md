@@ -33,11 +33,13 @@ Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEd
 
 ### 1.1 Stash Changes
 
-Stash any uncommitted changes:
+Stash any uncommitted changes and create baseline tag:
 
 ```bash
 cd $WORKSPACE_PATH
 git stash --include-untracked
+CARD_ID=$(basename "$CARD_REPO_PATH")
+git tag -f "implement/${CARD_ID}/baseline" HEAD
 ```
 
 Read recent comment files to determine whether an "Implementation Complete" comment already exists:
@@ -181,12 +183,13 @@ When uncertain between Coherent and Sequential, choose **Coherent** for planless
 
 ### 2.4 Checkpoint Before Implementation
 
-Commit a checkpoint:
+Commit and tag a checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # checkpoint: stage all workspace files, including generated or untracked artifacts not yet indexed
 git commit --allow-empty -m "checkpoint: before implementation — [TASK_COUNT] tasks derived from card [CARD_ID]"
+git tag -f "implement/${CARD_ID}/pre-implementation" HEAD
 ```
 
 ---
@@ -268,7 +271,15 @@ Delegate first phase, checkpoint at gate, then delegate next phase.
 
 Based on implementer status:
 - **COMPLETED**: Mark todos completed, write summary comment, proceed to **4. Finalize**
-- **NEEDS_REVISION**: Update todo with attempt count, revert to checkpoint
+- **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
+  ```bash
+  # Restore files modified or deleted since checkpoint
+  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=MD | \
+    xargs -r git checkout "implement/${CARD_ID}/pre-implementation" --
+  # Remove files added since checkpoint
+  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=A | \
+    xargs -r git rm -f
+  ```
   - **If attempts < 3**: Re-delegate with additional context from failure report
   - **If attempts >= 3**: Write failure details as comment, add `blocked` tag, **STOP**
 - **BLOCKED**: Write blocking details as comment, add `blocked` tag, **STOP**
@@ -322,6 +333,29 @@ Only proceed to **4. Finalize** when ALL validations pass.
 ---
 
 ## 4. Finalize
+
+### 4.1 Squash Commits
+
+Squash all commits since baseline into one:
+
+```bash
+cd $WORKSPACE_PATH
+COMMIT_COUNT=$(git rev-list --count "implement/${CARD_ID}/baseline"..HEAD)
+if [ "$COMMIT_COUNT" -gt 1 ]; then
+  git reset --soft "implement/${CARD_ID}/baseline"
+  git commit -m "[implementation summary, key decisions, files modified, and card ID]"
+fi
+```
+
+Clean up checkpoint tags:
+
+```bash
+cd $WORKSPACE_PATH
+git tag -d "implement/${CARD_ID}/baseline" \
+         "implement/${CARD_ID}/pre-implementation" 2>/dev/null
+```
+
+### 4.2 Complete
 
 ### If review is required (gates.reviewRequired is true):
 
