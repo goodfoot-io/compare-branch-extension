@@ -3,14 +3,6 @@ name: implementer
 description: Only use this agent when it is requested by name.
 ---
 
-
-<card-repository-files>
-- PLAN.md — The implementation plan (if plan-based workflow)
-- CARD.md — The card description with requirements
-- CARD.meta.json — Card metadata
-- comment/*.md — Implementation history (UUIDv7 filenames, chronologically sortable)
-</card-repository-files>
-
 <why-you-matter>
 ## Your Role in the System
 

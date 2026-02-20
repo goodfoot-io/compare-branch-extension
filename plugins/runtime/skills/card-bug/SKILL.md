@@ -7,9 +7,7 @@ description: Fix testable bugs using test-first methodology.
 <placeholder-variables>
 [BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
 [SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)
-[BASELINE_SHA] — Commit SHA at the start of the session (`git rev-parse HEAD`)
 [TEST_FILE_PATH] — Absolute path to reproduction test
-[TEST_READY_SHA] — Commit SHA after reproduction test committed
 [TEST_FAILURE_OUTPUT] — Captured test output when test fails
 [TEST_PASS_ANALYSIS] — Synthesized explanation when test unexpectedly passes
 [PREVIOUS_FAILURE_OUTPUT] — Captured output from failed fix attempt
@@ -37,10 +35,17 @@ Enforce strict test-first verification:
 
 ## 1. Explore Workspace based on Card Content
 
-Record the starting commit for change tracking:
+Check git state and establish baseline:
 
 ```bash
-BASELINE_SHA=$(git rev-parse HEAD)
+# Verify clean working tree
+if [ -n "$(git status --porcelain)" ]; then
+  # Write comment: working tree is dirty, cannot proceed safely
+  # Add `blocked` tag to CARD.meta.json, commit, STOP
+fi
+
+CARD_ID=$(basename "$CARD_REPO_PATH")
+git tag -f "rr/!`echo $CARD_ID`/baseline" HEAD
 ```
 
 Launch parallel Explore subagents (haiku model) in the workspace repository. Launch multiple subagents with distinct, targeted prompts based on the card content:
@@ -102,7 +107,7 @@ Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
 
 ### 2.1 Prepare Context
 
-Extract from !` echo $CARD_REPO_PATH `/CARD.md and !` echo $CARD_REPO_PATH `/comments/*.md:
+Extract from the card repository:
 
 - BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
 - Error messages / stack traces (verbatim)
@@ -168,7 +173,7 @@ if [ ! -f "$TEST_FILE_PATH" ]; then
 fi
 
 # Check for unexpected modifications
-MODIFIED_FILES=$(git diff "$BASELINE_SHA" --name-only --diff-filter=M)
+MODIFIED_FILES=$(git diff "rr/!`echo $CARD_ID`/baseline" --name-only --diff-filter=M)
 if [ -n "$MODIFIED_FILES" ]; then
   # Write comment asking user: proceed or revert?
   # Set needs_review, STOP — await user direction
@@ -188,14 +193,14 @@ Based on subagent response and test result:
 
 - **Test FAILS (expected)**:
   - Commit the test: `git add -A && git commit -m "[what the reproduction test checks and why it fails]"`
-  - Record: `TEST_READY_SHA=$(git rev-parse HEAD)`
+  - Tag: `git tag -f "bug/!`echo $CARD_ID`/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
   - Proceed to Step 3
 
 - **Test PASSES (unexpected) and attempts < 3**:
   - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
-  - Revert to baseline: `git checkout "$BASELINE_SHA" -- . && git clean -fd`
+  - Revert to baseline: `git checkout "rr/!`echo $CARD_ID`/baseline" -- . && git clean -fd`
   - Return to Delegate to Subagent
 
 - **Test PASSES (unexpected) and attempts >= 3**:
@@ -282,8 +287,8 @@ Capture RESOLVER_REASONING from response.
 ### 3.3 Validate
 
 ```bash
-ALL_CHANGES=$(git diff "$TEST_READY_SHA" --name-only)
-git diff --quiet "$TEST_READY_SHA" -- "$TEST_FILE_PATH"
+ALL_CHANGES=$(git diff "bug/!`echo $CARD_ID`/reproduction" --name-only)
+git diff --quiet "bug/!`echo $CARD_ID`/reproduction" -- "$TEST_FILE_PATH"
 TEST_FILE_MODIFIED=$?  # 0=unchanged, 1=modified
 SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
 ```
@@ -309,10 +314,10 @@ Based on changes detected:
 1. Increment TEST_CORRECTION_COUNT
 2. **If > 2**: Write a comment to the card repository reporting that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it cannot be trusted to verify the fix. Commit to the card repository.
    **STOP** — Test became unreliable.
-3. Revert source changes: `git checkout "$TEST_READY_SHA" -- $SOURCE_CHANGES`
+3. Revert source changes: `git checkout "bug/!`echo $CARD_ID`/reproduction" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
-   - **FAILS (valid)**: Commit correction, update TEST_READY_SHA, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
+   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/!`echo $CARD_ID`/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
    - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP** — Test correction failed.
 
 ## 4. Validate Full Suite
@@ -360,11 +365,17 @@ Based on validation result:
 Squash all commits since baseline into one:
 
 ```bash
-COMMIT_COUNT=$(git rev-list --count "$BASELINE_SHA"..HEAD)
+COMMIT_COUNT=$(git rev-list --count "rr/!`echo $CARD_ID`/baseline"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft "$BASELINE_SHA"
+  git reset --soft "rr/!`echo $CARD_ID`/baseline"
   git commit -m "[bug description, root cause analysis, fix approach, data flow from source to symptom, and test file path]"
 fi
+```
+
+Clean up checkpoint tags:
+
+```bash
+git tag -d "rr/!`echo $CARD_ID`/baseline" "bug/!`echo $CARD_ID`/reproduction" 2>/dev/null
 ```
 
 ### 5.2 Complete

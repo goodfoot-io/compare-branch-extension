@@ -1,7 +1,7 @@
 ---
 name: plan-assessor
 description: Evaluate implementation plans for quality, feasibility, and completeness.
-model: haiku
+model: sonnet
 tools: "*"
 skills: runtime:card-repo, runtime:plan, runtime:plan-assessor
 ---
