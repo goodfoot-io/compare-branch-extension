@@ -1,6 +1,6 @@
 {
   "name": "runtime",
-  "version": "1.0.48",
+  "version": "1.0.49",
   "description": "Plugin for the Cards extension Claude Code runtime",
   "author": {
     "name": "Goodfoot Media LLC"

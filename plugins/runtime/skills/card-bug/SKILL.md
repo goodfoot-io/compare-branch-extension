@@ -5,8 +5,8 @@ description: Fix testable bugs using test-first methodology.
 
 
 <placeholder-variables>
-[BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
-[SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)
+[BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 1)
+[SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 1)
 [TEST_FILE_PATH] — Absolute path to reproduction test
 [TEST_FAILURE_OUTPUT] — Captured test output when test fails
 [TEST_PASS_ANALYSIS] — Synthesized explanation when test unexpectedly passes
@@ -35,6 +35,8 @@ Enforce strict test-first verification:
 
 ## 1. Explore Workspace based on Card Content
 
+### 1.1 Validate Workspace State
+
 Check git state and establish baseline:
 
 ```bash
@@ -48,6 +50,16 @@ fi
 CARD_ID=$(basename "$CARD_REPO_PATH")
 git tag -f "rr/${CARD_ID}/baseline" HEAD
 ```
+
+### 1.2 Read Card and Extract Context
+
+Read `CARD.meta.json` and `CARD.md` from the card repository. Extract:
+
+- BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
+- SCOPE_HINT — Files, packages, or functions mentioned
+- Error messages / stack traces (verbatim)
+
+### 1.3 Launch Exploration
 
 Launch parallel Explore subagents (haiku model) in the workspace repository. Launch multiple subagents with distinct, targeted prompts based on the card content:
 
@@ -66,7 +78,9 @@ Launch parallel Explore subagents (haiku model) in the workspace repository. Lau
 </invoke>
 ```
 
-Clarify bug:
+### 1.4 Clarify Bug
+
+Collect exploration results via TaskOutput.
 
 Evaluate whether the title and description clearly describe the bug. A good bug title describes behavior: *"[Component] fails when [action]"* or *"[Expected] but [actual]"*.
 
@@ -107,15 +121,7 @@ Skip the commit entirely if no clarification is needed.
 
 Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
 
-### 2.1 Prepare Context
-
-Extract from the card repository:
-
-- BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
-- Error messages / stack traces (verbatim)
-- SCOPE_HINT — Files, packages, or functions mentioned
-
-### 2.2 Delegate to Subagent
+### 2.1 Delegate to Subagent
 
 Launch additional Explore subagents if new information reveals unexplored areas.
 
@@ -158,7 +164,7 @@ ${TEST_PASS_ANALYSIS}
 </invoke>
 ```
 
-### 2.3 Capture and Validate
+### 2.2 Capture and Validate
 
 Parse response: SUBAGENT_STATUS, TEST_FILE_PATH, SUBAGENT_REASONING
 
@@ -188,7 +194,7 @@ TEST_OUTPUT=$(yarn test "$TEST_FILE_PATH" 2>&1)
 TEST_EXIT_CODE=$?
 ```
 
-### 2.4 Outcomes
+### 2.3 Outcomes
 
 Based on subagent response and test result:
 
@@ -404,7 +410,19 @@ Based on review requirement:
   **STOP** — Merge occurs after user approval.
 
 - **Review NOT required (gates.reviewRequired is false or unset)**:
-  Write a completion comment to the card repository summarizing the bug, the fix approach, and confirming all tests pass. Commit to the card repository. Then launch the merge agent:
+  Write a completion comment to the card repository summarizing the bug, the fix approach, and confirming all tests pass. Commit to the card repository:
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "[bug summary, root cause, fix approach, and test file path]"
+  ```
+
+  Then launch the merge agent:
 
   ```xml
   <invoke name="Task">

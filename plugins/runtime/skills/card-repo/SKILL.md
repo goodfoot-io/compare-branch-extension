@@ -14,13 +14,11 @@ The following environment variables are available in all bash statements:
 
 | Variable | Value |
 |---|---|
-| `$NODE` | Path to the Node.js interpreter (`process.execPath` of the wrapper). Use to run scripts portably without relying on `node` being on `PATH`. |
-| `$CLAUDE_PLUGIN_ROOT` | Absolute path to the plugin directory. Scripts and binaries shipped with the plugin live under this root (e.g., `$CLAUDE_PLUGIN_ROOT/bin/uuid7.mjs`). |
+| `$NODE` | Path to the Node.js interpreter. |
 | `$CARD_REPO_PATH` | Absolute path to this card's Git repository directory. |
 | `$WORKSPACE_PATH` | Absolute path to the VS Code workspace root directory. |
-| `$BASE_BRANCH` | Git branch that the card's workspace branch will merge into. Resolved from the workspace HEAD at launch time. |
-| `$WORKSPACE_BRANCH` | Git branch name for the card's workspace implementation. Created or resolved at launch time. |
-| `$PARENT_BRANCH` | Git branch from which `$WORKSPACE_BRANCH` was created. May differ from `$BASE_BRANCH` when the worktree was created against a different ref. |
+| `$BASE_BRANCH` | Git branch that the card's workspace branch will merge into. |
+| `$WORKSPACE_BRANCH` | Git branch name for the card's workspace implementation. |
 
 ## Directory Layout
 
