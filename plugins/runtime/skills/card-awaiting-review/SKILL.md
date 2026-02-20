@@ -26,7 +26,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [brief summary of what was completed and a note that you are waiting for user review before taking further action]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[summary of completed work and what the reviewer should focus on]"
+git commit -m "[awaiting review: work complete]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Wait for user to provide review feedback. No agent action required until a user comments.

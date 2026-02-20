@@ -53,7 +53,7 @@ Write the updated plan to `PLAN.md` in the card repository. Commit to the card r
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "[what feedback was incorporated, how the plan changed, and what tradeoffs were considered]"
+git commit -m "[plan revised: incorporated feedback]"  # <card-repo-commit-style>
 ```
 
 ## 3. Assess Revised Plan
@@ -133,7 +133,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted strategic concerns and rationale for why each does not block implementation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[which concerns were accepted and why they do not block implementation]"
+git commit -m "[accepted concerns: rationale]"  # <card-repo-commit-style>
 ```
 
 If no strategic concerns were accepted (Plan Refactor returned READY):
@@ -161,7 +161,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[how feedback was interpreted, what changed in the plan, judgment calls made, and what the reviewer should focus on]"
+git commit -m "[plan revised, submitted for re-approval]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Wait for user feedback or approval.

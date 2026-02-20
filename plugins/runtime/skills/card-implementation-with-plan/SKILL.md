@@ -6,7 +6,7 @@ description: Implement approved plans.
 
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from the `id` field in CARD.meta.json (read in Step 2.1 from $CARD_REPO_PATH/CARD.meta.json)
-[TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each subsequent checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
+[TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
 [EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 2 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 4.3 on each CONTINUE result)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 [PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 2.6 for modification scope check, Step 3.3 for revert scope, and Step 5.3 cleanup annotation)
@@ -30,56 +30,6 @@ Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/Mu
 
 **Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
 </orchestrator-constraints>
-
-<commit-message-artistry>
-## Crafting World-Class Commit Messages
-
-Commit messages are the narrative layer of code history. Future developers will read these messages to understand not just *what* changed, but *why* and *how* — the human story behind the code. Write commit messages that are technically precise, contextually rich, and genuinely engaging.
-
-### Message Structure
-
-Every significant commit (non-checkpoint) should follow this 2-5 paragraph structure. Length scales with change scope — a focused fix may need only 2 paragraphs; a multi-module feature deserves the full 5.
-
-**Paragraph 1 — The Hook (Subject + Context)**
-Start with a conventional commit prefix and concise subject line. Follow immediately with a sentence that establishes *why this change matters* in the broader context of the system.
-
-**Paragraph 2 — The Problem**
-What challenge, requirement, or deficiency prompted this work? Paint the "before" picture. What would happen without this change? Why now?
-
-**Paragraph 3 — The Journey (for substantial changes)**
-What alternatives were considered? What made this approach win? Were there pivots, dead ends, or "aha" moments? This paragraph is the heart of the narrative — it is what makes the commit message memorable and educational.
-
-**Paragraph 4 — The Solution**
-What was actually built? Focus on the *design* rather than listing files. What patterns were established or followed? What tradeoffs were accepted?
-
-**Paragraph 5 — The Future (optional, for large changes)**
-What does this enable? What related work remains? What should future maintainers know?
-
-### The Undeniable Truth
-
-Every commit teaches something. Your job is to say what, for someone who needs to understand this code later.
-
-Do not optimize for profundity. The reader needs to understand what changed and why. Sometimes genuine insight emerges — a surprising discovery, an irony worth noting, a lesson that only became clear after the work was done. When that happens, include it. When it does not, move on. Manufactured insight is worse than none.
-
-The test: would this help someone debugging at 2am? If you would mutter "just tell me what you did" while reading it, rewrite it.
-
-### Voice and Tone
-
-Write for two readers: the one debugging at 2am who needs speed, and the one on a calm Tuesday who needs context. Active voice, present tense. Match your energy to the change — a small fix deserves small prose.
-
-### Synthesizing from Subagent Reports
-
-Collect the Decision Narratives. Extract: what changed, what was learned, what the next person should know. Discard performative struggle. Keep genuine insight if present; do not mourn its absence.
-
-### Checkpoint vs. Final Commits
-
-| Type | Style |
-|------|-------|
-| Checkpoint | 1-2 lines: card ref, progress |
-| Implementation | 2-3 paragraphs: what changed, why |
-| Final | 2-5 paragraphs: the full story, ending on truth |
-
-</commit-message-artistry>
 
 <instructions>
 
@@ -126,21 +76,12 @@ If resuming: `git stash pop` to restore prior work.
 
 ### 2.2 Task Checkpoint
 
-Before the first agent delegation, create a pre-implementation checkpoint:
-
-```bash
-cd $WORKSPACE_PATH
-git add -A  # checkpoint: stage all workspace files before first task dispatch
-git commit --allow-empty -m "checkpoint: before implementation for card [CARD_ID]"
-git tag -f "implement/${CARD_ID}/pre-implementation" HEAD
-```
-
-Before each subsequent agent delegation, commit a checkpoint:
+Before each agent delegation, commit a checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # checkpoint: stage all workspace files before [TASK_DESCRIPTION]
-git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card [CARD_ID]"
+git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card $CARD_ID"
 ```
 
 ### 2.3 Assess Coherence
@@ -251,10 +192,10 @@ Based on agent status:
 - **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
   ```bash
   # Restore files modified or deleted since checkpoint
-  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=MD | \
-    xargs -r git checkout "implement/${CARD_ID}/pre-implementation" --
+  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=MD | \
+    xargs -r git checkout "implement/${CARD_ID}/baseline" --
   # Remove files added since checkpoint
-  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=A | \
+  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=A | \
     xargs -r git rm -f
   ```
   - **If attempts < 3**: Re-delegate to agent
@@ -265,7 +206,7 @@ Based on agent status:
 
 ```bash
 cd $WORKSPACE_PATH
-git diff --quiet HEAD || git commit -am "[task name]: [brief description of what was implemented]"
+git diff --quiet HEAD || git commit -am "[task name]: [what was implemented]"  # <workspace-commit-style>
 ```
 
 Commit to the card repository:
@@ -277,7 +218,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [which task was completed and what was actually done]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[which task was completed, what was done, and what comes next]"
+git commit -m "[task completed, what was done]"  # <card-repo-commit-style>
 ```
 
 **After all todos:**
@@ -293,7 +234,7 @@ All implementation tasks are blocked.
 [per-task blocker summary]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: all tasks blocked — [reason summary]"
+git commit -m "blocked: [reason summary]"  # <card-repo-commit-style>
 ```
 
 - SOME blocked -> note in summary, proceed to Step 3
@@ -306,7 +247,7 @@ Create post-implementation checkpoint:
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # checkpoint: stage all workspace files after implementation, before validation
-git commit --allow-empty -m "checkpoint: after implementation, before validation for card [CARD_ID]"
+git commit --allow-empty -m "checkpoint: after implementation, before validation for card $CARD_ID"
 git tag -f "implement/${CARD_ID}/post-implementation" HEAD
 ```
 
@@ -316,7 +257,7 @@ Review all files modified since the first task dispatch to verify scope complian
 
 ```bash
 cd $WORKSPACE_PATH
-git diff "implement/${CARD_ID}/pre-implementation" HEAD --name-only
+git diff "implement/${CARD_ID}/baseline" HEAD --name-only
 ```
 
 Verify that only plan-owned files were modified:
@@ -344,7 +285,7 @@ Unexpected files:
 Awaiting user direction on whether to keep or revert these changes.
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: unexpected modifications outside plan scope"
+git commit -m "blocked: unexpected modifications outside plan scope"  # <card-repo-commit-style>
 ```
 
 **STOP** — await user direction. Do not discard modifications without user direction.
@@ -369,7 +310,7 @@ Blocked: validation failure outside modifiable scope.
 [exact validation command and full output]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: validation failure outside scope"
+git commit -m "blocked: validation failure outside scope"  # <card-repo-commit-style>
 ```
 
 Only proceed to **3. Refactor** when ALL validations pass.
@@ -385,7 +326,7 @@ Commit a checkpoint:
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # checkpoint: stage all workspace files before refactoring
-git commit --allow-empty -m "checkpoint: before refactoring — implementation complete for card [CARD_ID]"
+git commit --allow-empty -m "checkpoint: before refactoring — implementation complete for card $CARD_ID"
 git tag -f "implement/${CARD_ID}/pre-refactor" HEAD
 ```
 
@@ -421,7 +362,7 @@ Based on agent status:
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # stage all refactoring changes
-git commit -m "refactor: [summary of what was refactored from agent report]"
+git commit -m "refactor: [what was refactored and why]"  # <workspace-commit-style>
 ```
 
   1. Run `git diff "implement/${CARD_ID}/pre-refactor" HEAD --stat` to capture changes
@@ -443,7 +384,7 @@ Commit a checkpoint:
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # checkpoint: stage all workspace files before evaluation
-git commit --allow-empty -m "checkpoint: before evaluation — implementation and refactoring complete for card [CARD_ID]"
+git commit --allow-empty -m "checkpoint: before evaluation — implementation and refactoring complete for card $CARD_ID"
 ```
 
 ### 4.2 Delegate Evaluation
@@ -471,23 +412,13 @@ Based on evaluation result:
 
 ### 5.1 Craft Final Commit Message
 
-Before completing, synthesize Decision Narratives from all subagent reports into an artful commit message following `<commit-message-artistry>` guidelines.
-
-**Synthesis Process:**
-
-1. **Collect narratives** from implementer and refactor agent reports
-2. **Extract the arc**: Problem -> Journey -> Solution
-3. **Find the truth**: It is usually in the narratives already, waiting to be recognized
-4. **Weave**: A unified story, not a list
-5. **Scale**: 2 paragraphs for small changes, up to 5 for substantial ones
-
-**Create the final commit** following `<commit-message-artistry>` guidelines:
+Synthesize Decision Narratives from all subagent reports into a final commit message per `<workspace-commit-style>`.
 
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # final: stage any uncommitted implementation artifacts
 git commit -m "$(cat <<'COMMITMSG'
-[artfully crafted commit message per <commit-message-artistry> structure: paragraph 1 hook, paragraph 2 problem, paragraph 3 journey, paragraph 4 solution]
+[final commit message per <workspace-commit-style>]
 COMMITMSG
 )"
 ```
@@ -505,7 +436,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented and how it aligns with the plan, key files modified, validation confirmation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[implementation completion summary]"
+git commit -m "[implementation complete]"  # <card-repo-commit-style>
 ```
 
 Launch the merge agent:
@@ -529,7 +460,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[summary of implementation against the plan, key decisions, validation results, and what the reviewer should focus on]"
+git commit -m "[implementation complete, awaiting review]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Merge occurs after user approval.
@@ -541,7 +472,6 @@ Clean up checkpoint tags:
 ```bash
 cd $WORKSPACE_PATH
 git tag -d "implement/${CARD_ID}/baseline" \
-         "implement/${CARD_ID}/pre-implementation" \
          "implement/${CARD_ID}/post-implementation" \
          "implement/${CARD_ID}/pre-refactor" 2>/dev/null
 ```
@@ -553,7 +483,6 @@ The following checkpoints are created during execution for rollback:
 | Tag | Created At | Purpose |
 |-----|------------|---------|
 | `implement/${CARD_ID}/baseline` | Step 1 | Original state before any changes |
-| `implement/${CARD_ID}/pre-implementation` | Step 2.2 | Before first task dispatch |
 | `implement/${CARD_ID}/post-implementation` | Step 2.6 | After implementation, before validation |
 | `implement/${CARD_ID}/pre-refactor` | Step 3.1 | After validation passes, before refactoring |
 

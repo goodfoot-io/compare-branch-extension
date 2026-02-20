@@ -23,7 +23,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [No changes were found on $WORKSPACE_BRANCH relative to $BASE_BRANCH. Nothing to merge.]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "comment: no changes to merge for $CARD_ID"
+git commit -m "no changes to merge"  # <card-repo-commit-style>
 ```
 
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
@@ -36,7 +36,7 @@ Squash all commits since the branch diverged:
 cd $WORKSPACE_PATH
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
-  git commit -m "[comprehensive summary of all changes: what was built, key design decisions, and card reference]"
+  git commit -m "[squashed implementation]"  # <workspace-commit-style>
 fi
 ```
 
@@ -76,7 +76,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [rebase conflict details, files involved, manual resolution steps]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "blocked: unresolvable rebase conflict on $CARD_ID"
+git commit -m "blocked: unresolvable rebase conflict"  # <card-repo-commit-style>
 ```
 
 After rebase completes, run linting, type checking, and tests.
@@ -103,7 +103,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [validation failure details, what was attempted, what intervention is needed]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "blocked: unresolvable rebase conflict on $CARD_ID"
+git commit -m "blocked: unresolvable rebase conflict"  # <card-repo-commit-style>
 ```
 
 ## 4. Stash, Fast-Forward Merge, and Unstash
@@ -147,7 +147,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [merge failure details: branch is not a fast-forward of $BASE_BRANCH, likely cause and resolution steps]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "blocked: unresolvable rebase conflict on $CARD_ID"
+git commit -m "blocked: unresolvable rebase conflict"  # <card-repo-commit-style>
 ```
 
 </instructions>

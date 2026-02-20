@@ -42,7 +42,7 @@ Based on blocker analysis:
   [clarification request: describe what blocker information is missing and what the user should provide]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[clarification needed: blocker details missing]"
+  git commit -m "[clarification needed: blocker details missing]"  # <card-repo-commit-style>
   ```
 
 ## 2. Report Blocked Status
@@ -60,7 +60,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[what the blocker is, which card or dependency it references, and what resolution is needed]"
+git commit -m "[blocked: what and why]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Do not proceed until the blocker is resolved and the "blocked" tag is removed. Routing will re-evaluate once the tag is removed.

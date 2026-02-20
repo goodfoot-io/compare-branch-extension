@@ -23,7 +23,7 @@ Based on comments and prior clarification requests:
   [acknowledge the new information and explain how it affects requirements analysis]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[acknowledge new information and its impact on requirements]"
+  git commit -m "[acknowledged: new information received]"  # <card-repo-commit-style>
   ```
 
 - **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** — already waiting for user clarification.
@@ -35,7 +35,7 @@ Based on comments and prior clarification requests:
   [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[still waiting for clarification on specific questions]"
+  git commit -m "[still waiting for clarification]"  # <card-repo-commit-style>
   ```
 
 ## 2. Identify Missing Requirements
@@ -65,7 +65,7 @@ Based on research results:
   [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[research findings that resolve requirement gaps]"
+  git commit -m "[research resolved requirement gaps]"  # <card-repo-commit-style>
   ```
 
 - **If gaps remain**: Note findings for the clarification request, proceed to Step 4
@@ -81,7 +81,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[which requirements are missing, what questions were asked, and what research was done to try to answer them first]"
+git commit -m "[clarification needed: which requirements are missing]"  # <card-repo-commit-style>
 ```
 
 **STOP**

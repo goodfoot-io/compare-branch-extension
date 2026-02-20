@@ -106,7 +106,7 @@ If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for
 ```bash
 cd $CARD_REPO_PATH
 git add CARD.meta.json CARD.md
-git commit -m "[what was clarified about the bug, corrections made, and context enriched from exploration]"
+git commit -m "[what was clarified and corrected]"  # <card-repo-commit-style>
 ```
 
 Skip the commit entirely if no clarification is needed.
@@ -195,7 +195,7 @@ Based on subagent response and test result:
 - **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** — Awaiting user intervention.
 
 - **Test FAILS (expected)**:
-  - Commit the test: `git add "$TEST_FILE_PATH" && git commit -m "[what the reproduction test checks and why it fails]"`
+  - Commit the test: `git add "$TEST_FILE_PATH" && git commit -m "[reproduction test: what it checks]"`  <!-- <workspace-commit-style> -->
   - Tag: `git tag -f "bug/${CARD_ID}/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
@@ -381,7 +381,7 @@ cd $WORKSPACE_PATH
 COMMIT_COUNT=$(git rev-list --count "bug/${CARD_ID}/baseline"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "bug/${CARD_ID}/baseline"
-  git commit -m "[bug description, root cause analysis, fix approach, data flow from source to symptom, and test file path]"
+  git commit -m "[bug fix: root cause and approach]"  # <workspace-commit-style>
 fi
 ```
 
@@ -406,7 +406,7 @@ Based on review requirement:
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[bug summary, root cause, fix approach, test file path, and what the reviewer should focus on]"
+  git commit -m "[bug fix complete, awaiting review]"  # <card-repo-commit-style>
   ```
 
   **STOP** — Merge occurs after user approval.
@@ -421,7 +421,7 @@ Based on review requirement:
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "[bug summary, root cause, fix approach, and test file path]"
+  git commit -m "[bug fix complete]"  # <card-repo-commit-style>
   ```
 
   Then launch the merge agent:

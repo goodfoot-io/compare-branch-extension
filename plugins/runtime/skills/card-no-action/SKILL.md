@@ -29,7 +29,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [brief acknowledgment restating the key point to show understanding]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[what was acknowledged and why no further action is needed]"
+git commit -m "[acknowledged: no action needed]"  # <card-repo-commit-style>
 ```
 
 **STOP** — No further action required.

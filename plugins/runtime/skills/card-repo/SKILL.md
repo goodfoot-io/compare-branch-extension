@@ -232,6 +232,82 @@ Each line in the `.jsonl` file is a JSON object from the Claude Code SDK (`--out
 | `result`           | `success`  | Turns, duration, cost                |
 | `result`           | `error`    | Error details with stats             |
 
+## Commit Message Styles
+
+Two repositories receive commits during card work. Each has a distinct commit style.
+
+<card-repo-commit-style>
+### Card Repository Commits
+
+Card repository commit messages are the coordination surface for agents working together on a card. An agent scanning `git log --oneline` should be able to reconstruct the project timeline and decide what to do next without reading every comment file.
+
+**Every commit message should answer:**
+
+1. **What phase?** What stage did we just complete or enter? (planning, implementing task N of M, blocked, awaiting review, merging)
+2. **What workspace change?** Which subtask, feature area, or files does this correspond to? Correlates card-repo history with workspace-repo history.
+3. **Outcome?** Did it succeed or fail? (completed, blocked, needs revision) — the status signal that determines next action.
+4. **If blocked, what unblocks it?** What's needed so the next agent doesn't repeat the same attempt.
+
+**Format:** One or two lines. The comment content carries detail; the commit message carries signal.
+
+**Examples:**
+
+| Category | Example |
+|----------|---------|
+| Progress | `progress: auth middleware complete (task 2/4)` |
+| Completion | `implementation complete` |
+| Blocked | `blocked: type error in package X — outside plan scope` |
+| Clarification | `clarify title and enrich description from exploration` |
+| Plan | `plan: initial approach — migration strategy with 3 tasks` |
+| Plan feedback | `plan revised: incorporated feedback on error handling` |
+| Accepted concerns | `accepted strategic concerns re: coupling tradeoff` |
+| Awaiting review | `implementation complete, awaiting review` |
+| Question/answer | `answered: how auth tokens are validated` |
+| Reopen | `reopened: user requested additional error handling` |
+| Error recovery | `blocked: unexpected error during merge — manual fix needed` |
+| No-action | `acknowledged: user provided context, no action needed` |
+</card-repo-commit-style>
+
+<workspace-commit-style>
+### Workspace Repository Commits
+
+Workspace commits are the narrative layer of code history. Future developers will read these to understand not just *what* changed, but *why* and *how*.
+
+#### Structure (2-5 paragraphs, scaled to change scope)
+
+**Paragraph 1 — The Hook**: Conventional commit prefix + concise subject. Follow with why this change matters in broader system context.
+
+**Paragraph 2 — The Problem**: What challenge or deficiency prompted this work? Paint the "before" picture.
+
+**Paragraph 3 — The Journey** (for substantial changes): Alternatives considered, what made this approach win, pivots or dead ends. This is the heart of the narrative — what makes the message memorable and educational.
+
+**Paragraph 4 — The Solution**: What was built, focusing on *design* over file lists. Patterns established, tradeoffs accepted.
+
+**Paragraph 5 — The Future** (optional, for large changes): What this enables, remaining work, guidance for maintainers.
+
+#### Scaling
+
+| Commit Type | Length |
+|-------------|--------|
+| Subtask / intermediate | 1-2 lines: what changed, card reference |
+| Feature / bug fix | 2-3 paragraphs: problem, approach, solution |
+| Final squash | 2-5 paragraphs: the full story per the structure above |
+
+#### Voice
+
+Active voice, present tense. Match energy to change scope — a small fix deserves small prose. Write for two readers: one debugging at 2am who needs speed, one on a calm Tuesday who needs context.
+
+#### Truth Over Profundity
+
+Every commit teaches something. Say what. When genuine insight emerges — a surprise, an irony, a lesson that only became clear after the work — include it. When it does not, move on. Manufactured insight is worse than none.
+
+The test: would this help someone debugging at 2am? If you would mutter "just tell me what you did" while reading it, rewrite it.
+
+#### Synthesizing from Subagent Reports
+
+When crafting final commits from agent reports: collect Decision Narratives, extract what changed and what was learned, discard performative struggle, keep genuine insight. Weave a unified story, not a list.
+</workspace-commit-style>
+
 ## Additional Resources
 
 ### Reference Files

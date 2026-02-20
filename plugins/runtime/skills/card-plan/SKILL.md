@@ -23,7 +23,7 @@ Write the plan to `PLAN.md` in the card repository following the `<annotated-pla
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "[summary of the plan's approach, key design decisions, and identified risks]"
+git commit -m "[plan: approach and key decisions]"  # <card-repo-commit-style>
 ```
 
 ## 2. Assess Plan
@@ -103,7 +103,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted concerns from the strategic assessment and rationale for why they do not block implementation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[which concerns were accepted and why they do not block implementation]"
+git commit -m "[accepted concerns: rationale]"  # <card-repo-commit-style>
 ```
 
 If Plan Refactor returned READY (no DISCUSS), no comment is needed:
@@ -131,7 +131,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[reasoning process, key judgment calls, areas of uncertainty, and what the reviewer should focus on]"
+git commit -m "[plan submitted for approval]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Wait for user feedback on plan.

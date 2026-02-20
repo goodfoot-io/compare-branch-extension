@@ -105,7 +105,7 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
    ```bash
    cd $CARD_REPO_PATH
    git add CARD.meta.json CARD.md
-   git commit -m "[what was clarified, what was enriched from exploration, and any corrections made]"
+   git commit -m "[what was clarified and corrected]"  # <card-repo-commit-style>
    ```
 
    Skip the commit entirely if no clarification is needed.
@@ -180,17 +180,6 @@ Route based on assessment:
 - **Dependent + varied + substantial with clear gates**: Sequential — ordered delegations with checkpoints
 
 When uncertain between Coherent and Sequential, choose **Coherent** for planless cards.
-
-### 2.4 Checkpoint Before Implementation
-
-Commit and tag a checkpoint:
-
-```bash
-cd $WORKSPACE_PATH
-git add -A  # checkpoint: stage all workspace files, including generated or untracked artifacts not yet indexed
-git commit --allow-empty -m "checkpoint: before implementation — [TASK_COUNT] tasks derived from card [CARD_ID]"
-git tag -f "implement/${CARD_ID}/pre-implementation" HEAD
-```
 
 ---
 
@@ -274,10 +263,10 @@ Based on implementer status:
 - **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
   ```bash
   # Restore files modified or deleted since checkpoint
-  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=MD | \
-    xargs -r git checkout "implement/${CARD_ID}/pre-implementation" --
+  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=MD | \
+    xargs -r git checkout "implement/${CARD_ID}/baseline" --
   # Remove files added since checkpoint
-  git diff "implement/${CARD_ID}/pre-implementation" --name-only --diff-filter=A | \
+  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=A | \
     xargs -r git rm -f
   ```
   - **If attempts < 3**: Re-delegate with additional context from failure report
@@ -292,7 +281,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [blocking details: what is blocked, why, and what is needed to unblock]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: [reason]"
+git commit -m "blocked: [reason]"  # <card-repo-commit-style>
 ```
 
 **On COMPLETED:** Write a progress comment to the card repository summarizing what was implemented, key decisions made, and files modified. Commit to the card repository:
@@ -304,7 +293,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented, key decisions made, and files modified]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[what was implemented, key decisions, and files modified in the workspace]"
+git commit -m "[what was implemented]"  # <card-repo-commit-style>
 ```
 
 ### 3.3 Validation Gate
@@ -325,7 +314,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [exact validation failure output]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: [reason]"
+git commit -m "blocked: [reason]"  # <card-repo-commit-style>
 ```
 
 Only proceed to **4. Finalize** when ALL validations pass.
@@ -343,7 +332,7 @@ cd $WORKSPACE_PATH
 COMMIT_COUNT=$(git rev-list --count "implement/${CARD_ID}/baseline"..HEAD)
 if [ "$COMMIT_COUNT" -gt 1 ]; then
   git reset --soft "implement/${CARD_ID}/baseline"
-  git commit -m "[implementation summary, key decisions, files modified, and card ID]"
+  git commit -m "[implementation summary for card $CARD_ID]"  # <workspace-commit-style>
 fi
 ```
 
@@ -351,8 +340,7 @@ Clean up checkpoint tags:
 
 ```bash
 cd $WORKSPACE_PATH
-git tag -d "implement/${CARD_ID}/baseline" \
-         "implement/${CARD_ID}/pre-implementation" 2>/dev/null
+git tag -d "implement/${CARD_ID}/baseline" 2>/dev/null
 ```
 
 ### 4.2 Complete
@@ -368,7 +356,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[summary of implementation, key decisions, validation results, and what the reviewer should focus on]"
+git commit -m "[implementation complete, awaiting review]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Merge occurs after user approval.
@@ -384,7 +372,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented, key decisions, files modified, validation confirmation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[implementation summary]"
+git commit -m "[implementation complete]"  # <card-repo-commit-style>
 ```
 
 ```xml

@@ -29,7 +29,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [appropriate response: closure recommendation, answer to pending question, or backlog acknowledgment]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "[summary of the response: what was addressed, what recommendation was made, and why]"
+git commit -m "[response: what was addressed]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Do not proceed to implementation protocols.
