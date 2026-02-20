@@ -71,44 +71,9 @@ Launch parallel Explore subagents (haiku model) in the workspace repository. Lau
 </invoke>
 ```
 
-### 1.4 Clarify Bug
+### 1.4 Collect Exploration Results
 
-Collect exploration results via TaskOutput.
-
-Evaluate whether the title and description clearly describe the bug. A good bug title describes behavior: *"[Component] fails when [action]"* or *"[Expected] but [actual]"*.
-
-**Clarify title when:**
-- Title is truncated or incomplete
-- Title describes implementation detail rather than observable behavior
-- Title references wrong component, file, or feature
-
-**Clarify description when:**
-- Description contains factual errors (wrong paths, incorrect component names)
-- Error messages or stack traces are missing but available
-
-**Leave unchanged when:** Only minor phrasing or style preferences would change.
-
-**Clarification principles:**
-- Preserve all user-provided details, especially error messages and reproduction steps
-- Maintain user intent — the clarified version must describe the same bug
-- Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
-
-**Enrich descriptions** with context discovered during exploration:
-- Correct file paths and component names
-- Related error messages or stack traces
-- Environment or configuration details (if relevant)
-
-Do not expand scope beyond the reported bug.
-
-If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
-
-```bash
-cd $CARD_REPO_PATH
-git add CARD.meta.json CARD.md
-git commit -m "clarify: [what was corrected]"  # <card-repo-commit-style>
-```
-
-Skip the commit entirely if no clarification is needed.
+Collect exploration results via TaskOutput for every Explore agent launched in Step 1.3. Results from agents not collected via TaskOutput are discarded before proceeding.
 
 ## 2. Create Reproduction Test
 

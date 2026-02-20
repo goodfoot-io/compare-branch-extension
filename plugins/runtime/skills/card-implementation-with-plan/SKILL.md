@@ -6,9 +6,10 @@ description: Implement approved plans.
 
 <placeholder-variables>
 [TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
-[EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 2 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 4.3 on each CONTINUE result)
+[EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 2 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 4.6 on each CONTINUE or required-findings result)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 [PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 2.6 for modification scope check, Step 3.3 for revert scope, and Step 5.3 cleanup annotation)
+[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose (synthesized in Step 4.2 from CARD.md and PLAN.md goals; passed to end-to-end evaluator prompt in Step 4.3)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -384,24 +385,111 @@ git add -A  # checkpoint: stage all workspace files before evaluation
 git commit --allow-empty -m "checkpoint: before evaluation — implementation and refactoring complete for card $CARD_ID"
 ```
 
-### 4.2 Delegate Evaluation
+### 4.2 Synthesize Commander's Intent
+
+Read the card description and plan goals:
+
+```bash
+cd $CARD_REPO_PATH
+cat CARD.md
+head -50 PLAN.md
+```
+
+Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
+- The problem the card exists to solve
+- The outcome the user expects
+- Any implicit requirements beyond the plan's literal tasks
+
+### 4.3 Create Evaluation Team
 
 ```xml
-<invoke name="Task">
-<parameter name="description">Evaluate implementation</parameter>
-<parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
-<parameter name="prompt">Evaluate for production readiness.</parameter>
+<invoke name="TeamCreate">
+<parameter name="team_name">eval-${CARD_ID}</parameter>
+<parameter name="description">${CARD_ID}: quality evaluation</parameter>
 </invoke>
 ```
 
-### 4.3 Process Result
+Spawn both evaluators as teammates:
 
-Based on evaluation result:
-- **PRODUCTION_READY**: Write completion comment, proceed to Step 5
-- **CONTINUE**: Increment [EVALUATION_CYCLE]
+```xml
+<invoke name="Task">
+<parameter name="description">Implementation evaluation</parameter>
+<parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
+<parameter name="team_name">eval-${CARD_ID}</parameter>
+<parameter name="name">impl-evaluator</parameter>
+<parameter name="prompt">
+Evaluate for production readiness.
+
+You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect behavioral correctness via SendMessage.
+</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">End-to-end evaluation</parameter>
+<parameter name="subagent_type">runtime:card:end-to-end-evaluator</parameter>
+<parameter name="team_name">eval-${CARD_ID}</parameter>
+<parameter name="name">e2e-evaluator</parameter>
+<parameter name="prompt">
+Evaluate implementation against commander's intent.
+
+## Commander's Intent
+[COMMANDERS_INTENT]
+
+You are a teammate in an evaluation team. The implementation evaluator ("impl-evaluator") is evaluating code quality alongside you. Share noteworthy findings that affect code quality or structure via SendMessage.
+</parameter>
+</invoke>
+```
+
+### 4.4 Wait for Reports
+
+Wait for both agents to complete their evaluations and deliver reports.
+
+### 4.5 Shut Down Team
+
+Send shutdown requests to both teammates and delete the team:
+
+```xml
+<invoke name="SendMessage">
+<parameter name="type">shutdown_request</parameter>
+<parameter name="recipient">impl-evaluator</parameter>
+<parameter name="content">Evaluation complete.</parameter>
+</invoke>
+<invoke name="SendMessage">
+<parameter name="type">shutdown_request</parameter>
+<parameter name="recipient">e2e-evaluator</parameter>
+<parameter name="content">Evaluation complete.</parameter>
+</invoke>
+```
+
+```xml
+<invoke name="TeamDelete"/>
+```
+
+### 4.6 Process Results
+
+Based on combined evaluation results:
+- **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 5
+- **Implementation evaluator returns CONTINUE**: Increment [EVALUATION_CYCLE]
   - **If cycle >= 2**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
-  - **If cycle < 2**: Create todos with "[Eval fix]" prefix, return to Step 2.2
-- **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
+  - **If cycle < 2**: Create todos with "[Eval fix]" prefix from implementation evaluator's findings, return to Step 2.2
+- **End-to-end evaluator has required findings**: Increment [EVALUATION_CYCLE]
+  - **If cycle >= 2**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
+  - **If cycle < 2**: Create todos with "[Eval fix]" prefix from end-to-end evaluator's required findings, return to Step 2.2
+- **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 5
+- **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
+
+Write recommended findings (if any) as a card comment:
+
+```bash
+cd $CARD_REPO_PATH
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+## Recommended Improvements
+
+[recommended findings from end-to-end evaluator — logged for future work]
+EOF
+git add comment/$COMMENT_ID.md
+git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
+```
 
 ---
 

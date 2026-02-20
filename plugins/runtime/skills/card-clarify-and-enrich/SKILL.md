@@ -1,0 +1,188 @@
+---
+name: clarify-and-enrich
+description: Clarify and enrich cards before implementation.
+---
+
+
+<instructions>
+
+## 1. Check for Existing Clarification
+
+Read the card description and comments in the card repository to understand the requirements and comment history.
+
+Based on comments and prior clarification requests:
+
+- **No existing "## Clarification Needed" comment**: Proceed to Step 2
+
+- **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit and re-route (Step 7).
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [acknowledge the new information and explain how it affects requirements analysis]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "acknowledged: new information received"  # <card-repo-commit-style>
+  ```
+
+- **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** — already waiting for user clarification.
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "still waiting for clarification"  # <card-repo-commit-style>
+  ```
+
+## 2. Explore Workspace
+
+Launch background Explore subagents (haiku model) to gather file paths, component names, and patterns relevant to the card. This provides context needed for enrichment.
+
+```xml
+<invoke name="Task">
+<parameter name="description">explore-[target-a]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="run_in_background">true</parameter>
+<parameter name="prompt">[Distinct exploration task derived from card]</parameter>
+</invoke>
+<invoke name="Task">
+<parameter name="description">explore-[target-b]</parameter>
+<parameter name="subagent_type">Explore</parameter>
+<parameter name="model">haiku</parameter>
+<parameter name="run_in_background">true</parameter>
+<parameter name="prompt">[Distinct exploration task derived from card]</parameter>
+</invoke>
+```
+
+Collect TaskOutput for every background Explore agent. Results from agents not collected via TaskOutput are discarded before proceeding.
+
+## 3. Enrich Card
+
+Evaluate whether the title and description are clear enough and enrich them with context discovered during exploration.
+
+### For implementation cards
+
+A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
+
+**Clarify title when:**
+- Title is truncated, incomplete, or does not start with an action verb
+- Title describes symptom rather than the work (e.g., "Page is slow" -> "Optimize database queries")
+- Title references wrong component, file, or feature
+
+**Clarify description when:**
+- Description contains factual errors (wrong paths, incorrect component names)
+- Description lacks context needed to begin work
+
+**Enrich descriptions** with context discovered during exploration:
+- Relevant file paths and component names
+- Technical constraints or dependencies
+- Acceptance criteria (if inferable from user intent)
+- Brief background on why this change matters
+
+### For bug cards
+
+A good bug title describes behavior: *"[Component] fails when [action]"* or *"[Expected] but [actual]"*.
+
+**Clarify title when:**
+- Title is truncated or incomplete
+- Title describes implementation detail rather than observable behavior
+- Title references wrong component, file, or feature
+
+**Clarify description when:**
+- Description contains factual errors (wrong paths, incorrect component names)
+- Error messages or stack traces are missing but available
+
+**Enrich descriptions** with context discovered during exploration:
+- Correct file paths and component names
+- Related error messages or stack traces
+- Environment or configuration details (if relevant)
+
+### Common principles
+
+**Leave unchanged when:** Only minor phrasing or style preferences would change.
+
+**Clarification principles:**
+- Preserve all user-provided details, requirements, constraints, error messages, and reproduction steps
+- Maintain user intent — the clarified version must request the same outcome or describe the same bug
+- Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
+
+Do not expand scope beyond user intent.
+
+If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
+
+```bash
+cd $CARD_REPO_PATH
+git add CARD.meta.json CARD.md
+git commit -m "clarify: [what was corrected]"  # <card-repo-commit-style>
+```
+
+Skip the commit entirely if no enrichment or clarification is needed.
+
+## 4. Check Definition of Ready
+
+Mark as MISSING if not present or inferable from the card description, comments, and exploration results:
+
+- **Problem statement**: What problem this solves
+- **Acceptance criteria**: Testable completion conditions
+- **Dependencies**: Blockers or prerequisites
+- **Technical feasibility**: Enough detail to determine approach
+- **Unanswered questions**: All comment questions answered
+
+If all requirements are met (DOR satisfied) after enrichment, proceed to re-route (Step 7).
+
+If gaps remain, proceed to Step 5.
+
+## 5. Research Context
+
+Search the workspace codebase for keywords from the card description:
+1. Look for similar implementations
+2. Check tests for expected behavior
+3. Identify relevant file paths for code references
+
+Based on research results:
+- **If research resolves all gaps**: Write findings as a comment to the card repository, commit, and re-route (Step 7).
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "research resolved requirement gaps"  # <card-repo-commit-style>
+  ```
+
+- **If gaps remain**: Note findings for the clarification request, proceed to Step 6
+
+## 6. Request Clarification
+
+Write a comment to the card repository presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant workspace code where applicable.
+
+```bash
+cd $CARD_REPO_PATH
+export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+[specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
+EOF
+git add comment/$COMMENT_ID.md
+git commit -m "clarification needed: [which requirements are missing]"  # <card-repo-commit-style>
+```
+
+**STOP** — awaiting user response.
+
+## 7. Re-route
+
+Re-invoke the routing skill to determine next steps based on the card's current state.
+
+```xml
+<invoke name="Skill">
+<parameter name="skill">runtime:card-routing</parameter>
+</invoke>
+```
+
+</instructions>

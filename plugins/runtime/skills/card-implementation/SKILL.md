@@ -15,10 +15,10 @@ The orchestrator prepares, plans, and coordinates — it does NOT implement code
 
 | Orchestrator handles directly | Implementer handles via delegation |
 |-------------------------------|-----------------------------------|
-| Card clarification | Feature implementation |
-| Codebase exploration | Code changes |
-| Task derivation | Test writing |
-| Result processing | Validation execution |
+| Codebase exploration | Feature implementation |
+| Task derivation | Code changes |
+| Result processing | Test writing |
+|                               | Validation execution |
 |                               | Bug fixes |
 
 Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation work.
@@ -70,43 +70,7 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
    </invoke>
    ```
 
-### 1.3 Clarify Card
-
-   Evaluate whether the title and description are clear enough to begin work. A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
-
-   **Clarify title when:**
-   - Title is truncated, incomplete, or does not start with an action verb
-   - Title describes symptom rather than the work (e.g., "Page is slow" -> "Optimize database queries")
-   - Title references wrong component, file, or feature
-
-   **Clarify description when:**
-   - Description contains factual errors (wrong paths, incorrect component names)
-   - Description lacks context needed to begin work
-
-   **Leave unchanged when:** Only minor phrasing or style preferences would change.
-
-   **Clarification principles:**
-   - Preserve all user-provided details, requirements, and constraints
-   - Maintain user intent — the clarified version must request the same outcome
-   - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
-
-   **Enrich descriptions** with context discovered during exploration:
-   - Relevant file paths and component names
-   - Technical constraints or dependencies
-   - Acceptance criteria (if inferable from user intent)
-   - Brief background on why this change matters
-
-   Do not expand scope beyond user intent.
-
-   If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
-
-   ```bash
-   cd $CARD_REPO_PATH
-   git add CARD.meta.json CARD.md
-   git commit -m "clarify: [what was corrected]"  # <card-repo-commit-style>
-   ```
-
-   Skip the commit entirely if no clarification is needed.
+### 1.3 Collect Exploration Results
 
    Collect TaskOutput for every background Explore agent launched in Step 1.2. Results from agents not collected via TaskOutput are discarded before proceeding to Section 2.
 
@@ -114,7 +78,7 @@ Launch background Explore subagents (haiku model). Launch multiple subagents wit
 
 ## 2. Derive Tasks
 
-Collect background exploration results by retrieving TaskOutput for each Explore agent launched in Step 1.2. Launch additional Explore subagents if new information reveals unexplored areas.
+Launch additional Explore subagents if new information reveals unexplored areas.
 
 If changes were stashed in Step 1.1, restore them now.
 

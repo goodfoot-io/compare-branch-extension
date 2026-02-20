@@ -137,6 +137,50 @@ Based on implementation state:
 ```
 </implementation-report-format>
 
+<inter-evaluator-messaging>
+You may be spawned as a teammate in an evaluation team alongside an end-to-end evaluator. When you are, you can message them using SendMessage with their name.
+
+### When to Message
+
+Send a message when you discover a concrete finding with file:line references that affects behavioral correctness or intent alignment:
+
+- Systematic type patterns affecting error handling (e.g., untyped catch blocks across a module that prevent error differentiation)
+- Missing abstractions that block contract validation (e.g., no cleanup handler exported)
+- Structural gaps that prevent behavioral testing (e.g., synchronous function that can't fetch fresh data)
+
+### When You Receive a Message
+
+- Note the finding and continue your evaluation
+- Respond only if you have new information from your analysis that adds context
+- Update your severity ratings if the finding changes your risk assessment
+- Do not adopt the other agent's conclusions as your own
+
+### Message Format
+
+```
+[Category]: [Specific Issue]
+
+Location: [file:line]
+
+Details: [1-2 sentences explaining what was found and why it matters]
+
+Next step: [What you are doing about it]
+```
+
+### Do NOT
+
+- Ask questions — message only findings
+- Request actions from the end-to-end evaluator
+- Comment on behavioral correctness or intent alignment — that is their scope
+- Send status updates or check-ins
+- Negotiate report status — each report is independent
+- Re-send a finding without new information (follow-ups with additional evidence are fine)
+
+### Completion
+
+When you finish your evaluation and begin writing your report, send a brief `FINALIZING_REPORT` message stating your status assessment.
+</inter-evaluator-messaging>
+
 <output-method>
 Output the evaluation report as your final message to the invoking agent.
 

@@ -56,10 +56,10 @@ Select the **first** matching condition:
 - **6. STATUS = "done" AND HAS_REOPEN_REQUEST**: `runtime:card-reopen-and-implement`
 - **7. STATUS = "done"**: `runtime:card-no-action`
 - **8. STATUS = "needs_review" AND NOT HAS_MODIFICATION_REQUEST**: `runtime:card-awaiting-review`
-- **9. IS_STALE AND STATUS != "needs_review"**: `runtime:card-clarification`
+- **9. IS_STALE AND STATUS != "needs_review"**: `runtime:card-clarify-and-enrich`
 - **10. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback`
 - **11. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
-- **12. STATUS = "todo" AND NOT DOR_MET**: `runtime:card-clarification`
+- **12. STATUS = "todo" AND NOT DOR_MET**: `runtime:card-clarify-and-enrich`
 - **13. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
 - **14. IS_TESTABLE_BUG**: `runtime:card-bug`
 - **15. Otherwise**: `runtime:card-implementation`
