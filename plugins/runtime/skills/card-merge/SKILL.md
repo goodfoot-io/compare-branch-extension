@@ -4,17 +4,12 @@ description: Merge implementation branch to base branch.
 ---
 
 
-<placeholder-variables>
-[CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
-</placeholder-variables>
-
 <instructions>
 
 ## 1. Check for Changes
 
 ```bash
-BRANCH_BASE=$(git merge-base HEAD $BASE_BRANCH)
-COMMIT_COUNT=$(git rev-list --count "$BRANCH_BASE"..HEAD)
+COMMIT_COUNT=$(git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH)
 ```
 
 Based on commit count:
@@ -27,7 +22,7 @@ Squash all commits since the branch diverged:
 
 ```bash
 if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft "$BRANCH_BASE"
+  git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
   git commit -m "[comprehensive summary of all changes: what was built, key design decisions, and card reference]"
 fi
 ```
@@ -71,7 +66,7 @@ git status --porcelain
 ```
 
 Based on workspace state:
-- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: [CARD_ID]"`
+- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: !`echo $CARD_ID`"`
 - **No uncommitted changes**: Continue
 
 ```bash

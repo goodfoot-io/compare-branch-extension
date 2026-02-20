@@ -5,7 +5,6 @@ description: Fix testable bugs using test-first methodology.
 
 
 <placeholder-variables>
-[TITLE] — Card title for commit messages
 [BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 2)
 [SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 2)
 [BASELINE_SHA] — Commit SHA at the start of the session (`git rev-parse HEAD`)
@@ -391,7 +390,7 @@ Based on review requirement:
 
   ```xml
   <invoke name="Task">
-  <parameter name="description">Merge [TITLE]</parameter>
+  <parameter name="description">Merge</parameter>
   <parameter name="subagent_type">runtime:card:merge</parameter>
   <parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
   </invoke>

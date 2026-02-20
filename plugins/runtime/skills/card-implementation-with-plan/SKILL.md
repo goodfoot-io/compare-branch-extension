@@ -6,7 +6,6 @@ description: Implement approved plans.
 
 <placeholder-variables>
 [CARD_ID] — The card's unique identifier from `id` field in CARD.meta.json
-[TITLE] — The card title from CARD.meta.json
 [TASK_DESCRIPTION] — Human-readable description of the current task phase
 [EVALUATION_CYCLE] — Counter tracking evaluation iterations (max 2)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
@@ -325,7 +324,7 @@ Launch the merge agent:
 
 ```xml
 <invoke name="Task">
-<parameter name="description">Merge [TITLE]</parameter>
+<parameter name="description">Merge</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
 <parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
 </invoke>

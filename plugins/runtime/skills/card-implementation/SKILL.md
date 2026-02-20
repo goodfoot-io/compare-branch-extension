@@ -302,7 +302,7 @@ Write a completion comment to the card repository. Commit to the card repository
 
 ```xml
 <invoke name="Task">
-<parameter name="description">Merge [TITLE]</parameter>
+<parameter name="description">Merge</parameter>
 <parameter name="subagent_type">runtime:card:merge</parameter>
 <parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
 </invoke>

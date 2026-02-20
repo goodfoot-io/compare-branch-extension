@@ -18,7 +18,7 @@ Create implementation plans for cards requiring user approval before coding begi
 
 ### 1.2 Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
+Write the plan to `PLAN.md` in the card repository following the `<annotated-plan-example>` from the `runtime:plan` skill. Commit to the card repository:
 
 ```bash
 git add PLAN.md
