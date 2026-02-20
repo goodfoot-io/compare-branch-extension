@@ -57,9 +57,6 @@ UUID portion: standard UUID4 (36 chars with hyphens)
 Filename:     word characters, dots, hyphens (no spaces)
 ```
 
-Attachment references in CARD.md are scanned in both !`[...](att-...)` and
-`[...](att-...)` syntax, with or without the `attachment/` prefix.
-
 ## Comment Filename Pattern
 
 ```
