@@ -160,7 +160,7 @@ Based on subagent response and test result:
 
 - **Test FAILS (expected)**:
   - Commit the test: `git add "$TEST_FILE_PATH" && git commit -m "[reproduction test: what it checks]"`  <!-- <workspace-commit-style> -->
-  - Tag: `git tag -f "bug/${CARD_ID}/reproduction" HEAD`
+  - Tag: `git tag -f "bug/`! echo $CARD_ID`/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
   - Proceed to Step 3
@@ -290,10 +290,10 @@ Based on changes detected:
 1. Increment TEST_CORRECTION_COUNT
 2. **If > 2**: Write a comment to the card repository reporting that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it cannot be trusted to verify the fix. Commit to the card repository.
    **STOP** — Test became unreliable.
-3. Revert source changes: `git checkout "bug/${CARD_ID}/reproduction" -- $SOURCE_CHANGES`
+3. Revert source changes: `git checkout "bug/`! echo $CARD_ID`/reproduction" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
-   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/${CARD_ID}/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
+   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/`! echo $CARD_ID`/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
    - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP** — Test correction failed.
 
 ## 4. Validate Full Suite

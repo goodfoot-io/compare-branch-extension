@@ -5,9 +5,8 @@ description: Implement cards.
 
 
 <placeholder-variables>
-[TITLE] — The card title from CARD.meta.json
 [TASK_COUNT] — Number of implementation tasks derived from the card (set in Step 2.2 after writing todos with TodoWrite; count equals the number of todos created)
-[MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
+[MODEL] — Claude model selection for subagent delegation (opus, sonnet, or haiku)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -160,7 +159,7 @@ Choose the [MODEL] based on the tasks:
 
 ```xml
 <invoke name="Task">
-<parameter name="description">Implement [TITLE]</parameter>
+<parameter name="description">Implement Card</parameter>
 <parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">

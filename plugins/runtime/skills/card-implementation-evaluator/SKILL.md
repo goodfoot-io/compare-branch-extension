@@ -29,7 +29,7 @@ Implementation must meet ALL criteria:
 2. **Type checking passes** - TypeScript compilation succeeds without errors or warnings
 3. **Linting passes** - No linting issues
 4. **Behavioral tests exist** - Critical functionality validated through TDD tests
-5. **Handles edge cases** - Error conditions and boundaries properly managed
+5. **Handles edge cases** - Error conditions, boundary inputs, and failure modes have explicit code paths — not just happy-path coverage. Verify by checking that functions receiving external input validate or guard against invalid, empty, and out-of-range values.
 6. **Public APIs documented** - Exported functions and modules have documentation that explains usage and contracts. Internal code should be self-explanatory; comments restating what code already says ("Gets the user" above `getUser()`) do not satisfy this requirement.
 7. **Tests exit cleanly** - Tests complete and process exits properly (no open handles)
 8. **No resource leaks** - All async operations, timers, and connections properly closed
@@ -49,14 +49,18 @@ Implementation must meet ALL criteria:
 Work cannot proceed due to constraints outside of your control (disk full, missing infrastructure, permission errors, network failures) that require external intervention.
 </status-definitions>
 
+<scope-rules>
+**Scope vs. end-to-end evaluator**: You own "is the code correct at this location?" The end-to-end evaluator owns "is this location connected to the rest of the system?" When the same issue is visible from both angles (e.g., a swallowed error is both a code quality problem and a wiring gap), both agents report it from their own perspective. The orchestrator deduplicates.
+
+**Native type target**: The >80% native type target in `<evaluation-approach>` is a quality signal, not a production-ready gate. Report the percentage in the Type-Driven Design Assessment section. Flag low native type usage as a recommended improvement, not a blocking issue — unless the implementation uses `any` types in public API contracts, which is a blocking type safety issue.
+</scope-rules>
+
 <evaluation-approach>
 **Type-Driven Practice Evaluation**: Type Contract Clarity, Native Type Usage (>80% target), Test Completeness, Type Safety, Design Flexibility, Domain Alignment
 
 **Type Safety Assessment**: Monitor for 'any' types, excessive custom types when natives exist, missing type exports, weak type contracts, untyped test utilities
 
 **Learning Opportunity Identification**: Document excellence in native type usage, provide specific guidance on type discovery, flag opportunities for better type reuse
-
-**Business Risk Assessment**: Risk stratification by business impact, deployment risk assessment (security vulnerabilities, performance degradation, integration failures, data safety, rollback capability, monitoring readiness), mitigation strategy development
 
 **Status Decision Logic**:
 
@@ -90,7 +94,7 @@ Based on implementation state:
 - Linting: [PASS/FAIL] ([X] errors)
 - Tests: [PASS/FAIL] ([X]/[Y] passing)
 - Type Check: [PASS/FAIL] ([X] errors)
-- Tests: [COMPLETE/INCOMPLETE] (TDD implementation)
+- Behavioral Coverage: [COMPLETE/INCOMPLETE] (TDD implementation)
 - Integration: [PASS/FAIL]
 
 ### Type-Driven Design Assessment
@@ -138,7 +142,7 @@ Based on implementation state:
 </implementation-report-format>
 
 <inter-evaluator-messaging>
-You may be spawned as a teammate in an evaluation team alongside an end-to-end evaluator. When you are, you can message them using SendMessage with their name.
+You may be spawned as a teammate in an evaluation team alongside an end-to-end evaluator. When you are, you can message them using the `SendMessage` tool with their name.
 
 ### When to Message
 
@@ -182,7 +186,7 @@ When you finish your evaluation and begin writing your report, send a brief `FIN
 </inter-evaluator-messaging>
 
 <output-method>
-Output the evaluation report as your final message to the invoking agent.
+Send the evaluation report to the team lead using the `SendMessage` tool. Plain text output is not visible to teammates or the team lead — you must use the `SendMessage` tool explicitly.
 
 Do not post to card comments directly — the orchestrator controls logging format and timing.
 
@@ -205,7 +209,7 @@ If PLAN.md exists, parse for the "Validation Commands" section and extract ALL c
 Execute from the correct working directory with proper environment setup:
 - Run EVERY command from the Validation Commands section
 - Use `--detectOpenHandles` flag when debugging test exit issues
-- For monorepos: change to the specific package directory before running quality checks. Derive the package path from the `cd packages/<name> &&` prefixes in the Validation Commands section of PLAN.md. If no such prefix exists, derive the path from the package name in the plan's Framework & Technology Stack section, forming `packages/<name>`.
+- **For monorepos**: Change to the specific package directory before running quality checks. Derive the package path from the `cd packages/<name> &&` prefixes in the Validation Commands section of PLAN.md. If no such prefix exists, derive the path from the affected files in the plan — the first path segment under `packages/` is the package directory.
 - Verify package.json contains required scripts and dependencies
 
 Based on Bash tool timeout behavior:
@@ -221,6 +225,6 @@ Apply the following reference sections in sequence:
 4. **Status determination** — apply the status decision logic from `<evaluation-approach>` to select PRODUCTION_READY, CONTINUE, or BLOCKED
 
 ### 3. Generate Report
-Create evaluation report using the implementation-report-format template. Output the report as your final message.
+Create evaluation report using the implementation-report-format template. Send the report to the team lead using the `SendMessage` tool.
 
 </instructions>

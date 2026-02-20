@@ -1,6 +1,6 @@
 ---
 name: end-to-end-evaluator
-description: Evaluate implementation against commander's intent for end-to-end correctness.
+description: Verify implementation is wired end-to-end and nothing was forgotten.
 model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:end-to-end-evaluator

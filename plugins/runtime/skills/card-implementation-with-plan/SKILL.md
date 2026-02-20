@@ -142,7 +142,7 @@ Agent prompt template — prompts must be self-contained. Agents have no convers
 [Description with testing requirements from plan]
 
 ## Plan
-@[CARD_REPO_PATH]/PLAN.md
+@`! echo $CARD_REPO_PATH`/PLAN.md
 
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
@@ -363,11 +363,11 @@ git add -A  # stage all refactoring changes
 git commit -m "refactor: [what was refactored and why]"  # <workspace-commit-style>
 ```
 
-  1. Run `git diff "implement/${CARD_ID}/pre-refactor" HEAD --stat` to capture changes
+  1. Run `git diff "implement/`! echo $CARD_ID`/pre-refactor" HEAD --stat` to capture changes
   2. If diff is empty: Write brief comment "No refactoring changes were made — code already met quality standards"
   3. If diff has content: Run post-refactor validation (typecheck, test, lint)
      - **Passes**: Write a comment with a paragraph summarizing what was refactored and why, followed by the diff stat. Proceed to Step 4
-     - **Fails**: Revert plan-owned files to pre-refactor state: `git checkout "implement/${CARD_ID}/pre-refactor" -- [PLAN_FILES]`. Write comment noting refactoring was reverted. Proceed to Step 4
+     - **Fails**: Revert plan-owned files to pre-refactor state: `git checkout "implement/`! echo $CARD_ID`/pre-refactor" -- [PLAN_FILES]`. Write comment noting refactoring was reverted. Proceed to Step 4
 - **HAS_RECOMMENDATIONS**: Log recommendations, proceed to Step 4
 - **BLOCKED**: Document reasons, proceed to Step 4
 
@@ -404,8 +404,8 @@ Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 
 ```xml
 <invoke name="TeamCreate">
-<parameter name="team_name">eval-${CARD_ID}</parameter>
-<parameter name="description">${CARD_ID}: quality evaluation</parameter>
+<parameter name="team_name">eval-`! echo $CARD_ID`</parameter>
+<parameter name="description">`! echo $CARD_ID`: quality evaluation</parameter>
 </invoke>
 ```
 
@@ -415,7 +415,7 @@ Spawn both evaluators as teammates:
 <invoke name="Task">
 <parameter name="description">Implementation evaluation</parameter>
 <parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
-<parameter name="team_name">eval-${CARD_ID}</parameter>
+<parameter name="team_name">eval-`! echo $CARD_ID`</parameter>
 <parameter name="name">impl-evaluator</parameter>
 <parameter name="prompt">
 Evaluate for production readiness.
@@ -426,7 +426,7 @@ You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluat
 <invoke name="Task">
 <parameter name="description">End-to-end evaluation</parameter>
 <parameter name="subagent_type">runtime:card:end-to-end-evaluator</parameter>
-<parameter name="team_name">eval-${CARD_ID}</parameter>
+<parameter name="team_name">eval-`! echo $CARD_ID`</parameter>
 <parameter name="name">e2e-evaluator</parameter>
 <parameter name="prompt">
 Evaluate implementation against commander's intent.
@@ -567,9 +567,9 @@ The following checkpoints are created during execution for rollback:
 
 | Tag | Created At | Purpose |
 |-----|------------|---------|
-| `implement/${CARD_ID}/baseline` | Step 1 | Original state before any changes |
-| `implement/${CARD_ID}/post-implementation` | Step 2.6 | After implementation, before validation |
-| `implement/${CARD_ID}/pre-refactor` | Step 3.1 | After validation passes, before refactoring |
+| `implement/`! echo $CARD_ID`/baseline` | Step 1 | Original state before any changes |
+| `implement/`! echo $CARD_ID`/post-implementation` | Step 2.6 | After implementation, before validation |
+| `implement/`! echo $CARD_ID`/pre-refactor` | Step 3.1 | After validation passes, before refactoring |
 
 Reverts are scoped to [PLAN_FILES] only — files outside the plan's scope are never modified or discarded without user direction.
 
