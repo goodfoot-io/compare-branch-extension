@@ -1,0 +1,108 @@
+# @cards/test-utils
+
+Shared test utilities for Issues V2 packages.
+
+## Overview
+
+This package provides consolidated test infrastructure:
+
+- `TestIssueRepository` - Real Git repositories with issue layout for integration testing
+- `TestWebSocketServer` - Real WebSocket server for testing event subscriptions
+- `TestIpcServer` - Real Unix socket server for IPC testing
+- Fixture factories for domain entities
+
+## Usage Guidelines
+
+### TestIssueRepository
+
+Creates real Git repositories with proper card layout (CARD.md, comment/, attachment/).
+
+```typescript
+const repo = new TestIssueRepository();
+const reposPath = await repo.create();
+const issueId = await repo.createIssue({ title: 'Test Issue' });
+// ... test code ...
+repo.destroy(); // Always clean up
+```
+
+### TestWebSocketServer
+
+Creates a real WebSocket server on a random port.
+
+```typescript
+const server = new TestWebSocketServer();
+const port = await server.start();
+// Connect clients to ws://localhost:${port}
+await server.broadcast({ type: 'test', data: {} });
+await server.stop();
+```
+
+### TestIpcServer
+
+Creates a real Unix socket server for IPC testing.
+
+```typescript
+const server = new TestIpcServer();
+const socketPath = await server.start();
+// Connect IPC client to socketPath
+const message = await server.awaitMessage();
+await server.stop();
+```
+
+### TestStreamTransformHarness
+
+Test harness for stream transform execution. Wraps `StreamTransformWorkerPool` with a simplified API for testing transforms in isolated vm + worker_thread environments.
+
+```typescript
+const harness = new TestStreamTransformHarness();
+await harness.start(`
+  export function init(ctx) {
+    ctx.state.set('prefix', '[INIT]');
+  }
+
+  export default function transform(line, ctx) {
+    const prefix = ctx.state.get('prefix');
+    return \`\${prefix} \${line}\`;
+  }
+`);
+
+// Transform lines (lineNumber auto-increments)
+const { result, error } = await harness.transform('test line');
+expect(result).toBe('[INIT] test line');
+
+// Capture console logs from transform execution
+const logs = harness.getLogs();
+
+// Check if harness is running
+if (harness.isStarted) {
+  await harness.stop();
+}
+```
+
+**Key features:**
+- Accepts inline transform code (no file I/O required)
+- Automatic worker lifecycle management
+- Console log capture via `getLogs()` / `clearLogs()`
+- Auto-incrementing line numbers
+- Fail-open semantics: errors return `{ result: originalLine, error: 'message' }`
+- UUID-based stream isolation per harness instance
+
+**Context factory helper:**
+```typescript
+import { createStreamInitContext } from '@cards/test-utils';
+
+// Create context with defaults
+const ctx = createStreamInitContext();
+
+// Or with partial overrides
+const ctx = createStreamInitContext({
+  streamType: 'custom-stream',
+  card: { id: 'my-card', metadata: { key: 'value' } }
+});
+```
+
+## Test Guidelines
+
+- Always use `afterEach` or `afterAll` to clean up test resources
+- Use `os.tmpdir()` paths for cross-platform compatibility
+- Prefer real implementations over mocks for accurate behavior verification

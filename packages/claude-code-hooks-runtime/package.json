@@ -8,7 +8,7 @@
     "build:card": "esbuild src/bin/card.ts --bundle --platform=node --format=esm --outfile=../../plugins/runtime/bin/card.mjs --packages=external",
     "build:watcher": "esbuild src/bin/transcript-watcher.ts --bundle --platform=node --format=esm --outfile=../../plugins/runtime/bin/transcript-watcher.mjs '--external:node:*'",
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
-    "test": "vitest run --changed",
+    "test": "vitest-unchanged",
     "lint": "biome check . && jsdoczoom -l",
     "typecheck": "tsc --noEmit"
   },

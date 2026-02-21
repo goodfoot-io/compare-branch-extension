@@ -30,7 +30,7 @@
     "typecheck": "tsc --noEmit",
     "build": "esbuild src/config/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external --banner:js='#!/usr/bin/env node'",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l",
-    "test": "vitest run --changed"
+    "test": "vitest-unchanged"
   },
   "dependencies": {
     "esbuild": "^0.25.0",
@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
+    "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
     "vitest": "^4.0.18"
   }
