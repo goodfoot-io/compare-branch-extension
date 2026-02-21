@@ -25,6 +25,12 @@ Enforce strict test-first verification:
 3. Test MUST pass after fix
 </test-first-invariant>
 
+<scope-rules>
+**Evaluation and refactoring**: The bug workflow omits the evaluation and refactoring phases present in card-implementation-with-plan. Bug fixes are scoped to the minimal change that makes the reproduction test pass, then validated by the full test suite. The test-first methodology (reproduction test must fail before fix, must pass after) provides the quality gate that evaluation serves in the implementation workflow.
+
+**Non-deterministic bugs**: If [TEST_FAILURE_OUTPUT] lacks file:line location information (e.g., timeout, race condition), data flow tracing in Step 3.1 may not be possible. In that case, document what is known about the failure mode and pass the available context to the resolver. The data flow path becomes a hypothesis rather than a trace.
+</scope-rules>
+
 <instructions>
 
 ## 1. Explore Workspace based on Card Content
@@ -160,7 +166,7 @@ Based on subagent response and test result:
 
 - **Test FAILS (expected)**:
   - Commit the test: `git add "$TEST_FILE_PATH" && git commit -m "[reproduction test: what it checks]"`  <!-- <workspace-commit-style> -->
-  - Tag: `git tag -f "bug/`! echo $CARD_ID`/reproduction" HEAD`
+  - Tag: `git tag -f "bug/!` echo $CARD_ID`/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
   - Proceed to Step 3
@@ -184,7 +190,7 @@ Based on subagent response and test result:
 
 ## 3. Resolve Bug
 
-Initialize: RESOLVE_ATTEMPT = 0 (max 3), TEST_CORRECTION_COUNT = 0 (max 2)
+Initialize: RESOLVE_ATTEMPT = 0 (max 3), TEST_CORRECTION_COUNT = 0 (max 1)
 
 ### 3.1 Trace Data Flow
 
@@ -193,6 +199,8 @@ Before proposing a fix, map how bad data flows from origin to symptom:
 1. **Find [DATA_FLOW_SYMPTOM]** — Where in code does the bug manifest? (from [TEST_FAILURE_OUTPUT])
 2. **Find [DATA_FLOW_SOURCE]** — Trace backward: what data/state causes it? Where is that set?
 3. **Map [DATA_FLOW_PATH]** — Document the chain: `[DATA_FLOW_SOURCE] -> [...] -> [DATA_FLOW_SYMPTOM]`
+
+Record these three values — they are passed to the resolver subagent in Step 3.2.
 
 **Verification rule:** Any fix must modify [DATA_FLOW_PATH] such that correct data flows from source to symptom.
 
@@ -290,10 +298,10 @@ Based on changes detected:
 1. Increment TEST_CORRECTION_COUNT
 2. **If > 2**: Write a comment to the card repository reporting that the reproduction test became unreliable during the fix process. Describe what went wrong with the test behavior and why it cannot be trusted to verify the fix. Commit to the card repository.
    **STOP** — Test became unreliable.
-3. Revert source changes: `git checkout "bug/`! echo $CARD_ID`/reproduction" -- $SOURCE_CHANGES`
+3. Revert source changes: `git checkout "bug/!` echo $CARD_ID`/reproduction" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
-   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/`! echo $CARD_ID`/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
+   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/!` echo $CARD_ID`/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0 (max 1 test correction reset), return to Step 3.2
    - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP** — Test correction failed.
 
 ## 4. Validate Full Suite

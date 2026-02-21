@@ -49,7 +49,7 @@ cd $WORKSPACE_PATH
 git tag -f "implement/${CARD_ID}/baseline" HEAD
 ```
 
-Restore stash after todo initialization in Step 2.
+Restore stash after todo initialization in Step 2.1 — pop unconditionally (the stash may be empty).
 
 ---
 
@@ -70,7 +70,7 @@ Create todos from the plan content using TodoWrite. Initialize `[EVALUATION_CYCL
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from task file assignments).
 
-If resuming: `git stash pop` to restore prior work.
+Restore any stashed changes: `git stash pop || true` (succeeds silently if stash is empty).
 
 ### 2.2 Task Checkpoint
 
@@ -142,7 +142,7 @@ Agent prompt template — prompts must be self-contained. Agents have no convers
 [Description with testing requirements from plan]
 
 ## Plan
-@`! echo $CARD_REPO_PATH`/PLAN.md
+@!` echo $CARD_REPO_PATH`/PLAN.md
 
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
@@ -363,11 +363,11 @@ git add -A  # stage all refactoring changes
 git commit -m "refactor: [what was refactored and why]"  # <workspace-commit-style>
 ```
 
-  1. Run `git diff "implement/`! echo $CARD_ID`/pre-refactor" HEAD --stat` to capture changes
+  1. Run `git diff "implement/!` echo $CARD_ID`/pre-refactor" HEAD --stat` to capture changes
   2. If diff is empty: Write brief comment "No refactoring changes were made — code already met quality standards"
   3. If diff has content: Run post-refactor validation (typecheck, test, lint)
      - **Passes**: Write a comment with a paragraph summarizing what was refactored and why, followed by the diff stat. Proceed to Step 4
-     - **Fails**: Revert plan-owned files to pre-refactor state: `git checkout "implement/`! echo $CARD_ID`/pre-refactor" -- [PLAN_FILES]`. Write comment noting refactoring was reverted. Proceed to Step 4
+     - **Fails**: Revert plan-owned files to pre-refactor state: `git checkout "implement/!` echo $CARD_ID`/pre-refactor" -- [PLAN_FILES]`. Write comment noting refactoring was reverted. Proceed to Step 4
 - **HAS_RECOMMENDATIONS**: Log recommendations, proceed to Step 4
 - **BLOCKED**: Document reasons, proceed to Step 4
 
@@ -404,8 +404,8 @@ Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 
 ```xml
 <invoke name="TeamCreate">
-<parameter name="team_name">eval-`! echo $CARD_ID`</parameter>
-<parameter name="description">`! echo $CARD_ID`: quality evaluation</parameter>
+<parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
+<parameter name="description">!` echo $CARD_ID`: quality evaluation</parameter>
 </invoke>
 ```
 
@@ -415,10 +415,16 @@ Spawn both evaluators as teammates:
 <invoke name="Task">
 <parameter name="description">Implementation evaluation</parameter>
 <parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
-<parameter name="team_name">eval-`! echo $CARD_ID`</parameter>
+<parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
 <parameter name="name">impl-evaluator</parameter>
 <parameter name="prompt">
 Evaluate for production readiness.
+
+## Baseline
+Changes are relative to git tag: `implement/${CARD_ID}/baseline`
+
+## Modified Files
+[PLAN_FILES]
 
 You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect behavioral correctness via SendMessage.
 </parameter>
@@ -426,13 +432,19 @@ You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluat
 <invoke name="Task">
 <parameter name="description">End-to-end evaluation</parameter>
 <parameter name="subagent_type">runtime:card:end-to-end-evaluator</parameter>
-<parameter name="team_name">eval-`! echo $CARD_ID`</parameter>
+<parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
 <parameter name="name">e2e-evaluator</parameter>
 <parameter name="prompt">
 Evaluate implementation against commander's intent.
 
 ## Commander's Intent
 [COMMANDERS_INTENT]
+
+## Baseline
+Changes are relative to git tag: `implement/${CARD_ID}/baseline`
+
+## Modified Files
+[PLAN_FILES]
 
 You are a teammate in an evaluation team. The implementation evaluator ("impl-evaluator") is evaluating code quality alongside you. Share noteworthy findings that affect code quality or structure via SendMessage.
 </parameter>
@@ -466,16 +478,13 @@ Send shutdown requests to both teammates and delete the team:
 
 ### 4.6 Process Results
 
-Based on combined evaluation results:
-- **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 5
-- **Implementation evaluator returns CONTINUE**: Increment [EVALUATION_CYCLE]
-  - **If cycle >= 2**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
-  - **If cycle < 2**: Create todos with "[Eval fix]" prefix from implementation evaluator's findings, return to Step 2.2
-- **End-to-end evaluator has required findings**: Increment [EVALUATION_CYCLE]
-  - **If cycle >= 2**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
-  - **If cycle < 2**: Create todos with "[Eval fix]" prefix from end-to-end evaluator's required findings, return to Step 2.2
-- **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 5
-- **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
+Apply the first matching condition:
+1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
+2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Increment [EVALUATION_CYCLE] once (not per-evaluator)
+   - **If cycle >= 2**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
+   - **If cycle < 2**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2
+3. **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 5
+4. **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 5
 
 Write recommended findings (if any) as a card comment:
 
@@ -497,7 +506,7 @@ git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
 
 ### 5.1 Craft Final Commit Message
 
-Synthesize Decision Narratives from all subagent reports into a final commit message per `<workspace-commit-style>`.
+Synthesize the final commit message from implementer and refactorer Decision Narratives, plus key findings from evaluator reports, per `<workspace-commit-style>`.
 
 ```bash
 cd $WORKSPACE_PATH
@@ -567,9 +576,9 @@ The following checkpoints are created during execution for rollback:
 
 | Tag | Created At | Purpose |
 |-----|------------|---------|
-| `implement/`! echo $CARD_ID`/baseline` | Step 1 | Original state before any changes |
-| `implement/`! echo $CARD_ID`/post-implementation` | Step 2.6 | After implementation, before validation |
-| `implement/`! echo $CARD_ID`/pre-refactor` | Step 3.1 | After validation passes, before refactoring |
+| `implement/!` echo $CARD_ID`/baseline` | Step 1 | Original state before any changes |
+| `implement/!` echo $CARD_ID`/post-implementation` | Step 2.6 | After implementation, before validation |
+| `implement/!` echo $CARD_ID`/pre-refactor` | Step 3.1 | After validation passes, before refactoring |
 
 Reverts are scoped to [PLAN_FILES] only — files outside the plan's scope are never modified or discarded without user direction.
 

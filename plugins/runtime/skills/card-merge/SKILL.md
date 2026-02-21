@@ -117,7 +117,7 @@ git status --porcelain
 ```
 
 Based on workspace state:
-- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: `! echo $CARD_ID`"`
+- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: !` echo $CARD_ID`"`
 
 ```bash
 cd $WORKSPACE_PATH

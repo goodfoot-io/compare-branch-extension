@@ -63,7 +63,8 @@ Background processes need teardown registration:
 - Rate-limited APIs: Use test endpoints or implement retry logic
 
 ### Environment Polyfills (Allowed)
-- Infrastructure necessities (polyfills, event waiting) are acceptable
+- Infrastructure necessities (polyfills, event waiting) are acceptable — these provide platform capabilities (e.g., `TextEncoder`, `structuredClone`, timer APIs) that the runtime would normally supply
+- Polyfills that return controlled business data (e.g., a `fetch` replacement returning test responses) are mocks, not polyfills — they are FORBIDDEN
 - Business logic mocks remain FORBIDDEN
 </testing-approach>
 
@@ -78,7 +79,7 @@ You must fix ALL errors in the project:
 4. Your implementation must pass static analysis
 5. The entire project must be error-free when you complete
 
-No excuses — iterate internally until zero errors across all packages.
+Iterate internally until zero errors across all packages. If zero errors are not achievable within the 5-attempt limit (Phase 3), report NEEDS_REVISION with specific blockers.
 
 ### Fix Priority Order
 1. **Pre-existing errors** (fix these FIRST before implementing new features)
@@ -102,6 +103,14 @@ Report BLOCKED when work cannot proceed due to constraints outside your control 
 - Add explicit timeouts to async operations
 - Use teardown queue for background processes
 </zero-error-policy>
+
+<scope-rules>
+**Zero-error scope**: Fix all errors in packages listed in PLAN.md's affected packages. Errors in unrelated packages that do not block your implementation should be reported in the "Discoveries" section of your report, not fixed — unless they cause validation commands to fail, in which case they must be fixed or reported as BLOCKED.
+
+**Breaking change rollback**: When updating consumers atomically (Section 4), if a partial update fails mid-way, revert all consumer changes and report NEEDS_REVISION. Do not leave consumers in a partially-updated state.
+
+**TDD skill**: If the orchestrator's prompt includes "load the `goodfoot:tdd-implementation` skill," load and follow that skill's instructions for new functions and methods. Your testing-approach section provides the philosophical framework; the TDD skill provides the step-by-step workflow.
+</scope-rules>
 
 <validation-and-reporting>
 ## Validation Process
@@ -358,8 +367,8 @@ Extract the exact commands to run from the plan or use defaults.
 Run each command exactly as specified.
 Do NOT autodiscover or skip commands.
 
-**Step 3: Default if no validation commands exist**
-Run type check, test, and lint for each package.
+**Step 3: Default if no "Validation Commands" section exists in PLAN.md**
+Run type check, test, and lint for each affected package. This is not autodiscovery — it is the standard fallback when the plan does not specify commands.
 
 **CRITICAL: Command Timeout Handling**
 - If commands timeout, it means tests are hanging or taking too long

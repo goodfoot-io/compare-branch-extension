@@ -13,7 +13,7 @@ Do not attempt implementation until the blocker is resolved.
 
 ## 1. Analyze Blocker
 
-Search the card description and comments for blocker keywords ("blocked by", "waiting on", "depends on"). Identify the blocker reason and any referenced card ID.
+Search the card description and comments for blocker keywords ("blocked by", "waiting on", "depends on"). Identify all blocker reasons and referenced card IDs. If multiple blockers are found, check each referenced card's status. All blockers must be resolved before removing the "blocked" tag.
 
 Based on blocker analysis:
 - **Blocker references another card**: Look up its metadata and check its status
@@ -30,6 +30,7 @@ Based on blocker analysis:
     cd $CARD_REPO_PATH
     node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.tags=d.tags.filter(t=>t!=='blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
     git add CARD.meta.json
+    git commit -m "unblocked: blocker resolved"  # <card-repo-commit-style>
     ```
 
   - **If not resolved**: Continue to Step 2
@@ -47,7 +48,7 @@ Based on blocker analysis:
 
 ## 2. Report Blocked Status
 
-Skip if a comment already exists containing "## Blocked" with the same blocker reason.
+Skip if a comment already exists containing "## Blocked" that describes the same blocker(s). If the blocker reason has changed since the last "## Blocked" comment, do not skip — write a new comment with the updated reason.
 
 ## 3. Write Comment and Commit
 

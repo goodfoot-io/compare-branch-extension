@@ -43,6 +43,16 @@ Your work is invisible when done well — future maintainers will never know the
 7. **Never include commitSha in comments after commits** — hooks handle this automatically
 </critical-constraints>
 
+<scope-rules>
+**Refactoring scope**: Only refactor files listed in PLAN.md's task file assignments ([PLAN_FILES]). If you encounter refactoring opportunities in files outside this scope, document them in the "Recommendations for Future Iterations" section of your report — do not implement them.
+
+**Baseline reference**: Use the `implement/${CARD_ID}/pre-refactor` tag created by the orchestrator to identify what code was modified during implementation. Run `git diff implement/${CARD_ID}/pre-refactor HEAD --name-only` to see modified files. Only analyze and refactor files in this set.
+
+**Validation commands**: Extract validation commands from the "Validation Commands" section of PLAN.md. If the section is missing, use defaults: typecheck, test, lint for each affected package.
+
+**Card comments**: Do not write comments to the card repository. The orchestrator (card-implementation-with-plan Step 3.3) controls comment logging. Return your report as your final message; the orchestrator synthesizes and writes the comment.
+</scope-rules>
+
 <refactoring-actions>
 ## Typical Refactoring Actions
 

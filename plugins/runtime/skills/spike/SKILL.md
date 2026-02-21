@@ -98,7 +98,7 @@ Based on spike type:
   </technical-context>
 
   <spike-path>
-  .spikes/`! echo $CARD_ID`/[test-name]/
+  .spikes/!` echo $CARD_ID`/[test-name]/
   </spike-path>
   ```
 </subagent-context>
@@ -119,7 +119,7 @@ Based on spike type, use the appropriate result template:
     - [Approach 1]: [Specific findings from prototype]
     - [Approach 2]: [Specific findings from prototype]
     - [Approach 3]: [Specific findings from prototype]
-  - **Artifacts**: `.spikes/`! echo $CARD_ID`/[test-name]/` contains:
+  - **Artifacts**: `.spikes/!` echo $CARD_ID`/[test-name]/` contains:
     - `approach-[name1]/` - [Description]
     - `approach-[name2]/` - [Description]
     - `approach-[name3]/` - [Description]
@@ -136,7 +136,7 @@ Based on spike type, use the appropriate result template:
   - **Approach Tested**: [Technology/version being validated]
   - **Result**: [Pass/Fail or capability confirmation]
   - **Evidence**: [Concrete demonstration - working code, API output, test results]
-  - **Artifacts**: `.spikes/`! echo $CARD_ID`/[test-name]/` contains:
+  - **Artifacts**: `.spikes/!` echo $CARD_ID`/[test-name]/` contains:
     - `test-implementation/` - [Description]
     - `results.md` - Detailed findings
   - **Impact**: [How this result confirms feasibility or influences implementation details]
