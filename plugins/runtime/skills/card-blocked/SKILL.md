@@ -28,7 +28,7 @@ Based on blocker analysis:
 
     ```bash
     cd $CARD_REPO_PATH
-    node -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.tags=d.tags.filter(t=>t!=='blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+    $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.tags=d.tags.filter(t=>t!=='blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
     git add CARD.meta.json
     git commit -m "unblocked: blocker resolved"  # <card-repo-commit-style>
     ```
