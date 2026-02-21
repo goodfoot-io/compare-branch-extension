@@ -529,7 +529,7 @@ describe('CardsClient', () => {
       });
     });
 
-    it.skip('getStream encodes streamType in URL', async () => {
+    it('getStream encodes streamType in URL', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
       httpClient.responses.set('http://localhost:3000/cards/card-1/streams/type%2Fwith%2Fslashes/session.log', {
