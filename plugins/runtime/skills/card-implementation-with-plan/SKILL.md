@@ -211,7 +211,7 @@ Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [which task was completed and what was actually done]
 EOF
@@ -225,7 +225,7 @@ git commit -m "progress: [task completed (N/M)]"  # <card-repo-commit-style>
 ```bash
 cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 All implementation tasks are blocked.
 
@@ -273,7 +273,7 @@ If unexpected modifications exist:
 ```bash
 cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 Blocked: unexpected file modifications outside plan scope.
 
@@ -301,7 +301,7 @@ Run validation per the plan's "Validation Commands" section.
 ```bash
 cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 Blocked: validation failure outside modifiable scope.
 
@@ -490,7 +490,7 @@ Write recommended findings (if any) as a card comment:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 ## Recommended Improvements
 
@@ -525,7 +525,7 @@ Write a completion summary comment to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented and how it aligns with the plan, key files modified, validation confirmation]
 EOF
@@ -549,7 +549,7 @@ Write a summary comment to the card repository explaining what you implemented a
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
 EOF

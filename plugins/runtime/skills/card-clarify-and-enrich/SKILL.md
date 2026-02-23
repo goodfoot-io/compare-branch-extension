@@ -18,7 +18,7 @@ Based on comments and prior clarification requests:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [acknowledge the new information and explain how it affects requirements analysis]
   EOF
@@ -30,7 +30,7 @@ Based on comments and prior clarification requests:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
   EOF
@@ -149,7 +149,7 @@ Based on research results:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
   EOF
@@ -165,7 +165,7 @@ Write a comment to the card repository presenting the specific questions needed 
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
 EOF

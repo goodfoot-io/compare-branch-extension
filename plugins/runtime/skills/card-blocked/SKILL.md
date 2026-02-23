@@ -19,7 +19,7 @@ Based on blocker analysis:
 - **Blocker references another card**: Look up its metadata and check its status
 
   ```bash
-  $NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/card.mjs [REFERENCED CARD ID]
+  $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs [REFERENCED CARD ID]
   ```
 
   The output is JSON containing the card's metadata (status, tags, gates) and `repositoryPath`.
@@ -38,7 +38,7 @@ Based on blocker analysis:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [clarification request: describe what blocker information is missing and what the user should provide]
   EOF
@@ -56,7 +56,7 @@ Write a comment to the card repository explaining what is preventing progress, i
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]
 EOF

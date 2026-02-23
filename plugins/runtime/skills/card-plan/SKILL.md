@@ -98,7 +98,7 @@ If Plan Refactor returned DISCUSS, write a comment to the card repository docume
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted concerns from the strategic assessment and rationale for why they do not block implementation]
 EOF
@@ -126,7 +126,7 @@ Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
 EOF

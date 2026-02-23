@@ -237,7 +237,7 @@ Based on implementer status:
 ```bash
 cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [blocking details: what is blocked, why, and what is needed to unblock]
 EOF
@@ -249,7 +249,7 @@ git commit -m "blocked: [reason]"  # <card-repo-commit-style>
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented, key decisions made, and files modified]
 EOF
@@ -270,7 +270,7 @@ git commit -m "progress: [what was implemented]"  # <card-repo-commit-style>
 ```bash
 cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [exact validation failure output]
 EOF
@@ -315,7 +315,7 @@ Write a summary comment to the card repository explaining what you implemented a
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
 EOF
@@ -331,7 +331,7 @@ Write a completion comment to the card repository. Commit to the card repository
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented, key decisions, files modified, validation confirmation]
 EOF

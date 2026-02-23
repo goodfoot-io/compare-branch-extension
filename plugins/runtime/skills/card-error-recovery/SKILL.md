@@ -59,14 +59,14 @@ Recovery cycle:
   **If an existing card covers this block**, look up its repository path, then write a comment to it:
 
   ```bash
-  $NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/card.mjs [BLOCKING CARD ID]
+  $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs [BLOCKING CARD ID]
   ```
 
   Extract `repositoryPath` from the JSON output, then write a comment:
 
   ```bash
   cd [blocking card repositoryPath]
-  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [describe the failure encountered, how it relates to this card's blocker, and any additional context from the recovery attempt]
   EOF
@@ -104,7 +104,7 @@ Based on card state:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]
   EOF

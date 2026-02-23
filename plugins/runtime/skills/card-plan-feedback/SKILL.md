@@ -128,7 +128,7 @@ If any strategic concerns were accepted, write a comment to the card repository 
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted strategic concerns and rationale for why each does not block implementation]
 EOF
@@ -156,7 +156,7 @@ Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE !` echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 EOF

@@ -376,7 +376,7 @@ Based on review requirement:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
@@ -391,7 +391,7 @@ Based on review requirement:
 
   ```bash
   cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE !`echo $CLAUDE_PLUGIN_ROOT`/bin/uuid7.mjs)
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
