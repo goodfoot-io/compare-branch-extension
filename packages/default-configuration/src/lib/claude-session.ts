@@ -176,6 +176,30 @@ export async function resolveOrCreateWorktree(
 }
 
 /**
+ * Runs a single cleanup step, logging a warning on failure rather than
+ * aborting the sweep. Each step (worktree removal, branch deletion, API
+ * record removal) is independent — a failure in one must not prevent the
+ * others from running.
+ *
+ * @param step - Async operation to attempt.
+ * @param label - Human-readable label logged on failure.
+ * @param branchName - Branch name included in diagnostic output.
+ * @param logger - Logger for diagnostic output.
+ */
+async function tryCleanupStep(
+  step: () => Promise<unknown>,
+  label: string,
+  branchName: string,
+  logger: ActionContext['logger']
+): Promise<void> {
+  try {
+    await step();
+  } catch (error) {
+    logger.warn(label, { branch: branchName, error: errorMessage(error) });
+  }
+}
+
+/**
  * Removes branches that are fully merged into the base branch.
  *
  * For each merged branch the worktree directory is removed, the local branch
@@ -199,50 +223,40 @@ export async function cleanupMergedBranches(
     if (!branch.exists) continue;
 
     try {
-      // Check if branch is merged into baseBranch (exits non-zero when NOT merged)
+      // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged)
       await execFileAsync('git', ['merge-base', '--is-ancestor', branch.name, baseBranch], {
         cwd: input.workspacePath
       });
-
-      // Branch is merged — clean up worktree, branch ref, and API record
-      if (branch.worktree) {
-        try {
-          await execFileAsync('git', ['worktree', 'remove', branch.worktree], {
-            cwd: input.workspacePath
-          });
-        } catch (wtError) {
-          logger.warn('Failed to remove worktree', {
-            branch: branch.name,
-            error: errorMessage(wtError)
-          });
-        }
-      }
-
-      try {
-        await execFileAsync('git', ['branch', '-d', branch.name], {
-          cwd: input.workspacePath
-        });
-      } catch (brError) {
-        logger.warn('Failed to delete branch', {
-          branch: branch.name,
-          error: errorMessage(brError)
-        });
-      }
-
-      try {
-        await client.removeBranch(input.cardId, branch.name);
-      } catch (apiError) {
-        logger.warn('Failed to remove branch from API', {
-          branch: branch.name,
-          error: errorMessage(apiError)
-        });
-      }
-
-      logger.info('Cleaned up merged branch', { branch: branch.name });
     } catch {
-      // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
-      // This is expected for unmerged branches — no action needed.
+      // Expected for unmerged branches — skip cleanup
       logger.debug('Branch not merged, skipping cleanup', { branch: branch.name });
+      continue;
     }
+
+    // Branch is merged — clean up worktree, branch ref, and API record
+    if (branch.worktree) {
+      await tryCleanupStep(
+        () => execFileAsync('git', ['worktree', 'remove', branch.worktree!], { cwd: input.workspacePath }),
+        'Failed to remove worktree',
+        branch.name,
+        logger
+      );
+    }
+
+    await tryCleanupStep(
+      () => execFileAsync('git', ['branch', '-d', branch.name], { cwd: input.workspacePath }),
+      'Failed to delete branch',
+      branch.name,
+      logger
+    );
+
+    await tryCleanupStep(
+      () => client.removeBranch(input.cardId, branch.name),
+      'Failed to remove branch from API',
+      branch.name,
+      logger
+    );
+
+    logger.info('Cleaned up merged branch', { branch: branch.name });
   }
 }
