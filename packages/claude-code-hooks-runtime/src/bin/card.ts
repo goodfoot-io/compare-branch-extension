@@ -9,7 +9,8 @@
  */
 
 import type { CardCreateData } from '@cards/sdk/client';
-import { CardsClient, discoverApiInfo } from '@cards/sdk/client';
+import { CardsClient } from '@cards/sdk/client';
+import { discoverApiInfo } from '@cards/sdk/client/discovery';
 
 const HELP = `Usage: card.mjs [options] <command>
 

@@ -7,9 +7,6 @@
  * @module
  */
 
-export type { DiscoveryLogger } from './api-discovery.js';
-// API discovery
-export { createCardsClient, discoverApiInfo } from './api-discovery.js';
 export { CardsClient } from './cardsClient.js';
 export { calculateBackoffMs, EventSubscriber } from './eventSubscriber.js';
 // Client types

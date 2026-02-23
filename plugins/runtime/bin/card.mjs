@@ -1,5 +1,6 @@
 // src/bin/card.ts
-import { CardsClient, discoverApiInfo } from "@cards/sdk/client";
+import { CardsClient } from "@cards/sdk/client";
+import { discoverApiInfo } from "@cards/sdk/client/discovery";
 var HELP = `Usage: card.mjs [options] <command>
 
 Read and create cards via the Cards API.
