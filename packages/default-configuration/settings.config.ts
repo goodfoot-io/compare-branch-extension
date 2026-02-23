@@ -12,6 +12,7 @@
 
 import { defineConfig } from '@cards/sdk/config';
 // Action handlers
+import interview from './src/actions/interview.js';
 import launch from './src/actions/launch.js';
 // Stream transforms
 import claudeCodeSessionTransform from './src/transforms/claude-code-session.js';
@@ -25,7 +26,7 @@ export default defineConfig({
     default: {
       version: 1,
       description: 'Standard Claude Code workflows',
-      actions: [launch],
+      actions: [launch, interview],
       types: {
         'adaptive-card': {
           version: '1.0.0',
