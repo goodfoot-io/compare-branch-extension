@@ -183,6 +183,8 @@ describe('buildRuntimeContext', () => {
     apiAccessToken: 'test-token',
     workspacePath: '/workspace',
     cardRepoPath: '/tmp/card-repos/card-123',
+    configPath: '/tmp/config',
+    extensionPath: '/tmp/extension',
     switchToInteractiveData: undefined,
     codingAgent: undefined
   };
@@ -251,7 +253,9 @@ describe('SessionStart Hook', () => {
         API_BASE_URL: 'http://localhost:3000',
         API_ACCESS_TOKEN: 'test-token',
         WORKSPACE_PATH: '/workspace',
-        CARD_REPO_PATH: repoPath
+        CARD_REPO_PATH: repoPath,
+        CONFIG_PATH: '/tmp/config',
+        EXTENSION_PATH: '/tmp/extension'
       };
       for (const [key, value] of Object.entries(ACTION_ENV)) {
         process.env[key] = value;

@@ -35,6 +35,8 @@ describe('buildAdditionalContext', () => {
     apiAccessToken: 'test-token',
     workspacePath: '/workspace',
     cardRepoPath: repoPath,
+    configPath: '/tmp/config',
+    extensionPath: '/tmp/extension',
     switchToInteractiveData: undefined,
     codingAgent: undefined,
     ...overrides

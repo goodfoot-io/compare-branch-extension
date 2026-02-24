@@ -39,6 +39,8 @@ const baseActionInput = {
   apiAccessToken: 'test-token',
   workspacePath: '/workspace',
   cardRepoPath: '/tmp/card-repos/card-123',
+  configPath: '/tmp/config',
+  extensionPath: '/tmp/extension',
   switchToInteractiveData: undefined,
   codingAgent: undefined
 };
