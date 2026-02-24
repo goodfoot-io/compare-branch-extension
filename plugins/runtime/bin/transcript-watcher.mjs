@@ -895,39 +895,32 @@ async function readNewLines(fileHandle, bytesRead, lineBuffer, transcriptPath) {
   const decoder = new TextDecoder("utf-8", { fatal: false });
   let currentOffset = bytesRead;
   let accumulated = lineBuffer;
-  const lines = [];
-  let hasMoreData = true;
-  while (hasMoreData) {
+  for (; ; ) {
     const buffer = Buffer.alloc(READ_BUFFER_SIZE);
     const { bytesRead: chunkSize } = await fileHandle.read(buffer, 0, READ_BUFFER_SIZE, currentOffset);
-    if (chunkSize === 0) {
-      hasMoreData = false;
-    } else {
-      const chunk = decoder.decode(buffer.subarray(0, chunkSize), { stream: true });
-      accumulated += chunk;
-      currentOffset += chunkSize;
-    }
+    if (chunkSize === 0) break;
+    accumulated += decoder.decode(buffer.subarray(0, chunkSize), { stream: true });
+    currentOffset += chunkSize;
   }
-  const remaining = decoder.decode(new Uint8Array(0), { stream: false });
-  accumulated += remaining;
+  accumulated += decoder.decode(new Uint8Array(0), { stream: false });
   const parts = accumulated.split("\n");
   const newLineBuffer = parts.pop();
-  for (const part of parts) {
-    lines.push(part);
-  }
   return {
     fileHandle,
     bytesRead: currentOffset,
     lineBuffer: newLineBuffer,
-    lines
+    lines: parts
   };
 }
 async function sentinelFileExists(cardRepoPath, sessionId) {
   try {
     await access(join2(cardRepoPath, "streams", "claude-code-session", `${sessionId}.flush`));
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
   }
 }
 async function removeSentinelFile(cardRepoPath, sessionId) {
@@ -987,6 +980,33 @@ async function ensureStreamAndWriteLines(state, args, lines, context) {
     writeLinesToStream(state.stream, lines, state, context);
   }
 }
+async function pollTranscript(state, transcriptPath) {
+  let lines;
+  try {
+    const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, transcriptPath);
+    state.fileHandle = result.fileHandle;
+    state.bytesRead = result.bytesRead;
+    state.lineBuffer = result.lineBuffer;
+    lines = result.lines;
+  } catch (error) {
+    logViaSocket("error", `Failed to read transcript: ${String(error)}`);
+    lines = [];
+  }
+  return filterNonEmptyLines(lines);
+}
+async function closeStreamOnIdleTimeout(state) {
+  state.idleIterations++;
+  if (!state.stream || state.idleIterations * POLL_INTERVAL_MS < IDLE_TIMEOUT_MS) {
+    return;
+  }
+  try {
+    await state.stream.close();
+  } catch (error) {
+    logViaSocket("error", `Stream close failed during idle timeout: ${String(error)}`);
+  }
+  state.stream = null;
+  state.idleIterations = 0;
+}
 async function flushRemainingLines(state, args) {
   if (!state.fileHandle) return;
   try {
@@ -1038,32 +1058,12 @@ async function runStreamingLoop(args) {
   };
   const startTime = Date.now();
   for (; ; ) {
-    let lines;
-    try {
-      const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
-      state.fileHandle = result.fileHandle;
-      state.bytesRead = result.bytesRead;
-      state.lineBuffer = result.lineBuffer;
-      lines = result.lines;
-    } catch (error) {
-      logViaSocket("error", `Failed to read transcript: ${String(error)}`);
-      lines = [];
-    }
-    const nonEmptyLines = filterNonEmptyLines(lines);
+    const nonEmptyLines = await pollTranscript(state, args.transcriptPath);
     if (nonEmptyLines.length > 0 && !state.streamFailed) {
       await ensureStreamAndWriteLines(state, args, nonEmptyLines, "");
       state.idleIterations = 0;
     } else if (nonEmptyLines.length === 0) {
-      state.idleIterations++;
-      if (state.stream && state.idleIterations * POLL_INTERVAL_MS >= IDLE_TIMEOUT_MS) {
-        try {
-          await state.stream.close();
-        } catch (error) {
-          logViaSocket("error", `Stream close failed during idle timeout: ${String(error)}`);
-        }
-        state.stream = null;
-        state.idleIterations = 0;
-      }
+      await closeStreamOnIdleTimeout(state);
     }
     if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {
       state.sentinelDetected = true;

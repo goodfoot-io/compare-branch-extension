@@ -188,11 +188,15 @@ describe('SubagentStop Hook', () => {
     });
 
     it('approves unconditionally when not in action subprocess (no upload attempted)', async () => {
+      const errorSpy = vi.spyOn(logger, 'error');
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SubagentStop');
       const stdout = result.stdout as { decision?: string };
       expect(stdout.decision).toBe('approve');
+      expect(errorSpy).toHaveBeenCalledWith('Not running inside an action subprocess', {
+        error: 'Not in action subprocess'
+      });
       expect(mockCreateCardsClient).not.toHaveBeenCalled();
       expect(mockReadFile).not.toHaveBeenCalled();
     });
