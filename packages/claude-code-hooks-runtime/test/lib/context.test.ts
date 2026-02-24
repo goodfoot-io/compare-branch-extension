@@ -6,7 +6,12 @@
 
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { buildAdditionalContext, buildCardRepoListing, buildRuntimeContext, CardRepoAccessError } from '../../src/lib/context.js';
+import {
+  buildAdditionalContext,
+  buildCardRepoListing,
+  buildRuntimeContext,
+  CardRepoAccessError
+} from '../../src/lib/context.js';
 
 let testRepo: TestGitWorkspace;
 let repoPath: string;

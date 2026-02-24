@@ -6,8 +6,8 @@
 
 import { spawn } from 'node:child_process';
 import { findClaudePid } from '@cards/claude-code-sessions';
-import { TestGitWorkspace } from '@cards/test-utils';
 import { extractActionInput } from '@cards/sdk/config';
+import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/subagent-start.js';

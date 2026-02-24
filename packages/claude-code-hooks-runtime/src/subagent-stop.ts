@@ -27,11 +27,7 @@ import { subagentStopHook, subagentStopOutput } from '@goodfoot/claude-code-hook
  * @param sessionId - Claude session ID (parent session)
  * @param agentId - The subagent's unique identifier
  */
-export async function writeSentinelFile(
-  cardRepoPath: string,
-  sessionId: string,
-  agentId: string
-): Promise<void> {
+export async function writeSentinelFile(cardRepoPath: string, sessionId: string, agentId: string): Promise<void> {
   const dir = join(cardRepoPath, 'streams', 'claude-code-session');
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, `${sessionId}-${agentId}.flush`), '');
