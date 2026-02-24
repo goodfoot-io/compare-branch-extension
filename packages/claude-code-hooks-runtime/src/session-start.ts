@@ -82,16 +82,13 @@ export function resolveHeadSha(repoPath: string): string | null {
  * @param transcriptPath - Path to the transcript file.
  * @param cardId - Card identifier for the upload target.
  * @param cardRepoPath - Path to the card repository.
- * @param agentId - Optional agent identifier for subagent watchers. When provided,
- *   sentinel files and stream filenames use `{sessionId}-{agentId}` as the stem.
  */
 export function spawnTranscriptWatcher(
   pid: number,
   sessionId: string,
   transcriptPath: string,
   cardId: string,
-  cardRepoPath: string,
-  agentId?: string
+  cardRepoPath: string
 ): void {
   const watcherPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../bin/transcript-watcher.mjs');
 
@@ -104,9 +101,6 @@ export function spawnTranscriptWatcher(
   }
 
   const spawnArgs = [watcherPath, String(pid), sessionId, transcriptPath, cardId, cardRepoPath];
-  if (agentId !== undefined) {
-    spawnArgs.push(agentId);
-  }
 
   const child = spawn(nodeBin, spawnArgs, {
     detached: true,

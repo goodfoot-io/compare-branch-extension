@@ -54,7 +54,6 @@ describe('parseArgs', () => {
       cardRepoPath: '/tmp/card-repo'
     });
   });
-
 });
 
 describe('isProcessAlive', () => {
@@ -204,7 +203,6 @@ describe('sentinelFileExists', () => {
   it('returns false when sentinel absent', async () => {
     expect(await sentinelFileExists(testDir, 'sess-missing')).toBe(false);
   });
-
 });
 
 describe('removeSentinelFile', () => {
@@ -233,7 +231,6 @@ describe('removeSentinelFile', () => {
     // File does not exist — should not throw
     await expect(removeSentinelFile(testDir, 'nonexistent')).resolves.toBeUndefined();
   });
-
 });
 
 describe('openOrResumeStream', () => {
@@ -270,7 +267,6 @@ describe('openOrResumeStream', () => {
 
     expect(result).toBeNull();
   });
-
 });
 
 describe('runStreamingLoop', () => {
