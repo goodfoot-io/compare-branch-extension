@@ -591,6 +591,73 @@ describe('CardsClient', () => {
     });
   });
 
+  describe('Compare Operations', () => {
+    it('should POST /compare with branch-range request body', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      const request = { baseRef: 'main', compareRef: 'feature/my-card' };
+      await client.setCompare(request);
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'POST',
+        url: expect.stringContaining('/compare'),
+        body: request
+      });
+    });
+
+    it('should POST /compare with dynamic request body', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      const request = { baseRef: 'main', repositoryPath: '/workspace/repo' };
+      await client.setCompare(request);
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'POST',
+        url: expect.stringContaining('/compare'),
+        body: request
+      });
+    });
+
+    it('should POST /compare with fixed-attribution request body', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      const request = { compareRef: 'feature/my-card', attributionShas: ['abc123', 'def456'] };
+      await client.setCompare(request);
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'POST',
+        url: expect.stringContaining('/compare'),
+        body: request
+      });
+    });
+
+    it('should return null when GET /compare returns 204', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 204 }));
+      const result = await client.getCompare();
+      expect(result).toBeNull();
+    });
+
+    it('should return state when GET /compare returns 200', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      const state = { mode: 'branch-range' as const, baseRef: 'main', compareRef: 'feature/my-card' };
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify(state), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      );
+      const result = await client.getCompare();
+      expect(result).toEqual(state);
+    });
+
+    it('should DELETE /compare when clearing compare', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.clearCompare();
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'DELETE',
+        url: expect.stringContaining('/compare')
+      });
+    });
+  });
+
   describe('Type Schema Operations', () => {
     it('should GET /cards/:id/schema when fetching type schemas', async () => {
       const httpClient = new TestHttpClient();

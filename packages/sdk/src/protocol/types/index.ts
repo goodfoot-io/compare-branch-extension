@@ -56,6 +56,15 @@ export type { IpcMessageCallback } from './callbacks.js';
 // --- Card Types ---
 export type { Card, CardGates, CardMetadata } from './card.js';
 export { DEFAULT_CARD_GATES } from './card.js';
+// --- Compare Types ---
+export type {
+  CompareBranchRangeRequest,
+  CompareDynamicRequest,
+  CompareFixedAttributionRequest,
+  CompareMode,
+  CompareRequest,
+  CompareState
+} from './compare.js';
 // --- Input Constraints ---
 export {
   ATTACHMENT_ID_PATTERN,
@@ -82,6 +91,8 @@ export type {
   CardContentChangedEvent,
   CardMetadataChangedEvent,
   CommentCreatedEvent,
+  CompareChangedEvent,
+  CompareClearedEvent,
   DomainEvent,
   StreamEndedEvent,
   StreamErrorEvent,

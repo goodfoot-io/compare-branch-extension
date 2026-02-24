@@ -9,6 +9,7 @@
  * @module types/events
  */
 
+import type { CompareState } from './compare.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
 import type { CommentTimelineItem, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
 
@@ -184,6 +185,26 @@ export interface TimelineTypedFileRemovedEvent {
   itemId: string;
 }
 
+// --- Compare Events ---
+
+/**
+ * Event payload when a compare session is set or updated.
+ */
+export interface CompareChangedEvent {
+  /** Event type discriminator. */
+  type: 'compare:changed';
+  /** The new active compare state. */
+  state: CompareState;
+}
+
+/**
+ * Event payload when the active compare session is cleared.
+ */
+export interface CompareClearedEvent {
+  /** Event type discriminator. */
+  type: 'compare:cleared';
+}
+
 // --- Stream Events ---
 
 /**
@@ -324,4 +345,6 @@ export type DomainEvent =
   | StreamResumedEvent
   | StreamLineEvent
   | StreamEndedEvent
-  | StreamErrorEvent;
+  | StreamErrorEvent
+  | CompareChangedEvent
+  | CompareClearedEvent;

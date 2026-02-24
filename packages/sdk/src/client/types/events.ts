@@ -12,6 +12,8 @@ import type {
   CardContentChangedEvent,
   CardMetadataChangedEvent,
   CommentCreatedEvent,
+  CompareChangedEvent,
+  CompareClearedEvent,
   StreamEndedEvent,
   StreamErrorEvent,
   StreamLineEvent,
@@ -79,6 +81,10 @@ export interface EventMap {
   'stream:ended': StreamEndedEvent;
   /** Fired when a per-line transform fails. The stream continues; the companion `stream:line` carries raw content. */
   'stream:error': StreamErrorEvent;
+  /** Fired when the active compare session changes. */
+  'compare:changed': CompareChangedEvent;
+  /** Fired when the active compare session is cleared. */
+  'compare:cleared': CompareClearedEvent;
 }
 
 // --- Callback Types ---

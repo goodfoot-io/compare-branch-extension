@@ -7,6 +7,15 @@
  * @module
  */
 
+// Compare types (re-exported from protocol for convenience)
+export type {
+  CompareBranchRangeRequest,
+  CompareDynamicRequest,
+  CompareFixedAttributionRequest,
+  CompareMode,
+  CompareRequest,
+  CompareState
+} from '../protocol/index.js';
 export { CardsClient } from './cardsClient.js';
 export { calculateBackoffMs, EventSubscriber } from './eventSubscriber.js';
 // Client types

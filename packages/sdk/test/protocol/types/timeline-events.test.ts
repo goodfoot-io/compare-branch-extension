@@ -329,6 +329,10 @@ describe('timeline event types', () => {
             return 'stream-ended';
           case 'stream:error':
             return 'stream-error';
+          case 'compare:changed':
+            return 'compare-changed';
+          case 'compare:cleared':
+            return 'compare-cleared';
           default: {
             // Exhaustive check - this should never be reached
             const _exhaustive: never = event;
