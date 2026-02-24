@@ -745,6 +745,48 @@ var CardsClient = class {
       }
     };
   }
+  // --- Compare Operations ---
+  /**
+   * Sets or replaces the active comparison on the server.
+   *
+   * @param request - Compare request specifying the comparison mode.
+   * @returns Promise resolving to the resulting compare state.
+   */
+  async setCompare(request) {
+    const url = this.buildUrl("/compare");
+    return this.request(() => this.getHttpClient().post(url, request));
+  }
+  /**
+   * Returns the current compare state, or null if no comparison is active.
+   *
+   * The server returns 204 when no comparison is active, which this method
+   * maps to null rather than throwing.
+   *
+   * @returns Promise resolving to the current compare state, or null if none active.
+   */
+  async getCompare() {
+    const url = this.buildUrl("/compare");
+    return this.request(async () => {
+      const response = await fetch(url, {
+        headers: this.getHeaders(),
+        signal: this.getTimeoutSignal()
+      });
+      if (response.status === 204) {
+        return null;
+      }
+      if (!response.ok) throw response;
+      return response.json();
+    });
+  }
+  /**
+   * Clears the active comparison on the server.
+   *
+   * @returns Promise resolving when the comparison is cleared.
+   */
+  async clearCompare() {
+    const url = this.buildUrl("/compare");
+    return this.request(() => this.getHttpClient().delete(url));
+  }
 };
 
 // src/lib/api-discovery.ts
