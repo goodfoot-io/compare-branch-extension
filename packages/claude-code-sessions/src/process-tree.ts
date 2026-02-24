@@ -13,11 +13,23 @@ import { basename } from 'node:path';
 export const PROCESS_TREE_MAX_DEPTH = 10;
 
 /**
+ * Pattern matching `claude` as a command name in `ps -o args=` output.
+ *
+ * Matches `claude` when preceded by start-of-string, whitespace, or `/`
+ * (path separator) AND followed by whitespace or end-of-string.
+ *
+ * This avoids false positives on `.claude/` directory paths in arguments
+ * like `/home/node/.claude/shell-snapshots/...` where `\bclaude\b` would
+ * incorrectly match because `.` and `/` are non-word characters.
+ */
+const CLAUDE_ARGS_PATTERN = /(^|\s|\/)claude(\s|$)/i;
+
+/**
  * Checks whether a given PID belongs to a process named "claude".
  *
  * Two-step matching:
  * 1. Primary: `ps -p PID -o comm=` -> basename -> compare "claude" (case-insensitive)
- * 2. Fallback: `ps -p PID -o args=` -> test /\bclaude\b/i
+ * 2. Fallback: `ps -p PID -o args=` -> test {@link CLAUDE_ARGS_PATTERN}
  *
  * @param pid - Process ID to inspect.
  * @returns `true` when the process command matches Claude; otherwise `false`.
@@ -28,7 +40,7 @@ function isClaude(pid: number): boolean {
     if (basename(comm).toLowerCase() === 'claude') return true;
 
     const args = execSync(`ps -p ${pid} -o args=`, { encoding: 'utf8' }).trim();
-    return /\bclaude\b/i.test(args);
+    return CLAUDE_ARGS_PATTERN.test(args);
   } catch {
     return false;
   }

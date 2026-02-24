@@ -195,7 +195,19 @@ export const CARDS_ENV_VARS = {
    * Set by the launch action after resolving or creating the worktree.
    * Available in actions only.
    */
-  WORKSPACE_BRANCH: 'WORKSPACE_BRANCH'
+  WORKSPACE_BRANCH: 'WORKSPACE_BRANCH',
+
+  /**
+   * Session ID persisted by the session-start hook via `persistEnvVar`.
+   *
+   * Available in Bash tool shell descendants (commands, git hooks) after
+   * session start. NOT available in hooks spawned directly by Claude Code
+   * (stop, session-end, etc.) — those receive the session ID via hook input.
+   *
+   * The card-repo post-commit hook reads this to record commits directly
+   * without needing a process-tree walk or PID registry lookup.
+   */
+  CARDS_SESSION_ID: 'CARDS_SESSION_ID'
 } as const;
 
 // ============================================================================

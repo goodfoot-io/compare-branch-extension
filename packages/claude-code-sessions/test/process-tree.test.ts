@@ -145,6 +145,49 @@ describe('process-tree', () => {
       const result = findClaudePid(100);
       expect(result).toBe(100);
     });
+
+    it('matches standalone "claude" in args', () => {
+      setupProcessTree({
+        100: { comm: 'node', args: 'claude', ppid: 1 }
+      });
+
+      expect(findClaudePid(100)).toBe(100);
+    });
+
+    it('matches "claude" preceded by whitespace in args', () => {
+      setupProcessTree({
+        100: { comm: 'node', args: 'node claude --arg', ppid: 1 }
+      });
+
+      expect(findClaudePid(100)).toBe(100);
+    });
+
+    it('does NOT match .claude/ directory paths in args', () => {
+      setupProcessTree({
+        100: {
+          comm: 'zsh',
+          args: '/bin/zsh -c -l source /home/node/.claude/shell-snapshots/snapshot.sh',
+          ppid: 200
+        },
+        200: { comm: 'claude', ppid: 1 }
+      });
+
+      // Should skip PID 100 (false positive on .claude/ path) and find 200
+      const result = findClaudePid(100);
+      expect(result).toBe(200);
+    });
+
+    it('does NOT match .claude/ when it is the only claude-like string in args', () => {
+      setupProcessTree({
+        100: {
+          comm: 'node',
+          args: '/home/node/.claude/plugins/cache/session-start.mjs',
+          ppid: 1
+        }
+      });
+
+      expect(findClaudePid(100)).toBeNull();
+    });
   });
 
   it('PROCESS_TREE_MAX_DEPTH is 10', () => {

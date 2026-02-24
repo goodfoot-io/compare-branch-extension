@@ -111,32 +111,29 @@ describe('buildCardRepoListing', () => {
     expect(lines).toContain('sub/file.txt');
   });
 
-  it('replaces .meta.json files with their content in fenced blocks', () => {
+  it('lists .meta.json files as regular entries without printing content', () => {
     const meta = JSON.stringify({ title: 'Test Card' }, null, 2);
     writeFileSync(join(tmpDir, 'card.meta.json'), meta);
 
     const listing = buildCardRepoListing(TEST_CARD_ID, tmpDir);
-
-    expect(listing).toContain('card.meta.json content:');
-    expect(listing).toContain('```json');
-    expect(listing).toContain(meta);
-    expect(listing).toContain('```');
-    // Should NOT contain a bare line with just the filename
     const lines = listing.split('\n');
-    expect(lines).not.toContain('card.meta.json');
+
+    expect(lines).toContain('card.meta.json');
+    expect(listing).not.toContain('```json');
+    expect(listing).not.toContain(meta);
   });
 
-  it('handles nested .meta.json files', () => {
+  it('lists nested .meta.json files as regular entries', () => {
     mkdirSync(join(tmpDir, 'actions'), { recursive: true });
-    const meta = JSON.stringify({ name: 'deploy' });
-    writeFileSync(join(tmpDir, 'actions', 'deploy.meta.json'), meta);
+    writeFileSync(join(tmpDir, 'actions', 'deploy.meta.json'), JSON.stringify({ name: 'deploy' }));
     writeFileSync(join(tmpDir, 'actions', 'deploy.sh'), '#!/bin/sh');
 
     const listing = buildCardRepoListing(TEST_CARD_ID, tmpDir);
+    const lines = listing.split('\n');
 
-    expect(listing).toContain('actions/deploy.meta.json content:');
-    expect(listing).toContain(meta);
-    expect(listing).toContain('actions/deploy.sh');
+    expect(lines).toContain('actions/deploy.meta.json');
+    expect(lines).toContain('actions/deploy.sh');
+    expect(listing).not.toContain('```json');
   });
 
   it('throws CardRepoAccessError for non-existent path', () => {
@@ -272,6 +269,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('returns card repo directory listing in additionalContext', async () => {
+      mockFindClaudePid.mockReturnValue(42);
       const realSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
       vi.mocked(execFileSync).mockReturnValue(`${realSha}\n`);
       const mockInput = {} as Parameters<typeof hook>[0];
@@ -298,6 +296,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('persists git HEAD sha via writeSessionHeadSha', async () => {
+      mockFindClaudePid.mockReturnValue(42);
       const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
       vi.mocked(execFileSync).mockReturnValue(`${expectedSha}\n`);
       const mockInput = { session_id: 'sess-sha' } as Parameters<typeof hook>[0];
@@ -309,6 +308,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('does not call writeSessionHeadSha when git fails', async () => {
+      mockFindClaudePid.mockReturnValue(42);
       // Use a real directory that exists but is not a git repo
       const tmpDir = join(repoPath, '..', `no-git-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
@@ -321,6 +321,20 @@ describe('SessionStart Hook', () => {
       expect(mockWriteSessionHeadSha).not.toHaveBeenCalled();
       const stdout = result.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).not.toContain('HEAD:');
+    });
+
+    it('persists CARDS_SESSION_ID via persistEnvVar', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-env-test', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
+      const mockPersistEnvVar = vi.fn();
+      const context = { logger, persistEnvVar: mockPersistEnvVar, persistEnvVars: vi.fn() };
+
+      await hook(mockInput, context);
+
+      expect(mockPersistEnvVar).toHaveBeenCalledWith('CARDS_SESSION_ID', 'sess-env-test');
     });
 
     it('calls findClaudePid and registerSession with correct args when inside action subprocess', async () => {
@@ -337,7 +351,7 @@ describe('SessionStart Hook', () => {
       expect(mockRegisterSession).toHaveBeenCalledWith(42, 'sess-123');
     });
 
-    it('does not call registerSession when findClaudePid returns null (logs warning)', async () => {
+    it('returns continue:false when findClaudePid returns null (catastrophic failure)', async () => {
       mockFindClaudePid.mockReturnValue(null);
       vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
@@ -345,10 +359,22 @@ describe('SessionStart Hook', () => {
       >[0];
       const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
 
-      await hook(mockInput, context);
+      const result = await hook(mockInput, context);
 
       expect(mockFindClaudePid).toHaveBeenCalled();
       expect(mockRegisterSession).not.toHaveBeenCalled();
+
+      const stdout = result.stdout as {
+        continue?: boolean;
+        systemMessage?: string;
+        stopReason?: string;
+      };
+      expect(stdout.continue).toBe(false);
+      expect(stdout.stopReason).toContain('Could not find Claude PID');
+      expect(stdout.stopReason).toContain('sess-123');
+      expect(stdout.systemMessage).toContain('Could not locate the Claude Code process');
+      expect(stdout.systemMessage).toContain('sess-123');
+      expect(stdout.systemMessage).toContain('To resolve:');
     });
 
     it('returns continue:false with stopReason when registerSession throws', async () => {
@@ -410,6 +436,7 @@ describe('SessionStart Hook', () => {
     });
 
     it('returns continue:false with stopReason when card repo is inaccessible', async () => {
+      mockFindClaudePid.mockReturnValue(42);
       process.env['CARD_REPO_PATH'] = '/tmp/does-not-exist-xyz-123';
       vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];

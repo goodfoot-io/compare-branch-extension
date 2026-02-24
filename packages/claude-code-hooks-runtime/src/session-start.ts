@@ -84,11 +84,10 @@ export function resolveHeadSha(repoPath: string): string | null {
 }
 
 /**
- * Builds a directory listing of `rootPath` with `.meta.json` files replaced
- * by their contents wrapped in fenced JSON blocks.
+ * Builds a directory listing of `rootPath` as relative file paths.
  *
- * Each non-meta entry is a relative path (from `rootPath`). Meta-JSON files
- * are rendered as `path/to/file.meta.json:\n\`\`\`json\n<content>\n\`\`\``.
+ * Each entry is a relative path from `rootPath`. Directories are suffixed
+ * with `/` and recursed into. The `.git` directory is excluded.
  *
  * @param cardId - Card identifier used in the listing header message.
  * @param rootPath - Root directory of the card repository to traverse.
@@ -108,13 +107,7 @@ export function buildCardRepoListing(cardId: string, rootPath: string): string {
         lines.push(`${relative(rootPath, fullPath)}/`);
         walk(fullPath);
       } else {
-        const relPath = relative(rootPath, fullPath);
-        if (entry.name.endsWith('.meta.json')) {
-          const content = readFileSync(fullPath, 'utf-8');
-          lines.push(`${relPath} content:\n\`\`\`json\n${content}\n\`\`\``);
-        } else {
-          lines.push(relPath);
-        }
+        lines.push(relative(rootPath, fullPath));
       }
     }
   }
@@ -244,7 +237,14 @@ async function registerPidAndSpawnWatcher(
   return null;
 }
 
-export default sessionStartHook({}, async (input, { logger }) => {
+/**
+ * Environment variable name for the session ID persisted into the Bash tool
+ * shell environment. The card-repo post-commit hook reads this to record
+ * commits without needing a process-tree walk.
+ */
+const CARDS_SESSION_ID_ENV = 'CARDS_SESSION_ID';
+
+export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => {
   let actionInput: ActionInput;
   try {
     actionInput = extractActionInput();
@@ -255,6 +255,11 @@ export default sessionStartHook({}, async (input, { logger }) => {
       systemMessage: 'SessionStart hook: not running inside an action subprocess.'
     });
   }
+
+  // Persist session ID so the card-repo post-commit hook can bypass the
+  // process tree walk entirely.
+  persistEnvVar(CARDS_SESSION_ID_ENV, input.session_id);
+  logger.info('Persisted session ID to environment', { sessionId: input.session_id });
 
   const headSha = resolveHeadSha(actionInput.cardRepoPath);
   if (headSha) {
@@ -275,7 +280,28 @@ export default sessionStartHook({}, async (input, { logger }) => {
     );
     if (failure) return failure;
   } else {
-    logger.warn('Could not find Claude PID for commit attribution');
+    logger.error('Could not find Claude PID for commit attribution', {
+      sessionId: input.session_id,
+      ppid: process.ppid
+    });
+    return sessionStartOutput({
+      continue: false,
+      systemMessage: [
+        'Could not locate the Claude Code process in the ancestor chain.',
+        '',
+        `Session: ${input.session_id}`,
+        `Hook PPID: ${process.ppid}`,
+        '',
+        'Commit attribution and transcript monitoring require a valid Claude PID.',
+        'This is a fatal error when running inside an action subprocess (CARD_ID is set).',
+        '',
+        'To resolve:',
+        '1. Ensure Claude Code is running as a process named "claude"',
+        '2. Check that `ps` can see ancestor processes (no PID namespace isolation)',
+        '3. Verify the process tree depth is within the allowed limit'
+      ].join('\n'),
+      stopReason: `Could not find Claude PID (ppid=${process.ppid}, session=${input.session_id})`
+    });
   }
 
   logger.info('Action subprocess confirmed', {
