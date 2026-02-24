@@ -1,37 +1,55 @@
 /**
  * SubagentStop hook implementation.
  *
- * Writes a sentinel file to signal the subagent's transcript watcher
- * to flush remaining lines and close the stream. Uses `{sessionId}-{agentId}`
- * as the sentinel stem to distinguish from session-level watchers.
+ * Uploads the completed subagent transcript to the Cards API via streaming.
+ * Uses `openStream` with stream type `claude-code-session` and filename
+ * `{sessionId}-{agentId}.jsonl`.
  *
- * Approves unconditionally — sentinel write failure is non-fatal since the
- * transcript watcher provides crash resilience via PID monitoring.
+ * Approves unconditionally — upload failure is non-fatal since transcript
+ * data may be partially available via other means.
  *
- * @summary SubagentStop hook — writes sentinel file for subagent transcript watcher
+ * @summary SubagentStop hook — uploads subagent transcript to Cards API
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { extractActionInput } from '@cards/sdk/config';
 import { subagentStopHook, subagentStopOutput } from '@goodfoot/claude-code-hooks';
-import { sentinelFilePath } from './bin/transcript-watcher.js';
+import { createCardsClient } from './lib/api-discovery.js';
 
 /**
- * Writes a sentinel file to signal the subagent's transcript watcher that the
- * subagent has stopped gracefully.
+ * Uploads the completed subagent transcript to the Cards API via streaming.
  *
- * Creates parent directories if they do not exist. The file content is empty;
- * existence of the file is the signal.
+ * Reads the transcript file and streams each non-empty line using `openStream`.
+ * Fails open — caller logs warning on failure.
  *
- * @param cardRepoPath - Absolute path to the card repository root
- * @param sessionId - Claude session ID (parent session)
- * @param agentId - The subagent's unique identifier
+ * @param cardId - Card identifier for the upload target
+ * @param sessionId - Claude session identifier
+ * @param agentId - Subagent identifier
+ * @param transcriptPath - Absolute path to the completed transcript file
  */
-export async function writeSentinelFile(cardRepoPath: string, sessionId: string, agentId: string): Promise<void> {
-  const path = sentinelFilePath(cardRepoPath, sessionId, agentId);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, '');
+async function uploadSubagentTranscript(
+  cardId: string,
+  sessionId: string,
+  agentId: string,
+  transcriptPath: string
+): Promise<void> {
+  const client = await createCardsClient();
+  if (!client) return;
+
+  const content = await readFile(transcriptPath, 'utf-8');
+  const stream = client.openStream(cardId, 'claude-code-session', `${sessionId}-${agentId}.jsonl`, {
+    title: `Subagent transcript for ${cardId}`,
+    sessionId
+  });
+
+  const lines = content.split('\n');
+  for (const line of lines) {
+    if (line.trim() !== '') {
+      stream.write(line);
+    }
+  }
+
+  await stream.close();
 }
 
 export default subagentStopHook({}, async (input, { logger }) => {
@@ -43,14 +61,14 @@ export default subagentStopHook({}, async (input, { logger }) => {
   }
 
   try {
-    await writeSentinelFile(actionInput.cardRepoPath, input.session_id, input.agent_id);
-    logger.info('Sentinel file written', {
+    await uploadSubagentTranscript(actionInput.cardId, input.session_id, input.agent_id, input.agent_transcript_path);
+    logger.info('Transcript upload complete', {
       sessionId: input.session_id,
       agentId: input.agent_id,
-      cardRepoPath: actionInput.cardRepoPath
+      cardId: actionInput.cardId
     });
   } catch (error) {
-    logger.warn('Failed to write sentinel file', {
+    logger.warn('Failed to upload transcript', {
       sessionId: input.session_id,
       agentId: input.agent_id,
       error: error instanceof Error ? error.message : String(error)

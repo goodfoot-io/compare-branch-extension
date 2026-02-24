@@ -4,17 +4,11 @@
  * @summary Tests for the SubagentStart hook
  */
 
-import { spawn } from 'node:child_process';
-import { findClaudePid } from '@cards/claude-code-sessions';
 import { extractActionInput } from '@cards/sdk/config';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/subagent-start.js';
-
-vi.mock('@cards/claude-code-sessions', () => ({
-  findClaudePid: vi.fn()
-}));
 
 vi.mock('@cards/sdk/config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards/sdk/config')>();
@@ -24,13 +18,7 @@ vi.mock('@cards/sdk/config', async (importOriginal) => {
   };
 });
 
-vi.mock('node:child_process', () => ({
-  spawn: vi.fn(() => ({ unref: vi.fn() }))
-}));
-
-const mockFindClaudePid = vi.mocked(findClaudePid);
 const mockExtractActionInput = vi.mocked(extractActionInput);
-const mockSpawn = vi.mocked(spawn);
 
 const logger = new Logger();
 
@@ -100,15 +88,10 @@ describe('SubagentStart Hook', () => {
       for (const key of Object.keys(ACTION_ENV)) {
         delete process.env[key];
       }
-      mockFindClaudePid.mockReset();
       mockExtractActionInput.mockReset();
-      mockSpawn.mockReset();
-      mockSpawn.mockReturnValue({ unref: vi.fn() } as unknown as ReturnType<typeof spawn>);
     });
 
     it('returns additionalContext with runtime context and card repo listing', async () => {
-      mockFindClaudePid.mockReturnValue(42);
-
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SubagentStart');
@@ -128,56 +111,7 @@ describe('SubagentStart Hook', () => {
       expect(stdout.hookSpecificOutput?.additionalContext).toBe(stdout.systemMessage);
     });
 
-    it('returns continue:false when findClaudePid returns null', async () => {
-      mockFindClaudePid.mockReturnValue(null);
-
-      const result = await hook(baseInput, context);
-
-      const stdout = result.stdout as {
-        continue?: boolean;
-        systemMessage?: string;
-        stopReason?: string;
-      };
-      expect(stdout.continue).toBe(false);
-      expect(stdout.stopReason).toContain('Could not find Claude PID');
-      expect(stdout.stopReason).toContain('sess-abc');
-      expect(stdout.systemMessage).toContain('Could not locate the Claude Code process');
-      expect(stdout.systemMessage).toContain('sess-abc');
-      expect(stdout.systemMessage).toContain('agent-xyz');
-      expect(stdout.systemMessage).toContain('To resolve:');
-    });
-
-    it('spawns transcript watcher with agentId from input.agent_id', async () => {
-      mockFindClaudePid.mockReturnValue(42);
-
-      await hook(baseInput, context);
-
-      expect(mockSpawn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining(['agent-xyz']),
-        expect.objectContaining({ detached: true, stdio: 'ignore' })
-      );
-      // agentId must be the last element of the args array
-      const spawnArgs = mockSpawn.mock.calls[0]?.[1] as string[];
-      expect(spawnArgs?.[spawnArgs.length - 1]).toBe('agent-xyz');
-    });
-
-    it('continues when watcher spawn fails (non-fatal)', async () => {
-      mockFindClaudePid.mockReturnValue(42);
-      mockSpawn.mockImplementation(() => {
-        throw new Error('spawn failed');
-      });
-
-      // Should not throw — watcher spawn is best-effort
-      const result = await hook(baseInput, context);
-      expect(result).toHaveProperty('_type', 'SubagentStart');
-      const stdout = result.stdout as { continue?: boolean };
-      // continue should not be false due to spawn failure
-      expect(stdout.continue).not.toBe(false);
-    });
-
     it('returns continue:false when card repo is inaccessible', async () => {
-      mockFindClaudePid.mockReturnValue(42);
       mockExtractActionInput.mockReturnValue({
         cardId: 'card-123',
         actionName: 'Launch Claude',
@@ -215,10 +149,7 @@ describe('SubagentStart Hook', () => {
     });
 
     afterEach(() => {
-      mockFindClaudePid.mockReset();
       mockExtractActionInput.mockReset();
-      mockSpawn.mockReset();
-      mockSpawn.mockReturnValue({ unref: vi.fn() } as unknown as ReturnType<typeof spawn>);
     });
 
     it('returns informational message when outside action subprocess', async () => {

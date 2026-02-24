@@ -4,7 +4,7 @@
  * @summary Tests for the SubagentStop hook
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { extractActionInput } from '@cards/sdk/config';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,14 +14,19 @@ vi.mock('@cards/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 
-vi.mock('node:fs/promises', () => ({
-  mkdir: vi.fn(),
-  writeFile: vi.fn()
+vi.mock('../src/lib/api-discovery.js', () => ({
+  createCardsClient: vi.fn()
 }));
 
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn()
+}));
+
+import { createCardsClient } from '../src/lib/api-discovery.js';
+
 const mockExtractActionInput = vi.mocked(extractActionInput);
-const mockMkdir = vi.mocked(mkdir);
-const mockWriteFile = vi.mocked(writeFile);
+const mockCreateCardsClient = vi.mocked(createCardsClient);
+const mockReadFile = vi.mocked(readFile);
 
 const logger = new Logger();
 
@@ -51,10 +56,15 @@ const baseInput = {
 
 const context = { logger };
 
+function makeStreamWriter() {
+  return {
+    write: vi.fn(),
+    close: vi.fn().mockResolvedValue({ success: true })
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockMkdir.mockResolvedValue(undefined as never);
-  mockWriteFile.mockResolvedValue(undefined as never);
 });
 
 afterEach(() => {
@@ -62,12 +72,9 @@ afterEach(() => {
 });
 
 describe('SubagentStop Hook', () => {
-  it('exports a valid hook function', () => {
+  it('exports valid hook with hookEventName SubagentStop', () => {
     expect(hook).toBeDefined();
     expect(typeof hook).toBe('function');
-  });
-
-  it('has correct hookEventName metadata', () => {
     expect(hook.hookEventName).toBe('SubagentStop');
   });
 
@@ -76,25 +83,52 @@ describe('SubagentStop Hook', () => {
       mockExtractActionInput.mockReturnValue(baseActionInput);
     });
 
-    it('writes sentinel file at {cardRepoPath}/streams/claude-code-session/{sessionId}-{agentId}.flush', async () => {
-      const result = await hook(baseInput, context);
+    it('uploads transcript via openStream with correct stream name {sessionId}-{agentId}.jsonl', async () => {
+      const streamWriter = makeStreamWriter();
+      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
+      mockCreateCardsClient.mockResolvedValue(mockClient as never);
+      mockReadFile.mockResolvedValue('{"event":"start"}\n{"event":"end"}\n' as never);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      expect(mockWriteFile).toHaveBeenCalledWith(
-        '/tmp/card-repos/card-123/streams/claude-code-session/sess-abc-agent-xyz.flush',
-        ''
+      await hook(baseInput, context);
+
+      expect(mockClient.openStream).toHaveBeenCalledWith(
+        'card-123',
+        'claude-code-session',
+        'sess-abc-agent-xyz.jsonl',
+        { title: 'Subagent transcript for card-123', sessionId: 'sess-abc' }
       );
     });
 
-    it('creates parent directories if missing', async () => {
+    it('writes each non-empty line from transcript to stream', async () => {
+      const streamWriter = makeStreamWriter();
+      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
+      mockCreateCardsClient.mockResolvedValue(mockClient as never);
+      mockReadFile.mockResolvedValue('{"event":"start"}\n\n{"event":"end"}\n' as never);
+
       await hook(baseInput, context);
 
-      expect(mockMkdir).toHaveBeenCalledWith('/tmp/card-repos/card-123/streams/claude-code-session', {
-        recursive: true
-      });
+      expect(streamWriter.write).toHaveBeenCalledTimes(2);
+      expect(streamWriter.write).toHaveBeenCalledWith('{"event":"start"}');
+      expect(streamWriter.write).toHaveBeenCalledWith('{"event":"end"}');
     });
 
-    it('approves unconditionally on success', async () => {
+    it('closes stream after writing all lines', async () => {
+      const streamWriter = makeStreamWriter();
+      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
+      mockCreateCardsClient.mockResolvedValue(mockClient as never);
+      mockReadFile.mockResolvedValue('{"event":"start"}\n' as never);
+
+      await hook(baseInput, context);
+
+      expect(streamWriter.close).toHaveBeenCalledOnce();
+    });
+
+    it('approves unconditionally on upload success', async () => {
+      const streamWriter = makeStreamWriter();
+      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
+      mockCreateCardsClient.mockResolvedValue(mockClient as never);
+      mockReadFile.mockResolvedValue('{"event":"start"}\n' as never);
+
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SubagentStop');
@@ -102,14 +136,55 @@ describe('SubagentStop Hook', () => {
       expect(stdout.decision).toBe('approve');
     });
 
-    it('handles write failure gracefully — logs warning, still approves', async () => {
-      mockWriteFile.mockRejectedValue(new Error('disk full'));
+    it('approves unconditionally when upload fails (logs warning)', async () => {
+      const streamWriter = makeStreamWriter();
+      streamWriter.close.mockRejectedValue(new Error('network error'));
+      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
+      mockCreateCardsClient.mockResolvedValue(mockClient as never);
+      mockReadFile.mockResolvedValue('{"event":"start"}\n' as never);
 
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SubagentStop');
       const stdout = result.stdout as { decision?: string };
       expect(stdout.decision).toBe('approve');
+    });
+
+    it('approves when transcript file does not exist (logs warning)', async () => {
+      const mockClient = { openStream: vi.fn() };
+      mockCreateCardsClient.mockResolvedValue(mockClient as never);
+      const enoentError = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
+      mockReadFile.mockRejectedValue(enoentError);
+
+      const result = await hook(baseInput, context);
+
+      expect(result).toHaveProperty('_type', 'SubagentStop');
+      const stdout = result.stdout as { decision?: string };
+      expect(stdout.decision).toBe('approve');
+    });
+
+    it('approves when createCardsClient returns null (API unavailable, no upload attempted)', async () => {
+      mockCreateCardsClient.mockResolvedValue(null);
+
+      const result = await hook(baseInput, context);
+
+      expect(result).toHaveProperty('_type', 'SubagentStop');
+      const stdout = result.stdout as { decision?: string };
+      expect(stdout.decision).toBe('approve');
+      expect(mockReadFile).not.toHaveBeenCalled();
+    });
+
+    it('handles empty transcript file (no lines written, stream still opened and closed)', async () => {
+      const streamWriter = makeStreamWriter();
+      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
+      mockCreateCardsClient.mockResolvedValue(mockClient as never);
+      mockReadFile.mockResolvedValue('' as never);
+
+      await hook(baseInput, context);
+
+      expect(mockClient.openStream).toHaveBeenCalled();
+      expect(streamWriter.write).not.toHaveBeenCalled();
+      expect(streamWriter.close).toHaveBeenCalledOnce();
     });
   });
 
@@ -120,14 +195,14 @@ describe('SubagentStop Hook', () => {
       });
     });
 
-    it('approves unconditionally when not in action subprocess', async () => {
+    it('approves unconditionally when not in action subprocess (no upload attempted)', async () => {
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SubagentStop');
       const stdout = result.stdout as { decision?: string };
       expect(stdout.decision).toBe('approve');
-      expect(mockMkdir).not.toHaveBeenCalled();
-      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockCreateCardsClient).not.toHaveBeenCalled();
+      expect(mockReadFile).not.toHaveBeenCalled();
     });
   });
 });

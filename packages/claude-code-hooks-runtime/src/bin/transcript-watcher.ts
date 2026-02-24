@@ -43,41 +43,6 @@ export interface TranscriptWatcherArgs {
   cardId: string;
   /** Filesystem path to the card repository. */
   cardRepoPath: string;
-  /**
-   * Optional agent identifier for subagent watchers.
-   *
-   * When present, the sentinel file and stream filename use the stem
-   * `{sessionId}-{agentId}` instead of `{sessionId}` alone. This
-   * distinguishes subagent watchers from the session-level watcher and
-   * from each other.
-   */
-  agentId?: string;
-}
-
-/**
- * Computes the stem used for sentinel files and stream filenames.
- *
- * Returns `{sessionId}-{agentId}` when `agentId` is present, otherwise
- * returns `{sessionId}` alone.
- *
- * @param args - Watcher arguments containing sessionId and optional agentId.
- * @returns The sentinel/stream stem string.
- */
-export function computeSentinelStem(args: Pick<TranscriptWatcherArgs, 'sessionId' | 'agentId'>): string {
-  return args.agentId ? `${args.sessionId}-${args.agentId}` : args.sessionId;
-}
-
-/**
- * Builds the absolute path to a sentinel flush file.
- *
- * @param cardRepoPath - Path to the card repository.
- * @param sessionId - Claude session identifier used as the filename stem.
- * @param agentId - When provided, scopes the sentinel to a specific subagent.
- * @returns Absolute path to the sentinel file.
- */
-export function sentinelFilePath(cardRepoPath: string, sessionId: string, agentId?: string): string {
-  const stem = computeSentinelStem({ sessionId, agentId });
-  return join(cardRepoPath, 'streams', 'claude-code-session', `${stem}.flush`);
 }
 
 /**
@@ -142,26 +107,19 @@ export function logViaSocket(level: string, message: string): void {
  * Parses watcher arguments from process.argv.
  *
  * Expects argv in the format:
- * `[node, script, pid, sessionId, transcriptPath, cardId, cardRepoPath, agentId?]`
- *
- * The `agentId` at `argv[7]` is optional. When present it scopes the sentinel
- * file and stream filename to `{sessionId}-{agentId}`.
+ * `[node, script, pid, sessionId, transcriptPath, cardId, cardRepoPath]`
  *
  * @param argv - The process.argv array.
  * @returns Parsed watcher arguments.
  */
 export function parseArgs(argv: string[]): TranscriptWatcherArgs {
-  const result: TranscriptWatcherArgs = {
+  return {
     pid: Number(argv[2]),
     sessionId: argv[3]!,
     transcriptPath: argv[4]!,
     cardId: argv[5]!,
     cardRepoPath: argv[6]!
   };
-  if (argv[7] !== undefined) {
-    result.agentId = argv[7];
-  }
-  return result;
 }
 
 /**
@@ -257,20 +215,18 @@ export async function readNewLines(
 }
 
 /**
- * Checks whether the sentinel flush file exists for this session (or subagent).
+ * Checks whether the sentinel flush file exists for this session.
  *
  * The sentinel file is written by the session-end hook to signal the watcher
- * to flush remaining lines and close the stream gracefully. When `agentId` is
- * provided the stem is `{sessionId}-{agentId}`; otherwise it is `{sessionId}`.
+ * to flush remaining lines and close the stream gracefully.
  *
  * @param cardRepoPath - Path to the card repository.
  * @param sessionId - Session ID used to construct the sentinel path.
- * @param agentId - Optional agent ID for subagent-scoped sentinel files.
  * @returns True if the sentinel file exists.
  */
-export async function sentinelFileExists(cardRepoPath: string, sessionId: string, agentId?: string): Promise<boolean> {
+export async function sentinelFileExists(cardRepoPath: string, sessionId: string): Promise<boolean> {
   try {
-    await access(sentinelFilePath(cardRepoPath, sessionId, agentId));
+    await access(join(cardRepoPath, 'streams', 'claude-code-session', `${sessionId}.flush`));
     return true;
   } catch {
     return false;
@@ -280,16 +236,12 @@ export async function sentinelFileExists(cardRepoPath: string, sessionId: string
 /**
  * Removes the sentinel file after detection. Idempotent — handles ENOENT.
  *
- * When `agentId` is provided the stem is `{sessionId}-{agentId}`; otherwise
- * it is `{sessionId}`.
- *
  * @param cardRepoPath - Path to the card repository.
  * @param sessionId - Session ID used to construct the sentinel path.
- * @param agentId - Optional agent ID for subagent-scoped sentinel files.
  */
-export async function removeSentinelFile(cardRepoPath: string, sessionId: string, agentId?: string): Promise<void> {
+export async function removeSentinelFile(cardRepoPath: string, sessionId: string): Promise<void> {
   try {
-    await unlink(sentinelFilePath(cardRepoPath, sessionId, agentId));
+    await unlink(join(cardRepoPath, 'streams', 'claude-code-session', `${sessionId}.flush`));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return;
@@ -314,8 +266,7 @@ export async function openOrResumeStream(args: TranscriptWatcherArgs): Promise<S
     return null;
   }
 
-  const stem = computeSentinelStem(args);
-  return client.openStream(args.cardId, 'claude-code-session', `${stem}.jsonl`, {
+  return client.openStream(args.cardId, 'claude-code-session', `${args.sessionId}.jsonl`, {
     title: `Claude session for ${args.cardId}`,
     sessionId: args.sessionId
   });
@@ -522,7 +473,7 @@ async function cleanupResources(state: StreamingState, args: TranscriptWatcherAr
 
   if (state.sentinelDetected) {
     try {
-      await removeSentinelFile(args.cardRepoPath, args.sessionId, args.agentId);
+      await removeSentinelFile(args.cardRepoPath, args.sessionId);
     } catch (error) {
       logViaSocket('error', `Failed to remove sentinel file: ${String(error)}`);
     }
@@ -573,7 +524,7 @@ export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<voi
       await closeStreamOnIdleTimeout(state);
     }
 
-    if (await sentinelFileExists(args.cardRepoPath, args.sessionId, args.agentId)) {
+    if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {
       state.sentinelDetected = true;
       break;
     }
