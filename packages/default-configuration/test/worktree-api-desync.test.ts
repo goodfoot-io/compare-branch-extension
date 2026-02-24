@@ -129,6 +129,8 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     apiAccessToken: 'test-token',
     workspacePath: '/test/workspace',
     cardRepoPath: '/test/repo',
+    configPath: '/test/config',
+    extensionPath: '/test/extension',
     ...overrides
   };
 }

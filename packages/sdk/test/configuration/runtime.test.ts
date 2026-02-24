@@ -53,6 +53,8 @@ describe('runtime', () => {
     process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-456';
     process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace';
     process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/cards';
+    process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/.cards/config';
+    process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
   });
 
   afterEach(() => {

@@ -82,7 +82,8 @@ describe('env', () => {
         BASE_BRANCH: 'BASE_BRANCH',
         CARDS_SESSION_ID: 'CARDS_SESSION_ID',
         PARENT_BRANCH: 'PARENT_BRANCH',
-        WORKSPACE_BRANCH: 'WORKSPACE_BRANCH'
+        WORKSPACE_BRANCH: 'WORKSPACE_BRANCH',
+        EXTENSION_PATH: 'EXTENSION_PATH'
       });
     });
   });
@@ -366,6 +367,8 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
       process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace/project';
       process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/project/.cards/repo';
+      process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/project/.cards/config';
+      process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
     }
 
     it('should extract all action input fields when all are set', () => {
@@ -384,7 +387,9 @@ describe('env', () => {
         codingAgent: 'claude',
         switchToInteractiveData: undefined,
         workspacePath: '/workspace/project',
-        cardRepoPath: '/workspace/project/.cards/repo'
+        cardRepoPath: '/workspace/project/.cards/repo',
+        configPath: '/workspace/project/.cards/config',
+        extensionPath: '/extension/path'
       });
     });
 
@@ -403,7 +408,9 @@ describe('env', () => {
         codingAgent: undefined,
         switchToInteractiveData: undefined,
         workspacePath: '/workspace/project',
-        cardRepoPath: '/workspace/project/.cards/repo'
+        cardRepoPath: '/workspace/project/.cards/repo',
+        configPath: '/workspace/project/.cards/config',
+        extensionPath: '/extension/path'
       });
     });
 

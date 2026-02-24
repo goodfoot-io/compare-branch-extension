@@ -112,6 +112,19 @@ export interface ActionInput {
    * Path to the card's repository directory.
    */
   cardRepoPath: string;
+
+  /**
+   * Path to the settings configuration directory.
+   */
+  configPath: string;
+
+  /**
+   * Absolute path to the VS Code extension installation directory.
+   *
+   * Use this to locate bundled assets such as the runtime plugin directory
+   * (`<extensionPath>/dist/plugins/runtime`).
+   */
+  extensionPath: string;
 }
 
 /**

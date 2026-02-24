@@ -132,6 +132,8 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     apiAccessToken: 'test-token',
     workspacePath: '/test/workspace',
     cardRepoPath: '/test/repo',
+    configPath: '/test/config',
+    extensionPath: '/test/extension',
     ...overrides
   };
 }
@@ -194,7 +196,7 @@ describe('Default Actions', () => {
       await promise;
     });
 
-    it('includes --settings with plugin config', async () => {
+    it('includes --plugin-dir pointing to extension bundled runtime plugin', async () => {
       const { spawn } = await import('node:child_process');
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -204,14 +206,9 @@ describe('Default Actions', () => {
       await flushMicrotasks();
 
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
-      const settingsIdx = args.indexOf('--settings');
-      expect(settingsIdx).toBeGreaterThan(-1);
-      const settingsJson = JSON.parse(args[settingsIdx + 1]);
-      expect(settingsJson.enabledPlugins['runtime@cards.management']).toBe(true);
-      expect(settingsJson.extraKnownMarketplaces['cards.management'].source).toEqual({
-        source: 'directory',
-        path: '/test/workspace/.worktrees/cards/card-123/1/public'
-      });
+      expect(args).toContain('--plugin-dir');
+      expect(args).toContain('/test/extension/dist/plugins/runtime');
+      expect(args).not.toContain('--settings');
 
       child.emit('close', 0);
       await promise;

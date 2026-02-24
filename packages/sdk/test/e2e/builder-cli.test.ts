@@ -844,7 +844,9 @@ export default {
       API_BASE_URL: 'http://localhost',
       API_ACCESS_TOKEN: 'token',
       WORKSPACE_PATH: testDir,
-      CARD_REPO_PATH: testDir
+      CARD_REPO_PATH: testDir,
+      CONFIG_PATH: testDir,
+      EXTENSION_PATH: testDir
     });
 
     expect(result.exitCode).toBe(0);
@@ -958,7 +960,9 @@ export default {
       API_BASE_URL: 'http://localhost',
       API_ACCESS_TOKEN: 'token',
       WORKSPACE_PATH: testDir,
-      CARD_REPO_PATH: testDir
+      CARD_REPO_PATH: testDir,
+      CONFIG_PATH: testDir,
+      EXTENSION_PATH: testDir
     });
 
     expect(result.exitCode).toBe(0);

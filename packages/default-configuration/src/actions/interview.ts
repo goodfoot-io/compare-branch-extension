@@ -64,7 +64,7 @@ export default defineAction(
     const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
     context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-    const args = buildArgs(prompt, sessionId, false, input.executionMode, input.cardRepoPath, cwd);
+    const args = buildArgs(prompt, sessionId, false, input.executionMode, input.cardRepoPath, input.extensionPath);
 
     const child: ChildProcess = spawn('claude', args, {
       cwd,

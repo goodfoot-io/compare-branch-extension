@@ -1,4 +1,3 @@
-import * as path from 'node:path';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import type { BranchInfo } from '@cards/sdk/protocol';
@@ -95,6 +94,8 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     apiAccessToken: 'test-token',
     workspacePath: '/test/workspace',
     cardRepoPath: '/test/repo',
+    configPath: '/test/config',
+    extensionPath: '/test/extension',
     ...overrides
   };
 }
@@ -140,35 +141,17 @@ function configureBranchesResponse(branches: BranchInfo[]): void {
 }
 
 describe('claude-session shared utilities', () => {
-  describe('buildPluginSettings', () => {
-    it('returns JSON with enabledPlugins[runtime@cards.management] set to true', async () => {
-      const { buildPluginSettings } = await import('../src/lib/claude-session.js');
-      const result = JSON.parse(buildPluginSettings('/some/worktree'));
-      expect(result.enabledPlugins['runtime@cards.management']).toBe(true);
-    });
-
-    it('includes marketplace source path as path.join(worktreePath, public)', async () => {
-      const { buildPluginSettings } = await import('../src/lib/claude-session.js');
-      const worktreePath = '/some/worktree';
-      const result = JSON.parse(buildPluginSettings(worktreePath));
-      expect(result.extraKnownMarketplaces['cards.management'].source).toEqual({
-        source: 'directory',
-        path: path.join(worktreePath, 'public')
-      });
-    });
-  });
-
   describe('buildArgs', () => {
     it('includes --session-id for new sessions', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/worktree');
+      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
       expect(args).toContain('--session-id');
       expect(args).toContain('session-abc');
     });
 
     it('includes --resume for resumed sessions and omits --session-id', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', true, 'interactive', '/card/repo', '/worktree');
+      const args = buildArgs('my prompt', 'session-abc', true, 'interactive', '/card/repo', '/ext/path');
       expect(args).toContain('--resume');
       expect(args).toContain('session-abc');
       expect(args).not.toContain('--session-id');
@@ -176,20 +159,22 @@ describe('claude-session shared utilities', () => {
 
     it('excludes --print in interactive mode', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/worktree');
+      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
       expect(args).not.toContain('--print');
     });
 
     it('includes --print in background mode', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'background', '/card/repo', '/worktree');
+      const args = buildArgs('my prompt', 'session-abc', false, 'background', '/card/repo', '/ext/path');
       expect(args).toContain('--print');
     });
 
-    it('includes --settings and --add-dir', async () => {
+    it('includes --plugin-dir and --add-dir', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/worktree');
-      expect(args).toContain('--settings');
+      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
+      expect(args).toContain('--plugin-dir');
+      expect(args).toContain('/ext/path/dist/plugins/runtime');
+      expect(args).not.toContain('--settings');
       expect(args).toContain('--add-dir');
       expect(args).toContain('/card/repo');
     });
