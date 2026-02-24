@@ -7,7 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import { extractActionInput } from '@cards/sdk/config';
 import { Logger } from '@goodfoot/claude-code-hooks';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/subagent-stop.js';
 
 vi.mock('@cards/sdk/config', () => ({
@@ -63,11 +63,21 @@ function makeStreamWriter() {
   };
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+/**
+ * Sets up mock Cards client with a stream writer and configures transcript content.
+ *
+ * @param transcriptContent - Content returned by readFile mock.
+ * @returns The stream writer mock for assertion.
+ */
+function setupTranscriptUpload(transcriptContent: string) {
+  const streamWriter = makeStreamWriter();
+  const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
+  mockCreateCardsClient.mockResolvedValue(mockClient as never);
+  mockReadFile.mockResolvedValue(transcriptContent as never);
+  return { streamWriter, mockClient };
+}
 
-afterEach(() => {
+beforeEach(() => {
   vi.clearAllMocks();
 });
 
@@ -84,10 +94,7 @@ describe('SubagentStop Hook', () => {
     });
 
     it('uploads transcript via openStream with correct stream name {sessionId}-{agentId}.jsonl', async () => {
-      const streamWriter = makeStreamWriter();
-      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
-      mockReadFile.mockResolvedValue('{"event":"start"}\n{"event":"end"}\n' as never);
+      const { mockClient } = setupTranscriptUpload('{"event":"start"}\n{"event":"end"}\n');
 
       await hook(baseInput, context);
 
@@ -100,10 +107,7 @@ describe('SubagentStop Hook', () => {
     });
 
     it('writes each non-empty line from transcript to stream', async () => {
-      const streamWriter = makeStreamWriter();
-      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
-      mockReadFile.mockResolvedValue('{"event":"start"}\n\n{"event":"end"}\n' as never);
+      const { streamWriter } = setupTranscriptUpload('{"event":"start"}\n\n{"event":"end"}\n');
 
       await hook(baseInput, context);
 
@@ -113,10 +117,7 @@ describe('SubagentStop Hook', () => {
     });
 
     it('closes stream after writing all lines', async () => {
-      const streamWriter = makeStreamWriter();
-      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
-      mockReadFile.mockResolvedValue('{"event":"start"}\n' as never);
+      const { streamWriter } = setupTranscriptUpload('{"event":"start"}\n');
 
       await hook(baseInput, context);
 
@@ -124,10 +125,7 @@ describe('SubagentStop Hook', () => {
     });
 
     it('approves unconditionally on upload success', async () => {
-      const streamWriter = makeStreamWriter();
-      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
-      mockReadFile.mockResolvedValue('{"event":"start"}\n' as never);
+      setupTranscriptUpload('{"event":"start"}\n');
 
       const result = await hook(baseInput, context);
 
@@ -137,11 +135,8 @@ describe('SubagentStop Hook', () => {
     });
 
     it('approves unconditionally when upload fails (logs warning)', async () => {
-      const streamWriter = makeStreamWriter();
+      const { streamWriter } = setupTranscriptUpload('{"event":"start"}\n');
       streamWriter.close.mockRejectedValue(new Error('network error'));
-      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
-      mockReadFile.mockResolvedValue('{"event":"start"}\n' as never);
 
       const result = await hook(baseInput, context);
 
@@ -175,10 +170,7 @@ describe('SubagentStop Hook', () => {
     });
 
     it('handles empty transcript file (no lines written, stream still opened and closed)', async () => {
-      const streamWriter = makeStreamWriter();
-      const mockClient = { openStream: vi.fn().mockReturnValue(streamWriter) };
-      mockCreateCardsClient.mockResolvedValue(mockClient as never);
-      mockReadFile.mockResolvedValue('' as never);
+      const { streamWriter, mockClient } = setupTranscriptUpload('');
 
       await hook(baseInput, context);
 

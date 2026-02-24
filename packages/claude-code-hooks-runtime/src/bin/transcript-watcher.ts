@@ -178,39 +178,28 @@ export async function readNewLines(
   const decoder = new TextDecoder('utf-8', { fatal: false });
   let currentOffset = bytesRead;
   let accumulated = lineBuffer;
-  const lines: string[] = [];
 
-  // Read in chunks until no more data
-  let hasMoreData = true;
-  while (hasMoreData) {
+  for (;;) {
     const buffer = Buffer.alloc(READ_BUFFER_SIZE);
     const { bytesRead: chunkSize } = await fileHandle.read(buffer, 0, READ_BUFFER_SIZE, currentOffset);
+    if (chunkSize === 0) break;
 
-    if (chunkSize === 0) {
-      hasMoreData = false;
-    } else {
-      const chunk = decoder.decode(buffer.subarray(0, chunkSize), { stream: true });
-      accumulated += chunk;
-      currentOffset += chunkSize;
-    }
+    accumulated += decoder.decode(buffer.subarray(0, chunkSize), { stream: true });
+    currentOffset += chunkSize;
   }
 
   // Flush any remaining bytes from the decoder
-  const remaining = decoder.decode(new Uint8Array(0), { stream: false });
-  accumulated += remaining;
+  accumulated += decoder.decode(new Uint8Array(0), { stream: false });
 
   // Split on newlines, keeping the last fragment as lineBuffer
   const parts = accumulated.split('\n');
   const newLineBuffer = parts.pop()!;
-  for (const part of parts) {
-    lines.push(part);
-  }
 
   return {
     fileHandle,
     bytesRead: currentOffset,
     lineBuffer: newLineBuffer,
-    lines
+    lines: parts
   };
 }
 
@@ -228,8 +217,11 @@ export async function sentinelFileExists(cardRepoPath: string, sessionId: string
   try {
     await access(join(cardRepoPath, 'streams', 'claude-code-session', `${sessionId}.flush`));
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
   }
 }
 
