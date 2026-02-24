@@ -535,7 +535,8 @@ export class CardsClient {
    */
   async getPlan(cardId: string): Promise<string> {
     const url = this.buildUrl(`/cards/${cardId}/plan`);
-    return this.request(() => this.getHttpClient().get<string>(url));
+    const response = await this.request(() => this.getHttpClient().get<{ content: string }>(url));
+    return response.content;
   }
 
   /**

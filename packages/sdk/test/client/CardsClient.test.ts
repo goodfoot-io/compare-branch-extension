@@ -233,6 +233,15 @@ describe('CardsClient', () => {
       });
     });
 
+    it('should extract content field from plan response', async () => {
+      const httpClient = new TestHttpClient();
+      const planUrl = `${options.baseUrl}/cards/card-123/plan`;
+      httpClient.responses.set(planUrl, { content: '# My Plan' });
+      const client = new CardsClient(options, httpClient);
+      const result = await client.getPlan('card-123');
+      expect(result).toBe('# My Plan');
+    });
+
     it('should PUT /cards/:id/plan when updating plan', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);

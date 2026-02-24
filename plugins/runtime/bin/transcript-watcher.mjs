@@ -479,7 +479,8 @@ var CardsClient = class {
    */
   async getPlan(cardId) {
     const url = this.buildUrl(`/cards/${cardId}/plan`);
-    return this.request(() => this.getHttpClient().get(url));
+    const response = await this.request(() => this.getHttpClient().get(url));
+    return response.content;
   }
   /**
    * Updates the plan document for a card.
