@@ -15,6 +15,7 @@ vi.mock('../../src/lib/api-discovery.js', () => ({
 }));
 
 import {
+  computeSentinelStem,
   connectLogSocket,
   IDLE_TIMEOUT_MS,
   isProcessAlive,
@@ -53,6 +54,38 @@ describe('parseArgs', () => {
       cardId: 'card-42',
       cardRepoPath: '/tmp/card-repo'
     });
+  });
+
+  it('returns agentId when argv[7] is present', () => {
+    const argv = [
+      'node',
+      'transcript-watcher.mjs',
+      '12345',
+      'sess-abc',
+      '/tmp/transcript.jsonl',
+      'card-42',
+      '/tmp/card-repo',
+      'agent-xyz'
+    ];
+    const result = parseArgs(argv);
+
+    expect(result.agentId).toBe('agent-xyz');
+    expect(result.sessionId).toBe('sess-abc');
+  });
+
+  it('returns undefined agentId when argv[7] is absent', () => {
+    const argv = [
+      'node',
+      'transcript-watcher.mjs',
+      '12345',
+      'sess-abc',
+      '/tmp/transcript.jsonl',
+      'card-42',
+      '/tmp/card-repo'
+    ];
+    const result = parseArgs(argv);
+
+    expect(result.agentId).toBeUndefined();
   });
 });
 
@@ -203,6 +236,17 @@ describe('sentinelFileExists', () => {
   it('returns false when sentinel absent', async () => {
     expect(await sentinelFileExists(testDir, 'sess-missing')).toBe(false);
   });
+
+  it('uses {sessionId}-{agentId}.flush stem when agentId is set', async () => {
+    const sentinelDir = join(testDir, 'streams', 'claude-code-session');
+    mkdirSync(sentinelDir, { recursive: true });
+    const stem = computeSentinelStem({ sessionId: 'sess-abc', agentId: 'agent-xyz' });
+    writeFileSync(join(sentinelDir, `${stem}.flush`), '');
+
+    expect(await sentinelFileExists(testDir, 'sess-abc', 'agent-xyz')).toBe(true);
+    // session-only sentinel must not be detected
+    expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(false);
+  });
 });
 
 describe('removeSentinelFile', () => {
@@ -230,6 +274,19 @@ describe('removeSentinelFile', () => {
   it('sentinel removal is idempotent (handles ENOENT on unlink)', async () => {
     // File does not exist — should not throw
     await expect(removeSentinelFile(testDir, 'nonexistent')).resolves.toBeUndefined();
+  });
+
+  it('uses {sessionId}-{agentId}.flush stem when agentId is set', async () => {
+    const sentinelDir = join(testDir, 'streams', 'claude-code-session');
+    mkdirSync(sentinelDir, { recursive: true });
+    const stem = computeSentinelStem({ sessionId: 'sess-abc', agentId: 'agent-xyz' });
+    writeFileSync(join(sentinelDir, `${stem}.flush`), '');
+
+    await removeSentinelFile(testDir, 'sess-abc', 'agent-xyz');
+
+    expect(await sentinelFileExists(testDir, 'sess-abc', 'agent-xyz')).toBe(false);
+    // session-only sentinel untouched — file never existed for plain sessionId
+    expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(false);
   });
 });
 
@@ -266,6 +323,26 @@ describe('openOrResumeStream', () => {
     const result = await openOrResumeStream(args);
 
     expect(result).toBeNull();
+  });
+
+  it('uses {sessionId}-{agentId}.jsonl filename when agentId is set', async () => {
+    const mockWriter = { write: vi.fn(), close: vi.fn().mockResolvedValue({}) };
+    const mockClient = { openStream: vi.fn().mockReturnValue(mockWriter) };
+    mockCreateCardsClient.mockResolvedValue(mockClient as never);
+
+    const argsWithAgent: TranscriptWatcherArgs = {
+      ...args,
+      agentId: 'agent-xyz'
+    };
+    const stem = computeSentinelStem(argsWithAgent);
+
+    await openOrResumeStream(argsWithAgent);
+
+    expect(mockClient.openStream).toHaveBeenCalledWith('card-42', 'claude-code-session', `${stem}.jsonl`, {
+      title: 'Claude session for card-42',
+      sessionId: 'sess-abc'
+    });
+    expect(stem).toBe('sess-abc-agent-xyz');
   });
 });
 

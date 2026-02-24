@@ -28,7 +28,7 @@ vi.mock('@goodfoot/claude-code-hooks', () => ({
   sessionEndOutput: vi.fn()
 }));
 
-import { removeSentinelFile, sentinelFileExists } from '../src/bin/transcript-watcher.js';
+import { computeSentinelStem, removeSentinelFile, sentinelFileExists } from '../src/bin/transcript-watcher.js';
 import { writeSentinelFile } from '../src/session-end.js';
 
 const SESSION_ID = 'test-session-abc123';
@@ -85,5 +85,30 @@ describe('sentinel file coordination', () => {
 
     // Second removal should not throw
     await expect(removeSentinelFile(cardRepoPath, SESSION_ID)).resolves.toBeUndefined();
+  });
+
+  it('Test 6: subagent sentinel uses {sessionId}-{agentId} stem, isolated from session-level sentinel', async () => {
+    const AGENT_ID = 'agent-abc456';
+    const stem = computeSentinelStem({ sessionId: SESSION_ID, agentId: AGENT_ID });
+    expect(stem).toBe(`${SESSION_ID}-${AGENT_ID}`);
+
+    // Write the session-level sentinel and a subagent sentinel independently
+    await writeSentinelFile(cardRepoPath, SESSION_ID);
+    await writeSentinelFile(cardRepoPath, stem);
+
+    // Each is detectable by its own key only
+    expect(await sentinelFileExists(cardRepoPath, SESSION_ID)).toBe(true);
+    expect(await sentinelFileExists(cardRepoPath, SESSION_ID, AGENT_ID)).toBe(true);
+
+    // Both files exist at distinct paths on disk
+    const sessionPath = join(cardRepoPath, 'streams', 'claude-code-session', `${SESSION_ID}.flush`);
+    const agentPath = join(cardRepoPath, 'streams', 'claude-code-session', `${stem}.flush`);
+    await expect(access(sessionPath)).resolves.toBeUndefined();
+    await expect(access(agentPath)).resolves.toBeUndefined();
+
+    // Removing subagent sentinel does not affect session-level sentinel
+    await removeSentinelFile(cardRepoPath, SESSION_ID, AGENT_ID);
+    expect(await sentinelFileExists(cardRepoPath, SESSION_ID, AGENT_ID)).toBe(false);
+    expect(await sentinelFileExists(cardRepoPath, SESSION_ID)).toBe(true);
   });
 });
