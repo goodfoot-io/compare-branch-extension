@@ -207,7 +207,18 @@ export const CARDS_ENV_VARS = {
    * The card-repo post-commit hook reads this to record commits directly
    * without needing a process-tree walk or PID registry lookup.
    */
-  CARDS_SESSION_ID: 'CARDS_SESSION_ID'
+  CARDS_SESSION_ID: 'CARDS_SESSION_ID',
+
+  /**
+   * Absolute path to the VS Code extension installation directory.
+   *
+   * Set by the extension host from `context.extensionUri.fsPath` and injected
+   * into all spawned action processes. Use this to locate bundled assets such
+   * as the runtime plugin directory (`<extensionPath>/dist/plugins/runtime`).
+   *
+   * Available in actions only (not type hooks).
+   */
+  EXTENSION_PATH: 'EXTENSION_PATH'
 } as const;
 
 // ============================================================================
