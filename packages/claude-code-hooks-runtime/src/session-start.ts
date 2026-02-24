@@ -5,7 +5,6 @@
  * confirm we are inside an action subprocess and to expose the action
  * process environment variables to the session context.
  *
- *
  * @summary SessionStart hook implementation
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
@@ -251,17 +250,7 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
       logger.error('Card repo inaccessible', { repoPath: error.repoPath, error: error.message });
       return sessionStartOutput({
         continue: false,
-        systemMessage: [
-          `The card repository at '${error.repoPath}' is not accessible.`,
-          '',
-          `Error: ${error.message}`,
-          '',
-          'This session cannot proceed without a valid card repository. To resolve:',
-          `1. Verify the card repository directory exists at: ${error.repoPath}`,
-          '2. Ensure the current process has read permissions for the directory and its contents',
-          '3. Check that the CARD_REPO_PATH environment variable points to a valid card repository'
-        ].join('\n'),
-        stopReason: `Card repository inaccessible at ${error.repoPath}: ${error.message}`
+        ...error.toHookFailure('session')
       });
     }
     throw error;

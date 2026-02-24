@@ -68,6 +68,19 @@ export function computeSentinelStem(args: Pick<TranscriptWatcherArgs, 'sessionId
 }
 
 /**
+ * Builds the absolute path to a sentinel flush file.
+ *
+ * @param cardRepoPath - Path to the card repository.
+ * @param sessionId - Claude session identifier used as the filename stem.
+ * @param agentId - When provided, scopes the sentinel to a specific subagent.
+ * @returns Absolute path to the sentinel file.
+ */
+export function sentinelFilePath(cardRepoPath: string, sessionId: string, agentId?: string): string {
+  const stem = computeSentinelStem({ sessionId, agentId });
+  return join(cardRepoPath, 'streams', 'claude-code-session', `${stem}.flush`);
+}
+
+/**
  * Result from reading new lines from the transcript file.
  */
 export interface ReadNewLinesResult {
@@ -256,9 +269,8 @@ export async function readNewLines(
  * @returns True if the sentinel file exists.
  */
 export async function sentinelFileExists(cardRepoPath: string, sessionId: string, agentId?: string): Promise<boolean> {
-  const stem = agentId ? `${sessionId}-${agentId}` : sessionId;
   try {
-    await access(join(cardRepoPath, 'streams', 'claude-code-session', `${stem}.flush`));
+    await access(sentinelFilePath(cardRepoPath, sessionId, agentId));
     return true;
   } catch {
     return false;
@@ -276,9 +288,8 @@ export async function sentinelFileExists(cardRepoPath: string, sessionId: string
  * @param agentId - Optional agent ID for subagent-scoped sentinel files.
  */
 export async function removeSentinelFile(cardRepoPath: string, sessionId: string, agentId?: string): Promise<void> {
-  const stem = agentId ? `${sessionId}-${agentId}` : sessionId;
   try {
-    await unlink(join(cardRepoPath, 'streams', 'claude-code-session', `${stem}.flush`));
+    await unlink(sentinelFilePath(cardRepoPath, sessionId, agentId));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return;
@@ -412,6 +423,57 @@ async function ensureStreamAndWriteLines(
 }
 
 /**
+ * Reads new transcript lines and updates the streaming state.
+ *
+ * On read failure, logs the error and returns an empty array so the polling
+ * loop can continue. Transcript read errors are transient (e.g. file rotation)
+ * and retried on the next poll.
+ *
+ * @param state - Mutable streaming state (fileHandle, bytesRead, lineBuffer updated in place).
+ * @param transcriptPath - Path to the transcript JSONL file.
+ * @returns Non-empty lines read from the transcript.
+ */
+async function pollTranscript(state: StreamingState, transcriptPath: string): Promise<string[]> {
+  let lines: string[];
+  try {
+    const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, transcriptPath);
+    state.fileHandle = result.fileHandle;
+    state.bytesRead = result.bytesRead;
+    state.lineBuffer = result.lineBuffer;
+    lines = result.lines;
+  } catch (error) {
+    logViaSocket('error', `Failed to read transcript: ${String(error)}`);
+    lines = [];
+  }
+  return filterNonEmptyLines(lines);
+}
+
+/**
+ * Closes the stream when the idle timeout has elapsed with no new data.
+ *
+ * Increments the idle counter and, once cumulative idle time reaches
+ * {@link IDLE_TIMEOUT_MS}, closes the current stream so the server
+ * can finalize the segment. The stream is reopened lazily if data arrives later.
+ *
+ * @param state - Mutable streaming state.
+ */
+async function closeStreamOnIdleTimeout(state: StreamingState): Promise<void> {
+  state.idleIterations++;
+
+  if (!state.stream || state.idleIterations * POLL_INTERVAL_MS < IDLE_TIMEOUT_MS) {
+    return;
+  }
+
+  try {
+    await state.stream.close();
+  } catch (error) {
+    logViaSocket('error', `Stream close failed during idle timeout: ${String(error)}`);
+  }
+  state.stream = null;
+  state.idleIterations = 0;
+}
+
+/**
  * Reads remaining transcript data and flushes it to the stream.
  *
  * Performs a final read from the transcript file, collects any remaining
@@ -501,43 +563,16 @@ export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<voi
 
   const startTime = Date.now();
 
-  // Main polling loop
   for (;;) {
-    // 1. Read new lines from transcript
-    let lines: string[];
-    try {
-      const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
-      state.fileHandle = result.fileHandle;
-      state.bytesRead = result.bytesRead;
-      state.lineBuffer = result.lineBuffer;
-      lines = result.lines;
-    } catch (error) {
-      logViaSocket('error', `Failed to read transcript: ${String(error)}`);
-      lines = [];
-    }
+    const nonEmptyLines = await pollTranscript(state, args.transcriptPath);
 
-    const nonEmptyLines = filterNonEmptyLines(lines);
-
-    // 2. If new lines available AND NOT streamFailed, write them
     if (nonEmptyLines.length > 0 && !state.streamFailed) {
       await ensureStreamAndWriteLines(state, args, nonEmptyLines, '');
       state.idleIterations = 0;
     } else if (nonEmptyLines.length === 0) {
-      // 3. No new lines -- increment idle counter and close stream if timed out
-      state.idleIterations++;
-
-      if (state.stream && state.idleIterations * POLL_INTERVAL_MS >= IDLE_TIMEOUT_MS) {
-        try {
-          await state.stream.close();
-        } catch (error) {
-          logViaSocket('error', `Stream close failed during idle timeout: ${String(error)}`);
-        }
-        state.stream = null;
-        state.idleIterations = 0;
-      }
+      await closeStreamOnIdleTimeout(state);
     }
 
-    // 4. Check exit conditions
     if (await sentinelFileExists(args.cardRepoPath, args.sessionId, args.agentId)) {
       state.sentinelDetected = true;
       break;
@@ -548,7 +583,6 @@ export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<voi
       break;
     }
 
-    // 5. Sleep
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 

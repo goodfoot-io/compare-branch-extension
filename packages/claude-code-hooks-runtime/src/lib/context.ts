@@ -4,7 +4,6 @@
  * Both hooks need identical card context injection. This module extracts the
  * shared logic so it can be reused without duplication.
  *
- *
  * @summary Shared context-building utilities for session and subagent hooks
  * @module lib/context
  */
@@ -18,7 +17,7 @@ import { CARDS_ENV_VARS } from '@cards/sdk/config';
  * Error thrown when the card repository cannot be read.
  *
  * Wraps the underlying filesystem error with the repository path for
- * structured error handling in the session-start hook.
+ * structured error handling in session and subagent hooks.
  */
 export class CardRepoAccessError extends Error {
   override readonly name = 'CardRepoAccessError';
@@ -30,6 +29,28 @@ export class CardRepoAccessError extends Error {
     const reason = cause instanceof Error ? cause.message : String(cause);
     super(`Cannot read card repository at ${repoPath}: ${reason}`);
     this.cause = cause;
+  }
+
+  /**
+   * Builds a user-facing system message explaining the card repo access failure.
+   *
+   * @param actor - Human-readable noun for the failing entity (e.g. "session", "subagent").
+   * @returns Object with `systemMessage` and `stopReason` strings.
+   */
+  toHookFailure(actor: string): { systemMessage: string; stopReason: string } {
+    return {
+      systemMessage: [
+        `The card repository at '${this.repoPath}' is not accessible.`,
+        '',
+        `Error: ${this.message}`,
+        '',
+        `This ${actor} cannot proceed without a valid card repository. To resolve:`,
+        `1. Verify the card repository directory exists at: ${this.repoPath}`,
+        '2. Ensure the current process has read permissions for the directory and its contents',
+        '3. Check that the CARD_REPO_PATH environment variable points to a valid card repository'
+      ].join('\n'),
+      stopReason: `Card repository inaccessible at ${this.repoPath}: ${this.message}`
+    };
   }
 }
 

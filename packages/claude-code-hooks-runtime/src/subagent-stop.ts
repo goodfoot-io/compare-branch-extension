@@ -12,9 +12,10 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
 import { subagentStopHook, subagentStopOutput } from '@goodfoot/claude-code-hooks';
+import { sentinelFilePath } from './bin/transcript-watcher.js';
 
 /**
  * Writes a sentinel file to signal the subagent's transcript watcher that the
@@ -28,13 +29,12 @@ import { subagentStopHook, subagentStopOutput } from '@goodfoot/claude-code-hook
  * @param agentId - The subagent's unique identifier
  */
 export async function writeSentinelFile(cardRepoPath: string, sessionId: string, agentId: string): Promise<void> {
-  const dir = join(cardRepoPath, 'streams', 'claude-code-session');
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, `${sessionId}-${agentId}.flush`), '');
+  const path = sentinelFilePath(cardRepoPath, sessionId, agentId);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, '');
 }
 
 export default subagentStopHook({}, async (input, { logger }) => {
-  // 1. Extract action input — fail open if not in action subprocess
   let actionInput: ReturnType<typeof extractActionInput>;
   try {
     actionInput = extractActionInput();
@@ -42,7 +42,6 @@ export default subagentStopHook({}, async (input, { logger }) => {
     return subagentStopOutput({ decision: 'approve' });
   }
 
-  // 2. Write sentinel file to signal the subagent transcript watcher (wrapped in try/catch — non-fatal)
   try {
     await writeSentinelFile(actionInput.cardRepoPath, input.session_id, input.agent_id);
     logger.info('Sentinel file written', {

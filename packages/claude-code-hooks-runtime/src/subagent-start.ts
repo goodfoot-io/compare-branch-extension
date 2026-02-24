@@ -17,7 +17,6 @@ import { buildAdditionalContext, CardRepoAccessError } from './lib/context.js';
 import { spawnTranscriptWatcher } from './session-start.js';
 
 export default subagentStartHook({}, async (input, { logger }) => {
-  // Step 1: Extract actionInput (fail open if not in action subprocess)
   let actionInput: ReturnType<typeof extractActionInput>;
   try {
     actionInput = extractActionInput();
@@ -29,7 +28,6 @@ export default subagentStartHook({}, async (input, { logger }) => {
     });
   }
 
-  // Step 2: Find Claude PID (fail closed if null)
   const claudePid = findClaudePid();
   if (!claudePid) {
     logger.error('Could not find Claude PID', { sessionId: input.session_id, ppid: process.ppid });
@@ -54,7 +52,6 @@ export default subagentStartHook({}, async (input, { logger }) => {
     });
   }
 
-  // Step 3: Spawn transcript watcher with agentId (fail open on spawn error)
   try {
     spawnTranscriptWatcher(
       claudePid,
@@ -74,7 +71,6 @@ export default subagentStartHook({}, async (input, { logger }) => {
     logger.warn('Transcript watcher spawn failed', { error: message });
   }
 
-  // Step 4: Build context (fail closed on CardRepoAccessError)
   let systemMessage: string;
   try {
     systemMessage = buildAdditionalContext(actionInput);
@@ -83,23 +79,12 @@ export default subagentStartHook({}, async (input, { logger }) => {
       logger.error('Card repo inaccessible', { repoPath: error.repoPath, error: error.message });
       return subagentStartOutput({
         continue: false,
-        systemMessage: [
-          `The card repository at '${error.repoPath}' is not accessible.`,
-          '',
-          `Error: ${error.message}`,
-          '',
-          'This subagent cannot proceed without a valid card repository. To resolve:',
-          `1. Verify the card repository directory exists at: ${error.repoPath}`,
-          '2. Ensure the current process has read permissions for the directory and its contents',
-          '3. Check that the CARD_REPO_PATH environment variable points to a valid card repository'
-        ].join('\n'),
-        stopReason: `Card repository inaccessible at ${error.repoPath}: ${error.message}`
+        ...error.toHookFailure('subagent')
       });
     }
     throw error;
   }
 
-  // Step 5: Return success
   return subagentStartOutput({
     systemMessage,
     hookSpecificOutput: {
