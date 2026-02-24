@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE ./bin/launch.307d3600.mjs",
+            "command": "$VSCODE_NODE ./bin/launch.845cd864.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -17,7 +17,7 @@
           "id": "interview",
           "name": "Interview",
           "command": {
-            "command": "$VSCODE_NODE ./bin/interview.a997e81f.mjs",
+            "command": "$VSCODE_NODE ./bin/interview.855f6977.mjs",
             "timeout": 3600000
           },
           "description": "Start an interview session for the card",
@@ -29,21 +29,21 @@
         "adaptive-card": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/adaptive-card-validator.ec5a047d.mjs",
+            "command": "$VSCODE_NODE ./bin/adaptive-card-validator.4eca650a.mjs",
             "timeout": 30000
           }
         },
         "adaptive-card-submission": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/adaptive-card-submission-validator.ee6549f8.mjs",
+            "command": "$VSCODE_NODE ./bin/adaptive-card-submission-validator.db55b657.mjs",
             "timeout": 30000
           }
         },
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/note-validator.d534058a.mjs",
+            "command": "$VSCODE_NODE ./bin/note-validator.2b1a9300.mjs",
             "timeout": 30000
           }
         }
@@ -61,11 +61,11 @@
   },
   "__generated": {
     "files": [
-      "launch.307d3600.mjs",
-      "interview.a997e81f.mjs",
-      "adaptive-card-validator.ec5a047d.mjs",
-      "adaptive-card-submission-validator.ee6549f8.mjs",
-      "note-validator.d534058a.mjs",
+      "launch.845cd864.mjs",
+      "interview.855f6977.mjs",
+      "adaptive-card-validator.4eca650a.mjs",
+      "adaptive-card-submission-validator.db55b657.mjs",
+      "note-validator.2b1a9300.mjs",
       "claude-code-session.cf9e4344.mjs"
     ]
   }
