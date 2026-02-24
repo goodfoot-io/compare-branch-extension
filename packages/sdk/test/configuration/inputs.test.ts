@@ -47,7 +47,9 @@ describe('inputs', () => {
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
         workspacePath: '/workspace',
-        cardRepoPath: '/workspace/.cards/card-123'
+        cardRepoPath: '/workspace/.cards/card-123',
+        configPath: '/config',
+        extensionPath: '/ext'
       };
 
       expectTypeOf(input.executionMode).toEqualTypeOf<'interactive' | 'background'>();
@@ -62,7 +64,9 @@ describe('inputs', () => {
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
         workspacePath: '/workspace',
-        cardRepoPath: '/workspace/.cards/card-123'
+        cardRepoPath: '/workspace/.cards/card-123',
+        configPath: '/config',
+        extensionPath: '/ext'
       };
 
       expectTypeOf(input.executionMode).toEqualTypeOf<'interactive' | 'background'>();
@@ -78,7 +82,9 @@ describe('inputs', () => {
         apiAccessToken: 'token-abc',
         codingAgent: 'claude',
         workspacePath: '/workspace',
-        cardRepoPath: '/workspace/.cards/card-123'
+        cardRepoPath: '/workspace/.cards/card-123',
+        configPath: '/config',
+        extensionPath: '/ext'
       };
 
       const inputWithoutAgent: ActionInput = {
@@ -89,7 +95,9 @@ describe('inputs', () => {
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
         workspacePath: '/workspace',
-        cardRepoPath: '/workspace/.cards/card-123'
+        cardRepoPath: '/workspace/.cards/card-123',
+        configPath: '/config',
+        extensionPath: '/ext'
       };
 
       expectTypeOf(inputWithAgent.codingAgent).toEqualTypeOf<string | undefined>();

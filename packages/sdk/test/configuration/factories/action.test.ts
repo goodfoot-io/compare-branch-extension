@@ -23,7 +23,9 @@ describe('defineAction', () => {
     apiAccessToken: 'token-abc',
     codingAgent: 'claude',
     workspacePath: '/workspace',
-    cardRepoPath: '/workspace/.cards/card-123'
+    cardRepoPath: '/workspace/.cards/card-123',
+    configPath: '/config',
+    extensionPath: '/ext'
   };
 
   const mockLogger: ILogger = {
