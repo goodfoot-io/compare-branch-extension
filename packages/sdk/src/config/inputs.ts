@@ -112,6 +112,16 @@ export interface ActionInput {
    * Path to the card's repository directory.
    */
   cardRepoPath: string;
+
+  /**
+   * Path to the settings configuration directory.
+   */
+  configPath: string;
+
+  /**
+   * Path to the VS Code extension installation directory.
+   */
+  extensionPath: string;
 }
 
 /**

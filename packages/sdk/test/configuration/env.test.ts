@@ -17,6 +17,7 @@ import {
   getContentType,
   getEnvironment,
   getExecutionMode,
+  getExtensionPath,
   getFileName,
   getFilePath,
   getFileSize,
@@ -47,6 +48,7 @@ describe('env', () => {
     delete process.env[CARDS_ENV_VARS.SHA256];
     delete process.env[CARDS_ENV_VARS.CONTENT_TYPE];
     delete process.env[CARDS_ENV_VARS.VSCODE_NODE];
+    delete process.env[CARDS_ENV_VARS.EXTENSION_PATH];
   });
 
   afterEach(() => {
@@ -78,6 +80,7 @@ describe('env', () => {
         CONFIG_PATH: 'CONFIG_PATH',
         WORKSPACE_PATH: 'WORKSPACE_PATH',
         CARD_REPO_PATH: 'CARD_REPO_PATH',
+        EXTENSION_PATH: 'EXTENSION_PATH',
         ACTION_COMMAND: 'ACTION_COMMAND',
         BASE_BRANCH: 'BASE_BRANCH',
         CARDS_SESSION_ID: 'CARDS_SESSION_ID',
@@ -355,6 +358,22 @@ describe('env', () => {
     });
   });
 
+  describe('getExtensionPath', () => {
+    it('should return extension path when set', () => {
+      process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/path/to/extension';
+      expect(getExtensionPath()).toBe('/path/to/extension');
+    });
+
+    it('should throw when EXTENSION_PATH is undefined', () => {
+      expect(() => getExtensionPath()).toThrow('Missing required environment variable: EXTENSION_PATH');
+    });
+
+    it('should throw when EXTENSION_PATH is empty string', () => {
+      process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '';
+      expect(() => getExtensionPath()).toThrow('Missing required environment variable: EXTENSION_PATH');
+    });
+  });
+
   describe('extractActionInput', () => {
     // Helper to set up action environment variables
     function setupActionEnv() {
@@ -366,6 +385,8 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
       process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace/project';
       process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/project/.cards/repo';
+      process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/config/path';
+      process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/path/to/extension';
     }
 
     it('should extract all action input fields when all are set', () => {
@@ -384,7 +405,9 @@ describe('env', () => {
         codingAgent: 'claude',
         switchToInteractiveData: undefined,
         workspacePath: '/workspace/project',
-        cardRepoPath: '/workspace/project/.cards/repo'
+        cardRepoPath: '/workspace/project/.cards/repo',
+        configPath: '/config/path',
+        extensionPath: '/path/to/extension'
       });
     });
 
@@ -403,7 +426,9 @@ describe('env', () => {
         codingAgent: undefined,
         switchToInteractiveData: undefined,
         workspacePath: '/workspace/project',
-        cardRepoPath: '/workspace/project/.cards/repo'
+        cardRepoPath: '/workspace/project/.cards/repo',
+        configPath: '/config/path',
+        extensionPath: '/path/to/extension'
       });
     });
 

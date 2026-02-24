@@ -168,6 +168,12 @@ export const CARDS_ENV_VARS = {
   CARD_REPO_PATH: 'CARD_REPO_PATH',
 
   /**
+   * Path to the VS Code extension installation directory.
+   * Available in actions only.
+   */
+  EXTENSION_PATH: 'EXTENSION_PATH',
+
+  /**
    * Resolved shell command for the wrapper to spawn as the action handler.
    * Set by ActionDispatcher; consumed by the wrapper (not by action handlers).
    */
@@ -607,6 +613,20 @@ export function getCardRepoPath(): string {
 }
 
 /**
+ * Reads the extension installation directory path.
+ *
+ * @returns Absolute path to the VS Code extension directory.
+ * @throws Error if EXTENSION_PATH is missing or empty
+ */
+export function getExtensionPath(): string {
+  const value = process.env[CARDS_ENV_VARS.EXTENSION_PATH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.EXTENSION_PATH}`);
+  }
+  return value;
+}
+
+/**
  * Reads and parses the switchToInteractive data file.
  *
  * When `SWITCH_TO_INTERACTIVE_DATA_PATH` is set, reads the file at that path
@@ -654,7 +674,9 @@ export function extractActionInput(): ActionInput {
     codingAgent: getCodingAgent(),
     switchToInteractiveData: readSwitchToInteractiveData(),
     workspacePath: getWorkspacePath(),
-    cardRepoPath: getCardRepoPath()
+    cardRepoPath: getCardRepoPath(),
+    configPath: getConfigPath(),
+    extensionPath: getExtensionPath()
   };
 }
 
