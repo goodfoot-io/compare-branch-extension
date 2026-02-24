@@ -225,6 +225,7 @@ describe('webview types', () => {
           },
           isPinned: false,
           order: 0,
+          repositoryId: 'main',
           environment: 'default',
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z'
@@ -314,6 +315,7 @@ describe('webview types', () => {
             gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
             isPinned: false,
             order: 0,
+            repositoryId: 'main',
             environment: 'default',
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01'
@@ -349,6 +351,7 @@ describe('webview types', () => {
             gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
             isPinned: false,
             order: 0,
+            repositoryId: 'main',
             environment: 'default',
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01'
@@ -626,6 +629,7 @@ describe('webview types', () => {
           },
           isPinned: false,
           order: 0,
+          repositoryId: 'main',
           environment: 'default',
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-02T00:00:00Z'

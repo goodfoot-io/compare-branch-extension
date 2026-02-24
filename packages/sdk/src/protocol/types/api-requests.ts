@@ -88,7 +88,7 @@ export interface CardCreateGates {
  *   description: '## Overview\nImplement OAuth2 flow...',
  *   workspacePath: '/home/user/my-project',
  *   tags: ['feature', 'auth'],
- *   environmentName: 'production',
+ *   environment: 'production',
  *   gates: { planRequired: true, reviewRequired: true }
  * };
  * ```
@@ -123,7 +123,7 @@ export interface CreateCardRequest {
    * Must match a key in the settings.json `environments` object.
    * Defaults to `'default'` if omitted.
    */
-  environmentName?: string;
+  environment?: string;
 
   /**
    * Display order within the status column for drag-and-drop layouts.

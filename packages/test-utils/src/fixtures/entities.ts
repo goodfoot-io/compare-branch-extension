@@ -64,7 +64,8 @@ export function createCardMetadata(overrides: Partial<CardMetadata> = {}): CardM
     gates: overrides.gates ?? { ...DEFAULT_CARD_GATES },
     isPinned: overrides.isPinned ?? false,
     order: overrides.order ?? 0,
-    repositoryId: overrides.repositoryId ?? 'main'
+    repositoryId: overrides.repositoryId ?? 'main',
+    environment: overrides.environment ?? 'default'
   };
 }
 
@@ -85,9 +86,7 @@ export function createCard(overrides: Partial<Card> = {}): Card {
     createdAt: overrides.createdAt ?? timestamp,
     updatedAt: overrides.updatedAt ?? timestamp,
     description: overrides.description ?? '',
-    repositoryPath: overrides.repositoryPath,
-    executionMode: overrides.executionMode,
-    environment: overrides.environment
+    repositoryPath: overrides.repositoryPath
   };
 }
 

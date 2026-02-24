@@ -87,24 +87,24 @@ describe('Client Types', () => {
       expect(data.description).toBe('This is a test card description');
     });
 
-    it('should accept optional environmentName', () => {
+    it('should accept optional environment', () => {
       const data: CardCreateData = {
         title: 'Test Card',
         description: 'Description',
-        environmentName: 'production'
+        environment: 'production'
       };
-      expect(data.environmentName).toBe('production');
+      expect(data.environment).toBe('production');
     });
 
     it('should accept all optional fields together', () => {
       const data: CardCreateData = {
         title: 'Complete Card',
         description: 'Full description',
-        environmentName: 'staging'
+        environment: 'staging'
       };
       expect(data.title).toBe('Complete Card');
       expect(data.description).toBe('Full description');
-      expect(data.environmentName).toBe('staging');
+      expect(data.environment).toBe('staging');
     });
   });
 

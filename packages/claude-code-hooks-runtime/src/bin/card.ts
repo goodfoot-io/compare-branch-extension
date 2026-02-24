@@ -35,7 +35,7 @@ Get:
 
 Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string),
-  description (string). Optional fields: tags (string[]), environmentName
+  description (string). Optional fields: tags (string[]), environment
   (string), gates ({ planRequired?: boolean, reviewRequired?: boolean }).
 
   Before creating a card, load the skill that matches the request type:
@@ -144,8 +144,8 @@ async function createCard(): Promise<void> {
   if (Array.isArray(parsed['tags'])) {
     data.tags = parsed['tags'] as string[];
   }
-  if (typeof parsed['environmentName'] === 'string') {
-    data.environmentName = parsed['environmentName'];
+  if (typeof parsed['environment'] === 'string') {
+    data.environment = parsed['environment'];
   }
   if (parsed['gates'] != null && typeof parsed['gates'] === 'object') {
     const g = parsed['gates'] as Record<string, unknown>;

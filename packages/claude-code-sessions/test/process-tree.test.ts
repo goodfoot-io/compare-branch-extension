@@ -188,6 +188,61 @@ describe('process-tree', () => {
 
       expect(findClaudePid(100)).toBeNull();
     });
+
+    it('matches versioned Claude executable in args', () => {
+      setupProcessTree({
+        100: {
+          comm: '2.1.51',
+          args: '/home/node/.local/share/claude/versions/2.1.51 --agent-id impl-evaluator@eval-main',
+          ppid: 1
+        }
+      });
+
+      expect(findClaudePid(100)).toBe(100);
+    });
+
+    it('matches versioned Claude executable with different version numbers', () => {
+      setupProcessTree({
+        100: {
+          comm: '10.20.300',
+          args: '/home/node/.local/share/claude/versions/10.20.300 --agent-name e2e-evaluator',
+          ppid: 1
+        }
+      });
+
+      expect(findClaudePid(100)).toBe(100);
+    });
+
+    it('finds versioned Claude ancestor in process tree', () => {
+      setupProcessTree({
+        100: { comm: 'bash', ppid: 200 },
+        200: {
+          comm: '2.1.51',
+          args: '/home/node/.local/share/claude/versions/2.1.51 --agent-id impl-evaluator@eval-main',
+          ppid: 300
+        },
+        300: { comm: 'zsh', ppid: 1 }
+      });
+
+      const result = findClaudePid(100);
+      expect(result).toBe(200);
+    });
+
+    it('finds both named and versioned Claude processes in tree', () => {
+      setupProcessTree({
+        100: { comm: 'bash', ppid: 200 },
+        200: {
+          comm: '2.1.51',
+          args: '/home/node/.local/share/claude/versions/2.1.51 --agent-id impl-evaluator@eval-main',
+          ppid: 300
+        },
+        300: { comm: 'zsh', ppid: 400 },
+        400: { comm: 'claude', ppid: 1 }
+      });
+
+      const result = findAllClaudePids(100);
+      expect(result).toEqual([200, 400]);
+    });
   });
 
   it('PROCESS_TREE_MAX_DEPTH is 10', () => {

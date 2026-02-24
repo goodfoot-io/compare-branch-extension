@@ -7,38 +7,39 @@
  */
 
 import { execSync } from 'node:child_process';
-import { basename } from 'node:path';
 
 /** Maximum depth to walk up the process tree. */
 export const PROCESS_TREE_MAX_DEPTH = 10;
 
 /**
- * Pattern matching `claude` as a command name in `ps -o args=` output.
+ * Pattern matching `claude` as a path component in `ps -o args=` output.
  *
  * Matches `claude` when preceded by start-of-string, whitespace, or `/`
- * (path separator) AND followed by whitespace or end-of-string.
+ * (path separator) AND followed by `/`, whitespace, or end-of-string.
  *
  * This avoids false positives on `.claude/` directory paths in arguments
- * like `/home/node/.claude/shell-snapshots/...` where `\bclaude\b` would
- * incorrectly match because `.` and `/` are non-word characters.
+ * like `/home/node/.claude/shell-snapshots/...` because the `.` between
+ * the `/` and `claude` prevents the lookbehind from matching.
+ *
+ * The trailing `/` alternative handles versioned executables where the path
+ * contains `/claude/versions/X.Y.Z` — `claude` is a directory component,
+ * not the terminal command name.
  */
-const CLAUDE_ARGS_PATTERN = /(^|\s|\/)claude(\s|$)/i;
+const CLAUDE_ARGS_PATTERN = /(^|\s|\/)claude(\/|\s|$)/i;
 
 /**
- * Checks whether a given PID belongs to a process named "claude".
+ * Checks whether a given PID belongs to a Claude process.
  *
- * Two-step matching:
- * 1. Primary: `ps -p PID -o comm=` -> basename -> compare "claude" (case-insensitive)
- * 2. Fallback: `ps -p PID -o args=` -> test {@link CLAUDE_ARGS_PATTERN}
+ * Uses `ps -p PID -o args=` to get the full command line, then tests
+ * whether `claude` appears as a path component or command name.
+ * This matches both the `claude` binary and versioned executables
+ * (e.g. `~/.local/share/claude/versions/2.1.51`).
  *
  * @param pid - Process ID to inspect.
- * @returns `true` when the process command matches Claude; otherwise `false`.
+ * @returns `true` when the process args match Claude; otherwise `false`.
  */
 function isClaude(pid: number): boolean {
   try {
-    const comm = execSync(`ps -p ${pid} -o comm=`, { encoding: 'utf8' }).trim();
-    if (basename(comm).toLowerCase() === 'claude') return true;
-
     const args = execSync(`ps -p ${pid} -o args=`, { encoding: 'utf8' }).trim();
     return CLAUDE_ARGS_PATTERN.test(args);
   } catch {

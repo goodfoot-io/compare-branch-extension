@@ -128,7 +128,8 @@ export const DEFAULT_CARD_GATES: CardGates = {
  *   gates: DEFAULT_CARD_GATES,
  *   isPinned: false,
  *   order: 1,
- *   repositoryId: 'main'
+ *   repositoryId: 'main',
+ *   environment: 'default'
  * };
  * ```
  */
@@ -179,10 +180,18 @@ export interface CardMetadata {
 
   /**
    * Repository identifier for this card.
-   * Used to associate cards with their Git repositories.
-   * Optional for backward compatibility with legacy cards.
+   * Used to associate cards with their Git repositories and scope queries.
+   * Derived from the workspace's git remote URL or commit hash via
+   * {@link resolveRepositoryId}.
    */
-  repositoryId?: string;
+  repositoryId: string;
+
+  /**
+   * Environment name for action execution.
+   * Determines which actions are available in the card's action menu.
+   * Persisted in CARD.meta.json. Defaults to `'default'` at creation time.
+   */
+  environment: string;
 
   /**
    * Workspace tracking block for branch and commit attribution.
@@ -199,8 +208,7 @@ export interface CardMetadata {
  *
  * This is the primary card type used throughout the application. It extends
  * {@link CardMetadata} with computed fields (timestamps derived from Git),
- * the description body, and optional runtime properties that are not persisted
- * in the CARD.json file.
+ * the description body, and runtime properties not persisted in CARD.meta.json.
  *
  * @example
  * ```typescript
@@ -213,12 +221,11 @@ export interface CardMetadata {
  *   isPinned: false,
  *   order: 1,
  *   repositoryId: 'main',
+ *   environment: 'default',
  *   createdAt: '2024-01-15T10:30:00Z',
  *   updatedAt: '2024-01-16T14:22:00Z',
  *   description: '## Goals\n- Support Google and GitHub OAuth...',
- *   repositoryPath: '/home/user/project',
- *   executionMode: 'interactive',
- *   environment: 'development'
+ *   repositoryPath: '/home/user/project'
  * };
  * ```
  */
@@ -246,19 +253,4 @@ export interface Card extends CardMetadata {
    * Used for resolving relative paths in actions and typed files.
    */
   repositoryPath?: string;
-
-  /**
-   * Preferred execution mode for actions on this card.
-   * Runtime property, not persisted to disk.
-   * Controls whether actions launch terminals or run in the background.
-   */
-  executionMode?: 'interactive' | 'background';
-
-  /**
-   * Environment name for action execution.
-   * Runtime property, not persisted to disk.
-   * Determines which actions are available in the card's action menu.
-   * Defaults to `'default'` when omitted.
-   */
-  environment?: string;
 }

@@ -111,8 +111,8 @@ export interface CardCreateData {
   description: string;
   /** Optional tags for categorization and search. */
   tags?: string[];
-  /** Optional environment name for deployment targeting. */
-  environmentName?: string;
+  /** Optional environment name for action execution. */
+  environment?: string;
   /** Optional gate requirements for the card. */
   gates?: {
     planRequired?: boolean;
