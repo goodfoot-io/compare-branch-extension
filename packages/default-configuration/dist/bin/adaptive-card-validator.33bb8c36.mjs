@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module';
 const require = __createRequire(import.meta.url);
 
 import { resolve as __resolve } from 'node:path';
-const __DEFAULT_LOG_DEST = ".cards/logs/hooks.log";
+const __DEFAULT_LOG_DEST = ".cards/logs/cards-default-configuration-hooks.log";
 const __workspace = process.env['WORKSPACE_PATH'];
 if (__workspace && !process.env['CARDS_HOOKS_LOG_FILE']) {
   process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__workspace, __DEFAULT_LOG_DEST);
