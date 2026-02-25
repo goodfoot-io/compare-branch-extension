@@ -12,10 +12,11 @@
 
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
+import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import type { CardsClient } from '@cards/sdk/client';
-import type { ActionContext, ActionInput } from '@cards/sdk/config';
+import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
 import { checkWorktreeExists, createWorktree, findGitRoots } from './create-worktree.js';
 
 const execFileAsync = promisify(execFile);
@@ -30,26 +31,163 @@ export function errorMessage(error: unknown): string {
 }
 
 /**
+ * Resolves the marketplace directory bundled with the installed extension.
+ * Uses the EXTENSION_PATH environment variable injected by ActionDispatcher.
+ *
+ * @returns Absolute path to the bundled marketplace directory.
+ * @throws Error if EXTENSION_PATH is not set.
+ */
+export function resolveMarketplacePath(): string {
+  const extensionPath = process.env[CARDS_ENV_VARS.EXTENSION_PATH];
+  if (!extensionPath) {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.EXTENSION_PATH}`);
+  }
+  return path.join(extensionPath, 'dist', 'marketplace');
+}
+
+/**
  * Builds the `--settings` JSON that enables the `runtime` plugin and registers
  * the `cards.management` marketplace source so the spawned `claude` process
- * can resolve the plugin independently of the parent session's settings.
+ * can resolve the plugin from the extension's bundled marketplace.
  *
- * The marketplace `directory` source path must be absolute because inline JSON
- * passed via `--settings` has no file-system anchor for relative-path resolution
- * (same class of bug as Card #11278).
+ * Uses the marketplace bundled inside the extension install directory
+ * (`<EXTENSION_PATH>/dist/marketplace`) so the spawned session always loads the
+ * plugin version that shipped with the extension, regardless of worktree state.
  *
- * @param worktreePath - Absolute path to the worktree where `claude` runs.
+ * @param marketplacePath - Absolute path to the bundled marketplace directory.
  * @returns Serialised settings JSON string.
  */
-export function buildPluginSettings(worktreePath: string): string {
+export function buildPluginSettings(marketplacePath: string): string {
   return JSON.stringify({
     enabledPlugins: { 'runtime@cards.management': true },
     extraKnownMarketplaces: {
       'cards.management': {
-        source: { source: 'directory', path: path.join(worktreePath, 'public') }
+        source: { source: 'directory', path: marketplacePath }
       }
     }
   });
+}
+
+/**
+ * Resolves the Claude Code configuration directory using the standard
+ * fallback chain: $CLAUDE_CONFIG_DIR → $XDG_DATA_HOME/claude →
+ * $XDG_CONFIG_HOME/claude → ~/.config/claude → ~/.claude.
+ *
+ * Returns the first candidate that exists on disk, or null if none is found.
+ *
+ * @returns The first existing Claude config directory path, or null if none found.
+ */
+export async function resolveClaudeConfigDir(): Promise<string | null> {
+  const home = homedir();
+  const candidates: string[] = [];
+
+  const claudeConfigDir = process.env['CLAUDE_CONFIG_DIR'];
+  if (claudeConfigDir) candidates.push(claudeConfigDir);
+
+  const xdgDataHome = process.env['XDG_DATA_HOME'];
+  if (xdgDataHome) candidates.push(path.join(xdgDataHome, 'claude'));
+
+  const xdgConfigHome = process.env['XDG_CONFIG_HOME'];
+  if (xdgConfigHome) candidates.push(path.join(xdgConfigHome, 'claude'));
+
+  candidates.push(path.join(home, '.config', 'claude'));
+  candidates.push(path.join(home, '.claude'));
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(path.join(candidate, 'plugins'));
+      return candidate;
+    } catch {
+      // Not found, try next
+    }
+  }
+  return null;
+}
+
+/**
+ * Reads the version from a plugin.json file.
+ * Returns null if the file doesn't exist or can't be parsed.
+ *
+ * @param pluginJsonPath - Absolute path to the plugin.json file.
+ * @returns The version string from the file, or null if unavailable.
+ */
+async function readPluginVersion(pluginJsonPath: string): Promise<string | null> {
+  try {
+    const content = await fs.readFile(pluginJsonPath, 'utf-8');
+    const parsed = JSON.parse(content) as { version?: string };
+    return parsed.version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Evicts the Claude Code plugin cache for `runtime@cards.management` when the
+ * cached version is older than the version bundled with the extension.
+ *
+ * Reads the bundled runtime plugin.json version from the extension's marketplace
+ * directory, then checks for cached versions under
+ * `<configDir>/plugins/cache/cards-management/runtime/`. If any cached version
+ * exists that is lower than the bundled version, the entire runtime cache
+ * directory is removed so Claude Code re-caches from the directory source.
+ *
+ * @param marketplacePath - Absolute path to the bundled marketplace directory.
+ * @param logger - Logger for diagnostic output.
+ */
+export async function evictStaleRuntimeCache(marketplacePath: string, logger: ActionContext['logger']): Promise<void> {
+  const bundledVersion = await readPluginVersion(
+    path.join(marketplacePath, 'plugins', 'runtime', '.claude-plugin', 'plugin.json')
+  );
+  if (!bundledVersion) {
+    logger.warn('Could not read bundled runtime plugin version, skipping cache eviction');
+    return;
+  }
+
+  const configDir = await resolveClaudeConfigDir();
+  if (!configDir) {
+    logger.debug('Claude config directory not found, skipping cache eviction');
+    return;
+  }
+
+  const cacheDir = path.join(configDir, 'plugins', 'cache', 'cards-management', 'runtime');
+  let entries: string[];
+  try {
+    entries = await fs.readdir(cacheDir);
+  } catch {
+    // No cache directory — nothing to evict
+    return;
+  }
+
+  if (entries.length === 0) return;
+
+  // Check if any cached version is stale (lower than bundled)
+  const bundledParts = bundledVersion.split('.').map(Number);
+  let hasStale = false;
+
+  for (const entry of entries) {
+    const parts = entry.split('.').map(Number);
+    if (parts.some(Number.isNaN) || parts.length !== 3) continue;
+
+    // Compare semver: stale if cached < bundled
+    for (let i = 0; i < 3; i++) {
+      const cached = parts[i] ?? 0;
+      const bundled = bundledParts[i] ?? 0;
+      if (cached < bundled) {
+        hasStale = true;
+        break;
+      }
+      if (cached > bundled) break;
+    }
+    if (hasStale) break;
+  }
+
+  if (!hasStale) {
+    logger.debug('Runtime plugin cache is up to date', { bundledVersion, cachedVersions: entries });
+    return;
+  }
+
+  logger.info('Evicting stale runtime plugin cache', { bundledVersion, cachedVersions: entries });
+  await fs.rm(cacheDir, { recursive: true, force: true });
 }
 
 /**
@@ -60,7 +198,7 @@ export function buildPluginSettings(worktreePath: string): string {
  * @param resume - When true, passes `--resume` instead of starting a new session.
  * @param mode - Execution mode; `'background'` appends `--print`.
  * @param cardRepoPath - Absolute path passed via `--add-dir`.
- * @param worktreePath - Absolute path to the worktree (used to build settings).
+ * @param marketplacePath - Absolute path to the bundled marketplace directory.
  * @returns Array of CLI arguments.
  */
 export function buildArgs(
@@ -69,7 +207,7 @@ export function buildArgs(
   resume: boolean,
   mode: ActionInput['executionMode'],
   cardRepoPath: string,
-  worktreePath: string
+  marketplacePath: string
 ): string[] {
   const args: string[] = [];
 
@@ -79,7 +217,7 @@ export function buildArgs(
     args.push(prompt);
     args.push('--session-id', sessionId);
   }
-  args.push('--settings', buildPluginSettings(worktreePath));
+  args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
   if (mode === 'background') {
     args.push('--print');

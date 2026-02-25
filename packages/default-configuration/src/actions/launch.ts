@@ -23,7 +23,9 @@ import {
   buildArgs,
   cleanupMergedBranches,
   errorMessage,
+  evictStaleRuntimeCache,
   resolveBaseBranch,
+  resolveMarketplacePath,
   resolveOrCreateWorktree
 } from '../lib/claude-session.js';
 
@@ -67,7 +69,10 @@ export default defineAction(
     const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
     context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-    const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath, cwd);
+    const marketplacePath = resolveMarketplacePath();
+    await evictStaleRuntimeCache(marketplacePath, context.logger);
+
+    const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath, marketplacePath);
     const isInteractive = input.executionMode === 'interactive';
 
     const child: ChildProcess = spawn('claude', args, {

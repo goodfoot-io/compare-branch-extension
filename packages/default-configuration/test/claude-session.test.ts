@@ -19,7 +19,10 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:fs/promises', () => ({
-  access: vi.fn()
+  access: vi.fn(),
+  readFile: vi.fn(),
+  readdir: vi.fn(),
+  rm: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
@@ -171,9 +174,9 @@ describe('claude-session shared utilities', () => {
 
     it('includes --settings and --add-dir', async () => {
       const { buildArgs, buildPluginSettings } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/worktree/path');
+      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/marketplace');
       expect(args).toContain('--settings');
-      expect(args).toContain(buildPluginSettings('/worktree/path'));
+      expect(args).toContain(buildPluginSettings('/ext/marketplace'));
       expect(args).not.toContain('--plugin-dir');
       expect(args).toContain('--add-dir');
       expect(args).toContain('/card/repo');
@@ -464,6 +467,208 @@ describe('claude-session shared utilities', () => {
       expect(errorMessage('plain string')).toBe('plain string');
       expect(errorMessage(42)).toBe('42');
       expect(errorMessage(null)).toBe('null');
+    });
+  });
+
+  describe('resolveMarketplacePath', () => {
+    it('returns marketplace path from EXTENSION_PATH', async () => {
+      const { resolveMarketplacePath } = await import('../src/lib/claude-session.js');
+      process.env['EXTENSION_PATH'] = '/home/user/.vscode/extensions/cards-1.0.0';
+      try {
+        expect(resolveMarketplacePath()).toBe('/home/user/.vscode/extensions/cards-1.0.0/dist/marketplace');
+      } finally {
+        delete process.env['EXTENSION_PATH'];
+      }
+    });
+
+    it('throws when EXTENSION_PATH is not set', async () => {
+      const { resolveMarketplacePath } = await import('../src/lib/claude-session.js');
+      const saved = process.env['EXTENSION_PATH'];
+      delete process.env['EXTENSION_PATH'];
+      try {
+        expect(() => resolveMarketplacePath()).toThrow('Missing required environment variable');
+      } finally {
+        if (saved !== undefined) process.env['EXTENSION_PATH'] = saved;
+      }
+    });
+  });
+
+  describe('buildPluginSettings', () => {
+    it('produces JSON with marketplace directory source', async () => {
+      const { buildPluginSettings } = await import('../src/lib/claude-session.js');
+      const settings = JSON.parse(buildPluginSettings('/ext/dist/marketplace'));
+      expect(settings.enabledPlugins).toEqual({ 'runtime@cards.management': true });
+      expect(settings.extraKnownMarketplaces['cards.management'].source).toEqual({
+        source: 'directory',
+        path: '/ext/dist/marketplace'
+      });
+    });
+  });
+
+  describe('resolveClaudeConfigDir', () => {
+    it('returns CLAUDE_CONFIG_DIR when set and has plugins/', async () => {
+      const { resolveClaudeConfigDir } = await import('../src/lib/claude-session.js');
+      const { access } = await import('node:fs/promises');
+      vi.mocked(access).mockResolvedValueOnce(undefined);
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/custom/claude';
+      try {
+        const result = await resolveClaudeConfigDir();
+        expect(result).toBe('/custom/claude');
+        expect(access).toHaveBeenCalledWith('/custom/claude/plugins');
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
+    });
+
+    it('falls through to ~/.claude when earlier candidates lack plugins/', async () => {
+      const { resolveClaudeConfigDir } = await import('../src/lib/claude-session.js');
+      const { access } = await import('node:fs/promises');
+      // Reject all candidates until the last one
+      vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+      // Allow the last candidate (~/.claude/plugins)
+      vi.mocked(access).mockRejectedValueOnce(new Error('ENOENT')); // ~/.config/claude/plugins
+      vi.mocked(access).mockResolvedValueOnce(undefined); // ~/.claude/plugins
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      delete process.env['CLAUDE_CONFIG_DIR'];
+      const savedXdg = process.env['XDG_DATA_HOME'];
+      delete process.env['XDG_DATA_HOME'];
+      const savedXdgConfig = process.env['XDG_CONFIG_HOME'];
+      delete process.env['XDG_CONFIG_HOME'];
+      try {
+        const result = await resolveClaudeConfigDir();
+        expect(result).toMatch(/\.claude$/);
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        if (savedXdg !== undefined) process.env['XDG_DATA_HOME'] = savedXdg;
+        if (savedXdgConfig !== undefined) process.env['XDG_CONFIG_HOME'] = savedXdgConfig;
+      }
+    });
+
+    it('returns null when no candidates exist', async () => {
+      const { resolveClaudeConfigDir } = await import('../src/lib/claude-session.js');
+      const { access } = await import('node:fs/promises');
+      vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      delete process.env['CLAUDE_CONFIG_DIR'];
+      const savedXdg = process.env['XDG_DATA_HOME'];
+      delete process.env['XDG_DATA_HOME'];
+      const savedXdgConfig = process.env['XDG_CONFIG_HOME'];
+      delete process.env['XDG_CONFIG_HOME'];
+      try {
+        const result = await resolveClaudeConfigDir();
+        expect(result).toBeNull();
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        if (savedXdg !== undefined) process.env['XDG_DATA_HOME'] = savedXdg;
+        if (savedXdgConfig !== undefined) process.env['XDG_CONFIG_HOME'] = savedXdgConfig;
+      }
+    });
+  });
+
+  describe('evictStaleRuntimeCache', () => {
+    it('removes cache when cached version is lower than bundled', async () => {
+      const { evictStaleRuntimeCache } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      // readFile for bundled plugin.json
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(JSON.stringify({ name: 'runtime', version: '1.0.75' }));
+      // access for resolveClaudeConfigDir — match CLAUDE_CONFIG_DIR
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      // readdir for cache entries
+      vi.mocked(fsPromises.readdir).mockResolvedValueOnce(['1.0.69', '1.0.70'] as unknown as Awaited<
+        ReturnType<typeof fsPromises.readdir>
+      >);
+      // rm for eviction
+      vi.mocked(fsPromises.rm).mockResolvedValueOnce(undefined);
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await evictStaleRuntimeCache('/ext/marketplace', createMockLogger());
+        expect(fsPromises.rm).toHaveBeenCalledWith('/home/node/.claude/plugins/cache/cards-management/runtime', {
+          recursive: true,
+          force: true
+        });
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
+    });
+
+    it('does not remove cache when cached version is equal to bundled', async () => {
+      const { evictStaleRuntimeCache } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(JSON.stringify({ name: 'runtime', version: '1.0.75' }));
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      vi.mocked(fsPromises.readdir).mockResolvedValueOnce(['1.0.75'] as unknown as Awaited<
+        ReturnType<typeof fsPromises.readdir>
+      >);
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await evictStaleRuntimeCache('/ext/marketplace', createMockLogger());
+        expect(fsPromises.rm).not.toHaveBeenCalled();
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
+    });
+
+    it('does not remove cache when cached version is higher than bundled', async () => {
+      const { evictStaleRuntimeCache } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(JSON.stringify({ name: 'runtime', version: '1.0.75' }));
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      vi.mocked(fsPromises.readdir).mockResolvedValueOnce(['1.0.80'] as unknown as Awaited<
+        ReturnType<typeof fsPromises.readdir>
+      >);
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await evictStaleRuntimeCache('/ext/marketplace', createMockLogger());
+        expect(fsPromises.rm).not.toHaveBeenCalled();
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
+    });
+
+    it('skips eviction when bundled plugin.json is not found', async () => {
+      const { evictStaleRuntimeCache } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      vi.mocked(fsPromises.readFile).mockRejectedValueOnce(new Error('ENOENT'));
+
+      await evictStaleRuntimeCache('/ext/marketplace', createMockLogger());
+      expect(fsPromises.rm).not.toHaveBeenCalled();
+    });
+
+    it('skips eviction when no cache directory exists', async () => {
+      const { evictStaleRuntimeCache } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(JSON.stringify({ name: 'runtime', version: '1.0.75' }));
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      vi.mocked(fsPromises.readdir).mockRejectedValueOnce(new Error('ENOENT'));
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await evictStaleRuntimeCache('/ext/marketplace', createMockLogger());
+        expect(fsPromises.rm).not.toHaveBeenCalled();
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
     });
   });
 });

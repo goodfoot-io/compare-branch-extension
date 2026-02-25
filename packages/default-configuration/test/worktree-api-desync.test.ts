@@ -24,7 +24,10 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:fs/promises', () => ({
-  access: vi.fn()
+  access: vi.fn(),
+  readFile: vi.fn(),
+  readdir: vi.fn(),
+  rm: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
@@ -41,6 +44,17 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+
+  // Set EXTENSION_PATH so resolveMarketplacePath() succeeds
+  process.env['EXTENSION_PATH'] = '/test/extension';
+
+  // Default: evictStaleRuntimeCache reads bundled plugin.json — return a
+  // version so it proceeds, then readdir returns empty cache so no eviction.
+  const fsPromises = await import('node:fs/promises');
+  vi.mocked(fsPromises.readFile).mockResolvedValue(
+    JSON.stringify({ name: 'runtime', version: '1.0.0' })
+  );
+  vi.mocked(fsPromises.readdir).mockRejectedValue(new Error('ENOENT'));
 
   // resolveBaseBranch → 'main'
   const { execFile } = await import('node:child_process');

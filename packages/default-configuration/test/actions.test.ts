@@ -19,7 +19,10 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:fs/promises', () => ({
-  access: vi.fn()
+  access: vi.fn(),
+  readFile: vi.fn(),
+  readdir: vi.fn(),
+  rm: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
@@ -36,6 +39,15 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+
+  // Set EXTENSION_PATH so resolveMarketplacePath() succeeds
+  process.env['EXTENSION_PATH'] = '/test/extension';
+
+  // Default: evictStaleRuntimeCache reads bundled plugin.json — return a
+  // version so it proceeds, then readdir returns empty cache so no eviction.
+  const fsPromises = await import('node:fs/promises');
+  vi.mocked(fsPromises.readFile).mockResolvedValue(JSON.stringify({ name: 'runtime', version: '1.0.0' }));
+  vi.mocked(fsPromises.readdir).mockRejectedValue(new Error('ENOENT'));
 
   // Default: worktree setup succeeds so all tests can call the action.
   // resolveBaseBranch → 'main', getBranches → [] (empty), createWorktree → default path.
@@ -166,10 +178,10 @@ describe('Default Actions', () => {
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
       expect(args).not.toContain('--print');
 
-      // Should include --settings with inline plugin settings for the worktree
+      // Should include --settings with inline plugin settings for the extension marketplace
       const { buildPluginSettings } = await import('../src/lib/claude-session.js');
       expect(args).toContain('--settings');
-      expect(args).toContain(buildPluginSettings('/test/workspace/.worktrees/cards/card-123/1'));
+      expect(args).toContain(buildPluginSettings('/test/extension/dist/marketplace'));
       expect(args).not.toContain('--plugin-dir');
 
       child.emit('close', 0);
