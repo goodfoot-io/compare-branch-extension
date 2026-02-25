@@ -1,7 +1,6 @@
 ---
 name: bug
 description: Fix testable bugs using test-first methodology.
-model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:card-bug
 ---

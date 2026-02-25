@@ -1,7 +1,6 @@
 ---
 name: maintenance
 description: Refine maintenance cards through user interview
-model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:maintenance, runtime:interview-maintenance
 ---

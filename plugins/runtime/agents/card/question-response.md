@@ -1,7 +1,6 @@
 ---
 name: question-response
 description: Respond to user questions without code changes.
-model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:card-question-response
 ---

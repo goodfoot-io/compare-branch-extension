@@ -2,8 +2,9 @@
  * Shared session utilities for Claude Code action workflows.
  *
  * Provides reusable building blocks for actions that spawn the `claude` CLI:
- * CLI arg building, worktree lifecycle management, and branch cleanup. Both
- * the `launch` and `interview` actions consume these utilities.
+ * plugin settings construction, CLI arg building, worktree lifecycle management,
+ * and branch cleanup. Both the `launch` and `interview` actions consume these
+ * utilities.
  *
  * @summary Shared session utilities for Claude Code action workflows
  * @module
@@ -29,6 +30,29 @@ export function errorMessage(error: unknown): string {
 }
 
 /**
+ * Builds the `--settings` JSON that enables the `runtime` plugin and registers
+ * the `cards.management` marketplace source so the spawned `claude` process
+ * can resolve the plugin independently of the parent session's settings.
+ *
+ * The marketplace `directory` source path must be absolute because inline JSON
+ * passed via `--settings` has no file-system anchor for relative-path resolution
+ * (same class of bug as Card #11278).
+ *
+ * @param worktreePath - Absolute path to the worktree where `claude` runs.
+ * @returns Serialised settings JSON string.
+ */
+export function buildPluginSettings(worktreePath: string): string {
+  return JSON.stringify({
+    enabledPlugins: { 'runtime@cards.management': true },
+    extraKnownMarketplaces: {
+      'cards.management': {
+        source: { source: 'directory', path: path.join(worktreePath, 'public') }
+      }
+    }
+  });
+}
+
+/**
  * Builds the CLI argument list for the `claude` process.
  *
  * @param prompt - The prompt string for new sessions.
@@ -36,7 +60,7 @@ export function errorMessage(error: unknown): string {
  * @param resume - When true, passes `--resume` instead of starting a new session.
  * @param mode - Execution mode; `'background'` appends `--print`.
  * @param cardRepoPath - Absolute path passed via `--add-dir`.
- * @param extensionPath - Absolute path to the extension directory (used to locate the bundled runtime plugin).
+ * @param worktreePath - Absolute path to the worktree (used to build settings).
  * @returns Array of CLI arguments.
  */
 export function buildArgs(
@@ -45,7 +69,7 @@ export function buildArgs(
   resume: boolean,
   mode: ActionInput['executionMode'],
   cardRepoPath: string,
-  extensionPath: string
+  worktreePath: string
 ): string[] {
   const args: string[] = [];
 
@@ -55,7 +79,7 @@ export function buildArgs(
     args.push(prompt);
     args.push('--session-id', sessionId);
   }
-  args.push('--plugin-dir', path.join(extensionPath, 'dist', 'plugins', 'runtime'));
+  args.push('--settings', buildPluginSettings(worktreePath));
   args.push('--add-dir', cardRepoPath);
   if (mode === 'background') {
     args.push('--print');

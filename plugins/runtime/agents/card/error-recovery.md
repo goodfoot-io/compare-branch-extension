@@ -1,7 +1,6 @@
 ---
 name: error-recovery
 description: Recover from errors during protocol execution.
-model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:card-error-recovery
 ---

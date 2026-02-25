@@ -169,12 +169,12 @@ describe('claude-session shared utilities', () => {
       expect(args).toContain('--print');
     });
 
-    it('includes --plugin-dir and --add-dir', async () => {
-      const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
-      expect(args).toContain('--plugin-dir');
-      expect(args).toContain('/ext/path/dist/plugins/runtime');
-      expect(args).not.toContain('--settings');
+    it('includes --settings and --add-dir', async () => {
+      const { buildArgs, buildPluginSettings } = await import('../src/lib/claude-session.js');
+      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/worktree/path');
+      expect(args).toContain('--settings');
+      expect(args).toContain(buildPluginSettings('/worktree/path'));
+      expect(args).not.toContain('--plugin-dir');
       expect(args).toContain('--add-dir');
       expect(args).toContain('/card/repo');
     });

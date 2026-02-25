@@ -166,10 +166,11 @@ describe('Default Actions', () => {
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
       expect(args).not.toContain('--print');
 
-      // Should include --plugin-dir pointing to extension's bundled runtime plugin
-      expect(args).toContain('--plugin-dir');
-      expect(args).toContain('/test/extension/dist/plugins/runtime');
-      expect(args).not.toContain('--settings');
+      // Should include --settings with inline plugin settings for the worktree
+      const { buildPluginSettings } = await import('../src/lib/claude-session.js');
+      expect(args).toContain('--settings');
+      expect(args).toContain(buildPluginSettings('/test/workspace/.worktrees/cards/card-123/1'));
+      expect(args).not.toContain('--plugin-dir');
 
       child.emit('close', 0);
       await promise;

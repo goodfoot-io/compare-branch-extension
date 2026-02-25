@@ -1,7 +1,6 @@
 ---
 name: implementation-evaluator
 description: Evaluate implementation quality and determine production readiness.
-model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:plan, runtime:implementation-evaluator
 ---

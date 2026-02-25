@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "cards-sdk build -c settings.config.ts -o dist --log .cards/logs/hooks.log && rm -rf ../../../.cards/bin ../../../.cards/settings.json && cp -r ./dist/* ../../../.cards/",
+    "build": "cards-sdk build -c settings.config.ts -o dist --log .cards/logs/cards-default-configuration-hooks.log && rm -rf ../../../.cards/bin ../../../.cards/settings.json && cp -r ./dist/* ../../../.cards/",
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
     "typecheck": "tsc --noEmit",
     "test": "vitest-unchanged",

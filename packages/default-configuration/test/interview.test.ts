@@ -196,7 +196,7 @@ describe('Default Actions', () => {
       await promise;
     });
 
-    it('includes --plugin-dir pointing to extension bundled runtime plugin', async () => {
+    it('includes --settings with inline plugin settings for the worktree', async () => {
       const { spawn } = await import('node:child_process');
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -206,9 +206,10 @@ describe('Default Actions', () => {
       await flushMicrotasks();
 
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
-      expect(args).toContain('--plugin-dir');
-      expect(args).toContain('/test/extension/dist/plugins/runtime');
-      expect(args).not.toContain('--settings');
+      const { buildPluginSettings } = await import('../src/lib/claude-session.js');
+      expect(args).toContain('--settings');
+      expect(args).toContain(buildPluginSettings('/test/workspace/.worktrees/cards/card-123/1'));
+      expect(args).not.toContain('--plugin-dir');
 
       child.emit('close', 0);
       await promise;

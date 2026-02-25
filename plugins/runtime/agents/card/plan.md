@@ -1,7 +1,6 @@
 ---
 name: plan
 description: Create implementation plans for user approval.
-model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:card-plan, runtime:plan
 ---

@@ -1,7 +1,6 @@
 ---
 name: bug-report
 description: Refine bug report cards through user interview
-model: inherit
 tools: "*"
 skills: runtime:card-repo, runtime:bug-report, runtime:interview-bug-report
 ---
