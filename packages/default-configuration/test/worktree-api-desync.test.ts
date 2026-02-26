@@ -27,7 +27,8 @@ vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   readFile: vi.fn(),
   readdir: vi.fn(),
-  rm: vi.fn()
+  rm: vi.fn(),
+  writeFile: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
@@ -51,9 +52,7 @@ beforeEach(async () => {
   // Default: evictStaleRuntimeCache reads bundled plugin.json — return a
   // version so it proceeds, then readdir returns empty cache so no eviction.
   const fsPromises = await import('node:fs/promises');
-  vi.mocked(fsPromises.readFile).mockResolvedValue(
-    JSON.stringify({ name: 'runtime', version: '1.0.0' })
-  );
+  vi.mocked(fsPromises.readFile).mockResolvedValue(JSON.stringify({ name: 'runtime', version: '1.0.0' }));
   vi.mocked(fsPromises.readdir).mockRejectedValue(new Error('ENOENT'));
 
   // resolveBaseBranch → 'main'

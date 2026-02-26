@@ -122,6 +122,60 @@ async function readPluginVersion(pluginJsonPath: string): Promise<string | null>
 }
 
 /**
+ * Updates the `cards.management` entry in Claude Code's `known_marketplaces.json`
+ * to point to the extension-bundled marketplace using an absolute path.
+ *
+ * Claude Code resolves directory marketplace sources relative to the spawned
+ * session's CWD. When sessions run in a worktree, a relative path like `"public"`
+ * resolves to the worktree's copy — which may contain a stale plugin version.
+ * Writing an absolute path ensures Claude Code always reads from the extension's
+ * bundled marketplace, regardless of CWD.
+ *
+ * @param marketplacePath - Absolute path to the bundled marketplace directory.
+ * @param logger - Logger for diagnostic output.
+ */
+export async function updateMarketplaceRegistration(
+  marketplacePath: string,
+  logger: ActionContext['logger']
+): Promise<void> {
+  const configDir = await resolveClaudeConfigDir();
+  if (!configDir) {
+    logger.debug('Claude config directory not found, skipping marketplace registration update');
+    return;
+  }
+
+  const knownPath = path.join(configDir, 'plugins', 'known_marketplaces.json');
+  let raw: string;
+  try {
+    raw = await fs.readFile(knownPath, 'utf-8');
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      logger.debug('known_marketplaces.json not found, skipping');
+      return;
+    }
+    throw error;
+  }
+
+  const data = JSON.parse(raw) as Record<
+    string,
+    { source?: { source?: string; path?: string }; installLocation?: string; lastUpdated?: string }
+  >;
+  const entry = data['cards.management'];
+  if (!entry?.source || entry.source.source !== 'directory') return;
+
+  if (entry.source.path === marketplacePath && entry.installLocation === marketplacePath) {
+    logger.debug('Marketplace registration already points to extension bundle');
+    return;
+  }
+
+  entry.source.path = marketplacePath;
+  entry.installLocation = marketplacePath;
+  entry.lastUpdated = new Date().toISOString();
+  await fs.writeFile(knownPath, `${JSON.stringify(data, null, 4)}\n`);
+  logger.info('Updated marketplace registration to extension bundle', { marketplacePath });
+}
+
+/**
  * Evicts the Claude Code plugin cache for `runtime@cards.management` when the
  * cached version is older than the version bundled with the extension.
  *

@@ -6,10 +6,10 @@ description: Implement approved plans.
 
 <placeholder-variables>
 [TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
-[EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 2 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 4.6 on each CONTINUE or required-findings result)
+[EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 5 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 3.3 on each pre-evaluation validation failure, and in Step 3.7 on each CONTINUE or required-findings result)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
-[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 2.6 for modification scope check, Step 3.3 for revert scope, and Step 5.3 cleanup annotation)
-[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose (synthesized in Step 4.2 from CARD.md and PLAN.md goals; passed to end-to-end evaluator prompt in Step 4.3)
+[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 2.6 for modification scope check and Step 4.3 cleanup annotation)
+[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose (synthesized in Step 3.2 from CARD.md and PLAN.md goals; passed to end-to-end evaluator prompt in Step 3.4)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -249,45 +249,6 @@ git commit --allow-empty -m "checkpoint: after implementation, before validation
 git tag -f "implement/${CARD_ID}/post-implementation" HEAD
 ```
 
-#### Check for Unexpected Modifications
-
-Review all files modified since the first task dispatch to verify scope compliance before the unexpected-modifications check.
-
-```bash
-cd $WORKSPACE_PATH
-git diff "implement/${CARD_ID}/baseline" HEAD --name-only
-```
-
-Verify that only plan-owned files were modified:
-
-```bash
-cd $WORKSPACE_PATH
-MODIFIED=$(git diff "implement/${CARD_ID}/baseline" --name-only)
-UNEXPECTED=$(comm -23 <(echo "$MODIFIED" | sort) <(echo "[PLAN_FILES]" | sort))
-```
-
-If unexpected modifications exist:
-- **Formatting-only** (use `git diff --ignore-all-space --ignore-blank-lines` to check): Auto-keep, note in card comment
-- **Substantive changes**: Add blocked tag and write comment:
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-Blocked: unexpected file modifications outside plan scope.
-
-Unexpected files:
-[UNEXPECTED list, one per line]
-
-Awaiting user direction on whether to keep or revert these changes.
-EOF
-git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: unexpected modifications outside plan scope"  # <card-repo-commit-style>
-```
-
-**STOP** — await user direction. Do not discard modifications without user direction.
-
 **Requirement:** ALL validation commands must pass before proceeding.
 
 Run validation per the plan's "Validation Commands" section.
@@ -311,81 +272,23 @@ git add comment/$COMMENT_ID.md CARD.meta.json
 git commit -m "blocked: validation failure outside scope"  # <card-repo-commit-style>
 ```
 
-Only proceed to **3. Refactor** when ALL validations pass.
+Only proceed to **3. Evaluate Quality** when ALL validations pass.
 
 ---
 
-## 3. Refactor
+## 3. Evaluate Quality
 
-### 3.1 Pre-Refactoring Checkpoint
-
-Commit a checkpoint:
-
-```bash
-cd $WORKSPACE_PATH
-git add -A  # checkpoint: stage all workspace files before refactoring
-git commit --allow-empty -m "checkpoint: before refactoring — implementation complete for card $CARD_ID"
-git tag -f "implement/${CARD_ID}/pre-refactor" HEAD
-```
-
-### 3.2 Delegate Refactoring
-
-```xml
-<invoke name="Task">
-<parameter name="description">Refactor implementation</parameter>
-<parameter name="subagent_type">runtime:card:refactor</parameter>
-<parameter name="prompt">
-## Focus Areas
-1. Eliminate dead code
-2. Simplify logic (guard clauses, smaller functions)
-3. Remove over-engineering (YAGNI)
-4. Improve naming (align with plan intent)
-5. Harmonize patterns (match codebase conventions)
-6. Refine tests (remove redundant, focus on behavior)
-
-## Constraints
-- Preserve observable behavior
-- Maintain test coverage
-- Stay within plan scope
-- Validate after each change
-</parameter>
-</invoke>
-```
-
-### 3.3 Process Result
-
-Based on agent status:
-- **COMPLETED**: Commit refactoring changes, then capture and report refactoring changes:
-
-```bash
-cd $WORKSPACE_PATH
-git add -A  # stage all refactoring changes
-git commit -m "refactor: [what was refactored and why]"  # <workspace-commit-style>
-```
-
-  1. Run `git diff "implement/!` echo $CARD_ID`/pre-refactor" HEAD --stat` to capture changes
-  2. If diff is empty: Write brief comment "No refactoring changes were made — code already met quality standards"
-  3. If diff has content: Run post-refactor validation (typecheck, test, lint)
-     - **Passes**: Write a comment with a paragraph summarizing what was refactored and why, followed by the diff stat. Proceed to Step 4
-     - **Fails**: Revert plan-owned files to pre-refactor state: `git checkout "implement/!` echo $CARD_ID`/pre-refactor" -- [PLAN_FILES]`. Write comment noting refactoring was reverted. Proceed to Step 4
-- **HAS_RECOMMENDATIONS**: Log recommendations, proceed to Step 4
-- **BLOCKED**: Document reasons, proceed to Step 4
-
----
-
-## 4. Evaluate Quality
-
-### 4.1 Pre-Evaluation Checkpoint
+### 3.1 Pre-Evaluation Checkpoint
 
 Commit a checkpoint:
 
 ```bash
 cd $WORKSPACE_PATH
 git add -A  # checkpoint: stage all workspace files before evaluation
-git commit --allow-empty -m "checkpoint: before evaluation — implementation and refactoring complete for card $CARD_ID"
+git commit --allow-empty -m "checkpoint: before evaluation — implementation complete for card $CARD_ID"
 ```
 
-### 4.2 Synthesize Commander's Intent
+### 3.2 Synthesize Commander's Intent
 
 Read the card description and plan goals:
 
@@ -400,7 +303,32 @@ Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 - The outcome the user expects
 - Any implicit requirements beyond the plan's literal tasks
 
-### 4.3 Create Evaluation Team
+### 3.3 Pre-Evaluation Validation
+
+Run validation per the plan's "Validation Commands" section.
+
+**On any failure:** Increment [EVALUATION_CYCLE] by 1.
+
+- **If cycle >= 5**: Write a comment summarizing all validation failures, add `blocked` tag to `CARD.meta.json`, commit, **STOP**:
+
+```bash
+cd $CARD_REPO_PATH
+$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+Blocked: validation failures persist after [EVALUATION_CYCLE] evaluation cycles.
+
+[exact validation command and full output]
+EOF
+git add comment/$COMMENT_ID.md CARD.meta.json
+git commit -m "blocked: persistent validation failures"  # <card-repo-commit-style>
+```
+
+- **If cycle < 5**: Create todos with "[Pre-eval fix]" prefix from all validation failures, return to Step 2.2.
+
+Only proceed to **Step 3.4** when ALL validations pass.
+
+### 3.4 Create Evaluation Team
 
 ```xml
 <invoke name="TeamCreate">
@@ -419,6 +347,9 @@ Spawn both evaluators as teammates:
 <parameter name="name">impl-evaluator</parameter>
 <parameter name="prompt">
 Evaluate for production readiness.
+
+## Validation Status
+All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
 
 ## Baseline
 Changes are relative to git tag: `implement/${CARD_ID}/baseline`
@@ -440,6 +371,9 @@ Evaluate implementation against commander's intent.
 ## Commander's Intent
 [COMMANDERS_INTENT]
 
+## Validation Status
+All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
+
 ## Baseline
 Changes are relative to git tag: `implement/${CARD_ID}/baseline`
 
@@ -451,11 +385,11 @@ You are a teammate in an evaluation team. The implementation evaluator ("impl-ev
 </invoke>
 ```
 
-### 4.4 Wait for Reports
+### 3.5 Wait for Reports
 
 Wait for both agents to complete their evaluations and deliver reports.
 
-### 4.5 Shut Down Team
+### 3.6 Shut Down Team
 
 Send shutdown requests to both teammates and delete the team:
 
@@ -476,15 +410,15 @@ Send shutdown requests to both teammates and delete the team:
 <invoke name="TeamDelete"/>
 ```
 
-### 4.6 Process Results
+### 3.7 Process Results
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
 2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Increment [EVALUATION_CYCLE] once (not per-evaluator)
-   - **If cycle >= 2**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
-   - **If cycle < 2**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2
-3. **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 5
-4. **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 5
+   - **If cycle >= 5**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
+   - **If cycle < 5**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2
+3. **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 4
+4. **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 4
 
 Write recommended findings (if any) as a card comment:
 
@@ -502,11 +436,11 @@ git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
 
 ---
 
-## 5. Finalize
+## 4. Finalize
 
-### 5.1 Craft Final Commit Message
+### 4.1 Craft Final Commit Message
 
-Synthesize the final commit message from implementer and refactorer Decision Narratives, plus key findings from evaluator reports, per `<workspace-commit-style>`.
+Synthesize the final commit message from implementer Decision Narratives and key findings from evaluator reports, per `<workspace-commit-style>`.
 
 ```bash
 cd $WORKSPACE_PATH
@@ -517,7 +451,7 @@ COMMITMSG
 )"
 ```
 
-### 5.2 Complete or Await Review
+### 4.2 Complete or Await Review
 
 **If review is NOT required (gates.reviewRequired is false or unset):**
 
@@ -559,15 +493,14 @@ git commit -m "implementation complete, awaiting review"  # <card-repo-commit-st
 
 **STOP** — Merge occurs after user approval.
 
-### 5.3 Tag Cleanup
+### 4.3 Tag Cleanup
 
 Clean up checkpoint tags:
 
 ```bash
 cd $WORKSPACE_PATH
 git tag -d "implement/${CARD_ID}/baseline" \
-         "implement/${CARD_ID}/post-implementation" \
-         "implement/${CARD_ID}/pre-refactor" 2>/dev/null
+         "implement/${CARD_ID}/post-implementation" 2>/dev/null
 ```
 
 ### Available Checkpoints
@@ -578,7 +511,6 @@ The following checkpoints are created during execution for rollback:
 |-----|------------|---------|
 | `implement/!` echo $CARD_ID`/baseline` | Step 1 | Original state before any changes |
 | `implement/!` echo $CARD_ID`/post-implementation` | Step 2.6 | After implementation, before validation |
-| `implement/!` echo $CARD_ID`/pre-refactor` | Step 3.1 | After validation passes, before refactoring |
 
 Reverts are scoped to [PLAN_FILES] only — files outside the plan's scope are never modified or discarded without user direction.
 

@@ -25,7 +25,8 @@ import {
   evictStaleRuntimeCache,
   resolveBaseBranch,
   resolveMarketplacePath,
-  resolveOrCreateWorktree
+  resolveOrCreateWorktree,
+  updateMarketplaceRegistration
 } from '../lib/claude-session.js';
 
 /**
@@ -67,6 +68,7 @@ export default defineAction(
     context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
     const marketplacePath = resolveMarketplacePath();
+    await updateMarketplaceRegistration(marketplacePath, context.logger);
     await evictStaleRuntimeCache(marketplacePath, context.logger);
 
     const args = buildArgs(prompt, sessionId, false, input.executionMode, input.cardRepoPath, marketplacePath);

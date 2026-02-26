@@ -22,7 +22,8 @@ vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   readFile: vi.fn(),
   readdir: vi.fn(),
-  rm: vi.fn()
+  rm: vi.fn(),
+  writeFile: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
@@ -566,6 +567,109 @@ describe('claude-session shared utilities', () => {
         if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
         if (savedXdg !== undefined) process.env['XDG_DATA_HOME'] = savedXdg;
         if (savedXdgConfig !== undefined) process.env['XDG_CONFIG_HOME'] = savedXdgConfig;
+      }
+    });
+  });
+
+  describe('updateMarketplaceRegistration', () => {
+    it('updates known_marketplaces.json when cards.management has stale path', async () => {
+      const { updateMarketplaceRegistration } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      const existing = {
+        'cards.management': {
+          source: { source: 'directory', path: 'public' },
+          installLocation: 'public',
+          lastUpdated: '2025-01-01T00:00:00Z'
+        }
+      };
+
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(JSON.stringify(existing));
+      vi.mocked(fsPromises.writeFile).mockResolvedValueOnce(undefined);
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await updateMarketplaceRegistration('/ext/dist/marketplace', createMockLogger());
+        expect(fsPromises.writeFile).toHaveBeenCalledTimes(1);
+        const written = JSON.parse(vi.mocked(fsPromises.writeFile).mock.calls[0][1] as string);
+        expect(written['cards.management'].source.path).toBe('/ext/dist/marketplace');
+        expect(written['cards.management'].installLocation).toBe('/ext/dist/marketplace');
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
+    });
+
+    it('skips write when path already matches', async () => {
+      const { updateMarketplaceRegistration } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      const existing = {
+        'cards.management': {
+          source: { source: 'directory', path: '/ext/dist/marketplace' },
+          installLocation: '/ext/dist/marketplace',
+          lastUpdated: '2025-01-01T00:00:00Z'
+        }
+      };
+
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(JSON.stringify(existing));
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await updateMarketplaceRegistration('/ext/dist/marketplace', createMockLogger());
+        expect(fsPromises.writeFile).not.toHaveBeenCalled();
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
+    });
+
+    it('skips when known_marketplaces.json does not exist', async () => {
+      const { updateMarketplaceRegistration } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      const enoent = new Error('ENOENT') as Error & { code: string };
+      enoent.code = 'ENOENT';
+      vi.mocked(fsPromises.readFile).mockRejectedValueOnce(enoent);
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await updateMarketplaceRegistration('/ext/dist/marketplace', createMockLogger());
+        expect(fsPromises.writeFile).not.toHaveBeenCalled();
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
+      }
+    });
+
+    it('skips when cards.management entry uses non-directory source', async () => {
+      const { updateMarketplaceRegistration } = await import('../src/lib/claude-session.js');
+      const fsPromises = await import('node:fs/promises');
+
+      const existing = {
+        'cards.management': {
+          source: { source: 'github', repo: 'some/repo' },
+          installLocation: '/some/path'
+        }
+      };
+
+      vi.mocked(fsPromises.access).mockResolvedValueOnce(undefined);
+      vi.mocked(fsPromises.readFile).mockResolvedValueOnce(JSON.stringify(existing));
+
+      const saved = process.env['CLAUDE_CONFIG_DIR'];
+      process.env['CLAUDE_CONFIG_DIR'] = '/home/node/.claude';
+      try {
+        await updateMarketplaceRegistration('/ext/dist/marketplace', createMockLogger());
+        expect(fsPromises.writeFile).not.toHaveBeenCalled();
+      } finally {
+        if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
+        else delete process.env['CLAUDE_CONFIG_DIR'];
       }
     });
   });

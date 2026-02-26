@@ -84,6 +84,23 @@ Based on implementation state:
   - Redundant tests that validate the same behavior
 </test-quality-philosophy>
 
+<code-simplicity-philosophy>
+**Simplicity Evaluation Principles**
+
+Evaluate simplicity by asking whether the code earns its complexity — not by matching specific patterns.
+
+Core questions to apply:
+- **Necessity**: Does each variable, function, or abstraction make the code clearer or safer to a reader who arrives without context? If removing it would not increase confusion, it does not belong.
+- **Error propagation**: Does each catch block handle a specific, named error condition — or does it discard all errors by default? Catches that return a success value on any exception hide failures from callers. Every suppression should be justified by the specific error being handled.
+- **Control flow legibility**: Can a reader trace the primary execution path without reconstructing state in their head? Stateful flags, deep nesting, and assignments deferred until multiple conditions are evaluated obscure intent. Guard clauses and direct returns expose it.
+- **Extraction value**: Does a named function or variable give meaning to an otherwise unnamed concept, or enable genuine reuse? Extraction that only moves code without improving readability at the call site adds indirection without benefit.
+
+Severity:
+- **HIGH**: Silent error suppression — empty catch, or catch-all that returns a success value on any exception
+- **MEDIUM**: Control flow that requires state reconstruction — flags, deep nesting, or deferred assignment logic
+- **LOW**: Unnecessary intermediates — variables or single-use extractions that add no clarity
+</code-simplicity-philosophy>
+
 <implementation-report-format>
 ```markdown
 ## Implementation Evaluation
@@ -108,6 +125,11 @@ Based on implementation state:
 **Anti-patterns Found**: [None/List any coverage-driven or redundant tests]
 **Exit Status**: [CLEAN/HANGING] - Test runner exits properly after tests complete
 **Open Handles**: [NONE/DETECTED] - No open handles preventing exit
+
+### Code Simplicity Assessment
+**Error Propagation**: [PASS/FAIL] — All catches handle specific named conditions or justify suppression
+**Control Flow**: [CLEAR/COMPLEX] — Primary execution path is traceable without reconstructing state
+**Unnecessary Elements**: [NONE/LIST] — Variables, functions, or abstractions that add no clarity
 
 ### Strengths
 - [List positive aspects including excellent native type reuse]
@@ -221,8 +243,9 @@ Based on Bash tool timeout behavior:
 Apply the following reference sections in sequence:
 1. **Type safety and native usage** — apply `<evaluation-approach>` criteria: type contract clarity, native type percentage (target >80%), 'any' type detection, weak contract identification
 2. **Test quality** — apply `<test-quality-philosophy>`: behavioral focus, anti-pattern detection (coverage-driven tests, redundant assertions)
-3. **Production readiness** — verify all eight criteria listed in `<production-ready-requirements>` are met
-4. **Status determination** — apply the status decision logic from `<evaluation-approach>` to select PRODUCTION_READY, CONTINUE, or BLOCKED
+3. **Code simplicity** — apply `<code-simplicity-philosophy>`: reason from first principles about whether each element earns its place; flag error suppression, state-reconstructing control flow, and unnecessary abstractions at appropriate severity levels
+4. **Production readiness** — verify all eight criteria listed in `<production-ready-requirements>` are met
+5. **Status determination** — apply the status decision logic from `<evaluation-approach>` to select PRODUCTION_READY, CONTINUE, or BLOCKED
 
 ### 3. Generate Report
 Create evaluation report using the implementation-report-format template. Send the report to the team lead using the `SendMessage` tool.

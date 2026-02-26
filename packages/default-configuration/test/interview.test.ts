@@ -21,7 +21,8 @@ vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   readFile: vi.fn(),
   readdir: vi.fn(),
-  rm: vi.fn()
+  rm: vi.fn(),
+  writeFile: vi.fn()
 }));
 
 vi.mock('../src/lib/create-worktree.js', () => ({
