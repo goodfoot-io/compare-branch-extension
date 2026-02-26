@@ -109,7 +109,7 @@ Report BLOCKED when work cannot proceed due to constraints outside your control 
 
 **Breaking change rollback**: When updating consumers atomically (Section 4), if a partial update fails mid-way, revert all consumer changes and report NEEDS_REVISION. Do not leave consumers in a partially-updated state.
 
-**TDD skill**: If the orchestrator's prompt includes "load the `goodfoot:tdd-implementation` skill," load and follow that skill's instructions for new functions and methods. Your testing-approach section provides the philosophical framework; the TDD skill provides the step-by-step workflow.
+**TDD skill**: If the orchestrator's prompt includes "load the `runtime:tdd-implementation` skill," load and follow that skill's instructions for new functions and methods. Your testing-approach section provides the philosophical framework; the TDD skill provides the step-by-step workflow.
 </scope-rules>
 
 <validation-and-reporting>

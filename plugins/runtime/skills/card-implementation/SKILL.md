@@ -96,7 +96,7 @@ Send your findings via SendMessage. I will begin implementing immediately — se
 
 ## 5. Implement
 
-Implement the plan directly. Load the `card-developer` skill for implementation approach (TDD, no mocks, real implementations).
+Implement the plan directly. Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
 ### 5.1 Work Through Tasks
 
@@ -105,7 +105,7 @@ For each step in the Technical Approach:
 2. Implement the change
 3. Commit logically grouped changes
 
-For new functions or methods, load the `goodfoot:tdd-implementation` skill and follow its instructions.
+For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
 
 ### 5.2 Handle Plan Review Feedback
 

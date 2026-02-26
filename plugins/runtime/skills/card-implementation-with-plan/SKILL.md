@@ -161,7 +161,7 @@ Only modify files assigned to this task.
 [Code snippets showing conventions — from exploration or file reads]
 
 ## Implementation Approach
-For new functions or methods, load the `goodfoot:tdd-implementation` skill and follow its instructions.
+For new functions or methods, load the `runtim:tdd-implementation` skill and follow its instructions.
 
 ## Guidelines
 - Only make requested changes
