@@ -51,11 +51,10 @@ describe('buildCardBlock', () => {
     delete process.env['BASE_BRANCH'];
   });
 
-  it('includes id, status, action, and mode attributes', () => {
+  it('includes id, status, and mode attributes', () => {
     const result = buildCardBlock(makeActionInput());
 
     expect(result).toMatch(/^<card id="card-123"/);
-    expect(result).toContain('action="Launch"');
     expect(result).toContain('mode="interactive"');
     expect(result).toContain('</card>');
   });
@@ -272,7 +271,12 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     delete process.env['BASE_BRANCH'];
   });
 
-  /** Creates a temp card repo dir with CARD.meta.json containing the given workspace block. */
+  /**
+   * Creates a temp card repo dir with CARD.meta.json containing the given workspace block.
+   *
+   * @param workspaceBlock - Workspace block to include in CARD.meta.json.
+   * @returns Path to the created temporary directory.
+   */
   function makeCardRepo(workspaceBlock: Record<string, unknown>): string {
     const dir = join(workspacePath, '..', `card-repo-ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     mkdirSync(dir, { recursive: true });

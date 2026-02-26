@@ -1,5 +1,5 @@
 ---
-name: plan-feedback
+name: card-plan-feedback
 description: Incorporate user feedback into an existing plan and re-assess.
 ---
 

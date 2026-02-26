@@ -1,271 +1,133 @@
 ---
-name: implementation
+name: card-implementation
 description: Implement cards.
 ---
 
 
 <placeholder-variables>
-[TASK_COUNT] — Number of implementation tasks derived from the card (set in Step 2.2 after writing todos with TodoWrite; count equals the number of todos created)
-[MODEL] — Claude model selection for subagent delegation (opus, sonnet, or haiku)
+[PLAN_FILES] — All files the plan intends to modify (extracted from PLAN.md after writing it in Step 2)
 </placeholder-variables>
-
-<orchestrator-constraints>
-The orchestrator prepares, plans, and coordinates — it does NOT implement code.
-
-| Orchestrator handles directly | Implementer handles via delegation |
-|-------------------------------|-----------------------------------|
-| Codebase exploration | Feature implementation |
-| Task derivation | Code changes |
-| Result processing | Test writing |
-|                               | Validation execution |
-|                               | Bug fixes |
-
-Use TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation work.
-
-**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
-</orchestrator-constraints>
 
 <instructions>
 
 ## 1. Prepare Environment
 
-### 1.1 Stash Changes
-
-Stash any uncommitted changes and create baseline tag:
+Stash any uncommitted changes:
 
 ```bash
 cd $WORKSPACE_PATH
 git stash --include-untracked
-git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
-Read recent comment files to determine whether an "Implementation Complete" comment already exists:
-
-```bash
-cd $CARD_REPO_PATH
-ls comment/*.md 2>/dev/null | sort | tail -5
-```
-
-If an "Implementation Complete" comment exists on the card, skip to **4. Finalize**.
-
-### 1.2 Launch Explore Subagents
-
-Launch background Explore subagents (haiku model). Launch multiple subagents with distinct, targeted prompts based on the card content:
-
-   ```xml
-   <invoke name="Task">
-   <parameter name="description">explore-[target-a]</parameter>
-   <parameter name="subagent_type">Explore</parameter>
-   <parameter name="model">haiku</parameter>
-   <parameter name="run_in_background">true</parameter>
-   <parameter name="prompt">[Distinct exploration task derived from card]</parameter>
-   </invoke>
-   <invoke name="Task">
-   <parameter name="description">explore-[target-b]</parameter>
-   <parameter name="subagent_type">Explore</parameter>
-   <parameter name="model">haiku</parameter>
-   <parameter name="run_in_background">true</parameter>
-   <parameter name="prompt">[Distinct exploration task derived from card]</parameter>
-   </invoke>
-   ```
-
-### 1.3 Collect Exploration Results
-
-   Collect TaskOutput for every background Explore agent launched in Step 1.2. Results from agents not collected via TaskOutput are discarded before proceeding to Section 2.
-
----
-
-## 2. Derive Tasks
-
-Launch additional Explore subagents if new information reveals unexplored areas.
-
-If changes were stashed in Step 1.1, restore them now.
+Create baseline tag:
 
 ```bash
 cd $WORKSPACE_PATH
-git stash pop  # only if changes were stashed in Step 1.1
+git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
-### 2.1 Analyze Requirements
-
-From the card description and exploration results, identify:
-- What files need modification?
-- What new files are needed?
-- What behavior changes are required?
-- What tests need to be written?
-
-### 2.2 Create Implementation Tasks
-
-Write concrete, actionable tasks to TodoWrite. Each task should specify:
-- **What** to create or modify
-- **Where** (file paths discovered during exploration)
-- **Why** (which requirement it satisfies)
-
-<example>
-Example task derivation for "Add rate limiting to /api/submit endpoint":
-
-```
-1. Create rate limiter utility (src/utils/rate-limiter.ts)
-   - Implement token bucket algorithm
-   - Export createRateLimiter(options) factory
-
-2. Add rate limit middleware (src/middleware/rate-limit.ts)
-   - Wrap utility for Express middleware signature
-   - Return 429 with Retry-After header when limited
-
-3. Integrate into submit route (src/routes/api/submit.ts:45)
-   - Apply middleware before existing handler
-   - Use config values for rate limits
-
-4. Write tests
-   - Unit tests for token bucket logic (src/utils/rate-limiter.test.ts)
-   - Integration test for 429 response (src/routes/api/submit.test.ts)
-```
-</example>
-
-After writing all todos, record [TASK_COUNT] as the total number of todos created.
-
-### 2.3 Assess Coherence
-
-Analyze tasks along three dimensions:
-
-| Dimension | Question |
-|-----------|----------|
-| **Dependency** | Do files import/reference each other? |
-| **Uniformity** | Same operation across files, or varied operations? |
-| **Size** | Substantial tasks with clear completion gates? |
-
-Route based on assessment:
-- **Independent files OR uniform tasks**: Parallel — concurrent agent delegations
-- **Dependent + varied + small**: Coherent — single agent for all tasks
-- **Dependent + varied + substantial with clear gates**: Sequential — ordered delegations with checkpoints
-
-When uncertain between Coherent and Sequential, choose **Coherent** for planless cards.
+Restore any stashed changes: `git stash pop || true` (succeeds silently if stash is empty).
 
 ---
 
-## 3. Delegate Implementation
+## 2. Create Team
 
-### 3.1 Delegate to Implementer
+```xml
+<invoke name="TeamCreate">
+<parameter name="team_name">impl-!` echo $CARD_ID`</parameter>
+<parameter name="description">!` echo $CARD_ID`: implementation</parameter>
+</invoke>
+```
 
-Pass the **orchestrator-defined tasks** to the implementer agent.
-
-Choose the [MODEL] based on the tasks:
-- **Ambiguous requirements, multiple possible approaches, or tasks where you are unsure how to start:** `opus`
-- **Clear goal with multiple steps, building features, or fixing bugs in unfamiliar code:** `sonnet`
-- **Single-step tasks, following established patterns, or making changes you already understand:** `haiku`
-
-**Coherent** (single delegation for all tasks):
+Spawn the implementation-pair so it warms up with card context during planning:
 
 ```xml
 <invoke name="Task">
-<parameter name="description">Implement Card</parameter>
-<parameter name="subagent_type">runtime:card:developer</parameter>
-<parameter name="model">[MODEL]</parameter>
+<parameter name="description">Implementation pair</parameter>
+<parameter name="subagent_type">runtime:card:implementation-pair</parameter>
+<parameter name="team_name">impl-!` echo $CARD_ID`</parameter>
+<parameter name="name">impl-pair</parameter>
 <parameter name="prompt">
-## Tasks to Complete
-
-1. **[Task 1 name]** (`[file-path]`)
-   - [Specific change 1]
-   - [Specific change 2]
-
-2. **[Task 2 name]** (`[file-path]`)
-   - [Specific change 1]
-   - [Specific change 2]
-
-[Continue for all derived tasks]
-
-## Validation
-- Type check: `yarn typecheck`
-- Test: `yarn test [relevant-test-files]`
-- Lint: `yarn lint`
+Read CARD.md from the card repository to understand the requirements, then wait for further instructions.
 </parameter>
 </invoke>
 ```
 
-**Parallel** (concurrent delegations for independent groups):
+---
+
+## 3. Plan
+
+Write the plan to `PLAN.md` in the card repository following the `<annotated-plan-example>` from the `runtime:plan-abbreviated` skill. Base the plan on the card description and codebase exploration.
+
+Commit to the card repository:
+
+```bash
+cd $CARD_REPO_PATH
+git add PLAN.md
+git commit -m "plan: [approach and key decisions]"  # <card-repo-commit-style>
+```
+
+Extract [PLAN_FILES] — all files the plan intends to modify (from the Technical Approach section).
+
+---
+
+## 4. Request Plan Review
+
+Send the plan to the implementation-pair for review:
 
 ```xml
-<invoke name="Task">
-<parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
-<parameter name="subagent_type">runtime:card:developer</parameter>
-<parameter name="model">[MODEL]</parameter>
-<parameter name="prompt">
-## Tasks to Complete
-[Group A tasks only]
+<invoke name="SendMessage">
+<parameter name="type">message</parameter>
+<parameter name="recipient">impl-pair</parameter>
+<parameter name="summary">Review implementation plan</parameter>
+<parameter name="content">
+## Mode: Plan Review
 
-## Validation
-[Commands for group A]
-</parameter>
-<parameter name="run_in_background">true</parameter>
-</invoke>
-<invoke name="Task">
-<parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
-<parameter name="subagent_type">runtime:card:developer</parameter>
-<parameter name="model">[MODEL]</parameter>
-<parameter name="prompt">
-## Tasks to Complete
-[Group B tasks only]
+Review the implementation plan. Read PLAN.md from the card repository. Assess completeness, precision, feasibility, scope risk, and missing risks.
 
-## Validation
-[Commands for group B]
+Send your findings via SendMessage. I will begin implementing immediately — send critical findings as soon as possible.
 </parameter>
 </invoke>
 ```
 
-**Sequential** (ordered delegations with checkpoints):
+**Do not wait for the plan review.** Proceed immediately to Step 5.
 
-Delegate first phase, checkpoint at gate, then delegate next phase.
+---
 
-### 3.2 Process Result
+## 5. Implement
 
-Based on implementer status:
-- **COMPLETED**: Mark todos completed, write summary comment, proceed to **4. Finalize**
-- **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
-  ```bash
-  # Restore files modified or deleted since checkpoint
-  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD | \
-    xargs -r git checkout "implement/!` echo $CARD_ID`/baseline" --
-  # Remove files added since checkpoint
-  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A | \
-    xargs -r git rm -f
-  ```
-  - **If attempts < 3**: Re-delegate with additional context from failure report
-  - **If attempts >= 3**: Write failure details as comment, add `blocked` tag, **STOP**
-- **BLOCKED**: Write blocking details as comment, add `blocked` tag, **STOP**
+Implement the plan directly. Load the `card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[blocking details: what is blocked, why, and what is needed to unblock]
-EOF
-git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: [reason]"  # <card-repo-commit-style>
-```
+### 5.1 Work Through Tasks
 
-**On COMPLETED:** Write a progress comment to the card repository summarizing what was implemented, key decisions made, and files modified. Commit to the card repository:
+For each step in the Technical Approach:
+1. Read relevant files
+2. Implement the change
+3. Commit logically grouped changes
 
-```bash
-cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[what was implemented, key decisions made, and files modified]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "progress: [what was implemented]"  # <card-repo-commit-style>
-```
+For new functions or methods, load the `goodfoot:tdd-implementation` skill and follow its instructions.
 
-### 3.3 Validation Gate
+### 5.2 Handle Plan Review Feedback
 
-**Requirement:** ALL validation commands must pass before proceeding. This usually means linting, type checking, and testing.
+When the implementation-pair sends plan review feedback via message:
 
-**On any failure:**
-1. Error in code you can modify -> delegate fix to implementer, re-run validation
-2. Error outside your scope -> block immediately
+- **CRITICAL findings**: Pause current work. Assess the finding. If valid, adjust the implementation approach and update PLAN.md if the plan itself was wrong. Resume implementation.
+- **CONCERN findings**: Note the concern. Factor it into remaining work. Address if straightforward; otherwise continue and let the evaluation phase catch it.
+- **SUGGESTION findings**: Note for consideration. No action required during implementation.
 
-**When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+If no feedback arrives before implementation completes, proceed — the evaluation phase provides the blocking quality gate.
+
+### 5.3 Validation Gate
+
+**Requirement:** ALL validation commands from PLAN.md must pass before proceeding.
+
+Run validation per the plan's "Validation Commands" section.
+
+Based on failure:
+- **Error in code you can modify**: Fix it, re-run validation
+- **Error outside your scope**: Block immediately
+
+**When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
 ```bash
 cd $CARD_REPO_PATH
@@ -278,13 +140,91 @@ git add comment/$COMMENT_ID.md CARD.meta.json
 git commit -m "blocked: [reason]"  # <card-repo-commit-style>
 ```
 
-Only proceed to **4. Finalize** when ALL validations pass.
+Only proceed to **6. Evaluate** when ALL validations pass.
 
 ---
 
-## 4. Finalize
+## 6. Evaluate
 
-### 4.1 Squash Commits
+### 6.1 Request Evaluation
+
+Send an evaluation request to the implementation-pair:
+
+```xml
+<invoke name="SendMessage">
+<parameter name="type">message</parameter>
+<parameter name="recipient">impl-pair</parameter>
+<parameter name="summary">Requesting implementation evaluation</parameter>
+<parameter name="content">
+## Mode: Implementation Evaluation
+
+Implementation is complete. All validation commands pass. Evaluate the implementation for end-to-end correctness.
+
+## Baseline
+Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
+
+## Modified Files
+[PLAN_FILES]
+</parameter>
+</invoke>
+```
+
+**Wait for the evaluation report.** This is a blocking step.
+
+### 6.2 Process Evaluation Results
+
+Determine path using the first matching condition:
+
+- **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP** — evaluation cannot proceed.
+
+  ```bash
+  cd $CARD_REPO_PATH
+  $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [blocking details from evaluation]
+  EOF
+  git add comment/$COMMENT_ID.md CARD.meta.json
+  git commit -m "blocked: [reason]"  # <card-repo-commit-style>
+  ```
+
+- **CONTINUE and evaluation cycle < 3**: Fix the issues identified in the evaluation report. Re-run validation commands. Return to **Step 6.1** to request re-evaluation.
+- **CONTINUE and evaluation cycle >= 3**: Write findings as a comment, add `blocked` tag, **STOP** — fix attempts exhausted.
+- **SATISFIES_INTENT**: Write recommended findings (if any) as a card comment. Proceed to **7. Finalize**.
+
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  ## Recommended Improvements
+
+  [recommended findings from evaluation — logged for future work]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
+  ```
+
+---
+
+## 7. Finalize
+
+### 7.1 Shut Down Team
+
+Send shutdown request and delete the team:
+
+```xml
+<invoke name="SendMessage">
+<parameter name="type">shutdown_request</parameter>
+<parameter name="recipient">impl-pair</parameter>
+<parameter name="content">Implementation complete.</parameter>
+</invoke>
+```
+
+```xml
+<invoke name="TeamDelete"/>
+```
+
+### 7.2 Squash Commits
 
 If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
@@ -304,44 +244,40 @@ cd $WORKSPACE_PATH
 git tag -d "implement/!` echo $CARD_ID`/baseline" 2>/dev/null
 ```
 
-### 4.2 Complete
+### 7.3 Complete
 
-### If review is required (gates.reviewRequired is true):
+Based on review gate:
 
-Write a summary comment to the card repository explaining what you implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate you are waiting for approval before merge. Commit to the card repository:
+- **gates.reviewRequired is true**: Write a summary comment to the card repository explaining what was implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate awaiting approval. Commit to the card repository. **STOP** — Merge occurs after user approval.
 
-```bash
-cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "implementation complete, awaiting review"  # <card-repo-commit-style>
-```
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "implementation complete, awaiting review"  # <card-repo-commit-style>
+  ```
 
-**STOP** — Merge occurs after user approval.
+- **gates.reviewRequired is false or unset**: Write a completion comment to the card repository. Commit. Then launch the merge agent.
 
-### If review is NOT required:
+  ```bash
+  cd $CARD_REPO_PATH
+  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+  cat <<'EOF' > comment/$COMMENT_ID.md
+  [completion summary: what was implemented, key decisions, files modified, validation confirmation]
+  EOF
+  git add comment/$COMMENT_ID.md
+  git commit -m "implementation complete"  # <card-repo-commit-style>
+  ```
 
-Write a completion comment to the card repository. Commit to the card repository. Then launch the merge agent:
-
-```bash
-cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[completion summary: what was implemented, key decisions, files modified, validation confirmation]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "implementation complete"  # <card-repo-commit-style>
-```
-
-```xml
-<invoke name="Task">
-<parameter name="description">Merge</parameter>
-<parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">!` echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
-</invoke>
-```
+  ```xml
+  <invoke name="Task">
+  <parameter name="description">Merge</parameter>
+  <parameter name="subagent_type">runtime:card:merge</parameter>
+  <parameter name="prompt">!` echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
+  </invoke>
+  ```
 
 </instructions>

@@ -1,5 +1,5 @@
 ---
-name: implementation-evaluator
+name: card-implementation-evaluator
 description: Evaluate implementation quality and determine production readiness.
 ---
 

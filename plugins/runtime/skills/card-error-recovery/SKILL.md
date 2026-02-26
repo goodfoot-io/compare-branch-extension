@@ -1,5 +1,5 @@
 ---
-name: error-recovery
+name: card-error-recovery
 description: Recover from errors during protocol execution.
 ---
 

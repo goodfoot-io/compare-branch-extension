@@ -1,5 +1,5 @@
 ---
-name: clarify-and-enrich
+name: card-clarify-and-enrich
 description: Clarify and enrich cards before implementation.
 ---
 

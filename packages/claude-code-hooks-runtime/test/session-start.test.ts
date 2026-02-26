@@ -135,7 +135,6 @@ describe('SessionStart Hook', () => {
       // <card> block with identity and env vars
       expect(stdout.systemMessage).toContain('<card ');
       expect(stdout.systemMessage).toContain('id="card-123"');
-      expect(stdout.systemMessage).toContain('action="Launch Claude"');
       expect(stdout.systemMessage).toContain('mode="background"');
       expect(stdout.systemMessage).toContain(`CARD_REPO_PATH=${repoPath}`);
       expect(stdout.systemMessage).toContain('</card>');

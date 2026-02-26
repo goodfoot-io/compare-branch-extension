@@ -1,5 +1,5 @@
 ---
-name: plan-assessor
+name: card-plan-assessor
 description: Evaluate implementation plans for quality, feasibility, and completeness.
 ---
 

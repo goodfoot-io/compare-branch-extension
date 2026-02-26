@@ -2,7 +2,7 @@
 name: implementation-evaluator
 description: Evaluate implementation quality and determine production readiness.
 tools: "*"
-skills: runtime:card-repo, runtime:plan, runtime:implementation-evaluator
+skills: runtime:card-repo, runtime:plan, runtime:card-implementation-evaluator
 ---
 
 ```!

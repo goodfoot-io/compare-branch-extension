@@ -137,12 +137,7 @@ export function buildCardBlock(actionInput: ActionInput): string {
   bodyLines.push('env:');
   bodyLines.push(...envLines);
 
-  const attrs = [
-    `id="${id}"`,
-    `status="${status}"`,
-    `action="${actionInput.actionName}"`,
-    `mode="${actionInput.executionMode}"`
-  ];
+  const attrs = [`id="${id}"`, `status="${status}"`, `mode="${actionInput.executionMode}"`];
 
   return `<card ${attrs.join(' ')}>\n${bodyLines.join('\n')}\n</card>`;
 }

@@ -1,5 +1,5 @@
 ---
-name: interview-enhancement
+name: interview-investigation
 description: Scope investigation requests through research and interview.
 ---
 

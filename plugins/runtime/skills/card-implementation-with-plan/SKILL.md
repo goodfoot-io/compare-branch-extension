@@ -1,5 +1,5 @@
 ---
-name: implementation-with-plan
+name: card-implementation-with-plan
 description: Implement approved plans.
 ---
 
@@ -48,7 +48,7 @@ cd $WORKSPACE_PATH
 git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
-Restore stash after todo initialization in Step 2.1 — pop unconditionally (the stash may be empty).
+Restore any stashed changes: `git stash pop || true` (succeeds silently if stash is empty).
 
 ---
 
@@ -63,8 +63,6 @@ If `PLAN.md` is empty or missing: write an error comment using the canonical com
 Create todos from the plan content using TodoWrite.
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from task file assignments).
-
-Restore any stashed changes: `git stash pop || true` (succeeds silently if stash is empty).
 
 ### 2.2 Task Checkpoint
 

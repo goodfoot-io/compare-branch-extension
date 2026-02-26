@@ -2,7 +2,7 @@
 name: implementation
 description: Implement cards in isolated git worktree.
 tools: "*"
-skills: runtime:card-repo, runtime:card-implementation
+skills: runtime:card-repo, runtime:plan-abbreviated, runtime:card-implementation
 ---
 
 ```!

@@ -1,5 +1,5 @@
 ---
-name: merge
+name: card-merge
 description: Merge implementation branch to base branch.
 ---
 

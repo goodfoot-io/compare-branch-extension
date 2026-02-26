@@ -1,5 +1,5 @@
 ---
-name: question-response
+name: card-question-response
 description: Respond to user questions without code changes.
 ---
 

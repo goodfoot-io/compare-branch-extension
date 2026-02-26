@@ -1,5 +1,5 @@
 ---
-name: reopen-and-implement
+name: card-reopen-and-implement
 description: Reopen completed cards for additional work.
 ---
 

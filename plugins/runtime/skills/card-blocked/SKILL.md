@@ -1,5 +1,5 @@
 ---
-name: blocked
+name: card-blocked
 description: Handle blocked cards by reporting blockers.
 ---
 

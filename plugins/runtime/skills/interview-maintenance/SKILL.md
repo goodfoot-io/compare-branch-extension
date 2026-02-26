@@ -1,5 +1,5 @@
 ---
-name: interview-enhancement
+name: interview-maintenance
 description: Scope maintenance requests through research and interview.
 ---
 

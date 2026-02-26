@@ -1,5 +1,5 @@
 ---
-name: plan-refactor
+name: card-plan-refactor
 description: Apply senior engineering judgment to evaluate plans before implementation begins.
 ---
 

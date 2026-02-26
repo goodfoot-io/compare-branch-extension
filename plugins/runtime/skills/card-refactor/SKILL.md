@@ -1,5 +1,5 @@
 ---
-name: refactor
+name: card-refactor
 description: Plan-aware pre-validation cleanup on implemented code.
 ---
 

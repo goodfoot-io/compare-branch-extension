@@ -1,5 +1,5 @@
 ---
-name: end-to-end-evaluator
+name: card-end-to-end-evaluator
 description: Verify implementation is wired end-to-end and nothing was forgotten.
 ---
 

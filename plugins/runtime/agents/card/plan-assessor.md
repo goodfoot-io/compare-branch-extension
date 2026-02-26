@@ -3,7 +3,7 @@ name: plan-assessor
 description: Evaluate implementation plans for quality, feasibility, and completeness.
 model: sonnet
 tools: "*"
-skills: runtime:card-repo, runtime:plan, runtime:plan-assessor
+skills: runtime:card-repo, runtime:plan, runtime:card-plan-assessor
 ---
 
 ```!

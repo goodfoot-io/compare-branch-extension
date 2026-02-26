@@ -1,5 +1,5 @@
 ---
-name: bug
+name: card-bug
 description: Fix testable bugs using test-first methodology.
 ---
 

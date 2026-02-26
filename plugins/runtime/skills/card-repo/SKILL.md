@@ -69,6 +69,15 @@ note/                       # Structured notes (Markdown + YAML frontmatter)
 }
 ```
 
+### Status and Gates
+
+`status` and `gates` track different things:
+
+- **`status`** is the card's lifecycle state: `todo` → `in_progress` → `needs_review` → `done`. It represents where the card sits on the board.
+- **`gates`** are boolean prerequisites. `planRequired`/`planApproved` control whether a plan must exist and be approved. `reviewRequired`/`reviewApproved` control whether a review must exist and be approved.
+
+Gates do not automatically advance status. A card can have all gates satisfied (`reviewApproved=true`) while still in `needs_review` status — this means the review passed but the card has not yet been moved to `done`. Conversely, a card in `in_progress` with `reviewRequired=true` and `reviewApproved=false` means work is underway but no review has been requested or approved yet.
+
 Validation rules for each field are in `references/validation.md`.
 
 ## CARD.md and Comments
@@ -308,6 +317,46 @@ The test: would this help someone debugging at 2am? If you would mutter "just te
 
 When crafting final commits from agent reports: collect Decision Narratives, extract what changed and what was learned, discard performative struggle, keep genuine insight. Weave a unified story, not a list.
 </workspace-commit-style>
+
+## Workspace Repo Log
+
+The session-start hook injects `<workspace-repo-log>` blocks into the system context.
+Each block shows workspace commits grouped by the branch they are reachable from,
+with cross-branch deduplication.
+
+```xml
+<workspace-repo-log branch="cards/main-0001/1" parentBranch="main" count="3">
+abc123d feat(auth): implement OAuth2 provider
+ src/auth/provider.ts | 45 ++++++++++++
+
+def456e fix: handle token refresh edge case
+ src/auth/refresh.ts  | 12 +++++---
+
+9a8b7c6 test: add auth integration tests
+ src/auth/auth.test.ts | 38 +++++++++++
+</workspace-repo-log>
+
+<workspace-repo-log branch="cards/main-0001/2" parentBranch="main" count="2">
+789abcd refactor: extract auth middleware
+ src/middleware.ts    | 23 ++++----
+
+def456e
+</workspace-repo-log>
+```
+
+| Attribute | Meaning |
+|-----------|---------|
+| `branch` | Git branch the commits are reachable from |
+| `parentBranch` | The branch this feature branch was created from |
+| `count` | Total workspace commits reachable from this branch |
+| `orphaned` | `"true"` when commits are not reachable from any tracked or base branch |
+
+Commits that already appeared with full detail in an earlier block are shown as bare
+7-character short hashes (e.g. `def456e` above). This deduplication keeps the context
+compact when multiple branches share common ancestry.
+
+Branches are ordered by `addedAt` (oldest first), so the foundational branch receives
+full commit output and later branches deduplicate against it.
 
 ## Additional Resources
 

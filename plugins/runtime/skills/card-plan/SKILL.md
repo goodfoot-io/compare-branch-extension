@@ -1,5 +1,5 @@
 ---
-name: plan
+name: card-plan
 description: Create implementation plans for user approval.
 ---
 
