@@ -8,8 +8,9 @@
  * @module lib/context
  */
 
-import { readdirSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
 
@@ -54,84 +55,538 @@ export class CardRepoAccessError extends Error {
   }
 }
 
-/**
- * Builds a directory listing of `rootPath` as relative file paths.
- *
- * Each entry is a relative path from `rootPath`. Directories are suffixed
- * with `/` and recursed into. The `.git` directory is excluded.
- *
- * @param cardId - Card identifier used in the listing header message.
- * @param rootPath - Root directory of the card repository to traverse.
- * @returns Multi-line listing string used as additional session context.
- * @throws {CardRepoAccessError} When the directory cannot be read.
- */
-export function buildCardRepoListing(cardId: string, rootPath: string): string {
-  const lines: string[] = [`The card \`${cardId}\` repository at ${rootPath} contains the following files:`];
+// ============================================================================
+// Card metadata
+// ============================================================================
 
-  function walk(dir: string): void {
-    const entries = readdirSync(dir, { withFileTypes: true });
+/**
+ * Subset of CARD.meta.json fields surfaced in the `<card>` context block.
+ */
+interface CardMeta {
+  id: string;
+  title: string;
+  status: string;
+  gates: {
+    planRequired: boolean;
+    planApproved: boolean;
+    reviewRequired: boolean;
+    reviewApproved: boolean;
+  };
+}
+
+/**
+ * Reads and parses CARD.meta.json from the card repository.
+ *
+ * Returns `null` when the file is missing or malformed so the caller
+ * can fall back to values from {@link ActionInput}.
+ *
+ * @param rootPath - Root directory of the card repository.
+ * @returns Parsed metadata, or `null` when unavailable.
+ */
+function readCardMeta(rootPath: string): CardMeta | null {
+  try {
+    const raw = readFileSync(join(rootPath, 'CARD.meta.json'), 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const gates = parsed['gates'] as Record<string, boolean> | undefined;
+    return {
+      id: String(parsed['id'] ?? ''),
+      title: String(parsed['title'] ?? ''),
+      status: String(parsed['status'] ?? ''),
+      gates: {
+        planRequired: gates?.['planRequired'] === true,
+        planApproved: gates?.['planApproved'] === true,
+        reviewRequired: gates?.['reviewRequired'] === true,
+        reviewApproved: gates?.['reviewApproved'] === true
+      }
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Builds the `<card>` XML block with card identity, gates, and env vars.
+ *
+ * Falls back to {@link ActionInput} fields when CARD.meta.json is unreadable.
+ *
+ * @param actionInput - Parsed action input from the environment.
+ * @returns The `<card ...>...</card>` block string.
+ */
+export function buildCardBlock(actionInput: ActionInput): string {
+  const meta = readCardMeta(actionInput.cardRepoPath);
+
+  const id = meta?.id || actionInput.cardId;
+  const title = meta?.title || '';
+  const status = meta?.status || '';
+
+  const gatesLine = meta
+    ? `gates: planRequired=${meta.gates.planRequired} planApproved=${meta.gates.planApproved} reviewRequired=${meta.gates.reviewRequired} reviewApproved=${meta.gates.reviewApproved}`
+    : '';
+
+  const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
+  const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
+
+  const envLines = [`  CARD_REPO_PATH=${actionInput.cardRepoPath}`, `  WORKSPACE_PATH=${actionInput.workspacePath}`];
+  if (baseBranch) envLines.push(`  BASE_BRANCH=${baseBranch}`);
+  if (workspaceBranch) envLines.push(`  WORKSPACE_BRANCH=${workspaceBranch}`);
+
+  const bodyLines: string[] = [];
+  if (title) bodyLines.push(title);
+  bodyLines.push('');
+  if (gatesLine) bodyLines.push(gatesLine);
+  bodyLines.push('env:');
+  bodyLines.push(...envLines);
+
+  const attrs = [
+    `id="${id}"`,
+    `status="${status}"`,
+    `action="${actionInput.actionName}"`,
+    `mode="${actionInput.executionMode}"`
+  ];
+
+  return `<card ${attrs.join(' ')}>\n${bodyLines.join('\n')}\n</card>`;
+}
+
+// ============================================================================
+// Card repo listing
+// ============================================================================
+
+/**
+ * Formats an mtime as an ISO 8601 string truncated to minutes in UTC.
+ *
+ * @param mtimeMs - Modification time in milliseconds since epoch.
+ * @returns ISO string like `2025-02-24T14:24Z`.
+ */
+function formatTimestamp(mtimeMs: number): string {
+  const d = new Date(mtimeMs);
+  const iso = d.toISOString(); // 2025-02-24T14:24:21.000Z
+  // Truncate to minutes: "2025-02-24T14:24Z"
+  return `${iso.slice(0, 16)}Z`;
+}
+
+/**
+ * Counts files (non-directories) in a directory and returns the latest mtime.
+ *
+ * @param dirPath - Directory to scan.
+ * @returns Tuple of `[fileCount, latestMtimeMs]`, or `[0, 0]` on error.
+ */
+function dirStats(dirPath: string): [count: number, latestMtimeMs: number] {
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    let count = 0;
+    let latest = 0;
     for (const entry of entries) {
-      if (entry.name === '.git') continue;
-      const fullPath = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        // Include the directory itself in the listing
-        lines.push(`${relative(rootPath, fullPath)}/`);
-        walk(fullPath);
-      } else {
-        lines.push(relative(rootPath, fullPath));
+      if (entry.isFile()) {
+        count++;
+        try {
+          const mt = statSync(join(dirPath, entry.name)).mtimeMs;
+          if (mt > latest) latest = mt;
+        } catch {
+          // individual stat failure is non-fatal
+        }
       }
     }
+    return [count, latest];
+  } catch {
+    return [0, 0];
   }
+}
 
+/**
+ * Builds the `<card-repo>` block: root-level files with timestamps,
+ * directories with child counts, and streams subdirectories.
+ *
+ * @param rootPath - Root directory of the card repository.
+ * @returns The `<card-repo>...</card-repo>` block string.
+ * @throws {CardRepoAccessError} When the root directory cannot be read.
+ */
+export function buildCardRepoBlock(rootPath: string): string {
+  let entries: { name: string; isDir: boolean }[];
   try {
-    walk(rootPath);
+    entries = readdirSync(rootPath, { withFileTypes: true }).map((d) => ({
+      name: d.name.toString(),
+      isDir: d.isDirectory()
+    }));
   } catch (error) {
     throw new CardRepoAccessError(rootPath, error);
   }
 
-  return lines.join('\n');
-}
+  const lines: string[] = [];
 
-/**
- * Builds a prose paragraph describing the runtime context for this session.
- *
- * Surfaces env vars that are not stored in CARD.meta.json so skills and
- * subagents can access them without placeholder passthrough.
- *
- * @param actionInput - Parsed action input from the environment.
- * @returns A natural-language paragraph describing the session context.
- */
-export function buildRuntimeContext(actionInput: ActionInput): string {
-  const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
-  const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
+  for (const entry of entries) {
+    if (entry.name === '.git') continue;
+    const fullPath = join(rootPath, entry.name);
 
-  let sentence = `This session is running the ${actionInput.actionName} action in ${actionInput.executionMode} mode`;
-
-  if (workspaceBranch) {
-    sentence += ` on branch \`${workspaceBranch}\``;
-    if (baseBranch) {
-      sentence += `, merging into \`${baseBranch}\``;
+    if (entry.isDir) {
+      if (entry.name === 'streams') {
+        // Streams: show each subdirectory with child count + latest timestamp
+        lines.push('streams/');
+        try {
+          const streamEntries = readdirSync(fullPath, { withFileTypes: true });
+          for (const sub of streamEntries) {
+            if (sub.isDirectory()) {
+              const subName = sub.name.toString();
+              const [count, latest] = dirStats(join(fullPath, subName));
+              const ts = latest > 0 ? `   latest ${formatTimestamp(latest)}` : '';
+              lines.push(`${`  ${subName}/`.padEnd(24)}${count} files${ts}`);
+            }
+          }
+        } catch {
+          // streams dir unreadable — already listed the directory name
+        }
+      } else {
+        // Non-streams directory: show child count + latest timestamp
+        const [count, latest] = dirStats(fullPath);
+        const ts = latest > 0 ? `   latest ${formatTimestamp(latest)}` : '';
+        lines.push(`${`${entry.name}/`.padEnd(24)}${count} files${ts}`);
+      }
+    } else {
+      // Root-level file: show name + timestamp
+      try {
+        const mt = statSync(fullPath).mtimeMs;
+        lines.push(`${entry.name}`.padEnd(24) + formatTimestamp(mt));
+      } catch {
+        lines.push(entry.name);
+      }
     }
   }
 
-  sentence += `.`;
-
-  return `${sentence} The card repository is at ${actionInput.cardRepoPath}.`;
+  return `<card-repo>\n${lines.join('\n')}\n</card-repo>`;
 }
+
+// ============================================================================
+// Shared diffstat helper
+// ============================================================================
+
+/**
+ * Strips "N file(s) changed, ..." summary lines from git `--stat` output.
+ *
+ * The per-file diffstat lines already convey what changed and by how much,
+ * making the summary redundant.
+ *
+ * @param text - Raw git log output with `--stat`.
+ * @returns Cleaned output with summary lines removed and collapsed blank lines.
+ */
+function stripDiffstatSummaries(text: string): string {
+  return text
+    .split('\n')
+    .filter((line) => !/^\s*\d+ files? changed/.test(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// ============================================================================
+// Card repo git log
+// ============================================================================
+
+/**
+ * Builds the `<card-repo-log>` block with recent commits and total count.
+ *
+ * Returns `null` when the repository has no commits or git is unavailable,
+ * so the block can be omitted from the output.
+ *
+ * @param rootPath - Root directory of the card repository.
+ * @returns The `<card-repo-log ...>...</card-repo-log>` block string, or `null`.
+ */
+export function buildCardRepoLogBlock(rootPath: string): string | null {
+  try {
+    const log = execFileSync('git', ['log', '-5', '--pretty=format:%h %s', '--stat'], {
+      cwd: rootPath,
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    if (!log) return null;
+
+    const filtered = stripDiffstatSummaries(log);
+    if (!filtered) return null;
+
+    let totalCount: number | null = null;
+    try {
+      const countStr = execFileSync('git', ['rev-list', '--count', 'HEAD'], {
+        cwd: rootPath,
+        encoding: 'utf-8',
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      }).trim();
+      totalCount = parseInt(countStr, 10);
+      if (Number.isNaN(totalCount)) totalCount = null;
+    } catch {
+      // count is optional
+    }
+
+    const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
+    return `<card-repo-log${countAttr}>\n${filtered}\n</card-repo-log>`;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// Workspace repo log
+// ============================================================================
+
+/** Maximum number of commits shown with full detail per branch block. */
+const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
+
+/**
+ * Workspace tracking data read from CARD.meta.json.
+ */
+interface WorkspaceData {
+  branches: Record<string, { parentBranch?: string; addedAt: string }>;
+  commits: string[];
+}
+
+/**
+ * Reads the workspace block from CARD.meta.json.
+ *
+ * Returns `null` when the file is missing, malformed, or has no commits.
+ *
+ * @param cardRepoPath - Root directory of the card repository.
+ * @returns Parsed workspace data, or `null` when unavailable.
+ */
+function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
+  try {
+    const raw = readFileSync(join(cardRepoPath, 'CARD.meta.json'), 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const workspace = parsed['workspace'] as
+      | { branches?: Record<string, { parentBranch?: string; addedAt?: string }>; commits?: unknown[] }
+      | undefined;
+
+    if (!workspace) return null;
+
+    const commits = Array.isArray(workspace.commits)
+      ? workspace.commits.filter((s): s is string => typeof s === 'string' && s.length > 0)
+      : [];
+    if (commits.length === 0) return null;
+
+    const branches: WorkspaceData['branches'] = {};
+    if (workspace.branches && typeof workspace.branches === 'object') {
+      for (const [name, meta] of Object.entries(workspace.branches)) {
+        if (meta && typeof meta === 'object') {
+          branches[name] = {
+            parentBranch: typeof meta.parentBranch === 'string' ? meta.parentBranch : undefined,
+            addedAt: typeof meta.addedAt === 'string' ? meta.addedAt : ''
+          };
+        }
+      }
+    }
+
+    return { branches, commits };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns the set of commit SHAs reachable from a git ref.
+ *
+ * @param workspacePath - Root directory of the workspace repository.
+ * @param ref - Git ref name (branch, tag, or SHA).
+ * @returns Set of full 40-char SHAs, or empty set on failure.
+ */
+function getReachableShas(workspacePath: string, ref: string): Set<string> {
+  try {
+    const output = execFileSync('git', ['log', '--format=%H', ref], {
+      cwd: workspacePath,
+      encoding: 'utf-8',
+      timeout: 10000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+    return new Set(output ? output.split('\n') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Filters SHAs to those that exist as objects in the workspace repo.
+ *
+ * Uses `git cat-file --batch-check` for a single-call batch existence test.
+ *
+ * @param workspacePath - Root directory of the workspace repository.
+ * @param shas - Full 40-char SHAs to check.
+ * @returns SHAs that exist in the repository.
+ */
+function filterResolvableShas(workspacePath: string, shas: string[]): string[] {
+  if (shas.length === 0) return [];
+  try {
+    const output = execFileSync('git', ['cat-file', '--batch-check'], {
+      input: `${shas.join('\n')}\n`,
+      cwd: workspacePath,
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    const lines = output.split('\n');
+    const resolvable: string[] = [];
+    for (let i = 0; i < lines.length && i < shas.length; i++) {
+      if (!lines[i]!.includes('missing')) {
+        resolvable.push(shas[i]!);
+      }
+    }
+    return resolvable;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Resolves commit details for specific SHAs using `git log --no-walk`.
+ *
+ * @param workspacePath - Root directory of the workspace repository.
+ * @param shas - Full 40-char SHAs to resolve.
+ * @returns Formatted commit log with diffstat, or `null` on failure.
+ */
+function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[]): string | null {
+  if (shas.length === 0) return null;
+  try {
+    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h %s', '--stat', ...shas], {
+      cwd: workspacePath,
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+
+    if (!output) return null;
+    return stripDiffstatSummaries(output) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Commit group for a single branch or the orphaned bucket.
+ */
+interface CommitGroup {
+  branchName: string;
+  parentBranch?: string;
+  shas: string[];
+  orphaned?: boolean;
+}
+
+/**
+ * Builds `<workspace-repo-log>` blocks showing workspace commits grouped by branch.
+ *
+ * Reads `workspace.branches` and `workspace.commits` from CARD.meta.json,
+ * partitions commits across branches using git reachability, and renders
+ * per-branch XML blocks. Already-printed commits appear as bare short hashes
+ * in subsequent blocks (dedup).
+ *
+ * Branch processing order: sorted by `addedAt` (oldest first) so the
+ * foundational branch receives full commit output and later branches dedup
+ * against it.
+ *
+ * @param workspacePath - Root directory of the workspace repository.
+ * @param cardRepoPath - Root directory of the card repository.
+ * @returns Array of `<workspace-repo-log>` block strings, or empty array.
+ */
+export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath: string): string[] {
+  const workspace = readWorkspaceData(cardRepoPath);
+  if (!workspace) return [];
+
+  const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH] ?? 'main';
+
+  // Sort branches by addedAt (oldest first)
+  const sortedBranches = Object.entries(workspace.branches).sort(([, a], [, b]) => a.addedAt.localeCompare(b.addedAt));
+
+  // Partition: each branch includes ALL reachable workspace.commits (may overlap).
+  // Rendering dedup handles cross-branch overlap via bare short hashes.
+  const reachableFromTracked = new Set<string>();
+  const groups: CommitGroup[] = [];
+
+  for (const [name, meta] of sortedBranches) {
+    const reachable = getReachableShas(workspacePath, name);
+    const branchShas = workspace.commits.filter((sha) => reachable.has(sha));
+    for (const sha of branchShas) reachableFromTracked.add(sha);
+    if (branchShas.length > 0) {
+      groups.push({ branchName: name, parentBranch: meta.parentBranch, shas: branchShas });
+    }
+  }
+
+  // Base branch: commits reachable from base but NOT from any tracked branch
+  const baseReachable = getReachableShas(workspacePath, baseBranch);
+  const baseShas = workspace.commits.filter((sha) => baseReachable.has(sha) && !reachableFromTracked.has(sha));
+  if (baseShas.length > 0) {
+    groups.push({ branchName: baseBranch, shas: baseShas });
+  }
+
+  // Orphaned: not reachable from any tracked branch or base, filter to resolvable
+  const orphanedShas = workspace.commits.filter((sha) => !reachableFromTracked.has(sha) && !baseReachable.has(sha));
+  const resolvable = filterResolvableShas(workspacePath, orphanedShas);
+  if (resolvable.length > 0) {
+    groups.push({ branchName: '', shas: resolvable, orphaned: true });
+  }
+
+  // Render blocks with cross-branch dedup
+  const printedShas = new Set<string>();
+  const blocks: string[] = [];
+
+  for (const group of groups) {
+    const newShas = group.shas.filter((sha) => !printedShas.has(sha));
+    const dupShas = group.shas.filter((sha) => printedShas.has(sha));
+
+    // Show most recent N with full detail
+    const displayShas = newShas.slice(-MAX_WORKSPACE_COMMITS_PER_BRANCH);
+    const details = resolveWorkspaceCommitDetails(workspacePath, displayShas);
+
+    if (details) {
+      for (const sha of displayShas) printedShas.add(sha);
+    }
+
+    // Build body: full details first, then bare hashes for dedup
+    const bodyParts: string[] = [];
+    if (details) bodyParts.push(details);
+    if (dupShas.length > 0) {
+      bodyParts.push(dupShas.map((sha) => sha.slice(0, 7)).join('\n'));
+    }
+
+    if (bodyParts.length === 0) continue;
+
+    // Build XML tag
+    const attrs: string[] = [];
+    if (group.orphaned) {
+      attrs.push('orphaned="true"');
+    } else {
+      attrs.push(`branch="${group.branchName}"`);
+      if (group.parentBranch) attrs.push(`parentBranch="${group.parentBranch}"`);
+    }
+    attrs.push(`count="${group.shas.length}"`);
+
+    blocks.push(`<workspace-repo-log ${attrs.join(' ')}>\n${bodyParts.join('\n')}\n</workspace-repo-log>`);
+  }
+
+  return blocks;
+}
+
+// ============================================================================
+// Combined context
+// ============================================================================
 
 /**
  * Builds the combined additional context string for session and subagent hooks.
  *
- * Concatenates the runtime context paragraph and the card repository file
- * listing, separated by a blank line. Let {@link CardRepoAccessError}
- * propagate to the caller for structured error handling.
+ * Produces XML blocks: `<card>` (identity + gates + env), `<card-repo>`
+ * (directory summary), optionally `<card-repo-log>` (recent card repo commits),
+ * and optionally `<workspace-repo-log>` blocks (workspace commits per branch).
+ * Let {@link CardRepoAccessError} propagate to the caller for structured
+ * error handling.
  *
  * @param actionInput - Parsed action input from the environment.
- * @returns Combined context string: runtime context followed by repo listing.
+ * @returns Combined context string with XML blocks.
  * @throws {CardRepoAccessError} When the card repository cannot be read.
  */
 export function buildAdditionalContext(actionInput: ActionInput): string {
-  const runtimeContext = buildRuntimeContext(actionInput);
-  const cardRepoListing = buildCardRepoListing(actionInput.cardId, actionInput.cardRepoPath);
-  return `${runtimeContext}\n\n${cardRepoListing}`;
+  const cardBlock = buildCardBlock(actionInput);
+  const repoBlock = buildCardRepoBlock(actionInput.cardRepoPath);
+  const logBlock = buildCardRepoLogBlock(actionInput.cardRepoPath);
+  const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.workspacePath, actionInput.cardRepoPath);
+
+  const parts = [cardBlock, repoBlock];
+  if (logBlock) parts.push(logBlock);
+  parts.push(...workspaceLogBlocks);
+  return parts.join('\n\n');
 }

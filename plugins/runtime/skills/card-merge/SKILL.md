@@ -8,10 +8,7 @@ description: Merge implementation branch to base branch.
 
 ## 1. Check for Changes
 
-```bash
-cd $WORKSPACE_PATH
-COMMIT_COUNT=$(git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH)
-```
+Count the commits on `$WORKSPACE_BRANCH` relative to `$BASE_BRANCH` (`git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH` in `$WORKSPACE_PATH`).
 
 Based on commit count:
 - **COMMIT_COUNT = 0**: No changes to merge. Write a comment to the card repository noting no changes were found. Commit to the card repository and **STOP**.
@@ -30,17 +27,15 @@ git commit -m "no changes to merge"  # <card-repo-commit-style>
 
 ## 2. Squash Commits
 
-Squash all commits since the branch diverged:
+If there are multiple commits since the branch diverged, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
 cd $WORKSPACE_PATH
-if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
-  git commit -m "$(cat <<'COMMITMSG'
+git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
+git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
 COMMITMSG
 )"
-fi
 ```
 
 ## 3. Rebase and Validate
@@ -121,7 +116,7 @@ Based on workspace state:
 
 ```bash
 cd $WORKSPACE_PATH
-git stash push -m "pre-merge: ${CARD_ID}"
+git stash push -m "pre-merge: !` echo $CARD_ID`"
 ```
 
 - **No uncommitted changes**: Continue

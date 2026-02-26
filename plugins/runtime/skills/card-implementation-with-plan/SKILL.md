@@ -6,7 +6,6 @@ description: Implement approved plans.
 
 <placeholder-variables>
 [TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
-[EVALUATION_CYCLE] — Counter tracking evaluation iterations, max 5 (initialized to 0 in Step 2.1 alongside TodoWrite; incremented by 1 in Step 3.3 on each pre-evaluation validation failure, and in Step 3.7 on each CONTINUE or required-findings result)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 [PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 2.6 for modification scope check and Step 4.3 cleanup annotation)
 [COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose (synthesized in Step 3.2 from CARD.md and PLAN.md goals; passed to end-to-end evaluator prompt in Step 3.4)
@@ -46,7 +45,7 @@ Create baseline tag:
 
 ```bash
 cd $WORKSPACE_PATH
-git tag -f "implement/${CARD_ID}/baseline" HEAD
+git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
 Restore stash after todo initialization in Step 2.1 — pop unconditionally (the stash may be empty).
@@ -59,14 +58,9 @@ Restore stash after todo initialization in Step 2.1 — pop unconditionally (the
 
 Read `PLAN.md` from the card repository:
 
-```bash
-cd $CARD_REPO_PATH
-cat PLAN.md
-```
-
 If `PLAN.md` is empty or missing: write an error comment using the canonical comment pattern, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
 
-Create todos from the plan content using TodoWrite. Initialize `[EVALUATION_CYCLE] = 0`.
+Create todos from the plan content using TodoWrite.
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from task file assignments).
 
@@ -190,10 +184,10 @@ Based on agent status:
 - **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
   ```bash
   # Restore files modified or deleted since checkpoint
-  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=MD | \
-    xargs -r git checkout "implement/${CARD_ID}/baseline" --
+  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD | \
+    xargs -r git checkout "implement/!` echo $CARD_ID`/baseline" --
   # Remove files added since checkpoint
-  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=A | \
+  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A | \
     xargs -r git rm -f
   ```
   - **If attempts < 3**: Re-delegate to agent
@@ -246,7 +240,7 @@ Create post-implementation checkpoint:
 cd $WORKSPACE_PATH
 git add -A  # checkpoint: stage all workspace files after implementation, before validation
 git commit --allow-empty -m "checkpoint: after implementation, before validation for card $CARD_ID"
-git tag -f "implement/${CARD_ID}/post-implementation" HEAD
+git tag -f "implement/!` echo $CARD_ID`/post-implementation" HEAD
 ```
 
 **Requirement:** ALL validation commands must pass before proceeding.
@@ -290,13 +284,7 @@ git commit --allow-empty -m "checkpoint: before evaluation — implementation co
 
 ### 3.2 Synthesize Commander's Intent
 
-Read the card description and plan goals:
-
-```bash
-cd $CARD_REPO_PATH
-cat CARD.md
-head -50 PLAN.md
-```
+Identify the `CARD.md` goals.
 
 Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 - The problem the card exists to solve
@@ -307,24 +295,7 @@ Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 
 Run validation per the plan's "Validation Commands" section.
 
-**On any failure:** Increment [EVALUATION_CYCLE] by 1.
-
-- **If cycle >= 5**: Write a comment summarizing all validation failures, add `blocked` tag to `CARD.meta.json`, commit, **STOP**:
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-Blocked: validation failures persist after [EVALUATION_CYCLE] evaluation cycles.
-
-[exact validation command and full output]
-EOF
-git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: persistent validation failures"  # <card-repo-commit-style>
-```
-
-- **If cycle < 5**: Create todos with "[Pre-eval fix]" prefix from all validation failures, return to Step 2.2.
+**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures, return to Step 2.2.
 
 Only proceed to **Step 3.4** when ALL validations pass.
 
@@ -352,7 +323,7 @@ Evaluate for production readiness.
 All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
 
 ## Baseline
-Changes are relative to git tag: `implement/${CARD_ID}/baseline`
+Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 
 ## Modified Files
 [PLAN_FILES]
@@ -375,7 +346,7 @@ Evaluate implementation against commander's intent.
 All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
 
 ## Baseline
-Changes are relative to git tag: `implement/${CARD_ID}/baseline`
+Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 
 ## Modified Files
 [PLAN_FILES]
@@ -414,9 +385,7 @@ Send shutdown requests to both teammates and delete the team:
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Increment [EVALUATION_CYCLE] once (not per-evaluator)
-   - **If cycle >= 5**: Write a comment summarizing evaluation feedback and unresolved issues, add `blocked` tag to `CARD.meta.json`, commit, **STOP**
-   - **If cycle < 5**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2
+2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2
 3. **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 4
 4. **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 4
 
@@ -499,8 +468,8 @@ Clean up checkpoint tags:
 
 ```bash
 cd $WORKSPACE_PATH
-git tag -d "implement/${CARD_ID}/baseline" \
-         "implement/${CARD_ID}/post-implementation" 2>/dev/null
+git tag -d "implement/!` echo $CARD_ID`/baseline" \
+         "implement/!` echo $CARD_ID`/post-implementation" 2>/dev/null
 ```
 
 ### Available Checkpoints

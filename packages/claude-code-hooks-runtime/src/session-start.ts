@@ -21,12 +21,14 @@ import { extractActionInput } from '@cards/sdk/config';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
 import {
   buildAdditionalContext,
-  buildCardRepoListing,
-  buildRuntimeContext,
+  buildCardBlock,
+  buildCardRepoBlock,
+  buildCardRepoLogBlock,
+  buildWorkspaceRepoLogBlocks,
   CardRepoAccessError
 } from './lib/context.js';
 
-export { buildCardRepoListing, buildRuntimeContext, CardRepoAccessError };
+export { buildCardBlock, buildCardRepoBlock, buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks, CardRepoAccessError };
 
 /**
  * Error thrown when PID-to-session registration fails.

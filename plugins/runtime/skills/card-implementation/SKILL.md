@@ -36,7 +36,7 @@ Stash any uncommitted changes and create baseline tag:
 ```bash
 cd $WORKSPACE_PATH
 git stash --include-untracked
-git tag -f "implement/${CARD_ID}/baseline" HEAD
+git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
 Read recent comment files to determine whether an "Implementation Complete" comment already exists:
@@ -224,10 +224,10 @@ Based on implementer status:
 - **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
   ```bash
   # Restore files modified or deleted since checkpoint
-  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=MD | \
-    xargs -r git checkout "implement/${CARD_ID}/baseline" --
+  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD | \
+    xargs -r git checkout "implement/!` echo $CARD_ID`/baseline" --
   # Remove files added since checkpoint
-  git diff "implement/${CARD_ID}/baseline" --name-only --diff-filter=A | \
+  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A | \
     xargs -r git rm -f
   ```
   - **If attempts < 3**: Re-delegate with additional context from failure report
@@ -286,25 +286,22 @@ Only proceed to **4. Finalize** when ALL validations pass.
 
 ### 4.1 Squash Commits
 
-Squash all commits since baseline into one:
+If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
 cd $WORKSPACE_PATH
-COMMIT_COUNT=$(git rev-list --count "implement/${CARD_ID}/baseline"..HEAD)
-if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft "implement/${CARD_ID}/baseline"
-  git commit -m "$(cat <<'COMMITMSG'
+git reset --soft "implement/!` echo $CARD_ID`/baseline"
+git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
 COMMITMSG
 )"
-fi
 ```
 
 Clean up checkpoint tags:
 
 ```bash
 cd $WORKSPACE_PATH
-git tag -d "implement/${CARD_ID}/baseline" 2>/dev/null
+git tag -d "implement/!` echo $CARD_ID`/baseline" 2>/dev/null
 ```
 
 ### 4.2 Complete

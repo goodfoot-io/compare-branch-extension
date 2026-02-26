@@ -95,7 +95,7 @@ describe('SubagentStart Hook', () => {
       mockExtractActionInput.mockReset();
     });
 
-    it('returns additionalContext with runtime context and card repo listing', async () => {
+    it('returns additionalContext with XML context blocks', async () => {
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SubagentStart');
@@ -103,13 +103,15 @@ describe('SubagentStart Hook', () => {
 
       const stdout = result.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
 
-      // systemMessage includes action name and execution mode
-      expect(stdout.systemMessage).toContain('Launch Claude action');
-      expect(stdout.systemMessage).toContain('background mode');
+      // <card> block with identity and env vars
+      expect(stdout.systemMessage).toContain('<card ');
+      expect(stdout.systemMessage).toContain('id="card-123"');
+      expect(stdout.systemMessage).toContain('action="Launch Claude"');
+      expect(stdout.systemMessage).toContain('mode="background"');
 
-      // systemMessage includes card repo listing
-      expect(stdout.systemMessage).toContain('The card `card-123` repository at');
-      expect(stdout.systemMessage).toContain('contains the following files:');
+      // <card-repo> block
+      expect(stdout.systemMessage).toContain('<card-repo>');
+      expect(stdout.systemMessage).toContain('</card-repo>');
 
       // additionalContext mirrors systemMessage
       expect(stdout.hookSpecificOutput?.additionalContext).toBe(stdout.systemMessage);

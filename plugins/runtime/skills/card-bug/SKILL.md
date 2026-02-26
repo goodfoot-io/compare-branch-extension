@@ -37,17 +37,13 @@ Enforce strict test-first verification:
 
 ### 1.1 Validate Workspace State
 
-Check git state and establish baseline:
+Verify the workspace has a clean working tree (`git status --porcelain` in `$WORKSPACE_PATH`). If the working tree is dirty, write a comment explaining the dirty state prevents safe operation, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+
+Create baseline tag:
 
 ```bash
 cd $WORKSPACE_PATH
-# Verify clean working tree
-if [ -n "$(git status --porcelain)" ]; then
-  # Write comment: working tree is dirty, cannot proceed safely
-  # Add `blocked` tag to CARD.meta.json, commit, STOP
-fi
-
-git tag -f "bug/${CARD_ID}/baseline" HEAD
+git tag -f "bug/!` echo $CARD_ID`/baseline" HEAD
 ```
 
 ### 1.2 Read Card and Extract Context
@@ -130,33 +126,23 @@ ${TEST_PASS_ANALYSIS}
 
 ### 2.2 Capture and Validate
 
-Parse response: SUBAGENT_STATUS, TEST_FILE_PATH, SUBAGENT_REASONING
+Parse the subagent response to extract SUBAGENT_STATUS, TEST_FILE_PATH, and SUBAGENT_REASONING.
 
-Verify using git (do not rely solely on subagent status):
+Verify independently using git — do not rely solely on the subagent status:
 
-```bash
-cd $WORKSPACE_PATH
-# Verify file exists
-if [ ! -f "$TEST_FILE_PATH" ]; then
-  if [ "$REPRODUCTION_ATTEMPT" -lt 3 ]; then
-    # Return to Delegate to Subagent
-  else
-    # Write failure comment, STOP
-  fi
-fi
+1. **Verify file exists.** Confirm that the test file at TEST_FILE_PATH exists on disk. If it does not exist and attempts remain (< 3), return to Step 2.1. If no attempts remain, write a failure comment to the card repository and **STOP**.
 
-# Check for unexpected modifications
-MODIFIED_FILES=$(git diff "bug/${CARD_ID}/baseline" --name-only --diff-filter=M)
-if [ -n "$MODIFIED_FILES" ]; then
-  # Write comment asking user: proceed or revert?
-  # STOP — await user direction
-fi
+2. **Check for unexpected modifications.** Compare the workspace against the baseline tag (`git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=M`). If any existing files were modified, write a comment asking the user whether to proceed or revert, and **STOP** — await user direction.
 
-# Run test
-git add "$TEST_FILE_PATH"
-TEST_OUTPUT=$(yarn test "$TEST_FILE_PATH" 2>&1)
-TEST_EXIT_CODE=$?
-```
+3. **Run the test.** Stage the test file and run it:
+
+   ```bash
+   cd $WORKSPACE_PATH
+   git add "$TEST_FILE_PATH"
+   yarn test "$TEST_FILE_PATH"
+   ```
+
+   Capture the full test output and exit code.
 
 ### 2.3 Outcomes
 
@@ -173,13 +159,13 @@ Based on subagent response and test result:
 
 - **Test PASSES (unexpected) and attempts < 3**:
   - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
-  - Revert changed files to baseline:
+  - Revert all workspace changes to baseline — restore modified/deleted files from the baseline tag, and remove files added since baseline:
+
     ```bash
-    # Restore files modified or deleted since baseline
-    git diff "bug/${CARD_ID}/baseline" --name-only --diff-filter=MD | \
-      xargs -r git checkout "bug/${CARD_ID}/baseline" --
-    # Remove files added since baseline
-    git diff "bug/${CARD_ID}/baseline" --name-only --diff-filter=A | \
+    cd $WORKSPACE_PATH
+    git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD | \
+      xargs -r git checkout "bug/!` echo $CARD_ID`/baseline" --
+    git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A | \
       xargs -r git rm -f
     ```
   - Return to Delegate to Subagent
@@ -269,13 +255,12 @@ Capture RESOLVER_REASONING from response.
 
 ### 3.3 Validate
 
-```bash
-cd $WORKSPACE_PATH
-ALL_CHANGES=$(git diff "bug/${CARD_ID}/reproduction" --name-only)
-git diff --quiet "bug/${CARD_ID}/reproduction" -- "$TEST_FILE_PATH"
-TEST_FILE_MODIFIED=$?  # 0=unchanged, 1=modified
-SOURCE_CHANGES=$(echo "$ALL_CHANGES" | grep -v -F "$TEST_FILE_PATH")
-```
+Determine what changed since the reproduction tag:
+
+1. List all files changed since `bug/!` echo $CARD_ID`/reproduction` (`git diff "bug/!` echo $CARD_ID`/reproduction" --name-only`).
+2. Check whether the test file was modified (`git diff --quiet "bug/!` echo $CARD_ID`/reproduction" -- "$TEST_FILE_PATH"`).
+3. Identify source-only changes by excluding the test file from the change list.
+4. Run the reproduction test and capture the output.
 
 ### 3.4 Outcomes
 
@@ -346,25 +331,22 @@ Based on validation result:
 
 ### 5.1 Squash Commits
 
-Squash all commits since baseline into one:
+If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
 cd $WORKSPACE_PATH
-COMMIT_COUNT=$(git rev-list --count "bug/${CARD_ID}/baseline"..HEAD)
-if [ "$COMMIT_COUNT" -gt 1 ]; then
-  git reset --soft "bug/${CARD_ID}/baseline"
-  git commit -m "$(cat <<'COMMITMSG'
+git reset --soft "bug/!` echo $CARD_ID`/baseline"
+git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
 COMMITMSG
 )"
-fi
 ```
 
 Clean up checkpoint tags:
 
 ```bash
 cd $WORKSPACE_PATH
-git tag -d "bug/${CARD_ID}/baseline" "bug/${CARD_ID}/reproduction" 2>/dev/null
+git tag -d "bug/!` echo $CARD_ID`/baseline" "bug/!` echo $CARD_ID`/reproduction" 2>/dev/null
 ```
 
 ### 5.2 Complete

@@ -14,6 +14,7 @@ The following environment variables are available in all bash statements:
 
 | Variable | Value |
 |---|---|
+| `$CARD_ID` | Card ID. |
 | `$NODE` | Path to the Node.js interpreter. |
 | `$CARD_REPO_PATH` | Absolute path to this card's Git repository directory. |
 | `$WORKSPACE_PATH` | Absolute path to the VS Code workspace root directory. |

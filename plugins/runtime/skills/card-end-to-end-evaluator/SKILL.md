@@ -217,7 +217,7 @@ Identify the baseline by diffing the workspace against the implementation baseli
 
 ```bash
 cd $WORKSPACE_PATH
-git diff implement/${CARD_ID}/baseline --name-only
+git diff implement/!` echo $CARD_ID`/baseline --name-only
 ```
 
 This is your scope — "new" means changed since this baseline.
