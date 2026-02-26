@@ -205,6 +205,37 @@ Default size limits: 1MB per line, 100MB per stream (configurable per stream typ
 |--------|----------|-------------|
 | POST | /api/notifications | Broadcast notification. Body: `type` (error/warning/info), `title`, `message`, `source` — all required. Rate limited: 10/min per source |
 
+### Compare
+
+Control the attribution tree comparison mode. One active comparison per server (in-memory, cleared on restart).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /compare | Set comparison mode. Body: one of three request shapes (see below) |
+| GET | /compare | Get current comparison state. Returns `CompareState` or `204` if no active comparison |
+| DELETE | /compare | Clear comparison mode. Returns `204` |
+
+**Request shapes for `POST /compare`:**
+
+Branch range — compare two arbitrary refs:
+```json
+{ "baseRef": "main", "compareRef": "feature-branch" }
+```
+
+Dynamic worktree — track a worktree's HEAD and working tree live:
+```json
+{ "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1" }
+```
+
+Fixed attribution — show pre-computed SHAs against a ref (used after merge/squash):
+```json
+{ "compareRef": "main", "attributionShas": ["abc123", "def456"] }
+```
+
+**WebSocket events** (subscribe via the SDK `EventMap`):
+- `compare:changed` — fired after `POST /compare`; payload is `CompareState` with `mode`, `baseRef`, `compareRef`, `repositoryPath`, and/or `attributionShas`
+- `compare:cleared` — fired after `DELETE /compare`; no payload
+
 ### Health
 
 | Method | Endpoint | Description |
