@@ -24,7 +24,7 @@ The orchestrator coordinates — it does NOT implement code.
 | | Library integrations |
 | | API changes |
 
-Plan says "implement" -> delegate to implementer agent.
+Plan says "implement" -> delegate to developer agent.
 Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
 
 **Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
@@ -109,14 +109,14 @@ Based on coherence assessment:
 ```xml
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
-<parameter name="subagent_type">runtime:card:implementer</parameter>
+<parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">...</parameter>
 <parameter name="run_in_background">true</parameter>
 </invoke>
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
-<parameter name="subagent_type">runtime:card:implementer</parameter>
+<parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">...</parameter>
 </invoke>
@@ -131,7 +131,7 @@ Agent prompt template — prompts must be self-contained. Agents have no convers
 ```xml
 <invoke name="Task">
 <parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
-<parameter name="subagent_type">runtime:card:implementer</parameter>
+<parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 ## Task

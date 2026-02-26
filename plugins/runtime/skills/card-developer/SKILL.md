@@ -1,5 +1,5 @@
 ---
-name: implementer
+name: developer
 description: Only use this agent when it is requested by name.
 ---
 

@@ -160,7 +160,7 @@ Choose the [MODEL] based on the tasks:
 ```xml
 <invoke name="Task">
 <parameter name="description">Implement Card</parameter>
-<parameter name="subagent_type">runtime:card:implementer</parameter>
+<parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 ## Tasks to Complete
@@ -188,7 +188,7 @@ Choose the [MODEL] based on the tasks:
 ```xml
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
-<parameter name="subagent_type">runtime:card:implementer</parameter>
+<parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 ## Tasks to Complete
@@ -201,7 +201,7 @@ Choose the [MODEL] based on the tasks:
 </invoke>
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
-<parameter name="subagent_type">runtime:card:implementer</parameter>
+<parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
 ## Tasks to Complete
