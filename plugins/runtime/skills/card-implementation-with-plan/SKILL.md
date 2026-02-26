@@ -109,12 +109,14 @@ Based on coherence assessment:
 ```xml
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
+<parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">...</parameter>
 <parameter name="run_in_background">true</parameter>
 </invoke>
 <invoke name="Task">
 <parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
+<parameter name="subagent_type">runtime:card:implementer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">...</parameter>
 </invoke>
