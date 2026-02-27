@@ -10,9 +10,8 @@ tools: "*"
 
 ```!
 cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
-
-npx @goodfoot/claude-code-skill-reader runtime:card-repo 
-npx @goodfoot/claude-code-skill-reader runtime:plan-abbreviated
-npx @goodfoot/claude-code-skill-reader runtime:card-implementation-pair
-
 ```
+
+<load-skills-immediately>
+**CRITICAL:** Load the `runtime:card-repo`, `runtime:plan-abbreviated`, and `runtime:card-implementation-pair` skills immediately.
+</load-skills-immediately>

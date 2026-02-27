@@ -39,8 +39,9 @@ var NetworkError = class extends Error {
 };
 
 // ../sdk/src/client/cardsClient.ts
-var INITIAL_TIMEOUT_MS = 1e3;
+var INITIAL_TIMEOUT_MS = 3e3;
 var MAX_TIMEOUT_MS = 1e4;
+var MAX_TIMEOUT_RETRIES = 2;
 var CardsClient = class {
   /**
    * Creates a new CardsClient instance.
@@ -98,7 +99,7 @@ var CardsClient = class {
   /**
    * Default HTTP client implementation using fetch + JSON payloads.
    *
-   * Each fetch call includes an AbortSignal.timeout that starts at 1 second
+   * Each fetch call includes an AbortSignal.timeout that starts at 3 seconds
    * and doubles on consecutive failures up to 10 seconds.
    */
   defaultHttpClient = {
@@ -203,32 +204,37 @@ var CardsClient = class {
    * @throws NetworkError for network failures or unexpected exceptions.
    */
   async request(fn) {
-    try {
-      const result = await fn();
-      this.onRequestSuccess();
-      return result;
-    } catch (error) {
-      if (error instanceof Response) {
+    let lastTimeoutError;
+    for (let attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
+      try {
+        const result = await fn();
         this.onRequestSuccess();
-        let body = {};
-        try {
-          body = await error.json();
-        } catch (parseError) {
-          if (!(parseError instanceof SyntaxError)) {
-            console.warn("[CardsClient] Unexpected error parsing error response:", parseError);
+        return result;
+      } catch (error) {
+        if (error instanceof Response) {
+          this.onRequestSuccess();
+          let body = {};
+          try {
+            body = await error.json();
+          } catch (parseError) {
+            if (!(parseError instanceof SyntaxError)) {
+              console.warn("[CardsClient] Unexpected error parsing error response:", parseError);
+            }
           }
+          const message = body["error"] || body["message"] || error.statusText;
+          const code = body["code"] || String(error.status);
+          const fields = body["fields"];
+          throw new ApiError(message, code, fields);
         }
-        const message = body["error"] || body["message"] || error.statusText;
-        const code = body["code"] || String(error.status);
-        const fields = body["fields"];
-        throw new ApiError(message, code, fields);
+        this.onRequestFailure();
+        if (error instanceof DOMException && error.name === "TimeoutError") {
+          lastTimeoutError = new NetworkError("Request timed out", error);
+          continue;
+        }
+        throw new NetworkError("Request failed", error instanceof Error ? error : void 0);
       }
-      this.onRequestFailure();
-      if (error instanceof DOMException && error.name === "TimeoutError") {
-        throw new NetworkError("Request timed out", error);
-      }
-      throw new NetworkError("Request failed", error instanceof Error ? error : void 0);
     }
+    throw lastTimeoutError;
   }
   // --- Card Operations ---
   /**

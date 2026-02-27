@@ -28,11 +28,14 @@ import type {
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
 
-/** Initial request timeout in milliseconds (1 second for fast failure detection). */
-const INITIAL_TIMEOUT_MS = 1_000;
+/** Initial request timeout in milliseconds (3 seconds to accommodate git-backed endpoints). */
+const INITIAL_TIMEOUT_MS = 3_000;
 
 /** Maximum request timeout in milliseconds after exponential backoff. */
 const MAX_TIMEOUT_MS = 10_000;
+
+/** Maximum number of automatic retries for timeout errors before giving up. */
+const MAX_TIMEOUT_RETRIES = 2;
 
 /**
  * Type-safe HTTP client for the Cards V2 REST API.
@@ -43,7 +46,7 @@ const MAX_TIMEOUT_MS = 10_000;
  * as {@link NetworkError}.
  *
  * The default HTTP client applies an exponential backoff timeout to fetch
- * requests: starting at 1 second, doubling on each consecutive failure up
+ * requests: starting at 3 seconds, doubling on each consecutive failure up
  * to a 10-second cap, and resetting on any successful response. This ensures
  * fast failure detection when the server is down while allowing slower
  * responses during recovery.
@@ -122,7 +125,7 @@ export class CardsClient {
   /**
    * Default HTTP client implementation using fetch + JSON payloads.
    *
-   * Each fetch call includes an AbortSignal.timeout that starts at 1 second
+   * Each fetch call includes an AbortSignal.timeout that starts at 3 seconds
    * and doubles on consecutive failures up to 10 seconds.
    */
   private defaultHttpClient: HttpClient = {
@@ -231,36 +234,49 @@ export class CardsClient {
    * @throws NetworkError for network failures or unexpected exceptions.
    */
   private async request<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      const result = await fn();
-      this.onRequestSuccess();
-      return result;
-    } catch (error) {
-      if (error instanceof Response) {
-        // Server responded (even with an error status) - connection is alive, reset backoff
+    let lastTimeoutError: NetworkError | undefined;
+
+    for (let attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
+      try {
+        const result = await fn();
         this.onRequestSuccess();
-        let body: Record<string, unknown> = {};
-        try {
-          body = await error.json();
-        } catch (parseError) {
-          // SyntaxError is expected when server returns non-JSON error response (e.g., HTML error page)
-          if (!(parseError instanceof SyntaxError)) {
-            console.warn('[CardsClient] Unexpected error parsing error response:', parseError);
+        return result;
+      } catch (error) {
+        if (error instanceof Response) {
+          // Server responded (even with an error status) - connection is alive, reset backoff
+          this.onRequestSuccess();
+          let body: Record<string, unknown> = {};
+          try {
+            body = await error.json();
+          } catch (parseError) {
+            // SyntaxError is expected when server returns non-JSON error response (e.g., HTML error page)
+            if (!(parseError instanceof SyntaxError)) {
+              console.warn('[CardsClient] Unexpected error parsing error response:', parseError);
+            }
           }
+          const message =
+            (body['error'] as string | undefined) || (body['message'] as string | undefined) || error.statusText;
+          const code = (body['code'] as string | undefined) || String(error.status);
+          const fields = body['fields'] as Array<{ field: string; message: string }> | undefined;
+          throw new ApiError(message, code, fields);
         }
-        const message =
-          (body['error'] as string | undefined) || (body['message'] as string | undefined) || error.statusText;
-        const code = (body['code'] as string | undefined) || String(error.status);
-        const fields = body['fields'] as Array<{ field: string; message: string }> | undefined;
-        throw new ApiError(message, code, fields);
+
+        // Network or timeout failure - increase backoff for next attempt
+        this.onRequestFailure();
+
+        if (error instanceof DOMException && error.name === 'TimeoutError') {
+          lastTimeoutError = new NetworkError('Request timed out', error);
+          // Retry on timeout - onRequestFailure() already increased _currentTimeoutMs
+          continue;
+        }
+
+        // Non-timeout network errors (DNS failure, connection refused) are not retried
+        throw new NetworkError('Request failed', error instanceof Error ? error : undefined);
       }
-      // Network or timeout failure - increase backoff for next attempt
-      this.onRequestFailure();
-      if (error instanceof DOMException && error.name === 'TimeoutError') {
-        throw new NetworkError('Request timed out', error);
-      }
-      throw new NetworkError('Request failed', error instanceof Error ? error : undefined);
     }
+
+    // All retry attempts exhausted
+    throw lastTimeoutError!;
   }
 
   // --- Card Operations ---

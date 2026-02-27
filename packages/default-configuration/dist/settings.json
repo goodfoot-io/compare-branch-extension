@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE ./bin/launch.3735b7cf.mjs",
+            "command": "$VSCODE_NODE ./bin/launch.dc0431aa.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -17,7 +17,7 @@
           "id": "interview",
           "name": "Interview",
           "command": {
-            "command": "$VSCODE_NODE ./bin/interview.a106d010.mjs",
+            "command": "$VSCODE_NODE ./bin/interview.29a014c7.mjs",
             "timeout": 3600000
           },
           "description": "Start an interview session for the card",
@@ -61,8 +61,8 @@
   },
   "__generated": {
     "files": [
-      "launch.3735b7cf.mjs",
-      "interview.a106d010.mjs",
+      "launch.dc0431aa.mjs",
+      "interview.29a014c7.mjs",
       "adaptive-card-validator.33bb8c36.mjs",
       "adaptive-card-submission-validator.2341854a.mjs",
       "note-validator.a758de4d.mjs",
