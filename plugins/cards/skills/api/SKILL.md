@@ -1,11 +1,11 @@
 ---
 name: api
-description: Create, read, and respond to cards related to this git branch.
+description: Manage cards, sessions, and comparisons via CLI binaries and REST API.
 ---
 
 # Cards API
 
-Use the Cards API to communicate with the user about this git branch. The user will be notified when you create a card or add a comment.
+Use the CLI binaries below to manage cards and comparisons. For operations not covered by the CLI (comments, plans, branches, streams, etc.), use the REST API Reference at the bottom of this document. The user will be notified when you create a card or add a comment.
 
 <comments>
 Use comments to ask the user for clarifications, to report error states, or to report completion.
@@ -28,11 +28,11 @@ Use comments to ask the user for clarifications, to report error states, or to r
 <plan-approval>
 When a card has `gates.planRequired: true`, present a plan for user approval before beginning implementation.
 
-1. Store the plan: `PUT /cards/{cardId}/plan` with `{ "content": "..." }`
+1. Store the plan via the Plan REST API endpoint (`PUT /cards/{cardId}/plan`)
 2. Add a comment with code references reviewed during planning
 3. Wait for user approval before proceeding
 
-The plan content is accessible via `GET /cards/{cardId}/plan`.
+The plan content is accessible via the Plan REST API endpoint (`GET /cards/{cardId}/plan`). See the REST API Reference below for details.
 </plan-approval>
 
 <reload-after-compaction>
