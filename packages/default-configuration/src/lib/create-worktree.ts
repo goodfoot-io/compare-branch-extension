@@ -388,6 +388,14 @@ export async function copyExistingSymlinks(sourceRoot: string, worktreeDir: stri
       }
     }
     const sourceLinkPath = path.join(sourceRoot, name);
+
+    // Skip self-referencing symlinks (target resolves back to the symlink itself)
+    const target = await fs.readlink(sourceLinkPath);
+    const resolvedTarget = path.resolve(sourceRoot, target);
+    if (resolvedTarget === sourceLinkPath) {
+      return false;
+    }
+
     await fs.symlink(sourceLinkPath, destPath);
     return true;
   };
