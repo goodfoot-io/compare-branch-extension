@@ -69,6 +69,17 @@ git commit -m "plan: [approach and key decisions]"  # <card-repo-commit-style>
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from the Technical Approach section).
 
+Create a task for each step in the Technical Approach to give the implementation-pair visibility into progress:
+
+```xml
+<!-- For each step N with title [STEP_TITLE]: -->
+<invoke name="TaskCreate">
+<parameter name="subject">Step N: [STEP_TITLE]</parameter>
+<parameter name="description">[brief description of the step from PLAN.md]</parameter>
+<parameter name="activeForm">Implementing step N</parameter>
+</invoke>
+```
+
 ---
 
 ## 4. Request Plan Review
@@ -101,9 +112,21 @@ Implement the plan directly. Load the `runtime:card-developer` skill for impleme
 ### 5.1 Work Through Tasks
 
 For each step in the Technical Approach:
-1. Read relevant files
-2. Implement the change
-3. Commit logically grouped changes
+1. Mark the step's task `in_progress` via TaskUpdate
+2. Read relevant files
+3. Implement the change
+4. Commit logically grouped changes
+5. Mark the step's task `completed` via TaskUpdate
+6. Send a brief progress message to the implementation-pair:
+
+```xml
+<invoke name="SendMessage">
+<parameter name="type">message</parameter>
+<parameter name="recipient">impl-pair</parameter>
+<parameter name="summary">Completed step N/M</parameter>
+<parameter name="content">Completed step N/M: [STEP_TITLE]</parameter>
+</invoke>
+```
 
 For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
 
@@ -162,6 +185,12 @@ Implementation is complete. All validation commands pass. Evaluate the implement
 
 ## Baseline
 Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
+
+## Implementation Progress
+[For each plan step, list: step number, title, and any deviations or deferrals from the plan. Example:]
+- Step 1: [title] — Complete
+- Step 2: [title] — Complete, deviated from plan: [what changed and why]
+- Step 3: [title] — Complete, deferred: [what was deferred and why]
 
 ## Modified Files
 [PLAN_FILES]
