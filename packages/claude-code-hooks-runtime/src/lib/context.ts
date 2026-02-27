@@ -286,7 +286,7 @@ function stripDiffstatSummaries(text: string): string {
  */
 export function buildCardRepoLogBlock(rootPath: string): string | null {
   try {
-    const log = execFileSync('git', ['log', '-5', '--pretty=format:%h %s', '--stat'], {
+    const log = execFileSync('git', ['log', '-5', '--pretty=format:%h %an: %s', '--stat'], {
       cwd: rootPath,
       encoding: 'utf-8',
       timeout: 5000,

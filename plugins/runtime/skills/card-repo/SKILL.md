@@ -21,6 +21,15 @@ The following environment variables are available in all bash statements:
 | `$BASE_BRANCH` | Git branch that the card's workspace branch will merge into. |
 | `$WORKSPACE_BRANCH` | Git branch name for the card's workspace implementation. |
 
+## Execution Mode
+
+The session runs in one of two modes, surfaced as the `mode` attribute on the `<card>` block:
+
+| Mode | Meaning |
+|------|---------|
+| `interactive` | User is present; UI is visible. Prompts, Adaptive Cards, and clarifying questions are appropriate. |
+| `background` | Action runs without user attention. Minimize prompts; prefer autonomous decisions and comments over blocking questions. |
+
 ## Directory Layout
 
 ```
@@ -80,10 +89,38 @@ Gates do not automatically advance status. A card can have all gates satisfied (
 
 Validation rules for each field are in `references/validation.md`.
 
-## CARD.md and Comments
+### Gate Enforcement
 
-`CARD.md`, `PLAN.md`, and `comment/*.md` are **pure markdown with no YAML frontmatter**.
-Never wrap content in `---` delimiters. Note files (`note/*.md`) are the exception —
+Gates are **informational constraints**, not hard blocks on status transitions. The
+pre-commit hook does not prevent a card from moving to `done` with `reviewApproved=false`.
+Instead:
+
+- Gates signal intent to other agents and the UI. The board may visually flag unsatisfied gates.
+- Cross-field constraints are enforced: `planApproved: true` requires `planRequired: true`
+  (see `references/validation.md`).
+- Agents should treat unsatisfied gates as blockers: do not move a card to `needs_review`
+  when `planRequired=true` and `planApproved=false` — write and get the plan approved first.
+
+### repositoryId
+
+`repositoryId` identifies the workspace repository this card's code changes target
+(e.g. `github.com/org/repo`). Each card targets exactly one repository. Cards for
+different repositories use different board prefixes (e.g. `main-` vs `api-`).
+
+## CARD.md and PLAN.md
+
+- **`CARD.md`** is the *requirement*: what needs to be done, acceptance criteria, and
+  context. Written by the card creator (human or agent). Stable once the card is understood.
+- **`PLAN.md`** is the *approach*: how the requirement will be implemented, broken into
+  tasks, with technical decisions. Written by the implementing agent. Subject to revision
+  and approval via the `planRequired`/`planApproved` gates.
+
+Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
+
+## Comments
+
+`comment/*.md` files are **pure markdown with no YAML frontmatter**.
+Note files (`note/*.md`) are the exception —
 they require YAML frontmatter (see Notes below).
 
 Comment filenames must be UUIDv7 (RFC 9562), validated by the pre-commit hook.
@@ -122,7 +159,15 @@ recognized both with and without an `attachment/` prefix.
 
 ## Adaptive Cards
 
-Adaptive Cards are interactive UI components using the Adaptive Card schema.
+Adaptive Cards are interactive UI components for **structured decisions that need a
+recorded response**. Use them when:
+
+- Requesting plan approval (action: approve/reject with feedback)
+- Presenting implementation options that the user must choose between
+- Requesting review sign-off
+
+Do **not** use Adaptive Cards for simple questions — use a comment instead.
+The Adaptive Card + Submission pair creates a durable, queryable decision record.
 
 ```json
 {
@@ -166,7 +211,15 @@ Adaptive Card Submissions are captured when users respond to an Adaptive Card.
 
 ## Notes
 
-Notes are markdown files with structured YAML frontmatter metadata.
+Notes are **structured records** intended to outlive the current session. Use notes for:
+
+- Architecture Decision Records (ADRs)
+- Investigation findings that future agents should reference
+- Session summaries capturing key decisions and rationale
+
+Unlike comments (chronological conversation), notes are **named and titled** for
+direct retrieval. Unlike Adaptive Cards (interactive decisions), notes are
+**authored artifacts** with no response mechanism.
 
 ```markdown
 ---
@@ -319,6 +372,22 @@ When crafting final commits from agent reports: collect Decision Narratives, ext
 </workspace-commit-style>
 
 ## Workspace Repo Log
+
+### Workspace Branch Naming
+
+Workspace branches follow the pattern `cards/{cardId}/{sequence}`:
+
+| Segment | Meaning |
+|---------|---------|
+| `cards/` | Namespace prefix separating card work from other branches |
+| `{cardId}` | Card ID (e.g. `main-0001`) |
+| `{sequence}` | Monotonically increasing integer. Incremented when a new branch is needed for the same card (e.g. after a force-push, rebase, or fresh start). |
+
+A card may have multiple branches (e.g. `cards/main-0001/1`, `cards/main-0001/2`) when
+work is restarted or split. The `workspace.branches` field in `CARD.meta.json` tracks
+all active branches and their parent branches.
+
+### Log Blocks
 
 The session-start hook injects `<workspace-repo-log>` blocks into the system context.
 Each block shows workspace commits grouped by the branch they are reachable from,
