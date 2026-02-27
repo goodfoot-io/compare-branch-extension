@@ -1,6 +1,6 @@
 ---
 name: interview-enhancement
-description: Scope enhancement requests through research and interview.
+description: Scope enhancement requests through codebase research.
 ---
 
 <research-before-asking>
@@ -18,11 +18,9 @@ Assume established patterns — "I assume we should use gRPC for this new endpoi
 
 <instructions>
 
-## 1. Conduct Interview
+## 1. Research and Write
 
-Conduct an interview to improve only the card title and description (do not modify plan content or other fields) so they clearly describe the enhancement.
-
-Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+Research the codebase using the protocol above. From your findings and the existing card content, write the best title and description you can. You are the author — make decisions, don't ask for confirmation. Ask questions only when research leaves genuine ambiguity about the user's intent.
 
 ## 2. Update Card
 

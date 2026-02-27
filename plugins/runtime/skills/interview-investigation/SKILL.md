@@ -1,6 +1,6 @@
 ---
 name: interview-investigation
-description: Scope investigation requests through research and interview.
+description: Scope investigation requests through codebase research.
 ---
 
 <research-before-asking>
@@ -17,11 +17,9 @@ State findings with confidence — "I see we don't have statsD metrics configure
 
 <instructions>
 
-## 1. Conduct Interview
+## 1. Research and Write
 
-Conduct an interview to improve only the card title and description (do not modify plan content or other fields) so they clearly describe the investigation.
-
-Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+Research the codebase using the protocol above. From your findings and the existing card content, write the best title and description you can. You are the author — make decisions, don't ask for confirmation. Ask questions only when research leaves genuine ambiguity about the user's intent.
 
 ## 2. Update Card
 

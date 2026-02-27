@@ -1,6 +1,6 @@
 ---
 name: interview-maintenance
-description: Scope maintenance requests through research and interview.
+description: Scope maintenance requests through codebase research.
 ---
 
 <research-before-asking>
@@ -9,7 +9,7 @@ description: Scope maintenance requests through research and interview.
 Before asking the user about debt or refactoring, research the codebase:
 
 1. Correlate complexity with churn — use git log and file size to find high-value targets
-2. Check for *missing* tests using Task (explore) — a refactor without tests is dangerous
+2. Check for *missing* tests using Glob and Grep — a refactor without tests is dangerous
 3. Verify dependency status from lockfiles for deprecated versions
 
 State findings with confidence — "I see this module has 0 tests and high churn. I assume adding tests is the first requirement before any refactoring. Correct?" Surface gaps explicitly — identify specifically *what* is untestable or brittle. Only ask the user for business motivation and risk profile.
@@ -17,11 +17,9 @@ State findings with confidence — "I see this module has 0 tests and high churn
 
 <instructions>
 
-## 1. Conduct Interview
+## 1. Research and Write
 
-Conduct an interview to improve only the card title and description (do not modify plan content or other fields) so they clearly describe the maintenance work.
-
-Use the `AskUserQuestion` tool to ask focused, sequential questions and propose probable answers when helpful. Continue until you have a clear, complete view of the title and description. If the user asks you to proceed with the information available, move forward with the update.
+Research the codebase using the protocol above. From your findings and the existing card content, write the best title and description you can. You are the author — make decisions, don't ask for confirmation. Ask questions only when research leaves genuine ambiguity about the user's intent.
 
 ## 2. Update Card
 
