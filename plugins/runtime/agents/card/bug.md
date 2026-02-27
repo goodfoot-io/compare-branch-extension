@@ -2,7 +2,9 @@
 name: bug
 description: Fix testable bugs using test-first methodology.
 tools: "*"
-skills: runtime:card-repo, runtime:card-bug
+skills:
+  - runtime:card-repo
+  - runtime:card-bug
 ---
 
 ```!

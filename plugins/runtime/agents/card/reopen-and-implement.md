@@ -2,7 +2,9 @@
 name: reopen-and-implement
 description: Reopen completed cards for additional work.
 tools: "*"
-skills: runtime:card-repo, runtime:card-reopen-and-implement
+skills:
+  - runtime:card-repo
+  - runtime:card-reopen-and-implement
 ---
 
 ```!

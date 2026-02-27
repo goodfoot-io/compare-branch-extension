@@ -2,7 +2,10 @@
 name: maintenance
 description: Refine maintenance cards through user interview
 tools: "*"
-skills: runtime:card-repo, runtime:maintenance, runtime:interview-maintenance
+skills:
+  - runtime:card-repo
+  - runtime:maintenance
+  - runtime:interview-maintenance
 ---
 
 ```!

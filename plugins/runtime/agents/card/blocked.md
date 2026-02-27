@@ -2,7 +2,9 @@
 name: blocked
 description: Handle blocked cards by reporting blockers.
 tools: "*"
-skills: runtime:card-repo, runtime:card-blocked
+skills:
+  - runtime:card-repo
+  - runtime:card-blocked
 ---
 
 ```!

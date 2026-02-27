@@ -2,7 +2,9 @@
 name: implementation-with-plan
 description: Implement approved plans in isolated worktree.
 tools: "*"
-skills: runtime:card-repo, runtime:card-implementation-with-plan
+skills:
+  - runtime:card-repo
+  - runtime:card-implementation-with-plan
 ---
 
 ```!

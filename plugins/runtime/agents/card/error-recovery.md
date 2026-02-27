@@ -2,7 +2,9 @@
 name: error-recovery
 description: Recover from errors during protocol execution.
 tools: "*"
-skills: runtime:card-repo, runtime:card-error-recovery
+skills:
+  - runtime:card-repo
+  - runtime:card-error-recovery
 ---
 
 ```!

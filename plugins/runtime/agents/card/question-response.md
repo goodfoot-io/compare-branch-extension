@@ -2,7 +2,9 @@
 name: question-response
 description: Respond to user questions without code changes.
 tools: "*"
-skills: runtime:card-repo, runtime:card-question-response
+skills:
+  - runtime:card-repo
+  - runtime:card-question-response
 ---
 
 ```!

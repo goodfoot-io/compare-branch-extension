@@ -2,7 +2,9 @@
 name: merge
 description: Merge worktree implementation to base branch.
 tools: "*"
-skills: runtime:card-repo, runtime:card-merge
+skills:
+  - runtime:card-repo
+  - runtime:card-merge
 ---
 
 ```!

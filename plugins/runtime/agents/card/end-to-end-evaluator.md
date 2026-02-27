@@ -2,7 +2,9 @@
 name: end-to-end-evaluator
 description: Verify implementation is wired end-to-end and nothing was forgotten.
 tools: "*"
-skills: runtime:card-repo, runtime:card-end-to-end-evaluator
+skills:
+  - runtime:card-repo
+  - runtime:card-end-to-end-evaluator
 ---
 
 ```!
