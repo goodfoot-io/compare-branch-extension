@@ -89,6 +89,26 @@ Gates do not automatically advance status. A card can have all gates satisfied (
 
 Validation rules for each field are in `references/validation.md`.
 
+### Status Transitions
+
+An agent working on a card in `in_progress` can set `status` to any valid value
+by editing `CARD.meta.json`. Common explicit transitions:
+
+| Target | When |
+|--------|------|
+| `needs_review` | Work is complete, requesting review |
+| `todo` | Abandoning the current attempt, returning to backlog |
+| `done` | Work is complete and `reviewRequired` is `false` |
+
+If the session ends with the card still in `in_progress`, the system automatically
+transitions it to `needs_review`. This default means:
+
+- **Completing work requires no status change** — just finish and the card moves to review.
+- **Staying in `in_progress` requires an explicit decision** — set it back to `in_progress`
+  only if the card is genuinely incomplete and should not be reviewed yet.
+- **Blocking requires an explicit status change** — set `status` to `todo` and use a
+  `blocked:` commit message so the next agent understands why.
+
 ### Gate Enforcement
 
 Gates are **informational constraints**, not hard blocks on status transitions. The
