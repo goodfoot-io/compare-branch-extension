@@ -1,6 +1,6 @@
 ---
 name: api
-description: Manage cards, sessions, and comparisons via CLI binaries and REST API.
+description: Manage cards in the VSCode "Cards" extension.
 ---
 
 # Cards API
