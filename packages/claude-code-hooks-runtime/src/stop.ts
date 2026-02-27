@@ -180,7 +180,7 @@ export function getDiffForCommits(repoPath: string, shas: string[]): string {
     }).trim();
     const base = parentCheck.includes(' ') ? `${oldest}~1` : EMPTY_TREE_SHA;
 
-    return execFileSync('git', ['diff', `${base}..HEAD`], {
+    return execFileSync('git', ['diff', `${base}..HEAD`, '--', '.', ':!streams/claude-code-session/'], {
       cwd: repoPath,
       encoding: 'utf-8',
       timeout: 10000,
