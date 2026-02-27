@@ -25,16 +25,6 @@ Use comments to ask the user for clarifications, to report error states, or to r
 - **archived**: This card has been archived and is no longer in the active workflow.
 </card-status>
 
-<activate-before-work>
-Before starting work on a card, activate it to establish commit attribution:
-
-```
-curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" "$API_BASE/cards/{cardId}/activate"
-```
-
-This links your session to the card so that any git commits you make are automatically attributed to it. Always activate before your first code change.
-</activate-before-work>
-
 <plan-approval>
 When a card has `gates.planRequired: true`, present a plan for user approval before beginning implementation.
 
@@ -49,22 +39,90 @@ The plan content is accessible via `GET /cards/{cardId}/plan`.
 You must reload this skill after compaction.
 </reload-after-compaction>
 
-<authentication>
-All API requests (except `GET /health`) require a Bearer token. The discover script outputs shell-evaluable assignments for both `API_BASE` and `ACCESS_TOKEN`. Use `eval` to set them, then include the token as an `Authorization: Bearer` header on every request.
-</authentication>
+## CLI Binaries
 
-<api>
+### card.mjs — Card operations
+
+Read, create, start, and stop card sessions. Locates the server through `~/.cards/cards-api.json`.
 
 ```!
 eval "$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)"
 echo "# API connection (port and token may change between sessions)"
 echo "eval \"\$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)\""
 echo ""
-echo "# Example: List all cards"
-echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?workspacePath=/workspace\" | jq ."
+echo "# Example: Get a card"
+echo "\$NODE \${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>"
 ```
 
-## Endpoints
+#### Commands
+
+**Get a card** — Fetch card details by ID:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
+```
+
+**Create a card** — Pipe JSON to stdin with `title` (required) and `description` (required). Optional: `tags`, `environment`, `gates`:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
+{ "title": "Fix auth", "description": "Token refresh fails", "tags": ["bug"] }
+EOF
+```
+
+**Start a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs start <card-id>
+```
+Always call `start` before your first code change on a card. This establishes commit attribution.
+
+**Stop a session** — Disassociate this Claude session from its card:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs stop
+```
+
+### compare.mjs — Compare operations
+
+Manage the attribution tree comparison mode. One active comparison per server.
+
+#### Commands
+
+**Set comparison** — Pipe a JSON request to stdin. Three shapes are supported:
+
+Branch range — compare two arbitrary refs:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+{ "baseRef": "main", "compareRef": "feature-branch" }
+EOF
+```
+
+Dynamic worktree — track a worktree's HEAD live:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+{ "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1" }
+EOF
+```
+
+Fixed attribution — show pre-computed SHAs against a ref:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+{ "compareRef": "main", "attributionShas": ["abc123", "def456"] }
+EOF
+```
+
+**Get current comparison**:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs get
+```
+
+**Clear comparison**:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs clear
+```
+
+## REST API Reference
+
+<authentication>
+All API requests (except `GET /health`) require a Bearer token. The discover script outputs shell-evaluable assignments for both `API_BASE` and `ACCESS_TOKEN`. Use `eval` to set them, then include the token as an `Authorization: Bearer` header on every request.
+</authentication>
 
 ### Cards
 
@@ -102,12 +160,6 @@ echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?wor
 | GET | /cards/{cardId}/plan | Get plan content. Returns 404 if no plan exists |
 | PUT | /cards/{cardId}/plan | Update plan. Body: `content` (markdown) |
 
-### Activate
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /cards/{cardId}/activate | Activate card for this session. Establishes commit attribution and registers current branch — call before starting work. Query: `workspacePath` (optional, for branch detection) |
-
 ### Commits
 
 | Method | Endpoint | Description |
@@ -117,8 +169,6 @@ echo "curl -s -H \"Authorization: Bearer \$ACCESS_TOKEN\" \"\$API_BASE/cards?wor
 | DELETE | /cards/{cardId}/commits/{sha} | Remove commit attribution |
 
 ### Branches
-
-Track workspace branches and worktrees associated with a card. The `/activate` endpoint also registers the current branch automatically.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -211,26 +261,9 @@ Control the attribution tree comparison mode. One active comparison per server (
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /compare | Set comparison mode. Body: one of three request shapes (see below) |
+| POST | /compare | Set comparison mode. Body: one of three request shapes (see CLI section above) |
 | GET | /compare | Get current comparison state. Returns `CompareState` or `204` if no active comparison |
 | DELETE | /compare | Clear comparison mode. Returns `204` |
-
-**Request shapes for `POST /compare`:**
-
-Branch range — compare two arbitrary refs:
-```json
-{ "baseRef": "main", "compareRef": "feature-branch" }
-```
-
-Dynamic worktree — track a worktree's HEAD and working tree live:
-```json
-{ "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1" }
-```
-
-Fixed attribution — show pre-computed SHAs against a ref (used after merge/squash):
-```json
-{ "compareRef": "main", "attributionShas": ["abc123", "def456"] }
-```
 
 **WebSocket events** (subscribe via the SDK `EventMap`):
 - `compare:changed` — fired after `POST /compare`; payload is `CompareState` with `mode`, `baseRef`, `compareRef`, `repositoryPath`, and/or `attributionShas`
@@ -241,5 +274,3 @@ Fixed attribution — show pre-computed SHAs against a ref (used after merge/squ
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /health | Health check (no authentication required) |
-
-</api>
