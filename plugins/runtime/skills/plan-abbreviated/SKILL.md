@@ -90,8 +90,8 @@ Numbered steps with verified file paths. Describe WHAT to build and WHERE, not H
 ```markdown
 ## Validation Commands
 - Type check: `cd packages/api && yarn typecheck`
-- Test: `cd packages/api && yarn test`
 - Lint: `cd packages/api && yarn lint`
+- Test: `cd packages/api && yarn test`
 ```
 </example>
 

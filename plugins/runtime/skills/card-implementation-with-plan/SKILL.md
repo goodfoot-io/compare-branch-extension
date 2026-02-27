@@ -7,7 +7,7 @@ description: Implement approved plans.
 <placeholder-variables>
 [TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
-[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 2.6 for modification scope check and Step 4.3 cleanup annotation)
+[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 4.3 cleanup annotation and passed to evaluators as modified-file context)
 [COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose (synthesized in Step 3.2 from CARD.md and PLAN.md goals; passed to end-to-end evaluator prompt in Step 3.4)
 </placeholder-variables>
 
@@ -149,7 +149,6 @@ Agent prompt template — prompts must be self-contained. Agents have no convers
 
 ## File Ownership
 This task owns: [absolute paths from plan]
-Only modify files assigned to this task.
 
 ## Current File Content
 [Read and include current content of files to be modified]
@@ -481,6 +480,5 @@ The following checkpoints are created during execution for rollback:
 | `implement/!` echo $CARD_ID`/baseline` | Step 1 | Original state before any changes |
 | `implement/!` echo $CARD_ID`/post-implementation` | Step 2.6 | After implementation, before validation |
 
-Reverts are scoped to [PLAN_FILES] only — files outside the plan's scope are never modified or discarded without user direction.
 
 </instructions>
