@@ -7,90 +7,25 @@ description: Test-driven development workflow for implementing new functionality
 
 Follow this workflow when implementing new functionality.
 
-## Workflow
+## Phase 1: Types and Stubs
 
-### Phase 1: Types and Stubs
-
-Create the type definitions and function/method stubs first.
-
-```typescript
-// Define types
-interface UserInput {
-  name: string;
-  email: string;
-}
-
-interface UserOutput {
-  id: string;
-  name: string;
-  email: string;
-  createdAt: Date;
-}
-
-// Create stub that throws
-export function createUser(input: UserInput): Promise<UserOutput> {
-  throw new Error('Not Implemented');
-}
-```
-
-**Guidelines:**
+Create type definitions and function/method stubs first:
 - Define all input/output types
 - Export functions/methods with correct signatures
 - Throw `Error('Not Implemented')` in function bodies
 - This establishes the API contract before implementation
 
-### Phase 2: Write Skipped Tests
+## Phase 2: Write Skipped Tests
 
-Write tests using `it.skip` for the functionality.
-
-```typescript
-describe('createUser', () => {
-  it.skip('should create a user with valid input', async () => {
-    const input = { name: 'Alice', email: 'alice@example.com' };
-    const result = await createUser(input);
-
-    expect(result).toMatchObject({
-      name: 'Alice',
-      email: 'alice@example.com',
-    });
-    expect(result.id).toBeDefined();
-    expect(result.createdAt).toBeInstanceOf(Date);
-  });
-
-  it.skip('should throw on invalid email', async () => {
-    const input = { name: 'Bob', email: 'invalid' };
-    await expect(createUser(input)).rejects.toThrow('Invalid email');
-  });
-});
-```
-
-**Guidelines:**
+Write tests using `it.skip` for the functionality:
 - Use `it.skip` for all new tests (they would fail against stubs)
 - Cover the expected behavior thoroughly
 - Include error cases and edge cases
 - Tests document the expected contract
 
-### Phase 3: Implement and Unskip
+## Phase 3: Implement and Unskip
 
-Implement the function, then unskip and run tests.
-
-```typescript
-export async function createUser(input: UserInput): Promise<UserOutput> {
-  if (!isValidEmail(input.email)) {
-    throw new Error('Invalid email');
-  }
-
-  const id = generateId();
-  return {
-    id,
-    name: input.name,
-    email: input.email,
-    createdAt: new Date(),
-  };
-}
-```
-
-**Process:**
+Implement the function, then unskip and run tests:
 1. Implement the function
 2. Change `it.skip` to `it` for related tests
 3. Run tests to verify

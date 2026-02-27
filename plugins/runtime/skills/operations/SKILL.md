@@ -7,66 +7,6 @@ description: How to write an operations request card
 
 Operations requests should capture the operational goal, evidence, and verification while minimizing risk. They emphasize outcomes, constraints, and safety over implementation details so work can be planned and executed by the right operator or team.
 
-Good requests are time-aware but not time-bound: they include urgency, change windows, and risk posture without locking a specific solution.
-
-## Writing Process
-
-### 1. Define the Operational Objective and Urgency
-
-Anchor the request in what needs to be true after the work:
-
-- What service or workflow should improve?
-- What user or business impact is at risk (SLA/SLO, error budget, support volume)?
-- How urgent is this and why (incident impact, upcoming launch, compliance deadline)?
-
-### 2. Ground the Request in Evidence
-
-Operational work should be grounded in observable signals:
-
-- Symptoms, metrics, logs, dashboards, or incident links
-- Baselines (current build time, failure rate, latency, cost)
-- Reproducible conditions if applicable
-
-### 3. State Desired Outcomes and Verification
-
-Define outcomes in measurable, testable terms:
-
-- Success targets (flake rate reduction, MTTR improvement, restore pipeline throughput)
-- Verification steps (dashboard checks, runbook validation, canary signals)
-- Must-have vs nice-to-have outcomes
-
-### 4. Classify Change Type and Constraints
-
-Operational work benefits from explicit change classification:
-
-- Standard vs normal vs emergency change (ITSM/ITIL)
-- Environments and regions affected
-- Change windows, approvals, or compliance requirements
-- Dependencies on other teams or systems
-
-### 5. Make Risk and Reversibility Explicit
-
-Capture safety and failure considerations:
-
-- Expected blast radius and likely failure modes
-- Rollback/backout expectations or safe-stop criteria
-- Preconditions (access, feature flags, backups, capacity headroom)
-
-### 6. Clarify Ownership and Communication
-
-Define who leads and how updates flow:
-
-- Primary owner/on-call contact and escalation path
-- Stakeholder updates or comms expectations
-- Links to existing runbooks, SOPs, or prior incidents
-
-### 7. Call Out Toil and Automation Opportunities (Optional)
-
-If the work is recurring or manual, note if explicitly:
-
-- Frequency and operator time cost
-- Whether automation is in scope or a follow-up
-
 ## Request Structure
 
 | Section | Content |
@@ -80,6 +20,15 @@ If the work is recurring or manual, note if explicitly:
 | Constraints/Dependencies | Change windows, approvals, and cross-team dependencies |
 | References | Dashboards, incidents, runbooks, tickets, or configs |
 | Rollback/Contingency (Optional) | Expectations for reversibility or mitigation |
+
+## Writing Principles
+
+- **Objective and urgency**: What needs to be true after the work, what impact is at risk (SLA/SLO, error budget), how urgent and why
+- **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost)
+- **Measurable outcomes**: Success targets, verification steps (dashboard checks, canary signals), must-have vs nice-to-have
+- **Change classification**: Standard/normal/emergency (ITSM/ITIL), environments affected, change windows, approvals
+- **Risk and reversibility**: Blast radius, failure modes, rollback/backout expectations, preconditions (access, feature flags, backups)
+- **Ownership**: Primary owner/on-call, escalation path, stakeholder update expectations
 
 ## Domain-Specific Guidance
 
@@ -97,52 +46,5 @@ If the work is recurring or manual, note if explicitly:
 - Include trigger conditions, symptoms, and decision points
 - Define verification signals and escalation paths
 - Keep steps outcome-focused; avoid prescribing exact commands unless required
-
-## Advanced Operational Guidance
-
-### Reduce Cognitive Load
-
-Operational work is error-prone under stress. Requests should make verification and decision points explicit and use checklists for critical paths.
-
-### Favor Layered Defenses
-
-Capture guardrails (feature flags, canaries, staged rollouts, access controls) so failures are contained and reversible.
-
-### Prioritize Learning From Incidents
-
-If the request follows an incident, include the learning goal (what should not happen again) and connect it to postmortem action items.
-
-### Defer to Expertise
-
-When multiple teams are involved, identify who has operational authority during execution to avoid unclear handoffs.
-
-## LLM-Aided Interviewing Guidance
-
-When using LLMs to refine operations requests:
-- Ask targeted questions to fill gaps (impact, verification, constraints)
-- Propose probable answers only when context supports it; label assumptions
-- Avoid inventing runbook steps or commands without sources
-- Summarize outcomes and constraints, then confirm with the requester
-
-## Anti-Patterns to Avoid
-
-- **The Vague Chore**: "Fix CI" without pipeline names or evidence
-- **The Implementation Lock-in**: Dictating steps or tools without necessity
-- **The Missing Verification**: No success signals or rollback expectations
-- **The Scope Spill**: Bundling unrelated operational tasks into one request
-- **The Risk Blind Spot**: Omitting blast radius or constraints
-
-## Quality Signals
-
-Strong operations requests:
-- State measurable outcomes and how to verify them
-- Anchor claims in observable data
-- Make risk, scope, and constraints explicit
-- Support safe execution and clean handoffs
-
-Weak operations requests:
-- Describe pain without evidence or impact
-- Imply a solution without clarifying goals
-- Ignore operational safety or rollback needs
 
 </how-to-write-an-operations-request>

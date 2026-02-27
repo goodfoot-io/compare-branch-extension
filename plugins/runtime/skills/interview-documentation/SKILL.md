@@ -6,36 +6,14 @@ description: Scope documentation requests through research and interview.
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user about audience, location, or content, follow this protocol.
+Before asking the user about audience, location, or content, research the codebase:
 
-### Step 1: Conduct Research
+1. Analyze the project's documentation culture using Task (explore) to survey structure (`docs/` folder vs. co-located `README.md`)
+2. Identify what is *missing* or outdated (check git timestamps)
+3. Understand the *actual* functionality using Task (explore) — documentation should match the code
+4. Identify consumers using Grep for import patterns to determine if the audience is internal or external
 
-1.  **Analyze Patterns and Precedents:** Use `Task` (explore) to understand the project's documentation culture (e.g., strict `docs/` folder vs. co-located `README.md`).
-2.  **Gap Analysis:** Look for what is *missing*. Is the feature completely undocumented? Is the documentation outdated (check git timestamps)?
-3.  **Establish the Source of Truth:** Use `Task` (explore) to understand the *actual* functionality. Documentation should match the code.
-
-**Codebase research tool selection:**
-
-| Query Type | Tool | Why |
-|------------|------|-----|
-| Find similar docs | `Glob` | Discover existing structure |
-| Understand functionality | `Task` (agent: "explore") | Summarize logic for documentation |
-| Identify consumers | `Grep` | Determine if internal or external audience |
-
-### Step 2: Translate Abstract Questions to Concrete Research
-
-| Abstract Question | Concrete Research |
-|-------------------|-------------------|
-| "Where should this live?" | Analyze file structure with `Glob` or `Bash` (`ls -R`). |
-| "Who is this for?" | Check imports with `Grep`. |
-| "What are the inputs?" | Use `Task` (explore) to find function signatures. |
-| "Is this accurate?" | Verify against implementation with `Task` (explore). |
-
-### Step 3: Surface Considerations, Then Decide
-
-- **Confidence-Based Phrasing:** If the project uses co-located READMEs, propose it: "This project uses `README.md` files next to code. Should I create `src/feature/README.md`?" do NOT ask "Where should I put the file?"
-- **Report Gaps:** Identify if related commands are also undocumented: "I noticed `deploy` is documented but `rollback` is not. Should we cover both?"
-- **Only ask the user** about specific intent or subjective constraints.
+Propose based on findings — "This project uses `README.md` files next to code. Should I create `src/feature/README.md`?" Surface gaps explicitly — "I noticed `deploy` is documented but `rollback` is not. Should we cover both?" Only ask the user about specific intent or subjective constraints.
 </research-before-asking>
 
 <instructions>

@@ -54,89 +54,26 @@ Your work is invisible when done well — future maintainers will never know the
 </scope-rules>
 
 <refactoring-actions>
-## Typical Refactoring Actions
+## Refactoring Actions
 
-### Eliminating Dead or Redundant Code
-Unused variables, parameters, functions, or entire branches are prime candidates for removal. If the plan and tests don't require a piece of code, it's effectively baggage.
+Apply these in priority order (safest/highest-value first):
 
-**Detection Signals**:
-- Functions never called
-- Variables never read
-- Parameters always passed the same value
-- Branches that never execute
-- Commented-out code blocks
-- Leftover debugging statements
-
-**Action**: Remove immediately — version control preserves history if needed later.
-
-### Simplifying Logic and Control Flow
-Address areas where implementation works but is more convoluted than necessary.
-
-**Simplification Techniques**:
-- Break 50+ line functions into smaller helpers
-- Use guard clauses to exit early instead of nested if/else blocks
-- Replace complex loops with clear library calls
-- Reduce cyclomatic complexity
-- Inline unnecessary indirection
-- Split responsibilities so each unit has a single, clear purpose
-
-**Guiding Question**: *"Can a future reader quickly grasp this?"* If not, it's too complex.
-
-### Removing Over-Engineering (YAGNI)
-Watch for code that is more generic or abstract than needed for the task at hand.
-
-**Anti-Patterns to Remove**:
-- Strategy pattern frameworks for single strategies
-- Factory abstractions with one implementation
-- Configurable options that never vary
-- Generalized interfaces serving single concrete types
-- "Future-proof" extension points with no current users
-
-**Principle**: Solve today's problem, not hypothetical future ones.
-
-### Improving Naming and Intent
-Align names with the emerging intent of the change. Good names communicate purpose without needing comments.
-
-**Naming Improvements**:
-- Replace placeholder names (`processData`, `handleStuff`)
-- Update old names that no longer fit behavior
-- Standardize terminology across the diff
-- Match terms used in the plan or domain language
-
-### Harmonizing with Existing Patterns
-Ensure new code doesn't stick out awkwardly from the rest of the codebase.
-
-**Harmonization Checks**:
-- Are there existing utilities the new code should use?
-- Does it follow project layering conventions?
-- Does error handling match project approach?
-- Are similar problems solved consistently?
-
-### Tidying and Polish
-Handle easy wins: formatting issues not caught by linters, organizing imports, tightening variable scope.
+1. **Dead code removal** — unused variables, parameters, functions, branches, commented-out code, debugging statements
+2. **Naming improvements** — replace placeholder names, update stale names, standardize terminology with plan/domain language
+3. **Logic simplification** — guard clauses over nested conditionals, break long functions, inline unnecessary indirection, reduce cyclomatic complexity
+4. **Over-engineering removal (YAGNI)** — single-implementation abstractions, unused configurability, "future-proof" extension points with no current users
+5. **Pattern harmonization** — use existing utilities, follow project layering conventions, match project error handling approach
+6. **Tidying** — formatting, import organization, tightening variable scope
 </refactoring-actions>
 
 <refining-tests>
-## Refining Tests During Cleanup
+## Refining Tests
 
-### Removing Redundant Tests
-If tests mirror each other too closely, evaluate whether each provides new information.
-
-### Focusing on Behavior Over Implementation
-Tests overly coupled to internal implementation details are problematic — they break on refactoring even when externally correct.
-
-**Behavior-Focused Tests**:
-- Assert external outcomes and invariants
-- Don't assert internal method calls or intermediate state
-
-### Simplifying Test Code
-Test code can become overly elaborate — treat unnecessary complexity in tests with the same disdain as in production code.
-
-### Ensuring Test-Code Alignment
-After refactoring production code, ensure tests are updated to match:
-- If function was split, are tests reorganized to cover each function?
-- If branch was removed, are corresponding tests removed/updated?
-- Do test descriptions match current behavior?
+After production code changes, refine tests:
+- Remove redundant tests that mirror each other
+- Assert external outcomes/invariants, not internal method calls or intermediate state
+- Simplify overly elaborate test code
+- After splitting/removing production code, update corresponding tests and descriptions
 </refining-tests>
 
 <reporting-format>
@@ -250,14 +187,6 @@ For each refactoring action:
 3. Run validation commands
 4. If validation fails, revert and reconsider
 5. If validation passes, proceed to next action
-
-**Priority Order**:
-1. Dead code removal (safest, highest value)
-2. Naming improvements (low risk, high clarity gain)
-3. Logic simplification (moderate risk, high value)
-4. Over-engineering removal (carefully validated)
-5. Pattern harmonization (carefully validated)
-6. Test refinement (after all production code changes)
 
 ### 4. Final Validation
 

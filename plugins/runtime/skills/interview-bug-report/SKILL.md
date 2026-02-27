@@ -6,37 +6,14 @@ description: Characterize bug reports through research and interview.
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user to clarify bug details, environment, or behavior, follow this protocol.
+Before asking the user to clarify bug details, research the codebase:
 
-### Step 1: Conduct Research
+1. Locate the error source
+2. Check recent changes for context (Chesterton's Fence)
+3. Look for missing test coverage or error handling
+4. Verify environment from config files
 
-1.  **Locate the Error Source:** Use `Grep` to find the error message. If an exact match fails, search for unique keywords. Your goal is to pinpoint the file raising the error.
-2.  **Understand the Context:** Use `Bash` (`git log -p`) to check recent changes ("Chesterton's Fence"). Was this logic recently changed?
-3.  **Gap Analysis:** Use `Task` (explore) to find existing tests. Explicitly look for *missing* test cases or *missing* error handling (e.g., a `try/catch` block that should be there).
-4.  **Verify Environment:** Use `Bash` to check configuration files (`package.json`, `go.mod`) to infer the environment.
-
-**Codebase research tool selection:**
-
-| Query Type | Tool | Why |
-|------------|------|-----|
-| Locate error message source | `Grep` | Fast, exact text matching |
-| Check expected behavior | `Task` (agent: "explore") | "Find and summarize tests for X" |
-| Identify recent changes | `Bash` (`git log`) | Context on what changed recently |
-
-### Step 2: Translate Abstract Questions to Concrete Research
-
-| Abstract Question | Concrete Research |
-|-------------------|-------------------|
-| "Is this actually a bug?" | Use `Task` (explore) to check if tests expect this behavior. |
-| "What version are you on?" | Use `Bash` to read lock files or version files. |
-| "What is the error message?" | If partial, use `Grep` to find the full message. |
-| "How should it work?" | Use `Task` (explore) to read interfaces or docstrings. |
-
-### Step 3: Surface Considerations, Then Decide
-
-- **Confidence-Based Phrasing:** If you find the likely cause (e.g., a recent commit), state it: "I see commit X changed this logic yesterday. Did the card start then?" do NOT ask: "When did this start?"
-- **Report Gaps:** If tests are missing, ask: "There are no tests for this feature. Should adding a reproduction test be part of this card?"
-- **Only ask the user** for logs or reproduction steps that cannot be inferred.
+State findings with confidence — "I see commit X changed this logic; did the issue start then?" — rather than asking what you can infer. Surface gaps explicitly — "No tests exist for this feature. Should a reproduction test be part of this card?" Only ask the user for information that cannot be inferred from the codebase.
 </research-before-asking>
 
 <instructions>

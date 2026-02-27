@@ -3,14 +3,11 @@ name: maintenance
 description: How to write a maintenance request card
 ---
 
-
 <how-to-write-a-maintenance-request>
 
 Maintenance requests should explain **why the work matters** and **what success looks like** without prescribing how to implement it. The document should make the debt visible, bound the scope, and protect critical behavior.
 
 ## Document Structure
-
-Maintenance requests follow a six-section structure:
 
 | Section | Purpose | Question Answered |
 |---------|---------|-------------------|
@@ -21,149 +18,20 @@ Maintenance requests follow a six-section structure:
 | Risks & Dependencies | Surface coordination and rollout needs | "What could go wrong or block us?" |
 | Acceptance Signals | Make completion verifiable | "How do we know it's done?" |
 
-## 1. Motivation & Impact (Do not include header in final description output)
+## Section Notes
 
-Anchor the request in measurable impact: operational risk, developer time, reliability, cost, or looming deprecations.
-
-**What to include:**
-- The specific pain (slow builds, flaky tests, brittle modules, deprecated APIs)
-- Who is affected and how often
-- Deadlines (EOL dates, security policies, vendor timelines)
-- Evidence: incidents, metrics, recurring manual steps (toil)
-
-**What not to include:**
-- A "Motivation & Impact" section header
-
-**Guidance:**
-Use the technical-debt metaphor: call out the "interest" (ongoing cost) and the "principal" (cleanup work). Avoid vague urgency; quantify the impact when possible.
-
-**Anti-patterns:**
-- **The Urgency Claim**: "We must do this soon" without evidence of risk or cost
-- **The Invisible Cost**: No mention of how this work reduces future effort or failure
-
-## 2. Current State
-
-Describe the maintenance burden so readers can verify it and estimate effort.
-
-**What to include:**
-- Relevant components, file paths, or services
-- Existing workflows and the friction they cause
-- Known hotspots (complex modules, fragile integrations, build scripts)
-- Current versions or dependencies if upgrades are involved
-
-**Guidance:**
-Stick to observable facts. Use code references, metrics, or links to past cards. If evidence exists in "self-admitted technical debt" comments (e.g., TODO/FIXME), reference them.
-
-**Anti-patterns:**
-- **The Hunch**: Speculating about debt without verifiable references
-- **The Anatomy Dump**: Listing every file touched without explaining the burden
-
-## 3. Desired Outcomes
-
-Define outcomes that reduce maintenance cost while preserving behavior.
-
-**What to include:**
-- Reliability or stability outcomes (reduced flake rate, fewer incidents)
-- Maintainability outcomes (simpler boundaries, fewer dependencies)
-- Performance or cost targets when applicable
-- Migration end-states (no usage of deprecated API)
-
-**Guidance:**
-Write outcomes as verifiable statements. Avoid prescribing solutions unless required by a hard constraint (e.g., vendor EOL). If multiple approaches are possible, keep the outcome neutral.
-
-**Anti-patterns:**
-- **The Refactor Command**: "Refactor module X" with no outcome
-- **The Vague Goal**: "Cleaner code" without measurable signals
-
-## 4. Scope & Constraints
-
-Prevent scope creep and protect critical behaviors.
-
-**What to include:**
-- In-scope and out-of-scope areas
-- Constraints (must preserve APIs, data formats, SLAs)
-- Compatibility requirements (backward/forward)
-- Operational constraints (maintenance windows, release cadence)
-
-**Guidance:**
-Be explicit about what must not change, especially user-facing behavior. Maintenance work fails when implicit constraints are missed.
-
-**Anti-patterns:**
-- **The Unlimited Cleanup**: "Clean up the codebase" with no boundaries
-- **The Constraint Omission**: Forgetting API or data compatibility
-
-## 5. Risks & Dependencies
-
-Surface coordination needs and migration hazards early.
-
-**What to include:**
-- Dependency upgrades and compatibility risks
-- Data migration or rollback considerations
-- Cross-team or vendor coordination
-- Testing or observability gaps
-
-**Guidance:**
-Identify risks without demanding a full plan. For large migrations, note if phased rollout or "strangler" style replacement is likely needed.
-
-**Anti-patterns:**
-- **The Hidden Risk**: Omitting deprecation timelines or rollback concerns
-- **The Plan Trap**: Writing a detailed implementation plan here
-
-## 6. Acceptance Signals
-
-Make completion verifiable without prescribing detailed steps.
-
-**What to include:**
-- Metrics or thresholds that show improvement
-- Specific checks (build time, error rate, debt reduced)
-- Migration completion signals (no usage of deprecated API)
-- Documentation or runbook updates when required
-
-**Guidance:**
-Avoid "done when refactor is complete." Use outcomes that can be checked by anyone.
-
-**Anti-patterns:**
-- **The Handwave**: "Done when the code is clean"
-- **The Hidden Criteria**: Success criteria only known to the author
-
-## Advanced Techniques (Optional)
-
-### Card Template Alignment
-
-Use card templates and structured fields to enforce required information and enable reporting. Templates should prompt for impact, scope, and acceptance signals.
-
-### LLM Assistance (Use Carefully)
-
-LLMs can help draft summaries, extract recurring pain points, or propose acceptance checks, but every claim must be verified with code references, metrics, or logs. Use LLMs to *surface* candidates, not to assert facts.
+- **Motivation & Impact** (omit header in output): Anchor in measurable impact — operational risk, developer time, reliability, cost, deprecations. Include evidence: incidents, metrics, toil. Use the technical-debt metaphor: call out the "interest" (ongoing cost) and the "principal" (cleanup work).
+- **Current State**: Observable facts — components, file paths, services, workflows and their friction, hotspots, versions. Use code references, metrics, or links. Reference self-admitted debt (TODO/FIXME).
+- **Desired Outcomes**: Verifiable statements — reliability/stability targets, maintainability improvements, performance/cost targets, migration end-states. Keep implementation-neutral unless hard constraints require otherwise.
+- **Scope & Constraints**: In-scope and out-of-scope areas, what must not change (APIs, data formats, SLAs, user-facing behavior), compatibility requirements, operational constraints.
+- **Risks & Dependencies**: Dependency upgrades, data migration, cross-team coordination, testing/observability gaps. Note if phased rollout is likely needed.
+- **Acceptance Signals**: Metrics/thresholds showing improvement, migration completion signals, documentation updates. Avoid "done when refactor is complete" — use outcomes checkable by anyone.
 
 ## Key Principles
 
-### Intent Over Implementation
+- **Intent over implementation**: State why and outcomes, not exact steps
+- **Evidence over assertion**: Metrics, incidents, code references — not opinions
+- **Scope control**: Firm boundaries prevent refactor growth
+- **Risk awareness**: Make dependencies and rollback paths explicit early
 
-Maintenance requests should state the why and the outcomes, not the exact steps. Over-prescription blocks better approaches and inflates risk.
-
-### Evidence Over Assertion
-
-Technical debt is easiest to fund when its cost is visible. Use metrics, incidents, and code references, not opinions.
-
-### Scope Control
-
-Refactors grow without firm boundaries. In-scope/out-of-scope and constraints protect delivery.
-
-### Risk Awareness
-
-Upgrades and migrations fail when dependencies and rollback paths are ignored. Make these explicit early.
-
-## Quality Signals
-
-**Strong maintenance requests:**
-- Explain the debt and its impact in measurable terms
-- Describe outcomes and constraints clearly
-- Define scope and acceptance signals
-- Surface risks and dependencies without prescribing a plan
-
-**Weak maintenance requests:**
-- Only say "refactor/cleanup" with no outcomes
-- Lack scope boundaries or success criteria
-- Hide risks or required coordination
 </how-to-write-a-maintenance-request>

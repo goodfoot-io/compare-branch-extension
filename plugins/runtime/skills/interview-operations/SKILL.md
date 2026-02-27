@@ -6,38 +6,14 @@ description: Scope operations requests through research and interview.
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user about operational procedures, follow this protocol.
+Before asking the user about operational procedures, research the codebase:
 
-### Step 1: Conduct Research
+1. Analyze safety and recovery — use Task (explore) to look for rollback scripts, backup procedures
+2. Check for *missing* automation (e.g., `deploy` script exists but no `rollback`)
+3. Map the config surface — identify what can be changed via environment variables
 
-1.  **Analyze Safety & Recovery:** Use `Task` (explore) to look for "undo buttons" — rollback scripts, backup procedures.
-2.  **Gap Analysis:** Explicitly check for *missing* automation. Does a `deploy` script exist but no `rollback`?
-3.  **Map the Config Surface:** Use `Bash` (`find`, `grep`) to identify what can be changed via environment variables.
-
-**Codebase research tool selection:**
-
-| Query Type | Tool | Why |
-|------------|------|-----|
-| Understand deployment | `Bash` (`find`/`cat`) | Reveal how code runs |
-| Check configurability | `Task` (agent: "explore") | Identify runtime options |
-| Assess blast radius | `Task` (agent: "explore") | Find downstream dependents |
-
-### Step 2: Translate Abstract Questions to Concrete Research
-
-| Abstract Question | Concrete Research |
-|-------------------|-------------------|
-| "How do we deploy?" | Read CI workflows with `Bash` `cat`. |
-| "Can we roll back?" | Check deployment scripts with `Bash`. |
-| "Is it automated?" | Look in `scripts/` with `Bash` `ls`. |
-| "What are the risks?" | Check for data operations with `Bash` `grep`. |
-
-### Step 3: Surface Considerations, Then Decide
-
-- **Confidence-Based Phrasing:** "I see a `deploy` script but no `rollback`. I assume this is a one-way migration and we need to snapshot the DB first. Correct?"
-- **Report Gaps:** Flag the missing safety tools in the card description.
-- **Only ask the user** about urgency, approvals, and external constraints.
+State findings with confidence — "I see a `deploy` script but no `rollback`. I assume this is a one-way migration and we need to snapshot the DB first. Correct?" Surface gaps explicitly — flag missing safety tools in the card description. Only ask the user about urgency, approvals, and external constraints.
 </research-before-asking>
-
 
 <instructions>
 
