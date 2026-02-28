@@ -314,14 +314,23 @@ describe('Logger', () => {
   describe('file output', () => {
     let tempDir: string;
     let logFilePath: string;
+    let savedLogFileEnv: string | undefined;
 
     beforeEach(() => {
+      savedLogFileEnv = process.env['CARDS_HOOKS_LOG_FILE'];
+      delete process.env['CARDS_HOOKS_LOG_FILE'];
       tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'logger-test-'));
       logFilePath = path.join(tempDir, 'test.log');
     });
 
     afterEach(() => {
       logger.close();
+      // Restore CARDS_HOOKS_LOG_FILE
+      if (savedLogFileEnv === undefined) {
+        delete process.env['CARDS_HOOKS_LOG_FILE'];
+      } else {
+        process.env['CARDS_HOOKS_LOG_FILE'] = savedLogFileEnv;
+      }
       // Clean up temp files
       try {
         if (fs.existsSync(logFilePath)) {
@@ -497,6 +506,21 @@ describe('Logger', () => {
   });
 
   describe('hasDestinations()', () => {
+    let savedLogFileEnv: string | undefined;
+
+    beforeEach(() => {
+      savedLogFileEnv = process.env['CARDS_HOOKS_LOG_FILE'];
+      delete process.env['CARDS_HOOKS_LOG_FILE'];
+    });
+
+    afterEach(() => {
+      if (savedLogFileEnv === undefined) {
+        delete process.env['CARDS_HOOKS_LOG_FILE'];
+      } else {
+        process.env['CARDS_HOOKS_LOG_FILE'] = savedLogFileEnv;
+      }
+    });
+
     it('returns false when no destinations configured', () => {
       logger = new Logger();
       expect(logger.hasDestinations()).toBe(false);

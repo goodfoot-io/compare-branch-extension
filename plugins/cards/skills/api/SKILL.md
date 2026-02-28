@@ -76,26 +76,26 @@ Manage the attribution tree comparison mode. One active comparison per server.
 
 #### Commands
 
-**Set comparison** — Pipe a JSON request to stdin. Three shapes are supported:
+**Set comparison** — Pipe a JSON request to stdin. Three shapes are supported. All three accept an optional `"title"` field; when present, the title overrides the derived ref-based title in the attribution tree view sidebar.
 
 Branch range — compare two arbitrary refs:
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
-{ "baseRef": "main", "compareRef": "feature-branch" }
+{ "baseRef": "main", "compareRef": "feature-branch", "title": "My Comparison" }
 EOF
 ```
 
 Dynamic worktree — track a worktree's HEAD live:
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
-{ "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1" }
+{ "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1", "title": "Card Changes" }
 EOF
 ```
 
 Fixed attribution — show pre-computed SHAs against a ref:
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
-{ "compareRef": "main", "attributionShas": ["abc123", "def456"] }
+{ "compareRef": "main", "attributionShas": ["abc123", "def456"], "title": "Squash Attribution" }
 EOF
 ```
 

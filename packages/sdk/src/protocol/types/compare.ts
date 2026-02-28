@@ -15,6 +15,8 @@ export interface CompareBranchRangeRequest {
   baseRef: string;
   /** The compare branch ref (e.g., "feature/my-card"). */
   compareRef: string;
+  /** Optional display title for the comparison (e.g., "CARD 45 CHANGES"). */
+  title?: string;
 }
 
 /**
@@ -25,6 +27,8 @@ export interface CompareDynamicRequest {
   baseRef: string;
   /** Absolute path to the repository worktree. */
   repositoryPath: string;
+  /** Optional display title for the comparison (e.g., "CARD 45 CHANGES"). */
+  title?: string;
 }
 
 /**
@@ -35,6 +39,8 @@ export interface CompareFixedAttributionRequest {
   compareRef: string;
   /** Pre-computed commit SHAs for attribution. */
   attributionShas: string[];
+  /** Optional display title for the comparison (e.g., "CARD 45 CHANGES"). */
+  title?: string;
 }
 
 /**
@@ -70,4 +76,6 @@ export interface CompareState {
   repositoryPath?: string;
   /** Pre-computed commit SHAs for attribution. Present for fixed-attribution mode. */
   attributionShas?: string[];
+  /** Optional display title for the comparison. When present, overrides the derived ref-based title. */
+  title?: string;
 }
