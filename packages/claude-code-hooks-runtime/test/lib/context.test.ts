@@ -225,6 +225,161 @@ describe('buildCardRepoLogBlock', () => {
 
     expect(result).toBeNull();
   });
+
+  it('uses patch output instead of diffstat', () => {
+    const result = buildCardRepoLogBlock(repoPath);
+
+    expect(result).not.toBeNull();
+    expect(result).toContain('diff --git');
+  });
+
+  describe('streams filtering', () => {
+    let streamsRepo: TestGitWorkspace;
+    let streamsPath: string;
+
+    beforeAll(async () => {
+      streamsRepo = new TestGitWorkspace();
+      streamsPath = await streamsRepo.create();
+      const git = streamsRepo.getGit();
+
+      // Normal commit
+      await streamsRepo.createAndCommitFile('CARD.md', '# Card\n', 'Add card description');
+
+      // Streams-only commit (should be filtered out)
+      await streamsRepo.createAndCommitFile('streams/session/log.jsonl', '{"type":"init"}\n', 'Add session stream');
+
+      // Mixed commit: both streams and non-streams files
+      writeFileSync(join(streamsPath, 'streams/session/log.jsonl'), '{"type":"update"}\n');
+      writeFileSync(join(streamsPath, 'CARD.md'), '# Updated Card\n');
+      await git.add(['streams/session/log.jsonl', 'CARD.md']);
+      await git.commit('Update card and stream');
+    });
+
+    afterAll(() => {
+      streamsRepo.destroy();
+    });
+
+    it('omits streams-only commits from log', () => {
+      const result = buildCardRepoLogBlock(streamsPath);
+
+      expect(result).not.toBeNull();
+      expect(result).not.toContain('Add session stream');
+    });
+
+    it('includes mixed commits without streams file diffs', () => {
+      const result = buildCardRepoLogBlock(streamsPath);
+
+      expect(result).not.toBeNull();
+      expect(result).toContain('Update card and stream');
+      expect(result).not.toContain('streams/');
+      expect(result).toContain('CARD.md');
+    });
+  });
+
+  describe('workspace.commits filtering', () => {
+    let metaRepo: TestGitWorkspace;
+    let metaPath: string;
+
+    beforeAll(async () => {
+      metaRepo = new TestGitWorkspace();
+      metaPath = await metaRepo.create();
+      const git = metaRepo.getGit();
+
+      // Initial CARD.meta.json with empty commits
+      writeFileSync(
+        join(metaPath, 'CARD.meta.json'),
+        JSON.stringify(
+          {
+            id: 'test-1',
+            title: 'Test Card',
+            status: 'todo',
+            tags: [],
+            gates: {
+              planRequired: false,
+              planApproved: false,
+              reviewRequired: false,
+              reviewApproved: false
+            },
+            workspace: { branches: {}, commits: [] }
+          },
+          null,
+          2
+        )
+      );
+      await git.add('CARD.meta.json');
+      await git.commit('Add CARD.meta.json');
+
+      // Commit that only changes workspace.commits
+      writeFileSync(
+        join(metaPath, 'CARD.meta.json'),
+        JSON.stringify(
+          {
+            id: 'test-1',
+            title: 'Test Card',
+            status: 'todo',
+            tags: [],
+            gates: {
+              planRequired: false,
+              planApproved: false,
+              reviewRequired: false,
+              reviewApproved: false
+            },
+            workspace: { branches: {}, commits: ['abc123def456'] }
+          },
+          null,
+          2
+        )
+      );
+      await git.add('CARD.meta.json');
+      await git.commit('Update workspace commits only');
+
+      // Commit that changes title, status, tags AND workspace.commits
+      writeFileSync(
+        join(metaPath, 'CARD.meta.json'),
+        JSON.stringify(
+          {
+            id: 'test-1',
+            title: 'Updated Title',
+            status: 'in_progress',
+            tags: ['feature'],
+            gates: {
+              planRequired: false,
+              planApproved: false,
+              reviewRequired: false,
+              reviewApproved: false
+            },
+            workspace: { branches: {}, commits: ['abc123def456', 'def789'] }
+          },
+          null,
+          2
+        )
+      );
+      await git.add('CARD.meta.json');
+      await git.commit('Update title and add commit');
+    });
+
+    afterAll(() => {
+      metaRepo.destroy();
+    });
+
+    it('drops commit when only workspace.commits changed in CARD.meta.json', () => {
+      const result = buildCardRepoLogBlock(metaPath);
+
+      expect(result).not.toBeNull();
+      expect(result).not.toContain('Update workspace commits only');
+    });
+
+    it('keeps non-workspace.commits changes when mixed', () => {
+      const result = buildCardRepoLogBlock(metaPath);
+
+      expect(result).not.toBeNull();
+      expect(result).toContain('Update title and add commit');
+      expect(result).toContain('Updated Title');
+      // workspace.commits SHAs should be stripped
+      expect(result).not.toContain('abc123def456');
+      expect(result).not.toContain('def789');
+    });
+  });
 });
 
 describe('buildWorkspaceRepoLogBlocks', () => {

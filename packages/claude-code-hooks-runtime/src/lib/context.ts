@@ -275,28 +275,160 @@ function stripDiffstatSummaries(text: string): string {
 // Card repo git log
 // ============================================================================
 
+/** Maximum number of qualifying commits shown in the card repo log. */
+const MAX_CARD_REPO_LOG_COMMITS = 5;
+
 /**
- * Builds the `<card-repo-log>` block with recent commits and total count.
+ * Tests whether a diff hunk exclusively modifies the `workspace.commits`
+ * property in CARD.meta.json.
  *
- * Returns `null` when the repository has no commits or git is unavailable,
- * so the block can be omitted from the output.
+ * Tracks array nesting state as it scans lines: enters a "commits context"
+ * when a `"commits": [` pattern appears and exits on the matching `]`.
+ * Changed lines (+ or -) inside this context are workspace.commits changes.
+ *
+ * @param hunkLines - Lines of a single unified diff hunk (starting with `@@`).
+ * @returns `true` when the hunk has changes and all are within `workspace.commits`.
+ */
+function isWorkspaceCommitsOnlyHunk(hunkLines: string[]): boolean {
+  let inCommits = false;
+  let hasNonCommitsChange = false;
+  let hasAnyChange = false;
+
+  for (const line of hunkLines) {
+    if (line.startsWith('@@')) continue;
+
+    const isChange = line.startsWith('+') || line.startsWith('-');
+    const content = line.slice(1);
+
+    if (!inCommits && /"commits"\s*:\s*\[/.test(content)) {
+      inCommits = true;
+      const afterBracket = content.slice(content.indexOf('[') + 1);
+      if (afterBracket.includes(']')) inCommits = false;
+      if (isChange) hasAnyChange = true;
+      continue;
+    }
+
+    if (inCommits) {
+      if (content.includes(']')) inCommits = false;
+      if (isChange) hasAnyChange = true;
+      continue;
+    }
+
+    if (isChange) {
+      hasAnyChange = true;
+      hasNonCommitsChange = true;
+    }
+  }
+
+  return hasAnyChange && !hasNonCommitsChange;
+}
+
+/**
+ * Filters hunks from a CARD.meta.json unified diff section, removing hunks
+ * that only modify `workspace.commits`.
+ *
+ * @param fileDiff - A single file's unified diff (starting with `diff --git`).
+ * @returns Filtered diff section, or `null` when all hunks were removed.
+ */
+function filterCardMetaHunks(fileDiff: string): string | null {
+  const lines = fileDiff.split('\n');
+  const firstHunkIdx = lines.findIndex((l) => l.startsWith('@@'));
+  if (firstHunkIdx === -1) return fileDiff;
+
+  const header = lines.slice(0, firstHunkIdx);
+  const hunkContent = lines.slice(firstHunkIdx);
+
+  const hunks: string[][] = [];
+  let current: string[] = [];
+  for (const line of hunkContent) {
+    if (line.startsWith('@@') && current.length > 0) {
+      hunks.push(current);
+      current = [];
+    }
+    current.push(line);
+  }
+  if (current.length > 0) hunks.push(current);
+
+  const kept = hunks.filter((h) => !isWorkspaceCommitsOnlyHunk(h));
+  if (kept.length === 0) return null;
+
+  return [...header, ...kept.flat()].join('\n');
+}
+
+/**
+ * Filters a single commit's patch output:
+ * - Strips `workspace.commits` hunks from CARD.meta.json diffs
+ * - Drops the commit entirely if no meaningful diffs remain
+ *
+ * @param commitBlock - Raw commit output: header line followed by patch content.
+ * @returns Filtered commit block, or `null` when no diffs remain.
+ */
+function filterCommitPatch(commitBlock: string): string | null {
+  const firstDiffIdx = commitBlock.search(/^diff --git /m);
+
+  if (firstDiffIdx === -1) {
+    const trimmed = commitBlock.trim();
+    return trimmed || null;
+  }
+
+  const header = commitBlock.slice(0, firstDiffIdx).trim();
+  const diffPart = commitBlock.slice(firstDiffIdx);
+  const fileSections = diffPart.split(/(?=^diff --git )/m);
+
+  const filtered: string[] = [];
+  for (const section of fileSections) {
+    if (/^diff --git a\/CARD\.meta\.json b\/CARD\.meta\.json/.test(section)) {
+      const result = filterCardMetaHunks(section);
+      if (result) filtered.push(result);
+    } else {
+      filtered.push(section);
+    }
+  }
+
+  if (filtered.length === 0) return null;
+
+  return `${header}\n${filtered.join('')}`.trim();
+}
+
+/**
+ * Builds the `<card-repo-log>` block with recent commits and patch diffs.
+ *
+ * Filters out commits that exclusively touch `streams/` files (high-frequency
+ * transcript writes) and strips `workspace.commits` bookkeeping changes from
+ * CARD.meta.json diffs. Shows patch output instead of diffstat for remaining
+ * content.
+ *
+ * Returns `null` when the repository has no qualifying commits or git is
+ * unavailable, so the block can be omitted from the output.
  *
  * @param rootPath - Root directory of the card repository.
  * @returns The `<card-repo-log ...>...</card-repo-log>` block string, or `null`.
  */
 export function buildCardRepoLogBlock(rootPath: string): string | null {
   try {
-    const log = execFileSync('git', ['log', '-5', '--pretty=format:%h %an: %s', '--stat'], {
-      cwd: rootPath,
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
+    const log = execFileSync(
+      'git',
+      ['log', `-${MAX_CARD_REPO_LOG_COMMITS}`, '--pretty=format:%x00%h %an: %s', '-p', '--', '.', ':!streams/'],
+      {
+        cwd: rootPath,
+        encoding: 'utf-8',
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      }
+    ).trim();
 
     if (!log) return null;
 
-    const filtered = stripDiffstatSummaries(log);
-    if (!filtered) return null;
+    const rawCommits = log.split('\0').filter(Boolean);
+    if (rawCommits.length === 0) return null;
+
+    const formattedCommits: string[] = [];
+    for (const commit of rawCommits) {
+      const filtered = filterCommitPatch(commit);
+      if (filtered) formattedCommits.push(filtered);
+    }
+
+    if (formattedCommits.length === 0) return null;
 
     let totalCount: number | null = null;
     try {
@@ -313,7 +445,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     }
 
     const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
-    return `<card-repo-log${countAttr}>\n${filtered}\n</card-repo-log>`;
+    return `<card-repo-log${countAttr}>\n${formattedCommits.join('\n\n')}\n</card-repo-log>`;
   } catch {
     return null;
   }
