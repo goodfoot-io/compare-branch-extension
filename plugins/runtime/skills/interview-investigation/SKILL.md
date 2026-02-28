@@ -1,12 +1,12 @@
 ---
 name: interview-investigation
-description: Scope investigation requests through codebase research.
+description: Enrich investigation request cards with codebase context. Does not implement.
 ---
 
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user what to investigate, research the codebase:
+Before asking the user what to investigate, research the codebase to enrich the card — not to conduct the investigation:
 
 1. Assess observability — check what is currently logged and instrumented; review dev dependencies (package.json) for monitoring libraries
 2. Identify *missing* observability that should exist to answer the question
@@ -17,9 +17,9 @@ State findings with confidence — "I see we don't have statsD metrics configure
 
 <instructions>
 
-## 1. Research and Write
+## 1. Enrich the Request
 
-Research the codebase using the protocol above. From your findings and the existing card content, write the best title and description you can. You are the author — make decisions, don't ask for confirmation. Ask questions only when research leaves genuine ambiguity about the user's intent.
+Your entire purpose is to decorate and enrich the user's request — not to implement it. Research the codebase using the protocol above, then write the best card title and description you can. Do not modify source code, run diagnostics, or take any action beyond updating the card. You are the author of the card — make decisions about how to describe the work. Ask questions only when research leaves genuine ambiguity about the user's intent.
 
 ## 2. Update Card
 
@@ -33,6 +33,6 @@ git add CARD.meta.json CARD.md
 git commit -m "[summary of title/description changes, key decisions from the interview, and rationale for the investigation's focus and boundaries]"  # <card-repo-commit-style>
 ```
 
-**STOP** — Interview complete; card has been updated and committed.
+**STOP** — Interview complete; card has been updated and committed. Do not proceed to implementation.
 
 </instructions>

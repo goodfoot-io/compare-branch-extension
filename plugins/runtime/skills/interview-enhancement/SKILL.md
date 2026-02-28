@@ -1,12 +1,12 @@
 ---
 name: interview-enhancement
-description: Scope enhancement requests through codebase research.
+description: Enrich enhancement request cards with codebase context. Does not implement.
 ---
 
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user how the system works now or how it *should* work, research the codebase:
+Before asking the user how the system works now or how it *should* work, research the codebase to enrich the card — not to build the feature:
 
 1. Map data flow, schemas, and API contracts using Glob, Grep, and Read
 2. Investigate *why* code is written this way (Chesterton's Fence) via git log and git blame
@@ -18,9 +18,9 @@ Assume established patterns — "I assume we should use gRPC for this new endpoi
 
 <instructions>
 
-## 1. Research and Write
+## 1. Enrich the Request
 
-Research the codebase using the protocol above. From your findings and the existing card content, write the best title and description you can. You are the author — make decisions, don't ask for confirmation. Ask questions only when research leaves genuine ambiguity about the user's intent.
+Your entire purpose is to decorate and enrich the user's request — not to implement it. Research the codebase using the protocol above, then write the best card title and description you can. Do not modify source code, write features, or take any action beyond updating the card. You are the author of the card — make decisions about how to describe the work. Ask questions only when research leaves genuine ambiguity about the user's intent.
 
 ## 2. Update Card
 
@@ -34,6 +34,6 @@ git add CARD.meta.json CARD.md
 git commit -m "[summary of title/description changes, key decisions from the interview, and rationale for how the enhancement was scoped]"  # <card-repo-commit-style>
 ```
 
-**STOP** — Interview complete; card has been updated and committed.
+**STOP** — Interview complete; card has been updated and committed. Do not proceed to implementation.
 
 </instructions>
