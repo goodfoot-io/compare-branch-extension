@@ -74,13 +74,30 @@ Invoked when the implementing agent sends a plan for review. The implementer doe
 
 ### 1.3 Reporting Plan Review
 
-Send findings to the implementing agent via `SendMessage`. Classify each finding:
+Classify each finding:
 
 - **CRITICAL**: The plan will lead to incorrect or incomplete implementation. The implementer should pause and address this before continuing. Examples: wrong file path, missing requirement, approach that cannot work.
 - **CONCERN**: Something that warrants attention but doesn't necessarily require stopping. The implementer should factor this into their work. Examples: missing edge case, unclear scope boundary, risky assumption.
 - **SUGGESTION**: An improvement that would make the implementation better. Not urgent. Examples: better ordering of steps, additional test coverage, alternative approach worth considering.
 
-Message format:
+Create a finding task for each CRITICAL or CONCERN finding, owned by `team-lead`, so the implementer sees it at their next TaskList check:
+
+```xml
+<invoke name="TaskCreate">
+<parameter name="subject">[CRITICAL/CONCERN]: [short description]</parameter>
+<parameter name="description">[file:line, what you observed, why it matters]</parameter>
+<parameter name="activeForm">Reviewing [finding]</parameter>
+</invoke>
+```
+
+```xml
+<invoke name="TaskUpdate">
+<parameter name="taskId">[new task ID]</parameter>
+<parameter name="owner">team-lead</parameter>
+</invoke>
+```
+
+Also send the full review via SendMessage for context (may not be received until the implementer goes idle):
 
 ```
 ## Plan Review
@@ -104,155 +121,36 @@ Omit empty sections. If the plan looks solid, say so briefly and focus on any co
 
 ## 1.5 Step Evaluation Tasks
 
-During implementation, the implementing agent creates evaluation tasks assigned to you (owner: `impl-pair`) after completing plan steps. A task may cover one step or a range of steps. You will also receive a SendMessage notification for each new task.
+During implementation, the implementing agent creates one evaluation task per step assigned to you (owner: `impl-pair`). It also sends a SendMessage after each step to wake you. The implementer may complete multiple steps before you finish a single evaluation — multiple evaluation tasks may be pending at once. Work through them in order (lowest task ID first).
 
-The implementing agent only creates a new evaluation task when your previous one is complete, so you will have at most one pending evaluation task at a time. If implementation finishes before you process all step evaluations, the implementing agent marks remaining step evaluation tasks as `completed` (superseded) and requests a full evaluation instead — check TaskList to confirm a task is still `pending` before starting work on it.
+After implementation completes, the implementer waits for all evaluation tasks to be finished before proceeding. Evaluate every step — there is no separate full evaluation phase.
 
 ### 1.5.1 Process
 
-1. When notified of a step evaluation task, check TaskList to see your assigned tasks
-2. If the task is already `completed` (superseded by full evaluation), skip it
-3. If a **Mode: Implementation Evaluation** message is also pending, skip step evaluation tasks — proceed directly to the full evaluation (section 2)
-4. Use TaskGet to read the full task description — it contains the git diff range
-5. Run the diff command from the task description to identify changed files, then read them
-6. Perform a lightweight review focusing on:
+1. When notified of a step evaluation task or woken by a message, check TaskList for pending tasks assigned to you
+2. Use TaskGet to read the full task description — it contains the git diff range
+3. Run the diff command from the task description to identify changed files, then read them
+4. Perform a lightweight review focusing on:
    - **Data flow**: Do new writes have readers? Do new reads have writers?
    - **Wiring**: Are new symbols imported/exported where needed?
    - **Correctness**: Does the code match the plan's intent for this step?
-7. Send findings to the implementing agent via SendMessage using the same severity classification (CRITICAL/CONCERN/SUGGESTION) as plan review
-8. Mark the evaluation task `completed` via TaskUpdate
-
-Keep step evaluations focused and fast — the full end-to-end evaluation happens later. Flag issues that are cheaper to fix now than after all steps are complete.
+5. For each CRITICAL or CONCERN finding, create a finding task owned by `team-lead` (same pattern as section 1.3 — TaskCreate then TaskUpdate with `owner: "team-lead"`). The implementer checks TaskList between steps and will see these tasks.
+6. Mark the evaluation task `completed` via TaskUpdate
+7. If pending evaluation tasks remain, continue to the next one (step 1). If none remain, proceed to section 2 (Evaluation Completion).
 
 ---
 
-## 2. Implementation Evaluation
+## 2. Evaluation Completion
 
-Invoked after the implementing agent completes its work. This is a blocking evaluation — the implementer waits for your report before proceeding.
+When you have no more pending evaluation tasks (all are `completed`), send a completion message to the implementing agent:
 
-### 2.1 Status Definitions
-
-- **SATISFIES_INTENT**: Implementation is wired end-to-end, all paths connected, code is correct at each location. Ready to proceed to finalization.
-- **CONTINUE**: Required findings exist that the implementer can fix within one more iteration. Enumerate specific issues with file:line references.
-- **BLOCKED**: External constraints prevent evaluation or the implementation from being completed (infrastructure, permissions, network).
-
-### 2.2 Evaluation Process
-
-1. **Establish baseline**: Diff the workspace against the implementation baseline tag to identify all changes.
-
-   ```bash
-   cd $WORKSPACE_PATH
-   git diff implement/!` echo $CARD_ID`/baseline --name-only
-   ```
-
-2. **Read PLAN.md and CARD.md** to understand intent and planned approach.
-
-3. **Synthesize commander's intent** — a 2-4 sentence statement capturing:
-   - The problem the card exists to solve
-   - The outcome the user expects
-   - Implicit requirements beyond the plan's literal tasks
-
-4. **Trace end-to-end paths.** For each feature the card describes, trace from entry point to side effect:
-   - Where does the user or system trigger this feature?
-   - What observable outcome should occur?
-   - What intermediate steps connect trigger to outcome?
-   - For each path: "When [trigger] occurs, [outcome] should happen via [intermediate steps]."
-
-5. **Incorporate prior step evaluation findings.** If you sent findings during step evaluations (section 1.5), re-check whether each finding is still present in the final code. Include any unresolved findings in this report — do not assume the implementer received or acted on earlier messages.
-
-6. **Evaluate dimensions.** Work through each systematically. Use Explore agents when static reading is insufficient.
-
-### 2.3 Evaluation Dimensions
-
-**Reachability**
-- Is every new symbol reachable from a real execution path?
-- Are there new files that nothing imports?
-- Are there code branches that can never execute given calling conditions?
-
-**Data Flow**
-- Every write has a reader. Every read has a writer.
-- Is every parameter actually used? Is every return value consumed?
-- Are there fire-and-forget async calls discarding meaningful results or errors?
-- Is every config key or environment variable that is read also set?
-
-**Consumer Alignment**
-- When interfaces change, have all consumers been updated?
-- Are there semantic mismatches (same field name, different meaning)?
-- Do pre-existing callers of modified functions still receive consistent results?
-
-**Error Propagation**
-- Does every operation that can fail have explicit error handling?
-- Are caught errors specific to expected failure types?
-- When a dependency is unavailable, does the system fail closed?
-- Are there fallback values from catch blocks that suppress meaningful failures?
-
-**Registration and Wiring**
-- Is every new route, handler, or plugin registered in the runtime?
-- Is every new event emitter paired with a listener?
-- Are new symbols exported and re-exported where consumers expect them?
-
-**Requirement Coverage**
-- Does every acceptance criterion from the card trace to code?
-- Are there TODO comments or stubs the plan intended to complete?
-- Are all stated constraints enforced in code?
-
-**Code Correctness**
-- Are types correct and meaningful (not `any` in public APIs)?
-- Do tests validate behavior, not just exercise code?
-- Are edge cases handled (error conditions, boundary inputs, failure modes)?
-- Is error handling specific, not broad catch-all?
-
-### 2.4 Classify Findings
-
-Classify using the first matching signal:
-
-- **Broken wiring** (entry point to side effect incomplete): Required
-- **Consumer misalignment** (caller references old interface): Required
-- **Explicit acceptance criterion not met**: Required
-- **Workspace standard violation** (CLAUDE.md conventions): Required
-- **Silent error suppression** (empty catch, catch-all returning success): Required
-- **Improvement without contradiction** (makes it better, doesn't prevent it from working): Recommended
-
-When uncertain between required and recommended, default to **required**.
-
-### 2.5 Reporting Implementation Evaluation
-
-Send the evaluation report to the implementing agent via `SendMessage`.
-
-```markdown
-## Implementation Evaluation
-
-### Status: [SATISFIES_INTENT/CONTINUE/BLOCKED]
-
-### Commander's Intent
-[2-4 sentence statement]
-
-### End-to-End Paths Traced
-- [path 1]: [trigger] -> [outcome] — [CONNECTED/BROKEN at file:line]
-- [path 2]: [trigger] -> [outcome] — [CONNECTED/BROKEN at file:line]
-
-### Dimension Results
-
-| Dimension | Result |
-|-----------|--------|
-| Reachability | [PASS/ISSUES] |
-| Data Flow | [PASS/ISSUES] |
-| Consumer Alignment | [PASS/ISSUES] |
-| Error Propagation | [PASS/ISSUES] |
-| Registration & Wiring | [PASS/ISSUES] |
-| Requirement Coverage | [PASS/ISSUES] |
-| Code Correctness | [PASS/ISSUES] |
-
-### Required Findings
-- [finding] at [file:line] — [dimension] — [classification signal] — [what needs to change]
-
-### Recommended Findings
-- [finding] — [dimension] — [why it would improve the implementation]
-
-### Summary
-[Brief assessment: is the implementation wired end-to-end? What was forgotten? What is suspicious?]
+```xml
+<invoke name="SendMessage">
+<parameter name="type">message</parameter>
+<parameter name="recipient">team-lead</parameter>
+<parameter name="summary">All step evaluations complete</parameter>
+<parameter name="content">All step evaluation tasks are complete. [N] finding tasks created. Check TaskList for details.</parameter>
+</invoke>
 ```
-
-Omit empty sections. If everything passes, the report can be brief.
 
 </instructions>

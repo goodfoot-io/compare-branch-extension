@@ -124,41 +124,38 @@ For each step in the Technical Approach:
    ```
 
 6. Mark the step's task `completed` via TaskUpdate
-7. Check TaskList to review overall progress and check for incoming feedback from the implementation-pair
-8. If the implementation-pair has no pending evaluation task (all prior evaluation tasks are `completed` or none exist yet), create a new one and notify them. If a prior evaluation task is still `pending` or `in_progress`, skip — the pair is busy, and the accumulated changes will be covered by its next evaluation or the full evaluation.
-
-   To create a step evaluation task:
+7. Check TaskList for **finding tasks owned by you** (`team-lead`). The implementation-pair creates these for CRITICAL and CONCERN findings. Handle per section 5.2, then mark each finding task `completed`.
+8. Create a step evaluation task owned by `impl-pair`:
 
    ```xml
    <invoke name="TaskCreate">
-   <parameter name="subject">Evaluate steps [FROM]-[TO]</parameter>
+   <parameter name="subject">Evaluate step N: [STEP_TITLE]</parameter>
    <parameter name="description">
-   Review changes from steps [FROM] through [TO].
-   Diff range: `git diff implement/!` echo $CARD_ID`/step-[FROM-1 or baseline] implement/!` echo $CARD_ID`/step-[TO]`
-   Verify correctness, data flow, and wiring. Report findings via SendMessage.
+   Review changes from step N ([STEP_TITLE]).
+   Diff range: `git diff implement/!` echo $CARD_ID`/step-[N-1 or baseline] implement/!` echo $CARD_ID`/step-N`
+   Verify correctness, data flow, and wiring. Report findings via TaskCreate (owned by team-lead).
    </parameter>
-   <parameter name="activeForm">Evaluating steps [FROM]-[TO]</parameter>
+   <parameter name="activeForm">Evaluating step N</parameter>
    </invoke>
    ```
 
-   Use `baseline` as the "from" tag when FROM is step 1.
-
-   When the evaluation covers a single step, use `Evaluate step N: [STEP_TITLE]` as the subject.
+   Use `baseline` as the "from" tag for step 1.
 
    ```xml
-   <!-- Use the task ID returned by TaskCreate -->
    <invoke name="TaskUpdate">
    <parameter name="taskId">[new task ID]</parameter>
    <parameter name="owner">impl-pair</parameter>
    </invoke>
    ```
 
+9. Send a progress message to wake the implementation-pair:
+
    ```xml
    <invoke name="SendMessage">
    <parameter name="type">message</parameter>
    <parameter name="recipient">impl-pair</parameter>
-   <parameter name="summary">Evaluate completed steps [FROM]-[TO]</parameter>
-   <parameter name="content">Completed step [TO]/[TOTAL]: [STEP_TITLE]. Created evaluation task [task ID] covering steps [FROM]-[TO] — review the changes and report any findings.</parameter>
+   <parameter name="summary">Completed step N/M</parameter>
+   <parameter name="content">Completed step N/M: [STEP_TITLE]. Check TaskList for tasks.</parameter>
    </invoke>
    ```
 
@@ -166,13 +163,14 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 
 ### 5.2 Handle Feedback from Implementation-Pair
 
-The implementation-pair sends findings via SendMessage during implementation — both from plan review (Step 4) and from step evaluation tasks (Step 5.1). Handle all findings by severity:
+The implementation-pair creates finding tasks owned by `team-lead` for CRITICAL and CONCERN findings from both plan review and step evaluations. These appear in TaskList at substep 7 of each step — this is the primary feedback channel during continuous implementation.
 
-- **CRITICAL findings**: Pause current work. Assess the finding. If valid, adjust the implementation approach and update PLAN.md if the plan itself was wrong. Resume implementation.
-- **CONCERN findings**: Note the concern. Factor it into remaining work. Address if straightforward; otherwise continue and let the evaluation phase catch it.
-- **SUGGESTION findings**: Note for consideration. No action required during implementation.
+Handle finding tasks by severity (read the task subject prefix):
 
-If no feedback arrives before implementation completes, proceed — the evaluation phase provides the blocking quality gate.
+- **CRITICAL**: Pause current work. Assess the finding via TaskGet. If valid, adjust the implementation approach and update PLAN.md if the plan itself was wrong. Mark the finding task `completed` via TaskUpdate. Resume implementation.
+- **CONCERN**: Note the concern via TaskGet. Factor it into remaining work. Address if straightforward; otherwise continue and let the evaluation phase catch it. Mark the finding task `completed`.
+
+SendMessage findings may also arrive when you go idle between turns, but TaskList is the reliable channel during implementation.
 
 ### 5.3 Validation Gate
 
@@ -197,76 +195,48 @@ git add comment/$COMMENT_ID.md CARD.meta.json
 git commit -m "blocked: [reason]"  # <card-repo-commit-style>
 ```
 
-Only proceed to **6. Evaluate** when ALL validations pass.
+Only proceed to **6. Confirm Evaluations** when ALL validations pass.
 
 ---
 
-## 6. Evaluate
+## 6. Confirm Evaluations
 
-### 6.1 Request Evaluation
+### 6.1 Wait for Evaluations
 
-Check TaskList. Mark any remaining step evaluation tasks owned by `impl-pair` as `completed` via TaskUpdate — they are superseded by the full evaluation.
+Check TaskList. Handle any finding tasks per section 5.2.
 
-Send an evaluation request to the implementation-pair:
+If all step evaluation tasks owned by `impl-pair` are `completed`, proceed to **6.2**.
+
+If step evaluation tasks are still pending, send a wake message and wait:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="type">message</parameter>
 <parameter name="recipient">impl-pair</parameter>
-<parameter name="summary">Requesting implementation evaluation</parameter>
-<parameter name="content">
-## Mode: Implementation Evaluation
-
-Implementation is complete. All validation commands pass. Evaluate the implementation for end-to-end correctness.
-
-## Baseline
-Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
-
-## Implementation Progress
-[For each plan step, list: step number, title, and any deviations or deferrals from the plan. Example:]
-- Step 1: [title] — Complete
-- Step 2: [title] — Complete, deviated from plan: [what changed and why]
-- Step 3: [title] — Complete, deferred: [what was deferred and why]
-
-## Modified Files
-[PLAN_FILES]
-</parameter>
+<parameter name="summary">Awaiting remaining evaluations</parameter>
+<parameter name="content">All implementation steps are complete and validation passes. Finish remaining evaluation tasks — check TaskList.</parameter>
 </invoke>
 ```
 
-**Wait for the evaluation report.** This is a blocking step.
+**Wait for the implementation-pair to finish.** When it completes evaluation tasks, it creates finding tasks visible in TaskList. Re-check TaskList, handle any new finding tasks per section 5.2, and confirm all evaluation tasks are `completed`.
 
-### 6.2 Process Evaluation Results
+### 6.2 Resolve Findings
 
-Determine path using the first matching condition:
+All step evaluations are complete. Check TaskList for any unresolved finding tasks owned by `team-lead`.
 
-- **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP** — evaluation cannot proceed.
+- **No unresolved findings**: Proceed to **7. Finalize**.
+- **Unresolved CRITICAL findings**: Fix each issue, re-run validation, and create a new evaluation task for the fix (same pattern as substep 8 in section 5.1 — tag checkpoint, create task, assign to `impl-pair`, send wake message). Wait for the pair to evaluate. Repeat until no unresolved CRITICAL findings remain.
+- **3+ fix cycles without resolution**: Write findings as a comment, add `blocked` tag, **STOP** — fix attempts exhausted.
 
   ```bash
   cd $CARD_REPO_PATH
   $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
-  [blocking details from evaluation]
+  [unresolved findings after 3 fix attempts]
   EOF
   git add comment/$COMMENT_ID.md CARD.meta.json
   git commit -m "blocked: [reason]"  # <card-repo-commit-style>
-  ```
-
-- **CONTINUE and evaluation cycle < 3**: Fix the issues identified in the evaluation report. Re-run validation commands. Return to **Step 6.1** to request re-evaluation.
-- **CONTINUE and evaluation cycle >= 3**: Write findings as a comment, add `blocked` tag, **STOP** — fix attempts exhausted.
-- **SATISFIES_INTENT**: Write recommended findings (if any) as a card comment. Proceed to **7. Finalize**.
-
-  ```bash
-  cd $CARD_REPO_PATH
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
-  ## Recommended Improvements
-
-  [recommended findings from evaluation — logged for future work]
-  EOF
-  git add comment/$COMMENT_ID.md
-  git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
   ```
 
 ---
