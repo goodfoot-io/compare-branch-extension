@@ -116,23 +116,57 @@ For each step in the Technical Approach:
 2. Read relevant files
 3. Implement the change
 4. Commit logically grouped changes
-5. Mark the step's task `completed` via TaskUpdate
-6. Send a brief progress message to the implementation-pair:
+5. Tag the checkpoint for this step:
 
-```xml
-<invoke name="SendMessage">
-<parameter name="type">message</parameter>
-<parameter name="recipient">impl-pair</parameter>
-<parameter name="summary">Completed step N/M</parameter>
-<parameter name="content">Completed step N/M: [STEP_TITLE]</parameter>
-</invoke>
-```
+   ```bash
+   cd $WORKSPACE_PATH
+   git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
+   ```
+
+6. Mark the step's task `completed` via TaskUpdate
+7. Check TaskList to review overall progress and check for incoming feedback from the implementation-pair
+8. If the implementation-pair has no pending evaluation task (all prior evaluation tasks are `completed` or none exist yet), create a new one and notify them. If a prior evaluation task is still `pending` or `in_progress`, skip — the pair is busy, and the accumulated changes will be covered by its next evaluation or the full evaluation.
+
+   To create a step evaluation task:
+
+   ```xml
+   <invoke name="TaskCreate">
+   <parameter name="subject">Evaluate steps [FROM]-[TO]</parameter>
+   <parameter name="description">
+   Review changes from steps [FROM] through [TO].
+   Diff range: `git diff implement/!` echo $CARD_ID`/step-[FROM-1 or baseline] implement/!` echo $CARD_ID`/step-[TO]`
+   Verify correctness, data flow, and wiring. Report findings via SendMessage.
+   </parameter>
+   <parameter name="activeForm">Evaluating steps [FROM]-[TO]</parameter>
+   </invoke>
+   ```
+
+   Use `baseline` as the "from" tag when FROM is step 1.
+
+   When the evaluation covers a single step, use `Evaluate step N: [STEP_TITLE]` as the subject.
+
+   ```xml
+   <!-- Use the task ID returned by TaskCreate -->
+   <invoke name="TaskUpdate">
+   <parameter name="taskId">[new task ID]</parameter>
+   <parameter name="owner">impl-pair</parameter>
+   </invoke>
+   ```
+
+   ```xml
+   <invoke name="SendMessage">
+   <parameter name="type">message</parameter>
+   <parameter name="recipient">impl-pair</parameter>
+   <parameter name="summary">Evaluate completed steps [FROM]-[TO]</parameter>
+   <parameter name="content">Completed step [TO]/[TOTAL]: [STEP_TITLE]. Created evaluation task [task ID] covering steps [FROM]-[TO] — review the changes and report any findings.</parameter>
+   </invoke>
+   ```
 
 For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
 
-### 5.2 Handle Plan Review Feedback
+### 5.2 Handle Feedback from Implementation-Pair
 
-When the implementation-pair sends plan review feedback via message:
+The implementation-pair sends findings via SendMessage during implementation — both from plan review (Step 4) and from step evaluation tasks (Step 5.1). Handle all findings by severity:
 
 - **CRITICAL findings**: Pause current work. Assess the finding. If valid, adjust the implementation approach and update PLAN.md if the plan itself was wrong. Resume implementation.
 - **CONCERN findings**: Note the concern. Factor it into remaining work. Address if straightforward; otherwise continue and let the evaluation phase catch it.
@@ -170,6 +204,8 @@ Only proceed to **6. Evaluate** when ALL validations pass.
 ## 6. Evaluate
 
 ### 6.1 Request Evaluation
+
+Check TaskList. Mark any remaining step evaluation tasks owned by `impl-pair` as `completed` via TaskUpdate — they are superseded by the full evaluation.
 
 Send an evaluation request to the implementation-pair:
 
@@ -270,7 +306,7 @@ Clean up checkpoint tags:
 
 ```bash
 cd $WORKSPACE_PATH
-git tag -d "implement/!` echo $CARD_ID`/baseline" 2>/dev/null
+git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d
 ```
 
 ### 7.3 Complete

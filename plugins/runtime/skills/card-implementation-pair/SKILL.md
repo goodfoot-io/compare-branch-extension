@@ -102,6 +102,30 @@ Omit empty sections. If the plan looks solid, say so briefly and focus on any co
 
 ---
 
+## 1.5 Step Evaluation Tasks
+
+During implementation, the implementing agent creates evaluation tasks assigned to you (owner: `impl-pair`) after completing plan steps. A task may cover one step or a range of steps. You will also receive a SendMessage notification for each new task.
+
+The implementing agent only creates a new evaluation task when your previous one is complete, so you will have at most one pending evaluation task at a time. If implementation finishes before you process all step evaluations, the implementing agent marks remaining step evaluation tasks as `completed` (superseded) and requests a full evaluation instead — check TaskList to confirm a task is still `pending` before starting work on it.
+
+### 1.5.1 Process
+
+1. When notified of a step evaluation task, check TaskList to see your assigned tasks
+2. If the task is already `completed` (superseded by full evaluation), skip it
+3. If a **Mode: Implementation Evaluation** message is also pending, skip step evaluation tasks — proceed directly to the full evaluation (section 2)
+4. Use TaskGet to read the full task description — it contains the git diff range
+5. Run the diff command from the task description to identify changed files, then read them
+6. Perform a lightweight review focusing on:
+   - **Data flow**: Do new writes have readers? Do new reads have writers?
+   - **Wiring**: Are new symbols imported/exported where needed?
+   - **Correctness**: Does the code match the plan's intent for this step?
+7. Send findings to the implementing agent via SendMessage using the same severity classification (CRITICAL/CONCERN/SUGGESTION) as plan review
+8. Mark the evaluation task `completed` via TaskUpdate
+
+Keep step evaluations focused and fast — the full end-to-end evaluation happens later. Flag issues that are cheaper to fix now than after all steps are complete.
+
+---
+
 ## 2. Implementation Evaluation
 
 Invoked after the implementing agent completes its work. This is a blocking evaluation — the implementer waits for your report before proceeding.
@@ -134,7 +158,9 @@ Invoked after the implementing agent completes its work. This is a blocking eval
    - What intermediate steps connect trigger to outcome?
    - For each path: "When [trigger] occurs, [outcome] should happen via [intermediate steps]."
 
-5. **Evaluate dimensions.** Work through each systematically. Use Explore agents when static reading is insufficient.
+5. **Incorporate prior step evaluation findings.** If you sent findings during step evaluations (section 1.5), re-check whether each finding is still present in the final code. Include any unresolved findings in this report — do not assume the implementer received or acted on earlier messages.
+
+6. **Evaluate dimensions.** Work through each systematically. Use Explore agents when static reading is insufficient.
 
 ### 2.3 Evaluation Dimensions
 
