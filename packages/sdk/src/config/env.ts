@@ -157,9 +157,18 @@ export const CARDS_ENV_VARS = {
 
   /**
    * Path to the VS Code workspace root directory.
-   * Available in actions only.
+   * Set by the action handler (e.g., launch.ts) to the worktree path.
+   * Available in hooks running inside the claude CLI.
    */
   WORKSPACE_PATH: 'WORKSPACE_PATH',
+
+  /**
+   * Absolute path to the main git repository root (NOT a worktree).
+   * Set by ActionDispatcher; consumed by the wrapper and watcher for
+   * git operations (worktree removal, branch deletion) that must run
+   * against the main repository.
+   */
+  REPO_ROOT: 'REPO_ROOT',
 
   /**
    * Path to the card's repository directory.
