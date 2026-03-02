@@ -5,12 +5,12 @@
  * dispatches to the requested subcommand. All output is JSON to stdout;
  * all errors go to stderr.
  *
- * @summary Card CLI for get, create, start, and stop operations
+ * @summary Card CLI for get, create, list, start, and stop operations
  */
 
 import { spawnSync } from 'node:child_process';
 import { associatePidWithCard, findClaudePid, removePidEntry } from '@cards/claude-code-sessions';
-import type { AddBranchRequest, CardCreateData } from '@cards/sdk/client';
+import type { AddBranchRequest, CardCreateData, ListCardsOptions } from '@cards/sdk/client';
 import { CardsClient } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 
@@ -18,7 +18,7 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 const HELP = `Usage: card.mjs [options] <command>
 
-Read, create, start, and stop card sessions via the Cards API.
+Read, create, list, start, and stop card sessions via the Cards API.
 Locates the server through ~/.cards/cards-api.json, executes the command,
 and prints the resulting Card JSON to stdout.
 
@@ -28,6 +28,7 @@ Options:
 Commands:
   <card-id>        Fetch a card by its identifier
   create           Create a card from JSON on stdin
+  list [options]   List cards with optional filters
   start <card-id>  Associate this Claude session with a card
   stop             Disassociate this Claude session from its card
 
@@ -48,6 +49,23 @@ Create:
     card.mjs create <<'EOF'
     { "title": "Fix auth", "description": "Token refresh fails" }
     EOF
+
+List:
+  Lists cards for the current workspace. Detects workspacePath from git
+  automatically, or pass --workspace-path explicitly.
+
+  Options:
+    --workspace-path <path>  Workspace root (default: git rev-parse --show-toplevel)
+    --status <status>        Filter by status (todo, in_progress, needs_review, done, backlog, archived)
+    --tag <tag>              Filter by tag
+    --search <query>         Full-text search in title and description
+    --limit <n>              Maximum number of results
+    --offset <n>             Pagination offset
+
+  Examples:
+    card.mjs list
+    card.mjs list --status in_progress
+    card.mjs list --tag bug --limit 10
 
 Start:
   Associates the current Claude process with a card in the session registry.
@@ -102,9 +120,8 @@ export async function getCard(cardId: string): Promise<void> {
 function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    process.stdin.setEncoding('utf-8');
     process.stdin.on('data', (chunk: Buffer) => chunks.push(chunk));
-    process.stdin.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    process.stdin.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
     process.stdin.on('error', reject);
   });
 }
@@ -165,6 +182,96 @@ export async function createCard(): Promise<void> {
   const client = await connectClient();
   const card = await client.createCard(data);
   console.log(JSON.stringify(card, null, 2));
+}
+
+/**
+ * Detects the git repository root directory.
+ *
+ * @returns Absolute path to the repo root, or null if not in a git repo.
+ */
+function getGitRoot(): string | null {
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf-8',
+    timeout: 3000
+  });
+  if (result.error || result.status !== 0) return null;
+  return result.stdout.trim() || null;
+}
+
+/**
+ * Parses `--key value` pairs from a string array into a record.
+ *
+ * Stops at the first positional argument (one that doesn't start with `--`).
+ *
+ * @param args - CLI argument array to parse.
+ * @returns Parsed key-value pairs with the leading `--` stripped from keys.
+ * @throws Error when a flag is missing its value.
+ */
+function parseFlags(args: string[]): Record<string, string> {
+  const flags: Record<string, string> = {};
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (!arg.startsWith('--')) break;
+    const key = arg.slice(2);
+    const value = args[++i];
+    if (value === undefined) {
+      throw new Error(`flag ${arg} requires a value`);
+    }
+    flags[key] = value;
+  }
+  return flags;
+}
+
+/**
+ * Lists cards for a workspace and prints the result as JSON to stdout.
+ *
+ * Detects `workspacePath` from the current git repository root unless
+ * overridden via the `--workspace-path` flag.
+ *
+ * @param args - CLI arguments after the `list` subcommand.
+ */
+export async function listCards(args: string[]): Promise<void> {
+  const flags = parseFlags(args);
+
+  const workspacePath = flags['workspace-path'] ?? getGitRoot();
+  if (!workspacePath) {
+    throw new Error('could not detect workspace path — pass --workspace-path or run from a git repository');
+  }
+
+  const info = await discoverApiInfo();
+  if (!info) {
+    throw new Error('API discovery failed — is the cards server running?');
+  }
+
+  const client = new CardsClient({
+    baseUrl: `http://${info.host}:${info.port}`,
+    accessToken: info.accessToken,
+    workspacePath
+  });
+
+  const options: ListCardsOptions = {};
+  if (flags['status']) {
+    options.status = flags['status'] as ListCardsOptions['status'];
+  }
+  if (flags['tag']) {
+    options.tag = flags['tag'];
+  }
+  if (flags['search']) {
+    options.search = flags['search'];
+  }
+  if (flags['limit']) {
+    const n = parseInt(flags['limit'], 10);
+    if (Number.isNaN(n) || n <= 0) throw new Error('--limit must be a positive integer');
+    options.limit = n;
+  }
+  if (flags['offset']) {
+    const n = parseInt(flags['offset'], 10);
+    if (Number.isNaN(n) || n < 0) throw new Error('--offset must be a non-negative integer');
+    options.offset = n;
+  }
+
+  const cards = await client.listCards(options);
+  console.log(JSON.stringify(cards, null, 2));
 }
 
 /**
@@ -292,6 +399,9 @@ if (process.argv[1]?.endsWith('card.mjs')) {
   switch (command) {
     case 'create':
       run = createCard();
+      break;
+    case 'list':
+      run = listCards(process.argv.slice(3));
       break;
     case 'start': {
       const cardId = process.argv[3];

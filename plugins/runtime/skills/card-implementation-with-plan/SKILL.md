@@ -435,15 +435,7 @@ git add comment/$COMMENT_ID.md
 git commit -m "implementation complete"  # <card-repo-commit-style>
 ```
 
-Launch the merge agent:
-
-```xml
-<invoke name="Task">
-<parameter name="description">Merge</parameter>
-<parameter name="subagent_type">runtime:card:merge</parameter>
-<parameter name="prompt">!` echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
-</invoke>
-```
+Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 **If review is required (gates.reviewRequired is true):**
 

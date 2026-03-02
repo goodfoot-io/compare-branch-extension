@@ -298,6 +298,7 @@ describe('Default Actions', () => {
       await flushMicrotasks();
 
       const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
+      expect(spawnOpts.env.WORKSPACE_PATH).toBe('/test/workspace/.worktrees/cards/card-123/1');
       expect(spawnOpts.env.CLAUDE_CODE_TASK_LIST_ID).toBe('cards-extension-card-123');
       expect(spawnOpts.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS).toBe('1');
       expect(spawnOpts.env.BASE_BRANCH).toBe('main');

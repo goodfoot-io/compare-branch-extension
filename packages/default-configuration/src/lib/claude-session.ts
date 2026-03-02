@@ -10,12 +10,12 @@
  * @module
  */
 
-import { execFile } from 'node:child_process';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import type { CardsClient } from '@cards/sdk/client';
+import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
 import { checkWorktreeExists, createWorktree, findGitRoots } from './create-worktree.js';
 
@@ -450,5 +450,140 @@ export async function cleanupMergedBranches(
     );
 
     logger.info('Cleaned up merged branch', { branch: branch.name });
+  }
+}
+
+// ============================================================================
+// Unified session spawner
+// ============================================================================
+
+/**
+ * Options for {@link spawnClaudeSession}.
+ *
+ * Actions provide the variable parts (prompt, session identity, switch-to-
+ * interactive support); the helper handles everything else: worktree
+ * resolution, marketplace registration, env construction, spawn, lifecycle
+ * callbacks, and post-exit branch cleanup.
+ */
+export interface ClaudeSessionOptions {
+  /** Prompt string passed to the Claude CLI. */
+  prompt: string;
+  /** Session identifier (used for `--session-id` or `--resume`). */
+  sessionId: string;
+  /** When true, passes `--resume` instead of starting a new session. */
+  resume: boolean;
+  /**
+   * When true, registers {@link ActionContext.onSwitchToInteractive} so
+   * background-mode sessions can be promoted to interactive.
+   */
+  supportsSwitchToInteractive: boolean;
+}
+
+/**
+ * Spawns a `claude` CLI session with full worktree, marketplace, and
+ * lifecycle management.
+ *
+ * Centralises the spawn logic shared by the `launch` and `interview`
+ * actions so environment variable construction, worktree resolution,
+ * marketplace registration, and post-exit cleanup cannot drift between
+ * callers.
+ *
+ * Steps:
+ * 1. Create {@link CardsClient}
+ * 2. Resolve base branch and worktree
+ * 3. Register marketplace and evict stale cache
+ * 4. Build CLI args and spawn `claude`
+ * 5. Wire onCancel (and optionally onSwitchToInteractive)
+ * 6. Capture stderr in background mode
+ * 7. Await process exit
+ * 8. Clean up fully-merged branches
+ *
+ * @param input - Parsed action input from the environment.
+ * @param context - Action context providing logger and lifecycle hooks.
+ * @param options - Session-specific parameters (prompt, session ID, etc.).
+ */
+export async function spawnClaudeSession(
+  input: ActionInput,
+  context: ActionContext,
+  options: ClaudeSessionOptions
+): Promise<void> {
+  const { prompt, sessionId, resume, supportsSwitchToInteractive } = options;
+
+  context.logger.info(`${input.actionName} action started`, {
+    cardId: input.cardId,
+    environment: input.environment,
+    executionMode: input.executionMode,
+    sessionId
+  });
+
+  const client = new CardsClient({
+    baseUrl: input.apiBaseUrl,
+    accessToken: input.apiAccessToken
+  });
+
+  const baseBranch = await resolveBaseBranch(input.workspacePath);
+
+  const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
+
+  const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
+  context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
+
+  const marketplacePath = resolveMarketplacePath();
+  await updateMarketplaceRegistration(marketplacePath, context.logger);
+  await evictStaleRuntimeCache(marketplacePath, context.logger);
+
+  const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath, marketplacePath);
+  const isInteractive = input.executionMode === 'interactive';
+
+  const child: ChildProcess = spawn('claude', args, {
+    cwd,
+    stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
+    env: {
+      ...process.env,
+      WORKSPACE_PATH: cwd,
+      CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+      BASE_BRANCH: baseBranch,
+      PARENT_BRANCH: parentBranch,
+      WORKSPACE_BRANCH: branchName
+    }
+  });
+
+  context.onCancel(() => {
+    context.logger.info(`${input.actionName} action cancelled, terminating claude`, { sessionId });
+    child.kill('SIGTERM');
+  });
+
+  if (supportsSwitchToInteractive) {
+    context.onSwitchToInteractive(() => {
+      context.logger.info('Switching to interactive mode', { sessionId });
+      child.kill('SIGTERM');
+      return { sessionId };
+    });
+  }
+
+  // Background mode: capture stderr for diagnostic logging
+  if (!isInteractive) {
+    child.stderr?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString().trim();
+      if (text) {
+        context.logger.warn(text);
+      }
+    });
+  }
+
+  const exitCode = await new Promise<number | null>((resolve) => {
+    child.on('close', resolve);
+  });
+
+  context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode });
+
+  // Post-exit cleanup: remove fully-merged branches
+  try {
+    await cleanupMergedBranches(input, client, baseBranch, context.logger);
+  } catch (error) {
+    context.logger.warn('Branch cleanup failed', {
+      error: errorMessage(error)
+    });
   }
 }

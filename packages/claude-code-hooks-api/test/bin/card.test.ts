@@ -37,6 +37,7 @@ import {
   connectClient,
   getCurrentBranch,
   isAncestorOfHead,
+  listCards,
   parseCardCreateInput,
   startCard,
   stopCard
@@ -87,6 +88,32 @@ describe('card binary', () => {
     server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
       const url = new URL(req.url ?? '/', `http://localhost`);
       const method = req.method ?? 'GET';
+
+      // GET /cards (list)
+      if (method === 'GET' && url.pathname === '/cards') {
+        const workspacePath = url.searchParams.get('workspacePath');
+        if (!workspacePath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'workspacePath query parameter is required' }));
+          return;
+        }
+        let results = [...cards.values()];
+        const status = url.searchParams.get('status');
+        if (status) {
+          results = results.filter((c) => c['status'] === status);
+        }
+        const tag = url.searchParams.get('tag');
+        if (tag) {
+          results = results.filter((c) => Array.isArray(c['tags']) && (c['tags'] as string[]).includes(tag));
+        }
+        const limit = url.searchParams.get('limit');
+        if (limit) {
+          results = results.slice(0, parseInt(limit, 10));
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(results));
+        return;
+      }
 
       // GET /cards/:id
       const getCardMatch = url.pathname.match(/^\/cards\/([^/]+)$/);
@@ -377,6 +404,90 @@ describe('card binary', () => {
     it('throws when no Claude PID found', async () => {
       mockFindClaudePid.mockReturnValue(null);
       await expect(stopCard()).rejects.toThrow('could not find Claude ancestor PID');
+    });
+  });
+
+  describe('listCards', () => {
+    it('lists all cards for a workspace path', async () => {
+      cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: [] });
+      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'in_progress', tags: ['bug'] });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await listCards(['--workspace-path', '/tmp/workspace']);
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as unknown[];
+        expect(output).toHaveLength(2);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('filters by status', async () => {
+      cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: [] });
+      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'in_progress', tags: [] });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await listCards(['--workspace-path', '/tmp/workspace', '--status', 'todo']);
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        expect(output).toHaveLength(1);
+        expect(output[0]!.id).toBe('card-1');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('filters by tag', async () => {
+      cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: ['feature'] });
+      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'todo', tags: ['bug'] });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await listCards(['--workspace-path', '/tmp/workspace', '--tag', 'bug']);
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        expect(output).toHaveLength(1);
+        expect(output[0]!.id).toBe('card-2');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('respects limit', async () => {
+      cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: [] });
+      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'todo', tags: [] });
+      cards.set('card-3', { id: 'card-3', title: 'Third', status: 'todo', tags: [] });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await listCards(['--workspace-path', '/tmp/workspace', '--limit', '2']);
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as unknown[];
+        expect(output).toHaveLength(2);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('throws on missing workspace path when not in git repo', async () => {
+      const origCwd = process.cwd();
+      try {
+        process.chdir('/tmp');
+        await expect(listCards([])).rejects.toThrow('could not detect workspace path');
+      } finally {
+        process.chdir(origCwd);
+      }
+    });
+
+    it('throws on invalid limit', async () => {
+      await expect(listCards(['--workspace-path', '/tmp', '--limit', 'abc'])).rejects.toThrow(
+        '--limit must be a positive integer'
+      );
+    });
+
+    it('throws on invalid offset', async () => {
+      await expect(listCards(['--workspace-path', '/tmp', '--offset', '-1'])).rejects.toThrow(
+        '--offset must be a non-negative integer'
+      );
     });
   });
 });

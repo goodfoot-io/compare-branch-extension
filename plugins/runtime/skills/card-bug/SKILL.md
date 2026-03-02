@@ -381,14 +381,6 @@ Based on review requirement:
   git commit -m "bug fix complete"  # <card-repo-commit-style>
   ```
 
-  Then launch the merge agent:
-
-  ```xml
-  <invoke name="Task">
-  <parameter name="description">Merge</parameter>
-  <parameter name="subagent_type">runtime:card:merge</parameter>
-  <parameter name="prompt">!`echo "Merge the \"$WORKSPACE_BRANCH\" branch into the \"$BASE_BRANCH\" branch."`</parameter>
-  </invoke>
-  ```
+  Then load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 </instructions>

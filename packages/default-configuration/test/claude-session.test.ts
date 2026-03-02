@@ -1,3 +1,4 @@
+import type { ChildProcess } from 'node:child_process';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import type { BranchInfo } from '@cards/sdk/protocol';
@@ -86,6 +87,37 @@ afterEach(() => {
 
 function createMockLogger(): ActionContext['logger'] {
   return new Logger();
+}
+
+function createMockContext(): ActionContext {
+  return {
+    logger: new Logger(),
+    cwd: process.cwd(),
+    onCancel: vi.fn(),
+    onSwitchToInteractive: vi.fn()
+  };
+}
+
+function createMockChild(overrides?: Partial<ChildProcess>): ChildProcess {
+  const handlers = new Map<string, (...args: unknown[]) => void>();
+  return {
+    pid: 12345,
+    on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+      handlers.set(event, cb);
+    }),
+    kill: vi.fn(),
+    stdout: null,
+    stderr: null,
+    emit(event: string, ...args: unknown[]) {
+      handlers.get(event)?.(...args);
+      return true;
+    },
+    ...overrides
+  } as unknown as ChildProcess;
+}
+
+async function flushMicrotasks(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
 function baseInput(overrides?: Partial<ActionInput>): ActionInput {
@@ -671,6 +703,143 @@ describe('claude-session shared utilities', () => {
         if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
         else delete process.env['CLAUDE_CONFIG_DIR'];
       }
+    });
+  });
+
+  describe('spawnClaudeSession', () => {
+    it('sets WORKSPACE_PATH to the worktree path, not the original workspace', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      // Set EXTENSION_PATH for resolveMarketplacePath
+      process.env['EXTENSION_PATH'] = '/test/extension';
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: false
+      });
+      await flushMicrotasks();
+
+      const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string>; cwd: string };
+      // cwd and WORKSPACE_PATH must both be the worktree, not the original workspace
+      expect(spawnOpts.cwd).toBe('/test/workspace/.worktrees/cards/card-123/1');
+      expect(spawnOpts.env.WORKSPACE_PATH).toBe('/test/workspace/.worktrees/cards/card-123/1');
+
+      child.emit('close', 0);
+      await promise;
+    });
+
+    it('sets BASE_BRANCH, PARENT_BRANCH, and WORKSPACE_BRANCH', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      process.env['EXTENSION_PATH'] = '/test/extension';
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: false
+      });
+      await flushMicrotasks();
+
+      const spawnOpts = vi.mocked(spawn).mock.calls[0]![2] as { env: Record<string, string> };
+      expect(spawnOpts.env.BASE_BRANCH).toBe('main');
+      expect(spawnOpts.env.PARENT_BRANCH).toBe('main');
+      expect(spawnOpts.env.WORKSPACE_BRANCH).toBe('cards/card-123/1');
+
+      child.emit('close', 0);
+      await promise;
+    });
+
+    it('registers onSwitchToInteractive when supportsSwitchToInteractive is true', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      process.env['EXTENSION_PATH'] = '/test/extension';
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: true
+      });
+      await flushMicrotasks();
+
+      expect(context.onSwitchToInteractive).toHaveBeenCalledWith(expect.any(Function));
+
+      const switchCallback = vi.mocked(context.onSwitchToInteractive).mock.calls[0]![0] as () => unknown;
+      const result = switchCallback();
+      expect(result).toEqual({ sessionId: 'session-123' });
+
+      child.emit('close', null);
+      await promise;
+    });
+
+    it('does not register onSwitchToInteractive when supportsSwitchToInteractive is false', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      process.env['EXTENSION_PATH'] = '/test/extension';
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: false
+      });
+      await flushMicrotasks();
+
+      expect(context.onSwitchToInteractive).not.toHaveBeenCalled();
+
+      child.emit('close', 0);
+      await promise;
+    });
+
+    it('registers onCancel that kills the child process', async () => {
+      const { spawn } = await import('node:child_process');
+      const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+      process.env['EXTENSION_PATH'] = '/test/extension';
+
+      const child = createMockChild();
+      vi.mocked(spawn).mockReturnValue(child);
+
+      const context = createMockContext();
+      const promise = spawnClaudeSession(baseInput(), context, {
+        prompt: 'test prompt',
+        sessionId: 'session-123',
+        resume: false,
+        supportsSwitchToInteractive: false
+      });
+      await flushMicrotasks();
+
+      expect(context.onCancel).toHaveBeenCalledWith(expect.any(Function));
+
+      const cancelCallback = vi.mocked(context.onCancel).mock.calls[0]![0] as () => void;
+      cancelCallback();
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+
+      child.emit('close', null);
+      await promise;
     });
   });
 

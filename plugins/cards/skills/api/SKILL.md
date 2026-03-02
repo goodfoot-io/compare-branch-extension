@@ -5,7 +5,11 @@ description: Manage cards in the VSCode "Cards" extension.
 
 # Cards API
 
-Use the CLI binaries below to manage cards and comparisons. For operations not covered by the CLI (comments, plans, branches, streams, etc.), use the REST API Reference at the bottom of this document. The user will be notified when you create a card or add a comment.
+Use the CLI binaries below to manage cards and send notifications. For direct
+card content operations (comments, attachments, plans), use the card's
+filesystem repository — see Card Repository below.
+
+The user is notified when you create a card or add a comment.
 
 ## CLI Binaries
 
@@ -13,7 +17,7 @@ Use the CLI binaries below to manage cards and comparisons. For operations not c
 
 #### Commands
 
-**Get a card** — Fetch card details by ID:
+**Get a card** — Fetch card details by ID. The response includes `repositoryPath` for filesystem access:
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 ```
@@ -25,6 +29,16 @@ $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
 EOF
 ```
 
+**List cards** — List cards for the current workspace. Detects workspace path from git automatically:
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --status in_progress
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --tag bug --limit 10
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --search "auth" --status todo
+```
+
+Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag>`, `--search <query>`, `--limit <n>`, `--offset <n>`
+
 **Start a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs start <card-id>
@@ -34,6 +48,26 @@ Always call `start` before your first code change on a card. This establishes co
 **Stop a session** — Disassociate this Claude session from its card:
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs stop
+```
+
+### notification.mjs — Send notifications
+
+Send a notification to the VSCode UI.
+
+```
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type info --title "Build complete" --message "All tests pass" --source my-agent
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
+$NODE ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type error --title "Deploy failed" --message "Exit code 1" --source ci
+```
+
+Required: `--type` (error|warning|info), `--title`, `--message`, `--source`
+
+### uuid7.mjs — Generate UUIDv7
+
+Generates a UUIDv7 identifier (RFC 9562). Used for comment filenames.
+
+```bash
+COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 ```
 
 ### compare.mjs — Compare operations
@@ -73,6 +107,84 @@ $NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs get
 **Clear comparison**:
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs clear
+```
+
+## Card Repository
+
+Each card is an isolated Git repository. The `repositoryPath` field from `card.mjs <id>`
+gives the absolute path to this repository.
+
+### Directory Layout
+
+```
+CARD.meta.json              # Metadata (source of truth)
+CARD.md                     # Description (pure markdown, NO frontmatter)
+PLAN.md                     # Optional plan document
+comment/                    # Created on first comment
+  {uuidv7}.md               # Pure markdown, no frontmatter
+attachment/                 # Created on first attachment
+  att-{uuid4}_{name}        # Binary content
+  att-{uuid4}_{name}.meta.json
+```
+
+`comment/` and `attachment/` directories do not exist until first use (lazy creation).
+
+### CARD.meta.json
+
+```json
+{
+  "id": "main-0001",
+  "title": "Implement authentication",
+  "status": "in_progress",
+  "tags": ["feature", "security"],
+  "gates": {
+    "planRequired": true,
+    "planApproved": true,
+    "reviewRequired": true,
+    "reviewApproved": false
+  },
+  "isPinned": false,
+  "order": 1,
+  "repositoryId": "github.com/org/repo"
+}
+```
+
+### Adding a Comment
+
+Comments are pure markdown files with UUIDv7 filenames. The pre-commit hook
+validates filenames and fails-closed on errors.
+
+```bash
+REPO=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+mkdir -p "$REPO/comment"
+cat <<'COMMENT_EOF' > "$REPO/comment/$COMMENT_ID.md"
+Your comment content here (plain markdown, no frontmatter).
+COMMENT_EOF
+cd "$REPO" && git add "comment/$COMMENT_ID.md" && git commit -m "Add comment"
+```
+
+### Adding an Attachment
+
+Attachments use UUID4 identifiers with a sanitized original filename, plus a
+`.meta.json` sidecar describing the file.
+
+```bash
+REPO=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+ATT_UUID=$(cat /proc/sys/kernel/random/uuid)  # UUID4
+ATT_NAME="att-${ATT_UUID}_screenshot.png"
+mkdir -p "$REPO/attachment"
+cp /path/to/file.png "$REPO/attachment/$ATT_NAME"
+cat <<METAEOF > "$REPO/attachment/${ATT_NAME}.meta.json"
+{
+  "id": "$ATT_UUID",
+  "name": "$ATT_NAME",
+  "originalName": "screenshot.png",
+  "size": $(stat -c%s "$REPO/attachment/$ATT_NAME"),
+  "mimeType": "image/png"
+}
+METAEOF
+cd "$REPO" && git add "attachment/$ATT_NAME" "attachment/${ATT_NAME}.meta.json" && git commit -m "Add attachment"
 ```
 
 <card-status>

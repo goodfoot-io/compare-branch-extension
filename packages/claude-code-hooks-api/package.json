@@ -7,10 +7,11 @@
     "node": ">=20.11.0"
   },
   "scripts": {
-    "build": "claude-code-hooks -i \"src/*.ts\" -o \"../../plugins/cards/hooks/hooks.json\" --log \"../../../.cards/logs/claude-code-cards-api-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:card && yarn build:compare && yarn build:uuid7",
+    "build": "claude-code-hooks -i \"src/*.ts\" -o \"../../plugins/cards/hooks/hooks.json\" --log \"../../../.cards/logs/claude-code-cards-api-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:card && yarn build:compare && yarn build:uuid7 && yarn build:notification",
     "build:card": "esbuild src/bin/card.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/card.mjs '--external:node:*'",
     "build:compare": "esbuild src/bin/compare.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/compare.mjs '--external:node:*'",
     "build:uuid7": "esbuild src/bin/uuid7.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/uuid7.mjs '--external:node:*'",
+    "build:notification": "esbuild src/bin/notification.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/notification.mjs '--external:node:*'",
     "test": "vitest-unchanged",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l",
     "typecheck": "tsc --noEmit"

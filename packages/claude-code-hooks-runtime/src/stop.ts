@@ -110,8 +110,9 @@ function assertValidSha(sha: string, label: string): void {
 }
 
 /**
- * Returns all commit SHAs between sinceSha and HEAD in the given repo.
- * Runs: git log --format=%H sinceSha..HEAD
+ * Returns all commit SHAs between sinceSha and HEAD in the given repo,
+ * excluding commits that only touch files under `streams/claude-code-session/`.
+ * Runs: git log --format=%H sinceSha..HEAD -- . :!streams/claude-code-session/
  *
  * @param repoPath - Card repository path where git commands should execute.
  * @param sinceSha - Baseline SHA captured at session start.
@@ -122,12 +123,16 @@ export function getCommitsSince(repoPath: string, sinceSha: string): string[] {
   assertValidSha(sinceSha, 'since SHA');
 
   try {
-    const output = execFileSync('git', ['log', '--format=%H', `${sinceSha}..HEAD`], {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
+    const output = execFileSync(
+      'git',
+      ['log', '--format=%H', `${sinceSha}..HEAD`, '--', '.', ':!streams/claude-code-session/'],
+      {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      }
+    ).trim();
     if (!output) return [];
     const shas = output.split('\n');
     for (const sha of shas) {

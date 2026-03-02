@@ -404,7 +404,7 @@ describe('Stop Hook', () => {
       expect(result).toEqual([SHA_1, SHA_2]);
       expect(mockExecFileSync).toHaveBeenCalledWith(
         'git',
-        ['log', '--format=%H', `${START_SHA}..HEAD`],
+        ['log', '--format=%H', `${START_SHA}..HEAD`, '--', '.', ':!streams/claude-code-session/'],
         expect.objectContaining({ cwd: '/repo' })
       );
     });
