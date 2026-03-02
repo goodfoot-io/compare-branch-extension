@@ -313,6 +313,7 @@ Spawn both evaluators as teammates:
 <invoke name="Task">
 <parameter name="description">Implementation evaluation</parameter>
 <parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
+<parameter name="model">haiku</parameter>
 <parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
 <parameter name="name">impl-evaluator</parameter>
 <parameter name="prompt">
@@ -333,6 +334,7 @@ You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluat
 <invoke name="Task">
 <parameter name="description">End-to-end evaluation</parameter>
 <parameter name="subagent_type">runtime:card:end-to-end-evaluator</parameter>
+<parameter name="model">opus</parameter>
 <parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
 <parameter name="name">e2e-evaluator</parameter>
 <parameter name="prompt">
@@ -384,7 +386,7 @@ Send shutdown requests to both teammates and delete the team:
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2
+2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2. Some findings may predate the current implementation — fix them the same way.
 3. **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 4
 4. **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 4
 

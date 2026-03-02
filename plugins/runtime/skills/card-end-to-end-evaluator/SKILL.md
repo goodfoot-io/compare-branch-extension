@@ -242,13 +242,6 @@ Work through each dimension in `<evaluation-dimensions>` systematically against 
 
 Do not skip dimensions. A clean result for a dimension is valuable — it confirms that area is solid.
 
-### When to Run Code
-
-Most dimensions are answerable by reading source files and tracing imports. Run code when:
-- **Registration and Wiring** — run a specific test to confirm the entry point reaches the implementation
-- **Test Fidelity** — run the test suite to verify tests actually pass and the runner exits cleanly
-- **Data Flow** — when a trace is ambiguous from static reading, execute a targeted verification
-
 ## 4. Classify Findings
 
 Apply the `<classification-framework>` to each gap identified. For each finding, state which classification signal applies and why.
