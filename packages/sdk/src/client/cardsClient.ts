@@ -837,8 +837,26 @@ export class CardsClient {
 
     const responsePromise = fetch(url, fetchOptions);
 
+    // Track early rejection from the server (e.g. 409 "Stream already
+    // exists and is active").  For a successful stream the response stays
+    // pending until close() ends the body — but error responses arrive
+    // immediately and must be surfaced without waiting for close().
+    // Note: only reads response.ok/statusText (not the body) so close()
+    // can still parse the full error response.
+    let earlyError: Error | null = null;
+    responsePromise
+      .then((response) => {
+        if (!response.ok) {
+          earlyError = new ApiError(response.statusText, String(response.status));
+        }
+      })
+      .catch((err: unknown) => {
+        earlyError = err instanceof Error ? err : new Error(String(err));
+      });
+
     return {
       write(line: string): void {
+        if (earlyError) throw earlyError;
         controller.enqueue(encoder.encode(`${line}\n`));
       },
       close: async (): Promise<StreamResult> => {

@@ -19,35 +19,35 @@ The user is notified when you create a card or add a comment.
 
 **Get a card** — Fetch card details by ID. The response includes `repositoryPath` for filesystem access:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 ```
 
 **Create a card** — Pipe JSON to stdin with `title` (required) and `description` (required). Optional: `tags`, `environment`, `gates`:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
 { "title": "Fix auth", "description": "Token refresh fails", "tags": ["bug"] }
 EOF
 ```
 
 **List cards** — List cards for the current workspace. Detects workspace path from git automatically:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --status in_progress
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --tag bug --limit 10
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --search "auth" --status todo
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --status in_progress
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --tag bug --limit 10
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --search "auth" --status todo
 ```
 
 Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag>`, `--search <query>`, `--limit <n>`, `--offset <n>`
 
 **Start a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs start <card-id>
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs start <card-id>
 ```
 Always call `start` before your first code change on a card. This establishes commit attribution.
 
 **Stop a session** — Disassociate this Claude session from its card:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs stop
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs stop
 ```
 
 ### notification.mjs — Send notifications
@@ -55,9 +55,9 @@ $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs stop
 Send a notification to the VSCode UI.
 
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type info --title "Build complete" --message "All tests pass" --source my-agent
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type error --title "Deploy failed" --message "Exit code 1" --source ci
+node ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type info --title "Build complete" --message "All tests pass" --source my-agent
+node ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
+node ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type error --title "Deploy failed" --message "Exit code 1" --source ci
 ```
 
 Required: `--type` (error|warning|info), `--title`, `--message`, `--source`
@@ -67,7 +67,7 @@ Required: `--type` (error|warning|info), `--title`, `--message`, `--source`
 Generates a UUIDv7 identifier (RFC 9562). Used for comment filenames.
 
 ```bash
-COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+COMMENT_ID=$(node ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 ```
 
 ### compare.mjs — Compare operations
@@ -80,33 +80,33 @@ Manage the attribution tree comparison mode. One active comparison per server.
 
 Branch range — compare two arbitrary refs:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
 { "baseRef": "main", "compareRef": "feature-branch", "title": "My Comparison" }
 EOF
 ```
 
 Dynamic worktree — track a worktree's HEAD live:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
 { "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1", "title": "Card Changes" }
 EOF
 ```
 
 Fixed attribution — show pre-computed SHAs against a ref:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
 { "compareRef": "main", "attributionShas": ["abc123", "def456"], "title": "Squash Attribution" }
 EOF
 ```
 
 **Get current comparison**:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs get
+node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs get
 ```
 
 **Clear comparison**:
 ```
-$NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs clear
+node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs clear
 ```
 
 ## Card Repository
@@ -155,8 +155,8 @@ Comments are pure markdown files with UUIDv7 filenames. The pre-commit hook
 validates filenames and fails-closed on errors.
 
 ```bash
-REPO=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
-COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+COMMENT_ID=$(node ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 mkdir -p "$REPO/comment"
 cat <<'COMMENT_EOF' > "$REPO/comment/$COMMENT_ID.md"
 Your comment content here (plain markdown, no frontmatter).
@@ -170,7 +170,7 @@ Attachments use UUID4 identifiers with a sanitized original filename, plus a
 `.meta.json` sidecar describing the file.
 
 ```bash
-REPO=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
 ATT_UUID=$(cat /proc/sys/kernel/random/uuid)  # UUID4
 ATT_NAME="att-${ATT_UUID}_screenshot.png"
 mkdir -p "$REPO/attachment"

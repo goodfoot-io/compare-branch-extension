@@ -736,8 +736,17 @@ var CardsClient = class {
       duplex: "half"
     };
     const responsePromise = fetch(url, fetchOptions);
+    let earlyError = null;
+    responsePromise.then((response) => {
+      if (!response.ok) {
+        earlyError = new ApiError(response.statusText, String(response.status));
+      }
+    }).catch((err) => {
+      earlyError = err instanceof Error ? err : new Error(String(err));
+    });
     return {
       write(line) {
+        if (earlyError) throw earlyError;
         controller.enqueue(encoder.encode(`${line}
 `));
       },

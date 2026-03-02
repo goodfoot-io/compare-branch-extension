@@ -1,3 +1,6 @@
+// src/bin/card.ts
+import { spawnSync } from "node:child_process";
+
 // ../sdk/src/client/types/errors.ts
 var ApiError = class extends Error {
   /**
@@ -726,8 +729,17 @@ var CardsClient = class {
       duplex: "half"
     };
     const responsePromise = fetch(url, fetchOptions);
+    let earlyError = null;
+    responsePromise.then((response) => {
+      if (!response.ok) {
+        earlyError = new ApiError(response.statusText, String(response.status));
+      }
+    }).catch((err) => {
+      earlyError = err instanceof Error ? err : new Error(String(err));
+    });
     return {
       write(line) {
+        if (earlyError) throw earlyError;
         controller.enqueue(encoder.encode(`${line}
 `));
       },
@@ -872,7 +884,15 @@ Output:
 Exit codes:
   0  Success
   1  Error (missing arguments, invalid input, discovery failure, API error)`;
-async function connectClient() {
+function getGitRoot() {
+  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+    encoding: "utf-8",
+    timeout: 3e3
+  });
+  if (result.error || result.status !== 0) return null;
+  return result.stdout.trim() || null;
+}
+async function connectClient(workspacePath) {
   const info = await discoverApiInfo();
   if (!info) {
     console.error("card: API discovery failed \u2014 is the cards server running?");
@@ -880,7 +900,8 @@ async function connectClient() {
   }
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken
+    accessToken: info.accessToken,
+    workspacePath: workspacePath ?? getGitRoot() ?? void 0
   });
 }
 async function getCard(cardId) {
@@ -896,7 +917,22 @@ function readStdin() {
     process.stdin.on("error", reject);
   });
 }
-async function createCard() {
+function parseFlags(args) {
+  const flags = {};
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg.startsWith("--")) break;
+    const key = arg.slice(2);
+    const value = args[++i];
+    if (value === void 0) {
+      throw new Error(`flag ${arg} requires a value`);
+    }
+    flags[key] = value;
+  }
+  return flags;
+}
+async function createCard(args) {
+  const flags = parseFlags(args);
   const raw = await readStdin();
   if (!raw.trim()) {
     console.error("card create: expected JSON on stdin");
@@ -934,7 +970,7 @@ async function createCard() {
       ...typeof g["reviewRequired"] === "boolean" ? { reviewRequired: g["reviewRequired"] } : {}
     };
   }
-  const client = await connectClient();
+  const client = await connectClient(flags["workspace-path"]);
   const card = await client.createCard(data);
   console.log(JSON.stringify(card, null, 2));
 }
@@ -944,7 +980,7 @@ if (process.argv[1]?.endsWith("card.mjs")) {
     console.log(HELP);
     process.exit(command ? 0 : 1);
   }
-  const run = command === "create" ? createCard() : getCard(command);
+  const run = command === "create" ? createCard(process.argv.slice(3)) : getCard(command);
   run.catch((error) => {
     console.error("card:", error instanceof Error ? error.message : String(error));
     process.exit(1);

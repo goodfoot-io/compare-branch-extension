@@ -8,6 +8,7 @@
  * @summary Card CLI for get and create operations
  */
 
+import { spawnSync } from 'node:child_process';
 import type { CardCreateData } from '@cards/sdk/client';
 import { CardsClient } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
@@ -63,13 +64,27 @@ Exit codes:
   1  Error (missing arguments, invalid input, discovery failure, API error)`;
 
 /**
+ * Detects the git repository root directory.
+ *
+ * @returns Absolute path to the repo root, or null if not in a git repo.
+ */
+function getGitRoot(): string | null {
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf-8',
+    timeout: 3000
+  });
+  if (result.error || result.status !== 0) return null;
+  return result.stdout.trim() || null;
+}
+
+/**
  * Connects to the Cards API via discovery and returns a configured client.
  *
- * Exits the process with code 1 if discovery fails.
- *
+ * @param workspacePath - Explicit workspace path override. Falls back to git root auto-detection.
  * @returns A connected CardsClient instance.
+ * @throws When API discovery fails.
  */
-async function connectClient(): Promise<CardsClient> {
+async function connectClient(workspacePath?: string): Promise<CardsClient> {
   const info = await discoverApiInfo();
   if (!info) {
     console.error('card: API discovery failed — is the cards server running?');
@@ -77,7 +92,8 @@ async function connectClient(): Promise<CardsClient> {
   }
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken
+    accessToken: info.accessToken,
+    workspacePath: workspacePath ?? getGitRoot() ?? undefined
   });
 }
 
@@ -107,12 +123,39 @@ function readStdin(): Promise<string> {
 }
 
 /**
+ * Parses `--key value` pairs from a string array into a record.
+ *
+ * Stops at the first positional argument (one that doesn't start with `--`).
+ *
+ * @param args - CLI argument array to parse.
+ * @returns Parsed key-value pairs with the leading `--` stripped from keys.
+ * @throws Error when a flag is missing its value.
+ */
+function parseFlags(args: string[]): Record<string, string> {
+  const flags: Record<string, string> = {};
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (!arg.startsWith('--')) break;
+    const key = arg.slice(2);
+    const value = args[++i];
+    if (value === undefined) {
+      throw new Error(`flag ${arg} requires a value`);
+    }
+    flags[key] = value;
+  }
+  return flags;
+}
+
+/**
  * Creates a card from JSON read on stdin and prints the result to stdout.
  *
  * Validates that the required `title` and `description` fields are present,
  * then passes through all valid {@link CardCreateData} fields to the API.
+ *
+ * @param args - CLI arguments after the `create` subcommand. Supports `--workspace-path`.
  */
-async function createCard(): Promise<void> {
+async function createCard(args: string[]): Promise<void> {
+  const flags = parseFlags(args);
   const raw = await readStdin();
   if (!raw.trim()) {
     console.error('card create: expected JSON on stdin');
@@ -154,7 +197,7 @@ async function createCard(): Promise<void> {
     };
   }
 
-  const client = await connectClient();
+  const client = await connectClient(flags['workspace-path']);
   const card = await client.createCard(data);
   console.log(JSON.stringify(card, null, 2));
 }
@@ -167,7 +210,7 @@ if (process.argv[1]?.endsWith('card.mjs')) {
     process.exit(command ? 0 : 1);
   }
 
-  const run = command === 'create' ? createCard() : getCard(command);
+  const run = command === 'create' ? createCard(process.argv.slice(3)) : getCard(command);
   run.catch((error: unknown) => {
     console.error('card:', error instanceof Error ? error.message : String(error));
     process.exit(1);

@@ -87,17 +87,19 @@ Exit codes:
 /**
  * Connects to the Cards API via discovery and returns a configured client.
  *
+ * @param workspacePath - Explicit workspace path override. Falls back to git root auto-detection.
  * @returns A connected CardsClient instance.
  * @throws When API discovery fails.
  */
-export async function connectClient(): Promise<CardsClient> {
+export async function connectClient(workspacePath?: string): Promise<CardsClient> {
   const info = await discoverApiInfo();
   if (!info) {
     throw new Error('API discovery failed — is the cards server running?');
   }
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken
+    accessToken: info.accessToken,
+    workspacePath: workspacePath ?? getGitRoot() ?? undefined
   });
 }
 
@@ -175,11 +177,14 @@ export function parseCardCreateInput(raw: string): CardCreateData {
 
 /**
  * Creates a card from JSON read on stdin and prints the result to stdout.
+ *
+ * @param args - CLI arguments after the `create` subcommand. Supports `--workspace-path`.
  */
-export async function createCard(): Promise<void> {
+export async function createCard(args: string[]): Promise<void> {
+  const flags = parseFlags(args);
   const raw = await readStdin();
   const data = parseCardCreateInput(raw);
-  const client = await connectClient();
+  const client = await connectClient(flags['workspace-path']);
   const card = await client.createCard(data);
   console.log(JSON.stringify(card, null, 2));
 }
@@ -232,22 +237,7 @@ function parseFlags(args: string[]): Record<string, string> {
  */
 export async function listCards(args: string[]): Promise<void> {
   const flags = parseFlags(args);
-
-  const workspacePath = flags['workspace-path'] ?? getGitRoot();
-  if (!workspacePath) {
-    throw new Error('could not detect workspace path — pass --workspace-path or run from a git repository');
-  }
-
-  const info = await discoverApiInfo();
-  if (!info) {
-    throw new Error('API discovery failed — is the cards server running?');
-  }
-
-  const client = new CardsClient({
-    baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken,
-    workspacePath
-  });
+  const client = await connectClient(flags['workspace-path']);
 
   const options: ListCardsOptions = {};
   if (flags['status']) {
@@ -398,7 +388,7 @@ if (process.argv[1]?.endsWith('card.mjs')) {
   let run: Promise<void>;
   switch (command) {
     case 'create':
-      run = createCard();
+      run = createCard(process.argv.slice(3));
       break;
     case 'list':
       run = listCards(process.argv.slice(3));

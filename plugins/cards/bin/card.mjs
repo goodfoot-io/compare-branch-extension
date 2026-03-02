@@ -969,8 +969,17 @@ var CardsClient = class {
       duplex: "half"
     };
     const responsePromise = fetch(url, fetchOptions);
+    let earlyError = null;
+    responsePromise.then((response) => {
+      if (!response.ok) {
+        earlyError = new ApiError(response.statusText, String(response.status));
+      }
+    }).catch((err) => {
+      earlyError = err instanceof Error ? err : new Error(String(err));
+    });
     return {
       write(line) {
+        if (earlyError) throw earlyError;
         controller.enqueue(encoder.encode(`${line}
 `));
       },
@@ -1134,14 +1143,15 @@ Stop:
 Exit codes:
   0  Success
   1  Error (missing arguments, invalid input, discovery failure, API error)`;
-async function connectClient() {
+async function connectClient(workspacePath) {
   const info = await discoverApiInfo();
   if (!info) {
     throw new Error("API discovery failed \u2014 is the cards server running?");
   }
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken
+    accessToken: info.accessToken,
+    workspacePath: workspacePath ?? getGitRoot() ?? void 0
   });
 }
 async function getCard(cardId) {
@@ -1192,10 +1202,11 @@ function parseCardCreateInput(raw) {
   }
   return data;
 }
-async function createCard() {
+async function createCard(args) {
+  const flags = parseFlags(args);
   const raw = await readStdin();
   const data = parseCardCreateInput(raw);
-  const client = await connectClient();
+  const client = await connectClient(flags["workspace-path"]);
   const card = await client.createCard(data);
   console.log(JSON.stringify(card, null, 2));
 }
@@ -1223,19 +1234,7 @@ function parseFlags(args) {
 }
 async function listCards(args) {
   const flags = parseFlags(args);
-  const workspacePath = flags["workspace-path"] ?? getGitRoot();
-  if (!workspacePath) {
-    throw new Error("could not detect workspace path \u2014 pass --workspace-path or run from a git repository");
-  }
-  const info = await discoverApiInfo();
-  if (!info) {
-    throw new Error("API discovery failed \u2014 is the cards server running?");
-  }
-  const client = new CardsClient({
-    baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken,
-    workspacePath
-  });
+  const client = await connectClient(flags["workspace-path"]);
   const options = {};
   if (flags["status"]) {
     options.status = flags["status"];
@@ -1335,7 +1334,7 @@ if (process.argv[1]?.endsWith("card.mjs")) {
   let run;
   switch (command) {
     case "create":
-      run = createCard();
+      run = createCard(process.argv.slice(3));
       break;
     case "list":
       run = listCards(process.argv.slice(3));
