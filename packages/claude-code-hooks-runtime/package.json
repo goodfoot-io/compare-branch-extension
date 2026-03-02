@@ -9,7 +9,7 @@
     "build:watcher": "esbuild src/bin/transcript-watcher.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/transcript-watcher.mjs '--external:node:*'",
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
     "test": "vitest-unchanged",
-    "lint": "biome check . && jsdoczoom -l",
+    "lint": "biome check --write --unsafe . && jsdoczoom -l",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
