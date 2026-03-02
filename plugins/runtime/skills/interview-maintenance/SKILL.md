@@ -6,7 +6,7 @@ description: Enrich maintenance request cards with codebase context. Does not im
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user about debt or refactoring, research the codebase to enrich the card — not to perform the maintenance:
+Before asking the user about debt or refactoring, research the codebase to enrich the card — not to perform the maintenance. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
 
 1. Correlate complexity with churn — use git log and file size to find high-value targets
 2. Check for *missing* tests using Glob and Grep — a refactor without tests is dangerous

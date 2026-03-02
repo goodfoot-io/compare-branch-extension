@@ -6,7 +6,7 @@ description: Enrich investigation request cards with codebase context. Does not 
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user what to investigate, research the codebase to enrich the card — not to conduct the investigation:
+Before asking the user what to investigate, research the codebase to enrich the card — not to conduct the investigation. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
 
 1. Assess observability — check what is currently logged and instrumented; review dev dependencies (package.json) for monitoring libraries
 2. Identify *missing* observability that should exist to answer the question

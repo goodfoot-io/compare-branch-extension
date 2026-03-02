@@ -6,7 +6,7 @@ description: Enrich documentation request cards with codebase context. Does not 
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user about audience, location, or content, research the codebase to enrich the card — not to write the documentation:
+Before asking the user about audience, location, or content, research the codebase to enrich the card — not to write the documentation. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
 
 1. Analyze the project's documentation culture using Glob to survey structure (`docs/` folder vs. co-located `README.md`)
 2. Identify what is *missing* or outdated (check git timestamps)

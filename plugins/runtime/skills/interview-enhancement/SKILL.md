@@ -6,7 +6,7 @@ description: Enrich enhancement request cards with codebase context. Does not im
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user how the system works now or how it *should* work, research the codebase to enrich the card — not to build the feature:
+Before asking the user how the system works now or how it *should* work, research the codebase to enrich the card — not to build the feature. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
 
 1. Map data flow, schemas, and API contracts using Glob, Grep, and Read
 2. Investigate *why* code is written this way (Chesterton's Fence) via git log and git blame

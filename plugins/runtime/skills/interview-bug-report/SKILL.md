@@ -6,7 +6,7 @@ description: Enrich bug report cards with codebase context. Does not implement f
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user to clarify bug details, research the codebase to enrich the card — not to fix the bug:
+Before asking the user to clarify bug details, research the codebase to enrich the card — not to fix the bug. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
 
 1. Locate the error source
 2. Check recent changes for context (Chesterton's Fence)

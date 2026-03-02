@@ -6,7 +6,7 @@ description: Enrich operations request cards with codebase context. Does not imp
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
-Before asking the user about operational procedures, research the codebase to enrich the card — not to perform the operation:
+Before asking the user about operational procedures, research the codebase to enrich the card — not to perform the operation. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
 
 1. Analyze safety and recovery — use Glob and Grep to look for rollback scripts, backup procedures
 2. Check for *missing* automation (e.g., `deploy` script exists but no `rollback`)
