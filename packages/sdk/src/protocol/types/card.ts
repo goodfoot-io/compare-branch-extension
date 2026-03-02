@@ -249,6 +249,15 @@ export interface Card extends CardMetadata {
   description: string;
 
   /**
+   * Markdown content of the implementation plan from PLAN.md.
+   *
+   * Present only when the card's repository contains a non-empty PLAN.md file.
+   * Used by the web client to derive the `hasPlanContent` flag for the
+   * "planned" derived tag.
+   */
+  planContent?: string;
+
+  /**
    * Absolute filesystem path to the repository containing the card directory.
    * Used for resolving relative paths in actions and typed files.
    */
