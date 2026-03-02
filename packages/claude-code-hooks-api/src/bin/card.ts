@@ -92,6 +92,10 @@ Exit codes:
  * @throws When API discovery fails.
  */
 export async function connectClient(workspacePath?: string): Promise<CardsClient> {
+  const resolved = workspacePath ?? getGitRoot() ?? undefined;
+  if (!resolved) {
+    throw new Error('could not detect workspace path — pass --workspace-path or run from inside a git repository');
+  }
   const info = await discoverApiInfo();
   if (!info) {
     throw new Error('API discovery failed — is the cards server running?');
@@ -99,7 +103,7 @@ export async function connectClient(workspacePath?: string): Promise<CardsClient
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
     accessToken: info.accessToken,
-    workspacePath: workspacePath ?? getGitRoot() ?? undefined
+    workspacePath: resolved
   });
 }
 

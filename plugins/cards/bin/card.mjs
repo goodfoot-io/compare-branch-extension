@@ -1144,6 +1144,10 @@ Exit codes:
   0  Success
   1  Error (missing arguments, invalid input, discovery failure, API error)`;
 async function connectClient(workspacePath) {
+  const resolved = workspacePath ?? getGitRoot() ?? void 0;
+  if (!resolved) {
+    throw new Error("could not detect workspace path \u2014 pass --workspace-path or run from inside a git repository");
+  }
   const info = await discoverApiInfo();
   if (!info) {
     throw new Error("API discovery failed \u2014 is the cards server running?");
@@ -1151,7 +1155,7 @@ async function connectClient(workspacePath) {
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
     accessToken: info.accessToken,
-    workspacePath: workspacePath ?? getGitRoot() ?? void 0
+    workspacePath: resolved
   });
 }
 async function getCard(cardId) {

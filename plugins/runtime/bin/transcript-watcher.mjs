@@ -856,6 +856,7 @@ function connectLogSocket(socketPath) {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(socketPath, () => {
       logSocket = socket;
+      socket.unref();
       socket.on("error", () => {
         logSocket = null;
       });
