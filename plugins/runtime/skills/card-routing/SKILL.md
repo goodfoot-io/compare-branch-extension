@@ -41,6 +41,7 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
 | DOR_MET | Problem statement exists, acceptance criteria inferable, technical approach determinable |
 | USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the agent comment that submitted the plan for approval. Identify the plan-submission agent comment as the most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's modification time. |
+| HAS_IMPLEMENTATION_FEEDBACK | `gates.reviewApproved` is false AND the most recent agent-authored comment contains "awaiting review" or "awaiting approval" (case-insensitive) AND the latest user comment's modification time is more recent than that agent comment's modification time. |
 
 ## 2. Route
 
@@ -55,9 +56,10 @@ Select the **first** matching condition:
 - **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback`
 - **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
 - **9. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
-- **10. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
-- **11. IS_TESTABLE_BUG**: `runtime:card-bug`
-- **12. Otherwise**: `runtime:card-implementation`
+- **10. HAS_IMPLEMENTATION_FEEDBACK**: `runtime:card-implementation-feedback`
+- **11. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
+- **12. IS_TESTABLE_BUG**: `runtime:card-bug`
+- **13. Otherwise**: `runtime:card-implementation`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
 
