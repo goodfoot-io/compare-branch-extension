@@ -10,6 +10,7 @@
 
 import type {
   CardContentChangedEvent,
+  CardDeletedEvent,
   CardMetadataChangedEvent,
   CommentCreatedEvent,
   CompareChangedEvent,
@@ -53,6 +54,8 @@ export interface EventMap {
   'card:metadataChanged': CardMetadataChangedEvent;
   /** Fired when card content changes. */
   'card:contentChanged': CardContentChangedEvent;
+  /** Fired when a card is deleted. */
+  'card:deleted': CardDeletedEvent;
   /** Fired when a new comment is created. */
   'comment:created': CommentCreatedEvent;
   /** Fired when a comment is added to the timeline. */

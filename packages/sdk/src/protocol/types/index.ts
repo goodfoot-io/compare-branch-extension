@@ -89,6 +89,7 @@ export type {
 // --- WebSocket Event Types ---
 export type {
   CardContentChangedEvent,
+  CardDeletedEvent,
   CardMetadataChangedEvent,
   CommentCreatedEvent,
   CompareChangedEvent,

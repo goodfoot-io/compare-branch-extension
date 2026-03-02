@@ -43,6 +43,7 @@ export type {
   Card,
   CardContentChangedEvent,
   CardCreateGates,
+  CardDeletedEvent,
   CardDetailMessage,
   CardGates,
   CardMetadata,
