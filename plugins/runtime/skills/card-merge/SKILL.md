@@ -25,9 +25,10 @@ git commit -m "no changes to merge"  # <card-repo-commit-style>
 
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
 
-## 2. Squash Commits
+## 2. Prepare Final Commit
 
-If there are multiple commits since the branch diverged, squash them into a single commit with a message per `<workspace-commit-style>`:
+- **COMMIT_COUNT = 1**: Review the existing commit message against `<workspace-commit-style>`. If it doesn't meet the standard, amend it with `git commit --amend`.
+- **COMMIT_COUNT >= 2**: Squash into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
 cd $WORKSPACE_PATH
@@ -104,34 +105,15 @@ git add CARD.meta.json comment/$COMMENT_ID.md
 git commit -m "blocked: unresolvable rebase conflict"  # <card-repo-commit-style>
 ```
 
-## 4. Stash, Fast-Forward Merge, and Unstash
+## 4. Fast-Forward Merge
+
+`$WORKSPACE_PATH` is a worktree — `$BASE_BRANCH` is checked out elsewhere. Find where `$BASE_BRANCH` is checked out and merge there:
 
 ```bash
-cd $WORKSPACE_PATH
-git status --porcelain
-```
-
-Based on workspace state:
-- **Uncommitted changes exist**: Stash them with `git stash push -m "pre-merge: !` echo $CARD_ID`"`
-
-```bash
-cd $WORKSPACE_PATH
-git stash push -m "pre-merge: !` echo $CARD_ID`"
-```
-
-- **No uncommitted changes**: Continue
-
-```bash
-cd $WORKSPACE_PATH
+BASE_WORKTREE=$(git -C "$WORKSPACE_PATH" worktree list --porcelain \
+  | awk -v b="$BASE_BRANCH" '/^worktree /{wt=$2} /^branch refs\/heads\//{if($2=="refs/heads/"b) print wt}')
+cd "$BASE_WORKTREE"
 git merge --ff-only "$WORKSPACE_BRANCH"
-```
-
-Based on merge result:
-- **Merge succeeds**: Pop stash if applicable.
-
-```bash
-cd $WORKSPACE_PATH
-git stash pop
 ```
 
 **STOP** — Merge complete. Awaiting user verification.
