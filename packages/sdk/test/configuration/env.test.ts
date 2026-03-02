@@ -366,7 +366,7 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
       process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
       process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
-      process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace/project';
+      process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace/project';
       process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/project/.cards/repo';
       process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/project/.cards/config';
       process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
@@ -387,7 +387,7 @@ describe('env', () => {
         apiAccessToken: 'token-abc123',
         codingAgent: 'claude',
         switchToInteractiveData: undefined,
-        workspacePath: '/workspace/project',
+        repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
         extensionPath: '/extension/path'
@@ -408,7 +408,7 @@ describe('env', () => {
         apiAccessToken: 'token-abc123',
         codingAgent: undefined,
         switchToInteractiveData: undefined,
-        workspacePath: '/workspace/project',
+        repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
         extensionPath: '/extension/path'

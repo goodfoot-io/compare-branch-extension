@@ -98,7 +98,7 @@ import {
   getSocketPath,
   getSwitchToInteractiveDataPath,
   getConfigPath,
-  getWorkspacePath,
+  getRepoRoot,
   getCardRepoPath
 } from '@cards/sdk/config';
 
@@ -112,12 +112,12 @@ const mode = getExecutionMode();
 const codingAgent = getCodingAgent();
 
 // Additional action-specific variables
-// socketPath, configPath, workspacePath, cardRepoPath throw Error if missing
+// socketPath, configPath, repoRoot, cardRepoPath throw Error if missing
 const socketPath = getSocketPath();                        // e.g., '/tmp/socket-123'
 // getSwitchToInteractiveDataPath returns string | undefined (does not throw)
 const switchToInteractiveDataPath = getSwitchToInteractiveDataPath(); // Path to switch data
 const configPath = getConfigPath();                        // Path to action config
-const workspacePath = getWorkspacePath();                  // Workspace root path
+const repoRoot = getRepoRoot();                            // Main git repository root
 const cardRepoPath = getCardRepoPath();                    // Card repository path
 ```
 
@@ -168,7 +168,7 @@ const input = extractActionInput();
 //   apiAccessToken: string,
 //   codingAgent?: string,
 //   switchToInteractiveData?: unknown,
-//   workspacePath: string,
+//   repoRoot: string,
 //   cardRepoPath: string
 // }
 ```

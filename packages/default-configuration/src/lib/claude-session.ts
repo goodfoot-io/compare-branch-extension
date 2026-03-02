@@ -326,7 +326,7 @@ export async function resolveOrCreateWorktree(
   baseBranch: string,
   logger: ActionContext['logger']
 ): Promise<{ worktreePath: string; branchName: string; parentBranch: string }> {
-  const { branches } = await client.getBranches(input.cardId, { workspacePath: input.workspacePath });
+  const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
 
   // Try to reuse an existing branch with a valid worktree on disk
   for (const branch of branches) {
@@ -351,7 +351,7 @@ export async function resolveOrCreateWorktree(
     .filter((n) => !Number.isNaN(n));
   let nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 
-  const { repoRoot } = await findGitRoots(input.workspacePath);
+  const { repoRoot } = await findGitRoots(input.repoRoot);
   while (await checkWorktreeExists(repoRoot, path.join(repoRoot, '.worktrees', `${prefix}${nextNumber}`))) {
     logger.warn('Worktree already exists in git but not in API, skipping', {
       branch: `${prefix}${nextNumber}`
@@ -360,7 +360,7 @@ export async function resolveOrCreateWorktree(
   }
 
   const branchName = `${prefix}${nextNumber}`;
-  const result = await createWorktree(branchName, { cwd: input.workspacePath });
+  const result = await createWorktree(branchName, { cwd: input.repoRoot });
   await client.addBranch(input.cardId, { name: branchName, worktree: result.worktree, parentBranch: baseBranch });
 
   logger.info('Created new worktree', { branch: branchName, worktree: result.worktree });
@@ -409,7 +409,7 @@ export async function cleanupMergedBranches(
   baseBranch: string,
   logger: ActionContext['logger']
 ): Promise<void> {
-  const { branches } = await client.getBranches(input.cardId, { workspacePath: input.workspacePath });
+  const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
 
   for (const branch of branches) {
     if (!branch.exists) continue;
@@ -417,7 +417,7 @@ export async function cleanupMergedBranches(
     try {
       // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged)
       await execFileAsync('git', ['merge-base', '--is-ancestor', branch.name, baseBranch], {
-        cwd: input.workspacePath
+        cwd: input.repoRoot
       });
     } catch {
       // Expected for unmerged branches — skip cleanup
@@ -428,7 +428,7 @@ export async function cleanupMergedBranches(
     // Branch is merged — clean up worktree, branch ref, and API record
     if (branch.worktree) {
       await tryCleanupStep(
-        () => execFileAsync('git', ['worktree', 'remove', branch.worktree!], { cwd: input.workspacePath }),
+        () => execFileAsync('git', ['worktree', 'remove', branch.worktree!], { cwd: input.repoRoot }),
         'Failed to remove worktree',
         branch.name,
         logger
@@ -436,7 +436,7 @@ export async function cleanupMergedBranches(
     }
 
     await tryCleanupStep(
-      () => execFileAsync('git', ['branch', '-d', branch.name], { cwd: input.workspacePath }),
+      () => execFileAsync('git', ['branch', '-d', branch.name], { cwd: input.repoRoot }),
       'Failed to delete branch',
       branch.name,
       logger
@@ -521,7 +521,7 @@ export async function spawnClaudeSession(
     accessToken: input.apiAccessToken
   });
 
-  const baseBranch = await resolveBaseBranch(input.workspacePath);
+  const baseBranch = await resolveBaseBranch(input.repoRoot);
 
   const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
 

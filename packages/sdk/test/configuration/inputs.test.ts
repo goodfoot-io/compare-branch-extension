@@ -21,7 +21,7 @@ describe('inputs', () => {
         executionMode: 'interactive' | 'background';
         apiBaseUrl: string;
         apiAccessToken: string;
-        workspacePath: string;
+        repoRoot: string;
         cardRepoPath: string;
       }>();
     });
@@ -46,7 +46,7 @@ describe('inputs', () => {
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
-        workspacePath: '/workspace',
+        repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext'
@@ -63,7 +63,7 @@ describe('inputs', () => {
         executionMode: 'background',
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
-        workspacePath: '/workspace',
+        repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext'
@@ -81,7 +81,7 @@ describe('inputs', () => {
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
         codingAgent: 'claude',
-        workspacePath: '/workspace',
+        repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext'
@@ -94,7 +94,7 @@ describe('inputs', () => {
         executionMode: 'interactive',
         apiBaseUrl: 'https://api.example.com',
         apiAccessToken: 'token-abc',
-        workspacePath: '/workspace',
+        repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext'

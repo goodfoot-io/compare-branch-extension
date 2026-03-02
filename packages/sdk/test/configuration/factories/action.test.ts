@@ -22,7 +22,7 @@ describe('defineAction', () => {
     apiBaseUrl: 'https://api.example.com',
     apiAccessToken: 'token-abc',
     codingAgent: 'claude',
-    workspacePath: '/workspace',
+    repoRoot: '/workspace',
     cardRepoPath: '/workspace/.cards/card-123',
     configPath: '/config',
     extensionPath: '/ext'

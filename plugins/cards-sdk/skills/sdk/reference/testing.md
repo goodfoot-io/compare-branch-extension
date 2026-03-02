@@ -236,7 +236,7 @@ describe('launchClaude', () => {
       executionMode: 'interactive' as const,
       apiBaseUrl: 'https://api.example.com',
       apiAccessToken: 'test-token',
-      workspacePath: '/test/workspace',
+      repoRoot: '/test/workspace',
       cardRepoPath: '/test/repo'
     };
 

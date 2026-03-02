@@ -599,15 +599,35 @@ export function getConfigPath(): string {
 }
 
 /**
- * Reads the VS Code workspace root directory path.
+ * Reads the workspace path set by the action handler (e.g., the worktree path).
  *
- * @returns Absolute path to the active VS Code workspace root.
+ * This is for hooks running inside the Claude CLI, **not** for action handlers.
+ * Action handlers should use {@link getRepoRoot} instead.
+ *
+ * @returns Absolute path to the active workspace / worktree.
  * @throws Error if WORKSPACE_PATH is missing or empty
  */
 export function getWorkspacePath(): string {
   const value = process.env[CARDS_ENV_VARS.WORKSPACE_PATH];
   if (value === undefined || value === '') {
     throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.WORKSPACE_PATH}`);
+  }
+  return value;
+}
+
+/**
+ * Reads the main git repository root path.
+ *
+ * Set by ActionDispatcher; used by action handlers to resolve worktrees
+ * and perform git operations against the main repository.
+ *
+ * @returns Absolute path to the main git repository root (NOT a worktree).
+ * @throws Error if REPO_ROOT is missing or empty
+ */
+export function getRepoRoot(): string {
+  const value = process.env[CARDS_ENV_VARS.REPO_ROOT];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.REPO_ROOT}`);
   }
   return value;
 }
@@ -691,7 +711,7 @@ export function extractActionInput(): ActionInput {
     apiAccessToken: getApiAccessToken(),
     codingAgent: getCodingAgent(),
     switchToInteractiveData: readSwitchToInteractiveData(),
-    workspacePath: getWorkspacePath(),
+    repoRoot: getRepoRoot(),
     cardRepoPath: getCardRepoPath(),
     configPath: getConfigPath(),
     extensionPath: getExtensionPath()

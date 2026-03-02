@@ -104,9 +104,10 @@ export interface ActionInput {
   switchToInteractiveData?: unknown;
 
   /**
-   * Path to the VS Code workspace root directory.
+   * Absolute path to the main git repository root (NOT a worktree).
+   * Read from REPO_ROOT, set by ActionDispatcher.
    */
-  workspacePath: string;
+  repoRoot: string;
 
   /**
    * Path to the card's repository directory.

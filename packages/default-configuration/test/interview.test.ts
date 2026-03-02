@@ -143,7 +143,7 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     executionMode: 'interactive',
     apiBaseUrl: 'http://localhost:3000',
     apiAccessToken: 'test-token',
-    workspacePath: '/test/workspace',
+    repoRoot: '/test/workspace',
     cardRepoPath: '/test/repo',
     configPath: '/test/config',
     extensionPath: '/test/extension',

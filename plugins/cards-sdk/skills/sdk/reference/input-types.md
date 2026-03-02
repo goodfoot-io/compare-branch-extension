@@ -18,7 +18,7 @@ interface ActionInput {
   apiAccessToken: string;                 // Bearer token for API calls
   codingAgent?: string;                   // Configured AI coding assistant
   switchToInteractiveData?: unknown;      // Data from user switching to interactive mode
-  workspacePath: string;                  // Root workspace path
+  repoRoot: string;                       // Main git repository root (NOT a worktree)
   cardRepoPath: string;                   // Card repository path
 }
 ```
@@ -54,8 +54,8 @@ async (input: ActionInput, context) => {
     // Show progress indicators
   }
 
-  // Use workspace paths
-  const configFile = path.join(input.workspacePath, 'config.json');
+  // Use repo root for git operations
+  const configFile = path.join(input.repoRoot, 'config.json');
 }
 ```
 
