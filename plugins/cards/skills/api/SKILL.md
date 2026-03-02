@@ -7,43 +7,9 @@ description: Manage cards in the VSCode "Cards" extension.
 
 Use the CLI binaries below to manage cards and comparisons. For operations not covered by the CLI (comments, plans, branches, streams, etc.), use the REST API Reference at the bottom of this document. The user will be notified when you create a card or add a comment.
 
-<card-status>
-- **in_progress**: The agent is actively working on this card.
-- **todo**: This card is ready for implementation.
-- **needs_review**: This card is awaiting feedback from the user (includes plan approval and implementation review).
-- **done**: The card is complete and needs no additional review.
-- **backlog**: The card is still under consideration. Do not modify or work on cards in the backlog.
-- **archived**: This card has been archived and is no longer in the active workflow.
-</card-status>
-
-<plan-approval>
-When a card has `gates.planRequired: true`, present a plan for user approval before beginning implementation.
-
-1. Store the plan via the Plan REST API endpoint (`PUT /cards/{cardId}/plan`)
-2. Add a comment with code references reviewed during planning
-3. Wait for user approval before proceeding
-
-The plan content is accessible via the Plan REST API endpoint (`GET /cards/{cardId}/plan`). See the REST API Reference below for details.
-</plan-approval>
-
-<reload-after-compaction>
-You must reload this skill after compaction.
-</reload-after-compaction>
-
 ## CLI Binaries
 
 ### card.mjs — Card operations
-
-Read, create, start, and stop card sessions. Locates the server through `~/.cards/cards-api.json`.
-
-```!
-eval "$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)"
-echo "# API connection (port and token may change between sessions)"
-echo "eval \"\$(${CLAUDE_PLUGIN_ROOT}/bin/discover-api.sh)\""
-echo ""
-echo "# Example: Get a card"
-echo "\$NODE \${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>"
-```
 
 #### Commands
 
@@ -108,3 +74,12 @@ $NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs get
 ```
 $NODE ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs clear
 ```
+
+<card-status>
+- **in_progress**: The agent is actively working on this card.
+- **todo**: This card is ready for implementation.
+- **needs_review**: This card is awaiting feedback from the user (includes plan approval and implementation review).
+- **done**: The card is complete and needs no additional review.
+- **backlog**: The card is still under consideration. Do not modify or work on cards in the backlog.
+- **archived**: This card has been archived and is no longer in the active workflow.
+</card-status>

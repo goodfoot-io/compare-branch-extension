@@ -82,6 +82,7 @@ export default defineAction(
       stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
       env: {
         ...process.env,
+        WORKSPACE_PATH: cwd,
         CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
         CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
         BASE_BRANCH: baseBranch,

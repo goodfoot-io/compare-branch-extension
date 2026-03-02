@@ -498,7 +498,7 @@ describe('Default Actions', () => {
         await promise;
       });
 
-      it('sets BASE_BRANCH and PARENT_BRANCH env vars when worktree succeeds', async () => {
+      it('sets BASE_BRANCH, PARENT_BRANCH, and WORKSPACE_PATH env vars when worktree succeeds', async () => {
         const { spawn } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
 
@@ -528,6 +528,7 @@ describe('Default Actions', () => {
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
         expect(spawnOpts.env.BASE_BRANCH).toBe('main');
         expect(spawnOpts.env.PARENT_BRANCH).toBe('main');
+        expect(spawnOpts.env.WORKSPACE_PATH).toBe('/test/workspace/.worktrees/cards/card-123/1');
 
         child.emit('close', 0);
         await promise;
