@@ -296,7 +296,17 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
   try {
     const log = execFileSync(
       'git',
-      ['log', `-${MAX_CARD_REPO_LOG_COMMITS}`, '--pretty=format:%x00%h %an: %s', '-p', '--', '.', ':!streams/'],
+      [
+        'log',
+        `-${MAX_CARD_REPO_LOG_COMMITS}`,
+        '--pretty=format:%x00%h %an: %s',
+        '-p',
+        '--',
+        '.',
+        ':!streams/',
+        `:!${WORKSPACE_BRANCHES_FILE}`,
+        `:!${WORKSPACE_COMMITS_FILE}`
+      ],
       {
         cwd: rootPath,
         encoding: 'utf-8',
