@@ -30,18 +30,17 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 
 | Signal | Derivation |
 |--------|------------|
-| PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
-| PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
-| REVIEW_APPROVED | `gates.reviewApproved` in CARD.meta.json |
-| IS_BLOCKED | `tags` contains "blocked" |
 | HAS_ACTIVE_INFRASTRUCTURE_ERROR | Most recent agent comment reports unresolved disk, network, permission, or environment failure (historical resolved errors do not match) |
 | HAS_QUESTION | Latest user comment contains a genuine information-seeking question (not rhetorical, not "Can you fix X?", not "Could you implement Y?") |
-| HAS_REOPEN_REQUEST | Latest user comment indicates card is not complete (missed requirements, found bugs, wants changes) |
+| IS_BLOCKED | `tags` contains "blocked" |
+| HAS_IMPLEMENTATION_FEEDBACK | `workspace-commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
+| REVIEW_APPROVED | `gates.reviewApproved` in CARD.meta.json |
 | IS_STALE | No activity for 30+ days |
-| IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
-| DOR_MET | Problem statement exists, acceptance criteria inferable, technical approach determinable |
+| PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
+| PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
 | USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the agent comment that submitted the plan for approval. Identify the plan-submission agent comment as the most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's modification time. |
-| HAS_IMPLEMENTATION_FEEDBACK | `gates.reviewApproved` is false AND `workspace-commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
+| DOR_MET | Problem statement exists, acceptance criteria inferable, technical approach determinable |
+| IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
 
 ## 2. Route
 
@@ -49,17 +48,16 @@ Select the **first** matching condition:
 
 - **1. HAS_ACTIVE_INFRASTRUCTURE_ERROR**: `runtime:card-error-recovery`
 - **2. HAS_QUESTION**: `runtime:card-question-response`
-- **3. REVIEW_APPROVED AND HAS_REOPEN_REQUEST**: `runtime:card-reopen-and-implement`
-- **4. REVIEW_APPROVED**: `runtime:card-merge`
-- **5. IS_BLOCKED**: `runtime:card-blocked`
+- **3. IS_BLOCKED**: `runtime:card-blocked`
+- **4. HAS_IMPLEMENTATION_FEEDBACK**: `runtime:card-implementation-feedback`
+- **5. REVIEW_APPROVED**: `runtime:card-merge`
 - **6. IS_STALE**: `runtime:card-clarify-and-enrich`
 - **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback`
 - **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
 - **9. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
-- **10. HAS_IMPLEMENTATION_FEEDBACK**: `runtime:card-implementation-feedback`
-- **11. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
-- **12. IS_TESTABLE_BUG**: `runtime:card-bug`
-- **13. Otherwise**: `runtime:card-implementation`
+- **10. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
+- **11. IS_TESTABLE_BUG**: `runtime:card-bug`
+- **12. Otherwise**: `runtime:card-implementation`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
 
