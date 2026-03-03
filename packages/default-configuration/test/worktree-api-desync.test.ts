@@ -26,8 +26,6 @@ vi.mock('node:child_process', () => ({
 vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   readFile: vi.fn(),
-  readdir: vi.fn(),
-  rm: vi.fn(),
   writeFile: vi.fn()
 }));
 
@@ -49,11 +47,11 @@ beforeEach(async () => {
   // Set EXTENSION_PATH so resolveMarketplacePath() succeeds
   process.env['EXTENSION_PATH'] = '/test/extension';
 
-  // Default: evictStaleRuntimeCache reads bundled plugin.json — return a
-  // version so it proceeds, then readdir returns empty cache so no eviction.
+  // Default: updateMarketplaceRegistration reads known_marketplaces.json — return
+  // ENOENT so it exits early. Tests that need marketplace behaviour override explicitly.
   const fsPromises = await import('node:fs/promises');
-  vi.mocked(fsPromises.readFile).mockResolvedValue(JSON.stringify({ name: 'runtime', version: '1.0.0' }));
-  vi.mocked(fsPromises.readdir).mockRejectedValue(new Error('ENOENT'));
+  const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+  vi.mocked(fsPromises.readFile).mockRejectedValue(enoent);
 
   // resolveBaseBranch → 'main'
   const { execFile } = await import('node:child_process');

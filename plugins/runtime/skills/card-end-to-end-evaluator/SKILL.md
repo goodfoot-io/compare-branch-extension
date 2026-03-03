@@ -56,7 +56,7 @@ Every write has a reader. Every read has a writer.
 - Is every function parameter actually used within the body — or is it orphaned with no caller passing a meaningful value?
 - Is every return value consumed at call sites — or silently discarded?
 - Is every config key or environment variable that is read also set by some code path?
-- Are there fire-and-forget async calls (`void asyncOp()`) that discard meaningful results or errors?
+- When multiple code paths produce the same type for the same consumer (e.g., initial fetch vs real-time event, cache hit vs miss), do they provide equivalent fields?
 
 ### Consumer Alignment
 
@@ -231,6 +231,8 @@ From the plan and commander's intent, identify the concrete paths that must be c
 - **Integration boundaries**: Where does the new code connect to existing code? What existing consumers need to know about the change?
 
 For each path, define: "When [trigger] occurs, [outcome] should happen via [intermediate steps]."
+
+When a consumer receives the same data type from multiple sources (e.g., REST response and WebSocket event, initial load and cache), treat each source as a separate path. A feature that works on initial load but breaks on real-time update is not wired end-to-end.
 
 ## 3. Evaluate Dimensions
 

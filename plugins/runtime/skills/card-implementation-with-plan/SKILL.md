@@ -289,6 +289,7 @@ Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 - The problem the card exists to solve
 - The outcome the user expects
 - Any implicit requirements beyond the plan's literal tasks
+- Behavioral invariants that must hold across all code paths — if the feature has multiple data sources (initial load, real-time events, cache), state that they must produce equivalent results for consumers
 
 ### 3.3 Pre-Evaluation Validation
 

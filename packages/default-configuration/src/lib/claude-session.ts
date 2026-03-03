@@ -105,23 +105,6 @@ export async function resolveClaudeConfigDir(): Promise<string | null> {
 }
 
 /**
- * Reads the version from a plugin.json file.
- * Returns null if the file doesn't exist or can't be parsed.
- *
- * @param pluginJsonPath - Absolute path to the plugin.json file.
- * @returns The version string from the file, or null if unavailable.
- */
-async function readPluginVersion(pluginJsonPath: string): Promise<string | null> {
-  try {
-    const content = await fs.readFile(pluginJsonPath, 'utf-8');
-    const parsed = JSON.parse(content) as { version?: string };
-    return parsed.version ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Updates the `cards.management` entry in Claude Code's `known_marketplaces.json`
  * to point to the extension-bundled marketplace using an absolute path.
  *
@@ -130,6 +113,34 @@ async function readPluginVersion(pluginJsonPath: string): Promise<string | null>
  * resolves to the worktree's copy — which may contain a stale plugin version.
  * Writing an absolute path ensures Claude Code always reads from the extension's
  * bundled marketplace, regardless of CWD.
+ *
+ * ## How Claude Code's plugin version syncing works
+ *
+ * This registration update is the **only** intervention we need. Claude Code's
+ * built-in auto-update system handles the rest:
+ *
+ * 1. **Version detection** — On session start, Claude Code reads the marketplace
+ *    source directory (the `source.path` written here) and extracts the version
+ *    from each plugin's `.claude-plugin/plugin.json`.
+ *
+ * 2. **Cache-per-version** — Each plugin version is cached independently under
+ *    `<configDir>/plugins/cache/<marketplace>/<plugin>/<version>/`. The active
+ *    version's path is recorded as `installPath` in `installed_plugins.json`.
+ *
+ * 3. **Auto-update** — When the source directory contains a newer version than
+ *    what's cached, Claude Code copies the source into a new versioned cache
+ *    directory, updates `installed_plugins.json` to point to it, and writes a
+ *    `.orphaned_at` timestamp into the old version's cache directory.
+ *
+ * 4. **Orphan GC** — A background housekeeping task runs every 10 minutes. It
+ *    walks the cache, marks any version directory not referenced by
+ *    `installed_plugins.json` with `.orphaned_at`, and deletes orphaned
+ *    directories only after a **7-day** grace period. This ensures that
+ *    concurrently running sessions are never disrupted by cache deletion.
+ *
+ * We previously force-deleted stale cache entries (`evictStaleRuntimeCache`),
+ * which bypassed the 7-day grace period and caused ENOENT errors in sessions
+ * still referencing the deleted paths.
  *
  * @param marketplacePath - Absolute path to the bundled marketplace directory.
  * @param logger - Logger for diagnostic output.
@@ -173,75 +184,6 @@ export async function updateMarketplaceRegistration(
   entry.lastUpdated = new Date().toISOString();
   await fs.writeFile(knownPath, `${JSON.stringify(data, null, 4)}\n`);
   logger.info('Updated marketplace registration to extension bundle', { marketplacePath });
-}
-
-/**
- * Evicts the Claude Code plugin cache for `runtime@cards.management` when the
- * cached version is older than the version bundled with the extension.
- *
- * Reads the bundled runtime plugin.json version from the extension's marketplace
- * directory, then checks for cached versions under
- * `<configDir>/plugins/cache/cards-management/runtime/`. If any cached version
- * exists that is lower than the bundled version, the entire runtime cache
- * directory is removed so Claude Code re-caches from the directory source.
- *
- * @param marketplacePath - Absolute path to the bundled marketplace directory.
- * @param logger - Logger for diagnostic output.
- */
-export async function evictStaleRuntimeCache(marketplacePath: string, logger: ActionContext['logger']): Promise<void> {
-  const bundledVersion = await readPluginVersion(
-    path.join(marketplacePath, 'plugins', 'runtime', '.claude-plugin', 'plugin.json')
-  );
-  if (!bundledVersion) {
-    logger.warn('Could not read bundled runtime plugin version, skipping cache eviction');
-    return;
-  }
-
-  const configDir = await resolveClaudeConfigDir();
-  if (!configDir) {
-    logger.debug('Claude config directory not found, skipping cache eviction');
-    return;
-  }
-
-  const cacheDir = path.join(configDir, 'plugins', 'cache', 'cards-management', 'runtime');
-  let entries: string[];
-  try {
-    entries = await fs.readdir(cacheDir);
-  } catch {
-    // No cache directory — nothing to evict
-    return;
-  }
-
-  if (entries.length === 0) return;
-
-  // Check if any cached version is stale (lower than bundled)
-  const bundledParts = bundledVersion.split('.').map(Number);
-  let hasStale = false;
-
-  for (const entry of entries) {
-    const parts = entry.split('.').map(Number);
-    if (parts.some(Number.isNaN) || parts.length !== 3) continue;
-
-    // Compare semver: stale if cached < bundled
-    for (let i = 0; i < 3; i++) {
-      const cached = parts[i] ?? 0;
-      const bundled = bundledParts[i] ?? 0;
-      if (cached < bundled) {
-        hasStale = true;
-        break;
-      }
-      if (cached > bundled) break;
-    }
-    if (hasStale) break;
-  }
-
-  if (!hasStale) {
-    logger.debug('Runtime plugin cache is up to date', { bundledVersion, cachedVersions: entries });
-    return;
-  }
-
-  logger.info('Evicting stale runtime plugin cache', { bundledVersion, cachedVersions: entries });
-  await fs.rm(cacheDir, { recursive: true, force: true });
 }
 
 /**
@@ -491,7 +433,7 @@ export interface ClaudeSessionOptions {
  * Steps:
  * 1. Create {@link CardsClient}
  * 2. Resolve base branch and worktree
- * 3. Register marketplace and evict stale cache
+ * 3. Register marketplace
  * 4. Build CLI args and spawn `claude`
  * 5. Wire onCancel (and optionally onSwitchToInteractive)
  * 6. Capture stderr in background mode
@@ -530,7 +472,6 @@ export async function spawnClaudeSession(
 
   const marketplacePath = resolveMarketplacePath();
   await updateMarketplaceRegistration(marketplacePath, context.logger);
-  await evictStaleRuntimeCache(marketplacePath, context.logger);
 
   const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath, marketplacePath);
   const isInteractive = input.executionMode === 'interactive';
