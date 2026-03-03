@@ -234,6 +234,56 @@ describe('buildCardRepoLogBlock', () => {
     expect(result).toContain('diff --git');
   });
 
+  describe('.gitignore filtering', () => {
+    let gitignoreRepo: TestGitWorkspace;
+    let gitignorePath: string;
+
+    beforeAll(async () => {
+      gitignoreRepo = new TestGitWorkspace();
+      gitignorePath = await gitignoreRepo.create();
+
+      // Commit a .gitignore file (should be filtered out)
+      await gitignoreRepo.createAndCommitFile('.gitignore', 'node_modules/\ndist/\n', 'Add gitignore');
+
+      // Commit a non-.gitignore file (should be included)
+      await gitignoreRepo.createAndCommitFile('CARD.md', '# Card\n', 'Add card description');
+    });
+
+    afterAll(() => {
+      gitignoreRepo.destroy();
+    });
+
+    it('omits .gitignore-only commits from log', () => {
+      const result = buildCardRepoLogBlock(gitignorePath);
+
+      expect(result).not.toBeNull();
+      expect(result).not.toContain('Add gitignore');
+    });
+
+    it('excludes .gitignore diffs from mixed commits', async () => {
+      const mixedRepo = new TestGitWorkspace();
+      const mixedPath = await mixedRepo.create();
+
+      try {
+        // Commit both .gitignore and CARD.md together
+        writeFileSync(join(mixedPath, '.gitignore'), 'node_modules/\n');
+        writeFileSync(join(mixedPath, 'CARD.md'), '# Card\n');
+        const git = mixedRepo.getGit();
+        await git.add(['.gitignore', 'CARD.md']);
+        await git.commit('Add gitignore and card');
+
+        const result = buildCardRepoLogBlock(mixedPath);
+
+        expect(result).not.toBeNull();
+        expect(result).toContain('Add gitignore and card');
+        expect(result).toContain('CARD.md');
+        expect(result).not.toContain('.gitignore');
+      } finally {
+        mixedRepo.destroy();
+      }
+    });
+  });
+
   describe('streams filtering', () => {
     let streamsRepo: TestGitWorkspace;
     let streamsPath: string;

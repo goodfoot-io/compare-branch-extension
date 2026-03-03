@@ -304,6 +304,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         '--',
         '.',
         ':!streams/',
+        ':!.gitignore',
         `:!${WORKSPACE_BRANCHES_FILE}`,
         `:!${WORKSPACE_COMMITS_FILE}`
       ],
