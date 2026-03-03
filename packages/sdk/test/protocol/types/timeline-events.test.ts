@@ -303,6 +303,10 @@ describe('timeline event types', () => {
             return 'card-deleted';
           case 'comment:created':
             return 'comment-created';
+          case 'attachment:added':
+            return 'attachment-added';
+          case 'attachment:removed':
+            return 'attachment-removed';
           case 'timeline:comment:added':
             return 'timeline-comment-added';
           case 'timeline:comment:updated':

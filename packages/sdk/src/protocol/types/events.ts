@@ -185,6 +185,32 @@ export interface TimelineTypedFileRemovedEvent {
   itemId: string;
 }
 
+// --- Attachment Events ---
+
+/**
+ * Event payload when an attachment is added to a card.
+ */
+export interface AttachmentAddedEvent {
+  /** Event type discriminator. */
+  type: 'attachment:added';
+  /** ID of the card that received the attachment. */
+  cardId: string;
+  /** ID of the newly added attachment. */
+  attachmentId: string;
+}
+
+/**
+ * Event payload when an attachment is removed from a card.
+ */
+export interface AttachmentRemovedEvent {
+  /** Event type discriminator. */
+  type: 'attachment:removed';
+  /** ID of the card that lost the attachment. */
+  cardId: string;
+  /** ID of the removed attachment. */
+  attachmentId: string;
+}
+
 // --- Compare Events ---
 
 /**
@@ -333,6 +359,8 @@ export type DomainEvent =
   | CardContentChangedEvent
   | CardDeletedEvent
   | CommentCreatedEvent
+  | AttachmentAddedEvent
+  | AttachmentRemovedEvent
   | TimelineCommentAddedEvent
   | TimelineCommentUpdatedEvent
   | TimelineCommentRemovedEvent

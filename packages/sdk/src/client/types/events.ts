@@ -9,6 +9,8 @@
  */
 
 import type {
+  AttachmentAddedEvent,
+  AttachmentRemovedEvent,
   CardContentChangedEvent,
   CardDeletedEvent,
   CardMetadataChangedEvent,
@@ -58,6 +60,10 @@ export interface EventMap {
   'card:deleted': CardDeletedEvent;
   /** Fired when a new comment is created. */
   'comment:created': CommentCreatedEvent;
+  /** Fired when an attachment is added to a card. */
+  'attachment:added': AttachmentAddedEvent;
+  /** Fired when an attachment is removed from a card. */
+  'attachment:removed': AttachmentRemovedEvent;
   /** Fired when a comment is added to the timeline. */
   'timeline:comment:added': TimelineCommentAddedEvent;
   /** Fired when a comment on the timeline is updated. */

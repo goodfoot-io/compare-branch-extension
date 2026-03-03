@@ -93,6 +93,8 @@ export type {
 } from './custom-types.js';
 // --- WebSocket Event Types ---
 export type {
+  AttachmentAddedEvent,
+  AttachmentRemovedEvent,
   CardContentChangedEvent,
   CardDeletedEvent,
   CardMetadataChangedEvent,
