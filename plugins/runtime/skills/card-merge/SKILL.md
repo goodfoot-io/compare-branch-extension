@@ -20,7 +20,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [No changes were found on $WORKSPACE_BRANCH relative to $BASE_BRANCH. Nothing to merge.]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "no changes to merge"  # <card-repo-commit-style>
+git commit -m "[single sentence noting no changes were found on the branch]"  # <card-repo-commit-style>
 ```
 
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
@@ -75,7 +75,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [rebase conflict details, files involved, manual resolution steps]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "blocked: unresolvable rebase conflict"  # <card-repo-commit-style>
+git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 
 After rebase completes, run linting, type checking, and tests.
@@ -102,7 +102,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [validation failure details, what was attempted, what intervention is needed]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "blocked: unresolvable rebase conflict"  # <card-repo-commit-style>
+git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 
 ## 4. Fast-Forward Merge
@@ -127,7 +127,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [merge failure details: branch is not a fast-forward of $BASE_BRANCH, likely cause and resolution steps]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "blocked: unresolvable rebase conflict"  # <card-repo-commit-style>
+git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 
 </instructions>

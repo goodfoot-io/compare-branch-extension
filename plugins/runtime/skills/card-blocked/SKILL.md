@@ -30,7 +30,7 @@ Based on blocker analysis:
     cd $CARD_REPO_PATH
     $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.tags=d.tags.filter(t=>t!=='blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
     git add CARD.meta.json
-    git commit -m "unblocked: blocker resolved"  # <card-repo-commit-style>
+    git commit -m "[single sentence describing the resolved blocker]"  # <card-repo-commit-style>
     ```
 
   - **If not resolved**: Continue to Step 2
@@ -43,7 +43,7 @@ Based on blocker analysis:
   [clarification request: describe what blocker information is missing and what the user should provide]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "clarification needed: blocker details missing"  # <card-repo-commit-style>
+  git commit -m "[single sentence describing what blocker information is missing]"  # <card-repo-commit-style>
   ```
 
 ## 2. Report Blocked Status
@@ -61,7 +61,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "blocked: [what and why]"  # <card-repo-commit-style>
+git commit -m "[single sentence describing what is blocking progress and what is needed to resolve it]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Do not proceed until the blocker is resolved and the "blocked" tag is removed. Routing will re-evaluate once the tag is removed.

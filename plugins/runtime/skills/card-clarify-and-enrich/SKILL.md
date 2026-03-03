@@ -23,7 +23,7 @@ Based on comments and prior clarification requests:
   [acknowledge the new information and explain how it affects requirements analysis]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "acknowledged: new information received"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing the new information and how it affects requirements]"  # <card-repo-commit-style>
   ```
 
 - **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** — already waiting for user clarification.
@@ -35,7 +35,7 @@ Based on comments and prior clarification requests:
   [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "still waiting for clarification"  # <card-repo-commit-style>
+  git commit -m "[single sentence noting which questions from the prior request remain unanswered]"  # <card-repo-commit-style>
   ```
 
 ## 2. Explore Workspace
@@ -118,7 +118,7 @@ If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for
 ```bash
 cd $CARD_REPO_PATH
 git add CARD.meta.json CARD.md
-git commit -m "clarify: [what was corrected]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing what was corrected or enriched in the card]"  # <card-repo-commit-style>
 ```
 
 Skip the commit entirely if no enrichment or clarification is needed.
@@ -154,7 +154,7 @@ Based on research results:
   [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "research resolved requirement gaps"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing the research findings that resolved requirement gaps]"  # <card-repo-commit-style>
   ```
 
 - **If gaps remain**: Note findings for the clarification request, proceed to Step 6
@@ -170,7 +170,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "clarification needed: [which requirements are missing]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing which requirements are missing and what is needed to proceed]"  # <card-repo-commit-style>
 ```
 
 **STOP** — awaiting user response.

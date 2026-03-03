@@ -46,7 +46,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [answer to the question with GitHub-style fragment links for any code references]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "answered: [topic of question]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the answer to the question]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Question answered; do not proceed to implementation.

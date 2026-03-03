@@ -29,7 +29,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [clarification request: what specific changes are needed based on the feedback?]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "clarification needed: feedback unclear"  # <card-repo-commit-style>
+git commit -m "[single sentence describing what clarification is needed about the feedback]"  # <card-repo-commit-style>
 ```
 
 Then **STOP**.
@@ -49,7 +49,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [acknowledgment of the user's feedback, confirmation of understanding, and what targeted changes will be made]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "acknowledged: [summary of feedback]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the feedback and the targeted changes planned]"  # <card-repo-commit-style>
 ```
 
 ---
@@ -97,7 +97,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [exact validation failure output]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: [reason]"  # <card-repo-commit-style>
+git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
 ```
 
 Only proceed to **5. Evaluate Quality** when ALL validations pass.
@@ -254,7 +254,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [unresolved recommended findings from end-to-end evaluator]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
 ```
 
 ---
@@ -289,7 +289,7 @@ Based on review gate:
   [what was changed in response to the user's feedback, workspace files modified in the update, validation confirmation, and that you are awaiting approval]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "implementation updated, awaiting review"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing what was changed in response to feedback and that it is ready for review]"  # <card-repo-commit-style>
   ```
 
 - **gates.reviewRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
@@ -303,7 +303,7 @@ Based on review gate:
   [what was changed in response to the user's feedback, validation confirmation]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "implementation updated"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing what was changed in response to feedback]"  # <card-repo-commit-style>
   ```
 
 ### 6.3 Tag Cleanup

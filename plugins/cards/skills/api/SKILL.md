@@ -180,6 +180,20 @@ attachment/                 # Created on first attachment
 }
 ```
 
+### Listing Repository Files
+
+Authorship is determined by git commit ownership. List files in any card
+repository directory chronologically with author and commit message:
+
+```bash
+REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+git -C "$REPO" log --reverse --diff-filter=A --format='%an: %s' --name-only -- comment/ \
+  | awk 'NF{if(/^comment\//){print $0"  "prev}else{prev=$0}}'
+```
+
+Replace both occurrences of `comment/` with the target directory
+(e.g., `attachment/`, `note/`, `adaptive-card/`).
+
 ### Adding a Comment
 
 Comments are pure markdown files with UUIDv7 filenames. The pre-commit hook

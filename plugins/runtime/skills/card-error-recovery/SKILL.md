@@ -71,7 +71,7 @@ Recovery cycle:
   [describe the failure encountered, how it relates to this card's blocker, and any additional context from the recovery attempt]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "blocked: [failure context for this blocker]"  # <card-repo-commit-style>
+  git commit -m "[single sentence describing the failure and how it relates to this card's blocker]"  # <card-repo-commit-style>
   ```
 
   **If no existing card covers this block**, create a new card with "backlog" status using the appropriate card creation tool.
@@ -97,7 +97,7 @@ Based on card state:
   ```bash
   cd $CARD_REPO_PATH
   git add CARD.meta.json
-  git commit -m "blocked: [error in step X — manual fix needed]"  # <card-repo-commit-style>
+  git commit -m "[single sentence describing the error and that manual fix is needed]"  # <card-repo-commit-style>
   ```
 
 - **Otherwise**: Write an error comment documenting what happened, then commit:
@@ -109,7 +109,7 @@ Based on card state:
   [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]
   EOF
   git add CARD.meta.json comment/$COMMENT_ID.md
-  git commit -m "blocked: [error — recovery failed, manual fix needed]"  # <card-repo-commit-style>
+  git commit -m "[single sentence describing the error, recovery attempts, and what manual intervention is needed]"  # <card-repo-commit-style>
   ```
 
 </instructions>

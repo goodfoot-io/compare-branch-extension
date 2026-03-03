@@ -209,7 +209,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [which task was completed and what was actually done]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "progress: [task completed (N/M)]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing what the task accomplished]"  # <card-repo-commit-style>
 ```
 
 **After all todos:**
@@ -225,7 +225,7 @@ All implementation tasks are blocked.
 [per-task blocker summary]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: [reason summary]"  # <card-repo-commit-style>
+git commit -m "[single sentence describing what is blocking all tasks]"  # <card-repo-commit-style>
 ```
 
 - SOME blocked -> note in summary, proceed to Step 3
@@ -262,7 +262,7 @@ Blocked: validation failure outside modifiable scope.
 [exact validation command and full output]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: validation failure outside scope"  # <card-repo-commit-style>
+git commit -m "[single sentence describing the validation failure and why it is outside scope]"  # <card-repo-commit-style>
 ```
 
 Only proceed to **3. Evaluate Quality** when ALL validations pass.
@@ -410,7 +410,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [unresolved recommended findings from end-to-end evaluator]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
 ```
 
 ---
@@ -443,7 +443,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented and how it aligns with the plan, key files modified, validation confirmation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "implementation complete"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing what was implemented and that it aligns with the plan]"  # <card-repo-commit-style>
 ```
 
 Load the `runtime:card-merge` skill and follow its `<instructions>`.
@@ -459,7 +459,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "implementation complete, awaiting review"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing what was implemented and that it is ready for review]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Merge occurs after user approval.

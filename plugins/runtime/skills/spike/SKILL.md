@@ -228,7 +228,7 @@ After passing quality checks, commit spike artifacts to the card repo:
 ```bash
 cd $CARD_REPO_PATH
 git add spike/[test-name]/
-git commit -m "spike: [question summary]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the spike's question and finding]"  # <card-repo-commit-style>
 ```
 
 ### Step 5: Incorporate Findings into Plans

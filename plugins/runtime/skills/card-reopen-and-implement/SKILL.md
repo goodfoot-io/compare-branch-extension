@@ -20,7 +20,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [clarification request content]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "clarification needed: reopen request unclear"  # <card-repo-commit-style>
+git commit -m "[single sentence describing what is unclear about the reopen request]"  # <card-repo-commit-style>
 ```
 
 Then **STOP**.
@@ -45,7 +45,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [summary of the user's request, confirmation of understanding, and what additional work will be done]
 EOF
 git add CARD.meta.json comment/$COMMENT_ID.md
-git commit -m "reopened: [what additional work was requested]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the additional work requested]"  # <card-repo-commit-style>
 ```
 
 ## 3. Delegate to Implementation

@@ -34,7 +34,7 @@ Update the `title` field in `CARD.meta.json` with the revised title. Replace the
 ```bash
 cd $CARD_REPO_PATH
 git add CARD.meta.json CARD.md
-git commit -m "[summary of title/description changes, key decisions from the interview, and rationale for the operational scope and risk assessment]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the operational scope, risk assessment, and key decisions from the interview]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Interview complete; card has been updated and committed. Do not proceed to implementation.

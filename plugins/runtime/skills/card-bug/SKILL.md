@@ -363,7 +363,7 @@ Based on review requirement:
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "bug fix complete, awaiting review"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing the bug fix and that it is ready for review]"  # <card-repo-commit-style>
   ```
 
   **STOP** — Merge occurs after user approval.
@@ -378,7 +378,7 @@ Based on review requirement:
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "bug fix complete"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing the bug fix and confirmation that tests pass]"  # <card-repo-commit-style>
   ```
 
   Then load the `runtime:card-merge` skill and follow its `<instructions>`.

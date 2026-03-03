@@ -39,7 +39,7 @@ Commit to the card repository:
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "plan: [approach and key decisions]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from the Technical Approach section).
@@ -53,7 +53,7 @@ For each spike-eligible uncertainty, invoke the `runtime:spike` skill. Incorpora
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "plan: resolve uncertainties via spikes"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
 
 ---
@@ -97,7 +97,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [exact validation failure output]
 EOF
 git add comment/$COMMENT_ID.md CARD.meta.json
-git commit -m "blocked: [reason]"  # <card-repo-commit-style>
+git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
 ```
 
 Only proceed to **4. Finalize** when ALL validations pass.
@@ -139,7 +139,7 @@ Based on review gate:
   [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "implementation complete, awaiting review"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing what was implemented and that it is ready for review]"  # <card-repo-commit-style>
   ```
 
 - **gates.reviewRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
@@ -151,7 +151,7 @@ Based on review gate:
   [completion summary: what was implemented, key decisions, files modified, validation confirmation]
   EOF
   git add comment/$COMMENT_ID.md
-  git commit -m "implementation complete"  # <card-repo-commit-style>
+  git commit -m "[single sentence summarizing what was implemented and key decisions]"  # <card-repo-commit-style>
   ```
 
 </instructions>

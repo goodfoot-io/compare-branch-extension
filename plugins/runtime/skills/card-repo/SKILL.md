@@ -107,7 +107,7 @@ transitions it to `needs_review`. This default means:
 - **Staying in `in_progress` requires an explicit decision** — set it back to `in_progress`
   only if the card is genuinely incomplete and should not be reviewed yet.
 - **Blocking requires an explicit status change** — set `status` to `todo` and use a
-  `blocked:` commit message so the next agent understands why.
+  commit message describing the blocker so the next agent understands why.
 
 ### Gate Enforcement
 
@@ -144,8 +144,18 @@ Note files (`note/*.md`) are the exception —
 they require YAML frontmatter (see Notes below).
 
 Comment filenames must be UUIDv7 (RFC 9562), validated by the pre-commit hook.
-UUIDv7 encodes a timestamp prefix, making comments chronologically sortable by filename.
+Authorship is determined by git commit ownership.
 
+**Listing** — List chronologically with author and commit message:
+```bash
+git log --reverse --diff-filter=A --format='%an: %s' --name-only -- comment/ \
+  | awk 'NF{if(/^comment\//){print $0"  "prev}else{prev=$0}}'
+```
+
+Replace both occurrences of `comment/` with the target directory
+(e.g., `attachment/`, `note/`, `adaptive-card/`) to list other file types.
+
+**Adding:**
 ```bash
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
@@ -322,33 +332,28 @@ Two repositories receive commits during card work. Each has a distinct commit st
 <card-repo-commit-style>
 ### Card Repository Commits
 
-Card repository commit messages are the coordination surface for agents working together on a card. An agent scanning `git log --oneline` should be able to reconstruct the project timeline and decide what to do next without reading every comment file.
+Card repository commit messages summarize the content of the commit itself. An agent scanning `git log --oneline` should understand what information each commit contributes without opening the files.
 
-**Every commit message should answer:**
+**The commit message is a single sentence summarizing the commit's substance** — not a status label or inventory of files changed. If the commit adds a comment, the message summarizes the comment. If it adds a plan, the message summarizes the approach.
 
-1. **What phase?** What stage did we just complete or enter? (planning, implementing task N of M, blocked, awaiting review, merging)
-2. **What workspace change?** Which subtask, feature area, or files does this correspond to? Correlates card-repo history with workspace-repo history.
-3. **Outcome?** Did it succeed or fail? (completed, blocked, needs revision) — the status signal that determines next action.
-4. **If blocked, what unblocks it?** What's needed so the next agent doesn't repeat the same attempt.
-
-**Format:** One or two lines. The comment content carries detail; the commit message carries signal.
+**Format:** One sentence. The comment content carries detail; the commit message carries a summary of that detail.
 
 **Examples:**
 
 | Category | Example |
 |----------|---------|
-| Progress | `progress: auth middleware complete (task 2/4)` |
-| Completion | `implementation complete` |
-| Blocked | `blocked: type error in package X — outside plan scope` |
-| Clarification | `clarify title and enrich description from exploration` |
-| Plan | `plan: initial approach — migration strategy with 3 tasks` |
-| Plan feedback | `plan revised: incorporated feedback on error handling` |
-| Accepted concerns | `accepted strategic concerns re: coupling tradeoff` |
-| Awaiting review | `implementation complete, awaiting review` |
-| Question/answer | `answered: how auth tokens are validated` |
-| Reopen | `reopened: user requested additional error handling` |
-| Error recovery | `blocked: unexpected error during merge — manual fix needed` |
-| No-action | `acknowledged: user provided context, no action needed` |
+| Progress | `Auth middleware validates tokens and attaches user context to requests` |
+| Completion | `All four migration tasks pass type checking and integration tests` |
+| Blocked | `Package X exports an incompatible type that prevents the adapter from compiling` |
+| Clarification | `Title narrowed to auth middleware; added exploration notes on token flow` |
+| Plan | `Three-task migration strategy starting with schema, then adapters, then callers` |
+| Plan feedback | `Revised to add explicit error handling for expired tokens per feedback` |
+| Accepted concerns | `Coupling tradeoff between auth and session modules accepted as pragmatic` |
+| Awaiting review | `Middleware, tests, and integration wiring are complete and ready for review` |
+| Question/answer | `Tokens are validated by comparing HMAC signatures against the rotated secret` |
+| Reopen | `Additional error handling needed for network timeouts during token refresh` |
+| Error recovery | `Merge failed due to conflicting changes in session.ts — needs manual resolution` |
+| No-action | `User provided context on deployment constraints, no code changes needed` |
 </card-repo-commit-style>
 
 <workspace-commit-style>

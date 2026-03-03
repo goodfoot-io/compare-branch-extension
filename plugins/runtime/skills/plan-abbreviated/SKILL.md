@@ -176,7 +176,7 @@ cat <<'EOF' > PLAN.md
 [plan content per <annotated-plan-example>]
 EOF
 git add PLAN.md
-git commit -m "plan: implementation plan"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the plan's approach]"  # <card-repo-commit-style>
 ```
 
 ---

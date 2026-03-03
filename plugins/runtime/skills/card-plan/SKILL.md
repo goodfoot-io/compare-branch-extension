@@ -23,7 +23,7 @@ Write the plan to `PLAN.md` in the card repository following the `<annotated-pla
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "plan: [approach and key decisions]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
 
 ### 1.3 Spike Testable Uncertainties
@@ -40,7 +40,7 @@ Incorporate results into the plan:
 ```bash
 cd $CARD_REPO_PATH
 git add PLAN.md
-git commit -m "plan: resolve uncertainties via spikes"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
 
 ## 2. Assess Plan
@@ -131,7 +131,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [accepted concerns from the strategic assessment and rationale for why they do not block implementation]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "accepted concerns: [rationale]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the accepted concerns and rationale]"  # <card-repo-commit-style>
 ```
 
 Proceed to **4. Submit for Approval**
@@ -153,7 +153,7 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 [reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
 EOF
 git add comment/$COMMENT_ID.md
-git commit -m "plan submitted for approval"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing the plan's reasoning process and key judgment calls]"  # <card-repo-commit-style>
 ```
 
 **STOP** — Wait for user feedback on plan.
