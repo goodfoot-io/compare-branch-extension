@@ -1,6 +1,6 @@
 ---
 name: interview-bug-report
-description: Enrich bug report cards with codebase context. Does not implement fixes.
+description: Enrich bug report cards with codebase context.
 ---
 
 <research-before-asking>

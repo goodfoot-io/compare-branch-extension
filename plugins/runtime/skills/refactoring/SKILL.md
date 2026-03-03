@@ -1,6 +1,6 @@
 ---
 name: refactoring
-description: This skill should be used when the user asks to "refactor code", "simplify this code", "assess code complexity", "consolidate duplicated code", "refine tests", "clean up tests", or when evaluating whether to remove unclear code, reduce accidental complexity, or judge duplication during refactoring.
+description: Refactor code to reduce complexity and duplication.
 ---
 
 ## Available Refactoring Methodologies

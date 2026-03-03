@@ -1,6 +1,6 @@
 ---
 name: plan
-description: This skill should be used when the user asks to "create a plan", "write an implementation plan", "plan this feature", "review a plan", "assess plan quality", or when structuring implementation plans stored as PLAN.md in card repositories that require user approval before implementation begins.
+description: Create and review implementation plans for approval.
 ---
 
 This skill defines how to structure implementation plans stored as PLAN.md in card repositories. Plans require user approval before implementation begins.

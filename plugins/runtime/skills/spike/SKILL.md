@@ -1,6 +1,6 @@
 ---
 name: spike
-description: This skill should be used when the user asks to "run a spike", "conduct a technical investigation", "compare approaches", "validate a technology", "test if X supports Y", or when technical uncertainty needs empirical investigation via isolated subagents.
+description: Investigate technical uncertainty via isolated subagent spikes.
 ---
 
 ## Design Philosophy
@@ -22,7 +22,7 @@ Based on decision context:
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Which approach ([A] vs [B] vs [C]) best supports [use case] with [constraints]?"
-- `[SPIKE_PATH]`: Format as `.spikes/!` echo $CARD_ID `/[test-name]/`
+- `[SPIKE_PATH]`: !` echo $CARD_REPO_PATH`/spike/[test-name]/
   - `[test-name]`: Use kebab-case like `realtime-comparison` or `socketio-vs-sse`
 - `[APPROACHES]`: List 2-3 technologies with versions (e.g., `["Socket.io v4.6.1 (WebSocket)", "EventSource (SSE)", "long-polling"]`)
 - `[COMPARISON_CRITERIA]`: Measurable aspects (e.g., `"Developer experience, bidirectional communication, horizontal scaling"`)
@@ -38,7 +38,7 @@ Based on decision context:
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Does [Library@version] support [specific capability]?"
-- `[SPIKE_PATH]`: Format as `.spikes/!` echo $CARD_ID `/[test-name]/`
+- `[SPIKE_PATH]`: !` echo $CARD_REPO_PATH`/spike/[test-name]/
   - `[test-name]`: Use kebab-case like `redis-compatibility-check` or `react-query-types-export`
 - `[APPROACH]`: Single technology to validate (e.g., `"Socket.io v4.6.1 with @socket.io/redis-adapter"`)
 - `[VALIDATION_CRITERIA]`: What needs verification (e.g., `"Redis adapter compatibility for horizontal scaling"`)
@@ -50,9 +50,10 @@ Based on decision context:
 
 
 <subagent-context>
-Subagents have no context from this conversation. Provide card-relative paths:
-- Spike directory: `.spikes/!` echo $CARD_ID `/[test-name]/`
-- Codebase files: `packages/api/src/server.ts` (no prefix needed)
+Subagents have no context from this conversation. Provide absolute paths:
+- Spike directory: !` echo $CARD_REPO_PATH`/spike/[test-name]/
+- Card plan: !` echo $CARD_REPO_PATH`/PLAN.md (when the spike needs implementation context)
+- Codebase files: use absolute workspace paths (e.g., `/workspace/packages/api/src/server.ts`)
 
 Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that organize technical details.
 
@@ -76,7 +77,7 @@ Based on spike type:
   </technical-context>
 
   <spike-path>
-  .spikes/!` echo $CARD_ID `/[test-name]/
+  !` echo $CARD_REPO_PATH`/spike/[test-name]/
   </spike-path>
   ```
 - **Validation Spike**: Use the following XML structure:
@@ -98,7 +99,7 @@ Based on spike type:
   </technical-context>
 
   <spike-path>
-  .spikes/!` echo $CARD_ID`/[test-name]/
+  !` echo $CARD_REPO_PATH`/spike/[test-name]/
   </spike-path>
   ```
 </subagent-context>
@@ -119,7 +120,7 @@ Based on spike type, use the appropriate result template:
     - [Approach 1]: [Specific findings from prototype]
     - [Approach 2]: [Specific findings from prototype]
     - [Approach 3]: [Specific findings from prototype]
-  - **Artifacts**: `.spikes/!` echo $CARD_ID`/[test-name]/` contains:
+  - **Artifacts**: !` echo $CARD_REPO_PATH`/spike/[test-name]/ contains:
     - `approach-[name1]/` - [Description]
     - `approach-[name2]/` - [Description]
     - `approach-[name3]/` - [Description]
@@ -136,7 +137,7 @@ Based on spike type, use the appropriate result template:
   - **Approach Tested**: [Technology/version being validated]
   - **Result**: [Pass/Fail or capability confirmation]
   - **Evidence**: [Concrete demonstration - working code, API output, test results]
-  - **Artifacts**: `.spikes/!` echo $CARD_ID`/[test-name]/` contains:
+  - **Artifacts**: !` echo $CARD_REPO_PATH`/spike/[test-name]/ contains:
     - `test-implementation/` - [Description]
     - `results.md` - Detailed findings
   - **Impact**: [How this result confirms feasibility or influences implementation details]
@@ -148,7 +149,7 @@ Assemble the Task() invocation by composing the spike-context XML and subagent i
 <spike-execution-principles>
 ## Spike Execution Principles
 
-1. **Always use spike isolation**: All spike artifacts must be in the specified spike path, never in main codebase
+1. **Always use spike isolation**: All spike artifacts must be in !` echo $CARD_REPO_PATH`/spike/, never in the main codebase
 2. **Require empirical evidence**: Spikes must produce working code or concrete test results, not documentation research
 3. **Focus on the question**: Stay narrowly focused on answering the specific technical uncertainty
 4. **Document for decisions**: Results must clearly inform implementation decisions with actionable recommendations
@@ -220,9 +221,19 @@ Based on detected problem:
 - **Unclear impact (results don't inform Technical Approach)**: Request revision - clarify decision impact
 - **Missing artifacts (no spike path or artifacts don't match)**: Request revision - produce required artifacts
 
-### Step 4: Incorporate Findings into Plans
+### Step 4: Commit Spike Artifacts
 
-After validating spike quality, incorporate findings:
+After passing quality checks, commit spike artifacts to the card repo:
+
+```bash
+cd $CARD_REPO_PATH
+git add spike/[test-name]/
+git commit -m "spike: [question summary]"  # <card-repo-commit-style>
+```
+
+### Step 5: Incorporate Findings into Plans
+
+After committing, incorporate findings:
 
 1. **Add to Technical Spike Results section** (if plan has this section):
    - Copy the formatted result (Question, Approaches Tested, Evidence, etc.)
@@ -238,7 +249,7 @@ After validating spike quality, incorporate findings:
    - Add any libraries/frameworks selected by comparison spikes
    - Include specific versions validated by the spike
 
-### Step 5: Report to User
+### Step 6: Report to User
 
 Summarize findings in conversational language:
 - State the question that was investigated

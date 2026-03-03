@@ -44,6 +44,18 @@ git commit -m "plan: [approach and key decisions]"  # <card-repo-commit-style>
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from the Technical Approach section).
 
+### 2.1 Spike Testable Uncertainties
+
+Scan the plan for assumptions, open questions, and risk assertions that can be answered with isolated code. Skip this step if none exist.
+
+For each spike-eligible uncertainty, invoke the `runtime:spike` skill. Incorporate results into the plan and commit:
+
+```bash
+cd $CARD_REPO_PATH
+git add PLAN.md
+git commit -m "plan: resolve uncertainties via spikes"  # <card-repo-commit-style>
+```
+
 ---
 
 ## 3. Implement
@@ -62,6 +74,8 @@ For each step in the Technical Approach:
    ```
 
 For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
+
+If an empirically-testable uncertainty surfaces during implementation, invoke the `runtime:spike` skill before proceeding. Update the plan with findings and commit to the card repo.
 
 ### 3.1 Validation Gate
 

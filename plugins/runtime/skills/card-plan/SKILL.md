@@ -26,6 +26,23 @@ git add PLAN.md
 git commit -m "plan: [approach and key decisions]"  # <card-repo-commit-style>
 ```
 
+### 1.3 Spike Testable Uncertainties
+
+Scan the plan for assumptions, open questions, and risk assertions that can be answered with isolated code (e.g., "Does `child.on('exit')` fire after `child.disconnect()`?"). Skip this step if none exist.
+
+For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
+
+Incorporate results into the plan:
+- Move validated assumptions from "unvalidated" to "validated" with spike path references
+- Update Technical Approach if results change the implementation
+- Revise or remove risk mitigations based on disproven assumptions
+
+```bash
+cd $CARD_REPO_PATH
+git add PLAN.md
+git commit -m "plan: resolve uncertainties via spikes"  # <card-repo-commit-style>
+```
+
 ## 2. Assess Plan
 
 ### 2.1 Launch Assessment Subagents
@@ -76,7 +93,7 @@ Based on combined assessment results:
 
 #### After Both Assessments Complete (Always)
 
-1. **Resolve questions through research**
+1. **Resolve questions through research** — route empirically-testable uncertainties to **1.3 Spike Testable Uncertainties** before revising
 2. **Surface considerations visibly** as you work through them
 3. **Track subjective decisions**: Collect design choices and judgment calls (not factual resolutions like "Is X compatible with Y?") for inclusion in the process comment. These help reviewers know where to focus.
 4. **Make decisions** for non-blocking issues and document them in the plan revision
@@ -118,7 +135,7 @@ Proceed to **4. Submit for Approval**
 
 **Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
 
-Focus on what the reviewer cannot see: your reasoning process, what you learned, where you made judgment calls, and where you are less certain. Mention the plan version. Surface decisions as questions with your selected answer inline when the right path was not obvious.
+Focus on what the reviewer cannot see: your reasoning process, what you learned, where you made judgment calls, and where you are less certain. Mention the plan version and any spike investigations performed — what was tested, what was confirmed or disproven, and spike artifact paths for reviewer inspection. Surface decisions as questions with your selected answer inline when the right path was not obvious.
 
 Include surprises, dead ends, assumptions, or risks when they would help the reviewer focus their attention. Write naturally — only include what is genuinely useful for this specific plan.
 

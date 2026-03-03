@@ -1,6 +1,6 @@
 ---
 name: card-implementation-feedback
-description: Apply targeted updates from user feedback on completed implementations awaiting review.
+description: Apply user feedback to completed implementations.
 ---
 
 

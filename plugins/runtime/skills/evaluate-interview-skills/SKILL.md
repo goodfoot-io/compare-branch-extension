@@ -1,6 +1,6 @@
 ---
 name: evaluate-interview-skills
-description: Evaluate interview skills for instruction misunderstandings using simulated reasoning with parallel subagents.
+description: Evaluate interview skills for instruction misunderstandings.
 ---
 
 <purpose>
