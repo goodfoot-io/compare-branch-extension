@@ -158,7 +158,6 @@ export type {
   WebviewState,
   WebviewTimelineEntry,
   WebviewToExtensionMessage,
-  WorkspaceBlock,
   WorkspaceBranch,
   WrapperCommand,
   WrapperErrorResponse,
@@ -175,5 +174,7 @@ export {
   MAX_SUMMARY_LENGTH,
   MAX_TAG_LENGTH,
   MAX_TITLE_LENGTH,
-  TAG_PATTERN
+  TAG_PATTERN,
+  WORKSPACE_BRANCHES_FILE,
+  WORKSPACE_COMMITS_FILE
 } from './types/index.js';

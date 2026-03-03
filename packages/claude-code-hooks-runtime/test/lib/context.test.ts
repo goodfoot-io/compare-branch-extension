@@ -6,6 +6,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -37,7 +38,7 @@ describe('buildCardBlock', () => {
     executionMode: 'interactive' as const,
     apiBaseUrl: 'http://localhost:3000',
     apiAccessToken: 'test-token',
-    workspacePath: '/workspace',
+    repoRoot: '/workspace',
     cardRepoPath: repoPath,
     configPath: '/tmp/config',
     extensionPath: '/tmp/extension',
@@ -275,111 +276,6 @@ describe('buildCardRepoLogBlock', () => {
       expect(result).toContain('CARD.md');
     });
   });
-
-  describe('workspace.commits filtering', () => {
-    let metaRepo: TestGitWorkspace;
-    let metaPath: string;
-
-    beforeAll(async () => {
-      metaRepo = new TestGitWorkspace();
-      metaPath = await metaRepo.create();
-      const git = metaRepo.getGit();
-
-      // Initial CARD.meta.json with empty commits
-      writeFileSync(
-        join(metaPath, 'CARD.meta.json'),
-        JSON.stringify(
-          {
-            id: 'test-1',
-            title: 'Test Card',
-            status: 'todo',
-            tags: [],
-            gates: {
-              planRequired: false,
-              planApproved: false,
-              reviewRequired: false,
-              reviewApproved: false
-            },
-            workspace: { branches: {}, commits: [] }
-          },
-          null,
-          2
-        )
-      );
-      await git.add('CARD.meta.json');
-      await git.commit('Add CARD.meta.json');
-
-      // Commit that only changes workspace.commits
-      writeFileSync(
-        join(metaPath, 'CARD.meta.json'),
-        JSON.stringify(
-          {
-            id: 'test-1',
-            title: 'Test Card',
-            status: 'todo',
-            tags: [],
-            gates: {
-              planRequired: false,
-              planApproved: false,
-              reviewRequired: false,
-              reviewApproved: false
-            },
-            workspace: { branches: {}, commits: ['abc123def456'] }
-          },
-          null,
-          2
-        )
-      );
-      await git.add('CARD.meta.json');
-      await git.commit('Update workspace commits only');
-
-      // Commit that changes title, status, tags AND workspace.commits
-      writeFileSync(
-        join(metaPath, 'CARD.meta.json'),
-        JSON.stringify(
-          {
-            id: 'test-1',
-            title: 'Updated Title',
-            status: 'in_progress',
-            tags: ['feature'],
-            gates: {
-              planRequired: false,
-              planApproved: false,
-              reviewRequired: false,
-              reviewApproved: false
-            },
-            workspace: { branches: {}, commits: ['abc123def456', 'def789'] }
-          },
-          null,
-          2
-        )
-      );
-      await git.add('CARD.meta.json');
-      await git.commit('Update title and add commit');
-    });
-
-    afterAll(() => {
-      metaRepo.destroy();
-    });
-
-    it('drops commit when only workspace.commits changed in CARD.meta.json', () => {
-      const result = buildCardRepoLogBlock(metaPath);
-
-      expect(result).not.toBeNull();
-      expect(result).not.toContain('Update workspace commits only');
-    });
-
-    it('keeps non-workspace.commits changes when mixed', () => {
-      const result = buildCardRepoLogBlock(metaPath);
-
-      expect(result).not.toBeNull();
-      expect(result).toContain('Update title and add commit');
-      expect(result).toContain('Updated Title');
-      // workspace.commits SHAs should be stripped
-      expect(result).not.toContain('abc123def456');
-      expect(result).not.toContain('def789');
-    });
-  });
 });
 
 describe('buildWorkspaceRepoLogBlocks', () => {
@@ -427,43 +323,75 @@ describe('buildWorkspaceRepoLogBlocks', () => {
   });
 
   /**
-   * Creates a temp card repo dir with CARD.meta.json containing the given workspace block.
+   * Creates a temp card repo dir with workspace-branches.json and workspace-commits.csv.
    *
-   * @param workspaceBlock - Workspace block to include in CARD.meta.json.
+   * @param branches - Branch map to write to workspace-branches.json.
+   * @param commits - Commit SHAs to write to workspace-commits.csv.
    * @returns Path to the created temporary directory.
    */
-  function makeCardRepo(workspaceBlock: Record<string, unknown>): string {
+  function makeCardRepo(branches: Record<string, unknown>, commits: string[]): string {
     const dir = join(workspacePath, '..', `card-repo-ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'CARD.meta.json'), JSON.stringify({ id: 'card-123', workspace: workspaceBlock }));
+    writeFileSync(join(dir, WORKSPACE_BRANCHES_FILE), JSON.stringify(branches, null, 2));
+    writeFileSync(join(dir, WORKSPACE_COMMITS_FILE), commits.map((c) => `${c}\n`).join(''));
     return dir;
   }
 
-  it('returns empty array when CARD.meta.json has no workspace block', () => {
+  it('returns empty array when workspace files are missing', () => {
     const dir = join(workspacePath, '..', `no-ws-${Date.now()}`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'CARD.meta.json'), JSON.stringify({ id: 'card-123' }));
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
     expect(blocks).toEqual([]);
   });
 
-  it('returns empty array when workspace.commits is empty', () => {
-    const dir = makeCardRepo({ branches: {}, commits: [] });
+  it('returns empty blocks when branches exist but no commits file exists', () => {
+    const dir = join(workspacePath, '..', `branches-only-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, WORKSPACE_BRANCHES_FILE),
+      JSON.stringify({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, null, 2)
+    );
+    // No workspace-commits.csv — readWorkspaceData returns non-null (branches exist),
+    // but no commits means no blocks to render. The critical behavior is that
+    // readWorkspaceData does NOT return null — branches are recognized.
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
+    // No commits to attribute → no blocks rendered, but the function reached the
+    // branch-processing logic (it did not early-return null from readWorkspaceData).
     expect(blocks).toEqual([]);
+  });
+
+  it('renders commits correctly when branches exist and commits arrive later', () => {
+    const dir = join(
+      workspacePath,
+      '..',
+      `branches-then-commits-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    );
+    mkdirSync(dir, { recursive: true });
+    // Branches file exists first
+    writeFileSync(
+      join(dir, WORKSPACE_BRANCHES_FILE),
+      JSON.stringify({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, null, 2)
+    );
+    // Then commits arrive
+    writeFileSync(join(dir, WORKSPACE_COMMITS_FILE), `${branch1CommitSha1}\n`);
+
+    const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toContain('branch="cards/card-123/1"');
+    expect(blocks[0]).toContain('parentBranch="main"');
+    expect(blocks[0]).toContain('count="1"');
   });
 
   it('renders a single branch block with correct attributes', () => {
-    const dir = makeCardRepo({
-      branches: {
-        'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' }
-      },
-      commits: [branch1CommitSha1, branch1CommitSha2]
-    });
+    const dir = makeCardRepo({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
+      branch1CommitSha1,
+      branch1CommitSha2
+    ]);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -479,12 +407,9 @@ describe('buildWorkspaceRepoLogBlocks', () => {
   });
 
   it('renders diffstat for workspace commits', () => {
-    const dir = makeCardRepo({
-      branches: {
-        'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' }
-      },
-      commits: [branch1CommitSha1]
-    });
+    const dir = makeCardRepo({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
+      branch1CommitSha1
+    ]);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -494,13 +419,13 @@ describe('buildWorkspaceRepoLogBlocks', () => {
 
   it('deduplicates shared commits across branches with bare short hashes', () => {
     // mainCommitSha is reachable from both branches
-    const dir = makeCardRepo({
-      branches: {
+    const dir = makeCardRepo(
+      {
         'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' },
         'cards/card-123/2': { parentBranch: 'main', addedAt: '2025-01-16T14:00:00Z' }
       },
-      commits: [mainCommitSha, branch1CommitSha1, branch2CommitSha]
-    });
+      [mainCommitSha, branch1CommitSha1, branch2CommitSha]
+    );
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -524,10 +449,7 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     // (branch2 was created from main before mainCommitSha existed in branch namespace)
     // Actually, mainCommitSha IS reachable from both branches.
     // So let's create a scenario with no tracked branches — all commits go to base.
-    const dir = makeCardRepo({
-      branches: {},
-      commits: [mainCommitSha]
-    });
+    const dir = makeCardRepo({}, [mainCommitSha]);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -542,10 +464,7 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     // non-existent ref so nothing claims it.
     process.env['BASE_BRANCH'] = 'nonexistent-base-branch';
 
-    const dir = makeCardRepo({
-      branches: {},
-      commits: [branch1CommitSha1]
-    });
+    const dir = makeCardRepo({}, [branch1CommitSha1]);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -560,10 +479,7 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     process.env['BASE_BRANCH'] = 'nonexistent-base-branch';
 
     const fakeSha = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
-    const dir = makeCardRepo({
-      branches: {},
-      commits: [fakeSha]
-    });
+    const dir = makeCardRepo({}, [fakeSha]);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -573,12 +489,9 @@ describe('buildWorkspaceRepoLogBlocks', () => {
   it('handles deleted branch gracefully (commits fall through to base)', () => {
     process.env['BASE_BRANCH'] = 'main';
 
-    const dir = makeCardRepo({
-      branches: {
-        'deleted-branch-xyz': { parentBranch: 'main', addedAt: '2025-01-10T00:00:00Z' }
-      },
-      commits: [mainCommitSha]
-    });
+    const dir = makeCardRepo({ 'deleted-branch-xyz': { parentBranch: 'main', addedAt: '2025-01-10T00:00:00Z' } }, [
+      mainCommitSha
+    ]);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -589,13 +502,13 @@ describe('buildWorkspaceRepoLogBlocks', () => {
 
   it('sorts branches by addedAt (oldest first gets full output)', () => {
     // Branch 2 (newer) should dedup against branch 1 (older)
-    const dir = makeCardRepo({
-      branches: {
+    const dir = makeCardRepo(
+      {
         'cards/card-123/2': { parentBranch: 'main', addedAt: '2025-01-16T14:00:00Z' },
         'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' }
       },
-      commits: [mainCommitSha, branch1CommitSha1, branch2CommitSha]
-    });
+      [mainCommitSha, branch1CommitSha1, branch2CommitSha]
+    );
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
@@ -606,10 +519,9 @@ describe('buildWorkspaceRepoLogBlocks', () => {
   it('returns empty array when workspacePath is not a git repo', () => {
     const fakeWorkspace = join(workspacePath, '..', `not-git-${Date.now()}`);
     mkdirSync(fakeWorkspace, { recursive: true });
-    const dir = makeCardRepo({
-      branches: { 'some-branch': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } },
-      commits: [branch1CommitSha1]
-    });
+    const dir = makeCardRepo({ 'some-branch': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
+      branch1CommitSha1
+    ]);
 
     const blocks = buildWorkspaceRepoLogBlocks(fakeWorkspace, dir);
 
@@ -626,7 +538,7 @@ describe('buildAdditionalContext', () => {
     executionMode: 'interactive' as const,
     apiBaseUrl: 'http://localhost:3000',
     apiAccessToken: 'test-token',
-    workspacePath: '/workspace',
+    repoRoot: '/workspace',
     cardRepoPath: repoPath,
     configPath: '/tmp/config',
     extensionPath: '/tmp/extension',

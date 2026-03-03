@@ -48,8 +48,11 @@ export type {
   AddBranchRequest,
   BranchesResponse,
   BranchInfo,
-  WorkspaceBlock,
   WorkspaceBranch
+} from './branch.js';
+export {
+  WORKSPACE_BRANCHES_FILE,
+  WORKSPACE_COMMITS_FILE
 } from './branch.js';
 // --- Callback Types ---
 export type { IpcMessageCallback } from './callbacks.js';

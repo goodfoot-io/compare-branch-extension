@@ -13,6 +13,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
+import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 
 /**
  * Error thrown when the card repository cannot be read.
@@ -126,7 +127,7 @@ export function buildCardBlock(actionInput: ActionInput): string {
   const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
   const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
 
-  const envLines = [`  CARD_REPO_PATH=${actionInput.cardRepoPath}`, `  WORKSPACE_PATH=${actionInput.workspacePath}`];
+  const envLines = [`  CARD_REPO_PATH=${actionInput.cardRepoPath}`, `  WORKSPACE_PATH=${actionInput.repoRoot}`];
   if (baseBranch) envLines.push(`  BASE_BRANCH=${baseBranch}`);
   if (workspaceBranch) envLines.push(`  WORKSPACE_BRANCH=${workspaceBranch}`);
 
@@ -279,123 +280,10 @@ function stripDiffstatSummaries(text: string): string {
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 
 /**
- * Tests whether a diff hunk exclusively modifies the `workspace.commits`
- * property in CARD.meta.json.
- *
- * Tracks array nesting state as it scans lines: enters a "commits context"
- * when a `"commits": [` pattern appears and exits on the matching `]`.
- * Changed lines (+ or -) inside this context are workspace.commits changes.
- *
- * @param hunkLines - Lines of a single unified diff hunk (starting with `@@`).
- * @returns `true` when the hunk has changes and all are within `workspace.commits`.
- */
-function isWorkspaceCommitsOnlyHunk(hunkLines: string[]): boolean {
-  let inCommits = false;
-  let hasNonCommitsChange = false;
-  let hasAnyChange = false;
-
-  for (const line of hunkLines) {
-    if (line.startsWith('@@')) continue;
-
-    const isChange = line.startsWith('+') || line.startsWith('-');
-    const content = line.slice(1);
-
-    if (!inCommits && /"commits"\s*:\s*\[/.test(content)) {
-      inCommits = true;
-      const afterBracket = content.slice(content.indexOf('[') + 1);
-      if (afterBracket.includes(']')) inCommits = false;
-      if (isChange) hasAnyChange = true;
-      continue;
-    }
-
-    if (inCommits) {
-      if (content.includes(']')) inCommits = false;
-      if (isChange) hasAnyChange = true;
-      continue;
-    }
-
-    if (isChange) {
-      hasAnyChange = true;
-      hasNonCommitsChange = true;
-    }
-  }
-
-  return hasAnyChange && !hasNonCommitsChange;
-}
-
-/**
- * Filters hunks from a CARD.meta.json unified diff section, removing hunks
- * that only modify `workspace.commits`.
- *
- * @param fileDiff - A single file's unified diff (starting with `diff --git`).
- * @returns Filtered diff section, or `null` when all hunks were removed.
- */
-function filterCardMetaHunks(fileDiff: string): string | null {
-  const lines = fileDiff.split('\n');
-  const firstHunkIdx = lines.findIndex((l) => l.startsWith('@@'));
-  if (firstHunkIdx === -1) return fileDiff;
-
-  const header = lines.slice(0, firstHunkIdx);
-  const hunkContent = lines.slice(firstHunkIdx);
-
-  const hunks: string[][] = [];
-  let current: string[] = [];
-  for (const line of hunkContent) {
-    if (line.startsWith('@@') && current.length > 0) {
-      hunks.push(current);
-      current = [];
-    }
-    current.push(line);
-  }
-  if (current.length > 0) hunks.push(current);
-
-  const kept = hunks.filter((h) => !isWorkspaceCommitsOnlyHunk(h));
-  if (kept.length === 0) return null;
-
-  return [...header, ...kept.flat()].join('\n');
-}
-
-/**
- * Filters a single commit's patch output:
- * - Strips `workspace.commits` hunks from CARD.meta.json diffs
- * - Drops the commit entirely if no meaningful diffs remain
- *
- * @param commitBlock - Raw commit output: header line followed by patch content.
- * @returns Filtered commit block, or `null` when no diffs remain.
- */
-function filterCommitPatch(commitBlock: string): string | null {
-  const firstDiffIdx = commitBlock.search(/^diff --git /m);
-
-  if (firstDiffIdx === -1) {
-    const trimmed = commitBlock.trim();
-    return trimmed || null;
-  }
-
-  const header = commitBlock.slice(0, firstDiffIdx).trim();
-  const diffPart = commitBlock.slice(firstDiffIdx);
-  const fileSections = diffPart.split(/(?=^diff --git )/m);
-
-  const filtered: string[] = [];
-  for (const section of fileSections) {
-    if (/^diff --git a\/CARD\.meta\.json b\/CARD\.meta\.json/.test(section)) {
-      const result = filterCardMetaHunks(section);
-      if (result) filtered.push(result);
-    } else {
-      filtered.push(section);
-    }
-  }
-
-  if (filtered.length === 0) return null;
-
-  return `${header}\n${filtered.join('')}`.trim();
-}
-
-/**
  * Builds the `<card-repo-log>` block with recent commits and patch diffs.
  *
  * Filters out commits that exclusively touch `streams/` files (high-frequency
- * transcript writes) and strips `workspace.commits` bookkeeping changes from
- * CARD.meta.json diffs. Shows patch output instead of diffstat for remaining
+ * transcript writes). Shows patch output instead of diffstat for remaining
  * content.
  *
  * Returns `null` when the repository has no qualifying commits or git is
@@ -424,8 +312,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
 
     const formattedCommits: string[] = [];
     for (const commit of rawCommits) {
-      const filtered = filterCommitPatch(commit);
-      if (filtered) formattedCommits.push(filtered);
+      const trimmed = commit.trim();
+      if (trimmed) formattedCommits.push(trimmed);
     }
 
     if (formattedCommits.length === 0) return null;
@@ -459,7 +347,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
 
 /**
- * Workspace tracking data read from CARD.meta.json.
+ * Workspace tracking data read from separate workspace files.
  */
 interface WorkspaceData {
   branches: Record<string, { parentBranch?: string; addedAt: string }>;
@@ -467,44 +355,59 @@ interface WorkspaceData {
 }
 
 /**
- * Reads the workspace block from CARD.meta.json.
+ * Reads workspace data from separate files in the card repository.
  *
- * Returns `null` when the file is missing, malformed, or has no commits.
+ * Reads branches from `workspace-branches.json` and commits from
+ * `workspace-commits.csv`. Each file is read independently — ENOENT is
+ * treated as an empty result, other errors cause `null` to be returned.
+ *
+ * Returns data whenever either file has content. Returns `null` only when
+ * both files are absent or empty, or when a non-ENOENT error occurs.
  *
  * @param cardRepoPath - Root directory of the card repository.
  * @returns Parsed workspace data, or `null` when unavailable.
  */
 function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
+  const branches: WorkspaceData['branches'] = {};
+  let commits: string[] = [];
+
+  // Read branches from workspace-branches.json
   try {
-    const raw = readFileSync(join(cardRepoPath, 'CARD.meta.json'), 'utf-8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const workspace = parsed['workspace'] as
-      | { branches?: Record<string, { parentBranch?: string; addedAt?: string }>; commits?: unknown[] }
-      | undefined;
-
-    if (!workspace) return null;
-
-    const commits = Array.isArray(workspace.commits)
-      ? workspace.commits.filter((s): s is string => typeof s === 'string' && s.length > 0)
-      : [];
-    if (commits.length === 0) return null;
-
-    const branches: WorkspaceData['branches'] = {};
-    if (workspace.branches && typeof workspace.branches === 'object') {
-      for (const [name, meta] of Object.entries(workspace.branches)) {
-        if (meta && typeof meta === 'object') {
-          branches[name] = {
-            parentBranch: typeof meta.parentBranch === 'string' ? meta.parentBranch : undefined,
-            addedAt: typeof meta.addedAt === 'string' ? meta.addedAt : ''
-          };
-        }
+    const raw = readFileSync(join(cardRepoPath, WORKSPACE_BRANCHES_FILE), 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, { parentBranch?: string; addedAt?: string }>;
+    for (const [name, meta] of Object.entries(parsed)) {
+      if (meta && typeof meta === 'object') {
+        branches[name] = {
+          parentBranch: typeof meta.parentBranch === 'string' ? meta.parentBranch : undefined,
+          addedAt: typeof meta.addedAt === 'string' ? meta.addedAt : ''
+        };
       }
     }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      return null;
+    }
+  }
 
-    return { branches, commits };
-  } catch {
+  // Read commits from workspace-commits.csv
+  try {
+    const raw = readFileSync(join(cardRepoPath, WORKSPACE_COMMITS_FILE), 'utf-8');
+    commits = raw
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((s): s is string => s.length > 0);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      return null;
+    }
+  }
+
+  // Return data when either file has content
+  if (Object.keys(branches).length === 0 && commits.length === 0) {
     return null;
   }
+
+  return { branches, commits };
 }
 
 /**
@@ -598,10 +501,10 @@ interface CommitGroup {
 /**
  * Builds `<workspace-repo-log>` blocks showing workspace commits grouped by branch.
  *
- * Reads `workspace.branches` and `workspace.commits` from CARD.meta.json,
- * partitions commits across branches using git reachability, and renders
- * per-branch XML blocks. Already-printed commits appear as bare short hashes
- * in subsequent blocks (dedup).
+ * Reads branches from `workspace-branches.json` and commits from
+ * `workspace-commits.csv`, partitions commits across branches using git
+ * reachability, and renders per-branch XML blocks. Already-printed commits
+ * appear as bare short hashes in subsequent blocks (dedup).
  *
  * Branch processing order: sorted by `addedAt` (oldest first) so the
  * foundational branch receives full commit output and later branches dedup
@@ -710,7 +613,7 @@ export function buildAdditionalContext(actionInput: ActionInput): string {
   const cardBlock = buildCardBlock(actionInput);
   const repoBlock = buildCardRepoBlock(actionInput.cardRepoPath);
   const logBlock = buildCardRepoLogBlock(actionInput.cardRepoPath);
-  const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.workspacePath, actionInput.cardRepoPath);
+  const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.repoRoot, actionInput.cardRepoPath);
 
   const parts = [cardBlock, repoBlock];
   if (logBlock) parts.push(logBlock);

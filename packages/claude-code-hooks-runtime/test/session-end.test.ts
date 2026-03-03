@@ -32,7 +32,7 @@ const baseActionInput = {
   executionMode: 'interactive' as const,
   apiBaseUrl: 'http://localhost:3000',
   apiAccessToken: 'test-token',
-  workspacePath: '/workspace',
+  repoRoot: '/workspace',
   cardRepoPath: '/tmp/card-repos/card-123',
   configPath: '/tmp/config',
   extensionPath: '/tmp/extension',

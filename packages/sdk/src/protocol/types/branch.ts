@@ -2,9 +2,9 @@
  * Branch and worktree tracking types for Cards V2 workspace integration.
  *
  * These types support tracking Git branches and their associated worktrees within
- * a card's workspace block. The workspace block is stored in CARD.meta.json and
- * tracks both static metadata (branch name, worktree path, addedAt timestamp) and
- * derived fields computed at read time (exists, isMerged, commits).
+ * a card's workspace. Branch metadata is persisted in separate workspace-branches.json
+ * and workspace-commits.csv files, tracked with static metadata (branch name, worktree path,
+ * addedAt timestamp) and derived fields computed at read time (exists, isMerged, commits).
  *
  * The branch API (`GET /cards/:id/branches`, `POST /cards/:id/branches`) uses
  * these types to expose workspace tracking state to clients and enable branch
@@ -13,6 +13,9 @@
  * @summary Branch and worktree tracking types for Cards V2 workspace integration
  * @module types/branch
  */
+
+export const WORKSPACE_BRANCHES_FILE = 'workspace-branches.json';
+export const WORKSPACE_COMMITS_FILE = 'workspace-commits.csv';
 
 /**
  * A single tracked branch within a card's workspace block.
@@ -39,27 +42,6 @@ export interface WorkspaceBranch {
    * Used for chronological sorting and audit trails.
    */
   addedAt: string;
-}
-
-/**
- * Workspace tracking block stored in CARD.meta.json.
- *
- * This block contains all workspace-related metadata for a card, including
- * branch tracking and commit attribution. It is persisted to disk and updated
- * by git-hooks and branch API operations.
- */
-export interface WorkspaceBlock {
-  /**
-   * Map of branch name → branch tracking data.
-   * Branch names may contain slashes (e.g., "feature/auth").
-   */
-  branches: Record<string, WorkspaceBranch>;
-
-  /**
-   * Commit SHAs attributed to this card's workspace.
-   * Used for activity tracking and timeline integration.
-   */
-  commits: string[];
 }
 
 /**

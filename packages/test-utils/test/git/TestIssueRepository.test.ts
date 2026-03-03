@@ -9,6 +9,7 @@
  * @module test-utils/test/git/TestIssueRepository.test
  */
 import * as path from 'node:path';
+import { WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TestCardRepository } from '../../src/git/TestCardRepository.js';
@@ -60,7 +61,7 @@ describe('TestCardRepository', () => {
       expect(await fs.pathExists(path.join(cardPath, 'PLAN.md'))).toBe(false);
       expect(await fs.pathExists(path.join(cardPath, 'comment'))).toBe(false);
       expect(await fs.pathExists(path.join(cardPath, 'attachment'))).toBe(false);
-      // workspace.commits is managed via CARD.meta.json, not a standalone CSV file
+      // workspace commits are managed via workspace-commits.csv
     });
 
     it('creates CARD.meta.json with metadata', async () => {
@@ -190,11 +191,15 @@ describe('TestCardRepository', () => {
       cardId = await repo.createCard({ title: 'Test Card' });
     });
 
-    it('adds attribution to CARD.meta.json workspace.commits', async () => {
+    it('adds attribution to workspace-commits.csv', async () => {
       await repo.addAttribution(cardId, 'abc123def456');
-      const metaContent = await repo.readFile(cardId, 'CARD.meta.json');
-      const metadata = JSON.parse(metaContent) as { workspace?: { commits?: string[] } };
-      expect(metadata.workspace?.commits).toContain('abc123def456');
+      const csvPath = path.join(repo.getCardPath(cardId), WORKSPACE_COMMITS_FILE);
+      const content = await fs.readFile(csvPath, 'utf-8');
+      const commits = content
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+      expect(commits).toContain('abc123def456');
     });
   });
 

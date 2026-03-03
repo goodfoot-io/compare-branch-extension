@@ -22,7 +22,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { CardGates, CardStatus } from '@cards/sdk/protocol';
-import { DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
+import { DEFAULT_CARD_GATES, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4, v7 as uuidv7 } from 'uuid';
@@ -314,7 +314,7 @@ export class TestCardRepository {
   /**
    * Adds an attribution commit SHA to a card.
    *
-   * Behavior: appends the SHA to `workspace.commits` in `CARD.meta.json` and commits the file.
+   * Behavior: appends the SHA to `workspace-commits.csv` and commits the file.
    *
    * @param cardId Identifier of the card repository receiving attribution data
    * @param sha The commit SHA to attribute
@@ -325,21 +325,23 @@ export class TestCardRepository {
     }
 
     const cardPath = path.join(this.reposPath, cardId);
-    const metaFilePath = path.join(cardPath, 'CARD.meta.json');
+    const csvPath = path.join(cardPath, WORKSPACE_COMMITS_FILE);
 
-    // Read CARD.meta.json, push SHA to workspace.commits, write back
-    const metaContent = await fs.readFile(metaFilePath, 'utf-8');
-    const metadata = JSON.parse(metaContent) as Record<string, unknown> & {
-      workspace?: { branches?: Record<string, unknown>; commits?: string[] };
-    };
-    if (!metadata.workspace) {
-      metadata.workspace = { branches: {}, commits: [] };
+    // Read existing commits, append new SHA
+    let existing: string[] = [];
+    try {
+      const content = await fs.readFile(csvPath, 'utf-8');
+      existing = content
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
     }
-    if (!metadata.workspace.commits) {
-      metadata.workspace.commits = [];
-    }
-    metadata.workspace.commits.push(sha);
-    await fs.writeFile(metaFilePath, JSON.stringify(metadata, null, 2));
+    existing.push(sha);
+    await fs.writeFile(csvPath, `${existing.join('\n')}\n`);
 
     const git = simpleGit(cardPath);
     await git.add('.');
