@@ -187,8 +187,8 @@ When you finish your evaluation and begin writing your report, send a brief `FIN
 - [Finding] at [file:line] — [dimension] — [classification signal] — [what needs to change]
 
 ### Recommended Findings
-[Findings logged for future work:]
-- [Finding] — [dimension] — [why it would improve the implementation]
+[Findings that meaningfully improve the implementation:]
+- [Finding] at [file:line] — [dimension] — [what would improve and why]
 
 ### Summary
 [Brief overall assessment: is the implementation wired end-to-end? What was forgotten?]

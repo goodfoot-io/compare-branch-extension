@@ -387,11 +387,10 @@ Send shutdown requests to both teammates and delete the team:
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Create todos with "[Eval fix]" prefix from all required/CONTINUE findings (merged from both evaluators, deduplicated by file:line), return to Step 2.2. Some findings may predate the current implementation — fix them the same way.
-3. **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Write completion comment, proceed to Step 4
-4. **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 4
+2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has findings**: Create todos from all findings — required with "[Eval fix]" prefix, recommended with "[Recommended fix]" prefix (merged from both evaluators, deduplicated by file:line), return to Step 2.2. Some findings may predate the current implementation — fix them the same way. If only recommended findings remain and the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to Step 4.
+3. **Both PRODUCTION_READY/SATISFIES_INTENT with no findings**: Proceed to Step 4
 
-Write recommended findings (if any) as a card comment:
+Write unresolved recommended findings (if any) as a card comment:
 
 ```bash
 cd $CARD_REPO_PATH
@@ -399,7 +398,7 @@ export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 ## Recommended Improvements
 
-[recommended findings from end-to-end evaluator — logged for future work]
+[unresolved recommended findings from end-to-end evaluator]
 EOF
 git add comment/$COMMENT_ID.md
 git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
