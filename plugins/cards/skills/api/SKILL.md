@@ -11,6 +11,21 @@ filesystem repository — see Card Repository below.
 
 The user is notified when you create a card or add a comment.
 
+## Card Type References
+
+Before writing a card's `description`, load the reference that matches the user's request. References are located at `${CLAUDE_PLUGIN_ROOT}/skills/api/references/`.
+
+Determine the card type using the first matching signal:
+- **Bug, error, crash, regression, broken behavior**: `bug-report.md`
+- **Feature, improvement, new capability**: `enhancement.md`
+- **Research, spike, unknown root cause, feasibility**: `investigation.md`
+- **Documentation, guides, runbooks, API reference**: `documentation.md`
+- **Refactor, cleanup, tech debt, upgrade, migration**: `maintenance.md`
+- **Infrastructure, CI/CD, deploy, monitoring, scaling**: `operations.md`
+- **Otherwise**: `enhancement.md`
+
+Read the matched reference file, then follow its guidance to compose the card's `description` field.
+
 ## CLI Binaries
 
 ### card.mjs — Card operations
