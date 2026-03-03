@@ -320,6 +320,9 @@ Spawn both evaluators as teammates:
 <parameter name="prompt">
 Evaluate for production readiness.
 
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
 ## Validation Status
 All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
 
@@ -329,7 +332,7 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 ## Modified Files
 [PLAN_FILES]
 
-You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect behavioral correctness via SendMessage.
+You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect wiring or integration via SendMessage.
 </parameter>
 </invoke>
 <invoke name="Task">
@@ -343,6 +346,9 @@ Evaluate implementation against commander's intent.
 
 ## Commander's Intent
 [COMMANDERS_INTENT]
+
+## Card Repository
+!` echo $CARD_REPO_PATH`
 
 ## Validation Status
 All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
@@ -364,7 +370,7 @@ Wait for both agents to complete their evaluations and deliver reports.
 
 ### 3.6 Shut Down Team
 
-Send shutdown requests to both teammates and delete the team:
+Send shutdown requests to both teammates. Wait for both to acknowledge before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
@@ -379,6 +385,8 @@ Send shutdown requests to both teammates and delete the team:
 </invoke>
 ```
 
+After both teammates have shut down:
+
 ```xml
 <invoke name="TeamDelete"/>
 ```
@@ -387,8 +395,9 @@ Send shutdown requests to both teammates and delete the team:
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has findings**: Create todos from all findings — required with "[Eval fix]" prefix, recommended with "[Recommended fix]" prefix (merged from both evaluators, deduplicated by file:line), return to Step 2.2. Some findings may predate the current implementation — fix them the same way. If only recommended findings remain and the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to Step 4.
-3. **Both PRODUCTION_READY/SATISFIES_INTENT with no findings**: Proceed to Step 4
+2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Create todos from all findings — required with "[Eval fix]" prefix, recommended with "[Recommended fix]" prefix (merged from both evaluators, deduplicated by file:line), return to Step 2.2. Some findings may predate the current implementation — fix them the same way.
+3. **Both PRODUCTION_READY/SATISFIES_INTENT, but end-to-end evaluator has recommended findings**: Create todos from recommended findings with "[Recommended fix]" prefix, return to Step 2.2. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to Step 4.
+4. **Both PRODUCTION_READY/SATISFIES_INTENT with no findings**: Proceed to Step 4
 
 Write unresolved recommended findings (if any) as a card comment:
 

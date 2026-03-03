@@ -24,99 +24,21 @@ When you mark "Ready for Implementation: Yes," you are making a promise that the
 </critical-constraints>
 
 <structural-compliance-requirements>
-Verify all required sections are present per the plan skill.
+Verify all required sections are present and contain actionable detail per the plan skill. Each section must be specific enough to implement without guessing — concrete file paths, named functions/classes/components, specific versions.
 
 Required sections:
-1. Title format: `# Implementation Project: [Title]`
+1. Title format: `## Implementation Plan`
 2. Problem Statement (clear description of the issue)
-3. Goals & Objectives (3-7 checkboxes with specific outcomes)
+3. Goals & Objectives (3-7 checkboxes with specific, measurable outcomes)
 4. Scope (MUST have both Include AND Exclude subsections)
-5. Framework & Technology Stack (versions in package@version format)
-6. Technical Approach (numbered steps with file paths)
+5. Framework & Technology Stack (versions in package@version format; flag missing or vague ranges like "latest")
+6. Technical Approach (numbered steps with concrete file paths and named symbols)
 7. Dependency Analysis (High-Impact Files + Key Integration Points)
 8. Validation Commands (typecheck, test, lint — mandatory for affected packages)
 9. Risks & Mitigations (3-5 technical risks with solutions)
 
 Note: Section order matters. Plans should follow the above sequence.
 </structural-compliance-requirements>
-
-<content-analysis-patterns>
-### Overengineering Detection
-Look for these anti-patterns:
-- Database setup for simple file storage needs
-- Complex frameworks for basic functionality
-- Excessive abstraction layers
-- Premature optimization
-- Feature creep beyond requirements
-
-### Underspecification Detection
-Identify missing details in:
-- Concrete file paths and names
-- Specific function/class/component names
-- Clear technical implementation steps
-- Testing approach
-- Error handling strategy
-- Framework versions in package@version format
-
-### Framework & Technology Stack Validation
-
-**Check for version presence** (MEDIUM priority):
-- Major dependencies have versions specified
-- Versions are specific enough for reproducibility
-
-**Accept common format variations** (never block implementation):
-- Node.js with or without 'v' prefix
-- Packages with or without @ notation
-- Different spacing/punctuation styles
-
-Only flag if versions are missing or too vague (e.g., "latest").
-
-### Strategic Planning Validation
-For each identified planning assumption:
-1. Check if explicitly stated in requirements with evidence basis
-2. Verify against best practices and long-term architectural patterns
-3. Flag if contradicts project patterns or creates technical debt
-4. Recommend explicit clarification with comparative analysis
-
-### Technical Spike Assessment
-
-#### Recommend Strategic Spikes When:
-- **Technology selection lacks justification**: Plan assumes specific technology without comparing alternatives
-- **Multiple viable approaches exist**: Different libraries/frameworks could work but no comparison conducted
-- **Architecture decision lacks empirical evidence**: Pattern selection based on assumption rather than testing
-
-#### Recommend Tactical Spikes When:
-- **Version compatibility assumed**: Plan assumes library@version supports features without verification
-- **API/export assumptions**: Claims about what libraries expose without checking
-- **Framework behavior assumed**: Expects version-specific behavior without testing
-- **Performance characteristics assumed**: Claims about performance without measurement
-
-### Quality Assessment Workflow
-
-**First pass (quick checks):**
-- Scan for vague language: "fast", "user-friendly", "intuitive", "scalable"
-- Check testability: "How would we test this?" for each goal
-- Verify scope: Exclude section present and substantive (3+ items)
-- Spot-check rationale: Technology choices have justification
-
-**Severity Mapping:**
-
-Based on finding type, assign priority:
-- **Vague terms in Goals**: 1-2 terms = MEDIUM; 3+ terms = HIGH
-- **Missing numeric thresholds**: Any performance claim without number = HIGH
-- **Coherence conflicts**: Any conflict = CRITICAL
-- **Missing rationale**: Tech selection without why = MEDIUM
-- **Sparse Exclude section**: < 3 items = MEDIUM; empty = HIGH
-- **Untestable goals**: Any goal without clear test = HIGH
-- **Missing NFRs**: User-facing ops without latency = HIGH
-
-**Project Type Adjustments:**
-- **Bug fixes**: Scope/rationale less critical; focus on testability
-- **Refactoring**: No new user-facing functionality expected; focus on coherence
-- **Research/Spikes**: Uncertain outcomes acceptable; focus on scope boundaries
-- **Hotfixes**: Abbreviated plans acceptable; focus on critical risks only
-- **Greenfield**: All dimensions apply; apply full rigor
-</content-analysis-patterns>
 
 <priority-framework>
 ### Critical (Prevents Implementation)
@@ -125,38 +47,26 @@ Based on finding type, assign priority:
 - No clear implementation steps
 - Ambiguous success criteria
 - Missing framework/library versions
-- Fundamentally flawed or inefficient approach detected
 
 ### High (Significant Issues)
-- Major overengineering detected or architectural complexity anti-patterns
-- Approach likely to require excessive workarounds or create technical debt
-- Key technical details missing for strategic implementation success
+- Technical steps lack concrete file paths or named symbols
 - No testing approach defined
 
 ### Medium (Notable Concerns)
 - Minor structural issues affecting implementation clarity
 - Some implementation details vague
-- Moderate complexity concerns
-- Planning assumptions need evidence-based clarification
 
 ### Low (Minor Improvements)
 - Formatting inconsistencies
-- Style improvements
 - Redundant wording
-- Version format preferences
 </priority-framework>
 
 <assessment-report-structure>
 ```markdown
-# Strategic Assessment Report: !` echo $CARD_ID`
+## Structural Assessment Report: !` echo $CARD_ID`
 
 ## Summary
-[Brief overview of plan quality, strategic soundness, and implementation readiness]
-
-## Objective Context Analysis
-**Plan Type**: [Initial/Revision]
-**Implementation Scope**: [Within Pattern Compliance/Requires Pattern Deviation]
-**Evidence Quality**: [Concrete Measurements/Requires Additional Testing/Insufficient Data]
+[Brief overview of structural compliance and implementation readiness]
 
 ## Issues Found
 
@@ -207,24 +117,19 @@ Based on assessment findings, determine implementation readiness:
 
 <instructions>
 
-Card repository files are available at the path provided in your invocation context. Workspace source files are at the workspace path provided separately.
-
-### 1. Gather Context
+## 1. Gather Context
 1. Read CARD.meta.json and CARD.md for card context
 2. Read PLAN.md for the plan to assess
    - If PLAN.md is empty or missing, report error and stop
 3. Read the 5 most recently modified comment/*.md files (sorted by file modification time, descending) for implementation context
 
-### 2. Review Structural Compliance
+## 2. Review Structural Compliance
 Apply structural compliance requirements from the structural-compliance-requirements section above.
 
-### 3. Analyze Content
-Apply content analysis patterns from the content-analysis-patterns section above.
-
-### 4. Generate Assessment Report
+## 3. Generate Assessment Report
 Apply priority framework and generate assessment report using the assessment-report-structure template.
 
-### 5. Append Process Artifacts (Required)
+## 4. Append Process Artifacts (Required)
 
 This section is mandatory. Do not omit it even when the assessment is straightforward.
 

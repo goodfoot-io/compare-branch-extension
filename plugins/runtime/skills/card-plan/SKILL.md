@@ -53,18 +53,36 @@ Launch both assessments in parallel (one message):
 <invoke name="Task">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
+  <parameter name="model">haiku</parameter>
   <parameter name="prompt">
-1. Read the plan from PLAN.md in the card repository.
-2. Assess the plan and post a report per your instructions.
+Assess plan structural compliance.
+
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
+## Workspace
+!` echo $WORKSPACE_PATH`
+
+Read the plan from PLAN.md in the card repository. Assess the plan and post a report per your instructions.
 </parameter>
 </invoke>
 
 <invoke name="Task">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
+  <parameter name="model">opus</parameter>
   <parameter name="prompt">
+Evaluate plan design and completeness.
+
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
+## Workspace
+!` echo $WORKSPACE_PATH`
+
 1. Read the plan from PLAN.md in the card repository.
-2. Assess the plan and post a report per your instructions.
+2. Verify plan claims against workspace source files (callers, consumers, producers, imports).
+3. Assess the plan and post a report per your instructions.
 </parameter>
 </invoke>
 ```
@@ -73,34 +91,27 @@ Launch both assessments in parallel (one message):
 
 Use `TaskOutput` to retrieve results from the Structural Assessment and Strategic Assessment tasks launched above. Both results must be present before proceeding.
 
-### 2.3 Priority Reference
+### 2.3 Interpret and Act
 
-- **CRITICAL/RECONSIDER**: Must be addressed before implementation
-- **HIGH/CONCERNS**: Should be addressed or explicitly accepted
-- **MEDIUM**: Implementation clarity, risk coverage, dependency analysis
-- **LOW**: Style suggestions, format variations
+The assessor returns **"Ready for Implementation: Yes/No"** with issues categorized as CRITICAL/HIGH/MEDIUM/LOW. The refactor returns an **"Overall Assessment: READY/DISCUSS/RECONSIDER"**.
 
-### 2.4 Interpret and Act
+Apply the first matching condition:
 
-Based on combined assessment results:
-
-- **Ready: Yes AND READY**: Proceed to **4. Submit for Approval**
-- **Ready: Yes AND DISCUSS**: Proceed, but document accepted concerns
-- **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" — address strategic issues
-- **Ready: Yes (suggestions) AND READY/DISCUSS**: Proceed with awareness of suggestions
-- **Ready: No**: Return to **1.2 Write and Store Plan** and address structural issues first
-- **RECONSIDER (any Ready state)**: Return to **1.2 Write and Store Plan** and address strategic issues before proceeding
+1. **Assessor returns "No"**: Return to **1.2 Write and Store Plan** — structural issues must be fixed before design evaluation matters.
+2. **Refactor returns RECONSIDER**: Return to **1.2 Write and Store Plan** — address fundamental design findings before proceeding.
+3. **Assessor returns "Yes" AND Refactor returns DISCUSS**: Proceed, but document accepted concerns as a card comment (see below).
+4. **Assessor returns "Yes" AND Refactor returns READY**: Proceed to **4. Submit for Approval**.
 
 #### After Both Assessments Complete (Always)
 
 1. **Resolve questions through research** — route empirically-testable uncertainties to **1.3 Spike Testable Uncertainties** before revising
 2. **Surface considerations visibly** as you work through them
 3. **Track subjective decisions**: Collect design choices and judgment calls (not factual resolutions like "Is X compatible with Y?") for inclusion in the process comment. These help reviewers know where to focus.
-4. **Make decisions** for non-blocking issues and document them in the plan revision
-5. **Only ask the user** for blocking issues or intent clarity
-6. **Determine next action** based on combined results (see decision table above)
+4. **Incorporate process artifacts** from both assessors (judgment calls, surprises, uncertainty) into your reasoning — these inform the process comment in Step 4.
+5. **Make decisions** for non-blocking issues and document them in the plan revision
+6. **Only ask the user** for blocking issues or intent clarity
 
-#### If Either Assessment Fails (Ready: No OR CRITICAL/RECONSIDER OR HIGH/MEDIUM/CONCERNS issues)
+#### If Revision Required (Condition 1 or 2)
 
 Return to **1.2 Write and Store Plan** and revise.
 
@@ -109,9 +120,9 @@ cd $CARD_REPO_PATH
 # Assessment failed — revise PLAN.md per findings above, then re-run section 2.1 Launch Assessment Subagents
 ```
 
-#### If Both Assessments Pass (Ready: Yes + READY/DISCUSS)
+#### If Both Pass with DISCUSS (Condition 3)
 
-If Plan Refactor returned DISCUSS, write a comment to the card repository documenting the accepted concerns and rationale. Commit to the card repository:
+Write a comment to the card repository documenting the accepted concerns and rationale. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
@@ -121,12 +132,6 @@ cat <<'EOF' > comment/$COMMENT_ID.md
 EOF
 git add comment/$COMMENT_ID.md
 git commit -m "accepted concerns: [rationale]"  # <card-repo-commit-style>
-```
-
-If Plan Refactor returned READY (no DISCUSS), no comment is needed:
-
-```bash
-cd $CARD_REPO_PATH  # no comment to write; proceeding directly to step 4
 ```
 
 Proceed to **4. Submit for Approval**

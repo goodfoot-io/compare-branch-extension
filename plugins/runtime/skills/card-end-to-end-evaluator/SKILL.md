@@ -115,7 +115,7 @@ Classify each finding as **required** or **recommended** using the first matchin
 - **Workspace standard violation**: Required — the implementation violates CLAUDE.md conventions (e.g., silent error swallowing, missing error propagation)
 - **Improves without contradicting**: Recommended — the finding would make the implementation better but does not prevent the feature from working
 
-Required findings block production readiness. Recommended findings are logged for future work.
+Required findings block production readiness. Recommended findings are surfaced to the orchestrator for action.
 </classification-framework>
 
 <inter-evaluator-messaging>
@@ -156,9 +156,6 @@ Next step: [What you are doing about it]
 - Negotiate report status — each report is independent
 - Re-send a finding without new information (follow-ups with additional evidence are fine)
 
-### Completion
-
-When you finish your evaluation and begin writing your report, send a brief `FINALIZING_REPORT` message stating your status assessment.
 </inter-evaluator-messaging>
 
 <end-to-end-report-format>
