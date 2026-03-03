@@ -468,8 +468,9 @@ export interface PlanResponse {
 /**
  * Request body for `POST /cards/:id/commits`.
  *
- * Associates a git commit with a card for timeline tracking. The server
- * may fetch additional commit metadata if `repoPath` is provided.
+ * Associates a git commit with a card for timeline tracking. Commit details
+ * (message, author, stats) are fetched from git at read time using the
+ * workspace repository path stored in `repository_identities`.
  */
 export interface AddCommitRequest {
   /**
@@ -477,12 +478,6 @@ export interface AddCommitRequest {
    * Abbreviated hashes are not accepted.
    */
   sha: string;
-
-  /**
-   * Absolute path to the repository for fetching commit details.
-   * If omitted, only the SHA is recorded without rich metadata.
-   */
-  repoPath?: string;
 }
 
 /**
@@ -501,12 +496,6 @@ export interface CommitAttributionResponse {
    * ISO 8601 timestamp when the commit was associated with the card.
    */
   createdAt: string;
-
-  /**
-   * Repository path if provided in the request.
-   * Echoed back for client convenience.
-   */
-  repoPath?: string;
 }
 
 // ============================================================================
