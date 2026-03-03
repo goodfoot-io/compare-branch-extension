@@ -844,6 +844,7 @@ export default {
       API_BASE_URL: 'http://localhost',
       API_ACCESS_TOKEN: 'token',
       WORKSPACE_PATH: testDir,
+      REPO_ROOT: testDir,
       CARD_REPO_PATH: testDir,
       CONFIG_PATH: testDir,
       EXTENSION_PATH: testDir
@@ -960,6 +961,7 @@ export default {
       API_BASE_URL: 'http://localhost',
       API_ACCESS_TOKEN: 'token',
       WORKSPACE_PATH: testDir,
+      REPO_ROOT: testDir,
       CARD_REPO_PATH: testDir,
       CONFIG_PATH: testDir,
       EXTENSION_PATH: testDir
