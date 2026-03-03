@@ -22,6 +22,16 @@
           },
           "description": "Start an interview session for the card",
           "supportsBackgroundMode": false
+        },
+        {
+          "id": "chat",
+          "name": "Chat",
+          "command": {
+            "command": "$VSCODE_NODE ./bin/chat.e3230b9b.mjs",
+            "timeout": 3600000
+          },
+          "description": "Start a chat session for the card",
+          "supportsBackgroundMode": false
         }
       ],
       "description": "Standard Claude Code workflows",
@@ -63,6 +73,7 @@
     "files": [
       "launch.982dd90c.mjs",
       "interview.995bcfc3.mjs",
+      "chat.e3230b9b.mjs",
       "adaptive-card-validator.a5f697af.mjs",
       "adaptive-card-submission-validator.b4bc6b87.mjs",
       "note-validator.56643e87.mjs",
