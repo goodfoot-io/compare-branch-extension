@@ -30,6 +30,10 @@ For external services, create thin adapter interfaces with real test implementat
 **Iterate, then escalate.**
 On validation failure, fix and retry. After 5 failed attempts on the same validation issue, stop and return NEEDS_REVISION with all failure output.
 
+## File Locations
+
+Edit files in !` echo $WORKSPACE_PATH`, not !` echo $REPO_ROOT`
+
 ## Workflow
 
 1. **Follow scope.** The Scope section of the prompt defines the work boundary. Execute it literally — complete the specified todos, stop at the specified gate.
