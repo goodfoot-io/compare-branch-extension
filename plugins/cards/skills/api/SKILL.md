@@ -37,7 +37,7 @@ Read the matched reference file, then follow its guidance to compose the card's 
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 ```
 
-The response includes `isMerged: boolean` indicating whether all workspace commits attributed to this card are merged into the HEAD of the current workspace.
+The response includes `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
 
 **Create a card** — Pipe JSON to stdin with `title` (required) and `description` (required). Optional: `tags`, `environment`, `gates`:
 ```

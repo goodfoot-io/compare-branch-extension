@@ -41,7 +41,7 @@ describe('Card', () => {
       tags: ['test'],
       gates: DEFAULT_CARD_GATES,
       isPinned: true,
-      isMerged: false,
+      isMerged: null,
       order: 0,
       repositoryId: 'main',
       createdAt: '2025-01-22T00:00:00Z',
