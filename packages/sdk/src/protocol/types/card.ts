@@ -250,6 +250,15 @@ export interface Card extends CardMetadata {
   planContent?: string;
 
   /**
+   * Whether all attributed workspace commits are merged into the viewer's current branch HEAD.
+   *
+   * This is a computed, workspace-relative field. It is not persisted in CARD.meta.json.
+   * The store defaults this to `false`; the Router overwrites it with the actual computed
+   * value before sending API responses. Cards with zero workspace commits return `false`.
+   */
+  isMerged: boolean;
+
+  /**
    * Absolute filesystem path to the repository containing the card directory.
    * Used for resolving relative paths in actions and typed files.
    */

@@ -310,7 +310,9 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async getCard(cardId: string): Promise<Card> {
-    const url = this.buildUrl(`/cards/${cardId}`);
+    const url = this.buildUrl(`/cards/${cardId}`, {
+      workspacePath: this.options.workspacePath
+    });
     return this.request(() => this.getHttpClient().get<Card>(url));
   }
 

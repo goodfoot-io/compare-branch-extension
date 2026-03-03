@@ -224,6 +224,7 @@ describe('webview types', () => {
             reviewApproved: false
           },
           isPinned: false,
+          isMerged: false,
           order: 0,
           repositoryId: 'main',
           environment: 'default',
@@ -314,6 +315,7 @@ describe('webview types', () => {
             tags: [],
             gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
             isPinned: false,
+            isMerged: false,
             order: 0,
             repositoryId: 'main',
             environment: 'default',
@@ -350,6 +352,7 @@ describe('webview types', () => {
             tags: [],
             gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
             isPinned: false,
+            isMerged: false,
             order: 0,
             repositoryId: 'main',
             environment: 'default',
@@ -628,6 +631,7 @@ describe('webview types', () => {
             reviewApproved: false
           },
           isPinned: false,
+          isMerged: false,
           order: 0,
           repositoryId: 'main',
           environment: 'default',

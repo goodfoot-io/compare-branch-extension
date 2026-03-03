@@ -86,6 +86,7 @@ export function createCard(overrides: Partial<Card> = {}): Card {
     createdAt: overrides.createdAt ?? timestamp,
     updatedAt: overrides.updatedAt ?? timestamp,
     description: overrides.description ?? '',
+    isMerged: overrides.isMerged ?? false,
     repositoryPath: overrides.repositoryPath
   };
 }
