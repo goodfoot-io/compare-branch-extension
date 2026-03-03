@@ -6,15 +6,15 @@ description: Clarify and enrich cards before implementation.
 
 <instructions>
 
-## 1. Check for Existing Clarification
+## 1. Triage Prior Clarification
 
 Read the card description and comments in the card repository to understand the requirements and comment history.
 
 Based on comments and prior clarification requests:
 
-- **No existing "## Clarification Needed" comment**: Proceed to Step 2
+- **No existing "## Clarification Needed" comment**: Proceed to Step 2.
 
-- **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit and re-route (Step 7).
+- **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit. **Enrichment complete** — proceed to Step 4.
 
   ```bash
   cd $CARD_REPO_PATH
@@ -38,9 +38,11 @@ Based on comments and prior clarification requests:
   git commit -m "[single sentence noting which questions from the prior request remain unanswered]"  # <card-repo-commit-style>
   ```
 
-## 2. Explore Workspace
+## 2. Explore and Enrich
 
-Launch background Explore subagents (haiku model) to gather file paths, component names, and patterns relevant to the card. This provides context needed for enrichment.
+### 2.1 Explore Workspace
+
+Launch background Explore subagents (haiku model) to gather file paths, component names, and patterns relevant to the card.
 
 ```xml
 <invoke name="Task">
@@ -61,11 +63,11 @@ Launch background Explore subagents (haiku model) to gather file paths, componen
 
 Collect TaskOutput for every background Explore agent. Results from agents not collected via TaskOutput are discarded before proceeding.
 
-## 3. Enrich Card
+### 2.2 Enrich Card
 
 Evaluate whether the title and description are clear enough and enrich them with context discovered during exploration.
 
-### For implementation cards
+#### For implementation cards
 
 A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 
@@ -84,7 +86,7 @@ A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 - Acceptance criteria (if inferable from user intent)
 - Brief background on why this change matters
 
-### For bug cards
+#### For bug cards
 
 A good bug title describes behavior: *"[Component] fails when [action]"* or *"[Expected] but [actual]"*.
 
@@ -102,7 +104,7 @@ A good bug title describes behavior: *"[Component] fails when [action]"* or *"[E
 - Related error messages or stack traces
 - Environment or configuration details (if relevant)
 
-### Common principles
+#### Common principles
 
 **Leave unchanged when:** Only minor phrasing or style preferences would change.
 
@@ -123,7 +125,9 @@ git commit -m "[single sentence summarizing what was corrected or enriched in th
 
 Skip the commit entirely if no enrichment or clarification is needed.
 
-## 4. Check Definition of Ready
+## 3. Evaluate Readiness
+
+### 3.1 Check Definition of Ready
 
 Mark as MISSING if not present or inferable from the card description, comments, and exploration results:
 
@@ -133,19 +137,16 @@ Mark as MISSING if not present or inferable from the card description, comments,
 - **Technical feasibility**: Enough detail to determine approach
 - **Unanswered questions**: All comment questions answered
 
-If all requirements are met (DOR satisfied) after enrichment, proceed to re-route (Step 7).
+If all requirements are met (DOR satisfied): **Enrichment complete** — proceed to Step 4.
 
-If gaps remain, proceed to Step 5.
+### 3.2 Research Context
 
-## 5. Research Context
-
-Search the workspace codebase for keywords from the card description:
+If gaps remain, search the workspace codebase for keywords from the card description:
 1. Look for similar implementations
 2. Check tests for expected behavior
 3. Identify relevant file paths for code references
 
-Based on research results:
-- **If research resolves all gaps**: Write findings as a comment to the card repository, commit, and re-route (Step 7).
+- **If research resolves all gaps**: Write findings as a comment to the card repository and commit. **Enrichment complete** — proceed to Step 4.
 
   ```bash
   cd $CARD_REPO_PATH
@@ -157,11 +158,9 @@ Based on research results:
   git commit -m "[single sentence summarizing the research findings that resolved requirement gaps]"  # <card-repo-commit-style>
   ```
 
-- **If gaps remain**: Note findings for the clarification request, proceed to Step 6
+### 3.3 Request Clarification
 
-## 6. Request Clarification
-
-Write a comment to the card repository presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant workspace code where applicable.
+If gaps remain after research, write a comment to the card repository presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant workspace code where applicable.
 
 ```bash
 cd $CARD_REPO_PATH
@@ -175,9 +174,9 @@ git commit -m "[single sentence summarizing which requirements are missing and w
 
 **STOP** — awaiting user response.
 
-## 7. Re-route
+## 4. Re-route After Enrichment
 
-Re-invoke the routing skill to determine next steps based on the card's current state.
+Load the `runtime:card-routing` skill to re-evaluate the card's state and route to the appropriate next skill. On this second pass, routes 6 (IS_STALE) and 9 (NOT DOR_MET) are skipped — enrichment has already been attempted this session.
 
 ```xml
 <invoke name="Skill">
