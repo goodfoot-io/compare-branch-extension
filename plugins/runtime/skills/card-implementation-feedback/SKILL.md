@@ -5,8 +5,8 @@ description: Apply user feedback to completed implementations.
 
 
 <placeholder-variables>
-[MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.2 via git diff; passed to evaluators as modified-file context)
-[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose plus the specific feedback being addressed (synthesized in Step 5.1 from CARD.md, PLAN.md, and the user's feedback comment; passed to evaluators)
+[MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.4 via git diff; passed to evaluators as modified-file context)
+[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose plus the specific feedback being addressed (synthesized in Step 5.2 from CARD.md, PLAN.md, and the user's feedback comment; passed to evaluators)
 </placeholder-variables>
 
 <instructions>
@@ -106,7 +106,17 @@ Only proceed to **5. Evaluate Quality** when ALL validations pass.
 
 ## 5. Evaluate Quality
 
-### 5.1 Synthesize Commander's Intent
+### 5.1 Pre-Evaluation Checkpoint
+
+Commit a checkpoint:
+
+```bash
+cd $WORKSPACE_PATH
+git add -A  # checkpoint: stage all workspace files before evaluation
+git commit --allow-empty -m "checkpoint: before evaluation — feedback changes complete for card $CARD_ID"
+```
+
+### 5.2 Synthesize Commander's Intent
 
 Read `CARD.md` and `PLAN.md` (if it exists).
 
@@ -114,8 +124,15 @@ Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 - The problem the card exists to solve
 - The outcome the user expects
 - The specific feedback being addressed in this update
+- Behavioral invariants that must hold across all code paths — if the feature has multiple data sources (initial load, real-time events, cache), state that they must produce equivalent results for consumers
 
-### 5.2 Determine Modified Files
+### 5.3 Pre-Evaluation Validation
+
+Run validation per the plan's "Validation Commands" section (or `yarn typecheck`, `yarn lint`, `yarn test` in each package containing modified files if no plan exists).
+
+**On any failure:** Fix all validation failures, then re-run validation. Only proceed to **Step 5.4** when ALL validations pass.
+
+### 5.4 Determine Modified Files
 
 Get the list of files modified since the feedback baseline:
 
@@ -126,7 +143,7 @@ git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
 
 Use this as [MODIFIED_FILES] for the evaluators.
 
-### 5.3 Create Evaluation Team
+### 5.5 Create Evaluation Team
 
 ```xml
 <invoke name="TeamCreate">
@@ -147,8 +164,11 @@ Spawn both evaluators as teammates:
 <parameter name="prompt">
 Evaluate for production readiness. This is a targeted update based on user feedback, not a full implementation.
 
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
 ## Validation Status
-All validation commands passed before this evaluation was launched.
+All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
 
 ## Baseline
 Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
@@ -156,7 +176,7 @@ Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
 ## Modified Files
 [MODIFIED_FILES]
 
-You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect behavioral correctness via SendMessage.
+You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect wiring or integration via SendMessage.
 </parameter>
 </invoke>
 <invoke name="Task">
@@ -171,8 +191,11 @@ Evaluate update against commander's intent. This is a targeted update based on u
 ## Commander's Intent
 [COMMANDERS_INTENT]
 
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
 ## Validation Status
-All validation commands passed before this evaluation was launched.
+All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
 
 ## Baseline
 Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
@@ -185,13 +208,13 @@ You are a teammate in an evaluation team. The implementation evaluator ("impl-ev
 </invoke>
 ```
 
-### 5.4 Wait for Reports
+### 5.6 Wait for Reports
 
 Wait for both agents to complete their evaluations and deliver reports.
 
-### 5.5 Shut Down Team
+### 5.7 Shut Down Team
 
-Send shutdown requests to both teammates and delete the team:
+Send shutdown requests to both teammates. Wait for both to acknowledge before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
@@ -206,19 +229,21 @@ Send shutdown requests to both teammates and delete the team:
 </invoke>
 ```
 
+After both teammates have shut down:
+
 ```xml
 <invoke name="TeamDelete"/>
 ```
 
-### 5.6 Process Results
+### 5.8 Process Results
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE or end-to-end evaluator has required findings**: Fix findings directly, re-run validation. If validation passes, proceed to Step 6. If validation fails on code outside your scope, block.
-3. **Both PRODUCTION_READY/SATISFIES_INTENT and no required e2e findings**: Proceed to Step 6
-4. **End-to-end evaluator has only recommended findings**: Log recommended findings as a card comment, proceed to Step 6
+2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Fix all findings directly — required findings first, then recommended findings (merged from both evaluators, deduplicated by file:line). Re-run validation. If validation passes, return to Step 5.3. If validation fails on code outside your scope, block.
+3. **Both PRODUCTION_READY/SATISFIES_INTENT, but end-to-end evaluator has recommended findings**: Fix recommended findings directly, re-run validation. If validation passes, return to Step 5.3. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to Step 6.
+4. **Both PRODUCTION_READY/SATISFIES_INTENT with no findings**: Proceed to Step 6
 
-Write recommended findings (if any) as a card comment:
+Write unresolved recommended findings (if any) as a card comment:
 
 ```bash
 cd $CARD_REPO_PATH
@@ -226,7 +251,7 @@ export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 ## Recommended Improvements
 
-[recommended findings from end-to-end evaluator — logged for future work]
+[unresolved recommended findings from end-to-end evaluator]
 EOF
 git add comment/$COMMENT_ID.md
 git commit -m "evaluation: recommended improvements"  # <card-repo-commit-style>
