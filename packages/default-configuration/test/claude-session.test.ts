@@ -61,7 +61,9 @@ beforeEach(async () => {
   // Default: no existing branches
   globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
     if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-      return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
+      return Promise.resolve(
+        new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+      );
     }
     if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
       return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
@@ -162,7 +164,9 @@ async function configureExecFile(handlers: Record<string, { stdout: string; stde
 function configureBranchesResponse(branches: BranchInfo[]): void {
   globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
     if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-      return Promise.resolve(new Response(JSON.stringify({ branches }), { status: 200 }));
+      return Promise.resolve(
+        new Response(JSON.stringify({ branches, commits: [], defaultBranch: 'main' }), { status: 200 })
+      );
     }
     if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
       return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
@@ -361,7 +365,9 @@ describe('claude-session shared utilities', () => {
 
       const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-          return Promise.resolve(new Response(JSON.stringify({ branches: [branch] }), { status: 200 }));
+          return Promise.resolve(
+            new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), { status: 200 })
+          );
         }
         if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
           return Promise.resolve(new Response(null, { status: 204 }));
@@ -463,7 +469,9 @@ describe('claude-session shared utilities', () => {
 
       const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-          return Promise.resolve(new Response(JSON.stringify({ branches: [branch] }), { status: 200 }));
+          return Promise.resolve(
+            new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), { status: 200 })
+          );
         }
         if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
           return Promise.resolve(new Response(null, { status: 204 }));

@@ -1289,7 +1289,7 @@ async function startCard(cardId) {
   const client = await connectClient();
   const branch = getCurrentBranch();
   if (branch) {
-    const branchData = { name: branch };
+    const branchData = { name: branch, parentBranch: branch };
     try {
       await client.addBranch(cardId, branchData);
       console.error(`card start: registered branch ${branch}`);

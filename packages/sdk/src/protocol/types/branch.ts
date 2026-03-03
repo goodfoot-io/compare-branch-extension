@@ -20,7 +20,7 @@ export const WORKSPACE_COMMITS_FILE = 'workspace-commits.csv';
 /**
  * A single tracked branch within a card's workspace block.
  *
- * This is the minimal metadata persisted for each branch in CARD.meta.json.
+ * This is the minimal metadata persisted for each branch in workspace-branches.json.
  * The worktree path is optional and machine-specific; it may become stale if
  * the worktree is moved or deleted outside of the cards system.
  */
@@ -32,10 +32,10 @@ export interface WorkspaceBranch {
   worktree?: string;
 
   /**
-   * Optional name of the branch this was created from (e.g., 'main').
-   * Used for fast-forward detection and rebase targeting.
+   * Name of the branch this was created from (e.g., 'main', 'master').
+   * Used as the base ref for comparisons, fast-forward detection, and rebase targeting.
    */
-  parentBranch?: string;
+  parentBranch: string;
 
   /**
    * ISO 8601 timestamp when branch was added to the card.
@@ -49,7 +49,7 @@ export interface WorkspaceBranch {
  *
  * This type extends the persisted WorkspaceBranch data with runtime-computed
  * fields that reflect the current Git repository state. Computed fields are
- * never stored in CARD.meta.json.
+ * never persisted.
  */
 export interface BranchInfo {
   /**
@@ -65,10 +65,10 @@ export interface BranchInfo {
   worktree?: string;
 
   /**
-   * Parent branch name from which this branch was created.
-   * Copied from WorkspaceBranch.parentBranch if present.
+   * Parent branch name from which this branch was created (e.g., 'main', 'master').
+   * Used as the base ref for comparisons.
    */
-  parentBranch?: string;
+  parentBranch: string;
 
   /**
    * ISO 8601 timestamp when branch was added.
@@ -106,6 +106,20 @@ export interface BranchesResponse {
    * Sorted by addedAt timestamp (oldest first).
    */
   branches: BranchInfo[];
+
+  /**
+   * All card-level commit SHAs from workspace-commits.csv.
+   * Present regardless of branch state, so the UI can show changes
+   * even after all tracked branches have been removed.
+   */
+  commits: string[];
+
+  /**
+   * Default branch of the workspace repository (e.g., 'main', 'master').
+   * Detected from `refs/remotes/origin/HEAD`, falling back to current HEAD branch.
+   * Used as the base ref for card-level commits when no tracked branches remain.
+   */
+  defaultBranch: string;
 }
 
 /**
@@ -127,7 +141,8 @@ export interface AddBranchRequest {
   worktree?: string;
 
   /**
-   * Optional parent branch name to record as the creation base.
+   * Parent branch name from which this branch was created (e.g., 'main', 'master').
+   * Used as the base ref for comparisons.
    */
-  parentBranch?: string;
+  parentBranch: string;
 }

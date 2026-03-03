@@ -322,10 +322,12 @@ export async function startCard(
 
   const client = await connectClient();
 
-  // Register workspace branch if on a named branch
+  // Register workspace branch if on a named branch.
+  // parentBranch is set to the current branch itself — when working directly
+  // on the base branch (not a worktree), the branch IS the comparison base.
   const branch = getCurrentBranch();
   if (branch) {
-    const branchData: AddBranchRequest = { name: branch };
+    const branchData: AddBranchRequest = { name: branch, parentBranch: branch };
     try {
       await client.addBranch(cardId, branchData);
       console.error(`card start: registered branch ${branch}`);

@@ -70,7 +70,9 @@ beforeEach(async () => {
   // Default: no existing branches → createWorktree is called
   globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
     if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-      return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
+      return Promise.resolve(
+        new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+      );
     }
     if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
       return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
@@ -211,7 +213,9 @@ describe('Default Actions', () => {
     it('does not call openStream in background mode', async () => {
       const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-          return Promise.resolve(new Response(JSON.stringify({ branches: [] }), { status: 200 }));
+          return Promise.resolve(
+            new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+          );
         }
         if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
           return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
@@ -389,7 +393,9 @@ describe('Default Actions', () => {
       function configureBranchesResponse(branches: BranchInfo[]): void {
         globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
           if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-            return Promise.resolve(new Response(JSON.stringify({ branches }), { status: 200 }));
+            return Promise.resolve(
+              new Response(JSON.stringify({ branches, commits: [], defaultBranch: 'main' }), { status: 200 })
+            );
           }
           if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
             return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
@@ -609,7 +615,11 @@ describe('Default Actions', () => {
         globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
           if (typeof url === 'string' && url.includes('/branches')) {
             if (!opts?.method || opts.method === 'GET') {
-              return Promise.resolve(new Response(JSON.stringify({ branches: [branch] }), { status: 200 }));
+              return Promise.resolve(
+                new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), {
+                  status: 200
+                })
+              );
             }
             if (opts?.method === 'DELETE') {
               return Promise.resolve(new Response(null, { status: 204 }));

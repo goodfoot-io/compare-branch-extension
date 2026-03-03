@@ -22,7 +22,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { CardGates, CardStatus } from '@cards/sdk/protocol';
-import { DEFAULT_CARD_GATES, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { CARD_GITIGNORE, DEFAULT_CARD_GATES, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4, v7 as uuidv7 } from 'uuid';
@@ -178,6 +178,9 @@ export class TestCardRepository {
     await git.branch(['-m', 'main']);
     await git.addConfig('user.name', 'Test User');
     await git.addConfig('user.email', 'test@example.com');
+
+    // Create .gitignore for common build artifacts across languages
+    await fs.writeFile(path.join(cardPath, '.gitignore'), CARD_GITIGNORE);
 
     // Create CARD.meta.json
     const gates: CardGates = { ...DEFAULT_CARD_GATES, ...options.gates };

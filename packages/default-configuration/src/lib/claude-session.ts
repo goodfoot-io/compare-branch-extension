@@ -275,10 +275,8 @@ export async function resolveOrCreateWorktree(
     if (!branch.exists || !branch.worktree) continue;
     if (!(await worktreeExistsOnDisk(branch.worktree))) continue;
 
-    const parentBranch = branch.parentBranch ?? baseBranch;
-
     logger.info('Reusing existing worktree', { branch: branch.name, worktree: branch.worktree });
-    return { worktreePath: branch.worktree, branchName: branch.name, parentBranch };
+    return { worktreePath: branch.worktree, branchName: branch.name, parentBranch: branch.parentBranch };
   }
 
   // No valid existing branch — create new one.

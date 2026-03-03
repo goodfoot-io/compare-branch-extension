@@ -377,11 +377,11 @@ describe('CardsClient', () => {
     it('should POST /cards/:id/branches with name and worktree when adding branch', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
-      await client.addBranch('card-123', { name: 'feature/test', worktree: '/path/to/worktree' });
+      await client.addBranch('card-123', { name: 'feature/test', parentBranch: 'main', worktree: '/path/to/worktree' });
       expect(httpClient.requests[0]).toMatchObject({
         method: 'POST',
         url: expect.stringContaining('/cards/card-123/branches'),
-        body: { name: 'feature/test', worktree: '/path/to/worktree' }
+        body: { name: 'feature/test', parentBranch: 'main', worktree: '/path/to/worktree' }
       });
     });
 

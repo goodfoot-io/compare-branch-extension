@@ -1,6 +1,6 @@
 ---
 name: api
-description: Manage cards in the VSCode "Cards" extension.
+description: Find, read, review or create Cards.
 ---
 
 # Cards API

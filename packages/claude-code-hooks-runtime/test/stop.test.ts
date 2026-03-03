@@ -64,7 +64,7 @@ const ACTION_ENV = {
   EXECUTION_MODE: 'interactive',
   API_BASE_URL: 'http://localhost:3000',
   API_ACCESS_TOKEN: 'test-token',
-  WORKSPACE_PATH: '/workspace',
+  REPO_ROOT: '/workspace',
   CARD_REPO_PATH: '/workspace/.cards/repo',
   CONFIG_PATH: '/tmp/config',
   EXTENSION_PATH: '/tmp/extension'
