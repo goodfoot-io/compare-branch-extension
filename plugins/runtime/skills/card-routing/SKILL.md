@@ -16,6 +16,10 @@ The routing phase evaluates and selects — it does NOT implement, plan, or modi
 **Never update card status directly** — hooks handle status transitions automatically.
 </routing-constraints>
 
+<quiet>
+Routing runs without user interaction. Messages describing the state and routing descisions are not required.
+</quiet>
+
 <instructions>
 
 ## 1. Evaluate Routing Signals
