@@ -1050,7 +1050,7 @@ async function execute(hookFn) {
 }
 
 // src/stop.ts
-var EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf899d15363d7aa09";
+var EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 var SHA_PATTERN = /^[0-9a-f]{40}$/i;
 var CommitLogError = class extends Error {
   constructor(repoPath, sinceSha, cause) {

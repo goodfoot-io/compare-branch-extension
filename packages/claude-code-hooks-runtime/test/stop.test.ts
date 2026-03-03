@@ -469,7 +469,7 @@ describe('Stop Hook', () => {
       );
       expect(mockExecFileSync).toHaveBeenCalledWith(
         'git',
-        ['diff', '4b825dc642cb6eb9a060e54bf899d15363d7aa09..HEAD', '--', '.', ':!streams/claude-code-session/'],
+        ['diff', '4b825dc642cb6eb9a060e54bf8d69288fbee4904..HEAD', '--', '.', ':!streams/claude-code-session/'],
         expect.objectContaining({ cwd: '/repo' })
       );
     });

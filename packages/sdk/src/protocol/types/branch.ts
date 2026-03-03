@@ -14,6 +14,15 @@
  * @module types/branch
  */
 
+/**
+ * Well-known SHA for an empty git tree.
+ *
+ * This is a deterministic value produced by `git hash-object -t tree /dev/null`
+ * and never changes across git versions. Used as the diff base when comparing
+ * against a state with no prior commits.
+ */
+export const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
 export const WORKSPACE_BRANCHES_FILE = 'workspace-branches.json';
 export const WORKSPACE_COMMITS_FILE = 'workspace-commits.csv';
 

@@ -26,14 +26,10 @@ import {
 } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
+import { EMPTY_TREE_SHA } from '@cards/sdk/protocol';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 
-/**
- * Well-known git empty tree SHA, used as a diff base for initial commits.
- * This is a deterministic value that never changes.
- */
-const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf899d15363d7aa09';
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 /**

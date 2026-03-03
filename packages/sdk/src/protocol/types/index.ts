@@ -51,6 +51,7 @@ export type {
   WorkspaceBranch
 } from './branch.js';
 export {
+  EMPTY_TREE_SHA,
   WORKSPACE_BRANCHES_FILE,
   WORKSPACE_COMMITS_FILE
 } from './branch.js';
