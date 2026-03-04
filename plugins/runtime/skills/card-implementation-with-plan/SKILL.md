@@ -197,7 +197,7 @@ Based on agent status:
 
 ```bash
 cd $WORKSPACE_PATH
-git diff --quiet HEAD || git commit -am "[task name]: [what was implemented]"  # <workspace-commit-style>
+git diff --quiet HEAD || git commit -am "[one sentence summarizing what this task implements]"  # <workspace-commit-style>
 ```
 
 Commit to the card repository:

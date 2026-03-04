@@ -116,7 +116,7 @@ cd "$BASE_WORKTREE"
 git merge --ff-only "$WORKSPACE_BRANCH"
 ```
 
-**STOP** — Merge complete. Awaiting user verification.
+**STOP** — Merge complete. Do not update card status, write comments, or take any further action. Status updates are the user's responsibility after they verify the merge.
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
 
 ```bash

@@ -311,8 +311,6 @@ Do the planned validation commands cover all planned changes?
 Output the evaluation report as your final message to the invoking agent.
 
 Do not post to card comments directly — the orchestrator controls logging format and timing.
-
-**Never update card status.**
 </output-method>
 
 <instructions>

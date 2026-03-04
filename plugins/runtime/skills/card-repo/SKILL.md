@@ -335,7 +335,7 @@ Workspace commits are the narrative layer of code history. Future developers wil
 
 #### Structure (2-5 paragraphs, scaled to change scope)
 
-**Paragraph 1 — The Hook**: Conventional commit prefix + concise subject (plain text, no markdown). Follow with why this change matters in broader system context.
+**Paragraph 1 — The Hook**: One full sentence summarizing the substance of the commit (plain text, no markdown). Follow with why this change matters in broader system context.
 
 **Paragraph 2 — The Problem**: What challenge or deficiency prompted this work? Paint the "before" picture.
 
@@ -349,7 +349,7 @@ Workspace commits are the narrative layer of code history. Future developers wil
 
 | Commit Type | Length |
 |-------------|--------|
-| Subtask / intermediate | 1-2 lines: what changed, card reference |
+| Subtask / intermediate | Subject sentence + optional card reference line |
 | Feature / bug fix | 2-3 paragraphs: problem, approach, solution |
 | Final squash | 2-5 paragraphs: the full story per the structure above |
 
