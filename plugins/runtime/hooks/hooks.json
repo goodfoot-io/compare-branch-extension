@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-stop.17420903.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-stop.643e64e8.mjs"
           }
         ]
       }
@@ -53,12 +53,12 @@
   },
   "__generated": {
     "files": [
-      "subagent-stop.17420903.mjs",
+      "subagent-stop.643e64e8.mjs",
       "subagent-start.fce0c769.mjs",
       "stop.4e87d4f7.mjs",
       "session-start.75681ee8.mjs",
       "session-end.b24ea804.mjs"
     ],
-    "timestamp": "2026-03-03T23:09:57.714Z"
+    "timestamp": "2026-03-04T19:24:41.044Z"
   }
 }
