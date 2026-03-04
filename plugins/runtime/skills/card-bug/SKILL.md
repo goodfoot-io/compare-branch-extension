@@ -54,28 +54,67 @@ Read `CARD.meta.json` and `CARD.md` from the card repository. Extract:
 - SCOPE_HINT — Files, packages, or functions mentioned
 - Error messages / stack traces (verbatim)
 
-### 1.3 Launch Exploration
+### 1.3 Identify Root Cause Hypotheses
 
-Launch parallel Explore subagents (haiku model) in the workspace repository. Launch multiple subagents with distinct, targeted prompts based on the card content:
+Enumerate all plausible root causes of the bug based on the card content, error messages, and stack traces. For each hypothesis, state:
+- What could cause this behavior
+- Which code paths or data flow segments are implicated
+- What evidence supports or contradicts it
+
+### 1.4 Write Reproduction Tests for All Viable Pathways
+
+For each hypothesis, launch a parallel general-purpose subagent. Each subagent explores the code to assess viability and, if viable, writes a minimal reproduction test:
 
 ```xml
 <invoke name="Task">
-<parameter name="description">explore-[target-a]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="prompt">[Distinct exploration task derived from card]</parameter>
-</invoke>
-<invoke name="Task">
-<parameter name="description">explore-[target-b]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="prompt">[Distinct exploration task derived from card]</parameter>
+<parameter name="description">test-pathway-[a]</parameter>
+<parameter name="subagent_type">general-purpose</parameter>
+<parameter name="prompt"># Task: Write Reproduction Test for Root Cause Hypothesis
+
+## Bug
+${BUG_DESCRIPTION}
+
+## Scope
+${SCOPE_HINT}
+
+## Hypothesis
+[Specific root cause being tested, with implicated code paths]
+
+## Requirements
+- Explore the workspace to assess whether this hypothesis is viable
+- If viable: create a NEW test file that MUST FAIL against the current (unfixed) code
+- If not viable: explain why and return status NOT_VIABLE
+- Do not modify existing tests
+- The test should be minimal and directly target this hypothesis
+- Follow existing test patterns
+- Do NOT fix the bug
+
+## Response Format
+## Status
+[SUCCESS | NOT_VIABLE | BLOCKED | CANNOT_COMPLETE]
+
+## Result
+[Absolute file path, or "None"]
+
+## Reasoning
+[How the test reproduces this specific pathway, why the hypothesis was ruled out, or why blocked]
+</parameter>
 </invoke>
 ```
 
-### 1.4 Collect Exploration Results
+After all subagents complete, run each test file to confirm it fails. Discard any test that passes (the hypothesis is not viable or the test is incorrect). Commit all failing tests together:
 
-Collect exploration results via TaskOutput for every Explore agent launched in Step 1.3. Results from agents not collected via TaskOutput are discarded before proceeding.
+```bash
+cd $WORKSPACE_PATH
+git add [test files]
+git commit -m "[reproduction tests: [pathway-a], [pathway-b], ...]"
+```
+
+Tag the state: `git tag -f "bug/$(echo $CARD_ID)/reproduction" HEAD`
+
+Capture the combined `TEST_FAILURE_OUTPUT` from all failing tests. Write a progress comment to the card repository listing each viable pathway and its corresponding test. Commit to the card repository.
+
+If **no** tests fail (all hypotheses were ruled out or tests passed), write a comment explaining what was tried and why reproduction failed, then **STOP** — awaiting user direction.
 
 ## 2. Create Reproduction Test
 
