@@ -12,26 +12,7 @@ Answer user questions before proceeding with any implementation work.
 
 Read the most recent user comment in the card repository to identify the question.
 
-Launch parallel Explore subagents (haiku model) in the workspace repository with distinct, targeted prompts based on the question:
-
-```xml
-<invoke name="Task">
-<parameter name="description">explore-[target-a]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="prompt">[Distinct exploration task derived from question]</parameter>
-</invoke>
-<invoke name="Task">
-<parameter name="description">explore-[target-b]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="prompt">[Distinct exploration task derived from question]</parameter>
-</invoke>
-```
-
-Launch additional Explore subagents if new information reveals unexplored areas.
-
-Search the workspace codebase to find additional information as needed. When referencing code, include file paths and line numbers.
+Trace code and data flow paths in the workspace to find information relevant to the question. Use whatever combination of searches, reads, and tools best fits the question. When referencing code, include file paths and line numbers.
 
 ## 2. Write Comment and Commit
 

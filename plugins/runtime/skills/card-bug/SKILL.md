@@ -33,7 +33,7 @@ Enforce strict test-first verification:
 
 <instructions>
 
-## 1. Explore Workspace based on Card Content
+## 1. Research Workspace based on Card Content
 
 ### 1.1 Validate Workspace State
 
@@ -81,7 +81,7 @@ ${SCOPE_HINT}
 [Specific root cause being tested, with implicated code paths]
 
 ## Requirements
-- Explore the workspace to assess whether this hypothesis is viable
+- Trace code and data flow paths in the workspace to assess whether this hypothesis is viable
 - If viable: create a NEW test file that MUST FAIL against the current (unfixed) code
 - If not viable: explain why and return status NOT_VIABLE
 - Do not modify existing tests
@@ -122,7 +122,7 @@ Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
 
 ### 2.1 Delegate to Subagent
 
-Launch additional Explore subagents if new information reveals unexplored areas.
+Review the reproduction test outputs and failure analysis from Step 1.4. If new information has emerged — unexpected code paths, unfamiliar dependencies, or failure modes not covered by the original hypotheses — enumerate any additional root cause hypotheses and reassess which pathways remain viable before proceeding.
 
 Increment REPRODUCTION_ATTEMPT, then invoke:
 

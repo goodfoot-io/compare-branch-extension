@@ -38,30 +38,11 @@ Based on comments and prior clarification requests:
   git commit -m "[single sentence noting which questions from the prior request remain unanswered]"  # <card-repo-commit-style>
   ```
 
-## 2. Explore and Enrich
+## 2. Research and Enrich
 
-### 2.1 Explore Workspace
+### 2.1 Research Workspace
 
-Launch background Explore subagents (haiku model) to gather file paths, component names, and patterns relevant to the card.
-
-```xml
-<invoke name="Task">
-<parameter name="description">explore-[target-a]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">[Distinct exploration task derived from card]</parameter>
-</invoke>
-<invoke name="Task">
-<parameter name="description">explore-[target-b]</parameter>
-<parameter name="subagent_type">Explore</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">[Distinct exploration task derived from card]</parameter>
-</invoke>
-```
-
-Collect TaskOutput for every background Explore agent. Results from agents not collected via TaskOutput are discarded before proceeding.
+Trace code and data flow paths in the workspace to gather file paths, component names, and patterns relevant to the card. Use whatever combination of searches, reads, and tools best fits the card content.
 
 ### 2.2 Enrich Card
 
