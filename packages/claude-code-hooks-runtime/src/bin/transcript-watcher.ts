@@ -274,8 +274,33 @@ interface StreamingState {
   bytesRead: number;
   lineBuffer: string;
   idleIterations: number;
-  streamFailed: boolean;
+  consecutiveFailures: number;
   sentinelDetected: boolean;
+}
+
+/**
+ * Result returned by `pollTranscript` — new read position without mutating state.
+ * The caller advances state only after a successful write.
+ */
+interface PollResult {
+  lines: string[];
+  newBytesRead: number;
+  newLineBuffer: string;
+}
+
+/** After this many consecutive failures, log only every Nth failure to avoid flooding. */
+const LOG_SUPPRESSION_THRESHOLD = 10;
+
+/**
+ * Returns true if this failure should be logged (below threshold or every Nth above it).
+ *
+ * @param state - Mutable streaming state.
+ * @returns True when the failure should be logged; false when suppressed.
+ */
+function shouldLogFailure(state: StreamingState): boolean {
+  return (
+    state.consecutiveFailures < LOG_SUPPRESSION_THRESHOLD || state.consecutiveFailures % LOG_SUPPRESSION_THRESHOLD === 0
+  );
 }
 
 /**
@@ -289,10 +314,11 @@ function filterNonEmptyLines(lines: string[]): string[] {
 }
 
 /**
- * Opens or resumes a stream, setting `streamFailed` on failure.
+ * Opens or resumes a stream, incrementing `consecutiveFailures` on failure.
  *
  * Returns the opened stream, or null if the open failed. On failure,
- * `state.streamFailed` is set to true so callers skip future write attempts.
+ * increments `state.consecutiveFailures` so the watcher can track and log
+ * persistent outages without giving up permanently.
  *
  * @param state - Mutable streaming state.
  * @param args - Watcher arguments for API client creation.
@@ -307,25 +333,29 @@ async function tryOpenStream(
   try {
     const stream = await openOrResumeStream(args);
     if (!stream) {
-      logViaSocket('warn', `Failed to open stream ${context}(API unavailable), continuing to poll`);
-      state.streamFailed = true;
+      state.consecutiveFailures++;
+      if (shouldLogFailure(state)) {
+        logViaSocket('warn', `Failed to open stream ${context}(API unavailable)`);
+      }
       return null;
     }
     return stream;
   } catch (error) {
-    logViaSocket('warn', `Failed to open stream ${context}: ${String(error)}`);
-    state.streamFailed = true;
+    state.consecutiveFailures++;
+    if (shouldLogFailure(state)) {
+      logViaSocket('warn', `Failed to open stream ${context}: ${String(error)}`);
+    }
     return null;
   }
 }
 
 /**
- * Writes lines to an open stream. On the first write failure, sets
- * `state.streamFailed` and stops writing further lines.
+ * Writes lines to an open stream. On the first write failure, increments
+ * `state.consecutiveFailures`, nulls the stream, and stops writing further lines.
  *
  * @param stream - The stream writer to write to.
  * @param lines - Non-empty lines to write.
- * @param state - Mutable streaming state (for setting streamFailed).
+ * @param state - Mutable streaming state.
  * @param context - Human-readable context for log messages.
  */
 function writeLinesToStream(stream: StreamWriter, lines: string[], state: StreamingState, context: string): void {
@@ -333,8 +363,11 @@ function writeLinesToStream(stream: StreamWriter, lines: string[], state: Stream
     try {
       stream.write(line);
     } catch (error) {
-      logViaSocket('error', `Stream write failed ${context}: ${String(error)}`);
-      state.streamFailed = true;
+      state.consecutiveFailures++;
+      if (shouldLogFailure(state)) {
+        logViaSocket('error', `Stream write failed ${context}: ${String(error)}`);
+      }
+      state.stream = null;
       break;
     }
   }
@@ -344,8 +377,9 @@ function writeLinesToStream(stream: StreamWriter, lines: string[], state: Stream
  * Ensures a stream is open (opening lazily if needed) and writes lines to it.
  *
  * Handles the full open-then-write sequence: if no stream exists, opens one;
- * if the open fails, sets streamFailed. Then writes all lines if a stream is
- * available.
+ * if the open fails, increments consecutiveFailures. Then writes all lines if
+ * a stream is available. Resets consecutiveFailures to 0 after a successful
+ * write batch (confirmed by state.stream still being non-null after the write).
  *
  * @param state - Mutable streaming state.
  * @param args - Watcher arguments for stream opening.
@@ -361,35 +395,55 @@ async function ensureStreamAndWriteLines(
   if (!state.stream) {
     state.stream = await tryOpenStream(state, args, context);
   }
-  if (state.stream && !state.streamFailed) {
+  if (state.stream) {
+    const streamBeforeWrite = state.stream;
     writeLinesToStream(state.stream, lines, state, context);
+    if (state.stream) {
+      // Write batch succeeded — confirmed end-to-end health
+      state.consecutiveFailures = 0;
+    } else {
+      // Write failed — stream was nulled; attempt best-effort close to release the
+      // ReadableStream controller and end the HTTP request cleanly on the server side
+      try {
+        await streamBeforeWrite.close();
+      } catch (_) {
+        // Intentionally suppressed: the stream is already broken; close is best-effort
+      }
+    }
   }
 }
 
 /**
- * Reads new transcript lines and updates the streaming state.
+ * Reads new transcript lines without mutating bytesRead or lineBuffer on state.
  *
- * On read failure, logs the error and returns an empty array so the polling
- * loop can continue. Transcript read errors are transient (e.g. file rotation)
- * and retried on the next poll.
+ * Returns a PollResult so the caller can advance state only after a successful
+ * write — enabling bytesRead rollback on write failure. state.fileHandle IS
+ * mutated because the handle is opened on first access and stays open.
  *
- * @param state - Mutable streaming state (fileHandle, bytesRead, lineBuffer updated in place).
+ * On read failure, logs the error and returns an empty result preserving the
+ * current read position so the next poll retries from the same offset.
+ *
+ * @param state - Mutable streaming state (fileHandle updated in place; bytesRead/lineBuffer are NOT mutated).
  * @param transcriptPath - Path to the transcript JSONL file.
- * @returns Non-empty lines read from the transcript.
+ * @returns PollResult with filtered lines and new read position.
  */
-async function pollTranscript(state: StreamingState, transcriptPath: string): Promise<string[]> {
-  let lines: string[];
+async function pollTranscript(state: StreamingState, transcriptPath: string): Promise<PollResult> {
   try {
     const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, transcriptPath);
     state.fileHandle = result.fileHandle;
-    state.bytesRead = result.bytesRead;
-    state.lineBuffer = result.lineBuffer;
-    lines = result.lines;
+    return {
+      lines: filterNonEmptyLines(result.lines),
+      newBytesRead: result.bytesRead,
+      newLineBuffer: result.lineBuffer
+    };
   } catch (error) {
     logViaSocket('error', `Failed to read transcript: ${String(error)}`);
-    lines = [];
+    return {
+      lines: [],
+      newBytesRead: state.bytesRead,
+      newLineBuffer: state.lineBuffer
+    };
   }
-  return filterNonEmptyLines(lines);
 }
 
 /**
@@ -411,7 +465,10 @@ async function closeStreamOnIdleTimeout(state: StreamingState): Promise<void> {
   try {
     await state.stream.close();
   } catch (error) {
-    logViaSocket('error', `Stream close failed during idle timeout: ${String(error)}`);
+    state.consecutiveFailures++;
+    if (shouldLogFailure(state)) {
+      logViaSocket('error', `Stream close failed during idle timeout: ${String(error)}`);
+    }
   }
   state.stream = null;
   state.idleIterations = 0;
@@ -431,13 +488,16 @@ async function flushRemainingLines(state: StreamingState, args: TranscriptWatche
 
   try {
     const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
+    // At exit: advance state unconditionally (no next poll to retry)
+    state.bytesRead = result.bytesRead;
+    state.lineBuffer = result.lineBuffer;
     const allRemainingLines = [...result.lines];
     if (result.lineBuffer.trim() !== '') {
       allRemainingLines.push(result.lineBuffer);
     }
 
     const nonEmptyFinalLines = filterNonEmptyLines(allRemainingLines);
-    if (nonEmptyFinalLines.length > 0 && !state.streamFailed) {
+    if (nonEmptyFinalLines.length > 0) {
       await ensureStreamAndWriteLines(state, args, nonEmptyFinalLines, 'for final flush ');
     }
   } catch (error) {
@@ -501,19 +561,28 @@ export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<voi
     bytesRead: 0,
     lineBuffer: '',
     idleIterations: 0,
-    streamFailed: false,
+    consecutiveFailures: 0,
     sentinelDetected: false
   };
 
   const startTime = Date.now();
 
   for (;;) {
-    const nonEmptyLines = await pollTranscript(state, args.transcriptPath);
+    const poll = await pollTranscript(state, args.transcriptPath);
 
-    if (nonEmptyLines.length > 0 && !state.streamFailed) {
-      await ensureStreamAndWriteLines(state, args, nonEmptyLines, '');
+    if (poll.lines.length > 0) {
+      await ensureStreamAndWriteLines(state, args, poll.lines, '');
+      if (state.stream) {
+        // Write succeeded — commit the read position
+        state.bytesRead = poll.newBytesRead;
+        state.lineBuffer = poll.newLineBuffer;
+      }
+      // else: write failed, read position stays at pre-read value for retry
       state.idleIterations = 0;
-    } else if (nonEmptyLines.length === 0) {
+    } else {
+      // No complete lines to write — always safe to advance position
+      state.bytesRead = poll.newBytesRead;
+      state.lineBuffer = poll.newLineBuffer;
       await closeStreamOnIdleTimeout(state);
     }
 

@@ -288,4 +288,235 @@ describe('transcript-watcher integration', () => {
     expect(mockWrite).not.toHaveBeenCalled();
     expect(mockClose).not.toHaveBeenCalled();
   });
+
+  // -----------------------------------------------------------------------
+  // Test A: Watcher recovers after transient stream failure
+  // -----------------------------------------------------------------------
+  it('watcher recovers after transient stream failure', async () => {
+    writeFileSync(transcriptPath, '{"type":"recover-test"}\n');
+
+    // Set up two stream objects: first write throws, second succeeds
+    const mockWrite1 = vi.fn().mockImplementationOnce(() => {
+      throw new Error('Simulated write failure');
+    });
+    const mockWrite2 = vi.fn();
+    const mockClose1 = vi.fn().mockResolvedValue({
+      filename: `${sessionId}.jsonl`,
+      streamType: 'claude-code-session',
+      lineCount: 0,
+      status: 'complete'
+    });
+    const mockClose2 = vi.fn().mockResolvedValue({
+      filename: `${sessionId}.jsonl`,
+      streamType: 'claude-code-session',
+      lineCount: 1,
+      status: 'complete'
+    });
+
+    let openCount = 0;
+    mockOpenStream.mockImplementation(() => {
+      openCount++;
+      if (openCount === 1) return { write: mockWrite1, close: mockClose1 };
+      return { write: mockWrite2, close: mockClose2 };
+    });
+
+    killPidAfter(POLL_INTERVAL_MS * 5 + 50);
+    const promise = runStreamingLoop(makeArgs());
+
+    // Poll 1 fires immediately (no timer advance needed) — stream opens, write throws,
+    // stream is nulled, bytesRead is NOT advanced. Yield to let I/O and async ops complete.
+    await yieldToMicrotasks();
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(1);
+    expect(mockWrite1).toHaveBeenCalledTimes(1);
+    // After write failure, stream should be null — second open has not happened yet
+    expect(mockWrite2).not.toHaveBeenCalled();
+
+    // Advance one poll interval: loop sleep fires, poll 2 re-reads same line
+    // (bytesRead rolled back), opens new stream, write succeeds
+    await advanceTimeInSteps(POLL_INTERVAL_MS);
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(2);
+    expect(mockWrite2).toHaveBeenCalledWith('{"type":"recover-test"}');
+
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 5);
+    await promise;
+  });
+
+  // -----------------------------------------------------------------------
+  // Test B: Watcher retries after 409 conflict on reopen
+  // -----------------------------------------------------------------------
+  it('watcher retries after 409 conflict on reopen', async () => {
+    writeFileSync(transcriptPath, '{"type":"conflict-test"}\n');
+
+    // First call to createCardsClient throws (simulating 409/connection error)
+    let clientCallCount = 0;
+    const mockClient = { openStream: mockOpenStream };
+    mockCreateCardsClient.mockImplementation(async () => {
+      clientCallCount++;
+      if (clientCallCount === 1) {
+        throw new Error('ApiError: Conflict');
+      }
+      return mockClient as never;
+    });
+
+    killPidAfter(POLL_INTERVAL_MS * 8 + 50);
+    const promise = runStreamingLoop(makeArgs());
+
+    // Poll 1 fires immediately — createCardsClient throws, tryOpenStream returns null, no write
+    await yieldToMicrotasks();
+
+    expect(mockOpenStream).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
+
+    // Advance one poll interval: loop sleep fires, poll 2 — createCardsClient succeeds,
+    // stream opens, line is written
+    await advanceTimeInSteps(POLL_INTERVAL_MS);
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(1);
+    expect(mockWrite).toHaveBeenCalledWith('{"type":"conflict-test"}');
+
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
+    await promise;
+  });
+
+  // -----------------------------------------------------------------------
+  // Test C: Watcher continues after close failure during idle timeout
+  // -----------------------------------------------------------------------
+  it('watcher continues after close failure during idle timeout', async () => {
+    writeFileSync(transcriptPath, '{"type":"close-fail-test"}\n');
+
+    // close() throws on the first call
+    mockClose.mockRejectedValueOnce(new Error('Simulated close failure'));
+
+    // Set up second stream for when new data arrives
+    const mockWrite2 = vi.fn();
+    const mockClose2 = vi.fn().mockResolvedValue({
+      filename: `${sessionId}.jsonl`,
+      streamType: 'claude-code-session',
+      lineCount: 2,
+      status: 'complete'
+    });
+    let openCount = 0;
+    mockOpenStream.mockImplementation(() => {
+      openCount++;
+      if (openCount === 1) return { write: mockWrite, close: mockClose };
+      return { write: mockWrite2, close: mockClose2 };
+    });
+
+    const exitTime = IDLE_TIMEOUT_MS + POLL_INTERVAL_MS * 20;
+    killPidAfter(exitTime);
+
+    const promise = runStreamingLoop(makeArgs());
+
+    // Advance past first poll to write the initial line
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 2);
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(1);
+    expect(mockWrite).toHaveBeenCalledWith('{"type":"close-fail-test"}');
+
+    // Advance past idle timeout — close() throws but stream is still nulled
+    await advanceTimeInSteps(IDLE_TIMEOUT_MS + POLL_INTERVAL_MS * 2);
+
+    expect(mockClose).toHaveBeenCalledTimes(1);
+
+    // Write new data — watcher should open a new stream
+    appendFileSync(transcriptPath, '{"type":"after-close-fail"}\n');
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 3);
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(2);
+    expect(mockWrite2).toHaveBeenCalledWith('{"type":"after-close-fail"}');
+
+    await advanceTimeInSteps(exitTime);
+    await promise;
+  });
+
+  // -----------------------------------------------------------------------
+  // Test D: bytesRead rolls back on write failure
+  // -----------------------------------------------------------------------
+  it('bytesRead rolls back on write failure', async () => {
+    writeFileSync(transcriptPath, '{"type":"line1"}\n{"type":"line2"}\n');
+
+    // First write call throws; subsequent calls succeed
+    mockWrite.mockImplementationOnce(() => {
+      throw new Error('Simulated write failure on first batch');
+    });
+
+    // Use two distinct stream objects so we can verify the re-read content
+    const mockWrite2 = vi.fn();
+    const mockClose2 = vi.fn().mockResolvedValue({
+      filename: `${sessionId}.jsonl`,
+      streamType: 'claude-code-session',
+      lineCount: 2,
+      status: 'complete'
+    });
+    let openCount = 0;
+    mockOpenStream.mockImplementation(() => {
+      openCount++;
+      if (openCount === 1) return { write: mockWrite, close: mockClose };
+      return { write: mockWrite2, close: mockClose2 };
+    });
+
+    killPidAfter(POLL_INTERVAL_MS * 8 + 50);
+    const promise = runStreamingLoop(makeArgs());
+
+    // Poll 1 fires immediately — stream opens, first write throws, stream nulled,
+    // bytesRead NOT advanced. Yield to let I/O and async ops complete.
+    await yieldToMicrotasks();
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(1);
+    expect(mockWrite).toHaveBeenCalledTimes(1);
+    expect(mockWrite).toHaveBeenCalledWith('{"type":"line1"}');
+    // Second stream not yet opened
+    expect(mockWrite2).not.toHaveBeenCalled();
+
+    // Advance one poll interval: loop sleep fires, poll 2 — bytesRead rolled back,
+    // re-reads from beginning, opens new stream, both lines written
+    await advanceTimeInSteps(POLL_INTERVAL_MS);
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(2);
+    // Both lines re-read and written to second stream
+    expect(mockWrite2).toHaveBeenCalledWith('{"type":"line1"}');
+    expect(mockWrite2).toHaveBeenCalledWith('{"type":"line2"}');
+
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
+    await promise;
+  });
+
+  // -----------------------------------------------------------------------
+  // Test E: Watcher recovers when first open fails (API unavailable)
+  // -----------------------------------------------------------------------
+  it('watcher recovers when first open fails', async () => {
+    writeFileSync(transcriptPath, '{"type":"api-unavailable-test"}\n');
+
+    // createCardsClient returns null on first call (API unavailable), then succeeds
+    let clientCallCount = 0;
+    const mockClient = { openStream: mockOpenStream };
+    mockCreateCardsClient.mockImplementation(async () => {
+      clientCallCount++;
+      if (clientCallCount === 1) {
+        return null as never;
+      }
+      return mockClient as never;
+    });
+
+    killPidAfter(POLL_INTERVAL_MS * 8 + 50);
+    const promise = runStreamingLoop(makeArgs());
+
+    // Poll 1 fires immediately — createCardsClient returns null, API unavailable, no stream opened
+    await yieldToMicrotasks();
+
+    expect(mockOpenStream).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
+
+    // Advance one poll interval: loop sleep fires, poll 2 — createCardsClient succeeds,
+    // stream opens, line is written
+    await advanceTimeInSteps(POLL_INTERVAL_MS);
+
+    expect(mockOpenStream).toHaveBeenCalledTimes(1);
+    expect(mockWrite).toHaveBeenCalledWith('{"type":"api-unavailable-test"}');
+
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
+    await promise;
+  });
 });
