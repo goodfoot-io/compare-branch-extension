@@ -3,7 +3,7 @@
  *
  * Spawned by session-start to monitor a Claude PID and stream the transcript
  * to the Cards API in real-time. Tails the transcript JSONL file, streaming
- * lines as they appear with idle-timeout-based stream lifecycle. Exits on
+ * lines as they appear with WebSocket-backed session lifecycle. Exits on
  * sentinel file detection (graceful shutdown), PID death (crash), or max
  * lifetime timeout.
  *
@@ -14,14 +14,11 @@ import type { FileHandle } from 'node:fs/promises';
 import { access, open, unlink } from 'node:fs/promises';
 import * as net from 'node:net';
 import { join } from 'node:path';
-import type { StreamWriter } from '@cards/sdk/client';
+import type { WsStreamSession } from '@cards/sdk/client';
 import { createCardsClient } from '../lib/api-discovery.js';
 
 /** Polling interval for transcript tailing and PID liveness checks (1 second). */
 export const POLL_INTERVAL_MS = 1_000;
-
-/** Idle timeout before closing the stream connection (30 seconds). */
-export const IDLE_TIMEOUT_MS = 30_000;
 
 /** Maximum watcher lifetime before forced exit (24 hours). */
 export const MAX_LIFETIME_MS = 24 * 60 * 60 * 1_000;
@@ -244,22 +241,60 @@ export async function removeSentinelFile(cardRepoPath: string, sessionId: string
 }
 
 /**
- * Opens or resumes a stream for the given session.
+ * Reads the transcript file from byte 0, counting newlines until `lineCount` lines
+ * have been passed. Returns the byte offset immediately after the Nth newline.
  *
- * Creates a Cards API client and opens a stream writer. When called with
- * the same filename on a completed stream, the server appends with
- * lineNumber continuation.
+ * Used on reconnect when the server is behind the watcher's current file position.
+ *
+ * @param transcriptPath - Path to the transcript JSONL file.
+ * @param lineCount - Number of complete lines to skip.
+ * @returns Byte offset after the Nth newline in the file.
+ */
+export async function seekToLine(transcriptPath: string, lineCount: number): Promise<{ bytesRead: number }> {
+  if (lineCount === 0) return { bytesRead: 0 };
+
+  const handle = await open(transcriptPath, 'r');
+  try {
+    let offset = 0;
+    let linesFound = 0;
+    const buffer = Buffer.alloc(READ_BUFFER_SIZE);
+    for (;;) {
+      const { bytesRead: chunkSize } = await handle.read(buffer, 0, READ_BUFFER_SIZE, offset);
+      if (chunkSize === 0) break;
+
+      for (let i = 0; i < chunkSize; i++) {
+        if (buffer[i] === 0x0a) {
+          // newline byte
+          linesFound++;
+          if (linesFound >= lineCount) {
+            return { bytesRead: offset + i + 1 };
+          }
+        }
+      }
+      offset += chunkSize;
+    }
+    return { bytesRead: offset };
+  } finally {
+    await handle.close();
+  }
+}
+
+/**
+ * Opens a WebSocket stream session for the given session.
+ *
+ * Creates a Cards API client and opens a WebSocket stream session. The session
+ * already knows the server's current line count (resumeFrom) when returned.
  *
  * @param args - Watcher arguments containing card ID and session info.
- * @returns A StreamWriter, or null if API discovery or client creation fails.
+ * @returns A WsStreamSession, or null if API discovery or client creation fails.
  */
-export async function openOrResumeStream(args: TranscriptWatcherArgs): Promise<StreamWriter | null> {
+export async function openOrResumeWebSocketSession(args: TranscriptWatcherArgs): Promise<WsStreamSession | null> {
   const client = await createCardsClient();
   if (!client) {
     return null;
   }
 
-  return client.openStream(args.cardId, 'claude-code-session', `${args.sessionId}.jsonl`, {
+  return client.openStreamWebSocket(args.cardId, 'claude-code-session', `${args.sessionId}.jsonl`, {
     title: `Claude session for ${args.cardId}`,
     sessionId: args.sessionId
   });
@@ -269,11 +304,11 @@ export async function openOrResumeStream(args: TranscriptWatcherArgs): Promise<S
  * Mutable state for the streaming loop, threaded through helper functions.
  */
 interface StreamingState {
-  stream: StreamWriter | null;
+  wsSession: WsStreamSession | null;
+  localLineCount: number; // lines counted so far in this watcher instance
   fileHandle: FileHandle | null;
   bytesRead: number;
   lineBuffer: string;
-  idleIterations: number;
   consecutiveFailures: number;
   sentinelDetected: boolean;
 }
@@ -314,75 +349,95 @@ function filterNonEmptyLines(lines: string[]): string[] {
 }
 
 /**
- * Opens or resumes a stream, incrementing `consecutiveFailures` on failure.
+ * Opens or resumes a WebSocket session, adjusting read position based on server's resumeFrom.
  *
- * Returns the opened stream, or null if the open failed. On failure,
+ * Returns the opened session, or null if the open failed. On failure,
  * increments `state.consecutiveFailures` so the watcher can track and log
  * persistent outages without giving up permanently.
  *
  * @param state - Mutable streaming state.
  * @param args - Watcher arguments for API client creation.
  * @param context - Human-readable context for log messages (e.g. "for final flush").
- * @returns The opened StreamWriter, or null on failure.
+ * @returns The opened WsStreamSession, or null on failure.
  */
-async function tryOpenStream(
+async function tryOpenSession(
   state: StreamingState,
   args: TranscriptWatcherArgs,
   context: string
-): Promise<StreamWriter | null> {
+): Promise<WsStreamSession | null> {
   try {
-    const stream = await openOrResumeStream(args);
-    if (!stream) {
+    const session = await openOrResumeWebSocketSession(args);
+    if (!session) {
       state.consecutiveFailures++;
       if (shouldLogFailure(state)) {
-        logViaSocket('warn', `Failed to open stream ${context}(API unavailable)`);
+        logViaSocket('warn', `Failed to open WS session ${context}(API unavailable)`);
       }
       return null;
     }
-    return stream;
+
+    // Adjust read position based on server's resumeFrom
+    const resumeFrom = session.resumeFrom;
+    if (resumeFrom >= state.localLineCount) {
+      // Server is caught up or ahead — continue from current bytesRead
+      state.localLineCount = resumeFrom;
+    } else {
+      // Server is behind — seek to resumeFrom position in transcript file
+      try {
+        const { bytesRead: newOffset } = await seekToLine(args.transcriptPath, resumeFrom);
+        state.bytesRead = newOffset;
+        state.lineBuffer = '';
+        state.localLineCount = resumeFrom;
+      } catch (error) {
+        logViaSocket('warn', `seekToLine failed for line ${String(resumeFrom)}: ${String(error)}`);
+        // Continue anyway — server-side deduplication handles any duplicates
+      }
+    }
+
+    return session;
   } catch (error) {
     state.consecutiveFailures++;
     if (shouldLogFailure(state)) {
-      logViaSocket('warn', `Failed to open stream ${context}: ${String(error)}`);
+      logViaSocket('warn', `Failed to open WS session ${context}: ${String(error)}`);
     }
     return null;
   }
 }
 
 /**
- * Writes lines to an open stream. On the first write failure, increments
- * `state.consecutiveFailures`, nulls the stream, and stops writing further lines.
+ * Writes lines to an open WebSocket session. On the first write failure, increments
+ * `state.consecutiveFailures`, nulls the session, and stops writing further lines.
  *
- * @param stream - The stream writer to write to.
+ * @param session - The WebSocket session to write to.
  * @param lines - Non-empty lines to write.
  * @param state - Mutable streaming state.
  * @param context - Human-readable context for log messages.
  */
-function writeLinesToStream(stream: StreamWriter, lines: string[], state: StreamingState, context: string): void {
+function writeLinesToStream(session: WsStreamSession, lines: string[], state: StreamingState, context: string): void {
   for (const line of lines) {
     try {
-      stream.write(line);
+      session.write(line);
+      state.localLineCount++;
     } catch (error) {
       state.consecutiveFailures++;
       if (shouldLogFailure(state)) {
         logViaSocket('error', `Stream write failed ${context}: ${String(error)}`);
       }
-      state.stream = null;
+      state.wsSession = null;
       break;
     }
   }
 }
 
 /**
- * Ensures a stream is open (opening lazily if needed) and writes lines to it.
+ * Ensures a WebSocket session is open (opening lazily if needed) and writes lines to it.
  *
- * Handles the full open-then-write sequence: if no stream exists, opens one;
+ * Handles the full open-then-write sequence: if no session exists, opens one;
  * if the open fails, increments consecutiveFailures. Then writes all lines if
- * a stream is available. Resets consecutiveFailures to 0 after a successful
- * write batch (confirmed by state.stream still being non-null after the write).
+ * a session is available. Resets consecutiveFailures to 0 after a successful
+ * write batch (confirmed by state.wsSession still being non-null after the write).
  *
  * @param state - Mutable streaming state.
- * @param args - Watcher arguments for stream opening.
+ * @param args - Watcher arguments for session opening.
  * @param lines - Non-empty lines to write.
  * @param context - Human-readable context for log messages.
  */
@@ -392,22 +447,21 @@ async function ensureStreamAndWriteLines(
   lines: string[],
   context: string
 ): Promise<void> {
-  if (!state.stream) {
-    state.stream = await tryOpenStream(state, args, context);
+  if (!state.wsSession) {
+    state.wsSession = await tryOpenSession(state, args, context);
   }
-  if (state.stream) {
-    const streamBeforeWrite = state.stream;
-    writeLinesToStream(state.stream, lines, state, context);
-    if (state.stream) {
+  if (state.wsSession) {
+    const sessionBeforeWrite = state.wsSession;
+    writeLinesToStream(state.wsSession, lines, state, context);
+    if (state.wsSession) {
       // Write batch succeeded — confirmed end-to-end health
       state.consecutiveFailures = 0;
     } else {
-      // Write failed — stream was nulled; attempt best-effort close to release the
-      // ReadableStream controller and end the HTTP request cleanly on the server side
+      // Write failed — session was nulled; attempt best-effort close
       try {
-        await streamBeforeWrite.close();
+        await sessionBeforeWrite.close();
       } catch (_) {
-        // Intentionally suppressed: the stream is already broken; close is best-effort
+        // Intentionally suppressed: the session is already broken; close is best-effort
       }
     }
   }
@@ -447,34 +501,6 @@ async function pollTranscript(state: StreamingState, transcriptPath: string): Pr
 }
 
 /**
- * Closes the stream when the idle timeout has elapsed with no new data.
- *
- * Increments the idle counter and, once cumulative idle time reaches
- * {@link IDLE_TIMEOUT_MS}, closes the current stream so the server
- * can finalize the segment. The stream is reopened lazily if data arrives later.
- *
- * @param state - Mutable streaming state.
- */
-async function closeStreamOnIdleTimeout(state: StreamingState): Promise<void> {
-  state.idleIterations++;
-
-  if (!state.stream || state.idleIterations * POLL_INTERVAL_MS < IDLE_TIMEOUT_MS) {
-    return;
-  }
-
-  try {
-    await state.stream.close();
-  } catch (error) {
-    state.consecutiveFailures++;
-    if (shouldLogFailure(state)) {
-      logViaSocket('error', `Stream close failed during idle timeout: ${String(error)}`);
-    }
-  }
-  state.stream = null;
-  state.idleIterations = 0;
-}
-
-/**
  * Reads remaining transcript data and flushes it to the stream.
  *
  * Performs a final read from the transcript file, collects any remaining
@@ -488,7 +514,6 @@ async function flushRemainingLines(state: StreamingState, args: TranscriptWatche
 
   try {
     const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
-    // At exit: advance state unconditionally (no next poll to retry)
     state.bytesRead = result.bytesRead;
     state.lineBuffer = result.lineBuffer;
     const allRemainingLines = [...result.lines];
@@ -508,7 +533,7 @@ async function flushRemainingLines(state: StreamingState, args: TranscriptWatche
 /**
  * Closes open resources after the streaming loop exits.
  *
- * Closes the stream writer, removes the sentinel file if it was detected,
+ * Closes the WebSocket session, removes the sentinel file if it was detected,
  * and closes the transcript file handle. Each step is independent and
  * logs on failure without propagating.
  *
@@ -516,9 +541,9 @@ async function flushRemainingLines(state: StreamingState, args: TranscriptWatche
  * @param args - Watcher arguments for sentinel file path.
  */
 async function cleanupResources(state: StreamingState, args: TranscriptWatcherArgs): Promise<void> {
-  if (state.stream) {
+  if (state.wsSession) {
     try {
-      await state.stream.close();
+      await state.wsSession.close();
     } catch (error) {
       logViaSocket('error', `Stream close failed during exit: ${String(error)}`);
     }
@@ -543,24 +568,24 @@ async function cleanupResources(state: StreamingState, args: TranscriptWatcherAr
 
 /**
  * Runs the main streaming loop that tails the transcript file and streams
- * lines to the Cards API in real-time.
+ * lines to the Cards API via WebSocket in real-time.
  *
  * The loop:
  * 1. Reads new lines from the transcript file
- * 2. Opens a stream lazily on first data and writes lines
- * 3. Closes the stream after IDLE_TIMEOUT_MS of inactivity
- * 4. Resumes the stream when new data arrives
+ * 2. Opens a WebSocket session lazily on first data and writes lines
+ * 3. Server ping/pong handles connection keepalive
+ * 4. Reconnects on write failure via lazy session re-open
  * 5. Exits on sentinel file, PID death, or max lifetime
  *
  * @param args - Watcher arguments.
  */
 export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<void> {
   const state: StreamingState = {
-    stream: null,
+    wsSession: null,
+    localLineCount: 0,
     fileHandle: null,
     bytesRead: 0,
     lineBuffer: '',
-    idleIterations: 0,
     consecutiveFailures: 0,
     sentinelDetected: false
   };
@@ -572,18 +597,17 @@ export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<voi
 
     if (poll.lines.length > 0) {
       await ensureStreamAndWriteLines(state, args, poll.lines, '');
-      if (state.stream) {
+      if (state.wsSession) {
         // Write succeeded — commit the read position
         state.bytesRead = poll.newBytesRead;
         state.lineBuffer = poll.newLineBuffer;
       }
       // else: write failed, read position stays at pre-read value for retry
-      state.idleIterations = 0;
     } else {
       // No complete lines to write — always safe to advance position
       state.bytesRead = poll.newBytesRead;
       state.lineBuffer = poll.newLineBuffer;
-      await closeStreamOnIdleTimeout(state);
+      // Note: idle timeout removed — server ping/pong handles connection keepalive
     }
 
     if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {

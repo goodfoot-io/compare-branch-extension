@@ -19,14 +19,25 @@ import type {
   CommentUpdateData,
   CommitInfo,
   GateApprovalResponse,
+  IngestWsFactory,
   ListCardsOptions,
   StreamResult,
   StreamWriter,
   StreamWriterOptions,
   TimelineOptions,
-  TypeSchemasResponse
+  TypeSchemasResponse,
+  WsStreamSession
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
+
+// Lazy-loaded to avoid hard dependency at module load time.
+// Callers in non-Node environments must inject their own factory via wsFactory parameter.
+async function createDefaultWsFactory(): Promise<IngestWsFactory> {
+  const { WebSocket: WS } = await import('ws');
+  return (url: string, options: { headers: Record<string, string> }): WebSocket => {
+    return new WS(url, { headers: options.headers }) as unknown as WebSocket;
+  };
+}
 
 /** Initial request timeout in milliseconds (3 seconds to accommodate git-backed endpoints). */
 const INITIAL_TIMEOUT_MS = 3_000;
@@ -868,6 +879,125 @@ export class CardsClient {
           if (!response.ok) throw response;
           return response.json() as Promise<StreamResult>;
         });
+      }
+    };
+  }
+
+  /**
+   * Opens a WebSocket-backed JSONL stream to the server and returns a session.
+   *
+   * The session keeps a persistent WebSocket connection for the entire session
+   * lifetime. The server sends a `ready` message with `resumeFrom` before the
+   * caller writes any lines, so the watcher can skip lines the server already has.
+   *
+   * Call {@link WsStreamSession.close} when the producer is finished to send a
+   * graceful close message and await the server's acknowledgement.
+   *
+   * @param cardId - Card ID to attach the stream to.
+   * @param streamType - Stream type key from settings.json (e.g., `"claude-code-session"`).
+   * @param filename - Stream filename (e.g., `"session-abc.jsonl"`).
+   * @param options - Optional title and session ID metadata forwarded to the server as URL query parameters.
+   * @param wsFactory - Optional WebSocket factory for dependency injection. Defaults to Node's `ws` package.
+   * @returns A {@link WsStreamSession} with `resumeFrom` set to the server's current line count.
+   * @throws Error when the WebSocket fails to connect or the server sends an error before `ready`.
+   */
+  async openStreamWebSocket(
+    cardId: string,
+    streamType: string,
+    filename: string,
+    options?: StreamWriterOptions,
+    wsFactory?: IngestWsFactory
+  ): Promise<WsStreamSession> {
+    const factory = wsFactory ?? (await createDefaultWsFactory());
+
+    // Convert http/https to ws/wss
+    const baseUrl = this.options.baseUrl.replace(/^http/, 'ws');
+    const basePath = `${baseUrl}/cards/${encodeURIComponent(cardId)}/streams/${encodeURIComponent(streamType)}/${encodeURIComponent(filename)}`;
+    const queryParams = new URLSearchParams();
+    if (options?.title) queryParams.set('title', options.title);
+    if (options?.sessionId) queryParams.set('sessionId', options.sessionId);
+    const queryString = queryParams.toString();
+    const url = queryString ? `${basePath}?${queryString}` : basePath;
+
+    const headers: Record<string, string> = {};
+    if (this.options.accessToken) {
+      headers['Authorization'] = `Bearer ${this.options.accessToken}`;
+    }
+
+    const ws = factory(url, { headers });
+
+    // Await the 'ready' message from the server before returning to the caller.
+    // Any error or premature close before 'ready' rejects the promise.
+    const resumeFrom = await new Promise<number>((resolve, reject) => {
+      const onReady = (event: MessageEvent<unknown>) => {
+        try {
+          const msg = JSON.parse(String(event.data)) as { type: string; resumeFrom?: number; message?: string };
+          if (msg.type === 'ready') {
+            ws.removeEventListener('message', onReady);
+            ws.removeEventListener('error', onError);
+            ws.removeEventListener('close', onClose);
+            resolve(msg.resumeFrom ?? 0);
+          } else if (msg.type === 'error') {
+            ws.removeEventListener('message', onReady);
+            ws.removeEventListener('error', onError);
+            ws.removeEventListener('close', onClose);
+            reject(new Error(msg.message ?? 'Server error'));
+          }
+          // Other message types before 'ready' are silently ignored
+        } catch {
+          reject(new Error('Failed to parse server ready message'));
+        }
+      };
+      const onError = (event: Event) => {
+        ws.removeEventListener('message', onReady);
+        ws.removeEventListener('error', onError);
+        ws.removeEventListener('close', onClose);
+        reject(new Error(`WebSocket error: ${String(event)}`));
+      };
+      const onClose = (event: CloseEvent) => {
+        ws.removeEventListener('message', onReady);
+        ws.removeEventListener('error', onError);
+        ws.removeEventListener('close', onClose);
+        reject(new Error(`WebSocket closed before ready: code=${String(event.code)}`));
+      };
+      ws.addEventListener('message', onReady);
+      ws.addEventListener('error', onError);
+      ws.addEventListener('close', onClose);
+    });
+
+    let linesSent = resumeFrom;
+
+    return {
+      get resumeFrom(): number {
+        return resumeFrom;
+      },
+      get linesSent(): number {
+        return linesSent;
+      },
+      write(line: string): void {
+        linesSent++;
+        ws.send(JSON.stringify({ type: 'line', lineNumber: linesSent, content: line }));
+      },
+      async close(): Promise<StreamResult> {
+        ws.send(JSON.stringify({ type: 'close' }));
+        await new Promise<void>((resolve) => {
+          const onClose = () => {
+            ws.removeEventListener('close', onClose);
+            resolve();
+          };
+          ws.addEventListener('close', onClose);
+          // If already closed, resolve immediately
+          if (ws.readyState === ws.CLOSED) {
+            ws.removeEventListener('close', onClose);
+            resolve();
+          }
+        });
+        return {
+          filename,
+          streamType,
+          lineCount: linesSent,
+          status: 'completed'
+        };
       }
     };
   }

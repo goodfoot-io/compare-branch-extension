@@ -16,12 +16,14 @@
     "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
     "@goodfoot/claude-code-hooks": "^1.1.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
     "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
+    "@types/ws": "^8.18.1",
     "chokidar-cli": "^3.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

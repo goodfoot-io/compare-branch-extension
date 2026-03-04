@@ -16,16 +16,16 @@ vi.mock('../../src/lib/api-discovery.js', () => ({
 
 import {
   connectLogSocket,
-  IDLE_TIMEOUT_MS,
   isProcessAlive,
   logViaSocket,
   MAX_LIFETIME_MS,
-  openOrResumeStream,
+  openOrResumeWebSocketSession,
   POLL_INTERVAL_MS,
   parseArgs,
   readNewLines,
   removeSentinelFile,
   runStreamingLoop,
+  seekToLine,
   sentinelFileExists,
   type TranscriptWatcherArgs
 } from '../../src/bin/transcript-watcher.js';
@@ -180,6 +180,45 @@ describe('readNewLines', () => {
   });
 });
 
+describe('seekToLine', () => {
+  let testDir: string;
+  let transcriptPath: string;
+
+  beforeEach(() => {
+    testDir = join(tmpdir(), `watcher-seekline-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(testDir, { recursive: true });
+    transcriptPath = join(testDir, 'transcript.jsonl');
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('returns bytesRead: 0 for lineCount 0', async () => {
+    writeFileSync(transcriptPath, 'line1\nline2\n');
+    const result = await seekToLine(transcriptPath, 0);
+    expect(result.bytesRead).toBe(0);
+  });
+
+  it('returns byte offset after Nth newline', async () => {
+    writeFileSync(transcriptPath, 'line1\nline2\nline3\n');
+    // 'line1\n' = 6 bytes, so after 1 line offset is 6
+    const result1 = await seekToLine(transcriptPath, 1);
+    expect(result1.bytesRead).toBe(6);
+
+    // 'line1\nline2\n' = 12 bytes, so after 2 lines offset is 12
+    const result2 = await seekToLine(transcriptPath, 2);
+    expect(result2.bytesRead).toBe(12);
+  });
+
+  it('returns end of file when lineCount exceeds actual lines', async () => {
+    writeFileSync(transcriptPath, 'line1\n');
+    const result = await seekToLine(transcriptPath, 100);
+    // Should return end of file (6 bytes for 'line1\n')
+    expect(result.bytesRead).toBe(6);
+  });
+});
+
 describe('sentinelFileExists', () => {
   let testDir: string;
 
@@ -233,7 +272,7 @@ describe('removeSentinelFile', () => {
   });
 });
 
-describe('openOrResumeStream', () => {
+describe('openOrResumeWebSocketSession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -246,15 +285,20 @@ describe('openOrResumeStream', () => {
     cardRepoPath: '/tmp/card-repo'
   };
 
-  it('opens stream with correct args', async () => {
-    const mockWriter = { write: vi.fn(), close: vi.fn().mockResolvedValue({}) };
-    const mockClient = { openStream: vi.fn().mockReturnValue(mockWriter) };
+  it('opens WS session with correct args', async () => {
+    const mockSession = {
+      write: vi.fn(),
+      close: vi.fn().mockResolvedValue({}),
+      resumeFrom: 0,
+      linesSent: 0
+    };
+    const mockClient = { openStreamWebSocket: vi.fn().mockResolvedValue(mockSession) };
     mockCreateCardsClient.mockResolvedValue(mockClient as never);
 
-    const result = await openOrResumeStream(args);
+    const result = await openOrResumeWebSocketSession(args);
 
-    expect(result).toBe(mockWriter);
-    expect(mockClient.openStream).toHaveBeenCalledWith('card-42', 'claude-code-session', 'sess-abc.jsonl', {
+    expect(result).toBe(mockSession);
+    expect(mockClient.openStreamWebSocket).toHaveBeenCalledWith('card-42', 'claude-code-session', 'sess-abc.jsonl', {
       title: 'Claude session for card-42',
       sessionId: 'sess-abc'
     });
@@ -263,7 +307,7 @@ describe('openOrResumeStream', () => {
   it('returns null when API discovery fails', async () => {
     mockCreateCardsClient.mockResolvedValue(null);
 
-    const result = await openOrResumeStream(args);
+    const result = await openOrResumeWebSocketSession(args);
 
     expect(result).toBeNull();
   });
@@ -281,8 +325,13 @@ describe('runStreamingLoop', () => {
     cardRepoPath: testDir
   });
 
-  let mockWriter: { write: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> };
-  let mockClient: { openStream: ReturnType<typeof vi.fn> };
+  let mockWriter: {
+    write: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
+    resumeFrom: number;
+    linesSent: number;
+  };
+  let mockClient: { openStreamWebSocket: ReturnType<typeof vi.fn> };
 
   // Save a reference to the real setTimeout before fake timers are installed.
   // This is used by advanceTimeInSteps to yield to the real event loop between
@@ -301,10 +350,12 @@ describe('runStreamingLoop', () => {
         streamType: 'claude-code-session',
         lineCount: 0,
         status: 'complete'
-      })
+      }),
+      resumeFrom: 0,
+      linesSent: 0
     };
     mockClient = {
-      openStream: vi.fn().mockReturnValue(mockWriter)
+      openStreamWebSocket: vi.fn().mockResolvedValue(mockWriter)
     };
     mockCreateCardsClient.mockResolvedValue(mockClient as never);
 
@@ -375,7 +426,7 @@ describe('runStreamingLoop', () => {
 
   // --- Stream lifecycle tests ---
 
-  it('opens stream lazily on first transcript data (not at startup)', async () => {
+  it('opens session lazily on first transcript data (not at startup)', async () => {
     writeFileSync(transcriptPath, 'line1\n');
 
     // PID dies after first poll to end the loop
@@ -385,12 +436,12 @@ describe('runStreamingLoop', () => {
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
     await promise;
 
-    // Stream was opened because data existed
-    expect(mockClient.openStream).toHaveBeenCalled();
+    // Session was opened because data existed
+    expect(mockClient.openStreamWebSocket).toHaveBeenCalled();
     expect(mockWriter.write).toHaveBeenCalledWith('line1');
   });
 
-  it('does not create a stream if transcript never has data (zero-line session)', async () => {
+  it('does not create a session if transcript never has data (zero-line session)', async () => {
     // No transcript file created — PID dies quickly
     killPidAfter(POLL_INTERVAL_MS * 2 + 50);
 
@@ -398,12 +449,12 @@ describe('runStreamingLoop', () => {
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 4);
     await promise;
 
-    expect(mockClient.openStream).not.toHaveBeenCalled();
+    expect(mockClient.openStreamWebSocket).not.toHaveBeenCalled();
     expect(mockWriter.write).not.toHaveBeenCalled();
     expect(mockWriter.close).not.toHaveBeenCalled();
   });
 
-  it('writes non-empty lines to stream during loop', async () => {
+  it('writes non-empty lines to session during loop', async () => {
     writeFileSync(transcriptPath, 'line1\nline2\n\nline3\n');
 
     killPidAfter(POLL_INTERVAL_MS + 50);
@@ -419,118 +470,7 @@ describe('runStreamingLoop', () => {
     expect(mockWriter.write).toHaveBeenCalledTimes(3);
   });
 
-  it('closes stream after IDLE_TIMEOUT_MS with no new lines', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // PID dies well after idle timeout so idle close triggers first
-    const exitTime = IDLE_TIMEOUT_MS + POLL_INTERVAL_MS * 5;
-    killPidAfter(exitTime);
-
-    const promise = runStreamingLoop(makeArgs());
-    await advanceTimeInSteps(exitTime + POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // Stream should have been closed by idle timeout. Since no new data
-    // arrives after idle close, the stream is not reopened, so close is
-    // called exactly once (by the idle timeout path, not the exit path).
-    expect(mockWriter.close).toHaveBeenCalledTimes(1);
-    expect(mockWriter.write).toHaveBeenCalledWith('line1');
-  });
-
-  it('re-opens (resumes) stream when new data arrives after idle close', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // After idle timeout with generous margin, add new data then kill PID.
-    // Use a large gap after IDLE_TIMEOUT_MS to ensure the idle close has
-    // fully processed before new data arrives.
-    const addDataTime = IDLE_TIMEOUT_MS + POLL_INTERVAL_MS * 10;
-    const exitTime = addDataTime + POLL_INTERVAL_MS * 5;
-
-    setTimeout(() => {
-      appendFileSync(transcriptPath, 'line2\n');
-    }, addDataTime);
-
-    killPidAfter(exitTime);
-
-    // Create second mock writer for the resumed stream
-    const mockWriter2 = {
-      write: vi.fn(),
-      close: vi.fn().mockResolvedValue({
-        filename: 'sess-abc.jsonl',
-        streamType: 'claude-code-session',
-        lineCount: 2,
-        status: 'complete'
-      })
-    };
-    let openCount = 0;
-    mockClient.openStream.mockImplementation(() => {
-      openCount++;
-      if (openCount === 1) return mockWriter;
-      return mockWriter2;
-    });
-
-    const promise = runStreamingLoop(makeArgs());
-    await advanceTimeInSteps(exitTime + POLL_INTERVAL_MS * 10);
-    await promise;
-
-    // Should have opened stream twice (initial + resume)
-    expect(mockClient.openStream).toHaveBeenCalledTimes(2);
-    // First writer got closed during idle
-    expect(mockWriter.close).toHaveBeenCalled();
-    // Second writer got the resumed data
-    expect(mockWriter2.write).toHaveBeenCalledWith('line2');
-  });
-
-  it('multiple open/close/resume cycles work correctly', async () => {
-    writeFileSync(transcriptPath, 'batch1\n');
-
-    const writers: Array<{ write: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }> = [];
-    mockClient.openStream.mockImplementation(() => {
-      const w = {
-        write: vi.fn(),
-        close: vi.fn().mockResolvedValue({
-          filename: 'sess-abc.jsonl',
-          streamType: 'claude-code-session',
-          lineCount: 0,
-          status: 'complete'
-        })
-      };
-      writers.push(w);
-      return w;
-    });
-
-    // Timeline: data -> idle close -> data -> idle close -> data -> PID death
-    // Use generous margins after each idle timeout for async processing
-    const idleCycle = IDLE_TIMEOUT_MS + POLL_INTERVAL_MS * 10;
-    const cycle2Start = idleCycle;
-    const cycle3Start = cycle2Start + idleCycle;
-    const exitTime = cycle3Start + POLL_INTERVAL_MS * 5;
-
-    setTimeout(() => {
-      appendFileSync(transcriptPath, 'batch2\n');
-    }, cycle2Start);
-
-    setTimeout(() => {
-      appendFileSync(transcriptPath, 'batch3\n');
-    }, cycle3Start);
-
-    killPidAfter(exitTime);
-
-    const promise = runStreamingLoop(makeArgs());
-    await advanceTimeInSteps(exitTime + POLL_INTERVAL_MS * 10);
-    await promise;
-
-    // Should have opened at least 3 streams
-    expect(mockClient.openStream.mock.calls.length).toBeGreaterThanOrEqual(3);
-    expect(writers.length).toBeGreaterThanOrEqual(3);
-
-    // Each batch was written to a writer
-    expect(writers[0]!.write).toHaveBeenCalledWith('batch1');
-    expect(writers[1]!.write).toHaveBeenCalledWith('batch2');
-    expect(writers[2]!.write).toHaveBeenCalledWith('batch3');
-  });
-
-  it('closes stream on exit (sentinel or PID death)', async () => {
+  it('closes session on exit (sentinel or PID death)', async () => {
     writeFileSync(transcriptPath, 'line1\n');
 
     killPidAfter(POLL_INTERVAL_MS + 50);
@@ -542,9 +482,68 @@ describe('runStreamingLoop', () => {
     expect(mockWriter.close).toHaveBeenCalled();
   });
 
+  it('session stays open during idle periods (server ping/pong handles keepalive)', async () => {
+    writeFileSync(transcriptPath, 'line1\n');
+
+    // PID alive for many poll intervals with no new data
+    killPidAfter(POLL_INTERVAL_MS * 10 + 50);
+
+    const promise = runStreamingLoop(makeArgs());
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 12);
+    await promise;
+
+    // Session was opened once and closed once (at exit), never closed due to idle
+    expect(mockClient.openStreamWebSocket).toHaveBeenCalledTimes(1);
+    expect(mockWriter.close).toHaveBeenCalledTimes(1);
+    expect(mockWriter.write).toHaveBeenCalledWith('line1');
+  });
+
+  it('re-opens session on write failure when new data arrives', async () => {
+    writeFileSync(transcriptPath, 'line1\n');
+
+    // First write throws — session gets nulled
+    mockWriter.write.mockImplementationOnce(() => {
+      throw new Error('write failed');
+    });
+
+    const mockWriter2 = {
+      write: vi.fn(),
+      close: vi.fn().mockResolvedValue({
+        filename: 'sess-abc.jsonl',
+        streamType: 'claude-code-session',
+        lineCount: 1,
+        status: 'complete'
+      }),
+      resumeFrom: 1,
+      linesSent: 0
+    };
+    let openCount = 0;
+    mockClient.openStreamWebSocket.mockImplementation(async () => {
+      openCount++;
+      if (openCount === 1) return mockWriter;
+      return mockWriter2;
+    });
+
+    // Append more data after first write failure
+    setTimeout(() => {
+      appendFileSync(transcriptPath, 'line2\n');
+    }, POLL_INTERVAL_MS * 2);
+
+    killPidAfter(POLL_INTERVAL_MS * 6 + 50);
+
+    const promise = runStreamingLoop(makeArgs());
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
+    await promise;
+
+    // Should have opened session twice (initial + re-open after failure)
+    expect(mockClient.openStreamWebSocket).toHaveBeenCalledTimes(2);
+    // Second session wrote line2
+    expect(mockWriter2.write).toHaveBeenCalledWith('line2');
+  });
+
   // --- Error handling tests ---
 
-  it('handles stream open failure gracefully (API unavailable — logs, continues polling)', async () => {
+  it('handles session open failure gracefully (API unavailable — logs, continues polling)', async () => {
     writeFileSync(transcriptPath, 'line1\n');
     mockCreateCardsClient.mockResolvedValue(null);
 
@@ -558,7 +557,7 @@ describe('runStreamingLoop', () => {
     expect(mockWriter.write).not.toHaveBeenCalled();
   });
 
-  it('on stream.write() failure, stops writing (sets flag), continues polling for clean exit', async () => {
+  it('on session.write() failure, stops writing (sets flag), continues polling for clean exit', async () => {
     writeFileSync(transcriptPath, 'line1\nline2\n');
 
     mockWriter.write.mockImplementation(() => {
@@ -573,11 +572,11 @@ describe('runStreamingLoop', () => {
 
     // write was attempted but failed
     expect(mockWriter.write).toHaveBeenCalled();
-    // Stream should still be closed despite the write failure
+    // Session should still be closed despite the write failure
     expect(mockWriter.close).toHaveBeenCalled();
   });
 
-  it('handles stream.close() failure gracefully (logs error)', async () => {
+  it('handles session.close() failure gracefully (logs error)', async () => {
     writeFileSync(transcriptPath, 'line1\n');
     mockWriter.close.mockRejectedValue(new Error('close failed'));
 
@@ -655,7 +654,7 @@ describe('runStreamingLoop', () => {
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 5);
     await promise;
 
-    // Stream should have been closed exactly once
+    // Session should have been closed exactly once
     expect(mockWriter.close).toHaveBeenCalledTimes(1);
     // Sentinel should have been cleaned up
     expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(false);
@@ -680,7 +679,7 @@ describe('runStreamingLoop', () => {
     expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(false);
   });
 
-  it('respects MAX_LIFETIME_MS timeout (closes stream cleanly)', async () => {
+  it('respects MAX_LIFETIME_MS timeout (closes session cleanly)', async () => {
     writeFileSync(transcriptPath, 'line1\n');
 
     // PID stays alive forever — only MAX_LIFETIME_MS should end the loop
@@ -691,6 +690,36 @@ describe('runStreamingLoop', () => {
     await promise;
 
     expect(mockWriter.close).toHaveBeenCalled();
+  });
+
+  // --- resumeFrom adjustment tests ---
+
+  it('adjusts localLineCount when session.resumeFrom is ahead of local count', async () => {
+    writeFileSync(transcriptPath, 'line1\nline2\n');
+
+    // Server says it already has 2 lines — session opens with resumeFrom=2
+    const sessionWithResume = {
+      write: vi.fn(),
+      close: vi.fn().mockResolvedValue({
+        filename: 'sess-abc.jsonl',
+        streamType: 'claude-code-session',
+        lineCount: 2,
+        status: 'complete'
+      }),
+      resumeFrom: 2,
+      linesSent: 0
+    };
+    mockClient.openStreamWebSocket.mockResolvedValue(sessionWithResume);
+
+    killPidAfter(POLL_INTERVAL_MS + 50);
+
+    const promise = runStreamingLoop(makeArgs());
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
+    await promise;
+
+    // Session opened, but since localLineCount was 0 and resumeFrom=2,
+    // localLineCount is set to 2 and no writes happen (server already has them)
+    expect(mockClient.openStreamWebSocket).toHaveBeenCalled();
   });
 });
 
