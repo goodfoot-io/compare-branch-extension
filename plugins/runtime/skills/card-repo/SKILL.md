@@ -357,6 +357,13 @@ Workspace commits are the narrative layer of code history. Future developers wil
 
 Active voice, present tense. Write paragraphs as continuous prose — do not break lines for length. Use markdown to add structure, richness, and clarity in the body. Match energy to change scope — a small fix deserves small prose. Write for two readers: one debugging at 2am who needs speed, one on a calm Tuesday who needs context.
 
+#### File References
+
+When referencing files or concepts in the commit body, use markdown inline links with paths relative to the workspace root. Two styles:
+
+- **Soft link** — anchor natural prose to a relevant file, as you would on the web: `the [token refresh logic](./src/auth/refresh.ts) now handles network timeouts`
+- **Precise link** — point to a specific line or range with GitHub-style anchors: `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` or `[src/auth/provider.ts L42–L58](./src/auth/provider.ts#L42-L58)`
+
 #### Truth Over Profundity
 
 Every commit teaches something. Say what. When genuine insight emerges — a surprise, an irony, a lesson that only became clear after the work — include it. When it does not, move on. Manufactured insight is worse than none.
