@@ -27,14 +27,7 @@ Then **STOP**.
 
 - **Contains clear request for additional work**: Proceed to Step 2
 
-## 2. Update Status, Write Acknowledgment, and Commit
-
-Update `CARD.meta.json` to set the status back to `in_progress`.
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.status='in_progress'; require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-```
+## 2. Write Acknowledgment and Commit
 
 Write a comment to the card repository summarizing the user's request to confirm you understand what additional work they want done. Commit to the card repository:
 

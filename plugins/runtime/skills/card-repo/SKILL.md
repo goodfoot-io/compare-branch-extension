@@ -79,47 +79,21 @@ note/                       # Structured notes (Markdown + YAML frontmatter)
 }
 ```
 
-### Status and Gates
+### Gates
 
-`status` and `gates` track different things:
-
-- **`status`** is the card's lifecycle state: `todo` → `in_progress` → `needs_review` → `done`. It represents where the card sits on the board.
-- **`gates`** are boolean prerequisites. `planRequired`/`planApproved` control whether a plan must exist and be approved. `reviewRequired`/`reviewApproved` control whether a review must exist and be approved.
-
-Gates do not automatically advance status. A card can have all gates satisfied (`reviewApproved=true`) while still in `needs_review` status — this means the review passed but the card has not yet been moved to `done`. Conversely, a card in `in_progress` with `reviewRequired=true` and `reviewApproved=false` means work is underway but no review has been requested or approved yet.
+**`gates`** are boolean prerequisites. `planRequired`/`planApproved` control whether a plan must exist and be approved. `reviewRequired`/`reviewApproved` control whether a review must exist and be approved.
 
 Validation rules for each field are in `references/validation.md`.
 
-### Status Transitions
-
-An agent working on a card in `in_progress` can set `status` to any valid value
-by editing `CARD.meta.json`. Common explicit transitions:
-
-| Target | When |
-|--------|------|
-| `needs_review` | Work is complete, requesting review |
-| `todo` | Abandoning the current attempt, returning to backlog |
-| `done` | Work is complete and `reviewRequired` is `false` |
-
-If the session ends with the card still in `in_progress`, the system automatically
-transitions it to `needs_review`. This default means:
-
-- **Completing work requires no status change** — just finish and the card moves to review.
-- **Staying in `in_progress` requires an explicit decision** — set it back to `in_progress`
-  only if the card is genuinely incomplete and should not be reviewed yet.
-- **Blocking requires an explicit status change** — set `status` to `todo` and use a
-  commit message describing the blocker so the next agent understands why.
-
 ### Gate Enforcement
 
-Gates are **informational constraints**, not hard blocks on status transitions. The
-pre-commit hook does not prevent a card from moving to `done` with `reviewApproved=false`.
-Instead:
+Gates are **informational constraints**, not hard blocks. The pre-commit hook does not
+enforce gate satisfaction. Instead:
 
 - Gates signal intent to other agents and the UI. The board may visually flag unsatisfied gates.
 - Cross-field constraints are enforced: `planApproved: true` requires `planRequired: true`
   (see `references/validation.md`).
-- Agents should treat unsatisfied gates as blockers: do not move a card to `needs_review`
+- Agents should treat unsatisfied gates as blockers: do not request review
   when `planRequired=true` and `planApproved=false` — write and get the plan approved first.
 
 ### repositoryId
@@ -220,8 +194,6 @@ The Adaptive Card + Submission pair creates a durable, queryable decision record
 | `author` | string | Required |
 | `payload` | object | Required, must have `type: "AdaptiveCard"`; optional `body[]` and `actions[]` |
 
-Status is not stored in the file — it is derived from adaptive-card-submission existence.
-
 ## Adaptive Card Submissions
 
 Adaptive Card Submissions are captured when users respond to an Adaptive Card.
@@ -310,7 +282,6 @@ Each session produces a `.jsonl` transcript and a `.meta.json` sidecar.
 |-------|------|-------------|
 | `filename` | string | Required |
 | `streamType` | string | Required, value: `"claude-code-session"` |
-| `status` | string | Required; one of `active`, `completed`, `error`, `interrupted`, `size_limit`, `recovered` |
 | `lineCount` | number | Required |
 | `title` | string | Optional |
 | `sessionId` | string | Optional |
@@ -459,4 +430,4 @@ full commit output and later branches deduplicate against it.
 
 For detailed schemas and validation rules, consult:
 
-- **`references/validation.md`** - Field constraints, status values, tag patterns, gate logic
+- **`references/validation.md`** - Field constraints, tag patterns, gate logic

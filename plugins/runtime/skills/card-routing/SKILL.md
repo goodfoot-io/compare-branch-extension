@@ -13,7 +13,7 @@ The routing phase evaluates and selects — it does NOT implement, plan, or modi
 | Loading the matched skill | Bug fixing |
 | | Merging, clarification, and responses |
 
-**Never update card status directly** — hooks handle status transitions automatically.
+
 </routing-constraints>
 
 <quiet>
