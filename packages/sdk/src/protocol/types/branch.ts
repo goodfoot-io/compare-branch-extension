@@ -129,6 +129,19 @@ export interface BranchesResponse {
    * Used as the base ref for card-level commits when no tracked branches remain.
    */
   defaultBranch: string;
+
+  /**
+   * SHAs of card commits that are ancestors of HEAD at the requesting workspace.
+   * Empty array when workspacePath is not provided or git operations fail gracefully.
+   */
+  mergedCommits: string[];
+
+  /**
+   * Branch name checked out at the requesting workspace (e.g., "main", "feature-auth").
+   * "HEAD" when in detached HEAD state.
+   * Empty string when workspacePath is not provided or git operations fail gracefully.
+   */
+  headBranch: string;
 }
 
 /**
