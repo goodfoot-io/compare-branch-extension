@@ -961,6 +961,10 @@ async function openOrResumeStream(args) {
     sessionId: args.sessionId
   });
 }
+var LOG_SUPPRESSION_THRESHOLD = 10;
+function shouldLogFailure(state) {
+  return state.consecutiveFailures < LOG_SUPPRESSION_THRESHOLD || state.consecutiveFailures % LOG_SUPPRESSION_THRESHOLD === 0;
+}
 function filterNonEmptyLines(lines) {
   return lines.filter((line) => line.trim() !== "");
 }
@@ -968,14 +972,18 @@ async function tryOpenStream(state, args, context) {
   try {
     const stream = await openOrResumeStream(args);
     if (!stream) {
-      logViaSocket("warn", `Failed to open stream ${context}(API unavailable), continuing to poll`);
-      state.streamFailed = true;
+      state.consecutiveFailures++;
+      if (shouldLogFailure(state)) {
+        logViaSocket("warn", `Failed to open stream ${context}(API unavailable)`);
+      }
       return null;
     }
     return stream;
   } catch (error) {
-    logViaSocket("warn", `Failed to open stream ${context}: ${String(error)}`);
-    state.streamFailed = true;
+    state.consecutiveFailures++;
+    if (shouldLogFailure(state)) {
+      logViaSocket("warn", `Failed to open stream ${context}: ${String(error)}`);
+    }
     return null;
   }
 }
@@ -984,8 +992,11 @@ function writeLinesToStream(stream, lines, state, context) {
     try {
       stream.write(line);
     } catch (error) {
-      logViaSocket("error", `Stream write failed ${context}: ${String(error)}`);
-      state.streamFailed = true;
+      state.consecutiveFailures++;
+      if (shouldLogFailure(state)) {
+        logViaSocket("error", `Stream write failed ${context}: ${String(error)}`);
+      }
+      state.stream = null;
       break;
     }
   }
@@ -994,23 +1005,36 @@ async function ensureStreamAndWriteLines(state, args, lines, context) {
   if (!state.stream) {
     state.stream = await tryOpenStream(state, args, context);
   }
-  if (state.stream && !state.streamFailed) {
+  if (state.stream) {
+    const streamBeforeWrite = state.stream;
     writeLinesToStream(state.stream, lines, state, context);
+    if (state.stream) {
+      state.consecutiveFailures = 0;
+    } else {
+      try {
+        await streamBeforeWrite.close();
+      } catch (_) {
+      }
+    }
   }
 }
 async function pollTranscript(state, transcriptPath) {
-  let lines;
   try {
     const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, transcriptPath);
     state.fileHandle = result.fileHandle;
-    state.bytesRead = result.bytesRead;
-    state.lineBuffer = result.lineBuffer;
-    lines = result.lines;
+    return {
+      lines: filterNonEmptyLines(result.lines),
+      newBytesRead: result.bytesRead,
+      newLineBuffer: result.lineBuffer
+    };
   } catch (error) {
     logViaSocket("error", `Failed to read transcript: ${String(error)}`);
-    lines = [];
+    return {
+      lines: [],
+      newBytesRead: state.bytesRead,
+      newLineBuffer: state.lineBuffer
+    };
   }
-  return filterNonEmptyLines(lines);
 }
 async function closeStreamOnIdleTimeout(state) {
   state.idleIterations++;
@@ -1020,7 +1044,10 @@ async function closeStreamOnIdleTimeout(state) {
   try {
     await state.stream.close();
   } catch (error) {
-    logViaSocket("error", `Stream close failed during idle timeout: ${String(error)}`);
+    state.consecutiveFailures++;
+    if (shouldLogFailure(state)) {
+      logViaSocket("error", `Stream close failed during idle timeout: ${String(error)}`);
+    }
   }
   state.stream = null;
   state.idleIterations = 0;
@@ -1029,12 +1056,14 @@ async function flushRemainingLines(state, args) {
   if (!state.fileHandle) return;
   try {
     const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
+    state.bytesRead = result.bytesRead;
+    state.lineBuffer = result.lineBuffer;
     const allRemainingLines = [...result.lines];
     if (result.lineBuffer.trim() !== "") {
       allRemainingLines.push(result.lineBuffer);
     }
     const nonEmptyFinalLines = filterNonEmptyLines(allRemainingLines);
-    if (nonEmptyFinalLines.length > 0 && !state.streamFailed) {
+    if (nonEmptyFinalLines.length > 0) {
       await ensureStreamAndWriteLines(state, args, nonEmptyFinalLines, "for final flush ");
     }
   } catch (error) {
@@ -1071,16 +1100,22 @@ async function runStreamingLoop(args) {
     bytesRead: 0,
     lineBuffer: "",
     idleIterations: 0,
-    streamFailed: false,
+    consecutiveFailures: 0,
     sentinelDetected: false
   };
   const startTime = Date.now();
   for (; ; ) {
-    const nonEmptyLines = await pollTranscript(state, args.transcriptPath);
-    if (nonEmptyLines.length > 0 && !state.streamFailed) {
-      await ensureStreamAndWriteLines(state, args, nonEmptyLines, "");
+    const poll = await pollTranscript(state, args.transcriptPath);
+    if (poll.lines.length > 0) {
+      await ensureStreamAndWriteLines(state, args, poll.lines, "");
+      if (state.stream) {
+        state.bytesRead = poll.newBytesRead;
+        state.lineBuffer = poll.newLineBuffer;
+      }
       state.idleIterations = 0;
-    } else if (nonEmptyLines.length === 0) {
+    } else {
+      state.bytesRead = poll.newBytesRead;
+      state.lineBuffer = poll.newLineBuffer;
       await closeStreamOnIdleTimeout(state);
     }
     if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {
