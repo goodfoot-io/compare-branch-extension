@@ -70,12 +70,13 @@ export type StreamStatus = 'active' | 'completed' | 'error' | 'interrupted' | 's
  * File-persisted metadata for a single stream.
  *
  * Stored as `streams/{streamType}/{filename}.meta.json` inside the card directory.
- * Timestamps (`createdAt`, `closedAt`) are derived from Git history at read time
- * and not persisted in the JSON file.
+ * This represents the static file fields only. Lifecycle status and close timestamp
+ * are NOT persisted in the JSON file — they live in SQLite and are populated into
+ * {@link StreamMeta} at read time.
  *
  * @see StreamDefinition for the environment-level configuration that governs
  *   which transform module applies to a given `streamType`.
- * @see StreamMeta for the API shape that includes computed timestamps.
+ * @see StreamMeta for the API shape that includes lifecycle status and timestamps from SQLite.
  */
 export interface StreamMetaFile {
   /** User-specified filename (e.g., `"session.log"`). Unique within a card's `streams/` directory. */
@@ -90,31 +91,30 @@ export interface StreamMetaFile {
   /** Opaque session identifier for grouping related streams. Supplied via `X-Stream-Session-Id` header. */
   sessionId?: string;
 
-  /** Current lifecycle status. Only `'active'` streams accept appends. */
-  status: StreamStatus;
-
   /** Number of lines appended so far. Updated in-memory on each append; persisted on close. */
   lineCount: number;
 }
 
 /**
- * Persisted metadata for a single stream with computed timestamps.
+ * Persisted metadata for a single stream with lifecycle status and timestamps.
  *
  * This is the API shape used throughout the application. It extends
- * {@link StreamMetaFile} with timestamps derived from Git history.
- * The file is committed at stream creation (with `status: 'active'`) and
- * again at close (with a terminal status and `closedAt` timestamp). Between
- * those commits the `lineCount` is updated on every append but not committed
- * until close, so the on-disk count may lag behind the in-flight value.
+ * {@link StreamMetaFile} with lifecycle status and timestamps. The `status` and
+ * `closedAt` fields are sourced from SQLite (write-through cache), while
+ * `createdAt` is derived from Git history. `lineCount` is kept in sync by
+ * each append and reflects the authoritative count from SQLite.
  *
  * @see StreamDefinition for the environment-level configuration that governs
  *   which transform module applies to a given `streamType`.
  */
 export interface StreamMeta extends StreamMetaFile {
+  /** Current lifecycle status from SQLite. Only `'active'` streams accept appends. */
+  status: StreamStatus;
+
   /** ISO-8601 timestamp when the stream was created. Derived from Git history. */
   createdAt: string;
 
-  /** ISO-8601 timestamp when the stream was closed. Derived from Git history. Absent while `status` is `'active'`. */
+  /** ISO-8601 timestamp when the stream was closed. From SQLite `closed_at` (seeded from git commit timestamp at close). Absent while `status` is `'active'`. */
   closedAt?: string;
 }
 
