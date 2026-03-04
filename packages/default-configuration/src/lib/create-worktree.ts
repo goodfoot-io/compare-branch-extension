@@ -99,6 +99,21 @@ export async function createWorktree(branchName: string, options?: { cwd?: strin
     throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
   }
 
+  // Remove stale directory remnants left by a crashed previous session.
+  // Git doesn't track the worktree, but the directory may still exist on disk,
+  // which causes `git worktree add` to fail with "already exists".
+  try {
+    await fs.access(worktreeDir);
+    // Directory exists on disk but git doesn't track it — it's stale.
+    await fs.rm(worktreeDir, { recursive: true });
+    await execFileAsync('git', ['worktree', 'prune'], { cwd: repoRoot, timeout: 30_000 });
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+    // ENOENT: directory doesn't exist on disk — nothing to clean up.
+  }
+
   await addWorktree({ repoRoot, worktreeDir, branchName, branchExists, startPoint });
 
   const ignored = await discoverIgnoredPaths(sourceRoot);
