@@ -14,8 +14,13 @@ import type { FileHandle } from 'node:fs/promises';
 import { access, open, unlink } from 'node:fs/promises';
 import * as net from 'node:net';
 import { join } from 'node:path';
-import type { WsStreamSession } from '@cards/sdk/client';
+import type { IngestWsFactory, WsStreamSession } from '@cards/sdk/client';
+import { WebSocket as WS } from 'ws';
 import { createCardsClient } from '../lib/api-discovery.js';
+
+const wsFactory: IngestWsFactory = (url, options) => {
+  return new WS(url, { headers: options.headers }) as unknown as WebSocket;
+};
 
 /** Polling interval for transcript tailing and PID liveness checks (1 second). */
 export const POLL_INTERVAL_MS = 1_000;
@@ -294,10 +299,16 @@ export async function openOrResumeWebSocketSession(args: TranscriptWatcherArgs):
     return null;
   }
 
-  return client.openStreamWebSocket(args.cardId, 'claude-code-session', `${args.sessionId}.jsonl`, {
-    title: `Claude session for ${args.cardId}`,
-    sessionId: args.sessionId
-  });
+  return client.openStreamWebSocket(
+    args.cardId,
+    'claude-code-session',
+    `${args.sessionId}.jsonl`,
+    {
+      title: `Claude session for ${args.cardId}`,
+      sessionId: args.sessionId
+    },
+    wsFactory
+  );
 }
 
 /**

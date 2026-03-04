@@ -298,10 +298,16 @@ describe('openOrResumeWebSocketSession', () => {
     const result = await openOrResumeWebSocketSession(args);
 
     expect(result).toBe(mockSession);
-    expect(mockClient.openStreamWebSocket).toHaveBeenCalledWith('card-42', 'claude-code-session', 'sess-abc.jsonl', {
-      title: 'Claude session for card-42',
-      sessionId: 'sess-abc'
-    });
+    expect(mockClient.openStreamWebSocket).toHaveBeenCalledWith(
+      'card-42',
+      'claude-code-session',
+      'sess-abc.jsonl',
+      {
+        title: 'Claude session for card-42',
+        sessionId: 'sess-abc'
+      },
+      expect.any(Function)
+    );
   });
 
   it('returns null when API discovery fails', async () => {

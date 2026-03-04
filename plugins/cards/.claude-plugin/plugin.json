@@ -1,6 +1,6 @@
 {
   "name": "cards",
-  "version": "1.0.142",
+  "version": "1.0.143",
   "description": "Claude Code plugin for interacting with Cards extension's Cards API",
   "author": {
     "name": "Goodfoot Media LLC"

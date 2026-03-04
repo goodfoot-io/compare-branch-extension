@@ -30,15 +30,6 @@ import type {
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
 
-// Lazy-loaded to avoid hard dependency at module load time.
-// Callers in non-Node environments must inject their own factory via wsFactory parameter.
-async function createDefaultWsFactory(): Promise<IngestWsFactory> {
-  const { WebSocket: WS } = await import('ws');
-  return (url: string, options: { headers: Record<string, string> }): WebSocket => {
-    return new WS(url, { headers: options.headers }) as unknown as WebSocket;
-  };
-}
-
 /** Initial request timeout in milliseconds (3 seconds to accommodate git-backed endpoints). */
 const INITIAL_TIMEOUT_MS = 3_000;
 
@@ -896,8 +887,8 @@ export class CardsClient {
    * @param cardId - Card ID to attach the stream to.
    * @param streamType - Stream type key from settings.json (e.g., `"claude-code-session"`).
    * @param filename - Stream filename (e.g., `"session-abc.jsonl"`).
-   * @param options - Optional title and session ID metadata forwarded to the server as URL query parameters.
-   * @param wsFactory - Optional WebSocket factory for dependency injection. Defaults to Node's `ws` package.
+   * @param options - Title and session ID metadata forwarded to the server as URL query parameters.
+   * @param wsFactory - WebSocket factory for creating the connection. Use the `ws` package in Node.js environments.
    * @returns A {@link WsStreamSession} with `resumeFrom` set to the server's current line count.
    * @throws Error when the WebSocket fails to connect or the server sends an error before `ready`.
    */
@@ -905,10 +896,10 @@ export class CardsClient {
     cardId: string,
     streamType: string,
     filename: string,
-    options?: StreamWriterOptions,
-    wsFactory?: IngestWsFactory
+    options: StreamWriterOptions,
+    wsFactory: IngestWsFactory
   ): Promise<WsStreamSession> {
-    const factory = wsFactory ?? (await createDefaultWsFactory());
+    const factory = wsFactory;
 
     // Convert http/https to ws/wss
     const baseUrl = this.options.baseUrl.replace(/^http/, 'ws');
