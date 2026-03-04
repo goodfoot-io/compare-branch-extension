@@ -364,7 +364,7 @@ Workspace commits are the narrative layer of code history. Future developers wil
 
 #### Structure (2-5 paragraphs, scaled to change scope)
 
-**Paragraph 1 — The Hook**: Conventional commit prefix + concise subject. Follow with why this change matters in broader system context.
+**Paragraph 1 — The Hook**: Conventional commit prefix + concise subject (plain text, no markdown). Follow with why this change matters in broader system context.
 
 **Paragraph 2 — The Problem**: What challenge or deficiency prompted this work? Paint the "before" picture.
 
@@ -384,7 +384,7 @@ Workspace commits are the narrative layer of code history. Future developers wil
 
 #### Voice
 
-Active voice, present tense. Match energy to change scope — a small fix deserves small prose. Write for two readers: one debugging at 2am who needs speed, one on a calm Tuesday who needs context.
+Active voice, present tense. Write paragraphs as continuous prose — do not break lines for length. Use markdown to add structure, richness, and clarity in the body. Match energy to change scope — a small fix deserves small prose. Write for two readers: one debugging at 2am who needs speed, one on a calm Tuesday who needs context.
 
 #### Truth Over Profundity
 
