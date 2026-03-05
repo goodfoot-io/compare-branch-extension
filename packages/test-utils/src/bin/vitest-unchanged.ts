@@ -156,6 +156,12 @@ async function main(): Promise<void> {
     process.exit(code);
   }
 
+  // When DISABLE_TEST_CACHE is set, skip cache and run tests directly
+  if (process.env['DISABLE_TEST_CACHE'] === 'true') {
+    const code = await runVitest([]);
+    process.exit(code);
+  }
+
   // No args — check if cache is valid
   if (await isCacheValid()) {
     const cache = await readCache();
