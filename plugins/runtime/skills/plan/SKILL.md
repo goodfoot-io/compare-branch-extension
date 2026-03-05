@@ -290,6 +290,9 @@ Describe the implementation steps in concrete but flexible terms.
 ### Required for async operations and user-initiated flows
 For each step that involves a network call, async operation, or user input (e.g., a picker, dialog, or confirmation), state what happens on failure or cancellation: propagate the error, show user feedback, or no-op with rationale. "The error propagates" is a valid and complete answer. Omitting it is not.
 
+### Test specifications
+When describing test cases, specify the observable outcome to assert — state reached, value returned, event emitted, record persisted — not the implementation mechanism invoked. A test that asserts "method X was called" is a contract with an implementation detail; a test that asserts "system reached state Y" is a contract with behavior. Spy-based assertions are appropriate only when the side effect being tested is the call itself (e.g., a notification sent to an external service with no observable local state change).
+
 ### Avoid
 - Implementation details or algorithms
 - Complete function signatures
@@ -371,7 +374,7 @@ Identify files that are critical dependencies or integration points for your imp
 
 ### Structure Requirements
 - **High-Impact Files**: List files with significant import counts that you'll modify
-- **Key Integration Points**: Files where your new code connects to existing systems
+- **Key Integration Points**: Files where your new code connects to existing systems. When adding to or removing from a discriminated union, enum, or closed variant set: also enumerate all files that exhaustively handle the full set — exhaustive switch/match statements, per-variant test coverage, serialization mappings. These files break at compile time or test time when the variant set changes, regardless of whether they directly import the modified type.
 - **External Dependencies**: Libraries needed (note if already in package.json)
 
 Include actual import counts in parentheses (e.g., "auth.ts (234 imports)") to indicate risk level.
