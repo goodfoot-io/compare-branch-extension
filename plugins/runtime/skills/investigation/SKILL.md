@@ -26,7 +26,7 @@ An investigation request should make the intent and outcomes explicit: what need
 - **Background** (omit header in output): Only context required to understand why the investigation is needed now. Concise and factual.
 - **Key Questions / Hypotheses**: Phrase questions so they can be answered with data. Replace vague "Is this scalable?" with "What throughput is sustainable under current resource constraints?"
 - **Scope & Constraints**: Narrow enough to complete, broad enough to answer the key questions.
-- **Approach & Evidence Sources**: Favor evidence that is repeatable and verifiable.
+- **Approach & Evidence Sources**: Favor evidence that is repeatable and verifiable. Link to source files, configs, and artifacts inline — soft links for prose references (`the [eviction policy](./src/cache/eviction.ts) determines what gets dropped`) and precise anchors for specific locations (`[src/cache/eviction.ts L88](./src/cache/eviction.ts#L88)`).
 - **Deliverables**: Summary of findings, recommendations with trade-offs, prototype results, decision logs.
 - **Decision Criteria**: Thresholds for proceeding, how uncertainty will be handled, who signs off.
 - **Risks & Assumptions**: Data quality limitations, external dependencies, risks of false positives/negatives.

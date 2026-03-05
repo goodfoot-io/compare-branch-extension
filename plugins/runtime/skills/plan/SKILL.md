@@ -281,9 +281,9 @@ Describe the implementation steps in concrete but flexible terms.
 4. Describe WHAT to do, not HOW to implement it
 5. Keep each step focused on a single concern
 
-### Line Number Guidelines
+### File Reference Guidelines
 - Skip line numbers for new files
-- Include them when referencing specific existing code
+- Include them when referencing specific existing code; use inline markdown links over bare paths — soft links for prose (`the [notification store](./packages/web/src/stores/notification-store.ts) holds unread counts`) and precise anchors for step references (`[packages/api/src/services/user.ts L78](./packages/api/src/services/user.ts#L78)` or a range `[packages/api/src/services/user.ts L78–L95](./packages/api/src/services/user.ts#L78-L95)`)
 - Use "around line X" if the exact line might shift
 
 ### Avoid
@@ -520,7 +520,7 @@ Good references include:
 4. Example implementations to follow
 
 Guidelines:
-- Include line numbers for precision
+- Use inline markdown links — soft links for prose context, precise anchors for specific locations (`[packages/api/src/services/analytics-events.ts L123](./packages/api/src/services/analytics-events.ts#L123)`)
 - Explain briefly why each reference is relevant
 - Limit to 3-5 most helpful references
 - Verify all file paths before including them
@@ -560,7 +560,7 @@ Document uncertainties explicitly:
 ---
 
 <key-principles>
-1. **Precision**: Use verified file paths with line numbers
+1. **Precision**: Use verified file paths with line numbers, linked inline — soft links for prose references and precise anchors for step locations (`[src/services/user.ts L78](./src/services/user.ts#L78)`)
 2. **YAGNI**: Only features solving the immediate problem
 3. **Integration Over Innovation**: Reuse existing patterns
 4. **Examples Clarify, Not Constrain**: Show data shapes, not implementations

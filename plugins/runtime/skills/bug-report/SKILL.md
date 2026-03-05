@@ -21,7 +21,7 @@ Good reports capture what happened with enough precision that someone else can e
 
 ## Writing Principles
 
-- **Document observable facts**: Exact error messages (copy-paste), file paths, line numbers, git state, environment details
+- **Document observable facts**: Exact error messages (copy-paste), file paths and line numbers, git state, environment details. When referencing source locations, use inline markdown links — soft links anchor prose to relevant files (`the [retry handler](./src/net/retry.ts) loops indefinitely`) and precise anchors point to specific lines (`[src/net/retry.ts L42](./src/net/retry.ts#L42)` or a range `[src/net/retry.ts L42–L58](./src/net/retry.ts#L42-L58)`)
 - **Reproduction steps**: Numbered, specific, noting prerequisites and consistency (reproducible vs intermittent)
 - **Separate observation from speculation**: Frame hypotheses as exploration — "This suggests..." not "The bug is caused by..." — premature conclusions mislead investigators
 - **Multiple observation channels**: Document which channels (logs, APIs, UIs, monitoring) you checked and what each showed. Discrepancies between channels are often the most diagnostic information.

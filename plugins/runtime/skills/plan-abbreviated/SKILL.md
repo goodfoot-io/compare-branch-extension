@@ -76,8 +76,7 @@ Each goal must be:
 Numbered steps with verified file paths. Describe WHAT to build and WHERE, not HOW.
 
 - Number each step sequentially
-- Include absolute or package-relative file paths
-- Add line numbers when referencing existing code (`:45`)
+- Include file paths as inline markdown links — soft links for prose references and precise anchors for step locations (`[src/middleware/rate-limit.ts L45](./src/middleware/rate-limit.ts#L45)` or a range `[src/middleware/rate-limit.ts L45–L60](./src/middleware/rate-limit.ts#L45-L60)`)
 - Skip line numbers for new files
 - Keep each step focused on a single concern
 </instructions>
@@ -183,7 +182,7 @@ git commit -m "[single sentence summarizing the plan's approach]"  # <card-repo-
 
 ## 3. Key Principles
 
-- **Precision**: Verified file paths with line numbers. No guessing.
+- **Precision**: Verified file paths with line numbers, linked inline (`[src/middleware/rate-limit.ts L45](./src/middleware/rate-limit.ts#L45)`). No guessing.
 - **WHAT not HOW**: Plans answer "what" and "where." Implementation answers "how."
 - **Standalone**: The plan is readable without card comments or conversation context.
 - **Minimal**: Include only sections that add value for this specific card. A plan for a 2-file change should be short.

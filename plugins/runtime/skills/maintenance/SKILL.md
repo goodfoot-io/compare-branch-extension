@@ -21,7 +21,7 @@ Maintenance requests should explain **why the work matters** and **what success 
 ## Section Notes
 
 - **Motivation & Impact** (omit header in output): Anchor in measurable impact — operational risk, developer time, reliability, cost, deprecations. Include evidence: incidents, metrics, toil. Use the technical-debt metaphor: call out the "interest" (ongoing cost) and the "principal" (cleanup work).
-- **Current State**: Observable facts — components, file paths, services, workflows and their friction, hotspots, versions. Use code references, metrics, or links. Reference self-admitted debt (TODO/FIXME).
+- **Current State**: Observable facts — components, file paths, services, workflows and their friction, hotspots, versions. Use inline-linked code references — soft links anchor prose to relevant files (`the [cache warmer](./src/cache/warmer.ts) re-runs on every deploy`) and precise anchors point to specific lines (`[src/cache/warmer.ts L12](./src/cache/warmer.ts#L12)`). Include metrics, external links, and self-admitted debt (TODO/FIXME).
 - **Desired Outcomes**: Verifiable statements — reliability/stability targets, maintainability improvements, performance/cost targets, migration end-states. Keep implementation-neutral unless hard constraints require otherwise.
 - **Scope & Constraints**: In-scope and out-of-scope areas, what must not change (APIs, data formats, SLAs, user-facing behavior), compatibility requirements, operational constraints.
 - **Risks & Dependencies**: Dependency upgrades, data migration, cross-team coordination, testing/observability gaps. Note if phased rollout is likely needed.

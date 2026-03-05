@@ -24,7 +24,7 @@ Documentation requests should capture intent, audience, and outcomes without pre
 - **Anchor in user need**: Who is the audience, what job are they doing, what is the current pain
 - **Classify doc type**: Tutorial, how-to, reference, explanation (Diataxis), runbook/playbook, knowledge-base article, or examples
 - **Outcomes over implementation**: State what the reader should be able to do, not the exact file or format. "Operators can resolve alert X within 10 minutes" not "Write a Markdown file at path Y"
-- **Source of truth**: Where authoritative information lives, accuracy boundaries, update cadence, time sensitivity (use versions/dates, not "new" or "currently")
+- **Source of truth**: Where authoritative information lives, accuracy boundaries, update cadence, time sensitivity (use versions/dates, not "new" or "currently"). Link to source files and artifacts inline — soft links anchor prose to relevant files (`the [auth schema](./db/schema/auth.ts) defines the shape`), precise anchors to specific locations (`[db/schema/auth.ts L15](./db/schema/auth.ts#L15)`)
 - **Scannable**: Front-load essentials (audience, task, outcome), short sections, direct language
 
 ## Runbook-Specific Additions

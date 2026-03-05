@@ -34,7 +34,7 @@ Enhancement requests bridge understanding between what exists, what should exist
 ## Section Notes
 
 - **Historical Context** (omit header in output): Organize chronologically or by conceptual phases. Each phase explains what changed, why, and its effect. Write for a reader with no prior context. Reference commits/PRs with explanations, not just citations.
-- **Current Functionality**: Ground every claim in observable code with file paths and line numbers. Describe behavior, not implementation details. Use present tense. Distinguish intentional from incidental behavior.
+- **Current Functionality**: Ground every claim in observable code with inline-linked file paths and line numbers — soft links for prose (`the [provider factory](./src/auth/provider.ts) instantiates one client per session`) and precise anchors for specific locations (`[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` or a range `[src/auth/provider.ts L42–L58](./src/auth/provider.ts#L42-L58)`). Describe behavior, not implementation details. Use present tense. Distinguish intentional from incidental behavior.
 - **Desired Functionality**: Write requirements as outcomes, not tasks. Be specific about boundaries and out-of-scope items. State the "why" alongside the "what." Distinguish must-have from nice-to-have.
 - **Implementation Approach** (Optional): See conditional logic below.
 
