@@ -341,6 +341,8 @@ describe('timeline event types', () => {
             return 'fs-commit';
           case 'workspace:commit':
             return 'workspace-commit';
+          case 'card:incomingBlocksChanged':
+            return 'card-incoming-blocks-changed';
           default: {
             // Exhaustive check - this should never be reached
             const _exhaustive: never = event;

@@ -98,6 +98,7 @@ export type {
   AttachmentRemovedEvent,
   CardContentChangedEvent,
   CardDeletedEvent,
+  CardIncomingBlocksChangedEvent,
   CardMetadataChangedEvent,
   CommentCreatedEvent,
   CompareChangedEvent,
@@ -120,7 +121,7 @@ export type {
   WorkspaceCommitEvent
 } from './events.js';
 // --- Filesystem Types ---
-export type { FsCommit, FsCommitFile } from './fs.js';
+export type { CardSnapshot, FsCommit, FsCommitFile } from './fs.js';
 // --- Filesystem Callback Types ---
 export type {
   AsyncFileExistsCallback,

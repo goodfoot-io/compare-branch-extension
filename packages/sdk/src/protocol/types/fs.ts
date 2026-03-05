@@ -52,3 +52,26 @@ export interface FsCommit {
     files: FsCommitFile[];
   };
 }
+
+/**
+ * A snapshot of a card repository's full commit history and non-binary file contents.
+ *
+ * Returned by `GET /cards/:id/snapshot`. File contents are base64-encoded so the
+ * snapshot can be serialized into `window.__INIT_DATA__` without binary escaping.
+ *
+ * Only non-binary files are included; attachment blobs (`attachment/att-*` files
+ * without a `.meta.json` extension) are excluded.
+ */
+export interface CardSnapshot {
+  /** Full commit history, same shape as `GET /cards/:id/git/log`. */
+  commits: FsCommit[];
+  /** Non-binary file entries at HEAD. */
+  files: Array<{
+    /** Relative path within the card repository. */
+    path: string;
+    /** Git blob SHA for this file. */
+    sha: string;
+    /** Base64-encoded file content. */
+    content: string;
+  }>;
+}

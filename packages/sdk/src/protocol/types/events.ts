@@ -9,6 +9,7 @@
  * @module types/events
  */
 
+import type { BranchInfo } from './branch.js';
 import type { CompareState } from './compare.js';
 import type { FsCommit } from './fs.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
@@ -364,6 +365,32 @@ export interface WorkspaceCommitEvent {
   cardId: string;
   /** HEAD SHA of the workspace repository after the commit. */
   sha: string;
+  /** Tracked branches with computed fields. Optional — absent if git operations failed at broadcast time. */
+  branches?: BranchInfo[];
+  /** All card-level commit SHAs from workspace-commits.csv. Optional. */
+  commits?: string[];
+  /** Default branch of the workspace repository. Optional. */
+  defaultBranch?: string;
+  /** SHAs of card commits merged into HEAD. Optional. */
+  mergedCommits?: string[];
+  /** Branch name checked out at the workspace. Optional. */
+  headBranch?: string;
+}
+
+/**
+ * Event payload emitted when the incoming blocks list for a card changes.
+ *
+ * Broadcast after any REST-layer mutation to card relations. Carries the
+ * complete updated list so clients can replace their local state without
+ * a round-trip.
+ */
+export interface CardIncomingBlocksChangedEvent {
+  /** Event type discriminator. */
+  type: 'card:incomingBlocksChanged';
+  /** ID of the card whose incoming blocks changed. */
+  cardId: string;
+  /** Updated list of card IDs that block this card. */
+  incomingBlocks: string[];
 }
 
 // --- Domain Event Union ---
@@ -413,4 +440,5 @@ export type DomainEvent =
   | CompareChangedEvent
   | CompareClearedEvent
   | FsCommitEvent
-  | WorkspaceCommitEvent;
+  | WorkspaceCommitEvent
+  | CardIncomingBlocksChangedEvent;
