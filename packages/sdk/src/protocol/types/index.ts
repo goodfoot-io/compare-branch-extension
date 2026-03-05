@@ -103,6 +103,7 @@ export type {
   CompareChangedEvent,
   CompareClearedEvent,
   DomainEvent,
+  FsCommitEvent,
   StreamEndedEvent,
   StreamErrorEvent,
   StreamLineEvent,
@@ -117,6 +118,8 @@ export type {
   TimelineTypedFileRemovedEvent,
   TimelineTypedFileUpdatedEvent
 } from './events.js';
+// --- Filesystem Types ---
+export type { FsCommit, FsCommitFile } from './fs.js';
 // --- Filesystem Callback Types ---
 export type {
   AsyncFileExistsCallback,

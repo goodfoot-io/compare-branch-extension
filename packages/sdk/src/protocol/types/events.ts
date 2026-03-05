@@ -10,6 +10,7 @@
  */
 
 import type { CompareState } from './compare.js';
+import type { FsCommit } from './fs.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
 import type { CommentTimelineItem, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
 
@@ -330,6 +331,23 @@ export interface StreamErrorEvent {
   error: string;
 }
 
+// --- Filesystem Events ---
+
+/**
+ * Event payload emitted after each card repository commit is reindexed.
+ *
+ * Carries the full commit metadata so clients can update their file index
+ * without a round-trip to `GET /cards/:id/git/log`.
+ */
+export interface FsCommitEvent {
+  /** Event type discriminator. */
+  type: 'fs:commit';
+  /** ID of the card whose repository received this commit. */
+  cardId: string;
+  /** Full commit metadata including per-file diff. */
+  commit: FsCommit;
+}
+
 // --- Domain Event Union ---
 
 /**
@@ -375,4 +393,5 @@ export type DomainEvent =
   | StreamEndedEvent
   | StreamErrorEvent
   | CompareChangedEvent
-  | CompareClearedEvent;
+  | CompareClearedEvent
+  | FsCommitEvent;
