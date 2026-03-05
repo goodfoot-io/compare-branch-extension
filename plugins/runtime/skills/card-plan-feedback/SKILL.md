@@ -98,9 +98,9 @@ Use `TaskOutput` to retrieve results from the Structural Assessment and Strategi
 Based on combined assessment results:
 
 - **Ready: Yes AND READY**: Proceed to **5. Submit for Re-Approval**
-- **Ready: Yes AND DISCUSS**: Proceed, but document accepted concerns
+- **Ready: Yes AND GAPS**: Incorporate GAPS findings into PLAN.md (return to **2.2 Incorporate Feedback**) — gaps are missing specs, not accepted tradeoffs
 - **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" — address strategic issues
-- **Ready: Yes (suggestions) AND READY/DISCUSS**: Proceed with awareness of suggestions
+- **Ready: Yes (suggestions) AND READY**: Proceed with awareness of suggestions
 - **Ready: No**: Address structural issues first
 - **RECONSIDER (any Ready state)**: Address strategic issues before proceeding
 
@@ -122,25 +122,7 @@ cd $CARD_REPO_PATH
 # Assessment failed — revise PLAN.md per findings above, then re-run section 3.1 Launch Assessment Subagents
 ```
 
-#### If Both Assessments Pass (Ready: Yes + READY/DISCUSS)
-
-If any strategic concerns were accepted, write a comment to the card repository documenting them with rationale. Commit to the card repository:
-
-```bash
-cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[accepted strategic concerns and rationale for why each does not block implementation]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing the accepted concerns and rationale]"  # <card-repo-commit-style>
-```
-
-If no strategic concerns were accepted (Plan Refactor returned READY):
-
-```bash
-cd $CARD_REPO_PATH  # no comment to write; proceeding directly to step 5
-```
+#### If Both Assessments Pass (Ready: Yes + READY)
 
 Proceed to **5. Submit for Re-Approval**
 

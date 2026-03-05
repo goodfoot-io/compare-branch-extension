@@ -54,13 +54,13 @@ Use `TaskOutput` to retrieve results from the Structural Assessment and Strategi
 
 ## 3. Interpret and Act
 
-The assessor returns **"Ready for Implementation: Yes/No"** with issues categorized as CRITICAL/HIGH/MEDIUM/LOW. The refactor returns an **"Overall Assessment: READY/DISCUSS/RECONSIDER"**.
+The assessor returns **"Ready for Implementation: Yes/No"** with issues categorized as CRITICAL/HIGH/MEDIUM/LOW. The refactor returns an **"Overall Assessment: READY/GAPS/RECONSIDER"**.
 
 Apply the first matching condition:
 
 1. **Assessor returns "No"**: Revise PLAN.md to address the structural issues, then return to **1. Launch Assessment Subagents** — structural issues must be fixed before design evaluation matters.
 2. **Refactor returns RECONSIDER**: Revise PLAN.md to address the fundamental design findings, then return to **1. Launch Assessment Subagents**.
-3. **Assessor returns "Yes" AND Refactor returns DISCUSS**: Proceed, but document accepted concerns as a card comment (see below).
+3. **Assessor returns "Yes" AND Refactor returns GAPS**: Incorporate the GAPS findings into PLAN.md, then return to **1. Launch Assessment Subagents** — gaps are missing specs and must be filled before implementation.
 4. **Assessor returns "Yes" AND Refactor returns READY**: Proceed to the next step in the implementation workflow.
 
 #### After Both Assessments Complete (Always)
@@ -81,18 +81,13 @@ cd $CARD_REPO_PATH
 # Assessment failed — revise PLAN.md per findings above, then re-run section 1. Launch Assessment Subagents
 ```
 
-#### If Both Pass with DISCUSS (Condition 3)
+#### If Assessor Passes with GAPS (Condition 3)
 
-Write a comment to the card repository documenting the accepted concerns and rationale. Commit to the card repository:
+Revise PLAN.md to incorporate the GAPS findings, then re-run **1. Launch Assessment Subagents**.
 
 ```bash
 cd $CARD_REPO_PATH
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[accepted concerns from the strategic assessment and rationale for why they do not block implementation]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing the accepted concerns and rationale]"  # <card-repo-commit-style>
+# GAPS found — incorporate findings into PLAN.md, then re-run section 1. Launch Assessment Subagents
 ```
 
 </instructions>

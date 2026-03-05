@@ -299,10 +299,10 @@ Do the planned validation commands cover all planned changes?
 
 ### Implementation Readiness
 
-**Overall Assessment**: [READY | DISCUSS | RECONSIDER]
+**Overall Assessment**: [READY | GAPS | RECONSIDER]
 
 - **READY**: No blocking concerns; proceed with implementation
-- **DISCUSS**: Concerns worth addressing but not blocking; proceed with awareness
+- **GAPS**: Concrete gaps that must be incorporated into the plan before implementation — missing specs, unspecified behaviors, incomplete error paths, or unresolved design concerns
 - **RECONSIDER**: Fundamental issues that should be resolved before implementation
 ```
 </reporting-format>
@@ -374,8 +374,8 @@ Do not skip dimensions. A clean result confirms that area is solid.
 Based on principle assessments and completeness verification:
 
 - **READY**: All principles assess as SOUND (or only minor CONCERNS) and all completeness dimensions PASS
-- **DISCUSS**: Multiple CONCERNS, or completeness GAPS where the plan covers the right files but could be more thorough (broader validation, more explicit error paths, additional edge cases)
-- **RECONSIDER**: Any principle assesses as RECONSIDER, or completeness GAPS where the plan is missing files, consumers, or acceptance criteria entirely
+- **GAPS**: Any principle assesses as CONCERNS, or any completeness dimension has gaps — the plan covers the right scope but is missing specs, error paths, behavioral details, or explicit contracts that the implementer would otherwise have to invent
+- **RECONSIDER**: Any principle assesses as RECONSIDER, or completeness gaps where the plan is missing files, consumers, or acceptance criteria entirely
 
 ### 7. Generate Report
 
