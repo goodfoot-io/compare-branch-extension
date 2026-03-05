@@ -104,7 +104,6 @@ export type {
   CompareClearedEvent,
   DomainEvent,
   FsCommitEvent,
-  WorkspaceCommitEvent,
   StreamEndedEvent,
   StreamErrorEvent,
   StreamLineEvent,
@@ -117,7 +116,8 @@ export type {
   TimelineCommitRemovedEvent,
   TimelineTypedFileAddedEvent,
   TimelineTypedFileRemovedEvent,
-  TimelineTypedFileUpdatedEvent
+  TimelineTypedFileUpdatedEvent,
+  WorkspaceCommitEvent
 } from './events.js';
 // --- Filesystem Types ---
 export type { FsCommit, FsCommitFile } from './fs.js';

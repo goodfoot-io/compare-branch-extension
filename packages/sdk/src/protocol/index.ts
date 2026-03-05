@@ -90,7 +90,6 @@ export type {
   FileExistsCallback,
   FsCommit,
   FsCommitEvent,
-  WorkspaceCommitEvent,
   FsCommitFile,
   GateApprovalResponse,
   GateName,
@@ -167,6 +166,7 @@ export type {
   WebviewTimelineEntry,
   WebviewToExtensionMessage,
   WorkspaceBranch,
+  WorkspaceCommitEvent,
   WrapperCommand,
   WrapperErrorResponse,
   WrapperResponse
