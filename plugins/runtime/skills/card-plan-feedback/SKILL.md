@@ -13,7 +13,7 @@ Incorporate user feedback into an existing implementation plan and re-run assess
 ### 1.1 Read Card State
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 ```
 
 Read `PLAN.md` and the most recent `comment/*.md` files in the card repository.
@@ -51,7 +51,7 @@ Update the plan to address all feedback points:
 Write the updated plan to `PLAN.md` in the card repository. Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 git add PLAN.md
 git commit -m "[single sentence summarizing what feedback was incorporated into the plan]"  # <card-repo-commit-style>
 ```
@@ -118,7 +118,7 @@ Based on combined assessment results:
 Return to **2.2 Incorporate Feedback** and revise.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 # Assessment failed — revise PLAN.md per findings above, then re-run section 3.1 Launch Assessment Subagents
 ```
 
@@ -137,7 +137,7 @@ When feedback was ambiguous, surface your interpretation as a question with your
 Write the comment to the card repository. Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]

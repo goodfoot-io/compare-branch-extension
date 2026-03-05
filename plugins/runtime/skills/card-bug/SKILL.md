@@ -42,7 +42,7 @@ Verify the workspace has a clean working tree (`git status --porcelain` in `$WOR
 Create baseline tag:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -f "bug/!` echo $CARD_ID`/baseline" HEAD
 ```
 
@@ -105,7 +105,7 @@ ${SCOPE_HINT}
 After all subagents complete, run each test file to confirm it fails. Discard any test that passes (the hypothesis is not viable or the test is incorrect). Commit all failing tests together:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git add [test files]
 git commit -m "[reproduction tests: [pathway-a], [pathway-b], ...]"
 ```
@@ -176,7 +176,7 @@ Verify independently using git — do not rely solely on the subagent status:
 3. **Run the test.** Stage the test file and run it:
 
    ```bash
-   cd $WORKSPACE_PATH
+   cd "!` echo $WORKSPACE_PATH`"
    git add "$TEST_FILE_PATH"
    yarn test "$TEST_FILE_PATH"
    ```
@@ -201,7 +201,7 @@ Based on subagent response and test result:
   - Revert all workspace changes to baseline — restore modified/deleted files from the baseline tag, and remove files added since baseline:
 
     ```bash
-    cd $WORKSPACE_PATH
+    cd "!` echo $WORKSPACE_PATH`"
     git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD | \
       xargs -r git checkout "bug/!` echo $CARD_ID`/baseline" --
     git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A | \
@@ -373,7 +373,7 @@ Based on validation result:
 If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git reset --soft "bug/!` echo $CARD_ID`/baseline"
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
@@ -384,7 +384,7 @@ COMMITMSG
 Clean up checkpoint tags:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -d "bug/!` echo $CARD_ID`/baseline" "bug/!` echo $CARD_ID`/reproduction" 2>/dev/null
 ```
 
@@ -396,7 +396,7 @@ Based on review requirement:
   Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Commit to the card repository:
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
@@ -411,7 +411,7 @@ Based on review requirement:
   Write a completion comment to the card repository summarizing the bug, the fix approach, and confirming all tests pass. Commit to the card repository:
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]

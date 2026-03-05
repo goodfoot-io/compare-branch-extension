@@ -77,7 +77,7 @@ Apply the first matching condition:
 Revise PLAN.md per findings above, then re-run **1. Launch Assessment Subagents**.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 # Assessment failed — revise PLAN.md per findings above, then re-run section 1. Launch Assessment Subagents
 ```
 
@@ -86,7 +86,7 @@ cd $CARD_REPO_PATH
 Revise PLAN.md to incorporate the GAPS findings, then re-run **1. Launch Assessment Subagents**.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 # GAPS found — incorporate findings into PLAN.md, then re-run section 1. Launch Assessment Subagents
 ```
 

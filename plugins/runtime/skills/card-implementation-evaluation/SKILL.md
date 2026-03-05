@@ -11,7 +11,7 @@ description: Evaluate implementation quality using implementation and end-to-end
 Commit a checkpoint:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files before evaluation
 git commit --allow-empty -m "checkpoint: before evaluation — implementation complete for card $CARD_ID"
 ```
@@ -137,7 +137,7 @@ Apply the first matching condition:
 Write unresolved recommended findings (if any) as a card comment:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 ## Recommended Improvements

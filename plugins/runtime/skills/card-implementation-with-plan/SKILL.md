@@ -37,14 +37,14 @@ Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/Mu
 Stash any uncommitted changes:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git stash --include-untracked
 ```
 
 Create baseline tag:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
@@ -69,7 +69,7 @@ Extract [PLAN_FILES] — all files the plan intends to modify (from task file as
 Before each agent delegation, commit a checkpoint:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files before [TASK_DESCRIPTION]
 git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card $CARD_ID"
 ```
@@ -196,14 +196,14 @@ Based on agent status:
 **COMPLETED:** Commit any workspace changes, then write a brief progress comment to the card repository indicating which task was completed and what was actually done.
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git diff --quiet HEAD || git commit -am "[one sentence summarizing what this task implements]"  # <workspace-commit-style>
 ```
 
 Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [which task was completed and what was actually done]
@@ -216,7 +216,7 @@ git commit -m "[single sentence summarizing what the task accomplished]"  # <car
 - ALL blocked -> write summary comment, add `blocked` tag, **STOP**:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
@@ -236,7 +236,7 @@ git commit -m "[single sentence describing what is blocking all tasks]"  # <card
 Create post-implementation checkpoint:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files after implementation, before validation
 git commit --allow-empty -m "checkpoint: after implementation, before validation for card $CARD_ID"
 git tag -f "implement/!` echo $CARD_ID`/post-implementation" HEAD
@@ -253,7 +253,7 @@ Run validation per the plan's "Validation Commands" section.
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
@@ -282,7 +282,7 @@ Load the `runtime:card-implementation-evaluation` skill and follow its instructi
 Synthesize the final commit message from implementer Decision Narratives and key findings from evaluator reports, per `<workspace-commit-style>`.
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git add -A  # final: stage any uncommitted implementation artifacts
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
@@ -297,7 +297,7 @@ COMMITMSG
 Write a completion summary comment to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [completion summary: what was implemented and how it aligns with the plan, key files modified, validation confirmation]
@@ -313,7 +313,7 @@ Load the `runtime:card-merge` skill and follow its `<instructions>`.
 Write a summary comment to the card repository explaining what you implemented and how it aligns with the approved plan. List the key workspace files modified and confirm all validation passed. Indicate you are awaiting approval. Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
@@ -329,7 +329,7 @@ git commit -m "[single sentence summarizing what was implemented and that it is 
 Clean up checkpoint tags:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -d "implement/!` echo $CARD_ID`/baseline" \
          "implement/!` echo $CARD_ID`/post-implementation" 2>/dev/null
 ```

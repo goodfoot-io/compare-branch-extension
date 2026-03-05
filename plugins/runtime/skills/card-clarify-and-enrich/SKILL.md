@@ -17,7 +17,7 @@ Based on comments and prior clarification requests:
 - **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit. **Enrichment complete** — proceed to Step 4.
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [acknowledge the new information and explain how it affects requirements analysis]
@@ -29,7 +29,7 @@ Based on comments and prior clarification requests:
 - **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** — already waiting for user clarification.
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
@@ -99,7 +99,7 @@ Do not expand scope beyond user intent.
 If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 git add CARD.meta.json CARD.md
 git commit -m "[single sentence summarizing what was corrected or enriched in the card]"  # <card-repo-commit-style>
 ```
@@ -130,7 +130,7 @@ If gaps remain, search the workspace codebase for keywords from the card descrip
 - **If research resolves all gaps**: Write findings as a comment to the card repository and commit. **Enrichment complete** — proceed to Step 4.
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
@@ -144,7 +144,7 @@ If gaps remain, search the workspace codebase for keywords from the card descrip
 If gaps remain after research, write a comment to the card repository presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant workspace code where applicable.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]

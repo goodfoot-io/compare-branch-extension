@@ -32,7 +32,7 @@ Report honestly. Block cleanly. Document thoroughly.
 Abort any incomplete git operations that could corrupt the base branch:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git merge --abort 2>/dev/null || true
 git rebase --abort 2>/dev/null || true
 git cherry-pick --abort 2>/dev/null || true
@@ -86,7 +86,7 @@ Based on validation result:
 Add the "blocked" tag to the `tags` array in `CARD.meta.json`.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 ```
 
@@ -95,7 +95,7 @@ Based on card state:
 - **Card already has "blocked" tag** (from a previous recovery attempt): Commit without a duplicate comment:
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   git add CARD.meta.json
   git commit -m "[single sentence describing the error and that manual fix is needed]"  # <card-repo-commit-style>
   ```
@@ -103,7 +103,7 @@ Based on card state:
 - **Otherwise**: Write an error comment documenting what happened, then commit:
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]

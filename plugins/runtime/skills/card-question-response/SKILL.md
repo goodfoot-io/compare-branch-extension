@@ -21,7 +21,7 @@ Write a comment to the card repository with the answer. When referencing specifi
 Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [answer to the question with GitHub-style fragment links for any code references]

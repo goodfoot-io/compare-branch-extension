@@ -33,7 +33,7 @@ Update the `title` field in `CARD.meta.json` with the revised title. Replace the
 ## 3. Commit
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 git add CARD.meta.json CARD.md
 git commit -m "[single sentence summarizing how the bug was characterized and key decisions from the interview]"  # <card-repo-commit-style>
 ```

@@ -14,7 +14,7 @@ Based on commit count:
 - **COMMIT_COUNT = 0**: No changes to merge. Write a comment to the card repository noting no changes were found. Commit to the card repository and **STOP**.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [No changes were found on $WORKSPACE_BRANCH relative to $BASE_BRANCH. Nothing to merge.]
@@ -31,7 +31,7 @@ git commit -m "[single sentence noting no changes were found on the branch]"  # 
 - **COMMIT_COUNT >= 2**: Squash into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
@@ -44,7 +44,7 @@ COMMITMSG
 Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git rebase $BASE_BRANCH
 ```
 
@@ -52,14 +52,14 @@ Based on rebase result:
 - **Conflicts occur**: Run the command above to identify all conflicted files before resolving.
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git diff --name-only --diff-filter=U
 ```
 
 Identify conflicted files first (see below) and stage each resolved file by name rather than using `git add -A`.
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 # Stage only the conflict-resolved files by name
 git add <resolved-file-1> <resolved-file-2>
 git rebase --continue
@@ -68,7 +68,7 @@ git rebase --continue
 - **Conflicts cannot be resolved**: Write an error comment to the card repository, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** — Awaiting user intervention.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
@@ -95,7 +95,7 @@ Based on validation result:
 - **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** — Awaiting user intervention.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
@@ -120,7 +120,7 @@ git merge --ff-only "$WORKSPACE_BRANCH"
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md

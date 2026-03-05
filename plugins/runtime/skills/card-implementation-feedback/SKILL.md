@@ -23,7 +23,7 @@ Based on the latest user comment:
 - **Empty or does not indicate what changes are needed**: Write a comment to the card repository requesting clarification, commit, and **STOP**
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [clarification request: what specific changes are needed based on the feedback?]
@@ -43,7 +43,7 @@ Then **STOP**.
 Write a comment to the card repository acknowledging the feedback and describing the targeted changes you will make. Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [acknowledgment of the user's feedback, confirmation of understanding, and what targeted changes will be made]
@@ -59,7 +59,7 @@ git commit -m "[single sentence summarizing the feedback and the targeted change
 Create a baseline tag for the update:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -f "feedback/!` echo $CARD_ID`/baseline" HEAD
 ```
 
@@ -90,7 +90,7 @@ Based on failure:
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
@@ -111,7 +111,7 @@ Only proceed to **5. Evaluate Quality** when ALL validations pass.
 Commit a checkpoint:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files before evaluation
 git commit --allow-empty -m "checkpoint: before evaluation — feedback changes complete for card $CARD_ID"
 ```
@@ -137,7 +137,7 @@ Run validation per the plan's "Validation Commands" section (or `yarn typecheck`
 Get the list of files modified since the feedback baseline:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
 ```
 
@@ -246,7 +246,7 @@ Apply the first matching condition:
 Write unresolved recommended findings (if any) as a card comment:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 ## Recommended Improvements
@@ -266,7 +266,7 @@ git commit -m "[single sentence summarizing the recommended improvements]"  # <c
 If there are multiple commits since the feedback baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git reset --soft "feedback/!` echo $CARD_ID`/baseline"
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style> — describe the feedback-driven changes]
@@ -281,7 +281,7 @@ Based on review gate:
 - **gates.reviewRequired is true**: Write an updated summary comment to the card repository. Reference both the original implementation and the feedback-driven changes. List workspace files modified in the update and confirm all validation passed. Indicate awaiting approval. Commit to the card repository. **STOP** — Merge occurs after user approval.
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   ## Implementation Updated
@@ -295,7 +295,7 @@ Based on review gate:
 - **gates.reviewRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   ## Implementation Updated
@@ -311,7 +311,7 @@ Based on review gate:
 Clean up the feedback baseline tag:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -d "feedback/!` echo $CARD_ID`/baseline" 2>/dev/null
 ```
 

@@ -27,7 +27,7 @@ Based on blocker analysis:
   - **If resolved (status = "done")**: Remove the "blocked" tag from `CARD.meta.json` and re-invoke routing
 
     ```bash
-    cd $CARD_REPO_PATH
+    cd !` echo $CARD_REPO_PATH`
     $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.tags=d.tags.filter(t=>t!=='blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
     git add CARD.meta.json
     git commit -m "[single sentence describing the resolved blocker]"  # <card-repo-commit-style>
@@ -37,7 +37,7 @@ Based on blocker analysis:
 - **Blocker cannot be identified**: Post a comment asking for clarification and stop
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [clarification request: describe what blocker information is missing and what the user should provide]
@@ -55,7 +55,7 @@ Skip if a comment already exists containing "## Blocked" that describes the same
 Write a comment to the card repository explaining what is preventing progress, identifying the specific blocker (including any referenced card IDs), describing what action is needed to resolve it, and indicating that work will resume once the blocker is cleared.
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]

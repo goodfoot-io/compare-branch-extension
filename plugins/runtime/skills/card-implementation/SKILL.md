@@ -15,14 +15,14 @@ description: Implement cards.
 Stash any uncommitted changes:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git stash --include-untracked
 ```
 
 Create baseline tag:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
@@ -37,7 +37,7 @@ Write the plan to `PLAN.md` in the card repository following the `<annotated-pla
 Commit to the card repository:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 git add PLAN.md
 git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
@@ -51,7 +51,7 @@ Scan the plan for assumptions, open questions, and risk assertions that can be a
 For each spike-eligible uncertainty, load the `runtime:spike` skill. Incorporate results into the plan and commit:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 git add PLAN.md
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
@@ -69,7 +69,7 @@ For each step in the Technical Approach:
 4. Tag the checkpoint for this step:
 
    ```bash
-   cd $WORKSPACE_PATH
+   cd "!` echo $WORKSPACE_PATH`"
    git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
    ```
 
@@ -90,7 +90,7 @@ Based on failure:
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
 ```bash
-cd $CARD_REPO_PATH
+cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
@@ -111,7 +111,7 @@ Only proceed to **4. Finalize** when ALL validations pass.
 If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git reset --soft "implement/!` echo $CARD_ID`/baseline"
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
@@ -122,7 +122,7 @@ COMMITMSG
 Clean up checkpoint tags:
 
 ```bash
-cd $WORKSPACE_PATH
+cd "!` echo $WORKSPACE_PATH`"
 git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d
 ```
 
@@ -133,7 +133,7 @@ Based on review gate:
 - **gates.reviewRequired is true**: Write a summary comment to the card repository explaining what was implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate awaiting approval. Commit to the card repository. **STOP** — Merge occurs after user approval.
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
@@ -145,7 +145,7 @@ Based on review gate:
 - **gates.reviewRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
 
   ```bash
-  cd $CARD_REPO_PATH
+  cd !` echo $CARD_REPO_PATH`
   export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
   cat <<'EOF' > comment/$COMMENT_ID.md
   [completion summary: what was implemented, key decisions, files modified, validation confirmation]
