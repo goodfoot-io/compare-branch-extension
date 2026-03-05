@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-start.fce0c769.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-start.fb5215b0.mjs"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.4e87d4f7.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.f04c2217.mjs"
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.75681ee8.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.e060f95b.mjs"
           }
         ]
       }
@@ -54,11 +54,11 @@
   "__generated": {
     "files": [
       "subagent-stop.7dff6bee.mjs",
-      "subagent-start.fce0c769.mjs",
-      "stop.4e87d4f7.mjs",
-      "session-start.75681ee8.mjs",
+      "subagent-start.fb5215b0.mjs",
+      "stop.f04c2217.mjs",
+      "session-start.e060f95b.mjs",
       "session-end.b24ea804.mjs"
     ],
-    "timestamp": "2026-03-05T17:51:36.614Z"
+    "timestamp": "2026-03-05T22:32:06.987Z"
   }
 }
