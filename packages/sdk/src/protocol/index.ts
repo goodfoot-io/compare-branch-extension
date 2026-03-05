@@ -90,6 +90,7 @@ export type {
   FileExistsCallback,
   FsCommit,
   FsCommitEvent,
+  WorkspaceCommitEvent,
   FsCommitFile,
   GateApprovalResponse,
   GateName,

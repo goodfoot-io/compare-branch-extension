@@ -349,6 +349,23 @@ export interface FsCommitEvent {
   commit: FsCommit;
 }
 
+// --- Workspace Events ---
+
+/**
+ * Event payload emitted after a workspace commit is processed for a card.
+ *
+ * Carries the new HEAD SHA so clients can refresh branch and merge status
+ * without requiring the user to close and reopen the panel.
+ */
+export interface WorkspaceCommitEvent {
+  /** Event type discriminator. */
+  type: 'workspace:commit';
+  /** ID of the card whose workspace branch received this commit. */
+  cardId: string;
+  /** HEAD SHA of the workspace repository after the commit. */
+  sha: string;
+}
+
 // --- Domain Event Union ---
 
 /**
@@ -395,4 +412,5 @@ export type DomainEvent =
   | StreamErrorEvent
   | CompareChangedEvent
   | CompareClearedEvent
-  | FsCommitEvent;
+  | FsCommitEvent
+  | WorkspaceCommitEvent;

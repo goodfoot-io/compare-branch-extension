@@ -339,6 +339,8 @@ describe('timeline event types', () => {
             return 'compare-cleared';
           case 'fs:commit':
             return 'fs-commit';
+          case 'workspace:commit':
+            return 'workspace-commit';
           default: {
             // Exhaustive check - this should never be reached
             const _exhaustive: never = event;

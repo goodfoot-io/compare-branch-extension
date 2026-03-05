@@ -104,6 +104,7 @@ export type {
   CompareClearedEvent,
   DomainEvent,
   FsCommitEvent,
+  WorkspaceCommitEvent,
   StreamEndedEvent,
   StreamErrorEvent,
   StreamLineEvent,
