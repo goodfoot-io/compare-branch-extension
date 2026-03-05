@@ -75,9 +75,14 @@ note/                       # Structured notes (Markdown + YAML frontmatter)
   },
   "isPinned": false,
   "order": 1,
-  "repositoryId": "github.com/org/repo"
+  "repositoryId": "github.com/org/repo",
+  "relations": [
+    { "type": "blocks", "cardId": "main-0002" }
+  ]
 }
 ```
+
+`relations` is optional — omitted when the card has no outgoing relations. Each entry has a `type` (`"blocks"`, `"duplicate"`, or `"related"`) and a `cardId` referencing the target card. These are outgoing relations only; incoming blocks are derived server-side from other cards' metadata.
 
 ### Gates
 
