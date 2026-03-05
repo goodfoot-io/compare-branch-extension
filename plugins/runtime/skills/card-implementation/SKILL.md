@@ -48,7 +48,7 @@ Extract [PLAN_FILES] — all files the plan intends to modify (from the Technica
 
 Scan the plan for assumptions, open questions, and risk assertions that can be answered with isolated code. Skip this step if none exist.
 
-For each spike-eligible uncertainty, invoke the `runtime:spike` skill. Incorporate results into the plan and commit:
+For each spike-eligible uncertainty, load the `runtime:spike` skill. Incorporate results into the plan and commit:
 
 ```bash
 cd $CARD_REPO_PATH
