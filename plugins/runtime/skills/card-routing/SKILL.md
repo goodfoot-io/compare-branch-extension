@@ -61,7 +61,7 @@ Select the **first** matching condition:
 - **9. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
 - **10. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
 - **11. IS_TESTABLE_BUG**: `runtime:card-bug`
-- **12. Otherwise**: `runtime:card-implementation` + `runtime:plan-abbreviated`
+- **12. Otherwise**: `runtime:card-implementation` + `runtime:plan`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
 

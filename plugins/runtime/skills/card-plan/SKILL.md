@@ -14,7 +14,7 @@ Create implementation plans for cards requiring user approval before coding begi
 
 - Read relevant files in the codebase (track paths for code references in step 3)
 - Understand existing patterns and architecture
-- Identify the root cause: what structural property of the system produces the observed problem? If the root cause is confirmed by reading source code, proceed. If it is inferred from symptoms, it is the first spike target — write the Technical Approach only after the hypothesis is validated. A plan built on a falsified root cause requires full replacement, not refinement. If the Technical Approach addresses a symptom rather than the root cause, record the tradeoff explicitly in Risks & Mitigations.
+- Identify the root cause: what structural property of the system produces the observed problem? If the root cause is confirmed by reading source code, proceed to §1.2. If it is inferred from symptoms, invoke the `runtime:spike` skill now — before §1.2 — to validate or falsify the hypothesis. A plan built on a falsified root cause requires full replacement, not refinement. If the Technical Approach addresses a symptom rather than the root cause, record the tradeoff explicitly in Risks & Mitigations.
 - When modifying or replacing an existing flow, trace the complete existing implementation — not just the parts being changed — to enumerate all components currently wired in. A component discovered during implementation that belongs in the plan is a research failure.
 - Identify requirements conflicts: if the card description, comments, and CARD.md contain inconsistent signals, resolve the conflict with the user before writing the Technical Approach. A plan built on an unresolved ambiguity guarantees a revision.
 - Identify dependencies and risks
@@ -50,7 +50,7 @@ git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-
 
 Load the `runtime:card-assess-plan` skill and follow its instructions.
 
-## 4. Submit for Approval
+## 3. Submit for Approval
 
 **Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
 

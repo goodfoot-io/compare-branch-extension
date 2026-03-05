@@ -7,10 +7,10 @@ This skill defines how to structure implementation plans stored as PLAN.md in ca
 
 ## Complexity Tiers
 
-Select sections based on card scope:
+Select sections based on the *type* of change, not the number of files touched:
 
-### Tier 1: Simple Changes
-*1-3 files, clear requirements*
+### Tier 1: Surgical Changes
+*Single known fix — no new wiring between components, no new architectural patterns, clear scope*
 
 Required sections:
 - Problem Statement
@@ -18,22 +18,64 @@ Required sections:
 - Technical Approach
 - Validation Commands
 
-### Tier 2: Standard Features
-*4-10 files, moderate complexity*
+### Tier 2: Features and Modifications
+*New behavior, existing flow modified, any new wiring between components, or multiple integration points*
 
 Add to Tier 1:
 - Scope (Include/Exclude)
 - Dependency Analysis
 - Risks & Mitigations
 
-### Tier 3: Complex Systems
-*10+ files, architectural changes, unknowns*
+### Tier 3: Architectural Changes
+*New systems, new patterns, significant unknowns, or cross-cutting changes*
 
 Add to Tier 2:
 - Framework & Technology Stack
 - Technical Spike Results
 - Implementation References
 - Open Questions
+
+When in doubt, use the higher tier. A Scope section on a surgical plan costs nothing; a missing Risks section on a plan that needed one costs a revision.
+
+---
+
+<quick-reference>
+## Quick Reference
+
+### Always Required (All Tiers)
+- `## Implementation Plan` header
+- Problem Statement (2-4 sentences)
+- Goals & Objectives (3-7 checkbox items)
+- Technical Approach (numbered steps with file paths)
+- Validation Commands (typecheck, test, lint minimum)
+
+### Include for Tier 2+
+- Scope (Include AND Exclude)
+- Dependency Analysis (high-impact files + integration points)
+- Risks & Mitigations (3-5 items)
+
+### Include for Tier 3
+- Framework & Technology Stack
+- Technical Spike Results
+- Implementation References
+- Open Questions
+
+### Never Include in Plan Comment
+- YAML front matter
+- Version numbers in title
+- Revision notes or change summaries
+- Conversational preamble ("Based on your feedback...")
+- References to previous plan versions
+
+### Key Rules
+- Verified file paths with line numbers
+- WHAT to build, not HOW
+- Exclude v2 features explicitly
+- No implementation details
+- No guessed file paths
+- No vague goals
+- Plan must be standalone
+</quick-reference>
 
 ---
 
@@ -589,11 +631,7 @@ Document uncertainties explicitly:
 11. **Standalone Plans**: Each plan comment must be self-contained and readable
     without context from other comments. No revision notes or conversational preamble.
 
-12. **No Backward Compatibility Shims**: Delete unused code completely.
-    Don't rename to `_unused`, re-export for compatibility, or add "removed" comments.
-    If something is no longer needed, remove it.
-
-13. **Commit Message Heritage**: The Problem Statement you write today becomes the "before"
+12. **Commit Message Heritage**: The Problem Statement you write today becomes the "before"
     in tomorrow's commit message. Your Risks section becomes foreshadowing in the narrative.
     Two years from now, someone will quote these words in a postmortem or incident report.
     Write so they'll understand why this work existed—and write clearly enough that they
@@ -627,41 +665,3 @@ Select and load reference documents based on the quality issues encountered duri
 - **If open questions are hidden in prose or sections aren't modular**: Read `references/document-evolution.md`. Provides mechanisms for decision tracking via comments, open questions management, and modular section structure that supports iterative refinement. Use when assessing whether the plan can evolve healthily as implementation progresses.
 
 </quality-assessment>
-
-<quick-reference>
-## Quick Reference
-
-### Always Required (All Tiers)
-- `## Implementation Plan` header
-- Problem Statement (2-4 sentences)
-- Goals & Objectives (3-7 checkbox items)
-- Technical Approach (numbered steps with file paths)
-- Validation Commands (typecheck, test, lint minimum)
-
-### Include for Tier 2+
-- Scope (Include AND Exclude)
-- Dependency Analysis (high-impact files + integration points)
-- Risks & Mitigations (3-5 items)
-
-### Include for Tier 3
-- Framework & Technology Stack
-- Technical Spike Results
-- Implementation References
-- Open Questions
-
-### Never Include in Plan Comment
-- YAML front matter
-- Version numbers in title
-- Revision notes or change summaries
-- Conversational preamble ("Based on your feedback...")
-- References to previous plan versions
-
-### Key Rules
-- Verified file paths with line numbers
-- WHAT to build, not HOW
-- Exclude v2 features explicitly
-- No implementation details
-- No guessed file paths
-- No vague goals
-- Plan must be standalone
-</quick-reference>

@@ -4,7 +4,7 @@ description: Implement cards in isolated git worktree.
 tools: "*"
 skills:
   - runtime:card-repo
-  - runtime:plan-abbreviated
+  - runtime:plan
   - runtime:card-implementation
 ---
 

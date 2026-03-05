@@ -32,7 +32,7 @@ Restore any stashed changes: `git stash pop || true` (succeeds silently if stash
 
 ## 2. Plan
 
-Write the plan to `PLAN.md` in the card repository following the `<annotated-plan-example>` from the `runtime:plan-abbreviated` skill. Base the plan on the card description and codebase exploration.
+Write the plan to `PLAN.md` in the card repository following the `<annotated-plan-example>` from the `runtime:plan` skill. Base the plan on the card description and codebase exploration.
 
 Commit to the card repository:
 
