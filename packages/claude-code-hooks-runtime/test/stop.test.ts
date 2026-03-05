@@ -140,7 +140,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content here';
+        if (args?.[0] === 'log' && args?.[1] === '--pretty=format:%h %an: %s') return 'stat content here';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -160,7 +160,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content';
+        if (args?.[0] === 'log' && args?.[1] === '--pretty=format:%h %an: %s') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -228,7 +228,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_1}\n${SHA_2}\n`;
-        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'all changes stat';
+        if (args?.[0] === 'log' && args?.[1] === '--pretty=format:%h %an: %s') return 'all changes stat';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([]);
@@ -302,7 +302,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[1] === '--stat') throw new Error('repository corrupted');
+        if (args?.[0] === 'log' && args?.[1] === '--pretty=format:%h %an: %s') throw new Error('repository corrupted');
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -324,7 +324,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content';
+        if (args?.[0] === 'log' && args?.[1] === '--pretty=format:%h %an: %s') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -347,7 +347,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content';
+        if (args?.[0] === 'log' && args?.[1] === '--pretty=format:%h %an: %s') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);

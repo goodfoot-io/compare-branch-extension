@@ -26,9 +26,9 @@ import {
 } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
-import { stripDiffstatSummaries } from './lib/context.js';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
+import { stripDiffstatSummaries } from './lib/context.js';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -310,7 +310,7 @@ export default stopHook({}, async (input, { logger }) => {
   try {
     const statOutput = execFileSync(
       'git',
-      ['log', '--stat', ...unattributed, '--', '.', ':!streams/claude-code-session/'],
+      ['log', '--pretty=format:%h %an: %s', '--stat', '-5', ...unattributed, '--', '.', ':!streams/claude-code-session/'],
       {
         cwd: actionInput.cardRepoPath,
         encoding: 'utf-8',
@@ -328,7 +328,7 @@ export default stopHook({}, async (input, { logger }) => {
       `Error: ${message}`,
       '',
       'To view manually:',
-      `  git -C ${actionInput.cardRepoPath} log --stat ${unattributed.join(' ')} -- . ':!streams/claude-code-session/'`
+      `  git -C ${actionInput.cardRepoPath} log --stat -5 ${unattributed.join(' ')} -- . ':!streams/claude-code-session/'`
     ].join('\n');
     warnings.push(`Stat generation failed: ${message}`);
   }
