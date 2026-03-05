@@ -29,6 +29,7 @@ export type CardUpdateDataField =
   | 'gates'
   | 'isPinned'
   | 'order'
+  | 'relations'
   | 'created'
   | 'updated';
 

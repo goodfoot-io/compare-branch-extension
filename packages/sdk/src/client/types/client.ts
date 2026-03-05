@@ -9,7 +9,7 @@
  * @module types/client
  */
 
-import type { CardGates, CardStatus, Comment as ProtocolComment } from '../../protocol/index.js';
+import type { CardGates, CardRelation, CardStatus, Comment as ProtocolComment } from '../../protocol/index.js';
 
 // Re-export shared API types from protocol for backwards compatibility
 // These are the canonical wire-level types used by both client and server
@@ -140,6 +140,8 @@ export interface CardUpdateData {
   order?: number;
   /** Partial gate updates (e.g. toggling planRequired or reviewRequired). */
   gates?: Partial<CardGates>;
+  /** Updated relations array. undefined = no change; [] = clear all. */
+  relations?: CardRelation[];
 }
 
 /**

@@ -33,7 +33,7 @@
  * @module types/api-requests
  */
 
-import type { Card } from './card.js';
+import type { Card, CardRelation } from './card.js';
 import type { CardStatus } from './status.js';
 import type { Comment, TimelineItem } from './timeline.js';
 
@@ -202,6 +202,9 @@ export interface UpdateCardRequest {
    * When omitted, commits use the card repo's git config default.
    */
   author?: string;
+
+  /** Updated relations array. Replaces existing relations entirely. */
+  relations?: CardRelation[];
 }
 
 /**

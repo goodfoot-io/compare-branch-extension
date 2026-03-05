@@ -58,8 +58,8 @@ export {
 // --- Callback Types ---
 export type { IpcMessageCallback } from './callbacks.js';
 // --- Card Types ---
-export type { Card, CardGates, CardMetadata } from './card.js';
-export { DEFAULT_CARD_GATES } from './card.js';
+export type { Card, CardGates, CardMetadata, CardRelation, CardRelationType } from './card.js';
+export { CARD_RELATION_TYPES, DEFAULT_CARD_GATES } from './card.js';
 // --- Card Scaffold ---
 export { CARD_GITIGNORE } from './card-scaffold.js';
 // --- Compare Types ---

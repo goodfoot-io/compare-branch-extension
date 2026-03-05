@@ -50,6 +50,8 @@ export type {
   CardGates,
   CardMetadata,
   CardMetadataChangedEvent,
+  CardRelation,
+  CardRelationType,
   CardResponse,
   CardStatus,
   CardsApiInfo,
@@ -173,6 +175,7 @@ export type {
 export {
   ATTACHMENT_ID_PATTERN,
   CARD_GITIGNORE,
+  CARD_RELATION_TYPES,
   DEFAULT_CARD_GATES,
   EMPTY_TREE_SHA,
   MAX_CARD_ID_LENGTH,
