@@ -408,7 +408,8 @@ async function tryOpenSession(
   } catch (error) {
     state.consecutiveFailures++;
     if (shouldLogFailure(state)) {
-      logViaSocket('warn', `Failed to open WS session ${context}: ${String(error)}`);
+      const detail = error instanceof Error && error.stack ? error.stack : String(error);
+      logViaSocket('warn', `Failed to open WS session ${context}: ${detail}`);
     }
     return null;
   }
@@ -658,7 +659,10 @@ export async function main(): Promise<void> {
   }
 
   const args = parseArgs(process.argv);
-  logViaSocket('info', `Watcher started for PID ${String(args.pid)}, session ${args.sessionId}`);
+  logViaSocket(
+    'info',
+    `Watcher started: pid=${String(args.pid)} session=${args.sessionId} node=${process.version} watcherPid=${String(process.pid)} transcriptPath=${args.transcriptPath} cardId=${args.cardId}`
+  );
 
   await runStreamingLoop(args);
   logViaSocket('info', `Watcher completed for session ${args.sessionId}`);
