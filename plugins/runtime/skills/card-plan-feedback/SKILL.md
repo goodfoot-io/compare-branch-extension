@@ -34,7 +34,7 @@ From the latest user comment, identify:
 If feedback requires additional investigation in the workspace repository:
 
 - Read relevant files in the workspace codebase (track paths for code references)
-- Understand implications of requested changes
+- Understand implications of requested changes. When the feedback modifies the Technical Approach (changes data structures, shifts responsibility between components, replaces a component, simplifies a step), re-verify the complete data-flow connections for the affected path — not only the changed sections. A design revision can disconnect wiring that was correct under the previous design; incremental research on the changed parts alone is insufficient.
 - Identify new dependencies or risks
 
 ### 2.2 Incorporate Feedback
@@ -97,7 +97,7 @@ Use `TaskOutput` to retrieve results from the Structural Assessment and Strategi
 
 Based on combined assessment results:
 
-- **Ready: Yes AND READY**: Proceed to **5. Submit for Re-Approval**
+- **Ready: Yes AND READY**: Proceed to **4. Submit for Re-Approval**
 - **Ready: Yes AND GAPS**: Incorporate GAPS findings into PLAN.md (return to **2.2 Incorporate Feedback**) — gaps are missing specs, not accepted tradeoffs
 - **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" — address strategic issues
 - **Ready: Yes (suggestions) AND READY**: Proceed with awareness of suggestions
@@ -124,9 +124,9 @@ cd $CARD_REPO_PATH
 
 #### If Both Assessments Pass (Ready: Yes + READY)
 
-Proceed to **5. Submit for Re-Approval**
+Proceed to **4. Submit for Re-Approval**
 
-## 5. Submit for Re-Approval
+## 4. Submit for Re-Approval
 
 **Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
 

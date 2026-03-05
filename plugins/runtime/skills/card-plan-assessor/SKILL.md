@@ -25,31 +25,41 @@ When you mark "Ready for Implementation: Yes," you are making a promise that the
 <structural-compliance-requirements>
 Verify all required sections are present and contain actionable detail per the plan skill. Each section must be specific enough to implement without guessing — concrete file paths, named functions/classes/components, specific versions.
 
-Required sections:
+**Tier detection**: Before evaluating sections, determine the plan's tier:
+- **Tier 3** — Framework & Technology Stack section is present, or the plan introduces new architectural patterns, new systems, or significant unknowns
+- **Tier 2** — Dependency Analysis section is present, or the plan introduces new wiring between components or multiple integration points
+- **Tier 1** — Otherwise (single known fix, no new wiring between components)
+
+Required sections (all tiers):
 1. Title format: `## Implementation Plan`
 2. Problem Statement (clear description of the issue)
 3. Goals & Objectives (3-7 checkboxes with specific, measurable outcomes)
 4. Scope (MUST have both Include AND Exclude subsections)
-5. Framework & Technology Stack (versions in package@version format; flag missing or vague ranges like "latest")
-6. Technical Approach (numbered steps with concrete file paths and named symbols)
-7. Dependency Analysis (High-Impact Files + Key Integration Points)
-8. Validation Commands (typecheck, test, lint — mandatory for affected packages)
-9. Risks & Mitigations (3-5 technical risks with solutions)
+5. Technical Approach (numbered steps with concrete file paths and named symbols)
+6. Risks & Mitigations (3-5 technical risks with solutions)
+7. Validation Commands — enumerate all package paths in the Technical Approach file list; verify each has a corresponding command. Any modified package without a validation entry is a HIGH finding.
+
+Additional required for Tier 2+:
+8. Dependency Analysis (High-Impact Files + Key Integration Points)
+
+Additional required for Tier 3:
+9. Framework & Technology Stack (versions in package@version format; flag missing or vague ranges like "latest")
 
 Note: Section order matters. Plans should follow the above sequence.
 </structural-compliance-requirements>
 
 <priority-framework>
 ### Critical (Prevents Implementation)
-- Missing required sections
+- Missing required sections for the detected tier
 - Invalid markdown structure
 - No clear implementation steps
 - Ambiguous success criteria
-- Missing framework/library versions
 
 ### High (Significant Issues)
 - Technical steps lack concrete file paths or named symbols
 - No testing approach defined
+- A package appearing in Technical Approach file paths has no corresponding Validation Commands entry
+- Missing Framework & Technology Stack versions (Tier 3 plans only)
 
 ### Medium (Notable Concerns)
 - Minor structural issues affecting implementation clarity

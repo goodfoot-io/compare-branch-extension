@@ -15,16 +15,16 @@ Select sections based on the *type* of change, not the number of files touched:
 Required sections:
 - Problem Statement
 - Goals & Objectives
+- Scope (Include/Exclude)
 - Technical Approach
+- Risks & Mitigations
 - Validation Commands
 
 ### Tier 2: Features and Modifications
 *New behavior, existing flow modified, any new wiring between components, or multiple integration points*
 
 Add to Tier 1:
-- Scope (Include/Exclude)
 - Dependency Analysis
-- Risks & Mitigations
 
 ### Tier 3: Architectural Changes
 *New systems, new patterns, significant unknowns, or cross-cutting changes*
@@ -35,7 +35,7 @@ Add to Tier 2:
 - Implementation References
 - Open Questions
 
-When in doubt, use the higher tier. A Scope section on a surgical plan costs nothing; a missing Risks section on a plan that needed one costs a revision.
+When in doubt, use the higher tier.
 
 ---
 
@@ -46,13 +46,13 @@ When in doubt, use the higher tier. A Scope section on a surgical plan costs not
 - `## Implementation Plan` header
 - Problem Statement (2-4 sentences)
 - Goals & Objectives (3-7 checkbox items)
+- Scope (Include AND Exclude)
 - Technical Approach (numbered steps with file paths)
+- Risks & Mitigations (3-5 items)
 - Validation Commands (typecheck, test, lint minimum)
 
 ### Include for Tier 2+
-- Scope (Include AND Exclude)
 - Dependency Analysis (high-impact files + integration points)
-- Risks & Mitigations (3-5 items)
 
 ### Include for Tier 3
 - Framework & Technology Stack
@@ -76,6 +76,29 @@ When in doubt, use the higher tier. A Scope section on a surgical plan costs not
 - No vague goals
 - Plan must be standalone
 </quick-reference>
+
+<key-principles>
+1. **Precision**: Use verified file paths with line numbers, linked inline — soft links for prose references and precise anchors for step locations (`[src/services/user.ts L78](./src/services/user.ts#L78)`)
+2. **YAGNI**: Only features solving the immediate problem
+3. **Integration Over Innovation**: Reuse existing patterns
+4. **Examples Clarify, Not Constrain**: Show data shapes, not implementations
+5. **Test the Risks**: Focus on what could actually fail
+6. **Scope Exclusions Prevent Creep**: Explicitly state what's NOT included
+
+7. **Testability**: For each requirement, ask "How would we test this?"
+   If no clear test exists, the requirement needs more specificity.
+
+8. **Ubiquitous Language**: Use consistent terminology matching the codebase.
+   If code says `ShoppingCart`, plan says "Shopping Cart" not "Basket."
+
+9. **Decisions in Comments**: The card comment thread preserves decision history.
+   Plans reference outcomes; rationale lives in separate meta-analysis comments.
+
+10. **Standalone Plans**: Each plan comment must be self-contained and readable
+    without context from other comments. No revision notes or conversational preamble.
+
+The best plan answers "what" and "where" while leaving "how" to the implementer.
+</key-principles>
 
 ---
 
@@ -606,62 +629,3 @@ Document uncertainties explicitly:
 
 </annotated-plan-example>
 
----
-
-<key-principles>
-1. **Precision**: Use verified file paths with line numbers, linked inline — soft links for prose references and precise anchors for step locations (`[src/services/user.ts L78](./src/services/user.ts#L78)`)
-2. **YAGNI**: Only features solving the immediate problem
-3. **Integration Over Innovation**: Reuse existing patterns
-4. **Examples Clarify, Not Constrain**: Show data shapes, not implementations
-5. **Test the Risks**: Focus on what could actually fail
-6. **Scope Exclusions Prevent Creep**: Explicitly state what's NOT included
-
-7. **Testability**: For each requirement, ask "How would we test this?"
-   If no clear test exists, the requirement needs more specificity.
-
-8. **Ubiquitous Language**: Use consistent terminology matching the codebase.
-   If code says `ShoppingCart`, plan says "Shopping Cart" not "Basket."
-
-9. **Evolution Readiness**: Structure plans for change — modular sections,
-   explicit uncertainties.
-
-10. **Decisions in Comments**: The card comment thread preserves decision history.
-    Plans reference outcomes; rationale lives in separate meta-analysis comments.
-
-11. **Standalone Plans**: Each plan comment must be self-contained and readable
-    without context from other comments. No revision notes or conversational preamble.
-
-12. **Commit Message Heritage**: The Problem Statement you write today becomes the "before"
-    in tomorrow's commit message. Your Risks section becomes foreshadowing in the narrative.
-    Two years from now, someone will quote these words in a postmortem or incident report.
-    Write so they'll understand why this work existed—and write clearly enough that they
-    won't need to quote the whole paragraph.
-
-The best plan answers "what" and "where" while leaving "how" to the implementer.
-</key-principles>
-
-<quality-assessment>
-### Quick Assessment (use before loading full methodologies)
-
-For lightweight issues, apply these inline checks without loading reference files:
-
-1. **Vagueness check**: Flag terms "fast", "user-friendly", "intuitive", "scalable", "reliable" without definitions
-2. **Testability check**: Ask "How would we test this?" — if no clear answer, requirement needs work
-3. **Scope check**: Sparse Exclude section (< 3 items) suggests insufficient boundary thinking
-4. **Rationale check**: Technology choices without "because" or "selected over" phrases lack justification
-
-Load full reference documents only when remediation guidance is needed or the issue is complex.
-
-### Full Methodologies
-
-Select and load reference documents based on the quality issues encountered during assessment:
-
-- **If requirements contain subjective terms** (e.g., "fast", "user-friendly", "scalable" without definitions): Read `references/vague-language-detection.md`. Provides systematic patterns for identifying ambiguous language and transforming it into specific, measurable criteria. Use when a clear test case cannot be envisioned for a requirement or when numeric thresholds are missing from performance claims.
-- **If plan sections contradict each other or use inconsistent terminology**: Read `references/coherence-checking.md`. Provides verification processes for cross-referencing values, terms, and scope items across all plan sections. Use when performance targets differ between sections, terminology is inconsistent, or scope boundaries conflict with technical approach.
-- **If technical decisions lack justification or trade-offs are undocumented**: Read `references/rationale-capture.md`. Provides patterns for capturing technology selection reasoning, constraint origins, and exclusion rationale. Use when future maintainers would ask "why was this done?" or when scope exclusions lack explanation.
-- **If the Exclude section is sparse or features use speculative language** (e.g., "might need", "for future use"): Read `references/scope-management.md`. Provides YAGNI assessment framework and scope defense protocols for maintaining clear project boundaries. Use when features aren't tied to the problem statement or when scope creep indicators appear in Technical Approach.
-- **If the answer to "How would we test this?" is unclear for a requirement**: Read `references/testability-assessment.md`. Provides criteria for verifying requirements are observable, measurable, and deterministic with clear pass/fail conditions. Use when goals use subjective success criteria or acceptance criteria are abstract.
-- **If non-functional requirements are missing or assumed but not documented**: Read `references/nfr-completeness.md`. Provides checklists for performance, reliability, security, and scalability coverage with assessment questions for each category. Use when there are no latency targets for user-facing operations or when scalability expectations are based on hope rather than evidence.
-- **If open questions are hidden in prose or sections aren't modular**: Read `references/document-evolution.md`. Provides mechanisms for decision tracking via comments, open questions management, and modular section structure that supports iterative refinement. Use when assessing whether the plan can evolve healthily as implementation progresses.
-
-</quality-assessment>

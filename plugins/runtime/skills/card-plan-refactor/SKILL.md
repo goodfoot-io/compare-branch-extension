@@ -78,6 +78,7 @@ Each principle represents a lens through which to examine the plan. Apply in ord
 
 **Manifestations to detect:**
 - Solution addresses a symptom rather than root cause
+- **Unvalidated root cause** — the root cause is inferred from observed symptoms (error messages, behavioral anomalies, log output) rather than traced in source code. Unlike a wrong-but-confirmed root cause (which produces an implementation bug), an unvalidated root cause that is falsified requires full plan replacement. Unvalidated root causes in bug-fix plans always warrant **RECONSIDER**, not CONCERNS.
 - Hidden assumptions about user needs not validated
 - Unintended consequences not considered
 - Technology chosen because we want to use it, not because it fits
@@ -107,6 +108,8 @@ Each principle represents a lens through which to examine the plan. Apply in ord
 
 **Manifestations to detect:**
 - State ownership undefined ("who owns this data?")
+- **Dual source of truth** — the same logical value is written to two storage systems (database + file, cache + store, memory + database). Two systems that must agree on a value are one synchronization bug away from divergence. When the plan writes the same field to two locations: identify which is authoritative, which is derived, and what happens when they disagree.
+- **Behavioral equivalence asserted without evidence** — the plan replaces one function, component, or class with another and asserts they behave identically, without citing verification. Two symbols may share a signature and return type while having different postconditions, side effects, or preconditions. When the plan says "X and Y are equivalent" or "replace X with Y," verify the behavioral contracts match, not just the types.
 - Data-flow contracts left to the implementer — plan writes to a structure without specifying what consumers expect, or reads from a source without specifying what producers deliver
 - Assumptions stated as facts without validation
 - Dependencies on behavior that isn't guaranteed
@@ -115,24 +118,14 @@ Each principle represents a lens through which to examine the plan. Apply in ord
 - *"If a new team member read this, what would they misunderstand?"*
 - *"What are we assuming about how X behaves?"*
 
-### Principle 4: Design for Independence
-*"Things that change together should be together; things that change separately should be separate"*
+### Principle 4: Prefer Reversible Decisions
+*"Every commitment narrows future options; make only the commitments current requirements demand"*
 
-**Manifestations to detect:**
-- Tight coupling between components that should evolve independently
-- Low cohesion (component doing multiple unrelated things)
-- Changes that would ripple across many unrelated components
-
-**Key questions:**
-- *"If requirement X changes, how many places need modification?"*
-- *"Can this component be tested in isolation?"*
-
-### Principle 5: Design for Change
-*"Does this decision create commitments we cannot unilaterally reverse?"*
+A decision is reversible if you can undo it without breaking anything outside your control. One-way doors — decisions where something you don't control depends on the outcome — require deliberation before crossing. Two-way doors can be crossed quickly.
 
 **One-way doors (require scrutiny):**
 - Database schemas with production data
-- Public API contracts consumers depend on
+- Public API contracts external consumers depend on
 - Persisted data formats that existing records use
 - External service integrations with customers or partners
 
@@ -141,11 +134,19 @@ Each principle represents a lens through which to examine the plan. Apply in ord
 - Implementation refactoring that preserves input/output contracts
 - Internal API changes within your control
 
+**Manifestations to detect:**
+- Tight coupling between components that should evolve independently — if changing X requires changing Y, Z, and W, the coupling is a future commitment
+- Low cohesion: a component doing multiple unrelated things is harder to change without ripple effects
+- **Backward compatibility artifacts**: renamed symbols (`_oldFoo`, `legacyBar`), re-exports for callers that no longer exist, empty shims, compatibility wrappers, or "deprecated"/"removed" comments left in live code. These are dead producers — capability without a consumer, preserved out of caution. They accumulate, signal ambiguity to maintainers, and are never cleaned up. If nothing currently calls the old code, the plan must remove it completely.
+- External commitments made without deliberation (a new public interface, persisted format, or integrated service added as an afterthought)
+
 **Key questions:**
 - *"Who outside this codebase depends on this decision?"*
 - *"If we reverse this tomorrow, what breaks that we don't control?"*
+- *"If requirement X changes, how many places need modification?"*
+- *"Is any code being preserved 'for safety' rather than deleted?"*
 
-### Principle 6: Design for Reality
+### Principle 5: Design for Reality
 *"Systems fail; tests must be possible"*
 
 **Manifestations to detect:**
@@ -153,6 +154,7 @@ Each principle represents a lens through which to examine the plan. Apply in ord
 - Design that requires mocking everything to test
 - No consideration of failure modes
 - Assumes external dependencies are reliable
+- **Unvalidated user-controlled inputs at new endpoints** — a new HTTP endpoint or handler accepts user-controlled path segments, query parameters, or body fields that could affect file system access, database queries, or command execution. Path traversal (`../`) is the canonical instance for file path parameters. Flag any plan that introduces an endpoint with a path-like parameter without specifying sanitization.
 
 **Key questions:**
 - *"What happens when this fails?"*
@@ -200,6 +202,7 @@ Every planned write needs a reader; every planned read needs a writer.
 - If the plan introduces a new function, type, or constant, does it also plan for at least one consumer? If it reads from a config key, environment variable, query parameter, or data store, does the corresponding writer exist — or does the plan create it?
 - If the plan modifies an existing symbol, does it list all files that import or reference it? When the destination has multiple writers (e.g., several code paths inserting into the same table or cache), does the plan account for all writers — not only the one being changed? Verify against actual workspace source.
 - If the plan introduces an optional field on a shared type, will consumers handle absence gracefully — or will every consumer immediately narrow or assert? An optional field that consumers always need is an incomplete producer, not a flexible design.
+- **Import cycle detection**: When the plan introduces a new import from file A into file B, check whether B already imports A, or whether another plan step adds an import from B into A. Circular imports cause module initialization failures that do not surface in type checking. Bound the check to one additional hop from each new import introduced by the plan.
 
 ### Interface Impact
 
@@ -265,11 +268,7 @@ Do the planned validation commands cover all planned changes?
 **Assessment**: [SOUND | CONCERNS | RECONSIDER]
 [Findings]
 
-#### Design for Independence
-**Assessment**: [SOUND | CONCERNS | RECONSIDER]
-[Findings]
-
-#### Design for Change
+#### Prefer Reversible Decisions
 **Assessment**: [SOUND | CONCERNS | RECONSIDER]
 [Findings]
 
