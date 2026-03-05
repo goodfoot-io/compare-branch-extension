@@ -127,7 +127,9 @@ export function buildCardBlock(actionInput: ActionInput): string {
   const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
   const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
 
-  const envLines = [`  CARD_REPO_PATH=${actionInput.cardRepoPath}`, `  WORKSPACE_PATH=${actionInput.repoRoot}`];
+  const workspacePath = process.env[CARDS_ENV_VARS.WORKSPACE_PATH];
+  const envLines = [`  CARD_REPO_PATH=${actionInput.cardRepoPath}`];
+  if (workspacePath) envLines.push(`  WORKSPACE_PATH=${workspacePath}`);
   if (baseBranch) envLines.push(`  BASE_BRANCH=${baseBranch}`);
   if (workspaceBranch) envLines.push(`  WORKSPACE_BRANCH=${workspaceBranch}`);
 
@@ -263,7 +265,7 @@ export function buildCardRepoBlock(rootPath: string): string {
  * @param text - Raw git log output with `--stat`.
  * @returns Cleaned output with summary lines removed and collapsed blank lines.
  */
-function stripDiffstatSummaries(text: string): string {
+export function stripDiffstatSummaries(text: string): string {
   return text
     .split('\n')
     .filter((line) => !/^\s*\d+ files? changed/.test(line))
@@ -300,7 +302,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         'log',
         `-${MAX_CARD_REPO_LOG_COMMITS}`,
         '--pretty=format:%x00%h %an: %s',
-        '-p',
+        '--stat',
         '--',
         '.',
         ':!streams/',
@@ -323,7 +325,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
 
     const formattedCommits: string[] = [];
     for (const commit of rawCommits) {
-      const trimmed = commit.trim();
+      const trimmed = stripDiffstatSummaries(commit.trim());
       if (trimmed) formattedCommits.push(trimmed);
     }
 

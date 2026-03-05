@@ -227,11 +227,12 @@ describe('buildCardRepoLogBlock', () => {
     expect(result).toBeNull();
   });
 
-  it('uses patch output instead of diffstat', () => {
+  it('uses diffstat output instead of patch', () => {
     const result = buildCardRepoLogBlock(repoPath);
 
     expect(result).not.toBeNull();
-    expect(result).toContain('diff --git');
+    expect(result).not.toContain('diff --git');
+    expect(result).toMatch(/\|\s+\d+/); // diffstat line like "README.md | 1 +"
   });
 
   describe('.gitignore filtering', () => {

@@ -15,13 +15,7 @@ import {
 } from '@cards/claude-code-sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import hook, {
-  CommitDiffError,
-  CommitLogError,
-  getCommitsSince,
-  getDiffForCommits,
-  getUnattributedCommits
-} from '../src/stop.js';
+import hook, { CommitLogError, getCommitsSince, getUnattributedCommits } from '../src/stop.js';
 
 vi.mock('node:child_process', () => ({
   execFileSync: vi.fn()
@@ -54,7 +48,6 @@ const START_SHA = 'a'.repeat(40);
 const SHA_1 = '1'.repeat(40);
 const SHA_2 = '2'.repeat(40);
 const SHA_3 = '3'.repeat(40);
-const SHA_4 = '4'.repeat(40);
 
 /** Minimal set of env vars required by extractActionInput. */
 const ACTION_ENV = {
@@ -143,12 +136,11 @@ describe('Stop Hook', () => {
       expect(stdout.systemMessage).toContain('all 2 commits attributed');
     });
 
-    it('blocks with diff content when unattributed commits exist', async () => {
+    it('blocks with stat content when unattributed commits exist', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
-        if (args?.[0] === 'diff') return 'diff content here';
+        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
+        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content here';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -160,16 +152,15 @@ describe('Stop Hook', () => {
       expect(result).toHaveProperty('_type', 'Stop');
       const stdout = result.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
-      expect(stdout.reason).toContain('diff content here');
+      expect(stdout.reason).toContain('stat content here');
       expect(stdout.reason).toContain('1 unattributed commit');
     });
 
     it('appends unattributed SHAs to CSV after blocking', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
-        if (args?.[0] === 'diff') return 'diff content';
+        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
+        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -236,9 +227,8 @@ describe('Stop Hook', () => {
     it('treats all commits as unattributed when CSV is missing (empty array from getSessionCommits)', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log') return `${SHA_1}\n${SHA_2}\n`;
-        if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
-        if (args?.[0] === 'diff') return 'all changes diff';
+        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_1}\n${SHA_2}\n`;
+        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'all changes stat';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([]);
@@ -308,12 +298,12 @@ describe('Stop Hook', () => {
       expect(stdout.reason).toContain('Cleanup failed');
     });
 
-    it('includes warnings in block reason when diff generation fails', async () => {
+    it('includes warnings in block reason when stat generation fails', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
-        // Both rev-list and diff fail
-        throw new Error('repository corrupted');
+        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
+        if (args?.[0] === 'log' && args?.[1] === '--stat') throw new Error('repository corrupted');
+        return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
 
@@ -324,18 +314,17 @@ describe('Stop Hook', () => {
       const stdout = result.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('1 unattributed commit');
-      expect(stdout.reason).toContain('Could not generate diff');
-      expect(stdout.reason).toContain('To view the diff manually');
+      expect(stdout.reason).toContain('Could not generate log --stat');
+      expect(stdout.reason).toContain('To view manually');
       expect(stdout.reason).toContain('Warnings:');
-      expect(stdout.reason).toContain('Diff generation failed');
+      expect(stdout.reason).toContain('Stat generation failed');
     });
 
     it('includes warnings when recordUnattributedCommits fails', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
-        if (args?.[0] === 'diff') return 'diff content';
+        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
+        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -347,7 +336,7 @@ describe('Stop Hook', () => {
 
       const stdout = result.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
-      expect(stdout.reason).toContain('diff content');
+      expect(stdout.reason).toContain('stat content');
       expect(stdout.reason).toContain('Warnings:');
       expect(stdout.reason).toContain('Commit recording failed');
       expect(stdout.reason).toContain('disk full');
@@ -357,9 +346,8 @@ describe('Stop Hook', () => {
     it('includes warnings when cleanupSession fails in the block path', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'rev-list') return `${SHA_2} parentsha`;
-        if (args?.[0] === 'diff') return 'diff content';
+        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
+        if (args?.[0] === 'log' && args?.[1] === '--stat') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -373,7 +361,7 @@ describe('Stop Hook', () => {
 
       const stdout = result.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
-      expect(stdout.reason).toContain('diff content');
+      expect(stdout.reason).toContain('stat content');
       expect(stdout.reason).toContain('Warnings:');
       expect(stdout.reason).toContain('Session cleanup failed');
     });
@@ -428,81 +416,6 @@ describe('Stop Hook', () => {
       const result = getUnattributedCommits(all, session);
 
       expect(result).toEqual([SHA_2]);
-    });
-
-    it('getDiffForCommits runs git diff on oldest commit parent to HEAD', () => {
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'rev-list') return `${SHA_1} parentsha`;
-        if (args?.[0] === 'diff') return 'diff output';
-        return '';
-      });
-      const result = getDiffForCommits('/repo', [SHA_3, SHA_2, SHA_1]);
-
-      expect(result).toBe('diff output');
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        'git',
-        ['rev-list', '--parents', '-n', '1', SHA_1],
-        expect.objectContaining({ cwd: '/repo' })
-      );
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        'git',
-        ['diff', `${SHA_1}~1..HEAD`, '--', '.', ':!streams/claude-code-session/'],
-        expect.objectContaining({ cwd: '/repo' })
-      );
-    });
-
-    it('getDiffForCommits uses empty tree SHA when oldest commit has no parent (initial commit)', () => {
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        // rev-list returns just the SHA (no parent) for initial commits
-        if (args?.[0] === 'rev-list') return SHA_1;
-        if (args?.[0] === 'diff') return 'initial commit diff';
-        return '';
-      });
-
-      const result = getDiffForCommits('/repo', [SHA_1]);
-
-      expect(result).toBe('initial commit diff');
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        'git',
-        ['rev-list', '--parents', '-n', '1', SHA_1],
-        expect.objectContaining({ cwd: '/repo' })
-      );
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        'git',
-        ['diff', '4b825dc642cb6eb9a060e54bf8d69288fbee4904..HEAD', '--', '.', ':!streams/claude-code-session/'],
-        expect.objectContaining({ cwd: '/repo' })
-      );
-    });
-
-    it('getDiffForCommits handles single initial commit SHA', () => {
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'rev-list') return SHA_4;
-        if (args?.[0] === 'diff') return 'single commit diff';
-        return '';
-      });
-
-      const result = getDiffForCommits('/repo', [SHA_4]);
-
-      expect(result).toBe('single commit diff');
-    });
-
-    it('getDiffForCommits throws CommitDiffError when git diff fails', () => {
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'rev-list') return `${SHA_1} parentsha`;
-        if (args?.[0] === 'diff') throw new Error('repository corrupted');
-        return '';
-      });
-
-      expect(() => getDiffForCommits('/repo', [SHA_1])).toThrow(CommitDiffError);
-
-      try {
-        getDiffForCommits('/repo', [SHA_1]);
-      } catch (error) {
-        expect(error).toBeInstanceOf(CommitDiffError);
-        expect((error as CommitDiffError).repoPath).toBe('/repo');
-        expect((error as CommitDiffError).shas).toEqual([SHA_1]);
-        expect((error as CommitDiffError).message).toContain('repository corrupted');
-      }
     });
 
     it('getCommitsSince throws CommitLogError when git log fails', () => {

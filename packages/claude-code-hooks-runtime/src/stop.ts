@@ -26,7 +26,7 @@ import {
 } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
-import { EMPTY_TREE_SHA } from '@cards/sdk/protocol';
+import { stripDiffstatSummaries } from './lib/context.js';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 
@@ -45,23 +45,6 @@ export class CommitLogError extends Error {
   ) {
     const reason = cause instanceof Error ? cause.message : String(cause);
     super(`Failed to list commits since ${sinceSha} in ${repoPath}: ${reason}`);
-    this.cause = cause;
-  }
-}
-
-/**
- * Error thrown when `git diff` fails to generate a diff for unattributed commits.
- */
-export class CommitDiffError extends Error {
-  override readonly name = 'CommitDiffError';
-
-  constructor(
-    public readonly repoPath: string,
-    public readonly shas: string[],
-    cause: unknown
-  ) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`Failed to generate diff for ${shas.length} commit(s) in ${repoPath}: ${reason}`);
     this.cause = cause;
   }
 }
@@ -150,46 +133,6 @@ export function getCommitsSince(repoPath: string, sinceSha: string): string[] {
 export function getUnattributedCommits(allCommits: string[], sessionCommits: string[]): string[] {
   const sessionSet = new Set(sessionCommits);
   return allCommits.filter((sha) => !sessionSet.has(sha));
-}
-
-/**
- * Returns the combined diff content for the given commit SHAs.
- * Uses the range from oldest unattributed commit's parent to HEAD.
- * Detects initial commits (no parent) and uses the empty tree SHA as base.
- *
- * @param repoPath - Card repository path where git commands should execute.
- * @param shas - Unattributed commit SHAs (newest first from {@link getCommitsSince}).
- * @returns Unified diff text for all unattributed changes.
- * @throws {CommitDiffError} When the git diff command fails.
- */
-export function getDiffForCommits(repoPath: string, shas: string[]): string {
-  if (shas.length === 0) return '';
-  // shas are in reverse chronological order (newest first from git log)
-  // oldest is last element
-  const oldest = shas[shas.length - 1]!;
-  assertValidSha(oldest, 'oldest commit SHA');
-
-  try {
-    // Determine the diff base: check if the oldest commit has a parent.
-    // `git rev-list --parents -n 1 SHA` outputs "SHA PARENT..." for regular
-    // commits and just "SHA" for initial commits (no parent).
-    const parentCheck = execFileSync('git', ['rev-list', '--parents', '-n', '1', oldest], {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
-    const base = parentCheck.includes(' ') ? `${oldest}~1` : EMPTY_TREE_SHA;
-
-    return execFileSync('git', ['diff', `${base}..HEAD`, '--', '.', ':!streams/claude-code-session/'], {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
-  } catch (error) {
-    throw new CommitDiffError(repoPath, shas, error);
-  }
 }
 
 /**
@@ -358,29 +301,36 @@ export default stopHook({}, async (input, { logger }) => {
     );
   }
 
-  // Unattributed commits found — gather diff, record, cleanup, then block.
+  // Unattributed commits found — gather stat, record, cleanup, then block.
   // Errors in these side-effect operations are collected as warnings and
   // included in the output without changing the block decision.
   const warnings: string[] = [];
 
   let diffContent: string;
   try {
-    diffContent = getDiffForCommits(actionInput.cardRepoPath, unattributed);
+    const statOutput = execFileSync(
+      'git',
+      ['log', '--stat', ...unattributed, '--', '.', ':!streams/claude-code-session/'],
+      {
+        cwd: actionInput.cardRepoPath,
+        encoding: 'utf-8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      }
+    ).trim();
+    diffContent = stripDiffstatSummaries(statOutput);
   } catch (error) {
-    if (error instanceof CommitDiffError) {
-      logger.error('Failed to generate diff', { repoPath: error.repoPath, error: error.message });
-      diffContent = [
-        `(Could not generate diff for ${error.shas.length} commit(s))`,
-        '',
-        `Error: ${error.message}`,
-        '',
-        'To view the diff manually:',
-        `  git -C ${error.repoPath} diff ${error.shas[error.shas.length - 1]}~1..HEAD`
-      ].join('\n');
-      warnings.push(`Diff generation failed: ${error.message}`);
-    } else {
-      throw error;
-    }
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to generate stat', { repoPath: actionInput.cardRepoPath, error: message });
+    diffContent = [
+      `(Could not generate log --stat for ${unattributed.length} commit(s))`,
+      '',
+      `Error: ${message}`,
+      '',
+      'To view manually:',
+      `  git -C ${actionInput.cardRepoPath} log --stat ${unattributed.join(' ')} -- . ':!streams/claude-code-session/'`
+    ].join('\n');
+    warnings.push(`Stat generation failed: ${message}`);
   }
 
   try {
