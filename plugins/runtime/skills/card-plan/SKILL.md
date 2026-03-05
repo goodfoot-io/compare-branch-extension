@@ -14,6 +14,8 @@ Create implementation plans for cards requiring user approval before coding begi
 
 - Read relevant files in the codebase (track paths for code references in step 3)
 - Understand existing patterns and architecture
+- Identify the root cause: what structural property of the system produces the observed problem? If the Technical Approach addresses a symptom rather than the root cause, record the tradeoff explicitly in Risks & Mitigations.
+- Identify requirements conflicts: if the card description, comments, and CARD.md contain inconsistent signals, resolve the conflict with the user before writing the Technical Approach. A plan built on an unresolved ambiguity guarantees a revision.
 - Identify dependencies and risks
 
 ### 1.2 Write and Store Plan
@@ -28,7 +30,7 @@ git commit -m "[single sentence summarizing the approach and key decisions]"  # 
 
 ### 1.3 Spike Testable Uncertainties
 
-Scan the plan for assumptions, open questions, and risk assertions that can be answered with isolated code (e.g., "Does `child.on('exit')` fire after `child.disconnect()`?"). Skip this step if none exist.
+Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a Technical Approach step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only if no load-bearing assumptions exist.
 
 For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
 

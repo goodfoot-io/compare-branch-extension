@@ -120,6 +120,7 @@ Define clear boundaries for what is and isn't part of this project.
 - List all features that WILL be built
 - Be specific about technical limits (e.g., "100 notifications/second")
 - Reference existing systems you'll integrate with
+- If the implementation makes existing code obsolete — replaces a component, supersedes an event, removes a dependency — list it here. Omitting planned deletions from scope creates a dead code accumulation: the problem statement identifies waste, the plan leaves it in place.
 
 ### Exclude (CRITICAL - prevents scope creep)
 - Explicitly list what will NOT be built
@@ -276,7 +277,7 @@ Describe the implementation steps in concrete but flexible terms.
 
 ### Requirements
 1. Number each major step sequentially
-2. Include verified file paths where changes will occur
+2. Include verified file paths where changes will occur. For each value that crosses a boundary in a step — a prop passed to a component, a parameter added to a function, an event emitted, a network call made — verify both ends: identify what produces the value and what consumes it. A step that adds a producer without a named consumer, or names a consumer without a named source, is incomplete.
 3. Add line numbers when referencing existing code (e.g., `:78`)
 4. Describe WHAT to do, not HOW to implement it
 5. Keep each step focused on a single concern
@@ -286,11 +287,14 @@ Describe the implementation steps in concrete but flexible terms.
 - Include them when referencing specific existing code; use inline markdown links over bare paths — soft links for prose (`the [notification store](./packages/web/src/stores/notification-store.ts) holds unread counts`) and precise anchors for step references (`[packages/api/src/services/user.ts L78](./packages/api/src/services/user.ts#L78)` or a range `[packages/api/src/services/user.ts L78–L95](./packages/api/src/services/user.ts#L78-L95)`)
 - Use "around line X" if the exact line might shift
 
+### Required for async operations and user-initiated flows
+For each step that involves a network call, async operation, or user input (e.g., a picker, dialog, or confirmation), state what happens on failure or cancellation: propagate the error, show user feedback, or no-op with rationale. "The error propagates" is a valid and complete answer. Omitting it is not.
+
 ### Avoid
 - Implementation details or algorithms
 - Complete function signatures
 - UI layout specifics
-- Error handling details (unless critical to approach)
+- Error handling implementation details (the catch block code itself)
 </instructions>
 
 ### Code Example Guidelines
