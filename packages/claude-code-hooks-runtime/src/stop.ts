@@ -310,7 +310,7 @@ export default stopHook({}, async (input, { logger }) => {
   try {
     const statOutput = execFileSync(
       'git',
-      ['log', '--pretty=format:%h %an: %s', '--stat', '-5', ...unattributed, '--', '.', ':!streams/claude-code-session/'],
+      ['log', '--pretty=format:%h %an: %s', '--stat', ...unattributed, '--', '.', ':!streams/claude-code-session/'],
       {
         cwd: actionInput.cardRepoPath,
         encoding: 'utf-8',
@@ -328,7 +328,7 @@ export default stopHook({}, async (input, { logger }) => {
       `Error: ${message}`,
       '',
       'To view manually:',
-      `  git -C ${actionInput.cardRepoPath} log --stat -5 ${unattributed.join(' ')} -- . ':!streams/claude-code-session/'`
+      `  git -C ${actionInput.cardRepoPath} log --stat ${unattributed.join(' ')} -- . ':!streams/claude-code-session/'`
     ].join('\n');
     warnings.push(`Stat generation failed: ${message}`);
   }
