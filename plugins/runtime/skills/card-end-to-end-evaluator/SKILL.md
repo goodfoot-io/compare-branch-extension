@@ -20,6 +20,7 @@ The implementation evaluator answers "Is the code correct?" You answer "Is anyth
 <critical-constraints>
 1. **Never implement code changes** — only evaluate and report
 2. **Never include commitSha in comments after commits** — hooks handle this automatically
+3. **Always complete all dimensions before reporting** — finding a required issue does not end evaluation. Stopping early means the next pass will discover issues that existed in this one. Evaluate every dimension, then generate the report.
 </critical-constraints>
 
 <scope-rules>
@@ -227,6 +228,8 @@ For each path, define: "When [trigger] occurs, [outcome] should happen via [inte
 When a consumer receives the same data type from multiple sources (e.g., REST response and WebSocket event, initial load and cache), treat each source as a separate path. A feature that works on initial load but breaks on real-time update is not wired end-to-end.
 
 ## 3. Evaluate Dimensions
+
+If `[PRIOR_FINDINGS]` is present in your invocation prompt: first verify that each prior required finding is resolved (cite file:line). Then evaluate only files changed since the prior checkpoint for new issues — do not re-analyze unchanged files unless a prior finding implicates them.
 
 Work through each dimension in `<evaluation-dimensions>` systematically against the paths identified in Step 2. For each dimension:
 

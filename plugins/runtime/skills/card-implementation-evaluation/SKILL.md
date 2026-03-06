@@ -67,6 +67,9 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 ## Modified Files
 [PLAN_FILES]
 
+## Prior Findings
+[PRIOR_FINDINGS]
+
 You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect wiring or integration via SendMessage.
 </parameter>
 </invoke>
@@ -93,6 +96,9 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 
 ## Modified Files
 [PLAN_FILES]
+
+## Prior Findings
+[PRIOR_FINDINGS]
 
 You are a teammate in an evaluation team. The implementation evaluator ("impl-evaluator") is evaluating code quality alongside you. Share noteworthy findings that affect code quality or structure via SendMessage.
 </parameter>
@@ -130,9 +136,24 @@ After both teammates have shut down:
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Create todos from all findings — required with "[Eval fix]" prefix, recommended with "[Recommended fix]" prefix (merged from both evaluators, deduplicated by file:line), return to task execution in the implementation steps. Some findings may predate the current implementation — fix them the same way.
-3. **Both PRODUCTION_READY/SATISFIES_INTENT, but end-to-end evaluator has recommended findings**: Create todos from recommended findings with "[Recommended fix]" prefix, return to task execution in the implementation steps. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to the next step in the implementation workflow.
-4. **Both PRODUCTION_READY/SATISFIES_INTENT with no findings**: Proceed to the next step in the implementation workflow.
+2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Create todos from all required findings with "[Eval fix]" prefix (merged from both evaluators, deduplicated by file:line). Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. Return to task execution in the implementation steps.
+3. **Both PRODUCTION_READY/SATISFIES_INTENT, end-to-end evaluator has recommended findings, and `[PRIOR_FINDINGS]` was empty (first evaluation pass)**: Create todos from recommended findings with "[Recommended fix]" prefix. Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. Return to task execution in the implementation steps.
+4. **Both PRODUCTION_READY/SATISFIES_INTENT, and either there are no findings or `[PRIOR_FINDINGS]` was non-empty (subsequent pass)**: Log any recommended findings as a card comment and proceed to the next step in the implementation workflow.
+
+When populating `[PRIOR_FINDINGS]` for the next run, format it as:
+```
+### Implementation Evaluator — Required Findings
+[paste Required Findings section]
+
+### Implementation Evaluator — Recommended Findings
+[paste Recommended Findings section]
+
+### End-to-End Evaluator — Required Findings
+[paste Required Findings section]
+
+### End-to-End Evaluator — Recommended Findings
+[paste Recommended Findings section]
+```
 
 Write unresolved recommended findings (if any) as a card comment:
 

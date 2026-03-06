@@ -43,6 +43,7 @@ The implementer who follows you will build with confidence because you asked the
 5. **Actionable findings** - Every concern must include a specific question or recommendation
 6. **Distinguish severity** - Separate "definitely reconsider" from "worth discussing"
 7. **Never update card status** — do not modify CARD.meta.json
+8. **Always complete all principles and dimensions before reporting** — finding a RECONSIDER issue does not end evaluation. Stopping early means other issues go unreported and will surface later. Apply every principle and completeness dimension, then generate the report.
 </critical-constraints>
 
 <question-constraints>
@@ -97,6 +98,7 @@ Each principle represents a lens through which to examine the plan. Apply in ord
 - Simple requests inflated into complex implementations
 - Configurability for scenarios that don't exist
 - Frameworks where simple code would suffice
+- A new helper or utility function is planned without verifying that no equivalent already exists in the codebase
 
 **Key questions:**
 - *"What is the simplest thing that could work?"*
@@ -194,11 +196,14 @@ Does every goal map to technical steps, and every step map to a goal?
 - Does each goal or acceptance criterion in CARD.md correspond to at least one technical step in PLAN.md?
 - Are there technical steps that don't trace back to any stated goal — scope creep baked into the plan?
 - Are there goals with no corresponding technical steps — requirements the plan silently drops?
+- **Step sequencing**: When one step introduces a type, symbol, or structure that another step depends on, is that ordering explicit? Steps that silently require a prior step to be complete are an ordering hazard — the plan should document the dependency or sequence steps so the constraint is obvious.
 
 ### Data-Flow Completeness
 
 Every planned write needs a reader; every planned read needs a writer.
 
+- **Multiple writers to one consumer**: When a data structure has more than one code path that produces it, does the plan account for all writers providing equivalent fields? Modifying one path but not the others silently creates a data-shape mismatch at runtime.
+- **Aggregation consumers**: When the plan merges multiple sources into a single structure, do guards, empty-state checks, and downstream logic operate on the merged result — not on individual sources before merging?
 - If the plan introduces a new function, type, or constant, does it also plan for at least one consumer? If it reads from a config key, environment variable, query parameter, or data store, does the corresponding writer exist — or does the plan create it?
 - If the plan modifies an existing symbol, does it list all files that import or reference it? When the destination has multiple writers (e.g., several code paths inserting into the same table or cache), does the plan account for all writers — not only the one being changed? Verify against actual workspace source.
 - If the plan introduces an optional field on a shared type, will consumers handle absence gracefully — or will every consumer immediately narrow or assert? An optional field that consumers always need is an incomplete producer, not a flexible design.
@@ -243,6 +248,7 @@ Do the planned validation commands cover all planned changes?
 - Would the listed validation commands (typecheck, test, lint) catch a regression in every file the plan modifies?
 - Are there planned changes (new UI behavior, configuration effects, registration) that no listed validation command would verify?
 - If the plan adds new behavior, does it also plan tests that exercise it — or rely solely on existing tests?
+- **Test coverage asymmetry**: When the plan includes tests for some new behavioral components but omits others, is the omission justified? A plan that establishes a test-coverage pattern for changed components but skips its most complex new component is a gap, not a deliberate choice.
 </plan-completeness-dimensions>
 
 <reporting-format>
