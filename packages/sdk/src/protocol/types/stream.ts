@@ -54,17 +54,18 @@ export interface AttachmentInfoFile {
 /**
  * Lifecycle status of a stream.
  *
- * Every stream begins as `'active'` and transitions exactly once to a terminal
- * status. The transition is recorded in the `.meta.json` file and committed.
+ * Status is a runtime database concern only — it is not persisted to the
+ * filesystem or git. Pre-existing streams default to `'completed'` on startup.
+ * A stream becomes `'active'` only when explicitly opened via `createStream()`
+ * or `resumeStream()`.
  *
  * - `'active'`      -- Receiving data; the only status that permits appends.
  * - `'completed'`   -- Sender closed the connection normally (HTTP body ended).
  * - `'error'`       -- Closed due to a stream-level error (e.g., transport).
- * - `'interrupted'`  -- Client disconnected mid-stream or server crashed.
+ * - `'interrupted'`  -- Client disconnected mid-stream.
  * - `'size_limit'`  -- Cumulative size exceeded {@link StreamDefinition.maxStreamSize}.
- * - `'recovered'`   -- Marked by {@link HybridStore.recoverOrphanedStreams} on startup.
  */
-export type StreamStatus = 'active' | 'completed' | 'error' | 'interrupted' | 'size_limit' | 'recovered';
+export type StreamStatus = 'active' | 'completed' | 'error' | 'interrupted' | 'size_limit';
 
 /**
  * File-persisted metadata for a single stream.
