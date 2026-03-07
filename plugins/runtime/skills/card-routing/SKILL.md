@@ -56,8 +56,8 @@ Select the **first** matching condition:
 - **4. HAS_IMPLEMENTATION_FEEDBACK**: `runtime:card-implementation-feedback`
 - **5. REVIEW_APPROVED**: `runtime:card-merge`
 - **6. IS_STALE**: `runtime:card-clarify-and-enrich`
-- **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback` + `cards:plan`
-- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan` + `cards:plan`
+- **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback` + `runtime:plan`
+- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan` + `runtime:plan`
 - **9. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
 - **10. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
 - **11. IS_TESTABLE_BUG**: `runtime:card-bug`
