@@ -127,8 +127,9 @@ export function buildCardBlock(actionInput: ActionInput): string {
   const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
   const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
 
+  const workspacePath = process.env[CARDS_ENV_VARS.WORKSPACE_PATH];
   const envLines = [`  CARD_REPO_PATH=${actionInput.cardRepoPath}`];
-  if (actionInput.repoRoot) envLines.push(`  WORKSPACE_PATH=${actionInput.repoRoot}`);
+  if (workspacePath) envLines.push(`  WORKSPACE_PATH=${workspacePath}`);
   if (baseBranch) envLines.push(`  BASE_BRANCH=${baseBranch}`);
   if (workspaceBranch) envLines.push(`  WORKSPACE_BRANCH=${workspaceBranch}`);
 
