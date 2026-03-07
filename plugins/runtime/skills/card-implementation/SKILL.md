@@ -142,16 +142,6 @@ Based on review gate:
   git commit -m "[single sentence summarizing what was implemented and that it is ready for review]"  # <card-repo-commit-style>
   ```
 
-- **gates.reviewRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
-
-  ```bash
-  cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
-  [completion summary: what was implemented, key decisions, files modified, validation confirmation]
-  EOF
-  git add comment/$COMMENT_ID.md
-  git commit -m "[single sentence summarizing what was implemented and key decisions]"  # <card-repo-commit-style>
-  ```
+- **gates.reviewRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 </instructions>

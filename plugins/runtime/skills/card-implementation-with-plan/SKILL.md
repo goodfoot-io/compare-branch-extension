@@ -294,18 +294,6 @@ COMMITMSG
 
 **If review is NOT required (gates.reviewRequired is false or unset):**
 
-Write a completion summary comment to the card repository:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[completion summary: what was implemented and how it aligns with the plan, key files modified, validation confirmation]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing what was implemented and that it aligns with the plan]"  # <card-repo-commit-style>
-```
-
 Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 **If review is required (gates.reviewRequired is true):**

@@ -11,18 +11,7 @@ description: Merge implementation branch to base branch.
 Count the commits on `$WORKSPACE_BRANCH` relative to `$BASE_BRANCH` (`git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH` in `$WORKSPACE_PATH`).
 
 Based on commit count:
-- **COMMIT_COUNT = 0**: No changes to merge. Write a comment to the card repository noting no changes were found. Commit to the card repository and **STOP**.
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[No changes were found on $WORKSPACE_BRANCH relative to $BASE_BRANCH. Nothing to merge.]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence noting no changes were found on the branch]"  # <card-repo-commit-style>
-```
-
+- **COMMIT_COUNT = 0**: No changes to merge. **STOP**.
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
 
 ## 2. Prepare Final Commit
