@@ -14,6 +14,8 @@
  * @module types/branch
  */
 
+import type { CommitDetails } from './timeline.js';
+
 /**
  * Well-known SHA for an empty git tree.
  *
@@ -142,6 +144,13 @@ export interface BranchesResponse {
    * Empty string when workspacePath is not provided or git operations fail gracefully.
    */
   headBranch: string;
+
+  /**
+   * Commit details keyed by SHA for each entry in `commits`.
+   * Empty when there are no commits. Only absent when `workspacePath` was not provided
+   * (i.e. the reindex path — `commitDetails` is delivered separately via `WorkspaceCommitEvent`).
+   */
+  commitDetails?: Record<string, CommitDetails>;
 }
 
 /**

@@ -13,7 +13,7 @@ import type { BranchInfo } from './branch.js';
 import type { CompareState } from './compare.js';
 import type { FsCommit } from './fs.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
-import type { CommentTimelineItem, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
+import type { CommentTimelineItem, CommitDetails, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
 
 // --- Card Events ---
 
@@ -375,6 +375,8 @@ export interface WorkspaceCommitEvent {
   mergedCommits?: string[];
   /** Branch name checked out at the workspace. Optional. */
   headBranch?: string;
+  /** Details for the newly attributed commit. */
+  commitDetail: CommitDetails;
 }
 
 /**
