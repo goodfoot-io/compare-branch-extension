@@ -48,6 +48,7 @@ describe('buildCardBlock', () => {
   });
 
   afterEach(() => {
+    delete process.env['WORKSPACE_PATH'];
     delete process.env['WORKSPACE_BRANCH'];
     delete process.env['BASE_BRANCH'];
   });
@@ -99,6 +100,7 @@ describe('buildCardBlock', () => {
   });
 
   it('includes env vars with resolved paths', () => {
+    process.env['WORKSPACE_PATH'] = '/workspace';
     const result = buildCardBlock(makeActionInput());
 
     expect(result).toContain(`CARD_REPO_PATH=${repoPath}`);
