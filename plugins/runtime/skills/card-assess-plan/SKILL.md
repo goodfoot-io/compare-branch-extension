@@ -11,7 +11,7 @@ description: Assess implementation plan quality using structural and strategic e
 Launch both assessments in parallel (one message):
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
   <parameter name="model">haiku</parameter>
@@ -28,7 +28,7 @@ Read the plan from PLAN.md in the card repository. Assess the plan and post a re
 </parameter>
 </invoke>
 
-<invoke name="Task">
+<invoke name="Agent">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
   <parameter name="model">opus</parameter>

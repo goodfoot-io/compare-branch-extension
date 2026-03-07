@@ -63,7 +63,7 @@ git commit -m "[single sentence summarizing what feedback was incorporated into 
 Launch both assessments in parallel (one message):
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
   <parameter name="description">Structural Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
   <parameter name="prompt">
@@ -72,7 +72,7 @@ Launch both assessments in parallel (one message):
 </parameter>
 </invoke>
 
-<invoke name="Task">
+<invoke name="Agent">
   <parameter name="description">Strategic Assessment</parameter>
   <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
   <parameter name="prompt">

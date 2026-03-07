@@ -155,7 +155,7 @@ Use this as [MODIFIED_FILES] for the evaluators.
 Spawn both evaluators as teammates:
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">Implementation evaluation</parameter>
 <parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
 <parameter name="model">haiku</parameter>
@@ -179,7 +179,7 @@ Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
 You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect wiring or integration via SendMessage.
 </parameter>
 </invoke>
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">End-to-end evaluation</parameter>
 <parameter name="subagent_type">runtime:card:end-to-end-evaluator</parameter>
 <parameter name="model">opus</parameter>

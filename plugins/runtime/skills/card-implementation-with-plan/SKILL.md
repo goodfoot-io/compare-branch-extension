@@ -105,14 +105,14 @@ Based on coherence assessment:
 
 **Parallel**: Launch concurrent agents for independent groups:
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">Implement [GROUP_A_SUMMARY]</parameter>
 <parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">...</parameter>
 <parameter name="run_in_background">true</parameter>
 </invoke>
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">Implement [GROUP_B_SUMMARY]</parameter>
 <parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
@@ -127,7 +127,7 @@ Based on coherence assessment:
 Agent prompt template — prompts must be self-contained. Agents have no conversation context. Read all files to be modified before dispatching.
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
 <parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>

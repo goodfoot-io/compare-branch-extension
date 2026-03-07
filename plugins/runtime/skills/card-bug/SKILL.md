@@ -66,7 +66,7 @@ Enumerate all plausible root causes of the bug based on the card content, error 
 For each hypothesis, launch a parallel general-purpose subagent. Each subagent explores the code to assess viability and, if viable, writes a minimal reproduction test:
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">test-pathway-[a]</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
 <parameter name="prompt"># Task: Write Reproduction Test for Root Cause Hypothesis
@@ -127,7 +127,7 @@ Review the reproduction test outputs and failure analysis from Step 1.4. If new 
 Increment REPRODUCTION_ATTEMPT, then invoke:
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">create-reproduction-test</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
 <parameter name="prompt"># Task: Create Minimal Reproduction Test
@@ -241,7 +241,7 @@ Fixes that fail this check create "dead code" — new capabilities that are neve
 Increment RESOLVE_ATTEMPT, then invoke:
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">resolve-bug</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
 <parameter name="prompt"># Task: Fix Bug to Make Test Pass

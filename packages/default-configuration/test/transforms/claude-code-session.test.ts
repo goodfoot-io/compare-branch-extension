@@ -169,15 +169,15 @@ describe('Assistant Messages', () => {
     expect(result).toBe('**Glob** *.ts');
   });
 
-  it('formats tool_use Task with description', async () => {
+  it('formats tool_use Agent with description', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: '7', name: 'Task', input: { description: 'do something' } }]
+        content: [{ type: 'tool_use', id: '7', name: 'Agent', input: { description: 'do something' } }]
       }
     });
 
-    expect(result).toBe('**Task** do something');
+    expect(result).toBe('**Agent** do something');
   });
 
   it('formats unknown tool with just bold name', async () => {

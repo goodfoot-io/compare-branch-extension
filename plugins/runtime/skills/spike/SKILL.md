@@ -161,7 +161,7 @@ Assemble the Task() invocation by composing the spike-context XML and subagent i
 When multiple independent spike questions need investigation, launch all spikes in parallel by combining all `Task()` calls into a single message:
 
 ```xml
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">spike-question-1</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
 <parameter name="prompt">
@@ -173,7 +173,7 @@ When multiple independent spike questions need investigation, launch all spikes 
 </parameter>
 </invoke>
 
-<invoke name="Task">
+<invoke name="Agent">
 <parameter name="description">spike-question-2</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
 <parameter name="prompt">

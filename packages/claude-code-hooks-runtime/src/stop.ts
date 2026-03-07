@@ -310,7 +310,16 @@ export default stopHook({}, async (input, { logger }) => {
   try {
     const statOutput = execFileSync(
       'git',
-      ['log', '--pretty=format:%h %an: %s', '--stat', ...unattributed, '--', '.', ':!streams/claude-code-session/'],
+      [
+        'log',
+        '--no-walk',
+        '--pretty=format:%h %an: %s',
+        '--stat',
+        ...unattributed,
+        '--',
+        '.',
+        ':!streams/claude-code-session/'
+      ],
       {
         cwd: actionInput.cardRepoPath,
         encoding: 'utf-8',
