@@ -145,6 +145,20 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs clear
 Each card is an isolated Git repository. The `repositoryPath` field from `card.mjs <id>`
 gives the absolute path to this repository.
 
+### Commit History API
+
+`GET /cards/:id/git/log` returns an array of commit objects representing the card repository's full commit history. `GET /cards/:id/snapshot` returns the same commit array alongside current file contents.
+
+Each commit's `diff.files` array contains `FsCommitFile` records:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `file` | `string` | Relative path within the card repository |
+| `status` | `string` | Git status: `A` (added), `M` (modified), `D` (deleted), `R` (renamed), `C` (copied) |
+| `from` | `string?` | Source path for renames (present when status starts with `R`) |
+| `binary` | `boolean` | `true` for binary files (no text diff available) |
+| `patch` | `string?` | Unified diff hunk text for text files; absent for binary files and merge commits |
+
 ### Directory Layout
 
 ```

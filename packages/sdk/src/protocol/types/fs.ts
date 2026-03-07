@@ -20,6 +20,8 @@ export interface FsCommitFile {
   from?: string;
   /** Whether the file is binary (non-text). */
   binary: boolean;
+  /** Unified diff patch text for text files. Absent for binary files and merge commits. */
+  patch?: string;
 }
 
 /**
