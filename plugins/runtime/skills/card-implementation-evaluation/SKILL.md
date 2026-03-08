@@ -30,7 +30,7 @@ Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
 
 Run validation per the plan's "Validation Commands" section.
 
-**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures, return to task execution in the implementation steps.
+**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
 
 Only proceed to **4. Create Evaluation Team** when ALL validations pass.
 
@@ -136,8 +136,8 @@ After both teammates have shut down:
 
 Apply the first matching condition:
 1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Create todos from all required findings with "[Eval fix]" prefix (merged from both evaluators, deduplicated by file:line). Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. Return to task execution in the implementation steps.
-3. **Both PRODUCTION_READY/SATISFIES_INTENT, end-to-end evaluator has recommended findings, and `[PRIOR_FINDINGS]` was empty (first evaluation pass)**: Create todos from recommended findings with "[Recommended fix]" prefix. Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. Return to task execution in the implementation steps.
+2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Create todos from all required findings with "[Eval fix]" prefix (merged from both evaluators, deduplicated by file:line). Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
+3. **Both PRODUCTION_READY/SATISFIES_INTENT, end-to-end evaluator has recommended findings, and `[PRIOR_FINDINGS]` was empty (first evaluation pass)**: Create todos from recommended findings with "[Recommended fix]" prefix. Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
 4. **Both PRODUCTION_READY/SATISFIES_INTENT, and either there are no findings or `[PRIOR_FINDINGS]` was non-empty (subsequent pass)**: Log any recommended findings as a card comment and proceed to the next step in the implementation workflow.
 
 When populating `[PRIOR_FINDINGS]` for the next run, format it as:
