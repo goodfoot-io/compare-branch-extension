@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE ./bin/launch.01fd1a1a.mjs",
+            "command": "$VSCODE_NODE ./bin/launch.d5916cdc.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -17,7 +17,7 @@
           "id": "interview",
           "name": "Interview",
           "command": {
-            "command": "$VSCODE_NODE ./bin/interview.17a8695a.mjs",
+            "command": "$VSCODE_NODE ./bin/interview.1fc33036.mjs",
             "timeout": 3600000
           },
           "description": "Start an interview session for the card",
@@ -27,7 +27,7 @@
           "id": "chat",
           "name": "Chat",
           "command": {
-            "command": "$VSCODE_NODE ./bin/chat.ac2d1c6b.mjs",
+            "command": "$VSCODE_NODE ./bin/chat.288fce63.mjs",
             "timeout": 3600000
           },
           "description": "Start a chat session for the card",
@@ -53,7 +53,7 @@
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/note-validator.56643e87.mjs",
+            "command": "$VSCODE_NODE ./bin/note-validator.79a31b18.mjs",
             "timeout": 30000
           }
         }
@@ -62,7 +62,7 @@
         "claude-code-session": {
           "version": 1,
           "transform": {
-            "path": "bin/claude-code-session.2d0085d3.mjs"
+            "path": "bin/claude-code-session.ab48f7f1.mjs"
           },
           "maxLineLength": 1048576
         }
@@ -71,13 +71,13 @@
   },
   "__generated": {
     "files": [
-      "launch.01fd1a1a.mjs",
-      "interview.17a8695a.mjs",
-      "chat.ac2d1c6b.mjs",
+      "launch.d5916cdc.mjs",
+      "interview.1fc33036.mjs",
+      "chat.288fce63.mjs",
       "adaptive-card-validator.a5f697af.mjs",
       "adaptive-card-submission-validator.b4bc6b87.mjs",
-      "note-validator.56643e87.mjs",
-      "claude-code-session.2d0085d3.mjs"
+      "note-validator.79a31b18.mjs",
+      "claude-code-session.ab48f7f1.mjs"
     ]
   }
 }

@@ -292,15 +292,18 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    */
   async listCards(options?: ListCardsOptions): Promise<Card[]> {
-    const url = this.buildUrl('/cards', {
+    const urlStr = this.buildUrl('/cards', {
       workspacePath: this.options.workspacePath,
       status: options?.status,
-      tag: options?.tag,
       search: options?.search,
       limit: options?.limit,
       offset: options?.offset
     });
-    return this.request(() => this.getHttpClient().get<Card[]>(url));
+    const url = new URL(urlStr);
+    for (const t of options?.tags ?? []) {
+      url.searchParams.append('tag', t);
+    }
+    return this.request(() => this.getHttpClient().get<Card[]>(url.toString()));
   }
 
   /**

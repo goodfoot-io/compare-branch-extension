@@ -81,7 +81,9 @@ function formatAssistant(message: SDKAssistantMessage): string {
     return `**API Error** (${message.error})`;
   }
 
-  return formatContentBlocks(message.message?.content || []);
+  return formatContentBlocks(
+    (message.message?.content || []) as unknown as Array<{ type: string; [key: string]: unknown }>
+  );
 }
 
 function formatSystemInit(message: SDKSystemMessage): string {

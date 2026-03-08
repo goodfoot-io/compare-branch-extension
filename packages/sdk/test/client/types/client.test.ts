@@ -40,13 +40,13 @@ describe('Client Types', () => {
     it('should accept all optional filter parameters', () => {
       const options: ListCardsOptions = {
         status: 'todo',
-        tag: 'bug',
+        tags: ['bug'],
         search: 'test query',
         limit: 25,
         offset: 10
       };
       expect(options.status).toBe('todo');
-      expect(options.tag).toBe('bug');
+      expect(options.tags).toEqual(['bug']);
       expect(options.search).toBe('test query');
       expect(options.limit).toBe(25);
       expect(options.offset).toBe(10);
@@ -70,7 +70,7 @@ describe('Client Types', () => {
     it('should accept empty options object', () => {
       const options: ListCardsOptions = {};
       expect(options.status).toBeUndefined();
-      expect(options.tag).toBeUndefined();
+      expect(options.tags).toBeUndefined();
       expect(options.search).toBeUndefined();
       expect(options.limit).toBeUndefined();
       expect(options.offset).toBeUndefined();

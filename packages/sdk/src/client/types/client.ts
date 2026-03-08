@@ -70,8 +70,8 @@ export interface CardsClientOptions {
 export interface ListCardsOptions {
   /** Filter by card status. */
   status?: CardStatus;
-  /** Filter by a single tag name. */
-  tag?: string;
+  /** Filter by tag names. */
+  tags?: string[];
   /** Search query string (server-side). */
   search?: string;
   /** Maximum number of results to return. */

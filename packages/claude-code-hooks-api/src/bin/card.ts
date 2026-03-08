@@ -248,7 +248,7 @@ export async function listCards(args: string[]): Promise<void> {
     options.status = flags['status'] as ListCardsOptions['status'];
   }
   if (flags['tag']) {
-    options.tag = flags['tag'];
+    options.tags = [flags['tag']];
   }
   if (flags['search']) {
     options.search = flags['search'];

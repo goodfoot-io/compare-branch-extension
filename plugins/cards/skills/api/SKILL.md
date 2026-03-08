@@ -50,11 +50,11 @@ EOF
 ```
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --status in_progress
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --tag bug --limit 10
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --tag bug --tag feature
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --search "auth" --status todo
 ```
 
-Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag>`, `--search <query>`, `--limit <n>`, `--offset <n>`
+Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag> (repeatable; tags are OR-combined)`, `--search <query>`, `--limit <n>`, `--offset <n>`
 
 #### Workspace Path
 
