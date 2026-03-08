@@ -205,7 +205,9 @@ function findPackageRoot(startDir) {
   }
   throw new Error(`Could not find package.json from ${startDir}`);
 }
-var PACKAGE_ROOT = findPackageRoot(path.dirname(new URL(import.meta.url).pathname));
+function getPackageRoot() {
+  return findPackageRoot(path.dirname(new URL(import.meta.url).pathname));
+}
 var EXTERNALS = [
   "node:*",
   "http",
@@ -253,11 +255,14 @@ if (__workspace && !process.env['CARDS_HOOKS_LOG_FILE']) {
     if (factoryType === "streamTransform") {
       wrapperContent = `
 import cmd from '${sourceImport}';
-export function init(ctx) { return cmd.init?.(ctx); }
-export default function transform(line, ctx) { return cmd(line, ctx); }
+export default {
+  streamType: cmd.streamType,
+  handler: (line, ctx) => cmd(line, ctx),
+  init: cmd.init ? (ctx) => cmd.init(ctx) : undefined,
+};
 `;
     } else if (factoryType === "typeValidator") {
-      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/config/validation.ts"));
+      const validationImport = toRelativeImport(path.resolve(getPackageRoot(), "src/config/validation.ts"));
       wrapperContent = `
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
@@ -265,7 +270,7 @@ import { executeValidation } from '${validationImport}';
 executeValidation(handler);
 `;
     } else {
-      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, "src/config/runtime.ts"));
+      const runtimeImport = toRelativeImport(path.resolve(getPackageRoot(), "src/config/runtime.ts"));
       wrapperContent = `
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';

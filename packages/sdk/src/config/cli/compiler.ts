@@ -157,7 +157,9 @@ function findPackageRoot(startDir: string): string {
   throw new Error(`Could not find package.json from ${startDir}`);
 }
 
-const PACKAGE_ROOT = findPackageRoot(path.dirname(new URL(import.meta.url).pathname));
+function getPackageRoot(): string {
+  return findPackageRoot(path.dirname(new URL(import.meta.url).pathname));
+}
 
 /**
  * External modules (Node built-ins) that should not be bundled.
@@ -273,16 +275,19 @@ if (__workspace && !process.env['CARDS_HOOKS_LOG_FILE']) {
 
     let wrapperContent: string;
     if (factoryType === 'streamTransform') {
-      // Stream transforms re-export raw init and default transform functions
-      // (no logging integration - they run in a different execution model)
+      // Stream transforms export a default object { streamType, handler, init? }
+      // loadable in a browser via blob URL + dynamic import()
       wrapperContent = `
 import cmd from '${sourceImport}';
-export function init(ctx) { return cmd.init?.(ctx); }
-export default function transform(line, ctx) { return cmd(line, ctx); }
+export default {
+  streamType: cmd.streamType,
+  handler: (line, ctx) => cmd(line, ctx),
+  init: cmd.init ? (ctx) => cmd.init(ctx) : undefined,
+};
 `;
     } else if (factoryType === 'typeValidator') {
       // Type validators use file-path protocol via executeValidation
-      const validationImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/config/validation.ts'));
+      const validationImport = toRelativeImport(path.resolve(getPackageRoot(), 'src/config/validation.ts'));
       wrapperContent = `
 import handler from '${sourceImport}';
 import { executeValidation } from '${validationImport}';
@@ -291,7 +296,7 @@ executeValidation(handler);
 `;
     } else {
       // Other handlers use environment variable extraction via executeCommand
-      const runtimeImport = toRelativeImport(path.resolve(PACKAGE_ROOT, 'src/config/runtime.ts'));
+      const runtimeImport = toRelativeImport(path.resolve(getPackageRoot(), 'src/config/runtime.ts'));
       wrapperContent = `
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';

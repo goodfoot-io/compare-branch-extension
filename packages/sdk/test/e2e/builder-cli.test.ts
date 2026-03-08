@@ -1316,10 +1316,11 @@ export default {
     const compiledPath = path.join(outdir, 'bin', streamFile!);
     const compiledContent = fs.readFileSync(compiledPath, 'utf-8');
 
-    // Verify it exports init (either as named export or export declaration)
-    expect(compiledContent).toMatch(/export\s+(\{[^}]*init[^}]*\}|function init)/);
-    expect(compiledContent).toContain('export');
-    expect(compiledContent).toMatch(/export\s+\{[^}]*default[^}]*\}|export default/);
+    // Verify it exports a default object with streamType, handler, init? fields
+    // esbuild converts `export default { ... }` to `var x = { ... }; export { x as default }`
+    expect(compiledContent).toMatch(/export\s*\{[^}]*as\s+default[^}]*\}|export\s+default\s*\{/);
+    expect(compiledContent).toContain('handler');
+    expect(compiledContent).toContain('streamType');
 
     // Verify it does NOT contain bare import statements (fully bundled)
     // Allow only the shebang line at the start

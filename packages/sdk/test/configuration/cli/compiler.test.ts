@@ -562,26 +562,33 @@ export default defineStreamTransform(
 );
 `;
 
-    it('should produce a self-contained ESM bundle with init and default exports', async () => {
+    it('should produce a self-contained ESM bundle with default export object shape', async () => {
       const output = await compileStreamTransform(HANDLER_WITH_INIT);
 
-      // Exports: init function and default export
-      expect(output).toMatch(/function init\s*\(/);
-      expect(output).toMatch(/export\s*\{[\s\S]*?init/);
-      expect(output).toMatch(/export\s*\{[\s\S]*?default/);
+      // Default export is an object with streamType, handler, init fields
+      expect(output).toMatch(/streamType/);
+      expect(output).toMatch(/handler/);
+      expect(output).toMatch(/init/);
+
+      // Exported as default (esbuild emits `export { x as default }`)
+      expect(output).toMatch(/as\s+default/);
+
+      // No named init export (only default export)
+      expect(output).not.toMatch(/export\s+function\s+init/);
+      expect(output).not.toMatch(/export\s*\{[^}]*\binit\b[^}]*\}/);
 
       // Fully bundled: no bare import statements
       expect(output).not.toMatch(/^\s*import\s+/m);
 
-      // No Node.js createRequire banner (incompatible with VM sandbox)
+      // No Node.js createRequire banner (incompatible with browser blob URL)
       expect(output).not.toContain('createRequire');
     });
 
-    it('should export init that safely no-ops when no init handler is provided', async () => {
+    it('should set init to undefined when no init handler is provided', async () => {
       const output = await compileStreamTransform(HANDLER_WITHOUT_INIT);
-
-      expect(output).toMatch(/function init\s*\(/);
-      expect(output).toMatch(/export\s*\{[\s\S]*?init/);
+      // init field is present in the object but resolves to void 0
+      expect(output).toMatch(/init/);
+      expect(output).not.toMatch(/export\s+function\s+init/);
     });
 
     it('should return error for non-existent source file', async () => {

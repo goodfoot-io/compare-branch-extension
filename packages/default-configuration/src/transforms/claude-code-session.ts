@@ -27,7 +27,8 @@ const TOOL_PARAM_KEY: Record<string, string> = {
   Bash: 'command',
   Grep: 'pattern',
   Glob: 'pattern',
-  Task: 'description'
+  Task: 'description',
+  Agent: 'description'
 };
 
 const BASH_TRUNCATE_LENGTH = 80;

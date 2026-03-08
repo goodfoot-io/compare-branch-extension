@@ -1,70 +1,33 @@
 /**
  * Test harness for stream transform execution.
  *
- * Wraps the StreamTransformWorkerPool to provide a simplified testing API
- * with automatic worker lifecycle management. Accepts inline transform code
- * and captures console logs for test assertions.
+ * Loads compiled StreamTransformModule code via dynamic import and provides a
+ * simplified testing API with automatic lifecycle management. Accepts inline
+ * transform code as a string, writes it to a temp file for import, and
+ * maintains per-instance transform context (state map) across calls.
  *
  *
- * @summary Test harness for stream transform execution
+ * @summary Test harness for stream transform execution via dynamic import
  * @module stream/TestStreamTransformHarness
  */
 
+import * as crypto from 'node:crypto';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
-import type { StreamInitContext } from '@cards/server';
-import { StreamTransformWorkerPool } from '@cards/server';
-import { v4 as uuid } from 'uuid';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /**
- * Options for creating a TestStreamTransformHarness.
+ * Shape of the compiled stream transform module default export.
+ * Mirrors StreamTransformModule from @cards/web.
  */
-export interface TestStreamTransformHarnessOptions {
-  /**
-   * Path to the worker script. Auto-resolves from @cards/server if not provided.
-   */
-  workerPath?: string;
-}
-
-/**
- * Options for creating a StreamInitContext with sensible defaults.
- */
-export type CreateStreamInitContextOptions = Partial<Omit<StreamInitContext, 'state'>>;
-
-/**
- * Captured log entry from transform execution.
- */
-export interface LogEntry {
-  level: 'info' | 'warn' | 'error';
-  args: unknown[];
-}
-
-// ============================================================================
-// Factory Function
-// ============================================================================
-
-/**
- * Creates a StreamInitContext with sensible defaults.
- *
- * @param overrides - Partial overrides for context fields
- * @returns Complete context suitable for transform initialization (without state Map)
- */
-export function createStreamInitContext(
-  overrides: CreateStreamInitContextOptions = {}
-): Omit<StreamInitContext, 'state'> {
-  return {
-    streamType: 'test-stream',
-    filename: 'test.log',
-    headers: {},
-    card: {
-      id: 'test-card-id',
-      metadata: {}
-    },
-    ...overrides
-  };
+interface StreamTransformModuleExport {
+  streamType: string;
+  handler: (line: string, ctx: Record<string, unknown>) => string | Promise<string>;
+  init?: (ctx: Record<string, unknown>) => void | Promise<void>;
 }
 
 // ============================================================================
@@ -74,16 +37,19 @@ export function createStreamInitContext(
 /**
  * Test harness for stream transform execution.
  *
- * Provides a simplified API for testing stream transforms with automatic
- * worker lifecycle management and log capture.
+ * Writes inline ESM transform code to a temp file, imports it dynamically,
+ * and calls the exported `handler` and optional `init` functions directly.
+ * The state map is maintained across `transform()` calls within a single
+ * `start()`/`stop()` lifecycle.
  *
  * Usage:
  * ```typescript
  * const harness = new TestStreamTransformHarness();
  * await harness.start(`
- *   export default function transform(line) {
- *     return \`processed: \${line}\`;
- *   }
+ *   export default {
+ *     streamType: 'test',
+ *     handler(line, ctx) { return \`processed: \${line}\`; }
+ *   };
  * `);
  *
  * const { result } = await harness.transform('test line');
@@ -93,126 +59,79 @@ export function createStreamInitContext(
  * ```
  */
 export class TestStreamTransformHarness {
-  private pool: StreamTransformWorkerPool | null = null;
-  private streamId: string = '';
-  private logs: LogEntry[] = [];
-  private lineCounter = 0;
-  private readonly workerPath: string;
-
-  constructor(options: TestStreamTransformHarnessOptions = {}) {
-    if (options.workerPath) {
-      this.workerPath = options.workerPath;
-    } else {
-      // Resolve to the TypeScript source file within @cards/server
-      // The worker is loaded with tsx, so we need the .ts file
-      const serverPath = require.resolve('@cards/server');
-      const serverDir = path.dirname(serverPath);
-      this.workerPath = path.join(serverDir, 'runtime', 'stream-transform-worker.ts');
-    }
-  }
+  private module: StreamTransformModuleExport | null = null;
+  private ctx: Record<string, unknown> | null = null;
+  private tmpPath: string | null = null;
 
   /**
-   * Starts the harness with the given transform code.
+   * Starts the harness by loading the given transform code.
    *
-   * @param transformCode - ESM source code for the transform module
-   * @param initContext - Optional partial init context overrides
+   * Writes `transformCode` to a unique temp `.mjs` file, imports it, calls
+   * `init(ctx)` if present, then stores the module and context for subsequent
+   * `transform()` calls.
+   *
+   * @param transformCode - ESM source code exporting a StreamTransformModule as default
+   * @throws If the harness is already started
    */
-  async start(transformCode: string, initContext: Partial<Omit<StreamInitContext, 'state'>> = {}): Promise<void> {
-    if (this.pool) {
+  async start(transformCode: string): Promise<void> {
+    if (this.module) {
       throw new Error('Harness already started. Call stop() first.');
     }
-
-    this.streamId = uuid();
-    this.logs = [];
-    this.lineCounter = 0;
-
-    this.pool = new StreamTransformWorkerPool(this.workerPath);
-
-    // Set up log capture by accessing the pool's internal workers map
-    // The pool filters out 'log' messages, so we need to intercept them
-    const poolInternal = this.pool as unknown as {
-      workers: Map<
-        string,
-        {
-          worker: {
-            on: (event: string, handler: (msg: unknown) => void) => void;
-          };
-        }
-      >;
-    };
-
-    const context = createStreamInitContext(initContext);
-    await this.pool.spawnWorker(this.streamId, transformCode, context);
-
-    // After spawning, hook into the worker's message handler for log capture
-    const workerInfo = poolInternal.workers.get(this.streamId);
-    if (workerInfo) {
-      workerInfo.worker.on('message', (msg: unknown) => {
-        const message = msg as { type: string; level?: string; args?: unknown[] };
-        if (message.type === 'log' && message.level && message.args) {
-          this.logs.push({
-            level: message.level as 'info' | 'warn' | 'error',
-            args: message.args
-          });
-        }
-      });
+    this.tmpPath = path.join(os.tmpdir(), `${crypto.randomUUID()}.mjs`);
+    await fs.writeFile(this.tmpPath, transformCode, 'utf8');
+    const mod = await import(this.tmpPath);
+    const defaultExport = mod.default as StreamTransformModuleExport;
+    this.ctx = { state: new Map<string, unknown>() };
+    if (defaultExport.init) {
+      await defaultExport.init(this.ctx);
     }
+    this.module = defaultExport;
   }
 
   /**
-   * Transforms a line using the loaded transform.
+   * Transforms a line using the loaded transform handler.
+   *
+   * On handler error, returns the original line with an `error` string
+   * (fail-open semantics).
    *
    * @param line - Line content to transform
-   * @param lineNumber - Optional line number (auto-increments if not provided)
-   * @returns Object with result and optional error
+   * @returns Object with `result` string and optional `error` message
+   * @throws If the harness has not been started
    */
-  async transform(line: string, lineNumber?: number): Promise<{ result: string; error?: string }> {
-    if (!this.pool) {
+  async transform(line: string): Promise<{ result: string; error?: string }> {
+    if (!this.module || !this.ctx) {
       throw new Error('Harness not started. Call start() first.');
     }
-
-    const actualLineNumber = lineNumber ?? ++this.lineCounter;
-    return this.pool.transform(this.streamId, line, actualLineNumber, 'test-stream');
-  }
-
-  /**
-   * Returns all captured console logs from transform execution.
-   *
-   * @returns Snapshot of captured log entries in arrival order
-   */
-  getLogs(): LogEntry[] {
-    return [...this.logs];
-  }
-
-  /**
-   * Clears captured logs.
-   */
-  clearLogs(): void {
-    this.logs = [];
+    try {
+      const result = await this.module.handler(line, this.ctx);
+      return { result };
+    } catch (error) {
+      return { result: line, error: error instanceof Error ? error.message : String(error) };
+    }
   }
 
   /**
    * Returns whether the harness is currently started and ready for transforms.
    *
-   * @returns `true` when a worker pool is active and transform calls are allowed
+   * @returns `true` when a module is loaded and transform calls are allowed
    */
   get isStarted(): boolean {
-    return this.pool !== null;
+    return this.module !== null;
   }
 
   /**
    * Stops the harness and cleans up resources.
+   *
+   * Removes the temporary file and clears the loaded module and context.
+   * After calling `stop()`, `transform()` calls will throw until `start()`
+   * is called again.
    */
   async stop(): Promise<void> {
-    if (this.pool) {
-      try {
-        await this.pool.closeWorker(this.streamId);
-      } finally {
-        this.pool = null;
-        this.streamId = '';
-        this.logs = [];
-        this.lineCounter = 0;
-      }
+    this.module = null;
+    this.ctx = null;
+    if (this.tmpPath) {
+      await fs.unlink(this.tmpPath).catch(() => undefined);
+      this.tmpPath = null;
     }
   }
 }

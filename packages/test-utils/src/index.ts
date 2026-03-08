@@ -49,13 +49,7 @@ export { type RecordedRequest, TestHttpClient } from './http/TestHttpClient.js';
 // --- IPC Test Utilities ---
 export { TestIpcServer } from './ipc/TestIpcServer.js';
 // --- Stream Test Utilities ---
-export {
-  type CreateStreamInitContextOptions,
-  createStreamInitContext,
-  type LogEntry,
-  TestStreamTransformHarness,
-  type TestStreamTransformHarnessOptions
-} from './stream/index.js';
+export { TestStreamTransformHarness } from './stream/index.js';
 // --- WebSocket Test Utilities ---
 export {
   getRandomPort,

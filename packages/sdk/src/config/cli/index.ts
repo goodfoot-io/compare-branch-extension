@@ -16,6 +16,14 @@ import type { Action, Command, Settings, StreamDefinition, TypeDefinition } from
 import type { BuildArgs } from './args.js';
 import { compileHandler } from './compiler.js';
 
+export {
+  type CompileFailure,
+  type CompileOptions,
+  type CompileResult,
+  type CompileSuccess,
+  compileHandler
+} from './compiler.js';
+
 // ============================================================================
 // Types
 // ============================================================================

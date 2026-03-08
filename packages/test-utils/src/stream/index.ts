@@ -1,15 +1,9 @@
 /**
- * Test harness for executing stream transforms in isolated worker threads.
- * Accepts inline transform code, manages worker lifecycle automatically,
- * and captures console output for assertions.
+ * Test harness for executing stream transforms via dynamic import.
+ * Accepts inline StreamTransformModule code, manages lifecycle automatically,
+ * and maintains per-instance state across transform calls.
  *
- * @summary Test stream transforms with automatic worker lifecycle and log capture
+ * @summary Test stream transforms with automatic lifecycle and state management
  */
 
-export {
-  type CreateStreamInitContextOptions,
-  createStreamInitContext,
-  type LogEntry,
-  TestStreamTransformHarness,
-  type TestStreamTransformHarnessOptions
-} from './TestStreamTransformHarness.js';
+export { TestStreamTransformHarness } from './TestStreamTransformHarness.js';

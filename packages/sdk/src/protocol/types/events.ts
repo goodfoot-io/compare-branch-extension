@@ -275,9 +275,10 @@ export interface StreamResumedEvent {
 /**
  * Broadcast for each line appended to a stream.
  *
- * Contains the *transformed* output (not the raw line stored on disk).
- * If the transform failed for this line, the raw content is used instead
- * and a companion {@link StreamErrorEvent} is also broadcast.
+ * Contains the raw, unmodified NDJSON line as stored on disk. Clients are
+ * responsible for applying any stream-type-specific transform on their side.
+ * Use `streamType` together with `cardId` and `filename` to unambiguously
+ * identify the stream and select the appropriate client-side transform.
  */
 export interface StreamLineEvent {
   /** Event type discriminator. */
@@ -286,10 +287,12 @@ export interface StreamLineEvent {
   cardId: string;
   /** Stream filename within the card's `streams/` directory. */
   filename: string;
+  /** Stream type key identifying the client-side transform to apply. */
+  streamType: string;
   /** 1-based line number in the stream. */
   lineNumber: number;
-  /** Transformed content (raw line if transform failed). */
-  transformed: string;
+  /** Raw, unmodified NDJSON line as stored on disk. */
+  line: string;
 }
 
 /**

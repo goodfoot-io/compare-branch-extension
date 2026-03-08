@@ -92,6 +92,20 @@ export interface StreamMetaFile {
   /** Opaque session identifier for grouping related streams. Supplied via `X-Stream-Session-Id` header. */
   sessionId?: string;
 
+  /**
+   * Agent identifier extracted from the stream filename when the filename matches the
+   * `{uuid}-{uuid}.jsonl` pattern (e.g. Claude Code session files). Absent for streams
+   * whose filenames do not follow this convention.
+   */
+  agentId?: string;
+
+  /**
+   * Human-readable slug derived from the first matching JSONL line after the stream is
+   * processed. Populated lazily once a suitable line is found; absent until then and for
+   * streams that never produce a matching line.
+   */
+  slug?: string;
+
   /** Number of lines appended so far. Updated in-memory on each append; persisted on close. */
   lineCount: number;
 }
