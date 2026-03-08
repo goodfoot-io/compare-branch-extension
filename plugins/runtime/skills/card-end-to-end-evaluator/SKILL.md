@@ -20,7 +20,7 @@ The implementation evaluator answers "Is the code correct?" You answer "Is anyth
 <critical-constraints>
 1. **Never implement code changes** — only evaluate and report
 2. **Never include commitSha in comments after commits** — hooks handle this automatically
-3. **Always complete all dimensions before reporting** — finding a required issue does not end evaluation. Stopping early means the next pass will discover issues that existed in this one. Evaluate every dimension, then generate the report.
+3. **Always complete all dimensions before reporting, and escalate thoroughness when issues are found** — finding a required issue does not end evaluation; it demands deeper scrutiny of everything that remains. Wiring gaps cluster — the same forgotten step (missing registration, dropped return value, unhandled error path) tends to repeat across the implementation. When you find any required finding, treat it as a signal to intensify your search rather than wrap up. The cost of a second iteration is higher than a thorough first pass. Evaluate every dimension, then generate the report with every issue you found.
 </critical-constraints>
 
 <scope-rules>
@@ -238,6 +238,8 @@ Work through each dimension in `<evaluation-dimensions>` systematically against 
 3. Record findings with their dimension label
 
 Do not skip dimensions. A clean result for a dimension is valuable — it confirms that area is solid.
+
+**After your first required finding**: treat it as evidence that more issues exist in subsequent dimensions. Wiring gaps follow patterns — a missing export signals other missing exports; an unhandled error path signals a missing error-handling strategy throughout. Apply remaining dimensions with heightened skepticism. Do not soften findings or consolidate distinct issues to keep the report short; every unreported issue is a future iteration.
 
 ## 4. Classify Findings
 

@@ -43,7 +43,7 @@ The implementer who follows you will build with confidence because you asked the
 5. **Actionable findings** - Every concern must include a specific question or recommendation
 6. **Distinguish severity** - Separate "definitely reconsider" from "worth discussing"
 7. **Never update card status** — do not modify CARD.meta.json
-8. **Always complete all principles and dimensions before reporting** — finding a RECONSIDER issue does not end evaluation. Stopping early means other issues go unreported and will surface later. Apply every principle and completeness dimension, then generate the report.
+8. **Always complete all principles and dimensions before reporting, and escalate thoroughness when issues are found** — finding a RECONSIDER issue does not end evaluation; it demands deeper scrutiny of everything that remains. Issues cluster. A plan with one flawed assumption almost always has more — similar reasoning failures, the same unvalidated root cause applied in multiple steps, the same missing consumer repeated across data-flow. When you find any RECONSIDER finding, treat it as a signal to intensify your search rather than wrap up. The cost of a second revision cycle is higher than a thorough first pass. Apply every principle and completeness dimension with extra care after finding the first blocking issue, so the author can address everything at once.
 </critical-constraints>
 
 <question-constraints>
@@ -355,6 +355,8 @@ For each of the six principles:
 4. Look for other misalignments with the principle
 5. Formulate specific findings with evidence from the plan
 6. Determine assessment level (SOUND, CONCERNS, RECONSIDER)
+
+**After your first RECONSIDER or CONCERNS finding**: treat it as evidence that more issues exist in subsequent principles and completeness dimensions. Issues cluster — the same reasoning failure that produced one RECONSIDER tends to have produced others. Apply remaining principles with heightened skepticism. Do not soften findings to avoid a long report; every unreported issue is a future revision cycle.
 
 ### 4. Verify Plan Completeness
 

@@ -70,6 +70,8 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 ## Prior Findings
 [PRIOR_FINDINGS]
 
+When `[PRIOR_FINDINGS]` is non-empty: prior required findings are evidence that this implementation has systematic gaps — issues cluster. Apply every evaluation dimension with heightened scrutiny. The goal is to surface all remaining issues in this pass so the implementation can be fixed completely rather than incrementally.
+
 You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect wiring or integration via SendMessage.
 </parameter>
 </invoke>
@@ -99,6 +101,8 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 
 ## Prior Findings
 [PRIOR_FINDINGS]
+
+When `[PRIOR_FINDINGS]` is non-empty: prior required findings are evidence that this implementation has systematic gaps — issues cluster. Apply every evaluation dimension with heightened scrutiny. The goal is to surface all remaining issues in this pass so the implementation can be fixed completely rather than incrementally.
 
 You are a teammate in an evaluation team. The implementation evaluator ("impl-evaluator") is evaluating code quality alongside you. Share noteworthy findings that affect code quality or structure via SendMessage.
 </parameter>
