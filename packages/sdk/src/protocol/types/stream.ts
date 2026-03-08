@@ -100,6 +100,14 @@ export interface StreamMetaFile {
   agentId?: string;
 
   /**
+   * First ~40 characters of `message.content` from line 1 of the JSONL stream, stripped
+   * of any `<teammate-message>` XML wrapper. Populated lazily for subagents and team
+   * members once the first line is processed; absent for orchestrators (whose first line
+   * is a progress event with no user message) and until the first line arrives.
+   */
+  taskContent?: string;
+
+  /**
    * Human-readable slug derived from the first matching JSONL line after the stream is
    * processed. Populated lazily once a suitable line is found; absent until then and for
    * streams that never produce a matching line.
