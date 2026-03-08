@@ -34,7 +34,7 @@ Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
 
 ```bash
 cd "!` echo $WORKSPACE_PATH`"
-git rebase --empty=stop $BASE_BRANCH
+git rebase --empty=drop $BASE_BRANCH
 ```
 
 Based on rebase result:
@@ -67,7 +67,7 @@ git add CARD.meta.json comment/$COMMENT_ID.md
 git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 
-- **Rebase stops on an empty commit**: Run `git diff HEAD`. If the diff is empty, the changes are already present in `$BASE_BRANCH` — run `git rebase --skip` to continue. If the diff is not empty, the rebase left the working tree in an unexpected state — abort with `git rebase --abort`, write a comment, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** — Awaiting user intervention.
+- **Rebase completes with 0 commits ahead of `$BASE_BRANCH`** (commit was dropped as empty): The changes are already present in `$BASE_BRANCH`. Write a comment to the card repository noting this, and **STOP** — nothing to merge.
 
 After rebase completes, run linting, type checking, and tests.
 
