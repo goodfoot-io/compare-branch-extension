@@ -1,6 +1,6 @@
 ---
 name: api
-description: Find, read, review or create Cards.
+description: Use this skill when the user wants to work with the Cards system — listing cards, creating cards, reading card details, adding comments or attachments, updating card status, or managing plans.
 ---
 
 # Cards API
