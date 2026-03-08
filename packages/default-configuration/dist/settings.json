@@ -53,7 +53,7 @@
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/note-validator.79a31b18.mjs",
+            "command": "$VSCODE_NODE ./bin/note-validator.56643e87.mjs",
             "timeout": 30000
           }
         }
@@ -76,7 +76,7 @@
       "chat.ac2d1c6b.mjs",
       "adaptive-card-validator.a5f697af.mjs",
       "adaptive-card-submission-validator.b4bc6b87.mjs",
-      "note-validator.79a31b18.mjs",
+      "note-validator.56643e87.mjs",
       "claude-code-session.2d0085d3.mjs"
     ]
   }
