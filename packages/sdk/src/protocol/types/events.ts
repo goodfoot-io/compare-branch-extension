@@ -13,7 +13,7 @@ import type { BranchInfo } from './branch.js';
 import type { CompareState } from './compare.js';
 import type { CardCommit } from './fs.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
-import type { CommentTimelineItem, CommitDetails, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
+import type { CommitDetails } from './timeline.js';
 
 // --- Card Events ---
 
@@ -78,140 +78,6 @@ export interface CommentCreatedEvent {
   cardId: string;
   /** ID of the newly created comment. */
   commentId: string;
-}
-
-// --- Timeline Events ---
-
-/**
- * Event payload when a comment is added to the timeline.
- */
-export interface TimelineCommentAddedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:comment:added';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Full comment timeline item. */
-  item: CommentTimelineItem;
-}
-
-/**
- * Event payload when a comment on the timeline is updated.
- */
-export interface TimelineCommentUpdatedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:comment:updated';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Updated comment timeline item. */
-  item: CommentTimelineItem;
-}
-
-/**
- * Event payload when a comment is removed from the timeline.
- */
-export interface TimelineCommentRemovedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:comment:removed';
-  /** ID of the parent card. */
-  cardId: string;
-  /** ID of the removed comment. */
-  commentId: string;
-}
-
-/**
- * Event payload when a commit is added to the timeline.
- */
-export interface TimelineCommitAddedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:commit:added';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Full commit timeline item. */
-  item: CommitTimelineItem;
-}
-
-/**
- * Event payload when a commit is removed from the timeline.
- */
-export interface TimelineCommitRemovedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:commit:removed';
-  /** ID of the parent card. */
-  cardId: string;
-  /** SHA of the removed commit. */
-  sha: string;
-}
-
-// --- Generic Typed File Events ---
-
-/**
- * Event payload when a typed file is added to the timeline.
- */
-export interface TimelineTypedFileAddedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:typedFile:added';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
-  typeName: string;
-  /** Full typed file timeline item. */
-  item: TypedFileTimelineItem;
-}
-
-/**
- * Event payload when a typed file on the timeline is updated.
- */
-export interface TimelineTypedFileUpdatedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:typedFile:updated';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
-  typeName: string;
-  /** Updated typed file timeline item. */
-  item: TypedFileTimelineItem;
-}
-
-/**
- * Event payload when a typed file is removed from the timeline.
- */
-export interface TimelineTypedFileRemovedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:typedFile:removed';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
-  typeName: string;
-  /** File name of the removed typed file. */
-  fileName: string;
-  /** Logical ID for client-side list diffing. */
-  itemId: string;
-}
-
-// --- Attachment Events ---
-
-/**
- * Event payload when an attachment is added to a card.
- */
-export interface AttachmentAddedEvent {
-  /** Event type discriminator. */
-  type: 'attachment:added';
-  /** ID of the card that received the attachment. */
-  cardId: string;
-  /** ID of the newly added attachment. */
-  attachmentId: string;
-}
-
-/**
- * Event payload when an attachment is removed from a card.
- */
-export interface AttachmentRemovedEvent {
-  /** Event type discriminator. */
-  type: 'attachment:removed';
-  /** ID of the card that lost the attachment. */
-  cardId: string;
-  /** ID of the removed attachment. */
-  attachmentId: string;
 }
 
 // --- Compare Events ---
@@ -427,16 +293,6 @@ export type DomainEvent =
   | CardContentChangedEvent
   | CardDeletedEvent
   | CommentCreatedEvent
-  | AttachmentAddedEvent
-  | AttachmentRemovedEvent
-  | TimelineCommentAddedEvent
-  | TimelineCommentUpdatedEvent
-  | TimelineCommentRemovedEvent
-  | TimelineCommitAddedEvent
-  | TimelineCommitRemovedEvent
-  | TimelineTypedFileAddedEvent
-  | TimelineTypedFileUpdatedEvent
-  | TimelineTypedFileRemovedEvent
   | StreamStartedEvent
   | StreamResumedEvent
   | StreamLineEvent

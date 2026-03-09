@@ -96,8 +96,6 @@ export type {
 } from './custom-types.js';
 // --- WebSocket Event Types ---
 export type {
-  AttachmentAddedEvent,
-  AttachmentRemovedEvent,
   CardCommitEvent,
   CardContentChangedEvent,
   CardDeletedEvent,
@@ -112,14 +110,6 @@ export type {
   StreamLineEvent,
   StreamResumedEvent,
   StreamStartedEvent,
-  TimelineCommentAddedEvent,
-  TimelineCommentRemovedEvent,
-  TimelineCommentUpdatedEvent,
-  TimelineCommitAddedEvent,
-  TimelineCommitRemovedEvent,
-  TimelineTypedFileAddedEvent,
-  TimelineTypedFileRemovedEvent,
-  TimelineTypedFileUpdatedEvent,
   WorkspaceCommitEvent
 } from './events.js';
 // --- Filesystem Types ---
