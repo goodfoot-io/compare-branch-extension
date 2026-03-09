@@ -16,6 +16,8 @@ export type {
   AddCommitRequest,
   AttachmentResponse,
   CardCreateGates,
+  CardPostCommitRequest,
+  CardPostCommitResponse,
   CardResponse,
   CommentResponse,
   CommitAttributionResponse,
@@ -32,8 +34,6 @@ export type {
   ListCardsRequest,
   ListTagsRequest,
   PlanResponse,
-  ReindexRequest,
-  ReindexResponse,
   TagsResponse,
   TimelineRequest,
   TimelineResponse,
@@ -41,7 +41,9 @@ export type {
   TypedFileResponse,
   UpdateCardRequest,
   UpdateCommentRequest,
-  UpdatePlanRequest
+  UpdatePlanRequest,
+  WorkspacePostCommitRequest,
+  WorkspacePostCommitResponse
 } from './api-requests.js';
 // --- Branch Types ---
 export type {

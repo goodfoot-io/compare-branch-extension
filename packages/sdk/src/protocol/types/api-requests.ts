@@ -734,35 +734,46 @@ export interface TypedFileListResponse {
 // ============================================================================
 
 /**
- * Request body for `POST /internal/reindex`.
+ * Request body for `POST /internal/card-post-commit`.
  *
- * Triggers reindexing of card data in the database. This is an internal
- * endpoint used for maintenance and recovery operations.
+ * Sent by the card-repo post-commit hook after a commit lands in a card
+ * repository. Triggers card sync and emits a `card:commit` event.
  */
-export interface ReindexRequest {
-  /**
-   * Specific card ID to reindex.
-   * If omitted, all cards in the workspace are reindexed.
-   */
-  cardId?: string;
-
-  /**
-   * Workspace path for scoping the reindex operation.
-   * Currently unused but reserved for future multi-workspace support.
-   */
-  workspacePath?: string;
+export interface CardPostCommitRequest {
+  /** Card ID whose repository received the commit. */
+  cardId: string;
+  /** Commit SHA from `git rev-parse HEAD`. */
+  commitSha: string;
 }
 
 /**
- * Response from `POST /internal/reindex`.
- *
- * Confirms the reindex operation completed successfully.
+ * Response from `POST /internal/card-post-commit`.
  */
-export interface ReindexResponse {
-  /**
-   * Whether the operation succeeded.
-   * Always `true` in the success response; errors throw instead.
-   */
+export interface CardPostCommitResponse {
+  /** Whether the operation succeeded. */
+  success: true;
+}
+
+/**
+ * Request body for `POST /internal/workspace-post-commit`.
+ *
+ * Sent by the workspace post-commit hook after a commit lands in a workspace
+ * repository. Emits a `workspace:commit` event.
+ */
+export interface WorkspacePostCommitRequest {
+  /** Card ID associated with the workspace branch. */
+  cardId: string;
+  /** Commit SHA from `git rev-parse HEAD`. */
+  commitSha: string;
+  /** Absolute path to the workspace repository root. */
+  workspacePath: string;
+}
+
+/**
+ * Response from `POST /internal/workspace-post-commit`.
+ */
+export interface WorkspacePostCommitResponse {
+  /** Whether the operation succeeded. */
   success: true;
 }
 
