@@ -226,6 +226,92 @@ describe('Assistant Messages', () => {
   });
 });
 
+describe('User Messages', () => {
+  it('formats user prompt with string content', async () => {
+    const { result } = await transformJson({
+      type: 'user',
+      message: { role: 'user', content: 'Hello Claude' },
+      parent_tool_use_id: null,
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('**User:** Hello Claude');
+  });
+
+  it('formats user prompt with content block array', async () => {
+    const { result } = await transformJson({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [{ type: 'text', text: 'Please help me with this' }]
+      },
+      parent_tool_use_id: null,
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('**User:** Please help me with this');
+  });
+
+  it('marks synthetic user messages', async () => {
+    const { result } = await transformJson({
+      type: 'user',
+      message: { role: 'user', content: 'Auto-generated prompt' },
+      parent_tool_use_id: null,
+      isSynthetic: true,
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('**User** *(auto)*: Auto-generated prompt');
+  });
+
+  it('suppresses tool result turns', async () => {
+    const { result } = await transformJson({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'tu-1', content: 'file contents' }]
+      },
+      parent_tool_use_id: null,
+      tool_use_result: { content: 'file contents' },
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('');
+  });
+
+  it('renders tool error blocks in user messages', async () => {
+    const { result } = await transformJson({
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Here is the context' },
+          { type: 'tool_result', tool_use_id: 'tu-1', content: 'error output', is_error: true }
+        ]
+      },
+      parent_tool_use_id: null,
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('**User:** Here is the context\n\n**Tool error** (tu-1)');
+  });
+
+  it('suppresses replay messages', async () => {
+    const { result } = await transformJson({
+      type: 'user',
+      message: { role: 'user', content: 'Original prompt' },
+      parent_tool_use_id: null,
+      isReplay: true,
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    // Replay messages are user type — formatUser checks tool_use_result, not isReplay.
+    // They still render as user prompts (they carry the original prompt text).
+    expect(result).toBe('**User:** Original prompt');
+  });
+});
+
 describe('System Messages', () => {
   it('formats init subtype with model, tools count, cwd', async () => {
     const { result } = await transformJson({
@@ -239,15 +325,280 @@ describe('System Messages', () => {
     expect(result).toBe('**Session Started** | claude-3 | 5 tools | /home');
   });
 
-  it('passes through non-init system messages unchanged', async () => {
-    const input = JSON.stringify({
+  it('formats status compacting', async () => {
+    const { result } = await transformJson({
       type: 'system',
-      subtype: 'other',
+      subtype: 'status',
+      status: 'compacting',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('*Compacting context...*');
+  });
+
+  it('suppresses status null (compaction finished)', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'status',
+      status: null,
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('');
+  });
+
+  it('formats compact_boundary with trigger and tokens', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'compact_boundary',
+      compact_metadata: { trigger: 'manual', pre_tokens: 50000 },
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('---\n*Context compacted* (manual) — 50000 tokens before\n\n---');
+  });
+
+  it('formats compact_boundary with auto trigger', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'compact_boundary',
+      compact_metadata: { trigger: 'auto', pre_tokens: 120000 },
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('---\n*Context compacted* (auto) — 120000 tokens before\n\n---');
+  });
+
+  it('formats hook_started', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'hook_started',
+      hook_id: 'h-1',
+      hook_name: 'lint-check',
+      hook_event: 'PreToolUse',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Hook <b>lint-check</b> (PreToolUse) started</small>');
+  });
+
+  it('formats hook_progress with output', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'hook_progress',
+      hook_id: 'h-1',
+      hook_name: 'lint-check',
+      hook_event: 'PreToolUse',
+      output: 'Running eslint...',
+      stdout: '',
+      stderr: '',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Hook <b>lint-check</b>: Running eslint...</small>');
+  });
+
+  it('formats hook_progress falls back to stdout when output is empty', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'hook_progress',
+      hook_id: 'h-1',
+      hook_name: 'lint-check',
+      hook_event: 'PreToolUse',
+      output: '',
+      stdout: 'stdout output',
+      stderr: '',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Hook <b>lint-check</b>: stdout output</small>');
+  });
+
+  it('formats hook_response success', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'hook_response',
+      hook_id: 'h-1',
+      hook_name: 'lint-check',
+      hook_event: 'PreToolUse',
+      output: '',
+      stdout: '',
+      stderr: '',
+      exit_code: 0,
+      outcome: 'success',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Hook <b>lint-check</b> completed</small>');
+  });
+
+  it('formats hook_response error with exit code', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'hook_response',
+      hook_id: 'h-1',
+      hook_name: 'lint-check',
+      hook_event: 'PreToolUse',
+      output: 'lint failed',
+      stdout: '',
+      stderr: '',
+      exit_code: 1,
+      outcome: 'error',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Hook <b>lint-check</b> failed (exit 1)</small>');
+  });
+
+  it('formats hook_response cancelled', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'hook_response',
+      hook_id: 'h-1',
+      hook_name: 'lint-check',
+      hook_event: 'PreToolUse',
+      output: '',
+      stdout: '',
+      stderr: '',
+      outcome: 'cancelled',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Hook <b>lint-check</b> cancelled</small>');
+  });
+
+  it('formats files_persisted with failures', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'files_persisted',
+      files: [{ filename: 'a.ts', file_id: 'f-1' }],
+      failed: [{ filename: 'b.ts', error: 'disk full' }],
+      processed_at: '2026-01-01T00:00:00Z',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Files persisted: 1 saved, 1 failed</small>');
+  });
+
+  it('formats files_persisted without failures', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'files_persisted',
+      files: [
+        { filename: 'a.ts', file_id: 'f-1' },
+        { filename: 'b.ts', file_id: 'f-2' }
+      ],
+      failed: [],
+      processed_at: '2026-01-01T00:00:00Z',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('<small>Files persisted: 2 saved</small>');
+  });
+
+  it('formats task_notification', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'task_notification',
+      task_id: 'task-42',
+      status: 'completed',
+      output_file: '/tmp/out.txt',
+      summary: 'All tests passed',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('**Task** *task-42* — completed: All tests passed');
+  });
+
+  it('formats task_notification with failed status', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'task_notification',
+      task_id: 'task-99',
+      status: 'failed',
+      output_file: '/tmp/err.txt',
+      summary: 'Build failed',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('**Task** *task-99* — failed: Build failed');
+  });
+
+  it('returns empty string for unknown system subtypes', async () => {
+    const { result } = await transformJson({
+      type: 'system',
+      subtype: 'unknown_future_subtype',
       data: 'something'
     });
 
-    const { result } = await harness.transform(input);
-    expect(result).toBe(input);
+    expect(result).toBe('');
+  });
+});
+
+describe('Auth Status Messages', () => {
+  it('formats authenticating state', async () => {
+    const { result } = await transformJson({
+      type: 'auth_status',
+      isAuthenticating: true,
+      output: [],
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('*Authenticating...*');
+  });
+
+  it('formats auth error', async () => {
+    const { result } = await transformJson({
+      type: 'auth_status',
+      isAuthenticating: false,
+      output: [],
+      error: 'Token expired',
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('**Auth error:** Token expired');
+  });
+
+  it('suppresses successful auth completion', async () => {
+    const { result } = await transformJson({
+      type: 'auth_status',
+      isAuthenticating: false,
+      output: ['Authenticated as user@example.com'],
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('');
+  });
+});
+
+describe('Stream Event Messages', () => {
+  it('suppresses stream_event (partial assistant deltas)', async () => {
+    const { result } = await transformJson({
+      type: 'stream_event',
+      event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'partial' } },
+      parent_tool_use_id: null,
+      uuid: 'uuid-1',
+      session_id: 'sess-1'
+    });
+
+    expect(result).toBe('');
   });
 });
 
@@ -299,14 +650,13 @@ describe('Tool Messages', () => {
 });
 
 describe('Edge Cases', () => {
-  it('passes through unknown message types unchanged', async () => {
-    const input = JSON.stringify({
+  it('returns empty string for unknown message types', async () => {
+    const { result } = await transformJson({
       type: 'unknown_type',
       data: 'foo'
     });
 
-    const { result } = await harness.transform(input);
-    expect(result).toBe(input);
+    expect(result).toBe('');
   });
 
   it('passes through malformed JSON unchanged', async () => {

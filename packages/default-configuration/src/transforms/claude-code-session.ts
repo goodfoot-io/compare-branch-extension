@@ -8,11 +8,20 @@
 
 import type {
   SDKAssistantMessage,
+  SDKAuthStatusMessage,
+  SDKCompactBoundaryMessage,
+  SDKFilesPersistedEvent,
+  SDKHookProgressMessage,
+  SDKHookResponseMessage,
+  SDKHookStartedMessage,
   SDKMessage,
   SDKResultMessage,
+  SDKStatusMessage,
   SDKSystemMessage,
+  SDKTaskNotificationMessage,
   SDKToolProgressMessage,
-  SDKToolUseSummaryMessage
+  SDKToolUseSummaryMessage,
+  SDKUserMessage
 } from '@anthropic-ai/claude-agent-sdk';
 import type { StreamInitContext, TransformContext } from '@cards/sdk/config';
 import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
@@ -116,6 +125,140 @@ function formatToolProgress(message: SDKToolProgressMessage): string {
   return `*${toolName} running... (${elapsed}s)*`;
 }
 
+// -- User message helpers ----------------------------------------------------
+
+/**
+ * Extracts text from a `MessageParam.content` value which can be either a
+ * plain string or an array of content blocks.
+ *
+ * @param content Raw content field from an SDK user message.
+ * @returns Extracted text, or an empty string when no text content is found.
+ */
+function extractUserText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  const parts: string[] = [];
+  for (const block of content) {
+    if (typeof block !== 'object' || block === null) continue;
+    const b = block as Record<string, unknown>;
+    if (b['type'] === 'text' && typeof b['text'] === 'string') {
+      parts.push(b['text']);
+    } else if (b['type'] === 'tool_result') {
+      // Tool results are rendered by tool_use_summary; skip content but note the block.
+      const toolId = typeof b['tool_use_id'] === 'string' ? b['tool_use_id'] : '';
+      if (b['is_error']) {
+        parts.push(`**Tool error** (${toolId})`);
+      }
+    }
+  }
+  return parts.join('\n\n');
+}
+
+function formatUser(message: SDKUserMessage): string {
+  if (message.tool_use_result !== undefined && message.tool_use_result !== null) {
+    // Tool result turn — already covered by tool_use_summary
+    return '';
+  }
+  const text = extractUserText(message.message?.content);
+  if (!text) return '';
+  const prefix = message.isSynthetic ? '**User** *(auto)*: ' : '**User:** ';
+  return `${prefix}${text}`;
+}
+
+// -- System subtype helpers --------------------------------------------------
+
+function formatStatus(message: SDKStatusMessage): string {
+  if (message.status === 'compacting') return '*Compacting context...*';
+  return '';
+}
+
+function formatCompactBoundary(message: SDKCompactBoundaryMessage): string {
+  const trigger = message.compact_metadata?.trigger ?? 'auto';
+  const preTokens = message.compact_metadata?.pre_tokens ?? 0;
+  return `---\n*Context compacted* (${trigger}) — ${preTokens} tokens before\n\n---`;
+}
+
+function formatHookStarted(message: SDKHookStartedMessage): string {
+  return `<small>Hook <b>${message.hook_name}</b> (${message.hook_event}) started</small>`;
+}
+
+function formatHookProgress(message: SDKHookProgressMessage): string {
+  const output = message.output || message.stdout || '';
+  return `<small>Hook <b>${message.hook_name}</b>: ${output}</small>`;
+}
+
+function formatHookResponse(message: SDKHookResponseMessage): string {
+  switch (message.outcome) {
+    case 'success':
+      return `<small>Hook <b>${message.hook_name}</b> completed</small>`;
+    case 'error':
+      return `<small>Hook <b>${message.hook_name}</b> failed (exit ${message.exit_code ?? '?'})</small>`;
+    case 'cancelled':
+      return `<small>Hook <b>${message.hook_name}</b> cancelled</small>`;
+    default:
+      return `<small>Hook <b>${message.hook_name}</b> ${String(message.outcome)}</small>`;
+  }
+}
+
+function formatFilesPersisted(message: SDKFilesPersistedEvent): string {
+  const saved = message.files?.length ?? 0;
+  const failed = message.failed?.length ?? 0;
+  if (failed > 0) {
+    return `<small>Files persisted: ${saved} saved, ${failed} failed</small>`;
+  }
+  return `<small>Files persisted: ${saved} saved</small>`;
+}
+
+function formatTaskNotification(message: SDKTaskNotificationMessage): string {
+  const status = message.status || 'unknown';
+  const summary = message.summary || '';
+  return `**Task** *${message.task_id}* — ${status}: ${summary}`;
+}
+
+// -- Top-level type helpers --------------------------------------------------
+
+function formatAuthStatus(message: SDKAuthStatusMessage): string {
+  if (message.error) {
+    return `**Auth error:** ${message.error}`;
+  }
+  if (message.isAuthenticating) {
+    return '*Authenticating...*';
+  }
+  // Auth completed successfully
+  return '';
+}
+
+/**
+ * Routes `type: 'system'` messages to the appropriate subtype formatter.
+ *
+ * @param message - Parsed system message with a subtype discriminator.
+ * @param message.type - Always `'system'`.
+ * @param message.subtype - System message subtype discriminator (e.g. `'init'`, `'status'`).
+ * @returns Formatted markdown string, or empty string for suppressed subtypes.
+ */
+function formatSystem(message: { type: 'system'; subtype?: string; [key: string]: unknown }): string {
+  switch (message.subtype) {
+    case 'init':
+      return formatSystemInit(message as unknown as SDKSystemMessage);
+    case 'status':
+      return formatStatus(message as unknown as SDKStatusMessage);
+    case 'compact_boundary':
+      return formatCompactBoundary(message as unknown as SDKCompactBoundaryMessage);
+    case 'hook_started':
+      return formatHookStarted(message as unknown as SDKHookStartedMessage);
+    case 'hook_progress':
+      return formatHookProgress(message as unknown as SDKHookProgressMessage);
+    case 'hook_response':
+      return formatHookResponse(message as unknown as SDKHookResponseMessage);
+    case 'files_persisted':
+      return formatFilesPersisted(message as unknown as SDKFilesPersistedEvent);
+    case 'task_notification':
+      return formatTaskNotification(message as unknown as SDKTaskNotificationMessage);
+    default:
+      return '';
+  }
+}
+
 // -- Init & Transform --------------------------------------------------------
 
 /**
@@ -133,7 +276,7 @@ export function handleInit(context: StreamInitContext): void {
  *
  * @param line Raw line read from the stream.
  * @param context Transform context that stores per-session state.
- * @returns Formatted output for known message types, or the original line.
+ * @returns Formatted output for known message types, or empty string for unknown types.
  */
 export function handleTransform(line: string, context: TransformContext): string {
   if (!line || line.trim().length === 0) {
@@ -151,19 +294,23 @@ export function handleTransform(line: string, context: TransformContext): string
     switch (message.type) {
       case 'assistant':
         return formatAssistant(message);
+      case 'user':
+        return formatUser(message as SDKUserMessage);
       case 'system':
-        if (message.subtype === 'init') {
-          return formatSystemInit(message);
-        }
-        return line;
+        return formatSystem(message as { type: 'system'; subtype?: string; [key: string]: unknown });
       case 'result':
         return formatResult(message);
       case 'tool_use_summary':
         return formatToolUseSummary(message);
       case 'tool_progress':
         return formatToolProgress(message);
+      case 'auth_status':
+        return formatAuthStatus(message as unknown as SDKAuthStatusMessage);
+      case 'stream_event':
+        // Streaming deltas — the final `assistant` message is the canonical render
+        return '';
       default:
-        return line;
+        return '';
     }
   } catch {
     return line;
