@@ -16,17 +16,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { findClaudePid, removeSessionPid } from '@cards/claude-code-sessions';
-import {
-  appendCommitToSession,
-  getSessionCommits,
-  readSessionHeadSha,
-  removeSessionCsv,
-  removeSessionHeadSha
-} from '@cards/claude-code-sessions/card-repo';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
-import type { Logger } from '@goodfoot/claude-code-hooks';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { stripDiffstatSummaries } from './lib/context.js';
 
@@ -62,22 +54,6 @@ export class CommitRecordError extends Error {
   ) {
     const reason = cause instanceof Error ? cause.message : String(cause);
     super(`Failed to record commit ${sha} for session ${sessionId}: ${reason}`);
-    this.cause = cause;
-  }
-}
-
-/**
- * Error thrown when session cleanup (PID/CSV removal) fails.
- */
-export class SessionCleanupError extends Error {
-  override readonly name = 'SessionCleanupError';
-
-  constructor(
-    public readonly sessionId: string,
-    cause: unknown
-  ) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`Failed to clean up session ${sessionId}: ${reason}`);
     this.cause = cause;
   }
 }
@@ -152,70 +128,6 @@ async function recordUnattributedCommits(sessionId: string, shas: string[]): Pro
   }
 }
 
-/**
- * Removes PID/session artifacts created during session-start.
- *
- * @param logger - Hook logger used for diagnostic output.
- * @param sessionId - Session ID whose CSV buffer should be cleaned up.
- * @throws {SessionCleanupError} When PID or CSV cleanup fails.
- */
-async function cleanupSession(logger: Logger, sessionId: string): Promise<void> {
-  const resolvedPid = findClaudePid();
-
-  try {
-    if (resolvedPid) {
-      await removeSessionPid(resolvedPid);
-      logger.info('Cleaned up PID registration', { pid: resolvedPid });
-    }
-
-    removeSessionHeadSha(sessionId);
-    removeSessionCsv(sessionId);
-    logger.info('Cleaned up session CSV', { sessionId });
-  } catch (error) {
-    throw new SessionCleanupError(sessionId, error);
-  }
-}
-
-/**
- * Runs session cleanup and returns an approve output. When cleanup fails
- * with a {@link SessionCleanupError}, the approval message is augmented
- * with a warning rather than failing the hook.
- *
- * @param logger - Hook logger used for diagnostic output.
- * @param sessionId - Session whose artifacts should be cleaned up.
- * @param approvalMessage - Message returned on success.
- * @returns Stop output with decision "approve".
- * @throws Re-throws non-{@link SessionCleanupError} errors.
- */
-async function cleanupAndApprove(
-  logger: Logger,
-  sessionId: string,
-  approvalMessage: string
-): Promise<ReturnType<typeof stopOutput>> {
-  try {
-    await cleanupSession(logger, sessionId);
-  } catch (error) {
-    if (error instanceof SessionCleanupError) {
-      logger.error('Session cleanup failed', { sessionId: error.sessionId, error: error.message });
-      return stopOutput({
-        decision: 'approve',
-        systemMessage: [
-          approvalMessage,
-          '',
-          `Warning: ${error.message}`,
-          '',
-          'Stale session artifacts may remain. To clean up manually:',
-          '1. Check for leftover PID entries in the session registry',
-          `2. Remove the session CSV for session ${sessionId} if it exists`
-        ].join('\n'),
-        reason: `Cleanup failed: ${error.message}`
-      });
-    }
-    throw error;
-  }
-  return stopOutput({ decision: 'approve', systemMessage: approvalMessage });
-}
-
 export default stopHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
@@ -266,7 +178,10 @@ export default stopHook({}, async (input, { logger }) => {
   }
 
   if (allCommits.length === 0) {
-    return cleanupAndApprove(logger, sessionId, 'Stop approved — no commits since session start.');
+    return stopOutput({
+      decision: 'approve',
+      systemMessage: 'Stop approved — no commits since session start.'
+    });
   }
 
   // Get session's attributed commits
@@ -294,14 +209,13 @@ export default stopHook({}, async (input, { logger }) => {
   const unattributed = getUnattributedCommits(allCommits, sessionCommits);
 
   if (unattributed.length === 0) {
-    return cleanupAndApprove(
-      logger,
-      sessionId,
-      `Stop approved — all ${allCommits.length} commits attributed to this session.`
-    );
+    return stopOutput({
+      decision: 'approve',
+      systemMessage: `Stop approved — all ${allCommits.length} commits attributed to this session.`
+    });
   }
 
-  // Unattributed commits found — gather stat, record, cleanup, then block.
+  // Unattributed commits found — gather stat, record, then block.
   // Errors in these side-effect operations are collected as warnings and
   // included in the output without changing the block decision.
   const warnings: string[] = [];
@@ -355,21 +269,6 @@ export default stopHook({}, async (input, { logger }) => {
         `Commit recording failed for ${error.sha}: ${error.message}. ` +
           'The next stop may re-flag these commits as unattributed. ' +
           'Verify the session CSV is writable.'
-      );
-    } else {
-      throw error;
-    }
-  }
-
-  try {
-    await cleanupSession(logger, sessionId);
-  } catch (error) {
-    if (error instanceof SessionCleanupError) {
-      logger.error('Session cleanup failed', { sessionId: error.sessionId, error: error.message });
-      warnings.push(
-        `Session cleanup failed: ${error.message}. ` +
-          'Stale PID entries or CSV files may remain. ' +
-          `Check the session registry and remove artifacts for session ${sessionId} manually.`
       );
     } else {
       throw error;

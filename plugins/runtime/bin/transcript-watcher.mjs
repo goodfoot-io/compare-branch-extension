@@ -1253,6 +1253,8 @@ async function runStreamingLoop(args) {
       state.bytesRead = poll.newBytesRead;
       state.lineBuffer = poll.newLineBuffer;
     }
+    const sleepPromise = new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    args.emitter?.emit("iterationEnd");
     if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {
       state.sentinelDetected = true;
       break;
@@ -1262,10 +1264,11 @@ async function runStreamingLoop(args) {
       logViaSocket("warn", `Watcher exceeded maximum lifetime (${MAX_LIFETIME_MS}ms), exiting`);
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    await sleepPromise;
   }
   await flushRemainingLines(state, args);
   await cleanupResources(state, args);
+  args.emitter?.emit("done");
 }
 async function main() {
   const socketPath = process.env["SOCKET_PATH"];

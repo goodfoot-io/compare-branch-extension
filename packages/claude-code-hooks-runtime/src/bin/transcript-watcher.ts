@@ -45,6 +45,12 @@ export interface TranscriptWatcherArgs {
   cardId: string;
   /** Filesystem path to the card repository. */
   cardRepoPath: string;
+  /**
+   * Optional emitter for loop lifecycle events ('iterationEnd', 'done').
+   * Used by integration tests to synchronize with the streaming loop
+   * without arbitrary timing delays.
+   */
+  emitter?: { emit(event: string): boolean };
 }
 
 /**
@@ -622,6 +628,12 @@ export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<voi
       // Note: idle timeout removed — server ping/pong handles connection keepalive
     }
 
+    // Register the sleep timer BEFORE emitting 'iterationEnd' so that
+    // integration tests (which use fake timers) can safely advance time
+    // as soon as they receive the event — the timer is already queued.
+    const sleepPromise = new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    args.emitter?.emit('iterationEnd');
+
     if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {
       state.sentinelDetected = true;
       break;
@@ -632,12 +644,13 @@ export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<voi
       break;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    await sleepPromise;
   }
 
   // Post-loop: flush remaining data and clean up
   await flushRemainingLines(state, args);
   await cleanupResources(state, args);
+  args.emitter?.emit('done');
 }
 
 /**

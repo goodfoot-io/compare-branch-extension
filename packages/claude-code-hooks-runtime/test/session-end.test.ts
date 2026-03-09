@@ -5,9 +5,11 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';
+import { findClaudePid, removeSessionPid } from '@cards/claude-code-sessions';
+import { removeSessionCsv, removeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import { extractActionInput } from '@cards/sdk/config';
 import { Logger } from '@goodfoot/claude-code-hooks';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/session-end.js';
 
 vi.mock('@cards/sdk/config', () => ({
@@ -19,9 +21,23 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
+vi.mock('@cards/claude-code-sessions', () => ({
+  findClaudePid: vi.fn(),
+  removeSessionPid: vi.fn()
+}));
+
+vi.mock('@cards/claude-code-sessions/card-repo', () => ({
+  removeSessionCsv: vi.fn(),
+  removeSessionHeadSha: vi.fn()
+}));
+
 const mockExtractActionInput = vi.mocked(extractActionInput);
 const mockMkdir = vi.mocked(mkdir);
 const mockWriteFile = vi.mocked(writeFile);
+const mockFindClaudePid = vi.mocked(findClaudePid);
+const mockRemoveSessionPid = vi.mocked(removeSessionPid);
+const mockRemoveSessionCsv = vi.mocked(removeSessionCsv);
+const mockRemoveSessionHeadSha = vi.mocked(removeSessionHeadSha);
 
 const logger = new Logger();
 
@@ -51,13 +67,9 @@ const baseInput = {
 const context = { logger };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mockMkdir.mockResolvedValue(undefined as never);
   mockWriteFile.mockResolvedValue(undefined as never);
-});
-
-afterEach(() => {
-  vi.clearAllMocks();
 });
 
 describe('SessionEnd Hook', () => {
@@ -116,6 +128,66 @@ describe('SessionEnd Hook', () => {
       // writeFile and mkdir are the only fs operations
       expect(mockWriteFile).toHaveBeenCalledTimes(1);
     });
+
+    describe('session artifact cleanup', () => {
+      it('calls removeSessionPid with resolved PID from findClaudePid', async () => {
+        mockFindClaudePid.mockReturnValue(42);
+
+        await hook(baseInput, context);
+
+        expect(mockFindClaudePid).toHaveBeenCalled();
+        expect(mockRemoveSessionPid).toHaveBeenCalledWith(42);
+      });
+
+      it('skips PID removal when findClaudePid returns null', async () => {
+        mockFindClaudePid.mockReturnValue(null);
+
+        await hook(baseInput, context);
+
+        expect(mockFindClaudePid).toHaveBeenCalled();
+        expect(mockRemoveSessionPid).not.toHaveBeenCalled();
+      });
+
+      it('calls removeSessionHeadSha with session ID', async () => {
+        await hook(baseInput, context);
+
+        expect(mockRemoveSessionHeadSha).toHaveBeenCalledWith('sess-abc');
+      });
+
+      it('calls removeSessionCsv with session ID', async () => {
+        await hook(baseInput, context);
+
+        expect(mockRemoveSessionCsv).toHaveBeenCalledWith('sess-abc');
+      });
+
+      it('handles cleanup failure gracefully — still returns sessionEndOutput', async () => {
+        mockRemoveSessionCsv.mockImplementation(() => {
+          throw new Error('unlink failed');
+        });
+
+        const result = await hook(baseInput, context);
+
+        expect(result).toHaveProperty('_type', 'SessionEnd');
+      });
+
+      it('handles removeSessionPid failure gracefully', async () => {
+        mockFindClaudePid.mockReturnValue(42);
+        mockRemoveSessionPid.mockRejectedValue(new Error('permission denied'));
+
+        const result = await hook(baseInput, context);
+
+        expect(result).toHaveProperty('_type', 'SessionEnd');
+      });
+
+      it('runs cleanup even when sentinel write fails', async () => {
+        mockWriteFile.mockRejectedValue(new Error('disk full'));
+
+        await hook(baseInput, context);
+
+        expect(mockRemoveSessionHeadSha).toHaveBeenCalledWith('sess-abc');
+        expect(mockRemoveSessionCsv).toHaveBeenCalledWith('sess-abc');
+      });
+    });
   });
 
   describe('outside an action subprocess', () => {
@@ -131,6 +203,15 @@ describe('SessionEnd Hook', () => {
       expect(result).toHaveProperty('_type', 'SessionEnd');
       expect(mockMkdir).not.toHaveBeenCalled();
       expect(mockWriteFile).not.toHaveBeenCalled();
+    });
+
+    it('does not attempt cleanup when not in action subprocess', async () => {
+      await hook(baseInput, context);
+
+      expect(mockFindClaudePid).not.toHaveBeenCalled();
+      expect(mockRemoveSessionPid).not.toHaveBeenCalled();
+      expect(mockRemoveSessionCsv).not.toHaveBeenCalled();
+      expect(mockRemoveSessionHeadSha).not.toHaveBeenCalled();
     });
   });
 });

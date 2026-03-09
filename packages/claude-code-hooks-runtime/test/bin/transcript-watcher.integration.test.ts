@@ -8,6 +8,7 @@
  * @summary Integration tests for transcript-watcher streaming loop
  */
 
+import { EventEmitter } from 'node:events';
 import { appendFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -32,14 +33,12 @@ describe('transcript-watcher integration', () => {
   let transcriptPath: string;
   let sessionId: string;
 
-  // Save a reference to the real setTimeout before fake timers are installed.
-  // Used to yield to the real event loop (libuv I/O callbacks) between
-  // fake timer advances.
-  const realSetTimeout = globalThis.setTimeout;
-
   let mockWrite: ReturnType<typeof vi.fn>;
   let mockClose: ReturnType<typeof vi.fn>;
   let mockOpenStreamWebSocket: ReturnType<typeof vi.fn>;
+
+  let emitter: EventEmitter;
+  let loopDone: boolean;
 
   beforeEach(() => {
     sessionId = `sess-integ-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -60,6 +59,12 @@ describe('transcript-watcher integration', () => {
     const mockClient = { openStreamWebSocket: mockOpenStreamWebSocket };
     mockCreateCardsClient.mockResolvedValue(mockClient as never);
 
+    emitter = new EventEmitter();
+    loopDone = false;
+    emitter.on('done', () => {
+      loopDone = true;
+    });
+
     vi.useFakeTimers();
 
     // Default: PID alive
@@ -79,31 +84,46 @@ describe('transcript-watcher integration', () => {
       sessionId,
       transcriptPath,
       cardId: 'card-integ',
-      cardRepoPath: testDir
+      cardRepoPath: testDir,
+      emitter
     };
   }
 
   /**
-   * Yields to the real event loop so libuv I/O callbacks (file reads, access
-   * checks) can complete between fake timer advances.
+   * Waits for the streaming loop to finish its current iteration.
    *
-   * @returns A promise that resolves after a real 5ms delay.
+   * Listens for the loop's 'iterationEnd' event (emitted after all I/O in an
+   * iteration completes, before the sleep timer) or 'done' (emitted after
+   * post-loop cleanup). Returns immediately if the loop has already exited.
+   *
+   * @returns A promise that resolves when the current iteration completes.
    */
-  function yieldToMicrotasks(): Promise<void> {
-    return new Promise((resolve) => realSetTimeout(resolve, 5));
+  function waitForLoopIdle(): Promise<void> {
+    if (loopDone) return Promise.resolve();
+    return new Promise((resolve) => {
+      const handler = () => {
+        emitter.off('iterationEnd', handler);
+        emitter.off('done', handler);
+        resolve();
+      };
+      emitter.on('iterationEnd', handler);
+      emitter.on('done', handler);
+    });
   }
 
   /**
    * Advances fake timers by the given duration in POLL_INTERVAL_MS steps,
-   * yielding to the real event loop between each step.
+   * waiting for the loop to complete each iteration before advancing further.
    *
    * @param totalMs - Total milliseconds to advance.
    */
   async function advanceTimeInSteps(totalMs: number): Promise<void> {
     const steps = Math.ceil(totalMs / POLL_INTERVAL_MS);
     for (let i = 0; i < steps; i++) {
+      if (loopDone) return;
+      const idle = waitForLoopIdle();
       await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-      await yieldToMicrotasks();
+      await idle;
     }
   }
 
@@ -153,16 +173,18 @@ describe('transcript-watcher integration', () => {
     const promise = runStreamingLoop(makeArgs());
 
     // Advance one poll -- no data yet
+    const idle1 = waitForLoopIdle();
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-    await yieldToMicrotasks();
+    await idle1;
 
     expect(mockOpenStreamWebSocket).not.toHaveBeenCalled();
 
     // Simulate Claude writing lines incrementally
     appendFileSync(transcriptPath, '{"type":"init","ts":1}\n');
 
+    const idle2 = waitForLoopIdle();
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-    await yieldToMicrotasks();
+    await idle2;
 
     // Session should now be open and the line written
     expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
@@ -171,8 +193,9 @@ describe('transcript-watcher integration', () => {
     // Write more lines
     appendFileSync(transcriptPath, '{"type":"message","content":"hello"}\n{"type":"message","content":"world"}\n');
 
+    const idle3 = waitForLoopIdle();
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-    await yieldToMicrotasks();
+    await idle3;
 
     expect(mockWrite).toHaveBeenCalledWith('{"type":"message","content":"hello"}');
     expect(mockWrite).toHaveBeenCalledWith('{"type":"message","content":"world"}');
@@ -180,8 +203,7 @@ describe('transcript-watcher integration', () => {
     // Write sentinel to trigger graceful exit
     writeSentinelAfter(POLL_INTERVAL_MS + 50);
 
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
-    await yieldToMicrotasks();
+    await advanceTimeInSteps(POLL_INTERVAL_MS * 3);
 
     await promise;
 
@@ -311,8 +333,8 @@ describe('transcript-watcher integration', () => {
     const promise = runStreamingLoop(makeArgs());
 
     // Poll 1 fires immediately (no timer advance needed) — session opens, write throws,
-    // session is nulled, bytesRead is NOT advanced. Yield to let I/O and async ops complete.
-    await yieldToMicrotasks();
+    // session is nulled, bytesRead is NOT advanced.
+    await waitForLoopIdle();
 
     expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
     expect(mockWrite1).toHaveBeenCalledTimes(1);
@@ -351,7 +373,7 @@ describe('transcript-watcher integration', () => {
     const promise = runStreamingLoop(makeArgs());
 
     // Poll 1 fires immediately — createCardsClient throws, tryOpenSession returns null, no write
-    await yieldToMicrotasks();
+    await waitForLoopIdle();
 
     expect(mockOpenStreamWebSocket).not.toHaveBeenCalled();
     expect(mockWrite).not.toHaveBeenCalled();
@@ -423,8 +445,8 @@ describe('transcript-watcher integration', () => {
     const promise = runStreamingLoop(makeArgs());
 
     // Poll 1 fires immediately — session opens, first write throws, session nulled,
-    // bytesRead NOT advanced. Yield to let I/O and async ops complete.
-    await yieldToMicrotasks();
+    // bytesRead NOT advanced.
+    await waitForLoopIdle();
 
     expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
     expect(mockWrite).toHaveBeenCalledTimes(1);
@@ -466,7 +488,7 @@ describe('transcript-watcher integration', () => {
     const promise = runStreamingLoop(makeArgs());
 
     // Poll 1 fires immediately — createCardsClient returns null, API unavailable, no session opened
-    await yieldToMicrotasks();
+    await waitForLoopIdle();
 
     expect(mockOpenStreamWebSocket).not.toHaveBeenCalled();
     expect(mockWrite).not.toHaveBeenCalled();
