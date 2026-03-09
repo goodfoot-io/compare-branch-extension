@@ -137,18 +137,29 @@ describe('Input Constraints', () => {
 });
 
 describe('DomainEvent discriminated union', () => {
-  it('should narrow types correctly in switch/case for CardMetadataChangedEvent', () => {
+  it('should narrow types correctly in switch/case for CardsMetadataEvent', () => {
     const event: DomainEvent = {
-      type: 'card:metadataChanged',
+      type: 'cards:metadata',
       cardId: 'card-1',
-      changes: ['status', 'title']
+      title: 'Test',
+      status: 'todo',
+      tags: [],
+      isPinned: false,
+      order: 0,
+      gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+      hasPlanContent: false,
+      isMerged: null,
+      incomingRelations: [],
+      commentCount: 0,
+      attachmentCount: 0,
+      description: ''
     };
 
-    // TypeScript will infer the correct type based on the discriminator
     switch (event.type) {
-      case 'card:metadataChanged':
-        // This should compile - TypeScript knows event.changes exists
-        expect(event.changes).toContain('status');
+      case 'cards:metadata':
+        expect(event.title).toBe('Test');
         expect(event.cardId).toBe('card-1');
         break;
       default:
@@ -190,7 +201,24 @@ describe('DomainEvent discriminated union', () => {
   it('accepts representative event types in the union', () => {
     // Compile-time check: selected event types are assignable to DomainEvent
     const events: DomainEvent[] = [
-      { type: 'card:metadataChanged', cardId: 'id', changes: ['status'] },
+      {
+        type: 'cards:metadata',
+        cardId: 'id',
+        title: 'T',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
+        createdAt: '',
+        updatedAt: '',
+        hasPlanContent: false,
+        isMerged: null,
+        incomingRelations: [],
+        commentCount: 0,
+        attachmentCount: 0,
+        description: ''
+      },
       { type: 'card:contentChanged', cardId: 'id' },
       { type: 'comment:created', cardId: 'id', commentId: 'cid' },
       {

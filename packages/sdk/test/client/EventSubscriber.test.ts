@@ -206,11 +206,11 @@ describe('EventSubscriber', () => {
   });
 
   describe('Event Subscription', () => {
-    it('should register callback for card:metadataChanged event', () => {
+    it('should register callback for card:contentChanged event', () => {
       const wsFactory = new RealWebSocketFactory();
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
       const callback = () => {};
-      subscriber.on('card:metadataChanged', callback);
+      subscriber.on('card:contentChanged', callback);
       // Verifies on() doesn't throw
     });
 
@@ -218,8 +218,8 @@ describe('EventSubscriber', () => {
       const wsFactory = new RealWebSocketFactory();
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
       const callback = () => {};
-      subscriber.on('card:metadataChanged', callback);
-      subscriber.off('card:metadataChanged', callback);
+      subscriber.on('card:contentChanged', callback);
+      subscriber.off('card:contentChanged', callback);
       // Verifies off() doesn't throw
     });
 
@@ -228,8 +228,8 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
       const callback1 = () => {};
       const callback2 = () => {};
-      subscriber.on('card:metadataChanged', callback1);
-      subscriber.on('card:metadataChanged', callback2);
+      subscriber.on('card:contentChanged', callback1);
+      subscriber.on('card:contentChanged', callback2);
       // Verifies multiple registrations don't throw
     });
   });
@@ -305,7 +305,7 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
 
       const receivedEvents: unknown[] = [];
-      subscriber.on('card:metadataChanged', (event) => {
+      subscriber.on('card:contentChanged', (event) => {
         receivedEvents.push(event);
       });
 
@@ -314,15 +314,13 @@ describe('EventSubscriber', () => {
       await connectPromise;
 
       wsFactory.latest.simulateMessage({
-        type: 'card:metadataChanged',
-        cardId: 'card-123',
-        changes: ['title']
+        type: 'card:contentChanged',
+        cardId: 'card-123'
       });
 
       expect(receivedEvents).toHaveLength(1);
       expect(receivedEvents[0]).toMatchObject({
-        cardId: 'card-123',
-        changes: ['title']
+        cardId: 'card-123'
       });
     });
 
@@ -334,18 +332,17 @@ describe('EventSubscriber', () => {
       const callback = (event: unknown) => {
         receivedEvents.push(event);
       };
-      subscriber.on('card:metadataChanged', callback);
+      subscriber.on('card:contentChanged', callback);
 
       const connectPromise = subscriber.connect();
       wsFactory.latest.simulateOpen();
       await connectPromise;
 
-      subscriber.off('card:metadataChanged', callback);
+      subscriber.off('card:contentChanged', callback);
 
       wsFactory.latest.simulateMessage({
-        type: 'card:metadataChanged',
-        cardId: 'card-123',
-        changes: ['title']
+        type: 'card:contentChanged',
+        cardId: 'card-123'
       });
 
       expect(receivedEvents).toHaveLength(0);
@@ -576,7 +573,7 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 }, wsFactory);
 
       const receivedEvents: unknown[] = [];
-      subscriber.on('card:metadataChanged', (event) => {
+      subscriber.on('card:contentChanged', (event) => {
         receivedEvents.push(event);
       });
 
@@ -597,9 +594,8 @@ describe('EventSubscriber', () => {
 
       // Event callback should still work
       wsFactory.latest.simulateMessage({
-        type: 'card:metadataChanged',
-        cardId: 'card-456',
-        changes: ['status']
+        type: 'card:contentChanged',
+        cardId: 'card-456'
       });
 
       expect(receivedEvents).toHaveLength(1);
@@ -663,16 +659,15 @@ describe('EventSubscriber', () => {
       );
 
       const receivedEvents: unknown[] = [];
-      subscriber.on('card:metadataChanged', (event) => {
+      subscriber.on('card:contentChanged', (event) => {
         receivedEvents.push(event);
       });
 
       await subscriber.connect();
 
       server.broadcast({
-        type: 'card:metadataChanged',
-        cardId: 'card-123',
-        changes: ['title']
+        type: 'card:contentChanged',
+        cardId: 'card-123'
       });
 
       // Wait for async event delivery
@@ -680,8 +675,7 @@ describe('EventSubscriber', () => {
 
       expect(receivedEvents).toHaveLength(1);
       expect(receivedEvents[0]).toMatchObject({
-        cardId: 'card-123',
-        changes: ['title']
+        cardId: 'card-123'
       });
 
       subscriber.disconnect();

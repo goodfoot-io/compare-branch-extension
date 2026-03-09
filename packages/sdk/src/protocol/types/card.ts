@@ -303,6 +303,6 @@ export interface Card extends CardMetadata {
    */
   repositoryPath?: string;
 
-  /** Card IDs that block this card (derived from card_relations at read time, not persisted). */
-  incomingBlocks?: string[];
+  /** Incoming relations targeting this card (derived from card_relations at read time, not persisted). */
+  incomingRelations?: CardRelation[];
 }

@@ -253,6 +253,23 @@ var CardsClient = class {
     return this.request(() => this.getHttpClient().get(url.toString()));
   }
   /**
+   * Lists cards as lightweight summaries for list views.
+   *
+   * Returns pre-flattened fields suitable for direct use in list rendering,
+   * omitting heavyweight fields like `planContent` and `repositoryPath`.
+   *
+   * @template T - The expected summary shape (default `Record<string, unknown>`).
+   * @returns Promise resolving to card summaries.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async listCardSummaries() {
+    const url = this.buildUrl("/cards/list", {
+      workspacePath: this.options.workspacePath
+    });
+    return this.request(() => this.getHttpClient().get(url));
+  }
+  /**
    * Gets a single card by id.
    *
    * @param cardId - The id of the card to retrieve.

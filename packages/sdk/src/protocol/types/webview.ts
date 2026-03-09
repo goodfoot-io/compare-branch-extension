@@ -138,7 +138,7 @@ export interface StateUpdateMessage {
 export interface EventMessage {
   /** Message type discriminator. */
   type: 'event';
-  /** Event name (e.g., 'card:metadataChanged'). */
+  /** Event name (e.g., 'cards:metadata'). */
   eventName: string;
   /** Event payload forwarded from the backend. */
   payload: unknown;

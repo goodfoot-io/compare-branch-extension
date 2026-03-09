@@ -194,13 +194,13 @@ describe('webview types', () => {
     it('should narrow types correctly for event', () => {
       const message: ExtensionToWebviewMessage = {
         type: 'event',
-        eventName: 'card:metadataChanged',
+        eventName: 'cards:metadata',
         payload: { cardId: 'i1' }
       };
 
       switch (message.type) {
         case 'event':
-          expect(message.eventName).toBe('card:metadataChanged');
+          expect(message.eventName).toBe('cards:metadata');
           expect(message.payload).toEqual({ cardId: 'i1' });
           break;
         default:

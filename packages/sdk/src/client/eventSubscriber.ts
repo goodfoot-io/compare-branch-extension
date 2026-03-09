@@ -31,8 +31,8 @@ export function calculateBackoffMs(attempt: number, maxMs = 30000): number {
  * ```typescript
  * const events = new EventSubscriber({ wsUrl: 'ws://localhost:3000/events', accessToken: 'token' });
  *
- * events.on('card:metadataChanged', (e) => {
- *   console.log(`Card ${e.cardId} changed: ${e.changes.join(', ')}`);
+ * events.on('cards:metadata', (e) => {
+ *   console.log(`Card ${e.cardId} metadata updated`);
  * });
  *
  * await events.connect();

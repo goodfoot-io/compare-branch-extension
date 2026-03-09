@@ -10,41 +10,14 @@
  */
 
 import type { BranchInfo } from './branch.js';
+import type { CardGates, CardRelation } from './card.js';
 import type { CompareState } from './compare.js';
 import type { CardCommit } from './fs.js';
+import type { CardStatus } from './status.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
-import type { CommitDetails } from './timeline.js';
+import type { CommentTimelineItem, CommitDetails, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
 
 // --- Card Events ---
-
-/**
- * Metadata field names that can appear in {@link CardMetadataChangedEvent.changes}.
- *
- * Must stay in sync with `CardUpdateData` in `packages/cards/hybrid-store/src/store/HybridStore.ts`.
- */
-export type CardUpdateDataField =
-  | 'status'
-  | 'title'
-  | 'description'
-  | 'tags'
-  | 'gates'
-  | 'isPinned'
-  | 'order'
-  | 'relations'
-  | 'created'
-  | 'updated';
-
-/**
- * Event payload when card metadata (not content) changes.
- */
-export interface CardMetadataChangedEvent {
-  /** Event type discriminator. */
-  type: 'card:metadataChanged';
-  /** ID of the card that changed. */
-  cardId: string;
-  /** List of metadata fields that changed, for targeted UI updates. */
-  changes: CardUpdateDataField[];
-}
 
 /**
  * Event payload when a card is deleted.
@@ -78,6 +51,140 @@ export interface CommentCreatedEvent {
   cardId: string;
   /** ID of the newly created comment. */
   commentId: string;
+}
+
+// --- Timeline Events ---
+
+/**
+ * Event payload when a comment is added to the timeline.
+ */
+export interface TimelineCommentAddedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:comment:added';
+  /** ID of the parent card. */
+  cardId: string;
+  /** Full comment timeline item. */
+  item: CommentTimelineItem;
+}
+
+/**
+ * Event payload when a comment on the timeline is updated.
+ */
+export interface TimelineCommentUpdatedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:comment:updated';
+  /** ID of the parent card. */
+  cardId: string;
+  /** Updated comment timeline item. */
+  item: CommentTimelineItem;
+}
+
+/**
+ * Event payload when a comment is removed from the timeline.
+ */
+export interface TimelineCommentRemovedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:comment:removed';
+  /** ID of the parent card. */
+  cardId: string;
+  /** ID of the removed comment. */
+  commentId: string;
+}
+
+/**
+ * Event payload when a commit is added to the timeline.
+ */
+export interface TimelineCommitAddedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:commit:added';
+  /** ID of the parent card. */
+  cardId: string;
+  /** Full commit timeline item. */
+  item: CommitTimelineItem;
+}
+
+/**
+ * Event payload when a commit is removed from the timeline.
+ */
+export interface TimelineCommitRemovedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:commit:removed';
+  /** ID of the parent card. */
+  cardId: string;
+  /** SHA of the removed commit. */
+  sha: string;
+}
+
+// --- Generic Typed File Events ---
+
+/**
+ * Event payload when a typed file is added to the timeline.
+ */
+export interface TimelineTypedFileAddedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:typedFile:added';
+  /** ID of the parent card. */
+  cardId: string;
+  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
+  typeName: string;
+  /** Full typed file timeline item. */
+  item: TypedFileTimelineItem;
+}
+
+/**
+ * Event payload when a typed file on the timeline is updated.
+ */
+export interface TimelineTypedFileUpdatedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:typedFile:updated';
+  /** ID of the parent card. */
+  cardId: string;
+  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
+  typeName: string;
+  /** Updated typed file timeline item. */
+  item: TypedFileTimelineItem;
+}
+
+/**
+ * Event payload when a typed file is removed from the timeline.
+ */
+export interface TimelineTypedFileRemovedEvent {
+  /** Event type discriminator. */
+  type: 'timeline:typedFile:removed';
+  /** ID of the parent card. */
+  cardId: string;
+  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
+  typeName: string;
+  /** File name of the removed typed file. */
+  fileName: string;
+  /** Logical ID for client-side list diffing. */
+  itemId: string;
+}
+
+// --- Attachment Events ---
+
+/**
+ * Event payload when an attachment is added to a card.
+ */
+export interface AttachmentAddedEvent {
+  /** Event type discriminator. */
+  type: 'attachment:added';
+  /** ID of the card that received the attachment. */
+  cardId: string;
+  /** ID of the newly added attachment. */
+  attachmentId: string;
+}
+
+/**
+ * Event payload when an attachment is removed from a card.
+ */
+export interface AttachmentRemovedEvent {
+  /** Event type discriminator. */
+  type: 'attachment:removed';
+  /** ID of the card that lost the attachment. */
+  cardId: string;
+  /** ID of the removed attachment. */
+  attachmentId: string;
 }
 
 // --- Compare Events ---
@@ -249,19 +356,61 @@ export interface WorkspaceCommitEvent {
 }
 
 /**
- * Event payload emitted when the incoming blocks list for a card changes.
+ * Event payload emitted when the incoming relations list for a card changes.
  *
  * Broadcast after any REST-layer mutation to card relations. Carries the
  * complete updated list so clients can replace their local state without
  * a round-trip.
  */
-export interface CardIncomingBlocksChangedEvent {
+export interface CardIncomingRelationsChangedEvent {
   /** Event type discriminator. */
-  type: 'card:incomingBlocksChanged';
-  /** ID of the card whose incoming blocks changed. */
+  type: 'card:incomingRelationsChanged';
+  /** ID of the card whose incoming relations changed. */
   cardId: string;
-  /** Updated list of card IDs that block this card. */
-  incomingBlocks: string[];
+  /** Updated list of incoming relations targeting this card. */
+  incomingRelations: CardRelation[];
+}
+
+/**
+ * Data-carrying event emitted after card metadata changes.
+ *
+ * Contains all fields needed to build a {@link CardListSummary} without
+ * an HTTP fetch. Emitted from `POST /internal/card-post-commit` and the
+ * store event bridge.
+ */
+export interface CardsMetadataEvent {
+  /** Event type discriminator. */
+  type: 'cards:metadata';
+  /** ID of the card whose metadata changed. */
+  cardId: string;
+  /** Card title. */
+  title: string;
+  /** Current status. */
+  status: CardStatus;
+  /** Tags for categorization and search. */
+  tags: string[];
+  /** Whether the card is pinned. */
+  isPinned: boolean;
+  /** Display order within a status column. */
+  order: number;
+  /** Gate state. */
+  gates: CardGates;
+  /** ISO 8601 creation timestamp. */
+  createdAt: string;
+  /** ISO 8601 last-updated timestamp. */
+  updatedAt: string;
+  /** Whether the card has non-empty plan content. */
+  hasPlanContent: boolean;
+  /** Merge status of workspace commits. `null` when unknown or no workspace commits exist. */
+  isMerged: boolean | null;
+  /** Incoming relations targeting this card. */
+  incomingRelations: CardRelation[];
+  /** Number of comments. */
+  commentCount: number;
+  /** Number of attachments. */
+  attachmentCount: number;
+  /** Markdown description content (for search index). */
+  description: string;
 }
 
 // --- Domain Event Union ---
@@ -276,8 +425,8 @@ export interface CardIncomingBlocksChangedEvent {
  * ```typescript
  * function handleEvent(event: DomainEvent): void {
  *   switch (event.type) {
- *     case 'card:metadataChanged':
- *       console.log(event.changes);
+ *     case 'cards:metadata':
+ *       console.log(event.title);
  *       break;
  *     case 'comment:created':
  *       console.log(event.commentId);
@@ -289,10 +438,19 @@ export interface CardIncomingBlocksChangedEvent {
  * ```
  */
 export type DomainEvent =
-  | CardMetadataChangedEvent
   | CardContentChangedEvent
   | CardDeletedEvent
   | CommentCreatedEvent
+  | AttachmentAddedEvent
+  | AttachmentRemovedEvent
+  | TimelineCommentAddedEvent
+  | TimelineCommentUpdatedEvent
+  | TimelineCommentRemovedEvent
+  | TimelineCommitAddedEvent
+  | TimelineCommitRemovedEvent
+  | TimelineTypedFileAddedEvent
+  | TimelineTypedFileUpdatedEvent
+  | TimelineTypedFileRemovedEvent
   | StreamStartedEvent
   | StreamResumedEvent
   | StreamLineEvent
@@ -302,4 +460,5 @@ export type DomainEvent =
   | CompareClearedEvent
   | CardCommitEvent
   | WorkspaceCommitEvent
-  | CardIncomingBlocksChangedEvent;
+  | CardIncomingRelationsChangedEvent
+  | CardsMetadataEvent;
