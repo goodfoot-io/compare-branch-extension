@@ -159,6 +159,31 @@ Each commit's `diff.files` array contains `CardCommitFile` records:
 | `binary` | `boolean` | `true` for binary files (no text diff available) |
 | `patch` | `string?` | Unified diff hunk text for text files; absent for binary files and merge commits |
 
+### Workspace-Scoped Endpoints
+
+When the server manages multiple workspace folders, several endpoints accept an optional `workspacePath` query parameter to resolve per-workspace settings (environments, typed file schemas). If `workspacePath` is provided but the workspace is not registered, the endpoint returns `400` (fail-closed).
+
+| Endpoint | Resolution |
+|----------|------------|
+| `GET /environments` | Settings loader (environment definitions) |
+| `GET /cards/:id/schema` | Settings loader (environment schema) |
+| `GET /cards/:id/:typeName` | Types config (typed file validators) |
+| `GET /cards/:id/:typeName/:fileName` | Types config (typed file validators) |
+| `POST /cards/:cardId/streams/:streamType/:filename` | Settings loader (stream transforms) |
+
+Usage: append `?workspacePath=/absolute/path/to/workspace` to any of the above.
+
+### Internal Endpoints
+
+`POST /internal/register-workspace` registers an additional workspace folder for per-workspace settings resolution. Called by the extension lifecycle when VS Code opens multiple workspace folders.
+
+Request body:
+```json
+{ "workspacePath": "/absolute/path/to/workspace" }
+```
+
+Returns `{ "success": true, "workspacePath": "..." }` on success. Returns `400` if `workspacePath` is missing, empty, or not an absolute path.
+
 ### Directory Layout
 
 ```
