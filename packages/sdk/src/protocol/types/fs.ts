@@ -11,7 +11,7 @@
 /**
  * A single file changed in a commit.
  */
-export interface FsCommitFile {
+export interface CardCommitFile {
   /** Relative path to the file within the card repository. */
   file: string;
   /** Git status code: 'A' (added), 'M' (modified), 'D' (deleted), 'R' (renamed), 'C' (copied). */
@@ -31,7 +31,7 @@ export interface FsCommitFile {
  * construction straightforward, but this interface has no runtime dependency
  * on simple-git — it stays browser-safe.
  */
-export interface FsCommit {
+export interface CardCommit {
   /** Full commit SHA. */
   hash: string;
   /** ISO 8601 commit date string. */
@@ -51,7 +51,7 @@ export interface FsCommit {
     /** Number of files changed. */
     changed: number;
     /** Per-file change records. */
-    files: FsCommitFile[];
+    files: CardCommitFile[];
   };
 }
 
@@ -66,7 +66,7 @@ export interface FsCommit {
  */
 export interface CardSnapshot {
   /** Full commit history, same shape as `GET /cards/:id/git/log`. */
-  commits: FsCommit[];
+  commits: CardCommit[];
   /** Non-binary file entries at HEAD. */
   files: Array<{
     /** Relative path within the card repository. */

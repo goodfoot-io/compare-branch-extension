@@ -337,8 +337,8 @@ describe('timeline event types', () => {
             return 'compare-changed';
           case 'compare:cleared':
             return 'compare-cleared';
-          case 'fs:commit':
-            return 'fs-commit';
+          case 'card:commit':
+            return 'card-commit';
           case 'workspace:commit':
             return 'workspace-commit';
           case 'card:incomingBlocksChanged':

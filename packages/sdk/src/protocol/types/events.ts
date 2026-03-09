@@ -11,7 +11,7 @@
 
 import type { BranchInfo } from './branch.js';
 import type { CompareState } from './compare.js';
-import type { FsCommit } from './fs.js';
+import type { CardCommit } from './fs.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
 import type { CommentTimelineItem, CommitDetails, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
 
@@ -344,13 +344,13 @@ export interface StreamErrorEvent {
  * Carries the full commit metadata so clients can update their file index
  * without a round-trip to `GET /cards/:id/git/log`.
  */
-export interface FsCommitEvent {
+export interface CardCommitEvent {
   /** Event type discriminator. */
-  type: 'fs:commit';
+  type: 'card:commit';
   /** ID of the card whose repository received this commit. */
   cardId: string;
   /** Full commit metadata including per-file diff. */
-  commit: FsCommit;
+  commit: CardCommit;
 }
 
 // --- Workspace Events ---
@@ -444,6 +444,6 @@ export type DomainEvent =
   | StreamErrorEvent
   | CompareChangedEvent
   | CompareClearedEvent
-  | FsCommitEvent
+  | CardCommitEvent
   | WorkspaceCommitEvent
   | CardIncomingBlocksChangedEvent;

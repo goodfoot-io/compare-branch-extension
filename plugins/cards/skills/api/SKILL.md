@@ -149,7 +149,7 @@ gives the absolute path to this repository.
 
 `GET /cards/:id/git/log` returns an array of commit objects representing the card repository's full commit history. `GET /cards/:id/snapshot` returns the same commit array alongside current file contents.
 
-Each commit's `diff.files` array contains `FsCommitFile` records:
+Each commit's `diff.files` array contains `CardCommitFile` records:
 
 | Field | Type | Description |
 |-------|------|-------------|
