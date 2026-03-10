@@ -12,12 +12,17 @@ Create implementation plans for cards requiring user approval before coding begi
 
 ### 1.1 Research
 
-- Read relevant files in the codebase (track paths for code references in step 3)
-- Understand existing patterns and architecture
-- Identify the root cause: what structural property of the system produces the observed problem? If the root cause is confirmed by reading source code, proceed to §1.2. If it is inferred from symptoms, invoke the `runtime:spike` skill now — before §1.2 — to validate or falsify the hypothesis. A plan built on a falsified root cause requires full replacement, not refinement. If the Technical Approach addresses a symptom rather than the root cause, record the tradeoff explicitly in Risks & Mitigations.
-- When modifying or replacing an existing flow, trace the complete existing implementation — not just the parts being changed — to enumerate all components currently wired in. A component discovered during implementation that belongs in the plan is a research failure.
-- Identify requirements conflicts: if the card description, comments, and CARD.md contain inconsistent signals, resolve the conflict with the user before writing the Technical Approach. A plan built on an unresolved ambiguity guarantees a revision.
-- Identify dependencies and risks
+Research must answer four questions before the plan is written:
+
+1. **What is the root cause?** Identify the structural property that produces the problem — not the symptom. If the root cause is inferred rather than confirmed by reading source, spike before §1.2. A plan built on a falsified root cause requires full replacement, not refinement.
+
+2. **What is affected — and what is replaced?** Grep the workspace for each symbol, field name, and string literal being changed or removed. The module graph is not sufficient — callers exist in shell scripts, CLI binaries, git hooks, test fixtures, and configuration files. When the approach introduces a new mechanism, identify the existing one it supersedes — the plan must remove the old system, not just add the new one. A component discovered during implementation that belongs in the plan is a research failure.
+
+3. **What do the integration points require?** For each system, API, or runtime boundary the plan touches, read beyond the type signature to understand the behavioral contract — what it assumes, what invariants it maintains, what it does not guarantee. A type signature is an interface; the implementation is the contract.
+
+4. **Is each design decision grounded?** For each new or modified field or parameter, verify that absence is a valid consumer state — an optional field asserts "the system is correct when this is absent." When the card description, comments, and CARD.md contain inconsistent signals, resolve the conflict before writing the plan.
+
+When delegating research, require structured findings per site: file path, line number, usage, and whether the site needs updating. Parallel subagents cannot cross-reference — connections across research areas must be resolved during synthesis.
 
 ### 1.2 Write and Store Plan
 
@@ -35,9 +40,8 @@ Scan the plan for assumptions — both explicit (labeled as such) and implicit (
 
 For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
 
-Incorporate results into the plan:
+Incorporate results into the plan. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from Problem Statement through Technical Approach — rewrite, don't patch.
 - Move validated assumptions from "unvalidated" to "validated" with spike path references
-- Update Technical Approach if results change the implementation
 - Revise or remove risk mitigations based on disproven assumptions
 
 ```bash
@@ -45,6 +49,20 @@ cd !` echo $CARD_REPO_PATH`
 git add PLAN.md
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
+
+### 1.4 Verify Plan Reflects Research
+
+Re-read PLAN.md and verify that the research findings survived the writing process. For each item below, write a confirmation stating what was checked and the specific evidence (file paths, step numbers, section references) that satisfies it:
+
+- [ ] Each step that introduces a boundary-crossing value names both producer and consumer by file path
+- [ ] Each modified symbol in Technical Approach has its consumers listed in Dependency Analysis
+- [ ] Steps can be executed in numbered order without forward references
+- [ ] New mechanisms have corresponding removals of the systems they replace
+- [ ] Each optional field or parameter has absence validated as a correct consumer state
+- [ ] Error suppression names specific error types and rationale
+- [ ] Behavior changes account for existing test files with dispositions
+
+When an item reveals a gap, return to §1.1 for the affected area — a gap in the plan likely reflects a gap in the research. Update PLAN.md with the deeper findings, commit, then re-verify from the affected item.
 
 ## 2. Assess Plan
 

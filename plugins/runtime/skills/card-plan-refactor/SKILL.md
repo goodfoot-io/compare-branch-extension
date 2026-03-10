@@ -187,7 +187,7 @@ A decision is reversible if you can undo it without breaking anything outside yo
 <plan-completeness-dimensions>
 Work through each dimension systematically. Each verifies that the plan, if followed as written, produces a complete feature.
 
-**Trace depth**: Verify within plan-modified files and their direct importers. Do not chase transitive consumers beyond one hop — if a direct consumer is missing from the plan, that is the finding.
+**Trace depth**: For each symbol the plan modifies, renames, or removes, search the workspace to verify the plan accounts for its consumers. The import graph is not sufficient — shell scripts, CLI binaries, git hooks, test fixtures, and configuration files reference symbols without importing them. If a consumer is missing from the plan, that is the finding.
 
 ### Goal Traceability
 
@@ -213,15 +213,15 @@ Every planned write needs a reader; every planned read needs a writer.
 
 When interfaces change, does the plan update all sides?
 
-- If a function signature changes (parameters added, removed, or retyped), does the plan list all call sites for update? Verify against actual workspace callers.
+- If a function signature changes (parameters added, removed, or retyped), does the plan list all call sites for update? Search the workspace for the symbol name — callers in shell scripts, CLI binaries, and test fixtures are not in the import graph but break when signatures change.
 - If a shared type or data structure changes shape, does the plan update all producers AND consumers?
 - If a new field is added to a serialized type, does the plan address serializers, deserializers, and constructors?
 
 ### Error Path Planning
 
-Does the plan address what happens when things fail?
+Errors propagate by default — plans need not annotate every error path. Flag when a step deviates from propagation without stating the scope and rationale.
 
-- For each operation that touches I/O, network, or parsing, does the plan specify error handling — or only the happy path?
+- When a step suppresses errors (catch blocks, fallback values, default returns), does it name the specific error types and conditions? Blanket suppression (`.catch(() => null)`, `catch {}`, `catch { return [] }`) is a finding.
 - When a new error type or failure mode is introduced, does the plan include at least one handler or propagation path?
 - Does the plan specify fail-closed behavior at system boundaries, or does it silently assume success?
 

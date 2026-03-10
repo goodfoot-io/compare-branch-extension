@@ -81,7 +81,7 @@ When in doubt, use the higher tier.
 1. **Precision**: Use verified file paths with line numbers, linked inline — soft links for prose references and precise anchors for step locations (`[src/services/user.ts L78](./src/services/user.ts#L78)`)
 2. **YAGNI**: Only features solving the immediate problem
 3. **Integration Over Innovation**: Reuse existing patterns
-4. **Examples Clarify, Not Constrain**: Show data shapes, not implementations
+4. **Connected Data Flow**: Every value that crosses a boundary — prop, parameter, event, field — must name its producer and its consumer. A step that adds a writer without a reader, or a reader without a writer, is incomplete.
 5. **Test the Risks**: Focus on what could actually fail
 6. **Scope Exclusions Prevent Creep**: Explicitly state what's NOT included
 
@@ -341,8 +341,8 @@ For each spike, include:
 Describe the implementation steps in concrete but flexible terms.
 
 ### Requirements
-1. Number each major step sequentially
-2. Include verified file paths where changes will occur. For each value that crosses a boundary in a step — a prop passed to a component, a parameter added to a function, an event emitted, a network call made — verify both ends: identify what produces the value and what consumes it. A step that adds a producer without a named consumer, or names a consumer without a named source, is incomplete.
+1. Number steps so each step's dependencies are satisfied by earlier steps. When implementation order must differ, annotate the dependency (e.g., "step 4 before step 3 — type produced in 4 is consumed in 3").
+2. Include verified file paths where changes will occur. For each value that crosses a boundary in a step — a prop passed to a component, a parameter added to a function, an event emitted, a network call made — name both the producer and consumer by file path. A step that adds a producer without a named consumer, or names a consumer without a named source, is incomplete.
 3. Add line numbers when referencing existing code (e.g., `:78`)
 4. Describe WHAT to do, not HOW to implement it
 5. Keep each step focused on a single concern
@@ -352,11 +352,13 @@ Describe the implementation steps in concrete but flexible terms.
 - Include them when referencing specific existing code; use inline markdown links over bare paths — soft links for prose (`the [notification store](./packages/web/src/stores/notification-store.ts) holds unread counts`) and precise anchors for step references (`[packages/api/src/services/user.ts L78](./packages/api/src/services/user.ts#L78)` or a range `[packages/api/src/services/user.ts L78–L95](./packages/api/src/services/user.ts#L78-L95)`)
 - Use "around line X" if the exact line might shift
 
-### Required for async operations and user-initiated flows
-For each step that involves a network call, async operation, or user input (e.g., a picker, dialog, or confirmation), state what happens on failure or cancellation: propagate the error, show user feedback, or no-op with rationale. "The error propagates" is a valid and complete answer. Omitting it is not.
+### Error handling
+Errors propagate by default — steps need not state this. When a step deviates from propagation (catch blocks, fallback values, default returns), name the specific error types being suppressed, the conditions, and the rationale. Blanket suppression (`.catch(() => null)`, `catch {}`, `catch { return [] }`) is not a valid posture.
 
 ### Test specifications
-When describing test cases, specify the observable outcome to assert — state reached, value returned, event emitted, record persisted — not the implementation mechanism invoked. A test that asserts "method X was called" is a contract with an implementation detail; a test that asserts "system reached state Y" is a contract with behavior. Spy-based assertions are appropriate only when the side effect being tested is the call itself (e.g., a notification sent to an external service with no observable local state change).
+When the plan changes behavior covered by existing tests, enumerate each affected test file with its disposition: delete (obsolete), rewrite (new behavior), or update (adjusted assertions). A plan that changes behavior without accounting for its existing test coverage produces avoidable failures during implementation.
+
+When describing new test cases, specify the observable outcome to assert — state reached, value returned, event emitted, record persisted — not the implementation mechanism invoked.
 
 ### Avoid
 - Implementation details or algorithms
@@ -435,15 +437,12 @@ Keep examples minimal - just enough to clarify without constraining implementati
 </example>
 
 <instructions>
-Identify files that are critical dependencies or integration points for your implementation.
+When the plan modifies a type, interface, enum, or function signature, search the workspace for files that consume it and include each with its disposition (update, delete, no change needed with reason). The unit of correctness is the full set of consumers, not a curated subset.
 
 ### Structure Requirements
-- **High-Impact Files**: List files with significant import counts that you'll modify
+- **High-Impact Files**: Files you'll modify, with import counts in parentheses to indicate risk level
 - **Key Integration Points**: Files where your new code connects to existing systems. When adding to or removing from a discriminated union, enum, or closed variant set: also enumerate all files that exhaustively handle the full set — exhaustive switch/match statements, per-variant test coverage, serialization mappings. These files break at compile time or test time when the variant set changes, regardless of whether they directly import the modified type.
 - **External Dependencies**: Libraries needed (note if already in package.json)
-
-Include actual import counts in parentheses (e.g., "auth.ts (234 imports)") to indicate risk level.
-List files where your new code connects to existing systems with brief descriptions.
 </instructions>
 
 ---

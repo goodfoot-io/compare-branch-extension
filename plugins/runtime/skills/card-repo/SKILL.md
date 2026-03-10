@@ -112,8 +112,9 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
 - **`CARD.md`** is the *requirement*: what needs to be done, acceptance criteria, and
   context. Written by the card creator (human or agent). Stable once the card is understood.
 - **`PLAN.md`** is the *approach*: how the requirement will be implemented, broken into
-  tasks, with technical decisions. Written by the implementing agent. Subject to revision
-  and approval via the `planRequired`/`planApproved` gates.
+  tasks, with technical decisions. Written by the implementing agent following the
+  `runtime:plan` skill structure. Subject to revision and approval via the
+  `planRequired`/`planApproved` gates.
 
 Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
 
