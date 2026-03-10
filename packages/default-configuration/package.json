@@ -18,7 +18,8 @@
   "dependencies": {
     "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
-    "gray-matter": "^4.0.3"
+    "gray-matter": "^4.0.3",
+    "marked": "^17.0.4"
   },
   "files": [
     "dist/**"

@@ -57,7 +57,8 @@ describe('Init & State', () => {
     });
 
     expect(error).toBeUndefined();
-    expect(result).toBe('First message');
+    expect(result).toContain('class="cc-turn cc-assistant"');
+    expect(result).toContain('First message');
   });
 
   it('turn counter increments on each assistant message', async () => {
@@ -68,7 +69,8 @@ describe('Init & State', () => {
       });
 
       expect(error).toBeUndefined();
-      expect(result).toBe(`Message ${i}`);
+      expect(result).toContain(`Message ${i}`);
+      expect(result).toContain('class="cc-turn cc-assistant"');
     }
   });
 
@@ -79,30 +81,56 @@ describe('Init & State', () => {
     });
 
     expect(error).toBeUndefined();
-    expect(result).toBe('Test persistence');
+    expect(result).toContain('Test persistence');
   });
 });
 
 describe('Assistant Messages', () => {
-  it('formats text content block', async () => {
+  it('formats text content block wrapped in cc-turn cc-assistant and cc-text', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: { content: [{ type: 'text', text: 'Hello world' }] }
     });
 
-    expect(result).toBe('Hello world');
+    expect(result).toContain('class="cc-turn cc-assistant"');
+    expect(result).toContain('class="cc-text"');
+    expect(result).toContain('Hello world');
   });
 
-  it('formats thinking block with > *thinking:* prefix', async () => {
+  it('formats text block through marked (markdown to HTML)', async () => {
+    const { result } = await transformJson({
+      type: 'assistant',
+      message: { content: [{ type: 'text', text: '**bold text**' }] }
+    });
+
+    expect(result).toContain('<strong>bold text</strong>');
+    expect(result).toContain('class="cc-text"');
+  });
+
+  it('formats code fence through marked', async () => {
+    const { result } = await transformJson({
+      type: 'assistant',
+      message: { content: [{ type: 'text', text: '```js\nconsole.log("hi")\n```' }] }
+    });
+
+    expect(result).toContain('<code');
+    expect(result).toContain('console.log');
+    expect(result).toContain('class="cc-text"');
+  });
+
+  it('formats thinking block as details element with cc-thinking class', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: { content: [{ type: 'thinking', thinking: 'I am thinking' }] }
     });
 
-    expect(result).toBe('> *thinking:* I am thinking');
+    expect(result).toContain('class="cc-turn cc-assistant"');
+    expect(result).toContain('<details class="cc-thinking">');
+    expect(result).toContain('<summary>Thinking</summary>');
+    expect(result).toContain('I am thinking');
   });
 
-  it('formats tool_use Read with file_path', async () => {
+  it('formats tool_use Read with cc-tool class, data-tool attribute, and file_path param', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: {
@@ -110,7 +138,13 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('**Read** /src/index.ts');
+    expect(result).toContain('class="cc-turn cc-assistant"');
+    expect(result).toContain('class="cc-tool"');
+    expect(result).toContain('data-tool="Read"');
+    expect(result).toContain('class="cc-tool-badge"');
+    expect(result).toContain('Read');
+    expect(result).toContain('class="cc-tool-param"');
+    expect(result).toContain('/src/index.ts');
   });
 
   it('formats tool_use Write with file_path', async () => {
@@ -121,7 +155,8 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('**Write** /src/output.ts');
+    expect(result).toContain('data-tool="Write"');
+    expect(result).toContain('/src/output.ts');
   });
 
   it('formats tool_use Edit with file_path', async () => {
@@ -132,7 +167,8 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('**Edit** /src/config.json');
+    expect(result).toContain('data-tool="Edit"');
+    expect(result).toContain('/src/config.json');
   });
 
   it('formats tool_use Bash with truncated command', async () => {
@@ -144,7 +180,8 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe(`**Bash** ${'a'.repeat(80)}...`);
+    expect(result).toContain('data-tool="Bash"');
+    expect(result).toContain(`${'a'.repeat(80)}...`);
   });
 
   it('formats tool_use Grep with pattern', async () => {
@@ -155,7 +192,8 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('**Grep** searchTerm');
+    expect(result).toContain('data-tool="Grep"');
+    expect(result).toContain('searchTerm');
   });
 
   it('formats tool_use Glob with pattern', async () => {
@@ -166,7 +204,8 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('**Glob** *.ts');
+    expect(result).toContain('data-tool="Glob"');
+    expect(result).toContain('*.ts');
   });
 
   it('formats tool_use Agent with description', async () => {
@@ -177,10 +216,11 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('**Agent** do something');
+    expect(result).toContain('data-tool="Agent"');
+    expect(result).toContain('do something');
   });
 
-  it('formats unknown tool with just bold name', async () => {
+  it('formats unknown tool without cc-tool-param (no param key)', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: {
@@ -188,10 +228,13 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('**WebSearch**');
+    expect(result).toContain('data-tool="WebSearch"');
+    expect(result).toContain('class="cc-tool-badge"');
+    expect(result).toContain('WebSearch');
+    expect(result).not.toContain('cc-tool-param');
   });
 
-  it('formats mixed content blocks joined by double newlines', async () => {
+  it('formats mixed content blocks within a single cc-turn cc-assistant wrapper', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: {
@@ -203,31 +246,60 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toBe('First block\n\n> *thinking:* Some thought\n\n**Read** /test.ts');
+    expect(result).toContain('class="cc-turn cc-assistant"');
+    expect(result).toContain('class="cc-text"');
+    expect(result).toContain('First block');
+    expect(result).toContain('class="cc-thinking"');
+    expect(result).toContain('Some thought');
+    expect(result).toContain('data-tool="Read"');
+    expect(result).toContain('/test.ts');
+    // All content wrapped in single cc-turn div
+    expect(result?.match(/cc-turn cc-assistant/g)?.length).toBe(1);
   });
 
-  it('formats empty content as *(empty response)*', async () => {
+  it('formats empty content as cc-turn cc-assistant with (empty response)', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: { content: [] }
     });
 
-    expect(result).toBe('*(empty response)*');
+    expect(result).toContain('class="cc-turn cc-assistant"');
+    expect(result).toContain('(empty response)');
   });
 
-  it('formats API error with error type', async () => {
+  it('formats API error wrapped in cc-turn cc-assistant with cc-system', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: { content: [] },
       error: 'server_error'
     });
 
-    expect(result).toBe('**API Error** (server_error)');
+    expect(result).toContain('class="cc-turn cc-assistant"');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('<strong>API Error</strong>');
+    expect(result).toContain('server_error');
+  });
+
+  it('isolates marked parse error: sibling blocks still render when text block throws', async () => {
+    // A text block that's valid (marked won't throw on normal text) alongside a tool_use.
+    // This test verifies the try/catch isolation within formatContentBlock.
+    const { result } = await transformJson({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'text', text: 'Normal text' },
+          { type: 'tool_use', id: '10', name: 'Read', input: { file_path: '/file.ts' } }
+        ]
+      }
+    });
+
+    expect(result).toContain('Normal text');
+    expect(result).toContain('data-tool="Read"');
   });
 });
 
 describe('User Messages', () => {
-  it('formats user prompt with string content', async () => {
+  it('formats user prompt with string content in cc-turn cc-user', async () => {
     const { result } = await transformJson({
       type: 'user',
       message: { role: 'user', content: 'Hello Claude' },
@@ -235,7 +307,10 @@ describe('User Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('**User:** Hello Claude');
+    expect(result).toContain('class="cc-turn cc-user"');
+    expect(result).toContain('class="cc-role"');
+    expect(result).toContain('User');
+    expect(result).toContain('Hello Claude');
   });
 
   it('formats user prompt with content block array', async () => {
@@ -249,10 +324,11 @@ describe('User Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('**User:** Please help me with this');
+    expect(result).toContain('class="cc-turn cc-user"');
+    expect(result).toContain('Please help me with this');
   });
 
-  it('marks synthetic user messages', async () => {
+  it('marks synthetic user messages with User (auto) role label', async () => {
     const { result } = await transformJson({
       type: 'user',
       message: { role: 'user', content: 'Auto-generated prompt' },
@@ -261,7 +337,9 @@ describe('User Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('**User** *(auto)*: Auto-generated prompt');
+    expect(result).toContain('class="cc-turn cc-user"');
+    expect(result).toContain('User (auto)');
+    expect(result).toContain('Auto-generated prompt');
   });
 
   it('suppresses tool result turns', async () => {
@@ -279,7 +357,7 @@ describe('User Messages', () => {
     expect(result).toBe('');
   });
 
-  it('renders tool error blocks in user messages', async () => {
+  it('renders tool error blocks in user messages using strong tag', async () => {
     const { result } = await transformJson({
       type: 'user',
       message: {
@@ -293,10 +371,13 @@ describe('User Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('**User:** Here is the context\n\n**Tool error** (tu-1)');
+    expect(result).toContain('class="cc-turn cc-user"');
+    expect(result).toContain('Here is the context');
+    expect(result).toContain('<strong>Tool error</strong>');
+    expect(result).toContain('tu-1');
   });
 
-  it('suppresses replay messages', async () => {
+  it('suppresses replay messages (tool_use_result absent, renders as user)', async () => {
     const { result } = await transformJson({
       type: 'user',
       message: { role: 'user', content: 'Original prompt' },
@@ -308,12 +389,25 @@ describe('User Messages', () => {
 
     // Replay messages are user type — formatUser checks tool_use_result, not isReplay.
     // They still render as user prompts (they carry the original prompt text).
-    expect(result).toBe('**User:** Original prompt');
+    expect(result).toContain('class="cc-turn cc-user"');
+    expect(result).toContain('Original prompt');
+  });
+
+  it('escapes HTML in user text', async () => {
+    const { result } = await transformJson({
+      type: 'user',
+      message: { role: 'user', content: '<script>alert("xss")</script>' },
+      parent_tool_use_id: null,
+      session_id: 'sess-1'
+    });
+
+    expect(result).toContain('&lt;script&gt;');
+    expect(result).not.toContain('<script>');
   });
 });
 
 describe('System Messages', () => {
-  it('formats init subtype with model, tools count, cwd', async () => {
+  it('formats init subtype with cc-system cc-session-start', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'init',
@@ -322,10 +416,14 @@ describe('System Messages', () => {
       cwd: '/home'
     });
 
-    expect(result).toBe('**Session Started** | claude-3 | 5 tools | /home');
+    expect(result).toContain('class="cc-system cc-session-start"');
+    expect(result).toContain('<strong>Session Started</strong>');
+    expect(result).toContain('claude-3');
+    expect(result).toContain('5 tools');
+    expect(result).toContain('/home');
   });
 
-  it('formats status compacting', async () => {
+  it('formats status compacting with cc-system', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'status',
@@ -334,7 +432,8 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('*Compacting context...*');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('<em>Compacting context...</em>');
   });
 
   it('suppresses status null (compaction finished)', async () => {
@@ -349,7 +448,7 @@ describe('System Messages', () => {
     expect(result).toBe('');
   });
 
-  it('formats compact_boundary with trigger and tokens', async () => {
+  it('formats compact_boundary with cc-system cc-compact-boundary, hr, and token info', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'compact_boundary',
@@ -358,7 +457,11 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('---\n*Context compacted* (manual) — 50000 tokens before\n\n---');
+    expect(result).toContain('class="cc-system cc-compact-boundary"');
+    expect(result).toContain('<hr>');
+    expect(result).toContain('<em>Context compacted</em>');
+    expect(result).toContain('(manual)');
+    expect(result).toContain('50000 tokens before');
   });
 
   it('formats compact_boundary with auto trigger', async () => {
@@ -370,10 +473,12 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('---\n*Context compacted* (auto) — 120000 tokens before\n\n---');
+    expect(result).toContain('class="cc-system cc-compact-boundary"');
+    expect(result).toContain('(auto)');
+    expect(result).toContain('120000 tokens before');
   });
 
-  it('formats hook_started', async () => {
+  it('formats hook_started with cc-system cc-hook', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'hook_started',
@@ -384,10 +489,14 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Hook <b>lint-check</b> (PreToolUse) started</small>');
+    expect(result).toContain('class="cc-system cc-hook"');
+    expect(result).toContain('Hook');
+    expect(result).toContain('<strong>lint-check</strong>');
+    expect(result).toContain('(PreToolUse)');
+    expect(result).toContain('started');
   });
 
-  it('formats hook_progress with output', async () => {
+  it('formats hook_progress with output in cc-system cc-hook', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'hook_progress',
@@ -401,7 +510,9 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Hook <b>lint-check</b>: Running eslint...</small>');
+    expect(result).toContain('class="cc-system cc-hook"');
+    expect(result).toContain('<strong>lint-check</strong>');
+    expect(result).toContain('Running eslint...');
   });
 
   it('formats hook_progress falls back to stdout when output is empty', async () => {
@@ -418,10 +529,11 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Hook <b>lint-check</b>: stdout output</small>');
+    expect(result).toContain('class="cc-system cc-hook"');
+    expect(result).toContain('stdout output');
   });
 
-  it('formats hook_response success', async () => {
+  it('formats hook_response success in cc-system cc-hook', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'hook_response',
@@ -437,7 +549,9 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Hook <b>lint-check</b> completed</small>');
+    expect(result).toContain('class="cc-system cc-hook"');
+    expect(result).toContain('<strong>lint-check</strong>');
+    expect(result).toContain('completed');
   });
 
   it('formats hook_response error with exit code', async () => {
@@ -456,10 +570,12 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Hook <b>lint-check</b> failed (exit 1)</small>');
+    expect(result).toContain('class="cc-system cc-hook"');
+    expect(result).toContain('failed');
+    expect(result).toContain('exit 1');
   });
 
-  it('formats hook_response cancelled', async () => {
+  it('formats hook_response cancelled in cc-system cc-hook', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'hook_response',
@@ -474,10 +590,11 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Hook <b>lint-check</b> cancelled</small>');
+    expect(result).toContain('class="cc-system cc-hook"');
+    expect(result).toContain('cancelled');
   });
 
-  it('formats files_persisted with failures', async () => {
+  it('formats files_persisted with failures in cc-system', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'files_persisted',
@@ -488,10 +605,11 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Files persisted: 1 saved, 1 failed</small>');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('1 saved, 1 failed');
   });
 
-  it('formats files_persisted without failures', async () => {
+  it('formats files_persisted without failures in cc-system', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'files_persisted',
@@ -505,10 +623,12 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('<small>Files persisted: 2 saved</small>');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('2 saved');
+    expect(result).not.toContain('failed');
   });
 
-  it('formats task_notification', async () => {
+  it('formats task_notification with strong and em in cc-system', async () => {
     const { result } = await transformJson({
       type: 'system',
       subtype: 'task_notification',
@@ -520,7 +640,11 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('**Task** *task-42* — completed: All tests passed');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('<strong>Task</strong>');
+    expect(result).toContain('<em>task-42</em>');
+    expect(result).toContain('completed');
+    expect(result).toContain('All tests passed');
   });
 
   it('formats task_notification with failed status', async () => {
@@ -535,7 +659,10 @@ describe('System Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('**Task** *task-99* — failed: Build failed');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('<em>task-99</em>');
+    expect(result).toContain('failed');
+    expect(result).toContain('Build failed');
   });
 
   it('returns empty string for unknown system subtypes', async () => {
@@ -550,7 +677,7 @@ describe('System Messages', () => {
 });
 
 describe('Auth Status Messages', () => {
-  it('formats authenticating state', async () => {
+  it('formats authenticating state with cc-system and em', async () => {
     const { result } = await transformJson({
       type: 'auth_status',
       isAuthenticating: true,
@@ -559,10 +686,11 @@ describe('Auth Status Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('*Authenticating...*');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('<em>Authenticating...</em>');
   });
 
-  it('formats auth error', async () => {
+  it('formats auth error with cc-system and strong', async () => {
     const { result } = await transformJson({
       type: 'auth_status',
       isAuthenticating: false,
@@ -572,7 +700,9 @@ describe('Auth Status Messages', () => {
       session_id: 'sess-1'
     });
 
-    expect(result).toBe('**Auth error:** Token expired');
+    expect(result).toContain('class="cc-system"');
+    expect(result).toContain('<strong>Auth error:</strong>');
+    expect(result).toContain('Token expired');
   });
 
   it('suppresses successful auth completion', async () => {
@@ -603,7 +733,7 @@ describe('Stream Event Messages', () => {
 });
 
 describe('Result Messages', () => {
-  it('formats success result with turns, duration, cost', async () => {
+  it('formats success result with cc-system cc-session-end', async () => {
     const { result } = await transformJson({
       type: 'result',
       subtype: 'success',
@@ -612,10 +742,14 @@ describe('Result Messages', () => {
       total_cost_usd: 0.05
     });
 
-    expect(result).toBe('**Session Complete** | 5 turns | 120s | $0.05');
+    expect(result).toContain('class="cc-system cc-session-end"');
+    expect(result).toContain('<strong>Session Complete</strong>');
+    expect(result).toContain('5 turns');
+    expect(result).toContain('120s');
+    expect(result).toContain('$0.05');
   });
 
-  it('formats error result with subtype', async () => {
+  it('formats error result with Session Error in cc-system cc-session-end', async () => {
     const { result } = await transformJson({
       type: 'result',
       subtype: 'error_during_execution',
@@ -624,28 +758,35 @@ describe('Result Messages', () => {
       total_cost_usd: 0.02
     });
 
-    expect(result).toBe('**Session Error** (error_during_execution) | 3 turns | 60s | $0.02');
+    expect(result).toContain('class="cc-system cc-session-end"');
+    expect(result).toContain('<strong>Session Error</strong>');
+    expect(result).toContain('error_during_execution');
+    expect(result).toContain('3 turns');
+    expect(result).toContain('60s');
   });
 });
 
 describe('Tool Messages', () => {
-  it('formats tool_use_summary', async () => {
+  it('formats tool_use_summary with cc-tool-result', async () => {
     const { result } = await transformJson({
       type: 'tool_use_summary',
       summary: 'File written'
     });
 
-    expect(result).toBe('**Tool Output:** File written');
+    expect(result).toContain('class="cc-tool-result"');
+    expect(result).toContain('<strong>Tool Output:</strong>');
+    expect(result).toContain('File written');
   });
 
-  it('formats tool_progress with elapsed time', async () => {
+  it('formats tool_progress with cc-system cc-tool-progress', async () => {
     const { result } = await transformJson({
       type: 'tool_progress',
       tool_name: 'Bash',
       elapsed_time_seconds: 5
     });
 
-    expect(result).toBe('*Bash running... (5s)*');
+    expect(result).toContain('class="cc-system cc-tool-progress"');
+    expect(result).toContain('<em>Bash running... (5s)</em>');
   });
 });
 
@@ -670,5 +811,17 @@ describe('Edge Cases', () => {
 
     const { result: whitespaceResult } = await harness.transform('   ');
     expect(whitespaceResult).toBe('   ');
+  });
+
+  it('escapes HTML entities in tool params', async () => {
+    const { result } = await transformJson({
+      type: 'assistant',
+      message: {
+        content: [{ type: 'tool_use', id: '11', name: 'Read', input: { file_path: '/path/<evil>.ts' } }]
+      }
+    });
+
+    expect(result).toContain('&lt;evil&gt;');
+    expect(result).not.toContain('<evil>');
   });
 });

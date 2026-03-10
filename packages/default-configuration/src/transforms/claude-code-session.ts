@@ -25,6 +25,24 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import type { StreamInitContext, TransformContext } from '@cards/sdk/config';
 import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
+import { marked } from 'marked';
+
+// -- HTML helpers ------------------------------------------------------------
+
+/**
+ * Escapes HTML special characters in user-supplied text to prevent XSS.
+ *
+ * @param text Raw text that may contain HTML special characters.
+ * @returns Escaped text safe for use in HTML attributes and content.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // -- Formatting helpers ------------------------------------------------------
 
@@ -63,14 +81,29 @@ function extractToolParam(name: string, input: unknown): string | undefined {
 
 function formatContentBlock(block: { type: string; [key: string]: unknown }): string {
   switch (block.type) {
-    case 'text':
-      return (block as unknown as { text: string }).text;
-    case 'thinking':
-      return `> *thinking:* ${(block as unknown as { thinking: string }).thinking}`;
+    case 'text': {
+      const text = (block as unknown as { text: string }).text;
+      let html: string;
+      try {
+        html = marked.parse(text, { gfm: true }) as string;
+      } catch {
+        html = escapeHtml(text);
+      }
+      return `<div class="cc-text">${html}</div>`;
+    }
+    case 'thinking': {
+      const thinking = escapeHtml((block as unknown as { thinking: string }).thinking);
+      return `<details class="cc-thinking"><summary>Thinking</summary>${thinking}</details>`;
+    }
     case 'tool_use': {
       const b = block as unknown as { name: string; input: unknown };
       const param = extractToolParam(b.name, b.input);
-      return param ? `**${b.name}** ${param}` : `**${b.name}**`;
+      const nameEscaped = escapeHtml(b.name);
+      if (param) {
+        const paramEscaped = escapeHtml(param);
+        return `<div class="cc-tool" data-tool="${nameEscaped}"><span class="cc-tool-badge">${nameEscaped}</span><code class="cc-tool-param">${paramEscaped}</code></div>`;
+      }
+      return `<div class="cc-tool" data-tool="${nameEscaped}"><span class="cc-tool-badge">${nameEscaped}</span></div>`;
     }
     default:
       return '';
@@ -79,15 +112,17 @@ function formatContentBlock(block: { type: string; [key: string]: unknown }): st
 
 function formatContentBlocks(blocks: Array<{ type: string; [key: string]: unknown }>): string {
   if (!blocks || blocks.length === 0) {
-    return '*(empty response)*';
+    return '<div class="cc-turn cc-assistant"><em>(empty response)</em></div>';
   }
 
-  return blocks.map(formatContentBlock).filter(Boolean).join('\n\n');
+  const inner = blocks.map(formatContentBlock).filter(Boolean).join('');
+  return `<div class="cc-turn cc-assistant">${inner}</div>`;
 }
 
 function formatAssistant(message: SDKAssistantMessage): string {
   if (message.error) {
-    return `**API Error** (${message.error})`;
+    const errorEscaped = escapeHtml(String(message.error));
+    return `<div class="cc-turn cc-assistant"><div class="cc-system"><strong>API Error</strong> (${errorEscaped})</div></div>`;
   }
 
   return formatContentBlocks(
@@ -96,10 +131,10 @@ function formatAssistant(message: SDKAssistantMessage): string {
 }
 
 function formatSystemInit(message: SDKSystemMessage): string {
-  const model = message.model || '';
+  const model = escapeHtml(message.model || '');
   const toolsCount = message.tools?.length || 0;
-  const cwd = message.cwd || '';
-  return `**Session Started** | ${model} | ${toolsCount} tools | ${cwd}`;
+  const cwd = escapeHtml(message.cwd || '');
+  return `<div class="cc-system cc-session-start"><strong>Session Started</strong> | ${model} | ${toolsCount} tools | ${cwd}</div>`;
 }
 
 function formatResult(message: SDKResultMessage): string {
@@ -110,19 +145,21 @@ function formatResult(message: SDKResultMessage): string {
   const stats = `${turns} turns | ${durationS}s | $${cost}`;
 
   if (message.subtype === 'success') {
-    return `**Session Complete** | ${stats}`;
+    return `<div class="cc-system cc-session-end"><strong>Session Complete</strong> | ${stats}</div>`;
   }
-  return `**Session Error** (${message.subtype}) | ${stats}`;
+  const subtype = escapeHtml(message.subtype ?? '');
+  return `<div class="cc-system cc-session-end"><strong>Session Error</strong> (${subtype}) | ${stats}</div>`;
 }
 
 function formatToolUseSummary(message: SDKToolUseSummaryMessage): string {
-  return `**Tool Output:** ${message.summary || ''}`;
+  const summary = escapeHtml(message.summary || '');
+  return `<div class="cc-tool-result"><strong>Tool Output:</strong> ${summary}</div>`;
 }
 
 function formatToolProgress(message: SDKToolProgressMessage): string {
-  const toolName = message.tool_name || '';
+  const toolName = escapeHtml(message.tool_name || '');
   const elapsed = message.elapsed_time_seconds ?? 0;
-  return `*${toolName} running... (${elapsed}s)*`;
+  return `<div class="cc-system cc-tool-progress"><em>${toolName} running... (${elapsed}s)</em></div>`;
 }
 
 // -- User message helpers ----------------------------------------------------
@@ -132,26 +169,26 @@ function formatToolProgress(message: SDKToolProgressMessage): string {
  * plain string or an array of content blocks.
  *
  * @param content Raw content field from an SDK user message.
- * @returns Extracted text, or an empty string when no text content is found.
+ * @returns Extracted HTML string, or an empty string when no text content is found.
  */
 function extractUserText(content: unknown): string {
-  if (typeof content === 'string') return content;
+  if (typeof content === 'string') return escapeHtml(content);
   if (!Array.isArray(content)) return '';
   const parts: string[] = [];
   for (const block of content) {
     if (typeof block !== 'object' || block === null) continue;
     const b = block as Record<string, unknown>;
     if (b['type'] === 'text' && typeof b['text'] === 'string') {
-      parts.push(b['text']);
+      parts.push(escapeHtml(b['text']));
     } else if (b['type'] === 'tool_result') {
       // Tool results are rendered by tool_use_summary; skip content but note the block.
-      const toolId = typeof b['tool_use_id'] === 'string' ? b['tool_use_id'] : '';
+      const toolId = typeof b['tool_use_id'] === 'string' ? escapeHtml(b['tool_use_id']) : '';
       if (b['is_error']) {
-        parts.push(`**Tool error** (${toolId})`);
+        parts.push(`<strong>Tool error</strong> (${toolId})`);
       }
     }
   }
-  return parts.join('\n\n');
+  return parts.join('');
 }
 
 function formatUser(message: SDKUserMessage): string {
@@ -161,42 +198,52 @@ function formatUser(message: SDKUserMessage): string {
   }
   const text = extractUserText(message.message?.content);
   if (!text) return '';
-  const prefix = message.isSynthetic ? '**User** *(auto)*: ' : '**User:** ';
-  return `${prefix}${text}`;
+  const roleLabel = message.isSynthetic ? 'User (auto)' : 'User';
+  return `<div class="cc-turn cc-user"><div class="cc-role">${roleLabel}</div>${text}</div>`;
 }
 
 // -- System subtype helpers --------------------------------------------------
 
 function formatStatus(message: SDKStatusMessage): string {
-  if (message.status === 'compacting') return '*Compacting context...*';
+  if (message.status === 'compacting') {
+    return '<div class="cc-system"><em>Compacting context...</em></div>';
+  }
   return '';
 }
 
 function formatCompactBoundary(message: SDKCompactBoundaryMessage): string {
-  const trigger = message.compact_metadata?.trigger ?? 'auto';
+  const trigger = escapeHtml(message.compact_metadata?.trigger ?? 'auto');
   const preTokens = message.compact_metadata?.pre_tokens ?? 0;
-  return `---\n*Context compacted* (${trigger}) — ${preTokens} tokens before\n\n---`;
+  return `<div class="cc-system cc-compact-boundary"><hr><em>Context compacted</em> (${trigger}) — ${preTokens} tokens before<hr></div>`;
 }
 
 function formatHookStarted(message: SDKHookStartedMessage): string {
-  return `<small>Hook <b>${message.hook_name}</b> (${message.hook_event}) started</small>`;
+  const name = escapeHtml(message.hook_name);
+  const event = escapeHtml(message.hook_event);
+  return `<div class="cc-system cc-hook">Hook <strong>${name}</strong> (${event}) started</div>`;
 }
 
 function formatHookProgress(message: SDKHookProgressMessage): string {
-  const output = message.output || message.stdout || '';
-  return `<small>Hook <b>${message.hook_name}</b>: ${output}</small>`;
+  const name = escapeHtml(message.hook_name);
+  const output = escapeHtml(message.output || message.stdout || '');
+  return `<div class="cc-system cc-hook">Hook <strong>${name}</strong>: ${output}</div>`;
 }
 
 function formatHookResponse(message: SDKHookResponseMessage): string {
+  const name = escapeHtml(message.hook_name);
   switch (message.outcome) {
     case 'success':
-      return `<small>Hook <b>${message.hook_name}</b> completed</small>`;
-    case 'error':
-      return `<small>Hook <b>${message.hook_name}</b> failed (exit ${message.exit_code ?? '?'})</small>`;
+      return `<div class="cc-system cc-hook">Hook <strong>${name}</strong> completed</div>`;
+    case 'error': {
+      const exitCode = message.exit_code ?? '?';
+      return `<div class="cc-system cc-hook">Hook <strong>${name}</strong> failed (exit ${exitCode})</div>`;
+    }
     case 'cancelled':
-      return `<small>Hook <b>${message.hook_name}</b> cancelled</small>`;
-    default:
-      return `<small>Hook <b>${message.hook_name}</b> ${String(message.outcome)}</small>`;
+      return `<div class="cc-system cc-hook">Hook <strong>${name}</strong> cancelled</div>`;
+    default: {
+      const outcome = escapeHtml(String(message.outcome));
+      return `<div class="cc-system cc-hook">Hook <strong>${name}</strong> ${outcome}</div>`;
+    }
   }
 }
 
@@ -204,25 +251,27 @@ function formatFilesPersisted(message: SDKFilesPersistedEvent): string {
   const saved = message.files?.length ?? 0;
   const failed = message.failed?.length ?? 0;
   if (failed > 0) {
-    return `<small>Files persisted: ${saved} saved, ${failed} failed</small>`;
+    return `<div class="cc-system">Files persisted: ${saved} saved, ${failed} failed</div>`;
   }
-  return `<small>Files persisted: ${saved} saved</small>`;
+  return `<div class="cc-system">Files persisted: ${saved} saved</div>`;
 }
 
 function formatTaskNotification(message: SDKTaskNotificationMessage): string {
-  const status = message.status || 'unknown';
-  const summary = message.summary || '';
-  return `**Task** *${message.task_id}* — ${status}: ${summary}`;
+  const status = escapeHtml(message.status || 'unknown');
+  const summary = escapeHtml(message.summary || '');
+  const taskId = escapeHtml(message.task_id);
+  return `<div class="cc-system"><strong>Task</strong> <em>${taskId}</em> — ${status}: ${summary}</div>`;
 }
 
 // -- Top-level type helpers --------------------------------------------------
 
 function formatAuthStatus(message: SDKAuthStatusMessage): string {
   if (message.error) {
-    return `**Auth error:** ${message.error}`;
+    const error = escapeHtml(message.error);
+    return `<div class="cc-system"><strong>Auth error:</strong> ${error}</div>`;
   }
   if (message.isAuthenticating) {
-    return '*Authenticating...*';
+    return '<div class="cc-system"><em>Authenticating...</em></div>';
   }
   // Auth completed successfully
   return '';
@@ -234,7 +283,7 @@ function formatAuthStatus(message: SDKAuthStatusMessage): string {
  * @param message - Parsed system message with a subtype discriminator.
  * @param message.type - Always `'system'`.
  * @param message.subtype - System message subtype discriminator (e.g. `'init'`, `'status'`).
- * @returns Formatted markdown string, or empty string for suppressed subtypes.
+ * @returns Formatted HTML string, or empty string for suppressed subtypes.
  */
 function formatSystem(message: { type: 'system'; subtype?: string; [key: string]: unknown }): string {
   switch (message.subtype) {
@@ -272,11 +321,11 @@ export function handleInit(context: StreamInitContext): void {
 }
 
 /**
- * Transforms one NDJSON Claude SDK message line into display-friendly text.
+ * Transforms one NDJSON Claude SDK message line into display-friendly HTML.
  *
  * @param line Raw line read from the stream.
  * @param context Transform context that stores per-session state.
- * @returns Formatted output for known message types, or empty string for unknown types.
+ * @returns Formatted HTML output for known message types, or empty string for unknown types.
  */
 export function handleTransform(line: string, context: TransformContext): string {
   if (!line || line.trim().length === 0) {
