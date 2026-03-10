@@ -166,7 +166,7 @@ function formatToolProgress(message: SDKToolProgressMessage): string {
  */
 function renderMarkdown(text: string): string {
   try {
-    return marked.parse(text, { gfm: true }) as string;
+    return marked.parse(escapeHtml(text), { gfm: true }) as string;
   } catch {
     return escapeHtml(text);
   }
