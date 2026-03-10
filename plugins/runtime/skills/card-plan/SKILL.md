@@ -36,9 +36,35 @@ git commit -m "[single sentence summarizing the approach and key decisions]"  # 
 
 ## 2. Evaluate Plan
 
-### 2.1 Spike Testable Uncertainties
+### 2.1 Validate Plan Integrity
 
-Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a Technical Approach step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only if no load-bearing assumptions exist.
+For each item below, output a verdict line in exactly this format, then a blank line before the next item:
+
+```
+[PASS] <item name> — <specific evidence: file paths, step numbers, section references>
+[FAIL] <item name> — <what is missing or inconsistent>
+[N/A]  <item name> — <why this item does not apply to this plan>
+```
+
+**Items — evaluate every one, in order:**
+
+1. **Boundary-crossing values** — Each step that introduces a value crossing a system, process, or package boundary names both producer and consumer by file path.
+2. **Symbol consumers** — Each modified symbol in Technical Approach has its consumers listed in Dependency Analysis.
+3. **Step ordering** — Steps can be executed in numbered order without forward references to later steps.
+4. **Mechanism replacement** — New mechanisms have corresponding removals of the systems they replace.
+5. **Optional field absence** — Each optional field or parameter has absence validated as a correct consumer state.
+6. **Error suppression** — Each catch or error-handling path names specific error types and rationale.
+7. **Test dispositions** — Behavior changes account for existing test files, with dispositions stated (update, delete, or new).
+
+**Rules:**
+- All seven items must appear in the output. Do not batch, summarize, or skip items.
+- PASS requires specific evidence — not "looks correct" or "the plan handles this."
+- N/A requires a justification stating why the item does not apply.
+- FAIL: return to §1.1 for the affected area — a gap in the plan reflects a gap in the research. Update PLAN.md, commit to the card repo, then re-validate from the failed item.
+
+### 2.2 Spike Testable Uncertainties
+
+Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a Technical Approach step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only when no load-bearing assumptions exist — output `No spike-eligible assumptions identified` with a one-sentence justification.
 
 For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
 
@@ -51,20 +77,6 @@ cd !` echo $CARD_REPO_PATH`
 git add PLAN.md
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
-
-### 2.2 Verify Plan Reflects Research
-
-Re-read PLAN.md and verify that the research findings survived the writing process. For each item below, write a confirmation stating what was checked and the specific evidence (file paths, step numbers, section references) that satisfies it:
-
-- [ ] Each step that introduces a boundary-crossing value names both producer and consumer by file path
-- [ ] Each modified symbol in Technical Approach has its consumers listed in Dependency Analysis
-- [ ] Steps can be executed in numbered order without forward references
-- [ ] New mechanisms have corresponding removals of the systems they replace
-- [ ] Each optional field or parameter has absence validated as a correct consumer state
-- [ ] Error suppression names specific error types and rationale
-- [ ] Behavior changes account for existing test files with dispositions
-
-When an item reveals a gap, return to §1.1 for the affected area — a gap in the plan likely reflects a gap in the research. Update PLAN.md with the deeper findings, commit, then re-verify from the affected item.
 
 ## 3. Assess Plan
 
