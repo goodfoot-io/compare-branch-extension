@@ -53,7 +53,7 @@
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/note-validator.79a31b18.mjs",
+            "command": "$VSCODE_NODE ./bin/note-validator.56643e87.mjs",
             "timeout": 30000
           }
         }
@@ -62,7 +62,7 @@
         "claude-code-session": {
           "version": 1,
           "transform": {
-            "path": "bin/claude-code-session.9b2e1135.mjs"
+            "path": "bin/claude-code-session.7ee93c7d.mjs"
           },
           "maxLineLength": 1048576
         }
@@ -76,8 +76,8 @@
       "chat.7aa78d11.mjs",
       "adaptive-card-validator.a5f697af.mjs",
       "adaptive-card-submission-validator.b4bc6b87.mjs",
-      "note-validator.79a31b18.mjs",
-      "claude-code-session.9b2e1135.mjs"
+      "note-validator.56643e87.mjs",
+      "claude-code-session.7ee93c7d.mjs"
     ]
   }
 }

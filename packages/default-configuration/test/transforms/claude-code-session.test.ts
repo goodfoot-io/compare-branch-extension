@@ -130,7 +130,7 @@ describe('Assistant Messages', () => {
     expect(result).toContain('I am thinking');
   });
 
-  it('formats tool_use Read with cc-tool class, data-tool attribute, and file_path param', async () => {
+  it('buffers tool_use blocks and returns empty when assistant has only tool_use', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: {
@@ -138,110 +138,116 @@ describe('Assistant Messages', () => {
       }
     });
 
-    expect(result).toContain('class="cc-turn cc-assistant"');
-    expect(result).toContain('class="cc-tool"');
+    // Tool-only assistant messages produce no output (tool renders with its summary)
+    expect(result).toBe('');
+  });
+
+  it('renders tool_use input table when tool_use_summary arrives', async () => {
+    // Send assistant with tool_use
+    await transformJson({
+      type: 'assistant',
+      message: {
+        content: [{ type: 'tool_use', id: 'tu-1', name: 'Read', input: { file_path: '/src/index.ts' } }]
+      }
+    });
+
+    // Send matching tool_use_summary
+    const { result } = await transformJson({
+      type: 'tool_use_summary',
+      summary: 'Read 45 lines from /src/index.ts',
+      preceding_tool_use_ids: ['tu-1']
+    });
+
+    expect(result).toContain('class="cc-tool-pair"');
     expect(result).toContain('data-tool="Read"');
     expect(result).toContain('class="cc-tool-badge"');
     expect(result).toContain('Read');
-    expect(result).toContain('class="cc-tool-param"');
+    expect(result).toContain('class="cc-tool-input"');
+    expect(result).toContain('class="cc-tool-input-key"');
+    expect(result).toContain('file_path');
+    expect(result).toContain('class="cc-tool-input-val"');
     expect(result).toContain('/src/index.ts');
+    expect(result).toContain('class="cc-tool-result"');
+    expect(result).toContain('Read 45 lines from /src/index.ts');
   });
 
-  it('formats tool_use Write with file_path', async () => {
-    const { result } = await transformJson({
+  it('renders all input parameters in tool input table', async () => {
+    await transformJson({
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: '2', name: 'Write', input: { file_path: '/src/output.ts' } }]
+        content: [
+          {
+            type: 'tool_use',
+            id: 'tu-edit',
+            name: 'Edit',
+            input: { file_path: '/src/config.json', old_string: 'foo', new_string: 'bar' }
+          }
+        ]
       }
     });
 
-    expect(result).toContain('data-tool="Write"');
-    expect(result).toContain('/src/output.ts');
-  });
-
-  it('formats tool_use Edit with file_path', async () => {
     const { result } = await transformJson({
-      type: 'assistant',
-      message: {
-        content: [{ type: 'tool_use', id: '3', name: 'Edit', input: { file_path: '/src/config.json' } }]
-      }
+      type: 'tool_use_summary',
+      summary: 'Edited file',
+      preceding_tool_use_ids: ['tu-edit']
     });
 
-    expect(result).toContain('data-tool="Edit"');
+    expect(result).toContain('file_path');
     expect(result).toContain('/src/config.json');
+    expect(result).toContain('old_string');
+    expect(result).toContain('foo');
+    expect(result).toContain('new_string');
+    expect(result).toContain('bar');
   });
 
-  it('formats tool_use Bash with truncated command', async () => {
-    const longCommand = 'a'.repeat(100);
-    const { result } = await transformJson({
+  it('formats tool_use Bash with truncated command in input table', async () => {
+    const longCommand = 'a'.repeat(150);
+    await transformJson({
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: '4', name: 'Bash', input: { command: longCommand } }]
+        content: [{ type: 'tool_use', id: 'tu-bash', name: 'Bash', input: { command: longCommand } }]
       }
+    });
+
+    const { result } = await transformJson({
+      type: 'tool_use_summary',
+      summary: 'Command completed',
+      preceding_tool_use_ids: ['tu-bash']
     });
 
     expect(result).toContain('data-tool="Bash"');
-    expect(result).toContain(`${'a'.repeat(80)}...`);
+    expect(result).toContain(`${'a'.repeat(120)}...`);
   });
 
-  it('formats tool_use Grep with pattern', async () => {
-    const { result } = await transformJson({
+  it('formats unknown tool with badge and input table', async () => {
+    await transformJson({
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: '5', name: 'Grep', input: { pattern: 'searchTerm' } }]
+        content: [{ type: 'tool_use', id: 'tu-ws', name: 'WebSearch', input: { query: 'something' } }]
       }
     });
 
-    expect(result).toContain('data-tool="Grep"');
-    expect(result).toContain('searchTerm');
-  });
-
-  it('formats tool_use Glob with pattern', async () => {
     const { result } = await transformJson({
-      type: 'assistant',
-      message: {
-        content: [{ type: 'tool_use', id: '6', name: 'Glob', input: { pattern: '*.ts' } }]
-      }
-    });
-
-    expect(result).toContain('data-tool="Glob"');
-    expect(result).toContain('*.ts');
-  });
-
-  it('formats tool_use Agent with description', async () => {
-    const { result } = await transformJson({
-      type: 'assistant',
-      message: {
-        content: [{ type: 'tool_use', id: '7', name: 'Agent', input: { description: 'do something' } }]
-      }
-    });
-
-    expect(result).toContain('data-tool="Agent"');
-    expect(result).toContain('do something');
-  });
-
-  it('formats unknown tool without cc-tool-param (no param key)', async () => {
-    const { result } = await transformJson({
-      type: 'assistant',
-      message: {
-        content: [{ type: 'tool_use', id: '8', name: 'WebSearch', input: { query: 'something' } }]
-      }
+      type: 'tool_use_summary',
+      summary: 'Found results',
+      preceding_tool_use_ids: ['tu-ws']
     });
 
     expect(result).toContain('data-tool="WebSearch"');
     expect(result).toContain('class="cc-tool-badge"');
     expect(result).toContain('WebSearch');
-    expect(result).not.toContain('cc-tool-param');
+    expect(result).toContain('query');
+    expect(result).toContain('something');
   });
 
-  it('formats mixed content blocks within a single cc-turn cc-assistant wrapper', async () => {
+  it('formats mixed text and tool_use: text renders in turn, tool buffered', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: {
         content: [
           { type: 'text', text: 'First block' },
           { type: 'thinking', thinking: 'Some thought' },
-          { type: 'tool_use', id: '9', name: 'Read', input: { file_path: '/test.ts' } }
+          { type: 'tool_use', id: 'tu-mix', name: 'Read', input: { file_path: '/test.ts' } }
         ]
       }
     });
@@ -251,20 +257,21 @@ describe('Assistant Messages', () => {
     expect(result).toContain('First block');
     expect(result).toContain('class="cc-thinking"');
     expect(result).toContain('Some thought');
-    expect(result).toContain('data-tool="Read"');
-    expect(result).toContain('/test.ts');
-    // All content wrapped in single cc-turn div
+    // Tool_use is buffered, not rendered inline
+    expect(result).not.toContain('data-tool="Read"');
+    expect(result).not.toContain('/test.ts');
+    // All non-tool content wrapped in single cc-turn div
     expect(result?.match(/cc-turn cc-assistant/g)?.length).toBe(1);
   });
 
-  it('formats empty content as cc-turn cc-assistant with (empty response)', async () => {
+  it('returns empty for assistant with empty content array', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: { content: [] }
     });
 
-    expect(result).toContain('class="cc-turn cc-assistant"');
-    expect(result).toContain('(empty response)');
+    // Empty content produces no output
+    expect(result).toBe('');
   });
 
   it('formats API error wrapped in cc-turn cc-assistant with cc-system', async () => {
@@ -281,8 +288,6 @@ describe('Assistant Messages', () => {
   });
 
   it('isolates marked parse error: sibling blocks still render when text block throws', async () => {
-    // A text block that's valid (marked won't throw on normal text) alongside a tool_use.
-    // This test verifies the try/catch isolation within formatContentBlock.
     const { result } = await transformJson({
       type: 'assistant',
       message: {
@@ -293,13 +298,14 @@ describe('Assistant Messages', () => {
       }
     });
 
+    // Text renders in the turn; tool_use is buffered
     expect(result).toContain('Normal text');
-    expect(result).toContain('data-tool="Read"');
+    expect(result).not.toContain('data-tool="Read"');
   });
 });
 
 describe('User Messages', () => {
-  it('formats user prompt with string content in cc-turn cc-user', async () => {
+  it('formats user prompt with string content in cc-turn cc-user without role label', async () => {
     const { result } = await transformJson({
       type: 'user',
       message: { role: 'user', content: 'Hello Claude' },
@@ -308,8 +314,8 @@ describe('User Messages', () => {
     });
 
     expect(result).toContain('class="cc-turn cc-user"');
-    expect(result).toContain('class="cc-role"');
-    expect(result).toContain('User');
+    expect(result).not.toContain('class="cc-role"');
+    expect(result).not.toContain('>User<');
     expect(result).toContain('Hello Claude');
   });
 
@@ -328,7 +334,7 @@ describe('User Messages', () => {
     expect(result).toContain('Please help me with this');
   });
 
-  it('marks synthetic user messages with User (auto) role label', async () => {
+  it('does not include role label for synthetic user messages', async () => {
     const { result } = await transformJson({
       type: 'user',
       message: { role: 'user', content: 'Auto-generated prompt' },
@@ -338,7 +344,7 @@ describe('User Messages', () => {
     });
 
     expect(result).toContain('class="cc-turn cc-user"');
-    expect(result).toContain('User (auto)');
+    expect(result).not.toContain('class="cc-role"');
     expect(result).toContain('Auto-generated prompt');
   });
 
@@ -767,26 +773,82 @@ describe('Result Messages', () => {
 });
 
 describe('Tool Messages', () => {
-  it('formats tool_use_summary with cc-tool-result', async () => {
-    const { result } = await transformJson({
-      type: 'tool_use_summary',
-      summary: 'File written'
+  it('pairs tool_use_summary with buffered tool_use via preceding_tool_use_ids', async () => {
+    await transformJson({
+      type: 'assistant',
+      message: {
+        content: [{ type: 'tool_use', id: 'tu-1', name: 'Write', input: { file_path: '/out.ts', content: 'hello' } }]
+      }
     });
 
+    const { result } = await transformJson({
+      type: 'tool_use_summary',
+      summary: 'File written',
+      preceding_tool_use_ids: ['tu-1']
+    });
+
+    expect(result).toContain('class="cc-tool-pair"');
+    expect(result).toContain('data-tool="Write"');
+    expect(result).toContain('file_path');
+    expect(result).toContain('/out.ts');
     expect(result).toContain('class="cc-tool-result"');
-    expect(result).toContain('<strong>Tool Output:</strong>');
     expect(result).toContain('File written');
   });
 
-  it('formats tool_progress with cc-system cc-tool-progress', async () => {
+  it('renders tool_use_summary without tool header when no pending tool_use matches', async () => {
+    const { result } = await transformJson({
+      type: 'tool_use_summary',
+      summary: 'Orphaned summary',
+      preceding_tool_use_ids: ['nonexistent']
+    });
+
+    expect(result).toContain('class="cc-tool-result"');
+    expect(result).toContain('Orphaned summary');
+    expect(result).not.toContain('cc-tool-pair');
+  });
+
+  it('suppresses tool_progress messages', async () => {
     const { result } = await transformJson({
       type: 'tool_progress',
       tool_name: 'Bash',
       elapsed_time_seconds: 5
     });
 
-    expect(result).toContain('class="cc-system cc-tool-progress"');
-    expect(result).toContain('<em>Bash running... (5s)</em>');
+    expect(result).toBe('');
+  });
+
+  it('handles multiple tool_use blocks paired with their summaries', async () => {
+    // Assistant sends two tool_use blocks
+    await transformJson({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'tool_use', id: 'tu-a', name: 'Read', input: { file_path: '/a.ts' } },
+          { type: 'tool_use', id: 'tu-b', name: 'Grep', input: { pattern: 'TODO', path: '/src' } }
+        ]
+      }
+    });
+
+    // First summary
+    const { result: result1 } = await transformJson({
+      type: 'tool_use_summary',
+      summary: 'Read a.ts',
+      preceding_tool_use_ids: ['tu-a']
+    });
+
+    expect(result1).toContain('data-tool="Read"');
+    expect(result1).toContain('/a.ts');
+
+    // Second summary
+    const { result: result2 } = await transformJson({
+      type: 'tool_use_summary',
+      summary: 'Found TODOs',
+      preceding_tool_use_ids: ['tu-b']
+    });
+
+    expect(result2).toContain('data-tool="Grep"');
+    expect(result2).toContain('TODO');
+    expect(result2).toContain('/src');
   });
 });
 
@@ -813,12 +875,18 @@ describe('Edge Cases', () => {
     expect(whitespaceResult).toBe('   ');
   });
 
-  it('escapes HTML entities in tool params', async () => {
-    const { result } = await transformJson({
+  it('escapes HTML entities in tool input values', async () => {
+    await transformJson({
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: '11', name: 'Read', input: { file_path: '/path/<evil>.ts' } }]
+        content: [{ type: 'tool_use', id: 'tu-xss', name: 'Read', input: { file_path: '/path/<evil>.ts' } }]
       }
+    });
+
+    const { result } = await transformJson({
+      type: 'tool_use_summary',
+      summary: 'Read file',
+      preceding_tool_use_ids: ['tu-xss']
     });
 
     expect(result).toContain('&lt;evil&gt;');

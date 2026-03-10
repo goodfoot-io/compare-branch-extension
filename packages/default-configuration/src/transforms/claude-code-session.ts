@@ -19,13 +19,20 @@ import type {
   SDKStatusMessage,
   SDKSystemMessage,
   SDKTaskNotificationMessage,
-  SDKToolProgressMessage,
   SDKToolUseSummaryMessage,
   SDKUserMessage
 } from '@anthropic-ai/claude-agent-sdk';
 import type { StreamInitContext, TransformContext } from '@cards/sdk/config';
 import { defineStreamTransform } from '@cards/sdk/config/factories/stream-transform';
-import { marked } from 'marked';
+import { marked, Renderer } from 'marked';
+
+// -- Types -------------------------------------------------------------------
+
+/** Buffered tool_use block stored in transform state until its summary arrives. */
+interface PendingToolUse {
+  name: string;
+  input: Record<string, unknown>;
+}
 
 // -- HTML helpers ------------------------------------------------------------
 
@@ -44,41 +51,90 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/** Renderer that escapes raw HTML instead of passing it through verbatim. */
+const safeRenderer = new Renderer();
+safeRenderer.html = ({ text }: { text: string }) => escapeHtml(text);
+
 // -- Formatting helpers ------------------------------------------------------
 
-/** Maps known tool names to the input field that should be displayed. */
-const TOOL_PARAM_KEY: Record<string, string> = {
-  Read: 'file_path',
-  Write: 'file_path',
-  Edit: 'file_path',
-  Bash: 'command',
-  Grep: 'pattern',
-  Glob: 'pattern',
-  Task: 'description',
-  Agent: 'description'
-};
+const VALUE_TRUNCATE_LENGTH = 120;
 
-const BASH_TRUNCATE_LENGTH = 80;
-
-function extractToolParam(name: string, input: unknown): string | undefined {
-  const key = TOOL_PARAM_KEY[name];
-  if (!key) {
-    return undefined;
+/**
+ * Truncates a string value for display in the tool input table.
+ *
+ * @param value Raw string value from tool input.
+ * @returns Truncated string with ellipsis if over the limit.
+ */
+function truncateValue(value: string): string {
+  if (value.length > VALUE_TRUNCATE_LENGTH) {
+    return `${value.slice(0, VALUE_TRUNCATE_LENGTH)}...`;
   }
-
-  const record = input as Record<string, unknown> | undefined;
-  const value = record?.[key];
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  if (name === 'Bash' && value.length > BASH_TRUNCATE_LENGTH) {
-    return `${value.slice(0, BASH_TRUNCATE_LENGTH)}...`;
-  }
-
   return value;
 }
 
+/**
+ * Formats a tool input value as an escaped, truncated string for display.
+ * Non-string values are serialized to JSON first.
+ *
+ * @param value Raw value from tool input.
+ * @returns Escaped HTML string safe for table cell content.
+ */
+function formatInputValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return escapeHtml(truncateValue(value));
+  }
+  if (value === null || value === undefined) {
+    return '<em>null</em>';
+  }
+  return escapeHtml(truncateValue(JSON.stringify(value)));
+}
+
+/**
+ * Renders tool input parameters as a minimal two-column table.
+ * Parameter names are right-aligned; values are left-aligned.
+ *
+ * @param name Tool name for the badge.
+ * @param input Tool input parameters.
+ * @returns HTML string containing the tool badge and input table.
+ */
+function formatToolInputTable(name: string, input: Record<string, unknown>): string {
+  const nameEscaped = escapeHtml(name);
+  const entries = Object.entries(input);
+
+  let rows = '';
+  for (const [key, value] of entries) {
+    const keyEscaped = escapeHtml(key);
+    rows += `<tr><td class="cc-tool-input-key">${keyEscaped}</td><td class="cc-tool-input-val">${formatInputValue(value)}</td></tr>`;
+  }
+
+  const table = rows.length > 0 ? `<table class="cc-tool-input">${rows}</table>` : '';
+  return `<div class="cc-tool-pair" data-tool="${nameEscaped}"><span class="cc-tool-badge">${nameEscaped}</span>${table}</div>`;
+}
+
+/**
+ * Renders a markdown string to HTML using GFM, falling back to escaped text on error.
+ *
+ * @param text Raw markdown text.
+ * @returns Rendered HTML string.
+ */
+function renderMarkdown(text: string): string {
+  try {
+    return marked.parse(text, { gfm: true, renderer: safeRenderer }) as string;
+  } catch {
+    return escapeHtml(text);
+  }
+}
+
+// -- Content block formatting ------------------------------------------------
+
+/**
+ * Formats a single assistant content block (text or thinking only).
+ * tool_use blocks are handled separately via buffering.
+ *
+ * @param block Content block from an assistant message.
+ * @param block.type Discriminator for the content block kind.
+ * @returns Formatted HTML string, or empty string for non-renderable blocks.
+ */
 function formatContentBlock(block: { type: string; [key: string]: unknown }): string {
   switch (block.type) {
     case 'text': {
@@ -89,39 +145,50 @@ function formatContentBlock(block: { type: string; [key: string]: unknown }): st
       const thinking = escapeHtml((block as unknown as { thinking: string }).thinking);
       return `<details class="cc-thinking"><summary>Thinking</summary>${thinking}</details>`;
     }
-    case 'tool_use': {
-      const b = block as unknown as { name: string; input: unknown };
-      const param = extractToolParam(b.name, b.input);
-      const nameEscaped = escapeHtml(b.name);
-      if (param) {
-        const paramEscaped = escapeHtml(param);
-        return `<div class="cc-tool" data-tool="${nameEscaped}"><span class="cc-tool-badge">${nameEscaped}</span><code class="cc-tool-param">${paramEscaped}</code></div>`;
-      }
-      return `<div class="cc-tool" data-tool="${nameEscaped}"><span class="cc-tool-badge">${nameEscaped}</span></div>`;
-    }
     default:
       return '';
   }
 }
 
-function formatContentBlocks(blocks: Array<{ type: string; [key: string]: unknown }>): string {
-  if (!blocks || blocks.length === 0) {
-    return '<div class="cc-turn cc-assistant"><em>(empty response)</em></div>';
-  }
-
-  const inner = blocks.map(formatContentBlock).filter(Boolean).join('');
-  return `<div class="cc-turn cc-assistant">${inner}</div>`;
-}
-
-function formatAssistant(message: SDKAssistantMessage): string {
+/**
+ * Formats an assistant message, buffering tool_use blocks into state.
+ * Only text and thinking blocks are rendered inline in the assistant turn.
+ *
+ * @param message Parsed assistant message from the SDK.
+ * @param pendingToolUses Map to buffer tool_use blocks into.
+ * @returns HTML string for the assistant turn (may be empty if only tool_use blocks).
+ */
+function formatAssistant(message: SDKAssistantMessage, pendingToolUses: Map<string, PendingToolUse>): string {
   if (message.error) {
     const errorEscaped = escapeHtml(String(message.error));
     return `<div class="cc-turn cc-assistant"><div class="cc-system"><strong>API Error</strong> (${errorEscaped})</div></div>`;
   }
 
-  return formatContentBlocks(
-    (message.message?.content || []) as unknown as Array<{ type: string; [key: string]: unknown }>
-  );
+  const blocks = (message.message?.content || []) as unknown as Array<{ type: string; [key: string]: unknown }>;
+
+  // Buffer tool_use blocks into state
+  for (const block of blocks) {
+    if (block.type === 'tool_use') {
+      const b = block as unknown as { id: string; name: string; input: unknown };
+      pendingToolUses.set(b.id, {
+        name: b.name,
+        input: (b.input as Record<string, unknown>) ?? {}
+      });
+    }
+  }
+
+  // Render non-tool blocks
+  const nonToolBlocks = blocks.filter((b) => b.type !== 'tool_use');
+  if (nonToolBlocks.length === 0) {
+    return '';
+  }
+
+  const inner = nonToolBlocks.map(formatContentBlock).filter(Boolean).join('');
+  if (!inner) {
+    return '';
+  }
+
+  return `<div class="cc-turn cc-assistant">${inner}</div>`;
 }
 
 function formatSystemInit(message: SDKSystemMessage): string {
@@ -145,32 +212,31 @@ function formatResult(message: SDKResultMessage): string {
   return `<div class="cc-system cc-session-end"><strong>Session Error</strong> (${subtype}) | ${stats}</div>`;
 }
 
-function formatToolUseSummary(message: SDKToolUseSummaryMessage): string {
+/**
+ * Formats a tool_use_summary message by pairing it with its buffered tool_use block.
+ * Renders the tool input table above the summary text.
+ *
+ * @param message Parsed tool_use_summary message.
+ * @param pendingToolUses Map of buffered tool_use blocks.
+ * @returns HTML string containing the paired tool call and result.
+ */
+function formatToolUseSummary(message: SDKToolUseSummaryMessage, pendingToolUses: Map<string, PendingToolUse>): string {
   const summary = escapeHtml(message.summary || '');
-  return `<div class="cc-tool-result"><strong>Tool Output:</strong> ${summary}</div>`;
-}
+  const ids = message.preceding_tool_use_ids ?? [];
 
-function formatToolProgress(message: SDKToolProgressMessage): string {
-  const toolName = escapeHtml(message.tool_name || '');
-  const elapsed = message.elapsed_time_seconds ?? 0;
-  return `<div class="cc-system cc-tool-progress"><em>${toolName} running... (${elapsed}s)</em></div>`;
+  let toolHeader = '';
+  for (const id of ids) {
+    const pending = pendingToolUses.get(id);
+    if (pending) {
+      toolHeader += formatToolInputTable(pending.name, pending.input);
+      pendingToolUses.delete(id);
+    }
+  }
+
+  return `${toolHeader}<div class="cc-tool-result">${summary}</div>`;
 }
 
 // -- User message helpers ----------------------------------------------------
-
-/**
- * Renders a markdown string to HTML using GFM, falling back to escaped text on error.
- *
- * @param text Raw markdown text.
- * @returns Rendered HTML string.
- */
-function renderMarkdown(text: string): string {
-  try {
-    return marked.parse(escapeHtml(text), { gfm: true }) as string;
-  } catch {
-    return escapeHtml(text);
-  }
-}
 
 /**
  * Extracts text from a `MessageParam.content` value which can be either a
@@ -206,8 +272,7 @@ function formatUser(message: SDKUserMessage): string {
   }
   const text = extractUserText(message.message?.content);
   if (!text) return '';
-  const roleLabel = message.isSynthetic ? 'User (auto)' : 'User';
-  return `<div class="cc-turn cc-user"><div class="cc-role">${roleLabel}</div><div class="cc-text">${text}</div></div>`;
+  return `<div class="cc-turn cc-user"><div class="cc-text">${text}</div></div>`;
 }
 
 // -- System subtype helpers --------------------------------------------------
@@ -326,6 +391,7 @@ function formatSystem(message: { type: 'system'; subtype?: string; [key: string]
  */
 export function handleInit(context: StreamInitContext): void {
   context.state.set('turn', 0);
+  context.state.set('pendingToolUses', new Map<string, PendingToolUse>());
 }
 
 /**
@@ -342,6 +408,9 @@ export function handleTransform(line: string, context: TransformContext): string
 
   try {
     const message = JSON.parse(line) as SDKMessage;
+    const pendingToolUses =
+      (context.state.get('pendingToolUses') as Map<string, PendingToolUse> | undefined) ??
+      new Map<string, PendingToolUse>();
 
     if (message.type === 'assistant') {
       const currentTurn = (context.state.get('turn') as number) || 0;
@@ -350,7 +419,7 @@ export function handleTransform(line: string, context: TransformContext): string
 
     switch (message.type) {
       case 'assistant':
-        return formatAssistant(message);
+        return formatAssistant(message, pendingToolUses);
       case 'user':
         return formatUser(message as SDKUserMessage);
       case 'system':
@@ -358,9 +427,9 @@ export function handleTransform(line: string, context: TransformContext): string
       case 'result':
         return formatResult(message);
       case 'tool_use_summary':
-        return formatToolUseSummary(message);
+        return formatToolUseSummary(message, pendingToolUses);
       case 'tool_progress':
-        return formatToolProgress(message);
+        return '';
       case 'auth_status':
         return formatAuthStatus(message as unknown as SDKAuthStatusMessage);
       case 'stream_event':
