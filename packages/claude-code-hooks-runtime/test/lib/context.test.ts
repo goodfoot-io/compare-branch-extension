@@ -207,8 +207,8 @@ describe('buildCardRepoLogBlock', () => {
     expect(result).not.toBeNull();
     expect(result).toMatch(/<card-repo-log count="\d+">/);
     expect(result).toContain('</card-repo-log>');
-    // TestGitWorkspace creates an "Initial commit"
-    expect(result).toContain('Initial commit');
+    // TestGitWorkspace creates a "Repository initializes." commit
+    expect(result).toContain('Repository initializes.');
   });
 
   it('includes total commit count attribute', () => {
