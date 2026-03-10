@@ -105,7 +105,7 @@ export class TestGitWorkspace {
 
     // Create initial commit
     await this.git.add('.');
-    await this.git.commit('Initial commit');
+    await this.git.commit('Repository initializes.');
 
     // Set remote if provided
     if (options?.remoteUrl) {
@@ -134,7 +134,7 @@ export class TestGitWorkspace {
     await fs.ensureDir(path.dirname(filePath));
     await fs.writeFile(filePath, content);
     await this.git.add(filename);
-    await this.git.commit(message ?? `Add ${filename}`);
+    await this.git.commit(message ?? `Repository adds ${filename}.`);
   }
 
   /**

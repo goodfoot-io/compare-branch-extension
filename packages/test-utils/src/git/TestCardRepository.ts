@@ -201,7 +201,7 @@ export class TestCardRepository {
 
     // Initial commit
     await git.add('.');
-    await git.commit('Initialize card');
+    await git.commit('Card initializes.');
 
     // Store git instance if this is the first card (for convenience)
     if (!this.git) {
@@ -247,7 +247,7 @@ export class TestCardRepository {
     // Commit
     const git = simpleGit(cardPath);
     await git.add('.');
-    await git.commit('Update card');
+    await git.commit('Card updates.');
   }
 
   /**
@@ -279,7 +279,9 @@ export class TestCardRepository {
     const git = simpleGit(cardPath);
     await git.add('.');
     const commitAuthor = author ?? 'Test User';
-    await git.commit('Add comment', undefined, { '--author': `${commitAuthor} <${commitAuthor}@cards.local>` });
+    await git.commit('Card adds a comment.', undefined, {
+      '--author': `${commitAuthor} <${commitAuthor}@cards.local>`
+    });
 
     return filename;
   }
@@ -309,7 +311,7 @@ export class TestCardRepository {
 
     const git = simpleGit(cardPath);
     await git.add('.');
-    await git.commit(`Add adaptive card: ${adaptiveCardId}`);
+    await git.commit(`Card adds adaptive card ${adaptiveCardId}.`);
 
     return filename;
   }
@@ -348,7 +350,7 @@ export class TestCardRepository {
 
     const git = simpleGit(cardPath);
     await git.add('.');
-    await git.commit(`Add attribution: ${sha.slice(0, 7)}`);
+    await git.commit(`Card adds attribution for ${sha.slice(0, 7)}.`);
   }
 
   // --- Branch Management (from claude-code-cli-hooks) ---
@@ -434,7 +436,7 @@ export class TestCardRepository {
     await fs.writeFile(fullPath, content);
     const git = this.getCardGit(cardId);
     await git.add(filePath);
-    await git.commit(message ?? `Update ${filePath}`);
+    await git.commit(message ?? `Card updates ${filePath}.`);
   }
 
   /**
@@ -526,12 +528,12 @@ export class TestCardRepository {
 
     await fs.writeFile(path.join(cardPath, 'conflict.ts'), 'feature version\n');
     await git.add('conflict.ts');
-    await git.commit('Add conflict file from feature');
+    await git.commit('Feature branch adds conflict file.');
 
     await git.checkout('main');
     await fs.writeFile(path.join(cardPath, 'conflict.ts'), 'main version\n');
     await git.add('conflict.ts');
-    await git.commit('Add conflict file from main');
+    await git.commit('Main branch adds conflict file.');
 
     try {
       await git.merge(['feature-branch']);
@@ -566,7 +568,7 @@ export class TestCardRepository {
 
     const git = this.getCardGit(cardId);
     await git.add('.');
-    await git.commit('Add files across directory structure');
+    await git.commit('Card adds files across directory structure.');
   }
 
   /**

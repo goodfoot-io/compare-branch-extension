@@ -34,7 +34,9 @@ git add PLAN.md
 git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
 
-### 1.3 Spike Testable Uncertainties
+## 2. Evaluate Plan
+
+### 2.1 Spike Testable Uncertainties
 
 Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a Technical Approach step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only if no load-bearing assumptions exist.
 
@@ -50,7 +52,7 @@ git add PLAN.md
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
 
-### 1.4 Verify Plan Reflects Research
+### 2.2 Verify Plan Reflects Research
 
 Re-read PLAN.md and verify that the research findings survived the writing process. For each item below, write a confirmation stating what was checked and the specific evidence (file paths, step numbers, section references) that satisfies it:
 
@@ -64,11 +66,11 @@ Re-read PLAN.md and verify that the research findings survived the writing proce
 
 When an item reveals a gap, return to §1.1 for the affected area — a gap in the plan likely reflects a gap in the research. Update PLAN.md with the deeper findings, commit, then re-verify from the affected item.
 
-## 2. Assess Plan
+## 3. Assess Plan
 
 Load the `runtime:card-assess-plan` skill and follow its instructions.
 
-## 3. Submit for Approval
+## 4. Submit for Approval
 
 **Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
 

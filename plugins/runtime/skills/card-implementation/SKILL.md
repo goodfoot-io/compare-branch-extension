@@ -58,7 +58,11 @@ git commit -m "[single sentence summarizing the approach and key decisions]"  # 
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from the Technical Approach section).
 
-### 2.3 Spike Testable Uncertainties
+---
+
+## 3. Evaluate Plan
+
+### 3.1 Spike Testable Uncertainties
 
 Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a Technical Approach step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only if no load-bearing assumptions exist.
 
@@ -74,7 +78,7 @@ git add PLAN.md
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
 
-### 2.4 Verify Plan Reflects Research
+### 3.2 Verify Plan Reflects Research
 
 Re-read PLAN.md and verify that the research findings survived the writing process. For each item below, write a confirmation stating what was checked and the specific evidence (file paths, step numbers, section references) that satisfies it:
 
@@ -90,7 +94,7 @@ When an item reveals a gap, return to §2.1 for the affected area — a gap in t
 
 ---
 
-## 3. Implement
+## 4. Implement
 
 Implement the plan directly. Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
@@ -109,7 +113,7 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 
 If an empirically-testable uncertainty surfaces during implementation, invoke the `runtime:spike` skill before proceeding. Update the plan with findings and commit to the card repo.
 
-### 3.1 Validation Gate
+### 4.1 Validation Gate
 
 **Requirement:** ALL validation commands from PLAN.md must pass before proceeding.
 
@@ -132,13 +136,13 @@ git add comment/$COMMENT_ID.md CARD.meta.json
 git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
 ```
 
-Only proceed to **4. Finalize** when ALL validations pass.
+Only proceed to **5. Finalize** when ALL validations pass.
 
 ---
 
-## 4. Finalize
+## 5. Finalize
 
-### 4.1 Squash Commits
+### 5.1 Squash Commits
 
 If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
@@ -158,7 +162,7 @@ cd "!` echo $WORKSPACE_PATH`"
 git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d
 ```
 
-### 4.2 Complete
+### 5.2 Complete
 
 Based on review gate:
 
