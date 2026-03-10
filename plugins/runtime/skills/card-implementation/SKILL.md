@@ -15,14 +15,12 @@ description: Implement cards.
 Stash any uncommitted changes:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git stash --include-untracked
 ```
 
 Create baseline tag:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
@@ -105,8 +103,7 @@ For each step in the Technical Approach:
 4. Tag the checkpoint for this step:
 
    ```bash
-   cd "!` echo $WORKSPACE_PATH`"
-   git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
+      git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
    ```
 
 For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
@@ -147,7 +144,6 @@ Only proceed to **5. Finalize** when ALL validations pass.
 If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git reset --soft "implement/!` echo $CARD_ID`/baseline"
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
@@ -158,7 +154,6 @@ COMMITMSG
 Clean up checkpoint tags:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d
 ```
 

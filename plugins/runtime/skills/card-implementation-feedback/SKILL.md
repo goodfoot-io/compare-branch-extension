@@ -59,7 +59,6 @@ git commit -m "[single sentence summarizing the feedback and the targeted change
 Create a baseline tag for the update:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git tag -f "feedback/!` echo $CARD_ID`/baseline" HEAD
 ```
 
@@ -111,7 +110,6 @@ Only proceed to **5. Evaluate Quality** when ALL validations pass.
 Commit a checkpoint:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files before evaluation
 git commit --allow-empty -m "checkpoint: before evaluation — feedback changes complete for card $CARD_ID"
 ```
@@ -137,7 +135,6 @@ Run validation per the plan's "Validation Commands" section (or `yarn typecheck`
 Get the list of files modified since the feedback baseline:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
 ```
 
@@ -266,7 +263,6 @@ git commit -m "[single sentence summarizing the recommended improvements]"  # <c
 If there are multiple commits since the feedback baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git reset --soft "feedback/!` echo $CARD_ID`/baseline"
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style> — describe the feedback-driven changes]
@@ -311,7 +307,6 @@ Based on review gate:
 Clean up the feedback baseline tag:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git tag -d "feedback/!` echo $CARD_ID`/baseline" 2>/dev/null
 ```
 

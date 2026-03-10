@@ -20,7 +20,6 @@ Based on commit count:
 - **COMMIT_COUNT >= 2**: Squash into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
@@ -33,7 +32,6 @@ COMMITMSG
 Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git rebase --empty=drop $BASE_BRANCH
 ```
 
@@ -41,14 +39,12 @@ Based on rebase result:
 - **Conflicts occur**: Run the command above to identify all conflicted files before resolving.
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git diff --name-only --diff-filter=U
 ```
 
 Identify conflicted files first (see below) and stage each resolved file by name rather than using `git add -A`.
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 # Stage only the conflict-resolved files by name
 git add <resolved-file-1> <resolved-file-2>
 git rebase --continue

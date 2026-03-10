@@ -37,14 +37,12 @@ Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/Mu
 Stash any uncommitted changes:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git stash --include-untracked
 ```
 
 Create baseline tag:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
@@ -69,7 +67,6 @@ Extract [PLAN_FILES] — all files the plan intends to modify (from task file as
 Before each agent delegation, commit a checkpoint:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files before [TASK_DESCRIPTION]
 git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card $CARD_ID"
 ```
@@ -196,7 +193,6 @@ Based on agent status:
 **COMPLETED:** Commit any workspace changes, then write a brief progress comment to the card repository indicating which task was completed and what was actually done.
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git diff --quiet HEAD || git commit -am "[one sentence summarizing what this task implements]"  # <workspace-commit-style>
 ```
 
@@ -236,7 +232,6 @@ git commit -m "[single sentence describing what is blocking all tasks]"  # <card
 Create post-implementation checkpoint:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files after implementation, before validation
 git commit --allow-empty -m "checkpoint: after implementation, before validation for card $CARD_ID"
 git tag -f "implement/!` echo $CARD_ID`/post-implementation" HEAD
@@ -282,7 +277,6 @@ Load the `runtime:card-implementation-evaluation` skill and follow its instructi
 Synthesize the final commit message from implementer Decision Narratives and key findings from evaluator reports, per `<workspace-commit-style>`.
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git add -A  # final: stage any uncommitted implementation artifacts
 git commit -m "$(cat <<'COMMITMSG'
 [final commit message per <workspace-commit-style>]
@@ -317,7 +311,6 @@ git commit -m "[single sentence summarizing what was implemented and that it is 
 Clean up checkpoint tags:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git tag -d "implement/!` echo $CARD_ID`/baseline" \
          "implement/!` echo $CARD_ID`/post-implementation" 2>/dev/null
 ```

@@ -11,7 +11,6 @@ description: Evaluate implementation quality using implementation and end-to-end
 Commit a checkpoint:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git add -A  # checkpoint: stage all workspace files before evaluation
 git commit --allow-empty -m "checkpoint: before evaluation — implementation complete for card $CARD_ID"
 ```

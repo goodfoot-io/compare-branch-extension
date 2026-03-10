@@ -32,7 +32,6 @@ Report honestly. Block cleanly. Document thoroughly.
 Abort any incomplete git operations that could corrupt the base branch:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git merge --abort 2>/dev/null || true
 git rebase --abort 2>/dev/null || true
 git cherry-pick --abort 2>/dev/null || true

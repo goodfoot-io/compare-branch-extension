@@ -209,7 +209,6 @@ Read PLAN.md from the card repository to understand what was planned — specifi
 Identify the baseline by diffing the workspace against the implementation baseline tag:
 
 ```bash
-cd "!` echo $WORKSPACE_PATH`"
 git diff implement/!` echo $CARD_ID`/baseline --name-only
 ```
 
