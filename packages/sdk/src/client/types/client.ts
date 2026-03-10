@@ -118,6 +118,8 @@ export interface CardCreateData {
     planRequired?: boolean;
     reviewRequired?: boolean;
   };
+  /** Outgoing relations to other cards. */
+  relations?: CardRelation[];
 }
 
 /**

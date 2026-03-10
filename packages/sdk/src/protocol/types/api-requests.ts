@@ -142,6 +142,12 @@ export interface CreateCardRequest {
    * When omitted, commits use the card repo's git config default.
    */
   author?: string;
+
+  /**
+   * Outgoing relations to other cards.
+   * Each entry specifies a relation type and a target card ID.
+   */
+  relations?: CardRelation[];
 }
 
 /**

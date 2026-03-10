@@ -16,7 +16,7 @@ Based on commit count:
 
 ## 2. Prepare Final Commit
 
-- **COMMIT_COUNT = 1**: Review the existing commit message against `<workspace-commit-style>`. If it doesn't meet the standard, amend it with `git commit --amend`.
+- **COMMIT_COUNT = 1**: Continue to "3. Rebase and Validate"
 - **COMMIT_COUNT >= 2**: Squash into a single commit with a message per `<workspace-commit-style>`:
 
 ```bash
