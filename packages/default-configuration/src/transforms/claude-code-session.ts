@@ -83,13 +83,7 @@ function formatContentBlock(block: { type: string; [key: string]: unknown }): st
   switch (block.type) {
     case 'text': {
       const text = (block as unknown as { text: string }).text;
-      let html: string;
-      try {
-        html = marked.parse(text, { gfm: true }) as string;
-      } catch {
-        html = escapeHtml(text);
-      }
-      return `<div class="cc-text">${html}</div>`;
+      return `<div class="cc-text">${renderMarkdown(text)}</div>`;
     }
     case 'thinking': {
       const thinking = escapeHtml((block as unknown as { thinking: string }).thinking);
@@ -165,6 +159,20 @@ function formatToolProgress(message: SDKToolProgressMessage): string {
 // -- User message helpers ----------------------------------------------------
 
 /**
+ * Renders a markdown string to HTML using GFM, falling back to escaped text on error.
+ *
+ * @param text Raw markdown text.
+ * @returns Rendered HTML string.
+ */
+function renderMarkdown(text: string): string {
+  try {
+    return marked.parse(text, { gfm: true }) as string;
+  } catch {
+    return escapeHtml(text);
+  }
+}
+
+/**
  * Extracts text from a `MessageParam.content` value which can be either a
  * plain string or an array of content blocks.
  *
@@ -172,14 +180,14 @@ function formatToolProgress(message: SDKToolProgressMessage): string {
  * @returns Extracted HTML string, or an empty string when no text content is found.
  */
 function extractUserText(content: unknown): string {
-  if (typeof content === 'string') return escapeHtml(content);
+  if (typeof content === 'string') return renderMarkdown(content);
   if (!Array.isArray(content)) return '';
   const parts: string[] = [];
   for (const block of content) {
     if (typeof block !== 'object' || block === null) continue;
     const b = block as Record<string, unknown>;
     if (b['type'] === 'text' && typeof b['text'] === 'string') {
-      parts.push(escapeHtml(b['text']));
+      parts.push(renderMarkdown(b['text']));
     } else if (b['type'] === 'tool_result') {
       // Tool results are rendered by tool_use_summary; skip content but note the block.
       const toolId = typeof b['tool_use_id'] === 'string' ? escapeHtml(b['tool_use_id']) : '';
@@ -199,7 +207,7 @@ function formatUser(message: SDKUserMessage): string {
   const text = extractUserText(message.message?.content);
   if (!text) return '';
   const roleLabel = message.isSynthetic ? 'User (auto)' : 'User';
-  return `<div class="cc-turn cc-user"><div class="cc-role">${roleLabel}</div>${text}</div>`;
+  return `<div class="cc-turn cc-user"><div class="cc-role">${roleLabel}</div><div class="cc-text">${text}</div></div>`;
 }
 
 // -- System subtype helpers --------------------------------------------------
