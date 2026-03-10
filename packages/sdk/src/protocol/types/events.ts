@@ -20,6 +20,16 @@ import type { CommentTimelineItem, CommitDetails, CommitTimelineItem, TypedFileT
 // --- Card Events ---
 
 /**
+ * Event payload when a card is created.
+ */
+export interface CardCreatedEvent {
+  /** Event type discriminator. */
+  type: 'card:created';
+  /** ID of the newly created card. */
+  cardId: string;
+}
+
+/**
  * Event payload when a card is deleted.
  */
 export interface CardDeletedEvent {
@@ -438,6 +448,7 @@ export interface CardsMetadataEvent {
  * ```
  */
 export type DomainEvent =
+  | CardCreatedEvent
   | CardContentChangedEvent
   | CardDeletedEvent
   | CommentCreatedEvent

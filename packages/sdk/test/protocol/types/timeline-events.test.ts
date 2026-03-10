@@ -295,6 +295,8 @@ describe('timeline event types', () => {
     it('should handle all timeline event types exhaustively', () => {
       const handleEvent = (event: DomainEvent): string => {
         switch (event.type) {
+          case 'card:created':
+            return 'card-created';
           case 'card:contentChanged':
             return 'card-content';
           case 'card:deleted':

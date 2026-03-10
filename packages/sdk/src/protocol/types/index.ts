@@ -100,6 +100,7 @@ export type {
   AttachmentRemovedEvent,
   CardCommitEvent,
   CardContentChangedEvent,
+  CardCreatedEvent,
   CardDeletedEvent,
   CardIncomingRelationsChangedEvent,
   CardsMetadataEvent,
