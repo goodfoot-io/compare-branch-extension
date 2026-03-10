@@ -1226,7 +1226,8 @@ Get:
 Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string),
   description (string). Optional fields: tags (string[]), environment
-  (string), gates ({ planRequired?: boolean, reviewRequired?: boolean }).
+  (string), gates ({ planRequired?: boolean, reviewRequired?: boolean }),
+  relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]).
 
   Examples:
     card.mjs create <<'EOF'
@@ -1326,6 +1327,9 @@ function parseCardCreateInput(raw) {
       ...typeof g["planRequired"] === "boolean" ? { planRequired: g["planRequired"] } : {},
       ...typeof g["reviewRequired"] === "boolean" ? { reviewRequired: g["reviewRequired"] } : {}
     };
+  }
+  if (Array.isArray(parsed["relations"])) {
+    data.relations = parsed["relations"];
   }
   return data;
 }
