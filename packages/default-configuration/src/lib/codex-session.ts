@@ -9,17 +9,10 @@
  */
 
 import { type ChildProcess, spawn } from 'node:child_process';
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { CardsClient } from '@cards/sdk/client';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import {
-  cleanupMergedBranches,
-  errorMessage,
-  resolveBaseBranch,
-  resolveMarketplacePath,
-  resolveOrCreateWorktree
-} from './claude-session.js';
+import { cleanupMergedBranches, errorMessage, resolveBaseBranch, resolveOrCreateWorktree } from './claude-session.js';
 
 /**
  * Options for {@link spawnCodexSession}.
@@ -40,49 +33,19 @@ export function resolveCodexSkillPath(marketplacePath: string): string {
 }
 
 /**
- * Builds the Codex CLI config override that registers the packaged cards-runtime skill.
- *
- * Codex v0.114.0 reads config from `~/.codex/config.toml` and supports runtime
- * overrides via `-c/--config`. The `CODEX_CONFIG` environment variable is not
- * consumed by the current CLI, so we inject the skill registration directly as
- * a supported override.
- *
- * @param skillPath - Absolute path to the packaged cards-runtime skill directory.
- * @returns CLI-ready `key=value` override string.
- */
-export function buildCodexSkillConfigOverride(skillPath: string): string {
-  return `skills.config=[{path=${JSON.stringify(skillPath)},enabled=true}]`;
-}
-
-/**
  * Builds the CLI argument list for the `codex` process.
  *
  * @param prompt - Prompt passed to Codex.
  * @param workspacePath - Card worktree path used as the Codex workspace root.
  * @param cardRepoPath - Additional writable directory for the card repo.
- * @param skillPath - Absolute path to the packaged cards-runtime skill directory.
  * @returns Array of CLI arguments.
  */
-export function buildCodexArgs(
-  prompt: string,
-  workspacePath: string,
-  cardRepoPath: string,
-  skillPath: string
-): string[] {
-  return [
-    '--dangerously-bypass-approvals-and-sandbox',
-    '--cd',
-    workspacePath,
-    '--add-dir',
-    cardRepoPath,
-    '--config',
-    buildCodexSkillConfigOverride(skillPath),
-    prompt
-  ];
+export function buildCodexArgs(prompt: string, workspacePath: string, cardRepoPath: string): string[] {
+  return ['--dangerously-bypass-approvals-and-sandbox', '--cd', workspacePath, '--add-dir', cardRepoPath, prompt];
 }
 
 /**
- * Spawns a `codex` CLI session with worktree lifecycle and packaged config wiring.
+ * Spawns a `codex` CLI session with worktree lifecycle and prompt-based skill guidance.
  *
  * @param input - Parsed action input from the environment.
  * @param context - Action context providing logger and lifecycle hooks.
@@ -115,10 +78,7 @@ export async function spawnCodexSession(
 
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-  const marketplacePath = resolveMarketplacePath();
-  const codexSkillPath = resolveCodexSkillPath(marketplacePath);
-  await fs.access(codexSkillPath);
-  const args = buildCodexArgs(prompt, cwd, input.cardRepoPath, codexSkillPath);
+  const args = buildCodexArgs(prompt, cwd, input.cardRepoPath);
 
   const child: ChildProcess = spawn('codex', args, {
     cwd,

@@ -1,7 +1,7 @@
 /**
  * Exercises Codex action behavior through focused scenarios.
- * The cases lock in process wiring so the packaged Codex configuration and
- * runtime skill loading do not drift during refactors.
+ * The cases lock in process wiring so prompt-based runtime skill loading does
+ * not drift during refactors.
  *
  * @summary Tests Codex action behavior
  */
@@ -10,10 +10,6 @@ import type { ChildProcess } from 'node:child_process';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('node:fs/promises', () => ({
-  access: vi.fn().mockResolvedValue(undefined)
-}));
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -129,7 +125,7 @@ describe('codex action', () => {
     expect(action.actionName).toBe('Codex');
   });
 
-  it('spawns codex with the packaged marketplace config', async () => {
+  it('spawns codex with the packaged marketplace skill prompt', async () => {
     const { spawn } = await import('node:child_process');
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
@@ -158,11 +154,10 @@ describe('codex action', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    expect(args).toContain('--config');
-    expect(args).toContain(
-      'skills.config=[{path="/test/extension/dist/marketplace/.agents/skills/cards-runtime/SKILL.md",enabled=true}]'
+    expect(args).not.toContain('--config');
+    expect(args[args.length - 1]).toBe(
+      'Load the skill file at "/test/extension/dist/marketplace/.agents/skills/cards-runtime/SKILL.md" before doing any work. Read that SKILL.md, follow its instructions, and then continue work on the card.'
     );
-    expect(args[args.length - 1]).toBe('Load the `cards-runtime` skill and continue work on the card');
 
     child.emit('close', 0);
     await promise;
