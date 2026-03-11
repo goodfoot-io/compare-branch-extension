@@ -11,6 +11,10 @@ import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('node:fs/promises', () => ({
+  access: vi.fn().mockResolvedValue(undefined)
+}));
+
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
   execFile: vi.fn()
@@ -141,7 +145,6 @@ describe('codex action', () => {
         cwd: '/test/workspace/.worktrees/cards/card-123/1',
         stdio: 'inherit',
         env: expect.objectContaining({
-          CODEX_CONFIG: '/test/extension/dist/marketplace/.codex/config.toml',
           WORKSPACE_PATH: '/test/workspace/.worktrees/cards/card-123/1',
           BASE_BRANCH: 'main',
           PARENT_BRANCH: 'main',
@@ -155,6 +158,10 @@ describe('codex action', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
+    expect(args).toContain('--config');
+    expect(args).toContain(
+      'skills.config=[{path="/test/extension/dist/marketplace/.agents/skills/cards-runtime",enabled=true}]'
+    );
     expect(args[args.length - 1]).toBe('Load the `cards-runtime` skill and continue work on the card');
 
     child.emit('close', 0);
