@@ -167,21 +167,6 @@ describe('DomainEvent discriminated union', () => {
     }
   });
 
-  it('should narrow types correctly in switch/case for CardContentChangedEvent', () => {
-    const event: DomainEvent = {
-      type: 'card:contentChanged',
-      cardId: 'card-2'
-    };
-
-    switch (event.type) {
-      case 'card:contentChanged':
-        expect(event.cardId).toBe('card-2');
-        break;
-      default:
-        throw new Error('Unexpected event type');
-    }
-  });
-
   it('should narrow types correctly in switch/case for CommentCreatedEvent', () => {
     const event: DomainEvent = {
       type: 'comment:created',
@@ -219,7 +204,6 @@ describe('DomainEvent discriminated union', () => {
         attachmentCount: 0,
         description: ''
       },
-      { type: 'card:contentChanged', cardId: 'id' },
       { type: 'comment:created', cardId: 'id', commentId: 'cid' },
       {
         type: 'stream:resumed',
@@ -229,7 +213,7 @@ describe('DomainEvent discriminated union', () => {
         previousLineCount: 5
       }
     ];
-    expect(events).toHaveLength(4);
+    expect(events).toHaveLength(3);
   });
 });
 

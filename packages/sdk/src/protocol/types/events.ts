@@ -41,16 +41,6 @@ export interface CardDeletedEvent {
   cardId: string;
 }
 
-/**
- * Event payload when the card body content changes.
- */
-export interface CardContentChangedEvent {
-  /** Event type discriminator. */
-  type: 'card:contentChanged';
-  /** ID of the card that changed. */
-  cardId: string;
-}
-
 // --- Comment Events ---
 
 /**
@@ -451,7 +441,6 @@ export interface CardsMetadataEvent {
  */
 export type DomainEvent =
   | CardCreatedEvent
-  | CardContentChangedEvent
   | CardDeletedEvent
   | CommentCreatedEvent
   | AttachmentAddedEvent

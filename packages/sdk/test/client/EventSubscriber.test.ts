@@ -206,11 +206,11 @@ describe('EventSubscriber', () => {
   });
 
   describe('Event Subscription', () => {
-    it('should register callback for card:contentChanged event', () => {
+    it('should register callback for card:deleted event', () => {
       const wsFactory = new RealWebSocketFactory();
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
       const callback = () => {};
-      subscriber.on('card:contentChanged', callback);
+      subscriber.on('card:deleted', callback);
       // Verifies on() doesn't throw
     });
 
@@ -218,8 +218,8 @@ describe('EventSubscriber', () => {
       const wsFactory = new RealWebSocketFactory();
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
       const callback = () => {};
-      subscriber.on('card:contentChanged', callback);
-      subscriber.off('card:contentChanged', callback);
+      subscriber.on('card:deleted', callback);
+      subscriber.off('card:deleted', callback);
       // Verifies off() doesn't throw
     });
 
@@ -228,8 +228,8 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
       const callback1 = () => {};
       const callback2 = () => {};
-      subscriber.on('card:contentChanged', callback1);
-      subscriber.on('card:contentChanged', callback2);
+      subscriber.on('card:deleted', callback1);
+      subscriber.on('card:deleted', callback2);
       // Verifies multiple registrations don't throw
     });
   });
@@ -305,7 +305,7 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber(defaultOptions, wsFactory);
 
       const receivedEvents: unknown[] = [];
-      subscriber.on('card:contentChanged', (event) => {
+      subscriber.on('card:deleted', (event) => {
         receivedEvents.push(event);
       });
 
@@ -314,7 +314,7 @@ describe('EventSubscriber', () => {
       await connectPromise;
 
       wsFactory.latest.simulateMessage({
-        type: 'card:contentChanged',
+        type: 'card:deleted',
         cardId: 'card-123'
       });
 
@@ -332,16 +332,16 @@ describe('EventSubscriber', () => {
       const callback = (event: unknown) => {
         receivedEvents.push(event);
       };
-      subscriber.on('card:contentChanged', callback);
+      subscriber.on('card:deleted', callback);
 
       const connectPromise = subscriber.connect();
       wsFactory.latest.simulateOpen();
       await connectPromise;
 
-      subscriber.off('card:contentChanged', callback);
+      subscriber.off('card:deleted', callback);
 
       wsFactory.latest.simulateMessage({
-        type: 'card:contentChanged',
+        type: 'card:deleted',
         cardId: 'card-123'
       });
 
@@ -573,7 +573,7 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 }, wsFactory);
 
       const receivedEvents: unknown[] = [];
-      subscriber.on('card:contentChanged', (event) => {
+      subscriber.on('card:deleted', (event) => {
         receivedEvents.push(event);
       });
 
@@ -594,7 +594,7 @@ describe('EventSubscriber', () => {
 
       // Event callback should still work
       wsFactory.latest.simulateMessage({
-        type: 'card:contentChanged',
+        type: 'card:deleted',
         cardId: 'card-456'
       });
 
@@ -659,14 +659,14 @@ describe('EventSubscriber', () => {
       );
 
       const receivedEvents: unknown[] = [];
-      subscriber.on('card:contentChanged', (event) => {
+      subscriber.on('card:deleted', (event) => {
         receivedEvents.push(event);
       });
 
       await subscriber.connect();
 
       server.broadcast({
-        type: 'card:contentChanged',
+        type: 'card:deleted',
         cardId: 'card-123'
       });
 

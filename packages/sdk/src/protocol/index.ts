@@ -46,7 +46,6 @@ export type {
   CardCommit,
   CardCommitEvent,
   CardCommitFile,
-  CardContentChangedEvent,
   CardCreatedEvent,
   CardCreateGates,
   CardDeletedEvent,

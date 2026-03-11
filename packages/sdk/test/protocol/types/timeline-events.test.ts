@@ -297,8 +297,6 @@ describe('timeline event types', () => {
         switch (event.type) {
           case 'card:created':
             return 'card-created';
-          case 'card:contentChanged':
-            return 'card-content';
           case 'card:deleted':
             return 'card-deleted';
           case 'comment:created':

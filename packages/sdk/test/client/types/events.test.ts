@@ -51,14 +51,6 @@ describe('Event Types', () => {
       expect(event.title).toBe('Test');
     });
 
-    it('should have card:contentChanged event type', () => {
-      const event: EventMap['card:contentChanged'] = {
-        type: 'card:contentChanged',
-        cardId: 'card-456'
-      };
-      expect(event.cardId).toBe('card-456');
-    });
-
     it('should have comment:created event type', () => {
       const event: EventMap['comment:created'] = {
         type: 'comment:created',
@@ -72,7 +64,6 @@ describe('Event Types', () => {
     it('should have cards:metadata in event map', () => {
       const eventKeys: Array<keyof EventMap> = [
         'cards:metadata',
-        'card:contentChanged',
         'card:deleted',
         'comment:created',
         'timeline:comment:added',
@@ -84,7 +75,7 @@ describe('Event Types', () => {
         'timeline:commit:added',
         'timeline:commit:removed'
       ];
-      expect(eventKeys).toHaveLength(12);
+      expect(eventKeys).toHaveLength(11);
     });
 
     it('should have timeline:comment:added event type', () => {

@@ -99,7 +99,6 @@ export type {
   AttachmentAddedEvent,
   AttachmentRemovedEvent,
   CardCommitEvent,
-  CardContentChangedEvent,
   CardCreatedEvent,
   CardDeletedEvent,
   CardIncomingRelationsChangedEvent,
