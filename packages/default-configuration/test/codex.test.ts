@@ -160,7 +160,7 @@ describe('codex action', () => {
     expect(args).toContain('/test/repo');
     expect(args).toContain('--config');
     expect(args).toContain(
-      'skills.config=[{path="/test/extension/dist/marketplace/.agents/skills/cards-runtime",enabled=true}]'
+      'skills.config=[{path="/test/extension/dist/marketplace/.agents/skills/cards-runtime/SKILL.md",enabled=true}]'
     );
     expect(args[args.length - 1]).toBe('Load the `cards-runtime` skill and continue work on the card');
 

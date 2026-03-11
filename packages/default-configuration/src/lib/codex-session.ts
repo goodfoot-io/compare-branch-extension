@@ -36,7 +36,7 @@ export interface CodexSessionOptions {
  * @returns Absolute path to the packaged cards-runtime skill directory.
  */
 export function resolveCodexSkillPath(marketplacePath: string): string {
-  return path.join(marketplacePath, '.agents', 'skills', 'cards-runtime');
+  return path.join(marketplacePath, '.agents', 'skills', 'cards-runtime', 'SKILL.md');
 }
 
 /**
