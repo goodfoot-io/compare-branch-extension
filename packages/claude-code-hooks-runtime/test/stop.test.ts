@@ -85,7 +85,7 @@ describe('Stop Hook', () => {
       expect(stdout.systemMessage).toContain('no HEAD SHA');
     });
 
-    it('approves when no commits since HEAD SHA', async () => {
+    it('approves quietly when no commits since HEAD SHA', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue('');
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -96,10 +96,10 @@ describe('Stop Hook', () => {
       expect(result).toHaveProperty('_type', 'Stop');
       const stdout = result.stdout as { decision?: string; systemMessage?: string };
       expect(stdout.decision).toBe('approve');
-      expect(stdout.systemMessage).toContain('no commits since session start');
+      expect(stdout.systemMessage).toBeUndefined();
     });
 
-    it('approves when all commits are attributed to session', async () => {
+    it('approves quietly when all commits are attributed to session', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockReturnValue(`${SHA_1}\n${SHA_2}\n`);
       mockGetSessionCommits.mockReturnValue([SHA_1, SHA_2]);
@@ -111,14 +111,14 @@ describe('Stop Hook', () => {
       expect(result).toHaveProperty('_type', 'Stop');
       const stdout = result.stdout as { decision?: string; systemMessage?: string };
       expect(stdout.decision).toBe('approve');
-      expect(stdout.systemMessage).toContain('all 2 commits attributed');
+      expect(stdout.systemMessage).toBeUndefined();
     });
 
     it('blocks with stat content when unattributed commits exist', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h %an: %s') return 'stat content here';
+        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'stat content here';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -138,7 +138,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h %an: %s') return 'stat content';
+        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -193,7 +193,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_1}\n${SHA_2}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h %an: %s') return 'all changes stat';
+        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'all changes stat';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([]);
@@ -213,7 +213,8 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h %an: %s') throw new Error('repository corrupted');
+        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s')
+          throw new Error('repository corrupted');
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -235,7 +236,7 @@ describe('Stop Hook', () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
         if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h %an: %s') return 'stat content';
+        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'stat content';
         return '';
       });
       mockGetSessionCommits.mockReturnValue([SHA_1]);

@@ -83,7 +83,7 @@ describe('buildCardBlock', () => {
 
     expect(result).toContain('id="test-1"');
     expect(result).toContain('status="in_progress"');
-    expect(result).toContain('Test card title');
+    expect(result).toContain('title: Test card title');
     expect(result).toContain('planRequired=true');
     expect(result).toContain('planApproved=true');
     expect(result).toContain('reviewRequired=true');
@@ -229,12 +229,13 @@ describe('buildCardRepoLogBlock', () => {
     expect(result).toBeNull();
   });
 
-  it('uses diffstat output instead of patch', () => {
+  it('uses diffstat file paths without line counts', () => {
     const result = buildCardRepoLogBlock(repoPath);
 
     expect(result).not.toBeNull();
     expect(result).not.toContain('diff --git');
-    expect(result).toMatch(/\|\s+\d+/); // diffstat line like "README.md | 1 +"
+    // File paths appear but without " | N +/-" line counts
+    expect(result).not.toMatch(/\|\s+\d+/);
   });
 
   describe('.gitignore filtering', () => {

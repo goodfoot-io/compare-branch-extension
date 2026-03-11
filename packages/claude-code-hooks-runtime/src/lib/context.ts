@@ -134,7 +134,7 @@ export function buildCardBlock(actionInput: ActionInput): string {
   if (workspaceBranch) envLines.push(`  WORKSPACE_BRANCH=${workspaceBranch}`);
 
   const bodyLines: string[] = [];
-  if (title) bodyLines.push(title);
+  if (title) bodyLines.push(`title: ${title}`);
   bodyLines.push('');
   if (gatesLine) bodyLines.push(gatesLine);
   bodyLines.push('env:');
@@ -269,6 +269,7 @@ export function stripDiffstatSummaries(text: string): string {
   return text
     .split('\n')
     .filter((line) => !/^\s*\d+ files? changed/.test(line))
+    .map((line) => line.replace(/\s+\|\s+(\d+\s*[+-]*|Bin\s+.*)$/, ''))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -301,7 +302,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
       [
         'log',
         `-${MAX_CARD_REPO_LOG_COMMITS}`,
-        '--pretty=format:%x00%h %an: %s',
+        '--pretty=format:%x00%h - %an: %s',
         '--stat',
         '--',
         '.',
@@ -487,7 +488,7 @@ function filterResolvableShas(workspacePath: string, shas: string[]): string[] {
 function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[]): string | null {
   if (shas.length === 0) return null;
   try {
-    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h %s', '--stat', ...shas], {
+    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h - %s', '--stat', ...shas], {
       cwd: workspacePath,
       encoding: 'utf-8',
       timeout: 5000,
