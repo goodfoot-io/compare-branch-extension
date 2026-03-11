@@ -72,7 +72,7 @@
         "claude-code-session": {
           "version": 1,
           "transform": {
-            "path": "bin/claude-code-session.0d7c503f.mjs"
+            "path": "bin/claude-code-session.7ee93c7d.mjs"
           },
           "maxLineLength": 1048576
         }
@@ -88,7 +88,7 @@
       "adaptive-card-validator.a5f697af.mjs",
       "adaptive-card-submission-validator.b4bc6b87.mjs",
       "note-validator.56643e87.mjs",
-      "claude-code-session.0d7c503f.mjs"
+      "claude-code-session.7ee93c7d.mjs"
     ]
   }
 }
