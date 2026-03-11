@@ -58,73 +58,7 @@ git commit -m "[single sentence summarizing what feedback was incorporated into 
 
 ## 3. Assess Revised Plan
 
-### 3.1 Launch Assessment Subagents
-
-Launch both assessments in parallel (one message):
-
-```xml
-<invoke name="Agent">
-  <parameter name="description">Structural Assessment</parameter>
-  <parameter name="subagent_type">runtime:card:plan-assessor</parameter>
-  <parameter name="prompt">
-1. Read the plan from PLAN.md in the card repository.
-2. Assess the plan and post a report per your instructions.
-</parameter>
-</invoke>
-
-<invoke name="Agent">
-  <parameter name="description">Strategic Assessment</parameter>
-  <parameter name="subagent_type">runtime:card:plan-refactor</parameter>
-  <parameter name="prompt">
-1. Read the plan from PLAN.md in the card repository.
-2. Assess the plan and post a report per your instructions.
-</parameter>
-</invoke>
-```
-
-### 3.2 Collect Assessment Results
-
-Use `TaskOutput` to retrieve results from the Structural Assessment and Strategic Assessment tasks launched above. Both results must be present before proceeding.
-
-### 3.3 Priority Reference
-
-- **CRITICAL/RECONSIDER**: Must be addressed before implementation
-- **HIGH/CONCERNS**: Should be addressed or explicitly accepted
-- **MEDIUM**: Implementation clarity, risk coverage, dependency analysis
-- **LOW**: Style suggestions, format variations
-
-### 3.4 Interpret and Act
-
-Based on combined assessment results:
-
-- **Ready: Yes AND READY**: Proceed to **4. Submit for Re-Approval**
-- **Ready: Yes AND GAPS**: Incorporate GAPS findings into PLAN.md (return to **2.2 Incorporate Feedback**) — gaps are missing specs, not accepted tradeoffs
-- **Ready: Yes AND RECONSIDER**: Treat as "Not Ready" — address strategic issues
-- **Ready: Yes (suggestions) AND READY**: Proceed with awareness of suggestions
-- **Ready: No**: Address structural issues first
-- **RECONSIDER (any Ready state)**: Address strategic issues before proceeding
-
-#### After Both Assessments Complete (Always)
-
-1. **Resolve questions through research**
-2. **Surface considerations visibly** as you work through them
-3. **Track subjective decisions**: Collect design choices and judgment calls (not factual resolutions like "Is X compatible with Y?") for inclusion in the process comment. These help reviewers know where to focus.
-4. **Make decisions** for non-blocking issues and document them in the plan revision
-5. **Only ask the user** for blocking issues or intent clarity
-6. **Determine next action** based on combined results (see decision table above)
-
-#### If Either Assessment Fails (Ready: No OR CRITICAL/RECONSIDER OR HIGH/MEDIUM/CONCERNS issues)
-
-Return to **2.2 Incorporate Feedback** and revise.
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-# Assessment failed — revise PLAN.md per findings above, then re-run section 3.1 Launch Assessment Subagents
-```
-
-#### If Both Assessments Pass (Ready: Yes + READY)
-
-Proceed to **4. Submit for Re-Approval**
+Load the `runtime:card-plan-evaluation` skill and follow its instructions.
 
 ## 4. Submit for Re-Approval
 

@@ -80,7 +80,7 @@ git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-
 
 ## 3. Assess Plan
 
-Load the `runtime:card-assess-plan` skill and follow its instructions.
+Load the `runtime:card-plan-evaluation` skill and follow its instructions.
 
 ## 4. Submit for Approval
 
