@@ -14,6 +14,16 @@
           "supportsBackgroundMode": true
         },
         {
+          "id": "codex",
+          "name": "Codex",
+          "command": {
+            "command": "$VSCODE_NODE ./bin/codex.db8c6048.mjs",
+            "timeout": 3600000
+          },
+          "description": "Start a Codex session for the card",
+          "supportsBackgroundMode": false
+        },
+        {
           "id": "interview",
           "name": "Interview",
           "command": {
@@ -72,6 +82,7 @@
   "__generated": {
     "files": [
       "launch.6353c21e.mjs",
+      "codex.db8c6048.mjs",
       "interview.d6152b9c.mjs",
       "chat.7aa78d11.mjs",
       "adaptive-card-validator.a5f697af.mjs",
