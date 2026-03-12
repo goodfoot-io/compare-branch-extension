@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-DISCOVERY_FILE="$HOME/.cards/cards-api.json"
+DISCOVERY_FILE="${CARDS_DISCOVERY_PATH:-$HOME/.cards/cards-api.json}"
 
 # Check if discovery file exists
 if [ ! -f "$DISCOVERY_FILE" ]; then

@@ -185,6 +185,54 @@ describe('api-discovery', () => {
       const info = await discoverApiInfo(mockLogger);
       expect(info).toBeNull();
     });
+
+    it('should use CARDS_DISCOVERY_PATH when set', async () => {
+      // Create a custom discovery path
+      const customDir = join(testDir, 'edh-test');
+      mkdirSync(customDir, { recursive: true });
+      const customPath = join(customDir, 'cards-api.json');
+      writeFileSync(
+        customPath,
+        JSON.stringify({
+          host: '127.0.0.1',
+          port: 8888,
+          pid: 12345,
+          accessToken: 'edh-token',
+          startedAt: '2024-01-01T00:00:00Z'
+        })
+      );
+      process.env['CARDS_DISCOVERY_PATH'] = customPath;
+
+      const info = await discoverApiInfo(mockLogger);
+      expect(info).toMatchObject({
+        host: '127.0.0.1',
+        port: 8888,
+        accessToken: 'edh-token'
+      });
+    });
+
+    it('should fall back to default path when CARDS_DISCOVERY_PATH is not set', async () => {
+      delete process.env['CARDS_DISCOVERY_PATH'];
+      const cardsDir = join(testDir, '.cards');
+      mkdirSync(cardsDir, { recursive: true });
+      writeFileSync(
+        join(cardsDir, 'cards-api.json'),
+        JSON.stringify({
+          host: 'localhost',
+          port: 7777,
+          pid: 11111,
+          accessToken: 'default-token',
+          startedAt: '2024-01-01T00:00:00Z'
+        })
+      );
+
+      const info = await discoverApiInfo(mockLogger);
+      expect(info).toMatchObject({
+        host: 'localhost',
+        port: 7777,
+        accessToken: 'default-token'
+      });
+    });
   });
 
   describe('createCardsClient', () => {

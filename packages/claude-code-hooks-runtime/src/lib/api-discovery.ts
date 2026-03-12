@@ -40,7 +40,7 @@ export async function discoverApiInfo(logger?: Logger): Promise<CardsApiInfo | n
     };
   }
 
-  const configPath = join(homedir(), '.cards', 'cards-api.json');
+  const configPath = process.env['CARDS_DISCOVERY_PATH'] ?? join(homedir(), '.cards', 'cards-api.json');
   try {
     const content = await readFile(configPath, 'utf-8');
     const config = JSON.parse(content) as Record<string, unknown>;
