@@ -33,11 +33,6 @@ Assess plan structural compliance.
 ## Workspace
 !` echo $WORKSPACE_PATH`
 
-## Prior Findings
-[PRIOR_FINDINGS]
-
-When `[PRIOR_FINDINGS]` is non-empty: prior findings are evidence that this plan has systematic gaps — issues cluster. Apply every structural check with heightened scrutiny. The goal is to surface all remaining issues in this pass so the plan can be fixed completely rather than incrementally.
-
 Read the plan from PLAN.md in the card repository. Assess the plan and send a report per your instructions.
 
 You are a teammate in a plan evaluation team. The strategic evaluator ("strategy-evaluator") is evaluating alongside you. Share noteworthy findings that affect design or integration via SendMessage.
@@ -58,11 +53,6 @@ Evaluate plan design and completeness.
 ## Workspace
 !` echo $WORKSPACE_PATH`
 
-## Prior Findings
-[PRIOR_FINDINGS]
-
-When `[PRIOR_FINDINGS]` is non-empty: prior findings are evidence that this plan has systematic gaps — issues cluster. Apply every evaluation dimension with heightened scrutiny. The goal is to surface all remaining issues in this pass so the plan can be fixed completely rather than incrementally.
-
 1. Read the plan from PLAN.md in the card repository.
 2. Verify plan claims against workspace source files (callers, consumers, producers, imports).
 3. Assess the plan and send a report per your instructions.
@@ -78,14 +68,21 @@ Wait for both agents to complete their initial evaluations and deliver reports.
 
 ## 3. Interpret and Act
 
-The structural evaluator returns **"Ready for Implementation: Yes/No"** with issues categorized as CRITICAL/HIGH/MEDIUM/LOW. The strategic evaluator returns an **"Overall Assessment: READY/GAPS/RECONSIDER"**.
+The structural evaluator returns **"Ready for Implementation: Yes/No"** with issues categorized as CRITICAL/HIGH/MEDIUM/LOW. The strategic evaluator returns an **"Overall Assessment: READY/GAPS/RECONSIDER"**. On revision rounds, both evaluators tag each finding with provenance: `[NEW]`, `[PRIOR-UNRESOLVED]`, `[PRIOR-REGRESSED]`, or `[RESOLVED]`.
 
-Apply the first matching condition:
+#### Convergence Check
 
-1. **Structural evaluator returns "No"**: Revise PLAN.md to address the structural issues, then proceed to **4. Send Revision to Team** — structural issues must be fixed before design evaluation matters.
-2. **Strategic evaluator returns RECONSIDER**: Revise PLAN.md to address the fundamental design findings, then proceed to **4. Send Revision to Team**.
-3. **Structural evaluator returns "Yes" AND Strategic evaluator returns GAPS**: Incorporate the GAPS findings into PLAN.md, then proceed to **4. Send Revision to Team** — gaps are missing specs and must be filled before implementation.
-4. **Structural evaluator returns "Yes" AND Strategic evaluator returns READY**: Proceed to **5. Shut Down Team**.
+The loop converges when **both** of these are true:
+
+1. Both evaluators return positive verdicts (structural: "Yes", strategic: READY)
+2. Neither report contains `[NEW]` or `[PRIOR-UNRESOLVED]` findings — only `[RESOLVED]` tags remain
+
+If either condition fails, revision is required. Apply the first matching condition to determine priority:
+
+1. **Structural evaluator returns "No"**: Revise PLAN.md to address the structural issues first — structural issues must be fixed before design evaluation matters.
+2. **Strategic evaluator returns RECONSIDER**: Revise PLAN.md to address the fundamental design findings.
+3. **Strategic evaluator returns GAPS or either report contains `[NEW]` findings**: Incorporate findings into PLAN.md — new findings from deeper review rounds are gaps that must be filled before implementation.
+4. **Converged**: Proceed to **5. Shut Down Team**.
 
 #### After Both Assessments Complete (Always)
 
@@ -108,31 +105,43 @@ git commit -m "[single sentence summarizing what assessment findings were addres
 
 ## 4. Send Revision to Team
 
-Send revision notifications to both evaluators with their prior findings:
+Send revision notifications to both evaluators with cross-pollinated context — each receives their own prior findings plus the other evaluator's findings from the same round:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="recipient">structure-evaluator</parameter>
 <parameter name="content">
-PLAN.md has been revised. Please re-evaluate.
+PLAN.md has been revised. Re-evaluate per your deepening protocol.
 
 ## Revision Summary
 [Brief description of what changed in this revision]
 
 ## Your Prior Findings
 [Paste the structural evaluator's previous report]
+
+## Strategy Evaluator's Findings (This Round)
+[Paste the strategic evaluator's previous report]
+
+## Previously Passing Areas
+[List structural checks that returned clean results in the prior round — these are areas to re-examine given the plan has changed]
 </parameter>
 </invoke>
 <invoke name="SendMessage">
 <parameter name="recipient">strategy-evaluator</parameter>
 <parameter name="content">
-PLAN.md has been revised. Please re-evaluate.
+PLAN.md has been revised. Re-evaluate per your deepening protocol.
 
 ## Revision Summary
 [Brief description of what changed in this revision]
 
 ## Your Prior Findings
 [Paste the strategic evaluator's previous report]
+
+## Structure Evaluator's Findings (This Round)
+[Paste the structural evaluator's previous report]
+
+## Previously Passing Areas
+[List principles and completeness dimensions that returned SOUND/PASS in the prior round — these are areas to re-examine given the plan has changed]
 </parameter>
 </invoke>
 ```
