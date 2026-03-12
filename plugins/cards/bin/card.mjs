@@ -1175,7 +1175,7 @@ async function discoverApiInfo(logger) {
       startedAt: "2024-01-01T00:00:00Z"
     };
   }
-  const configPath = join2(homedir2(), ".cards", "cards-api.json");
+  const configPath = process.env["CARDS_DISCOVERY_PATH"] ?? join2(homedir2(), ".cards", "cards-api.json");
   try {
     const content = await readFile2(configPath, "utf-8");
     const config = JSON.parse(content);
