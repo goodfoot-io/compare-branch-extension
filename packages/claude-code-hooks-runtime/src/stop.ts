@@ -19,10 +19,26 @@ import { execFileSync } from 'node:child_process';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
+import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { stripDiffstatSummaries } from './lib/context.js';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
+
+/**
+ * Git pathspec exclusions for system-managed bookkeeping files.
+ *
+ * These files are modified by the HybridStore in response to workspace
+ * post-commit hook API calls — they are not external changes. Excluding
+ * them is consistent with the existing `streams/claude-code-session/`
+ * exclusion: commits that only touch these paths are not flagged as
+ * unattributed.
+ */
+const PATHSPEC_EXCLUSIONS = [
+  ':!streams/claude-code-session/',
+  `:!${WORKSPACE_COMMITS_FILE}`,
+  `:!${WORKSPACE_BRANCHES_FILE}`
+];
 
 /**
  * Error thrown when `git log` fails to list commits since a baseline SHA.
@@ -66,8 +82,8 @@ function assertValidSha(sha: string, label: string): void {
 
 /**
  * Returns all commit SHAs between sinceSha and HEAD in the given repo,
- * excluding commits that only touch files under `streams/claude-code-session/`.
- * Runs: git log --format=%H sinceSha..HEAD -- . :!streams/claude-code-session/
+ * excluding commits that only touch system-managed bookkeeping paths
+ * (session streams, workspace-commits.csv, workspace-branches.json).
  *
  * @param repoPath - Card repository path where git commands should execute.
  * @param sinceSha - Baseline SHA captured at session start.
@@ -78,16 +94,12 @@ export function getCommitsSince(repoPath: string, sinceSha: string): string[] {
   assertValidSha(sinceSha, 'since SHA');
 
   try {
-    const output = execFileSync(
-      'git',
-      ['log', '--format=%H', `${sinceSha}..HEAD`, '--', '.', ':!streams/claude-code-session/'],
-      {
-        cwd: repoPath,
-        encoding: 'utf-8',
-        timeout: 10000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      }
-    ).trim();
+    const output = execFileSync('git', ['log', '--format=%H', `${sinceSha}..HEAD`, '--', '.', ...PATHSPEC_EXCLUSIONS], {
+      cwd: repoPath,
+      encoding: 'utf-8',
+      timeout: 10000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
     if (!output) return [];
     const shas = output.split('\n');
     for (const sha of shas) {
@@ -226,7 +238,7 @@ export default stopHook({}, async (input, { logger }) => {
         ...unattributed,
         '--',
         '.',
-        ':!streams/claude-code-session/'
+        ...PATHSPEC_EXCLUSIONS
       ],
       {
         cwd: actionInput.cardRepoPath,
@@ -245,7 +257,7 @@ export default stopHook({}, async (input, { logger }) => {
       `Error: ${message}`,
       '',
       'To view manually:',
-      `  git -C ${actionInput.cardRepoPath} log --stat ${unattributed.join(' ')} -- . ':!streams/claude-code-session/'`
+      `  git -C ${actionInput.cardRepoPath} log --stat ${unattributed.join(' ')} -- . ${PATHSPEC_EXCLUSIONS.map((p) => `'${p}'`).join(' ')}`
     ].join('\n');
     warnings.push(`Stat generation failed: ${message}`);
   }
