@@ -47,6 +47,8 @@ export class EventSubscriber {
   private callbacks: Map<string, Set<EventCallback<keyof EventMap>>> = new Map();
   private shouldReconnect: boolean = false;
   private exhaustionCallbacks: Set<() => void> = new Set();
+  private connectionChangeCallbacks: Set<(connected: boolean) => void> = new Set();
+  private hasConnected: boolean = false;
   private readonly maxReconnectAttempts: number;
 
   private readonly defaultWsFactory: WebSocketFactory = {
@@ -143,6 +145,22 @@ export class EventSubscriber {
   }
 
   /**
+   * Registers a callback invoked when the connection state changes.
+   *
+   * Callbacks are only invoked after the first successful connection. This
+   * prevents a spurious `false` during the initial connection attempt.
+   *
+   * @param callback - Function called with `true` on connect, `false` on disconnect.
+   * @returns Unsubscribe function to remove this callback.
+   */
+  onConnectionChange(callback: (connected: boolean) => void): () => void {
+    this.connectionChangeCallbacks.add(callback);
+    return () => {
+      this.connectionChangeCallbacks.delete(callback);
+    };
+  }
+
+  /**
    * Connects to the WebSocket server and starts listening for events.
    *
    * The access token is appended as a `?token=` query parameter when provided.
@@ -175,8 +193,12 @@ export class EventSubscriber {
 
       const onOpen = (): void => {
         this.connected = true;
+        this.hasConnected = true;
         this.reconnectAttempts = 0;
         cleanup();
+        for (const cb of this.connectionChangeCallbacks) {
+          cb(true);
+        }
         resolve();
       };
 
@@ -189,6 +211,11 @@ export class EventSubscriber {
       ws.addEventListener('error', onError);
       ws.addEventListener('close', () => {
         this.connected = false;
+        if (this.hasConnected) {
+          for (const cb of this.connectionChangeCallbacks) {
+            cb(false);
+          }
+        }
         if (this.shouldReconnect) {
           this.scheduleReconnect();
         }

@@ -605,6 +605,114 @@ describe('EventSubscriber', () => {
     });
   });
 
+  describe('Connection Change Callbacks', () => {
+    let setTimeoutSpy: MockInstance;
+    let warnSpy: MockInstance;
+
+    beforeEach(() => {
+      setTimeoutSpy = vi.spyOn(global, 'setTimeout');
+      warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      setTimeoutSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    it('should call callback with true when connection opens', async () => {
+      const wsFactory = new MockWebSocketFactory();
+      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+
+      const states: boolean[] = [];
+      subscriber.onConnectionChange((connected) => states.push(connected));
+
+      const connectPromise = subscriber.connect();
+      wsFactory.latest.simulateOpen();
+      await connectPromise;
+
+      expect(states).toEqual([true]);
+
+      subscriber.disconnect();
+    });
+
+    it('should call callback with false when connection drops after successful connect', async () => {
+      const wsFactory = new MockWebSocketFactory();
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 }, wsFactory);
+
+      const states: boolean[] = [];
+      subscriber.onConnectionChange((connected) => states.push(connected));
+
+      const connectPromise = subscriber.connect();
+      wsFactory.latest.simulateOpen();
+      await connectPromise;
+
+      wsFactory.latest.simulateClose();
+
+      expect(states).toEqual([true, false]);
+
+      subscriber.disconnect();
+    });
+
+    it('should not fire false callback before first successful connection', async () => {
+      const wsFactory = new MockWebSocketFactory();
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 }, wsFactory);
+
+      const states: boolean[] = [];
+      subscriber.onConnectionChange((connected) => states.push(connected));
+
+      const connectPromise = subscriber.connect();
+      // Simulate error before ever connecting successfully
+      wsFactory.latest.simulateError();
+
+      await expect(connectPromise).rejects.toThrow();
+
+      // The close event from error should NOT trigger a false callback
+      expect(states).toEqual([]);
+    });
+
+    it('should allow unsubscribing via returned function', async () => {
+      const wsFactory = new MockWebSocketFactory();
+      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+
+      const states: boolean[] = [];
+      const unsubscribe = subscriber.onConnectionChange((connected) => states.push(connected));
+
+      unsubscribe();
+
+      const connectPromise = subscriber.connect();
+      wsFactory.latest.simulateOpen();
+      await connectPromise;
+
+      expect(states).toEqual([]);
+
+      subscriber.disconnect();
+    });
+
+    it('should call callback with true on successful reconnection after drop', async () => {
+      const wsFactory = new MockWebSocketFactory();
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 3 }, wsFactory);
+
+      const states: boolean[] = [];
+      subscriber.onConnectionChange((connected) => states.push(connected));
+
+      const connectPromise = subscriber.connect();
+      wsFactory.latest.simulateOpen();
+      await connectPromise;
+
+      // Drop connection
+      wsFactory.latest.simulateClose();
+
+      // Trigger reconnect via timeout callback
+      getLastTimeoutCallback(setTimeoutSpy)();
+      // Reconnect succeeds
+      wsFactory.latest.simulateOpen();
+
+      expect(states).toEqual([true, false, true]);
+
+      subscriber.disconnect();
+    });
+  });
+
   describe('Integration with TestWebSocketServer', () => {
     let server: TestWebSocketServer;
     let warnSpy: MockInstance;
