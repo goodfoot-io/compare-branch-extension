@@ -82,25 +82,7 @@ git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-
 
 Load the `runtime:card-plan-evaluation` skill and follow its instructions.
 
-## 4. Submit for Approval
-
-**Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
-
-Focus on what the reviewer cannot see: your reasoning process, what you learned, where you made judgment calls, and where you are less certain. Mention the plan version and any spike investigations performed — what was tested, what was confirmed or disproven, and spike artifact paths for reviewer inspection. Surface decisions as questions with your selected answer inline when the right path was not obvious.
-
-Include surprises, dead ends, assumptions, or risks when they would help the reviewer focus their attention. Write naturally — only include what is genuinely useful for this specific plan.
-
-Write the comment to the card repository. Commit to the card repository:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[reasoning process, what was learned during research, judgment calls made, areas of uncertainty, and what the reviewer should focus on]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing the plan's reasoning process and key judgment calls]"  # <card-repo-commit-style>
-```
+## 4. Stop and Wait for Approval
 
 **STOP** — Wait for user feedback on plan.
 

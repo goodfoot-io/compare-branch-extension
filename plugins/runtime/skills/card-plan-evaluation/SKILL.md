@@ -88,10 +88,8 @@ If either condition fails, revision is required. Apply the first matching condit
 
 1. **Resolve questions through research** — route empirically-testable uncertainties to spike investigation before revising
 2. **Surface considerations visibly** as you work through them
-3. **Track subjective decisions**: Collect design choices and judgment calls (not factual resolutions like "Is X compatible with Y?") for inclusion in the process comment. These help reviewers know where to focus.
-4. **Incorporate process artifacts** from both evaluators (judgment calls, surprises, uncertainty) into your reasoning — these inform the process comment in the implementation workflow.
-5. **Make decisions** for non-blocking issues and document them in the plan revision
-6. **Only ask the user** for blocking issues or intent clarity
+3. **Make decisions** for non-blocking issues and document them in the plan revision
+4. **Only ask the user** for blocking issues or intent clarity
 
 #### If Revision Required (Condition 1, 2, or 3)
 
