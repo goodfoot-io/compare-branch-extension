@@ -6,7 +6,15 @@
  * @module sdk/CardsClient
  */
 
-import type { Card, CompareRequest, CompareState, HttpClient, StreamMeta, TimelineItem } from '../protocol/index.js';
+import type {
+  ActionResult,
+  Card,
+  CompareRequest,
+  CompareState,
+  HttpClient,
+  StreamMeta,
+  TimelineItem
+} from '../protocol/index.js';
 import type {
   AddBranchRequest,
   AttachmentResponse,
@@ -1012,6 +1020,22 @@ export class CardsClient {
         };
       }
     };
+  }
+
+  // --- Action Operations ---
+
+  /**
+   * Executes an action on a card via the server relay.
+   *
+   * @param cardId - Identifier of the card to execute the action on.
+   * @param actionName - Action identifier (e.g., 'launch').
+   * @returns Promise resolving to the action execution result.
+   * @throws ApiError when the server rejects the request.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async executeAction(cardId: string, actionName: string): Promise<ActionResult> {
+    const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
+    return this.request(() => this.getHttpClient().post<ActionResult>(url, undefined));
   }
 
   // --- Compare Operations ---

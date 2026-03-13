@@ -70,16 +70,22 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create --workspace-path "$REPO_ROOT" <<'
 EOF
 ```
 
-**Start a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
+**Attach a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs start <card-id>
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs attach <card-id>
 ```
-Always call `start` before your first code change on a card. This establishes commit attribution.
+Always call `attach` before your first code change on a card. This establishes commit attribution.
 
-**Stop a session** — Disassociate this Claude session from its card:
+**Detach a session** — Disassociate this Claude session from its card:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs stop
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs detach
 ```
+
+**Execute an action** — Execute an action on a card via the server relay:
+```
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> action <action-id>
+```
+The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
 ### notification.mjs — Send notifications
 

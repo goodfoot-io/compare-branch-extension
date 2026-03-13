@@ -591,6 +591,23 @@ describe('CardsClient', () => {
     });
   });
 
+  describe('Action Operations', () => {
+    it('executeAction sends POST to /cards/:id/actions/:name and returns ActionResult', async () => {
+      const httpClient = new TestHttpClient();
+      const expectedResult = { success: true, exitCode: 0 };
+      httpClient.responses.set('http://localhost:3000/cards/card-123/actions/launch', expectedResult);
+      const client = new CardsClient(options, httpClient);
+
+      const result = await client.executeAction('card-123', 'launch');
+
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'POST',
+        url: expect.stringContaining('/cards/card-123/actions/launch')
+      });
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
   describe('Compare Operations', () => {
     it('should POST /compare with branch-range request body', async () => {
       const httpClient = new TestHttpClient();

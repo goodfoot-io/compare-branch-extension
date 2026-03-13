@@ -1116,6 +1116,20 @@ var CardsClient = class {
       }
     };
   }
+  // --- Action Operations ---
+  /**
+   * Executes an action on a card via the server relay.
+   *
+   * @param cardId - Identifier of the card to execute the action on.
+   * @param actionName - Action identifier (e.g., 'launch').
+   * @returns Promise resolving to the action execution result.
+   * @throws ApiError when the server rejects the request.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async executeAction(cardId, actionName) {
+    const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
+    return this.request(() => this.getHttpClient().post(url, void 0));
+  }
   // --- Compare Operations ---
   /**
    * Sets or replaces the active comparison on the server.
@@ -1201,19 +1215,20 @@ async function discoverApiInfo(logger) {
 var SHA_PATTERN = /^[0-9a-f]{40}$/i;
 var HELP = `Usage: card.mjs [options] <command>
 
-Read, create, list, start, and stop card sessions via the Cards API.
+Read, create, list, attach, and detach card sessions via the Cards API.
 Locates the server through ~/.cards/cards-api.json, executes the command,
 and prints the resulting Card JSON to stdout.
 
 Options:
-  -h, --help       Show this help text
+  -h, --help        Show this help text
 
 Commands:
-  <card-id>        Fetch a card by its identifier
-  create           Create a card from JSON on stdin
-  list [options]   List cards with optional filters
-  start <card-id>  Associate this Claude session with a card
-  stop             Disassociate this Claude session from its card
+  <card-id>                      Fetch a card by its identifier
+  create                         Create a card from JSON on stdin
+  list [options]                 List cards with optional filters
+  attach <card-id>               Associate this Claude session with a card
+  detach                         Disassociate this Claude session from its card
+  <card-id> action <action-id>  Execute an action on a card
 
 Get:
   Pass a card identifier as the sole argument. The full Card object is
@@ -1241,7 +1256,7 @@ List:
   Options:
     --workspace-path <path>  Workspace root (default: git rev-parse --show-toplevel)
     --status <status>        Filter by status (todo, in_progress, needs_review, done, backlog, archived)
-    --tag <tag>              Filter by tag
+    --tag <tag>              Filter by tag (repeatable: --tag bug --tag feature)
     --search <query>         Full-text search in title and description
     --limit <n>              Maximum number of results
     --offset <n>             Pagination offset
@@ -1250,19 +1265,27 @@ List:
     card.mjs list
     card.mjs list --status in_progress
     card.mjs list --tag bug --limit 10
+    card.mjs list --tag bug --tag feature
 
-Start:
+Attach:
   Associates the current Claude process with a card in the session registry.
   Optionally registers the workspace branch and flushes any pending commits.
 
   Examples:
-    card.mjs start main-0001
+    card.mjs attach main-0001
 
-Stop:
+Detach:
   Removes the current Claude process from the session registry.
 
   Examples:
-    card.mjs stop
+    card.mjs detach
+
+Action:
+  Executes an action on a card via the server relay. The action ID is
+  the lowercase identifier from the action definition (e.g., "launch").
+
+  Examples:
+    card.mjs <card-id> action launch
 
 Exit codes:
   0  Success
@@ -1337,7 +1360,7 @@ async function createCard(args) {
   const flags = parseFlags(args);
   const raw = await readStdin();
   const data = parseCardCreateInput(raw);
-  const client = await connectClient(flags["workspace-path"]);
+  const client = await connectClient(flags["workspace-path"]?.[0]);
   const card = await client.createCard(data);
   console.log(JSON.stringify(card, null, 2));
 }
@@ -1359,30 +1382,35 @@ function parseFlags(args) {
     if (value === void 0) {
       throw new Error(`flag ${arg} requires a value`);
     }
-    flags[key] = value;
+    const existing = flags[key];
+    if (existing) {
+      existing.push(value);
+    } else {
+      flags[key] = [value];
+    }
   }
   return flags;
 }
 async function listCards(args) {
   const flags = parseFlags(args);
-  const client = await connectClient(flags["workspace-path"]);
+  const client = await connectClient(flags["workspace-path"]?.[0]);
   const options = {};
   if (flags["status"]) {
-    options.status = flags["status"];
+    options.status = flags["status"][0];
   }
   if (flags["tag"]) {
-    options.tags = [flags["tag"]];
+    options.tags = flags["tag"];
   }
   if (flags["search"]) {
-    options.search = flags["search"];
+    options.search = flags["search"][0];
   }
   if (flags["limit"]) {
-    const n = parseInt(flags["limit"], 10);
+    const n = parseInt(flags["limit"][0], 10);
     if (Number.isNaN(n) || n <= 0) throw new Error("--limit must be a positive integer");
     options.limit = n;
   }
   if (flags["offset"]) {
-    const n = parseInt(flags["offset"], 10);
+    const n = parseInt(flags["offset"][0], 10);
     if (Number.isNaN(n) || n < 0) throw new Error("--offset must be a non-negative integer");
     options.offset = n;
   }
@@ -1406,23 +1434,23 @@ function isAncestorOfHead(sha) {
   });
   return !result.error && result.status === 0;
 }
-async function startCard(cardId) {
+async function attachCard(cardId) {
   const pid = findClaudePid();
   if (!pid) {
     throw new Error("could not find Claude ancestor PID");
   }
   const pendingCommits = await associatePidWithCard(pid, cardId);
-  console.error(`card start: PID ${pid} associated with card ${cardId}`);
+  console.error(`card attach: PID ${pid} associated with card ${cardId}`);
   const client = await connectClient();
   const branch = getCurrentBranch();
   if (branch) {
     const branchData = { name: branch, parentBranch: branch };
     try {
       await client.addBranch(cardId, branchData);
-      console.error(`card start: registered branch ${branch}`);
+      console.error(`card attach: registered branch ${branch}`);
     } catch (error) {
       console.error(
-        `card start: branch registration failed: ${error instanceof Error ? error.message : String(error)}`
+        `card attach: branch registration failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -1434,25 +1462,30 @@ async function startCard(cardId) {
       flushedCount++;
     } catch (error) {
       console.error(
-        `card start: failed to flush commit ${sha}: ${error instanceof Error ? error.message : String(error)}`
+        `card attach: failed to flush commit ${sha}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
   if (pendingCommits.length > 0) {
-    console.error(`card start: flushed ${flushedCount}/${pendingCommits.length} pending commit(s)`);
+    console.error(`card attach: flushed ${flushedCount}/${pendingCommits.length} pending commit(s)`);
   }
   return { pid, cardId, branch, flushedCommits: flushedCount };
 }
-async function stopCard() {
+async function executeAction(cardId, actionName) {
+  const client = await connectClient();
+  const result = await client.executeAction(cardId, actionName);
+  console.log(JSON.stringify(result, null, 2));
+}
+async function detachCard() {
   const pid = findClaudePid();
   if (!pid) {
     throw new Error("could not find Claude ancestor PID");
   }
   const entry = await removePidEntry(pid);
   if (entry) {
-    console.error(`card stop: PID ${pid} disassociated from card ${entry.cardId ?? "(none)"}`);
+    console.error(`card detach: PID ${pid} disassociated from card ${entry.cardId ?? "(none)"}`);
   } else {
-    console.error(`card stop: PID ${pid} had no active association`);
+    console.error(`card detach: PID ${pid} had no active association`);
   }
   return { pid };
 }
@@ -1470,25 +1503,39 @@ if (process.argv[1]?.endsWith("card.mjs")) {
     case "list":
       run = listCards(process.argv.slice(3));
       break;
-    case "start": {
+    case "attach": {
       const cardId = process.argv[3];
       if (!cardId) {
-        console.error("card start: missing card ID argument");
+        console.error("card attach: missing card ID argument");
         process.exit(1);
       }
-      run = startCard(cardId).then((result) => {
+      run = attachCard(cardId).then((result) => {
         console.log(JSON.stringify({ success: true, ...result }));
       });
       break;
     }
-    case "stop":
-      run = stopCard().then((result) => {
+    case "detach":
+      run = detachCard().then((result) => {
         console.log(JSON.stringify({ success: true, ...result }));
       });
       break;
-    default:
-      run = getCard(command);
+    default: {
+      const verb = process.argv[3];
+      if (verb === "action") {
+        const actionId = process.argv[4];
+        if (!actionId) {
+          console.error("card action: missing action ID argument");
+          process.exit(1);
+        }
+        run = executeAction(command, actionId);
+      } else if (verb) {
+        console.error(`card: unknown verb "${verb}"`);
+        process.exit(1);
+      } else {
+        run = getCard(command);
+      }
       break;
+    }
   }
   run.catch((error) => {
     console.error("card:", error instanceof Error ? error.message : String(error));
@@ -1496,13 +1543,14 @@ if (process.argv[1]?.endsWith("card.mjs")) {
   });
 }
 export {
+  attachCard,
   connectClient,
   createCard,
+  detachCard,
+  executeAction,
   getCard,
   getCurrentBranch,
   isAncestorOfHead,
   listCards,
-  parseCardCreateInput,
-  startCard,
-  stopCard
+  parseCardCreateInput
 };

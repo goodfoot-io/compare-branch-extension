@@ -873,6 +873,20 @@ var CardsClient = class {
       }
     };
   }
+  // --- Action Operations ---
+  /**
+   * Executes an action on a card via the server relay.
+   *
+   * @param cardId - Identifier of the card to execute the action on.
+   * @param actionName - Action identifier (e.g., 'launch').
+   * @returns Promise resolving to the action execution result.
+   * @throws ApiError when the server rejects the request.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async executeAction(cardId, actionName) {
+    const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
+    return this.request(() => this.getHttpClient().post(url, void 0));
+  }
   // --- Compare Operations ---
   /**
    * Sets or replaces the active comparison on the server.

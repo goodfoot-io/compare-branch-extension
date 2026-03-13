@@ -343,6 +343,10 @@ describe('timeline event types', () => {
             return 'card-incoming-relations-changed';
           case 'cards:metadata':
             return 'cards-metadata';
+          case 'action:executeRequest':
+            return 'action-execute-request';
+          case 'action:executeResult':
+            return 'action-execute-result';
           default: {
             // Exhaustive check - this should never be reached
             const _exhaustive: never = event;

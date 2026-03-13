@@ -34,13 +34,14 @@ vi.mock('@cards/claude-code-sessions', async (importOriginal) => {
 
 import { findClaudePid } from '@cards/claude-code-sessions';
 import {
+  attachCard,
   connectClient,
+  detachCard,
+  executeAction,
   getCurrentBranch,
   isAncestorOfHead,
   listCards,
-  parseCardCreateInput,
-  startCard,
-  stopCard
+  parseCardCreateInput
 } from '../../src/bin/card.js';
 
 const mockFindClaudePid = vi.mocked(findClaudePid);
@@ -102,9 +103,11 @@ describe('card binary', () => {
         if (status) {
           results = results.filter((c) => c['status'] === status);
         }
-        const tag = url.searchParams.get('tag');
-        if (tag) {
-          results = results.filter((c) => Array.isArray(c['tags']) && (c['tags'] as string[]).includes(tag));
+        const tags = url.searchParams.getAll('tag');
+        if (tags.length > 0) {
+          results = results.filter(
+            (c) => Array.isArray(c['tags']) && tags.every((t) => (c['tags'] as string[]).includes(t))
+          );
         }
         const limit = url.searchParams.get('limit');
         if (limit) {
@@ -165,6 +168,14 @@ describe('card binary', () => {
         commits.set(cardId, cardCommits);
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ sha: body.sha, cardId, createdAt: new Date().toISOString() }));
+        return;
+      }
+
+      // POST /cards/:id/actions/:name
+      const actionMatch = url.pathname.match(/^\/cards\/([^/]+)\/actions\/([^/]+)$/);
+      if (method === 'POST' && actionMatch) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, exitCode: 0 }));
         return;
       }
 
@@ -322,12 +333,12 @@ describe('card binary', () => {
     });
   });
 
-  describe('startCard', () => {
+  describe('attachCard', () => {
     it('associates PID with card and returns result', async () => {
       cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
       mockFindClaudePid.mockReturnValue(testPid);
 
-      const result = await startCard('test-card');
+      const result = await attachCard('test-card');
       expect(result.pid).toBe(testPid);
       expect(result.cardId).toBe('test-card');
       expect(result.flushedCommits).toBe(0);
@@ -335,7 +346,7 @@ describe('card binary', () => {
 
     it('throws when no Claude PID found', async () => {
       mockFindClaudePid.mockReturnValue(null);
-      await expect(startCard('test-card')).rejects.toThrow('could not find Claude ancestor PID');
+      await expect(attachCard('test-card')).rejects.toThrow('could not find Claude ancestor PID');
     });
 
     it('registers workspace branch when on named branch', async () => {
@@ -348,7 +359,7 @@ describe('card binary', () => {
       const origCwd = process.cwd();
       try {
         process.chdir(workspace.getPath());
-        const result = await startCard('test-card');
+        const result = await attachCard('test-card');
         expect(result.branch).toBe('main');
         expect(branches.get('test-card')).toEqual([{ name: 'main' }]);
       } finally {
@@ -373,7 +384,7 @@ describe('card binary', () => {
       const origCwd = process.cwd();
       try {
         process.chdir(workspace.getPath());
-        const result = await startCard('test-card');
+        const result = await attachCard('test-card');
         expect(result.flushedCommits).toBe(1);
         expect(commits.get('test-card')).toEqual([sha]);
       } finally {
@@ -383,7 +394,7 @@ describe('card binary', () => {
     });
   });
 
-  describe('stopCard', () => {
+  describe('detachCard', () => {
     it('removes PID entry and returns result', async () => {
       mockFindClaudePid.mockReturnValue(testPid);
 
@@ -391,19 +402,36 @@ describe('card binary', () => {
       const { associatePidWithCard: associate } = await import('@cards/claude-code-sessions');
       await associate(testPid, 'test-card');
 
-      const result = await stopCard();
+      const result = await detachCard();
       expect(result.pid).toBe(testPid);
     });
 
     it('succeeds even when no entry exists', async () => {
       mockFindClaudePid.mockReturnValue(testPid);
-      const result = await stopCard();
+      const result = await detachCard();
       expect(result.pid).toBe(testPid);
     });
 
     it('throws when no Claude PID found', async () => {
       mockFindClaudePid.mockReturnValue(null);
-      await expect(stopCard()).rejects.toThrow('could not find Claude ancestor PID');
+      await expect(detachCard()).rejects.toThrow('could not find Claude ancestor PID');
+    });
+  });
+
+  describe('executeAction', () => {
+    it('calls server and prints result to stdout', async () => {
+      cards.set('card-1', { id: 'card-1', title: 'Test', status: 'todo' });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await executeAction('card-1', 'launch');
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as { success: boolean; exitCode: number };
+        expect(output.success).toBe(true);
+        expect(output.exitCode).toBe(0);
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 
@@ -445,6 +473,22 @@ describe('card binary', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
         await listCards(['--workspace-path', '/tmp/workspace', '--tag', 'bug']);
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        expect(output).toHaveLength(1);
+        expect(output[0]!.id).toBe('card-2');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('filters by multiple tags (all must match)', async () => {
+      cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: ['bug'] });
+      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'todo', tags: ['bug', 'feature'] });
+      cards.set('card-3', { id: 'card-3', title: 'Third', status: 'todo', tags: ['feature'] });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await listCards(['--workspace-path', '/tmp/workspace', '--tag', 'bug', '--tag', 'feature']);
         const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
         expect(output).toHaveLength(1);
         expect(output[0]!.id).toBe('card-2');

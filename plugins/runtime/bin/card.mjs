@@ -1,5 +1,245 @@
-// src/bin/card.ts
+// ../claude-code-hooks-api/src/bin/card.ts
 import { spawnSync } from "node:child_process";
+
+// ../claude-code-sessions/src/index.ts
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+// ../claude-code-sessions/src/internal.ts
+import { closeSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+// ../claude-code-sessions/src/ipc.ts
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error) {
+      const code = error.code;
+      if (code === "ESRCH") return false;
+      if (code === "EPERM") return true;
+    }
+    throw error;
+  }
+}
+
+// ../claude-code-sessions/src/internal.ts
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function hasErrnoCode(error, code) {
+  return error instanceof Error && "code" in error && error.code === code;
+}
+function tryRemoveStaleLock(lockPath) {
+  try {
+    const lockContent = readFileSync(lockPath, "utf-8");
+    const holderPid = Number.parseInt(lockContent.trim(), 10);
+    if (!Number.isNaN(holderPid) && !isProcessAlive(holderPid)) {
+      if (readFileSync(lockPath, "utf-8") === lockContent) {
+        unlinkSync(lockPath);
+        return true;
+      }
+    }
+  } catch {
+    try {
+      unlinkSync(lockPath);
+      return true;
+    } catch {
+    }
+  }
+  return false;
+}
+function writeLockHolderPid(lockPath) {
+  const fd = openSync(lockPath, "wx", 384);
+  try {
+    writeFileSync(fd, String(process.pid));
+  } finally {
+    closeSync(fd);
+  }
+}
+async function acquireLock(lockPath, timeoutMs) {
+  const startTime = Date.now();
+  const dir = dirname(lockPath);
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      mkdirSync(dir, { recursive: true, mode: 448 });
+      writeLockHolderPid(lockPath);
+      return;
+    } catch (error) {
+      if (!hasErrnoCode(error, "EEXIST")) throw error;
+      if (tryRemoveStaleLock(lockPath)) continue;
+      const remaining = timeoutMs - (Date.now() - startTime);
+      if (remaining > 0) {
+        await sleep(Math.min(50, remaining));
+      }
+    }
+  }
+  throw new Error("Lock acquisition timeout");
+}
+function releaseLock(lockPath) {
+  try {
+    unlinkSync(lockPath);
+  } catch (error) {
+    if (!hasErrnoCode(error, "ENOENT")) throw error;
+  }
+}
+function pruneStaleEntries(registry, isAlive, maxAgeMs) {
+  const now = Date.now();
+  for (const [pidStr, entry] of Object.entries(registry)) {
+    const pid = Number.parseInt(pidStr, 10);
+    if (Number.isNaN(pid)) {
+      delete registry[pidStr];
+      continue;
+    }
+    try {
+      const updatedAt = new Date(entry.updatedAt).getTime();
+      if (now - updatedAt > maxAgeMs) {
+        delete registry[pidStr];
+        continue;
+      }
+    } catch {
+      delete registry[pidStr];
+      continue;
+    }
+    try {
+      if (!isAlive(pid)) {
+        delete registry[pidStr];
+      }
+    } catch {
+    }
+  }
+}
+function readRegistry(path, defaultValue) {
+  try {
+    const content = readFileSync(path, "utf-8");
+    return JSON.parse(content);
+  } catch (error) {
+    if (hasErrnoCode(error, "ENOENT")) return defaultValue;
+    throw error;
+  }
+}
+function writeRegistryLocked(registry, registryPath) {
+  const dir = dirname(registryPath);
+  mkdirSync(dir, { recursive: true, mode: 448 });
+  const tempPath = `${registryPath}.tmp`;
+  try {
+    writeFileSync(tempPath, JSON.stringify(registry, null, 2), { mode: 384 });
+    renameSync(tempPath, registryPath);
+  } catch (error) {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+    }
+    throw error;
+  }
+}
+async function executeTransaction(registryPath, lockPath, operation, pruner, defaultRegistry, lockTimeoutMs) {
+  await acquireLock(lockPath, lockTimeoutMs ?? 2e3);
+  try {
+    const registry = readRegistry(registryPath, defaultRegistry);
+    if (pruner) pruner(registry);
+    const result = operation(registry);
+    writeRegistryLocked(registry, registryPath);
+    return result;
+  } finally {
+    releaseLock(lockPath);
+  }
+}
+
+// ../claude-code-sessions/src/process-tree.ts
+import { execSync } from "node:child_process";
+var PROCESS_TREE_MAX_DEPTH = 10;
+var CLAUDE_ARGS_PATTERN = /(^|\s|\/)claude(\/|\s|$)/i;
+function isClaude(pid) {
+  try {
+    const args = execSync(`ps -p ${pid} -o args=`, { encoding: "utf8" }).trim();
+    return CLAUDE_ARGS_PATTERN.test(args);
+  } catch {
+    return false;
+  }
+}
+function getParentPid(pid) {
+  try {
+    const ppidStr = execSync(`ps -p ${pid} -o ppid=`, { encoding: "utf8" }).trim();
+    const parentPid = Number.parseInt(ppidStr, 10);
+    if (Number.isNaN(parentPid) || parentPid === pid) return null;
+    return parentPid;
+  } catch {
+    return null;
+  }
+}
+function findClaudePid(startPid) {
+  const pids = findAllClaudePids(startPid);
+  return pids[0] ?? null;
+}
+function findAllClaudePids(startPid) {
+  const results = [];
+  let pid = startPid ?? process.ppid;
+  for (let depth = 0; depth < PROCESS_TREE_MAX_DEPTH; depth++) {
+    if (pid <= 1) break;
+    if (isClaude(pid)) {
+      results.push(pid);
+    }
+    const parentPid = getParentPid(pid);
+    if (parentPid === null) break;
+    pid = parentPid;
+  }
+  return results;
+}
+
+// ../claude-code-sessions/src/index.ts
+function getCardsDir() {
+  return join(homedir(), ".cards");
+}
+function getRegistryPath() {
+  return join(getCardsDir(), "claude-sessions.json");
+}
+function getLockPath() {
+  return join(getCardsDir(), "claude-sessions.lock");
+}
+var LOCK_TIMEOUT_MS = 2e3;
+var MAX_ENTRY_AGE_MS = 24 * 60 * 60 * 1e3;
+async function associatePidWithCard(pid, cardId) {
+  return executeTransaction(
+    getRegistryPath(),
+    getLockPath(),
+    (registry) => {
+      const pidStr = String(pid);
+      const entry = registry.sessions[pidStr];
+      if (entry?.cardId) return [];
+      const pendingCommits = entry?.pendingCommits ?? [];
+      registry.sessions[pidStr] = {
+        cardId,
+        pendingCommits: [],
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      return pendingCommits;
+    },
+    (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
+    { sessions: {} },
+    LOCK_TIMEOUT_MS
+  );
+}
+async function removePidEntry(pid) {
+  return executeTransaction(
+    getRegistryPath(),
+    getLockPath(),
+    (registry) => {
+      const pidStr = String(pid);
+      const entry = registry.sessions[pidStr];
+      if (entry) {
+        delete registry.sessions[pidStr];
+        return entry;
+      }
+      return null;
+    },
+    (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
+    { sessions: {} },
+    LOCK_TIMEOUT_MS
+  );
+}
 
 // ../sdk/src/client/types/errors.ts
 var ApiError = class extends Error {
@@ -876,6 +1116,20 @@ var CardsClient = class {
       }
     };
   }
+  // --- Action Operations ---
+  /**
+   * Executes an action on a card via the server relay.
+   *
+   * @param cardId - Identifier of the card to execute the action on.
+   * @param actionName - Action identifier (e.g., 'launch').
+   * @returns Promise resolving to the action execution result.
+   * @throws ApiError when the server rejects the request.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async executeAction(cardId, actionName) {
+    const url = this.buildUrl(`/cards/${cardId}/actions/${encodeURIComponent(actionName)}`);
+    return this.request(() => this.getHttpClient().post(url, void 0));
+  }
   // --- Compare Operations ---
   /**
    * Sets or replaces the active comparison on the server.
@@ -921,9 +1175,9 @@ var CardsClient = class {
 };
 
 // ../sdk/src/client/api-discovery.ts
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { readFile as readFile2 } from "node:fs/promises";
+import { homedir as homedir2 } from "node:os";
+import { join as join2 } from "node:path";
 async function discoverApiInfo(logger) {
   if (process.env["API_TEST_MODE"] === "1") {
     logger?.debug("API_TEST_MODE: Using mock API info");
@@ -935,9 +1189,9 @@ async function discoverApiInfo(logger) {
       startedAt: "2024-01-01T00:00:00Z"
     };
   }
-  const configPath = process.env["CARDS_DISCOVERY_PATH"] ?? join(homedir(), ".cards", "cards-api.json");
+  const configPath = process.env["CARDS_DISCOVERY_PATH"] ?? join2(homedir2(), ".cards", "cards-api.json");
   try {
-    const content = await readFile(configPath, "utf-8");
+    const content = await readFile2(configPath, "utf-8");
     const config = JSON.parse(content);
     if (typeof config["host"] !== "string" || typeof config["port"] !== "number" || typeof config["accessToken"] !== "string" || typeof config["pid"] !== "number" || typeof config["startedAt"] !== "string") {
       logger?.debug("API info discovery failed", { error: "Config missing required fields" });
@@ -957,19 +1211,24 @@ async function discoverApiInfo(logger) {
   }
 }
 
-// src/bin/card.ts
+// ../claude-code-hooks-api/src/bin/card.ts
+var SHA_PATTERN = /^[0-9a-f]{40}$/i;
 var HELP = `Usage: card.mjs [options] <command>
 
-Read and create cards via the Cards API.
+Read, create, list, attach, and detach card sessions via the Cards API.
 Locates the server through ~/.cards/cards-api.json, executes the command,
 and prints the resulting Card JSON to stdout.
 
 Options:
-  -h, --help       Show this help text
+  -h, --help        Show this help text
 
 Commands:
-  <card-id>        Fetch a card by its identifier
-  create           Create a card from JSON on stdin
+  <card-id>                      Fetch a card by its identifier
+  create                         Create a card from JSON on stdin
+  list [options]                 List cards with optional filters
+  attach <card-id>               Associate this Claude session with a card
+  detach                         Disassociate this Claude session from its card
+  <card-id> action <action-id>  Execute an action on a card
 
 Get:
   Pass a card identifier as the sole argument. The full Card object is
@@ -985,47 +1244,65 @@ Create:
   (string), gates ({ planRequired?: boolean, reviewRequired?: boolean }),
   relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]).
 
-  Before creating a card, load the skill that matches the request type:
-    Bug report       /runtime:card:bug-report
-    Documentation    /runtime:card:documentation
-    Enhancement      /runtime:card:enhancement
-    Investigation    /runtime:card:investigation
-    Maintenance      /runtime:card:maintenance
-    Operations       /runtime:card:operations
-
   Examples:
     card.mjs create <<'EOF'
     { "title": "Fix auth", "description": "Token refresh fails" }
     EOF
 
-    echo '{"title":"Spike","description":"Research caching"}' | card.mjs create
+List:
+  Lists cards for the current workspace. Detects workspacePath from git
+  automatically, or pass --workspace-path explicitly.
 
-Output:
-  Both commands print the full Card JSON to stdout with 2-space indent.
-  The object includes id, title, status, tags, gates, repositoryPath,
-  createdAt, updatedAt, description, and other metadata fields.
+  Options:
+    --workspace-path <path>  Workspace root (default: git rev-parse --show-toplevel)
+    --status <status>        Filter by status (todo, in_progress, needs_review, done, backlog, archived)
+    --tag <tag>              Filter by tag (repeatable: --tag bug --tag feature)
+    --search <query>         Full-text search in title and description
+    --limit <n>              Maximum number of results
+    --offset <n>             Pagination offset
+
+  Examples:
+    card.mjs list
+    card.mjs list --status in_progress
+    card.mjs list --tag bug --limit 10
+    card.mjs list --tag bug --tag feature
+
+Attach:
+  Associates the current Claude process with a card in the session registry.
+  Optionally registers the workspace branch and flushes any pending commits.
+
+  Examples:
+    card.mjs attach main-0001
+
+Detach:
+  Removes the current Claude process from the session registry.
+
+  Examples:
+    card.mjs detach
+
+Action:
+  Executes an action on a card via the server relay. The action ID is
+  the lowercase identifier from the action definition (e.g., "launch").
+
+  Examples:
+    card.mjs <card-id> action launch
 
 Exit codes:
   0  Success
   1  Error (missing arguments, invalid input, discovery failure, API error)`;
-function getGitRoot() {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
-    encoding: "utf-8",
-    timeout: 3e3
-  });
-  if (result.error || result.status !== 0) return null;
-  return result.stdout.trim() || null;
-}
 async function connectClient(workspacePath) {
+  const resolved = workspacePath ?? getGitRoot() ?? void 0;
+  if (!resolved) {
+    throw new Error("could not detect workspace path \u2014 pass --workspace-path or run from inside a git repository");
+  }
   const info = await discoverApiInfo();
   if (!info) {
-    console.error("card: API discovery failed \u2014 is the cards server running?");
-    process.exit(1);
+    throw new Error("API discovery failed \u2014 is the cards server running?");
   }
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
     accessToken: info.accessToken,
-    workspacePath: workspacePath ?? getGitRoot() ?? void 0
+    workspacePath: resolved
   });
 }
 async function getCard(cardId) {
@@ -1041,41 +1318,21 @@ function readStdin() {
     process.stdin.on("error", reject);
   });
 }
-function parseFlags(args) {
-  const flags = {};
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (!arg.startsWith("--")) break;
-    const key = arg.slice(2);
-    const value = args[++i];
-    if (value === void 0) {
-      throw new Error(`flag ${arg} requires a value`);
-    }
-    flags[key] = value;
-  }
-  return flags;
-}
-async function createCard(args) {
-  const flags = parseFlags(args);
-  const raw = await readStdin();
+function parseCardCreateInput(raw) {
   if (!raw.trim()) {
-    console.error("card create: expected JSON on stdin");
-    process.exit(1);
+    throw new Error("expected JSON on stdin");
   }
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    console.error("card create: invalid JSON on stdin");
-    process.exit(1);
+    throw new Error("invalid JSON on stdin");
   }
   if (typeof parsed["title"] !== "string" || !parsed["title"].trim()) {
-    console.error('card create: missing required field "title"');
-    process.exit(1);
+    throw new Error('missing required field "title"');
   }
   if (typeof parsed["description"] !== "string") {
-    console.error('card create: missing required field "description"');
-    process.exit(1);
+    throw new Error('missing required field "description"');
   }
   const data = {
     title: parsed["title"],
@@ -1097,9 +1354,140 @@ async function createCard(args) {
   if (Array.isArray(parsed["relations"])) {
     data.relations = parsed["relations"];
   }
-  const client = await connectClient(flags["workspace-path"]);
+  return data;
+}
+async function createCard(args) {
+  const flags = parseFlags(args);
+  const raw = await readStdin();
+  const data = parseCardCreateInput(raw);
+  const client = await connectClient(flags["workspace-path"]?.[0]);
   const card = await client.createCard(data);
   console.log(JSON.stringify(card, null, 2));
+}
+function getGitRoot() {
+  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+    encoding: "utf-8",
+    timeout: 3e3
+  });
+  if (result.error || result.status !== 0) return null;
+  return result.stdout.trim() || null;
+}
+function parseFlags(args) {
+  const flags = {};
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg.startsWith("--")) break;
+    const key = arg.slice(2);
+    const value = args[++i];
+    if (value === void 0) {
+      throw new Error(`flag ${arg} requires a value`);
+    }
+    const existing = flags[key];
+    if (existing) {
+      existing.push(value);
+    } else {
+      flags[key] = [value];
+    }
+  }
+  return flags;
+}
+async function listCards(args) {
+  const flags = parseFlags(args);
+  const client = await connectClient(flags["workspace-path"]?.[0]);
+  const options = {};
+  if (flags["status"]) {
+    options.status = flags["status"][0];
+  }
+  if (flags["tag"]) {
+    options.tags = flags["tag"];
+  }
+  if (flags["search"]) {
+    options.search = flags["search"][0];
+  }
+  if (flags["limit"]) {
+    const n = parseInt(flags["limit"][0], 10);
+    if (Number.isNaN(n) || n <= 0) throw new Error("--limit must be a positive integer");
+    options.limit = n;
+  }
+  if (flags["offset"]) {
+    const n = parseInt(flags["offset"][0], 10);
+    if (Number.isNaN(n) || n < 0) throw new Error("--offset must be a non-negative integer");
+    options.offset = n;
+  }
+  const cards = await client.listCards(options);
+  console.log(JSON.stringify(cards, null, 2));
+}
+function getCurrentBranch() {
+  const result = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+    encoding: "utf-8",
+    timeout: 3e3
+  });
+  if (result.error || result.status !== 0) return null;
+  const branch = result.stdout.trim();
+  return branch && branch !== "HEAD" ? branch : null;
+}
+function isAncestorOfHead(sha) {
+  if (!SHA_PATTERN.test(sha)) return false;
+  const result = spawnSync("git", ["merge-base", "--is-ancestor", sha, "HEAD"], {
+    stdio: "ignore",
+    timeout: 3e3
+  });
+  return !result.error && result.status === 0;
+}
+async function attachCard(cardId) {
+  const pid = findClaudePid();
+  if (!pid) {
+    throw new Error("could not find Claude ancestor PID");
+  }
+  const pendingCommits = await associatePidWithCard(pid, cardId);
+  console.error(`card attach: PID ${pid} associated with card ${cardId}`);
+  const client = await connectClient();
+  const branch = getCurrentBranch();
+  if (branch) {
+    const branchData = { name: branch, parentBranch: branch };
+    try {
+      await client.addBranch(cardId, branchData);
+      console.error(`card attach: registered branch ${branch}`);
+    } catch (error) {
+      console.error(
+        `card attach: branch registration failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+  let flushedCount = 0;
+  for (const sha of pendingCommits) {
+    if (!isAncestorOfHead(sha)) continue;
+    try {
+      await client.addCommit(cardId, sha);
+      flushedCount++;
+    } catch (error) {
+      console.error(
+        `card attach: failed to flush commit ${sha}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+  if (pendingCommits.length > 0) {
+    console.error(`card attach: flushed ${flushedCount}/${pendingCommits.length} pending commit(s)`);
+  }
+  return { pid, cardId, branch, flushedCommits: flushedCount };
+}
+async function executeAction(cardId, actionName) {
+  const client = await connectClient();
+  const result = await client.executeAction(cardId, actionName);
+  console.log(JSON.stringify(result, null, 2));
+}
+async function detachCard() {
+  const pid = findClaudePid();
+  if (!pid) {
+    throw new Error("could not find Claude ancestor PID");
+  }
+  const entry = await removePidEntry(pid);
+  if (entry) {
+    console.error(`card detach: PID ${pid} disassociated from card ${entry.cardId ?? "(none)"}`);
+  } else {
+    console.error(`card detach: PID ${pid} had no active association`);
+  }
+  return { pid };
 }
 if (process.argv[1]?.endsWith("card.mjs")) {
   const command = process.argv[2];
@@ -1107,9 +1495,62 @@ if (process.argv[1]?.endsWith("card.mjs")) {
     console.log(HELP);
     process.exit(command ? 0 : 1);
   }
-  const run = command === "create" ? createCard(process.argv.slice(3)) : getCard(command);
+  let run;
+  switch (command) {
+    case "create":
+      run = createCard(process.argv.slice(3));
+      break;
+    case "list":
+      run = listCards(process.argv.slice(3));
+      break;
+    case "attach": {
+      const cardId = process.argv[3];
+      if (!cardId) {
+        console.error("card attach: missing card ID argument");
+        process.exit(1);
+      }
+      run = attachCard(cardId).then((result) => {
+        console.log(JSON.stringify({ success: true, ...result }));
+      });
+      break;
+    }
+    case "detach":
+      run = detachCard().then((result) => {
+        console.log(JSON.stringify({ success: true, ...result }));
+      });
+      break;
+    default: {
+      const verb = process.argv[3];
+      if (verb === "action") {
+        const actionId = process.argv[4];
+        if (!actionId) {
+          console.error("card action: missing action ID argument");
+          process.exit(1);
+        }
+        run = executeAction(command, actionId);
+      } else if (verb) {
+        console.error(`card: unknown verb "${verb}"`);
+        process.exit(1);
+      } else {
+        run = getCard(command);
+      }
+      break;
+    }
+  }
   run.catch((error) => {
     console.error("card:", error instanceof Error ? error.message : String(error));
     process.exit(1);
   });
 }
+export {
+  attachCard,
+  connectClient,
+  createCard,
+  detachCard,
+  executeAction,
+  getCard,
+  getCurrentBranch,
+  isAncestorOfHead,
+  listCards,
+  parseCardCreateInput
+};

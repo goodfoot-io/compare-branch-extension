@@ -13,6 +13,7 @@ import type { BranchInfo } from './branch.js';
 import type { CardGates, CardRelation } from './card.js';
 import type { CompareState } from './compare.js';
 import type { CardCommit } from './fs.js';
+import type { ActionResult, ExecutionMode } from './settings.js';
 import type { CardStatus } from './status.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
 import type { CommentTimelineItem, CommitDetails, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
@@ -415,6 +416,38 @@ export interface CardsMetadataEvent {
   description: string;
 }
 
+// --- Action Events ---
+
+/**
+ * Event payload requesting execution of a card action.
+ */
+export interface ActionExecuteRequestEvent {
+  /** Event type discriminator. */
+  type: 'action:executeRequest';
+  /** Correlation ID linking the request to its result. */
+  correlationId: string;
+  /** ID of the card whose action is being executed. */
+  cardId: string;
+  /** ID of the action to execute. */
+  actionId: string;
+  /** Name of the environment in which to run the action. */
+  environmentName: string;
+  /** Execution mode controlling whether the action runs interactively or in the background. */
+  mode: ExecutionMode;
+}
+
+/**
+ * Event payload carrying the result of a card action execution.
+ */
+export interface ActionExecuteResultEvent {
+  /** Event type discriminator. */
+  type: 'action:executeResult';
+  /** Correlation ID linking this result back to its originating request. */
+  correlationId: string;
+  /** Outcome of the action execution. */
+  result: ActionResult;
+}
+
 // --- Domain Event Union ---
 
 /**
@@ -463,4 +496,6 @@ export type DomainEvent =
   | CardCommitEvent
   | WorkspaceCommitEvent
   | CardIncomingRelationsChangedEvent
-  | CardsMetadataEvent;
+  | CardsMetadataEvent
+  | ActionExecuteRequestEvent
+  | ActionExecuteResultEvent;
