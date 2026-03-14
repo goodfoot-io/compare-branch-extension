@@ -46,7 +46,6 @@ export class EventSubscriber {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private callbacks: Map<string, Set<EventCallback<keyof EventMap>>> = new Map();
   private shouldReconnect: boolean = false;
-  private exhaustionCallbacks: Set<() => void> = new Set();
   private connectionChangeCallbacks: Set<(connected: boolean) => void> = new Set();
   private hasConnected: boolean = false;
   private readonly maxReconnectAttempts: number;
@@ -66,7 +65,7 @@ export class EventSubscriber {
     wsFactory?: WebSocketFactory
   ) {
     this.wsFactory = wsFactory;
-    this.maxReconnectAttempts = options.maxReconnectAttempts ?? 10;
+    this.maxReconnectAttempts = options.maxReconnectAttempts ?? Infinity;
   }
 
   /**
@@ -129,19 +128,6 @@ export class EventSubscriber {
     if (callbacks) {
       (callbacks as Set<EventCallback<K>>).delete(callback);
     }
-  }
-
-  /**
-   * Registers a callback invoked when reconnection attempts are exhausted.
-   *
-   * @param callback - Function to call when max reconnect attempts are reached.
-   * @returns Unsubscribe function to remove this callback.
-   */
-  onExhausted(callback: () => void): () => void {
-    this.exhaustionCallbacks.add(callback);
-    return () => {
-      this.exhaustionCallbacks.delete(callback);
-    };
   }
 
   /**
@@ -259,10 +245,6 @@ export class EventSubscriber {
     // Check if we've exhausted reconnection attempts
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       this.shouldReconnect = false;
-      // Call all exhaustion callbacks
-      for (const callback of this.exhaustionCallbacks) {
-        callback();
-      }
       return;
     }
 

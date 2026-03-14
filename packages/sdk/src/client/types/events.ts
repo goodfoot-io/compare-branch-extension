@@ -31,6 +31,6 @@ export interface EventSubscriberOptions {
   wsUrl: string;
   /** Optional bearer token appended as a `?token=` query parameter. */
   accessToken?: string;
-  /** Maximum reconnection attempts before giving up (default 10). */
+  /** Maximum reconnection attempts before giving up (default Infinity). */
   maxReconnectAttempts?: number;
 }
