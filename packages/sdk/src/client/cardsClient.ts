@@ -654,13 +654,19 @@ export class CardsClient {
    *
    * @param cardId - Identifier of the card to detach from the commit SHA.
    * @param sha - Git commit sha.
+   * @param options - Optional parameters.
+   * @param options.sessionId - Claude Code session ID forwarded as `X-Cards-Session-Id` header so the card repo post-commit hook can attribute the commit.
    * @returns Promise resolving when removal is complete.
    * @throws ApiError when the server rejects the update.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async removeCommit(cardId: string, sha: string): Promise<void> {
+  async removeCommit(cardId: string, sha: string, options?: { sessionId?: string }): Promise<void> {
     const url = this.buildUrl(`/cards/${cardId}/commits/${sha}`);
-    return this.request(() => this.getHttpClient().delete(url));
+    const headers: Record<string, string> = {};
+    if (options?.sessionId) {
+      headers['X-Cards-Session-Id'] = options.sessionId;
+    }
+    return this.request(() => this.getHttpClient().delete(url, { headers }));
   }
 
   // --- Branch Operations ---
@@ -685,11 +691,17 @@ export class CardsClient {
    *
    * @param cardId - Unique identifier of the card to add the branch to.
    * @param data - Branch data including name and optional worktree path.
+   * @param options - Optional parameters.
+   * @param options.sessionId - Claude Code session ID forwarded as `X-Cards-Session-Id` header so the card repo post-commit hook can attribute the commit.
    * @returns Promise resolving when the branch is added.
    */
-  async addBranch(cardId: string, data: AddBranchRequest): Promise<void> {
+  async addBranch(cardId: string, data: AddBranchRequest, options?: { sessionId?: string }): Promise<void> {
     const url = this.buildUrl(`/cards/${cardId}/branches`);
-    await this.request(() => this.getHttpClient().post<unknown>(url, data));
+    const headers: Record<string, string> = {};
+    if (options?.sessionId) {
+      headers['X-Cards-Session-Id'] = options.sessionId;
+    }
+    await this.request(() => this.getHttpClient().post<unknown>(url, data, { headers }));
   }
 
   /**
@@ -697,11 +709,17 @@ export class CardsClient {
    *
    * @param cardId - Unique identifier of the card to remove the branch from.
    * @param name - Branch name to remove (will be URL-encoded).
+   * @param options - Optional parameters.
+   * @param options.sessionId - Claude Code session ID forwarded as `X-Cards-Session-Id` header so the card repo post-commit hook can attribute the commit.
    * @returns Promise resolving when the branch is removed.
    */
-  async removeBranch(cardId: string, name: string): Promise<void> {
+  async removeBranch(cardId: string, name: string, options?: { sessionId?: string }): Promise<void> {
     const url = this.buildUrl(`/cards/${cardId}/branches/${encodeURIComponent(name)}`);
-    return this.request(() => this.getHttpClient().delete(url));
+    const headers: Record<string, string> = {};
+    if (options?.sessionId) {
+      headers['X-Cards-Session-Id'] = options.sessionId;
+    }
+    return this.request(() => this.getHttpClient().delete(url, { headers }));
   }
 
   // --- Tag Operations ---

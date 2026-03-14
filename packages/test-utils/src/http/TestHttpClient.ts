@@ -135,8 +135,9 @@ export class TestHttpClient implements HttpClient {
    * Behavior: records the request and returns `void`.
    *
    * @param url - The URL to request
+   * @param _options - Unused; accepted for interface compatibility.
    */
-  async delete(url: string): Promise<void> {
+  async delete(url: string, _options?: RequestInit): Promise<void> {
     this.requests.push({ method: 'DELETE', url });
   }
 

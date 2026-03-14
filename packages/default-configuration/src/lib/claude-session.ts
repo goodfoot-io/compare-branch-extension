@@ -260,13 +260,15 @@ async function worktreeExistsOnDisk(worktreePath: string): Promise<boolean> {
  * @param client - Cards API client for branch CRUD.
  * @param baseBranch - Current branch in the workspace (used as parent).
  * @param logger - Logger for diagnostic output.
+ * @param sessionId - Claude Code session ID forwarded to the API so the card repo post-commit hook can attribute the commit.
  * @returns Worktree path, branch name, and parent branch name.
  */
 export async function resolveOrCreateWorktree(
   input: ActionInput,
   client: CardsClient,
   baseBranch: string,
-  logger: ActionContext['logger']
+  logger: ActionContext['logger'],
+  sessionId?: string
 ): Promise<{ worktreePath: string; branchName: string; parentBranch: string }> {
   const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
 
@@ -301,7 +303,11 @@ export async function resolveOrCreateWorktree(
 
   const branchName = `${prefix}${nextNumber}`;
   const result = await createWorktree(branchName, { cwd: input.repoRoot });
-  await client.addBranch(input.cardId, { name: branchName, worktree: result.worktree, parentBranch: baseBranch });
+  await client.addBranch(
+    input.cardId,
+    { name: branchName, worktree: result.worktree, parentBranch: baseBranch },
+    { sessionId }
+  );
 
   logger.info('Created new worktree', { branch: branchName, worktree: result.worktree });
   return { worktreePath: result.worktree, branchName, parentBranch: baseBranch };
@@ -342,12 +348,14 @@ async function tryCleanupStep(
  * @param client - Cards API client for branch removal.
  * @param baseBranch - Branch to check merge status against.
  * @param logger - Logger for diagnostic output.
+ * @param sessionId - Claude Code session ID forwarded to the API so the card repo post-commit hook can attribute the commit.
  */
 export async function cleanupMergedBranches(
   input: ActionInput,
   client: CardsClient,
   baseBranch: string,
-  logger: ActionContext['logger']
+  logger: ActionContext['logger'],
+  sessionId?: string
 ): Promise<void> {
   const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
 
@@ -383,7 +391,7 @@ export async function cleanupMergedBranches(
     );
 
     await tryCleanupStep(
-      () => client.removeBranch(input.cardId, branch.name),
+      () => client.removeBranch(input.cardId, branch.name, { sessionId }),
       'Failed to remove branch from API',
       branch.name,
       logger
@@ -463,7 +471,7 @@ export async function spawnClaudeSession(
 
   const baseBranch = await resolveBaseBranch(input.repoRoot);
 
-  const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
+  const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger, sessionId);
 
   const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
@@ -519,7 +527,7 @@ export async function spawnClaudeSession(
 
   // Post-exit cleanup: remove fully-merged branches
   try {
-    await cleanupMergedBranches(input, client, baseBranch, context.logger);
+    await cleanupMergedBranches(input, client, baseBranch, context.logger, sessionId);
   } catch (error) {
     context.logger.warn('Branch cleanup failed', {
       error: errorMessage(error)
