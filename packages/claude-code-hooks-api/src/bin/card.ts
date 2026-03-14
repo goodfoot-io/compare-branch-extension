@@ -46,7 +46,12 @@ Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string),
   description (string). Optional fields: tags (string[]), environment
   (string), gates ({ planRequired?: boolean, reviewRequired?: boolean }),
-  relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]).
+  relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]),
+  plan (string, markdown content written to the card's PLAN.md).
+
+  The response contains only server-generated fields not present in the
+  input (e.g. id, status, timestamps), plus repositoryPath. Fields the
+  caller already provided are omitted.
 
   Examples:
     card.mjs create <<'EOF'
@@ -144,13 +149,24 @@ function readStdin(): Promise<string> {
 }
 
 /**
+ * Parsed result from card creation input, separating SDK-level card data
+ * from CLI-only fields like `plan`.
+ */
+export interface ParsedCardInput {
+  data: CardCreateData;
+  plan?: string;
+  /** Keys the caller explicitly provided — used to filter the create response. */
+  inputKeys: Set<string>;
+}
+
+/**
  * Parses and validates card creation input from a raw JSON string.
  *
  * @param raw - Raw JSON string to parse.
- * @returns Validated CardCreateData.
+ * @returns Validated card data, optional plan content, and the set of caller-provided keys.
  * @throws On invalid or missing fields.
  */
-export function parseCardCreateInput(raw: string): CardCreateData {
+export function parseCardCreateInput(raw: string): ParsedCardInput {
   if (!raw.trim()) {
     throw new Error('expected JSON on stdin');
   }
@@ -168,6 +184,8 @@ export function parseCardCreateInput(raw: string): CardCreateData {
   if (typeof parsed['description'] !== 'string') {
     throw new Error('missing required field "description"');
   }
+
+  const inputKeys = new Set(Object.keys(parsed));
 
   const data: CardCreateData = {
     title: parsed['title'],
@@ -190,21 +208,49 @@ export function parseCardCreateInput(raw: string): CardCreateData {
     data.relations = parsed['relations'] as CardCreateData['relations'];
   }
 
-  return data;
+  let plan: string | undefined;
+  if (typeof parsed['plan'] === 'string') {
+    plan = parsed['plan'];
+  }
+
+  return { data, plan, inputKeys };
 }
+
+/** Keys always included in the create response regardless of caller input. */
+const CREATE_ALWAYS_INCLUDE = new Set(['id', 'repositoryPath']);
 
 /**
  * Creates a card from JSON read on stdin and prints the result to stdout.
+ *
+ * The response contains only server-generated fields that the caller did not
+ * provide, plus any keys in {@link CREATE_ALWAYS_INCLUDE}. This lets agents
+ * learn the assigned id and repositoryPath without re-reading fields they
+ * already know.
+ *
+ * When the input includes a `plan` string, it is written to the card via the
+ * plan endpoint after creation.
  *
  * @param args - CLI arguments after the `create` subcommand. Supports `--workspace-path`.
  */
 export async function createCard(args: string[]): Promise<void> {
   const flags = parseFlags(args);
   const raw = await readStdin();
-  const data = parseCardCreateInput(raw);
+  const { data, plan, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags['workspace-path']?.[0]);
   const card = await client.createCard(data);
-  console.log(JSON.stringify(card, null, 2));
+
+  if (plan !== undefined) {
+    await client.updatePlan(card.id, plan);
+  }
+
+  const full = card as unknown as Record<string, unknown>;
+  const filtered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(full)) {
+    if (CREATE_ALWAYS_INCLUDE.has(key) || !inputKeys.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  console.log(JSON.stringify(filtered, null, 2));
 }
 
 /**

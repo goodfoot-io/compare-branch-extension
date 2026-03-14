@@ -13,6 +13,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { tmpdir as realTmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -36,6 +37,7 @@ import { findClaudePid } from '@cards/claude-code-sessions';
 import {
   attachCard,
   connectClient,
+  createCard,
   detachCard,
   executeAction,
   getCurrentBranch,
@@ -73,11 +75,14 @@ describe('card binary', () => {
   let commits: Map<string, string[]>;
   /** Counter for auto-generated card IDs. */
   let cardCounter: number;
+  /** Plans stored via PUT /cards/:id/plan, keyed by card ID. */
+  let plans: Map<string, string>;
 
   beforeEach(async () => {
     cards = new Map();
     branches = new Map();
     commits = new Map();
+    plans = new Map();
     cardCounter = 0;
 
     // Create temp directory for homedir mock
@@ -138,7 +143,13 @@ describe('card binary', () => {
         const body = JSON.parse(await collectBody(req)) as Record<string, unknown>;
         cardCounter++;
         const id = `test-${cardCounter}`;
-        const card = { id, ...body, status: 'todo', createdAt: new Date().toISOString() };
+        const card = {
+          id,
+          ...body,
+          status: 'todo',
+          repositoryPath: '/tmp/test-repo',
+          createdAt: new Date().toISOString()
+        };
         cards.set(id, card);
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(card));
@@ -168,6 +179,17 @@ describe('card binary', () => {
         commits.set(cardId, cardCommits);
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ sha: body.sha, cardId, createdAt: new Date().toISOString() }));
+        return;
+      }
+
+      // PUT /cards/:id/plan
+      const planMatch = url.pathname.match(/^\/cards\/([^/]+)\/plan$/);
+      if (method === 'PUT' && planMatch) {
+        const cardId = planMatch[1]!;
+        const body = await collectBody(req);
+        plans.set(cardId, JSON.parse(body) as string);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({}));
         return;
       }
 
@@ -221,13 +243,15 @@ describe('card binary', () => {
 
   describe('parseCardCreateInput', () => {
     it('parses valid input with required fields', () => {
-      const data = parseCardCreateInput('{"title":"Test","description":"A test card"}');
-      expect(data.title).toBe('Test');
-      expect(data.description).toBe('A test card');
+      const result = parseCardCreateInput('{"title":"Test","description":"A test card"}');
+      expect(result.data.title).toBe('Test');
+      expect(result.data.description).toBe('A test card');
+      expect(result.plan).toBeUndefined();
+      expect(result.inputKeys).toEqual(new Set(['title', 'description']));
     });
 
     it('parses optional fields', () => {
-      const data = parseCardCreateInput(
+      const result = parseCardCreateInput(
         JSON.stringify({
           title: 'Test',
           description: 'Desc',
@@ -236,9 +260,17 @@ describe('card binary', () => {
           gates: { planRequired: true, reviewRequired: false }
         })
       );
-      expect(data.tags).toEqual(['bug']);
-      expect(data.environment).toBe('staging');
-      expect(data.gates).toEqual({ planRequired: true, reviewRequired: false });
+      expect(result.data.tags).toEqual(['bug']);
+      expect(result.data.environment).toBe('staging');
+      expect(result.data.gates).toEqual({ planRequired: true, reviewRequired: false });
+    });
+
+    it('parses optional plan field', () => {
+      const result = parseCardCreateInput(
+        JSON.stringify({ title: 'Test', description: 'Desc', plan: '## My Plan\nStep 1' })
+      );
+      expect(result.plan).toBe('## My Plan\nStep 1');
+      expect(result.inputKeys).toContain('plan');
     });
 
     it('throws on empty input', () => {
@@ -532,6 +564,81 @@ describe('card binary', () => {
       await expect(listCards(['--workspace-path', '/tmp', '--offset', '-1'])).rejects.toThrow(
         '--offset must be a non-negative integer'
       );
+    });
+  });
+
+  describe('createCard', () => {
+    /**
+     * Replaces process.stdin with a Readable that emits the given string,
+     * calls the async function, then restores the original stdin.
+     *
+     * @param input - String to push onto the fake stdin stream.
+     * @param fn - Async function to execute while stdin is replaced.
+     * @returns The result of `fn`.
+     */
+    async function withStdin<T>(input: string, fn: () => Promise<T>): Promise<T> {
+      const original = process.stdin;
+      const fake = new Readable({ read() {} });
+      Object.defineProperty(process, 'stdin', { value: fake, writable: true, configurable: true });
+      fake.push(input);
+      fake.push(null);
+      try {
+        return await fn();
+      } finally {
+        Object.defineProperty(process, 'stdin', { value: original, writable: true, configurable: true });
+      }
+    }
+
+    it('returns only server-generated fields plus repositoryPath', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await withStdin(JSON.stringify({ title: 'Test', description: 'A test card', tags: ['bug'] }), () =>
+          createCard(['--workspace-path', '/tmp/workspace'])
+        );
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+        // Server-generated fields present
+        expect(output['id']).toBe('test-1');
+        expect(output['status']).toBe('todo');
+        expect(output['repositoryPath']).toBe('/tmp/test-repo');
+        expect(output['createdAt']).toBeDefined();
+        // Caller-provided fields omitted
+        expect(output).not.toHaveProperty('title');
+        expect(output).not.toHaveProperty('description');
+        expect(output).not.toHaveProperty('tags');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('writes plan to card when plan field is provided', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await withStdin(
+          JSON.stringify({ title: 'Planned', description: 'Has a plan', plan: '## Step 1\nDo things' }),
+          () => createCard(['--workspace-path', '/tmp/workspace'])
+        );
+        expect(plans.get('test-1')).toBe('## Step 1\nDo things');
+        // plan field itself should not appear in the output
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+        expect(output).not.toHaveProperty('plan');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('does not call updatePlan when plan is absent', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await withStdin(JSON.stringify({ title: 'No plan', description: 'Simple card' }), () =>
+          createCard(['--workspace-path', '/tmp/workspace'])
+        );
+        expect(plans.size).toBe(0);
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+        expect(output['id']).toBe('test-1');
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 });
