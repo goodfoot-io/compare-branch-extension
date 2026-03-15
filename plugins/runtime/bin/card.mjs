@@ -1260,7 +1260,12 @@ Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string),
   description (string). Optional fields: tags (string[]), environment
   (string), gates ({ planRequired?: boolean, reviewRequired?: boolean }),
-  relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]).
+  relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]),
+  plan (string, markdown content written to the card's PLAN.md).
+
+  The response contains only server-generated fields not present in the
+  input (e.g. id, status, timestamps), plus repositoryPath. Fields the
+  caller already provided are omitted.
 
   Examples:
     card.mjs create <<'EOF'
@@ -1352,6 +1357,7 @@ function parseCardCreateInput(raw) {
   if (typeof parsed["description"] !== "string") {
     throw new Error('missing required field "description"');
   }
+  const inputKeys = new Set(Object.keys(parsed));
   const data = {
     title: parsed["title"],
     description: parsed["description"]
@@ -1372,15 +1378,30 @@ function parseCardCreateInput(raw) {
   if (Array.isArray(parsed["relations"])) {
     data.relations = parsed["relations"];
   }
-  return data;
+  let plan;
+  if (typeof parsed["plan"] === "string") {
+    plan = parsed["plan"];
+  }
+  return { data, plan, inputKeys };
 }
+var CREATE_ALWAYS_INCLUDE = /* @__PURE__ */ new Set(["id", "repositoryPath"]);
 async function createCard(args) {
   const flags = parseFlags(args);
   const raw = await readStdin();
-  const data = parseCardCreateInput(raw);
+  const { data, plan, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags["workspace-path"]?.[0]);
   const card = await client.createCard(data);
-  console.log(JSON.stringify(card, null, 2));
+  if (plan !== void 0) {
+    await client.updatePlan(card.id, plan);
+  }
+  const full = card;
+  const filtered = {};
+  for (const [key, value] of Object.entries(full)) {
+    if (CREATE_ALWAYS_INCLUDE.has(key) || !inputKeys.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  console.log(JSON.stringify(filtered, null, 2));
 }
 function getGitRoot() {
   const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {

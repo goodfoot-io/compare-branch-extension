@@ -104,7 +104,7 @@ export async function spawnCodexSession(
   context.logger.info(`${input.actionName} action completed`, { exitCode });
 
   try {
-    await cleanupMergedBranches(input, client, baseBranch, context.logger);
+    await cleanupMergedBranches(input, client, context.logger);
   } catch (error) {
     context.logger.warn('Branch cleanup failed', {
       error: errorMessage(error)

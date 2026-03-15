@@ -272,7 +272,7 @@ export async function resolveOrCreateWorktree(
 ): Promise<{ worktreePath: string; branchName: string; parentBranch: string }> {
   const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
 
-  // Try to reuse an existing branch with a valid worktree on disk
+  // Step 1: Try to reuse an existing branch with a valid worktree on disk
   for (const branch of branches) {
     if (!branch.exists || !branch.worktree) continue;
     if (!(await worktreeExistsOnDisk(branch.worktree))) continue;
@@ -281,7 +281,25 @@ export async function resolveOrCreateWorktree(
     return { worktreePath: branch.worktree, branchName: branch.name, parentBranch: branch.parentBranch };
   }
 
-  // No valid existing branch — create new one.
+  // Step 2: Try to create a worktree for an existing branch whose worktree
+  // is missing from disk (e.g. cleaned up by a previous session crash).
+  for (const branch of branches) {
+    if (!branch.exists) continue;
+
+    logger.info('Reattaching worktree for existing branch', { branch: branch.name });
+    const result = await createWorktree(branch.name, { cwd: input.repoRoot });
+
+    // Update the API record with the new worktree path
+    await client.addBranch(
+      input.cardId,
+      { name: branch.name, worktree: result.worktree, parentBranch: branch.parentBranch },
+      { sessionId }
+    );
+
+    return { worktreePath: result.worktree, branchName: branch.name, parentBranch: branch.parentBranch };
+  }
+
+  // Step 3: No valid existing branch — create new one.
   // The API may be out of sync with git (e.g. a previous worktree was created
   // but never registered, or its API record was deleted). To avoid colliding
   // with worktrees git already knows about, probe git's actual state and
@@ -338,22 +356,24 @@ async function tryCleanupStep(
 }
 
 /**
- * Removes branches that are fully merged into the base branch.
+ * Removes branches that are fully merged into their parent branch.
  *
  * For each merged branch the worktree directory is removed, the local branch
  * ref is deleted, and the branch record is removed from the API. Individual
  * failures are logged and do not abort the sweep.
  *
+ * Each branch is checked against its own `parentBranch` (the branch it was
+ * created from), not the workspace's current HEAD. This ensures branches are
+ * only cleaned up when truly merged into their intended target.
+ *
  * @param input - Action input containing cardId and workspace paths.
  * @param client - Cards API client for branch removal.
- * @param baseBranch - Branch to check merge status against.
  * @param logger - Logger for diagnostic output.
  * @param sessionId - Claude Code session ID forwarded to the API so the card repo post-commit hook can attribute the commit.
  */
 export async function cleanupMergedBranches(
   input: ActionInput,
   client: CardsClient,
-  baseBranch: string,
   logger: ActionContext['logger'],
   sessionId?: string
 ): Promise<void> {
@@ -363,8 +383,9 @@ export async function cleanupMergedBranches(
     if (!branch.exists) continue;
 
     try {
-      // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged)
-      await execFileAsync('git', ['merge-base', '--is-ancestor', branch.name, baseBranch], {
+      // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
+      // Check against the branch's own parentBranch, not the workspace HEAD.
+      await execFileAsync('git', ['merge-base', '--is-ancestor', branch.name, branch.parentBranch], {
         cwd: input.repoRoot
       });
     } catch {
@@ -527,7 +548,7 @@ export async function spawnClaudeSession(
 
   // Post-exit cleanup: remove fully-merged branches
   try {
-    await cleanupMergedBranches(input, client, baseBranch, context.logger, sessionId);
+    await cleanupMergedBranches(input, client, context.logger, sessionId);
   } catch (error) {
     context.logger.warn('Branch cleanup failed', {
       error: errorMessage(error)

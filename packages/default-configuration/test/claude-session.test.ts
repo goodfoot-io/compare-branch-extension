@@ -307,7 +307,7 @@ describe('claude-session shared utilities', () => {
       expect(result.branchName).toBe('cards/card-123/2');
     });
 
-    it('creates new worktree when existing path is missing from disk', async () => {
+    it('reattaches worktree for existing branch when worktree is missing from disk', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
       const { CardsClient } = await import('@cards/sdk/client');
       const { createWorktree } = await import('../src/lib/create-worktree.js');
@@ -323,20 +323,23 @@ describe('claude-session shared utilities', () => {
         }
       ]);
 
-      // fs.access rejects — path doesn't exist on disk
+      // fs.access rejects — worktree path doesn't exist on disk
       vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
 
       vi.mocked(createWorktree).mockResolvedValue({
-        branch: 'cards/card-123/2',
-        worktree: '/test/workspace/.worktrees/cards/card-123/2',
+        branch: 'cards/card-123/1',
+        worktree: '/test/workspace/.worktrees/cards/card-123/1',
         baseSha: 'abc123'
       });
 
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
       const result = await resolveOrCreateWorktree(baseInput(), client, 'main', createMockLogger());
 
-      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', { cwd: '/test/workspace' });
-      expect(result.worktreePath).toBe('/test/workspace/.worktrees/cards/card-123/2');
+      // Should reattach the existing branch, not create a new one
+      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', { cwd: '/test/workspace' });
+      expect(result.worktreePath).toBe('/test/workspace/.worktrees/cards/card-123/1');
+      expect(result.branchName).toBe('cards/card-123/1');
+      expect(result.parentBranch).toBe('main');
     });
   });
 
@@ -377,9 +380,18 @@ describe('claude-session shared utilities', () => {
       globalThis.fetch = fetchMock;
 
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-      await cleanupMergedBranches(baseInput(), client, 'main', createMockLogger());
+      await cleanupMergedBranches(baseInput(), client, createMockLogger());
 
       const execCalls = vi.mocked(execFile).mock.calls;
+
+      // Verify merge-base check uses the branch's parentBranch, not workspace HEAD
+      const mergeBaseCall = execCalls.find(
+        (c) => (c[1] as string[])?.includes('merge-base') && (c[1] as string[])?.includes('--is-ancestor')
+      );
+      expect(mergeBaseCall).toBeDefined();
+      expect(mergeBaseCall![1] as string[]).toContain('main');
+      expect(mergeBaseCall![1] as string[]).toContain('cards/card-123/1');
+
       const worktreeRemoveCall = execCalls.find(
         (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
       );
@@ -394,6 +406,48 @@ describe('claude-session shared utilities', () => {
         (c: unknown[]) => (c[1] as RequestInit)?.method === 'DELETE' && (c[0] as string).includes('/branches/')
       );
       expect(deleteCall).toBeDefined();
+    });
+
+    it('checks each branch against its own parentBranch, not workspace HEAD', async () => {
+      const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
+      const { CardsClient } = await import('@cards/sdk/client');
+      const { execFile } = await import('node:child_process');
+
+      const branchOnDevelop: BranchInfo = {
+        name: 'cards/card-123/1',
+        worktree: '/test/workspace/.worktrees/cards/card-123/1',
+        parentBranch: 'develop',
+        addedAt: '2025-01-01T00:00:00Z',
+        exists: true
+      };
+
+      configureBranchesResponse([branchOnDevelop]);
+
+      // Track which merge-base arguments are used
+      vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1];
+        const cmdArgs = args[1] as string[];
+        if (typeof cb === 'function') {
+          if (cmdArgs?.includes('merge-base')) {
+            // Fail the merge check — branch not merged into develop
+            cb(new Error('exit code 1'));
+          } else {
+            cb(null, { stdout: '', stderr: '' });
+          }
+        }
+        return {} as ReturnType<typeof execFile>;
+      });
+
+      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
+      await cleanupMergedBranches(baseInput(), client, createMockLogger());
+
+      const execCalls = vi.mocked(execFile).mock.calls;
+      const mergeBaseCall = execCalls.find(
+        (c) => (c[1] as string[])?.includes('merge-base') && (c[1] as string[])?.includes('--is-ancestor')
+      );
+      expect(mergeBaseCall).toBeDefined();
+      // Must check against 'develop' (branch.parentBranch), not workspace HEAD
+      expect(mergeBaseCall![1] as string[]).toContain('develop');
     });
 
     it('skips unmerged branches', async () => {
@@ -419,7 +473,7 @@ describe('claude-session shared utilities', () => {
       });
 
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-      await cleanupMergedBranches(baseInput(), client, 'main', createMockLogger());
+      await cleanupMergedBranches(baseInput(), client, createMockLogger());
 
       const execCalls = vi.mocked(execFile).mock.calls;
       const worktreeRemoveCall = execCalls.find(
@@ -483,7 +537,7 @@ describe('claude-session shared utilities', () => {
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
 
       // Should not throw even though worktree remove failed
-      await expect(cleanupMergedBranches(baseInput(), client, 'main', createMockLogger())).resolves.toBeUndefined();
+      await expect(cleanupMergedBranches(baseInput(), client, createMockLogger())).resolves.toBeUndefined();
 
       // branch -d should still have been called despite worktree remove failure
       const execCalls = vi.mocked(execFile).mock.calls;

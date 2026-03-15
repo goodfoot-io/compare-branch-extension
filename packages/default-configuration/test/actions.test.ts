@@ -731,7 +731,7 @@ describe('Default Actions', () => {
         expect(branchDeleteCall).toBeUndefined();
       });
 
-      it('skips worktree with nonexistent path on disk', async () => {
+      it('reattaches existing branch when worktree path is missing from disk', async () => {
         const { spawn } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
         const { createWorktree } = await import('../src/lib/create-worktree.js');
@@ -754,8 +754,8 @@ describe('Default Actions', () => {
         vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
 
         vi.mocked(createWorktree).mockResolvedValue({
-          branch: 'cards/card-123/2',
-          worktree: '/test/workspace/.worktrees/cards/card-123/2',
+          branch: 'cards/card-123/1',
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
           baseSha: 'abc123'
         });
 
@@ -766,13 +766,13 @@ describe('Default Actions', () => {
         const promise = action(baseInput(), createMockContext());
         await flushMicrotasks();
 
-        // Should create a new worktree since the existing one's path doesn't exist
-        expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', {
+        // Should reattach the existing branch, not create a new one
+        expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
           cwd: '/test/workspace'
         });
 
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
-        expect(spawnOpts.cwd).toBe('/test/workspace/.worktrees/cards/card-123/2');
+        expect(spawnOpts.cwd).toBe('/test/workspace/.worktrees/cards/card-123/1');
 
         child.emit('close', 0);
         await promise;
