@@ -54,66 +54,30 @@ Apply each principle as a lens through which to examine the plan. Earlier princi
 #### Principle 1: Solve the Actual Problem
 *"Are we solving the stated problem, or our assumption of it?"*
 
-Detect:
-- Solution addresses a symptom rather than root cause
 - **Unvalidated root cause** — inferred from symptoms rather than traced in source code. Unlike a wrong-but-confirmed root cause (implementation bug), an unvalidated root cause that is falsified requires full plan replacement. Unvalidated root causes in bug-fix plans are always blocking.
-- Hidden assumptions about user needs not validated
-- Technology chosen because we want to use it, not because it fits
-
-Key questions: *"If this plan succeeds perfectly, is the user's actual problem solved?" "What assumptions are we making about what the user needs?"*
 
 #### Principle 2: Earn Complexity
 *"Does every abstraction, pattern, and feature justify its existence with current requirements?"*
 
-Detect:
-- Features added "because we might need them"
-- Abstractions introduced before patterns emerge — interface before multiple implementations exist
-- Abstraction based on surface similarity rather than behavioral equivalence
-- Simple requests inflated into complex implementations
-- Configurability for scenarios that don't exist
-- A new helper or utility function planned without verifying no equivalent exists in the codebase
-
-Key questions: *"What is the simplest thing that could work?" "If we removed this abstraction, what would break today?"*
-
 #### Principle 3: Make Implicit Explicit
 *"Hidden assumptions and undocumented contracts cause failures"*
 
-Detect:
-- State ownership undefined ("who owns this data?")
 - **Dual source of truth** — the same logical value written to two storage systems. Two systems that must agree are one synchronization bug away from divergence. Identify which is authoritative, which is derived, and what happens when they disagree.
 - **Behavioral equivalence asserted without evidence** — the plan replaces one symbol with another and asserts they behave identically without citing verification. Two symbols may share a signature while having different postconditions or side effects.
-- Data-flow contracts left to the implementer
-- Dependencies on behavior that isn't guaranteed
-
-Key questions: *"If a new team member read this, what would they misunderstand?" "What are we assuming about how X behaves?"*
 
 #### Principle 4: Prefer Reversible Decisions
 *"Every commitment narrows future options; make only the commitments current requirements demand"*
-
-A decision is reversible if undoing it breaks nothing outside your control.
 
 **One-way doors (require scrutiny):** Database schemas with production data, public API contracts, persisted data formats, external service integrations.
 
 **Two-way doors (do not flag):** Internal library replacements behind stable interfaces, implementation refactoring preserving contracts, internal API changes.
 
-Detect:
-- Tight coupling between components that should evolve independently
 - **Backward compatibility artifacts**: renamed symbols (`_oldFoo`, `legacyBar`), re-exports for callers that no longer exist, compatibility wrappers, "deprecated" comments in live code. Dead producers preserved out of caution. If nothing currently calls the old code, the plan must remove it.
-- External commitments made without deliberation
-
-Key questions: *"Who outside this codebase depends on this decision?" "If we reverse this tomorrow, what breaks that we don't control?"*
 
 #### Principle 5: Design for Reality
 *"Systems fail; tests must be possible"*
 
-Detect:
-- Happy path blindness (no error handling strategy)
-- Design that requires mocking everything to test
-- No consideration of failure modes
-- Assumes external dependencies are reliable
 - **Unvalidated user-controlled inputs at new endpoints** — user-controlled path segments, query parameters, or body fields that could affect file system access, database queries, or command execution without specified sanitization
-
-Key questions: *"What happens when this fails?" "How would we test this component in isolation?"*
 
 ### Phase 3: Plan Completeness
 
