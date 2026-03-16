@@ -173,7 +173,7 @@ Wait for the maintainer to deliver the review report via SendMessage.
 The maintainer's verdict is final. Apply the first matching condition:
 
 1. **BLOCKED**: Shut down the team (Step 5.8). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: Fix all required changes directly. Re-run validation. If validation passes, proceed to Step 5.7. If validation fails on code outside your scope, shut down the team (Step 5.8) and block.
+2. **CHANGES_REQUESTED**: For each required change, assess viability and either fix it directly or note why it cannot be done. Re-run validation. If validation passes, proceed to Step 5.7. If validation fails on code outside your scope, shut down the team (Step 5.8) and block.
 3. **APPROVED**: Shut down the team (Step 5.8). Proceed to Step 6.
 
 ### 5.7 Re-submit for Review
@@ -185,15 +185,24 @@ git add -A  # checkpoint: stage all workspace files before re-review
 git commit --allow-empty -m "checkpoint: before re-review — fixes applied for card $CARD_ID"
 ```
 
-Message the existing maintainer to re-review:
+Message the existing maintainer to re-review. Include feedback on any changes that could not be made:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="recipient">maintainer</parameter>
 <parameter name="content">
-Fixes applied for your required changes. Please re-review.
+Fixes applied. Please re-review.
 
 All validations pass.
+
+## Changes Applied
+[List of changes that were made]
+
+## Feedback
+[For any requested change that was not made, explain why:
+ - what was attempted
+ - what went wrong or why it is not viable
+ - what alternative (if any) was used instead]
 </parameter>
 </invoke>
 ```

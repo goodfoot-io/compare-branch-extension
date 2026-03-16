@@ -67,12 +67,17 @@ Wait for the maintainer to deliver the review report via SendMessage.
 The maintainer's verdict is final. Apply the first matching condition:
 
 1. **BLOCKED**: Shut down the team (Step 7). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: Create todos from all required changes with "[Review fix]" prefix. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, proceed to Step 6.
+2. **CHANGES_REQUESTED**: For each required change, assess viability and either delegate the fix or note why it cannot be done (see Step 6). After all changes are addressed, proceed to Step 6.
 3. **APPROVED**: Shut down the team (Step 7). Proceed to the next step in the implementation workflow.
 
-## 6. Re-submit for Review
+## 6. Address Changes and Re-submit
 
-Re-checkpoint and re-validate:
+For each required change from the maintainer's report:
+
+- **Viable**: Create a todo with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate via Steps 2.3–2.4.
+- **Not viable**: Note the reason (e.g., attempted but introduced a regression, rejected during planning, blocked by an external constraint). Include this in the re-submission message.
+
+After all fixes are delegated and complete, re-checkpoint and re-validate:
 
 ```bash
 git add -A  # checkpoint: stage all workspace files before re-review
@@ -81,15 +86,24 @@ git commit --allow-empty -m "checkpoint: before re-review — fixes applied for 
 
 Run validation per the plan's "Validation Commands" section. On failure, delegate fixes (same as Step 2), then re-checkpoint.
 
-Message the existing maintainer to re-review:
+Message the existing maintainer to re-review. Include feedback on any changes that could not be made:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="recipient">maintainer</parameter>
 <parameter name="content">
-Fixes applied for your required changes. Please re-review.
+Fixes applied. Please re-review.
 
 All validations pass.
+
+## Changes Applied
+[List of changes that were made]
+
+## Feedback
+[For any requested change that was not made, explain why:
+ - what was attempted
+ - what went wrong or why it is not viable
+ - what alternative (if any) was used instead]
 </parameter>
 </invoke>
 ```
