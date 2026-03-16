@@ -173,23 +173,8 @@ Wait for the maintainer to deliver the review report via SendMessage.
 The maintainer's verdict is final. Apply the first matching condition:
 
 1. **BLOCKED**: Shut down the team (Step 5.8). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: Fix all required changes directly — required changes first, then recommended changes. Re-run validation. If validation passes, proceed to Step 5.7. If validation fails on code outside your scope, shut down the team (Step 5.8) and block.
-3. **APPROVED with recommended changes**: Fix recommended changes directly, re-run validation. If validation passes, proceed to Step 5.7. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment, shut down the team (Step 5.8), and proceed to Step 6.
-4. **APPROVED with no recommended changes**: Shut down the team (Step 5.8). Proceed to Step 6.
-
-Write unresolved recommended changes (if any) as a card comment:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-## Recommended Improvements
-
-[unresolved recommended changes from maintainer review]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
-```
+2. **CHANGES_REQUESTED**: Fix all required changes directly. Re-run validation. If validation passes, proceed to Step 5.7. If validation fails on code outside your scope, shut down the team (Step 5.8) and block.
+3. **APPROVED**: Shut down the team (Step 5.8). Proceed to Step 6.
 
 ### 5.7 Re-submit for Review
 

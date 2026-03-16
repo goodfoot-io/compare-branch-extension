@@ -68,22 +68,7 @@ The maintainer's verdict is final. Apply the first matching condition:
 
 1. **BLOCKED**: Shut down the team (Step 7). Document in comment, add `blocked` tag, commit, **STOP**.
 2. **CHANGES_REQUESTED**: Create todos from all required changes with "[Review fix]" prefix. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, proceed to Step 6.
-3. **APPROVED with recommended changes (first review pass)**: Create todos from recommended changes with "[Recommended fix]" prefix. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, proceed to Step 6.
-4. **APPROVED with no recommended changes, or APPROVED on a subsequent review pass**: Shut down the team (Step 7). Log any remaining recommended changes as a card comment and proceed to the next step in the implementation workflow.
-
-Write unresolved recommended changes (if any) as a card comment:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-## Recommended Improvements
-
-[unresolved recommended changes from maintainer review]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
-```
+3. **APPROVED**: Shut down the team (Step 7). Proceed to the next step in the implementation workflow.
 
 ## 6. Re-submit for Review
 

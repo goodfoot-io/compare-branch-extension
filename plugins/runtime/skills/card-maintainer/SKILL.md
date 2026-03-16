@@ -186,25 +186,25 @@ Do tests verify real integration, not just isolated pieces?
 
 ### Phase 5: Classification
 
-Classify each finding as **required** or **recommended** using the first matching signal:
+Every finding is a required change or it is not worth mentioning. There is no "recommended" category. If something should change, request the change. If it does not matter enough to block approval, do not include it in the report.
 
-- **Broken wiring**: Required — a code path from entry point to side effect is incomplete (function exists but no caller, export not re-exported, event registered but never emitted)
-- **Consumer misalignment**: Required — a consumer still references the old interface, uses stale types, or doesn't know about the new capability
-- **Explicit acceptance criterion not met**: Required — the card or plan states this as a condition for completion and the implementation does not satisfy it
-- **Workspace standard violation**: Required — the implementation violates CLAUDE.md conventions (e.g., silent error swallowing, missing error propagation)
-- **Improves without contradicting**: Recommended — the finding would make the implementation better but does not prevent the feature from working
+Classification signals:
 
-When a finding straddles the boundary, default to **required**. The cost of shipping a broken feature is higher than the cost of one more iteration.
+- **Broken wiring** — a code path from entry point to side effect is incomplete (function exists but no caller, export not re-exported, event registered but never emitted)
+- **Consumer misalignment** — a consumer still references the old interface, uses stale types, or doesn't know about the new capability
+- **Explicit acceptance criterion not met** — the card or plan states this as a condition for completion and the implementation does not satisfy it
+- **Workspace standard violation** — the implementation violates CLAUDE.md conventions (e.g., silent error swallowing, missing error propagation)
+- **Maintainer judgment** — the implementation works but the approach is wrong, the design is poor, or the code is not how you'd want it in your repository
 
 </review-process>
 
 <verdict-definitions>
 
 #### APPROVED
-All production-ready requirements met. Implementation is wired end-to-end. Code is how you'd want it in your repository. Safe to ship.
+All requirements met. Implementation is wired end-to-end. Code is how you'd want it in your repository. No outstanding changes — everything you'd want fixed has been fixed, or you've been convinced it doesn't need fixing. Safe to ship.
 
 #### CHANGES_REQUESTED
-Issues exist that must be resolved before approval. Required changes are enumerated with file:line references and specific guidance. Everything is fair game — if the implementation works but the approach is wrong, request the refactor.
+Issues exist that must be resolved before approval. Changes are enumerated with file:line references and specific guidance. Everything is fair game — if the implementation works but the approach is wrong, request the refactor. Do not approve with caveats; if something should change, request the change.
 
 #### BLOCKED
 External constraints prevent review or deployment (infrastructure failure, missing access, environment issues). Not for code quality issues — those are CHANGES_REQUESTED.
@@ -248,12 +248,10 @@ External constraints prevent review or deployment (infrastructure failure, missi
 | Test Fidelity | [PASS/ISSUES/N/A] |
 
 ### Required Changes
-[Changes that block approval, with classification signal:]
-- [Finding] at [file:line] — [dimension/category] — [what needs to change]
+[If CHANGES_REQUESTED — every change that must be made before approval:]
+- [Finding] at [file:line] — [classification signal] — [what needs to change]
 
-### Recommended Changes
-[Changes that would improve the implementation:]
-- [Finding] at [file:line] — [dimension/category] — [what would improve and why]
+[If APPROVED — this section is empty or omitted.]
 
 ### Summary
 [Brief overall assessment as the maintainer of this repository]
@@ -312,11 +310,11 @@ Execute Phase 4. Identify concrete end-to-end paths from the plan and commander'
 
 ## 6. Classify and Report
 
-Execute Phase 5. Apply the classification framework to each finding.
+Execute Phase 5. Every finding is either a required change or not worth mentioning.
 
 Determine verdict:
-- **No required changes across all dimensions**: APPROVED
-- **Required changes exist**: CHANGES_REQUESTED
+- **No changes needed — the code is how you'd want it**: APPROVED
+- **Changes exist that must be made**: CHANGES_REQUESTED
 - **External constraints prevent review**: BLOCKED
 
 Generate the report using the `<report-format>` template. Send to the team lead via `SendMessage`.
