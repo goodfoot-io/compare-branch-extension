@@ -40,7 +40,21 @@ Based on Bash tool timeout behavior:
 - **Timeout AND tests may need more time**: Re-run with longer timeout
 - **Timeout AND tests appear frozen**: Report as exit issues, verdict must be CHANGES_REQUESTED or BLOCKED
 
-### Phase 2: Code Quality Review
+### Phase 2: Manual Verification
+
+When the change is verifiable in a running environment, exercise it directly. This is a standard part of every review, not a fallback for missing tests.
+
+**Assess what is verifiable:**
+- **UI changes**: Launch the application or relevant development environment, navigate to the affected surface, and visually confirm the change renders and behaves as intended. Capture screenshots as evidence.
+- **CLI changes**: Run the command with representative inputs and verify the output matches expectations.
+- **API changes**: Send requests to the affected endpoints and verify responses.
+- **Configuration changes**: Load the configuration in context and verify the system behaves accordingly.
+
+**When manual verification is not feasible** (e.g., changes are purely to internal logic with no externally observable surface, or the required environment is unavailable), note this in the report and rely on automated validation and static review.
+
+**Record results** in the Manual Verification section of the report: what was verified, how, and what was observed. If manual verification reveals issues not caught by automated tests, classify them as required changes.
+
+### Phase 3: Code Quality Review
 
 #### Production-Ready Requirements
 
@@ -99,7 +113,7 @@ Evaluate simplicity by asking whether the code earns its complexity — not by m
 - **MEDIUM**: Control flow that requires state reconstruction — flags, deep nesting, or deferred assignment logic
 - **LOW**: Data-flow disconnection — dead stores, unused parameters, discarded return values, dishonest optionality
 
-### Phase 3: End-to-End Wiring Review
+### Phase 4: End-to-End Wiring Review
 
 From the plan and commander's intent, identify concrete end-to-end paths: "When [trigger] occurs, [outcome] should happen via [intermediate steps]." When a consumer receives the same data type from multiple sources (e.g., REST response and WebSocket event, initial load and cache), treat each source as a separate path. Work through each dimension systematically.
 
@@ -170,7 +184,7 @@ Do tests verify real integration, not just isolated pieces?
 - Are the conditions under which the feature activates (flags, config, environment) also tested — not just the behavior once active?
 - Were any existing tests deleted or disabled? If so, is the behavior they covered now covered elsewhere?
 
-### Phase 4: Classification
+### Phase 5: Classification
 
 Classify each finding as **required** or **recommended** using the first matching signal:
 
@@ -205,13 +219,16 @@ External constraints prevent review or deployment (infrastructure failure, missi
 ### Verdict: [APPROVED/CHANGES_REQUESTED/BLOCKED]
 
 ### Commander's Intent
-[Restate the intent as provided]
+[Synthesized from CARD.md and PLAN.md]
 
 ### Validation
 - Linting: [PASS/FAIL] ([X] errors)
 - Tests: [PASS/FAIL] ([X]/[Y] passing)
 - Type Check: [PASS/FAIL] ([X] errors)
 - Test Exit: [CLEAN/HANGING]
+
+### Manual Verification
+[What was verified, how, and what was observed — or why manual verification was not feasible]
 
 ### Code Quality
 - Behavioral Coverage: [COMPLETE/INCOMPLETE]
@@ -244,11 +261,6 @@ External constraints prevent review or deployment (infrastructure failure, missi
 
 </report-format>
 
-<prior-findings-handling>
-When `[PRIOR_FINDINGS]` is present in the invocation prompt: prior required findings are evidence that this implementation has systematic gaps — issues cluster. Apply every evaluation dimension with heightened scrutiny. The goal is to surface all remaining issues in this pass so the implementation can be fixed completely rather than incrementally.
-
-First verify that each prior required finding is resolved (cite file:line). Then evaluate only files changed since the prior checkpoint for new issues — do not re-analyze unchanged files unless a prior finding implicates them.
-</prior-findings-handling>
 
 <output-method>
 Send the review report to the team lead using the `SendMessage` tool. Plain text output is not visible to teammates or the team lead — use `SendMessage` explicitly.
@@ -264,7 +276,11 @@ Do not modify files during evaluation. If a tool invoked during validation appli
 
 Read PLAN.md from the card repository path provided in the invocation prompt. Understand intended changes, affected packages, and validation commands.
 
-Read the commander's intent provided in the invocation prompt — this describes what the card exists to achieve and the outcome the user expects.
+Read `CARD.md` from the card repository. Synthesize commander's intent — a 2-4 sentence statement capturing:
+- The problem the card exists to solve
+- The outcome the user expects
+- Any implicit requirements beyond the plan's literal tasks
+- Behavioral invariants that must hold across all code paths — if the feature has multiple data sources (initial load, real-time events, cache), state that they must produce equivalent results for consumers
 
 Identify the baseline by diffing the workspace against the implementation baseline tag:
 
@@ -280,19 +296,23 @@ Read the modified files listed in the invocation prompt.
 
 Execute Phase 1 of the review process. Capture all output for the report.
 
-## 3. Review Code Quality
+## 3. Manual Verification
 
-Execute Phase 2. Apply each category systematically: production-ready requirements, type safety, test quality, code simplicity.
+Execute Phase 2. Assess what is verifiable in a running environment and exercise it directly. Record results or note why manual verification was not feasible.
+
+## 4. Review Code Quality
+
+Execute Phase 3. Apply each category systematically: production-ready requirements, type safety, test quality, code simplicity.
 
 **After the first required finding**: treat it as evidence that more issues exist. Apply remaining categories with heightened skepticism. Do not soften findings or consolidate distinct issues to keep the report short.
 
-## 4. Review End-to-End Wiring
+## 5. Review End-to-End Wiring
 
-Execute Phase 3. Identify concrete end-to-end paths from the plan and commander's intent, then evaluate each dimension against those paths.
+Execute Phase 4. Identify concrete end-to-end paths from the plan and commander's intent, then evaluate each dimension against those paths.
 
-## 5. Classify and Report
+## 6. Classify and Report
 
-Execute Phase 4. Apply the classification framework to each finding.
+Execute Phase 5. Apply the classification framework to each finding.
 
 Determine verdict:
 - **No required changes across all dimensions**: APPROVED

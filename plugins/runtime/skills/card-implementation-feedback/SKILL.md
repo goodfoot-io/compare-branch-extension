@@ -6,7 +6,6 @@ description: Apply user feedback to completed implementations.
 
 <placeholder-variables>
 [MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.4 via git diff; passed to maintainer as modified-file context)
-[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose plus the specific feedback being addressed (synthesized in Step 5.2 from CARD.md, PLAN.md, and the user's feedback comment; passed to maintainer)
 </placeholder-variables>
 
 <instructions>
@@ -114,23 +113,13 @@ git add -A  # checkpoint: stage all workspace files before evaluation
 git commit --allow-empty -m "checkpoint: before evaluation — feedback changes complete for card $CARD_ID"
 ```
 
-### 5.2 Synthesize Commander's Intent
-
-Read `CARD.md` and `PLAN.md` (if it exists).
-
-Synthesize [COMMANDERS_INTENT] — a 2-4 sentence statement capturing:
-- The problem the card exists to solve
-- The outcome the user expects
-- The specific feedback being addressed in this update
-- Behavioral invariants that must hold across all code paths — if the feature has multiple data sources (initial load, real-time events, cache), state that they must produce equivalent results for consumers
-
-### 5.3 Pre-Evaluation Validation
+### 5.2 Pre-Evaluation Validation
 
 Run validation per the plan's "Validation Commands" section (or `yarn typecheck`, `yarn lint`, `yarn test` in each package containing modified files if no plan exists).
 
-**On any failure:** Fix all validation failures, then re-run validation. Only proceed to **Step 5.4** when ALL validations pass.
+**On any failure:** Fix all validation failures, then re-run validation. Only proceed to **Step 5.3** when ALL validations pass.
 
-### 5.4 Determine Modified Files
+### 5.3 Determine Modified Files
 
 Get the list of files modified since the feedback baseline:
 
@@ -140,7 +129,7 @@ git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
 
 Use this as [MODIFIED_FILES] for the maintainer.
 
-### 5.5 Request Maintainer Review
+### 5.4 Request Maintainer Review
 
 ```xml
 <invoke name="TeamCreate">
@@ -161,9 +150,6 @@ Spawn the maintainer as a teammate:
 <parameter name="prompt">
 Review this targeted update for production readiness. This is a feedback-driven change, not a full implementation.
 
-## Commander's Intent
-[COMMANDERS_INTENT]
-
 ## Card Repository
 !` echo $CARD_REPO_PATH`
 
@@ -178,11 +164,11 @@ You are the maintainer of this repository. Your verdict is final — APPROVED, C
 </invoke>
 ```
 
-### 5.6 Wait for Review
+### 5.5 Wait for Review
 
 Wait for the maintainer to complete the review and deliver the report.
 
-### 5.7 Shut Down Team
+### 5.6 Shut Down Team
 
 Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 
@@ -200,7 +186,7 @@ After the maintainer has shut down:
 <invoke name="TeamDelete"/>
 ```
 
-### 5.8 Process Verdict
+### 5.7 Process Verdict
 
 The maintainer's verdict is final. Apply the first matching condition:
 1. **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**

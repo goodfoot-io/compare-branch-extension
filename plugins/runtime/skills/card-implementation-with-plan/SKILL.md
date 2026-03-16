@@ -7,8 +7,7 @@ description: Implement approved plans.
 <placeholder-variables>
 [TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
-[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 4.3 cleanup annotation and passed to evaluators as modified-file context)
-[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose (synthesized in Step 3.2 from CARD.md and PLAN.md goals; passed to end-to-end evaluator prompt in Step 3.4)
+[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 4.3 cleanup annotation and passed to maintainer as modified-file context)
 </placeholder-variables>
 
 <orchestrator-constraints>
