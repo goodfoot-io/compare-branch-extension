@@ -5,8 +5,8 @@ description: Apply user feedback to completed implementations.
 
 
 <placeholder-variables>
-[MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.4 via git diff; passed to evaluators as modified-file context)
-[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose plus the specific feedback being addressed (synthesized in Step 5.2 from CARD.md, PLAN.md, and the user's feedback comment; passed to evaluators)
+[MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.4 via git diff; passed to maintainer as modified-file context)
+[COMMANDERS_INTENT] — 2-4 sentence statement of the card's broader purpose plus the specific feedback being addressed (synthesized in Step 5.2 from CARD.md, PLAN.md, and the user's feedback comment; passed to maintainer)
 </placeholder-variables>
 
 <instructions>
@@ -138,52 +138,28 @@ Get the list of files modified since the feedback baseline:
 git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
 ```
 
-Use this as [MODIFIED_FILES] for the evaluators.
+Use this as [MODIFIED_FILES] for the maintainer.
 
-### 5.5 Create Evaluation Team
+### 5.5 Request Maintainer Review
 
 ```xml
 <invoke name="TeamCreate">
-<parameter name="team_name">eval-feedback-!` echo $CARD_ID`</parameter>
-<parameter name="description">!` echo $CARD_ID`: feedback update evaluation</parameter>
+<parameter name="team_name">review-feedback-!` echo $CARD_ID`</parameter>
+<parameter name="description">!` echo $CARD_ID`: feedback update review</parameter>
 </invoke>
 ```
 
-Spawn both evaluators as teammates:
+Spawn the maintainer as a teammate:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">Implementation evaluation</parameter>
-<parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="team_name">eval-feedback-!` echo $CARD_ID`</parameter>
-<parameter name="name">impl-evaluator</parameter>
-<parameter name="prompt">
-Evaluate for production readiness. This is a targeted update based on user feedback, not a full implementation.
-
-## Card Repository
-!` echo $CARD_REPO_PATH`
-
-## Validation Status
-All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
-
-## Baseline
-Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
-
-## Modified Files
-[MODIFIED_FILES]
-
-You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect wiring or integration via SendMessage.
-</parameter>
-</invoke>
-<invoke name="Agent">
-<parameter name="description">End-to-end evaluation</parameter>
-<parameter name="subagent_type">runtime:card:end-to-end-evaluator</parameter>
+<parameter name="description">Maintainer review</parameter>
+<parameter name="subagent_type">runtime:card:maintainer</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">eval-feedback-!` echo $CARD_ID`</parameter>
-<parameter name="name">e2e-evaluator</parameter>
+<parameter name="team_name">review-feedback-!` echo $CARD_ID`</parameter>
+<parameter name="name">maintainer</parameter>
 <parameter name="prompt">
-Evaluate update against commander's intent. This is a targeted update based on user feedback, not a full implementation.
+Review this targeted update for production readiness. This is a feedback-driven change, not a full implementation.
 
 ## Commander's Intent
 [COMMANDERS_INTENT]
@@ -191,56 +167,48 @@ Evaluate update against commander's intent. This is a targeted update based on u
 ## Card Repository
 !` echo $CARD_REPO_PATH`
 
-## Validation Status
-All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
-
 ## Baseline
 Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
 
 ## Modified Files
 [MODIFIED_FILES]
 
-You are a teammate in an evaluation team. The implementation evaluator ("impl-evaluator") is evaluating code quality alongside you. Share noteworthy findings that affect code quality or structure via SendMessage.
+You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate both code quality and end-to-end wiring. Everything is on the table, including major refactors.
 </parameter>
 </invoke>
 ```
 
-### 5.6 Wait for Reports
+### 5.6 Wait for Review
 
-Wait for both agents to complete their evaluations and deliver reports.
+Wait for the maintainer to complete the review and deliver the report.
 
 ### 5.7 Shut Down Team
 
-Send shutdown requests to both teammates. Wait for both to acknowledge before deleting the team:
+Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">impl-evaluator</parameter>
-<parameter name="content">Evaluation complete.</parameter>
-</invoke>
-<invoke name="SendMessage">
-<parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">e2e-evaluator</parameter>
-<parameter name="content">Evaluation complete.</parameter>
+<parameter name="recipient">maintainer</parameter>
+<parameter name="content">Review complete.</parameter>
 </invoke>
 ```
 
-After both teammates have shut down:
+After the maintainer has shut down:
 
 ```xml
 <invoke name="TeamDelete"/>
 ```
 
-### 5.8 Process Results
+### 5.8 Process Verdict
 
-Apply the first matching condition:
-1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Fix all findings directly — required findings first, then recommended findings (merged from both evaluators, deduplicated by file:line). Re-run validation. If validation passes, return to Step 5.3. If validation fails on code outside your scope, block.
-3. **Both PRODUCTION_READY/SATISFIES_INTENT, but end-to-end evaluator has recommended findings**: Fix recommended findings directly, re-run validation. If validation passes, return to Step 5.3. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to Step 6.
-4. **Both PRODUCTION_READY/SATISFIES_INTENT with no findings**: Proceed to Step 6
+The maintainer's verdict is final. Apply the first matching condition:
+1. **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
+2. **CHANGES_REQUESTED**: Fix all required changes directly — required changes first, then recommended changes. Re-run validation. If validation passes, return to Step 5.3. If validation fails on code outside your scope, block.
+3. **APPROVED with recommended changes**: Fix recommended changes directly, re-run validation. If validation passes, return to Step 5.3. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to Step 6.
+4. **APPROVED with no required changes and no recommended changes**: Proceed to Step 6
 
-Write unresolved recommended findings (if any) as a card comment:
+Write unresolved recommended changes (if any) as a card comment:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
@@ -248,7 +216,7 @@ export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 ## Recommended Improvements
 
-[unresolved recommended findings from end-to-end evaluator]
+[unresolved recommended changes from maintainer review]
 EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>

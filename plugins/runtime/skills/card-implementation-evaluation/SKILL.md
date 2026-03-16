@@ -1,6 +1,6 @@
 ---
 name: card-implementation-evaluation
-description: Evaluate implementation quality using implementation and end-to-end evaluators.
+description: Evaluate implementation quality by requesting a maintainer review.
 ---
 
 
@@ -31,57 +31,28 @@ Run validation per the plan's "Validation Commands" section.
 
 **On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
 
-Only proceed to **4. Create Evaluation Team** when ALL validations pass.
+Only proceed to **4. Request Maintainer Review** when ALL validations pass.
 
-## 4. Create Evaluation Team
+## 4. Request Maintainer Review
 
 ```xml
 <invoke name="TeamCreate">
-<parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
-<parameter name="description">!` echo $CARD_ID`: quality evaluation</parameter>
+<parameter name="team_name">review-!` echo $CARD_ID`</parameter>
+<parameter name="description">!` echo $CARD_ID`: maintainer review</parameter>
 </invoke>
 ```
 
-Spawn both evaluators as teammates:
+Spawn the maintainer as a teammate:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">Implementation evaluation</parameter>
-<parameter name="subagent_type">runtime:card:implementation-evaluator</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
-<parameter name="name">impl-evaluator</parameter>
-<parameter name="prompt">
-Evaluate for production readiness.
-
-## Card Repository
-!` echo $CARD_REPO_PATH`
-
-## Validation Status
-All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
-
-## Baseline
-Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
-
-## Modified Files
-[PLAN_FILES]
-
-## Prior Findings
-[PRIOR_FINDINGS]
-
-When `[PRIOR_FINDINGS]` is non-empty: prior required findings are evidence that this implementation has systematic gaps — issues cluster. Apply every evaluation dimension with heightened scrutiny. The goal is to surface all remaining issues in this pass so the implementation can be fixed completely rather than incrementally.
-
-You are a teammate in an evaluation team. The end-to-end evaluator ("e2e-evaluator") is evaluating alongside you. Share noteworthy findings that affect wiring or integration via SendMessage.
-</parameter>
-</invoke>
-<invoke name="Agent">
-<parameter name="description">End-to-end evaluation</parameter>
-<parameter name="subagent_type">runtime:card:end-to-end-evaluator</parameter>
+<parameter name="description">Maintainer review</parameter>
+<parameter name="subagent_type">runtime:card:maintainer</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">eval-!` echo $CARD_ID`</parameter>
-<parameter name="name">e2e-evaluator</parameter>
+<parameter name="team_name">review-!` echo $CARD_ID`</parameter>
+<parameter name="name">maintainer</parameter>
 <parameter name="prompt">
-Evaluate implementation against commander's intent.
+Review this implementation for production readiness.
 
 ## Commander's Intent
 [COMMANDERS_INTENT]
@@ -89,9 +60,6 @@ Evaluate implementation against commander's intent.
 ## Card Repository
 !` echo $CARD_REPO_PATH`
 
-## Validation Status
-All validation commands from the plan's "Validation Commands" section passed before this evaluation was launched.
-
 ## Baseline
 Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 
@@ -101,64 +69,52 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 ## Prior Findings
 [PRIOR_FINDINGS]
 
-When `[PRIOR_FINDINGS]` is non-empty: prior required findings are evidence that this implementation has systematic gaps — issues cluster. Apply every evaluation dimension with heightened scrutiny. The goal is to surface all remaining issues in this pass so the implementation can be fixed completely rather than incrementally.
-
-You are a teammate in an evaluation team. The implementation evaluator ("impl-evaluator") is evaluating code quality alongside you. Share noteworthy findings that affect code quality or structure via SendMessage.
+You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate both code quality and end-to-end wiring. Everything is on the table, including major refactors.
 </parameter>
 </invoke>
 ```
 
-## 5. Wait for Reports
+## 5. Wait for Review
 
-Wait for both agents to complete their evaluations and deliver reports.
+Wait for the maintainer to complete the review and deliver the report.
 
 ## 6. Shut Down Team
 
-Send shutdown requests to both teammates. Wait for both to acknowledge before deleting the team:
+Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">impl-evaluator</parameter>
-<parameter name="content">Evaluation complete.</parameter>
-</invoke>
-<invoke name="SendMessage">
-<parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">e2e-evaluator</parameter>
-<parameter name="content">Evaluation complete.</parameter>
+<parameter name="recipient">maintainer</parameter>
+<parameter name="content">Review complete.</parameter>
 </invoke>
 ```
 
-After both teammates have shut down:
+After the maintainer has shut down:
 
 ```xml
 <invoke name="TeamDelete"/>
 ```
 
-## 7. Process Results
+## 7. Process Verdict
 
-Apply the first matching condition:
-1. **Either evaluator returns BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **Implementation evaluator returns CONTINUE, or end-to-end evaluator returns CONTINUE (required findings exist)**: Create todos from all required findings with "[Eval fix]" prefix (merged from both evaluators, deduplicated by file:line). Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
-3. **Both PRODUCTION_READY/SATISFIES_INTENT, end-to-end evaluator has recommended findings, and `[PRIOR_FINDINGS]` was empty (first evaluation pass)**: Create todos from recommended findings with "[Recommended fix]" prefix. Populate `[PRIOR_FINDINGS]` with the Required Findings and Recommended Findings sections from both evaluators' reports. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
-4. **Both PRODUCTION_READY/SATISFIES_INTENT, and either there are no findings or `[PRIOR_FINDINGS]` was non-empty (subsequent pass)**: Log any recommended findings as a card comment and proceed to the next step in the implementation workflow.
+The maintainer's verdict is final. Apply the first matching condition:
+
+1. **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
+2. **CHANGES_REQUESTED**: Create todos from all required changes with "[Review fix]" prefix. Populate `[PRIOR_FINDINGS]` with the Required Changes and Recommended Changes sections from the maintainer's report. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
+3. **APPROVED with recommended changes and `[PRIOR_FINDINGS]` was empty (first review pass)**: Create todos from recommended changes with "[Recommended fix]" prefix. Populate `[PRIOR_FINDINGS]` with the Required Changes and Recommended Changes sections from the maintainer's report. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
+4. **APPROVED with no required changes, and either no recommended changes or `[PRIOR_FINDINGS]` was non-empty (subsequent pass)**: Log any recommended changes as a card comment and proceed to the next step in the implementation workflow.
 
 When populating `[PRIOR_FINDINGS]` for the next run, format it as:
 ```
-### Implementation Evaluator — Required Findings
-[paste Required Findings section]
+### Required Changes
+[paste Required Changes section from maintainer's report]
 
-### Implementation Evaluator — Recommended Findings
-[paste Recommended Findings section]
-
-### End-to-End Evaluator — Required Findings
-[paste Required Findings section]
-
-### End-to-End Evaluator — Recommended Findings
-[paste Recommended Findings section]
+### Recommended Changes
+[paste Recommended Changes section from maintainer's report]
 ```
 
-Write unresolved recommended findings (if any) as a card comment:
+Write unresolved recommended changes (if any) as a card comment:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
@@ -166,7 +122,7 @@ export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 cat <<'EOF' > comment/$COMMENT_ID.md
 ## Recommended Improvements
 
-[unresolved recommended findings from end-to-end evaluator]
+[unresolved recommended changes from maintainer review]
 EOF
 git add comment/$COMMENT_ID.md
 git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
