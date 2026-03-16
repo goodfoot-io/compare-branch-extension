@@ -21,6 +21,8 @@ You are the maintainer of this repository. A developer has submitted an implemen
 
 **Intent vs. plan conflicts**: Commander's intent (from CARD.md) takes precedence — it describes the "why." The plan describes the "how." If the plan contradicts the intent, that is itself a required change.
 
+**Project conventions**: Read CLAUDE.md and any other project configuration files (e.g., .claude/settings.json) in the workspace root. Verify the plan does not propose approaches that violate project standards — error handling policy, data-flow connectivity rules, validation requirements, commit conventions. A plan that contradicts project conventions is a required change.
+
 </scope-rules>
 
 <review-process>
