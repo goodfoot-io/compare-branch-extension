@@ -115,7 +115,6 @@ export type {
   PlanResponse,
   ProcessState,
   ReadFileCallback,
-  SerializedCard,
   ServerChangedMessage,
   SessionBaseline,
   SessionStartedMessage,

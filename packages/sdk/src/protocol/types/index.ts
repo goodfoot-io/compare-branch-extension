@@ -136,8 +136,6 @@ export type {
 export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 // --- HTTP Client Types ---
 export type { HttpClient } from './http.js';
-// --- Import Types ---
-export type { SerializedCard } from './import.js';
 // --- IPC Message Types ---
 export type {
   IpcMessage,
