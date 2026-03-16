@@ -5,60 +5,26 @@ description: Create and review implementation plans for approval.
 
 This skill defines how to structure implementation plans stored as PLAN.md in card repositories. Plans require user approval before implementation begins.
 
-## Complexity Tiers
-
-Select sections based on the *type* of change, not the number of files touched:
-
-### Tier 1: Surgical Changes
-*Single known fix — no new wiring between components, no new architectural patterns, clear scope*
-
-Required sections:
-- Problem Statement
-- Goals & Objectives
-- Scope (Include/Exclude)
-- Technical Approach
-- Risks & Mitigations
-- Validation Commands
-
-### Tier 2: Features and Modifications
-*New behavior, existing flow modified, any new wiring between components, or multiple integration points*
-
-Add to Tier 1:
-- Dependency Analysis
-
-### Tier 3: Architectural Changes
-*New systems, new patterns, significant unknowns, or cross-cutting changes*
-
-Add to Tier 2:
-- Framework & Technology Stack
-- Technical Spike Results
-- Implementation References
-- Open Questions
-
-When in doubt, use the higher tier.
-
----
+## Plan Sections
 
 <quick-reference>
 ## Quick Reference
 
-### Always Required (All Tiers)
+### Required
 - `## Implementation Plan` header
 - Problem Statement (2-4 sentences)
 - Goals & Objectives (3-7 checkbox items)
 - Scope (Include AND Exclude)
 - Technical Approach (numbered steps with file paths)
+- Dependency Analysis (high-impact files + integration points)
 - Risks & Mitigations (3-5 items)
 - Validation Commands (typecheck, test, lint minimum)
 
-### Include for Tier 2+
-- Dependency Analysis (high-impact files + integration points)
-
-### Include for Tier 3
-- Framework & Technology Stack
-- Technical Spike Results
-- Implementation References
-- Open Questions
+### Include When Applicable
+- Framework & Technology Stack (when adding new dependencies or constraining versions)
+- Technical Spike Results (when investigations were conducted)
+- Implementation References (when helpful codebase patterns exist)
+- Open Questions (when uncertainties remain)
 
 ### Never Include in Plan Comment
 - YAML front matter
@@ -232,7 +198,7 @@ The Exclude section saves more time than any other part by preventing scope cree
 </example>
 
 <instructions>
-Document all framework and library versions that constrain the implementation. Include for Tier 3 complexity or when adding new dependencies.
+Document all framework and library versions that constrain the implementation. Include when adding new dependencies or when specific versions are required.
 
 ### Required Structure
 1. **Core Technologies**: Node.js, React, TypeScript versions
@@ -254,7 +220,7 @@ Document all framework and library versions that constrain the implementation. I
 ### Technical Spike Results (When Needed)
 
 <instructions>
-Include this section for Tier 3 complexity when technical investigations were conducted. Document spike results that informed the Technical Approach.
+Include this section when technical investigations were conducted. Document spike results that informed the Technical Approach.
 
 For each spike, include:
 - **Type**: Strategic (comparing alternatives) or Tactical (validating chosen approach)

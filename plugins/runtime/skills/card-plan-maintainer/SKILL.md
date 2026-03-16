@@ -17,11 +17,6 @@ You are the maintainer of this repository. A developer has submitted an implemen
 
 <scope-rules>
 
-**Tier detection**: Before evaluating, determine the plan's tier:
-- **Tier 3** — Framework & Technology Stack section is present, or the plan introduces new architectural patterns, new systems, or significant unknowns
-- **Tier 2** — Dependency Analysis section is present, or the plan introduces new wiring between components or multiple integration points
-- **Tier 1** — Otherwise (single known fix, no new wiring between components)
-
 **Trace depth**: For each symbol the plan modifies, renames, or removes, search the workspace to verify the plan accounts for its consumers. The import graph is not sufficient — shell scripts, CLI binaries, git hooks, test fixtures, and configuration files reference symbols without importing them.
 
 **Intent vs. plan conflicts**: Commander's intent (from CARD.md) takes precedence — it describes the "why." The plan describes the "how." If the plan contradicts the intent, that is itself a required change.
@@ -34,20 +29,21 @@ You are the maintainer of this repository. A developer has submitted an implemen
 
 Verify all required sections are present and contain actionable detail. Each section must be specific enough to implement without guessing — concrete file paths, named functions/classes/components, specific versions.
 
-Required sections (all tiers):
+Required sections:
 1. Title format: `## Implementation Plan`
 2. Problem Statement (clear description of the issue)
 3. Goals & Objectives (3-7 checkboxes with specific, measurable outcomes)
 4. Scope (MUST have both Include AND Exclude subsections)
 5. Technical Approach (numbered steps with concrete file paths and named symbols)
-6. Risks & Mitigations (3-5 technical risks with solutions)
-7. Validation Commands — enumerate all package paths in the Technical Approach file list; verify each has a corresponding command. Any modified package without a validation entry is a finding.
+6. Dependency Analysis (High-Impact Files + Key Integration Points)
+7. Risks & Mitigations (3-5 technical risks with solutions)
+8. Validation Commands — enumerate all package paths in the Technical Approach file list; verify each has a corresponding command. Any modified package without a validation entry is a finding.
 
-Additional required for Tier 2+:
-8. Dependency Analysis (High-Impact Files + Key Integration Points)
-
-Additional required for Tier 3:
-9. Framework & Technology Stack (versions in package@version format; flag missing or vague ranges like "latest")
+Include when applicable:
+- Framework & Technology Stack (when adding new dependencies or constraining versions; flag missing or vague ranges like "latest")
+- Technical Spike Results (when investigations were conducted)
+- Implementation References (when helpful codebase patterns exist)
+- Open Questions (when uncertainties remain)
 
 Note: Section order matters. Plans should follow the above sequence.
 
@@ -175,7 +171,7 @@ Do the planned validation commands cover all planned changes?
 Every finding is a required change or it is not worth mentioning. There is no "recommended" category.
 
 Classification signals:
-- **Missing or incomplete section** — a required section for the detected tier is absent or lacks actionable detail
+- **Missing or incomplete section** — a required section is absent or lacks actionable detail
 - **Unvalidated assumption** — the plan treats an assumption as fact without verification
 - **Design principle violation** — the plan violates one of the five design principles
 - **Completeness gap** — a consumer, producer, error path, or integration point is missing
@@ -207,7 +203,6 @@ External constraints prevent review (missing card context, inaccessible workspac
 [Synthesized from CARD.md]
 
 ### Structural Compliance
-- Tier: [1/2/3]
 - Required Sections: [COMPLETE/INCOMPLETE]
 - Validation Commands: [ADEQUATE/GAPS]
 
@@ -281,7 +276,7 @@ Read workspace source files referenced by the plan to verify claims against actu
 
 ## 2. Review Structural Compliance
 
-Execute Phase 1. Determine the plan's tier, then verify all required sections for that tier. When a finding is discovered, trace the root cause forward through remaining checks.
+Execute Phase 1. Verify all required sections are present and contain actionable detail. When a finding is discovered, trace the root cause forward through remaining checks.
 
 ## 3. Review Design Principles
 
