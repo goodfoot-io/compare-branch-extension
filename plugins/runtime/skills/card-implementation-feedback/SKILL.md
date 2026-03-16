@@ -5,7 +5,7 @@ description: Apply user feedback to completed implementations.
 
 
 <placeholder-variables>
-[MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.4 via git diff; passed to maintainer as modified-file context)
+[MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.3 via git diff; passed to maintainer as modified-file context)
 </placeholder-variables>
 
 <instructions>
@@ -129,7 +129,9 @@ git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
 
 Use this as [MODIFIED_FILES] for the maintainer.
 
-### 5.4 Request Maintainer Review
+### 5.4 Start Maintainer Review
+
+Create the review team and spawn the maintainer. The team stays alive across review iterations — the maintainer persists and retains context from prior reviews.
 
 ```xml
 <invoke name="TeamCreate">
@@ -137,8 +139,6 @@ Use this as [MODIFIED_FILES] for the maintainer.
 <parameter name="description">!` echo $CARD_ID`: feedback update review</parameter>
 </invoke>
 ```
-
-Spawn the maintainer as a teammate:
 
 ```xml
 <invoke name="Agent">
@@ -166,9 +166,56 @@ You are the maintainer of this repository. Your verdict is final — APPROVED, C
 
 ### 5.5 Wait for Review
 
-Wait for the maintainer to complete the review and deliver the report.
+Wait for the maintainer to deliver the review report via SendMessage.
 
-### 5.6 Shut Down Team
+### 5.6 Process Verdict
+
+The maintainer's verdict is final. Apply the first matching condition:
+
+1. **BLOCKED**: Shut down the team (Step 5.8). Document in comment, add `blocked` tag, commit, **STOP**.
+2. **CHANGES_REQUESTED**: Fix all required changes directly — required changes first, then recommended changes. Re-run validation. If validation passes, proceed to Step 5.7. If validation fails on code outside your scope, shut down the team (Step 5.8) and block.
+3. **APPROVED with recommended changes**: Fix recommended changes directly, re-run validation. If validation passes, proceed to Step 5.7. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment, shut down the team (Step 5.8), and proceed to Step 6.
+4. **APPROVED with no recommended changes**: Shut down the team (Step 5.8). Proceed to Step 6.
+
+Write unresolved recommended changes (if any) as a card comment:
+
+```bash
+cd !` echo $CARD_REPO_PATH`
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+## Recommended Improvements
+
+[unresolved recommended changes from maintainer review]
+EOF
+git add comment/$COMMENT_ID.md
+git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
+```
+
+### 5.7 Re-submit for Review
+
+Re-checkpoint:
+
+```bash
+git add -A  # checkpoint: stage all workspace files before re-review
+git commit --allow-empty -m "checkpoint: before re-review — fixes applied for card $CARD_ID"
+```
+
+Message the existing maintainer to re-review:
+
+```xml
+<invoke name="SendMessage">
+<parameter name="recipient">maintainer</parameter>
+<parameter name="content">
+Fixes applied for your required changes. Please re-review.
+
+All validations pass.
+</parameter>
+</invoke>
+```
+
+Return to Step 5.5.
+
+### 5.8 Shut Down Team
 
 Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 
@@ -184,28 +231,6 @@ After the maintainer has shut down:
 
 ```xml
 <invoke name="TeamDelete"/>
-```
-
-### 5.7 Process Verdict
-
-The maintainer's verdict is final. Apply the first matching condition:
-1. **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **CHANGES_REQUESTED**: Fix all required changes directly — required changes first, then recommended changes. Re-run validation. If validation passes, return to Step 5.3. If validation fails on code outside your scope, block.
-3. **APPROVED with recommended changes**: Fix recommended changes directly, re-run validation. If validation passes, return to Step 5.3. If the prior fix iteration's changes were confined to test and documentation files, log unresolved recommendations as a card comment and proceed to Step 6.
-4. **APPROVED with no required changes and no recommended changes**: Proceed to Step 6
-
-Write unresolved recommended changes (if any) as a card comment:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-## Recommended Improvements
-
-[unresolved recommended changes from maintainer review]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
 ```
 
 ---

@@ -19,11 +19,13 @@ git commit --allow-empty -m "checkpoint: before evaluation — implementation co
 
 Run validation per the plan's "Validation Commands" section.
 
-**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4.
+**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
 
-Only proceed to **3. Request Maintainer Review** when ALL validations pass.
+Only proceed to **3. Start Maintainer Review** when ALL validations pass.
 
-## 3. Request Maintainer Review
+## 3. Start Maintainer Review
+
+Create the review team and spawn the maintainer. The team stays alive across review iterations — the maintainer persists and retains context from prior reviews.
 
 ```xml
 <invoke name="TeamCreate">
@@ -31,8 +33,6 @@ Only proceed to **3. Request Maintainer Review** when ALL validations pass.
 <parameter name="description">!` echo $CARD_ID`: maintainer review</parameter>
 </invoke>
 ```
-
-Spawn the maintainer as a teammate:
 
 ```xml
 <invoke name="Agent">
@@ -60,9 +60,58 @@ You are the maintainer of this repository. Your verdict is final — APPROVED, C
 
 ## 4. Wait for Review
 
-Wait for the maintainer to complete the review and deliver the report.
+Wait for the maintainer to deliver the review report via SendMessage.
 
-## 5. Shut Down Team
+## 5. Process Verdict
+
+The maintainer's verdict is final. Apply the first matching condition:
+
+1. **BLOCKED**: Shut down the team (Step 7). Document in comment, add `blocked` tag, commit, **STOP**.
+2. **CHANGES_REQUESTED**: Create todos from all required changes with "[Review fix]" prefix. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, proceed to Step 6.
+3. **APPROVED with recommended changes (first review pass)**: Create todos from recommended changes with "[Recommended fix]" prefix. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, proceed to Step 6.
+4. **APPROVED with no recommended changes, or APPROVED on a subsequent review pass**: Shut down the team (Step 7). Log any remaining recommended changes as a card comment and proceed to the next step in the implementation workflow.
+
+Write unresolved recommended changes (if any) as a card comment:
+
+```bash
+cd !` echo $CARD_REPO_PATH`
+export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+cat <<'EOF' > comment/$COMMENT_ID.md
+## Recommended Improvements
+
+[unresolved recommended changes from maintainer review]
+EOF
+git add comment/$COMMENT_ID.md
+git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
+```
+
+## 6. Re-submit for Review
+
+Re-checkpoint and re-validate:
+
+```bash
+git add -A  # checkpoint: stage all workspace files before re-review
+git commit --allow-empty -m "checkpoint: before re-review — fixes applied for card $CARD_ID"
+```
+
+Run validation per the plan's "Validation Commands" section. On failure, delegate fixes (same as Step 2), then re-checkpoint.
+
+Message the existing maintainer to re-review:
+
+```xml
+<invoke name="SendMessage">
+<parameter name="recipient">maintainer</parameter>
+<parameter name="content">
+Fixes applied for your required changes. Please re-review.
+
+All validations pass.
+</parameter>
+</invoke>
+```
+
+Return to Step 4.
+
+## 7. Shut Down Team
 
 Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 
@@ -78,29 +127,6 @@ After the maintainer has shut down:
 
 ```xml
 <invoke name="TeamDelete"/>
-```
-
-## 6. Process Verdict
-
-The maintainer's verdict is final. Apply the first matching condition:
-
-1. **BLOCKED**: Document in comment, add `blocked` tag, commit, **STOP**
-2. **CHANGES_REQUESTED**: Create todos from all required changes with "[Review fix]" prefix. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes are delegated and complete, return to Step 1 to re-checkpoint and re-submit for review.
-3. **APPROVED with recommended changes (first review pass)**: Create todos from recommended changes with "[Recommended fix]" prefix. **Delegate them — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes are delegated and complete, return to Step 1 to re-checkpoint and re-submit for review.
-4. **APPROVED with no recommended changes**: Log any remaining notes as a card comment and proceed to the next step in the implementation workflow.
-
-Write unresolved recommended changes (if any) as a card comment:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-## Recommended Improvements
-
-[unresolved recommended changes from maintainer review]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing the recommended improvements]"  # <card-repo-commit-style>
 ```
 
 </instructions>
