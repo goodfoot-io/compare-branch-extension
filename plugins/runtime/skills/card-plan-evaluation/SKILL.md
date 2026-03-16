@@ -1,51 +1,31 @@
 ---
 name: card-plan-evaluation
-description: Assess implementation plan quality using structural and strategic evaluators as a persistent team.
+description: Assess plan quality by requesting a maintainer review.
 ---
 
 
 <instructions>
 
-## 1. Create Evaluation Team
+## 1. Start Maintainer Review
+
+Create the review team and spawn the maintainer. The team stays alive across review iterations — the maintainer persists and retains context from prior reviews.
 
 ```xml
 <invoke name="TeamCreate">
-<parameter name="team_name">plan-eval-!` echo $CARD_ID`</parameter>
-<parameter name="description">!` echo $CARD_ID`: plan quality evaluation</parameter>
+<parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
+<parameter name="description">!` echo $CARD_ID`: plan maintainer review</parameter>
 </invoke>
 ```
-
-Spawn both evaluators as teammates:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">Structural plan evaluation</parameter>
-<parameter name="subagent_type">runtime:card:plan-structure</parameter>
-<parameter name="model">haiku</parameter>
-<parameter name="team_name">plan-eval-!` echo $CARD_ID`</parameter>
-<parameter name="name">structure-evaluator</parameter>
-<parameter name="prompt">
-Assess plan structural compliance.
-
-## Card Repository
-!` echo $CARD_REPO_PATH`
-
-## Workspace
-!` echo $WORKSPACE_PATH`
-
-Read the plan from PLAN.md in the card repository. Assess the plan and send a report per your instructions.
-
-You are a teammate in a plan evaluation team. The strategic evaluator ("strategy-evaluator") is evaluating alongside you. Share noteworthy findings that affect design or integration via SendMessage.
-</parameter>
-</invoke>
-<invoke name="Agent">
-<parameter name="description">Strategic plan evaluation</parameter>
-<parameter name="subagent_type">runtime:card:plan-strategy</parameter>
+<parameter name="description">Plan maintainer review</parameter>
+<parameter name="subagent_type">runtime:card:plan-maintainer</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">plan-eval-!` echo $CARD_ID`</parameter>
-<parameter name="name">strategy-evaluator</parameter>
+<parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
+<parameter name="name">maintainer</parameter>
 <parameter name="prompt">
-Evaluate plan design and completeness.
+Review this implementation plan for quality and completeness.
 
 ## Card Repository
 !` echo $CARD_REPO_PATH`
@@ -53,122 +33,87 @@ Evaluate plan design and completeness.
 ## Workspace
 !` echo $WORKSPACE_PATH`
 
-1. Read the plan from PLAN.md in the card repository.
-2. Verify plan claims against workspace source files (callers, consumers, producers, imports).
-3. Assess the plan and send a report per your instructions.
+Read the plan from PLAN.md in the card repository. Verify plan claims against workspace source files. Send a review report per your instructions.
 
-You are a teammate in a plan evaluation team. The structural evaluator ("structure-evaluator") is evaluating alongside you. Share noteworthy findings that affect structural compliance or plan quality via SendMessage.
+You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate structural compliance, design quality, and completeness. Everything is on the table, including fundamental redesigns.
 </parameter>
 </invoke>
 ```
 
-## 2. Wait for Reports
+## 2. Wait for Review
 
-Wait for both agents to complete their initial evaluations and deliver reports.
+Wait for the maintainer to deliver the review report via SendMessage.
 
-## 3. Interpret and Act
+## 3. Process Verdict
 
-The structural evaluator returns **"Ready for Implementation: Yes/No"** with issues categorized as CRITICAL/HIGH/MEDIUM/LOW. The strategic evaluator returns an **"Overall Assessment: READY/GAPS/RECONSIDER"**. On revision rounds, both evaluators tag each finding with provenance: `[NEW]`, `[PRIOR-UNRESOLVED]`, `[PRIOR-REGRESSED]`, or `[RESOLVED]`.
+The maintainer's verdict is final. Apply the first matching condition:
 
-#### Convergence Check
+1. **BLOCKED**: Shut down the team (Step 5). Document in comment, add `blocked` tag, commit, **STOP**.
+2. **CHANGES_REQUESTED**: For each required change, assess viability and either revise PLAN.md or note why it cannot be done (see Step 4).
+3. **APPROVED**: Shut down the team (Step 5). Proceed to the next step in the planning workflow.
 
-The loop converges when **both** of these are true:
-
-1. Both evaluators return positive verdicts (structural: "Yes", strategic: READY)
-2. Neither report contains `[NEW]` or `[PRIOR-UNRESOLVED]` findings — only `[RESOLVED]` tags remain
-
-If either condition fails, revision is required. Apply the first matching condition to determine priority:
-
-1. **Structural evaluator returns "No"**: Revise PLAN.md to address the structural issues first — structural issues must be fixed before design evaluation matters.
-2. **Strategic evaluator returns RECONSIDER**: Revise PLAN.md to address the fundamental design findings.
-3. **Strategic evaluator returns GAPS or either report contains `[NEW]` findings**: Incorporate findings into PLAN.md — new findings from deeper review rounds are gaps that must be filled before implementation.
-4. **Converged**: Proceed to **5. Shut Down Team**.
-
-#### After Both Assessments Complete (Always)
+### After Both Assessments Complete (Always)
 
 1. **Resolve questions through research** — route empirically-testable uncertainties to spike investigation before revising
 2. **Surface considerations visibly** as you work through them
 3. **Make decisions** for non-blocking issues and document them in the plan revision
 4. **Only ask the user** for blocking issues or intent clarity
 
-#### If Revision Required (Condition 1, 2, or 3)
+## 4. Revise and Re-submit
 
-Revise PLAN.md per findings, commit to the card repository, then proceed to **4. Send Revision to Team**.
+For each required change from the maintainer's report:
+
+- **Viable**: Revise PLAN.md to address the finding.
+- **Not viable**: Note the reason (e.g., simpler approach doesn't satisfy a constraint, structural requirement doesn't apply given scope).
+
+Commit the revised plan:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
 git add PLAN.md
-git commit -m "[single sentence summarizing what assessment findings were addressed]"  # <card-repo-commit-style>
+git commit -m "[single sentence summarizing what findings were addressed]"  # <card-repo-commit-style>
 ```
 
-## 4. Send Revision to Team
-
-Send revision notifications to both evaluators with cross-pollinated context — each receives their own prior findings plus the other evaluator's findings from the same round:
+Message the existing maintainer to re-review. Include feedback on any changes that could not be made:
 
 ```xml
 <invoke name="SendMessage">
-<parameter name="recipient">structure-evaluator</parameter>
+<parameter name="recipient">maintainer</parameter>
 <parameter name="content">
-PLAN.md has been revised. Re-evaluate per your deepening protocol.
+PLAN.md has been revised. Please re-review.
 
-## Revision Summary
-[Brief description of what changed in this revision]
+## Changes Applied
+[List of changes that were made]
 
-## Your Prior Findings
-[Paste the structural evaluator's previous report]
-
-## Strategy Evaluator's Findings (This Round)
-[Paste the strategic evaluator's previous report]
-
-## Previously Passing Areas
-[List structural checks that returned clean results in the prior round — these are areas to re-examine given the plan has changed]
-</parameter>
-</invoke>
-<invoke name="SendMessage">
-<parameter name="recipient">strategy-evaluator</parameter>
-<parameter name="content">
-PLAN.md has been revised. Re-evaluate per your deepening protocol.
-
-## Revision Summary
-[Brief description of what changed in this revision]
-
-## Your Prior Findings
-[Paste the strategic evaluator's previous report]
-
-## Structure Evaluator's Findings (This Round)
-[Paste the structural evaluator's previous report]
-
-## Previously Passing Areas
-[List principles and completeness dimensions that returned SOUND/PASS in the prior round — these are areas to re-examine given the plan has changed]
+## Feedback
+[For any requested change that was not made, explain why:
+ - what was considered
+ - why it is not viable or doesn't apply
+ - what alternative (if any) was used instead]
 </parameter>
 </invoke>
 ```
 
-Wait for both evaluators to deliver updated reports. Return to **3. Interpret and Act**.
+Return to Step 2.
 
 ## 5. Shut Down Team
 
-Send shutdown requests to both teammates. Wait for both to acknowledge before deleting the team:
+Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">structure-evaluator</parameter>
-<parameter name="content">Evaluation complete.</parameter>
-</invoke>
-<invoke name="SendMessage">
-<parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">strategy-evaluator</parameter>
-<parameter name="content">Evaluation complete.</parameter>
+<parameter name="recipient">maintainer</parameter>
+<parameter name="content">Review complete.</parameter>
 </invoke>
 ```
 
-After both teammates have shut down:
+After the maintainer has shut down:
 
 ```xml
 <invoke name="TeamDelete"/>
 ```
 
-Proceed to the next step in the implementation workflow.
+Proceed to the next step in the planning workflow.
 
 </instructions>
