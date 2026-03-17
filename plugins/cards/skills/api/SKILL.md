@@ -163,7 +163,6 @@ Each commit's `diff.files` array contains `CardCommitFile` records:
 | `status` | `string` | Git status: `A` (added), `M` (modified), `D` (deleted), `R` (renamed), `C` (copied) |
 | `from` | `string?` | Source path for renames (present when status starts with `R`) |
 | `binary` | `boolean` | `true` for binary files (no text diff available) |
-| `patch` | `string?` | Unified diff hunk text for text files; absent for binary files and merge commits |
 
 ### Workspace-Scoped Endpoints
 
