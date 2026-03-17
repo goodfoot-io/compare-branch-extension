@@ -231,19 +231,7 @@ After the maintainer has shut down:
 
 ## 6. Finalize
 
-### 6.1 Squash Update Commits
-
-If there are multiple commits since the feedback baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
-
-```bash
-git reset --soft "feedback/!` echo $CARD_ID`/baseline"
-git commit -m "$(cat <<'COMMITMSG'
-[final commit message per <workspace-commit-style> — describe the feedback-driven changes]
-COMMITMSG
-)"
-```
-
-### 6.2 Complete or Await Review
+### 6.1 Complete or Await Review
 
 Based on review gate:
 

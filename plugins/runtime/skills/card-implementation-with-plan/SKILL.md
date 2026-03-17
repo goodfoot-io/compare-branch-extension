@@ -5,7 +5,6 @@ description: Implement approved plans.
 
 
 <placeholder-variables>
-[TASK_DESCRIPTION] — Human-readable description of the current task phase (set in Step 2.2 before each checkpoint commit; derived from the current todo's title or the plan section name being delegated to the next agent)
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
 [PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 4.3 cleanup annotation and passed to maintainer as modified-file context)
 </placeholder-variables>
@@ -61,16 +60,7 @@ Create todos from the plan content using TodoWrite.
 
 Extract [PLAN_FILES] — all files the plan intends to modify (from task file assignments).
 
-### 2.2 Task Checkpoint
-
-Before each agent delegation, commit a checkpoint:
-
-```bash
-git add -A  # checkpoint: stage all workspace files before [TASK_DESCRIPTION]
-git commit --allow-empty -m "checkpoint: before [TASK_DESCRIPTION] — [COMPLETED] of [TOTAL] tasks complete for card $CARD_ID"
-```
-
-### 2.3 Assess Coherence
+### 2.2 Assess Coherence
 
 Analyze tasks along three dimensions:
 
@@ -90,7 +80,7 @@ Checkpoints have low cost; missed validation opportunities have high cost.
 
 Clear gates: type-check passes, tests pass, API functional, UI renders.
 
-### 2.4 Delegate Implementation
+### 2.3 Delegate Implementation
 
 Choose the [MODEL] based on the tasks:
 - **Ambiguous requirements, multiple possible approaches, or tasks where you are unsure how to start:** `opus`
@@ -172,7 +162,7 @@ For new functions or methods, load the `runtim:tdd-implementation` skill and fol
 </invoke>
 ```
 
-### 2.5 Process Result
+### 2.4 Process Result
 
 Based on agent status:
 - **COMPLETED**: Mark todo completed, commit if changes exist, write comment to card, continue
@@ -226,7 +216,7 @@ git commit -m "[single sentence describing what is blocking all tasks]"  # <card
 - SOME blocked -> note in summary, proceed to Step 3
 - NONE blocked -> proceed to Step 3
 
-### 2.6 Validation Gate
+### 2.5 Validation Gate
 
 Create post-implementation checkpoint:
 
@@ -271,16 +261,15 @@ Load the `runtime:card-implementation-evaluation` skill and follow its instructi
 
 ## 4. Finalize
 
-### 4.1 Craft Final Commit Message
+### 4.1 Stage Remaining Changes
 
-Synthesize the final commit message from implementer Decision Narratives and key findings from evaluator reports, per `<workspace-commit-style>`.
+Stage any uncommitted implementation artifacts:
 
 ```bash
-git add -A  # final: stage any uncommitted implementation artifacts
-git commit -m "$(cat <<'COMMITMSG'
-[final commit message per <workspace-commit-style>]
+git diff --quiet HEAD || { git add -A && git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>]
 COMMITMSG
-)"
+)"; }
 ```
 
 ### 4.2 Complete or Await Review
@@ -321,7 +310,7 @@ The following checkpoints are created during execution for rollback:
 | Tag | Created At | Purpose |
 |-----|------------|---------|
 | `implement/!` echo $CARD_ID`/baseline` | Step 1 | Original state before any changes |
-| `implement/!` echo $CARD_ID`/post-implementation` | Step 2.6 | After implementation, before validation |
+| `implement/!` echo $CARD_ID`/post-implementation` | Step 2.5 | After implementation, before validation |
 
 
 </instructions>

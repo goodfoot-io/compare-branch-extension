@@ -201,7 +201,7 @@ export class TestCardRepository {
 
     // Initial commit
     await git.add('.');
-    await git.commit('Card initializes.');
+    await git.commit('Initialized.');
 
     // Store git instance if this is the first card (for convenience)
     if (!this.git) {
@@ -279,7 +279,7 @@ export class TestCardRepository {
     const git = simpleGit(cardPath);
     await git.add('.');
     const commitAuthor = author ?? 'Test User';
-    await git.commit('Card adds a comment.', undefined, {
+    await git.commit('Added a comment.', undefined, {
       '--author': `${commitAuthor} <${commitAuthor}@cards.local>`
     });
 
@@ -311,7 +311,7 @@ export class TestCardRepository {
 
     const git = simpleGit(cardPath);
     await git.add('.');
-    await git.commit(`Card adds adaptive card ${adaptiveCardId}.`);
+    await git.commit(`Added adaptive card ${adaptiveCardId}.`);
 
     return filename;
   }
@@ -350,7 +350,7 @@ export class TestCardRepository {
 
     const git = simpleGit(cardPath);
     await git.add('.');
-    await git.commit(`Card adds attribution for ${sha.slice(0, 7)}.`);
+    await git.commit(`Added attribution for ${sha.slice(0, 7)}.`);
   }
 
   // --- Branch Management (from claude-code-cli-hooks) ---
@@ -436,7 +436,7 @@ export class TestCardRepository {
     await fs.writeFile(fullPath, content);
     const git = this.getCardGit(cardId);
     await git.add(filePath);
-    await git.commit(message ?? `Card updates ${filePath}.`);
+    await git.commit(message ?? `Updated ${filePath}.`);
   }
 
   /**
@@ -568,7 +568,7 @@ export class TestCardRepository {
 
     const git = this.getCardGit(cardId);
     await git.add('.');
-    await git.commit('Card adds files across directory structure.');
+    await git.commit('Added files across directory structure.');
   }
 
   /**

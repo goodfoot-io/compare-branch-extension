@@ -355,9 +355,9 @@ Workspace commits are the narrative layer of code history. Future developers wil
 
 | Commit Type | Length |
 |-------------|--------|
-| Subtask / intermediate | Subject sentence + optional card reference line |
+| Small fix / refactor | Subject sentence + optional card reference line |
 | Feature / bug fix | 2-3 paragraphs: problem, approach, solution |
-| Final squash | 2-5 paragraphs: the full story per the structure above |
+| Major milestone | 2-5 paragraphs: the full story per the structure above |
 
 #### Voice
 

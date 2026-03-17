@@ -364,17 +364,7 @@ Based on validation result:
 
 ## 5. Finalize
 
-### 5.1 Squash Commits
-
-If there are multiple commits since the baseline tag, squash them into a single commit with a message per `<workspace-commit-style>`:
-
-```bash
-git reset --soft "bug/!` echo $CARD_ID`/baseline"
-git commit -m "$(cat <<'COMMITMSG'
-[final commit message per <workspace-commit-style>]
-COMMITMSG
-)"
-```
+### 5.1 Clean Up Tags
 
 Clean up checkpoint tags:
 

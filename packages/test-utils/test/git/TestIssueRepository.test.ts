@@ -103,7 +103,7 @@ describe('TestCardRepository', () => {
       const git = repo.getCardGit(cardId);
       const log = await git.log();
       expect(log.total).toBeGreaterThanOrEqual(1);
-      expect(log.latest?.message).toBe('Card initializes.');
+      expect(log.latest?.message).toBe('Initialized.');
     });
 
     it('applies custom gates', async () => {
@@ -249,7 +249,7 @@ describe('TestCardRepository', () => {
       await repo.addFileToWorkingDir(cardId, 'test.txt', 'initial');
       await repo.stageFile(cardId, 'test.txt');
       const git = repo.getCardGit(cardId);
-      await git.commit('Card adds a test file.');
+      await git.commit('Added a test file.');
 
       await repo.modifyFile(cardId, 'test.txt', 'modified');
       const content = await repo.readFile(cardId, 'test.txt');
@@ -298,11 +298,11 @@ describe('TestCardRepository', () => {
       await repo.addFileToWorkingDir(cardId, 'file1.txt', 'content1');
       const git = repo.getCardGit(cardId);
       await git.add('file1.txt');
-      await git.commit('Card adds file1.');
+      await git.commit('Added file1.');
 
       await repo.addFileToWorkingDir(cardId, 'file2.txt', 'content2');
       await git.add('file2.txt');
-      await git.commit('Card adds file2.');
+      await git.commit('Added file2.');
 
       const commits = await repo.getCommitsSince(cardId, baseline);
       expect(commits.length).toBe(2);

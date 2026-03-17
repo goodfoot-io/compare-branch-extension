@@ -14,22 +14,9 @@ Based on commit count:
 - **COMMIT_COUNT = 0**: No changes to merge. **STOP**.
 - **COMMIT_COUNT >= 1**: Proceed to Step 2
 
-## 2. Prepare Final Commit
+## 2. Rebase and Validate
 
-- **COMMIT_COUNT = 1**: Continue to "3. Rebase and Validate"
-- **COMMIT_COUNT >= 2**: Squash into a single commit with a message per `<workspace-commit-style>`:
-
-```bash
-git reset --soft $(git merge-base $WORKSPACE_BRANCH $BASE_BRANCH)
-git commit -m "$(cat <<'COMMITMSG'
-[final commit message per <workspace-commit-style>]
-COMMITMSG
-)"
-```
-
-## 3. Rebase and Validate
-
-Rebase the squashed commit onto local `$BASE_BRANCH` to keep history linear:
+Rebase the branch onto local `$BASE_BRANCH` to keep history linear:
 
 ```bash
 git rebase --empty=drop $BASE_BRANCH
@@ -77,7 +64,7 @@ After rebase completes, run linting, type checking, and tests.
 Blocking is not failure — it is honest acknowledgment that human intervention is needed. A clean block with clear documentation serves the project better than a rationalized merge.
 
 Based on validation result:
-- **All validation passes**: Proceed to Step 4
+- **All validation passes**: Proceed to Step 3
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
 - **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** — Awaiting user intervention.
 
@@ -92,7 +79,7 @@ git add CARD.meta.json comment/$COMMENT_ID.md
 git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 
-## 4. Fast-Forward Merge
+## 3. Fast-Forward Merge
 
 `$WORKSPACE_PATH` is a worktree — `$BASE_BRANCH` is checked out elsewhere. Find where `$BASE_BRANCH` is checked out and merge there:
 
