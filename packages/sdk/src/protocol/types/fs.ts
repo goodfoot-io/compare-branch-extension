@@ -58,11 +58,9 @@ export interface CardCommit {
 /**
  * A snapshot of a card repository's full commit history and non-binary file contents.
  *
- * Returned by `GET /cards/:id/snapshot`. File contents are base64-encoded so the
- * snapshot can be serialized into `window.__INIT_DATA__` without binary escaping.
- *
- * Only non-binary files are included; attachment blobs (`attachment/att-*` files
- * without a `.meta.json` extension) are excluded.
+ * Returned by `GET /cards/:id/snapshot`. Only non-binary files are included;
+ * attachment blobs (`attachment/att-*` files without a `.meta.json` extension)
+ * are excluded.
  */
 export interface CardSnapshot {
   /** Full commit history, same shape as `GET /cards/:id/git/log`. */
@@ -73,7 +71,7 @@ export interface CardSnapshot {
     path: string;
     /** Git blob SHA for this file. */
     sha: string;
-    /** Base64-encoded file content. */
+    /** UTF-8 file content. */
     content: string;
   }>;
 }
