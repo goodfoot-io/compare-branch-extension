@@ -35,7 +35,7 @@ Review this implementation plan for quality and completeness.
 
 Read the plan from PLAN.md in the card repository. Verify plan claims against workspace source files. Send a review report per your instructions.
 
-You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate structural compliance, design quality, and completeness. Everything is on the table, including fundamental redesigns.
+You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate strategy and design first, completeness second, structure last. Everything is on the table, including fundamental redesigns.
 </parameter>
 </invoke>
 ```
