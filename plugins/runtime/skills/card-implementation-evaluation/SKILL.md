@@ -53,7 +53,7 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 ## Modified Files
 [PLAN_FILES]
 
-You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate both code quality and end-to-end wiring. Everything is on the table, including major refactors.
+You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate design and approach first, end-to-end wiring second, code quality last. Everything is on the table, including major refactors.
 </parameter>
 </invoke>
 ```
