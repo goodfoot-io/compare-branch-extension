@@ -152,8 +152,6 @@ describe('DomainEvent discriminated union', () => {
       hasPlanContent: false,
       isMerged: null,
       incomingRelations: [],
-      commentCount: 0,
-      attachmentCount: 0,
       description: ''
     };
 
@@ -200,8 +198,6 @@ describe('DomainEvent discriminated union', () => {
         hasPlanContent: false,
         isMerged: null,
         incomingRelations: [],
-        commentCount: 0,
-        attachmentCount: 0,
         description: ''
       },
       { type: 'comment:created', cardId: 'id', commentId: 'cid' },

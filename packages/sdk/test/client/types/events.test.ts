@@ -43,8 +43,6 @@ describe('Event Types', () => {
         hasPlanContent: false,
         isMerged: null,
         incomingRelations: [],
-        commentCount: 0,
-        attachmentCount: 0,
         description: ''
       };
       expect(event.cardId).toBe('card-123');
@@ -232,8 +230,6 @@ describe('Event Types', () => {
         hasPlanContent: false,
         isMerged: null,
         incomingRelations: [],
-        commentCount: 0,
-        attachmentCount: 0,
         description: ''
       });
 

@@ -408,10 +408,6 @@ export interface CardsMetadataEvent {
   isMerged: boolean | null;
   /** Incoming relations targeting this card. */
   incomingRelations: CardRelation[];
-  /** Number of comments. */
-  commentCount: number;
-  /** Number of attachments. */
-  attachmentCount: number;
   /** Markdown description content (for search index). */
   description: string;
 }
