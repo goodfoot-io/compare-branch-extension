@@ -38,7 +38,7 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 | HAS_QUESTION | Latest user comment contains a genuine information-seeking question (not rhetorical, not "Can you fix X?", not "Could you implement Y?") |
 | IS_BLOCKED | `tags` contains "blocked" |
 | HAS_IMPLEMENTATION_FEEDBACK | `workspace-commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
-| REVIEW_APPROVED | `gates.reviewApproved` in CARD.meta.json |
+| REVIEW_APPROVED | `gates.mergeApproved` in CARD.meta.json |
 | IS_STALE | No activity for 30+ days |
 | PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
 | PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |

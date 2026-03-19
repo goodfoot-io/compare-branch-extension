@@ -22,8 +22,8 @@
  *   "gates": {
  *     "planRequired": true,
  *     "planApproved": true,
- *     "reviewRequired": true,
- *     "reviewApproved": false
+ *     "mergeRequestRequired": true,
+ *     "mergeApproved": false
  *   },
  *   "isPinned": false,
  *   "order": 1,
@@ -55,8 +55,8 @@ import type { CardStatus } from './status.js';
  * const gates: CardGates = {
  *   planRequired: true,
  *   planApproved: false,  // Cannot start until approved
- *   reviewRequired: true,
- *   reviewApproved: false
+ *   mergeRequestRequired: true,
+ *   mergeApproved: false
  * };
  *
  * // After plan is approved, card can move to in_progress
@@ -81,17 +81,17 @@ export interface CardGates {
   planApproved: boolean;
 
   /**
-   * Whether review is required before the card can be marked done.
+   * Whether merge request is required before the card can be marked done.
    * When true, the card must pass through `needs_review` status and
-   * have `reviewApproved` set before transitioning to `done`.
+   * have `mergeApproved` set before transitioning to `done`.
    */
-  reviewRequired: boolean;
+  mergeRequestRequired: boolean;
 
   /**
-   * Whether the review requirement has been satisfied.
-   * Set via the `POST /cards/:id/gates/review/approve` endpoint.
+   * Whether the merge request requirement has been satisfied.
+   * Set via the `POST /cards/:id/gates/mergeRequest/approve` endpoint.
    */
-  reviewApproved: boolean;
+  mergeApproved: boolean;
 }
 
 /**
@@ -103,8 +103,8 @@ export interface CardGates {
 export const DEFAULT_CARD_GATES: CardGates = {
   planRequired: false,
   planApproved: false,
-  reviewRequired: false,
-  reviewApproved: false
+  mergeRequestRequired: false,
+  mergeApproved: false
 };
 
 // --- Card Relations ---
@@ -244,7 +244,7 @@ export interface CardMetadata {
  *   title: 'Implement OAuth2',
  *   status: 'in_progress',
  *   tags: ['feature', 'auth'],
- *   gates: { planRequired: true, planApproved: true, reviewRequired: true, reviewApproved: false },
+ *   gates: { planRequired: true, planApproved: true, mergeRequestRequired: true, mergeApproved: false },
  *   isPinned: false,
  *   order: 1,
  *   repositoryId: 'main',

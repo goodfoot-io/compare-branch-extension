@@ -235,7 +235,7 @@ After the maintainer has shut down:
 
 Based on review gate:
 
-- **gates.reviewRequired is true**: Write an updated summary comment to the card repository. Reference both the original implementation and the feedback-driven changes. List workspace files modified in the update and confirm all validation passed. Indicate awaiting approval. Commit to the card repository. **STOP** — Merge occurs after user approval.
+- **gates.mergeRequestRequired is true**: Write an updated summary comment to the card repository. Reference both the original implementation and the feedback-driven changes. List workspace files modified in the update and confirm all validation passed. Indicate awaiting approval. Commit to the card repository. **STOP** — Merge occurs after user approval.
 
   ```bash
   cd !` echo $CARD_REPO_PATH`
@@ -249,7 +249,7 @@ Based on review gate:
   git commit -m "[single sentence summarizing what was changed in response to feedback and that it is ready for review]"  # <card-repo-commit-style>
   ```
 
-- **gates.reviewRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
+- **gates.mergeRequestRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
 
   ```bash
   cd !` echo $CARD_REPO_PATH`

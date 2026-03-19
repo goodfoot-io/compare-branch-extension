@@ -220,8 +220,8 @@ describe('webview types', () => {
           gates: {
             planRequired: false,
             planApproved: false,
-            reviewRequired: false,
-            reviewApproved: false
+            mergeRequestRequired: false,
+            mergeApproved: false
           },
           isPinned: false,
           isMerged: null,
@@ -313,7 +313,7 @@ describe('webview types', () => {
             status: 'todo',
             description: '',
             tags: [],
-            gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
+            gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
             isPinned: false,
             isMerged: null,
             order: 0,
@@ -350,7 +350,7 @@ describe('webview types', () => {
             status: 'todo',
             description: '',
             tags: [],
-            gates: { planRequired: false, planApproved: false, reviewRequired: false, reviewApproved: false },
+            gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
             isPinned: false,
             isMerged: null,
             order: 0,
@@ -627,8 +627,8 @@ describe('webview types', () => {
           gates: {
             planRequired: true,
             planApproved: false,
-            reviewRequired: true,
-            reviewApproved: false
+            mergeRequestRequired: true,
+            mergeApproved: false
           },
           isPinned: false,
           isMerged: null,

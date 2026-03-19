@@ -61,8 +61,8 @@ note/                       # Structured notes (Markdown + YAML frontmatter)
   "gates": {
     "planRequired": true,
     "planApproved": true,
-    "reviewRequired": true,
-    "reviewApproved": false
+    "mergeRequestRequired": true,
+    "mergeApproved": false
   },
   "isPinned": false,
   "order": 1,
@@ -77,7 +77,7 @@ note/                       # Structured notes (Markdown + YAML frontmatter)
 
 ### Gates
 
-**`gates`** are boolean prerequisites. `planRequired`/`planApproved` control whether a plan must exist and be approved. `reviewRequired`/`reviewApproved` control whether a review must exist and be approved.
+**`gates`** are boolean prerequisites. `planRequired`/`planApproved` control whether a plan must exist and be approved. `mergeRequestRequired`/`mergeApproved` control whether a review must exist and be approved.
 
 Validation rules for each field are in `references/validation.md`.
 
@@ -174,7 +174,7 @@ The Adaptive Card + Submission pair creates a durable, queryable decision record
 ```json
 {
   "id": "card-001",
-  "summary": "Request for review approval",
+  "summary": "Request for merge request approval",
   "author": "agent",
   "payload": {
     "type": "AdaptiveCard",

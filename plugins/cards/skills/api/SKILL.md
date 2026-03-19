@@ -215,8 +215,8 @@ attachment/                 # Created on first attachment
   "gates": {
     "planRequired": true,
     "planApproved": true,
-    "reviewRequired": true,
-    "reviewApproved": false
+    "mergeRequestRequired": true,
+    "mergeApproved": false
   },
   "isPinned": false,
   "order": 1,

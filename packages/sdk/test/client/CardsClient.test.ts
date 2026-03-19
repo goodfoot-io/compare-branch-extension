@@ -315,7 +315,7 @@ describe('CardsClient', () => {
     it('should POST /cards/:id/gates/:gateName/approve when approving gate', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
-      await client.approveGate('card-123', 'review');
+      await client.approveGate('card-123', 'mergeRequest');
       expect(httpClient.requests[0]).toMatchObject({
         method: 'POST',
         url: expect.stringContaining('/cards/card-123/gates/review/approve')

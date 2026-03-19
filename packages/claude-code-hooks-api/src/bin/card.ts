@@ -45,7 +45,7 @@ Get:
 Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string),
   description (string). Optional fields: tags (string[]), environment
-  (string), gates ({ planRequired?: boolean, reviewRequired?: boolean }),
+  (string), gates ({ planRequired?: boolean, mergeRequestRequired?: boolean }),
   relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]),
   plan (string, markdown content written to the card's PLAN.md).
 
@@ -201,7 +201,7 @@ export function parseCardCreateInput(raw: string): ParsedCardInput {
     const g = parsed['gates'] as Record<string, unknown>;
     data.gates = {
       ...(typeof g['planRequired'] === 'boolean' ? { planRequired: g['planRequired'] } : {}),
-      ...(typeof g['reviewRequired'] === 'boolean' ? { reviewRequired: g['reviewRequired'] } : {})
+      ...(typeof g['mergeRequestRequired'] === 'boolean' ? { mergeRequestRequired: g['mergeRequestRequired'] } : {})
     };
   }
   if (Array.isArray(parsed['relations'])) {

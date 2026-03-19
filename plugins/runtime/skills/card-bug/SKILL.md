@@ -376,7 +376,7 @@ git tag -d "bug/!` echo $CARD_ID`/baseline" "bug/!` echo $CARD_ID`/reproduction"
 
 Based on review requirement:
 
-- **Review required (gates.reviewRequired is true)**:
+- **Merge request required (gates.mergeRequestRequired is true)**:
   Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Commit to the card repository:
 
   ```bash
@@ -391,7 +391,7 @@ Based on review requirement:
 
   **STOP** — Merge occurs after user approval.
 
-- **Review NOT required (gates.reviewRequired is false or unset)**:
+- **Review NOT required (gates.mergeRequestRequired is false or unset)**:
   Write a completion comment to the card repository summarizing the bug, the fix approach, and confirming all tests pass. Commit to the card repository:
 
   ```bash

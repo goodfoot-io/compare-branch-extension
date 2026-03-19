@@ -109,13 +109,13 @@ describe('TestCardRepository', () => {
     it('applies custom gates', async () => {
       const cardId = await repo.createCard({
         title: 'Test Card',
-        gates: { planRequired: false, reviewRequired: false }
+        gates: { planRequired: false, mergeRequestRequired: false }
       });
 
       const metaContent = await repo.readFile(cardId, 'CARD.meta.json');
       const metadata = JSON.parse(metaContent);
       expect(metadata.gates.planRequired).toBe(false);
-      expect(metadata.gates.reviewRequired).toBe(false);
+      expect(metadata.gates.mergeRequestRequired).toBe(false);
     });
   });
 

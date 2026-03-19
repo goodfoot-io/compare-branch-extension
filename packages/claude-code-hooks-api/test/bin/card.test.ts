@@ -257,12 +257,12 @@ describe('card binary', () => {
           description: 'Desc',
           tags: ['bug'],
           environment: 'staging',
-          gates: { planRequired: true, reviewRequired: false }
+          gates: { planRequired: true, mergeRequestRequired: false }
         })
       );
       expect(result.data.tags).toEqual(['bug']);
       expect(result.data.environment).toBe('staging');
-      expect(result.data.gates).toEqual({ planRequired: true, reviewRequired: false });
+      expect(result.data.gates).toEqual({ planRequired: true, mergeRequestRequired: false });
     });
 
     it('parses optional plan field', () => {

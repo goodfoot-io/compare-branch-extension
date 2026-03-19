@@ -116,16 +116,16 @@ describe('Client Types', () => {
         gates: { planRequired: true }
       };
       expect(data.gates?.planRequired).toBe(true);
-      expect(data.gates?.reviewRequired).toBeUndefined();
+      expect(data.gates?.mergeRequestRequired).toBeUndefined();
     });
 
-    it('should accept reviewRequired flag', () => {
+    it('should accept mergeRequestRequired flag', () => {
       const data: CardCreateData = {
         title: 'Test Card',
         description: 'Description',
-        gates: { reviewRequired: true }
+        gates: { mergeRequestRequired: true }
       };
-      expect(data.gates?.reviewRequired).toBe(true);
+      expect(data.gates?.mergeRequestRequired).toBe(true);
       expect(data.gates?.planRequired).toBeUndefined();
     });
 
@@ -133,10 +133,10 @@ describe('Client Types', () => {
       const data: CardCreateData = {
         title: 'Test Card',
         description: 'Description',
-        gates: { planRequired: true, reviewRequired: true }
+        gates: { planRequired: true, mergeRequestRequired: true }
       };
       expect(data.gates?.planRequired).toBe(true);
-      expect(data.gates?.reviewRequired).toBe(true);
+      expect(data.gates?.mergeRequestRequired).toBe(true);
     });
 
     it('should accept empty gates object', () => {

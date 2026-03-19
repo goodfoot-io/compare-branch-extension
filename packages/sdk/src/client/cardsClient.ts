@@ -615,7 +615,7 @@ export class CardsClient {
    * @throws NetworkError when the request fails to reach the server.
    * @deprecated Use direct git operations instead. This endpoint will be removed.
    */
-  async approveGate(cardId: string, gateName: 'plan' | 'review'): Promise<GateApprovalResponse> {
+  async approveGate(cardId: string, gateName: 'plan' | 'mergeRequest'): Promise<GateApprovalResponse> {
     const url = this.buildUrl(`/cards/${cardId}/gates/${gateName}/approve`);
     return this.request(() => this.getHttpClient().post<GateApprovalResponse>(url, undefined));
   }

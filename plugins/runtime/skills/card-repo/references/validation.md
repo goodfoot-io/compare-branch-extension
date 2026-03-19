@@ -38,14 +38,14 @@ All four gate fields are required booleans:
 {
   "planRequired": false,
   "planApproved": false,
-  "reviewRequired": false,
-  "reviewApproved": false
+  "mergeRequestRequired": false,
+  "mergeApproved": false
 }
 ```
 
 Cross-field constraints enforced by the validator:
 - `planApproved: true` requires `planRequired: true`
-- `reviewApproved: true` requires `reviewRequired: true`
+- `mergeApproved: true` requires `mergeRequestRequired: true`
 
 Setting an approval flag without its corresponding requirement flag is a validation error.
 

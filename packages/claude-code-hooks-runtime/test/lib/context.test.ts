@@ -73,8 +73,8 @@ describe('buildCardBlock', () => {
         gates: {
           planRequired: true,
           planApproved: true,
-          reviewRequired: true,
-          reviewApproved: false
+          mergeRequestRequired: true,
+          mergeApproved: false
         }
       })
     );
@@ -86,8 +86,8 @@ describe('buildCardBlock', () => {
     expect(result).toContain('title: Test card title');
     expect(result).toContain('planRequired=true');
     expect(result).toContain('planApproved=true');
-    expect(result).toContain('reviewRequired=true');
-    expect(result).toContain('reviewApproved=false');
+    expect(result).toContain('mergeRequestRequired=true');
+    expect(result).toContain('mergeApproved=false');
   });
 
   it('falls back to actionInput.cardId when CARD.meta.json is missing', () => {

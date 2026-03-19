@@ -116,7 +116,7 @@ export interface CardCreateData {
   /** Optional gate requirements for the card. */
   gates?: {
     planRequired?: boolean;
-    reviewRequired?: boolean;
+    mergeRequestRequired?: boolean;
   };
   /** Outgoing relations to other cards. */
   relations?: CardRelation[];
@@ -140,7 +140,7 @@ export interface CardUpdateData {
   isPinned?: boolean;
   /** Display order for sorting within status. */
   order?: number;
-  /** Partial gate updates (e.g. toggling planRequired or reviewRequired). */
+  /** Partial gate updates (e.g. toggling planRequired or mergeRequestRequired). */
   gates?: Partial<CardGates>;
   /** Updated relations array. undefined = no change; [] = clear all. */
   relations?: CardRelation[];
@@ -190,7 +190,7 @@ export interface GateApprovalResponse {
   /** ID of the card the gate belongs to. */
   cardId: string;
   /** Name of the gate that was approved. */
-  gateName: 'plan' | 'review';
+  gateName: 'plan' | 'mergeRequest';
   /** Whether the gate was successfully approved. */
   approved: boolean;
   /** ISO 8601 timestamp when the gate was approved. */

@@ -274,11 +274,11 @@ COMMITMSG
 
 ### 4.2 Complete or Await Review
 
-**If review is NOT required (gates.reviewRequired is false or unset):**
+**If review is NOT required (gates.mergeRequestRequired is false or unset):**
 
 Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
-**If review is required (gates.reviewRequired is true):**
+**If review is required (gates.mergeRequestRequired is true):**
 
 Write a summary comment to the card repository explaining what you implemented and how it aligns with the approved plan. List the key workspace files modified and confirm all validation passed. Indicate you are awaiting approval. Commit to the card repository:
 

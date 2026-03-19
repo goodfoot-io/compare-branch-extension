@@ -52,7 +52,7 @@ import type { Comment, TimelineItem } from './timeline.js';
  * ```typescript
  * const gates: CardCreateGates = {
  *   planRequired: true,    // Must have approved plan before starting work
- *   reviewRequired: true   // Must pass review before marking done
+ *   mergeRequestRequired: true   // Must have merge request approved before marking done
  * };
  * ```
  *
@@ -67,11 +67,11 @@ export interface CardCreateGates {
   planRequired?: boolean;
 
   /**
-   * Whether review is required before the card can be marked done.
+   * Whether merge request is required before the card can be marked done.
    * When true, the card must transition through `needs_review` before
    * reaching `done` status.
    */
-  reviewRequired?: boolean;
+  mergeRequestRequired?: boolean;
 }
 
 /**
@@ -89,7 +89,7 @@ export interface CardCreateGates {
  *   workspacePath: '/home/user/my-project',
  *   tags: ['feature', 'auth'],
  *   environment: 'production',
- *   gates: { planRequired: true, reviewRequired: true }
+ *   gates: { planRequired: true, mergeRequestRequired: true }
  * };
  * ```
  */
@@ -155,7 +155,7 @@ export interface CreateCardRequest {
  *
  * All fields are optional; only provided fields are updated. The `id` field
  * cannot be changed through this endpoint, and approval flags (`planApproved`,
- * `reviewApproved`) are protected and managed through dedicated gate endpoints.
+ * `mergeApproved`) are protected and managed through dedicated gate endpoints.
  *
  * @example
  * ```typescript
@@ -517,7 +517,7 @@ export interface CommitAttributionResponse {
  * Used with `POST /cards/:id/gates/:gateName/approve` to approve
  * workflow gates.
  */
-export type GateName = 'plan' | 'review';
+export type GateName = 'plan' | 'mergeRequest';
 
 /**
  * Response from `POST /cards/:id/gates/:gateName/approve`.

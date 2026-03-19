@@ -1095,8 +1095,8 @@ function readCardMeta(rootPath) {
       gates: {
         planRequired: gates?.["planRequired"] === true,
         planApproved: gates?.["planApproved"] === true,
-        reviewRequired: gates?.["reviewRequired"] === true,
-        reviewApproved: gates?.["reviewApproved"] === true
+        mergeRequestRequired: gates?.["mergeRequestRequired"] === true,
+        mergeApproved: gates?.["mergeApproved"] === true
       }
     };
   } catch {
@@ -1108,7 +1108,7 @@ function buildCardBlock(actionInput) {
   const id = meta?.id || actionInput.cardId;
   const title = meta?.title || "";
   const status = meta?.status || "";
-  const gatesLine = meta ? `gates: planRequired=${meta.gates.planRequired} planApproved=${meta.gates.planApproved} reviewRequired=${meta.gates.reviewRequired} reviewApproved=${meta.gates.reviewApproved}` : "";
+  const gatesLine = meta ? `gates: planRequired=${meta.gates.planRequired} planApproved=${meta.gates.planApproved} mergeRequestRequired=${meta.gates.mergeRequestRequired} mergeApproved=${meta.gates.mergeApproved}` : "";
   const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
   const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
   const workspacePath = process.env[CARDS_ENV_VARS.WORKSPACE_PATH];
