@@ -318,7 +318,7 @@ describe('CardsClient', () => {
       await client.approveGate('card-123', 'mergeRequest');
       expect(httpClient.requests[0]).toMatchObject({
         method: 'POST',
-        url: expect.stringContaining('/cards/card-123/gates/review/approve')
+        url: expect.stringContaining('/cards/card-123/gates/mergeRequest/approve')
       });
     });
   });
