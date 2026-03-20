@@ -355,7 +355,7 @@ export interface WorkspaceCommitEvent {
   /** Branch name checked out at the workspace. Optional. */
   headBranch?: string;
   /** Details for the newly attributed commit. */
-  commitDetail: CommitDetails;
+  commitDetail?: CommitDetails;
 }
 
 /**
