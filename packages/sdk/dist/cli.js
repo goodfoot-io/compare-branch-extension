@@ -297,6 +297,7 @@ ${logPreamble}` : BANNER;
       target: "es2022",
       sourcemap: sourcemap ? "inline" : false,
       minify: false,
+      treeShaking: true,
       external: isStreamTransform ? [] : EXTERNALS,
       banner: jsBanner != null ? { js: jsBanner } : {},
       logLevel: "silent"
