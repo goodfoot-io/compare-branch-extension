@@ -1,6 +1,6 @@
 ---
 name: api
-description: Use this skill when the user wants to work with the Cards system — listing cards, creating cards, reading card details, adding comments or attachments, updating card status, or managing plans.
+description: Use to "create a card", "read card [CARD ID]", or interact with a "card". Card IDs are in the format "[slug]-[N]", for example "main-23".
 ---
 
 # Cards API
