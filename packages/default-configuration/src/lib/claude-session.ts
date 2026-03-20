@@ -223,16 +223,64 @@ export function buildArgs(
 }
 
 /**
- * Resolves the current branch name in the given workspace.
+ * Extracts the card ID from a `cards/<cardId>/<n>` branch name.
+ *
+ * @param branchName - Branch name to parse.
+ * @returns The card ID, or `null` if the branch doesn't match the pattern.
+ */
+function cardIdFromBranch(branchName: string): string | null {
+  const match = branchName.match(/^cards\/(.+)\/\d+$/);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Resolves the base branch for the workspace, following the `parentBranch`
+ * chain when HEAD is a `cards/*` worktree branch.
+ *
+ * Card branches are ephemeral and not valid merge targets. When the workspace
+ * HEAD happens to be on one (e.g., the main checkout was left on a card
+ * branch), this function queries the API for that branch's `parentBranch`
+ * and recurses until it finds a non-`cards/*` branch.
  *
  * @param workspacePath - Directory where `git rev-parse` runs.
- * @returns The abbreviated branch name at HEAD.
+ * @param client - Cards API client for resolving parentBranch of card branches.
+ * @returns The first non-`cards/*` branch in the parent chain.
+ * @throws Error if the parent chain cannot be resolved (missing API records, cycles).
  */
-export async function resolveBaseBranch(workspacePath: string): Promise<string> {
+export async function resolveBaseBranch(workspacePath: string, client?: CardsClient): Promise<string> {
   const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
     cwd: workspacePath
   });
-  return stdout.trim();
+  let branch = stdout.trim();
+
+  const visited = new Set<string>();
+  while (branch.startsWith('cards/')) {
+    if (visited.has(branch)) {
+      throw new Error(`Circular parentBranch chain detected: ${[...visited, branch].join(' → ')}`);
+    }
+    visited.add(branch);
+
+    const cardId = cardIdFromBranch(branch);
+    if (!cardId || !client) {
+      throw new Error(
+        `Workspace HEAD is on card branch "${branch}" but cannot resolve its parent. ` +
+          'Switch the main checkout to a non-card branch (e.g., main).'
+      );
+    }
+
+    const { branches } = await client.getBranches(cardId, { workspacePath });
+    const record = branches.find((b) => b.name === branch);
+    if (!record?.parentBranch) {
+      throw new Error(
+        `Card branch "${branch}" has no parentBranch record. ` +
+          'Switch the main checkout to a non-card branch (e.g., main).'
+      );
+    }
+
+    branch = record.parentBranch;
+  }
+
+  return branch;
 }
 
 /**
@@ -383,12 +431,12 @@ export async function cleanupMergedBranches(
     if (!branch.exists) continue;
 
     // Self-referential parentBranch is a corrupt state — `merge-base --is-ancestor X X`
-    // trivially succeeds, so cleanup would incorrectly remove unmerged work. Skip.
+    // trivially succeeds, so cleanup would incorrectly remove unmerged work.
     if (branch.parentBranch === branch.name) {
-      logger.warn('Skipping branch with self-referential parentBranch (corrupt state)', {
-        branch: branch.name
-      });
-      continue;
+      throw new Error(
+        `Branch "${branch.name}" has self-referential parentBranch — refusing to run cleanup. ` +
+          'This is a data corruption bug: a branch cannot be its own parent.'
+      );
     }
 
     try {
@@ -499,7 +547,7 @@ export async function spawnClaudeSession(
     accessToken: input.apiAccessToken
   });
 
-  const baseBranch = await resolveBaseBranch(input.repoRoot);
+  const baseBranch = await resolveBaseBranch(input.repoRoot, client);
 
   const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger, sessionId);
 
@@ -555,12 +603,8 @@ export async function spawnClaudeSession(
 
   context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode });
 
-  // Post-exit cleanup: remove fully-merged branches
-  try {
-    await cleanupMergedBranches(input, client, context.logger, sessionId);
-  } catch (error) {
-    context.logger.warn('Branch cleanup failed', {
-      error: errorMessage(error)
-    });
-  }
+  // Post-exit cleanup: remove fully-merged branches.
+  // Propagates — corrupt state (e.g. self-referential parentBranch) must
+  // surface as a hard failure, not a swallowed warning.
+  await cleanupMergedBranches(input, client, context.logger, sessionId);
 }

@@ -69,7 +69,7 @@ export async function spawnCodexSession(
     accessToken: input.apiAccessToken
   });
 
-  const baseBranch = await resolveBaseBranch(input.repoRoot);
+  const baseBranch = await resolveBaseBranch(input.repoRoot, client);
   const {
     worktreePath: cwd,
     branchName,
