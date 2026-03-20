@@ -21,7 +21,7 @@ import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
-import { stripDiffstatSummaries } from './lib/context.js';
+import { formatCommitLog } from './lib/file-tree.js';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -234,7 +234,7 @@ export default stopHook({}, async (input, { logger }) => {
         'log',
         '--no-walk',
         '--pretty=format:%h - %an: %s',
-        '--stat',
+        '--name-only',
         ...unattributed,
         '--',
         '.',
@@ -247,19 +247,19 @@ export default stopHook({}, async (input, { logger }) => {
         stdio: ['pipe', 'pipe', 'pipe']
       }
     ).trim();
-    diffContent = stripDiffstatSummaries(statOutput);
+    diffContent = formatCommitLog(statOutput, 'blank-line');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error('Failed to generate stat', { repoPath: actionInput.cardRepoPath, error: message });
+    logger.error('Failed to generate file list', { repoPath: actionInput.cardRepoPath, error: message });
     diffContent = [
-      `(Could not generate log --stat for ${unattributed.length} commit(s))`,
+      `(Could not generate log --name-only for ${unattributed.length} commit(s))`,
       '',
       `Error: ${message}`,
       '',
       'To view manually:',
-      `  git -C ${actionInput.cardRepoPath} log --stat ${unattributed.join(' ')} -- . ${PATHSPEC_EXCLUSIONS.map((p) => `'${p}'`).join(' ')}`
+      `  git -C ${actionInput.cardRepoPath} log --name-only ${unattributed.join(' ')} -- . ${PATHSPEC_EXCLUSIONS.map((p) => `'${p}'`).join(' ')}`
     ].join('\n');
-    warnings.push(`Stat generation failed: ${message}`);
+    warnings.push(`File list generation failed: ${message}`);
   }
 
   try {

@@ -226,10 +226,10 @@ describe('Stop Hook', () => {
       const stdout = result.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('1 unattributed commit');
-      expect(stdout.reason).toContain('Could not generate log --stat');
+      expect(stdout.reason).toContain('Could not generate log --name-only');
       expect(stdout.reason).toContain('To view manually');
       expect(stdout.reason).toContain('Warnings:');
-      expect(stdout.reason).toContain('Stat generation failed');
+      expect(stdout.reason).toContain('File list generation failed');
     });
 
     it('includes warnings when recordUnattributedCommits fails', async () => {

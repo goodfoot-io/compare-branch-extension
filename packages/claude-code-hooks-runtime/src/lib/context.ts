@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
 import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { formatCommitLog } from './file-tree.js';
 
 /**
  * Error thrown when the card repository cannot be read.
@@ -253,29 +254,6 @@ export function buildCardRepoBlock(rootPath: string): string {
 }
 
 // ============================================================================
-// Shared diffstat helper
-// ============================================================================
-
-/**
- * Strips "N file(s) changed, ..." summary lines from git `--stat` output.
- *
- * The per-file diffstat lines already convey what changed and by how much,
- * making the summary redundant.
- *
- * @param text - Raw git log output with `--stat`.
- * @returns Cleaned output with summary lines removed and collapsed blank lines.
- */
-export function stripDiffstatSummaries(text: string): string {
-  return text
-    .split('\n')
-    .filter((line) => !/^\s*\d+ files? changed/.test(line))
-    .map((line) => line.replace(/\s+\|\s+(\d+\s*[+-]*|Bin\s+.*)$/, ''))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-// ============================================================================
 // Card repo git log
 // ============================================================================
 
@@ -303,7 +281,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         'log',
         `-${MAX_CARD_REPO_LOG_COMMITS}`,
         '--pretty=format:%x00%h - %an: %s',
-        '--stat=9999',
+        '--name-only',
         '--',
         '.',
         ':!streams/',
@@ -321,16 +299,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
 
     if (!log) return null;
 
-    const rawCommits = log.split('\0').filter(Boolean);
-    if (rawCommits.length === 0) return null;
-
-    const formattedCommits: string[] = [];
-    for (const commit of rawCommits) {
-      const trimmed = stripDiffstatSummaries(commit.trim());
-      if (trimmed) formattedCommits.push(trimmed);
-    }
-
-    if (formattedCommits.length === 0) return null;
+    const formatted = formatCommitLog(log, 'nul');
+    if (!formatted) return null;
 
     let totalCount: number | null = null;
     try {
@@ -347,7 +317,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     }
 
     const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
-    return `<card-repo-log${countAttr}>\n${formattedCommits.join('\n\n')}\n</card-repo-log>`;
+    return `<card-repo-log${countAttr}>\n${formatted}\n</card-repo-log>`;
   } catch {
     return null;
   }
@@ -483,12 +453,12 @@ function filterResolvableShas(workspacePath: string, shas: string[]): string[] {
  *
  * @param workspacePath - Root directory of the workspace repository.
  * @param shas - Full 40-char SHAs to resolve.
- * @returns Formatted commit log with diffstat, or `null` on failure.
+ * @returns Formatted commit log with tree-rendered file lists, or `null` on failure.
  */
 function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[]): string | null {
   if (shas.length === 0) return null;
   try {
-    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h - %s', '--stat=9999', ...shas], {
+    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h - %s', '--name-only', ...shas], {
       cwd: workspacePath,
       encoding: 'utf-8',
       timeout: 5000,
@@ -496,7 +466,7 @@ function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[]): s
     }).trim();
 
     if (!output) return null;
-    return stripDiffstatSummaries(output) || null;
+    return formatCommitLog(output, 'blank-line') || null;
   } catch {
     return null;
   }
