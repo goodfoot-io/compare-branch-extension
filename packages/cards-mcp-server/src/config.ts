@@ -1,3 +1,13 @@
+/**
+ * Configuration reader for the Cards MCP server.
+ *
+ * Reads all required runtime values from environment variables and derives
+ * the WebSocket URL from the HTTP API base URL.
+ *
+ * @summary Configuration reader for the Cards MCP server
+ * @module cards-mcp-server/config
+ */
+
 import { CARDS_ENV_VARS, getApiAccessToken, getApiBaseUrl, getCardId, getCardRepoPath } from '@cards/sdk/config/env';
 
 export interface CardsServerConfig {
@@ -9,6 +19,12 @@ export interface CardsServerConfig {
   wsUrl: string;
 }
 
+/**
+ * Reads and validates the Cards MCP server configuration from environment variables.
+ *
+ * @returns Validated server configuration.
+ * @throws When any required environment variable is missing or empty.
+ */
 export function readConfig(): CardsServerConfig {
   const cardId = getCardId();
   const cardRepoPath = getCardRepoPath();
