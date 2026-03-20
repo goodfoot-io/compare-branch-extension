@@ -118,15 +118,15 @@ describe('Assistant Messages', () => {
     expect(result).toContain('class="cc-text"');
   });
 
-  it('formats thinking block as details element with cc-thinking class', async () => {
+  it('formats thinking block as div with cc-thinking class', async () => {
     const { result } = await transformJson({
       type: 'assistant',
       message: { content: [{ type: 'thinking', thinking: 'I am thinking' }] }
     });
 
     expect(result).toContain('class="cc-turn cc-assistant"');
-    expect(result).toContain('<details class="cc-thinking">');
-    expect(result).toContain('<summary>Thinking</summary>');
+    expect(result).toContain('<div class="cc-thinking">');
+    expect(result).toContain('class="cc-thinking-label"');
     expect(result).toContain('I am thinking');
   });
 

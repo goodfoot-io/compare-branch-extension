@@ -143,7 +143,7 @@ function formatContentBlock(block: { type: string; [key: string]: unknown }): st
     }
     case 'thinking': {
       const thinking = escapeHtml((block as unknown as { thinking: string }).thinking);
-      return `<details class="cc-thinking"><summary>Thinking</summary>${thinking}</details>`;
+      return `<div class="cc-thinking"><div class="cc-thinking-label">Thinking</div>${thinking}</div>`;
     }
     default:
       return '';
