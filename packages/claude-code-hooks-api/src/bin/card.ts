@@ -390,10 +390,11 @@ export async function attachCard(
   const client = await connectClient();
 
   // Register workspace branch if on a named branch.
-  // parentBranch is set to the current branch itself — when working directly
-  // on the base branch (not a worktree), the branch IS the comparison base.
+  // For worktree branches (cards/*), resolveOrCreateWorktree already handles
+  // registration with the correct parentBranch. Only register here for base
+  // branches (e.g., main) where the branch IS the comparison base.
   const branch = getCurrentBranch();
-  if (branch) {
+  if (branch && !branch.startsWith('cards/')) {
     const branchData: AddBranchRequest = { name: branch, parentBranch: branch };
     try {
       await client.addBranch(cardId, branchData);

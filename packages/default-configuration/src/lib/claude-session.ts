@@ -382,6 +382,15 @@ export async function cleanupMergedBranches(
   for (const branch of branches) {
     if (!branch.exists) continue;
 
+    // Self-referential parentBranch is a corrupt state — `merge-base --is-ancestor X X`
+    // trivially succeeds, so cleanup would incorrectly remove unmerged work. Skip.
+    if (branch.parentBranch === branch.name) {
+      logger.warn('Skipping branch with self-referential parentBranch (corrupt state)', {
+        branch: branch.name
+      });
+      continue;
+    }
+
     try {
       // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
       // Check against the branch's own parentBranch, not the workspace HEAD.

@@ -130,10 +130,9 @@ describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
     const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
       if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
         return Promise.resolve(
-          new Response(
-            JSON.stringify({ branches: [selfRefBranch], commits: [], defaultBranch: 'main' }),
-            { status: 200 }
-          )
+          new Response(JSON.stringify({ branches: [selfRefBranch], commits: [], defaultBranch: 'main' }), {
+            status: 200
+          })
         );
       }
       if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
@@ -160,9 +159,7 @@ describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
     );
     expect(branchDeleteCall).toBeUndefined();
 
-    const deleteCall = fetchMock.mock.calls.find(
-      (c: unknown[]) => (c[1] as RequestInit)?.method === 'DELETE'
-    );
+    const deleteCall = fetchMock.mock.calls.find((c: unknown[]) => (c[1] as RequestInit)?.method === 'DELETE');
     expect(deleteCall).toBeUndefined();
   });
 
@@ -213,10 +210,9 @@ describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
     const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
       if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
         return Promise.resolve(
-          new Response(
-            JSON.stringify({ branches: [validBranch, corruptBranch], commits: [], defaultBranch: 'main' }),
-            { status: 200 }
-          )
+          new Response(JSON.stringify({ branches: [validBranch, corruptBranch], commits: [], defaultBranch: 'main' }), {
+            status: 200
+          })
         );
       }
       if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
@@ -242,9 +238,7 @@ describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
     );
     expect(branchDeleteCalls).toHaveLength(0);
 
-    const deleteCalls = fetchMock.mock.calls.filter(
-      (c: unknown[]) => (c[1] as RequestInit)?.method === 'DELETE'
-    );
+    const deleteCalls = fetchMock.mock.calls.filter((c: unknown[]) => (c[1] as RequestInit)?.method === 'DELETE');
     expect(deleteCalls).toHaveLength(0);
   });
 });

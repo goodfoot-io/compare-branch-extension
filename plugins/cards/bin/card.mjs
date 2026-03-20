@@ -1482,7 +1482,7 @@ async function attachCard(cardId) {
   console.error(`card attach: PID ${pid} associated with card ${cardId}`);
   const client = await connectClient();
   const branch = getCurrentBranch();
-  if (branch) {
+  if (branch && !branch.startsWith("cards/")) {
     const branchData = { name: branch, parentBranch: branch };
     try {
       await client.addBranch(cardId, branchData);
