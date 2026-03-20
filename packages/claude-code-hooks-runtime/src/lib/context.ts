@@ -303,7 +303,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         'log',
         `-${MAX_CARD_REPO_LOG_COMMITS}`,
         '--pretty=format:%x00%h - %an: %s',
-        '--stat',
+        '--stat=9999',
         '--',
         '.',
         ':!streams/',
@@ -488,7 +488,7 @@ function filterResolvableShas(workspacePath: string, shas: string[]): string[] {
 function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[]): string | null {
   if (shas.length === 0) return null;
   try {
-    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h - %s', '--stat', ...shas], {
+    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h - %s', '--stat=9999', ...shas], {
       cwd: workspacePath,
       encoding: 'utf-8',
       timeout: 5000,
