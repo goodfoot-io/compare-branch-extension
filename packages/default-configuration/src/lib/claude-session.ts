@@ -604,7 +604,16 @@ export async function spawnClaudeSession(
   context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode });
 
   // Post-exit cleanup: remove fully-merged branches.
-  // Propagates — corrupt state (e.g. self-referential parentBranch) must
-  // surface as a hard failure, not a swallowed warning.
-  await cleanupMergedBranches(input, client, context.logger, sessionId);
+  // Data corruption (e.g. self-referential parentBranch) propagates as a hard
+  // failure. Network/transient errors are logged as warnings — the watcher and
+  // extension provide redundant cleanup paths.
+  try {
+    await cleanupMergedBranches(input, client, context.logger, sessionId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('self-referential parentBranch') || message.includes('data corruption')) {
+      throw error;
+    }
+    context.logger.warn('Post-exit cleanup failed (non-fatal)', { error: message, sessionId });
+  }
 }
