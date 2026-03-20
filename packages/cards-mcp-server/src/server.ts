@@ -34,7 +34,7 @@ When you receive a notification:
 
 export interface CardsMcpServer {
   start(): Promise<void>;
-  stop(): void;
+  stop(): Promise<void>;
   mcpServer: Server;
 }
 
@@ -96,8 +96,9 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
       await mcp.connect(transport);
       await subscriber.connect();
     },
-    stop(): void {
+    async stop(): Promise<void> {
       subscriber.disconnect();
+      await mcp.close();
     }
   };
 }

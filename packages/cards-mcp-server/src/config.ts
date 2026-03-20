@@ -8,13 +8,11 @@
  * @module cards-mcp-server/config
  */
 
-import { CARDS_ENV_VARS, getApiAccessToken, getApiBaseUrl, getCardId, getCardRepoPath } from '@cards/sdk/config/env';
+import { CARDS_ENV_VARS, getApiAccessToken, getApiBaseUrl, getCardId } from '@cards/sdk/config/env';
 
 export interface CardsServerConfig {
   cardId: string;
-  cardRepoPath: string;
   sessionId: string;
-  apiBaseUrl: string;
   apiAccessToken: string;
   wsUrl: string;
 }
@@ -27,7 +25,6 @@ export interface CardsServerConfig {
  */
 export function readConfig(): CardsServerConfig {
   const cardId = getCardId();
-  const cardRepoPath = getCardRepoPath();
   const apiBaseUrl = getApiBaseUrl();
   const apiAccessToken = getApiAccessToken();
 
@@ -38,5 +35,5 @@ export function readConfig(): CardsServerConfig {
 
   const wsUrl = apiBaseUrl.replace(/^http(s?):\/\//, 'ws$1://');
 
-  return { cardId, cardRepoPath, sessionId, apiBaseUrl, apiAccessToken, wsUrl };
+  return { cardId, sessionId, apiAccessToken, wsUrl };
 }

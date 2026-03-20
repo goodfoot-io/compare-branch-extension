@@ -16,13 +16,11 @@ async function main(): Promise<void> {
   const server = createServer(config);
 
   process.on('SIGTERM', () => {
-    server.stop();
-    process.exit(0);
+    server.stop().then(() => process.exit(0));
   });
 
   process.on('SIGINT', () => {
-    server.stop();
-    process.exit(0);
+    server.stop().then(() => process.exit(0));
   });
 
   await server.start();

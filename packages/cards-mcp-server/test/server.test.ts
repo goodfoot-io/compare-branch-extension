@@ -24,9 +24,7 @@ vi.mock('@cards/claude-code-sessions/card-repo', () => ({
 function makeConfig(wsUrl: string): CardsServerConfig {
   return {
     cardId: 'test-card',
-    cardRepoPath: '/tmp/test-card',
     sessionId: 'test-session',
-    apiBaseUrl: 'http://localhost',
     apiAccessToken: 'test-token',
     wsUrl
   };
@@ -78,7 +76,7 @@ describe('createServer', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    server.stop();
+    await server.stop();
 
     expect(notifications).toHaveLength(1);
     const n = notifications[0] as { method: string; params: { content: string; meta: Record<string, string> } };
@@ -109,7 +107,7 @@ describe('createServer', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    server.stop();
+    await server.stop();
 
     expect(notifications).toHaveLength(0);
   });
@@ -133,7 +131,7 @@ describe('createServer', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    server.stop();
+    await server.stop();
 
     expect(notifications).toHaveLength(0);
   });
