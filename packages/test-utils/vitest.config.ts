@@ -17,6 +17,9 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     environment: 'node',
     testTimeout: 30000,
-    reporters: ['dot']
+    reporters: ['dot'],
+    env: {
+      CARDS_HOOKS_LOG_FILE: '/dev/null'
+    }
   }
 });
