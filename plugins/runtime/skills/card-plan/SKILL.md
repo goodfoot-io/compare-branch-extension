@@ -12,7 +12,7 @@ Create implementation plans for cards requiring user approval before coding begi
 
 ### 1.1 Research
 
-Research must answer four questions before the plan is written:
+Research must answer five questions before the plan is written:
 
 1. **What is the root cause?** Identify the structural property that produces the problem — not the symptom. If the root cause is inferred rather than confirmed by reading source, spike before §1.2. A plan built on a falsified root cause requires full replacement, not refinement.
 
@@ -21,6 +21,8 @@ Research must answer four questions before the plan is written:
 3. **What do the integration points require?** For each system, API, or runtime boundary the plan touches, read beyond the type signature to understand the behavioral contract — what it assumes, what invariants it maintains, what it does not guarantee. A type signature is an interface; the implementation is the contract.
 
 4. **Is each design decision grounded?** For each new or modified field or parameter, verify that absence is a valid consumer state — an optional field asserts "the system is correct when this is absent." When the card description, comments, and CARD.md contain inconsistent signals, resolve the conflict before writing the plan.
+
+5. **What is the commander's intent?** Distill from CARD.md: why are we doing this (the user or system goal), what constraints must hold regardless of implementation approach, and what does the situation look like when the work is done. The card describes what the user needs; the plan's intent translates that into operational direction for the implementer.
 
 When delegating research, require structured findings per site: file path, line number, usage, and whether the site needs updating. Parallel subagents cannot cross-reference — connections across research areas must be resolved during synthesis.
 
@@ -68,7 +70,7 @@ Scan the plan for assumptions — both explicit (labeled as such) and implicit (
 
 For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
 
-Incorporate results into the plan. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from Problem Statement through Technical Approach — rewrite, don't patch.
+Incorporate results into the plan. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from Commander's Intent through Technical Approach — rewrite, don't patch.
 - Move validated assumptions from "unvalidated" to "validated" with spike path references
 - Revise or remove risk mitigations based on disproven assumptions
 

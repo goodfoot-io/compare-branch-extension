@@ -59,7 +59,7 @@ Organize so updates don't cascade:
 
 ### Stable Anchors
 Some elements should rarely change:
-- Problem Statement (the "why" should be stable)
+- Commander's Intent (the "why" should be stable)
 - Success Criteria (the "definition of done")
 - Core Constraints (non-negotiables)
 

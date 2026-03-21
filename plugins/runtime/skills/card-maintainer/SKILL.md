@@ -26,7 +26,7 @@ Evaluate design and approach first. Line-level quality last.
 
 **N/A dimensions**: When an end-to-end dimension does not apply (e.g., no events exist, no config keys are used, no barrel files in scope), mark it PASS with a brief note explaining why it is not applicable. Do not invent findings to fill an empty dimension.
 
-**Intent vs. plan conflicts**: Commander's intent takes precedence — it describes the "why." The plan describes the "how." If the plan contradicts the intent, that is itself a required change.
+**Intent vs. approach conflicts**: The commander's intent (PLAN.md opening) takes precedence — it describes the "why." The technical approach describes the "how." If the implementation contradicts the intent, that is itself a required change.
 
 **Project conventions**: Read CLAUDE.md and any other project configuration files (e.g., .claude/settings.json) in the workspace root. Enforce their conventions as required changes — violations are not style preferences, they are project standards. Common examples: error handling policy, data-flow connectivity rules, validation requirements, commit conventions.
 
@@ -54,12 +54,12 @@ When the change is verifiable in a running environment, exercise it directly. Th
 
 ### Phase 3: Design Assessment
 
-Step back from the diff. Evaluate the implementation as a whole against the problem it was meant to solve.
+Step back from the diff. Evaluate the implementation as a whole against the commander's intent.
 
-- Does this implementation solve the problem stated in CARD.md, or a different problem?
-- Is the approach proportional to the need — or does it introduce abstractions, indirection, or generalization beyond what the requirements demand?
-- Could a simpler implementation achieve the same outcome? If so, the complexity must be justified by a concrete current requirement, not a hypothetical future one.
-- Are there assumptions baked into the code that the plan or card never validated?
+- Does this implementation achieve the commander's intent — does it fulfill the purpose, satisfy the constraints, and reach the done state? Or does it solve a different problem?
+- Is the approach proportional to the need — or does it introduce abstractions, indirection, or generalization beyond what the intent demands?
+- Could a simpler implementation achieve the same done state? If so, the complexity must be justified by a concrete current requirement, not a hypothetical future one.
+- Are there assumptions baked into the code that the intent or plan never validated?
 
 Findings here are required changes — a working implementation of the wrong approach is not ready to ship.
 
@@ -193,10 +193,10 @@ External constraints prevent review or deployment (infrastructure failure, missi
 ### Verdict: [APPROVED/CHANGES_REQUESTED/BLOCKED]
 
 ### Commander's Intent
-[Synthesized from CARD.md and PLAN.md]
+[From PLAN.md opening — quote verbatim]
 
 ### Strategy Assessment
-[Does this implementation solve the right problem the right way?
+[Does this implementation achieve the commander's intent?
 Is the approach proportional to the need? Could this be simpler?
 What assumptions does the code embed, and are they validated?]
 
@@ -263,13 +263,9 @@ Do not modify files during evaluation. If a tool invoked during validation appli
 
 ## 1. Gather Context
 
-Read PLAN.md from the card repository path provided in the invocation prompt. Understand intended changes, affected packages, and validation commands.
+Read PLAN.md from the card repository path provided in the invocation prompt. The opening 2-4 sentences are the commander's intent — purpose, constraints, and done state. Quote it verbatim in the report. Understand intended changes, affected packages, and validation commands.
 
-Read `CARD.md` from the card repository. Synthesize commander's intent — a 2-4 sentence statement capturing:
-- The problem the card exists to solve
-- The outcome the user expects
-- Any implicit requirements beyond the plan's literal tasks
-- Behavioral invariants that must hold across all code paths — if the feature has multiple data sources (initial load, real-time events, cache), state that they must produce equivalent results for consumers
+Read `CARD.md` from the card repository for fuller context on the user's goals and constraints.
 
 Identify the baseline by diffing the workspace against the implementation baseline tag:
 

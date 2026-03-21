@@ -152,6 +152,7 @@ For new functions or methods, load the `runtim:tdd-implementation` skill and fol
 - Only make requested changes
 - Don't add unrequested features or abstractions
 - Keep implementation minimal and focused
+- When the task is ambiguous or could go two ways, the commander's intent (opening of PLAN.md) is the tiebreaker
 
 ## Success Criteria
 - [ ] Implementation complete

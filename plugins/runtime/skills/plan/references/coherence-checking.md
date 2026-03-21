@@ -10,7 +10,9 @@ that cause implementation confusion or rework.
 
 A coherent plan tells one consistent story. Every section should reinforce—never
 contradict—the others. A reader should be able to trace any requirement back to
-the problem statement and forward to validation criteria.
+the commander's intent and forward to validation criteria. When a technical
+approach step could go two ways, the intent's constraints should make clear which
+way to go — if they don't, the intent needs refinement.
 
 Source: project-plan-report.md lines 71
 > "Poorly written or collaboratively edited plans can sometimes contain requirements
@@ -31,7 +33,7 @@ discusses mitigations for "500ms acceptable degradation."
 
 ### Terminology Consistency
 Same concept must use same name throughout:
-- If Problem Statement says "Shopping Cart", Technical Approach shouldn't say "Basket"
+- If Commander's Intent says "Shopping Cart", Technical Approach shouldn't say "Basket"
 - Entity names should match codebase conventions
 - Avoid synonyms for the same thing
 
@@ -65,7 +67,7 @@ For each value/term, search the document for all occurrences and verify consiste
 
 ### Step 3: Trace Requirements
 For each goal, verify:
-- It addresses something in the Problem Statement
+- It addresses something in the Commander's Intent
 - It has steps in Technical Approach
 - It has criteria in Validation Commands or acceptance criteria
 

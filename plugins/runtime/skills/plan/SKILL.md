@@ -12,7 +12,7 @@ This skill defines how to structure implementation plans stored as PLAN.md in ca
 
 ### Required
 - `## Implementation Plan` header
-- Problem Statement (2-4 sentences)
+- Commander's Intent (why, constraints, done state — 2-4 sentences)
 - Goals & Objectives (3-7 checkbox items)
 - Scope (Include AND Exclude)
 - Technical Approach (numbered steps with file paths)
@@ -76,18 +76,23 @@ The best plan answers "what" and "where" while leaving "how" to the implementer.
 ```markdown
 ## Implementation Plan
 
-The application currently lacks real-time notification capabilities, requiring users to manually refresh pages to see updates. This leads to delayed awareness of important events, reduced user engagement, and a subpar experience compared to modern web applications.
+Enable users to receive updates without polling. Notifications must arrive within 500ms regardless of source — direct action, background job, or real-time event — and delivery must be consistent across all sources. Done: a user on any page receives and can act on a notification without refreshing.
 ```
 </example>
 
 <instructions>
-Plans inherit their title from the parent card. Start every plan with `## Implementation Plan` followed directly by the problem statement (2-4 sentences).
+Plans inherit their title from the parent card. Start every plan with `## Implementation Plan` followed directly by the commander's intent (2-4 sentences), distilled from CARD.md. The card describes what the user needs; the plan's intent translates that into operational direction for the implementer.
 
-The problem statement must:
-1. Explain the current state and its limitations
-2. Describe the negative impact on users or the system
-3. Make clear why this needs to be solved now
-4. Avoid proposing solutions (save for Technical Approach)
+The commander's intent has three components:
+1. State why we are doing this — the user or system goal
+2. Name the constraints any valid implementation must satisfy, including behavioral invariants that must hold across all code paths
+3. Describe what the situation looks like when the work is done
+
+An implementing agent encountering an unexpected fork should be able to use this statement alone to choose a path. If it cannot, the intent needs rewriting.
+
+Bad: "Users must manually refresh pages because the application lacks real-time notifications" (deficiency, not direction)
+Bad: "Implement WebSocket-based notification delivery with Redis pub/sub" (solution, not intent)
+Bad: "Users should get notifications faster" (no constraints, unmeasurable done state)
 </instructions>
 
 ---
@@ -151,7 +156,7 @@ Define clear boundaries for what is and isn't part of this project.
 - List all features that WILL be built
 - Be specific about technical limits (e.g., "100 notifications/second")
 - Reference existing systems you'll integrate with
-- If the implementation makes existing code obsolete — replaces a component, supersedes an event, removes a dependency — list it here. Omitting planned deletions from scope creates a dead code accumulation: the problem statement identifies waste, the plan leaves it in place.
+- If the implementation makes existing code obsolete — replaces a component, supersedes an event, removes a dependency — list it here. Omitting planned deletions from scope creates a dead code accumulation: the intent identifies waste, the plan leaves it in place.
 
 ### Exclude (CRITICAL - prevents scope creep)
 - Explicitly list what will NOT be built

@@ -43,7 +43,7 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 | PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
 | PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
 | USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the agent comment that submitted the plan for approval. Identify the plan-submission agent comment as the most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's modification time. |
-| DOR_MET | Problem statement exists, acceptance criteria inferable, technical approach determinable |
+| DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
 
 ## 2. Route

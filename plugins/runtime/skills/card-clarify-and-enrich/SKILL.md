@@ -112,7 +112,7 @@ Skip the commit entirely if no enrichment or clarification is needed.
 
 Mark as MISSING if not present or inferable from the card description, comments, and exploration results:
 
-- **Problem statement**: What problem this solves
+- **Commander's intent**: What this change should achieve and why it matters
 - **Acceptance criteria**: Testable completion conditions
 - **Dependencies**: Blockers or prerequisites
 - **Technical feasibility**: Enough detail to determine approach
