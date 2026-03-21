@@ -37,6 +37,8 @@ export {
 } from './fixtures/index.js';
 // --- Time Utilities ---
 export { futureDate, now, pastDate } from './fixtures/time.js';
+// --- Async Utilities ---
+export { flushMicrotasks } from './flushMicrotasks.js';
 // --- Git Test Utilities ---
 export {
   type CreateCardOptions,
