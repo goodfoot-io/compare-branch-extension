@@ -28,7 +28,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('../src/lib/create-worktree.js', () => ({
+vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()

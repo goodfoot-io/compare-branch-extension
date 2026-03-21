@@ -1,15 +1,21 @@
+/**
+ * Git worktree lifecycle management for monorepo workspaces.
+ *
+ * Creates worktrees with symlinked node_modules, ignored paths, and
+ * per-worktree git excludes so the worktree is immediately usable for
+ * builds and tests without a separate `yarn install`.
+ *
+ * Supports both branch-based worktrees (for implementation work) and
+ * detached worktrees (for verifying state at a tag or commit).
+ *
+ * @summary Git worktree creation with monorepo symlink wiring
+ * @module worktree
+ */
+
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-
-/**
- * Implements create worktree behavior for the default-configuration package.
- * The module captures domain rules in one place so callers can compose workflows without
- * duplicating edge-case handling.
- *
- * @summary Create Worktree logic for lib
- */
 
 const execFileAsync = promisify(execFile);
 
@@ -64,7 +70,7 @@ export function isInternalSymlink(target: string): boolean {
   return target.startsWith('../');
 }
 
-interface CreateWorktreeResult {
+export interface CreateWorktreeResult {
   branch: string;
   worktree: string;
   baseSha: string;
@@ -72,49 +78,55 @@ interface CreateWorktreeResult {
 }
 
 /**
- * Creates and configures a new git worktree for a branch.
+ * Creates and configures a new git worktree.
  *
- * The workflow validates the branch name, creates the worktree, mirrors
- * existing root symlinks, symlinks ignored paths, reroutes node_modules links,
- * and updates per-worktree git excludes.
+ * The workflow validates the ref, creates the worktree, mirrors existing root
+ * symlinks, symlinks ignored paths, reroutes node_modules links, and updates
+ * per-worktree git excludes.
  *
- * @param branchName - Name of the branch to create or attach.
+ * When `ref` is a branch name, the worktree checks out that branch (creating
+ * it if needed). When `ref` is a tag or commit SHA, the worktree is created
+ * in detached HEAD mode.
+ *
+ * @param ref - Branch name, tag name, or commit SHA.
  * @param options - Optional configuration.
  * @param options.cwd - Working directory to use when locating git roots. Defaults to `process.cwd()`.
  * @returns Metadata describing the created worktree and base commit.
  */
-export async function createWorktree(branchName: string, options?: { cwd?: string }): Promise<CreateWorktreeResult> {
-  validateBranchName(branchName);
-
+export async function createWorktree(ref: string, options?: { cwd?: string }): Promise<CreateWorktreeResult> {
   const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
-  const startPoint = await resolveHead(sourceRoot);
-  const worktreeDir = path.join(repoRoot, '.worktrees', branchName);
 
-  const [worktreeExists, branchExists] = await Promise.all([
-    checkWorktreeExists(repoRoot, worktreeDir),
-    checkBranchExists(repoRoot, branchName)
-  ]);
+  // Determine whether this is an existing ref or a new branch name.
+  // resolveRefType throws for unknown refs; a valid branch name that
+  // doesn't exist yet is treated as a new branch to create.
+  let refType: 'branch' | 'tag' | 'commit';
+  try {
+    refType = await resolveRefType(repoRoot, ref);
+  } catch {
+    validateBranchName(ref);
+    refType = 'branch';
+  }
 
+  if (refType === 'branch') {
+    validateBranchName(ref);
+  }
+
+  const worktreeDir = path.join(repoRoot, '.worktrees', ref);
+
+  const worktreeExists = await checkWorktreeExists(repoRoot, worktreeDir);
   if (worktreeExists) {
     throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
   }
 
-  // Remove stale directory remnants left by a crashed previous session.
-  // Git doesn't track the worktree, but the directory may still exist on disk,
-  // which causes `git worktree add` to fail with "already exists".
-  try {
-    await fs.access(worktreeDir);
-    // Directory exists on disk but git doesn't track it — it's stale.
-    await fs.rm(worktreeDir, { recursive: true });
-    await execFileAsync('git', ['worktree', 'prune'], { cwd: repoRoot, timeout: 30_000 });
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
-    // ENOENT: directory doesn't exist on disk — nothing to clean up.
-  }
+  await cleanStaleWorktreeDir(repoRoot, worktreeDir);
 
-  await addWorktree({ repoRoot, worktreeDir, branchName, branchExists, startPoint });
+  if (refType === 'branch') {
+    const startPoint = await resolveHead(sourceRoot);
+    const branchExists = await checkBranchExists(repoRoot, ref);
+    await addWorktree({ repoRoot, worktreeDir, branchName: ref, branchExists, startPoint });
+  } else {
+    await addDetachedWorktree(repoRoot, worktreeDir, ref);
+  }
 
   const ignored = await discoverIgnoredPaths(sourceRoot);
   await copyExistingSymlinks(sourceRoot, worktreeDir);
@@ -128,7 +140,7 @@ export async function createWorktree(branchName: string, options?: { cwd?: strin
   ]);
 
   const result: CreateWorktreeResult = {
-    branch: branchName,
+    branch: ref,
     worktree: worktreeDir,
     baseSha
   };
@@ -138,6 +150,27 @@ export async function createWorktree(branchName: string, options?: { cwd?: strin
   }
 
   return result;
+}
+
+/**
+ * Removes stale directory remnants left by a crashed previous session.
+ *
+ * Git doesn't track the worktree, but the directory may still exist on disk,
+ * which causes `git worktree add` to fail with "already exists".
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param worktreeDir - Absolute worktree path being created.
+ */
+async function cleanStaleWorktreeDir(repoRoot: string, worktreeDir: string): Promise<void> {
+  try {
+    await fs.access(worktreeDir);
+    await fs.rm(worktreeDir, { recursive: true });
+    await execFileAsync('git', ['worktree', 'prune'], { cwd: repoRoot, timeout: 30_000 });
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
 }
 
 interface GitRoots {
@@ -226,6 +259,38 @@ export async function checkBranchExists(repoRoot: string, branchName: string): P
   return stdout.trim().length > 0;
 }
 
+/**
+ * Determines whether a git ref is a branch, tag, or commit SHA.
+ *
+ * Checks local branches first, then tags, then falls back to verifying
+ * the ref resolves as a commit.
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param ref - The ref to classify.
+ * @throws {Error} When the ref does not resolve to any known git object.
+ * @returns The ref type: `'branch'`, `'tag'`, or `'commit'`.
+ */
+export async function resolveRefType(repoRoot: string, ref: string): Promise<'branch' | 'tag' | 'commit'> {
+  const branchExists = await checkBranchExists(repoRoot, ref);
+  if (branchExists) return 'branch';
+
+  const { stdout: tagOutput } = await execFileAsync('git', ['tag', '--list', ref], {
+    cwd: repoRoot,
+    timeout: 30_000
+  });
+  if (tagOutput.trim().length > 0) return 'tag';
+
+  try {
+    await execFileAsync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
+      cwd: repoRoot,
+      timeout: 5_000
+    });
+    return 'commit';
+  } catch {
+    throw new Error(`Error: '${ref}' does not resolve to a branch, tag, or commit.`);
+  }
+}
+
 interface AddWorktreeOptions {
   repoRoot: string;
   worktreeDir: string;
@@ -248,6 +313,22 @@ export async function addWorktree(opts: AddWorktreeOptions): Promise<void> {
     ? ['worktree', 'add', opts.worktreeDir, opts.branchName]
     : ['worktree', 'add', '-b', opts.branchName, opts.worktreeDir, opts.startPoint];
   await execFileAsync('git', args, { cwd: opts.repoRoot, timeout: 30_000 });
+}
+
+/**
+ * Adds a git worktree in detached HEAD mode at the given ref.
+ *
+ * Used for tags and commit SHAs where no branch association is needed.
+ *
+ * @param repoRoot - Primary repository root where git commands run.
+ * @param worktreeDir - Absolute path for the new worktree.
+ * @param ref - Tag name or commit SHA to check out.
+ */
+export async function addDetachedWorktree(repoRoot: string, worktreeDir: string, ref: string): Promise<void> {
+  await execFileAsync('git', ['worktree', 'add', '--detach', worktreeDir, ref], {
+    cwd: repoRoot,
+    timeout: 30_000
+  });
 }
 
 interface IgnoredPaths {

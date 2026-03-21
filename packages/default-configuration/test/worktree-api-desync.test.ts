@@ -29,7 +29,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('../src/lib/create-worktree.js', () => ({
+vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
@@ -85,7 +85,7 @@ beforeEach(async () => {
   });
 
   // Default: findGitRoots returns workspace as both roots, checkWorktreeExists returns false (no conflict)
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('../src/lib/create-worktree.js');
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
 
@@ -151,7 +151,7 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 describe('worktree-API desync', () => {
   it('skips occupied slot and creates worktree at next available number', async () => {
     const { spawn } = await import('node:child_process');
-    const { createWorktree, checkWorktreeExists } = await import('../src/lib/create-worktree.js');
+    const { createWorktree, checkWorktreeExists } = await import('@cards/sdk/worktree');
 
     // API returns NO branches — it has no record of any worktree.
     // But git has cards/card-123/1 registered (checkWorktreeExists returns true for slot 1).
@@ -184,7 +184,7 @@ describe('worktree-API desync', () => {
 
   it('skips multiple occupied slots to find the first free one', async () => {
     const { spawn } = await import('node:child_process');
-    const { createWorktree, checkWorktreeExists } = await import('../src/lib/create-worktree.js');
+    const { createWorktree, checkWorktreeExists } = await import('@cards/sdk/worktree');
 
     // Git has slots 1-15 registered but the API knows nothing about them.
     const occupied = 15;

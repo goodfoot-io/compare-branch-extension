@@ -25,7 +25,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('../src/lib/create-worktree.js', () => ({
+vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
@@ -71,7 +71,7 @@ beforeEach(async () => {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('../src/lib/create-worktree.js');
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
   vi.mocked(createWorktree).mockResolvedValue({
@@ -245,7 +245,7 @@ describe('claude-session shared utilities', () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
       const { CardsClient } = await import('@cards/sdk/client');
       const { access } = await import('node:fs/promises');
-      const { createWorktree } = await import('../src/lib/create-worktree.js');
+      const { createWorktree } = await import('@cards/sdk/worktree');
 
       configureBranchesResponse([
         {
@@ -271,7 +271,7 @@ describe('claude-session shared utilities', () => {
     it('creates new worktree when no branches exist', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
       const { CardsClient } = await import('@cards/sdk/client');
-      const { createWorktree } = await import('../src/lib/create-worktree.js');
+      const { createWorktree } = await import('@cards/sdk/worktree');
 
       configureBranchesResponse([]);
 
@@ -287,7 +287,7 @@ describe('claude-session shared utilities', () => {
     it('skips occupied git slots when API and git are out of sync', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
       const { CardsClient } = await import('@cards/sdk/client');
-      const { createWorktree, checkWorktreeExists } = await import('../src/lib/create-worktree.js');
+      const { createWorktree, checkWorktreeExists } = await import('@cards/sdk/worktree');
 
       configureBranchesResponse([]);
 
@@ -310,7 +310,7 @@ describe('claude-session shared utilities', () => {
     it('reattaches worktree for existing branch when worktree is missing from disk', async () => {
       const { resolveOrCreateWorktree } = await import('../src/lib/claude-session.js');
       const { CardsClient } = await import('@cards/sdk/client');
-      const { createWorktree } = await import('../src/lib/create-worktree.js');
+      const { createWorktree } = await import('@cards/sdk/worktree');
       const { access } = await import('node:fs/promises');
 
       configureBranchesResponse([

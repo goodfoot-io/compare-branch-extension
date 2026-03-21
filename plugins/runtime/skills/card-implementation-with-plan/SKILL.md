@@ -32,19 +32,19 @@ Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/Mu
 
 ## 1. Prepare Environment
 
-Stash any uncommitted changes:
-
-```bash
-git stash --include-untracked
-```
-
 Create baseline tag:
 
 ```bash
 git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
 
-Restore any stashed changes: `git stash pop || true` (succeeds silently if stash is empty).
+If you need to test against the baseline to verify a pre-existing failure, create a temporary worktree from the baseline tag — never switch branches or stash in the current workspace:
+
+```bash
+BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/!` echo $CARD_ID`/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
+# run tests in $BASELINE_WORKTREE, then clean up:
+git worktree remove "$BASELINE_WORKTREE"
+```
 
 ---
 

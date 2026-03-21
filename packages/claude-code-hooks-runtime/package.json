@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/runtime/hooks/hooks.json\" --log \"../../../.cards/logs/claude-code-cards-runtime-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:uuid7 && yarn build:card && yarn build:watcher",
+    "build": "claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/runtime/hooks/hooks.json\" --log \"../../../.cards/logs/claude-code-cards-runtime-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:uuid7 && yarn build:card && yarn build:watcher && yarn build:create-worktree",
+    "build:create-worktree": "esbuild src/bin/create-worktree.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/create-worktree.mjs '--external:node:*'",
     "build:uuid7": "esbuild src/bin/uuid7.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/uuid7.mjs '--external:node:*'",
     "build:card": "esbuild ../claude-code-hooks-api/src/bin/card.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/card.mjs '--external:node:*'",
     "build:watcher": "esbuild src/bin/transcript-watcher.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/transcript-watcher.mjs '--external:node:*' '--banner:js=import { createRequire } from \"node:module\"; const require = createRequire(import.meta.url);'",

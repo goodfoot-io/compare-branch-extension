@@ -20,7 +20,8 @@
     "./config/logger": "./src/config/logger.ts",
     "./config/schema": "./src/config/schema.ts",
     "./config/env": "./src/config/env.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./worktree": "./src/worktree.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",

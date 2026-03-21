@@ -14,9 +14,9 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { createWorktree } from '@cards/sdk/worktree';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createWorktree } from '../src/lib/create-worktree.js';
 
 describe('stale worktree directory repair', () => {
   let workspace: TestGitWorkspace;

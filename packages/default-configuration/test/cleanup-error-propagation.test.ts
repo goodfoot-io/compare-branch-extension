@@ -35,7 +35,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('../src/lib/create-worktree.js', () => ({
+vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
@@ -86,7 +86,7 @@ beforeEach(async () => {
   const enoent = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
   vi.mocked(readFile).mockRejectedValue(enoent);
 
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('../src/lib/create-worktree.js');
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
   vi.mocked(createWorktree).mockResolvedValue({

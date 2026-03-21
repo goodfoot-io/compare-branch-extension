@@ -24,7 +24,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('../src/lib/create-worktree.js', () => ({
+vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
@@ -80,7 +80,7 @@ beforeEach(async () => {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('../src/lib/create-worktree.js');
+  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
   vi.mocked(createWorktree).mockResolvedValue({
@@ -432,7 +432,7 @@ describe('Default Actions', () => {
 
       it('creates a new worktree when no branches exist', async () => {
         const { spawn } = await import('node:child_process');
-        const { createWorktree } = await import('../src/lib/create-worktree.js');
+        const { createWorktree } = await import('@cards/sdk/worktree');
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
@@ -467,7 +467,7 @@ describe('Default Actions', () => {
       it('reuses existing worktree when branch exists on disk', async () => {
         const { spawn } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
-        const { createWorktree } = await import('../src/lib/create-worktree.js');
+        const { createWorktree } = await import('@cards/sdk/worktree');
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
@@ -540,7 +540,7 @@ describe('Default Actions', () => {
 
       it('computes next branch number from existing branches', async () => {
         const { spawn } = await import('node:child_process');
-        const { createWorktree } = await import('../src/lib/create-worktree.js');
+        const { createWorktree } = await import('@cards/sdk/worktree');
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
@@ -734,7 +734,7 @@ describe('Default Actions', () => {
       it('reattaches existing branch when worktree path is missing from disk', async () => {
         const { spawn } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
-        const { createWorktree } = await import('../src/lib/create-worktree.js');
+        const { createWorktree } = await import('@cards/sdk/worktree');
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
@@ -779,7 +779,7 @@ describe('Default Actions', () => {
       });
 
       it('throws when createWorktree fails', async () => {
-        const { createWorktree } = await import('../src/lib/create-worktree.js');
+        const { createWorktree } = await import('@cards/sdk/worktree');
         vi.mocked(createWorktree).mockRejectedValue(new Error('disk full'));
 
         const action = (await import('../src/actions/launch.js')).default;

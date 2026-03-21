@@ -118,8 +118,15 @@ async function computeContentHash(): Promise<string> {
     const statLines = await Promise.all(
       dirtyTsFiles.map(async (f) => {
         const filePath = join(toplevel, f);
-        const fileStat = await stat(filePath);
-        return `${f}:${fileStat.size}:${fileStat.mtimeMs}`;
+        try {
+          const fileStat = await stat(filePath);
+          return `${f}:${fileStat.size}:${fileStat.mtimeMs}`;
+        } catch (error: unknown) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return `${f}:deleted`;
+          }
+          throw error;
+        }
       })
     );
     hashInput += `\n${statLines.join('\n')}`;

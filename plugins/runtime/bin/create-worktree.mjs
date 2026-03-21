@@ -1,4 +1,4 @@
-// src/bin/create-worktree.ts
+// ../sdk/src/worktree.ts
 import { execFile } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -21,35 +21,33 @@ function isNestedUnder(dir, parentSet) {
   return false;
 }
 function isInternalSymlink(target) {
-  const INTERNAL_PREFIXES = [
-    "../../../packages/",
-    "../../packages/",
-    "../packages/",
-    "../../../.yarn/",
-    "../../.yarn/",
-    "../.yarn/",
-    "../../../apps/",
-    "../../apps/",
-    "../apps/",
-    "../../../libs/",
-    "../../libs/",
-    "../libs/"
-  ];
-  return INTERNAL_PREFIXES.some((prefix) => target.startsWith(prefix));
+  return target.startsWith("../");
 }
-async function createWorktree(branchName) {
-  validateBranchName(branchName);
-  const { sourceRoot, repoRoot } = await findGitRoots(process.cwd());
-  const startPoint = await resolveHead(sourceRoot);
-  const worktreeDir = path.join(repoRoot, ".worktrees", branchName);
-  const [worktreeExists, branchExists] = await Promise.all([
-    checkWorktreeExists(repoRoot, worktreeDir),
-    checkBranchExists(repoRoot, branchName)
-  ]);
+async function createWorktree(ref2, options) {
+  const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
+  let refType;
+  try {
+    refType = await resolveRefType(repoRoot, ref2);
+  } catch {
+    validateBranchName(ref2);
+    refType = "branch";
+  }
+  if (refType === "branch") {
+    validateBranchName(ref2);
+  }
+  const worktreeDir = path.join(repoRoot, ".worktrees", ref2);
+  const worktreeExists = await checkWorktreeExists(repoRoot, worktreeDir);
   if (worktreeExists) {
     throw new Error(`Error: Worktree already exists at ${worktreeDir}`);
   }
-  await addWorktree({ repoRoot, worktreeDir, branchName, branchExists, startPoint });
+  await cleanStaleWorktreeDir(repoRoot, worktreeDir);
+  if (refType === "branch") {
+    const startPoint = await resolveHead(sourceRoot);
+    const branchExists = await checkBranchExists(repoRoot, ref2);
+    await addWorktree({ repoRoot, worktreeDir, branchName: ref2, branchExists, startPoint });
+  } else {
+    await addDetachedWorktree(repoRoot, worktreeDir, ref2);
+  }
   const ignored = await discoverIgnoredPaths(sourceRoot);
   await copyExistingSymlinks(sourceRoot, worktreeDir);
   await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored });
@@ -59,7 +57,7 @@ async function createWorktree(branchName) {
     resolveHead(worktreeDir)
   ]);
   const result = {
-    branch: branchName,
+    branch: ref2,
     worktree: worktreeDir,
     baseSha
   };
@@ -67,6 +65,17 @@ async function createWorktree(branchName) {
     result.reroutedSymlinks = reroutedCount;
   }
   return result;
+}
+async function cleanStaleWorktreeDir(repoRoot, worktreeDir) {
+  try {
+    await fs.access(worktreeDir);
+    await fs.rm(worktreeDir, { recursive: true });
+    await execFileAsync("git", ["worktree", "prune"], { cwd: repoRoot, timeout: 3e4 });
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
 }
 async function findGitRoots(startDir) {
   let currentDir = path.resolve(startDir);
@@ -115,9 +124,33 @@ async function checkBranchExists(repoRoot, branchName) {
   });
   return stdout.trim().length > 0;
 }
+async function resolveRefType(repoRoot, ref2) {
+  const branchExists = await checkBranchExists(repoRoot, ref2);
+  if (branchExists) return "branch";
+  const { stdout: tagOutput } = await execFileAsync("git", ["tag", "--list", ref2], {
+    cwd: repoRoot,
+    timeout: 3e4
+  });
+  if (tagOutput.trim().length > 0) return "tag";
+  try {
+    await execFileAsync("git", ["rev-parse", "--verify", `${ref2}^{commit}`], {
+      cwd: repoRoot,
+      timeout: 5e3
+    });
+    return "commit";
+  } catch {
+    throw new Error(`Error: '${ref2}' does not resolve to a branch, tag, or commit.`);
+  }
+}
 async function addWorktree(opts) {
   const args = opts.branchExists ? ["worktree", "add", opts.worktreeDir, opts.branchName] : ["worktree", "add", "-b", opts.branchName, opts.worktreeDir, opts.startPoint];
   await execFileAsync("git", args, { cwd: opts.repoRoot, timeout: 3e4 });
+}
+async function addDetachedWorktree(repoRoot, worktreeDir, ref2) {
+  await execFileAsync("git", ["worktree", "add", "--detach", worktreeDir, ref2], {
+    cwd: repoRoot,
+    timeout: 3e4
+  });
 }
 async function discoverIgnoredPaths(sourceRoot) {
   const { stdout } = await execFileAsync(
@@ -203,7 +236,8 @@ async function symlinkIgnoredPaths(opts) {
     }
   };
   const dirResults = await Promise.all(nonNestedDirs.map(createDirSymlink));
-  const fileResults = await Promise.all(ignored.files.map(createFileSymlink));
+  const nonNestedFiles = ignored.files.filter((file) => !isNestedUnder(file, dirSet));
+  const fileResults = await Promise.all(nonNestedFiles.map(createFileSymlink));
   const dirCount = dirResults.filter((r) => r).length;
   const fileCount = fileResults.filter((r) => r).length;
   return { dirCount, fileCount };
@@ -222,6 +256,11 @@ async function copyExistingSymlinks(sourceRoot, worktreeDir) {
       }
     }
     const sourceLinkPath = path.join(sourceRoot, name);
+    const target = await fs.readlink(sourceLinkPath);
+    const resolvedTarget = path.resolve(sourceRoot, target);
+    if (resolvedTarget === sourceLinkPath) {
+      return false;
+    }
     await fs.symlink(sourceLinkPath, destPath);
     return true;
   };
@@ -397,33 +436,18 @@ async function updateGitExclude(opts) {
     );
   }
 }
-if (process.argv[1]?.endsWith("create-worktree.mjs")) {
-  const branchName = process.argv[2];
-  if (!branchName) {
-    console.error("Usage: node create-worktree.mjs <branch-name>");
-    process.exit(2);
-  }
-  createWorktree(branchName).then((result) => {
-    console.log(JSON.stringify(result));
-  }).catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(2);
-  });
+
+// src/bin/create-worktree.ts
+var ref = process.argv[2];
+if (!ref) {
+  process.stderr.write("Usage: node create-worktree.mjs <branch|tag|sha>\n");
+  process.exit(2);
 }
-export {
-  addWorktree,
-  checkBranchExists,
-  checkWorktreeExists,
-  copyExistingSymlinks,
-  createWorktree,
-  discoverIgnoredPaths,
-  findGitRoots,
-  isInternalSymlink,
-  isNestedUnder,
-  rerouteAllNodeModules,
-  rerouteNodeModules,
-  resolveHead,
-  symlinkIgnoredPaths,
-  updateGitExclude,
-  validateBranchName
-};
+createWorktree(ref).then((result) => {
+  process.stdout.write(`${JSON.stringify(result)}
+`);
+}).catch((error) => {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}
+`);
+  process.exit(2);
+});

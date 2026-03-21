@@ -17,7 +17,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
-import { checkWorktreeExists, createWorktree, findGitRoots } from './create-worktree.js';
+import { checkWorktreeExists, createWorktree, findGitRoots } from '@cards/sdk/worktree';
 
 const execFileAsync = promisify(execFile);
 

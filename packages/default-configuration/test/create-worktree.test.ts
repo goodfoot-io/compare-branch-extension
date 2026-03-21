@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const execFileAsync = promisify(execFile);
 
 import {
+  addDetachedWorktree,
   addWorktree,
   checkBranchExists,
   checkWorktreeExists,
@@ -28,10 +29,11 @@ import {
   rerouteAllNodeModules,
   rerouteNodeModules,
   resolveHead,
+  resolveRefType,
   symlinkIgnoredPaths,
   updateGitExclude,
   validateBranchName
-} from '../src/lib/create-worktree.js';
+} from '@cards/sdk/worktree';
 
 describe('create-worktree stubs', () => {
   it('exports all expected functions', () => {
@@ -39,9 +41,11 @@ describe('create-worktree stubs', () => {
     expect(typeof validateBranchName).toBe('function');
     expect(typeof findGitRoots).toBe('function');
     expect(typeof resolveHead).toBe('function');
+    expect(typeof resolveRefType).toBe('function');
     expect(typeof checkWorktreeExists).toBe('function');
     expect(typeof checkBranchExists).toBe('function');
     expect(typeof addWorktree).toBe('function');
+    expect(typeof addDetachedWorktree).toBe('function');
     expect(typeof discoverIgnoredPaths).toBe('function');
     expect(typeof isNestedUnder).toBe('function');
     expect(typeof symlinkIgnoredPaths).toBe('function');
@@ -52,7 +56,7 @@ describe('create-worktree stubs', () => {
     expect(typeof updateGitExclude).toBe('function');
   });
 
-  it('createWorktree rejects with validation error for invalid branch name', async () => {
+  it('createWorktree rejects for an invalid ref', async () => {
     await expect(createWorktree('')).rejects.toThrow('Invalid branch name');
   });
 });
@@ -1229,7 +1233,7 @@ describe('createWorktree end-to-end', () => {
     expect(content).toContain('.env');
   });
 
-  it('a second call with the same branch name rejects', async () => {
+  it('a second call with the same ref rejects', async () => {
     await expect(createWorktree('e2e-test-branch')).rejects.toThrow('Worktree already exists');
   });
 
@@ -1257,5 +1261,144 @@ describe('createWorktree end-to-end', () => {
     // Cleanup
     await git2.raw(['worktree', 'remove', result.worktree, '--force']);
     await workspace2.destroy();
+  });
+});
+
+describe('resolveRefType', () => {
+  let workspace: TestGitWorkspace;
+  let repoPath: string;
+
+  beforeAll(async () => {
+    workspace = new TestGitWorkspace();
+    await workspace.create();
+    repoPath = workspace.getPath();
+    const git = workspace.getGit();
+
+    await git.raw(['tag', 'v1.0.0']);
+  });
+
+  afterAll(async () => {
+    if (workspace) {
+      await workspace.destroy();
+    }
+  });
+
+  it('returns "branch" for an existing branch', async () => {
+    const refType = await resolveRefType(repoPath, 'main');
+    expect(refType).toBe('branch');
+  });
+
+  it('returns "tag" for an existing tag', async () => {
+    const refType = await resolveRefType(repoPath, 'v1.0.0');
+    expect(refType).toBe('tag');
+  });
+
+  it('returns "commit" for a full SHA', async () => {
+    const sha = await resolveHead(repoPath);
+    const refType = await resolveRefType(repoPath, sha);
+    expect(refType).toBe('commit');
+  });
+
+  it('throws for a non-existent ref', async () => {
+    await expect(resolveRefType(repoPath, 'nonexistent-ref-abc123')).rejects.toThrow('does not resolve');
+  });
+});
+
+describe('addDetachedWorktree', () => {
+  let workspace: TestGitWorkspace;
+  let repoPath: string;
+  const worktreePaths: string[] = [];
+
+  beforeAll(async () => {
+    workspace = new TestGitWorkspace();
+    await workspace.create();
+    repoPath = workspace.getPath();
+    const git = workspace.getGit();
+
+    await git.raw(['tag', 'baseline-tag']);
+  });
+
+  afterAll(async () => {
+    if (workspace) {
+      const git = workspace.getGit();
+      for (const wt of worktreePaths) {
+        try {
+          await git.raw(['worktree', 'remove', wt, '--force']);
+        } catch {
+          // Ignore errors during cleanup
+        }
+      }
+      await workspace.destroy();
+    }
+  });
+
+  it('creates a detached worktree from a tag', async () => {
+    const worktreePath = path.join(repoPath, '..', `detached-tag-${Date.now()}`);
+    worktreePaths.push(worktreePath);
+
+    await addDetachedWorktree(repoPath, worktreePath, 'baseline-tag');
+
+    const stats = await fs.stat(worktreePath);
+    expect(stats.isDirectory()).toBe(true);
+
+    const gitPath = path.join(worktreePath, '.git');
+    const gitStats = await fs.stat(gitPath);
+    expect(gitStats.isFile()).toBe(true);
+  });
+
+  it('creates a detached worktree from a commit SHA', async () => {
+    const sha = await resolveHead(repoPath);
+    const worktreePath = path.join(repoPath, '..', `detached-sha-${Date.now()}`);
+    worktreePaths.push(worktreePath);
+
+    await addDetachedWorktree(repoPath, worktreePath, sha);
+
+    const stats = await fs.stat(worktreePath);
+    expect(stats.isDirectory()).toBe(true);
+  });
+});
+
+describe('createWorktree with tag (detached)', () => {
+  let workspace: TestGitWorkspace;
+  let repoPath: string;
+  let originalCwd: string;
+
+  beforeAll(async () => {
+    originalCwd = process.cwd();
+
+    workspace = new TestGitWorkspace();
+    await workspace.create();
+    repoPath = workspace.getPath();
+    const git = workspace.getGit();
+
+    await fs.writeFile(path.join(repoPath, '.gitignore'), 'node_modules/\n');
+    await git.add('.gitignore');
+    await git.commit('Add gitignore');
+    await git.raw(['tag', 'implement/test-card/baseline']);
+
+    process.chdir(repoPath);
+  });
+
+  afterAll(async () => {
+    process.chdir(originalCwd);
+
+    if (workspace) {
+      const git = workspace.getGit();
+      const worktreeDir = path.join(repoPath, '.worktrees', 'implement/test-card/baseline');
+      try {
+        await git.raw(['worktree', 'remove', worktreeDir, '--force']);
+      } catch {
+        // Ignore errors during cleanup
+      }
+      await workspace.destroy();
+    }
+  });
+
+  it('creates a detached worktree for a tag ref', async () => {
+    const result = await createWorktree('implement/test-card/baseline');
+
+    expect(result.branch).toBe('implement/test-card/baseline');
+    expect(result.worktree).toBe(path.join(repoPath, '.worktrees', 'implement/test-card/baseline'));
+    expect(result.baseSha).toMatch(/^[0-9a-f]{40}$/);
   });
 });
