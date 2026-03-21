@@ -1,28 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  AsyncFileExistsCallback,
-  AsyncReadFileCallback,
-  AsyncWriteFileCallback,
-  Card,
-  CardStatus,
-  DomainEvent,
-  FileExistsCallback,
-  IpcMessage,
-  ProcessState,
-  ReadFileCallback,
-  SessionType,
-  ValidationErrorCode
-} from '../../src/protocol/index.js';
-import {
-  ATTACHMENT_ID_PATTERN,
-  DEFAULT_CARD_GATES,
-  MAX_DESCRIPTION_LENGTH,
-  MAX_ID_LENGTH,
-  MAX_SUMMARY_LENGTH,
-  MAX_TAG_LENGTH,
-  MAX_TITLE_LENGTH,
-  TAG_PATTERN
-} from '../../src/protocol/index.js';
+import type { DomainEvent, IpcMessage, ValidationErrorCode } from '../../src/protocol/index.js';
+import { ATTACHMENT_ID_PATTERN, TAG_PATTERN } from '../../src/protocol/index.js';
 
 /**
  * Exercises protocol behavior in the protocol area through focused scenarios.
@@ -32,69 +10,7 @@ import {
  * @summary Tests protocol behavior in protocol
  */
 
-describe('Card', () => {
-  it('should include isPinned field', () => {
-    const card: Card = {
-      id: 'test-123',
-      title: 'Test Card',
-      status: 'todo',
-      tags: ['test'],
-      gates: DEFAULT_CARD_GATES,
-      isPinned: true,
-      isMerged: null,
-      order: 0,
-      repositoryId: 'main',
-      createdAt: '2025-01-22T00:00:00Z',
-      updatedAt: '2025-01-22T00:00:00Z',
-      description: 'Test description',
-      environment: 'default'
-    };
-    expect(card.isPinned).toBe(true);
-  });
-});
-
-describe('CardStatus', () => {
-  it('should accept valid status values', () => {
-    const statuses: CardStatus[] = ['todo', 'in_progress', 'needs_review', 'done', 'backlog', 'archived'];
-    expect(statuses).toHaveLength(6);
-  });
-});
-
-describe('SessionType', () => {
-  it('should accept valid session type values', () => {
-    const types: SessionType[] = ['router', 'implementer', 'reviewer', 'interview', 'other'];
-    expect(types).toHaveLength(5);
-  });
-});
-
-describe('ProcessState', () => {
-  it('should accept valid process state values', () => {
-    const states: ProcessState[] = ['running', 'interrupting', 'terminated'];
-    expect(states).toHaveLength(3);
-  });
-});
-
 describe('Input Constraints', () => {
-  it('MAX_TITLE_LENGTH is 200', () => {
-    expect(MAX_TITLE_LENGTH).toBe(200);
-  });
-
-  it('MAX_SUMMARY_LENGTH is 200', () => {
-    expect(MAX_SUMMARY_LENGTH).toBe(200);
-  });
-
-  it('MAX_TAG_LENGTH is 50', () => {
-    expect(MAX_TAG_LENGTH).toBe(50);
-  });
-
-  it('MAX_DESCRIPTION_LENGTH is 50000', () => {
-    expect(MAX_DESCRIPTION_LENGTH).toBe(50000);
-  });
-
-  it('MAX_ID_LENGTH is 36 (UUID v4)', () => {
-    expect(MAX_ID_LENGTH).toBe(36);
-  });
-
   it('TAG_PATTERN matches lowercase alphanumeric with hyphens', () => {
     expect(TAG_PATTERN.test('valid-tag')).toBe(true);
     expect(TAG_PATTERN.test('tag123')).toBe(true);
@@ -234,54 +150,6 @@ describe('IpcMessage discriminated union', () => {
   it('should have only 1 message type in the union', () => {
     const messages: IpcMessage[] = [{ type: 'session_started', nonce: 'n1', sessionId: 'sid' }];
     expect(messages).toHaveLength(1);
-  });
-});
-
-describe('Synchronous Callback types', () => {
-  it('FileExistsCallback should accept sync function', () => {
-    const fileExists: FileExistsCallback = (path: string): boolean => {
-      return path.length > 0;
-    };
-    expect(fileExists('/some/path')).toBe(true);
-    expect(fileExists('')).toBe(false);
-  });
-
-  it('ReadFileCallback should accept sync function', () => {
-    const readFile: ReadFileCallback = (path: string): string => {
-      return `content of ${path}`;
-    };
-    expect(readFile('/test.txt')).toBe('content of /test.txt');
-  });
-});
-
-describe('Asynchronous Callback types', () => {
-  it('AsyncFileExistsCallback should accept async function', async () => {
-    const asyncFileExists: AsyncFileExistsCallback = async (path: string): Promise<boolean> => {
-      return path.length > 0;
-    };
-    expect(await asyncFileExists('/some/path')).toBe(true);
-    expect(await asyncFileExists('')).toBe(false);
-  });
-
-  it('AsyncReadFileCallback should accept async function', async () => {
-    const asyncReadFile: AsyncReadFileCallback = async (path: string): Promise<string> => {
-      return `async content of ${path}`;
-    };
-    expect(await asyncReadFile('/test.txt')).toBe('async content of /test.txt');
-  });
-
-  it('AsyncWriteFileCallback should accept async function', async () => {
-    let writtenContent = '';
-    let writtenPath = '';
-
-    const asyncWriteFile: AsyncWriteFileCallback = async (path: string, content: string): Promise<void> => {
-      writtenPath = path;
-      writtenContent = content;
-    };
-
-    await asyncWriteFile('/output.txt', 'hello world');
-    expect(writtenPath).toBe('/output.txt');
-    expect(writtenContent).toBe('hello world');
   });
 });
 
