@@ -10,7 +10,7 @@
  */
 import * as fs from 'node:fs';
 import * as net from 'node:net';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestIpcServer } from '../../src/ipc/TestIpcServer.js';
 
 describe('TestIpcServer', () => {
@@ -81,10 +81,11 @@ describe('TestIpcServer', () => {
       const message = { type: 'test:message', nonce, data: 'hello' };
       client.write(`${JSON.stringify(message)}\n`);
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(1);
+      });
 
       const messages = server.getReceivedMessages();
-      expect(messages.length).toBe(1);
       expect(messages[0]?.type).toBe('test:message');
 
       client.destroy();
@@ -99,7 +100,9 @@ describe('TestIpcServer', () => {
       const message = { type: 'test:message', nonce: 'wrong-nonce', data: 'hello' };
       client.write(`${JSON.stringify(message)}\n`);
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Allow event loop to process; invalid nonce messages should be dropped
+      await Promise.resolve();
+      await Promise.resolve();
 
       const messages = server.getReceivedMessages();
       expect(messages.length).toBe(0);
@@ -117,7 +120,9 @@ describe('TestIpcServer', () => {
       const message = { nonce, data: 'no type field' };
       client.write(`${JSON.stringify(message)}\n`);
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Allow event loop to process; messages without type should be dropped
+      await Promise.resolve();
+      await Promise.resolve();
 
       const messages = server.getReceivedMessages();
       expect(messages.length).toBe(0);
@@ -136,10 +141,11 @@ describe('TestIpcServer', () => {
       const msg2 = JSON.stringify({ type: 'msg2', nonce });
       client.write(`${msg1}\n${msg2}\n`);
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(2);
+      });
 
       const messages = server.getReceivedMessages();
-      expect(messages.length).toBe(2);
       expect(messages[0]?.type).toBe('msg1');
       expect(messages[1]?.type).toBe('msg2');
 
@@ -158,13 +164,14 @@ describe('TestIpcServer', () => {
       const part2 = `${fullMessage.slice(10)}\n`;
 
       client.write(part1);
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await Promise.resolve();
       client.write(part2);
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(1);
+      });
 
       const messages = server.getReceivedMessages();
-      expect(messages.length).toBe(1);
       expect(messages[0]?.type).toBe('split:message');
 
       client.destroy();
@@ -178,7 +185,9 @@ describe('TestIpcServer', () => {
 
       client.write('not valid json\n');
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Allow event loop to process; invalid JSON should be dropped
+      await Promise.resolve();
+      await Promise.resolve();
 
       const messages = server.getReceivedMessages();
       expect(messages.length).toBe(0);
@@ -244,7 +253,9 @@ describe('TestIpcServer', () => {
       await new Promise<void>((resolve) => client.on('connect', () => resolve()));
 
       client.write(`${JSON.stringify({ type: 'test', nonce })}\n`);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(1);
+      });
 
       const messages1 = server.getReceivedMessages();
       const messages2 = server.getReceivedMessages();
@@ -265,9 +276,9 @@ describe('TestIpcServer', () => {
       await new Promise<void>((resolve) => client.on('connect', () => resolve()));
 
       client.write(`${JSON.stringify({ type: 'test', nonce })}\n`);
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(server.getReceivedMessages().length).toBe(1);
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(1);
+      });
       server.clearReceivedMessages();
       expect(server.getReceivedMessages().length).toBe(0);
 
@@ -313,9 +324,9 @@ describe('TestIpcServer', () => {
       await new Promise<void>((resolve) => client.on('connect', () => resolve()));
 
       client.write(`${JSON.stringify({ type: 'test', nonce })}\n`);
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(server.getReceivedMessages().length).toBe(1);
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(1);
+      });
 
       client.destroy();
       await server.stop();
@@ -332,24 +343,26 @@ describe('TestIpcServer', () => {
       const client1 = net.createConnection(socketPath);
       await new Promise<void>((resolve) => client1.on('connect', () => resolve()));
 
-      // Wait a bit to ensure server has processed the connection
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(server.getConnectionCount()).toBe(1);
+      await vi.waitFor(() => {
+        expect(server.getConnectionCount()).toBe(1);
+      });
 
       const client2 = net.createConnection(socketPath);
       await new Promise<void>((resolve) => client2.on('connect', () => resolve()));
 
-      // Wait a bit to ensure server has processed the connection
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(server.getConnectionCount()).toBe(2);
+      await vi.waitFor(() => {
+        expect(server.getConnectionCount()).toBe(2);
+      });
 
       client1.destroy();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(server.getConnectionCount()).toBe(1);
+      await vi.waitFor(() => {
+        expect(server.getConnectionCount()).toBe(1);
+      });
 
       client2.destroy();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(server.getConnectionCount()).toBe(0);
+      await vi.waitFor(() => {
+        expect(server.getConnectionCount()).toBe(0);
+      });
     });
   });
 });

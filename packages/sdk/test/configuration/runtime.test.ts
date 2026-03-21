@@ -541,27 +541,33 @@ describe('runtime', () => {
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
         const cancelFn = vi.fn();
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
         const handler = vi
           .fn()
           .mockImplementation(async (_input: unknown, context: { onCancel: (cb: () => void) => void }) => {
             context.onCancel(cancelFn);
-            // Wait to give socket time to dispatch the cancel
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            await handlerDone;
           });
         const command = makeCommand(handler);
 
         const executePromise = executeCommand(command);
 
-        // Wait for handler to register callback and server to accept connection
-        await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
 
         // Send cancel command
         conn.write('{"type":"cancel"}\n');
 
+        // Wait for cancel to be dispatched, then let handler complete
+        await vi.waitFor(() => {
+          expect(cancelFn).toHaveBeenCalledOnce();
+        });
+        resolveHandler();
+
         await executePromise;
 
-        expect(cancelFn).toHaveBeenCalledOnce();
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
 
@@ -570,13 +576,16 @@ describe('runtime', () => {
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
         const switchCallback = vi.fn().mockReturnValue({ sessionId: 'abc123' });
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
         const handler = vi
           .fn()
           .mockImplementation(
             async (_input: unknown, context: { onSwitchToInteractive: (cb: () => unknown) => void }) => {
               context.onSwitchToInteractive(switchCallback);
-              // Wait to give socket time to dispatch the command
-              await new Promise((resolve) => setTimeout(resolve, 200));
+              await handlerDone;
             }
           );
         const command = makeCommand(handler);
@@ -586,16 +595,19 @@ describe('runtime', () => {
 
         const executePromise = executeCommand(command);
 
-        await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
         conn.on('data', (chunk) => serverReceived.push(chunk.toString()));
 
         // Send switchToInteractive command
         conn.write('{"type":"switchToInteractive"}\n');
 
-        await executePromise;
+        // Wait for callback to be invoked, then let handler complete
+        await vi.waitFor(() => {
+          expect(switchCallback).toHaveBeenCalledOnce();
+        });
+        resolveHandler();
 
-        expect(switchCallback).toHaveBeenCalledOnce();
+        await executePromise;
 
         // Verify response was sent on socket
         const combined = serverReceived.join('');
@@ -615,6 +627,10 @@ describe('runtime', () => {
 
         const cancelFn = vi.fn();
         const switchFn = vi.fn().mockReturnValue({ data: 'test' });
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
         const handler = vi
           .fn()
           .mockImplementation(
@@ -624,23 +640,27 @@ describe('runtime', () => {
             ) => {
               context.onCancel(cancelFn);
               context.onSwitchToInteractive(switchFn);
-              await new Promise((resolve) => setTimeout(resolve, 200));
+              await handlerDone;
             }
           );
         const command = makeCommand(handler);
 
         const executePromise = executeCommand(command);
 
-        await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
 
         // Send cancel first, then switchToInteractive
         conn.write('{"type":"cancel"}\n{"type":"switchToInteractive"}\n');
 
+        // Wait for cancel to be dispatched, then let handler complete
+        await vi.waitFor(() => {
+          expect(cancelFn).toHaveBeenCalledOnce();
+        });
+        resolveHandler();
+
         await executePromise;
 
         // Only the first command (cancel) should be processed
-        expect(cancelFn).toHaveBeenCalledOnce();
         expect(switchFn).not.toHaveBeenCalled();
       });
 
@@ -648,19 +668,28 @@ describe('runtime', () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
         const handler = vi.fn().mockImplementation(async () => {
           // Do NOT register onSwitchToInteractive callback
-          await new Promise((resolve) => setTimeout(resolve, 200));
+          await handlerDone;
         });
         const command = makeCommand(handler);
 
         const executePromise = executeCommand(command);
 
-        await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
 
         // Send switchToInteractive - should be no-op
         conn.write('{"type":"switchToInteractive"}\n');
+
+        // Allow event loop to process the command, then complete the handler
+        await vi.waitFor(() => {
+          expect(handler).toHaveBeenCalled();
+        });
+        resolveHandler();
 
         // Wait for the handler to complete naturally
         await executePromise;
@@ -686,24 +715,30 @@ describe('runtime', () => {
         await startServer();
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
         const handler = vi.fn().mockImplementation(async () => {
           // Do NOT register onCancel callback
-          await new Promise((resolve) => setTimeout(resolve, 200));
+          await handlerDone;
         });
         const command = makeCommand(handler);
 
         const executePromise = executeCommand(command);
 
-        await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
 
         // Send cancel command without registering a callback
         conn.write('{"type":"cancel"}\n');
 
-        await executePromise;
+        // Wait for SIGTERM to be sent, then complete the handler
+        await vi.waitFor(() => {
+          expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGTERM');
+        });
+        resolveHandler();
 
-        // Should send SIGTERM to self
-        expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGTERM');
+        await executePromise;
       });
 
       it('should handle async onSwitchToInteractive callback', async () => {
@@ -711,12 +746,16 @@ describe('runtime', () => {
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
         const switchCallback = vi.fn().mockResolvedValue({ asyncData: true });
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
         const handler = vi
           .fn()
           .mockImplementation(
             async (_input: unknown, context: { onSwitchToInteractive: (cb: () => Promise<unknown>) => void }) => {
               context.onSwitchToInteractive(switchCallback);
-              await new Promise((resolve) => setTimeout(resolve, 200));
+              await handlerDone;
             }
           );
         const command = makeCommand(handler);
@@ -725,15 +764,18 @@ describe('runtime', () => {
 
         const executePromise = executeCommand(command);
 
-        await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
         conn.on('data', (chunk) => serverReceived.push(chunk.toString()));
 
         conn.write('{"type":"switchToInteractive"}\n');
 
-        await executePromise;
+        // Wait for callback to be invoked, then let handler complete
+        await vi.waitFor(() => {
+          expect(switchCallback).toHaveBeenCalledOnce();
+        });
+        resolveHandler();
 
-        expect(switchCallback).toHaveBeenCalledOnce();
+        await executePromise;
 
         const combined = serverReceived.join('');
         const parsed = JSON.parse(combined.trim());
@@ -750,24 +792,32 @@ describe('runtime', () => {
         process.env[CARDS_ENV_VARS.SOCKET_PATH] = socketPath;
 
         const cancelFn = vi.fn().mockResolvedValue(undefined);
+        let resolveHandler!: () => void;
+        const handlerDone = new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        });
         const handler = vi
           .fn()
           .mockImplementation(async (_input: unknown, context: { onCancel: (cb: () => Promise<void>) => void }) => {
             context.onCancel(cancelFn);
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            await handlerDone;
           });
         const command = makeCommand(handler);
 
         const executePromise = executeCommand(command);
 
-        await new Promise((resolve) => setTimeout(resolve, 50));
         const conn = await waitForServerConnection();
 
         conn.write('{"type":"cancel"}\n');
 
+        // Wait for cancel to be dispatched, then let handler complete
+        await vi.waitFor(() => {
+          expect(cancelFn).toHaveBeenCalledOnce();
+        });
+        resolveHandler();
+
         await executePromise;
 
-        expect(cancelFn).toHaveBeenCalledOnce();
         expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
     });

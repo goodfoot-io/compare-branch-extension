@@ -751,10 +751,9 @@ describe('connectLogSocket', () => {
 
       logViaSocket('info', 'test message');
 
-      // Give the socket a moment to deliver
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(receivedMessages.length).toBeGreaterThan(0);
+      await vi.waitFor(() => {
+        expect(receivedMessages.length).toBeGreaterThan(0);
+      });
       const parsed = JSON.parse(receivedMessages[0]!.trim());
       expect(parsed).toEqual({
         type: 'log',

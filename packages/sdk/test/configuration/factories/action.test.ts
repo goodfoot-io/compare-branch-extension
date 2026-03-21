@@ -7,6 +7,7 @@
  * @summary Tests for defineAction factory function
  */
 
+import { flushMicrotasks } from '@cards/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import { defineAction } from '../../../src/config/factories/action.js';
 import type { ActionContext, ActionInput } from '../../../src/config/inputs.js';
@@ -237,7 +238,7 @@ describe('defineAction', () => {
     it('awaits async handlers', async () => {
       let executed = false;
       const handler = async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await flushMicrotasks();
         executed = true;
       };
 

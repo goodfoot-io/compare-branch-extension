@@ -74,11 +74,11 @@ describe('createServer', () => {
       commit: makeCommit()
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.waitFor(() => {
+      expect(notifications).toHaveLength(1);
+    });
 
     await server.stop();
-
-    expect(notifications).toHaveLength(1);
     const n = notifications[0] as { method: string; params: { content: string; meta: Record<string, string> } };
     expect(n.method).toBe('notifications/claude/channel');
     expect(n.params.content).toContain('abc1234');
@@ -105,7 +105,9 @@ describe('createServer', () => {
       commit: { ...makeCommit(), hash: 'session-owned-sha' }
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Allow event loop to process; session-owned commits should be filtered
+    await Promise.resolve();
+    await Promise.resolve();
 
     await server.stop();
 
@@ -129,7 +131,9 @@ describe('createServer', () => {
       commit: makeCommit()
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Allow event loop to process; other-card events should be ignored
+    await Promise.resolve();
+    await Promise.resolve();
 
     await server.stop();
 

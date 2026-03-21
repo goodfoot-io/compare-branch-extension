@@ -1,6 +1,6 @@
 import * as http from 'node:http';
 import split2 from 'split2';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CardsClient } from '../../src/client/cardsClient.js';
 import { ApiError } from '../../src/client/types/errors.js';
 
@@ -194,11 +194,10 @@ describe('CardsClient.openStream()', () => {
       // ReadableStream controller is closed or enqueues data.
       stream.write('trigger-request');
 
-      // Wait for earlyError to arrive (~15ms after the server responds 409)
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      // write() must now throw because earlyError is set
-      expect(() => stream.write('any-line')).toThrow(ApiError);
+      // Wait for earlyError to arrive after the server responds 409
+      await vi.waitFor(() => {
+        expect(() => stream.write('any-line')).toThrow(ApiError);
+      });
     },
     TEST_TIMEOUT
   );

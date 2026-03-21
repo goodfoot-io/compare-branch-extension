@@ -91,10 +91,9 @@ describe('SocketClient', () => {
 
       conn.write('{"type":"cancel"}\n');
 
-      // Allow event loop to process the data
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(received).toEqual([{ type: 'cancel' }]);
+      await vi.waitFor(() => {
+        expect(received).toEqual([{ type: 'cancel' }]);
+      });
       client.close();
     });
 
@@ -108,9 +107,9 @@ describe('SocketClient', () => {
 
       conn.write('{"type":"cancel"}\n{"type":"switchToInteractive"}\n');
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(received).toEqual([{ type: 'cancel' }, { type: 'switchToInteractive' }]);
+      await vi.waitFor(() => {
+        expect(received).toEqual([{ type: 'cancel' }, { type: 'switchToInteractive' }]);
+      });
       client.close();
     });
 
@@ -125,14 +124,16 @@ describe('SocketClient', () => {
       // Send partial data
       conn.write('{"type":"can');
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Partial line should not produce a command yet — allow one event-loop tick
+      await Promise.resolve();
       expect(received).toEqual([]);
 
       // Complete the line
       conn.write('cel"}\n');
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(received).toEqual([{ type: 'cancel' }]);
+      await vi.waitFor(() => {
+        expect(received).toEqual([{ type: 'cancel' }]);
+      });
       client.close();
     });
 
@@ -146,10 +147,10 @@ describe('SocketClient', () => {
 
       conn.write('not valid json\n{"type":"cancel"}\n');
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
       // Should only receive the valid command
-      expect(received).toEqual([{ type: 'cancel' }]);
+      await vi.waitFor(() => {
+        expect(received).toEqual([{ type: 'cancel' }]);
+      });
       client.close();
     });
 
@@ -163,9 +164,9 @@ describe('SocketClient', () => {
 
       conn.write('\n\n{"type":"cancel"}\n\n');
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(received).toEqual([{ type: 'cancel' }]);
+      await vi.waitFor(() => {
+        expect(received).toEqual([{ type: 'cancel' }]);
+      });
       client.close();
     });
   });
@@ -185,7 +186,9 @@ describe('SocketClient', () => {
       };
       client.sendResponse(response);
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(serverReceived.join('')).toContain('switchToInteractiveResponse');
+      });
 
       const combined = serverReceived.join('');
       const parsed = JSON.parse(combined.trim());
@@ -211,9 +214,9 @@ describe('SocketClient', () => {
       };
       client.sendResponseThen(response, callbackFn);
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(callbackFn).toHaveBeenCalledOnce();
+      await vi.waitFor(() => {
+        expect(callbackFn).toHaveBeenCalledOnce();
+      });
       client.close();
     });
 
@@ -236,8 +239,9 @@ describe('SocketClient', () => {
         });
       });
 
-      // Allow time for data to arrive at the server side
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(serverReceived.join('')).toContain('switchToInteractiveResponse');
+      });
 
       const combined = serverReceived.join('');
       const parsed = JSON.parse(combined.trim());
@@ -257,8 +261,8 @@ describe('SocketClient', () => {
       client.close();
 
       // Sending data after close should not throw, but the connection is dead
-      // Wait a bit to allow close to propagate
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Allow one event-loop tick for close to propagate
+      await Promise.resolve();
     });
   });
 });

@@ -4,6 +4,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:os', () => ({
@@ -152,7 +153,7 @@ describe('claude-code-sessions', () => {
       const raw1 = JSON.parse(readFileSync(getRegistryPath(), 'utf-8')) as ClaudeSessionRegistry;
       const ts1 = raw1.sessions[String(process.pid)]?.updatedAt;
 
-      await new Promise((resolve) => setTimeout(resolve, 15));
+      await flushMicrotasks();
 
       await recordPendingCommit(process.pid, 'sha-2');
       const raw2 = JSON.parse(readFileSync(getRegistryPath(), 'utf-8')) as ClaudeSessionRegistry;
@@ -492,7 +493,7 @@ describe('claude-code-sessions', () => {
       const raw1 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as { sessions: Record<string, { updatedAt: string }> };
       const ts1 = raw1.sessions[String(pid)]?.updatedAt;
 
-      await new Promise((resolve) => setTimeout(resolve, 15));
+      await flushMicrotasks();
 
       await registerSession(pid, 'sess-2');
       const raw2 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as {

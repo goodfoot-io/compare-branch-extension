@@ -1,6 +1,7 @@
 import type { ChildProcess } from 'node:child_process';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
+import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -126,10 +127,6 @@ function createMockChild(overrides?: Partial<ChildProcess>): ChildProcess {
     },
     ...overrides
   } as unknown as ChildProcess;
-}
-
-async function flushMicrotasks(): Promise<void> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
 function baseInput(overrides?: Partial<ActionInput>): ActionInput {

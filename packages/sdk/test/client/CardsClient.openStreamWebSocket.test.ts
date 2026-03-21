@@ -14,7 +14,7 @@
 
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CardsClient } from '../../src/client/cardsClient.js';
 import type { IngestWsFactory } from '../../src/client/types/client.js';
@@ -130,17 +130,11 @@ function makeFactory(port: number): IngestWsFactory {
  *
  * @param session - Test server session to poll.
  * @param count - Target message count.
- * @param timeoutMs - Maximum wait time.
  */
-async function waitForMessages(session: TestServerSession, count: number, timeoutMs = 3000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (session.received.length >= count) return;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  throw new Error(
-    `waitForMessages timed out: expected ${String(count)} messages, got ${String(session.received.length)}`
-  );
+async function waitForMessages(session: TestServerSession, count: number): Promise<void> {
+  await vi.waitFor(() => {
+    expect(session.received.length).toBeGreaterThanOrEqual(count);
+  });
 }
 
 // ---------------------------------------------------------------------------

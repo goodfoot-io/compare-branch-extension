@@ -636,9 +636,9 @@ describe('EventSubscriber', () => {
       });
 
       // Wait for async event delivery
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(receivedEvents).toHaveLength(1);
+      await vi.waitFor(() => {
+        expect(receivedEvents).toHaveLength(1);
+      });
       expect(receivedEvents[0]).toMatchObject({
         cardId: 'card-123'
       });
@@ -668,13 +668,9 @@ describe('EventSubscriber', () => {
 
       // Wait for the subscriber to process the 'open' event and update its state
       // The server sees the connection before the client's open event fires
-      const waitForConnected = async (timeout = 1000): Promise<void> => {
-        const start = Date.now();
-        while (!subscriber.isConnected() && Date.now() - start < timeout) {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-        }
-      };
-      await waitForConnected();
+      await vi.waitFor(() => {
+        expect(subscriber.isConnected()).toBe(true);
+      });
 
       expect(subscriber.isConnected()).toBe(true);
       expect(server.getClientCount()).toBe(1);

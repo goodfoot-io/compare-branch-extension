@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -136,7 +137,7 @@ describe('claude-sessions', () => {
       const registry1: ClaudeSessionRegistry = JSON.parse(registryContent1);
       const timestamp1 = registry1.sessions[String(testPid)]?.updatedAt;
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await flushMicrotasks();
 
       await recordPendingCommit(testPid, 'sha2');
 

@@ -8,7 +8,7 @@
  * @summary Integration tests for TestWebSocketServer
  * @module test-utils/test/ws/TestWebSocketServer.test
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { getRandomPort, TestWebSocketServer } from '../../src/ws/TestWebSocketServer.js';
 
@@ -103,10 +103,9 @@ describe('TestWebSocketServer', () => {
         });
       });
 
-      // Wait a bit for the server to process the close
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(server.getClientCount()).toBe(0);
+      await vi.waitFor(() => {
+        expect(server.getClientCount()).toBe(0);
+      });
     });
   });
 
@@ -130,7 +129,10 @@ describe('TestWebSocketServer', () => {
 
       server.broadcast({ type: 'test', value: 42 });
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(messages1).toHaveLength(1);
+        expect(messages2).toHaveLength(1);
+      });
 
       expect(messages1).toEqual([JSON.stringify({ type: 'test', value: 42 })]);
       expect(messages2).toEqual([JSON.stringify({ type: 'test', value: 42 })]);
@@ -160,7 +162,9 @@ describe('TestWebSocketServer', () => {
         server.sendTo(serverClient, { type: 'specific' });
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(messages).toHaveLength(1);
+      });
 
       expect(messages).toEqual([JSON.stringify({ type: 'specific' })]);
       client.close();
@@ -185,7 +189,9 @@ describe('TestWebSocketServer', () => {
       }
       server.simulateEvent<TestEvent>('test:event', { data: 'payload' });
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(messages).toHaveLength(1);
+      });
 
       expect(messages).toEqual([{ type: 'test:event', data: 'payload' }]);
       client.close();
@@ -201,7 +207,9 @@ describe('TestWebSocketServer', () => {
 
       client.send(JSON.stringify({ type: 'client:message', value: 'hello' }));
 
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(1);
+      });
 
       const messages = server.getReceivedMessages();
       expect(messages.length).toBe(1);
@@ -217,9 +225,9 @@ describe('TestWebSocketServer', () => {
       await new Promise<void>((resolve) => client.on('open', () => resolve()));
 
       client.send(JSON.stringify({ type: 'test' }));
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(server.getReceivedMessages().length).toBe(1);
+      await vi.waitFor(() => {
+        expect(server.getReceivedMessages().length).toBe(1);
+      });
       server.clearReceivedMessages();
       expect(server.getReceivedMessages().length).toBe(0);
 
