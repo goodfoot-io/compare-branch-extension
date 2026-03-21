@@ -4,7 +4,6 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:os', () => ({
@@ -153,7 +152,8 @@ describe('claude-code-sessions', () => {
       const raw1 = JSON.parse(readFileSync(getRegistryPath(), 'utf-8')) as ClaudeSessionRegistry;
       const ts1 = raw1.sessions[String(process.pid)]?.updatedAt;
 
-      await flushMicrotasks();
+      // Real delay needed: test asserts ts2 > ts1 (wall-clock millisecond resolution)
+      await new Promise((resolve) => setTimeout(resolve, 15));
 
       await recordPendingCommit(process.pid, 'sha-2');
       const raw2 = JSON.parse(readFileSync(getRegistryPath(), 'utf-8')) as ClaudeSessionRegistry;
@@ -493,7 +493,8 @@ describe('claude-code-sessions', () => {
       const raw1 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as { sessions: Record<string, { updatedAt: string }> };
       const ts1 = raw1.sessions[String(pid)]?.updatedAt;
 
-      await flushMicrotasks();
+      // Real delay needed: test asserts ts2 > ts1 (wall-clock millisecond resolution)
+      await new Promise((resolve) => setTimeout(resolve, 15));
 
       await registerSession(pid, 'sess-2');
       const raw2 = JSON.parse(readFileSync(pidsPath, 'utf-8')) as {
