@@ -165,7 +165,7 @@ For new functions or methods, load the `runtim:tdd-implementation` skill and fol
 ### 2.4 Process Result
 
 Based on agent status:
-- **COMPLETED**: Mark todo completed, commit if changes exist, write comment to card, continue
+- **COMPLETED**: Mark todo completed, commit if changes exist, continue
 - **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
   ```bash
   # Restore files modified or deleted since checkpoint
@@ -179,22 +179,10 @@ Based on agent status:
   - **If attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue
 
-**COMPLETED:** Commit any workspace changes, then write a brief progress comment to the card repository indicating which task was completed and what was actually done.
+**COMPLETED:** Commit any workspace changes:
 
 ```bash
 git diff --quiet HEAD || git commit -am "[one sentence summarizing what this task implements]"  # <workspace-commit-style>
-```
-
-Commit to the card repository:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[which task was completed and what was actually done]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing what the task accomplished]"  # <card-repo-commit-style>
 ```
 
 **After all todos:**
@@ -280,19 +268,7 @@ Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 **If review is required (gates.mergeRequestRequired is true):**
 
-Write a summary comment to the card repository explaining what you implemented and how it aligns with the approved plan. List the key workspace files modified and confirm all validation passed. Indicate you are awaiting approval. Commit to the card repository:
-
-```bash
-cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
-[what was implemented and how it aligns with the approved plan, key workspace files modified, validation results, and that you are awaiting approval]
-EOF
-git add comment/$COMMENT_ID.md
-git commit -m "[single sentence summarizing what was implemented and that it is ready for review]"  # <card-repo-commit-style>
-```
-
-**STOP** — Merge occurs after user approval.
+**STOP** — Merge occurs after user approval. Workspace commits describe what was implemented.
 
 ### 4.3 Tag Cleanup
 

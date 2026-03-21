@@ -163,17 +163,7 @@ git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d
 
 Based on review gate:
 
-- **gates.mergeRequestRequired is true**: Write a summary comment to the card repository explaining what was implemented and key decisions made. List the main workspace files modified and confirm all validation passed. Indicate awaiting approval. Commit to the card repository. **STOP** — Merge occurs after user approval.
-
-  ```bash
-  cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
-  [what was implemented and key decisions made, main workspace files modified, validation confirmation, and request for reviewer focus areas]
-  EOF
-  git add comment/$COMMENT_ID.md
-  git commit -m "[single sentence summarizing what was implemented and that it is ready for review]"  # <card-repo-commit-style>
-  ```
+- **gates.mergeRequestRequired is true**: Commit to the card repository. **STOP** — Merge occurs after user approval.
 
 - **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
 

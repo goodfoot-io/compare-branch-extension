@@ -235,35 +235,11 @@ After the maintainer has shut down:
 
 Based on review gate:
 
-- **gates.mergeRequestRequired is true**: Write an updated summary comment to the card repository. Reference both the original implementation and the feedback-driven changes. List workspace files modified in the update and confirm all validation passed. Indicate awaiting approval. Commit to the card repository. **STOP** — Merge occurs after user approval.
+- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval. Workspace commits describe the feedback-driven changes.
 
-  ```bash
-  cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
-  ## Implementation Updated
+- **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
-  [what was changed in response to the user's feedback, workspace files modified in the update, validation confirmation, and that you are awaiting approval]
-  EOF
-  git add comment/$COMMENT_ID.md
-  git commit -m "[single sentence summarizing what was changed in response to feedback and that it is ready for review]"  # <card-repo-commit-style>
-  ```
-
-- **gates.mergeRequestRequired is false or unset**: Write a completion comment to the card repository. Commit. Then load the `runtime:card-merge` skill and follow its `<instructions>`.
-
-  ```bash
-  cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
-  ## Implementation Updated
-
-  [what was changed in response to the user's feedback, validation confirmation]
-  EOF
-  git add comment/$COMMENT_ID.md
-  git commit -m "[single sentence summarizing what was changed in response to feedback]"  # <card-repo-commit-style>
-  ```
-
-### 6.3 Tag Cleanup
+### 6.2 Tag Cleanup
 
 Clean up the feedback baseline tag:
 

@@ -377,33 +377,9 @@ git tag -d "bug/!` echo $CARD_ID`/baseline" "bug/!` echo $CARD_ID`/reproduction"
 Based on review requirement:
 
 - **Merge request required (gates.mergeRequestRequired is true)**:
-  Write a comment to the card repository summarizing the bug, the fix approach, and confirming that both the reproduction test and full test suite pass. Commit to the card repository:
-
-  ```bash
-  cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
-  [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
-  EOF
-  git add comment/$COMMENT_ID.md
-  git commit -m "[single sentence summarizing the bug fix and that it is ready for review]"  # <card-repo-commit-style>
-  ```
-
-  **STOP** — Merge occurs after user approval.
+  **STOP** — Merge occurs after user approval. Workspace commits describe the bug fix.
 
 - **Review NOT required (gates.mergeRequestRequired is false or unset)**:
-  Write a completion comment to the card repository summarizing the bug, the fix approach, and confirming all tests pass. Commit to the card repository:
-
-  ```bash
-  cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
-  [bug summary, fix approach, and confirmation that reproduction test and full test suite pass]
-  EOF
-  git add comment/$COMMENT_ID.md
-  git commit -m "[single sentence summarizing the bug fix and confirmation that tests pass]"  # <card-repo-commit-style>
-  ```
-
-  Then load the `runtime:card-merge` skill and follow its `<instructions>`.
+  Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 </instructions>
