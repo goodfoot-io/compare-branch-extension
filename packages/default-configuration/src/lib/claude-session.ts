@@ -18,6 +18,7 @@ import { promisify } from 'node:util';
 import { CardsClient } from '@cards/sdk/client';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
 import { checkWorktreeExists, createWorktree, findGitRoots } from '@cards/sdk/worktree';
+import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -97,8 +98,11 @@ export async function resolveClaudeConfigDir(): Promise<string | null> {
     try {
       await fs.access(path.join(candidate, 'plugins'));
       return candidate;
-    } catch {
-      // Not found, try next
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' && (error as NodeJS.ErrnoException).code !== 'EACCES') {
+        throw error;
+      }
+      // Not found or not accessible — try next candidate
     }
   }
   return null;
@@ -634,11 +638,23 @@ export async function spawnClaudeSession(
   context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode });
 
   // Post-exit cleanup: remove fully-merged branches.
-  // In interactive mode the watcher process and the extension's
-  // onDidCloseTerminal fallback handle this — running it here too would
-  // delay terminal close for the user with no reliability gain.
-  // In background mode there is no watcher, so we must run cleanup inline.
-  if (!isInteractive) {
+  // In background mode there is no watcher, so we run cleanup inline.
+  // In interactive mode we spawn a detached process so the terminal closes
+  // immediately — the watcher calls the same cleanupMergedBranches function.
+  if (isInteractive) {
+    try {
+      spawnBranchCleanupWatcher({
+        cardId: input.cardId,
+        repoRoot: input.repoRoot,
+        apiBaseUrl: input.apiBaseUrl,
+        apiAccessToken: input.apiAccessToken,
+        sessionId
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', { error: message, sessionId });
+    }
+  } else {
     const cleanupStart = performance.now();
     try {
       await cleanupMergedBranches(input, client, context.logger, sessionId);

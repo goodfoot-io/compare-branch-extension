@@ -12,7 +12,8 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import * as path from 'node:path';
 import { CardsClient } from '@cards/sdk/client';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { cleanupMergedBranches, errorMessage, resolveBaseBranch, resolveOrCreateWorktree } from './claude-session.js';
+import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
+import { errorMessage, resolveBaseBranch, resolveOrCreateWorktree } from './claude-session.js';
 
 /**
  * Options for {@link spawnCodexSession}.
@@ -104,9 +105,14 @@ export async function spawnCodexSession(
   context.logger.info(`${input.actionName} action completed`, { exitCode });
 
   try {
-    await cleanupMergedBranches(input, client, context.logger);
+    spawnBranchCleanupWatcher({
+      cardId: input.cardId,
+      repoRoot: input.repoRoot,
+      apiBaseUrl: input.apiBaseUrl,
+      apiAccessToken: input.apiAccessToken
+    });
   } catch (error) {
-    context.logger.warn('Branch cleanup failed', {
+    context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', {
       error: errorMessage(error)
     });
   }

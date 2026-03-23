@@ -23,6 +23,10 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
+vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
+  spawnBranchCleanupWatcher: vi.fn()
+}));
+
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
@@ -177,5 +181,31 @@ describe('codex action', () => {
 
     child.emit('close', 0);
     await promise;
+  });
+
+  it('calls spawnBranchCleanupWatcher after session exits', async () => {
+    const { spawn, execFile } = await import('node:child_process');
+    const child = createMockChild();
+    vi.mocked(spawn).mockReturnValue(child);
+
+    const action = (await import('../src/actions/codex.js')).default;
+    const promise = action(baseInput(), createMockContext());
+    await flushMicrotasks();
+
+    child.emit('close', 0);
+    await promise;
+
+    const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+    expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith({
+      cardId: 'card-123',
+      repoRoot: '/test/workspace',
+      apiBaseUrl: 'http://localhost:3000',
+      apiAccessToken: 'test-token'
+    });
+
+    // Verify no inline cleanup (no merge-base calls)
+    const execCalls = vi.mocked(execFile).mock.calls;
+    const mergeBaseCall = execCalls.find((c) => (c[1] as string[])?.includes('merge-base'));
+    expect(mergeBaseCall).toBeUndefined();
   });
 });

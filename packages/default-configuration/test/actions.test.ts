@@ -35,6 +35,10 @@ vi.mock('node:crypto', () => ({
   randomUUID: vi.fn(() => 'test-uuid-1234')
 }));
 
+vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
+  spawnBranchCleanupWatcher: vi.fn()
+}));
+
 const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
@@ -579,8 +583,8 @@ describe('Default Actions', () => {
         await promise;
       });
 
-      it('skips branch cleanup in interactive mode (watcher handles it)', async () => {
-        const { spawn, execFile } = await import('node:child_process');
+      it('spawns branch-cleanup watcher in interactive mode', async () => {
+        const { spawn } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
 
         await configureExecFile({
@@ -609,15 +613,14 @@ describe('Default Actions', () => {
         child.emit('close', 0);
         await promise;
 
-        // Interactive mode: no merge-base, worktree remove, or branch delete
-        const execCalls = vi.mocked(execFile).mock.calls;
-        const mergeBaseCall = execCalls.find((c) => (c[1] as string[])?.includes('merge-base'));
-        expect(mergeBaseCall).toBeUndefined();
-
-        const worktreeRemoveCall = execCalls.find(
-          (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
-        );
-        expect(worktreeRemoveCall).toBeUndefined();
+        const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+        expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith({
+          cardId: 'card-123',
+          repoRoot: '/test/workspace',
+          apiBaseUrl: 'http://localhost:3000',
+          apiAccessToken: 'test-token',
+          sessionId: 'test-uuid-1234'
+        });
       });
 
       it('cleans up fully-merged branches in background mode', async () => {
@@ -692,6 +695,9 @@ describe('Default Actions', () => {
           (c) => (c[1] as RequestInit)?.method === 'DELETE' && (c[0] as string).includes('/branches/')
         );
         expect(deleteCall).toBeDefined();
+
+        const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
+        expect(spawnBranchCleanupWatcher).not.toHaveBeenCalled();
       });
 
       it('skips cleanup for unmerged branches in background mode', async () => {
