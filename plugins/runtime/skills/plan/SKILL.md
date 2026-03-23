@@ -12,7 +12,7 @@ This skill defines how to structure implementation plans stored as PLAN.md in ca
 
 ### Required
 - Commander's Intent (short paragraph)
-- Goals & Objectives (3-7 checkbox items)
+- Goals & Objectives (checkbox items)
 - Scope (Include AND Exclude)
 - Technical Approach (numbered steps with file paths)
 - Dependency Analysis (high-impact files + integration points)
@@ -104,7 +104,7 @@ Bad: "Users should get notifications faster" (vague, no constraints, unmeasurabl
 </example>
 
 <instructions>
-Write 3-7 specific, measurable goals using checkbox format: `- [ ]`
+Write specific, measurable goals using checkbox format: `- [ ]`
 
 Each goal must be:
 - Verifiable (you can definitively check if it's done)
