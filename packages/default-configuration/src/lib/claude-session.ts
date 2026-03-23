@@ -551,7 +551,8 @@ export interface ClaudeSessionOptions {
  * 5. Wire onCancel (and optionally onSwitchToInteractive)
  * 6. Capture stderr in background mode
  * 7. Await process exit
- * 8. Clean up fully-merged branches
+ * 8. Clean up fully-merged branches (background mode only; in interactive
+ *    mode the watcher and extension handle cleanup after the action exits)
  *
  * @param input - Parsed action input from the environment.
  * @param context - Action context providing logger and lifecycle hooks.
@@ -633,21 +634,24 @@ export async function spawnClaudeSession(
   context.logger.info(`${input.actionName} action completed`, { sessionId, exitCode });
 
   // Post-exit cleanup: remove fully-merged branches.
-  // Data corruption (e.g. self-referential parentBranch) propagates as a hard
-  // failure. Network/transient errors are logged as warnings — the watcher and
-  // extension provide redundant cleanup paths.
-  const cleanupStart = performance.now();
-  try {
-    await cleanupMergedBranches(input, client, context.logger, sessionId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes('self-referential parentBranch') || message.includes('data corruption')) {
-      throw error;
+  // In interactive mode the watcher process and the extension's
+  // onDidCloseTerminal fallback handle this — running it here too would
+  // delay terminal close for the user with no reliability gain.
+  // In background mode there is no watcher, so we must run cleanup inline.
+  if (!isInteractive) {
+    const cleanupStart = performance.now();
+    try {
+      await cleanupMergedBranches(input, client, context.logger, sessionId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('self-referential parentBranch') || message.includes('data corruption')) {
+        throw error;
+      }
+      context.logger.warn('Post-exit cleanup failed (non-fatal)', { error: message, sessionId });
     }
-    context.logger.warn('Post-exit cleanup failed (non-fatal)', { error: message, sessionId });
+    context.logger.debug('Post-exit cleanup finished', {
+      sessionId,
+      elapsedMs: Math.round(performance.now() - cleanupStart)
+    });
   }
-  context.logger.debug('Post-exit cleanup finished', {
-    sessionId,
-    elapsedMs: Math.round(performance.now() - cleanupStart)
-  });
 }

@@ -513,7 +513,48 @@ describe('Default Actions', () => {
         await promise;
       });
 
-      it('cleans up merged branches after exit', async () => {
+      it('skips branch cleanup in interactive mode (watcher handles it)', async () => {
+        const { spawn, execFile } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
+        });
+
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: true
+          }
+        ]);
+
+        vi.mocked(access).mockResolvedValue(undefined);
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/interview.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        child.emit('close', 0);
+        await promise;
+
+        // Interactive mode: no merge-base, worktree remove, or branch delete
+        const execCalls = vi.mocked(execFile).mock.calls;
+        const mergeBaseCall = execCalls.find((c) => (c[1] as string[])?.includes('merge-base'));
+        expect(mergeBaseCall).toBeUndefined();
+
+        const worktreeRemoveCall = execCalls.find(
+          (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
+        );
+        expect(worktreeRemoveCall).toBeUndefined();
+      });
+
+      it('cleans up merged branches in background mode', async () => {
         const { spawn, execFile } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
 
@@ -562,7 +603,7 @@ describe('Default Actions', () => {
         vi.mocked(spawn).mockReturnValue(child);
 
         const action = (await import('../src/actions/interview.js')).default;
-        const promise = action(baseInput(), createMockContext());
+        const promise = action(baseInput({ executionMode: 'background' }), createMockContext());
         await flushMicrotasks();
 
         child.emit('close', 0);

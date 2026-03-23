@@ -579,11 +579,51 @@ describe('Default Actions', () => {
         await promise;
       });
 
-      it('cleans up fully-merged branches after claude exits', async () => {
+      it('skips branch cleanup in interactive mode (watcher handles it)', async () => {
         const { spawn, execFile } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
 
-        // Configure git commands: base branch, log for reuse, merge-base for cleanup
+        await configureExecFile({
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
+        });
+
+        configureBranchesResponse([
+          {
+            name: 'cards/card-123/1',
+            worktree: '/test/workspace/.worktrees/cards/card-123/1',
+            parentBranch: 'main',
+            addedAt: '2025-01-01T00:00:00Z',
+            exists: true
+          }
+        ]);
+
+        vi.mocked(access).mockResolvedValue(undefined);
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/launch.js')).default;
+        const promise = action(baseInput(), createMockContext());
+        await flushMicrotasks();
+
+        child.emit('close', 0);
+        await promise;
+
+        // Interactive mode: no merge-base, worktree remove, or branch delete
+        const execCalls = vi.mocked(execFile).mock.calls;
+        const mergeBaseCall = execCalls.find((c) => (c[1] as string[])?.includes('merge-base'));
+        expect(mergeBaseCall).toBeUndefined();
+
+        const worktreeRemoveCall = execCalls.find(
+          (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
+        );
+        expect(worktreeRemoveCall).toBeUndefined();
+      });
+
+      it('cleans up fully-merged branches in background mode', async () => {
+        const { spawn, execFile } = await import('node:child_process');
+        const { access } = await import('node:fs/promises');
+
         const mergeBaseKey = 'git merge-base --is-ancestor cards/card-123/1 main';
         const worktreeRemoveKey = 'git worktree remove';
         const branchDeleteKey = 'git branch -d cards/card-123/1';
@@ -603,8 +643,6 @@ describe('Default Actions', () => {
           exists: true
         };
 
-        // First call: getBranches for resolveOrCreateWorktree
-        // Second call: getBranches for cleanupMergedBranches (post-exit)
         globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
           if (typeof url === 'string' && url.includes('/branches')) {
             if (!opts?.method || opts.method === 'GET') {
@@ -631,7 +669,7 @@ describe('Default Actions', () => {
         vi.mocked(spawn).mockReturnValue(child);
 
         const action = (await import('../src/actions/launch.js')).default;
-        const promise = action(baseInput(), createMockContext());
+        const promise = action(baseInput({ executionMode: 'background' }), createMockContext());
         await flushMicrotasks();
 
         child.emit('close', 0);
@@ -649,7 +687,6 @@ describe('Default Actions', () => {
         );
         expect(branchDeleteCall).toBeDefined();
 
-        // Verify removeBranch API call (DELETE to /branches/...)
         const fetchCalls = vi.mocked(globalThis.fetch).mock.calls;
         const deleteCall = fetchCalls.find(
           (c) => (c[1] as RequestInit)?.method === 'DELETE' && (c[0] as string).includes('/branches/')
@@ -657,11 +694,10 @@ describe('Default Actions', () => {
         expect(deleteCall).toBeDefined();
       });
 
-      it('skips cleanup for unmerged branches', async () => {
+      it('skips cleanup for unmerged branches in background mode', async () => {
         const { spawn, execFile } = await import('node:child_process');
         const { access } = await import('node:fs/promises');
 
-        // merge-base --is-ancestor will fail for unmerged branches (exit code 1)
         const handlers: Record<string, { stdout: string }> = {
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
         };
@@ -673,7 +709,6 @@ describe('Default Actions', () => {
           const key = `${cmd} ${cmdArgs.join(' ')}`;
 
           if (typeof cb === 'function') {
-            // merge-base --is-ancestor should fail (branch not merged)
             if (key.includes('merge-base --is-ancestor')) {
               cb(new Error('exit code 1'));
               return {} as ReturnType<typeof execFile>;
@@ -705,7 +740,7 @@ describe('Default Actions', () => {
         vi.mocked(spawn).mockReturnValue(child);
 
         const action = (await import('../src/actions/launch.js')).default;
-        const promise = action(baseInput(), createMockContext());
+        const promise = action(baseInput({ executionMode: 'background' }), createMockContext());
         await flushMicrotasks();
 
         child.emit('close', 0);
