@@ -6,7 +6,7 @@
   "scripts": {
     "test": "vitest-unchanged",
     "lint": "biome check --write --unsafe . && jsdoczoom -l",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@cards/claude-code-sessions": "workspace:*",
@@ -19,6 +19,7 @@
     "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",
+    "@typescript/native-preview": "^7.0.0-dev",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },

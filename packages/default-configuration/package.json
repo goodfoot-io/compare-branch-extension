@@ -11,7 +11,7 @@
   "scripts": {
     "build": "cards-sdk build -c settings.config.ts -o dist --log .cards/logs/cards-default-configuration-hooks.log && rm -rf ../../../.cards/bin ../../../.cards/settings.json && cp -r ./dist/* ../../../.cards/",
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest-unchanged",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l"
   },
@@ -30,6 +30,7 @@
     "@cards/test-utils": "workspace:*",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "24.x",
+    "@typescript/native-preview": "^7.0.0-dev",
     "chokidar-cli": "^3.0.0",
     "fs-extra": "^11.3.0",
     "typescript": "^5.9.3",
