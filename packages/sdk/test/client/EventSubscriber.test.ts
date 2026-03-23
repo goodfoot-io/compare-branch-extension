@@ -1,22 +1,12 @@
+/**
+ * Unit and integration tests for EventSubscriber.
+ *
+ * @summary Tests for EventSubscriber WebSocket client
+ */
+
 import { TestWebSocketServer } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { calculateBackoffMs, EventSubscriber } from '../../src/client/eventSubscriber.js';
-import type { WebSocketFactory } from '../../src/client/types/websocket.js';
-
-/**
- * Test WebSocket factory that creates real WebSocket connections.
- * Used with TestWebSocketServer for integration testing.
- *
- * @summary Tests event subscriber behavior in client
- */
-class RealWebSocketFactory implements WebSocketFactory {
-  public createdSockets: Array<{ url: string; protocols?: string | string[] }> = [];
-
-  create(url: string, protocols?: string | string[]): WebSocket {
-    this.createdSockets.push({ url, protocols });
-    return new WebSocket(url, protocols);
-  }
-}
 
 /**
  * Mock WebSocket for unit testing without real network I/O.
@@ -93,26 +83,28 @@ class MockWebSocket {
 }
 
 /**
- * Mock WebSocket factory that creates MockWebSocket instances.
- * Tracks all created instances for test assertions.
+ * Creates a globalThis.WebSocket override that instantiates MockWebSocket.
+ *
+ * @returns Object with accumulated MockWebSocket instances and a restore function.
  */
-class MockWebSocketFactory implements WebSocketFactory {
-  public instances: MockWebSocket[] = [];
+function installMockWebSocket(): { instances: MockWebSocket[]; restore: () => void } {
+  const instances: MockWebSocket[] = [];
+  const original = globalThis.WebSocket;
 
-  create(url: string): WebSocket {
+  function MockWebSocketConstructor(url: string): MockWebSocket {
     const ws = new MockWebSocket(url);
-    this.instances.push(ws);
-    return ws as unknown as WebSocket;
+    instances.push(ws);
+    return ws;
   }
 
-  /**
-   * Gets the most recently created MockWebSocket.
-   *
-   * @returns Most recently created mock socket instance.
-   */
-  get latest(): MockWebSocket {
-    return this.instances[this.instances.length - 1]!;
-  }
+  globalThis.WebSocket = MockWebSocketConstructor as unknown as typeof WebSocket;
+
+  return {
+    instances,
+    restore: () => {
+      globalThis.WebSocket = original;
+    }
+  };
 }
 
 /**
@@ -177,14 +169,8 @@ describe('EventSubscriber', () => {
   };
 
   describe('constructor and configuration', () => {
-    it('should create subscriber without DI (backward compatible)', () => {
+    it('should create subscriber without options beyond wsUrl', () => {
       const subscriber = new EventSubscriber({ wsUrl: 'ws://localhost:3000/events' });
-      expect(subscriber).toBeInstanceOf(EventSubscriber);
-    });
-
-    it('should create subscriber with WebSocketFactory injection', () => {
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
       expect(subscriber).toBeInstanceOf(EventSubscriber);
     });
 
@@ -192,31 +178,18 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber({ wsUrl: 'ws://localhost:8080/events' });
       expect(subscriber.getWsUrl()).toBe('ws://localhost:8080/events');
     });
-
-    it('should return false from hasWebSocketFactory when no factory injected', () => {
-      const subscriber = new EventSubscriber(defaultOptions);
-      expect(subscriber.hasWebSocketFactory()).toBe(false);
-    });
-
-    it('should return true from hasWebSocketFactory when factory injected', () => {
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
-      expect(subscriber.hasWebSocketFactory()).toBe(true);
-    });
   });
 
   describe('Event Subscription', () => {
     it('should register callback for card:deleted event', () => {
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
       const callback = () => {};
       subscriber.on('card:deleted', callback);
       // Verifies on() doesn't throw
     });
 
     it('should remove callback when off() is called', () => {
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
       const callback = () => {};
       subscriber.on('card:deleted', callback);
       subscriber.off('card:deleted', callback);
@@ -224,8 +197,7 @@ describe('EventSubscriber', () => {
     });
 
     it('should support multiple callbacks for same event', () => {
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
       const callback1 = () => {};
       const callback2 = () => {};
       subscriber.on('card:deleted', callback1);
@@ -235,74 +207,127 @@ describe('EventSubscriber', () => {
   });
 
   describe('Connection Lifecycle', () => {
-    it('should create WebSocket via factory when connect() is called', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+    let mock: ReturnType<typeof installMockWebSocket>;
+
+    beforeEach(() => {
+      mock = installMockWebSocket();
+    });
+
+    afterEach(() => {
+      mock.restore();
+    });
+
+    it('should create WebSocket via globalThis.WebSocket when connect() is called', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
-      expect(wsFactory.instances).toHaveLength(1);
-      expect(wsFactory.latest.url).toContain('token=test-token');
+      expect(mock.instances).toHaveLength(1);
+      expect(mock.instances[0]!.url).toContain('token=test-token');
     });
 
     it('should use accessToken in connection URL', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
-      expect(wsFactory.latest.url).toBe('ws://localhost:3000/events?token=test-token');
+      expect(mock.instances[0]!.url).toBe('ws://localhost:3000/events?token=test-token');
+    });
+
+    it('should encode URL-unsafe characters in access token', async () => {
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'token/with+special=chars&more'
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      expect(mock.instances[0]!.url).toBe('ws://localhost:3000/events?token=token%2Fwith%2Bspecial%3Dchars%26more');
     });
 
     it('should close WebSocket when disconnect() is called', () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
       // disconnect() should not throw even when not connected
       subscriber.disconnect();
     });
 
     it('should set connected state on successful connection', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
 
       expect(subscriber.isConnected()).toBe(false);
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       expect(subscriber.isConnected()).toBe(true);
     });
 
     it('should reject on connection error', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateError();
+      mock.instances[0]!.simulateError();
 
       await expect(connectPromise).rejects.toThrow('WebSocket connection failed');
     });
   });
 
+  describe('send()', () => {
+    let mock: ReturnType<typeof installMockWebSocket>;
+
+    beforeEach(() => {
+      mock = installMockWebSocket();
+    });
+
+    afterEach(() => {
+      mock.restore();
+    });
+
+    it('should send JSON-serialized data on connected socket', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      const sendSpy = vi.spyOn(mock.instances[0]!, 'send');
+      const payload = { type: 'action:executeResult', cardId: 'card-123', result: 'ok' };
+      subscriber.send(payload);
+
+      expect(sendSpy).toHaveBeenCalledOnce();
+      expect(sendSpy).toHaveBeenCalledWith(JSON.stringify(payload));
+    });
+
+    it('should throw when sending on disconnected socket', () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+      expect(() => subscriber.send({ type: 'action:executeResult' })).toThrow(
+        'Cannot send: EventSubscriber is not connected'
+      );
+    });
+  });
+
   describe('Message Handling', () => {
+    let mock: ReturnType<typeof installMockWebSocket>;
     let warnSpy: MockInstance;
 
     beforeEach(() => {
+      mock = installMockWebSocket();
       warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     afterEach(() => {
+      mock.restore();
       warnSpy.mockRestore();
     });
 
     it('should invoke callback when message received', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
 
       const receivedEvents: unknown[] = [];
       subscriber.on('card:deleted', (event) => {
@@ -310,10 +335,10 @@ describe('EventSubscriber', () => {
       });
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
-      wsFactory.latest.simulateMessage({
+      mock.instances[0]!.simulateMessage({
         type: 'card:deleted',
         cardId: 'card-123'
       });
@@ -325,8 +350,7 @@ describe('EventSubscriber', () => {
     });
 
     it('should stop receiving events after unsubscribe', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
 
       const receivedEvents: unknown[] = [];
       const callback = (event: unknown) => {
@@ -335,12 +359,12 @@ describe('EventSubscriber', () => {
       subscriber.on('card:deleted', callback);
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       subscriber.off('card:deleted', callback);
 
-      wsFactory.latest.simulateMessage({
+      mock.instances[0]!.simulateMessage({
         type: 'card:deleted',
         cardId: 'card-123'
       });
@@ -350,29 +374,31 @@ describe('EventSubscriber', () => {
   });
 
   describe('Reconnection with Exponential Backoff', () => {
+    let mock: ReturnType<typeof installMockWebSocket>;
     let setTimeoutSpy: MockInstance;
     let warnSpy: MockInstance;
 
     beforeEach(() => {
+      mock = installMockWebSocket();
       setTimeoutSpy = vi.spyOn(global, 'setTimeout');
       warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     afterEach(() => {
+      mock.restore();
       setTimeoutSpy.mockRestore();
       warnSpy.mockRestore();
     });
 
     it('should schedule reconnect with 1000ms delay on first attempt', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 }, wsFactory);
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 });
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       // Connection drops
-      wsFactory.latest.simulateClose();
+      mock.instances[0]!.simulateClose();
 
       // Verify first reconnect scheduled at 1000ms
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
@@ -381,81 +407,78 @@ describe('EventSubscriber', () => {
     });
 
     it('should use exponential backoff delays: 1s, 2s, 4s, 8s...', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 }, wsFactory);
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 });
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       // Connection drops, triggers first reconnect
-      wsFactory.latest.simulateClose();
+      mock.instances[0]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
 
       // Fire timeout callback, simulate failed reconnect
       getLastTimeoutCallback(setTimeoutSpy)();
-      wsFactory.latest.simulateError();
-      wsFactory.latest.simulateClose();
+      mock.instances[mock.instances.length - 1]!.simulateError();
+      mock.instances[mock.instances.length - 1]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(2000);
 
       // Fire and fail again
       getLastTimeoutCallback(setTimeoutSpy)();
-      wsFactory.latest.simulateError();
-      wsFactory.latest.simulateClose();
+      mock.instances[mock.instances.length - 1]!.simulateError();
+      mock.instances[mock.instances.length - 1]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(4000);
 
       // Fire and fail again
       getLastTimeoutCallback(setTimeoutSpy)();
-      wsFactory.latest.simulateError();
-      wsFactory.latest.simulateClose();
+      mock.instances[mock.instances.length - 1]!.simulateError();
+      mock.instances[mock.instances.length - 1]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(8000);
 
       subscriber.disconnect();
     });
 
     it('should create new WebSocket on each reconnection attempt', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 3 }, wsFactory);
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 3 });
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
-      expect(wsFactory.instances).toHaveLength(1);
+      expect(mock.instances).toHaveLength(1);
 
       // Connection drops
-      wsFactory.latest.simulateClose();
+      mock.instances[0]!.simulateClose();
 
       // Fire timeout, new WebSocket created
       getLastTimeoutCallback(setTimeoutSpy)();
-      expect(wsFactory.instances).toHaveLength(2);
+      expect(mock.instances).toHaveLength(2);
 
       // Fail and trigger next reconnect
-      wsFactory.latest.simulateError();
-      wsFactory.latest.simulateClose();
+      mock.instances[1]!.simulateError();
+      mock.instances[1]!.simulateClose();
       getLastTimeoutCallback(setTimeoutSpy)();
-      expect(wsFactory.instances).toHaveLength(3);
+      expect(mock.instances).toHaveLength(3);
 
       subscriber.disconnect();
     });
 
     it('should reset attempt counter on successful reconnection', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 }, wsFactory);
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 });
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       // First disconnect
-      wsFactory.latest.simulateClose();
+      mock.instances[0]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
 
       // Reconnect succeeds
       getLastTimeoutCallback(setTimeoutSpy)();
-      wsFactory.latest.simulateOpen();
+      mock.instances[mock.instances.length - 1]!.simulateOpen();
 
       // Second disconnect - should reset to 1000ms, not continue to 2000ms
-      wsFactory.latest.simulateClose();
+      mock.instances[mock.instances.length - 1]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
 
       subscriber.disconnect();
@@ -463,28 +486,30 @@ describe('EventSubscriber', () => {
   });
 
   describe('Connection Change Callbacks', () => {
+    let mock: ReturnType<typeof installMockWebSocket>;
     let setTimeoutSpy: MockInstance;
     let warnSpy: MockInstance;
 
     beforeEach(() => {
+      mock = installMockWebSocket();
       setTimeoutSpy = vi.spyOn(global, 'setTimeout');
       warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     afterEach(() => {
+      mock.restore();
       setTimeoutSpy.mockRestore();
       warnSpy.mockRestore();
     });
 
     it('should call callback with true when connection opens', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
 
       const states: boolean[] = [];
       subscriber.onConnectionChange((connected) => states.push(connected));
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       expect(states).toEqual([true]);
@@ -493,17 +518,16 @@ describe('EventSubscriber', () => {
     });
 
     it('should call callback with false when connection drops after successful connect', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 }, wsFactory);
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 });
 
       const states: boolean[] = [];
       subscriber.onConnectionChange((connected) => states.push(connected));
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
-      wsFactory.latest.simulateClose();
+      mock.instances[0]!.simulateClose();
 
       expect(states).toEqual([true, false]);
 
@@ -511,15 +535,14 @@ describe('EventSubscriber', () => {
     });
 
     it('should not fire false callback before first successful connection', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 }, wsFactory);
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 1 });
 
       const states: boolean[] = [];
       subscriber.onConnectionChange((connected) => states.push(connected));
 
       const connectPromise = subscriber.connect();
       // Simulate error before ever connecting successfully
-      wsFactory.latest.simulateError();
+      mock.instances[0]!.simulateError();
 
       await expect(connectPromise).rejects.toThrow();
 
@@ -528,8 +551,7 @@ describe('EventSubscriber', () => {
     });
 
     it('should allow unsubscribing via returned function', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber(defaultOptions, wsFactory);
+      const subscriber = new EventSubscriber(defaultOptions);
 
       const states: boolean[] = [];
       const unsubscribe = subscriber.onConnectionChange((connected) => states.push(connected));
@@ -537,7 +559,7 @@ describe('EventSubscriber', () => {
       unsubscribe();
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       expect(states).toEqual([]);
@@ -546,23 +568,22 @@ describe('EventSubscriber', () => {
     });
 
     it('should call callback with true on successful reconnection after drop', async () => {
-      const wsFactory = new MockWebSocketFactory();
-      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 3 }, wsFactory);
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 3 });
 
       const states: boolean[] = [];
       subscriber.onConnectionChange((connected) => states.push(connected));
 
       const connectPromise = subscriber.connect();
-      wsFactory.latest.simulateOpen();
+      mock.instances[0]!.simulateOpen();
       await connectPromise;
 
       // Drop connection
-      wsFactory.latest.simulateClose();
+      mock.instances[0]!.simulateClose();
 
       // Trigger reconnect via timeout callback
       getLastTimeoutCallback(setTimeoutSpy)();
       // Reconnect succeeds
-      wsFactory.latest.simulateOpen();
+      mock.instances[mock.instances.length - 1]!.simulateOpen();
 
       expect(states).toEqual([true, false, true]);
 
@@ -586,11 +607,10 @@ describe('EventSubscriber', () => {
 
     it('should connect to real WebSocket server', async () => {
       const port = await server.start();
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(
-        { wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token' },
-        wsFactory
-      );
+      const subscriber = new EventSubscriber({
+        wsUrl: `ws://localhost:${port}/events`,
+        accessToken: 'test-token'
+      });
 
       await subscriber.connect();
 
@@ -602,26 +622,25 @@ describe('EventSubscriber', () => {
 
     it('should include auth token in WebSocket URL', async () => {
       const port = await server.start({ authToken: 'test-token' });
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(
-        { wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token' },
-        wsFactory
-      );
+      const subscriber = new EventSubscriber({
+        wsUrl: `ws://localhost:${port}/events`,
+        accessToken: 'test-token'
+      });
 
       await subscriber.connect();
 
-      expect(wsFactory.createdSockets[0]?.url).toContain('token=test-token');
+      // Verify connection succeeded (token was properly included)
+      expect(subscriber.isConnected()).toBe(true);
 
       subscriber.disconnect();
     });
 
     it('should receive events from server', async () => {
       const port = await server.start();
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(
-        { wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token' },
-        wsFactory
-      );
+      const subscriber = new EventSubscriber({
+        wsUrl: `ws://localhost:${port}/events`,
+        accessToken: 'test-token'
+      });
 
       const receivedEvents: unknown[] = [];
       subscriber.on('card:deleted', (event) => {
@@ -648,11 +667,11 @@ describe('EventSubscriber', () => {
 
     it('should reconnect after server restart (event-based)', async () => {
       const port = await server.start();
-      const wsFactory = new RealWebSocketFactory();
-      const subscriber = new EventSubscriber(
-        { wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token', maxReconnectAttempts: 3 },
-        wsFactory
-      );
+      const subscriber = new EventSubscriber({
+        wsUrl: `ws://localhost:${port}/events`,
+        accessToken: 'test-token',
+        maxReconnectAttempts: 3
+      });
 
       await subscriber.connect();
       expect(server.getClientCount()).toBe(1);

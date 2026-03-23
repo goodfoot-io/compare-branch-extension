@@ -7,7 +7,6 @@
  */
 
 import type { EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';
-import type { WebSocketFactory } from './types/websocket.js';
 
 /**
  * Calculates exponential backoff delay for reconnection attempts.
@@ -39,7 +38,6 @@ export function calculateBackoffMs(attempt: number, maxMs = 30000): number {
  * ```
  */
 export class EventSubscriber {
-  private readonly wsFactory?: WebSocketFactory;
   private ws: WebSocket | null = null;
   private connected: boolean = false;
   private reconnectAttempts: number = 0;
@@ -50,40 +48,13 @@ export class EventSubscriber {
   private hasConnected: boolean = false;
   private readonly maxReconnectAttempts: number;
 
-  private readonly defaultWsFactory: WebSocketFactory = {
-    create: (url: string, protocols?: string | string[]) => new WebSocket(url, protocols)
-  };
-
   /**
    * Creates a new EventSubscriber instance.
    *
    * @param options - WebSocket URL, auth token, and reconnect limits.
-   * @param wsFactory - Optional WebSocket factory for dependency injection.
    */
-  constructor(
-    private readonly options: EventSubscriberOptions,
-    wsFactory?: WebSocketFactory
-  ) {
-    this.wsFactory = wsFactory;
+  constructor(private readonly options: EventSubscriberOptions) {
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? Infinity;
-  }
-
-  /**
-   * Returns whether a WebSocket factory was provided (for testing).
-   *
-   * @returns True when a custom WebSocket factory was injected.
-   */
-  hasWebSocketFactory(): boolean {
-    return this.wsFactory !== undefined;
-  }
-
-  /**
-   * Gets the WebSocket factory to use for creating connections.
-   *
-   * @returns The injected factory, or the default browser-backed implementation.
-   */
-  private getWsFactory(): WebSocketFactory {
-    return this.wsFactory ?? this.defaultWsFactory;
   }
 
   /**
@@ -157,11 +128,10 @@ export class EventSubscriber {
   async connect(): Promise<void> {
     let url = this.options.wsUrl;
     if (this.options.accessToken) {
-      url = `${url}?token=${this.options.accessToken}`;
+      url = `${url}?token=${encodeURIComponent(this.options.accessToken)}`;
     }
 
-    const factory = this.getWsFactory();
-    this.ws = factory.create(url);
+    this.ws = new globalThis.WebSocket(url);
     this.shouldReconnect = true;
 
     return new Promise((resolve, reject) => {
@@ -232,6 +202,21 @@ export class EventSubscriber {
     }
 
     this.connected = false;
+  }
+
+  /**
+   * Sends a JSON-serialized message on the active WebSocket connection.
+   *
+   * Throws if the subscriber is not currently connected (fail closed).
+   *
+   * @param data - Arbitrary key-value payload to JSON-serialize and send.
+   * @throws Error when the subscriber is not connected.
+   */
+  send(data: Record<string, unknown>): void {
+    if (!this.isConnected()) {
+      throw new Error('Cannot send: EventSubscriber is not connected');
+    }
+    this.ws!.send(JSON.stringify(data));
   }
 
   /**

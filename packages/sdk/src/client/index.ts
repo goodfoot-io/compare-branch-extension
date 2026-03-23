@@ -41,5 +41,3 @@ export type {
 export { ApiError, NetworkError } from './types/errors.js';
 // Event types
 export type { EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';
-// WebSocket types
-export type { WebSocketFactory } from './types/websocket.js';
