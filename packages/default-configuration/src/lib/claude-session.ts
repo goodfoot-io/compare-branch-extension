@@ -425,7 +425,13 @@ export async function cleanupMergedBranches(
   logger: ActionContext['logger'],
   sessionId?: string
 ): Promise<void> {
+  let t0 = performance.now();
   const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
+  logger.debug('getBranches completed', {
+    cardId: input.cardId,
+    branchCount: branches.length,
+    elapsedMs: Math.round(performance.now() - t0)
+  });
 
   for (const branch of branches) {
     if (!branch.exists) continue;
@@ -439,6 +445,7 @@ export async function cleanupMergedBranches(
       );
     }
 
+    t0 = performance.now();
     try {
       // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
       // Check against the branch's own parentBranch, not the workspace HEAD.
@@ -447,33 +454,55 @@ export async function cleanupMergedBranches(
       });
     } catch {
       // Expected for unmerged branches — skip cleanup
-      logger.debug('Branch not merged, skipping cleanup', { branch: branch.name });
+      logger.debug('Branch not merged, skipping cleanup', {
+        branch: branch.name,
+        elapsedMs: Math.round(performance.now() - t0)
+      });
       continue;
     }
+    logger.debug('merge-base check completed (merged)', {
+      branch: branch.name,
+      elapsedMs: Math.round(performance.now() - t0)
+    });
 
     // Branch is merged — clean up worktree, branch ref, and API record
     if (branch.worktree) {
+      t0 = performance.now();
       await tryCleanupStep(
         () => execFileAsync('git', ['worktree', 'remove', branch.worktree!], { cwd: input.repoRoot }),
         'Failed to remove worktree',
         branch.name,
         logger
       );
+      logger.debug('Worktree removal completed', {
+        branch: branch.name,
+        elapsedMs: Math.round(performance.now() - t0)
+      });
     }
 
+    t0 = performance.now();
     await tryCleanupStep(
       () => execFileAsync('git', ['branch', '-d', branch.name], { cwd: input.repoRoot }),
       'Failed to delete branch',
       branch.name,
       logger
     );
+    logger.debug('Branch deletion completed', {
+      branch: branch.name,
+      elapsedMs: Math.round(performance.now() - t0)
+    });
 
+    t0 = performance.now();
     await tryCleanupStep(
       () => client.removeBranch(input.cardId, branch.name, { sessionId }),
       'Failed to remove branch from API',
       branch.name,
       logger
     );
+    logger.debug('API branch removal completed', {
+      branch: branch.name,
+      elapsedMs: Math.round(performance.now() - t0)
+    });
 
     logger.info('Cleaned up merged branch', { branch: branch.name });
   }
@@ -607,6 +636,7 @@ export async function spawnClaudeSession(
   // Data corruption (e.g. self-referential parentBranch) propagates as a hard
   // failure. Network/transient errors are logged as warnings — the watcher and
   // extension provide redundant cleanup paths.
+  const cleanupStart = performance.now();
   try {
     await cleanupMergedBranches(input, client, context.logger, sessionId);
   } catch (error) {
@@ -616,4 +646,8 @@ export async function spawnClaudeSession(
     }
     context.logger.warn('Post-exit cleanup failed (non-fatal)', { error: message, sessionId });
   }
+  context.logger.debug('Post-exit cleanup finished', {
+    sessionId,
+    elapsedMs: Math.round(performance.now() - cleanupStart)
+  });
 }
