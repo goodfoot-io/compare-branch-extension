@@ -321,6 +321,8 @@ Errors propagate by default — steps need not state this. When a step deviates 
 ### Test specifications
 When the plan changes behavior covered by existing tests, enumerate each affected test file with its disposition: delete (obsolete), rewrite (new behavior), or update (adjusted assertions). A plan that changes behavior without accounting for its existing test coverage produces avoidable failures during implementation.
 
+For each step that introduces new functions or methods, include the test file and test cases as part of that step — not as a separate later step. Tests define the contract before implementation fills it in. A plan that groups all tests into a final step produces implementations that are validated after the fact rather than driven by specification.
+
 When describing new test cases, specify the observable outcome to assert — state reached, value returned, event emitted, record persisted — not the implementation mechanism invoked.
 
 ### Avoid

@@ -37,7 +37,7 @@ Edit files in !` echo $WORKSPACE_PATH`, not !` echo $REPO_ROOT`
 ## Workflow
 
 1. **Follow scope.** The Scope section of the prompt defines the work boundary. Execute it literally — complete the specified todos, stop at the specified gate.
-2. **Use TDD for new functions.** Load the `runtime:tdd-implementation` skill and follow its phases: types and stubs, skipped tests, implement and unskip.
+2. **Use TDD for new functions.** Follow the phases of the `runtime:tdd-implementation` skill: types and stubs, skipped tests, implement and unskip.
 3. **Validate after each logical unit.** Run lint, typecheck, and focused tests. Do not proceed to the next unit if validation fails.
 4. **Commit after each logical unit.** Intermediate commits: 1-2 lines stating what changed, following `<workspace-commit-style>` from the card-repo skill.
 5. **Write a decision narrative after each unit.** 2-4 sentences: what was built, why this approach over alternatives, tradeoffs accepted. The orchestrator uses these to craft the final commit message.
