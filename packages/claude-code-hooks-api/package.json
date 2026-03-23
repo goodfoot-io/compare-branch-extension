@@ -4,7 +4,7 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22"
   },
   "scripts": {
     "build": "claude-code-hooks -i \"src/*.ts\" -o \"../../plugins/cards/hooks/hooks.json\" --log \"../../../.cards/logs/claude-code-cards-api-hooks.log\" --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:card && yarn build:compare && yarn build:uuid7 && yarn build:notification",

@@ -4,7 +4,7 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22"
   },
   "exports": {
     ".": "./src/index.ts",
