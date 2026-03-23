@@ -11,7 +11,7 @@ This skill defines how to structure implementation plans stored as PLAN.md in ca
 ## Quick Reference
 
 ### Required
-- Commander's Intent (2-4 sentences, natural language paragraph)
+- Commander's Intent (short paragraph)
 - Goals & Objectives (3-7 checkbox items)
 - Scope (Include AND Exclude)
 - Technical Approach (numbered steps with file paths)
@@ -78,7 +78,7 @@ A user on any page receives and can act on notifications without refreshing. Not
 </example>
 
 <instructions>
-Start every plan with the commander's intent as a natural language paragraph (2-4 sentences), distilled from CARD.md. Lead with what done looks like — the observable conditions that define success. Follow with the constraints any valid implementation must satisfy, including behavioral invariants across all code paths. Do not explain the current problem; the Technical Approach provides that context. The intent is a destination, not a diagnosis.
+Start every plan with the commander's intent as a short paragraph, distilled from CARD.md. Lead with what done looks like — the observable conditions that define success. Follow with the constraints any valid implementation must satisfy, including behavioral invariants across all code paths. Do not explain the current problem; the Technical Approach provides that context. The intent is a destination, not a diagnosis.
 
 An implementing agent encountering an unexpected fork should be able to use this paragraph alone to choose a path. If it cannot, the intent needs rewriting.
 

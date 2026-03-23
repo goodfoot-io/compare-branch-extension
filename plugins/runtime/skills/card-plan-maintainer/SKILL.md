@@ -247,7 +247,7 @@ Do not modify files during evaluation.
 
 ## 1. Gather Context
 
-Read PLAN.md from the card repository. If PLAN.md is empty or missing, report BLOCKED and stop. The opening 2-4 sentences are the commander's intent — done state first, then constraints. Quote it verbatim in the report.
+Read PLAN.md from the card repository. If PLAN.md is empty or missing, report BLOCKED and stop. The opening paragraph is the commander's intent — done state first, then constraints. Quote it verbatim in the report.
 
 Read CARD.meta.json and CARD.md from the card repository for fuller context on the user's goals and constraints.
 
