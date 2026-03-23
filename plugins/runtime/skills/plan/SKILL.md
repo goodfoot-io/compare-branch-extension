@@ -11,7 +11,7 @@ This skill defines how to structure implementation plans stored as PLAN.md in ca
 ## Quick Reference
 
 ### Required
-- Commander's Intent (done state first, then constraints — 2-4 sentences)
+- Commander's Intent (2-4 sentences, natural language paragraph)
 - Goals & Objectives (3-7 checkbox items)
 - Scope (Include AND Exclude)
 - Technical Approach (numbered steps with file paths)
@@ -78,16 +78,11 @@ A user on any page receives and can act on notifications without refreshing. Not
 </example>
 
 <instructions>
-Start every plan with the commander's intent (2-4 sentences), distilled from CARD.md. Lead with the done state — what the world looks like when the work is complete. Follow with the constraints that any valid implementation must satisfy.
+Start every plan with the commander's intent as a natural language paragraph (2-4 sentences), distilled from CARD.md. Lead with what done looks like — the observable conditions that define success. Follow with the constraints any valid implementation must satisfy, including behavioral invariants across all code paths. Do not explain the current problem; the Technical Approach provides that context. The intent is a destination, not a diagnosis.
 
-1. **Done state** (first sentence) — The observable condition that defines success. Start here. Not why we're doing this, not what's broken — what "done" looks like.
-2. **Constraints** — The non-negotiable requirements any valid implementation must satisfy, including behavioral invariants that must hold across all code paths.
+An implementing agent encountering an unexpected fork should be able to use this paragraph alone to choose a path. If it cannot, the intent needs rewriting.
 
-Do not explain the current problem. The Technical Approach section provides that context. The intent is a destination, not a diagnosis.
-
-An implementing agent encountering an unexpected fork should be able to use this statement alone to choose a path. If it cannot, the intent needs rewriting.
-
-Bad: "Tests use real setTimeout calls to synchronize on async operations, creating timing-dependent assertions that are flaky under load" (diagnosis — explains what's wrong instead of stating what done looks like)
+Bad: "Tests use real setTimeout calls to synchronize on async operations, creating timing-dependent assertions that are flaky under load" (diagnosis, not destination)
 Bad: "Implement WebSocket-based notification delivery with Redis pub/sub" (solution, not intent)
 Bad: "Users should get notifications faster" (vague, no constraints, unmeasurable)
 </instructions>
