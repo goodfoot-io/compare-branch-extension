@@ -98,11 +98,8 @@ export async function resolveClaudeConfigDir(): Promise<string | null> {
     try {
       await fs.access(path.join(candidate, 'plugins'));
       return candidate;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' && (error as NodeJS.ErrnoException).code !== 'EACCES') {
-        throw error;
-      }
-      // Not found or not accessible — try next candidate
+    } catch {
+      // Not found, try next
     }
   }
   return null;
