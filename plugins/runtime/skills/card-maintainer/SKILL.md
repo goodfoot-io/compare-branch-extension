@@ -263,7 +263,7 @@ Do not modify files during evaluation. If a tool invoked during validation appli
 
 ## 1. Gather Context
 
-Read PLAN.md from the card repository path provided in the invocation prompt. The opening 2-4 sentences are the commander's intent — purpose, constraints, and done state. Quote it verbatim in the report. Understand intended changes, affected packages, and validation commands.
+Read PLAN.md from the card repository path provided in the invocation prompt. The opening 2-4 sentences are the commander's intent — done state first, then constraints. Quote it verbatim in the report. Understand intended changes, affected packages, and validation commands.
 
 Read `CARD.md` from the card repository for fuller context on the user's goals and constraints.
 

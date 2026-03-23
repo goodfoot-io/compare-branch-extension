@@ -11,8 +11,7 @@ This skill defines how to structure implementation plans stored as PLAN.md in ca
 ## Quick Reference
 
 ### Required
-- `## Implementation Plan` header
-- Commander's Intent (why, constraints, done state — 2-4 sentences)
+- Commander's Intent (done state first, then constraints — 2-4 sentences)
 - Goals & Objectives (3-7 checkbox items)
 - Scope (Include AND Exclude)
 - Technical Approach (numbered steps with file paths)
@@ -70,29 +69,27 @@ The best plan answers "what" and "where" while leaving "how" to the implementer.
 
 <annotated-plan-example>
 
-### Header Format
+### Commander's Intent
 
 <example>
 ```markdown
-## Implementation Plan
-
-Enable users to receive updates without polling. Notifications must arrive within 500ms regardless of source — direct action, background job, or real-time event — and delivery must be consistent across all sources. Done: a user on any page receives and can act on a notification without refreshing.
+A user on any page receives and can act on notifications without refreshing. Notifications arrive within 500ms regardless of source — direct action, background job, or real-time event — with consistent delivery across all sources.
 ```
 </example>
 
 <instructions>
-Plans inherit their title from the parent card. Start every plan with `## Implementation Plan` followed directly by the commander's intent (2-4 sentences), distilled from CARD.md. The card describes what the user needs; the plan's intent translates that into operational direction for the implementer.
+Start every plan with the commander's intent (2-4 sentences), distilled from CARD.md. Lead with the done state — what the world looks like when the work is complete. Follow with the constraints that any valid implementation must satisfy.
 
-The commander's intent has three components:
-1. State why we are doing this — the user or system goal
-2. Name the constraints any valid implementation must satisfy, including behavioral invariants that must hold across all code paths
-3. Describe what the situation looks like when the work is done
+1. **Done state** (first sentence) — The observable condition that defines success. Start here. Not why we're doing this, not what's broken — what "done" looks like.
+2. **Constraints** — The non-negotiable requirements any valid implementation must satisfy, including behavioral invariants that must hold across all code paths.
+
+Do not explain the current problem. The Technical Approach section provides that context. The intent is a destination, not a diagnosis.
 
 An implementing agent encountering an unexpected fork should be able to use this statement alone to choose a path. If it cannot, the intent needs rewriting.
 
-Bad: "Users must manually refresh pages because the application lacks real-time notifications" (deficiency, not direction)
+Bad: "Tests use real setTimeout calls to synchronize on async operations, creating timing-dependent assertions that are flaky under load" (diagnosis — explains what's wrong instead of stating what done looks like)
 Bad: "Implement WebSocket-based notification delivery with Redis pub/sub" (solution, not intent)
-Bad: "Users should get notifications faster" (no constraints, unmeasurable done state)
+Bad: "Users should get notifications faster" (vague, no constraints, unmeasurable)
 </instructions>
 
 ---

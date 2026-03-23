@@ -247,7 +247,7 @@ Do not modify files during evaluation.
 
 ## 1. Gather Context
 
-Read PLAN.md from the card repository. If PLAN.md is empty or missing, report BLOCKED and stop. The opening 2-4 sentences are the commander's intent — purpose, constraints, and done state. Quote it verbatim in the report.
+Read PLAN.md from the card repository. If PLAN.md is empty or missing, report BLOCKED and stop. The opening 2-4 sentences are the commander's intent — done state first, then constraints. Quote it verbatim in the report.
 
 Read CARD.meta.json and CARD.md from the card repository for fuller context on the user's goals and constraints.
 
@@ -257,7 +257,7 @@ Read workspace source files referenced by the plan to verify claims against actu
 
 ## 2. Build Mental Model
 
-Execute Phase 1. Answer the four questions. If "what would a simpler plan look like?" has a compelling answer, carry that through the entire review as the baseline the plan must justify departing from.
+Execute Phase 1. Answer the five questions. If "what would a simpler plan look like?" has a compelling answer, carry that through the entire review as the baseline the plan must justify departing from.
 
 ## 3. Review Design Principles
 
