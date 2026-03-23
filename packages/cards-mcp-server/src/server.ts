@@ -14,7 +14,6 @@ import type { CardCommitEvent } from '@cards/sdk/protocol';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import WebSocket from 'ws';
 import type { CardsServerConfig } from './config.js';
 import { isSessionCommit } from './filter.js';
 import { formatCommit } from './format.js';
@@ -58,12 +57,7 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
     }
   );
 
-  const wsFactory = {
-    create: (url: string, protocols?: string | string[]) =>
-      new WebSocket(url, protocols) as unknown as globalThis.WebSocket
-  };
-
-  const subscriber = new EventSubscriber({ wsUrl: config.wsUrl, accessToken: config.apiAccessToken }, wsFactory);
+  const subscriber = new EventSubscriber({ wsUrl: config.wsUrl, accessToken: config.apiAccessToken });
 
   const onCommit = (event: CardCommitEvent): void => {
     if (event.cardId !== config.cardId) return;

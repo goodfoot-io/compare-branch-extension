@@ -11,14 +11,12 @@
   "dependencies": {
     "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.25.3",
-    "ws": "^8.19.0"
+    "@modelcontextprotocol/sdk": "^1.25.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.13",
     "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
-    "@types/ws": "^8.18.1",
     "@typescript/native-preview": "^7.0.0-dev",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
