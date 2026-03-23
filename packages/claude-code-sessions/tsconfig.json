@@ -18,6 +18,7 @@
     "noPropertyAccessFromIndexSignature": true,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
+    "types": ["node"],
     "incremental": true,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
