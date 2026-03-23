@@ -17,6 +17,8 @@ export interface CompareBranchRangeRequest {
   compareRef: string;
   /** Optional display title for the comparison (e.g., "CARD 45 CHANGES"). */
   title?: string;
+  /** Optional supplemental attribution SHAs to union with rev-list results. */
+  attributionShas?: string[];
 }
 
 /**
@@ -29,6 +31,8 @@ export interface CompareDynamicRequest {
   repositoryPath: string;
   /** Optional display title for the comparison (e.g., "CARD 45 CHANGES"). */
   title?: string;
+  /** Optional supplemental attribution SHAs to union with rev-list results. */
+  attributionShas?: string[];
 }
 
 /**
@@ -49,7 +53,11 @@ export interface CompareFixedAttributionRequest {
  * Discriminated by which fields are present:
  * - `baseRef` + `compareRef` → branch range
  * - `baseRef` + `repositoryPath` → dynamic
- * - `compareRef` + `attributionShas` → fixed attribution
+ * - `compareRef` + `attributionShas` (no `baseRef`) → fixed attribution
+ *
+ * `attributionShas` is now shared across modes: in branch-range and dynamic modes
+ * it provides supplemental SHAs that are unioned with rev-list results, enabling
+ * correct attribution for merged branches where rev-list returns empty.
  */
 export type CompareRequest = CompareBranchRangeRequest | CompareDynamicRequest | CompareFixedAttributionRequest;
 
