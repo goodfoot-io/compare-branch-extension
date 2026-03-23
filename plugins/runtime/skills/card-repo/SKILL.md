@@ -18,7 +18,7 @@ The following environment variables are available in all bash statements:
 | `$NODE` | Path to the Node.js interpreter. |
 | `$CARD_REPO_PATH` | Absolute path to this card's Git repository directory. |
 | `$REPO_ROOT` | Absolute path to the main git repository root (not a worktree). Use for git operations that must target the main repo. |
-| `$WORKSPACE_PATH` | Absolute path to the VS Code workspace root directory (may be a worktree). |
+| `$WORKSPACE_PATH` | Absolute path to the VS Code workspace root directory (may be a worktree). Equivalent to `$(pwd)` so there is no need to `cd $WORKSPACE_PATH`. |
 | `$BASE_BRANCH` | Git branch that the card's workspace branch will merge into. |
 | `$WORKSPACE_BRANCH` | Git branch name for the card's workspace implementation. |
 
