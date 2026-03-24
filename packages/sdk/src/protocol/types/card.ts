@@ -17,7 +17,7 @@
  * {
  *   "id": "main-0001",
  *   "title": "Implement authentication",
- *   "status": "in_progress",
+ *   "status": "active",
  *   "tags": ["feature", "security"],
  *   "gates": {
  *     "planRequired": true,
@@ -69,7 +69,7 @@ import type { CardStatus } from './status.js';
 export interface CardGates {
   /**
    * Whether a plan document is required before implementation begins.
-   * When true, the card cannot transition from `todo` to `in_progress`
+   * When true, the card cannot transition from `todo` to `active`
    * until `planApproved` is also true.
    */
   planRequired: boolean;
@@ -152,7 +152,7 @@ export interface CardRelation {
  * const metadata: CardMetadata = {
  *   id: 'main-0001',
  *   title: 'Implement user login',
- *   status: 'in_progress',
+ *   status: 'active',
  *   tags: ['feature', 'auth'],
  *   gates: DEFAULT_CARD_GATES,
  *   isPinned: false,
@@ -240,7 +240,7 @@ export interface CardMetadata {
  * const card: Card = {
  *   id: 'main-0001',
  *   title: 'Implement OAuth2',
- *   status: 'in_progress',
+ *   status: 'active',
  *   tags: ['feature', 'auth'],
  *   gates: { planRequired: true, planApproved: true, mergeRequestRequired: true, mergeApproved: false },
  *   isPinned: false,

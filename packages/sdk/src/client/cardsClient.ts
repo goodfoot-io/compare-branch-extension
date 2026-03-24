@@ -65,7 +65,7 @@ const MAX_TIMEOUT_RETRIES = 2;
  * ```typescript
  * const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'token' });
  *
- * const cards = await client.listCards({ status: 'in_progress' });
+ * const cards = await client.listCards({ status: 'active' });
  * await client.updateCard(cardId, { status: 'done' });
  * ```
  */

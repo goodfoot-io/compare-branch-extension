@@ -53,14 +53,7 @@ describe('Client Types', () => {
     });
 
     it('should accept CardStatus values for status filter', () => {
-      const statuses: ListCardsOptions['status'][] = [
-        'todo',
-        'in_progress',
-        'needs_review',
-        'done',
-        'backlog',
-        'archived'
-      ];
+      const statuses: ListCardsOptions['status'][] = ['todo', 'active', 'needs_review', 'done', 'archived'];
       statuses.forEach((status) => {
         const options: ListCardsOptions = { status };
         expect(options.status).toBe(status);
@@ -162,26 +155,19 @@ describe('Client Types', () => {
       const data: CardUpdateData = {
         title: 'Updated Title',
         description: 'Updated description',
-        status: 'in_progress',
+        status: 'active',
         tags: ['bug', 'urgent'],
         isPinned: true
       };
       expect(data.title).toBe('Updated Title');
       expect(data.description).toBe('Updated description');
-      expect(data.status).toBe('in_progress');
+      expect(data.status).toBe('active');
       expect(data.tags).toEqual(['bug', 'urgent']);
       expect(data.isPinned).toBe(true);
     });
 
     it('should accept CardStatus values for status', () => {
-      const statuses: CardUpdateData['status'][] = [
-        'todo',
-        'in_progress',
-        'needs_review',
-        'done',
-        'backlog',
-        'archived'
-      ];
+      const statuses: CardUpdateData['status'][] = ['todo', 'active', 'needs_review', 'done', 'archived'];
       statuses.forEach((status) => {
         const data: CardUpdateData = { status };
         expect(data.status).toBe(status);
@@ -225,10 +211,10 @@ describe('Client Types', () => {
 
     it('should accept order with other fields', () => {
       const data: CardUpdateData = {
-        status: 'in_progress',
+        status: 'active',
         order: 10
       };
-      expect(data.status).toBe('in_progress');
+      expect(data.status).toBe('active');
       expect(data.order).toBe(10);
     });
 

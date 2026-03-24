@@ -25,7 +25,7 @@
  * // Listing cards with filters
  * const query: ListCardsRequest = {
  *   workspacePath: '/home/user/project',
- *   status: 'in_progress',
+ *   status: 'active',
  *   limit: 20
  * };
  * ```
@@ -61,7 +61,7 @@ import type { Comment, TimelineItem } from './timeline.js';
 export interface CardCreateGates {
   /**
    * Whether a plan document is required before implementation begins.
-   * When true, the card cannot transition to `in_progress` until the
+   * When true, the card cannot transition to `active` until the
    * plan is approved.
    */
   planRequired?: boolean;
@@ -161,7 +161,7 @@ export interface CreateCardRequest {
  * ```typescript
  * // Update status and add a tag
  * const update: UpdateCardRequest = {
- *   status: 'in_progress',
+ *   status: 'active',
  *   tags: ['feature', 'auth', 'urgent']
  * };
  * ```
@@ -221,10 +221,10 @@ export interface UpdateCardRequest {
  *
  * @example
  * ```typescript
- * // Find in-progress cards tagged 'urgent'
+ * // Find active cards tagged 'urgent'
  * const query: ListCardsRequest = {
  *   workspacePath: '/home/user/project',
- *   status: 'in_progress',
+ *   status: 'active',
  *   tag: 'urgent',
  *   limit: 50
  * };

@@ -65,9 +65,9 @@ describe('CardsClient', () => {
     it('should GET /cards with status filter', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
-      await client.listCards({ status: 'in_progress' });
+      await client.listCards({ status: 'active' });
       expect(httpClient.requests).toHaveLength(1);
-      expect(httpClient.requests[0]?.url).toContain('status=in_progress');
+      expect(httpClient.requests[0]?.url).toContain('status=active');
     });
 
     it('should GET /cards/:id when fetching single card', async () => {

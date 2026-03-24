@@ -19,7 +19,7 @@
  * a card between these states can trigger downstream behaviors such as review
  * gating, notifications, or sorting rules.
  */
-export type CardStatus = 'todo' | 'in_progress' | 'needs_review' | 'done' | 'backlog' | 'archived';
+export type CardStatus = 'todo' | 'active' | 'needs_review' | 'done' | 'archived';
 
 // --- Session Type ---
 

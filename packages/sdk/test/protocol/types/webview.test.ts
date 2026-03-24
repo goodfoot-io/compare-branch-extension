@@ -621,7 +621,7 @@ describe('webview types', () => {
         card: {
           id: 'card-1',
           title: 'Test Card',
-          status: 'in_progress',
+          status: 'active',
           description: 'Card description',
           tags: ['feature'],
           gates: {
