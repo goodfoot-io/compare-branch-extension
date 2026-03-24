@@ -785,7 +785,7 @@ describe('Default Actions', () => {
         ]);
 
         // fs.access rejects — worktree path doesn't exist on disk
-        vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+        vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
         vi.mocked(createWorktree).mockResolvedValue({
           branch: 'cards/card-123/1',

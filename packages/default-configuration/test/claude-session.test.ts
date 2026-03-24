@@ -321,7 +321,7 @@ describe('claude-session shared utilities', () => {
       ]);
 
       // fs.access rejects — worktree path doesn't exist on disk
-      vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+      vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       vi.mocked(createWorktree).mockResolvedValue({
         branch: 'cards/card-123/1',
@@ -617,9 +617,10 @@ describe('claude-session shared utilities', () => {
       const { resolveClaudeConfigDir } = await import('../src/lib/claude-session.js');
       const { access } = await import('node:fs/promises');
       // Reject all candidates until the last one
-      vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+      const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      vi.mocked(access).mockRejectedValue(enoent);
       // Allow the last candidate (~/.claude/plugins)
-      vi.mocked(access).mockRejectedValueOnce(new Error('ENOENT')); // ~/.config/claude/plugins
+      vi.mocked(access).mockRejectedValueOnce(enoent); // ~/.config/claude/plugins
       vi.mocked(access).mockResolvedValueOnce(undefined); // ~/.claude/plugins
 
       const saved = process.env['CLAUDE_CONFIG_DIR'];
@@ -641,7 +642,7 @@ describe('claude-session shared utilities', () => {
     it('returns null when no candidates exist', async () => {
       const { resolveClaudeConfigDir } = await import('../src/lib/claude-session.js');
       const { access } = await import('node:fs/promises');
-      vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+      vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       const saved = process.env['CLAUDE_CONFIG_DIR'];
       delete process.env['CLAUDE_CONFIG_DIR'];
