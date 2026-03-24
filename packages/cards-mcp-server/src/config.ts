@@ -8,13 +8,29 @@
  * @module cards-mcp-server/config
  */
 
-import { CARDS_ENV_VARS, getApiAccessToken, getApiBaseUrl, getCardId } from '@cards/sdk/config/env';
+import { join } from 'node:path';
+import { CARDS_ENV_VARS, getApiAccessToken, getApiBaseUrl, getCardId, getRepoRoot } from '@cards/sdk/config/env';
 
 export interface CardsServerConfig {
   cardId: string;
   sessionId: string;
   apiAccessToken: string;
   wsUrl: string;
+  logPath: string;
+}
+
+/**
+ * Resolves the log file path.
+ *
+ * Uses `CARDS_MCP_SERVER_LOGS` if set, otherwise falls back to
+ * `$REPO_ROOT/.cards/logs/cards-mcp-server.log`.
+ *
+ * @returns Absolute path to the log file.
+ */
+function resolveLogPath(): string {
+  const override = process.env['CARDS_MCP_SERVER_LOGS'];
+  if (override !== undefined && override !== '') return override;
+  return join(getRepoRoot(), '.cards', 'logs', 'cards-mcp-server.log');
 }
 
 /**
@@ -27,6 +43,7 @@ export function readConfig(): CardsServerConfig {
   const cardId = getCardId();
   const apiBaseUrl = getApiBaseUrl();
   const apiAccessToken = getApiAccessToken();
+  const logPath = resolveLogPath();
 
   const sessionId = process.env[CARDS_ENV_VARS.CARDS_SESSION_ID];
   if (sessionId === undefined || sessionId === '') {
@@ -35,5 +52,5 @@ export function readConfig(): CardsServerConfig {
 
   const wsUrl = apiBaseUrl.replace(/^http(s?):\/\//, 'ws$1://');
 
-  return { cardId, sessionId, apiAccessToken, wsUrl };
+  return { cardId, sessionId, apiAccessToken, wsUrl, logPath };
 }

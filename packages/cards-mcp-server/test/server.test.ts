@@ -10,6 +10,7 @@ import { TestWebSocketServer } from '@cards/test-utils';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardsServerConfig } from '../src/config.js';
+import type { Logger } from '../src/logger.js';
 import { createServer } from '../src/server.js';
 
 vi.mock('@cards/claude-code-sessions/card-repo', () => ({
@@ -26,9 +27,17 @@ function makeConfig(wsUrl: string): CardsServerConfig {
     cardId: 'test-card',
     sessionId: 'test-session',
     apiAccessToken: 'test-token',
-    wsUrl
+    wsUrl,
+    logPath: '/tmp/cards-mcp-server-test.log'
   };
 }
+
+/** Silent logger for tests. */
+const nullLogger: Logger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {}
+};
 
 function makeCommit(): CardCommitEvent['commit'] {
   return {
@@ -58,7 +67,7 @@ describe('createServer', () => {
   it('dispatches a notifications/claude/channel notification for a non-session commit', async () => {
     const [serverTransport] = InMemoryTransport.createLinkedPair();
     const config = makeConfig(wsServer.getUrl());
-    const server = createServer(config, { transport: serverTransport });
+    const server = createServer(config, { transport: serverTransport, logger: nullLogger });
 
     const notifications: unknown[] = [];
     vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
@@ -91,7 +100,7 @@ describe('createServer', () => {
   it('silently filters commits that belong to the current session', async () => {
     const [serverTransport] = InMemoryTransport.createLinkedPair();
     const config = makeConfig(wsServer.getUrl());
-    const server = createServer(config, { transport: serverTransport });
+    const server = createServer(config, { transport: serverTransport, logger: nullLogger });
 
     const notifications: unknown[] = [];
     vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
@@ -117,7 +126,7 @@ describe('createServer', () => {
   it('silently ignores events for other cards', async () => {
     const [serverTransport] = InMemoryTransport.createLinkedPair();
     const config = makeConfig(wsServer.getUrl());
-    const server = createServer(config, { transport: serverTransport });
+    const server = createServer(config, { transport: serverTransport, logger: nullLogger });
 
     const notifications: unknown[] = [];
     vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
@@ -138,5 +147,73 @@ describe('createServer', () => {
     await server.stop();
 
     expect(notifications).toHaveLength(0);
+  });
+
+  it('silently filters bookkeeping-only commits', async () => {
+    const [serverTransport] = InMemoryTransport.createLinkedPair();
+    const config = makeConfig(wsServer.getUrl());
+    const server = createServer(config, { transport: serverTransport, logger: nullLogger });
+
+    const notifications: unknown[] = [];
+    vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
+      notifications.push(n);
+    });
+
+    await Promise.all([server.start(), wsServer.awaitConnection()]);
+
+    wsServer.simulateEvent<CardCommitEvent>('card:commit', {
+      cardId: 'test-card',
+      commit: {
+        ...makeCommit(),
+        diff: {
+          changed: 2,
+          files: [
+            { file: 'workspace-commits.csv', status: 'M', binary: false },
+            { file: 'streams/claude-code-session/abc.jsonl', status: 'A', binary: false }
+          ]
+        }
+      }
+    });
+
+    // Allow event loop to process; bookkeeping-only commits should be filtered
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await server.stop();
+
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('dispatches commits that mix bookkeeping and user files', async () => {
+    const [serverTransport] = InMemoryTransport.createLinkedPair();
+    const config = makeConfig(wsServer.getUrl());
+    const server = createServer(config, { transport: serverTransport, logger: nullLogger });
+
+    const notifications: unknown[] = [];
+    vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
+      notifications.push(n);
+    });
+
+    await Promise.all([server.start(), wsServer.awaitConnection()]);
+
+    wsServer.simulateEvent<CardCommitEvent>('card:commit', {
+      cardId: 'test-card',
+      commit: {
+        ...makeCommit(),
+        diff: {
+          changed: 2,
+          files: [
+            { file: 'workspace-commits.csv', status: 'M', binary: false },
+            { file: 'CARD.md', status: 'M', binary: false }
+          ]
+        }
+      }
+    });
+
+    await vi.waitFor(() => {
+      expect(notifications).toHaveLength(1);
+    });
+
+    await server.stop();
   });
 });

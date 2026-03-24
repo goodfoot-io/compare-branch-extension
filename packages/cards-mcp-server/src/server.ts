@@ -3,7 +3,8 @@
  *
  * Creates an MCP Server with the `claude/channel` experimental capability and
  * wires a Cards EventSubscriber to dispatch `card:commit` events as channel
- * notifications, filtered by card ID and session attribution.
+ * notifications, filtered by card ID, session attribution, and bookkeeping
+ * pathspec exclusions.
  *
  * @summary MCP server factory for the Cards channel notification server
  * @module cards-mcp-server/server
@@ -17,6 +18,9 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CardsServerConfig } from './config.js';
 import { isSessionCommit } from './filter.js';
 import { formatCommit } from './format.js';
+import type { Logger } from './logger.js';
+import { createFileLogger } from './logger.js';
+import { isBookkeepingCommit } from './pathspec.js';
 
 const CHANNEL_INSTRUCTIONS = `\
 You are connected to the Cards MCP server. Notifications arrive on the \
@@ -39,16 +43,19 @@ export interface CardsMcpServer {
 
 export interface CreateServerOptions {
   transport?: Transport;
+  logger?: Logger;
 }
 
 /**
  * Creates a Cards MCP server bound to the given configuration.
  *
  * @param config - Runtime configuration (card ID, session ID, WebSocket URL, etc.).
- * @param options - Optional overrides for the MCP transport (used in tests).
+ * @param options - Optional overrides for the MCP transport and logger (used in tests).
  * @returns An object with `start`, `stop`, and `mcpServer` properties.
  */
 export function createServer(config: CardsServerConfig, options: CreateServerOptions = {}): CardsMcpServer {
+  const logger = options.logger ?? createFileLogger(config.logPath);
+
   const mcp = new Server(
     { name: 'cards-mcp-server', version: '1.0.0' },
     {
@@ -61,7 +68,14 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
 
   const onCommit = (event: CardCommitEvent): void => {
     if (event.cardId !== config.cardId) return;
-    if (isSessionCommit(config.sessionId, event.commit.hash)) return;
+    if (isSessionCommit(config.sessionId, event.commit.hash)) {
+      logger.info('Suppressed session-owned commit', { sha: event.commit.hash });
+      return;
+    }
+    if (isBookkeepingCommit(event.commit)) {
+      logger.info('Suppressed bookkeeping-only commit', { sha: event.commit.hash });
+      return;
+    }
 
     const content = formatCommit(event.commit);
     const meta: Record<string, string> = {
@@ -71,13 +85,18 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
       ts: event.commit.date
     };
 
+    logger.info('Dispatching channel notification', { sha: event.commit.hash, author: event.commit.author_name });
+
     mcp
       .notification({
         method: 'notifications/claude/channel',
         params: { content, meta }
       })
       .catch((err: unknown) => {
-        console.error('[cards-mcp-server] Failed to send channel notification:', err);
+        logger.error('Failed to send channel notification', {
+          sha: event.commit.hash,
+          error: err instanceof Error ? err.message : String(err)
+        });
       });
   };
 
@@ -89,8 +108,10 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
       const transport = options.transport ?? new StdioServerTransport();
       await mcp.connect(transport);
       await subscriber.connect();
+      logger.info('Server started', { cardId: config.cardId, sessionId: config.sessionId });
     },
     async stop(): Promise<void> {
+      logger.info('Server stopping');
       subscriber.disconnect();
       await mcp.close();
     }

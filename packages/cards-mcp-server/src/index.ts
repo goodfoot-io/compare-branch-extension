@@ -9,11 +9,13 @@
  */
 
 import { readConfig } from './config.js';
+import { createFileLogger } from './logger.js';
 import { createServer } from './server.js';
 
 async function main(): Promise<void> {
   const config = readConfig();
-  const server = createServer(config);
+  const logger = createFileLogger(config.logPath);
+  const server = createServer(config, { logger });
 
   process.on('SIGTERM', () => {
     server.stop().then(() => process.exit(0));
