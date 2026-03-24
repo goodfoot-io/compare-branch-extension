@@ -42,7 +42,7 @@ describe('Entity Fixtures', () => {
       const metadata = createCardMetadata({
         id: 'custom-id',
         title: 'Custom Title',
-        status: 'in_progress',
+        status: 'active',
         tags: ['bug'],
         isPinned: true,
         order: 5,
@@ -51,7 +51,7 @@ describe('Entity Fixtures', () => {
 
       expect(metadata.id).toBe('custom-id');
       expect(metadata.title).toBe('Custom Title');
-      expect(metadata.status).toBe('in_progress');
+      expect(metadata.status).toBe('active');
       expect(metadata.tags).toEqual(['bug']);
       expect(metadata.isPinned).toBe(true);
       expect(metadata.order).toBe(5);

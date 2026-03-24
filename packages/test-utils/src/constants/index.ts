@@ -55,10 +55,9 @@ export const TEST_CONSTANTS = {
  */
 export const CARD_STATUSES = [
   'todo',
-  'in_progress',
+  'active',
   'needs_review',
   'done',
-  'backlog',
   'archived'
 ] as const satisfies readonly CardStatus[];
 

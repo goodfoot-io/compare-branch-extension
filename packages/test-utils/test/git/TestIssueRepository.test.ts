@@ -67,14 +67,14 @@ describe('TestCardRepository', () => {
     it('creates CARD.meta.json with metadata', async () => {
       const cardId = await repo.createCard({
         title: 'My Test Card',
-        status: 'in_progress',
+        status: 'active',
         tags: ['bug', 'urgent']
       });
 
       const metaContent = await repo.readFile(cardId, 'CARD.meta.json');
       const metadata = JSON.parse(metaContent);
       expect(metadata.title).toBe('My Test Card');
-      expect(metadata.status).toBe('in_progress');
+      expect(metadata.status).toBe('active');
       expect(metadata.tags).toEqual(['bug', 'urgent']);
       expect(metadata.id).toBe(cardId);
       expect(metadata.repositoryId).toBe('test-repo');
