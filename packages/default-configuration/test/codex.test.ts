@@ -17,6 +17,14 @@ vi.mock('node:child_process', () => ({
   execFile: vi.fn()
 }));
 
+vi.mock('node:fs/promises', () => ({
+  access: vi.fn(),
+  readFile: vi.fn(),
+  rm: vi.fn(),
+  mkdir: vi.fn(),
+  symlink: vi.fn()
+}));
+
 vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
@@ -32,8 +40,10 @@ const originalFetch = globalThis.fetch;
 beforeEach(async () => {
   vi.clearAllMocks();
   process.env['EXTENSION_PATH'] = '/test/extension';
+  delete process.env['CODEX_HOME'];
 
   const { execFile } = await import('node:child_process');
+  const fs = await import('node:fs/promises');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
     const cb = args[args.length - 1];
     const cmd = args[0] as string;
@@ -71,6 +81,21 @@ beforeEach(async () => {
     worktree: '/test/workspace/.worktrees/cards/card-123/1',
     baseSha: 'abc123'
   });
+
+  vi.mocked(fs.access).mockResolvedValue(undefined);
+  vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
+    if (String(filePath) === '/test/extension/dist/marketplace/plugins/codex-runtime/.codex-plugin/plugin.json') {
+      return JSON.stringify({
+        name: 'codex-runtime',
+        version: '1.0.0',
+        description: 'Codex runtime plugin for the Cards extension'
+      });
+    }
+    throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
+  });
+  vi.mocked(fs.rm).mockResolvedValue(undefined);
+  vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+  vi.mocked(fs.symlink).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -126,8 +151,9 @@ describe('codex action', () => {
     expect(action.actionName).toBe('Codex');
   });
 
-  it('spawns codex with the packaged marketplace skill prompt', async () => {
+  it('installs the packaged codex plugin and spawns codex with plugin config overrides', async () => {
     const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
 
@@ -155,13 +181,62 @@ describe('codex action', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    expect(args).not.toContain('--config');
+    expect(args).toContain('--config');
+    expect(args).toContain('features.plugins=true');
+    expect(args).toContain('plugins.codex-runtime@local.enabled=true');
     expect(args[args.length - 1]).toBe(
-      'Load the skill file at "/test/extension/dist/marketplace/.agents/skills/cards-runtime/SKILL.md" before doing any work. Read that SKILL.md, follow its instructions, and then continue work on the card.'
+      'Use the `cards-runtime` skill for card repository conventions, then continue work on the card.'
+    );
+
+    expect(fs.access).toHaveBeenCalledWith('/test/extension/dist/marketplace/plugins/codex-runtime');
+    expect(fs.access).toHaveBeenCalledWith(
+      '/test/extension/dist/marketplace/plugins/codex-runtime/skills/cards-runtime'
+    );
+    expect(fs.readFile).toHaveBeenCalledWith(
+      '/test/extension/dist/marketplace/plugins/codex-runtime/.codex-plugin/plugin.json',
+      'utf-8'
+    );
+    expect(fs.rm).toHaveBeenCalledWith('/home/node/.codex/plugins/cache/local/codex-runtime', {
+      recursive: true,
+      force: true
+    });
+    expect(fs.mkdir).toHaveBeenCalledWith('/home/node/.codex/plugins/cache/local/codex-runtime', {
+      recursive: true
+    });
+    expect(fs.symlink).toHaveBeenCalledWith(
+      '/test/extension/dist/marketplace/plugins/codex-runtime',
+      '/home/node/.codex/plugins/cache/local/codex-runtime/1.0.0',
+      'junction'
     );
 
     child.emit('close', 0);
     await promise;
+  });
+
+  it('fails closed when the packaged plugin manifest is missing', async () => {
+    const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockRejectedValueOnce(Object.assign(new Error('manifest missing'), { code: 'ENOENT' }));
+
+    const action = (await import('../src/actions/codex.js')).default;
+
+    await expect(action(baseInput(), createMockContext())).rejects.toThrow('manifest missing');
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the packaged cards-runtime skill directory is missing', async () => {
+    const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.access).mockImplementation(async (targetPath: string | URL) => {
+      if (String(targetPath) === '/test/extension/dist/marketplace/plugins/codex-runtime/skills/cards-runtime') {
+        throw Object.assign(new Error('skill missing'), { code: 'ENOENT' });
+      }
+    });
+
+    const action = (await import('../src/actions/codex.js')).default;
+
+    await expect(action(baseInput(), createMockContext())).rejects.toThrow('skill missing');
+    expect(spawn).not.toHaveBeenCalled();
   });
 
   it('registers onCancel that kills the child process', async () => {

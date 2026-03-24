@@ -10,14 +10,13 @@
  */
 
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import { resolveMarketplacePath } from '../lib/claude-session.js';
-import { resolveCodexSkillPath, spawnCodexSession } from '../lib/codex-session.js';
+import { spawnCodexSession } from '../lib/codex-session.js';
 
 /**
  * Codex action handler.
  *
- * Starts an interactive Codex session rooted at the card worktree and tells
- * Codex to load the packaged `cards-runtime` skill from the marketplace bundle.
+ * Starts an interactive Codex session rooted at the card worktree with the
+ * packaged `codex-runtime` plugin enabled for `cards-runtime` skill discovery.
  */
 export default defineAction(
   {
@@ -27,9 +26,8 @@ export default defineAction(
     timeout: 3600000
   },
   async (input: ActionInput, context: ActionContext) => {
-    const codexSkillPath = resolveCodexSkillPath(resolveMarketplacePath());
     await spawnCodexSession(input, context, {
-      prompt: `Load the skill file at ${JSON.stringify(codexSkillPath)} before doing any work. Read that SKILL.md, follow its instructions, and then continue work on the card.`
+      prompt: 'Use the `cards-runtime` skill for card repository conventions, then continue work on the card.'
     });
   }
 );

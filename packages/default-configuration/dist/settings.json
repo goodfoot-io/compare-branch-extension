@@ -17,7 +17,7 @@
           "id": "codex",
           "name": "Codex",
           "command": {
-            "command": "$VSCODE_NODE ./bin/codex.7a24a79c.mjs",
+            "command": "$VSCODE_NODE ./bin/codex.7ba4250c.mjs",
             "timeout": 3600000
           },
           "description": "Start a Codex session for the card",
@@ -82,7 +82,7 @@
   "__generated": {
     "files": [
       "launch.606d0e25.mjs",
-      "codex.7a24a79c.mjs",
+      "codex.7ba4250c.mjs",
       "interview.cfd77e4d.mjs",
       "chat.dd742ba9.mjs",
       "adaptive-card-validator.a5f697af.mjs",
