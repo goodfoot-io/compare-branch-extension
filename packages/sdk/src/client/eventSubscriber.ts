@@ -137,6 +137,8 @@ export class EventSubscriber {
    * Connection failures reject the returned promise.
    *
    * @param overrides - Optional URL and token to use instead of construction-time options.
+   * @param overrides.wsUrl - WebSocket URL to connect to.
+   * @param overrides.accessToken - Bearer token for authentication.
    * @returns Promise that resolves when the socket opens.
    */
   async connect(overrides?: { wsUrl: string; accessToken: string }): Promise<void> {
