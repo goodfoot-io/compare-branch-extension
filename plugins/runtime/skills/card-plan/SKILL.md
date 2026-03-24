@@ -84,8 +84,8 @@ git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-
 
 Load the `runtime:card-plan-evaluation` skill and follow its instructions.
 
-## 4. Stop and Wait for Approval
+## 4. Stop
 
-**STOP** — Wait for user feedback on plan.
+**STOP** — Plan submitted for approval; do not proceed to implementation.
 
 </instructions>
