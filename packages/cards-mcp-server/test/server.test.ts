@@ -28,7 +28,8 @@ function makeConfig(wsUrl: string): CardsServerConfig {
     sessionId: 'test-session',
     apiAccessToken: 'test-token',
     wsUrl,
-    logPath: '/tmp/cards-mcp-server-test.log'
+    logPath: '/tmp/cards-mcp-server-test.log',
+    discover: () => Promise.resolve({ wsUrl, accessToken: 'test-token' })
   };
 }
 

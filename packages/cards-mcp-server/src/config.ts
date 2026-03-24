@@ -9,6 +9,7 @@
  */
 
 import { join } from 'node:path';
+import type { DiscoverResult } from '@cards/sdk/client';
 import { CARDS_ENV_VARS, getApiAccessToken, getApiBaseUrl, getCardId, getRepoRoot } from '@cards/sdk/config/env';
 
 export interface CardsServerConfig {
@@ -17,6 +18,7 @@ export interface CardsServerConfig {
   apiAccessToken: string;
   wsUrl: string;
   logPath: string;
+  discover?: () => Promise<DiscoverResult>;
 }
 
 /**

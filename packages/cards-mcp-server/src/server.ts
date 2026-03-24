@@ -11,6 +11,7 @@
  */
 
 import { EventSubscriber } from '@cards/sdk/client';
+import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { CardCommitEvent } from '@cards/sdk/protocol';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -64,7 +65,16 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
     }
   );
 
-  const subscriber = new EventSubscriber({ wsUrl: config.wsUrl, accessToken: config.apiAccessToken });
+  const discover =
+    config.discover ??
+    (async () => {
+      const info = await discoverApiInfo();
+      if (!info) return { error: 'cards-api.json not found or invalid' };
+      const wsUrl = `ws://${info.host}:${info.port}/events`;
+      return { wsUrl, accessToken: info.accessToken };
+    });
+
+  const subscriber = new EventSubscriber({ wsUrl: config.wsUrl, accessToken: config.apiAccessToken, discover });
 
   const onCommit = (event: CardCommitEvent): void => {
     if (event.cardId !== config.cardId) return;
