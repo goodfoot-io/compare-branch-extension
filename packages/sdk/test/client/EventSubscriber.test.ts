@@ -165,17 +165,26 @@ describe('calculateBackoffMs', () => {
 describe('EventSubscriber', () => {
   const defaultOptions = {
     wsUrl: 'ws://localhost:3000/events',
-    accessToken: 'test-token'
+    accessToken: 'test-token',
+    discover: () => Promise.resolve({ wsUrl: 'ws://localhost:3000/events', accessToken: 'test-token' })
   };
 
   describe('constructor and configuration', () => {
-    it('should create subscriber without options beyond wsUrl', () => {
-      const subscriber = new EventSubscriber({ wsUrl: 'ws://localhost:3000/events' });
+    it('should create subscriber with required wsUrl, accessToken, and discover', () => {
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: 'ws://localhost:3000/events', accessToken: 'test-token' })
+      });
       expect(subscriber).toBeInstanceOf(EventSubscriber);
     });
 
     it('should return configured WebSocket URL', () => {
-      const subscriber = new EventSubscriber({ wsUrl: 'ws://localhost:8080/events' });
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:8080/events',
+        accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: 'ws://localhost:8080/events', accessToken: 'test-token' })
+      });
       expect(subscriber.getWsUrl()).toBe('ws://localhost:8080/events');
     });
   });
@@ -241,7 +250,9 @@ describe('EventSubscriber', () => {
     it('should encode URL-unsafe characters in access token', async () => {
       const subscriber = new EventSubscriber({
         wsUrl: 'ws://localhost:3000/events',
-        accessToken: 'token/with+special=chars&more'
+        accessToken: 'token/with+special=chars&more',
+        discover: () =>
+          Promise.resolve({ wsUrl: 'ws://localhost:3000/events', accessToken: 'token/with+special=chars&more' })
       });
 
       const connectPromise = subscriber.connect();
@@ -276,6 +287,22 @@ describe('EventSubscriber', () => {
       mock.instances[0]!.simulateError();
 
       await expect(connectPromise).rejects.toThrow('WebSocket connection failed');
+    });
+
+    it('should use constructor wsUrl and accessToken on initial connect without calling discover', async () => {
+      const discoverFn = vi.fn().mockResolvedValue({ wsUrl: 'ws://other:9999/events', accessToken: 'other-token' });
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'original-token',
+        discover: discoverFn
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      expect(discoverFn).not.toHaveBeenCalled();
+      expect(mock.instances[0]!.url).toBe('ws://localhost:3000/events?token=original-token');
     });
   });
 
@@ -417,20 +444,23 @@ describe('EventSubscriber', () => {
       mock.instances[0]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
 
-      // Fire timeout callback, simulate failed reconnect
+      // Fire timeout callback, wait for discovery, simulate failed reconnect
       getLastTimeoutCallback(setTimeoutSpy)();
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(2));
       mock.instances[mock.instances.length - 1]!.simulateError();
       mock.instances[mock.instances.length - 1]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(2000);
 
       // Fire and fail again
       getLastTimeoutCallback(setTimeoutSpy)();
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(3));
       mock.instances[mock.instances.length - 1]!.simulateError();
       mock.instances[mock.instances.length - 1]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(4000);
 
       // Fire and fail again
       getLastTimeoutCallback(setTimeoutSpy)();
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(4));
       mock.instances[mock.instances.length - 1]!.simulateError();
       mock.instances[mock.instances.length - 1]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(8000);
@@ -449,15 +479,15 @@ describe('EventSubscriber', () => {
       // Connection drops
       mock.instances[0]!.simulateClose();
 
-      // Fire timeout, new WebSocket created
+      // Fire timeout, wait for discovery, new WebSocket created
       getLastTimeoutCallback(setTimeoutSpy)();
-      expect(mock.instances).toHaveLength(2);
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(2));
 
       // Fail and trigger next reconnect
       mock.instances[1]!.simulateError();
       mock.instances[1]!.simulateClose();
       getLastTimeoutCallback(setTimeoutSpy)();
-      expect(mock.instances).toHaveLength(3);
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(3));
 
       subscriber.disconnect();
     });
@@ -473,8 +503,9 @@ describe('EventSubscriber', () => {
       mock.instances[0]!.simulateClose();
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
 
-      // Reconnect succeeds
+      // Reconnect succeeds — wait for discovery before simulating open
       getLastTimeoutCallback(setTimeoutSpy)();
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(2));
       mock.instances[mock.instances.length - 1]!.simulateOpen();
 
       // Second disconnect - should reset to 1000ms, not continue to 2000ms
@@ -482,6 +513,137 @@ describe('EventSubscriber', () => {
       expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
 
       subscriber.disconnect();
+    });
+
+    it('should use discovered URL and token on reconnect', async () => {
+      const discoverFn = vi.fn().mockResolvedValue({
+        wsUrl: 'ws://newhost:4000/events',
+        accessToken: 'new-token'
+      });
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'original-token',
+        discover: discoverFn,
+        maxReconnectAttempts: 3
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      // Connection drops
+      mock.instances[0]!.simulateClose();
+
+      // Fire timeout — discovery runs, then connect with discovered values
+      getLastTimeoutCallback(setTimeoutSpy)();
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(2));
+
+      expect(discoverFn).toHaveBeenCalledOnce();
+      expect(mock.instances[1]!.url).toBe('ws://newhost:4000/events?token=new-token');
+
+      subscriber.disconnect();
+    });
+
+    it('should schedule next attempt and warn when discovery returns error', async () => {
+      const discoverFn = vi.fn().mockResolvedValue({ error: 'server not ready' });
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'test-token',
+        discover: discoverFn,
+        maxReconnectAttempts: 3
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      // Connection drops — scheduleReconnect called with attempt 0 → delay 1000ms
+      mock.instances[0]!.simulateClose();
+      expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
+
+      // Fire timeout — discovery returns error, should schedule next attempt
+      getLastTimeoutCallback(setTimeoutSpy)();
+
+      // Wait for the async discovery result to propagate
+      await vi.waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Discovery failed'), 'server not ready');
+      });
+
+      // No new WebSocket created
+      expect(mock.instances).toHaveLength(1);
+      // Next backoff scheduled (attempt 1 → delay 2000ms)
+      expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(2000);
+
+      subscriber.disconnect();
+    });
+
+    it('should schedule next attempt and warn when discovery throws', async () => {
+      const discoverError = new Error('network unreachable');
+      const discoverFn = vi.fn().mockRejectedValue(discoverError);
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'test-token',
+        discover: discoverFn,
+        maxReconnectAttempts: 3
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      // Connection drops
+      mock.instances[0]!.simulateClose();
+      expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
+
+      // Fire timeout — discovery throws, should schedule next attempt
+      getLastTimeoutCallback(setTimeoutSpy)();
+
+      // Wait for the async discovery rejection to propagate
+      await vi.waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Discovery threw'), 'network unreachable');
+      });
+
+      // No new WebSocket created
+      expect(mock.instances).toHaveLength(1);
+      // Next backoff scheduled (attempt 1 → delay 2000ms)
+      expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(2000);
+
+      subscriber.disconnect();
+    });
+
+    it('should count discovery failures toward maxReconnectAttempts', async () => {
+      const discoverFn = vi.fn().mockResolvedValue({ error: 'server not ready' });
+      const subscriber = new EventSubscriber({
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'test-token',
+        discover: discoverFn,
+        maxReconnectAttempts: 2
+      });
+
+      const connectPromise = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await connectPromise;
+
+      // Connection drops — attempt 0 scheduled
+      mock.instances[0]!.simulateClose();
+
+      // First discovery failure (uses attempt slot 0, increments to 1)
+      await getLastTimeoutCallback(setTimeoutSpy)();
+      expect(discoverFn).toHaveBeenCalledTimes(1);
+
+      // Second discovery failure (uses attempt slot 1, increments to 2)
+      await getLastTimeoutCallback(setTimeoutSpy)();
+      expect(discoverFn).toHaveBeenCalledTimes(2);
+
+      // Exhausted — scheduleReconnect should set shouldReconnect=false
+      // The last scheduleReconnect call finds attempts >= max and stops
+      // No more timeouts scheduled beyond the two already consumed
+      const timeoutCallCount = setTimeoutSpy.mock.calls.length;
+      // Trigger the last scheduled timeout if one exists
+      const lastCb = getLastTimeoutCallback(setTimeoutSpy);
+      await lastCb();
+      // After exhaustion, no additional timeouts should be scheduled
+      expect(setTimeoutSpy.mock.calls.length).toBe(timeoutCallCount);
     });
   });
 
@@ -580,8 +742,9 @@ describe('EventSubscriber', () => {
       // Drop connection
       mock.instances[0]!.simulateClose();
 
-      // Trigger reconnect via timeout callback
+      // Trigger reconnect via timeout callback — wait for discovery to complete
       getLastTimeoutCallback(setTimeoutSpy)();
+      await vi.waitFor(() => expect(mock.instances).toHaveLength(2));
       // Reconnect succeeds
       mock.instances[mock.instances.length - 1]!.simulateOpen();
 
@@ -609,7 +772,8 @@ describe('EventSubscriber', () => {
       const port = await server.start();
       const subscriber = new EventSubscriber({
         wsUrl: `ws://localhost:${port}/events`,
-        accessToken: 'test-token'
+        accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token' })
       });
 
       await subscriber.connect();
@@ -624,7 +788,8 @@ describe('EventSubscriber', () => {
       const port = await server.start({ authToken: 'test-token' });
       const subscriber = new EventSubscriber({
         wsUrl: `ws://localhost:${port}/events`,
-        accessToken: 'test-token'
+        accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token' })
       });
 
       await subscriber.connect();
@@ -639,7 +804,8 @@ describe('EventSubscriber', () => {
       const port = await server.start();
       const subscriber = new EventSubscriber({
         wsUrl: `ws://localhost:${port}/events`,
-        accessToken: 'test-token'
+        accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token' })
       });
 
       const receivedEvents: unknown[] = [];
@@ -670,6 +836,7 @@ describe('EventSubscriber', () => {
       const subscriber = new EventSubscriber({
         wsUrl: `ws://localhost:${port}/events`,
         accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: `ws://localhost:${port}/events`, accessToken: 'test-token' }),
         maxReconnectAttempts: 3
       });
 

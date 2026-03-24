@@ -13,15 +13,18 @@ describe('Event Types', () => {
   describe('EventSubscriberOptions', () => {
     it('should accept required wsUrl', () => {
       const options: EventSubscriberOptions = {
-        wsUrl: 'ws://localhost:3000/events'
+        wsUrl: 'ws://localhost:3000/events',
+        accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: 'ws://localhost:3000/events', accessToken: 'test-token' })
       };
       expect(options.wsUrl).toBe('ws://localhost:3000/events');
     });
 
-    it('should accept optional accessToken', () => {
+    it('should accept accessToken', () => {
       const options: EventSubscriberOptions = {
         wsUrl: 'ws://localhost:3000/events',
-        accessToken: 'test-token'
+        accessToken: 'test-token',
+        discover: () => Promise.resolve({ wsUrl: 'ws://localhost:3000/events', accessToken: 'test-token' })
       };
       expect(options.accessToken).toBe('test-token');
     });

@@ -40,4 +40,4 @@ export type {
 // Error classes
 export { ApiError, NetworkError } from './types/errors.js';
 // Event types
-export type { EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';
+export type { DiscoverResult, EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';

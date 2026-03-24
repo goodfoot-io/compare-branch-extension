@@ -6,7 +6,7 @@
  * @module sdk/EventSubscriber
  */
 
-import type { EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';
+import type { DiscoverResult, EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';
 
 /**
  * Calculates exponential backoff delay for reconnection attempts.
@@ -26,9 +26,17 @@ export function calculateBackoffMs(attempt: number, maxMs = 30000): number {
  * WebSocket. Event handlers persist across reconnects, so listeners only need
  * to be registered once.
  *
+ * Before each reconnection attempt, the `discover` function is called to
+ * resolve the current server URL and access token, enabling resilient
+ * reconnection when the server restarts on a new port.
+ *
  * @example
  * ```typescript
- * const events = new EventSubscriber({ wsUrl: 'ws://localhost:3000/events', accessToken: 'token' });
+ * const events = new EventSubscriber({
+ *   wsUrl: 'ws://localhost:3000/events',
+ *   accessToken: 'token',
+ *   discover: async () => ({ wsUrl: 'ws://localhost:3000/events', accessToken: 'token' })
+ * });
  *
  * events.on('cards:metadata', (e) => {
  *   console.log(`Card ${e.cardId} metadata updated`);
@@ -51,7 +59,7 @@ export class EventSubscriber {
   /**
    * Creates a new EventSubscriber instance.
    *
-   * @param options - WebSocket URL, auth token, and reconnect limits.
+   * @param options - WebSocket URL, auth token, discover function, and reconnect limits.
    */
   constructor(private readonly options: EventSubscriberOptions) {
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? Infinity;
@@ -59,6 +67,9 @@ export class EventSubscriber {
 
   /**
    * Gets the WebSocket URL.
+   *
+   * Returns the construction-time URL from options. Discovered URLs are transient
+   * and are not reflected here.
    *
    * @returns The configured WebSocket endpoint URL.
    */
@@ -120,16 +131,18 @@ export class EventSubscriber {
   /**
    * Connects to the WebSocket server and starts listening for events.
    *
-   * The access token is appended as a `?token=` query parameter when provided.
+   * When `overrides` are provided (e.g. from a discovery result), those values
+   * are used for this connection instead of the construction-time options.
+   * The access token is always appended as a `?token=` query parameter.
    * Connection failures reject the returned promise.
    *
+   * @param overrides - Optional URL and token to use instead of construction-time options.
    * @returns Promise that resolves when the socket opens.
    */
-  async connect(): Promise<void> {
-    let url = this.options.wsUrl;
-    if (this.options.accessToken) {
-      url = `${url}?token=${encodeURIComponent(this.options.accessToken)}`;
-    }
+  async connect(overrides?: { wsUrl: string; accessToken: string }): Promise<void> {
+    const wsUrl = overrides?.wsUrl ?? this.options.wsUrl;
+    const accessToken = overrides?.accessToken ?? this.options.accessToken;
+    const url = `${wsUrl}?token=${encodeURIComponent(accessToken)}`;
 
     this.ws = new globalThis.WebSocket(url);
     this.shouldReconnect = true;
@@ -221,6 +234,10 @@ export class EventSubscriber {
 
   /**
    * Schedules a reconnection attempt with exponential backoff.
+   *
+   * Before connecting, calls `discover()` to resolve the current server URL and
+   * access token. If discovery returns an error or throws, the attempt is counted
+   * toward `maxReconnectAttempts` and the next attempt is scheduled.
    */
   private scheduleReconnect(): void {
     if (this.reconnectTimeout) {
@@ -238,15 +255,42 @@ export class EventSubscriber {
 
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;
-      if (this.shouldReconnect) {
-        // Connection failure triggers close handler which calls scheduleReconnect
-        this.connect().catch((err) => {
+      if (!this.shouldReconnect) {
+        return;
+      }
+
+      this.options
+        .discover()
+        .then((result: DiscoverResult) => {
+          if (!this.shouldReconnect) {
+            return;
+          }
+          if ('error' in result) {
+            console.warn(
+              `[EventSubscriber] Discovery failed before reconnect attempt ${this.reconnectAttempts}:`,
+              result.error
+            );
+            this.scheduleReconnect();
+            return;
+          }
+          // Connection failure triggers close handler which calls scheduleReconnect
+          this.connect({ wsUrl: result.wsUrl, accessToken: result.accessToken }).catch((err) => {
+            console.warn(
+              `[EventSubscriber] Reconnection attempt ${this.reconnectAttempts} failed:`,
+              err instanceof Error ? err.message : String(err)
+            );
+          });
+        })
+        .catch((err: unknown) => {
+          if (!this.shouldReconnect) {
+            return;
+          }
           console.warn(
-            `[EventSubscriber] Reconnection attempt ${this.reconnectAttempts} failed:`,
+            `[EventSubscriber] Discovery threw before reconnect attempt ${this.reconnectAttempts}:`,
             err instanceof Error ? err.message : String(err)
           );
+          this.scheduleReconnect();
         });
-      }
     }, backoffMs);
   }
 
