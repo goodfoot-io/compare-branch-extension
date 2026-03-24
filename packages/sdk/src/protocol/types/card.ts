@@ -112,24 +112,22 @@ export const DEFAULT_CARD_GATES: CardGates = {
 /**
  * The type of relationship between two cards.
  *
- * - `blocks`: this card blocks the target (target cannot proceed until this is resolved)
- * - `duplicate`: this card is a duplicate of the target
  * - `related`: this card is related to the target (informational)
  */
-export type CardRelationType = 'blocks' | 'duplicate' | 'related';
+export type CardRelationType = 'related';
 
 /**
  * All valid {@link CardRelationType} values as a readonly tuple.
  *
  * Use this for validation and exhaustiveness checks.
  */
-export const CARD_RELATION_TYPES = ['blocks', 'duplicate', 'related'] as const satisfies readonly CardRelationType[];
+export const CARD_RELATION_TYPES = ['related'] as const satisfies readonly CardRelationType[];
 
 /**
  * A directed relationship from one card to another.
  *
  * Relations are stored in the outgoing canonical direction only in
- * `CARD.meta.json`. Incoming `blocks` relations are derived at read time
+ * `CARD.meta.json`. Incoming relations are derived at read time
  * from the `card_relations` SQLite table.
  */
 export interface CardRelation {
