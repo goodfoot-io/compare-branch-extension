@@ -45,6 +45,7 @@ describe('Event Types', () => {
         updatedAt: '2026-01-01T00:00:00Z',
         hasPlanContent: false,
         isMerged: null,
+        relations: [],
         incomingRelations: [],
         description: ''
       };
@@ -232,6 +233,7 @@ describe('Event Types', () => {
         updatedAt: '2026-01-01T00:00:00Z',
         hasPlanContent: false,
         isMerged: null,
+        relations: [],
         incomingRelations: [],
         description: ''
       });
