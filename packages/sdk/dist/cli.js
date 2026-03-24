@@ -275,7 +275,9 @@ executeValidation(handler);
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
 
-executeCommand(handler);
+if (!process.argv.includes('--branch-cleanup')) {
+  executeCommand(handler);
+}
 `;
     }
     const outputDir = path.dirname(outputPath);

@@ -295,13 +295,18 @@ import { executeValidation } from '${validationImport}';
 executeValidation(handler);
 `;
     } else {
-      // Other handlers use environment variable extraction via executeCommand
+      // Other handlers use environment variable extraction via executeCommand.
+      // Guard against --branch-cleanup: the branch-cleanup watcher re-executes
+      // this same bundle with that flag. Without the guard, executeCommand runs
+      // alongside the cleanup logic, spawning an unintended action loop.
       const runtimeImport = toRelativeImport(path.resolve(getPackageRoot(), 'src/config/runtime.ts'));
       wrapperContent = `
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
 
-executeCommand(handler);
+if (!process.argv.includes('--branch-cleanup')) {
+  executeCommand(handler);
+}
 `;
     }
 
