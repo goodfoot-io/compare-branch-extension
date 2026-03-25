@@ -218,6 +218,7 @@ export async function resolveOrCreateWorktree(
   // is missing from disk (e.g. cleaned up by a previous session crash).
   for (const branch of branches) {
     if (!branch.exists) continue;
+    if (!branch.name.startsWith(`cards/${input.cardId}/`)) continue;
 
     logger.info('Reattaching worktree for existing branch', { branch: branch.name });
     const result = await createWorktree(branch.name, { cwd: input.repoRoot });
