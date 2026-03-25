@@ -87,10 +87,11 @@ export interface CompileOptions {
   /**
    * Log file path to embed in the compiled handler as a const.
    *
-   * When set, the wrapper preamble resolves this path against
-   * `WORKSPACE_PATH` and sets `process.env.CARDS_HOOKS_LOG_FILE`
-   * before any Logger is constructed. This is a no-op if the env var
-   * is already set, so an explicit runtime `CARDS_HOOKS_LOG_FILE` wins.
+   * When set, the compiler resolves this path to an absolute path at
+   * build time (against `process.cwd()`) and embeds it in a preamble
+   * that sets `process.env.CARDS_HOOKS_LOG_FILE` before any Logger is
+   * constructed. The env var is only set when not already present, so
+   * an explicit runtime `CARDS_HOOKS_LOG_FILE` wins.
    *
    * Stream transforms are excluded (different execution model).
    *
@@ -258,18 +259,15 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     const sourceImport = toRelativeImport(sourcePath);
 
     // When --log is provided, generate a preamble that sets CARDS_HOOKS_LOG_FILE
-    // resolved against WORKSPACE_PATH. This is injected via the esbuild banner
-    // (not the stdin wrapper) so that it executes before any bundled dependency
-    // code — in particular before the Logger singleton is constructed.
-    // Only sets the env var when it isn't already set, so an explicit
-    // CARDS_HOOKS_LOG_FILE from the runtime environment still wins.
+    // to an absolute path resolved at build time. This is injected via the
+    // esbuild banner (not the stdin wrapper) so that it executes before any
+    // bundled dependency code — in particular before the Logger singleton is
+    // constructed. Only sets the env var when it isn't already set, so an
+    // explicit CARDS_HOOKS_LOG_FILE from the runtime environment still wins.
     const logPreamble = logFile
       ? `
-import { resolve as __resolve } from 'node:path';
-const __DEFAULT_LOG_DEST = ${JSON.stringify(logFile)};
-const __workspace = process.env['WORKSPACE_PATH'];
-if (__workspace && !process.env['CARDS_HOOKS_LOG_FILE']) {
-  process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(__workspace, __DEFAULT_LOG_DEST);
+if (!process.env['CARDS_HOOKS_LOG_FILE']) {
+  process.env['CARDS_HOOKS_LOG_FILE'] = ${JSON.stringify(path.resolve(logFile))};
 }`
       : '';
 

@@ -425,9 +425,11 @@ export default defineAction(
 
       expect(result.success).toBe(true);
       const output = readCompiledOutput(outputPath);
-      expect(output).toContain('.cards/logs/hooks.log');
+      // Build-time resolved absolute path is embedded directly
       expect(output).toContain('CARDS_HOOKS_LOG_FILE');
-      expect(output).toContain("process.env['WORKSPACE_PATH']");
+      expect(output).toContain(path.resolve('.cards/logs/hooks.log'));
+      // No runtime WORKSPACE_PATH dependency
+      expect(output).not.toContain("process.env['WORKSPACE_PATH']");
     });
 
     it('should compile log dest as a const that sets CARDS_HOOKS_LOG_FILE for type validators', async () => {
@@ -452,9 +454,11 @@ export default defineTypeValidator(
 
       expect(result.success).toBe(true);
       const output = readCompiledOutput(outputPath);
-      expect(output).toContain('.cards/logs/hooks.log');
+      // Build-time resolved absolute path is embedded directly
       expect(output).toContain('CARDS_HOOKS_LOG_FILE');
-      expect(output).toContain("process.env['WORKSPACE_PATH']");
+      expect(output).toContain(path.resolve('.cards/logs/hooks.log'));
+      // No runtime WORKSPACE_PATH dependency
+      expect(output).not.toContain("process.env['WORKSPACE_PATH']");
     });
 
     it('should not embed logFile when option is not set', async () => {
