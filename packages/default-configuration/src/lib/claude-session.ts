@@ -293,8 +293,11 @@ async function tryCleanupStep(
  * Removes branches that are fully merged into their parent branch.
  *
  * For each merged branch the worktree directory is removed, the local branch
- * ref is deleted, and the branch record is removed from the API. Individual
- * failures are logged and do not abort the sweep.
+ * ref is deleted, and the branch record is removed from the API. Worktree
+ * removal failures are logged and do not block branch deletion. However, the
+ * API record is only removed after confirming the git branch was deleted —
+ * removing the record while the branch still exists would cause subsequent
+ * sessions to lose track of it and create duplicates.
  *
  * Each branch is checked against its own `parentBranch` (the branch it was
  * created from), not the workspace's current HEAD. This ensures branches are
@@ -367,30 +370,36 @@ export async function cleanupMergedBranches(
     }
 
     t0 = performance.now();
-    await tryCleanupStep(
-      () => execFileAsync('git', ['branch', '-d', branch.name], { cwd: input.repoRoot }),
-      'Failed to delete branch',
-      branch.name,
-      logger
-    );
+    let branchDeleted = false;
+    try {
+      await execFileAsync('git', ['branch', '-d', branch.name], { cwd: input.repoRoot });
+      branchDeleted = true;
+    } catch (error) {
+      logger.warn('Failed to delete branch', { branch: branch.name, error: errorMessage(error) });
+    }
     logger.debug('Branch deletion completed', {
       branch: branch.name,
+      branchDeleted,
       elapsedMs: Math.round(performance.now() - t0)
     });
 
-    t0 = performance.now();
-    await tryCleanupStep(
-      () => client.removeBranch(input.cardId, branch.name, { sessionId }),
-      'Failed to remove branch from API',
-      branch.name,
-      logger
-    );
-    logger.debug('API branch removal completed', {
-      branch: branch.name,
-      elapsedMs: Math.round(performance.now() - t0)
-    });
+    if (branchDeleted) {
+      t0 = performance.now();
+      await tryCleanupStep(
+        () => client.removeBranch(input.cardId, branch.name, { sessionId }),
+        'Failed to remove branch from API',
+        branch.name,
+        logger
+      );
+      logger.debug('API branch removal completed', {
+        branch: branch.name,
+        elapsedMs: Math.round(performance.now() - t0)
+      });
 
-    logger.info('Cleaned up merged branch', { branch: branch.name });
+      logger.info('Cleaned up merged branch', { branch: branch.name });
+    } else {
+      logger.info('Skipped API record removal — git branch still exists', { branch: branch.name });
+    }
   }
 }
 
