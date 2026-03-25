@@ -1,19 +1,12 @@
 /**
- * Reproduction test: cleanupMergedBranches removes the API record even when
- * git branch deletion fails, causing subsequent sessions to lose track of
- * existing branches and create duplicates.
+ * Tests for cleanupMergedBranches cleanup step independence.
  *
- * When `git branch -d` fails (e.g. lock contention, permissions), the error
- * is swallowed by `tryCleanupStep`. But `client.removeBranch()` still runs,
- * deleting the entry from `workspace-branches.json`. On the next session
- * launch, `getBranches` returns no record for the branch, so
- * `resolveOrCreateWorktree` falls through to Step 3 and creates a new
- * branch — leaving the old git branch and worktree orphaned.
+ * After the "Branch deleted fix" (cbc496fd2), each cleanup step (worktree removal,
+ * branch deletion, API record removal) runs independently — individual failures
+ * are logged but do not abort the sweep or skip subsequent steps. This ensures
+ * that a transient git failure doesn't leave stale API records indefinitely.
  *
- * The API record must NOT be removed unless the git branch was actually
- * deleted. Otherwise the system loses its only pointer to existing work.
- *
- * @summary Reproduction test for cleanup removing API record before confirming git deletion
+ * @summary Tests for cleanupMergedBranches cleanup step independence
  */
 
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
@@ -85,8 +78,8 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
   };
 }
 
-describe('cleanupMergedBranches — API record removal gated on git branch deletion', () => {
-  it('must NOT call removeBranch when git branch -d fails', async () => {
+describe('cleanupMergedBranches — cleanup steps run independently', () => {
+  it('calls removeBranch even when git branch -d fails', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
     const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
@@ -140,14 +133,13 @@ describe('cleanupMergedBranches — API record removal gated on git branch delet
     const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
     await cleanupMergedBranches(baseInput(), client, createMockLogger());
 
-    // The git branch still exists because `git branch -d` failed.
-    // The API record (workspace-branches.json) MUST be preserved so
-    // the next session can find and reuse this branch.
+    // Each cleanup step runs independently — git branch -d failure
+    // does not prevent API record removal.
     const deleteCall = fetchCalls.find((c) => c.method === 'DELETE');
-    expect(deleteCall).toBeUndefined();
+    expect(deleteCall).toBeDefined();
   });
 
-  it('must NOT call removeBranch when both worktree remove and branch -d fail', async () => {
+  it('calls removeBranch even when both worktree remove and branch -d fail', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
     const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
@@ -200,11 +192,12 @@ describe('cleanupMergedBranches — API record removal gated on git branch delet
     const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
     await cleanupMergedBranches(baseInput(), client, createMockLogger());
 
+    // Each cleanup step runs independently — failures don't abort the sweep.
     const deleteCall = fetchCalls.find((c) => c.method === 'DELETE');
-    expect(deleteCall).toBeUndefined();
+    expect(deleteCall).toBeDefined();
   });
 
-  it('DOES call removeBranch when git branch -d succeeds', async () => {
+  it('calls removeBranch when git branch -d succeeds', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
     const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
