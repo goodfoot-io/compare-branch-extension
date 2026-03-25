@@ -46,7 +46,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
 EOF
 ```
 
-Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (`"blocks"`, `"duplicate"`, or `"related"`) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
+Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
 ```
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
@@ -230,12 +230,12 @@ attachment/                 # Created on first attachment
   "order": 1,
   "repositoryId": "github.com/org/repo",
   "relations": [
-    { "type": "blocks", "cardId": "main-0002" }
+    { "type": "related", "cardId": "main-0002" }
   ]
 }
 ```
 
-`relations` is optional — omitted when the card has no outgoing relations. Each entry has a `type` (`"blocks"`, `"duplicate"`, or `"related"`) and a `cardId` referencing the target card. These are outgoing relations only; incoming blocks are derived server-side from other cards' metadata.
+`relations` is optional — omitted when the card has no outgoing relations. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card.
 
 ### Listing Repository Files
 

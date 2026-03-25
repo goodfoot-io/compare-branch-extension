@@ -46,7 +46,7 @@ Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string),
   description (string). Optional fields: tags (string[]), environment
   (string), gates ({ planRequired?: boolean, mergeRequestRequired?: boolean }),
-  relations ({ type: "blocks"|"duplicate"|"related", cardId: string }[]),
+  relations ({ type: "related", cardId: string }[]),
   plan (string, markdown content written to the card's PLAN.md).
 
   The response contains only server-generated fields not present in the
