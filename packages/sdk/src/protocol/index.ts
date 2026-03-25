@@ -80,7 +80,6 @@ export type {
   CompareMode,
   CompareRequest,
   CompareState,
-  ConnectionFailedMessage,
   ConnectionsResponse,
   CreateAttachmentRequest,
   CreateCardRequest,

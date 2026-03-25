@@ -4,7 +4,6 @@ import type {
   ApiRequestMessage,
   ApiResponseMessage,
   CardDetailMessage,
-  ConnectionFailedMessage,
   EventMessage,
   ExtensionToWebviewMessage,
   LaunchClaudeAction,
@@ -125,8 +124,6 @@ describe('webview types', () => {
             return 'action';
           case 'action:launchClaude':
             return 'launch';
-          case 'connection:failed':
-            return 'failed';
           default: {
             // Exhaustive check - this should never be reached
             const _exhaustive: never = msg;
@@ -140,19 +137,17 @@ describe('webview types', () => {
       expect(handleMessage({ type: 'navigate', route: '/home' })).toBe('nav');
       expect(handleMessage({ type: 'action', action: 'launchClaude', payload: {} })).toBe('action');
       expect(handleMessage({ type: 'action:launchClaude', cardId: 'i1' })).toBe('launch');
-      expect(handleMessage({ type: 'connection:failed', error: 'Connection lost' })).toBe('failed');
     });
 
-    it('should have all 6 message types in the union', () => {
+    it('should have all 5 message types in the union', () => {
       const messages: WebviewToExtensionMessage[] = [
         { type: 'webview:didConnect', protocolVersion: '1.0' },
         { type: 'api:request', requestId: 'r1', method: 'POST', path: '/cards' },
         { type: 'navigate', route: '/home' },
         { type: 'action', action: 'launchClaude', payload: {} },
-        { type: 'action:launchClaude', cardId: 'i1' },
-        { type: 'connection:failed' }
+        { type: 'action:launchClaude', cardId: 'i1' }
       ];
-      expect(messages).toHaveLength(6);
+      expect(messages).toHaveLength(5);
     });
   });
 
@@ -703,27 +698,6 @@ describe('webview types', () => {
       expect(message.baseUrl).toBe('http://localhost:3001');
       expect(message.wsUrl).toBe('ws://localhost:3001/events');
       expect(message.accessToken).toBe('token123');
-    });
-  });
-
-  describe('ConnectionFailedMessage', () => {
-    it('should have type property and optional error', () => {
-      const message: ConnectionFailedMessage = {
-        type: 'connection:failed'
-      };
-
-      expect(message.type).toBe('connection:failed');
-      expect(message.error).toBeUndefined();
-    });
-
-    it('should allow optional error message for debugging', () => {
-      const message: ConnectionFailedMessage = {
-        type: 'connection:failed',
-        error: 'Connection timeout'
-      };
-
-      expect(message.type).toBe('connection:failed');
-      expect(message.error).toBe('Connection timeout');
     });
   });
 });

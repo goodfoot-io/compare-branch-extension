@@ -193,7 +193,6 @@ export type {
   ApiRequestMessage,
   ApiResponseMessage,
   CardDetailMessage,
-  ConnectionFailedMessage,
   EventMessage,
   ExtensionToWebviewMessage,
   LaunchClaudeAction,

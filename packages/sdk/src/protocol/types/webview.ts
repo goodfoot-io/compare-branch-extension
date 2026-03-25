@@ -210,18 +210,6 @@ export interface ServerChangedMessage {
   accessToken: string;
 }
 
-// --- Connection Failure Messages ---
-
-/**
- * Message indicating the webview's connection to the server failed.
- */
-export interface ConnectionFailedMessage {
-  /** Message type discriminator. */
-  type: 'connection:failed';
-  /** Optional error message for debugging. */
-  error?: string;
-}
-
 // --- Union Types ---
 
 /**
@@ -232,8 +220,7 @@ export type WebviewToExtensionMessage =
   | ApiRequestMessage
   | NavigateMessage
   | ActionMessage
-  | LaunchClaudeAction
-  | ConnectionFailedMessage;
+  | LaunchClaudeAction;
 
 /**
  * All possible messages sent from the extension to the webview.
