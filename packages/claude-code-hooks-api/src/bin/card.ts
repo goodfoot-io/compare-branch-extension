@@ -64,7 +64,7 @@ List:
 
   Options:
     --workspace-path <path>  Workspace root (default: git rev-parse --show-toplevel)
-    --status <status>        Filter by status (todo, in_progress, needs_review, done, backlog, archived)
+    --status <status>        Filter by status (todo, active, needs_review, done, archived)
     --tag <tag>              Filter by tag (repeatable: --tag bug --tag feature)
     --search <query>         Full-text search in title and description
     --limit <n>              Maximum number of results
@@ -72,7 +72,7 @@ List:
 
   Examples:
     card.mjs list
-    card.mjs list --status in_progress
+    card.mjs list --status active
     card.mjs list --tag bug --limit 10
     card.mjs list --tag bug --tag feature
 

@@ -69,7 +69,7 @@ describe('buildCardBlock', () => {
       JSON.stringify({
         id: 'test-1',
         title: 'Test card title',
-        status: 'in_progress',
+        status: 'active',
         gates: {
           planRequired: true,
           planApproved: true,
@@ -82,7 +82,7 @@ describe('buildCardBlock', () => {
     const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
 
     expect(result).toContain('id="test-1"');
-    expect(result).toContain('status="in_progress"');
+    expect(result).toContain('status="active"');
     expect(result).toContain('title: Test card title');
     expect(result).toContain('planRequired=true');
     expect(result).toContain('planApproved=true');

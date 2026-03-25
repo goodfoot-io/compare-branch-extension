@@ -470,7 +470,7 @@ describe('card binary', () => {
   describe('listCards', () => {
     it('lists all cards for a workspace path', async () => {
       cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: [] });
-      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'in_progress', tags: ['bug'] });
+      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'active', tags: ['bug'] });
 
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
@@ -485,7 +485,7 @@ describe('card binary', () => {
 
     it('filters by status', async () => {
       cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: [] });
-      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'in_progress', tags: [] });
+      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'active', tags: [] });
 
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {

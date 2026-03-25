@@ -59,7 +59,7 @@ import type { CardStatus } from './status.js';
  *   mergeApproved: false
  * };
  *
- * // After plan is approved, card can move to in_progress
+ * // After plan is approved, card can move to active
  * gates.planApproved = true;
  * ```
  *

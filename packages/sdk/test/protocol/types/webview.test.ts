@@ -593,12 +593,12 @@ describe('webview types', () => {
       const message: EventMessage = {
         type: 'event',
         eventName: 'card:statusChanged',
-        payload: { cardId: 'card-1', newStatus: 'in_progress' }
+        payload: { cardId: 'card-1', newStatus: 'active' }
       };
 
       expect(message.type).toBe('event');
       expect(message.eventName).toBe('card:statusChanged');
-      expect(message.payload).toEqual({ cardId: 'card-1', newStatus: 'in_progress' });
+      expect(message.payload).toEqual({ cardId: 'card-1', newStatus: 'active' });
     });
   });
 
