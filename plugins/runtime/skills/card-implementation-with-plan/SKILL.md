@@ -73,10 +73,10 @@ Analyze tasks along three dimensions:
 **Route**:
 - Independent files OR uniform tasks -> **Parallel** (concurrent agents)
 - Dependent + varied + small -> **Coherent** (single agent)
-- Dependent + varied + substantial with clear gates -> **Sequential** (ordered agents, checkpoint between)
+- Dependent + varied + substantial with clear gates -> **Sequential** (ordered agents, validate between)
 
 When uncertain between Coherent and Sequential, choose **Sequential**.
-Checkpoints have low cost; missed validation opportunities have high cost.
+Validation gates have low cost; missed validation opportunities have high cost.
 
 Clear gates: type-check passes, tests pass, API functional, UI renders.
 
@@ -106,7 +106,7 @@ Based on coherence assessment:
 </invoke>
 ```
 
-**Sequential**: Delegate to agent, checkpoint at gate, then delegate next phase.
+**Sequential**: Delegate to agent, validate at gate, then delegate next phase.
 
 **Coherent**: Single agent for all todos.
 
@@ -167,24 +167,33 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 
 Based on agent status:
 - **COMPLETED**: Mark todo completed, commit if changes exist, continue
-- **NEEDS_REVISION**: Update todo with attempt count, revert changed files to checkpoint:
+- **NEEDS_REVISION**: Update todo with attempt count, revert the agent's owned files to baseline:
   ```bash
-  # Restore files modified or deleted since checkpoint
-  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD | \
+  # [AGENT_FILES] is the list of absolute paths from the agent's File Ownership section.
+  # Revert only files this agent owns — do not touch other agents' work.
+  # Restore owned files that were modified or deleted since baseline
+  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD -- [AGENT_FILES] | \
     xargs -r git checkout "implement/!` echo $CARD_ID`/baseline" --
-  # Remove files added since checkpoint
-  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A | \
+  # Remove owned files that were added since baseline
+  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A -- [AGENT_FILES] | \
     xargs -r git rm -f
   ```
   - **If attempts < 3**: Re-delegate to agent
   - **If attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue
 
-**COMPLETED:** Commit any workspace changes:
+**COMPLETED:** Commit all workspace changes including new files:
 
 ```bash
-git diff --quiet HEAD || git commit -am "[one sentence summarizing what this task implements]"  # <workspace-commit-style>
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>]
+COMMITMSG
+)"
+git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 ```
+
+The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
 
 **After all todos:**
 - ALL blocked -> write summary comment, add `blocked` tag, **STOP**:
@@ -207,11 +216,14 @@ git commit -m "[single sentence describing what is blocking all tasks]"  # <card
 
 ### 2.5 Validation Gate
 
-Create post-implementation checkpoint:
+Create post-implementation rollback point:
 
 ```bash
-git add -A  # checkpoint: stage all workspace files after implementation, before validation
-git commit --allow-empty -m "checkpoint: after implementation, before validation for card $CARD_ID"
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style> — describe the uncommitted changes]
+COMMITMSG
+)"
 git tag -f "implement/!` echo $CARD_ID`/post-implementation" HEAD
 ```
 
@@ -255,10 +267,11 @@ Load the `runtime:card-implementation-evaluation` skill and follow its instructi
 Stage any uncommitted implementation artifacts:
 
 ```bash
-git diff --quiet HEAD || { git add -A && git commit -m "$(cat <<'COMMITMSG'
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
 [commit message per <workspace-commit-style>]
 COMMITMSG
-)"; }
+)"
 ```
 
 ### 4.2 Complete or Await Review
@@ -273,21 +286,21 @@ Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 ### 4.3 Tag Cleanup
 
-Clean up checkpoint tags:
+Clean up rollback tags:
 
 ```bash
 git tag -d "implement/!` echo $CARD_ID`/baseline" \
          "implement/!` echo $CARD_ID`/post-implementation" 2>/dev/null
 ```
 
-### Available Checkpoints
+### Rollback Points
 
-The following checkpoints are created during execution for rollback:
+The following tags mark rollback points during execution. Tags point to the most recent real commit at each milestone — no dedicated rollback commits are created.
 
-| Tag | Created At | Purpose |
-|-----|------------|---------|
-| `implement/!` echo $CARD_ID`/baseline` | Step 1 | Original state before any changes |
-| `implement/!` echo $CARD_ID`/post-implementation` | Step 2.5 | After implementation, before validation |
+| Tag | Created At | Advances | Purpose |
+|-----|------------|----------|---------|
+| `implement/!` echo $CARD_ID`/baseline` | Step 1 | After each COMPLETED todo commit (Step 2.4) | Last known good state — NEEDS_REVISION reverts to this tag |
+| `implement/!` echo $CARD_ID`/post-implementation` | Step 2.5 | Never | After implementation, before validation |
 
 
 </instructions>

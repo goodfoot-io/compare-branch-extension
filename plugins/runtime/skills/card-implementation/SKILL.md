@@ -114,7 +114,7 @@ For each step in the Technical Approach:
 1. Read relevant files
 2. Implement the change
 3. Commit logically grouped changes
-4. Tag the checkpoint for this step:
+4. Tag the rollback point for this step:
 
    ```bash
       git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
@@ -155,7 +155,7 @@ Only proceed to **5. Finalize** when ALL validations pass.
 
 ### 5.1 Clean Up Tags
 
-Clean up checkpoint tags:
+Clean up rollback tags:
 
 ```bash
 git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d

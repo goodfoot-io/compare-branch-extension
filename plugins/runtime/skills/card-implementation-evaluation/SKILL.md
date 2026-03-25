@@ -6,20 +6,23 @@ description: Evaluate implementation quality by requesting a maintainer review.
 
 <instructions>
 
-## 1. Pre-Evaluation Checkpoint
+## 1. Stage Uncommitted Changes
 
-Commit a checkpoint:
+Ensure all workspace changes are committed before evaluation:
 
 ```bash
-git add -A  # checkpoint: stage all workspace files before evaluation
-git commit --allow-empty -m "checkpoint: before evaluation — implementation complete for card $CARD_ID"
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style> — describe the uncommitted changes]
+COMMITMSG
+)"
 ```
 
 ## 2. Pre-Evaluation Validation
 
 Run validation per the plan's "Validation Commands" section.
 
-**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
+**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
 
 Only proceed to **3. Start Maintainer Review** when ALL validations pass.
 
@@ -74,17 +77,20 @@ The maintainer's verdict is final. Apply the first matching condition:
 
 For each required change from the maintainer's report:
 
-- **Viable**: Create a todo with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to [RETURN_POINT] (Step 2.2 of `runtime:card-implementation-with-plan` skill): checkpoint, then assess and delegate via Steps 2.3–2.4.
+- **Viable**: Create a todo with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate via Steps 2.3–2.4.
 - **Not viable**: Note the reason (e.g., attempted but introduced a regression, rejected during planning, blocked by an external constraint). Include this in the re-submission message.
 
-After all fixes are delegated and complete, re-checkpoint and re-validate:
+After all fixes are delegated and complete, stage and re-validate:
 
 ```bash
-git add -A  # checkpoint: stage all workspace files before re-review
-git commit --allow-empty -m "checkpoint: before re-review — fixes applied for card $CARD_ID"
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style> — describe the uncommitted changes]
+COMMITMSG
+)"
 ```
 
-Run validation per the plan's "Validation Commands" section. On failure, delegate fixes (same as Step 2), then re-checkpoint.
+Run validation per the plan's "Validation Commands" section. On failure, delegate fixes (same as Step 2), then stage and re-validate.
 
 Message the existing maintainer to re-review. Include feedback on any changes that could not be made:
 

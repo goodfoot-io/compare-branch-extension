@@ -71,7 +71,15 @@ Focus only on what the feedback requests — do not re-implement unrelated parts
 
 1. Read the relevant files identified in the feedback
 2. Implement the change
-3. Commit logically grouped changes
+3. Commit logically grouped changes:
+
+```bash
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>]
+COMMITMSG
+)"
+```
 
 For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
 
@@ -104,13 +112,16 @@ Only proceed to **5. Evaluate Quality** when ALL validations pass.
 
 ## 5. Evaluate Quality
 
-### 5.1 Pre-Evaluation Checkpoint
+### 5.1 Stage Uncommitted Changes
 
-Commit a checkpoint:
+Ensure all feedback changes are committed before evaluation:
 
 ```bash
-git add -A  # checkpoint: stage all workspace files before evaluation
-git commit --allow-empty -m "checkpoint: before evaluation — feedback changes complete for card $CARD_ID"
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style> — describe the uncommitted changes]
+COMMITMSG
+)"
 ```
 
 ### 5.2 Pre-Evaluation Validation
@@ -178,11 +189,14 @@ The maintainer's verdict is final. Apply the first matching condition:
 
 ### 5.7 Re-submit for Review
 
-Re-checkpoint:
+Stage any uncommitted review fixes:
 
 ```bash
-git add -A  # checkpoint: stage all workspace files before re-review
-git commit --allow-empty -m "checkpoint: before re-review — fixes applied for card $CARD_ID"
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style> — describe the uncommitted changes]
+COMMITMSG
+)"
 ```
 
 Message the existing maintainer to re-review. Include feedback on any changes that could not be made:

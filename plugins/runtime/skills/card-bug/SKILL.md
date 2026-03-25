@@ -105,7 +105,7 @@ After all subagents complete, run each test file to confirm it fails. Discard an
 
 ```bash
 git add [test files]
-git commit -m "[reproduction tests: [pathway-a], [pathway-b], ...]"
+git commit -m "[single sentence summarizing the reproduction tests and what behavior they verify]"  # <workspace-commit-style>
 ```
 
 Tag the state: `git tag -f "bug/$(echo $CARD_ID)/reproduction" HEAD`
@@ -187,7 +187,7 @@ Based on subagent response and test result:
 - **BLOCKED or CANNOT_COMPLETE**: Write a comment to the card repository with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP** — Awaiting user intervention.
 
 - **Test FAILS (expected)**:
-  - Commit the test: `git add "$TEST_FILE_PATH" && git commit -m "[one sentence summarizing what the reproduction test verifies]"`  <!-- <workspace-commit-style> -->
+  - Commit the test: `git add "$TEST_FILE_PATH" && git commit -m "[one sentence summarizing what the reproduction test verifies]"`  # <workspace-commit-style>
   - Tag: `git tag -f "bug/!` echo $CARD_ID`/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment to the card repository explaining the reproduction test and why it currently fails. Commit to the card repository.
@@ -366,7 +366,7 @@ Based on validation result:
 
 ### 5.1 Clean Up Tags
 
-Clean up checkpoint tags:
+Clean up rollback tags:
 
 ```bash
 git tag -d "bug/!` echo $CARD_ID`/baseline" "bug/!` echo $CARD_ID`/reproduction" 2>/dev/null
