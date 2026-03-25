@@ -336,6 +336,38 @@ export async function listCards(args: string[]): Promise<void> {
 }
 
 /**
+ * Finds the worktree path where a given branch is checked out.
+ *
+ * Parses `git worktree list --porcelain` output to locate the worktree
+ * that has the specified branch checked out. Each worktree entry in the
+ * porcelain output consists of a `worktree <path>` line followed by
+ * metadata lines including `branch refs/heads/<name>`.
+ *
+ * @param branchName - The branch name to search for (without refs/heads/ prefix).
+ * @returns The worktree path where the branch is checked out, or null if not found.
+ */
+export function getWorktreeForBranch(branchName: string): string | null {
+  const result = spawnSync('git', ['worktree', 'list', '--porcelain'], {
+    encoding: 'utf-8',
+    timeout: 3000
+  });
+  if (result.error || result.status !== 0) return null;
+
+  const branchRef = `branch refs/heads/${branchName}`;
+  let currentWorktree: string | null = null;
+
+  for (const line of result.stdout.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      currentWorktree = line.slice('worktree '.length);
+    } else if (line === branchRef && currentWorktree !== null) {
+      return currentWorktree;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Detects the current git branch name.
  *
  * @returns The branch name, or null if on detached HEAD or git unavailable.
@@ -386,6 +418,7 @@ export async function attachCard(
 
   const pendingCommits = await associatePidWithCard(pid, cardId);
   console.error(`card attach: PID ${pid} associated with card ${cardId}`);
+  console.error(`card attach: cwd=${process.cwd()} toplevel=${getGitRoot() ?? '(none)'}`);
 
   const client = await connectClient();
 
@@ -394,6 +427,15 @@ export async function attachCard(
   // registration with the correct parentBranch. Only register here for base
   // branches (e.g., main) where the branch IS the comparison base.
   const branch = getCurrentBranch();
+
+  // Warn if the branch is already checked out in another worktree.
+  if (branch) {
+    const worktreePath = getWorktreeForBranch(branch);
+    if (worktreePath) {
+      console.error(`card attach: warning: branch ${branch} is checked out at ${worktreePath}`);
+    }
+  }
+
   if (branch && !branch.startsWith('cards/')) {
     const branchData: AddBranchRequest = { name: branch, parentBranch: branch };
     try {

@@ -1456,6 +1456,23 @@ async function listCards(args) {
   const cards = await client.listCards(options);
   console.log(JSON.stringify(cards, null, 2));
 }
+function getWorktreeForBranch(branchName) {
+  const result = spawnSync("git", ["worktree", "list", "--porcelain"], {
+    encoding: "utf-8",
+    timeout: 3e3
+  });
+  if (result.error || result.status !== 0) return null;
+  const branchRef = `branch refs/heads/${branchName}`;
+  let currentWorktree = null;
+  for (const line of result.stdout.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      currentWorktree = line.slice("worktree ".length);
+    } else if (line === branchRef && currentWorktree !== null) {
+      return currentWorktree;
+    }
+  }
+  return null;
+}
 function getCurrentBranch() {
   const result = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     encoding: "utf-8",
@@ -1480,8 +1497,15 @@ async function attachCard(cardId) {
   }
   const pendingCommits = await associatePidWithCard(pid, cardId);
   console.error(`card attach: PID ${pid} associated with card ${cardId}`);
+  console.error(`card attach: cwd=${process.cwd()} toplevel=${getGitRoot() ?? "(none)"}`);
   const client = await connectClient();
   const branch = getCurrentBranch();
+  if (branch) {
+    const worktreePath = getWorktreeForBranch(branch);
+    if (worktreePath) {
+      console.error(`card attach: warning: branch ${branch} is checked out at ${worktreePath}`);
+    }
+  }
   if (branch && !branch.startsWith("cards/")) {
     const branchData = { name: branch, parentBranch: branch };
     try {
@@ -1589,6 +1613,7 @@ export {
   executeAction,
   getCard,
   getCurrentBranch,
+  getWorktreeForBranch,
   isAncestorOfHead,
   listCards,
   parseCardCreateInput

@@ -41,6 +41,7 @@ import {
   detachCard,
   executeAction,
   getCurrentBranch,
+  getWorktreeForBranch,
   isAncestorOfHead,
   listCards,
   parseCardCreateInput
@@ -335,6 +336,41 @@ describe('card binary', () => {
     });
   });
 
+  describe('getWorktreeForBranch', () => {
+    let workspace: TestGitWorkspace;
+
+    beforeEach(async () => {
+      workspace = new TestGitWorkspace();
+      await workspace.create();
+    });
+
+    afterEach(() => {
+      workspace.destroy();
+    });
+
+    it('returns worktree path for a branch checked out in the main worktree', () => {
+      const origCwd = process.cwd();
+      try {
+        process.chdir(workspace.getPath());
+        const result = getWorktreeForBranch('main');
+        expect(result).toBe(workspace.getPath());
+      } finally {
+        process.chdir(origCwd);
+      }
+    });
+
+    it('returns null for a branch not checked out anywhere', () => {
+      const origCwd = process.cwd();
+      try {
+        process.chdir(workspace.getPath());
+        const result = getWorktreeForBranch('nonexistent-branch');
+        expect(result).toBeNull();
+      } finally {
+        process.chdir(origCwd);
+      }
+    });
+  });
+
   describe('isAncestorOfHead', () => {
     let workspace: TestGitWorkspace;
 
@@ -396,6 +432,55 @@ describe('card binary', () => {
         expect(branches.get('test-card')).toEqual([{ name: 'main' }]);
       } finally {
         process.chdir(origCwd);
+        workspace.destroy();
+      }
+    });
+
+    it('stderr includes cwd and toplevel on association', async () => {
+      const workspace = new TestGitWorkspace();
+      await workspace.create();
+
+      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
+      mockFindClaudePid.mockReturnValue(testPid);
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const origCwd = process.cwd();
+      try {
+        process.chdir(workspace.getPath());
+        await attachCard('test-card');
+
+        const messages = errorSpy.mock.calls.map((c) => c[0] as string);
+        const cwdLine = messages.find((m) => m.startsWith('card attach: cwd='));
+        expect(cwdLine).toBeDefined();
+        expect(cwdLine).toContain(`cwd=${workspace.getPath()}`);
+        expect(cwdLine).toContain('toplevel=');
+      } finally {
+        process.chdir(origCwd);
+        errorSpy.mockRestore();
+        workspace.destroy();
+      }
+    });
+
+    it('stderr warns when branch is checked out in a worktree', async () => {
+      const workspace = new TestGitWorkspace();
+      await workspace.create();
+
+      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
+      mockFindClaudePid.mockReturnValue(testPid);
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const origCwd = process.cwd();
+      try {
+        process.chdir(workspace.getPath());
+        await attachCard('test-card');
+
+        const messages = errorSpy.mock.calls.map((c) => c[0] as string);
+        // 'main' branch is checked out in the workspace itself, so warning should appear
+        const warningLine = messages.find((m) => m.includes('warning: branch main is checked out at'));
+        expect(warningLine).toBeDefined();
+      } finally {
+        process.chdir(origCwd);
+        errorSpy.mockRestore();
         workspace.destroy();
       }
     });
