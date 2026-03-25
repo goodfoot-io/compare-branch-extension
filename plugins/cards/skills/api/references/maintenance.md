@@ -25,7 +25,7 @@ Maintenance requests should explain **why the work matters** and **what success 
 ## Key Principles
 
 - **Intent over implementation**: State why and outcomes, not exact steps
-- **Evidence over assertion**: Metrics, incidents, code references — not opinions
+- **Evidence over assertion**: Metrics, incidents, code references, diagrams for complex dependency or data flow relationships — not opinions
 - **Scope control**: Firm boundaries prevent refactor growth
 - **Risk awareness**: Make dependencies and rollback paths explicit early
 

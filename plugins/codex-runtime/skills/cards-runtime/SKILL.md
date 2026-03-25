@@ -107,7 +107,7 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
   `runtime:plan` skill structure. Subject to revision and approval via the
   `planRequired`/`planApproved` gates.
 
-Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
+Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters. Fenced ` ```mermaid ` blocks render as diagrams in the detail view — use when relationships or flows are hard to convey in prose alone.
 
 ## Comments
 

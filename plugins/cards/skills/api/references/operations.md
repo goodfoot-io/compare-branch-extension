@@ -38,7 +38,7 @@ Operations requests should capture the operational goal, evidence, and verificat
 - Call out sequencing with other migrations or change windows
 
 **Support/Runbook Work:**
-- Include trigger conditions, symptoms, and decision points
+- Include trigger conditions, symptoms, and decision points (mermaid flowcharts for multi-branch decision trees)
 - Define verification signals and escalation paths
 - Keep steps outcome-focused; avoid prescribing exact commands unless required
 

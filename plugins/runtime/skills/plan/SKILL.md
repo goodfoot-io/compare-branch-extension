@@ -366,6 +366,7 @@ Good code examples show:
 3. Expected data transformations (input -> output format)
 4. Integration points with existing code (with file references)
 5. Configuration shapes or option objects
+6. Mermaid diagrams for multi-component flows, state transitions, or dependency relationships that are difficult to follow as prose
 
 Never include:
 1. Full function implementations

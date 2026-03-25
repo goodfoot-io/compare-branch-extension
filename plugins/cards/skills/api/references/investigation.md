@@ -23,7 +23,7 @@ An investigation request should make the intent and outcomes explicit: what need
 - **Key Questions / Hypotheses**: Phrase questions so they can be answered with data. Replace vague "Is this scalable?" with "What throughput is sustainable under current resource constraints?"
 - **Scope & Constraints**: Narrow enough to complete, broad enough to answer the key questions.
 - **Approach & Evidence Sources**: Favor evidence that is repeatable and verifiable.
-- **Deliverables**: Summary of findings, recommendations with trade-offs, prototype results, decision logs.
+- **Deliverables**: Summary of findings, recommendations with trade-offs, prototype results, decision logs. Use diagrams for relationships or flows discovered during investigation.
 - **Decision Criteria**: Thresholds for proceeding, how uncertainty will be handled, who signs off.
 - **Risks & Assumptions**: Data quality limitations, external dependencies, risks of false positives/negatives.
 

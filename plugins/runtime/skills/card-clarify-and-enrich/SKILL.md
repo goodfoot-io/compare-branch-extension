@@ -66,6 +66,7 @@ A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)
 - Brief background on why this change matters
+- Mermaid diagrams when multi-component interactions or state transitions are central to the request
 
 #### For bug cards
 

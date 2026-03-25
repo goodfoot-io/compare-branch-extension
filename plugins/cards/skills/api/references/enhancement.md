@@ -31,7 +31,7 @@ Enhancement requests bridge understanding between what exists, what should exist
 
 - **Historical Context** (omit header in output): Organize chronologically or by conceptual phases. Each phase explains what changed, why, and its effect. Write for a reader with no prior context. Reference commits/PRs with explanations, not just citations.
 - **Current Functionality**: Ground every claim in observable code with file paths and line numbers. Describe behavior, not implementation details. Use present tense. Distinguish intentional from incidental behavior.
-- **Desired Functionality**: Write requirements as outcomes, not tasks. Be specific about boundaries and out-of-scope items. State the "why" alongside the "what." Distinguish must-have from nice-to-have.
+- **Desired Functionality**: Write requirements as outcomes, not tasks. Where the desired behavior involves multi-step flows or state transitions, a mermaid diagram can replace verbose prose. Be specific about boundaries and out-of-scope items. State the "why" alongside the "what." Distinguish must-have from nice-to-have.
 - **Implementation Approach** (Optional): See conditional logic below.
 
 ## Implementation Approach (Section 5)
