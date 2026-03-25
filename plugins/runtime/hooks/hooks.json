@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-stop.d329089c.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-stop.6c5bb63b.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-start.ea54fd0d.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/subagent-start.45856014.mjs"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.8bcf4d27.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.931d4758.mjs"
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.0654d7fa.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.21aebfca.mjs"
           }
         ]
       }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end.4e51a67f.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-end.7bf6211c.mjs"
           }
         ]
       }
@@ -53,12 +53,12 @@
   },
   "__generated": {
     "files": [
-      "subagent-stop.d329089c.mjs",
-      "subagent-start.ea54fd0d.mjs",
-      "stop.8bcf4d27.mjs",
-      "session-start.0654d7fa.mjs",
-      "session-end.4e51a67f.mjs"
+      "subagent-stop.6c5bb63b.mjs",
+      "subagent-start.45856014.mjs",
+      "stop.931d4758.mjs",
+      "session-start.21aebfca.mjs",
+      "session-end.7bf6211c.mjs"
     ],
-    "timestamp": "2026-03-25T06:13:05.200Z"
+    "timestamp": "2026-03-25T19:51:36.928Z"
   }
 }
