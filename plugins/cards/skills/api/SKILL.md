@@ -39,10 +39,18 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 
 The response includes `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
 
-**Create a card** — Pipe JSON to stdin with `title` (required) and `description` (required). Optional: `tags`, `environment`, `gates`:
+**Create a card** — Pipe JSON to stdin with `title` (required) and `description` (required). Optional: `tags`, `environment`, `gates`, `relations`:
 ```
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
 { "title": "Fix auth", "description": "Token refresh fails", "tags": ["bug"] }
+EOF
+```
+
+Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (`"blocks"`, `"duplicate"`, or `"related"`) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
+
+```
+node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
+{ "title": "Unify tag layout", "description": "...", "relations": [{ "type": "related", "cardId": "main-67" }] }
 EOF
 ```
 

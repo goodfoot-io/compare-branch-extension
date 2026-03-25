@@ -1,12 +1,12 @@
 /**
- * Tests for cleanupMergedBranches cleanup step independence.
+ * Tests for cleanupMergedBranches cleanup step ordering.
  *
- * After the "Branch deleted fix" (cbc496fd2), each cleanup step (worktree removal,
- * branch deletion, API record removal) runs independently — individual failures
- * are logged but do not abort the sweep or skip subsequent steps. This ensures
- * that a transient git failure doesn't leave stale API records indefinitely.
+ * After the "Branch deleted fix" (cbc496fd2), API record removal only runs when
+ * `git branch -d` succeeds. If the local branch still exists, the API record is
+ * preserved to keep local and remote state in sync. Worktree removal and branch
+ * deletion failures are logged but do not abort the sweep for other branches.
  *
- * @summary Tests for cleanupMergedBranches cleanup step independence
+ * @summary Tests for cleanupMergedBranches cleanup step ordering
  */
 
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
@@ -79,7 +79,7 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 }
 
 describe('cleanupMergedBranches — cleanup steps run independently', () => {
-  it('calls removeBranch even when git branch -d fails', async () => {
+  it('skips removeBranch when git branch -d fails', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
     const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
@@ -133,13 +133,13 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
     const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
     await cleanupMergedBranches(baseInput(), client, createMockLogger());
 
-    // Each cleanup step runs independently — git branch -d failure
-    // does not prevent API record removal.
+    // When git branch -d fails the branch still exists locally, so the API
+    // record must be preserved to keep local and remote state in sync.
     const deleteCall = fetchCalls.find((c) => c.method === 'DELETE');
-    expect(deleteCall).toBeDefined();
+    expect(deleteCall).toBeUndefined();
   });
 
-  it('calls removeBranch even when both worktree remove and branch -d fail', async () => {
+  it('skips removeBranch when both worktree remove and branch -d fail', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
     const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
@@ -192,9 +192,10 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
     const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
     await cleanupMergedBranches(baseInput(), client, createMockLogger());
 
-    // Each cleanup step runs independently — failures don't abort the sweep.
+    // When git branch -d fails the branch still exists locally, so the API
+    // record must be preserved to keep local and remote state in sync.
     const deleteCall = fetchCalls.find((c) => c.method === 'DELETE');
-    expect(deleteCall).toBeDefined();
+    expect(deleteCall).toBeUndefined();
   });
 
   it('calls removeBranch when git branch -d succeeds', async () => {
