@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module';
 const require = __createRequire(import.meta.url);
 
 if (!process.env['CARDS_HOOKS_LOG_FILE']) {
-  process.env['CARDS_HOOKS_LOG_FILE'] = "/workspace/.worktrees/cards/main-84/1/public/packages/default-configuration/.cards/logs/cards-default-configuration-hooks.log";
+  process.env['CARDS_HOOKS_LOG_FILE'] = "/workspace/public/packages/default-configuration/.cards/logs/cards-default-configuration-hooks.log";
 }
 
 // src/actions/launch.ts

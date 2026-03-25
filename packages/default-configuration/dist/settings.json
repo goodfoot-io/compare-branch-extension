@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE ./bin/launch.d334395b.mjs",
+            "command": "$VSCODE_NODE ./bin/launch.f6a8f380.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -17,7 +17,7 @@
           "id": "codex",
           "name": "Codex",
           "command": {
-            "command": "$VSCODE_NODE ./bin/codex.58597a45.mjs",
+            "command": "$VSCODE_NODE ./bin/codex.da643f26.mjs",
             "timeout": 3600000
           },
           "description": "Start a Codex session for the card",
@@ -27,7 +27,7 @@
           "id": "interview",
           "name": "Interview",
           "command": {
-            "command": "$VSCODE_NODE ./bin/interview.724056eb.mjs",
+            "command": "$VSCODE_NODE ./bin/interview.2e82223a.mjs",
             "timeout": 3600000
           },
           "description": "Start an interview session for the card",
@@ -37,7 +37,7 @@
           "id": "chat",
           "name": "Chat",
           "command": {
-            "command": "$VSCODE_NODE ./bin/chat.89bf331f.mjs",
+            "command": "$VSCODE_NODE ./bin/chat.ff9ff500.mjs",
             "timeout": 3600000
           },
           "description": "Start a chat session for the card",
@@ -49,21 +49,21 @@
         "adaptive-card": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/adaptive-card-validator.9021e137.mjs",
+            "command": "$VSCODE_NODE ./bin/adaptive-card-validator.038fbeeb.mjs",
             "timeout": 30000
           }
         },
         "adaptive-card-submission": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/adaptive-card-submission-validator.3d72fcb0.mjs",
+            "command": "$VSCODE_NODE ./bin/adaptive-card-submission-validator.8503221f.mjs",
             "timeout": 30000
           }
         },
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/note-validator.2fe1ba61.mjs",
+            "command": "$VSCODE_NODE ./bin/note-validator.fc43747b.mjs",
             "timeout": 30000
           }
         }
@@ -72,7 +72,7 @@
         "claude-code-session": {
           "version": 1,
           "transform": {
-            "path": "bin/claude-code-session.21c5fa13.mjs"
+            "path": "bin/claude-code-session.bf8a9676.mjs"
           },
           "maxLineLength": 1048576
         }
@@ -81,14 +81,14 @@
   },
   "__generated": {
     "files": [
-      "launch.d334395b.mjs",
-      "codex.58597a45.mjs",
-      "interview.724056eb.mjs",
-      "chat.89bf331f.mjs",
-      "adaptive-card-validator.9021e137.mjs",
-      "adaptive-card-submission-validator.3d72fcb0.mjs",
-      "note-validator.2fe1ba61.mjs",
-      "claude-code-session.21c5fa13.mjs"
+      "launch.f6a8f380.mjs",
+      "codex.da643f26.mjs",
+      "interview.2e82223a.mjs",
+      "chat.ff9ff500.mjs",
+      "adaptive-card-validator.038fbeeb.mjs",
+      "adaptive-card-submission-validator.8503221f.mjs",
+      "note-validator.fc43747b.mjs",
+      "claude-code-session.bf8a9676.mjs"
     ]
   }
 }
