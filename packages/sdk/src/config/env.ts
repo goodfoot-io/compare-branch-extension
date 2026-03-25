@@ -227,7 +227,17 @@ export const CARDS_ENV_VARS = {
    *
    * Available in actions only (not type hooks).
    */
-  EXTENSION_PATH: 'EXTENSION_PATH'
+  EXTENSION_PATH: 'EXTENSION_PATH',
+
+  /**
+   * Absolute path to the Cards hooks log file.
+   *
+   * Set by ActionDispatcher at runtime. Read by the Logger singleton
+   * at construction time to determine where hook execution logs are written.
+   *
+   * Available in all actions and type hooks.
+   */
+  HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE'
 } as const;
 
 // ============================================================================

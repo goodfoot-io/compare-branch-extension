@@ -83,21 +83,6 @@ export interface CompileOptions {
    * For other types, the wrapper uses executeCommand() which reads from env vars.
    */
   factoryType?: string;
-
-  /**
-   * Log file path to embed in the compiled handler as a const.
-   *
-   * When set, the compiler resolves this path to an absolute path at
-   * build time (against `process.cwd()`) and embeds it in a preamble
-   * that sets `process.env.CARDS_HOOKS_LOG_FILE` before any Logger is
-   * constructed. The env var is only set when not already present, so
-   * an explicit runtime `CARDS_HOOKS_LOG_FILE` wins.
-   *
-   * Stream transforms are excluded (different execution model).
-   *
-   * Comes from the `--log` CLI build flag.
-   */
-  logFile?: string;
 }
 
 /**
@@ -236,7 +221,7 @@ const require = __createRequire(import.meta.url);`;
  * ```
  */
 export async function compileHandler(options: CompileOptions): Promise<CompileResult> {
-  const { sourcePath, outputPath, sourcemap = false, factoryType, logFile } = options;
+  const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
 
   try {
     // Verify source file exists
@@ -257,19 +242,6 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
       return rel.startsWith('.') ? rel : `./${rel}`;
     };
     const sourceImport = toRelativeImport(sourcePath);
-
-    // When --log is provided, generate a preamble that sets CARDS_HOOKS_LOG_FILE
-    // to an absolute path resolved at build time. This is injected via the
-    // esbuild banner (not the stdin wrapper) so that it executes before any
-    // bundled dependency code — in particular before the Logger singleton is
-    // constructed. Only sets the env var when it isn't already set, so an
-    // explicit CARDS_HOOKS_LOG_FILE from the runtime environment still wins.
-    const logPreamble = logFile
-      ? `
-if (!process.env['CARDS_HOOKS_LOG_FILE']) {
-  process.env['CARDS_HOOKS_LOG_FILE'] = ${JSON.stringify(path.resolve(logFile))};
-}`
-      : '';
 
     let wrapperContent: string;
     if (factoryType === 'streamTransform') {
@@ -318,7 +290,7 @@ if (!process.argv.includes('--branch-cleanup')) {
     // handler file that the wrapper imports (esbuild treats sourcefile
     // as the virtual filename for the stdin content).
     const isStreamTransform = factoryType === 'streamTransform';
-    const jsBanner = isStreamTransform ? undefined : logPreamble ? `${BANNER}\n${logPreamble}` : BANNER;
+    const jsBanner = isStreamTransform ? undefined : BANNER;
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,

@@ -239,13 +239,11 @@ function stripSourceMapComment(content: string): string {
  *
  * @param commands - Flattened command descriptors extracted from configuration.
  * @param binDir - Absolute output directory for compiled handler bundles.
- * @param logFile - Optional relative log destination embedded into compiled wrappers.
  * @returns Compiled handler metadata plus a list of compilation error strings.
  */
 async function compileHandlers(
   commands: CommandInfo[],
-  binDir: string,
-  logFile?: string
+  binDir: string
 ): Promise<{ compiled: CompiledHandler[]; errors: string[] }> {
   const compiled: CompiledHandler[] = [];
   const errors: string[] = [];
@@ -281,8 +279,7 @@ async function compileHandlers(
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
       sourcemap: true,
-      factoryType: cmd.factoryType,
-      logFile
+      factoryType: cmd.factoryType
     });
 
     if (!result.success) {
@@ -580,8 +577,8 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
     // 4. Extract commands from config
     const commands = extractCommands(config);
 
-    // 5. Compile handlers (pass --log path for embedding in compiled bundles)
-    const { compiled, errors } = await compileHandlers(commands, binDir, args.log);
+    // 5. Compile handlers
+    const { compiled, errors } = await compileHandlers(commands, binDir);
 
     if (errors.length > 0) {
       return {

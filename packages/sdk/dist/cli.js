@@ -130,7 +130,7 @@ function parseArgs(argv) {
     return { success: false, error: `Unknown command: ${command}. Only 'build' is supported.` };
   }
   const args = {};
-  const knownFlags = /* @__PURE__ */ new Set(["-c", "--config", "-o", "--outdir", "--log"]);
+  const knownFlags = /* @__PURE__ */ new Set(["-c", "--config", "-o", "--outdir"]);
   for (let i = 1; i < argv.length; i++) {
     const flag = argv[i];
     if (!knownFlags.has(flag)) {
@@ -161,9 +161,6 @@ function parseArgs(argv) {
       case "-o":
       case "--outdir":
         args.outdir = value;
-        break;
-      case "--log":
-        args.log = value;
         break;
     }
     i++;
@@ -230,7 +227,7 @@ var EXTERNALS = [
 var BANNER = `import { createRequire as __createRequire } from 'node:module';
 const require = __createRequire(import.meta.url);`;
 async function compileHandler(options) {
-  const { sourcePath, outputPath, sourcemap = false, factoryType, logFile } = options;
+  const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
   try {
     if (!fs.existsSync(sourcePath)) {
       return {
@@ -244,10 +241,6 @@ async function compileHandler(options) {
       return rel.startsWith(".") ? rel : `./${rel}`;
     };
     const sourceImport = toRelativeImport(sourcePath);
-    const logPreamble = logFile ? `
-if (!process.env['CARDS_HOOKS_LOG_FILE']) {
-  process.env['CARDS_HOOKS_LOG_FILE'] = ${JSON.stringify(path.resolve(logFile))};
-}` : "";
     let wrapperContent;
     if (factoryType === "streamTransform") {
       wrapperContent = `
@@ -280,8 +273,7 @@ if (!process.argv.includes('--branch-cleanup')) {
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
     const isStreamTransform = factoryType === "streamTransform";
-    const jsBanner = isStreamTransform ? void 0 : logPreamble ? `${BANNER}
-${logPreamble}` : BANNER;
+    const jsBanner = isStreamTransform ? void 0 : BANNER;
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
@@ -400,7 +392,7 @@ function extractCommands(config) {
 function stripSourceMapComment(content) {
   return content.replace(/\n\/\/# sourceMappingURL=data:.*$/s, "");
 }
-async function compileHandlers(commands, binDir, logFile) {
+async function compileHandlers(commands, binDir) {
   const compiled = [];
   const errors = [];
   const seenPaths = /* @__PURE__ */ new Set();
@@ -427,8 +419,7 @@ async function compileHandlers(commands, binDir, logFile) {
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
       sourcemap: true,
-      factoryType: cmd.factoryType,
-      logFile
+      factoryType: cmd.factoryType
     });
     if (!result.success) {
       errors.push(`Failed to compile ${cmd.sourcePath}: ${result.error}`);
@@ -601,7 +592,7 @@ async function build3(args) {
     fs2.mkdirSync(outdir, { recursive: true });
     cleanupStaleFiles(settingsPath, binDir);
     const commands = extractCommands(config);
-    const { compiled, errors } = await compileHandlers(commands, binDir, args.log);
+    const { compiled, errors } = await compileHandlers(commands, binDir);
     if (errors.length > 0) {
       return {
         success: false,

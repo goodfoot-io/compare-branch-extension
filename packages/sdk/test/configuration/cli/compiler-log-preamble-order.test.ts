@@ -1,20 +1,12 @@
 /**
- * Regression test: --log preamble must execute before Logger singleton.
+ * Verifies that compiled bundles contain no build-time log preamble.
  *
- * The `logFile` option in `compileHandler` generates a preamble that sets
- * `process.env.CARDS_HOOKS_LOG_FILE` before any Logger is constructed.
- * However, esbuild places bundled dependency code (which includes the
- * Logger module with `export const logger = new Logger()`) before the
- * entry-point preamble code. This means the Logger singleton is created
- * with `logFilePath = null` before the env var is ever set, so file
- * logging never activates.
+ * The `logFile` option was removed from `compileHandler`. The Logger reads
+ * `CARDS_HOOKS_LOG_FILE` from `process.env` at construction time, and the
+ * env var is set at runtime by ActionDispatcher — no compile-time injection
+ * is needed. This test confirms the preamble is absent.
  *
- * This test compiles a handler with `logFile` set, then inspects the
- * compiled bundle to verify that the line setting
- * `process.env['CARDS_HOOKS_LOG_FILE']` appears BEFORE any `new Logger()`
- * call. The test is expected to FAIL, demonstrating the bug.
- *
- * @summary Regression test for --log preamble ordering bug
+ * @summary Confirms --log preamble is no longer generated
  * @module
  */
 
@@ -61,7 +53,7 @@ function cleanupTestDir(dir: string): void {
 // Tests
 // ============================================================================
 
-describe('compileHandler --log preamble ordering', () => {
+describe('compileHandler log preamble removal', () => {
   let testDir: string;
 
   beforeEach(() => {
@@ -72,9 +64,7 @@ describe('compileHandler --log preamble ordering', () => {
     cleanupTestDir(testDir);
   });
 
-  it('should place CARDS_HOOKS_LOG_FILE assignment before new Logger() in the bundle', async () => {
-    // Create a handler that uses the logger (which triggers the Logger
-    // singleton to be bundled as a dependency).
+  it('should not contain a build-time CARDS_HOOKS_LOG_FILE assignment', async () => {
     const handlerContent = `
 import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
@@ -88,78 +78,18 @@ export default defineAction(
     const sourcePath = writeTestHandler(testDir, 'handler.ts', handlerContent);
     const outputPath = path.join(testDir, 'output.mjs');
 
-    // Compile with logFile set -- this generates the env-var preamble
     const result = await compileHandler({
       sourcePath,
       outputPath,
-      sourcemap: false,
-      logFile: '.cards/logs/hooks.log'
+      sourcemap: false
     });
 
     expect(result.success).toBe(true);
 
     const output = readCompiledOutput(outputPath);
 
-    // Sanity: both the preamble and the Logger singleton must be present
-    expect(output).toContain('CARDS_HOOKS_LOG_FILE');
-    expect(output).toContain('new Logger');
-
-    // Find the position of the preamble env-var assignment.
-    // The preamble generates:
-    //   process.env['CARDS_HOOKS_LOG_FILE'] = __resolve(...)
-    // In the bundled output esbuild may rename the variable but the
-    // string literal "CARDS_HOOKS_LOG_FILE" combined with an assignment
-    // is unique to the preamble (the Logger constructor only reads it).
-    const preamblePattern = /process\.env\[["']CARDS_HOOKS_LOG_FILE["']\]\s*=/;
-    const preambleMatch = preamblePattern.exec(output);
-    expect(preambleMatch).not.toBeNull();
-
-    // Find the first `new Logger()` or `new Logger(` call in the bundle.
-    // This is the singleton instantiation from logger.ts.
-    const loggerPattern = /new Logger\s*\(/;
-    const loggerMatch = loggerPattern.exec(output);
-    expect(loggerMatch).not.toBeNull();
-
-    // The preamble assignment MUST appear before the Logger constructor
-    // call so the env var is set when `new Logger()` reads it.
-    const preambleIndex = preambleMatch!.index;
-    const loggerIndex = loggerMatch!.index;
-
-    expect(preambleIndex).toBeLessThan(loggerIndex);
-  });
-
-  it('should embed an absolute path resolved at build time', async () => {
-    // The --log path is resolved to an absolute path at build time by
-    // the compiler (against process.cwd()). No runtime env var like
-    // WORKSPACE_PATH or CARD_REPO_PATH is used for resolution.
-    const handlerContent = `
-import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-
-export default defineAction(
-  { actionName: 'TestLogBase', timeout: 30000 },
-  async (input, context) => {
-    context.logger.info('Testing log base path');
-  }
-);
-`;
-    const sourcePath = writeTestHandler(testDir, 'handler.ts', handlerContent);
-    const outputPath = path.join(testDir, 'output.mjs');
-
-    const result = await compileHandler({
-      sourcePath,
-      outputPath,
-      sourcemap: false,
-      logFile: '.cards/logs/hooks.log'
-    });
-
-    expect(result.success).toBe(true);
-
-    const output = readCompiledOutput(outputPath);
-
-    // The preamble embeds the build-time resolved absolute path
-    expect(output).toContain(path.resolve('.cards/logs/hooks.log'));
-    // No runtime env var dependency for path resolution
-    expect(output).not.toContain("process.env['WORKSPACE_PATH']");
-    expect(output).not.toMatch(/process\.env\[['"]CARD_REPO_PATH['"]\]/);
+    // The Logger module may reference CARDS_HOOKS_LOG_FILE as a reader,
+    // but there must be no build-time preamble ASSIGNING it
+    expect(output).not.toMatch(/process\.env\[["']CARDS_HOOKS_LOG_FILE["']\]\s*=/);
   });
 });

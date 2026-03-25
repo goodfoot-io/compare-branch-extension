@@ -397,25 +397,21 @@ describe('build', () => {
     });
   });
 
-  describe('log file support', () => {
-    it('should embed --log path in compiled handler bundles', async () => {
-      const outdir = join(FIXTURES_DIR, 'output-with-log');
+  describe('no log preamble', () => {
+    it('should not embed CARDS_HOOKS_LOG_FILE preamble in compiled handler bundles', async () => {
+      const outdir = join(FIXTURES_DIR, 'output-no-log');
       const result = await build({
         config: join(FIXTURES_DIR, 'valid.config.ts'),
-        outdir,
-        log: '.cards/logs/hooks.log'
+        outdir
       });
 
       expect(result.success).toBe(true);
 
-      // Verify the compiled handler bundles contain the embedded log path
       if (result.success) {
         for (const handlerPath of result.compiledHandlers) {
           const content = readFileSync(handlerPath, 'utf-8');
-          // Stream transforms are excluded from log embedding
-          if (!content.includes('function init')) {
-            expect(content).toContain('.cards/logs/hooks.log');
-          }
+          // No build-time preamble assigning CARDS_HOOKS_LOG_FILE
+          expect(content).not.toMatch(/process\.env\[["']CARDS_HOOKS_LOG_FILE["']\]\s*=/);
         }
       }
     });

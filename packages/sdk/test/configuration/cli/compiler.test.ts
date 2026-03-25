@@ -398,70 +398,11 @@ export default defineAction(
   });
 
   // ==========================================================================
-  // Log File Embedding
+  // Log Preamble Removed
   // ==========================================================================
 
-  describe('logFile option', () => {
-    it('should compile log dest as a const that sets CARDS_HOOKS_LOG_FILE for action handlers', async () => {
-      const handlerContent = `
-import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-
-export default defineAction(
-  { actionName: 'Test', timeout: 30000 },
-  async (input, context) => {
-    context.logger.info('Test');
-  }
-);
-`;
-      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
-      const outputPath = path.join(testDir, 'output.mjs');
-
-      const result = await compileHandler({
-        sourcePath,
-        outputPath,
-        sourcemap: false,
-        logFile: '.cards/logs/hooks.log'
-      });
-
-      expect(result.success).toBe(true);
-      const output = readCompiledOutput(outputPath);
-      // Build-time resolved absolute path is embedded directly
-      expect(output).toContain('CARDS_HOOKS_LOG_FILE');
-      expect(output).toContain(path.resolve('.cards/logs/hooks.log'));
-      // No runtime WORKSPACE_PATH dependency
-      expect(output).not.toContain("process.env['WORKSPACE_PATH']");
-    });
-
-    it('should compile log dest as a const that sets CARDS_HOOKS_LOG_FILE for type validators', async () => {
-      const handlerContent = `
-import { defineTypeValidator, validationSuccess } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-
-export default defineTypeValidator(
-  { typeName: 'test', timeout: 30000 },
-  async (request, context) => validationSuccess()
-);
-`;
-      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
-      const outputPath = path.join(testDir, 'output.mjs');
-
-      const result = await compileHandler({
-        sourcePath,
-        outputPath,
-        sourcemap: false,
-        factoryType: 'typeValidator',
-        logFile: '.cards/logs/hooks.log'
-      });
-
-      expect(result.success).toBe(true);
-      const output = readCompiledOutput(outputPath);
-      // Build-time resolved absolute path is embedded directly
-      expect(output).toContain('CARDS_HOOKS_LOG_FILE');
-      expect(output).toContain(path.resolve('.cards/logs/hooks.log'));
-      // No runtime WORKSPACE_PATH dependency
-      expect(output).not.toContain("process.env['WORKSPACE_PATH']");
-    });
-
-    it('should not embed logFile when option is not set', async () => {
+  describe('no log preamble', () => {
+    it('should not embed CARDS_HOOKS_LOG_FILE preamble in compiled output', async () => {
       const handlerContent = `
 import { defineAction } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
 
@@ -483,35 +424,8 @@ export default defineAction(
 
       expect(result.success).toBe(true);
       const output = readCompiledOutput(outputPath);
-      // The bundled Logger code references CARDS_HOOKS_LOG_FILE naturally,
-      // but the preamble const should NOT be present
-      expect(output).not.toContain('__DEFAULT_LOG_DEST');
-    });
-
-    it('should not embed logFile for stream transforms', async () => {
-      const handlerContent = `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  { streamType: 'test-stream', sourcePath: '/workspace/handler.js' },
-  (line) => line
-);
-`;
-      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
-      const outputPath = path.join(testDir, 'output.mjs');
-
-      const result = await compileHandler({
-        sourcePath,
-        outputPath,
-        sourcemap: false,
-        factoryType: 'streamTransform',
-        logFile: '.cards/logs/hooks.log'
-      });
-
-      expect(result.success).toBe(true);
-      const output = readCompiledOutput(outputPath);
-      // Stream transforms don't use executeCommand/executeValidation
-      expect(output).not.toContain('__DEFAULT_LOG_DEST');
+      // No build-time preamble setting CARDS_HOOKS_LOG_FILE — env var is set at runtime
+      expect(output).not.toMatch(/process\.env\[["']CARDS_HOOKS_LOG_FILE["']\]\s*=/);
     });
   });
 

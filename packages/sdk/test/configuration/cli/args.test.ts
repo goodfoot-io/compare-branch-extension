@@ -19,7 +19,6 @@ describe('parseArgs', () => {
         expect(result.command).toBe('build');
         expect(result.args.config).toBe('settings.config.ts');
         expect(result.args.outdir).toBe('dist/');
-        expect(result.args.log).toBeUndefined();
       }
     });
 
@@ -31,7 +30,6 @@ describe('parseArgs', () => {
         expect(result.command).toBe('build');
         expect(result.args.config).toBe('settings.config.ts');
         expect(result.args.outdir).toBe('dist/');
-        expect(result.args.log).toBeUndefined();
       }
     });
 
@@ -43,30 +41,6 @@ describe('parseArgs', () => {
         expect(result.command).toBe('build');
         expect(result.args.config).toBe('settings.config.ts');
         expect(result.args.outdir).toBe('dist/');
-      }
-    });
-
-    it('should parse optional --log flag', () => {
-      const result = parseArgs(['build', '-c', 'settings.config.ts', '-o', 'dist/', '--log', 'build.log']);
-
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.command).toBe('build');
-        expect(result.args.config).toBe('settings.config.ts');
-        expect(result.args.outdir).toBe('dist/');
-        expect(result.args.log).toBe('build.log');
-      }
-    });
-
-    it('should handle flags in any order', () => {
-      const result = parseArgs(['build', '--log', 'build.log', '-o', 'dist/', '-c', 'settings.config.ts']);
-
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.command).toBe('build');
-        expect(result.args.config).toBe('settings.config.ts');
-        expect(result.args.outdir).toBe('dist/');
-        expect(result.args.log).toBe('build.log');
       }
     });
 
@@ -155,13 +129,13 @@ describe('parseArgs', () => {
       }
     });
 
-    it('should return error for --log without value', () => {
-      const result = parseArgs(['build', '-c', 'settings.config.ts', '-o', 'dist/', '--log']);
+    it('should return error for --log (removed flag)', () => {
+      const result = parseArgs(['build', '-c', 'settings.config.ts', '-o', 'dist/', '--log', 'build.log']);
 
       expect(result.success).toBe(false);
       if (!result.success) {
+        expect(result.error).toContain('Unknown flag');
         expect(result.error).toContain('--log');
-        expect(result.error).toContain('value');
       }
     });
   });

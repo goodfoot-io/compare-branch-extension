@@ -8,8 +8,6 @@ export interface BuildArgs {
   config: string;
   /** Output directory for settings.json and compiled handlers */
   outdir: string;
-  /** Optional log file for build output */
-  log?: string;
 }
 
 /**
@@ -40,7 +38,6 @@ export type ParseResult = SuccessResult | ErrorResult;
  * Supports the build command with the following arguments:
  * - `-c, --config <path>` - Path to settings.config.ts (required)
  * - `-o, --outdir <path>` - Output directory (required)
- * - `--log <path>` - Optional log file for build output
  *
  * @param argv - Command arguments (process.argv.slice(2))
  * @returns Parse result with success/error status
@@ -68,7 +65,7 @@ export function parseArgs(argv: string[]): ParseResult {
 
   // Parse flags
   const args: Partial<BuildArgs> = {};
-  const knownFlags = new Set(['-c', '--config', '-o', '--outdir', '--log']);
+  const knownFlags = new Set(['-c', '--config', '-o', '--outdir']);
 
   for (let i = 1; i < argv.length; i++) {
     const flag = argv[i] as string;
@@ -111,9 +108,6 @@ export function parseArgs(argv: string[]): ParseResult {
       case '-o':
       case '--outdir':
         args.outdir = value;
-        break;
-      case '--log':
-        args.log = value;
         break;
     }
 
