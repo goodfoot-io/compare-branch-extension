@@ -30,7 +30,7 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 
 ### 1.2 Derive Routing Signals
 
-> **Comment authorship convention**: Agent-authored comments contain structured report headers (e.g., `## Implementation Summary`, `## Implementation Evaluation`, `## Plan Assessment Report`). Comments lacking these headers are treated as user-authored. Sort `comment/*.md` by modification time; the most recent file not matching the agent pattern is the "latest user comment."
+> **Comment authorship convention**: Determine authorship from the git commit that added each comment file: `git log --diff-filter=A --format='%an' -1 -- comment/<file>`. User-authored comments are committed by the user's git identity; agent-authored comments are committed by the agent's git identity. Sort `comment/*.md` by modification time; the most recent user-authored file is the "latest user comment."
 
 | Signal | Derivation |
 |--------|------------|
