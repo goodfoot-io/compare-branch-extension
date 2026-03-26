@@ -59,6 +59,8 @@ The maintainer's verdict is final. Apply the first matching condition:
 3. **Make decisions** for non-blocking issues and document them in the plan revision
 4. **Only ask the user** for blocking issues or intent clarity
 
+Be thorough in your edits and analysis. Ask the maintainer for feedback on ideas and strategies using `SendMessage`. Trace all areas to understand the edges of the plan.
+
 ## 4. Revise and Re-submit
 
 For each required change from the maintainer's report:

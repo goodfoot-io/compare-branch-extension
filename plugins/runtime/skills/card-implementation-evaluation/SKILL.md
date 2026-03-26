@@ -73,6 +73,8 @@ The maintainer's verdict is final. Apply the first matching condition:
 2. **CHANGES_REQUESTED**: For each required change, assess viability and either delegate the fix or note why it cannot be done (see Step 6). After all changes are addressed, proceed to Step 6.
 3. **APPROVED**: Shut down the team (Step 7). Proceed to the next step in the implementation workflow.
 
+Be thorough in your analysis before delegation. Ask the maintainer for feedback on ideas and strategies using `SendMessage`. Trace all areas to understand the edges of the implementation.
+
 ## 6. Address Changes and Re-submit
 
 For each required change from the maintainer's report:
