@@ -130,7 +130,14 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
 
   const ignored = await discoverIgnoredPaths(sourceRoot);
   await copyExistingSymlinks(sourceRoot, worktreeDir);
-  await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored });
+
+  // .cards is copied rather than symlinked so each worktree gets an independent copy
+  const filteredIgnored: IgnoredPaths = {
+    directories: ignored.directories.filter((d) => d !== '.cards'),
+    files: ignored.files
+  };
+  await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
+  await copyCardsDirectory(sourceRoot, worktreeDir);
 
   const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
 
@@ -357,6 +364,26 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
   const files = lines.filter((l) => !l.endsWith('/'));
 
   return { directories, files };
+}
+
+/**
+ * Copies the `.cards` directory from the source root into the worktree.
+ *
+ * `.cards` needs an independent copy per worktree rather than a symlink
+ * so each worktree can modify its cards state without affecting others.
+ *
+ * @param sourceRoot - Source checkout root containing `.cards`.
+ * @param worktreeDir - Destination worktree root.
+ */
+async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Promise<void> {
+  const sourcePath = path.join(sourceRoot, '.cards');
+  try {
+    await fs.cp(sourcePath, path.join(worktreeDir, '.cards'), { recursive: true });
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
 }
 
 interface SymlinkIgnoredPathsOptions {
