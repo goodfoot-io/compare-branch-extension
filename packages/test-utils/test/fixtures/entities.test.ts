@@ -76,7 +76,8 @@ describe('Entity Fixtures', () => {
 
     it('applies overrides', () => {
       const card = createCard({
-        title: 'My Card'
+        title: 'My Card',
+        documents: ['PLAN.md']
       });
 
       expect(card.title).toBe('My Card');
