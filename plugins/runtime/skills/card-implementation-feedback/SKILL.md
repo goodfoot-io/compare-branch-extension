@@ -183,11 +183,35 @@ Wait for the maintainer to deliver the review report via SendMessage.
 
 The maintainer's verdict is final. Apply the first matching condition:
 
-1. **BLOCKED**: Shut down the team (Step 5.8). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: For each required change, assess viability and either fix it directly or note why it cannot be done. Re-run validation. If validation passes, proceed to Step 5.7. If validation fails on code outside your scope, shut down the team (Step 5.8) and block.
-3. **APPROVED**: Shut down the team (Step 5.8). Proceed to Step 6.
+1. **BLOCKED**: Shut down the team (Step 5.9). Document in comment, add `blocked` tag, commit, **STOP**.
+2. **CHANGES_REQUESTED**: Proceed to Step 5.7.
+3. **APPROVED**: Shut down the team (Step 5.9). Proceed to Step 6.
 
-### 5.7 Re-submit for Review
+### 5.7 Engage with Review
+
+You are a contributor to this repository. Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). The maintainer has invested time reviewing your changes and their feedback is helping you reach that bar. Engage with the review before acting on it.
+
+For each required change, formulate a question that demonstrates you understand the finding and surfaces what you need clarified — the reasoning behind the request, the intended scope, or whether an alternative you're considering would satisfy the concern. Do not ask questions answerable by reading the code.
+
+```xml
+<invoke name="SendMessage">
+<parameter name="recipient">maintainer</parameter>
+<parameter name="content">
+Thank you for the review. Before I address these, I want to make sure I understand your findings:
+
+[For each finding that warrants discussion:]
+- **[Finding reference]**: [What you understand about the concern, and what you need clarified or want to propose as an alternative]
+
+[Any broader questions about approach or direction]
+</parameter>
+</invoke>
+```
+
+Wait for the maintainer's response. Use their answers to inform your fixes.
+
+### 5.8 Address Changes and Re-submit
+
+For each required change, assess viability and either fix it directly or note why it cannot be done. Re-run validation. If validation fails on code outside your scope, shut down the team (Step 5.9) and block.
 
 Stage any uncommitted review fixes:
 
@@ -199,31 +223,30 @@ COMMITMSG
 )"
 ```
 
-Message the existing maintainer to re-review. Include feedback on any changes that could not be made:
+Message the maintainer to re-review. Explain what you changed, why, and where you made judgment calls:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="recipient">maintainer</parameter>
 <parameter name="content">
-Fixes applied. Please re-review.
+I've addressed your review findings. Here's what I changed and why:
 
 All validations pass.
 
 ## Changes Applied
-[List of changes that were made]
+[For each finding addressed:]
+- **[Finding reference]**: [What was changed and the reasoning behind the approach]
 
 ## Feedback
-[For any requested change that was not made, explain why:
- - what was attempted
- - what went wrong or why it is not viable
- - what alternative (if any) was used instead]
+[For any requested change that was not made:]
+- **[Finding reference]**: [What was attempted, why it is not viable, and what alternative (if any) was used instead]
 </parameter>
 </invoke>
 ```
 
 Return to Step 5.5.
 
-### 5.8 Shut Down Team
+### 5.9 Shut Down Team
 
 Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 

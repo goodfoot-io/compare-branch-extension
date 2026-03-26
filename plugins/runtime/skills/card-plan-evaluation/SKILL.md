@@ -48,20 +48,33 @@ Wait for the maintainer to deliver the review report via SendMessage.
 
 The maintainer's verdict is final. Apply the first matching condition:
 
-1. **BLOCKED**: Shut down the team (Step 5). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: For each required change, assess viability and either revise PLAN.md or note why it cannot be done (see Step 4).
-3. **APPROVED**: Shut down the team (Step 5). Proceed to the next step in the planning workflow.
+1. **BLOCKED**: Shut down the team (Step 6). Document in comment, add `blocked` tag, commit, **STOP**.
+2. **CHANGES_REQUESTED**: Proceed to Step 4.
+3. **APPROVED**: Shut down the team (Step 6). Proceed to the next step in the planning workflow.
 
-### After Both Assessments Complete (Always)
+## 4. Engage with Review
 
-1. **Resolve questions through research** — route empirically-testable uncertainties to spike investigation before revising
-2. **Surface considerations visibly** as you work through them
-3. **Make decisions** for non-blocking issues and document them in the plan revision
-4. **Only ask the user** for blocking issues or intent clarity
+You are a contributor to this repository. Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). The maintainer has invested time reviewing your plan and their feedback is helping you reach that bar. Engage with the review before acting on it.
 
-Be thorough in your edits and analysis. Ask the maintainer for feedback on ideas and strategies using `SendMessage`. Trace all areas to understand the edges of the plan.
+For each required change, formulate a question that demonstrates you understand the finding and surfaces what you need clarified — the reasoning behind the request, the intended scope, or whether an alternative you're considering would satisfy the concern. Do not ask questions answerable by reading the code.
 
-## 4. Revise and Re-submit
+```xml
+<invoke name="SendMessage">
+<parameter name="recipient">maintainer</parameter>
+<parameter name="content">
+Thank you for the review. Before I revise, I want to make sure I understand your findings:
+
+[For each finding that warrants discussion:]
+- **[Finding reference]**: [What you understand about the concern, and what you need clarified or want to propose as an alternative]
+
+[Any broader questions about approach or direction]
+</parameter>
+</invoke>
+```
+
+Wait for the maintainer's response. Route empirically-testable uncertainties to spike investigation before revising. Make decisions for non-blocking issues and document them in the plan revision.
+
+## 5. Revise and Re-submit
 
 For each required change from the maintainer's report:
 
@@ -76,29 +89,28 @@ git add PLAN.md
 git commit -m "[single sentence summarizing what findings were addressed]"  # <card-repo-commit-style>
 ```
 
-Message the existing maintainer to re-review. Include feedback on any changes that could not be made:
+Message the maintainer to re-review. Explain what you changed, why, and where you made judgment calls:
 
 ```xml
 <invoke name="SendMessage">
 <parameter name="recipient">maintainer</parameter>
 <parameter name="content">
-PLAN.md has been revised. Please re-review.
+I've revised the plan based on your review. Here's what I changed and why:
 
 ## Changes Applied
-[List of changes that were made]
+[For each finding addressed:]
+- **[Finding reference]**: [What was changed and the reasoning behind the approach]
 
 ## Feedback
-[For any requested change that was not made, explain why:
- - what was considered
- - why it is not viable or doesn't apply
- - what alternative (if any) was used instead]
+[For any requested change that was not made:]
+- **[Finding reference]**: [What was considered, why it is not viable, and what alternative (if any) was used instead]
 </parameter>
 </invoke>
 ```
 
 Return to Step 2.
 
-## 5. Shut Down Team
+## 6. Shut Down Team
 
 Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
 
