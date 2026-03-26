@@ -10,6 +10,7 @@
  * @module cards-mcp-server/server
  */
 
+import { appendCommitToSession } from '@cards/claude-code-sessions/card-repo';
 import { EventSubscriber } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { CardCommitEvent } from '@cards/sdk/protocol';
@@ -102,6 +103,14 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
         method: 'notifications/claude/channel',
         params: { content, meta }
       })
+      .then(() =>
+        appendCommitToSession(config.sessionId, event.commit.hash).catch((err: unknown) => {
+          logger.error('Failed to record commit to session CSV', {
+            sha: event.commit.hash,
+            error: err instanceof Error ? err.message : String(err)
+          });
+        })
+      )
       .catch((err: unknown) => {
         logger.error('Failed to send channel notification', {
           sha: event.commit.hash,

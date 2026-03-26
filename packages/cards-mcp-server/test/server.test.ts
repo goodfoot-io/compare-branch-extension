@@ -5,10 +5,11 @@
  * @module cards-mcp-server/test/server
  */
 
+import { appendCommitToSession } from '@cards/claude-code-sessions/card-repo';
 import type { CardCommitEvent } from '@cards/sdk/protocol';
 import { TestWebSocketServer } from '@cards/test-utils';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import type { CardsServerConfig } from '../src/config.js';
 import type { Logger } from '../src/logger.js';
 import { createServer } from '../src/server.js';
@@ -19,7 +20,8 @@ vi.mock('@cards/claude-code-sessions/card-repo', () => ({
       return ['session-owned-sha'];
     }
     return [];
-  }
+  },
+  appendCommitToSession: vi.fn().mockResolvedValue(undefined)
 }));
 
 function makeConfig(wsUrl: string): CardsServerConfig {
@@ -183,6 +185,68 @@ describe('createServer', () => {
     await server.stop();
 
     expect(notifications).toHaveLength(0);
+  });
+
+  it('records dispatched commits to the session CSV', async () => {
+    const [serverTransport] = InMemoryTransport.createLinkedPair();
+    const config = makeConfig(wsServer.getUrl());
+    const server = createServer(config, { transport: serverTransport, logger: nullLogger });
+
+    const notifications: unknown[] = [];
+    vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
+      notifications.push(n);
+    });
+
+    await Promise.all([server.start(), wsServer.awaitConnection()]);
+
+    const commit = makeCommit();
+    wsServer.simulateEvent<CardCommitEvent>('card:commit', {
+      cardId: 'test-card',
+      commit
+    });
+
+    await vi.waitFor(() => {
+      expect(notifications).toHaveLength(1);
+    });
+
+    await vi.waitFor(() => {
+      expect(appendCommitToSession).toHaveBeenCalledWith('test-session', commit.hash);
+    });
+
+    await server.stop();
+  });
+
+  it('logs but does not throw when commit recording fails', async () => {
+    const [serverTransport] = InMemoryTransport.createLinkedPair();
+    const config = makeConfig(wsServer.getUrl());
+    const errors: string[] = [];
+    const testLogger: Logger = {
+      info: () => {},
+      warn: () => {},
+      error: (msg) => {
+        errors.push(msg);
+      }
+    };
+    const server = createServer(config, { transport: serverTransport, logger: testLogger });
+
+    const notifications: unknown[] = [];
+    vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
+      notifications.push(n);
+    });
+    (appendCommitToSession as Mock).mockRejectedValueOnce(new Error('disk full'));
+
+    await Promise.all([server.start(), wsServer.awaitConnection()]);
+
+    wsServer.simulateEvent<CardCommitEvent>('card:commit', {
+      cardId: 'test-card',
+      commit: makeCommit()
+    });
+
+    await vi.waitFor(() => {
+      expect(errors).toContain('Failed to record commit to session CSV');
+    });
+
+    await server.stop();
   });
 
   it('dispatches commits that mix bookkeeping and user files', async () => {
