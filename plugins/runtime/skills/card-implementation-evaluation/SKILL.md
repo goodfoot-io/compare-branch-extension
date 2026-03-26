@@ -71,7 +71,7 @@ The maintainer's verdict is final. Apply the first matching condition:
 
 1. **BLOCKED**: Shut down the team (Step 8). Document in comment, add `blocked` tag, commit, **STOP**.
 2. **CHANGES_REQUESTED**: Proceed to Step 6.
-3. **APPROVED**: Shut down the team (Step 8). Proceed to the next step in the implementation workflow.
+3. **APPROVED**: Shut down the team (Step 8). Proceed to the next step in the implementation workflow. Do not modify gates in `CARD.meta.json`.
 
 ## 6. Engage with Review
 

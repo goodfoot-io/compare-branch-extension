@@ -80,6 +80,6 @@ git add comment/$COMMENT_ID.md
 git commit -m "[single sentence summarizing how feedback was incorporated and key judgment calls]"  # <card-repo-commit-style>
 ```
 
-**STOP** — Wait for user feedback or approval.
+**STOP** — Wait for user feedback or approval. Do not modify gates in `CARD.meta.json`.
 
 </instructions>

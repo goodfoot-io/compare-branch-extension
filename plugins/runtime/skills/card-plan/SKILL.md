@@ -86,6 +86,6 @@ Load the `runtime:card-plan-evaluation` skill and follow its instructions.
 
 ## 4. Stop
 
-**STOP** — Plan submitted for approval; do not proceed to implementation.
+**STOP** — Plan submitted for approval; do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
 
 </instructions>

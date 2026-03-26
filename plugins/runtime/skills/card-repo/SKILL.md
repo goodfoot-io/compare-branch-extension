@@ -102,6 +102,10 @@ enforce gate satisfaction. Instead:
 - Agents should treat unsatisfied gates as blockers: do not request review
   when `planRequired=true` and `planApproved=false` — write and get the plan approved first.
 
+**Gates are user-controlled.** Agents must never modify gate fields (`planRequired`,
+`planApproved`, `mergeRequestRequired`, `mergeApproved`). These fields are set
+exclusively by the user.
+
 ### repositoryId
 
 `repositoryId` identifies the workspace repository this card's code changes target
