@@ -100,6 +100,7 @@ export function buildArgs(
   }
   args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
+  args.push('--channels', 'plugin:runtime@cards.management');
   if (mode === 'background') {
     args.push('--print');
   }
