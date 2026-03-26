@@ -77,7 +77,7 @@ The maintainer's verdict is final. Apply the first matching condition:
 
 You are a contributor to this repository. Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). The maintainer has invested time reviewing your implementation and their feedback is helping you reach that bar. Engage with the review before acting on it.
 
-For each required change, formulate a question that demonstrates you understand the finding and surfaces what you need clarified — the reasoning behind the request, the intended scope, or whether an alternative you're considering would satisfy the concern. Do not ask questions answerable by reading the code.
+For each required change, formulate a question that demonstrates you understand the finding and surfaces what you need clarified — the reasoning behind the request, the intended scope, or whether an alternative you're considering would satisfy the concern. If you believe a finding is incorrect, present your case with evidence: "I went with X because of [tradeoffs]. My understanding is that Y would be worse because [reasons]. Are you suggesting Y better serves the codebase, or something else?" Do not ask questions answerable by reading the code.
 
 ```xml
 <invoke name="SendMessage">
@@ -113,6 +113,8 @@ COMMITMSG
 ```
 
 Run validation per the plan's "Validation Commands" section. On failure, delegate fixes (same as Step 2), then stage and re-validate.
+
+When a finding reveals unclear code, the fix should make the code self-explanatory — explanations in the re-submission message do not help future code readers.
 
 Message the maintainer to re-review. Explain what you changed, why, and where you made judgment calls:
 

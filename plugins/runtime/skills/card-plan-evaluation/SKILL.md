@@ -56,7 +56,7 @@ The maintainer's verdict is final. Apply the first matching condition:
 
 You are a contributor to this repository. Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). The maintainer has invested time reviewing your plan and their feedback is helping you reach that bar. Engage with the review before acting on it.
 
-For each required change, formulate a question that demonstrates you understand the finding and surfaces what you need clarified — the reasoning behind the request, the intended scope, or whether an alternative you're considering would satisfy the concern. Do not ask questions answerable by reading the code.
+For each required change, formulate a question that demonstrates you understand the finding and surfaces what you need clarified — the reasoning behind the request, the intended scope, or whether an alternative you're considering would satisfy the concern. If you believe a finding is incorrect, present your case with evidence: "I went with X because of [tradeoffs]. My understanding is that Y would be worse because [reasons]. Are you suggesting Y better serves the codebase, or something else?" Do not ask questions answerable by reading the code.
 
 ```xml
 <invoke name="SendMessage">
@@ -88,6 +88,8 @@ cd !` echo $CARD_REPO_PATH`
 git add PLAN.md
 git commit -m "[single sentence summarizing what findings were addressed]"  # <card-repo-commit-style>
 ```
+
+When a finding reveals an unclear plan section, revise the plan to be self-explanatory — explanations in the re-submission message do not help future readers of PLAN.md.
 
 Message the maintainer to re-review. Explain what you changed, why, and where you made judgment calls:
 
