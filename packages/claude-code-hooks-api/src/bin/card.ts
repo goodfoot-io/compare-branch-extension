@@ -151,12 +151,13 @@ function readStdin(): Promise<string> {
 
 /**
  * Parsed result from card creation input, separating SDK-level card data
- * from CLI-only fields like `plan`.
+ * from CLI-only fields like `plan`, `evaluation`, and `description`.
  */
 export interface ParsedCardInput {
   data: CardCreateData;
   plan?: string;
   evaluation?: string;
+  description?: string;
   /** Keys the caller explicitly provided — used to filter the create response. */
   inputKeys: Set<string>;
 }
@@ -183,16 +184,17 @@ export function parseCardCreateInput(raw: string): ParsedCardInput {
   if (typeof parsed['title'] !== 'string' || !parsed['title'].trim()) {
     throw new Error('missing required field "title"');
   }
-  if (typeof parsed['description'] !== 'string') {
-    throw new Error('missing required field "description"');
-  }
 
   const inputKeys = new Set(Object.keys(parsed));
 
   const data: CardCreateData = {
-    title: parsed['title'],
-    description: parsed['description']
+    title: parsed['title']
   };
+
+  let description: string | undefined;
+  if (typeof parsed['description'] === 'string') {
+    description = parsed['description'];
+  }
   if (Array.isArray(parsed['tags'])) {
     data.tags = parsed['tags'] as string[];
   }
@@ -220,7 +222,7 @@ export function parseCardCreateInput(raw: string): ParsedCardInput {
     evaluation = parsed['evaluation'];
   }
 
-  return { data, plan, evaluation, inputKeys };
+  return { data, plan, evaluation, description, inputKeys };
 }
 
 /** Keys always included in the create response regardless of caller input. */
@@ -242,16 +244,20 @@ const CREATE_ALWAYS_INCLUDE = new Set(['id', 'repositoryPath']);
 export async function createCard(args: string[]): Promise<void> {
   const flags = parseFlags(args);
   const raw = await readStdin();
-  const { data, plan, evaluation, inputKeys } = parseCardCreateInput(raw);
+  const { data, plan, evaluation, description, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags['workspace-path']?.[0]);
   const card = await client.createCard(data);
 
+  if (description !== undefined) {
+    await client.putFile(card.id, 'CARD.md', description);
+  }
+
   if (plan !== undefined) {
-    await client.updatePlan(card.id, plan);
+    await client.putFile(card.id, 'PLAN.md', plan);
   }
 
   if (evaluation !== undefined) {
-    await client.updateEvaluation(card.id, evaluation);
+    await client.putFile(card.id, 'EVALUATION.md', evaluation);
   }
 
   const full = card as unknown as Record<string, unknown>;

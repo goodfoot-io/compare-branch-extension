@@ -738,51 +738,18 @@ var CardsClient = class {
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async getPlan(cardId) {
-    const url = this.buildUrl(`/cards/${cardId}/plan`);
-    const response = await this.request(() => this.getHttpClient().get(url));
-    return response.content;
-  }
   /**
-   * Updates the plan document for a card.
+   * Writes a file to a card repository.
    *
-   * @param cardId - Identifier of the card whose plan markdown should be updated.
-   * @param content - Plan markdown content.
-   * @returns Promise resolving when the plan is saved.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async updatePlan(cardId, content) {
-    const url = this.buildUrl(`/cards/${cardId}/plan`);
-    return this.request(() => this.getHttpClient().put(url, content));
-  }
-  // --- Evaluation Operations ---
-  /**
-   * Gets the evaluation document for a card as markdown.
-   *
-   * @param cardId - Identifier of the card whose evaluation markdown should be returned.
-   * @returns Promise resolving to evaluation markdown.
-   * @throws ApiError when the server responds with an error.
+   * @param cardId - Identifier of the card whose repository should receive the file.
+   * @param filePath - Relative path within the card repo (e.g. `PLAN.md`, `foo/BAR.md`).
+   * @param content - File content to write.
+   * @returns Promise resolving when the file is saved.
+   * @throws ApiError when the server rejects the write.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async getEvaluation(cardId) {
-    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
-    const response = await this.request(() => this.getHttpClient().get(url));
-    return response.content;
-  }
-  /**
-   * Updates the evaluation document for a card.
-   *
-   * @param cardId - Identifier of the card whose evaluation markdown should be updated.
-   * @param content - Evaluation markdown content.
-   * @returns Promise resolving when the evaluation is saved.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async updateEvaluation(cardId, content) {
-    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
+  async putFile(cardId, filePath, content) {
+    const url = this.buildUrl(`/cards/${cardId}/fs/${filePath}`);
     return this.request(() => this.getHttpClient().put(url, content));
   }
   // --- Gate Operations ---
@@ -1383,14 +1350,14 @@ function parseCardCreateInput(raw) {
   if (typeof parsed["title"] !== "string" || !parsed["title"].trim()) {
     throw new Error('missing required field "title"');
   }
-  if (typeof parsed["description"] !== "string") {
-    throw new Error('missing required field "description"');
-  }
   const inputKeys = new Set(Object.keys(parsed));
   const data = {
-    title: parsed["title"],
-    description: parsed["description"]
+    title: parsed["title"]
   };
+  let description;
+  if (typeof parsed["description"] === "string") {
+    description = parsed["description"];
+  }
   if (Array.isArray(parsed["tags"])) {
     data.tags = parsed["tags"];
   }
@@ -1415,20 +1382,23 @@ function parseCardCreateInput(raw) {
   if (typeof parsed["evaluation"] === "string") {
     evaluation = parsed["evaluation"];
   }
-  return { data, plan, evaluation, inputKeys };
+  return { data, plan, evaluation, description, inputKeys };
 }
 var CREATE_ALWAYS_INCLUDE = /* @__PURE__ */ new Set(["id", "repositoryPath"]);
 async function createCard(args) {
   const flags = parseFlags(args);
   const raw = await readStdin();
-  const { data, plan, evaluation, inputKeys } = parseCardCreateInput(raw);
+  const { data, plan, evaluation, description, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags["workspace-path"]?.[0]);
   const card = await client.createCard(data);
+  if (description !== void 0) {
+    await client.putFile(card.id, "CARD.md", description);
+  }
   if (plan !== void 0) {
-    await client.updatePlan(card.id, plan);
+    await client.putFile(card.id, "PLAN.md", plan);
   }
   if (evaluation !== void 0) {
-    await client.updateEvaluation(card.id, evaluation);
+    await client.putFile(card.id, "EVALUATION.md", evaluation);
   }
   const full = card;
   const filtered = {};
