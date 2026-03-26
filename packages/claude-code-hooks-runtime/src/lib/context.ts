@@ -180,8 +180,8 @@ function dirStats(dirPath: string): [count: number, latestMtimeMs: number] {
         try {
           const mt = statSync(join(dirPath, entry.name)).mtimeMs;
           if (mt > latest) latest = mt;
-        } catch {
-          // individual stat failure is non-fatal
+        } catch (_statError: unknown) {
+          void _statError; // individual stat failure is non-fatal
         }
       }
     }
@@ -230,8 +230,8 @@ export function buildCardRepoBlock(rootPath: string): string {
               lines.push(`${`  ${subName}/`.padEnd(24)}${count} files${ts}`);
             }
           }
-        } catch {
-          // streams dir unreadable — already listed the directory name
+        } catch (_readdirError: unknown) {
+          void _readdirError; // streams dir unreadable — already listed the directory name
         }
       } else {
         // Non-streams directory: show child count + latest timestamp
@@ -312,8 +312,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
       }).trim();
       totalCount = parseInt(countStr, 10);
       if (Number.isNaN(totalCount)) totalCount = null;
-    } catch {
-      // count is optional
+    } catch (_countError: unknown) {
+      void _countError; // count is optional
     }
 
     const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
@@ -449,16 +449,39 @@ function filterResolvableShas(workspacePath: string, shas: string[]): string[] {
 }
 
 /**
+ * Annotates merged commits and strips full SHAs from git log output.
+ *
+ * Takes output produced with `--pretty=format:%H %h - %s` and replaces each
+ * header line with `%h - %s [merged]` (when the full SHA is in `mergedShas`)
+ * or plain `%h - %s` (when it is not).
+ *
+ * @param output - Raw git log output using `%H %h - %s` format.
+ * @param mergedShas - Full 40-char SHAs considered merged.
+ * @returns Output in standard `%h - %s` format with `[merged]` annotations.
+ */
+function annotateMergedCommits(output: string, mergedShas: Set<string>): string {
+  return output.replace(/^([0-9a-f]{40}) ([0-9a-f]{7,} - .*)$/gm, (_, fullSha: string, rest: string) => {
+    return mergedShas.has(fullSha) ? `${rest} [merged]` : rest;
+  });
+}
+
+/**
  * Resolves commit details for specific SHAs using `git log --no-walk`.
+ *
+ * When `mergedShas` is provided, commits whose full SHA appears in the set
+ * receive a `[merged]` suffix on their subject line.
  *
  * @param workspacePath - Root directory of the workspace repository.
  * @param shas - Full 40-char SHAs to resolve.
+ * @param mergedShas - SHAs reachable from the base branch (considered merged).
  * @returns Formatted commit log with tree-rendered file lists, or `null` on failure.
  */
-function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[]): string | null {
+function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[], mergedShas?: Set<string>): string | null {
   if (shas.length === 0) return null;
   try {
-    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%h - %s', '--name-only', ...shas], {
+    const useFullHash = mergedShas !== undefined && mergedShas.size > 0;
+    const format = useFullHash ? '%H %h - %s' : '%h - %s';
+    const output = execFileSync('git', ['log', '--no-walk', `--pretty=format:${format}`, '--name-only', ...shas], {
       cwd: workspacePath,
       encoding: 'utf-8',
       timeout: 5000,
@@ -466,7 +489,8 @@ function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[]): s
     }).trim();
 
     if (!output) return null;
-    return formatCommitLog(output, 'blank-line') || null;
+    const annotated = useFullHash ? annotateMergedCommits(output, mergedShas) : output;
+    return formatCommitLog(annotated, 'blank-line') || null;
   } catch {
     return null;
   }
@@ -545,7 +569,8 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
 
     // Show most recent N with full detail
     const displayShas = newShas.slice(-MAX_WORKSPACE_COMMITS_PER_BRANCH);
-    const details = resolveWorkspaceCommitDetails(workspacePath, displayShas);
+    const mergedShas = new Set(displayShas.filter((sha) => baseReachable.has(sha)));
+    const details = resolveWorkspaceCommitDetails(workspacePath, displayShas, mergedShas);
 
     if (details) {
       for (const sha of displayShas) printedShas.add(sha);

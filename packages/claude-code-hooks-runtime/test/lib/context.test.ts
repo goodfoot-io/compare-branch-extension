@@ -582,6 +582,79 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     // No branches resolvable, orphaned SHAs also not resolvable → empty
     expect(blocks).toEqual([]);
   });
+
+  it('shows [merged] for commits reachable from the base branch in a tracked branch group', () => {
+    process.env['BASE_BRANCH'] = 'main';
+
+    // mainCommitSha is on main AND reachable from cards/card-123/1
+    // branch1CommitSha1 is only on cards/card-123/1, not merged to main
+    const dir = makeCardRepo({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
+      mainCommitSha,
+      branch1CommitSha1
+    ]);
+
+    const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toContain('feat: main work [merged]');
+    expect(blocks[0]).not.toContain('feat: implement auth [merged]');
+    expect(blocks[0]).toContain('feat: implement auth');
+  });
+
+  it('shows [merged] for commits in the base branch group', () => {
+    process.env['BASE_BRANCH'] = 'main';
+
+    // No tracked branches — mainCommitSha falls to base group
+    const dir = makeCardRepo({}, [mainCommitSha]);
+
+    const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toContain('branch="main"');
+    expect(blocks[0]).toContain('feat: main work [merged]');
+  });
+
+  it('does not show [merged] for orphaned commits', () => {
+    process.env['BASE_BRANCH'] = 'nonexistent-base-branch';
+
+    const dir = makeCardRepo({}, [branch1CommitSha1]);
+
+    const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toContain('orphaned="true"');
+    expect(blocks[0]).not.toContain('[merged]');
+  });
+
+  it('shows [merged] for branch commits after merge to main', async () => {
+    const mergeWorkspace = new TestGitWorkspace();
+    const mergePath = await mergeWorkspace.create();
+    const git = mergeWorkspace.getGit();
+
+    // Create a feature branch with a commit
+    await git.checkout(['-b', 'cards/merge-test/1']);
+    await mergeWorkspace.createAndCommitFile('src/feature.ts', 'export const f = 1;', 'feat: new feature');
+    const featureSha = (await git.revparse(['HEAD'])).trim();
+
+    // Merge feature branch into main
+    await git.checkout(['main']);
+    await git.merge(['cards/merge-test/1', '--no-ff', '-m', 'merge: feature branch']);
+
+    // Go back to feature branch so ref is stable
+    await git.checkout(['cards/merge-test/1']);
+
+    process.env['BASE_BRANCH'] = 'main';
+    const dir = makeCardRepo({ 'cards/merge-test/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
+      featureSha
+    ]);
+
+    const blocks = buildWorkspaceRepoLogBlocks(mergePath, dir);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toContain('feat: new feature [merged]');
+
+    mergeWorkspace.destroy();
+  });
 });
 
 describe('buildAdditionalContext', () => {
