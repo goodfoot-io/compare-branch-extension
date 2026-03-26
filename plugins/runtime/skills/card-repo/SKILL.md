@@ -37,6 +37,7 @@ The session runs in one of two modes, surfaced as the `mode` attribute on the `<
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
 PLAN.md                     # Optional plan document
+EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {uuidv7}.md               # Pure markdown, no frontmatter
 attachment/                 # Created on first attachment
@@ -107,7 +108,7 @@ enforce gate satisfaction. Instead:
 (e.g. `github.com/org/repo`). Each card targets exactly one repository. Cards for
 different repositories use different board prefixes (e.g. `main-` vs `api-`).
 
-## CARD.md and PLAN.md
+## CARD.md, PLAN.md, and EVALUATION.md
 
 - **`CARD.md`** is the *requirement*: what needs to be done, acceptance criteria, and
   context. Written by the card creator (human or agent). Stable once the card is understood.
@@ -115,8 +116,11 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
   tasks, with technical decisions. Written by the implementing agent following the
   `runtime:plan` skill structure. Subject to revision and approval via the
   `planRequired`/`planApproved` gates.
+- **`EVALUATION.md`** is the *verification rubric*: how to confirm the implementation
+  works from an end-user perspective. Written by the implementing agent following the
+  `runtime:evaluation` skill structure. Optional — cards function identically without it.
 
-Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
+All three are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
 
 ## Comments
 

@@ -172,6 +172,12 @@ Each commit's `diff.files` array contains `CardCommitFile` records:
 | `from` | `string?` | Source path for renames (present when status starts with `R`) |
 | `binary` | `boolean` | `true` for binary files (no text diff available) |
 
+### Content Endpoints
+
+`GET /cards/:id/plan` returns `{ content: string }` with the card's `PLAN.md` content, or `404` if no plan exists.
+
+`GET /cards/:id/evaluation` returns `{ content: string }` with the card's `EVALUATION.md` content, or `404` if no evaluation rubric exists.
+
 ### Workspace-Scoped Endpoints
 
 When the server manages multiple workspace folders, several endpoints accept an optional `workspacePath` query parameter to resolve per-workspace settings (environments, typed file schemas). If `workspacePath` is provided but the workspace is not registered, the endpoint returns `400` (fail-closed).
@@ -203,6 +209,7 @@ Returns `{ "success": true, "workspacePath": "..." }` on success. Returns `400` 
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
 PLAN.md                     # Optional plan document
+EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {uuidv7}.md               # Pure markdown, no frontmatter
 attachment/                 # Created on first attachment
