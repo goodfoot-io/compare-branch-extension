@@ -634,6 +634,21 @@ export class CardsClient {
     return this.request(() => this.getHttpClient().put<void>(url, content));
   }
 
+  /**
+   * Writes a file to a card repository.
+   *
+   * @param cardId - Identifier of the card whose repository should receive the file.
+   * @param filePath - Relative path within the card repo (e.g. `PLAN.md`, `foo/BAR.md`).
+   * @param content - File content to write.
+   * @returns Promise resolving when the file is saved.
+   * @throws ApiError when the server rejects the write.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async putFile(cardId: string, filePath: string, content: string): Promise<void> {
+    const url = this.buildUrl(`/cards/${cardId}/fs/${filePath}`);
+    return this.request(() => this.getHttpClient().put<void>(url, content));
+  }
+
   // --- Gate Operations ---
 
   /**

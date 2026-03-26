@@ -255,6 +255,19 @@ describe('CardsClient', () => {
     });
   });
 
+  describe('File Operations', () => {
+    it('should PUT /cards/:id/fs/:path when putting file', async () => {
+      const httpClient = new TestHttpClient();
+      const client = new CardsClient(options, httpClient);
+      await client.putFile('card-1', 'PLAN.md', '# My Plan');
+      expect(httpClient.requests[0]).toMatchObject({
+        method: 'PUT',
+        url: 'http://localhost:3000/cards/card-1/fs/PLAN.md',
+        body: '# My Plan'
+      });
+    });
+  });
+
   describe('Comment Operations', () => {
     it('should GET /cards/:id/comments when fetching comments', async () => {
       const httpClient = new TestHttpClient();
