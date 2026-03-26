@@ -212,7 +212,7 @@ describe('claude-session shared utilities', () => {
       expect(args).not.toContain('--plugin-dir');
       expect(args).toContain('--add-dir');
       expect(args).toContain('/card/repo');
-      expect(args).toContain('--channels');
+      expect(args).toContain('--dangerously-load-development-channels');
       expect(args).toContain('plugin:runtime@cards.management');
     });
   });
