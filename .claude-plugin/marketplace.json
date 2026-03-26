@@ -22,7 +22,7 @@
     },
     {
       "name": "cards-sdk",
-      "version": "1.0.22",
+      "version": "1.0.23",
       "source": "./plugins/cards-sdk",
       "description": "Claude Code plugin for interacting with Cards extension's Cards SDK",
       "author": {
