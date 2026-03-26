@@ -358,7 +358,7 @@ export async function cleanupMergedBranches(
     if (branch.worktree) {
       t0 = performance.now();
       await tryCleanupStep(
-        () => execFileAsync('git', ['worktree', 'remove', branch.worktree!], { cwd: input.repoRoot }),
+        () => execFileAsync('git', ['worktree', 'remove', '--force', branch.worktree!], { cwd: input.repoRoot }),
         'Failed to remove worktree',
         branch.name,
         logger

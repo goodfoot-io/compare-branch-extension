@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE ./bin/launch.f6a8f380.mjs",
+            "command": "$VSCODE_NODE ./bin/launch.85c1f775.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -17,7 +17,7 @@
           "id": "codex",
           "name": "Codex",
           "command": {
-            "command": "$VSCODE_NODE ./bin/codex.da643f26.mjs",
+            "command": "$VSCODE_NODE ./bin/codex.29854813.mjs",
             "timeout": 3600000
           },
           "description": "Start a Codex session for the card",
@@ -27,7 +27,7 @@
           "id": "interview",
           "name": "Interview",
           "command": {
-            "command": "$VSCODE_NODE ./bin/interview.2e82223a.mjs",
+            "command": "$VSCODE_NODE ./bin/interview.370df470.mjs",
             "timeout": 3600000
           },
           "description": "Start an interview session for the card",
@@ -37,7 +37,7 @@
           "id": "chat",
           "name": "Chat",
           "command": {
-            "command": "$VSCODE_NODE ./bin/chat.ff9ff500.mjs",
+            "command": "$VSCODE_NODE ./bin/chat.aaedf2e6.mjs",
             "timeout": 3600000
           },
           "description": "Start a chat session for the card",
@@ -81,10 +81,10 @@
   },
   "__generated": {
     "files": [
-      "launch.f6a8f380.mjs",
-      "codex.da643f26.mjs",
-      "interview.2e82223a.mjs",
-      "chat.ff9ff500.mjs",
+      "launch.85c1f775.mjs",
+      "codex.29854813.mjs",
+      "interview.370df470.mjs",
+      "chat.aaedf2e6.mjs",
       "adaptive-card-validator.038fbeeb.mjs",
       "adaptive-card-submission-validator.8503221f.mjs",
       "note-validator.fc43747b.mjs",

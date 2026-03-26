@@ -393,6 +393,7 @@ describe('claude-session shared utilities', () => {
         (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
       );
       expect(worktreeRemoveCall).toBeDefined();
+      expect(worktreeRemoveCall![1] as string[]).toContain('--force');
 
       const branchDeleteCall = execCalls.find(
         (c) => (c[1] as string[])?.includes('branch') && (c[1] as string[])?.includes('-d')
