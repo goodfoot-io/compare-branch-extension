@@ -191,6 +191,15 @@ function handleHandlerError(error: unknown): never {
  * ```
  */
 export async function executeCommand(command: AnyCommand): Promise<void> {
+  // Prevent SIGHUP from killing the action handler before post-exit cleanup
+  // (e.g. spawnBranchCleanupWatcher) can run. When a VSCode terminal closes,
+  // node-pty sends SIGHUP to the process group. Without this handler, Node.js
+  // terminates immediately and any post-exit code after the awaited child
+  // process never executes. The handler is a no-op: the child process (e.g.
+  // claude CLI) will receive SIGHUP independently, exit, and the awaiting
+  // code will resume to run post-exit cleanup.
+  process.on('SIGHUP', () => {});
+
   try {
     let input: ActionInput | TypeHookInput;
 
