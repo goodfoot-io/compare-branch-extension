@@ -158,7 +158,7 @@ describe('TestCardRepository', () => {
     });
 
     it('creates comment file', async () => {
-      const filename = await repo.addComment(cardId, 'This is a comment');
+      const filename = await repo.addComment(cardId, 'test-comment', 'This is a comment');
       const content = await repo.readFile(cardId, `comment/${filename}`);
       expect(content).toBe('This is a comment');
     });

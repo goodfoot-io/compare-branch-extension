@@ -25,7 +25,7 @@ import type { CardGates, CardStatus } from '@cards/sdk/protocol';
 import { CARD_GITIGNORE, DEFAULT_CARD_GATES, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
-import { v4 as uuidv4, v7 as uuidv7 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 
 // --- Card Creation Options ---
 
@@ -253,23 +253,23 @@ export class TestCardRepository {
   /**
    * Adds a comment to a card.
    *
-   * Behavior: stores the raw content in `comments/<timestamp>-<uuid>.md` and
+   * Behavior: stores the raw content in `comment/{slug}.md` and
    * creates a commit for the new file.
    *
    * @param cardId Identifier of the card repository that will receive the comment
+   * @param slug Descriptive filename stem for the comment (e.g., 'plan-approved', 'blocked-status')
    * @param content Markdown body written to the generated comment file
    * @param author Optional commit author (default: 'Test User')
    * @returns The comment filename
    */
-  async addComment(cardId: string, content: string, author?: string): Promise<string> {
+  async addComment(cardId: string, slug: string, content: string, author?: string): Promise<string> {
     if (!this.reposPath) {
       throw new Error('Repository not created');
     }
 
-    const commentId = uuidv7();
     const cardPath = path.join(this.reposPath, cardId);
     const commentsPath = path.join(cardPath, 'comment');
-    const filename = `${commentId}.md`;
+    const filename = `${slug}.md`;
 
     // Ensure comment directory exists (lazy creation)
     await fs.ensureDir(commentsPath);
