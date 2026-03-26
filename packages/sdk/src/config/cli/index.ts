@@ -15,6 +15,7 @@ import type { SettingsConfig, StreamConfigDefinition } from '../config.js';
 import type { Action, Command, Settings, StreamDefinition, TypeDefinition } from '../schema.js';
 import type { BuildArgs } from './args.js';
 import { compileHandler } from './compiler.js';
+import { processWwwRoot } from './www-bundler.js';
 
 export {
   type CompileFailure,
@@ -301,6 +302,60 @@ async function compileHandlers(
 }
 
 // ============================================================================
+// wwwRoot Processing
+// ============================================================================
+
+/**
+ * Processes all wwwRoot directories across all environments and streams.
+ *
+ * For each stream config with a wwwRoot, resolves the directory relative to
+ * the config file, bundles inline module scripts in the HTML entrypoint,
+ * and copies the result to the output directory. Returns a map of
+ * `"envName/streamName"` to the relative output path for use in settings.json.
+ *
+ * @param config - Parsed settings configuration.
+ * @param configDir - Directory containing the config file (for resolving relative wwwRoot paths).
+ * @param outdir - Absolute path to the build output directory.
+ * @returns Map from `"envName/streamName"` to the relative wwwRoot path in the output.
+ */
+async function processAllWwwRoots(
+  config: SettingsConfig,
+  configDir: string,
+  outdir: string
+): Promise<Map<string, string>> {
+  const overrides = new Map<string, string>();
+
+  for (const [envName, envConfig] of Object.entries(config.environments)) {
+    if (!envConfig.streams) continue;
+
+    for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
+      if (!streamConfig.wwwRoot) continue;
+
+      const wwwRootDir = path.isAbsolute(streamConfig.wwwRoot)
+        ? streamConfig.wwwRoot
+        : path.resolve(configDir, streamConfig.wwwRoot);
+
+      const entrypoint = streamConfig.entrypoint ?? 'index.html';
+      const entrypointPath = path.resolve(wwwRootDir, entrypoint);
+
+      // Skip processing if the wwwRoot directory or entrypoint doesn't exist —
+      // the original path passes through unchanged in settings.json.
+      if (!fs.existsSync(entrypointPath)) {
+        continue;
+      }
+
+      const relativeOutputDir = path.join('www', streamName);
+      const absoluteOutputDir = path.join(outdir, relativeOutputDir);
+
+      await processWwwRoot(wwwRootDir, absoluteOutputDir, entrypoint);
+      overrides.set(`${envName}/${streamName}`, `./${relativeOutputDir}`);
+    }
+  }
+
+  return overrides;
+}
+
+// ============================================================================
 // Settings Generation
 // ============================================================================
 
@@ -310,9 +365,16 @@ async function compileHandlers(
  * @param config - Original typed configuration object.
  * @param compiled - Metadata for successfully compiled handlers.
  * @param binDir - Relative bin directory used in generated command strings.
+ * @param wwwRootOverrides - Map from `"envName/streamName"` to the relative wwwRoot path
+ *   in the build output, replacing the source path in generated settings.
  * @returns Settings schema object ready to serialize as `settings.json`.
  */
-function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], binDir: string): Settings {
+function generateSettings(
+  config: SettingsConfig,
+  compiled: CompiledHandler[],
+  binDir: string,
+  wwwRootOverrides?: Map<string, string>
+): Settings {
   // Build lookup maps for compiled handlers
   const compiledByKey = new Map<string, CompiledHandler>();
   for (const c of compiled) {
@@ -400,11 +462,13 @@ function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], b
       environments[envName].types = types;
     }
 
-    // Generate streams — wwwRoot paths are passed through from config
+    // Generate streams — wwwRoot paths are rewritten to bundled output locations
     if (envConfig.streams) {
       const streams: Record<string, StreamDefinition> = {};
       for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
-        streams[streamName] = generateStreamDefinition(streamConfig);
+        const overrideKey = `${envName}/${streamName}`;
+        const wwwRootOverride = wwwRootOverrides?.get(overrideKey);
+        streams[streamName] = generateStreamDefinition(streamConfig, wwwRootOverride);
       }
       environments[envName].streams = streams;
     }
@@ -452,12 +516,14 @@ function generateCommand(
  * Generates a StreamDefinition object for a stream config.
  *
  * @param streamConfig - Source stream configuration with wwwRoot and optional fields.
+ * @param wwwRootOverride - When provided, replaces the source wwwRoot path with the
+ *   bundled output path.
  * @returns Stream definition object compatible with settings schema.
  */
-function generateStreamDefinition(streamConfig: StreamConfigDefinition): StreamDefinition {
+function generateStreamDefinition(streamConfig: StreamConfigDefinition, wwwRootOverride?: string): StreamDefinition {
   const streamDef: StreamDefinition = {
     version: streamConfig.version,
-    wwwRoot: streamConfig.wwwRoot
+    wwwRoot: wwwRootOverride ?? streamConfig.wwwRoot
   };
   if (streamConfig.entrypoint !== undefined) {
     streamDef.entrypoint = streamConfig.entrypoint;
@@ -533,7 +599,8 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
       };
     }
 
-    const { config } = loadResult;
+    const { config, configPath } = loadResult;
+    const configDir = path.dirname(configPath);
 
     // 2. Create output directories
     const outdir = path.resolve(args.outdir);
@@ -566,10 +633,13 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
       };
     }
 
-    // 6. Generate settings.json
-    const settings = generateSettings(config, compiled, 'bin');
+    // 6. Process wwwRoot directories — bundle inline module scripts
+    const wwwRootOverrides = await processAllWwwRoots(config, configDir, outdir);
 
-    // 7. Add __generated metadata
+    // 7. Generate settings.json
+    const settings = generateSettings(config, compiled, 'bin', wwwRootOverrides);
+
+    // 8. Add __generated metadata
     const uniqueFilenames = [...new Set(compiled.map((c) => c.filename))];
     const settingsWithMeta = {
       ...settings,
@@ -578,7 +648,7 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
       }
     };
 
-    // 8. Write settings.json atomically (via temp file)
+    // 9. Write settings.json atomically (via temp file)
     const tempPath = `${settingsPath}.tmp`;
     fs.writeFileSync(tempPath, JSON.stringify(settingsWithMeta, null, 2), 'utf-8');
     fs.renameSync(tempPath, settingsPath);

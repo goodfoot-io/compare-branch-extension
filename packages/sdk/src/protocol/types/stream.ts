@@ -77,7 +77,7 @@ export type StreamStatus = 'active' | 'completed' | 'error' | 'interrupted' | 's
  * {@link StreamMeta} at read time.
  *
  * @see StreamDefinition for the environment-level configuration that governs
- *   which transform module applies to a given `streamType`.
+ *   rendering for a given `streamType`.
  * @see StreamMeta for the API shape that includes lifecycle status and timestamps from SQLite.
  */
 export interface StreamMetaFile {
@@ -129,7 +129,7 @@ export interface StreamMetaFile {
  * each append and reflects the authoritative count from SQLite.
  *
  * @see StreamDefinition for the environment-level configuration that governs
- *   which transform module applies to a given `streamType`.
+ *   rendering for a given `streamType`.
  */
 export interface StreamMeta extends StreamMetaFile {
   /** Current lifecycle status from SQLite. Only `'active'` streams accept appends. */

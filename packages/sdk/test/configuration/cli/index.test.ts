@@ -6,7 +6,7 @@
  * @module
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { build, main } from '../../../src/config/cli/index.js';
@@ -644,6 +644,134 @@ export default {
       expect(settings.environments.default.streams.full).toBeDefined();
       expect(settings.environments.default.streams.full.wwwRoot).toBe('./renderers/full');
     }
+  });
+});
+
+describe('wwwRoot bundling', () => {
+  let testDir: string;
+
+  beforeEach(() => {
+    testDir = join(FIXTURES_DIR, `www-bundle-test-${Date.now()}`);
+    mkdirSync(testDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('should bundle inline module scripts in wwwRoot HTML and rewrite wwwRoot path', async () => {
+    // Create a wwwRoot directory with an HTML file that imports a local module
+    const wwwDir = join(testDir, 'renderers', 'my-stream');
+    mkdirSync(wwwDir, { recursive: true });
+
+    writeFileSync(join(wwwDir, 'helpers.js'), `export function greet(name) { return 'Hello, ' + name; }\n`);
+    writeFileSync(
+      join(wwwDir, 'index.html'),
+      `<!DOCTYPE html>
+<html>
+<head><style>body { margin: 0; }</style></head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import { greet } from './helpers.js';
+    document.getElementById('root').textContent = greet('World');
+  </script>
+</body>
+</html>`
+    );
+
+    const actionHandlerPath = join(testDir, 'action.ts');
+    writeFileSync(
+      actionHandlerPath,
+      `export default { factoryType: 'action', actionName: 'Test', handler: async () => {} };`
+    );
+
+    const configPath = join(testDir, 'settings.config.ts');
+    writeFileSync(
+      configPath,
+      `
+import action from './action.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [action],
+      streams: {
+        'my-stream': {
+          version: 1,
+          wwwRoot: './renderers/my-stream'
+        }
+      }
+    }
+  }
+};
+      `.trim()
+    );
+
+    const outdir = join(testDir, 'output');
+    const result = await build({ config: configPath, outdir });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    // settings.json should point to the bundled output directory
+    const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
+    expect(settings.environments.default.streams['my-stream'].wwwRoot).toBe('./www/my-stream');
+
+    // The bundled HTML should exist in the output
+    const bundledHtml = readFileSync(join(outdir, 'www', 'my-stream', 'index.html'), 'utf-8');
+
+    // The inline import should be resolved — no bare import remaining
+    expect(bundledHtml).not.toContain("from './helpers.js'");
+    // The bundled code should contain the inlined function body
+    expect(bundledHtml).toContain('Hello, ');
+    // CSS and structural HTML should be preserved
+    expect(bundledHtml).toContain('body { margin: 0; }');
+    expect(bundledHtml).toContain('<div id="root"></div>');
+    // Static assets should be copied alongside
+    expect(existsSync(join(outdir, 'www', 'my-stream', 'helpers.js'))).toBe(true);
+  });
+
+  it('should pass through wwwRoot path unchanged when directory does not exist', async () => {
+    const actionHandlerPath = join(testDir, 'action.ts');
+    writeFileSync(
+      actionHandlerPath,
+      `export default { factoryType: 'action', actionName: 'Test', handler: async () => {} };`
+    );
+
+    const configPath = join(testDir, 'settings.config.ts');
+    writeFileSync(
+      configPath,
+      `
+import action from './action.js';
+
+export default {
+  environments: {
+    default: {
+      version: 1,
+      actions: [action],
+      streams: {
+        'missing': {
+          version: 1,
+          wwwRoot: './renderers/nonexistent'
+        }
+      }
+    }
+  }
+};
+      `.trim()
+    );
+
+    const outdir = join(testDir, 'output');
+    const result = await build({ config: configPath, outdir });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    // When wwwRoot doesn't exist, the original path is preserved
+    const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
+    expect(settings.environments.default.streams.missing.wwwRoot).toBe('./renderers/nonexistent');
   });
 });
 

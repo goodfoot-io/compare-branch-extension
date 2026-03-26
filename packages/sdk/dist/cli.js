@@ -15,22 +15,22 @@ __export(config_loader_exports, {
   loadConfig: () => loadConfig
 });
 import { randomUUID } from "node:crypto";
-import { existsSync as existsSync2, readFileSync, unlinkSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync2, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { extname, join as join2, resolve as resolve2 } from "node:path";
+import { extname, join as join3, resolve as resolve3 } from "node:path";
 import { pathToFileURL } from "node:url";
-import * as esbuild2 from "esbuild";
+import * as esbuild3 from "esbuild";
 async function loadConfig(configPath) {
-  const absolutePath = resolve2(configPath);
-  if (!existsSync2(absolutePath)) {
+  const absolutePath = resolve3(configPath);
+  if (!existsSync3(absolutePath)) {
     return {
       success: false,
       error: `Configuration file does not exist: ${absolutePath}`
     };
   }
-  const tempFile = join2(tmpdir(), `cards-config-${randomUUID()}.mjs`);
+  const tempFile = join3(tmpdir(), `cards-config-${randomUUID()}.mjs`);
   try {
-    const buildResult = await esbuild2.build({
+    const buildResult = await esbuild3.build({
       entryPoints: [absolutePath],
       outfile: tempFile,
       bundle: true,
@@ -99,9 +99,9 @@ var init_config_loader = __esm({
     FACTORY_CALL_RE = /\b(define(?:Action|TypeValidator|TypeCreate|TypeUpdate|TypeDelete|StreamTransform))\s*\(\s*\{/g;
     injectSourcePath = {
       name: "inject-source-path",
-      setup(build4) {
-        build4.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
-          const source = readFileSync(args.path, "utf-8");
+      setup(build5) {
+        build5.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
+          const source = readFileSync2(args.path, "utf-8");
           if (!FACTORY_CALL_RE.test(source)) {
             return void 0;
           }
@@ -185,8 +185,8 @@ var init_args = __esm({
 
 // src/config/cli/index.ts
 import * as crypto from "node:crypto";
-import * as fs2 from "node:fs";
-import * as path2 from "node:path";
+import * as fs3 from "node:fs";
+import * as path3 from "node:path";
 
 // src/config/cli/compiler.ts
 import * as fs from "node:fs";
@@ -310,10 +310,96 @@ if (!process.argv.includes('--branch-cleanup')) {
   }
 }
 
+// src/config/cli/www-bundler.ts
+import * as fs2 from "node:fs";
+import * as path2 from "node:path";
+import * as esbuild2 from "esbuild";
+var INLINE_MODULE_SCRIPT_RE = /(<script\s+type="module"\s*>)([\s\S]*?)(<\/script>)/gi;
+async function bundleWwwHtml(htmlPath, wwwRootDir) {
+  const html = fs2.readFileSync(htmlPath, "utf-8");
+  const matches = [];
+  for (const match of html.matchAll(INLINE_MODULE_SCRIPT_RE)) {
+    const openTag = match[1];
+    const rawContent = match[2];
+    const closeTag = match[3];
+    if (!openTag || !rawContent || !closeTag) continue;
+    const content = rawContent.trim();
+    if (content.length > 0) {
+      matches.push({
+        fullMatch: match[0],
+        openTag,
+        content,
+        closeTag
+      });
+    }
+  }
+  if (matches.length === 0) {
+    return { html };
+  }
+  let result = html;
+  for (const { fullMatch, openTag, content, closeTag } of matches) {
+    const bundled = await bundleInlineScript(content, wwwRootDir);
+    result = result.replace(fullMatch, `${openTag}
+${bundled}
+  ${closeTag}`);
+  }
+  return { html: result };
+}
+async function bundleInlineScript(scriptContent, resolveDir) {
+  const buildResult = await esbuild2.build({
+    stdin: {
+      contents: scriptContent,
+      resolveDir,
+      sourcefile: "inline-module.js",
+      loader: "js"
+    },
+    bundle: true,
+    write: false,
+    format: "esm",
+    platform: "browser",
+    target: "es2022",
+    minify: false,
+    treeShaking: true,
+    logLevel: "silent"
+  });
+  if (buildResult.errors.length > 0) {
+    const errors = buildResult.errors.map((e) => e.text).join("\n");
+    throw new Error(`Failed to bundle inline module script: ${errors}`);
+  }
+  const output = buildResult.outputFiles[0];
+  if (!output) {
+    throw new Error("esbuild produced no output for inline module script");
+  }
+  return output.text;
+}
+async function processWwwRoot(wwwRootDir, outputDir, entrypoint = "index.html") {
+  const entrypointPath = path2.resolve(wwwRootDir, entrypoint);
+  if (!fs2.existsSync(entrypointPath)) {
+    throw new Error(`wwwRoot entrypoint not found: ${entrypointPath}`);
+  }
+  fs2.mkdirSync(outputDir, { recursive: true });
+  copyDirSync(wwwRootDir, outputDir);
+  const { html } = await bundleWwwHtml(entrypointPath, wwwRootDir);
+  fs2.writeFileSync(path2.join(outputDir, entrypoint), html, "utf-8");
+}
+function copyDirSync(src, dest) {
+  fs2.mkdirSync(dest, { recursive: true });
+  const entries = fs2.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path2.join(src, entry.name);
+    const destPath = path2.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirSync(srcPath, destPath);
+    } else {
+      fs2.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 // src/config/cli/index.ts
 function tryUnlink(filePath) {
   try {
-    fs2.unlinkSync(filePath);
+    fs3.unlinkSync(filePath);
   } catch (err) {
     if (err.code !== "ENOENT") {
       console.warn("[cards-sdk] Failed to clean up file %s: %s", filePath, err.message);
@@ -327,11 +413,11 @@ function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 function getBaseName(sourcePath) {
-  const basename2 = path2.basename(sourcePath);
+  const basename2 = path3.basename(sourcePath);
   return basename2.replace(/\.(ts|js|mts|mjs|cts|cjs)$/, "");
 }
 function generateCommandString(filename, binDir) {
-  const relativePath = path2.posix.join(binDir, filename);
+  const relativePath = path3.posix.join(binDir, filename);
   return `$VSCODE_NODE ./${relativePath}`;
 }
 function extractCommands(config) {
@@ -375,7 +461,7 @@ async function compileHandlers(commands, binDir) {
   const compiled = [];
   const errors = [];
   const seenPaths = /* @__PURE__ */ new Set();
-  fs2.mkdirSync(binDir, { recursive: true });
+  fs3.mkdirSync(binDir, { recursive: true });
   for (const cmd of commands) {
     if (!cmd.sourcePath) {
       continue;
@@ -393,7 +479,7 @@ async function compileHandlers(commands, binDir) {
     }
     seenPaths.add(cmd.sourcePath);
     const baseName = getBaseName(cmd.sourcePath);
-    const tempOutputPath = path2.join(binDir, `${baseName}.temp.mjs`);
+    const tempOutputPath = path3.join(binDir, `${baseName}.temp.mjs`);
     const result = await compileHandler({
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
@@ -404,12 +490,12 @@ async function compileHandlers(commands, binDir) {
       errors.push(`Failed to compile ${cmd.sourcePath}: ${result.error}`);
       continue;
     }
-    const fullContent = fs2.readFileSync(tempOutputPath, "utf-8");
+    const fullContent = fs3.readFileSync(tempOutputPath, "utf-8");
     const hash = generateContentHash(stripSourceMapComment(fullContent));
     const filename = `${baseName}.${hash}.mjs`;
-    const finalOutputPath = path2.join(binDir, filename);
-    fs2.renameSync(tempOutputPath, finalOutputPath);
-    fs2.chmodSync(finalOutputPath, 493);
+    const finalOutputPath = path3.join(binDir, filename);
+    fs3.renameSync(tempOutputPath, finalOutputPath);
+    fs3.chmodSync(finalOutputPath, 493);
     compiled.push({
       info: cmd,
       filename,
@@ -418,7 +504,27 @@ async function compileHandlers(commands, binDir) {
   }
   return { compiled, errors };
 }
-function generateSettings(config, compiled, binDir) {
+async function processAllWwwRoots(config, configDir, outdir) {
+  const overrides = /* @__PURE__ */ new Map();
+  for (const [envName, envConfig] of Object.entries(config.environments)) {
+    if (!envConfig.streams) continue;
+    for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
+      if (!streamConfig.wwwRoot) continue;
+      const wwwRootDir = path3.isAbsolute(streamConfig.wwwRoot) ? streamConfig.wwwRoot : path3.resolve(configDir, streamConfig.wwwRoot);
+      const entrypoint = streamConfig.entrypoint ?? "index.html";
+      const entrypointPath = path3.resolve(wwwRootDir, entrypoint);
+      if (!fs3.existsSync(entrypointPath)) {
+        continue;
+      }
+      const relativeOutputDir = path3.join("www", streamName);
+      const absoluteOutputDir = path3.join(outdir, relativeOutputDir);
+      await processWwwRoot(wwwRootDir, absoluteOutputDir, entrypoint);
+      overrides.set(`${envName}/${streamName}`, `./${relativeOutputDir}`);
+    }
+  }
+  return overrides;
+}
+function generateSettings(config, compiled, binDir, wwwRootOverrides) {
   const compiledByKey = /* @__PURE__ */ new Map();
   for (const c of compiled) {
     const key = `${c.info.factoryType}:${c.info.name}`;
@@ -492,7 +598,9 @@ function generateSettings(config, compiled, binDir) {
     if (envConfig.streams) {
       const streams = {};
       for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
-        streams[streamName] = generateStreamDefinition(streamConfig);
+        const overrideKey = `${envName}/${streamName}`;
+        const wwwRootOverride = wwwRootOverrides?.get(overrideKey);
+        streams[streamName] = generateStreamDefinition(streamConfig, wwwRootOverride);
       }
       environments[envName].streams = streams;
     }
@@ -512,10 +620,10 @@ function generateCommand(cmd, compiled, binDir) {
   }
   return command;
 }
-function generateStreamDefinition(streamConfig) {
+function generateStreamDefinition(streamConfig, wwwRootOverride) {
   const streamDef = {
     version: streamConfig.version,
-    wwwRoot: streamConfig.wwwRoot
+    wwwRoot: wwwRootOverride ?? streamConfig.wwwRoot
   };
   if (streamConfig.entrypoint !== void 0) {
     streamDef.entrypoint = streamConfig.entrypoint;
@@ -530,13 +638,13 @@ function generateStreamDefinition(streamConfig) {
 }
 function cleanupStaleFiles(settingsPath, binDir) {
   try {
-    if (!fs2.existsSync(settingsPath)) {
+    if (!fs3.existsSync(settingsPath)) {
       return;
     }
-    const existingSettings = JSON.parse(fs2.readFileSync(settingsPath, "utf-8"));
+    const existingSettings = JSON.parse(fs3.readFileSync(settingsPath, "utf-8"));
     const previousFiles = existingSettings.__generated?.files ?? [];
     for (const filename of previousFiles) {
-      tryUnlink(path2.join(binDir, filename));
+      tryUnlink(path3.join(binDir, filename));
     }
   } catch (err) {
     if (err.code !== "ENOENT") {
@@ -544,7 +652,7 @@ function cleanupStaleFiles(settingsPath, binDir) {
     }
   }
 }
-async function build3(args) {
+async function build4(args) {
   try {
     const { loadConfig: loadConfig2 } = await Promise.resolve().then(() => (init_config_loader(), config_loader_exports));
     const loadResult = await loadConfig2(args.config);
@@ -554,17 +662,18 @@ async function build3(args) {
         error: loadResult.error
       };
     }
-    const { config } = loadResult;
-    const outdir = path2.resolve(args.outdir);
-    const binDir = path2.join(outdir, "bin");
-    const settingsPath = path2.join(outdir, "settings.json");
-    if (fs2.existsSync(outdir) && fs2.statSync(outdir).isFile()) {
+    const { config, configPath } = loadResult;
+    const configDir = path3.dirname(configPath);
+    const outdir = path3.resolve(args.outdir);
+    const binDir = path3.join(outdir, "bin");
+    const settingsPath = path3.join(outdir, "settings.json");
+    if (fs3.existsSync(outdir) && fs3.statSync(outdir).isFile()) {
       return {
         success: false,
         error: `Output path "${args.outdir}" is a file, not a directory. The -o/--outdir argument should be a directory path (e.g., "dist"), not a file path.`
       };
     }
-    fs2.mkdirSync(outdir, { recursive: true });
+    fs3.mkdirSync(outdir, { recursive: true });
     cleanupStaleFiles(settingsPath, binDir);
     const commands = extractCommands(config);
     const { compiled, errors } = await compileHandlers(commands, binDir);
@@ -575,7 +684,8 @@ async function build3(args) {
 ${errors.join("\n")}`
       };
     }
-    const settings = generateSettings(config, compiled, "bin");
+    const wwwRootOverrides = await processAllWwwRoots(config, configDir, outdir);
+    const settings = generateSettings(config, compiled, "bin", wwwRootOverrides);
     const uniqueFilenames = [...new Set(compiled.map((c) => c.filename))];
     const settingsWithMeta = {
       ...settings,
@@ -584,8 +694,8 @@ ${errors.join("\n")}`
       }
     };
     const tempPath = `${settingsPath}.tmp`;
-    fs2.writeFileSync(tempPath, JSON.stringify(settingsWithMeta, null, 2), "utf-8");
-    fs2.renameSync(tempPath, settingsPath);
+    fs3.writeFileSync(tempPath, JSON.stringify(settingsWithMeta, null, 2), "utf-8");
+    fs3.renameSync(tempPath, settingsPath);
     return {
       success: true,
       settingsPath,
@@ -607,7 +717,7 @@ async function main() {
     console.error("\nUsage: cards-sdk build -c <config> -o <outdir>");
     process.exit(1);
   }
-  const buildResult = await build3(parseResult.args);
+  const buildResult = await build4(parseResult.args);
   if (!buildResult.success) {
     console.error("Build failed:", buildResult.error);
     process.exit(1);
