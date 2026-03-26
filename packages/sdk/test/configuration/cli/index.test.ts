@@ -418,8 +418,7 @@ describe('build', () => {
   });
 });
 
-describe('stream transforms', () => {
-  const STREAM_TRANSFORM_FACTORY_PATH = join(__dirname, '../../../src/config/factories/stream-transform.js');
+describe('stream wwwRoot configs', () => {
   let testDir: string;
 
   beforeEach(() => {
@@ -431,25 +430,7 @@ describe('stream transforms', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  it('should extract stream transforms from config', async () => {
-    const streamHandlerPath = join(testDir, 'test-stream.ts');
-
-    writeFileSync(
-      streamHandlerPath,
-      `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  {
-    streamType: 'test-stream',
-    sourcePath: '${streamHandlerPath.replace(/\\/g, '/')}'
-  },
-  (line) => \`[\${line}]\`
-);
-      `.trim()
-    );
-
-    // Create minimal action for valid config
+  it('should include streams with wwwRoot in settings.json', async () => {
     const actionHandlerPath = join(testDir, 'action.ts');
     writeFileSync(
       actionHandlerPath,
@@ -462,12 +443,10 @@ export default {
       `.trim()
     );
 
-    // Create config that uses the stream
     const configPath = join(testDir, 'settings.config.ts');
     writeFileSync(
       configPath,
       `
-import streamHandler from './test-stream.js';
 import action from './action.js';
 
 export default {
@@ -478,7 +457,7 @@ export default {
       streams: {
         'test-stream': {
           version: 1,
-          transform: streamHandler
+          wwwRoot: './renderers/test-stream'
         }
       }
     }
@@ -498,87 +477,11 @@ export default {
       expect(settings.environments.default.streams).toBeDefined();
       expect(settings.environments.default.streams['test-stream']).toBeDefined();
       expect(settings.environments.default.streams['test-stream'].version).toBe(1);
-      expect(settings.environments.default.streams['test-stream'].transform.path).toContain('.mjs');
+      expect(settings.environments.default.streams['test-stream'].wwwRoot).toBe('./renderers/test-stream');
     }
   });
 
-  it('should skip streams without sourcePath', async () => {
-    // Create a minimal action for valid config
-    const actionHandlerPath = join(testDir, 'action.ts');
-    writeFileSync(
-      actionHandlerPath,
-      `
-export default {
-  factoryType: 'action',
-  actionName: 'Test',
-  handler: async () => {}
-};
-      `.trim()
-    );
-
-    // Create config with stream that has no sourcePath
-    const configPath = join(testDir, 'settings.config.ts');
-    writeFileSync(
-      configPath,
-      `
-import action from './action.js';
-
-const streamHandler = {
-  factoryType: 'streamTransform',
-  streamType: 'no-source',
-  handler: (line) => line
-};
-
-export default {
-  environments: {
-    default: {
-      version: 1,
-      actions: [action],
-      streams: {
-        'no-source': {
-          version: 1,
-          transform: streamHandler
-        }
-      }
-    }
-  }
-};
-      `.trim()
-    );
-
-    const outdir = join(testDir, 'output');
-    const result = await build({ config: configPath, outdir });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      const settingsContent = readFileSync(result.settingsPath, 'utf-8');
-      const settings = JSON.parse(settingsContent);
-
-      expect(settings.environments.default.streams).toBeDefined();
-      expect(settings.environments.default.streams['no-source']).toBeDefined();
-      // Without sourcePath, should use placeholder format
-      expect(settings.environments.default.streams['no-source'].transform.path).toBe('streamTransform-no-source.js');
-    }
-  });
-
-  it('should include streams section with compiled path', async () => {
-    const streamHandlerPath = join(testDir, 'jsonl-stream.ts');
-
-    writeFileSync(
-      streamHandlerPath,
-      `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  {
-    streamType: 'jsonl',
-    sourcePath: '${streamHandlerPath.replace(/\\/g, '/')}'
-  },
-  (line) => line
-);
-      `.trim()
-    );
-
+  it('should preserve stream metadata (entrypoint, maxLineLength, maxStreamSize)', async () => {
     const actionHandlerPath = join(testDir, 'action.ts');
     writeFileSync(
       actionHandlerPath,
@@ -595,78 +498,6 @@ export default {
     writeFileSync(
       configPath,
       `
-import streamHandler from './jsonl-stream.js';
-import action from './action.js';
-
-export default {
-  environments: {
-    default: {
-      version: 1,
-      actions: [action],
-      streams: {
-        'jsonl': {
-          version: 1,
-          transform: streamHandler
-        }
-      }
-    }
-  }
-};
-      `.trim()
-    );
-
-    const outdir = join(testDir, 'output');
-    const result = await build({ config: configPath, outdir });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      const settingsContent = readFileSync(result.settingsPath, 'utf-8');
-      const settings = JSON.parse(settingsContent);
-
-      expect(settings.environments.default.streams.jsonl.transform.path).toMatch(
-        /^bin\/jsonl-stream\.[a-f0-9]{8}\.mjs$/
-      );
-    }
-  });
-
-  it('should preserve stream metadata (timeout, maxLineLength, maxStreamSize)', async () => {
-    const streamHandlerPath = join(testDir, 'metadata-stream.ts');
-
-    writeFileSync(
-      streamHandlerPath,
-      `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  {
-    streamType: 'metadata',
-    sourcePath: '${streamHandlerPath.replace(/\\/g, '/')}',
-    timeout: 5000,
-    maxLineLength: 2048,
-    maxStreamSize: 1048576
-  },
-  (line) => line
-);
-      `.trim()
-    );
-
-    const actionHandlerPath = join(testDir, 'action.ts');
-    writeFileSync(
-      actionHandlerPath,
-      `
-export default {
-  factoryType: 'action',
-  actionName: 'Test',
-  handler: async () => {}
-};
-      `.trim()
-    );
-
-    const configPath = join(testDir, 'settings.config.ts');
-    writeFileSync(
-      configPath,
-      `
-import streamHandler from './metadata-stream.js';
 import action from './action.js';
 
 export default {
@@ -677,7 +508,10 @@ export default {
       streams: {
         'metadata': {
           version: 1,
-          transform: streamHandler
+          wwwRoot: './renderers/metadata',
+          entrypoint: 'app.html',
+          maxLineLength: 2048,
+          maxStreamSize: 1048576
         }
       }
     }
@@ -696,7 +530,8 @@ export default {
 
       const stream = settings.environments.default.streams.metadata;
       expect(stream.version).toBe(1);
-      expect(stream.transform.timeout).toBe(5000);
+      expect(stream.wwwRoot).toBe('./renderers/metadata');
+      expect(stream.entrypoint).toBe('app.html');
       expect(stream.maxLineLength).toBe(2048);
       expect(stream.maxStreamSize).toBe(1048576);
     }
@@ -740,29 +575,11 @@ export default {
       const settingsContent = readFileSync(result.settingsPath, 'utf-8');
       const settings = JSON.parse(settingsContent);
 
-      // Config without streams shouldn't have streams section
       expect(settings.environments.default.streams).toBeUndefined();
     }
   });
 
   it('should produce settings.json with streams alongside actions and types', async () => {
-    const streamHandlerPath = join(testDir, 'full-stream.ts');
-
-    writeFileSync(
-      streamHandlerPath,
-      `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_FACTORY_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  {
-    streamType: 'full',
-    sourcePath: '${streamHandlerPath.replace(/\\/g, '/')}'
-  },
-  (line) => line
-);
-      `.trim()
-    );
-
     const actionHandlerPath = join(testDir, 'action.ts');
     writeFileSync(
       actionHandlerPath,
@@ -779,7 +596,6 @@ export default {
     writeFileSync(
       configPath,
       `
-import streamHandler from './full-stream.js';
 import action from './action.js';
 
 const noteValidator = {
@@ -802,7 +618,7 @@ export default {
       streams: {
         'full': {
           version: 1,
-          transform: streamHandler
+          wwwRoot: './renderers/full'
         }
       }
     }
@@ -819,7 +635,6 @@ export default {
       const settingsContent = readFileSync(result.settingsPath, 'utf-8');
       const settings = JSON.parse(settingsContent);
 
-      // Should have all three sections
       expect(settings.environments.default.actions).toBeDefined();
       expect(settings.environments.default.types).toBeDefined();
       expect(settings.environments.default.streams).toBeDefined();
@@ -827,6 +642,7 @@ export default {
       expect(settings.environments.default.actions).toHaveLength(1);
       expect(settings.environments.default.types.note).toBeDefined();
       expect(settings.environments.default.streams.full).toBeDefined();
+      expect(settings.environments.default.streams.full.wwwRoot).toBe('./renderers/full');
     }
   });
 });

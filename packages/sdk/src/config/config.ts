@@ -28,7 +28,6 @@
 
 import type {
   ActionCommand,
-  StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
@@ -42,17 +41,20 @@ import type {
 /**
  * Stream definition for settings configuration.
  *
- * Defines a stream transform handler that processes lines from streaming
- * endpoints. The transform runs on each line before further processing.
+ * Defines an iframe-based renderer for a stream type. The `wwwRoot` directory
+ * contains static assets (HTML, JS, CSS) that render stream content inside
+ * an iframe in the extension UI.
  *
  * This is the input format for stream definitions in settings.config.ts files.
- * It uses a direct import of the command object created by the factory function.
  *
  * @example
  * ```typescript
- * const jsonlStream: StreamConfigDefinition = {
+ * const claudeSession: StreamConfigDefinition = {
  *   version: 1,
- *   transform: defineStreamTransform({ streamType: 'jsonl' }, transformHandler)
+ *   wwwRoot: './renderers/claude-session',
+ *   entrypoint: 'index.html',
+ *   maxLineLength: 1048576,
+ *   maxStreamSize: 104857600
  * };
  * ```
  */
@@ -65,12 +67,24 @@ export interface StreamConfigDefinition {
   version: number;
 
   /**
-   * Transform command.
+   * Path to the directory containing the iframe renderer's static assets.
    *
-   * The stream transform command that processes each line of the stream.
-   * Created using the defineStreamTransform factory function.
+   * Resolved relative to the config file during the build.
    */
-  transform: StreamTransformCommand;
+  wwwRoot: string;
+
+  /**
+   * Entry point HTML file within the wwwRoot directory.
+   *
+   * Defaults to `"index.html"` when omitted.
+   */
+  entrypoint?: string;
+
+  /** Maximum bytes per line before truncation (default 1 MB). */
+  maxLineLength?: number;
+
+  /** Maximum cumulative bytes per stream file before auto-close (default 100 MB). */
+  maxStreamSize?: number;
 }
 
 // ============================================================================
@@ -195,8 +209,8 @@ export interface EnvironmentConfig {
   /**
    * Optional stream definitions.
    *
-   * Maps stream type names to their configurations (transform handler).
-   * Stream types identify different kinds of streaming endpoints (e.g., 'jsonl', 'logs').
+   * Maps stream type names to their configurations (iframe renderer).
+   * Stream types identify different kinds of streaming endpoints (e.g., 'claude-session').
    */
   streams?: Record<string, StreamConfigDefinition>;
 }

@@ -242,16 +242,7 @@ async function compileHandler(options) {
     };
     const sourceImport = toRelativeImport(sourcePath);
     let wrapperContent;
-    if (factoryType === "streamTransform") {
-      wrapperContent = `
-import cmd from '${sourceImport}';
-export default {
-  streamType: cmd.streamType,
-  handler: (line, ctx) => cmd(line, ctx),
-  init: cmd.init ? (ctx) => cmd.init(ctx) : undefined,
-};
-`;
-    } else if (factoryType === "typeValidator") {
+    if (factoryType === "typeValidator") {
       const validationImport = toRelativeImport(path.resolve(getPackageRoot(), "src/config/validation.ts"));
       wrapperContent = `
 import handler from '${sourceImport}';
@@ -272,8 +263,6 @@ if (!process.argv.includes('--branch-cleanup')) {
     }
     const outputDir = path.dirname(outputPath);
     fs.mkdirSync(outputDir, { recursive: true });
-    const isStreamTransform = factoryType === "streamTransform";
-    const jsBanner = isStreamTransform ? void 0 : BANNER;
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
@@ -284,13 +273,13 @@ if (!process.argv.includes('--branch-cleanup')) {
       outfile: outputPath,
       bundle: true,
       format: "esm",
-      platform: isStreamTransform ? "neutral" : "node",
+      platform: "node",
       target: "es2022",
       sourcemap: sourcemap ? "inline" : false,
       minify: false,
       treeShaking: true,
-      external: isStreamTransform ? [] : EXTERNALS,
-      banner: jsBanner != null ? { js: jsBanner } : {},
+      external: EXTERNALS,
+      banner: { js: BANNER },
       logLevel: "silent"
     });
     if (result.errors.length > 0) {
@@ -374,16 +363,6 @@ function extractCommands(config) {
             });
           }
         }
-      }
-    }
-    if (envConfig.streams) {
-      for (const streamConfig of Object.values(envConfig.streams)) {
-        commands.push({
-          factoryType: streamConfig.transform.factoryType,
-          name: streamConfig.transform.streamType,
-          sourcePath: streamConfig.transform.sourcePath,
-          timeout: streamConfig.transform.timeout
-        });
       }
     }
   }
@@ -513,9 +492,7 @@ function generateSettings(config, compiled, binDir) {
     if (envConfig.streams) {
       const streams = {};
       for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
-        const key = `${streamConfig.transform.factoryType}:${streamConfig.transform.streamType}`;
-        const compiled2 = compiledByKey.get(key);
-        streams[streamName] = generateStreamDefinition(streamConfig, compiled2, binDir);
+        streams[streamName] = generateStreamDefinition(streamConfig);
       }
       environments[envName].streams = streams;
     }
@@ -535,21 +512,19 @@ function generateCommand(cmd, compiled, binDir) {
   }
   return command;
 }
-function generateStreamDefinition(streamConfig, compiled, binDir) {
+function generateStreamDefinition(streamConfig) {
   const streamDef = {
     version: streamConfig.version,
-    transform: {
-      path: compiled ? path2.posix.join(binDir, compiled.filename) : `${streamConfig.transform.factoryType}-${streamConfig.transform.streamType}.js`
-    }
+    wwwRoot: streamConfig.wwwRoot
   };
-  if (streamConfig.transform.timeout !== void 0) {
-    streamDef.transform.timeout = streamConfig.transform.timeout;
+  if (streamConfig.entrypoint !== void 0) {
+    streamDef.entrypoint = streamConfig.entrypoint;
   }
-  if (streamConfig.transform.maxLineLength !== void 0) {
-    streamDef.maxLineLength = streamConfig.transform.maxLineLength;
+  if (streamConfig.maxLineLength !== void 0) {
+    streamDef.maxLineLength = streamConfig.maxLineLength;
   }
-  if (streamConfig.transform.maxStreamSize !== void 0) {
-    streamDef.maxStreamSize = streamConfig.transform.maxStreamSize;
+  if (streamConfig.maxStreamSize !== void 0) {
+    streamDef.maxStreamSize = streamConfig.maxStreamSize;
   }
   return streamDef;
 }

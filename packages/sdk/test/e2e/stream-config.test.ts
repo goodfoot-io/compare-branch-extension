@@ -3,10 +3,9 @@
  *
  * These tests validate that:
  * 1. Stream configurations serialize correctly to settings.json format
- * 2. Stream transform handlers receive correct context
- * 3. Multiple streams can coexist in an environment
- * 4. Streams work alongside actions and types
- * 5. Optional stream fields serialize correctly
+ * 2. Multiple streams can coexist in an environment
+ * 3. Streams work alongside actions and types
+ * 4. Optional stream fields serialize correctly
  *
  *
  * @summary End-to-end tests for stream configuration serialization
@@ -14,10 +13,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { TransformContext } from '../../src/config/command-types.js';
 import {
   defineAction,
-  defineStreamTransform,
   defineTypeValidator,
   type SettingsConfig,
   type StreamDefinition,
@@ -32,8 +29,6 @@ import {
 describe('stream configuration serialization', () => {
   describe('basic serialization', () => {
     it('should serialize stream config with required fields to settings.json format', () => {
-      const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -42,7 +37,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'my-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/my-stream'
               }
             }
           }
@@ -54,23 +49,13 @@ describe('stream configuration serialization', () => {
 
       expect(streamDef).toBeDefined();
       expect(streamDef?.version).toBe(1);
-      expect(streamDef?.transform.path).toBe('streamTransform-jsonl.js');
-      expect(streamDef?.transform.timeout).toBeUndefined();
+      expect(streamDef?.wwwRoot).toBe('./renderers/my-stream');
+      expect(streamDef?.entrypoint).toBeUndefined();
       expect(streamDef?.maxLineLength).toBeUndefined();
       expect(streamDef?.maxStreamSize).toBeUndefined();
     });
 
     it('should serialize stream config with all optional fields', () => {
-      const transform = defineStreamTransform(
-        {
-          streamType: 'jsonl',
-          timeout: 5000,
-          maxLineLength: 1024,
-          maxStreamSize: 1048576
-        },
-        async (line: string) => line
-      );
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -79,7 +64,10 @@ describe('stream configuration serialization', () => {
             streams: {
               'my-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/my-stream',
+                entrypoint: 'app.html',
+                maxLineLength: 1024,
+                maxStreamSize: 1048576
               }
             }
           }
@@ -91,15 +79,13 @@ describe('stream configuration serialization', () => {
 
       expect(streamDef).toBeDefined();
       expect(streamDef?.version).toBe(1);
-      expect(streamDef?.transform.path).toBe('streamTransform-jsonl.js');
-      expect(streamDef?.transform.timeout).toBe(5000);
+      expect(streamDef?.wwwRoot).toBe('./renderers/my-stream');
+      expect(streamDef?.entrypoint).toBe('app.html');
       expect(streamDef?.maxLineLength).toBe(1024);
       expect(streamDef?.maxStreamSize).toBe(1048576);
     });
 
-    it('should serialize transform.path following streamTransform-{streamType}.js pattern', () => {
-      const customTransform = defineStreamTransform({ streamType: 'custom-format' }, async (line: string) => line);
-
+    it('should serialize wwwRoot as provided path', () => {
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -108,7 +94,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'custom-stream': {
                 version: 1,
-                transform: customTransform
+                wwwRoot: './custom/renderer/path'
               }
             }
           }
@@ -118,12 +104,10 @@ describe('stream configuration serialization', () => {
       const settings = serializeSettings(config);
       const streamDef = settings.environments['default']!.streams?.['custom-stream'];
 
-      expect(streamDef?.transform.path).toBe('streamTransform-custom-format.js');
+      expect(streamDef?.wwwRoot).toBe('./custom/renderer/path');
     });
 
     it('should serialize version as number', () => {
-      const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -132,7 +116,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'versioned-stream': {
                 version: 2,
-                transform
+                wwwRoot: './renderers/versioned'
               }
             }
           }
@@ -149,10 +133,6 @@ describe('stream configuration serialization', () => {
 
   describe('multiple streams', () => {
     it('should serialize multiple streams in the same environment', () => {
-      const jsonlTransform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
-      const csvTransform = defineStreamTransform({ streamType: 'csv' }, async (line: string) => line);
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -161,11 +141,11 @@ describe('stream configuration serialization', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: jsonlTransform
+                wwwRoot: './renderers/jsonl'
               },
               'csv-stream': {
                 version: 1,
-                transform: csvTransform
+                wwwRoot: './renderers/csv'
               }
             }
           }
@@ -179,18 +159,11 @@ describe('stream configuration serialization', () => {
       expect(Object.keys(streams!)).toHaveLength(2);
       expect(streams!['jsonl-stream']).toBeDefined();
       expect(streams!['csv-stream']).toBeDefined();
-      expect(streams!['jsonl-stream']!.transform.path).toBe('streamTransform-jsonl.js');
-      expect(streams!['csv-stream']!.transform.path).toBe('streamTransform-csv.js');
+      expect(streams!['jsonl-stream']!.wwwRoot).toBe('./renderers/jsonl');
+      expect(streams!['csv-stream']!.wwwRoot).toBe('./renderers/csv');
     });
 
     it('should serialize streams with different configurations', () => {
-      const fastTransform = defineStreamTransform({ streamType: 'fast', timeout: 1000 }, async (line: string) => line);
-
-      const slowTransform = defineStreamTransform(
-        { streamType: 'slow', timeout: 10000, maxLineLength: 2048 },
-        async (line: string) => line
-      );
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -199,11 +172,14 @@ describe('stream configuration serialization', () => {
             streams: {
               'fast-stream': {
                 version: 1,
-                transform: fastTransform
+                wwwRoot: './renderers/fast',
+                maxLineLength: 512
               },
               'slow-stream': {
                 version: 1,
-                transform: slowTransform
+                wwwRoot: './renderers/slow',
+                maxLineLength: 2048,
+                maxStreamSize: 10485760
               }
             }
           }
@@ -214,17 +190,15 @@ describe('stream configuration serialization', () => {
       const fastStream = settings.environments['default']!.streams?.['fast-stream'];
       const slowStream = settings.environments['default']!.streams?.['slow-stream'];
 
-      expect(fastStream?.transform.timeout).toBe(1000);
-      expect(fastStream?.maxLineLength).toBeUndefined();
-      expect(slowStream?.transform.timeout).toBe(10000);
+      expect(fastStream?.maxLineLength).toBe(512);
+      expect(fastStream?.maxStreamSize).toBeUndefined();
       expect(slowStream?.maxLineLength).toBe(2048);
+      expect(slowStream?.maxStreamSize).toBe(10485760);
     });
   });
 
   describe('streams with actions and types', () => {
     it('should serialize streams alongside actions', () => {
-      const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
       const actionCommand = defineAction({ actionName: 'test-action' }, async () => {
         // Action implementation
       });
@@ -237,7 +211,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'test-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/test'
               }
             }
           }
@@ -251,12 +225,10 @@ describe('stream configuration serialization', () => {
       expect(env.streams).toBeDefined();
       expect(env.streams?.['test-stream']).toBeDefined();
       expect(env.actions[0]!.name).toBe('test-action');
-      expect(env.streams?.['test-stream']!.transform.path).toBe('streamTransform-jsonl.js');
+      expect(env.streams?.['test-stream']!.wwwRoot).toBe('./renderers/test');
     });
 
     it('should serialize streams alongside types', () => {
-      const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
       const validator = defineTypeValidator(
         { typeName: 'note', schema: 'Note format', description: 'Validates notes' },
         async () => validationSuccess()
@@ -276,7 +248,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'test-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/test'
               }
             }
           }
@@ -290,12 +262,10 @@ describe('stream configuration serialization', () => {
       expect(env.types?.['note']).toBeDefined();
       expect(env.streams).toBeDefined();
       expect(env.streams?.['test-stream']).toBeDefined();
-      expect(env.streams?.['test-stream']!.transform.path).toBe('streamTransform-jsonl.js');
+      expect(env.streams?.['test-stream']!.wwwRoot).toBe('./renderers/test');
     });
 
     it('should serialize full config with actions, types, and streams', () => {
-      const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
       const actionCommand = defineAction({ actionName: 'test-action' }, async () => {
         // Action implementation
       });
@@ -319,7 +289,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'test-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/test'
               }
             }
           }
@@ -337,71 +307,8 @@ describe('stream configuration serialization', () => {
     });
   });
 
-  describe('transform context', () => {
-    it('should pass correct context to transform handler', async () => {
-      let capturedContext: TransformContext | undefined;
-
-      const transform = defineStreamTransform(
-        { streamType: 'jsonl' },
-        async (line: string, context: TransformContext) => {
-          capturedContext = context;
-          return line;
-        }
-      );
-
-      // Execute the transform to verify context
-      const testContext: TransformContext = {
-        lineNumber: 42,
-        streamType: 'jsonl',
-        state: new Map()
-      };
-
-      await transform('test line', testContext);
-
-      expect(capturedContext).toBeDefined();
-      expect(capturedContext?.lineNumber).toBe(42);
-      expect(capturedContext?.streamType).toBe('jsonl');
-    });
-
-    it('should preserve streamType in transform command', () => {
-      const transform = defineStreamTransform({ streamType: 'custom-type' }, async (line: string) => line);
-
-      expect(transform.streamType).toBe('custom-type');
-    });
-
-    it('should pass line number through context', async () => {
-      const lineNumbers: number[] = [];
-
-      const transform = defineStreamTransform(
-        { streamType: 'jsonl' },
-        async (line: string, context: TransformContext) => {
-          lineNumbers.push(context.lineNumber);
-          return line;
-        }
-      );
-
-      // Simulate processing multiple lines
-      const state = new Map();
-      await transform('line 1', { lineNumber: 1, streamType: 'jsonl', state });
-      await transform('line 2', { lineNumber: 2, streamType: 'jsonl', state });
-      await transform('line 3', { lineNumber: 3, streamType: 'jsonl', state });
-
-      expect(lineNumbers).toEqual([1, 2, 3]);
-    });
-  });
-
   describe('StreamDefinition format compliance', () => {
     it('should match StreamDefinition interface structure', () => {
-      const transform = defineStreamTransform(
-        {
-          streamType: 'jsonl',
-          timeout: 3000,
-          maxLineLength: 512,
-          maxStreamSize: 524288
-        },
-        async (line: string) => line
-      );
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -410,7 +317,10 @@ describe('stream configuration serialization', () => {
             streams: {
               'compliant-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/compliant',
+                entrypoint: 'app.html',
+                maxLineLength: 512,
+                maxStreamSize: 524288
               }
             }
           }
@@ -423,25 +333,22 @@ describe('stream configuration serialization', () => {
       // Verify all StreamDefinition fields
       expect(streamDef).toBeDefined();
       expect(streamDef).toHaveProperty('version');
-      expect(streamDef).toHaveProperty('transform');
-      expect(streamDef?.transform).toHaveProperty('path');
+      expect(streamDef).toHaveProperty('wwwRoot');
 
       // Verify types
       expect(typeof streamDef?.version).toBe('number');
-      expect(typeof streamDef?.transform.path).toBe('string');
-      expect(typeof streamDef?.transform.timeout).toBe('number');
+      expect(typeof streamDef?.wwwRoot).toBe('string');
+      expect(typeof streamDef?.entrypoint).toBe('string');
       expect(typeof streamDef?.maxLineLength).toBe('number');
       expect(typeof streamDef?.maxStreamSize).toBe('number');
 
       // Verify optional fields are present when configured
-      expect(streamDef?.transform.timeout).toBe(3000);
+      expect(streamDef?.entrypoint).toBe('app.html');
       expect(streamDef?.maxLineLength).toBe(512);
       expect(streamDef?.maxStreamSize).toBe(524288);
     });
 
     it('should omit undefined optional fields', () => {
-      const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -450,7 +357,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'minimal-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/minimal'
               }
             }
           }
@@ -462,7 +369,7 @@ describe('stream configuration serialization', () => {
 
       // Should not have optional fields when not configured
       expect(streamDef).toBeDefined();
-      expect('timeout' in (streamDef?.transform ?? {})).toBe(false);
+      expect('entrypoint' in (streamDef ?? {})).toBe(false);
       expect('maxLineLength' in (streamDef ?? {})).toBe(false);
       expect('maxStreamSize' in (streamDef ?? {})).toBe(false);
     });
@@ -504,8 +411,6 @@ describe('stream configuration serialization', () => {
     });
 
     it('should handle stream name with special characters', () => {
-      const transform = defineStreamTransform({ streamType: 'jsonl' }, async (line: string) => line);
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -514,7 +419,7 @@ describe('stream configuration serialization', () => {
             streams: {
               'my-special_stream.v2': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/special'
               }
             }
           }
@@ -528,43 +433,7 @@ describe('stream configuration serialization', () => {
       expect(streamDef?.version).toBe(1);
     });
 
-    it('should handle large timeout values', () => {
-      const transform = defineStreamTransform(
-        { streamType: 'jsonl', timeout: 300000 }, // 5 minutes
-        async (line: string) => line
-      );
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            streams: {
-              'slow-stream': {
-                version: 1,
-                transform
-              }
-            }
-          }
-        }
-      };
-
-      const settings = serializeSettings(config);
-      const streamDef = settings.environments['default']!.streams?.['slow-stream'];
-
-      expect(streamDef?.transform.timeout).toBe(300000);
-    });
-
     it('should handle large size constraint values', () => {
-      const transform = defineStreamTransform(
-        {
-          streamType: 'jsonl',
-          maxLineLength: 1048576, // 1MB per line
-          maxStreamSize: 104857600 // 100MB total
-        },
-        async (line: string) => line
-      );
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -573,7 +442,9 @@ describe('stream configuration serialization', () => {
             streams: {
               'large-stream': {
                 version: 1,
-                transform
+                wwwRoot: './renderers/large',
+                maxLineLength: 1048576, // 1MB per line
+                maxStreamSize: 104857600 // 100MB total
               }
             }
           }

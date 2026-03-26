@@ -1,0 +1,149 @@
+/**
+ * Vanilla Zustand store for iframe-based stream renderers.
+ *
+ * Initializes from `window.__STREAM_INIT__` (set by the host before the
+ * iframe loads) and listens for `postMessage` events to keep state in sync.
+ *
+ * @summary Zustand vanilla store for stream renderer state
+ * @module stream-store/store
+ */
+
+import { createStore } from 'zustand/vanilla';
+import type { HostToIframeMessage, StreamFile, StreamInitData, StreamStoreState } from './types.js';
+
+declare global {
+  interface Window {
+    __STREAM_INIT__?: StreamInitData;
+  }
+}
+
+/**
+ * Builds the initial store state from host-provided initialization data.
+ *
+ * @param init - Initialization data set on `window.__STREAM_INIT__` by the host.
+ * @returns Fully populated store state ready for Zustand.
+ */
+function buildInitialState(init: StreamInitData): StreamStoreState {
+  const files = new Map<string, StreamFile>();
+  for (const [filename, data] of Object.entries(init.files)) {
+    files.set(filename, {
+      filename,
+      meta: data.meta,
+      lines: [...data.lines],
+      isSubscribed: filename === init.primary,
+      isLoading: false,
+      error: null
+    });
+  }
+  return {
+    primary: init.primary,
+    files,
+    availableFiles: [...init.availableFiles],
+    connected: true
+  };
+}
+
+/**
+ * Applies a host message to the current store state, returning the next state.
+ *
+ * @param state - Current store state.
+ * @param msg - Host-to-iframe message to apply.
+ * @returns Updated store state, or the same reference if no change is needed.
+ */
+function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partial<StreamStoreState> | null {
+  switch (msg.type) {
+    case 'stream:line': {
+      const file = state.files.get(msg.filename);
+      if (!file) return null;
+      const updated = new Map(state.files);
+      updated.set(msg.filename, {
+        ...file,
+        lines: [...file.lines, msg.line],
+        meta: { ...file.meta, lineCount: file.meta.lineCount + 1 }
+      });
+      return { files: updated };
+    }
+
+    case 'stream:started': {
+      const file = state.files.get(msg.filename);
+      const updated = new Map(state.files);
+      updated.set(msg.filename, {
+        filename: msg.filename,
+        meta: msg.meta,
+        lines: file?.lines ?? [],
+        isSubscribed: file?.isSubscribed ?? false,
+        isLoading: file?.isLoading ?? false,
+        error: file?.error ?? null
+      });
+      return { files: updated };
+    }
+
+    case 'stream:ended': {
+      const file = state.files.get(msg.filename);
+      if (!file) return null;
+      const updated = new Map(state.files);
+      updated.set(msg.filename, {
+        ...file,
+        meta: msg.meta
+      });
+      return { files: updated };
+    }
+
+    case 'availableFiles:update': {
+      return { availableFiles: [...msg.files] };
+    }
+
+    case 'subscribe:response': {
+      const updated = new Map(state.files);
+      if (msg.error) {
+        const existing = state.files.get(msg.filename);
+        updated.set(msg.filename, {
+          filename: msg.filename,
+          meta: existing?.meta ?? msg.meta,
+          lines: existing?.lines ?? [],
+          isSubscribed: false,
+          isLoading: false,
+          error: msg.error
+        });
+      } else {
+        updated.set(msg.filename, {
+          filename: msg.filename,
+          meta: msg.meta,
+          lines: [...msg.lines],
+          isSubscribed: true,
+          isLoading: false,
+          error: null
+        });
+      }
+      return { files: updated };
+    }
+
+    case 'visibility:change': {
+      // Currently no store state for visibility — reserved for future use
+      return null;
+    }
+
+    default:
+      return null;
+  }
+}
+
+// Create the store from window.__STREAM_INIT__
+const init = window.__STREAM_INIT__;
+if (!init) {
+  throw new Error('Stream store requires window.__STREAM_INIT__ to be set by the host');
+}
+
+/** Vanilla Zustand store for stream renderer state. */
+export const streamStore = createStore<StreamStoreState>()(() => buildInitialState(init));
+
+// Listen for host messages and update the store
+window.addEventListener('message', (event: MessageEvent<HostToIframeMessage>) => {
+  const msg = event.data;
+  if (!msg || typeof msg !== 'object' || !('type' in msg)) return;
+
+  const patch = applyMessage(streamStore.getState(), msg);
+  if (patch) {
+    streamStore.setState(patch);
+  }
+});

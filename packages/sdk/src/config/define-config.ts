@@ -78,31 +78,27 @@ function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefin
 
 /**
  * Serializes a stream configuration to a StreamDefinition object.
- * Extracts metadata from the transform command and generates the command path.
+ * Extracts wwwRoot, entrypoint, and size constraints from the config.
  *
  * @param streamConfig - Stream configuration from a specific environment.
  * @returns Stream definition object compatible with `settings.json`.
  */
 function serializeStreamConfig(streamConfig: StreamConfigDefinition): StreamDefinition {
-  const { version, transform } = streamConfig;
-
   const streamDef: StreamDefinition = {
-    version,
-    transform: {
-      path: `${transform.factoryType}-${transform.streamType}.js`
-    }
+    version: streamConfig.version,
+    wwwRoot: streamConfig.wwwRoot
   };
 
-  if (transform.timeout !== undefined) {
-    streamDef.transform.timeout = transform.timeout;
+  if (streamConfig.entrypoint !== undefined) {
+    streamDef.entrypoint = streamConfig.entrypoint;
   }
 
-  if (transform.maxLineLength !== undefined) {
-    streamDef.maxLineLength = transform.maxLineLength;
+  if (streamConfig.maxLineLength !== undefined) {
+    streamDef.maxLineLength = streamConfig.maxLineLength;
   }
 
-  if (transform.maxStreamSize !== undefined) {
-    streamDef.maxStreamSize = transform.maxStreamSize;
+  if (streamConfig.maxStreamSize !== undefined) {
+    streamDef.maxStreamSize = streamConfig.maxStreamSize;
   }
 
   return streamDef;

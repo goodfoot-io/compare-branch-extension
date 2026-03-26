@@ -194,49 +194,50 @@ describe('TypeDefinition', () => {
 // ============================================================================
 
 describe('StreamDefinition', () => {
-  it('should require version and transform properties', () => {
+  it('should require version and wwwRoot properties', () => {
     expectTypeOf<StreamDefinition>().toMatchTypeOf<{
       version: number;
-      transform: { path: string; timeout?: number };
+      wwwRoot: string;
     }>();
   });
 
   it('should require version to be a number', () => {
     const streamDef: StreamDefinition = {
       version: 1,
-      transform: { path: './bin/transform.js' }
+      wwwRoot: './renderers/claude-session'
     };
     expectTypeOf(streamDef.version).toBeNumber();
   });
 
-  it('should require transform.path to be a string', () => {
+  it('should require wwwRoot to be a string', () => {
     const streamDef: StreamDefinition = {
       version: 1,
-      transform: { path: './bin/transform.js' }
+      wwwRoot: './renderers/claude-session'
     };
-    expectTypeOf(streamDef.transform.path).toBeString();
+    expectTypeOf(streamDef.wwwRoot).toBeString();
   });
 
   it('should allow minimal stream definition with only required fields', () => {
     const minimalStream: StreamDefinition = {
       version: 1,
-      transform: { path: './bin/transform.js' }
+      wwwRoot: './renderers/claude-session'
     };
     expectTypeOf(minimalStream).toMatchTypeOf<StreamDefinition>();
   });
 
-  it('should allow optional timeout in transform', () => {
-    const streamWithTimeout: StreamDefinition = {
+  it('should allow optional entrypoint property', () => {
+    const streamWithEntrypoint: StreamDefinition = {
       version: 1,
-      transform: { path: './bin/transform.js', timeout: 5000 }
+      wwwRoot: './renderers/claude-session',
+      entrypoint: 'index.html'
     };
-    expectTypeOf(streamWithTimeout.transform.timeout).toEqualTypeOf<number | undefined>();
+    expectTypeOf(streamWithEntrypoint.entrypoint).toEqualTypeOf<string | undefined>();
   });
 
   it('should allow optional maxLineLength property', () => {
     const streamWithMaxLine: StreamDefinition = {
       version: 1,
-      transform: { path: './bin/transform.js' },
+      wwwRoot: './renderers/claude-session',
       maxLineLength: 1024
     };
     expectTypeOf(streamWithMaxLine.maxLineLength).toEqualTypeOf<number | undefined>();
@@ -245,7 +246,7 @@ describe('StreamDefinition', () => {
   it('should allow optional maxStreamSize property', () => {
     const streamWithMaxSize: StreamDefinition = {
       version: 1,
-      transform: { path: './bin/transform.js' },
+      wwwRoot: './renderers/claude-session',
       maxStreamSize: 1048576
     };
     expectTypeOf(streamWithMaxSize.maxStreamSize).toEqualTypeOf<number | undefined>();
@@ -254,7 +255,8 @@ describe('StreamDefinition', () => {
   it('should allow all properties together', () => {
     const fullStream: StreamDefinition = {
       version: 1,
-      transform: { path: './bin/transform.js', timeout: 5000 },
+      wwwRoot: './renderers/claude-session',
+      entrypoint: 'index.html',
       maxLineLength: 1024,
       maxStreamSize: 1048576
     };
@@ -338,7 +340,7 @@ describe('Environment', () => {
       streams: {
         logs: {
           version: 1,
-          transform: { path: './bin/transform-logs.js' }
+          wwwRoot: './renderers/logs'
         }
       }
     };
@@ -352,11 +354,11 @@ describe('Environment', () => {
       streams: {
         logs: {
           version: 1,
-          transform: { path: './bin/transform-logs.js' }
+          wwwRoot: './renderers/logs'
         },
         metrics: {
           version: 1,
-          transform: { path: './bin/transform-metrics.js' }
+          wwwRoot: './renderers/metrics'
         }
       }
     };
@@ -386,7 +388,8 @@ describe('Environment', () => {
       streams: {
         logs: {
           version: 1,
-          transform: { path: './bin/transform-logs.js', timeout: 5000 },
+          wwwRoot: './renderers/logs',
+          entrypoint: 'index.html',
           maxLineLength: 1024,
           maxStreamSize: 1048576
         }

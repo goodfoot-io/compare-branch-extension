@@ -17,7 +17,6 @@ import { compileHandler } from '../../../src/config/cli/compiler.js';
 // Resolve the path to the factories module for test fixtures
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FACTORIES_PATH = path.resolve(__dirname, '../../../src/config/factories/index.js');
-const STREAM_TRANSFORM_PATH = path.resolve(__dirname, '../../../src/config/factories/stream-transform.js');
 
 // ============================================================================
 // Test Helpers
@@ -426,110 +425,6 @@ export default defineAction(
       const output = readCompiledOutput(outputPath);
       // No build-time preamble setting CARDS_HOOKS_LOG_FILE — env var is set at runtime
       expect(output).not.toMatch(/process\.env\[["']CARDS_HOOKS_LOG_FILE["']\]\s*=/);
-    });
-  });
-
-  // ==========================================================================
-  // Stream Transform Compilation
-  // ==========================================================================
-
-  describe('streamTransform factoryType', () => {
-    /**
-     * Compiles a stream transform handler and returns the compiled output string.
-     * Asserts compilation success before returning.
-     *
-     * @param handlerContent - Stream transform fixture source code to compile.
-     * @param options - Optional compilation flags for this helper.
-     * @param options.sourcemap - Whether to request inline source maps from the compiler.
-     * @returns Compiled bundle source text.
-     */
-    async function compileStreamTransform(
-      handlerContent: string,
-      options: { sourcemap?: boolean } = {}
-    ): Promise<string> {
-      const sourcePath = writeTestHandler(testDir, 'handler.js', handlerContent);
-      const outputPath = path.join(testDir, 'output.mjs');
-      const result = await compileHandler({
-        sourcePath,
-        outputPath,
-        sourcemap: options.sourcemap ?? false,
-        factoryType: 'streamTransform'
-      });
-      expect(result.success).toBe(true);
-      return readCompiledOutput(outputPath);
-    }
-
-    /** Stream transform handler fixture with init function. */
-    const HANDLER_WITH_INIT = `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  { streamType: 'test-stream', sourcePath: '/workspace/handler.js' },
-  (line) => \`transformed: \${line}\`,
-  (ctx) => { ctx.state.set('initialized', true); }
-);
-`;
-
-    /** Stream transform handler fixture without init function. */
-    const HANDLER_WITHOUT_INIT = `
-import { defineStreamTransform } from '${STREAM_TRANSFORM_PATH.replace(/\\/g, '/')}';
-
-export default defineStreamTransform(
-  { streamType: 'test-stream', sourcePath: '/workspace/handler.js' },
-  (line) => \`transformed: \${line}\`
-);
-`;
-
-    it('should produce a self-contained ESM bundle with default export object shape', async () => {
-      const output = await compileStreamTransform(HANDLER_WITH_INIT);
-
-      // Default export is an object with streamType, handler, init fields
-      expect(output).toMatch(/streamType/);
-      expect(output).toMatch(/handler/);
-      expect(output).toMatch(/init/);
-
-      // Exported as default (esbuild emits `export { x as default }`)
-      expect(output).toMatch(/as\s+default/);
-
-      // No named init export (only default export)
-      expect(output).not.toMatch(/export\s+function\s+init/);
-      expect(output).not.toMatch(/export\s*\{[^}]*\binit\b[^}]*\}/);
-
-      // Fully bundled: no bare import statements
-      expect(output).not.toMatch(/^\s*import\s+/m);
-
-      // No Node.js createRequire banner (incompatible with browser blob URL)
-      expect(output).not.toContain('createRequire');
-    });
-
-    it('should set init to undefined when no init handler is provided', async () => {
-      const output = await compileStreamTransform(HANDLER_WITHOUT_INIT);
-      // init field is present in the object but resolves to void 0
-      expect(output).toMatch(/init/);
-      expect(output).not.toMatch(/export\s+function\s+init/);
-    });
-
-    it('should return error for non-existent source file', async () => {
-      const sourcePath = path.join(testDir, 'non-existent.js');
-      const outputPath = path.join(testDir, 'output.mjs');
-
-      const result = await compileHandler({
-        sourcePath,
-        outputPath,
-        sourcemap: false,
-        factoryType: 'streamTransform'
-      });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('does not exist');
-      }
-    });
-
-    it('should generate inline source maps when requested', async () => {
-      const output = await compileStreamTransform(HANDLER_WITH_INIT, { sourcemap: true });
-
-      expect(output).toContain('sourceMappingURL');
     });
   });
 });

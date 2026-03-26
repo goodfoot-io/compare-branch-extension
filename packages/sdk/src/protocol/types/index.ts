@@ -167,11 +167,9 @@ export type {
 export type {
   AttachmentInfoFile,
   StreamDefinition,
-  StreamInitContext,
   StreamMeta,
   StreamMetaFile,
-  StreamStatus,
-  TransformContext
+  StreamStatus
 } from './stream.js';
 // --- Timeline Types ---
 export type {

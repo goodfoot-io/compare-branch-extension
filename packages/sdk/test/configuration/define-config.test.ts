@@ -11,7 +11,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   ActionCommand,
-  StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
@@ -581,12 +580,8 @@ describe('serializeSettings', () => {
     });
   });
 
-  describe('stream transform to StreamDefinition conversion', () => {
-    it('should extract streamType and generate correct command path', () => {
-      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
-      transformCommand.factoryType = 'streamTransform';
-      transformCommand.streamType = 'jsonl';
-
+  describe('stream config to StreamDefinition conversion', () => {
+    it('should pass through wwwRoot', () => {
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -595,7 +590,7 @@ describe('serializeSettings', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: transformCommand
+                wwwRoot: './renderers/jsonl'
               }
             }
           }
@@ -605,14 +600,10 @@ describe('serializeSettings', () => {
       const result = serializeSettings(config);
       const streamDef = result.environments['default']!.streams?.['jsonl-stream'];
 
-      expect(streamDef?.transform.path).toBe('streamTransform-jsonl.js');
+      expect(streamDef?.wwwRoot).toBe('./renderers/jsonl');
     });
 
     it('should preserve version field', () => {
-      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
-      transformCommand.factoryType = 'streamTransform';
-      transformCommand.streamType = 'jsonl';
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -621,7 +612,7 @@ describe('serializeSettings', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: transformCommand
+                wwwRoot: './renderers/jsonl'
               }
             }
           }
@@ -634,12 +625,7 @@ describe('serializeSettings', () => {
       expect(streamDef?.version).toBe(1);
     });
 
-    it('should extract timeout from transform command', () => {
-      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
-      transformCommand.factoryType = 'streamTransform';
-      transformCommand.streamType = 'jsonl';
-      transformCommand.timeout = 5000;
-
+    it('should pass through entrypoint', () => {
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -648,7 +634,8 @@ describe('serializeSettings', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: transformCommand
+                wwwRoot: './renderers/jsonl',
+                entrypoint: 'app.html'
               }
             }
           }
@@ -658,15 +645,10 @@ describe('serializeSettings', () => {
       const result = serializeSettings(config);
       const streamDef = result.environments['default']!.streams?.['jsonl-stream'];
 
-      expect(streamDef?.transform.timeout).toBe(5000);
+      expect(streamDef?.entrypoint).toBe('app.html');
     });
 
-    it('should extract maxLineLength from transform command', () => {
-      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
-      transformCommand.factoryType = 'streamTransform';
-      transformCommand.streamType = 'jsonl';
-      transformCommand.maxLineLength = 1024;
-
+    it('should pass through maxLineLength', () => {
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -675,7 +657,8 @@ describe('serializeSettings', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: transformCommand
+                wwwRoot: './renderers/jsonl',
+                maxLineLength: 1024
               }
             }
           }
@@ -688,12 +671,7 @@ describe('serializeSettings', () => {
       expect(streamDef?.maxLineLength).toBe(1024);
     });
 
-    it('should extract maxStreamSize from transform command', () => {
-      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
-      transformCommand.factoryType = 'streamTransform';
-      transformCommand.streamType = 'jsonl';
-      transformCommand.maxStreamSize = 1048576;
-
+    it('should pass through maxStreamSize', () => {
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -702,7 +680,8 @@ describe('serializeSettings', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: transformCommand
+                wwwRoot: './renderers/jsonl',
+                maxStreamSize: 1048576
               }
             }
           }
@@ -715,14 +694,7 @@ describe('serializeSettings', () => {
       expect(streamDef?.maxStreamSize).toBe(1048576);
     });
 
-    it('should handle stream with all metadata', () => {
-      const transformCommand = vi.fn() as unknown as StreamTransformCommand;
-      transformCommand.factoryType = 'streamTransform';
-      transformCommand.streamType = 'jsonl';
-      transformCommand.timeout = 5000;
-      transformCommand.maxLineLength = 1024;
-      transformCommand.maxStreamSize = 1048576;
-
+    it('should handle stream with all fields', () => {
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -731,7 +703,10 @@ describe('serializeSettings', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: transformCommand
+                wwwRoot: './renderers/jsonl',
+                entrypoint: 'index.html',
+                maxLineLength: 1024,
+                maxStreamSize: 1048576
               }
             }
           }
@@ -742,21 +717,13 @@ describe('serializeSettings', () => {
       const streamDef = result.environments['default']!.streams?.['jsonl-stream'];
 
       expect(streamDef?.version).toBe(1);
-      expect(streamDef?.transform.path).toBe('streamTransform-jsonl.js');
-      expect(streamDef?.transform.timeout).toBe(5000);
+      expect(streamDef?.wwwRoot).toBe('./renderers/jsonl');
+      expect(streamDef?.entrypoint).toBe('index.html');
       expect(streamDef?.maxLineLength).toBe(1024);
       expect(streamDef?.maxStreamSize).toBe(1048576);
     });
 
     it('should handle multiple streams in one environment', () => {
-      const jsonlTransform = vi.fn() as unknown as StreamTransformCommand;
-      jsonlTransform.factoryType = 'streamTransform';
-      jsonlTransform.streamType = 'jsonl';
-
-      const logsTransform = vi.fn() as unknown as StreamTransformCommand;
-      logsTransform.factoryType = 'streamTransform';
-      logsTransform.streamType = 'logs';
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -765,11 +732,11 @@ describe('serializeSettings', () => {
             streams: {
               'jsonl-stream': {
                 version: 1,
-                transform: jsonlTransform
+                wwwRoot: './renderers/jsonl'
               },
               'logs-stream': {
                 version: 1,
-                transform: logsTransform
+                wwwRoot: './renderers/logs'
               }
             }
           }
@@ -780,10 +747,8 @@ describe('serializeSettings', () => {
 
       expect(result.environments['default']!.streams?.['jsonl-stream']).toBeDefined();
       expect(result.environments['default']!.streams?.['logs-stream']).toBeDefined();
-      expect(result.environments['default']!.streams?.['jsonl-stream']!.transform.path).toBe(
-        'streamTransform-jsonl.js'
-      );
-      expect(result.environments['default']!.streams?.['logs-stream']!.transform.path).toBe('streamTransform-logs.js');
+      expect(result.environments['default']!.streams?.['jsonl-stream']!.wwwRoot).toBe('./renderers/jsonl');
+      expect(result.environments['default']!.streams?.['logs-stream']!.wwwRoot).toBe('./renderers/logs');
     });
 
     it('should handle missing streams gracefully', () => {

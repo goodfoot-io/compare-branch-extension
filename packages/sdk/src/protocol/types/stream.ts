@@ -2,10 +2,11 @@
  * Stream protocol types for JSONL streaming.
  *
  * A stream is an append-only JSONL file attached to a card. The server accepts
- * chunked POST requests, applies a per-line transform (ESM module), persists
- * raw lines to `streams/{streamType}/{filename}`, and broadcasts transformed output over
- * WebSocket in real time. Metadata lives in a sibling `.meta.json` file and
- * is committed to the card repository at stream creation and close.
+ * chunked POST requests, persists raw lines to `streams/{streamType}/{filename}`,
+ * and broadcasts output over WebSocket in real time. An iframe-based renderer
+ * (served from the stream definition's `wwwRoot` directory) displays stream
+ * content in the extension UI. Metadata lives in a sibling `.meta.json` file
+ * and is committed to the card repository at stream creation and close.
  *
  *
  * @summary Stream protocol types for JSONL streaming
@@ -146,7 +147,8 @@ export interface StreamMeta extends StreamMetaFile {
  *
  * Declared under `environments.{name}.streams` in `settings.json`, keyed by
  * a lowercase-hyphenated type name (e.g., `"claude-session"`). Each definition
- * points to an ESM transform module and sets size guardrails.
+ * points to a static directory (`wwwRoot`) containing an iframe renderer and
+ * sets size guardrails.
  *
  * @example
  * ```json
@@ -154,7 +156,8 @@ export interface StreamMeta extends StreamMetaFile {
  *   "streams": {
  *     "claude-session": {
  *       "version": 1,
- *       "transform": { "path": "./transforms/claude.mjs", "timeout": 5000 },
+ *       "wwwRoot": "./renderers/claude-session",
+ *       "entrypoint": "index.html",
  *       "maxLineLength": 1048576,
  *       "maxStreamSize": 104857600
  *     }
@@ -166,123 +169,23 @@ export interface StreamDefinition {
   /** Schema version for forward compatibility. */
   version: number;
 
-  /** Transform module configuration. */
-  transform: {
-    /**
-     * Path to the ESM transform module.
-     *
-     * Absolute paths are used as-is. Relative paths resolve from
-     * `{workspacePath}/.cards/transforms/`. Path traversal (`..`) is rejected.
-     */
-    path: string;
+  /**
+   * Path to the directory containing the iframe renderer's static assets.
+   *
+   * Relative paths resolve from the settings.json file location.
+   */
+  wwwRoot: string;
 
-    /**
-     * Maximum time in milliseconds allowed for a single transform call.
-     * If the transform exceeds this, the raw line is returned and a
-     * `stream:error` event is broadcast. Defaults to 5000.
-     */
-    timeout?: number;
-  };
+  /**
+   * Entry point HTML file within the wwwRoot directory.
+   *
+   * Defaults to `"index.html"` when omitted.
+   */
+  entrypoint?: string;
 
   /** Maximum bytes per line before truncation (default 1 MB). Lines exceeding this are clipped with a `...[truncated]` suffix. */
   maxLineLength?: number;
 
   /** Maximum cumulative bytes per stream file before auto-close with `'size_limit'` status (default 100 MB). */
   maxStreamSize?: number;
-}
-
-/**
- * Context provided once at stream initialization.
- *
- * If the transform module exports an `init` function, it receives this context
- * when the stream begins. The `state` Map is created fresh for each stream and
- * shared with all subsequent `transform()` calls, allowing the init function
- * to prepare session-level data (e.g., parsers, counters, caches) that persists
- * across all lines in the stream. The state Map never crosses the thread boundary;
- * it exists only within the worker for the duration of the stream.
- *
- * @example
- * ```typescript
- * // .cards/transforms/session-counter.mjs
- * export function init(ctx: StreamInitContext): void {
- *   ctx.state.set('counter', 0);
- *   ctx.state.set('sessionId', ctx.headers['x-stream-session-id'] ?? 'unknown');
- * }
- *
- * export default function transform(line: string, ctx: TransformContext): string {
- *   const count = (ctx.state.get('counter') as number) + 1;
- *   ctx.state.set('counter', count);
- *   return `[${count}] ${line}`;
- * }
- * ```
- */
-export interface StreamInitContext {
-  /** Stream type key matching the environment config entry. */
-  streamType: string;
-
-  /** The stream filename (e.g., `"session.log"`). */
-  filename: string;
-
-  /** HTTP request headers from the POST that initiated this stream. */
-  headers: Record<string, string>;
-
-  /** Card metadata for the card this stream belongs to. */
-  card: {
-    /** Card identifier. */
-    id: string;
-
-    /** Card title, if set. */
-    title?: string;
-
-    /** Card metadata. */
-    metadata: Record<string, unknown>;
-  };
-
-  /**
-   * Mutable state Map shared with all `transform()` calls.
-   *
-   * The same Map instance is passed to both `init()` and `transform()` functions,
-   * allowing transforms to store session-level state (counters, parsers, caches)
-   * that persists across all lines within the stream. The state is created in the
-   * worker thread and never serialized or sent across the thread boundary.
-   */
-  state: Map<string, unknown>;
-}
-
-/**
- * Context provided to each invocation of a transform function.
- *
- * Transform modules receive the raw line string as their first argument and
- * this context as the second. The context properties (except `state`) are
- * reconstructed fresh for every line, but the `state` Map is the same instance
- * across all lines in the stream, allowing transforms to maintain session-level
- * data initialized in the optional `init()` function.
- *
- * @example
- * ```typescript
- * // .cards/transforms/prefixer.mjs
- * export default function transform(line: string, ctx: TransformContext): string {
- *   return `[${ctx.streamType}:${ctx.lineNumber}] ${line}`;
- * }
- * ```
- */
-export interface TransformContext {
-  /** 1-based line number within the current stream. */
-  lineNumber: number;
-
-  /** Stream type key matching the environment config entry. */
-  streamType: string;
-
-  /**
-   * Mutable state Map shared with the `init()` function and all `transform()` calls.
-   *
-   * The same Map instance is passed to both `init()` (if exported) and every
-   * `transform()` call, allowing transforms to store session-level state that
-   * persists across all lines. The state is created in the worker thread and
-   * never crosses the thread boundary.
-   *
-   * This property is optional for backward compatibility with existing transforms
-   * that don't use worker isolation. When present, it's always a valid Map instance.
-   */
-  state?: Map<string, unknown>;
 }

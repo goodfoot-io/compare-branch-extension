@@ -116,16 +116,17 @@ export interface TypeDefinition {
 // ============================================================================
 
 /**
- * Represents a stream configuration with transform and size constraints.
+ * Represents a stream configuration with an iframe renderer and size constraints.
  *
- * Stream definitions specify how to transform JSONL streams and set limits
- * on line length and total stream size.
+ * Stream definitions specify a static directory (`wwwRoot`) containing an
+ * iframe-based renderer and set limits on line length and total stream size.
  *
  * @example
  * ```typescript
  * const streamDef: StreamDefinition = {
  *   version: 1,
- *   transform: { path: './bin/transform.js', timeout: 5000 },
+ *   wwwRoot: './renderers/claude-session',
+ *   entrypoint: 'index.html',
  *   maxLineLength: 1024,
  *   maxStreamSize: 1048576
  * };
@@ -134,8 +135,10 @@ export interface TypeDefinition {
 export interface StreamDefinition {
   /** Version number for the stream definition */
   version: number;
-  /** Transform configuration with script path and optional timeout */
-  transform: { path: string; timeout?: number };
+  /** Path to the directory containing the iframe renderer's static assets */
+  wwwRoot: string;
+  /** Entry point HTML file within the wwwRoot directory. Defaults to "index.html". */
+  entrypoint?: string;
   /** Optional maximum length for a single line in bytes */
   maxLineLength?: number;
   /** Optional maximum total stream size in bytes */

@@ -143,7 +143,6 @@ export type {
   TimelineTypedFileAddedEvent,
   TimelineTypedFileRemovedEvent,
   TimelineTypedFileUpdatedEvent,
-  TransformContext,
   TypeConfig,
   TypeDefinition,
   TypedFileHookInput,

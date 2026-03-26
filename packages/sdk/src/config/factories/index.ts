@@ -1,10 +1,9 @@
 /**
- * Factory functions for declaring type-safe action handlers, type lifecycle
- * hooks (create, update, delete, validate), and stream transform pipelines.
- * Each factory captures handler metadata and wires up validation helpers for
- * consistent error reporting.
+ * Factory functions for declaring type-safe action handlers and type lifecycle
+ * hooks (create, update, delete, validate). Each factory captures handler
+ * metadata and wires up validation helpers for consistent error reporting.
  *
- * @summary Factories for defining actions, type hooks, and stream transforms
+ * @summary Factories for defining actions and type hooks
  * @module
  */
 
@@ -18,12 +17,6 @@ export {
   type ActionHandler,
   defineAction
 } from './action.js';
-export {
-  defineStreamTransform,
-  type StreamInitHandler,
-  type StreamTransformConfig,
-  type StreamTransformHandler
-} from './stream-transform.js';
 export {
   defineTypeCreate,
   defineTypeDelete,

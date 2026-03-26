@@ -34,17 +34,6 @@ export {
 } from './factories/type-hooks.js';
 
 // ============================================================================
-// Stream Transform Factories
-// ============================================================================
-
-export {
-  defineStreamTransform,
-  type StreamInitHandler,
-  type StreamTransformConfig,
-  type StreamTransformHandler
-} from './factories/stream-transform.js';
-
-// ============================================================================
 // Configuration
 // ============================================================================
 
@@ -88,9 +77,6 @@ export type {
 
 export type {
   ActionCommand,
-  StreamInitContext,
-  StreamTransformCommand,
-  TransformContext,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,

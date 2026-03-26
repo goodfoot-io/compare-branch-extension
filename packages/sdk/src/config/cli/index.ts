@@ -196,17 +196,8 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
       }
     }
 
-    // Extract stream transform commands
-    if (envConfig.streams) {
-      for (const streamConfig of Object.values(envConfig.streams)) {
-        commands.push({
-          factoryType: streamConfig.transform.factoryType,
-          name: streamConfig.transform.streamType,
-          sourcePath: streamConfig.transform.sourcePath,
-          timeout: streamConfig.transform.timeout
-        });
-      }
-    }
+    // Stream configs no longer produce compiled handlers — wwwRoot directories
+    // are copied to the output as static assets.
   }
 
   return commands;
@@ -409,13 +400,11 @@ function generateSettings(config: SettingsConfig, compiled: CompiledHandler[], b
       environments[envName].types = types;
     }
 
-    // Generate streams
+    // Generate streams — wwwRoot paths are passed through from config
     if (envConfig.streams) {
       const streams: Record<string, StreamDefinition> = {};
       for (const [streamName, streamConfig] of Object.entries(envConfig.streams)) {
-        const key = `${streamConfig.transform.factoryType}:${streamConfig.transform.streamType}`;
-        const compiled = compiledByKey.get(key);
-        streams[streamName] = generateStreamDefinition(streamConfig, compiled, binDir);
+        streams[streamName] = generateStreamDefinition(streamConfig);
       }
       environments[envName].streams = streams;
     }
@@ -462,32 +451,22 @@ function generateCommand(
 /**
  * Generates a StreamDefinition object for a stream config.
  *
- * @param streamConfig - Source stream configuration including transform metadata.
- * @param compiled - Matching compiled transform handler, if one was produced.
- * @param binDir - Relative bin directory used when constructing transform paths.
+ * @param streamConfig - Source stream configuration with wwwRoot and optional fields.
  * @returns Stream definition object compatible with settings schema.
  */
-function generateStreamDefinition(
-  streamConfig: StreamConfigDefinition,
-  compiled: CompiledHandler | undefined,
-  binDir: string
-): StreamDefinition {
+function generateStreamDefinition(streamConfig: StreamConfigDefinition): StreamDefinition {
   const streamDef: StreamDefinition = {
     version: streamConfig.version,
-    transform: {
-      path: compiled
-        ? path.posix.join(binDir, compiled.filename)
-        : `${streamConfig.transform.factoryType}-${streamConfig.transform.streamType}.js`
-    }
+    wwwRoot: streamConfig.wwwRoot
   };
-  if (streamConfig.transform.timeout !== undefined) {
-    streamDef.transform.timeout = streamConfig.transform.timeout;
+  if (streamConfig.entrypoint !== undefined) {
+    streamDef.entrypoint = streamConfig.entrypoint;
   }
-  if (streamConfig.transform.maxLineLength !== undefined) {
-    streamDef.maxLineLength = streamConfig.transform.maxLineLength;
+  if (streamConfig.maxLineLength !== undefined) {
+    streamDef.maxLineLength = streamConfig.maxLineLength;
   }
-  if (streamConfig.transform.maxStreamSize !== undefined) {
-    streamDef.maxStreamSize = streamConfig.transform.maxStreamSize;
+  if (streamConfig.maxStreamSize !== undefined) {
+    streamDef.maxStreamSize = streamConfig.maxStreamSize;
   }
   return streamDef;
 }

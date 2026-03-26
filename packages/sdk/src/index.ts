@@ -12,17 +12,15 @@ export * from './protocol/index.js';
 
 // Re-export configuration exports, excluding names that collide with protocol.
 // The colliding configuration types (Action, Command, Environment, Settings,
-// StreamDefinition, TypeDefinition, TypeConfig, TransformContext) are available
-// via the `@cards/sdk/config` subpath export.
+// StreamDefinition, TypeDefinition, TypeConfig) are available via the
+// `@cards/sdk/config` subpath export.
 // ValidationFailure, ValidationResult, ValidationSuccess are re-exported from
 // protocol by the configuration barrel and are identical -- excluded here to
 // avoid duplicate-export errors.
 
-// --- Command Types (excluding TransformContext) ---
+// --- Command Types ---
 export type {
   ActionCommand,
-  StreamInitContext,
-  StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
@@ -57,13 +55,6 @@ export {
   type ActionHandler,
   defineAction
 } from './config/factories/action.js';
-// --- Stream Transform Factories ---
-export {
-  defineStreamTransform,
-  type StreamInitHandler,
-  type StreamTransformConfig,
-  type StreamTransformHandler
-} from './config/factories/stream-transform.js';
 // --- Type Hook Factories (excluding TypeConfig) ---
 export {
   defineTypeCreate,

@@ -11,7 +11,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   ActionCommand,
-  StreamTransformCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
   TypeUpdateCommand,
@@ -100,48 +99,42 @@ describe('config types', () => {
   });
 
   describe('StreamConfigDefinition', () => {
-    it('should accept stream config with version and transform', () => {
-      const transform: StreamTransformCommand<'jsonl'> = {
-        factoryType: 'streamTransform',
-        streamType: 'jsonl'
-      } as StreamTransformCommand<'jsonl'>;
-
+    it('should accept stream config with version and wwwRoot', () => {
       const streamConfig: StreamConfigDefinition = {
         version: 1,
-        transform
+        wwwRoot: './renderers/jsonl'
       };
 
       expect(streamConfig.version).toBe(1);
-      expect(streamConfig.transform.streamType).toBe('jsonl');
+      expect(streamConfig.wwwRoot).toBe('./renderers/jsonl');
     });
 
     it('should verify version is required and is number type', () => {
-      // Type-level check that version is required and is a number
       type ConfigType = StreamConfigDefinition;
 
       expectTypeOf<ConfigType>().toHaveProperty('version').toEqualTypeOf<number>();
     });
 
-    it('should verify transform is required', () => {
-      // Type-level check that transform is required
+    it('should verify wwwRoot is required and is string type', () => {
       type ConfigType = StreamConfigDefinition;
 
-      expectTypeOf<ConfigType>().toHaveProperty('transform').toEqualTypeOf<StreamTransformCommand>();
+      expectTypeOf<ConfigType>().toHaveProperty('wwwRoot').toEqualTypeOf<string>();
     });
 
-    it('should accept stream config with different stream types', () => {
-      const logsTransform: StreamTransformCommand<'logs'> = {
-        factoryType: 'streamTransform',
-        streamType: 'logs'
-      } as StreamTransformCommand<'logs'>;
-
+    it('should accept stream config with all optional fields', () => {
       const streamConfig: StreamConfigDefinition = {
         version: 2,
-        transform: logsTransform
+        wwwRoot: './renderers/logs',
+        entrypoint: 'index.html',
+        maxLineLength: 1024,
+        maxStreamSize: 1048576
       };
 
       expect(streamConfig.version).toBe(2);
-      expect(streamConfig.transform.streamType).toBe('logs');
+      expect(streamConfig.wwwRoot).toBe('./renderers/logs');
+      expect(streamConfig.entrypoint).toBe('index.html');
+      expect(streamConfig.maxLineLength).toBe(1024);
+      expect(streamConfig.maxStreamSize).toBe(1048576);
     });
   });
 
@@ -286,14 +279,9 @@ describe('config types', () => {
         actionName: 'Launch'
       } as ActionCommand;
 
-      const transform: StreamTransformCommand<'jsonl'> = {
-        factoryType: 'streamTransform',
-        streamType: 'jsonl'
-      } as StreamTransformCommand<'jsonl'>;
-
       const streamConfig: StreamConfigDefinition = {
         version: 1,
-        transform
+        wwwRoot: './renderers/jsonl'
       };
 
       const envConfig: EnvironmentConfig = {
@@ -333,21 +321,11 @@ describe('config types', () => {
         actionName: 'Launch'
       } as ActionCommand;
 
-      const jsonlTransform: StreamTransformCommand<'jsonl'> = {
-        factoryType: 'streamTransform',
-        streamType: 'jsonl'
-      } as StreamTransformCommand<'jsonl'>;
-
-      const logsTransform: StreamTransformCommand<'logs'> = {
-        factoryType: 'streamTransform',
-        streamType: 'logs'
-      } as StreamTransformCommand<'logs'>;
-
       const envConfig: EnvironmentConfig = {
         actions: [command],
         streams: {
-          jsonl: { version: 1, transform: jsonlTransform },
-          logs: { version: 2, transform: logsTransform }
+          jsonl: { version: 1, wwwRoot: './renderers/jsonl' },
+          logs: { version: 2, wwwRoot: './renderers/logs' }
         }
       };
 
@@ -519,11 +497,6 @@ describe('config types', () => {
         typeName: 'adaptive-card'
       } as TypeValidatorCommand<'adaptive-card'>;
 
-      const transform: StreamTransformCommand<'jsonl'> = {
-        factoryType: 'streamTransform',
-        streamType: 'jsonl'
-      } as StreamTransformCommand<'jsonl'>;
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -534,7 +507,7 @@ describe('config types', () => {
               'adaptive-card': { version: '1.0.0', validator }
             },
             streams: {
-              jsonl: { version: 1, transform }
+              jsonl: { version: 1, wwwRoot: './renderers/jsonl' }
             }
           }
         }

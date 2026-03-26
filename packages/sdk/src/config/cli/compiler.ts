@@ -244,18 +244,7 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     const sourceImport = toRelativeImport(sourcePath);
 
     let wrapperContent: string;
-    if (factoryType === 'streamTransform') {
-      // Stream transforms export a default object { streamType, handler, init? }
-      // loadable in a browser via blob URL + dynamic import()
-      wrapperContent = `
-import cmd from '${sourceImport}';
-export default {
-  streamType: cmd.streamType,
-  handler: (line, ctx) => cmd(line, ctx),
-  init: cmd.init ? (ctx) => cmd.init(ctx) : undefined,
-};
-`;
-    } else if (factoryType === 'typeValidator') {
+    if (factoryType === 'typeValidator') {
       // Type validators use file-path protocol via executeValidation
       const validationImport = toRelativeImport(path.resolve(getPackageRoot(), 'src/config/validation.ts'));
       wrapperContent = `
@@ -289,8 +278,6 @@ if (!process.argv.includes('--branch-cleanup')) {
     // sourcefile uses a distinct name so it cannot collide with the
     // handler file that the wrapper imports (esbuild treats sourcefile
     // as the virtual filename for the stdin content).
-    const isStreamTransform = factoryType === 'streamTransform';
-    const jsBanner = isStreamTransform ? undefined : BANNER;
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
@@ -301,13 +288,13 @@ if (!process.argv.includes('--branch-cleanup')) {
       outfile: outputPath,
       bundle: true,
       format: 'esm',
-      platform: isStreamTransform ? 'neutral' : 'node',
+      platform: 'node',
       target: 'es2022',
       sourcemap: sourcemap ? 'inline' : false,
       minify: false,
       treeShaking: true,
-      external: isStreamTransform ? [] : EXTERNALS,
-      banner: jsBanner != null ? { js: jsBanner } : {},
+      external: EXTERNALS,
+      banner: { js: BANNER },
       logLevel: 'silent'
     });
 
