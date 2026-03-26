@@ -27,7 +27,7 @@ vi.mock('@cards/claude-code-sessions/card-repo', () => ({
 function makeConfig(wsUrl: string): CardsServerConfig {
   return {
     cardId: 'test-card',
-    sessionId: 'test-session',
+    resolveSessionId: () => Promise.resolve({ sessionId: 'test-session', claudePid: 12345 }),
     apiAccessToken: 'test-token',
     wsUrl,
     logPath: '/tmp/cards-mcp-server-test.log',
@@ -103,6 +103,43 @@ describe('createServer', () => {
   it('silently filters commits that belong to the current session', async () => {
     const [serverTransport] = InMemoryTransport.createLinkedPair();
     const config = makeConfig(wsServer.getUrl());
+    const infos: string[] = [];
+    const trackingLogger: Logger = {
+      info: (msg) => {
+        infos.push(msg);
+      },
+      warn: () => {},
+      error: () => {}
+    };
+    const server = createServer(config, { transport: serverTransport, logger: trackingLogger });
+
+    const notifications: unknown[] = [];
+    vi.spyOn(server.mcpServer, 'notification').mockImplementation(async (n) => {
+      notifications.push(n);
+    });
+
+    await Promise.all([server.start(), wsServer.awaitConnection()]);
+
+    wsServer.simulateEvent<CardCommitEvent>('card:commit', {
+      cardId: 'test-card',
+      commit: { ...makeCommit(), hash: 'session-owned-sha' }
+    });
+
+    await vi.waitFor(() => {
+      expect(infos).toContain('Suppressed session-owned commit');
+    });
+
+    await server.stop();
+
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('dispatches commits when session ID is not yet available', async () => {
+    const [serverTransport] = InMemoryTransport.createLinkedPair();
+    const config = {
+      ...makeConfig(wsServer.getUrl()),
+      resolveSessionId: () => Promise.resolve({ sessionId: null, claudePid: null })
+    };
     const server = createServer(config, { transport: serverTransport, logger: nullLogger });
 
     const notifications: unknown[] = [];
@@ -117,13 +154,11 @@ describe('createServer', () => {
       commit: { ...makeCommit(), hash: 'session-owned-sha' }
     });
 
-    // Allow event loop to process; session-owned commits should be filtered
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(notifications).toHaveLength(1);
+    });
 
     await server.stop();
-
-    expect(notifications).toHaveLength(0);
   });
 
   it('silently ignores events for other cards', async () => {

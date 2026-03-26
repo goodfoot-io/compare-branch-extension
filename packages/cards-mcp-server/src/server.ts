@@ -79,40 +79,64 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
 
   const onCommit = (event: CardCommitEvent): void => {
     if (event.cardId !== config.cardId) return;
-    if (isSessionCommit(config.sessionId, event.commit.hash)) {
-      logger.info('Suppressed session-owned commit', { sha: event.commit.hash });
-      return;
-    }
     if (isBookkeepingCommit(event.commit)) {
       logger.info('Suppressed bookkeeping-only commit', { sha: event.commit.hash });
       return;
     }
 
-    const content = formatCommit(event.commit);
-    const meta: Record<string, string> = {
-      card_id: event.cardId,
-      commit_sha: event.commit.hash,
-      author: event.commit.author_name,
-      ts: event.commit.date
-    };
+    config
+      .resolveSessionId()
+      .then(({ sessionId, claudePid }) => {
+        logger.info('Resolved session for commit', { sha: event.commit.hash, sessionId, claudePid });
 
-    logger.info('Dispatching channel notification', { sha: event.commit.hash, author: event.commit.author_name });
+        if (sessionId && isSessionCommit(sessionId, event.commit.hash)) {
+          logger.info('Suppressed session-owned commit', { sha: event.commit.hash, sessionId });
+          return;
+        }
 
-    mcp
-      .notification({
-        method: 'notifications/claude/channel',
-        params: { content, meta }
-      })
-      .then(() =>
-        appendCommitToSession(config.sessionId, event.commit.hash).catch((err: unknown) => {
-          logger.error('Failed to record commit to session CSV', {
-            sha: event.commit.hash,
-            error: err instanceof Error ? err.message : String(err)
+        const content = formatCommit(event.commit);
+        const meta: Record<string, string> = {
+          card_id: event.cardId,
+          commit_sha: event.commit.hash,
+          author: event.commit.author_name,
+          ts: event.commit.date
+        };
+
+        logger.info('Dispatching channel notification', {
+          sha: event.commit.hash,
+          author: event.commit.author_name,
+          sessionId,
+          claudePid
+        });
+
+        mcp
+          .notification({
+            method: 'notifications/claude/channel',
+            params: { content, meta }
+          })
+          .then(() => {
+            if (!sessionId) {
+              logger.warn('Skipping commit recording — no session ID available', { sha: event.commit.hash });
+              return;
+            }
+            logger.info('Recording commit to session CSV', { sha: event.commit.hash, sessionId });
+            return appendCommitToSession(sessionId, event.commit.hash).catch((err: unknown) => {
+              logger.error('Failed to record commit to session CSV', {
+                sha: event.commit.hash,
+                sessionId,
+                error: err instanceof Error ? err.message : String(err)
+              });
+            });
+          })
+          .catch((err: unknown) => {
+            logger.error('Failed to send channel notification', {
+              sha: event.commit.hash,
+              error: err instanceof Error ? err.message : String(err)
+            });
           });
-        })
-      )
+      })
       .catch((err: unknown) => {
-        logger.error('Failed to send channel notification', {
+        logger.error('Failed to resolve session ID', {
           sha: event.commit.hash,
           error: err instanceof Error ? err.message : String(err)
         });
@@ -127,7 +151,13 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
       const transport = options.transport ?? new StdioServerTransport();
       await mcp.connect(transport);
       await subscriber.connect();
-      logger.info('Server started', { cardId: config.cardId, sessionId: config.sessionId });
+      logger.info('Server started', {
+        cardId: config.cardId,
+        pid: process.pid,
+        ppid: process.ppid,
+        wsUrl: config.wsUrl,
+        logPath: config.logPath
+      });
     },
     async stop(): Promise<void> {
       logger.info('Server stopping');

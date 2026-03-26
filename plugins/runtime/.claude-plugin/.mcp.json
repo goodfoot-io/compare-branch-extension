@@ -1,0 +1,6 @@
+{
+  "cards-mcp-server": {
+    "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/bin/cards-mcp-server.mjs"]
+  }
+}
