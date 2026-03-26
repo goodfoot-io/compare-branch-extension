@@ -19,6 +19,8 @@ let store: StoreApi<StreamStoreState>;
 
 /**
  * Dispatches a host-to-iframe message event on window.
+ *
+ * @param msg - The message to dispatch.
  */
 function dispatchHostMessage(msg: HostToIframeMessage): void {
   window.dispatchEvent(new MessageEvent('message', { data: msg }));
