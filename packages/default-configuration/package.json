@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "cards-sdk build -c settings.config.ts -o dist && rm -rf ../../../.cards/bin ../../../.cards/settings.json && cp -r ./dist/* ../../../.cards/",
+    "build": "cards-sdk build -c settings.config.ts -o dist && WS_ROOT=$(git rev-parse --show-toplevel) && rm -rf \"$WS_ROOT/.cards/bin\" \"$WS_ROOT/.cards/settings.json\" \"$WS_ROOT/.cards/www\" && cp -r ./dist/* \"$WS_ROOT/.cards/\"",
     "watch": "yarn build && chokidar 'src/**/*.ts' -c 'yarn build'",
     "typecheck": "tsgo --noEmit",
     "test": "vitest-unchanged",
