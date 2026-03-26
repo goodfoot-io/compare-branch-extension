@@ -13,7 +13,7 @@ The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before writing a card's `description`, load the reference that matches the user's request. References are located at `${CLAUDE_PLUGIN_ROOT}/skills/api/references/`.
+Before writing a card's description (CARD.md), load the reference that matches the user's request. References are located at `${CLAUDE_PLUGIN_ROOT}/skills/api/references/`.
 
 Determine the card type using the first matching signal:
 - **Bug, error, crash, regression, broken behavior**: `bug-report.md`
@@ -24,7 +24,7 @@ Determine the card type using the first matching signal:
 - **Infrastructure, CI/CD, deploy, monitoring, scaling**: `operations.md`
 - **Otherwise**: `enhancement.md`
 
-Read the matched reference file, then follow its guidance to compose the card's `description` field.
+Read the matched reference file, then follow its guidance to compose the card's CARD.md content.
 
 ## CLI Binaries
 
@@ -39,12 +39,14 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 
 The response includes `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
 
-**Create a card** — Pipe JSON to stdin with `title` (required) and `description` (required). Optional: `tags`, `environment`, `gates`, `relations`:
+**Create a card** — Pipe JSON to stdin with `title` (required). Optional: `description` (written as CARD.md), `plan` (written as PLAN.md), `evaluation` (written as EVALUATION.md), `tags`, `environment`, `gates`, `relations`:
 ```
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
 { "title": "Fix auth", "description": "Token refresh fails", "tags": ["bug"] }
 EOF
 ```
+
+When `description`, `plan`, or `evaluation` are provided, the CLI writes them to the card repository as separate files (CARD.md, PLAN.md, EVALUATION.md) after creation via the generic file write endpoint.
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
@@ -74,7 +76,7 @@ In a worktree, `--show-toplevel` resolves to the worktree path, so the CLI sees 
 # git-common-dir resolves to the main repo's .git dir from any worktree
 REPO_ROOT="$(realpath "$(git rev-parse --git-common-dir)/..")"
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create --workspace-path "$REPO_ROOT" <<'EOF'
-{ "title": "Lorem ipsum", "description": "Set dolore" }
+{ "title": "Lorem ipsum" }
 EOF
 ```
 
@@ -172,11 +174,11 @@ Each commit's `diff.files` array contains `CardCommitFile` records:
 | `from` | `string?` | Source path for renames (present when status starts with `R`) |
 | `binary` | `boolean` | `true` for binary files (no text diff available) |
 
-### Content Endpoints
+### File Read/Write Endpoints
 
-`GET /cards/:id/plan` returns `{ content: string }` with the card's `PLAN.md` content, or `404` if no plan exists.
+`GET /cards/:id/fs/:path` returns the raw content of any file in the card repository, addressed by its relative path (e.g., `GET /cards/:id/fs/PLAN.md`). Supports an optional `?sha=<commitSha>` query parameter to read a specific version.
 
-`GET /cards/:id/evaluation` returns `{ content: string }` with the card's `EVALUATION.md` content, or `404` if no evaluation rubric exists.
+`PUT /cards/:id/fs/:path` writes content to a file in the card repository. Only `.md` and `.md.meta.json` paths are accepted; path traversal (`..`) is rejected. The body is a JSON-encoded string. The server stages and commits the change automatically.
 
 ### Workspace-Scoped Endpoints
 

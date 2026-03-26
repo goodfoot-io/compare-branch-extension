@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "cards",
-      "version": "1.0.218",
+      "version": "1.0.219",
       "source": "./plugins/cards",
       "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {
