@@ -56,8 +56,6 @@ export {
   expectNoEventsRealTime,
   type SpyLike
 } from './negativeAssertions.js';
-// --- Stream Test Utilities ---
-export { TestStreamTransformHarness } from './stream/index.js';
 // --- Time Control Utilities ---
 export { TestTimeController } from './testTimeController.js';
 // --- WebSocket Test Utilities ---

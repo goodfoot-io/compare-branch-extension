@@ -16,8 +16,6 @@ import chat from './src/actions/chat.js';
 import codex from './src/actions/codex.js';
 import interview from './src/actions/interview.js';
 import launch from './src/actions/launch.js';
-// Stream transforms
-import claudeCodeSessionTransform from './src/transforms/claude-code-session.js';
 // Type validators
 import adaptiveCardSubmissionValidator from './src/validators/adaptive-card-submission-validator.js';
 import adaptiveCardValidator from './src/validators/adaptive-card-validator.js';
@@ -46,7 +44,8 @@ export default defineConfig({
       streams: {
         'claude-code-session': {
           version: 1,
-          transform: claudeCodeSessionTransform
+          wwwRoot: './src/streams/claude-code-session/www',
+          maxLineLength: 1_048_576
         }
       }
     }

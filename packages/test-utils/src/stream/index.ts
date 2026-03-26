@@ -1,9 +1,6 @@
 /**
- * Test harness for executing stream transforms via dynamic import.
- * Accepts inline StreamTransformModule code, manages lifecycle automatically,
- * and maintains per-instance state across transform calls.
+ * Stream test utilities.
  *
- * @summary Test stream transforms with automatic lifecycle and state management
+ * @summary Stream test utilities barrel export
  */
 
-export { TestStreamTransformHarness } from './TestStreamTransformHarness.js';
