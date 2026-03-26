@@ -107,8 +107,6 @@ export interface TimelineOptions {
 export interface CardCreateData {
   /** Title of the card. */
   title: string;
-  /** Description of the card in markdown. */
-  description: string;
   /** Optional tags for categorization and search. */
   tags?: string[];
   /** Optional environment name for action execution. */
@@ -130,8 +128,6 @@ export interface CardCreateData {
 export interface CardUpdateData {
   /** New title for the card. */
   title?: string;
-  /** New description for the card. */
-  description?: string;
   /** New status for the card. */
   status?: CardStatus;
   /** New tags for the card. */

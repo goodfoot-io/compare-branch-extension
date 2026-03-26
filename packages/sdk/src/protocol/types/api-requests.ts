@@ -101,12 +101,6 @@ export interface CreateCardRequest {
   title: string;
 
   /**
-   * Markdown description content for the card body.
-   * Subject to {@link MAX_DESCRIPTION_LENGTH} validation.
-   */
-  description: string;
-
-  /**
    * Absolute filesystem path to the workspace repository.
    * Used to scope the card and derive its branch-based ID prefix.
    */
@@ -184,12 +178,6 @@ export interface UpdateCardRequest {
    * To add a tag, include all existing tags plus the new one.
    */
   tags?: string[];
-
-  /**
-   * Updated description content.
-   * Subject to {@link MAX_DESCRIPTION_LENGTH} validation.
-   */
-  description?: string;
 
   /**
    * Whether the card should be pinned to the top of lists.

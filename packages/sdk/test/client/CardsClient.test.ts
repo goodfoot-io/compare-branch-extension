@@ -83,7 +83,7 @@ describe('CardsClient', () => {
     it('should POST /cards when creating card', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
-      const data = { title: 'Test Card', description: 'Test description' };
+      const data = { title: 'Test Card' };
       await client.createCard(data);
       expect(httpClient.requests[0]).toMatchObject({
         method: 'POST',
@@ -219,39 +219,6 @@ describe('CardsClient', () => {
       expect(requestUrl).toContain('/cards/card-123/timeline');
       expect(requestUrl).toContain('before=');
       expect(requestUrl).toContain('limit=10');
-    });
-  });
-
-  describe('Plan Operations', () => {
-    it('should GET /cards/:id/plan when fetching plan', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.getPlan('card-123');
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'GET',
-        url: expect.stringContaining('/cards/card-123/plan')
-      });
-    });
-
-    it('should extract content field from plan response', async () => {
-      const httpClient = new TestHttpClient();
-      const planUrl = `${options.baseUrl}/cards/card-123/plan`;
-      httpClient.responses.set(planUrl, { content: '# My Plan' });
-      const client = new CardsClient(options, httpClient);
-      const result = await client.getPlan('card-123');
-      expect(result).toBe('# My Plan');
-    });
-
-    it('should PUT /cards/:id/plan when updating plan', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      const content = '# Plan\n\n## Tasks\n- Task 1';
-      await client.updatePlan('card-123', content);
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'PUT',
-        url: expect.stringContaining('/cards/card-123/plan'),
-        body: content
-      });
     });
   });
 
@@ -462,11 +429,7 @@ describe('CardsClient', () => {
 
     it('should return array of environments with name and optional description', async () => {
       const httpClient = new TestHttpClient();
-      const expectedEnvironments = [
-        { name: 'production', description: 'Production environment' },
-        { name: 'staging', description: 'Staging environment' },
-        { name: 'development' }
-      ];
+      const expectedEnvironments = [{ name: 'production' }, { name: 'staging' }, { name: 'development' }];
       httpClient.responses.set('http://localhost:3000/environments', expectedEnvironments);
       const client = new CardsClient(options, httpClient);
       const result = await client.getEnvironments();
@@ -703,7 +666,7 @@ describe('CardsClient', () => {
       const httpClient = new TestHttpClient();
       const mockResponse = {
         types: {
-          note: { version: '1.0.0', schema: 'YAML + markdown', description: 'Notes' },
+          note: { version: '1.0.0', schema: 'YAML + markdown' },
           contract: { version: '2.0.0', schema: null, description: null }
         }
       };

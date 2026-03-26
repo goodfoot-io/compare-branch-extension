@@ -268,19 +268,12 @@ export interface Card extends CardMetadata {
   updatedAt: string;
 
   /**
-   * Markdown description content from DESCRIPTION.md.
-   * Subject to {@link MAX_DESCRIPTION_LENGTH} validation.
-   */
-  description: string;
-
-  /**
-   * Markdown content of the implementation plan from PLAN.md.
+   * List of non-excluded `.md` filenames present in the card repository.
    *
-   * Present only when the card's repository contains a non-empty PLAN.md file.
-   * Used by the web client to derive the `hasPlanContent` flag for the
-   * "planned" derived tag.
+   * Consumers derive plan existence via `documents.includes('PLAN.md')`.
+   * Only `.md` files are included, not `.md.meta.json` sidecars.
    */
-  planContent?: string;
+  documents: string[];
 
   /**
    * Merge status of attributed workspace commits into the viewer's current branch HEAD.

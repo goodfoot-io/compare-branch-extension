@@ -582,58 +582,6 @@ export class CardsClient {
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async getPlan(cardId: string): Promise<string> {
-    const url = this.buildUrl(`/cards/${cardId}/plan`);
-    const response = await this.request(() => this.getHttpClient().get<{ content: string }>(url));
-    return response.content;
-  }
-
-  /**
-   * Updates the plan document for a card.
-   *
-   * @param cardId - Identifier of the card whose plan markdown should be updated.
-   * @param content - Plan markdown content.
-   * @returns Promise resolving when the plan is saved.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async updatePlan(cardId: string, content: string): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}/plan`);
-    return this.request(() => this.getHttpClient().put<void>(url, content));
-  }
-
-  // --- Evaluation Operations ---
-
-  /**
-   * Gets the evaluation document for a card as markdown.
-   *
-   * @param cardId - Identifier of the card whose evaluation markdown should be returned.
-   * @returns Promise resolving to evaluation markdown.
-   * @throws ApiError when the server responds with an error.
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async getEvaluation(cardId: string): Promise<string> {
-    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
-    const response = await this.request(() => this.getHttpClient().get<{ content: string }>(url));
-    return response.content;
-  }
-
-  /**
-   * Updates the evaluation document for a card.
-   *
-   * @param cardId - Identifier of the card whose evaluation markdown should be updated.
-   * @param content - Evaluation markdown content.
-   * @returns Promise resolving when the evaluation is saved.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async updateEvaluation(cardId: string, content: string): Promise<void> {
-    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
-    return this.request(() => this.getHttpClient().put<void>(url, content));
-  }
-
   /**
    * Writes a file to a card repository.
    *

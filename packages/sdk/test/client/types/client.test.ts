@@ -71,19 +71,16 @@ describe('Client Types', () => {
   });
 
   describe('CardCreateData', () => {
-    it('should require title and description', () => {
+    it('should require title', () => {
       const data: CardCreateData = {
-        title: 'Test Card',
-        description: 'This is a test card description'
+        title: 'Test Card'
       };
       expect(data.title).toBe('Test Card');
-      expect(data.description).toBe('This is a test card description');
     });
 
     it('should accept optional environment', () => {
       const data: CardCreateData = {
         title: 'Test Card',
-        description: 'Description',
         environment: 'production'
       };
       expect(data.environment).toBe('production');
@@ -92,11 +89,9 @@ describe('Client Types', () => {
     it('should accept all optional fields together', () => {
       const data: CardCreateData = {
         title: 'Complete Card',
-        description: 'Full description',
         environment: 'staging'
       };
       expect(data.title).toBe('Complete Card');
-      expect(data.description).toBe('Full description');
       expect(data.environment).toBe('staging');
     });
   });
@@ -105,7 +100,6 @@ describe('Client Types', () => {
     it('should accept planRequired flag', () => {
       const data: CardCreateData = {
         title: 'Test Card',
-        description: 'Description',
         gates: { planRequired: true }
       };
       expect(data.gates?.planRequired).toBe(true);
@@ -115,7 +109,6 @@ describe('Client Types', () => {
     it('should accept mergeRequestRequired flag', () => {
       const data: CardCreateData = {
         title: 'Test Card',
-        description: 'Description',
         gates: { mergeRequestRequired: true }
       };
       expect(data.gates?.mergeRequestRequired).toBe(true);
@@ -125,7 +118,6 @@ describe('Client Types', () => {
     it('should accept both gate flags together', () => {
       const data: CardCreateData = {
         title: 'Test Card',
-        description: 'Description',
         gates: { planRequired: true, mergeRequestRequired: true }
       };
       expect(data.gates?.planRequired).toBe(true);
@@ -135,7 +127,6 @@ describe('Client Types', () => {
     it('should accept empty gates object', () => {
       const data: CardCreateData = {
         title: 'Test Card',
-        description: 'Description',
         gates: {}
       };
       expect(data.gates).toEqual({});
@@ -143,8 +134,7 @@ describe('Client Types', () => {
 
     it('should accept CardCreateData without gates field', () => {
       const data: CardCreateData = {
-        title: 'Test Card',
-        description: 'Description'
+        title: 'Test Card'
       };
       expect(data.gates).toBeUndefined();
     });
@@ -154,13 +144,11 @@ describe('Client Types', () => {
     it('should accept all optional update fields', () => {
       const data: CardUpdateData = {
         title: 'Updated Title',
-        description: 'Updated description',
         status: 'active',
         tags: ['bug', 'urgent'],
         isPinned: true
       };
       expect(data.title).toBe('Updated Title');
-      expect(data.description).toBe('Updated description');
       expect(data.status).toBe('active');
       expect(data.tags).toEqual(['bug', 'urgent']);
       expect(data.isPinned).toBe(true);

@@ -65,11 +65,10 @@ describe('DomainEvent discriminated union', () => {
       gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
-      hasPlanContent: false,
+      documents: [],
       isMerged: null,
       relations: [],
-      incomingRelations: [],
-      description: ''
+      incomingRelations: []
     };
 
     switch (event.type) {
@@ -112,11 +111,10 @@ describe('DomainEvent discriminated union', () => {
         gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
         createdAt: '',
         updatedAt: '',
-        hasPlanContent: false,
+        documents: [],
         isMerged: null,
         relations: [],
-        incomingRelations: [],
-        description: ''
+        incomingRelations: []
       },
       { type: 'comment:created', cardId: 'id', commentId: 'cid' },
       {

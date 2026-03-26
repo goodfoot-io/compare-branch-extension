@@ -402,16 +402,14 @@ export interface CardsMetadataEvent {
   createdAt: string;
   /** ISO 8601 last-updated timestamp. */
   updatedAt: string;
-  /** Whether the card has non-empty plan content. */
-  hasPlanContent: boolean;
+  /** Non-excluded `.md` filenames present in the card repository. */
+  documents: string[];
   /** Merge status of workspace commits. `null` when unknown or no workspace commits exist. */
   isMerged: boolean | null;
   /** Outgoing relations from this card. */
   relations: CardRelation[];
   /** Incoming relations targeting this card. */
   incomingRelations: CardRelation[];
-  /** Markdown description content (for search index). */
-  description: string;
 }
 
 // --- Action Events ---
