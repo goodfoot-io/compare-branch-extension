@@ -4161,51 +4161,18 @@ var CardsClient = class {
    * @throws ApiError when the server responds with an error.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async getPlan(cardId) {
-    const url = this.buildUrl(`/cards/${cardId}/plan`);
-    const response = await this.request(() => this.getHttpClient().get(url));
-    return response.content;
-  }
   /**
-   * Updates the plan document for a card.
+   * Writes a file to a card repository.
    *
-   * @param cardId - Identifier of the card whose plan markdown should be updated.
-   * @param content - Plan markdown content.
-   * @returns Promise resolving when the plan is saved.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async updatePlan(cardId, content) {
-    const url = this.buildUrl(`/cards/${cardId}/plan`);
-    return this.request(() => this.getHttpClient().put(url, content));
-  }
-  // --- Evaluation Operations ---
-  /**
-   * Gets the evaluation document for a card as markdown.
-   *
-   * @param cardId - Identifier of the card whose evaluation markdown should be returned.
-   * @returns Promise resolving to evaluation markdown.
-   * @throws ApiError when the server responds with an error.
+   * @param cardId - Identifier of the card whose repository should receive the file.
+   * @param filePath - Relative path within the card repo (e.g. `PLAN.md`, `foo/BAR.md`).
+   * @param content - File content to write.
+   * @returns Promise resolving when the file is saved.
+   * @throws ApiError when the server rejects the write.
    * @throws NetworkError when the request fails to reach the server.
    */
-  async getEvaluation(cardId) {
-    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
-    const response = await this.request(() => this.getHttpClient().get(url));
-    return response.content;
-  }
-  /**
-   * Updates the evaluation document for a card.
-   *
-   * @param cardId - Identifier of the card whose evaluation markdown should be updated.
-   * @param content - Evaluation markdown content.
-   * @returns Promise resolving when the evaluation is saved.
-   * @throws ApiError when the server rejects the update.
-   * @throws NetworkError when the request fails to reach the server.
-   * @deprecated Use direct git operations instead. This endpoint will be removed.
-   */
-  async updateEvaluation(cardId, content) {
-    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
+  async putFile(cardId, filePath, content) {
+    const url = this.buildUrl(`/cards/${cardId}/fs/${filePath}`);
     return this.request(() => this.getHttpClient().put(url, content));
   }
   // --- Gate Operations ---
