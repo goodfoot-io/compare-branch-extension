@@ -72,11 +72,10 @@ Write the comment to the card repository. Commit to the card repository:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/plan-revised.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 EOF
-git add comment/$COMMENT_ID.md
+git add comment/plan-revised.md
 git commit -m "[single sentence summarizing how feedback was incorporated and key judgment calls]"  # <card-repo-commit-style>
 ```
 

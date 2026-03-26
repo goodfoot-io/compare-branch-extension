@@ -42,11 +42,10 @@ git rebase --continue
 ```bash
 cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/merge-conflict.md
 [rebase conflict details, files involved, manual resolution steps]
 EOF
-git add CARD.meta.json comment/$COMMENT_ID.md
+git add CARD.meta.json comment/merge-conflict.md
 git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 
@@ -71,11 +70,10 @@ Based on validation result:
 ```bash
 cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/validation-failed.md
 [validation failure details, what was attempted, what intervention is needed]
 EOF
-git add CARD.meta.json comment/$COMMENT_ID.md
+git add CARD.meta.json comment/validation-failed.md
 git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 
@@ -96,11 +94,10 @@ git merge --ff-only "$WORKSPACE_BRANCH"
 ```bash
 cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/merge-failed.md
 [merge failure details: branch is not a fast-forward of $BASE_BRANCH, likely cause and resolution steps]
 EOF
-git add CARD.meta.json comment/$COMMENT_ID.md
+git add CARD.meta.json comment/merge-failed.md
 git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
 ```
 

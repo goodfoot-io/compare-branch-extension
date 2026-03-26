@@ -38,11 +38,10 @@ Based on blocker analysis:
 
   ```bash
   cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
+  cat <<'EOF' > comment/clarify-blocker.md
   [clarification request: describe what blocker information is missing and what the user should provide]
   EOF
-  git add comment/$COMMENT_ID.md
+  git add comment/clarify-blocker.md
   git commit -m "[single sentence describing what blocker information is missing]"  # <card-repo-commit-style>
   ```
 
@@ -56,11 +55,10 @@ Write a comment to the card repository explaining what is preventing progress, i
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/blocked-status.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]
 EOF
-git add comment/$COMMENT_ID.md
+git add comment/blocked-status.md
 git commit -m "[single sentence describing what is blocking progress and what is needed to resolve it]"  # <card-repo-commit-style>
 ```
 

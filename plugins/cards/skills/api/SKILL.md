@@ -111,10 +111,10 @@ Required: `--type` (error|warning|info), `--title`, `--message`, `--source`
 
 ### uuid7.mjs — Generate UUIDv7
 
-Generates a UUIDv7 identifier (RFC 9562). Used for comment filenames.
+Generates a UUIDv7 identifier (RFC 9562).
 
 ```bash
-COMMENT_ID=$(node ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
+UUID=$(node ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 ```
 
 ### compare.mjs — Compare operations
@@ -213,7 +213,7 @@ CARD.md                     # Description (pure markdown, NO frontmatter)
 PLAN.md                     # Optional plan document
 EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
-  {uuidv7}.md               # Pure markdown, no frontmatter
+  {slug}.md                 # Descriptive semantic slug, pure markdown
 attachment/                 # Created on first attachment
   att-{uuid4}_{name}        # Binary content
   att-{uuid4}_{name}.meta.json
@@ -262,17 +262,15 @@ Replace both occurrences of `comment/` with the target directory
 
 ### Adding a Comment
 
-Comments are pure markdown files with UUIDv7 filenames. The pre-commit hook
-validates filenames and fails-closed on errors.
+Comments are pure markdown files with descriptive slug filenames.
 
 ```bash
 REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
-COMMENT_ID=$(node ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
 mkdir -p "$REPO/comment"
-cat <<'COMMENT_EOF' > "$REPO/comment/$COMMENT_ID.md"
+cat <<'COMMENT_EOF' > "$REPO/comment/my-slug-name.md"
 Your comment content here (plain markdown, no frontmatter).
 COMMENT_EOF
-cd "$REPO" && git add "comment/$COMMENT_ID.md" && git commit -m "Add comment"
+cd "$REPO" && git add "comment/my-slug-name.md" && git commit -m "Add comment"
 ```
 
 ### Adding an Attachment

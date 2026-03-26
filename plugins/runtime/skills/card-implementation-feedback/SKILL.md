@@ -23,11 +23,10 @@ Based on the latest user comment:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/feedback-clarification.md
 [clarification request: what specific changes are needed based on the feedback?]
 EOF
-git add comment/$COMMENT_ID.md
+git add comment/feedback-clarification.md
 git commit -m "[single sentence describing what clarification is needed about the feedback]"  # <card-repo-commit-style>
 ```
 
@@ -43,11 +42,10 @@ Write a comment to the card repository acknowledging the feedback and describing
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/feedback-acknowledged.md
 [acknowledgment of the user's feedback, confirmation of understanding, and what targeted changes will be made]
 EOF
-git add comment/$COMMENT_ID.md
+git add comment/feedback-acknowledged.md
 git commit -m "[single sentence summarizing the feedback and the targeted changes planned]"  # <card-repo-commit-style>
 ```
 
@@ -98,11 +96,10 @@ Based on failure:
 ```bash
 cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/feedback-validation-failed.md
 [exact validation failure output]
 EOF
-git add comment/$COMMENT_ID.md CARD.meta.json
+git add comment/feedback-validation-failed.md CARD.meta.json
 git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
 ```
 

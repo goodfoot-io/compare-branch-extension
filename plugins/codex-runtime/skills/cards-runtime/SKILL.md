@@ -30,7 +30,7 @@ CARD.md                     # Description (pure markdown, NO frontmatter)
 PLAN.md                     # Optional plan document
 EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
-  {uuidv7}.md               # Pure markdown, no frontmatter
+  {slug}.md                 # Descriptive semantic slug, pure markdown
 attachment/                 # Created on first attachment
   att-{uuid4}_{name}        # Binary content
   att-{uuid4}_{name}.meta.json
@@ -119,7 +119,7 @@ All three are pure markdown with no YAML frontmatter. Never wrap content in `---
 Note files (`note/*.md`) are the exception —
 they require YAML frontmatter (see Notes below).
 
-Comment filenames must be UUIDv7 (RFC 9562), validated by the pre-commit hook.
+Comment filenames are free-form — any valid filename is accepted. Callers are encouraged to use descriptive semantic slugs (e.g., `plan-approved.md`, `blocked-status.md`) that convey the comment's purpose at a glance.
 Authorship is determined by git commit ownership.
 
 **Listing** — List chronologically with author and commit message:
@@ -133,8 +133,7 @@ Replace both occurrences of `comment/` with the target directory
 
 **Adding:**
 ```bash
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/my-slug-name.md
 [COMMENT CONTENT]
 EOF
 ```
@@ -256,9 +255,8 @@ The pre-commit hook validates all staged changes and **fails-closed** (exit 1) o
 any validation error:
 
 1. Validates `CARD.meta.json` schema and field constraints
-2. Validates comment filenames are UUIDv7
-3. Validates adaptive-card, adaptive-card-submission, and note files; creates `.meta.json` sidecars
-4. Validates attachment references in `CARD.md` against `attachment/` contents
+2. Validates adaptive-card, adaptive-card-submission, and note files; creates `.meta.json` sidecars
+3. Validates attachment references in `CARD.md` against `attachment/` contents
 
 Commits that fail validation are rejected. The `.meta.json` sidecars created during
 validation are automatically staged by the hook.

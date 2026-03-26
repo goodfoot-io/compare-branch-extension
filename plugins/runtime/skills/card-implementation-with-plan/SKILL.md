@@ -201,13 +201,12 @@ The baseline tag advances after each successful commit. NEEDS_REVISION rollback 
 ```bash
 cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/all-tasks-blocked.md
 All implementation tasks are blocked.
 
 [per-task blocker summary]
 EOF
-git add comment/$COMMENT_ID.md CARD.meta.json
+git add comment/all-tasks-blocked.md CARD.meta.json
 git commit -m "[single sentence describing what is blocking all tasks]"  # <card-repo-commit-style>
 ```
 
@@ -240,13 +239,12 @@ Run validation per the plan's "Validation Commands" section.
 ```bash
 cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/validation-failed.md
 Blocked: validation failure outside modifiable scope.
 
 [exact validation command and full output]
 EOF
-git add comment/$COMMENT_ID.md CARD.meta.json
+git add comment/validation-failed.md CARD.meta.json
 git commit -m "[single sentence describing the validation failure and why it is outside scope]"  # <card-repo-commit-style>
 ```
 

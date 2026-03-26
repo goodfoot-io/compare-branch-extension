@@ -22,11 +22,10 @@ Commit to the card repository:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/question-response.md
 [answer to the question with GitHub-style fragment links for any code references]
 EOF
-git add comment/$COMMENT_ID.md
+git add comment/question-response.md
 git commit -m "[single sentence summarizing the answer to the question]"  # <card-repo-commit-style>
 ```
 

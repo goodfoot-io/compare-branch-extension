@@ -15,11 +15,10 @@ Based on the latest user comment:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/reopen-clarification.md
 [clarification request content]
 EOF
-git add comment/$COMMENT_ID.md
+git add comment/reopen-clarification.md
 git commit -m "[single sentence describing what is unclear about the reopen request]"  # <card-repo-commit-style>
 ```
 
@@ -33,11 +32,10 @@ Write a comment to the card repository summarizing the user's request to confirm
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/reopen-acknowledged.md
 [summary of the user's request, confirmation of understanding, and what additional work will be done]
 EOF
-git add CARD.meta.json comment/$COMMENT_ID.md
+git add CARD.meta.json comment/reopen-acknowledged.md
 git commit -m "[single sentence summarizing the additional work requested]"  # <card-repo-commit-style>
 ```
 

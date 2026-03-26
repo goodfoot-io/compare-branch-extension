@@ -65,11 +65,10 @@ Recovery cycle:
 
   ```bash
   cd [blocking card repositoryPath]
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
+  cat <<'EOF' > comment/blocker-reported.md
   [describe the failure encountered, how it relates to this card's blocker, and any additional context from the recovery attempt]
   EOF
-  git add comment/$COMMENT_ID.md
+  git add comment/blocker-reported.md
   git commit -m "[single sentence describing the failure and how it relates to this card's blocker]"  # <card-repo-commit-style>
   ```
 
@@ -103,11 +102,10 @@ Based on card state:
 
   ```bash
   cd !` echo $CARD_REPO_PATH`
-  export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-  cat <<'EOF' > comment/$COMMENT_ID.md
+  cat <<'EOF' > comment/error-blocked.md
   [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]
   EOF
-  git add CARD.meta.json comment/$COMMENT_ID.md
+  git add CARD.meta.json comment/error-blocked.md
   git commit -m "[single sentence describing the error, recovery attempts, and what manual intervention is needed]"  # <card-repo-commit-style>
   ```
 

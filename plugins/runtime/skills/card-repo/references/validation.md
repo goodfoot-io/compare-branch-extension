@@ -59,13 +59,9 @@ Filename:     word characters, dots, hyphens (no spaces)
 
 ## Comment Filename Pattern
 
-```
-UUIDv7: /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/
-File:   {uuidv7}.md
-```
-
-The version nibble (position 13) must be `7`. Comments with non-UUIDv7 filenames
-are rejected by the pre-commit hook.
+Comment filenames are free-form `.md` files. No format validation is enforced beyond
+basic filesystem validity. Callers are encouraged to use descriptive semantic slugs
+(e.g., `plan-approved.md`, `blocked-status.md`).
 
 ## Validation Error Codes
 

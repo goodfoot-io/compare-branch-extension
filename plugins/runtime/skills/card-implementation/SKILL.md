@@ -139,11 +139,10 @@ Based on failure:
 ```bash
 cd !` echo $CARD_REPO_PATH`
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-export COMMENT_ID=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-cat <<'EOF' > comment/$COMMENT_ID.md
+cat <<'EOF' > comment/validation-failed.md
 [exact validation failure output]
 EOF
-git add comment/$COMMENT_ID.md CARD.meta.json
+git add comment/validation-failed.md CARD.meta.json
 git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
 ```
 
