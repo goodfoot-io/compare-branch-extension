@@ -50,7 +50,12 @@ async function createWorktree(ref2, options) {
   }
   const ignored = await discoverIgnoredPaths(sourceRoot);
   await copyExistingSymlinks(sourceRoot, worktreeDir);
-  await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored });
+  const filteredIgnored = {
+    directories: ignored.directories.filter((d) => d !== ".cards"),
+    files: ignored.files
+  };
+  await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
+  await copyCardsDirectory(sourceRoot, worktreeDir);
   const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
   const [, baseSha] = await Promise.all([
     updateGitExclude({ worktreeDir, repoRoot, directories: ignored.directories, files: ignored.files }),
@@ -162,6 +167,16 @@ async function discoverIgnoredPaths(sourceRoot) {
   const directories = lines.filter((l) => l.endsWith("/")).map((l) => l.slice(0, -1));
   const files = lines.filter((l) => !l.endsWith("/"));
   return { directories, files };
+}
+async function copyCardsDirectory(sourceRoot, worktreeDir) {
+  const sourcePath = path.join(sourceRoot, ".cards");
+  try {
+    await fs.cp(sourcePath, path.join(worktreeDir, ".cards"), { recursive: true });
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
 }
 async function symlinkIgnoredPaths(opts) {
   const { sourceRoot, worktreeDir, ignored } = opts;

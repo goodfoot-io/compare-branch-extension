@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE ./bin/launch.035c9eed.mjs",
+            "command": "$VSCODE_NODE ./bin/launch.f75e0186.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -17,7 +17,7 @@
           "id": "codex",
           "name": "Codex",
           "command": {
-            "command": "$VSCODE_NODE ./bin/codex.c758806e.mjs",
+            "command": "$VSCODE_NODE ./bin/codex.88c68e76.mjs",
             "timeout": 3600000
           },
           "description": "Start a Codex session for the card",
@@ -27,7 +27,7 @@
           "id": "interview",
           "name": "Interview",
           "command": {
-            "command": "$VSCODE_NODE ./bin/interview.48bb467a.mjs",
+            "command": "$VSCODE_NODE ./bin/interview.937b4dc9.mjs",
             "timeout": 3600000
           },
           "description": "Start an interview session for the card",
@@ -37,7 +37,7 @@
           "id": "chat",
           "name": "Chat",
           "command": {
-            "command": "$VSCODE_NODE ./bin/chat.fd494e60.mjs",
+            "command": "$VSCODE_NODE ./bin/chat.b71b8583.mjs",
             "timeout": 3600000
           },
           "description": "Start a chat session for the card",
@@ -63,7 +63,7 @@
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/note-validator.5f10223f.mjs",
+            "command": "$VSCODE_NODE ./bin/note-validator.b767de4f.mjs",
             "timeout": 30000
           }
         }
@@ -71,9 +71,7 @@
       "streams": {
         "claude-code-session": {
           "version": 1,
-          "transform": {
-            "path": "bin/claude-code-session.bf8a9676.mjs"
-          },
+          "wwwRoot": "./www/claude-code-session",
           "maxLineLength": 1048576
         }
       }
@@ -81,14 +79,13 @@
   },
   "__generated": {
     "files": [
-      "launch.035c9eed.mjs",
-      "codex.c758806e.mjs",
-      "interview.48bb467a.mjs",
-      "chat.fd494e60.mjs",
+      "launch.f75e0186.mjs",
+      "codex.88c68e76.mjs",
+      "interview.937b4dc9.mjs",
+      "chat.b71b8583.mjs",
       "adaptive-card-validator.31b4a5e5.mjs",
       "adaptive-card-submission-validator.5ff5cd2b.mjs",
-      "note-validator.5f10223f.mjs",
-      "claude-code-session.bf8a9676.mjs"
+      "note-validator.b767de4f.mjs"
     ]
   }
 }
