@@ -47,7 +47,8 @@ Create:
   description (string). Optional fields: tags (string[]), environment
   (string), gates ({ planRequired?: boolean, mergeRequestRequired?: boolean }),
   relations ({ type: "related", cardId: string }[]),
-  plan (string, markdown content written to the card's PLAN.md).
+  plan (string, markdown content written to the card's PLAN.md),
+  evaluation (string, markdown content written to the card's EVALUATION.md).
 
   The response contains only server-generated fields not present in the
   input (e.g. id, status, timestamps), plus repositoryPath. Fields the
@@ -155,6 +156,7 @@ function readStdin(): Promise<string> {
 export interface ParsedCardInput {
   data: CardCreateData;
   plan?: string;
+  evaluation?: string;
   /** Keys the caller explicitly provided — used to filter the create response. */
   inputKeys: Set<string>;
 }
@@ -213,7 +215,12 @@ export function parseCardCreateInput(raw: string): ParsedCardInput {
     plan = parsed['plan'];
   }
 
-  return { data, plan, inputKeys };
+  let evaluation: string | undefined;
+  if (typeof parsed['evaluation'] === 'string') {
+    evaluation = parsed['evaluation'];
+  }
+
+  return { data, plan, evaluation, inputKeys };
 }
 
 /** Keys always included in the create response regardless of caller input. */
@@ -235,12 +242,16 @@ const CREATE_ALWAYS_INCLUDE = new Set(['id', 'repositoryPath']);
 export async function createCard(args: string[]): Promise<void> {
   const flags = parseFlags(args);
   const raw = await readStdin();
-  const { data, plan, inputKeys } = parseCardCreateInput(raw);
+  const { data, plan, evaluation, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags['workspace-path']?.[0]);
   const card = await client.createCard(data);
 
   if (plan !== undefined) {
     await client.updatePlan(card.id, plan);
+  }
+
+  if (evaluation !== undefined) {
+    await client.updateEvaluation(card.id, evaluation);
   }
 
   const full = card as unknown as Record<string, unknown>;

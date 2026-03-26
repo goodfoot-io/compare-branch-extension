@@ -757,6 +757,34 @@ var CardsClient = class {
     const url = this.buildUrl(`/cards/${cardId}/plan`);
     return this.request(() => this.getHttpClient().put(url, content));
   }
+  // --- Evaluation Operations ---
+  /**
+   * Gets the evaluation document for a card as markdown.
+   *
+   * @param cardId - Identifier of the card whose evaluation markdown should be returned.
+   * @returns Promise resolving to evaluation markdown.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getEvaluation(cardId) {
+    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
+    const response = await this.request(() => this.getHttpClient().get(url));
+    return response.content;
+  }
+  /**
+   * Updates the evaluation document for a card.
+   *
+   * @param cardId - Identifier of the card whose evaluation markdown should be updated.
+   * @param content - Evaluation markdown content.
+   * @returns Promise resolving when the evaluation is saved.
+   * @throws ApiError when the server rejects the update.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async updateEvaluation(cardId, content) {
+    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
+    return this.request(() => this.getHttpClient().put(url, content));
+  }
   // --- Gate Operations ---
   /**
    * Approves a gate for a card.
@@ -1261,7 +1289,8 @@ Create:
   description (string). Optional fields: tags (string[]), environment
   (string), gates ({ planRequired?: boolean, mergeRequestRequired?: boolean }),
   relations ({ type: "related", cardId: string }[]),
-  plan (string, markdown content written to the card's PLAN.md).
+  plan (string, markdown content written to the card's PLAN.md),
+  evaluation (string, markdown content written to the card's EVALUATION.md).
 
   The response contains only server-generated fields not present in the
   input (e.g. id, status, timestamps), plus repositoryPath. Fields the
@@ -1382,17 +1411,24 @@ function parseCardCreateInput(raw) {
   if (typeof parsed["plan"] === "string") {
     plan = parsed["plan"];
   }
-  return { data, plan, inputKeys };
+  let evaluation;
+  if (typeof parsed["evaluation"] === "string") {
+    evaluation = parsed["evaluation"];
+  }
+  return { data, plan, evaluation, inputKeys };
 }
 var CREATE_ALWAYS_INCLUDE = /* @__PURE__ */ new Set(["id", "repositoryPath"]);
 async function createCard(args) {
   const flags = parseFlags(args);
   const raw = await readStdin();
-  const { data, plan, inputKeys } = parseCardCreateInput(raw);
+  const { data, plan, evaluation, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags["workspace-path"]?.[0]);
   const card = await client.createCard(data);
   if (plan !== void 0) {
     await client.updatePlan(card.id, plan);
+  }
+  if (evaluation !== void 0) {
+    await client.updateEvaluation(card.id, evaluation);
   }
   const full = card;
   const filtered = {};

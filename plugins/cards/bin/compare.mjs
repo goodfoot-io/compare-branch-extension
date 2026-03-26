@@ -514,6 +514,34 @@ var CardsClient = class {
     const url = this.buildUrl(`/cards/${cardId}/plan`);
     return this.request(() => this.getHttpClient().put(url, content));
   }
+  // --- Evaluation Operations ---
+  /**
+   * Gets the evaluation document for a card as markdown.
+   *
+   * @param cardId - Identifier of the card whose evaluation markdown should be returned.
+   * @returns Promise resolving to evaluation markdown.
+   * @throws ApiError when the server responds with an error.
+   * @throws NetworkError when the request fails to reach the server.
+   */
+  async getEvaluation(cardId) {
+    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
+    const response = await this.request(() => this.getHttpClient().get(url));
+    return response.content;
+  }
+  /**
+   * Updates the evaluation document for a card.
+   *
+   * @param cardId - Identifier of the card whose evaluation markdown should be updated.
+   * @param content - Evaluation markdown content.
+   * @returns Promise resolving when the evaluation is saved.
+   * @throws ApiError when the server rejects the update.
+   * @throws NetworkError when the request fails to reach the server.
+   * @deprecated Use direct git operations instead. This endpoint will be removed.
+   */
+  async updateEvaluation(cardId, content) {
+    const url = this.buildUrl(`/cards/${cardId}/evaluation`);
+    return this.request(() => this.getHttpClient().put(url, content));
+  }
   // --- Gate Operations ---
   /**
    * Approves a gate for a card.
