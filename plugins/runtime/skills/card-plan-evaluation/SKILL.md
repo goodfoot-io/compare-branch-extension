@@ -6,14 +6,35 @@ description: Assess plan quality by requesting a maintainer review.
 
 <instructions>
 
-## 1. Start Maintainer Review
+## 1. Start Review
 
-Create the review team and spawn the maintainer. The team stays alive across review iterations — the maintainer persists and retains context from prior reviews.
+Create the review team and spawn the maintainer and failure-mode analyst. Both begin analysis immediately in parallel. The failure-mode analyst typically finishes first and sends findings to the maintainer during their review, giving the maintainer richer input for the first pass.
 
 ```xml
 <invoke name="TeamCreate">
 <parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
-<parameter name="description">!` echo $CARD_ID`: plan maintainer review</parameter>
+<parameter name="description">!` echo $CARD_ID`: plan review</parameter>
+</invoke>
+```
+
+```xml
+<invoke name="Agent">
+<parameter name="description">Failure mode analysis</parameter>
+<parameter name="subagent_type">runtime:card:failure-mode</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
+<parameter name="name">failure-mode</parameter>
+<parameter name="prompt">
+Identify potential failure modes in this implementation plan.
+
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
+## Workspace
+!` echo $WORKSPACE_PATH`
+
+Read the plan from PLAN.md in the card repository. Read the workspace source files the plan references. Identify ways the approach could fail when built. Send your report to both the team lead and the maintainer as soon as your analysis is complete.
+</parameter>
 </invoke>
 ```
 
@@ -42,7 +63,7 @@ You are the maintainer of this repository. Your verdict is final — APPROVED, C
 
 ## 2. Wait for Review
 
-Wait for the maintainer to deliver the review report via SendMessage.
+Wait for the maintainer to deliver the review report via SendMessage. The failure-mode analyst's findings may arrive before or during the maintainer's review — the maintainer incorporates them at their judgment. If the failure-mode report has not arrived by the time the maintainer reports, proceed — failure-mode findings will arrive and can inform the revision in Step 5.
 
 ## 3. Process Verdict
 
@@ -81,6 +102,8 @@ For each required change from the maintainer's report:
 - **Viable**: Revise PLAN.md to address the finding.
 - **Not viable**: Note the reason (e.g., simpler approach doesn't satisfy a constraint, structural requirement doesn't apply given scope).
 
+Review the failure-mode analyst's findings. Approach-level findings — where the analyst identifies risks inherent to the plan's key bets or complexity disproportionate to the problem — deserve the most consideration. Decide what to do: revise the approach, add mitigations, acknowledge an accepted risk, or determine the finding doesn't apply. Not every finding requires a plan change. No response to the failure-mode analyst is required.
+
 Commit the revised plan:
 
 ```bash
@@ -91,7 +114,7 @@ git commit -m "[single sentence summarizing what findings were addressed]"  # <c
 
 When a finding reveals an unclear plan section, revise the plan to be self-explanatory — explanations in the re-submission message do not help future readers of PLAN.md.
 
-Message the maintainer to re-review. Explain what you changed, why, and where you made judgment calls:
+Message both the maintainer and failure-mode analyst to re-review. Explain what you changed, why, and where you made judgment calls:
 
 ```xml
 <invoke name="SendMessage">
@@ -110,11 +133,20 @@ I've revised the plan based on your review. Here's what I changed and why:
 </invoke>
 ```
 
+```xml
+<invoke name="SendMessage">
+<parameter name="recipient">failure-mode</parameter>
+<parameter name="content">
+The plan has been revised. Re-read PLAN.md and send updated findings to both the team lead and the maintainer.
+</parameter>
+</invoke>
+```
+
 Return to Step 2.
 
 ## 6. Shut Down Team
 
-Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
+Send shutdown requests to both agents. Wait for acknowledgment before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
@@ -124,7 +156,15 @@ Send shutdown request to the maintainer. Wait for acknowledgment before deleting
 </invoke>
 ```
 
-After the maintainer has shut down:
+```xml
+<invoke name="SendMessage">
+<parameter name="type">shutdown_request</parameter>
+<parameter name="recipient">failure-mode</parameter>
+<parameter name="content">Review complete.</parameter>
+</invoke>
+```
+
+After both agents have shut down:
 
 ```xml
 <invoke name="TeamDelete"/>
