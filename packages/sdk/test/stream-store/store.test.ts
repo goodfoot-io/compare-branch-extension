@@ -210,5 +210,46 @@ describe('stream store', () => {
       dispatchHostMessage({ type: 'mode:change', mode: 'hidden' });
       expect(store.getState().mode).toBe('hidden');
     });
+
+    it('should apply CSS variables and theme attribute on theme:change', () => {
+      dispatchHostMessage({
+        type: 'theme:change',
+        themeKind: 1,
+        cssVariables: {
+          '--vscode-editor-background': '#ffffff',
+          '--vscode-editor-foreground': '#000000'
+        }
+      });
+
+      expect(document.documentElement.getAttribute('data-vscode-theme-kind')).toBe('light');
+      expect(document.documentElement.style.getPropertyValue('--vscode-editor-background')).toBe('#ffffff');
+      expect(document.documentElement.style.getPropertyValue('--vscode-editor-foreground')).toBe('#000000');
+    });
+
+    it('should update theme attribute when theme kind changes', () => {
+      dispatchHostMessage({
+        type: 'theme:change',
+        themeKind: 2,
+        cssVariables: { '--vscode-editor-background': '#1e1e1e' }
+      });
+      expect(document.documentElement.getAttribute('data-vscode-theme-kind')).toBe('dark');
+
+      dispatchHostMessage({
+        type: 'theme:change',
+        themeKind: 3,
+        cssVariables: { '--vscode-editor-background': '#000000' }
+      });
+      expect(document.documentElement.getAttribute('data-vscode-theme-kind')).toBe('high-contrast');
+    });
+
+    it('should not change store state on theme:change', () => {
+      const stateBefore = store.getState();
+      dispatchHostMessage({
+        type: 'theme:change',
+        themeKind: 1,
+        cssVariables: { '--vscode-editor-background': '#fff' }
+      });
+      expect(store.getState()).toBe(stateBefore);
+    });
   });
 });

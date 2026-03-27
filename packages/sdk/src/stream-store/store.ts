@@ -123,6 +123,10 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
       return { mode: msg.mode };
     }
 
+    case 'theme:change':
+      // Handled as a DOM side effect in the message listener — not store state.
+      return null;
+
     default:
       return null;
   }
@@ -137,10 +141,38 @@ if (!init) {
 /** Vanilla Zustand store for stream renderer state. */
 export const streamStore = createStore<StreamStoreState>()(() => buildInitialState(init));
 
+/** Maps VS Code theme kind enum to the attribute value used in CSS selectors. */
+const THEME_KIND_MAP: Record<1 | 2 | 3, string> = {
+  1: 'light',
+  2: 'dark',
+  3: 'high-contrast'
+};
+
+/**
+ * Applies theme data to the iframe document.
+ *
+ * Sets `--vscode-*` CSS custom properties on `:root` and updates
+ * the `data-vscode-theme-kind` attribute so Tailwind theme utilities
+ * pick the correct palette.
+ */
+function applyTheme(themeKind: 1 | 2 | 3, cssVariables: Record<string, string>): void {
+  const root = document.documentElement;
+  root.setAttribute('data-vscode-theme-kind', THEME_KIND_MAP[themeKind]);
+  for (const [name, value] of Object.entries(cssVariables)) {
+    root.style.setProperty(name, value);
+  }
+}
+
 // Listen for host messages and update the store
 window.addEventListener('message', (event: MessageEvent<HostToIframeMessage>) => {
   const msg = event.data;
   if (!msg || typeof msg !== 'object' || !('type' in msg)) return;
+
+  // Theme changes are DOM side effects, not store state.
+  if (msg.type === 'theme:change') {
+    applyTheme(msg.themeKind, msg.cssVariables);
+    return;
+  }
 
   const patch = applyMessage(streamStore.getState(), msg);
   if (patch) {

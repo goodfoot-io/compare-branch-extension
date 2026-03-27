@@ -94,7 +94,8 @@ export type HostToIframeMessage =
   | { type: 'stream:ended'; filename: string; meta: StreamMeta }
   | { type: 'availableFiles:update'; files: string[] }
   | { type: 'mode:change'; mode: StreamDisplayMode }
-  | { type: 'subscribe:response'; filename: string; lines: string[]; meta: StreamMeta; error?: string };
+  | { type: 'subscribe:response'; filename: string; lines: string[]; meta: StreamMeta; error?: string }
+  | { type: 'theme:change'; themeKind: 1 | 2 | 3; cssVariables: Record<string, string> };
 
 // ============================================================================
 // Iframe -> Host Messages
