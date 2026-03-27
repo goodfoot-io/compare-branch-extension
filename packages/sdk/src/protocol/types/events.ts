@@ -28,8 +28,10 @@ export interface CardCreatedEvent {
   type: 'card:created';
   /** ID of the newly created card. */
   cardId: string;
-  /** Repository identifier the card belongs to, for workspace-scoped filtering. */
+  /** Repository identifier the card belongs to. */
   repositoryId: string;
+  /** Absolute workspace path the card was created from, for window-scoped filtering. */
+  workspacePath: string;
 }
 
 /**
