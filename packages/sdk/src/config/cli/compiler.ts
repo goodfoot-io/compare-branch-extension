@@ -279,11 +279,6 @@ if (!process.argv.includes('--branch-cleanup')) {
     // handler file that the wrapper imports (esbuild treats sourcefile
     // as the virtual filename for the stdin content).
     //
-    // minifyWhitespace strips comment annotations that esbuild adds for
-    // each bundled source file (e.g., `// ../../../node_modules/kind-of/index.js`).
-    // These annotations use paths relative to absWorkingDir, which vary
-    // depending on where the build runs (main checkout vs. worktree),
-    // producing non-deterministic output for identical source code.
     const result = await esbuild.build({
       stdin: {
         contents: wrapperContent,
@@ -298,7 +293,6 @@ if (!process.argv.includes('--branch-cleanup')) {
       target: 'es2022',
       sourcemap: sourcemap ? 'inline' : false,
       minify: false,
-      minifyWhitespace: true,
       treeShaking: true,
       external: EXTERNALS,
       banner: { js: BANNER },

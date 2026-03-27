@@ -170,8 +170,7 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
       banner: {
         js: `import { createRequire as __createRequire } from 'node:module';\nconst require = __createRequire(import.meta.url);`
       },
-      logLevel: 'silent',
-      minifyWhitespace: true
+      logLevel: 'silent'
     });
 
     if (buildResult.errors.length > 0) {
