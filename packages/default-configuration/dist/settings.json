@@ -7,7 +7,7 @@
           "id": "launch",
           "name": "Launch",
           "command": {
-            "command": "$VSCODE_NODE ./bin/launch.a16fab76.mjs",
+            "command": "$VSCODE_NODE ./bin/launch.4171dbb4.mjs",
             "timeout": 3600000
           },
           "description": "Start a Claude session for the card",
@@ -17,7 +17,7 @@
           "id": "codex",
           "name": "Codex",
           "command": {
-            "command": "$VSCODE_NODE ./bin/codex.1b134270.mjs",
+            "command": "$VSCODE_NODE ./bin/codex.e6b7256d.mjs",
             "timeout": 3600000
           },
           "description": "Start a Codex session for the card",
@@ -27,7 +27,7 @@
           "id": "interview",
           "name": "Interview",
           "command": {
-            "command": "$VSCODE_NODE ./bin/interview.c56f7f6f.mjs",
+            "command": "$VSCODE_NODE ./bin/interview.2e948bac.mjs",
             "timeout": 3600000
           },
           "description": "Start an interview session for the card",
@@ -37,7 +37,7 @@
           "id": "chat",
           "name": "Chat",
           "command": {
-            "command": "$VSCODE_NODE ./bin/chat.6306a2b7.mjs",
+            "command": "$VSCODE_NODE ./bin/chat.dba26935.mjs",
             "timeout": 3600000
           },
           "description": "Start a chat session for the card",
@@ -63,7 +63,7 @@
         "note": {
           "version": "1.0.0",
           "validator": {
-            "command": "$VSCODE_NODE ./bin/note-validator.a38f883b.mjs",
+            "command": "$VSCODE_NODE ./bin/note-validator.0a33b4ba.mjs",
             "timeout": 30000
           }
         }
@@ -79,13 +79,13 @@
   },
   "__generated": {
     "files": [
-      "launch.a16fab76.mjs",
-      "codex.1b134270.mjs",
-      "interview.c56f7f6f.mjs",
-      "chat.6306a2b7.mjs",
+      "launch.4171dbb4.mjs",
+      "codex.e6b7256d.mjs",
+      "interview.2e948bac.mjs",
+      "chat.dba26935.mjs",
       "adaptive-card-validator.a5f6e7f3.mjs",
       "adaptive-card-submission-validator.2fa10180.mjs",
-      "note-validator.a38f883b.mjs"
+      "note-validator.0a33b4ba.mjs"
     ]
   }
 }
