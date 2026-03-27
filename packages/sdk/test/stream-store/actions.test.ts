@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { close, openFile, setHeight, showDiff, subscribe } from '../../src/stream-store/actions.js';
+import { close, openFile, requestCollapse, setHeight, showDiff, subscribe } from '../../src/stream-store/actions.js';
 
 describe('stream store actions', () => {
   let postMessageSpy: ReturnType<typeof vi.fn>;
@@ -83,6 +83,14 @@ describe('stream store actions', () => {
       showDiff('abc123', '/src/main.ts');
 
       expect(postMessageSpy).toHaveBeenCalledWith({ type: 'showDiff', sha: 'abc123', filePath: '/src/main.ts' }, '*');
+    });
+  });
+
+  describe('requestCollapse', () => {
+    it('should post requestCollapse message', () => {
+      requestCollapse();
+
+      expect(postMessageSpy).toHaveBeenCalledWith({ type: 'requestCollapse' }, '*');
     });
   });
 });

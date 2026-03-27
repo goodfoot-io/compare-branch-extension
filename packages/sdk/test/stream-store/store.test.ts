@@ -41,7 +41,8 @@ beforeAll(async () => {
         lines: ['a', 'b', 'c', 'd', 'e']
       }
     },
-    availableFiles: ['session.jsonl', 'other.jsonl']
+    availableFiles: ['session.jsonl', 'other.jsonl'],
+    mode: 'hidden'
   };
   const mod = await import('../../src/stream-store/store.js');
   store = mod.streamStore;
@@ -83,6 +84,10 @@ describe('stream store', () => {
       const file = store.getState().files.get('session.jsonl')!;
       expect(file.isLoading).toBe(false);
       expect(file.error).toBeNull();
+    });
+
+    it('should initialize mode from __STREAM_INIT__', () => {
+      expect(store.getState().mode).toBe('hidden');
     });
   });
 
@@ -193,6 +198,17 @@ describe('stream store', () => {
       const stateBefore = store.getState();
       window.dispatchEvent(new MessageEvent('message', { data: { foo: 'bar' } }));
       expect(store.getState()).toBe(stateBefore);
+    });
+
+    it('should update mode on mode:change message', () => {
+      dispatchHostMessage({ type: 'mode:change', mode: 'compact' });
+      expect(store.getState().mode).toBe('compact');
+
+      dispatchHostMessage({ type: 'mode:change', mode: 'expanded' });
+      expect(store.getState().mode).toBe('expanded');
+
+      dispatchHostMessage({ type: 'mode:change', mode: 'hidden' });
+      expect(store.getState().mode).toBe('hidden');
     });
   });
 });

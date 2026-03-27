@@ -77,6 +77,13 @@ export function observeHeight(): () => void {
 }
 
 /**
+ * Requests the host to collapse this stream renderer from Expanded back to Compact.
+ */
+export function requestCollapse(): void {
+  postToHost({ type: 'requestCollapse' });
+}
+
+/**
  * Requests the host to open a file in the editor.
  *
  * @param path - File path to open.

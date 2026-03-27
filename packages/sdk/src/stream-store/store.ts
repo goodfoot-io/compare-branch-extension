@@ -39,7 +39,8 @@ function buildInitialState(init: StreamInitData): StreamStoreState {
     primary: init.primary,
     files,
     availableFiles: [...init.availableFiles],
-    connected: true
+    connected: true,
+    mode: init.mode
   };
 }
 
@@ -118,9 +119,8 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
       return { files: updated };
     }
 
-    case 'visibility:change': {
-      // Currently no store state for visibility — reserved for future use
-      return null;
+    case 'mode:change': {
+      return { mode: msg.mode };
     }
 
     default:

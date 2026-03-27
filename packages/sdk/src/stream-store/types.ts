@@ -27,6 +27,13 @@ export interface StreamMeta {
 }
 
 // ============================================================================
+// Display Mode
+// ============================================================================
+
+/** Host-controlled display mode for a stream iframe. */
+export type StreamDisplayMode = 'hidden' | 'compact' | 'expanded' | 'closed';
+
+// ============================================================================
 // Store State
 // ============================================================================
 
@@ -56,6 +63,8 @@ export interface StreamStoreState {
   availableFiles: string[];
   /** Whether the postMessage connection to the host is active. */
   connected: boolean;
+  /** Current host-controlled display mode for this iframe. */
+  mode: StreamDisplayMode;
 }
 
 // ============================================================================
@@ -70,6 +79,8 @@ export interface StreamInitData {
   files: Record<string, { meta: StreamMeta; lines: string[] }>;
   /** List of all available stream filenames. */
   availableFiles: string[];
+  /** Initial display mode set by the host. */
+  mode: StreamDisplayMode;
 }
 
 // ============================================================================
@@ -82,7 +93,7 @@ export type HostToIframeMessage =
   | { type: 'stream:started'; filename: string; meta: StreamMeta }
   | { type: 'stream:ended'; filename: string; meta: StreamMeta }
   | { type: 'availableFiles:update'; files: string[] }
-  | { type: 'visibility:change'; visible: boolean }
+  | { type: 'mode:change'; mode: StreamDisplayMode }
   | { type: 'subscribe:response'; filename: string; lines: string[]; meta: StreamMeta; error?: string };
 
 // ============================================================================
@@ -96,4 +107,5 @@ export type IframeToHostMessage =
   | { type: 'openFile'; path: string; line?: number }
   | { type: 'showDiff'; sha: string; filePath?: string }
   | { type: 'claim'; filenames: string[] }
-  | { type: 'subscribe'; filename: string };
+  | { type: 'subscribe'; filename: string }
+  | { type: 'requestCollapse' };
