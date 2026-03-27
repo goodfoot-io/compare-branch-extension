@@ -154,6 +154,9 @@ const THEME_KIND_MAP: Record<1 | 2 | 3, string> = {
  * Sets `--vscode-*` CSS custom properties on `:root` and updates
  * the `data-vscode-theme-kind` attribute so Tailwind theme utilities
  * pick the correct palette.
+ *
+ * @param themeKind - VS Code theme kind (1=Light, 2=Dark, 3=High Contrast).
+ * @param cssVariables - Map of CSS custom property names to values.
  */
 function applyTheme(themeKind: 1 | 2 | 3, cssVariables: Record<string, string>): void {
   const root = document.documentElement;
