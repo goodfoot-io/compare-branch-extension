@@ -119,8 +119,16 @@ async function resolveHead(cwd) {
   return stdout.trim();
 }
 async function checkWorktreeExists(repoRoot, worktreeDir) {
-  const { stdout } = await execFileAsync("git", ["worktree", "list"], { cwd: repoRoot, timeout: 3e4 });
-  return stdout.includes(worktreeDir);
+  const { stdout } = await execFileAsync("git", ["worktree", "list", "--porcelain"], {
+    cwd: repoRoot,
+    timeout: 3e4
+  });
+  for (const line of stdout.split("\n")) {
+    if (line.startsWith("worktree ") && line.slice("worktree ".length) === worktreeDir) {
+      return true;
+    }
+  }
+  return false;
 }
 async function checkBranchExists(repoRoot, branchName) {
   const { stdout } = await execFileAsync("git", ["branch", "--list", branchName], {

@@ -527,6 +527,31 @@ describe('card binary', () => {
         workspace.destroy();
       }
     });
+
+    it('deduplicates pending commits before flushing them', async () => {
+      const workspace = new TestGitWorkspace();
+      await workspace.create();
+      await workspace.createAndCommitFile('file1.txt', 'content');
+      const sha = (await workspace.getGit().log({ maxCount: 1 })).latest!.hash;
+
+      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
+      mockFindClaudePid.mockReturnValue(testPid);
+
+      const { recordPendingCommit } = await import('@cards/claude-code-sessions');
+      await recordPendingCommit(testPid, sha);
+      await recordPendingCommit(testPid, sha);
+
+      const origCwd = process.cwd();
+      try {
+        process.chdir(workspace.getPath());
+        const result = await attachCard('test-card');
+        expect(result.flushedCommits).toBe(1);
+        expect(commits.get('test-card')).toEqual([sha]);
+      } finally {
+        process.chdir(origCwd);
+        workspace.destroy();
+      }
+    });
   });
 
   describe('detachCard', () => {

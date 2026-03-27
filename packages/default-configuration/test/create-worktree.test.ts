@@ -230,6 +230,22 @@ describe('checkWorktreeExists', () => {
 
     expect(exists).toBe(true);
   });
+
+  it('does not treat substring matches as existing worktrees', async () => {
+    const git = workspace.getGit();
+    const repoPath = workspace.getPath();
+    const parentDir = path.join(repoPath, '..');
+    const existingWorktreePath = path.join(parentDir, `test-worktree-${Date.now()}`);
+    const substringPath = `${existingWorktreePath}-suffix`;
+
+    await git.raw(['worktree', 'add', existingWorktreePath, '-b', `test-branch-${Date.now()}`]);
+
+    const exists = await checkWorktreeExists(repoPath, substringPath);
+
+    expect(exists).toBe(false);
+
+    await git.raw(['worktree', 'remove', existingWorktreePath, '--force']);
+  });
 });
 
 describe('checkBranchExists', () => {

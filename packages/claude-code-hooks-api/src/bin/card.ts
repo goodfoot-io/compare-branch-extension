@@ -414,6 +414,19 @@ export function isAncestorOfHead(sha: string): boolean {
   return !result.error && result.status === 0;
 }
 
+interface GitAttachContext {
+  gitRoot: string | null;
+  branch: string | null;
+  worktreePath: string | null;
+}
+
+function resolveAttachGitContext(): GitAttachContext {
+  const gitRoot = getGitRoot();
+  const branch = getCurrentBranch();
+  const worktreePath = branch ? getWorktreeForBranch(branch) : null;
+  return { gitRoot, branch, worktreePath };
+}
+
 /**
  * Associates the current Claude session with a card.
  *
@@ -435,7 +448,8 @@ export async function attachCard(
 
   const pendingCommits = await associatePidWithCard(pid, cardId);
   console.error(`card attach: PID ${pid} associated with card ${cardId}`);
-  console.error(`card attach: cwd=${process.cwd()} toplevel=${getGitRoot() ?? '(none)'}`);
+  const gitContext = resolveAttachGitContext();
+  console.error(`card attach: cwd=${process.cwd()} toplevel=${gitContext.gitRoot ?? '(none)'}`);
 
   const client = await connectClient();
 
@@ -443,13 +457,12 @@ export async function attachCard(
   // For worktree branches (cards/*), resolveOrCreateWorktree already handles
   // registration with the correct parentBranch. Only register here for base
   // branches (e.g., main) where the branch IS the comparison base.
-  const branch = getCurrentBranch();
+  const branch = gitContext.branch;
 
   // Warn if the branch is already checked out in another worktree.
   if (branch) {
-    const worktreePath = getWorktreeForBranch(branch);
-    if (worktreePath) {
-      console.error(`card attach: warning: branch ${branch} is checked out at ${worktreePath}`);
+    if (gitContext.worktreePath) {
+      console.error(`card attach: warning: branch ${branch} is checked out at ${gitContext.worktreePath}`);
     }
   }
 
@@ -466,8 +479,9 @@ export async function attachCard(
   }
 
   // Flush pending commits
+  const uniquePendingCommits = [...new Set(pendingCommits)];
   let flushedCount = 0;
-  for (const sha of pendingCommits) {
+  for (const sha of uniquePendingCommits) {
     if (!isAncestorOfHead(sha)) continue;
     try {
       await client.addCommit(cardId, sha);
@@ -479,8 +493,8 @@ export async function attachCard(
     }
   }
 
-  if (pendingCommits.length > 0) {
-    console.error(`card attach: flushed ${flushedCount}/${pendingCommits.length} pending commit(s)`);
+  if (uniquePendingCommits.length > 0) {
+    console.error(`card attach: flushed ${flushedCount}/${uniquePendingCommits.length} pending commit(s)`);
   }
 
   return { pid, cardId, branch, flushedCommits: flushedCount };

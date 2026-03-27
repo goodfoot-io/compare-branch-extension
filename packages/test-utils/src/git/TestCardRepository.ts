@@ -108,6 +108,7 @@ export interface UpdateCardOptions {
 export class TestCardRepository {
   private reposPath: string | null = null;
   private git: SimpleGit | null = null;
+  private readonly cardGitClients = new Map<string, SimpleGit>();
 
   /**
    * Gets the SimpleGit instance for the first created card repo.
@@ -174,8 +175,7 @@ export class TestCardRepository {
 
     // Initialize git repo for this card
     const git = simpleGit(cardPath);
-    await git.init();
-    await git.branch(['-m', 'main']);
+    await git.raw(['init', '--initial-branch=main']);
     await git.addConfig('user.name', 'Test User');
     await git.addConfig('user.email', 'test@example.com');
 
@@ -207,6 +207,7 @@ export class TestCardRepository {
     if (!this.git) {
       this.git = git;
     }
+    this.cardGitClients.set(cardId, git);
 
     return cardId;
   }
@@ -245,7 +246,7 @@ export class TestCardRepository {
     }
 
     // Commit
-    const git = simpleGit(cardPath);
+    const git = this.getCardGit(cardId);
     await git.add('.');
     await git.commit('Card updates.');
   }
@@ -276,7 +277,7 @@ export class TestCardRepository {
 
     await fs.writeFile(path.join(commentsPath, filename), content);
 
-    const git = simpleGit(cardPath);
+    const git = this.getCardGit(cardId);
     await git.add('.');
     const commitAuthor = author ?? 'Test User';
     await git.commit('Added a comment.', undefined, {
@@ -309,7 +310,7 @@ export class TestCardRepository {
     await fs.mkdir(adaptiveCardsPath, { recursive: true });
     await fs.writeFile(path.join(adaptiveCardsPath, filename), JSON.stringify(content, null, 2));
 
-    const git = simpleGit(cardPath);
+    const git = this.getCardGit(cardId);
     await git.add('.');
     await git.commit(`Added adaptive card ${adaptiveCardId}.`);
 
@@ -348,7 +349,7 @@ export class TestCardRepository {
     existing.push(sha);
     await fs.writeFile(csvPath, `${existing.join('\n')}\n`);
 
-    const git = simpleGit(cardPath);
+    const git = this.getCardGit(cardId);
     await git.add('.');
     await git.commit(`Added attribution for ${sha.slice(0, 7)}.`);
   }
@@ -624,8 +625,7 @@ export class TestCardRepository {
   /**
    * Gets the Git instance for a specific card.
    *
-   * Behavior: constructs a new SimpleGit instance each time; no caching is
-   * performed beyond the optional `getGit()` convenience.
+   * Behavior: reuses a stable `SimpleGit` instance per card repository.
    *
    * @param cardId Identifier of the card repository whose Git client is needed
    * @returns SimpleGit instance rooted at the requested card directory
@@ -635,7 +635,13 @@ export class TestCardRepository {
     if (!this.reposPath) {
       throw new Error('Repository not created');
     }
-    return simpleGit(path.join(this.reposPath, cardId));
+    const existing = this.cardGitClients.get(cardId);
+    if (existing) {
+      return existing;
+    }
+    const git = simpleGit(path.join(this.reposPath, cardId));
+    this.cardGitClients.set(cardId, git);
+    return git;
   }
 
   /**
@@ -659,6 +665,15 @@ export class TestCardRepository {
    * directory; safe to call multiple times.
    */
   destroy(): void {
+    for (const git of this.cardGitClients.values()) {
+      try {
+        git.clearQueue();
+      } catch {
+        // Cleanup errors are expected
+      }
+    }
+    this.cardGitClients.clear();
+
     if (this.git) {
       try {
         this.git.clearQueue();

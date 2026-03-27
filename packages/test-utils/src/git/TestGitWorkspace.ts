@@ -94,8 +94,7 @@ export class TestGitWorkspace {
 
     // Initialize git repository
     this.git = simpleGit(this.workspacePath);
-    await this.git.init();
-    await this.git.branch(['-m', 'main']);
+    await this.git.raw(['init', '--initial-branch=main']);
     await this.git.addConfig('user.name', 'Test User');
     await this.git.addConfig('user.email', 'test@example.com');
 

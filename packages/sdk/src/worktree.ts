@@ -247,8 +247,16 @@ export async function resolveHead(cwd: string): Promise<string> {
  * @returns True when `git worktree list` already contains `worktreeDir`.
  */
 export async function checkWorktreeExists(repoRoot: string, worktreeDir: string): Promise<boolean> {
-  const { stdout } = await execFileAsync('git', ['worktree', 'list'], { cwd: repoRoot, timeout: 30_000 });
-  return stdout.includes(worktreeDir);
+  const { stdout } = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {
+    cwd: repoRoot,
+    timeout: 30_000
+  });
+  for (const line of stdout.split('\n')) {
+    if (line.startsWith('worktree ') && line.slice('worktree '.length) === worktreeDir) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

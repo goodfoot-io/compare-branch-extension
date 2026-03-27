@@ -15,6 +15,7 @@ import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
 import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import { formatCommitLog } from './file-tree.js';
+import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from './gitPathspecs.js';
 
 /**
  * Error thrown when the card repository cannot be read.
@@ -284,10 +285,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         '--name-only',
         '--',
         '.',
-        ':!streams/',
-        ':!.gitignore',
-        `:!${WORKSPACE_BRANCHES_FILE}`,
-        `:!${WORKSPACE_COMMITS_FILE}`
+        ...CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
+        ':!.gitignore'
       ],
       {
         cwd: rootPath,

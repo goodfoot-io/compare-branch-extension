@@ -19,9 +19,9 @@ import { execFileSync } from 'node:child_process';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
-import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { formatCommitLog } from './lib/file-tree.js';
+import { BOOKKEEPING_PATHSPEC_EXCLUSIONS } from './lib/gitPathspecs.js';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -34,11 +34,7 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/i;
  * exclusion: commits that only touch these paths are not flagged as
  * unattributed.
  */
-const PATHSPEC_EXCLUSIONS = [
-  ':!streams/claude-code-session/',
-  `:!${WORKSPACE_COMMITS_FILE}`,
-  `:!${WORKSPACE_BRANCHES_FILE}`
-];
+const PATHSPEC_EXCLUSIONS = [...BOOKKEEPING_PATHSPEC_EXCLUSIONS];
 
 /**
  * Error thrown when `git log` fails to list commits since a baseline SHA.

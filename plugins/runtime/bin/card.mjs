@@ -1496,6 +1496,12 @@ function isAncestorOfHead(sha) {
   });
   return !result.error && result.status === 0;
 }
+function resolveAttachGitContext() {
+  const gitRoot = getGitRoot();
+  const branch = getCurrentBranch();
+  const worktreePath = branch ? getWorktreeForBranch(branch) : null;
+  return { gitRoot, branch, worktreePath };
+}
 async function attachCard(cardId) {
   const pid = findClaudePid();
   if (!pid) {
@@ -1503,13 +1509,13 @@ async function attachCard(cardId) {
   }
   const pendingCommits = await associatePidWithCard(pid, cardId);
   console.error(`card attach: PID ${pid} associated with card ${cardId}`);
-  console.error(`card attach: cwd=${process.cwd()} toplevel=${getGitRoot() ?? "(none)"}`);
+  const gitContext = resolveAttachGitContext();
+  console.error(`card attach: cwd=${process.cwd()} toplevel=${gitContext.gitRoot ?? "(none)"}`);
   const client = await connectClient();
-  const branch = getCurrentBranch();
+  const branch = gitContext.branch;
   if (branch) {
-    const worktreePath = getWorktreeForBranch(branch);
-    if (worktreePath) {
-      console.error(`card attach: warning: branch ${branch} is checked out at ${worktreePath}`);
+    if (gitContext.worktreePath) {
+      console.error(`card attach: warning: branch ${branch} is checked out at ${gitContext.worktreePath}`);
     }
   }
   if (branch && !branch.startsWith("cards/")) {
@@ -1523,8 +1529,9 @@ async function attachCard(cardId) {
       );
     }
   }
+  const uniquePendingCommits = [...new Set(pendingCommits)];
   let flushedCount = 0;
-  for (const sha of pendingCommits) {
+  for (const sha of uniquePendingCommits) {
     if (!isAncestorOfHead(sha)) continue;
     try {
       await client.addCommit(cardId, sha);
@@ -1535,8 +1542,8 @@ async function attachCard(cardId) {
       );
     }
   }
-  if (pendingCommits.length > 0) {
-    console.error(`card attach: flushed ${flushedCount}/${pendingCommits.length} pending commit(s)`);
+  if (uniquePendingCommits.length > 0) {
+    console.error(`card attach: flushed ${flushedCount}/${uniquePendingCommits.length} pending commit(s)`);
   }
   return { pid, cardId, branch, flushedCommits: flushedCount };
 }
