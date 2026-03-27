@@ -140,6 +140,8 @@ export interface CardUpdateData {
   gates?: Partial<CardGates>;
   /** Updated relations array. undefined = no change; [] = clear all. */
   relations?: CardRelation[];
+  /** Git commit author for the update (e.g. 'system <system@cards.local>'). */
+  author?: string;
 }
 
 /**
