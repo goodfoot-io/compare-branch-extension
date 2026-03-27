@@ -68,17 +68,9 @@ Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag> (repeatabl
 
 #### Workspace Path
 
-Without `--workspace-path`, the CLI runs `git rev-parse --show-toplevel` to detect the workspace. The detected path determines the branch used for card ID generation, which sets the card's ID prefix (e.g., branch `main` → prefix `main-`).
+The CLI auto-detects the workspace from `pwd`. Cards are scoped to the branch you're working on — in a worktree, the card belongs to that worktree's branch (e.g., branch `feature` → prefix `feature-`). This is the default and usually what you want.
 
-In a worktree, `--show-toplevel` resolves to the worktree path, so the CLI sees the worktree's branch (e.g., `dev` → prefix `dev-`). This is correct when the card is scoped to that branch's work. When the card should be scoped to the main repository instead, pass `--workspace-path` explicitly:
-
-```bash
-# git-common-dir resolves to the main repo's .git dir from any worktree
-REPO_ROOT="$(realpath "$(git rev-parse --git-common-dir)/..")"
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create --workspace-path "$REPO_ROOT" <<'EOF'
-{ "title": "Lorem ipsum" }
-EOF
-```
+Only use `--workspace-path` if the user explicitly requests creating a card in a different repository.
 
 **Attach a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
 ```
