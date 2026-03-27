@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/runtime/hooks/hooks.json\" --log-env-var CLAUDE_CODE_RUNTIME_HOOKS_LOG_FILE --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:uuid7 && yarn build:card && yarn build:watcher && yarn build:create-worktree && yarn build:mcp-server",
+    "build": "rm -rf ../../plugins/runtime/hooks ../../plugins/runtime/bin && claude-code-hooks -i \"src/**/*.ts\" -o \"../../plugins/runtime/hooks/hooks.json\" --log-env-var CLAUDE_CODE_RUNTIME_HOOKS_LOG_FILE --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:uuid7 && yarn build:card && yarn build:watcher && yarn build:create-worktree && yarn build:mcp-server",
     "build:mcp-server": "esbuild ../cards-mcp-server/src/index.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/cards-mcp-server.mjs '--external:node:*'",
     "build:create-worktree": "esbuild src/bin/create-worktree.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/create-worktree.mjs '--external:node:*'",
     "build:uuid7": "esbuild src/bin/uuid7.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/runtime/bin/uuid7.mjs '--external:node:*'",

@@ -32,7 +32,7 @@
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "build": "esbuild src/config/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external --banner:js='#!/usr/bin/env node'",
+    "build": "rm -rf dist && esbuild src/config/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external --banner:js='#!/usr/bin/env node'",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l",
     "test": "vitest-unchanged"
   },
