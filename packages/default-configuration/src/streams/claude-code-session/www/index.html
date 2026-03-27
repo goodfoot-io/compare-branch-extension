@@ -165,7 +165,7 @@
   <div class="cc-session" id="root"></div>
 
   <script type="module">
-    import { streamStore, subscribe, setHeight } from '@cards/sdk/stream-store';
+    import { streamStore, subscribe, observeHeight } from '@cards/sdk/stream-store';
 
     // -----------------------------------------------------------------------
     // HTML helpers
@@ -388,12 +388,16 @@
     function render(lines) {
       const html = lines.map(renderLine).filter(Boolean).join('');
       root.innerHTML = html || '<div class="cc-empty">No output yet.</div>';
-      setHeight(document.body.scrollHeight);
     }
 
     // -----------------------------------------------------------------------
     // Bootstrap from store
     // -----------------------------------------------------------------------
+
+    // Observe body height via ResizeObserver — fires when layout completes
+    // and on subsequent content changes. In Electron srcdoc iframes,
+    // synchronous scrollHeight reads return 0 before layout.
+    observeHeight();
 
     const state = streamStore.getState();
     const primaryFile = state.files.get(state.primary);
@@ -402,7 +406,6 @@
       render(primaryFile.lines);
     } else {
       root.innerHTML = '<div class="cc-empty">No output yet.</div>';
-      setHeight(document.body.scrollHeight);
       subscribe(state.primary);
     }
 

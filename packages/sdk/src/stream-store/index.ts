@@ -8,7 +8,7 @@
  * @module stream-store
  */
 
-export { close, openFile, setHeight, showDiff, subscribe } from './actions.js';
+export { close, observeHeight, openFile, setHeight, showDiff, subscribe } from './actions.js';
 export { streamStore } from './store.js';
 export type {
   HostToIframeMessage,
