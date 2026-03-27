@@ -276,8 +276,12 @@ export async function findWebviewFrame(page: Page, target: WebviewTarget): Promi
           if (isList) return childFrame;
         }
       } catch (error) {
-        // Frame may be detached or cross-origin — log and skip
-        process.stderr.write(`cards-dev: skipping frame (${error instanceof Error ? error.message : String(error)})\n`);
+        const msg = error instanceof Error ? error.message : String(error);
+        if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+          process.stderr.write(`cards-dev: skipping frame (${msg})\n`);
+          continue;
+        }
+        throw error;
       }
     }
   }
@@ -473,7 +477,11 @@ export async function typeInto(args: string[]): Promise<TypeResult> {
         el.scrollIntoView({ block: 'center' });
         (el as HTMLElement).focus();
         if (shouldClear && el.tagName !== 'SELECT') {
-          (el as HTMLInputElement).value = '';
+          if ((el as HTMLElement).isContentEditable) {
+            el.textContent = '';
+          } else {
+            (el as HTMLInputElement).value = '';
+          }
           el.dispatchEvent(new Event('input', { bubbles: true }));
         }
         return {
@@ -489,10 +497,7 @@ export async function typeInto(args: string[]): Promise<TypeResult> {
       throw new Error(`type: no input with label "${label}" found in ${target} webview`);
     }
 
-    await frame.type(`input[placeholder="${label}"], [aria-label="${label}"]`, text).catch(async () => {
-      // If selector-based type fails (e.g. label-associated input), use keyboard
-      await page.keyboard.type(text);
-    });
+    await page.keyboard.type(text);
 
     return { typed: true, element: { tag: elementInfo.tag, label: elementInfo.label } };
   } finally {

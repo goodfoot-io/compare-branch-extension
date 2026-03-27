@@ -86098,8 +86098,13 @@ async function findWebviewFrame(page, target) {
           if (isList) return childFrame;
         }
       } catch (error) {
-        process.stderr.write(`cards-dev: skipping frame (${error instanceof Error ? error.message : String(error)})
+        const msg = error instanceof Error ? error.message : String(error);
+        if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+          process.stderr.write(`cards-dev: skipping frame (${msg})
 `);
+          continue;
+        }
+        throw error;
       }
     }
   }
@@ -86232,7 +86237,11 @@ async function typeInto(args) {
         el.scrollIntoView({ block: "center" });
         el.focus();
         if (shouldClear && el.tagName !== "SELECT") {
-          el.value = "";
+          if (el.isContentEditable) {
+            el.textContent = "";
+          } else {
+            el.value = "";
+          }
           el.dispatchEvent(new Event("input", { bubbles: true }));
         }
         return {
@@ -86246,9 +86255,7 @@ async function typeInto(args) {
     if (!elementInfo) {
       throw new Error(`type: no input with label "${label}" found in ${target} webview`);
     }
-    await frame.type(`input[placeholder="${label}"], [aria-label="${label}"]`, text).catch(async () => {
-      await page.keyboard.type(text);
-    });
+    await page.keyboard.type(text);
     return { typed: true, element: { tag: elementInfo.tag, label: elementInfo.label } };
   } finally {
     await disconnectBrowser(browser);
