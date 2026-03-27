@@ -4,7 +4,6 @@ description: Refine enhancement cards through user interview
 tools: "*"
 skills:
   - runtime:card-repo
-  - runtime:enhancement
   - runtime:interview-enhancement
 ---
 

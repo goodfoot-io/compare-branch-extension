@@ -3,6 +3,8 @@ name: interview-maintenance
 description: Enrich maintenance request cards with codebase context. Does not implement.
 ---
 
+@${CLAUDE_SKILL_DIR}/maintenance.md
+
 <research-before-asking>
 ## Research-Before-Asking Protocol
 

@@ -4,7 +4,6 @@ description: Refine documentation cards through user interview
 tools: "*"
 skills:
   - runtime:card-repo
-  - runtime:documentation
   - runtime:interview-documentation
 ---
 

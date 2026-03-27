@@ -4,7 +4,6 @@ description: Refine investigation cards through user interview
 tools: "*"
 skills:
   - runtime:card-repo
-  - runtime:investigation
   - runtime:interview-investigation
 ---
 

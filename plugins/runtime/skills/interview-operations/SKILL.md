@@ -3,6 +3,8 @@ name: interview-operations
 description: Enrich operations request cards with codebase context. Does not implement.
 ---
 
+@${CLAUDE_SKILL_DIR}/operations.md
+
 <research-before-asking>
 ## Research-Before-Asking Protocol
 
