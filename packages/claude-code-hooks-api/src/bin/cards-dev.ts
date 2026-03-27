@@ -21,7 +21,7 @@ export type WebviewTarget = 'detail' | 'list';
 /** Result of {@link connectBrowser}. */
 export interface BrowserConnection {
   browser: Browser;
-  page: Page;
+  pages: Page[];
 }
 
 /** A single interactive element description returned by {@link listElements}. */
@@ -91,32 +91,38 @@ USAGE
 SUBCOMMANDS
   screenshot             Take a screenshot
     --target detail|list   Webview body screenshot (omit for full window)
+    --card <id>            Card to target (e.g. main:42); opens it if not already open
     --output <path>        Output path (default: /tmp/screenshot.png)
 
   list-elements          List interactive elements in a webview
     --target detail|list   (required)
+    --card <id>            Card to target when --target detail
 
   click                  Click an element by label
     --target detail|list   (required)
     --label <text>         Match by textContent, title, or aria-label (required)
     --index <N>            Disambiguate when multiple elements match
+    --card <id>            Card to target when --target detail
 
   type                   Type text into an input
     --target detail|list   (required)
     --label <text>         Find input by label/placeholder/aria-label (required)
     --text <value>         Text to type (required)
     --append               Type without clearing existing value
+    --card <id>            Card to target when --target detail
 
   scroll                 Scroll a webview
     --target detail|list   (required)
     --direction up|down    (required)
     --selector <css>       Specific container to scroll
     --amount <N>           Pixels to scroll (default: viewport height)
+    --card <id>            Card to target when --target detail
 
   read                   Read text content from a webview
     --target detail|list   (required)
     --selector <css>       Read from matching elements (omit for body text)
     --attribute <name>     Read attribute instead of text content
+    --card <id>            Card to target when --target detail
 
   wait                   Wait for an element to appear or disappear
     --target detail|list   (required)
@@ -124,6 +130,7 @@ SUBCOMMANDS
     --text <text>          Text to wait for (alternative to --selector)
     --absent               Wait for disappearance instead of appearance
     --timeout <N>          Milliseconds to wait (default: 5000)
+    --card <id>            Card to target when --target detail
 
 PREREQUISITES
   VS Code must be running with --remote-debugging-port=19222
@@ -218,13 +225,12 @@ export async function connectBrowser(): Promise<BrowserConnection> {
   });
 
   const pages = await browser.pages();
-  const page = pages.find((p) => p.url().includes('workbench.html'));
-  if (!page) {
+  if (pages.length === 0) {
     await browser.disconnect();
-    throw new Error('Could not find VS Code workbench page — is VS Code running?');
+    throw new Error('No browser pages found — is VS Code running?');
   }
 
-  return { browser, page };
+  return { browser, pages };
 }
 
 /**
@@ -240,52 +246,182 @@ export async function disconnectBrowser(browser: Browser): Promise<void> {
 }
 
 /**
- * Finds the Cards webview iframe matching the given target.
+ * Finds all open Cards detail webview frames and reads the card ID from each.
  *
- * Iterates `page.frames()`, filters for URLs containing `vscode-webview`, then
- * searches child frames using content-based matching:
- * - `detail`: matches a child frame that contains `[data-timeline-kind]`
- * - `list`: matches a child frame in the sidebar that does NOT contain
- *   `[data-timeline-kind]` but DOES contain `[data-card-list]` or a
- *   `[data-cards-list]` element (a Cards-specific selector)
+ * A detail frame is identified by `window.__INIT_DATA__.cardId` — the host
+ * injects this into the webview HTML before React boots. Any webview child
+ * frame that carries a non-empty `cardId` in `__INIT_DATA__` is a detail panel.
  *
- * @param page - The VS Code workbench page.
- * @param target - Which webview to find: `"detail"` or `"list"`.
- * @returns The matched inner `Frame`.
- * @throws Error if no matching frame is found.
+ * @param pages - All browser pages to search across.
+ * @returns Array of `{ frame, cardId }` pairs for every open detail panel.
  */
-export async function findWebviewFrame(page: Page, target: WebviewTarget): Promise<Frame> {
-  for (const frame of page.frames()) {
-    if (!frame.url().includes('vscode-webview')) continue;
-    for (const childFrame of frame.childFrames()) {
-      try {
-        if (target === 'detail') {
-          const isDetail = await childFrame.evaluate(() => !!document.querySelector('[data-timeline-kind]'));
-          if (isDetail) return childFrame;
-        } else {
-          // list: has no [data-timeline-kind] but does have Cards list DOM
-          const isList = await childFrame.evaluate(
-            () =>
-              !document.querySelector('[data-timeline-kind]') &&
-              !!(
-                document.querySelector('[data-card-list]') ??
-                document.querySelector('[data-cards-list]') ??
-                document.querySelector('.cards-list')
-              )
-          );
-          if (isList) return childFrame;
+export async function findAllDetailFrames(pages: Page[]): Promise<Array<{ frame: Frame; cardId: string }>> {
+  const results: Array<{ frame: Frame; cardId: string }> = [];
+  for (const p of pages) {
+    for (const frame of p.frames()) {
+      if (!frame.url().includes('vscode-webview')) continue;
+      for (const childFrame of frame.childFrames()) {
+        try {
+          const cardId = await childFrame.evaluate(() => {
+            const init = (window as unknown as { __INIT_DATA__?: { cardId?: string } }).__INIT_DATA__;
+            return init?.cardId ?? null;
+          });
+          if (cardId) results.push({ frame: childFrame, cardId });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+            continue;
+          }
+          throw error;
         }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
-          process.stderr.write(`cards-dev: skipping frame (${msg})\n`);
-          continue;
-        }
-        throw error;
       }
     }
   }
-  throw new Error(`Could not find Cards ${target} webview frame`);
+  return results;
+}
+
+/**
+ * Opens a card in the Cards detail panel by clicking its row in the list webview.
+ *
+ * Finds the `CardListItem` element whose card-ID span matches `cardId` and
+ * clicks it. This triggers `onCardSelect(cardId)` inside the list webview,
+ * which calls the `cards.openCard` VS Code command internally — the same path
+ * used by normal user interaction. No keyboard automation or external IPC is
+ * required.
+ *
+ * @param pages - All browser pages (used to locate the list webview frame).
+ * @param cardId - Card identifier to open (e.g. `'main-108'`).
+ * @throws Error if the list webview is not found or the card is not in the list.
+ */
+export async function openCardViaList(pages: Page[], cardId: string): Promise<void> {
+  // Find the list webview frame
+  let listFrame: Frame | null = null;
+  for (const p of pages) {
+    for (const frame of p.frames()) {
+      if (!frame.url().includes('vscode-webview')) continue;
+      for (const childFrame of frame.childFrames()) {
+        try {
+          const isList = await childFrame.evaluate(() => {
+            const init = (window as unknown as { __INIT_DATA__?: { cardId?: string } }).__INIT_DATA__;
+            return !init?.cardId && !!document.querySelector('vscode-textfield');
+          });
+          if (isList) {
+            listFrame = childFrame;
+            break;
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+            continue;
+          }
+          throw error;
+        }
+      }
+      if (listFrame) break;
+    }
+    if (listFrame) break;
+  }
+
+  if (!listFrame) {
+    throw new Error('Cards list webview is not open — cannot auto-open the card');
+  }
+
+  const clicked = await listFrame.evaluate((id: string) => {
+    for (const item of document.querySelectorAll('.CardListItem')) {
+      // The card ID is rendered as a <span> inside the list item
+      const spans = item.querySelectorAll('span');
+      for (const span of spans) {
+        if (span.textContent?.trim() === id) {
+          (item as HTMLElement).click();
+          return true;
+        }
+      }
+    }
+    return false;
+  }, cardId);
+
+  if (!clicked) {
+    throw new Error(`Card '${cardId}' not found in the Cards list — is the list loaded?`);
+  }
+
+  // Allow the detail panel to begin opening
+  await new Promise((r) => setTimeout(r, 800));
+}
+
+/**
+ * Finds the Cards webview iframe matching the given target.
+ *
+ * VS Code renders webviews on separate Electron pages (not on the workbench
+ * page), so this searches frames across **all** pages. Filters for URLs
+ * containing `vscode-webview`, then searches child frames using content-based
+ * matching:
+ *
+ * - `list`: child frame with a `vscode-textfield` but no `[data-timeline-kind]`
+ * - `detail` without `cardId`: single open detail frame; throws if zero or many
+ * - `detail` with `cardId`: frame whose `window.__INIT_DATA__.cardId` matches;
+ *   if not found, opens the card via {@link openCardViaCommandPalette} and polls
+ *   until it appears (up to 10 seconds), then throws on timeout
+ *
+ * @param pages - All browser pages to search across.
+ * @param target - Which webview to find: `"detail"` or `"list"`.
+ * @param cardId - Optional card identifier (e.g. `'main:42'`) for detail targets.
+ * @returns The matched inner `Frame`.
+ * @throws Error if no matching frame is found or ambiguity cannot be resolved.
+ */
+export async function findWebviewFrame(pages: Page[], target: WebviewTarget, cardId?: string): Promise<Frame> {
+  if (target === 'list') {
+    for (const p of pages) {
+      for (const frame of p.frames()) {
+        if (!frame.url().includes('vscode-webview')) continue;
+        for (const childFrame of frame.childFrames()) {
+          try {
+            const isList = await childFrame.evaluate(
+              () => !document.querySelector('[data-timeline-kind]') && !!document.querySelector('vscode-textfield')
+            );
+            if (isList) return childFrame;
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+              continue;
+            }
+            throw error;
+          }
+        }
+      }
+    }
+    throw new Error('Could not find Cards list webview frame');
+  }
+
+  // detail target — collect all open detail frames
+  const detailFrames = await findAllDetailFrames(pages);
+
+  if (cardId !== undefined) {
+    const match = detailFrames.find((f) => f.cardId === cardId);
+    if (match) return match.frame;
+
+    // Card not open yet — open it by clicking in the list webview
+    await openCardViaList(pages, cardId);
+
+    // Poll until the frame appears (up to 10 seconds)
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 500));
+      const frames = await findAllDetailFrames(pages);
+      const found = frames.find((f) => f.cardId === cardId);
+      if (found) return found.frame;
+    }
+    throw new Error(`Card '${cardId}' did not open within 10 seconds`);
+  }
+
+  // No cardId specified — require exactly one detail frame
+  if (detailFrames.length === 0) {
+    throw new Error('No card detail panel is open; open a card or pass --card <id>');
+  }
+  if (detailFrames.length === 1) {
+    return detailFrames[0]!.frame;
+  }
+  const openIds = detailFrames.map((f) => f.cardId ?? 'unknown').join(', ');
+  throw new Error(`Multiple cards are open (${openIds}); specify --card <id>`);
 }
 
 // ─── Subcommands ─────────────────────────────────────────────────────────────
@@ -304,19 +440,27 @@ export async function screenshot(args: string[]): Promise<ScreenshotResult> {
   const flags = parseFlags(args);
   const outputPath = flags['output']?.[0] ?? '/tmp/screenshot.png';
   const target = flags['target']?.[0];
+  const cardId = flags['card']?.[0];
 
   if (target !== undefined && target !== 'detail' && target !== 'list') {
     throw new Error(`screenshot: --target must be "detail" or "list", got "${target}"`);
   }
 
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
     if (target) {
-      const frame = await findWebviewFrame(page, target);
+      const frame = await findWebviewFrame(pages, target, cardId);
       const body = await frame.$('body');
       if (!body) throw new Error('Could not find body element in webview frame');
       await body.screenshot({ path: outputPath });
+    } else if (cardId) {
+      // Derive the workbench page from the card's detail frame
+      const frame = await findWebviewFrame(pages, 'detail', cardId);
+      await frame.page().screenshot({ path: outputPath, captureBeyondViewport: false });
     } else {
+      // No target or card — use the first workbench page
+      const page = pages.find((p) => p.url().includes('workbench.html'));
+      if (!page) throw new Error('Could not find VS Code workbench page');
       await page.screenshot({ path: outputPath, captureBeyondViewport: false });
     }
     return { path: outputPath };
@@ -337,13 +481,14 @@ export async function screenshot(args: string[]): Promise<ScreenshotResult> {
 export async function listElements(args: string[]): Promise<ElementInfo[]> {
   const flags = parseFlags(args);
   const target = flags['target']?.[0];
+  const cardId = flags['card']?.[0];
   if (!target || (target !== 'detail' && target !== 'list')) {
     throw new Error('list-elements: --target detail|list is required');
   }
 
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target as WebviewTarget);
+    const frame = await findWebviewFrame(pages, target as WebviewTarget, cardId);
     const elements = await frame.evaluate(() => {
       const selector =
         "button, [role='button'], vscode-button, input, select, textarea, [role='checkbox'], [role='combobox']";
@@ -382,6 +527,7 @@ export async function click(args: string[]): Promise<ClickResult> {
   const target = flags['target']?.[0];
   const label = flags['label']?.[0];
   const indexStr = flags['index']?.[0];
+  const cardId = flags['card']?.[0];
 
   if (!target || (target !== 'detail' && target !== 'list')) {
     throw new Error('click: --target detail|list is required');
@@ -395,9 +541,9 @@ export async function click(args: string[]): Promise<ClickResult> {
     throw new Error('click: --index must be a non-negative integer');
   }
 
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target as WebviewTarget);
+    const frame = await findWebviewFrame(pages, target as WebviewTarget, cardId);
     const result = await frame.evaluate(
       (lbl: string, idx: number) => {
         const selector =
@@ -445,6 +591,7 @@ export async function typeInto(args: string[]): Promise<TypeResult> {
   const label = flags['label']?.[0];
   const text = flags['text']?.[0];
   const append = flags['append'] !== undefined;
+  const cardId = flags['card']?.[0];
 
   if (!target || (target !== 'detail' && target !== 'list')) {
     throw new Error('type: --target detail|list is required');
@@ -456,9 +603,9 @@ export async function typeInto(args: string[]): Promise<TypeResult> {
     throw new Error('type: --text is required');
   }
 
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target as WebviewTarget);
+    const frame = await findWebviewFrame(pages, target as WebviewTarget, cardId);
 
     // Find and focus the input
     const elementInfo = await frame.evaluate(
@@ -497,7 +644,7 @@ export async function typeInto(args: string[]): Promise<TypeResult> {
       throw new Error(`type: no input with label "${label}" found in ${target} webview`);
     }
 
-    await page.keyboard.type(text);
+    await frame.page().keyboard.type(text);
 
     return { typed: true, element: { tag: elementInfo.tag, label: elementInfo.label } };
   } finally {
@@ -520,6 +667,7 @@ export async function scroll(args: string[]): Promise<ScrollResult> {
   const direction = flags['direction']?.[0];
   const selector = flags['selector']?.[0];
   const amountStr = flags['amount']?.[0];
+  const cardId = flags['card']?.[0];
 
   if (!target || (target !== 'detail' && target !== 'list')) {
     throw new Error('scroll: --target detail|list is required');
@@ -533,9 +681,9 @@ export async function scroll(args: string[]): Promise<ScrollResult> {
     throw new Error('scroll: --amount must be a positive integer');
   }
 
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target as WebviewTarget);
+    const frame = await findWebviewFrame(pages, target as WebviewTarget, cardId);
     const scrollTop = await frame.evaluate(
       (dir: string, sel: string | null, amt: number | null) => {
         const el: Element | null = sel ? document.querySelector(sel) : (document.scrollingElement ?? document.body);
@@ -569,14 +717,15 @@ export async function read(args: string[]): Promise<ReadBodyResult | ReadSelecto
   const target = flags['target']?.[0];
   const selector = flags['selector']?.[0];
   const attribute = flags['attribute']?.[0];
+  const cardId = flags['card']?.[0];
 
   if (!target || (target !== 'detail' && target !== 'list')) {
     throw new Error('read: --target detail|list is required');
   }
 
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target as WebviewTarget);
+    const frame = await findWebviewFrame(pages, target as WebviewTarget, cardId);
 
     if (!selector) {
       const text = await frame.evaluate(() => (document.body.textContent ?? '').trim());
@@ -623,6 +772,7 @@ export async function wait(args: string[]): Promise<WaitResult> {
   const text = flags['text']?.[0];
   const absent = flags['absent'] !== undefined;
   const timeoutStr = flags['timeout']?.[0];
+  const cardId = flags['card']?.[0];
 
   if (!target || (target !== 'detail' && target !== 'list')) {
     throw new Error('wait: --target detail|list is required');
@@ -636,9 +786,9 @@ export async function wait(args: string[]): Promise<WaitResult> {
     throw new Error('wait: --timeout must be a positive integer');
   }
 
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target as WebviewTarget);
+    const frame = await findWebviewFrame(pages, target as WebviewTarget, cardId);
     const start = Date.now();
 
     await frame.waitForFunction(

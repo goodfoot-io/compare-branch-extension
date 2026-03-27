@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -85981,32 +85982,38 @@ USAGE
 SUBCOMMANDS
   screenshot             Take a screenshot
     --target detail|list   Webview body screenshot (omit for full window)
+    --card <id>            Card to target (e.g. main:42); opens it if not already open
     --output <path>        Output path (default: /tmp/screenshot.png)
 
   list-elements          List interactive elements in a webview
     --target detail|list   (required)
+    --card <id>            Card to target when --target detail
 
   click                  Click an element by label
     --target detail|list   (required)
     --label <text>         Match by textContent, title, or aria-label (required)
     --index <N>            Disambiguate when multiple elements match
+    --card <id>            Card to target when --target detail
 
   type                   Type text into an input
     --target detail|list   (required)
     --label <text>         Find input by label/placeholder/aria-label (required)
     --text <value>         Text to type (required)
     --append               Type without clearing existing value
+    --card <id>            Card to target when --target detail
 
   scroll                 Scroll a webview
     --target detail|list   (required)
     --direction up|down    (required)
     --selector <css>       Specific container to scroll
     --amount <N>           Pixels to scroll (default: viewport height)
+    --card <id>            Card to target when --target detail
 
   read                   Read text content from a webview
     --target detail|list   (required)
     --selector <css>       Read from matching elements (omit for body text)
     --attribute <name>     Read attribute instead of text content
+    --card <id>            Card to target when --target detail
 
   wait                   Wait for an element to appear or disappear
     --target detail|list   (required)
@@ -86014,6 +86021,7 @@ SUBCOMMANDS
     --text <text>          Text to wait for (alternative to --selector)
     --absent               Wait for disappearance instead of appearance
     --timeout <N>          Milliseconds to wait (default: 5000)
+    --card <id>            Card to target when --target detail
 
 PREREQUISITES
   VS Code must be running with --remote-debugging-port=19222
@@ -86073,58 +86081,153 @@ async function connectBrowser() {
     defaultViewport: null
   });
   const pages = await browser.pages();
-  const page = pages.find((p) => p.url().includes("workbench.html"));
-  if (!page) {
+  if (pages.length === 0) {
     await browser.disconnect();
-    throw new Error("Could not find VS Code workbench page \u2014 is VS Code running?");
+    throw new Error("No browser pages found \u2014 is VS Code running?");
   }
-  return { browser, page };
+  return { browser, pages };
 }
 async function disconnectBrowser(browser) {
   await browser.disconnect();
 }
-async function findWebviewFrame(page, target) {
-  for (const frame of page.frames()) {
-    if (!frame.url().includes("vscode-webview")) continue;
-    for (const childFrame of frame.childFrames()) {
-      try {
-        if (target === "detail") {
-          const isDetail = await childFrame.evaluate(() => !!document.querySelector("[data-timeline-kind]"));
-          if (isDetail) return childFrame;
-        } else {
-          const isList = await childFrame.evaluate(
-            () => !document.querySelector("[data-timeline-kind]") && !!(document.querySelector("[data-card-list]") ?? document.querySelector("[data-cards-list]") ?? document.querySelector(".cards-list"))
-          );
-          if (isList) return childFrame;
+async function findAllDetailFrames(pages) {
+  const results = [];
+  for (const p of pages) {
+    for (const frame of p.frames()) {
+      if (!frame.url().includes("vscode-webview")) continue;
+      for (const childFrame of frame.childFrames()) {
+        try {
+          const cardId = await childFrame.evaluate(() => {
+            const init = window.__INIT_DATA__;
+            return init?.cardId ?? null;
+          });
+          if (cardId) results.push({ frame: childFrame, cardId });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+            continue;
+          }
+          throw error;
         }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
-          process.stderr.write(`cards-dev: skipping frame (${msg})
-`);
-          continue;
-        }
-        throw error;
       }
     }
   }
-  throw new Error(`Could not find Cards ${target} webview frame`);
+  return results;
+}
+async function openCardViaList(pages, cardId) {
+  let listFrame = null;
+  for (const p of pages) {
+    for (const frame of p.frames()) {
+      if (!frame.url().includes("vscode-webview")) continue;
+      for (const childFrame of frame.childFrames()) {
+        try {
+          const isList = await childFrame.evaluate(() => {
+            const init = window.__INIT_DATA__;
+            return !init?.cardId && !!document.querySelector("vscode-textfield");
+          });
+          if (isList) {
+            listFrame = childFrame;
+            break;
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+            continue;
+          }
+          throw error;
+        }
+      }
+      if (listFrame) break;
+    }
+    if (listFrame) break;
+  }
+  if (!listFrame) {
+    throw new Error("Cards list webview is not open \u2014 cannot auto-open the card");
+  }
+  const clicked = await listFrame.evaluate((id) => {
+    for (const item of document.querySelectorAll(".CardListItem")) {
+      const spans = item.querySelectorAll("span");
+      for (const span of spans) {
+        if (span.textContent?.trim() === id) {
+          item.click();
+          return true;
+        }
+      }
+    }
+    return false;
+  }, cardId);
+  if (!clicked) {
+    throw new Error(`Card '${cardId}' not found in the Cards list \u2014 is the list loaded?`);
+  }
+  await new Promise((r) => setTimeout(r, 800));
+}
+async function findWebviewFrame(pages, target, cardId) {
+  if (target === "list") {
+    for (const p of pages) {
+      for (const frame of p.frames()) {
+        if (!frame.url().includes("vscode-webview")) continue;
+        for (const childFrame of frame.childFrames()) {
+          try {
+            const isList = await childFrame.evaluate(
+              () => !document.querySelector("[data-timeline-kind]") && !!document.querySelector("vscode-textfield")
+            );
+            if (isList) return childFrame;
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            if (/detach|destroy|not found|cross-origin|context was destroyed|execution context/i.test(msg)) {
+              continue;
+            }
+            throw error;
+          }
+        }
+      }
+    }
+    throw new Error("Could not find Cards list webview frame");
+  }
+  const detailFrames = await findAllDetailFrames(pages);
+  if (cardId !== void 0) {
+    const match = detailFrames.find((f) => f.cardId === cardId);
+    if (match) return match.frame;
+    await openCardViaList(pages, cardId);
+    const deadline = Date.now() + 1e4;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 500));
+      const frames = await findAllDetailFrames(pages);
+      const found = frames.find((f) => f.cardId === cardId);
+      if (found) return found.frame;
+    }
+    throw new Error(`Card '${cardId}' did not open within 10 seconds`);
+  }
+  if (detailFrames.length === 0) {
+    throw new Error("No card detail panel is open; open a card or pass --card <id>");
+  }
+  if (detailFrames.length === 1) {
+    return detailFrames[0].frame;
+  }
+  const openIds = detailFrames.map((f) => f.cardId ?? "unknown").join(", ");
+  throw new Error(`Multiple cards are open (${openIds}); specify --card <id>`);
 }
 async function screenshot(args) {
   const flags = parseFlags(args);
   const outputPath = flags["output"]?.[0] ?? "/tmp/screenshot.png";
   const target = flags["target"]?.[0];
+  const cardId = flags["card"]?.[0];
   if (target !== void 0 && target !== "detail" && target !== "list") {
     throw new Error(`screenshot: --target must be "detail" or "list", got "${target}"`);
   }
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
     if (target) {
-      const frame = await findWebviewFrame(page, target);
+      const frame = await findWebviewFrame(pages, target, cardId);
       const body = await frame.$("body");
       if (!body) throw new Error("Could not find body element in webview frame");
       await body.screenshot({ path: outputPath });
+    } else if (cardId) {
+      const frame = await findWebviewFrame(pages, "detail", cardId);
+      await frame.page().screenshot({ path: outputPath, captureBeyondViewport: false });
     } else {
+      const page = pages.find((p) => p.url().includes("workbench.html"));
+      if (!page) throw new Error("Could not find VS Code workbench page");
       await page.screenshot({ path: outputPath, captureBeyondViewport: false });
     }
     return { path: outputPath };
@@ -86135,12 +86238,13 @@ async function screenshot(args) {
 async function listElements(args) {
   const flags = parseFlags(args);
   const target = flags["target"]?.[0];
+  const cardId = flags["card"]?.[0];
   if (!target || target !== "detail" && target !== "list") {
     throw new Error("list-elements: --target detail|list is required");
   }
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target);
+    const frame = await findWebviewFrame(pages, target, cardId);
     const elements = await frame.evaluate(() => {
       const selector = "button, [role='button'], vscode-button, input, select, textarea, [role='checkbox'], [role='combobox']";
       return Array.from(document.querySelectorAll(selector)).map((el) => ({
@@ -86163,6 +86267,7 @@ async function click(args) {
   const target = flags["target"]?.[0];
   const label = flags["label"]?.[0];
   const indexStr = flags["index"]?.[0];
+  const cardId = flags["card"]?.[0];
   if (!target || target !== "detail" && target !== "list") {
     throw new Error("click: --target detail|list is required");
   }
@@ -86173,9 +86278,9 @@ async function click(args) {
   if (indexStr !== void 0 && (Number.isNaN(index) || index < 0)) {
     throw new Error("click: --index must be a non-negative integer");
   }
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target);
+    const frame = await findWebviewFrame(pages, target, cardId);
     const result = await frame.evaluate(
       (lbl, idx) => {
         const selector = "button, [role='button'], vscode-button, input, select, textarea, [role='checkbox'], [role='combobox']";
@@ -86210,6 +86315,7 @@ async function typeInto(args) {
   const label = flags["label"]?.[0];
   const text = flags["text"]?.[0];
   const append = flags["append"] !== void 0;
+  const cardId = flags["card"]?.[0];
   if (!target || target !== "detail" && target !== "list") {
     throw new Error("type: --target detail|list is required");
   }
@@ -86219,9 +86325,9 @@ async function typeInto(args) {
   if (text === void 0) {
     throw new Error("type: --text is required");
   }
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target);
+    const frame = await findWebviewFrame(pages, target, cardId);
     const elementInfo = await frame.evaluate(
       (lbl, shouldClear) => {
         const selector = "input, select, textarea, [contenteditable]";
@@ -86255,7 +86361,7 @@ async function typeInto(args) {
     if (!elementInfo) {
       throw new Error(`type: no input with label "${label}" found in ${target} webview`);
     }
-    await page.keyboard.type(text);
+    await frame.page().keyboard.type(text);
     return { typed: true, element: { tag: elementInfo.tag, label: elementInfo.label } };
   } finally {
     await disconnectBrowser(browser);
@@ -86267,6 +86373,7 @@ async function scroll(args) {
   const direction = flags["direction"]?.[0];
   const selector = flags["selector"]?.[0];
   const amountStr = flags["amount"]?.[0];
+  const cardId = flags["card"]?.[0];
   if (!target || target !== "detail" && target !== "list") {
     throw new Error("scroll: --target detail|list is required");
   }
@@ -86277,9 +86384,9 @@ async function scroll(args) {
   if (amountStr !== void 0 && (Number.isNaN(amount) || amount <= 0)) {
     throw new Error("scroll: --amount must be a positive integer");
   }
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target);
+    const frame = await findWebviewFrame(pages, target, cardId);
     const scrollTop = await frame.evaluate(
       (dir, sel, amt) => {
         const el = sel ? document.querySelector(sel) : document.scrollingElement ?? document.body;
@@ -86302,12 +86409,13 @@ async function read(args) {
   const target = flags["target"]?.[0];
   const selector = flags["selector"]?.[0];
   const attribute = flags["attribute"]?.[0];
+  const cardId = flags["card"]?.[0];
   if (!target || target !== "detail" && target !== "list") {
     throw new Error("read: --target detail|list is required");
   }
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target);
+    const frame = await findWebviewFrame(pages, target, cardId);
     if (!selector) {
       const text = await frame.evaluate(() => (document.body.textContent ?? "").trim());
       return { text };
@@ -86339,6 +86447,7 @@ async function wait(args) {
   const text = flags["text"]?.[0];
   const absent = flags["absent"] !== void 0;
   const timeoutStr = flags["timeout"]?.[0];
+  const cardId = flags["card"]?.[0];
   if (!target || target !== "detail" && target !== "list") {
     throw new Error("wait: --target detail|list is required");
   }
@@ -86349,9 +86458,9 @@ async function wait(args) {
   if (Number.isNaN(timeout2) || timeout2 <= 0) {
     throw new Error("wait: --timeout must be a positive integer");
   }
-  const { browser, page } = await connectBrowser();
+  const { browser, pages } = await connectBrowser();
   try {
-    const frame = await findWebviewFrame(page, target);
+    const frame = await findWebviewFrame(pages, target, cardId);
     const start = Date.now();
     await frame.waitForFunction(
       (sel, txt, shouldBeAbsent) => {
@@ -86431,8 +86540,10 @@ export {
   click,
   connectBrowser,
   disconnectBrowser,
+  findAllDetailFrames,
   findWebviewFrame,
   listElements,
+  openCardViaList,
   parseFlags,
   read,
   screenshot,
