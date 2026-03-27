@@ -33,7 +33,7 @@ Identify potential failure modes in this implementation plan.
 ## Workspace
 !` echo $WORKSPACE_PATH`
 
-Read the plan from PLAN.md in the card repository. Read the workspace source files the plan references. Identify ways the approach could fail when built. Send your report to both the team lead and the maintainer as soon as your analysis is complete.
+Read the plan from PLAN.md in the card repository. Read the workspace source files the plan references. Identify ways the approach could fail when built.
 </parameter>
 </invoke>
 ```

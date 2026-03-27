@@ -1,6 +1,6 @@
 ---
 name: failure-mode
-description: Identify potential failure modes in implementation plans. Used as a team member during plan review.
+description: Identify potential failure modes in implementation plans.
 tools: "*"
 skills:
   - runtime:card-repo

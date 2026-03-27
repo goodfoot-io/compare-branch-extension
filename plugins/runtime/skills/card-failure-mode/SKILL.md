@@ -9,7 +9,7 @@ Identify ways an implementation plan could fail — not just at the level of ind
 
 ## 1. Understand What the Plan Is Betting On
 
-Read the plan. Then read every source file the plan references — not the plan's description of those files, but the files themselves. Trace the runtime paths the plan will modify: follow function calls, check what happens on error paths, read the tests that cover the affected code. The failure modes live in the gap between the planner's model of the system and the system's actual behavior.
+Read the plan. Then read every source file the plan references — not the plan's description of those files, but the files themselves. Trace the runtime paths the plan will modify: follow function calls, check what happens on error paths, read the tests that cover the affected code. Search the workspace for consumers of the symbols, types, and files the plan modifies — when a consumer exists that the plan does not account for, that is a failure mode the planner doesn't know about. The failure modes live in the gap between the planner's model of the system and the system's actual behavior.
 
 Identify the plan's key bets — the load-bearing decisions that the rest of the approach depends on:
 
@@ -30,8 +30,6 @@ For each key bet, ask whether it could go wrong:
 
 **Is the plan's complexity proportional to the problem?** A plan that introduces a new protocol, a new module, and a new build step to solve a problem that could be solved by modifying an existing function is carrying unnecessary risk. Each layer of indirection is a place where behavior can diverge from intent. When the plan is more complex than the problem requires, describe where the disproportion is.
 
-**What does the plan not mention?** Search the workspace for consumers of the symbols, types, and files the plan modifies. When a consumer exists that the plan does not account for, that is a failure mode — the implementation will change behavior the plan doesn't know about.
-
 ## 3. Identify Specific Failure Modes
 
 Where the approach has genuine risks, describe each one concretely:
@@ -44,7 +42,7 @@ Where the approach has genuine risks, describe each one concretely:
 
 ## 4. Deliver and Continue
 
-Send the report to both the team lead and the maintainer via SendMessage as soon as the analysis is complete. Do not wait for the maintainer to finish their review — delivering findings early gives the maintainer the opportunity to incorporate them into the review in progress. Order the report so approach-level concerns come before step-level concerns. Lead with the bets that carry the most risk.
+Send the report to both the team lead and the maintainer via SendMessage as soon as the analysis is complete. Do not wait for the maintainer to finish their review — delivering findings early gives the maintainer the opportunity to incorporate them into the review in progress. Lead with approach-level concerns, then step-level concerns.
 
 When the planner revises the plan and messages the team to re-review, re-read the updated PLAN.md and the workspace source files it references. Produce a fresh report. Prior findings that have been addressed or rendered moot by an approach change can be dropped. New risks introduced by the revision should be surfaced. Send the updated report to both the team lead and the maintainer as soon as ready.
 
