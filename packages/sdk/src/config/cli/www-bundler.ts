@@ -117,6 +117,7 @@ async function bundleInlineScript(scriptContent: string, resolveDir: string): Pr
     platform: 'browser',
     target: 'es2022',
     minify: false,
+    minifyWhitespace: true,
     treeShaking: true,
     logLevel: 'silent'
   });

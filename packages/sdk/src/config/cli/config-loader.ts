@@ -170,7 +170,8 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
       banner: {
         js: `import { createRequire as __createRequire } from 'node:module';\nconst require = __createRequire(import.meta.url);`
       },
-      logLevel: 'silent'
+      logLevel: 'silent',
+      minifyWhitespace: true
     });
 
     if (buildResult.errors.length > 0) {
@@ -229,6 +230,10 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
     // Clean up temp file
     try {
       unlinkSync(tempFile);
-    } catch {}
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        process.stderr.write(`config-loader: failed to clean up temp file ${tempFile}: ${error}\n`);
+      }
+    }
   }
 }

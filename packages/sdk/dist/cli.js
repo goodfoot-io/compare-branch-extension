@@ -42,7 +42,8 @@ async function loadConfig(configPath) {
         js: `import { createRequire as __createRequire } from 'node:module';
 const require = __createRequire(import.meta.url);`
       },
-      logLevel: "silent"
+      logLevel: "silent",
+      minifyWhitespace: true
     });
     if (buildResult.errors.length > 0) {
       const errors = buildResult.errors.map((e) => e.text).join("\n");
@@ -88,7 +89,11 @@ const require = __createRequire(import.meta.url);`
   } finally {
     try {
       unlinkSync(tempFile);
-    } catch {
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        process.stderr.write(`config-loader: failed to clean up temp file ${tempFile}: ${error}
+`);
+      }
     }
   }
 }
@@ -277,6 +282,7 @@ if (!process.argv.includes('--branch-cleanup')) {
       target: "es2022",
       sourcemap: sourcemap ? "inline" : false,
       minify: false,
+      minifyWhitespace: true,
       treeShaking: true,
       external: EXTERNALS,
       banner: { js: BANNER },
@@ -359,6 +365,7 @@ async function bundleInlineScript(scriptContent, resolveDir) {
     platform: "browser",
     target: "es2022",
     minify: false,
+    minifyWhitespace: true,
     treeShaking: true,
     logLevel: "silent"
   });

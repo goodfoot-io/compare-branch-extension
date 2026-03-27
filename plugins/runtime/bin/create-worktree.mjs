@@ -51,8 +51,8 @@ async function createWorktree(ref2, options) {
   const ignored = await discoverIgnoredPaths(sourceRoot);
   await copyExistingSymlinks(sourceRoot, worktreeDir);
   const filteredIgnored = {
-    directories: ignored.directories.filter((d) => d !== ".cards"),
-    files: ignored.files
+    directories: ignored.directories.filter((d) => d !== ".cards" && !d.startsWith(".cards/")),
+    files: ignored.files.filter((f) => !f.startsWith(".cards/"))
   };
   await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
   await copyCardsDirectory(sourceRoot, worktreeDir);

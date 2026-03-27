@@ -133,8 +133,8 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
 
   // .cards is copied rather than symlinked so each worktree gets an independent copy
   const filteredIgnored: IgnoredPaths = {
-    directories: ignored.directories.filter((d) => d !== '.cards'),
-    files: ignored.files
+    directories: ignored.directories.filter((d) => d !== '.cards' && !d.startsWith('.cards/')),
+    files: ignored.files.filter((f) => !f.startsWith('.cards/'))
   };
   await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
   await copyCardsDirectory(sourceRoot, worktreeDir);
