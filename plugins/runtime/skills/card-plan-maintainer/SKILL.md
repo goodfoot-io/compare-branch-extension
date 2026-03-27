@@ -182,8 +182,8 @@ External constraints prevent review (missing card context, inaccessible workspac
 
 ### Verdict: [APPROVED/CHANGES_REQUESTED/BLOCKED]
 
-### Commander's Intent
-[From PLAN.md opening — quote verbatim]
+### Intent
+[From PLAN.md opening paragraph — quote verbatim]
 
 ### Strategy Assessment
 [Does the technical approach achieve the intent's done state while satisfying its constraints?

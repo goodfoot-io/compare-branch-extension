@@ -196,8 +196,8 @@ External constraints prevent review or deployment (infrastructure failure, missi
 
 ### Verdict: [APPROVED/CHANGES_REQUESTED/BLOCKED]
 
-### Commander's Intent
-[From PLAN.md opening — quote verbatim]
+### Intent
+[From PLAN.md opening paragraph — quote verbatim]
 
 ### Strategy Assessment
 [Does this implementation achieve the commander's intent?
