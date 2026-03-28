@@ -35,6 +35,7 @@ describe('Event Types', () => {
       const event: EventMap['cards:metadata'] = {
         type: 'cards:metadata',
         cardId: 'card-123',
+        repositoryId: 'main',
         title: 'Test',
         status: 'todo',
         tags: [],
@@ -222,6 +223,7 @@ describe('Event Types', () => {
       callback({
         type: 'cards:metadata',
         cardId: 'card-123',
+        repositoryId: 'main',
         title: 'Test',
         status: 'todo',
         tags: [],

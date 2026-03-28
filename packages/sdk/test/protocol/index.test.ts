@@ -57,6 +57,7 @@ describe('DomainEvent discriminated union', () => {
     const event: DomainEvent = {
       type: 'cards:metadata',
       cardId: 'card-1',
+      repositoryId: 'main',
       title: 'Test',
       status: 'todo',
       tags: [],
@@ -103,6 +104,7 @@ describe('DomainEvent discriminated union', () => {
       {
         type: 'cards:metadata',
         cardId: 'id',
+        repositoryId: 'main',
         title: 'T',
         status: 'todo',
         tags: [],
