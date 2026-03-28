@@ -14,8 +14,6 @@ CARDS_ENV_VARS.CARD_ID                       // 'CARD_ID'
 CARDS_ENV_VARS.ACTION_NAME                   // 'ACTION_NAME'
 CARDS_ENV_VARS.ENVIRONMENT                   // 'ENVIRONMENT'
 CARDS_ENV_VARS.EXECUTION_MODE                // 'EXECUTION_MODE'
-CARDS_ENV_VARS.API_BASE_URL                  // 'API_BASE_URL'
-CARDS_ENV_VARS.API_ACCESS_TOKEN              // 'API_ACCESS_TOKEN'
 CARDS_ENV_VARS.CODING_AGENT                  // 'CODING_AGENT'
 CARDS_ENV_VARS.TYPE_NAME                     // 'TYPE_NAME'
 CARDS_ENV_VARS.TYPE_VERSION                  // 'TYPE_VERSION'
@@ -40,8 +38,6 @@ CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 | `ACTION_NAME` | Yes | No | No |
 | `ENVIRONMENT` | Yes | Yes | Yes |
 | `EXECUTION_MODE` | Yes | No | No |
-| `API_BASE_URL` | Yes | Yes | Yes |
-| `API_ACCESS_TOKEN` | Yes | Yes | Yes |
 | `CODING_AGENT` | Yes (optional) | No | No |
 | `TYPE_NAME` | No | Yes | Yes |
 | `TYPE_VERSION` | No | Yes | Yes |
@@ -66,16 +62,12 @@ Each environment variable has a dedicated getter function with validation.
 ```typescript
 import {
   getCardId,
-  getEnvironment,
-  getApiBaseUrl,
-  getApiAccessToken
+  getEnvironment
 } from '@cards/sdk/config';
 
 // All throw Error if missing or empty
 const cardId = getCardId();
 const environment = getEnvironment();
-const apiBaseUrl = getApiBaseUrl();
-const apiAccessToken = getApiAccessToken();
 ```
 
 ### Common Variables (All Handlers) — continued
@@ -164,8 +156,6 @@ const input = extractActionInput();
 //   actionName: string,
 //   environment: string,
 //   executionMode: 'interactive' | 'background',
-//   apiBaseUrl: string,
-//   apiAccessToken: string,
 //   codingAgent?: string,
 //   switchToInteractiveData?: unknown,
 //   repoRoot: string,
@@ -189,9 +179,7 @@ const input = extractTypeInput();
 //   filePath: string,
 //   fileSize: number,
 //   fileSha256: string,
-//   contentType: string,
-//   apiBaseUrl: string,
-//   apiAccessToken: string
+//   contentType: string
 // }
 ```
 
@@ -219,26 +207,24 @@ try {
 }
 ```
 
-## API Authentication
+## API Access
 
-Use the extracted credentials for authenticated API calls:
+To make API calls, use the Cards client discovery function:
 
 ```typescript
-async (input, { logger }) => {
-  // Make authenticated API call
-  const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${input.apiAccessToken}`,
-      'Content-Type': 'application/json'
-    }
-  });
+import { createCardsClient } from '@cards/sdk/client/discovery';
 
-  if (!response.ok) {
-    throw new Error(`API call failed: ${response.status}`);
+async (input, { logger }) => {
+  // Create a Cards API client via discovery
+  const client = await createCardsClient();
+
+  if (!client) {
+    logger.warn('Cards API not available');
+    return;
   }
 
-  const data = await response.json();
+  // Use the client to make authenticated API calls
+  const card = await client.getCard(input.cardId);
   logger.info('Fetched card data', { cardId: input.cardId });
 }
 ```

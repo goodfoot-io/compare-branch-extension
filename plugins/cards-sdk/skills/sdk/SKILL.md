@@ -51,14 +51,6 @@ export default defineAction(
       return { cardId: input.cardId };
     });
 
-    const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
-      headers: { Authorization: `Bearer ${input.apiAccessToken}` }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch card: ${response.status}`);
-    }
-
     logger.info('Claude session completed', { cardId: input.cardId });
   }
 );

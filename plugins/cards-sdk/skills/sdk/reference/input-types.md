@@ -14,8 +14,6 @@ interface ActionInput {
   actionName: string;                     // Action button display name (e.g., "Launch Claude")
   environment: string;                    // Environment name (e.g., "default")
   executionMode: 'interactive' | 'background';  // UI interaction model
-  apiBaseUrl: string;                     // Cards server base URL
-  apiAccessToken: string;                 // Bearer token for API calls
   codingAgent?: string;                   // Configured AI coding assistant
   switchToInteractiveData?: unknown;      // Data from user switching to interactive mode
   repoRoot: string;                       // Main git repository root (NOT a worktree)
@@ -44,11 +42,6 @@ async (input: ActionInput, context) => {
     logger.info('User switched to interactive', { data: input.switchToInteractiveData });
   }
 
-  // Make authenticated API calls
-  const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
-    headers: { Authorization: `Bearer ${input.apiAccessToken}` }
-  });
-
   // Check execution mode for UI decisions
   if (input.executionMode === 'interactive') {
     // Show progress indicators
@@ -76,8 +69,6 @@ interface TypeHookInput {
   fileSize: number;        // File size in bytes
   fileSha256: string;      // SHA-256 hash of file content (hex string)
   contentType: string;     // MIME type (e.g., 'application/json')
-  apiBaseUrl: string;      // Cards server base URL
-  apiAccessToken: string;  // Bearer token for API calls
 }
 ```
 
@@ -143,15 +134,14 @@ Context provided to type validators.
 
 ```typescript
 interface TypeValidatorContext {
-  logger: ILogger;        // Logger for structured logging
-  cwd: string;            // Current working directory
-  typeName: string;       // Registered type name
-  typeVersion: string;    // Type version from settings.json
-  fileName: string;       // File being validated
-  cardId: string;         // Card identifier
-  environment: string;    // Environment name
-  apiBaseUrl: string;     // Cards server base URL
-  apiAccessToken: string; // Bearer token for API calls
+  logger: ILogger;                    // Logger for structured logging
+  cwd: string;                        // Current working directory
+  typeName: string;                   // Registered type name
+  typeVersion: string;                // Type version from settings.json
+  fileName: string;                   // File being validated
+  cardId: string;                     // Card identifier
+  environment: string;                // Environment name
+  client: CardsClient | null;         // Cards API client, or null if unavailable
 }
 ```
 
@@ -165,6 +155,11 @@ async (request, context: TypeValidatorContext) => {
     file: context.fileName,
     card: context.cardId
   });
+
+  // Use the client for API calls if available
+  if (context.client) {
+    const card = await context.client.getCard(context.cardId);
+  }
 }
 ```
 
