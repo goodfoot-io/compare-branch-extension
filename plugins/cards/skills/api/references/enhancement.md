@@ -47,7 +47,7 @@ When included: Write in natural language without code examples. Focus on "what" 
 ## Key Principles
 
 - **Progressive understanding**: Each section builds on the previous. A reader can stop at any section and have coherent understanding.
-- **Evidence over assertion**: Point to code for current behavior, reference commits for history, make desired behavior specific enough to test.
+- **Evidence over assertion**: Point to code for current behavior, reference commits for history, make desired behavior specific enough to test. When referencing workspace files, use markdown fragment links — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — instead of backtick code spans so the card-detail webview renders them as clickable buttons. Non-workspace paths (e.g. `~/.cards/cards-api.json`) remain as backtick code spans.
 - **Separation of concerns**: Current Functionality describes what is; Desired Functionality what should be; Implementation Approach how to bridge them. Do not mix.
 - **Audience awareness**: Write for the implementer who lacks your context and the future reader who encounters this after implementation. Make the implicit explicit.
 - **Appropriate abstraction**: Match detail level to section purpose — narrative for history, specific file references for current behavior, testable requirements for desired behavior, direction without code for approach.

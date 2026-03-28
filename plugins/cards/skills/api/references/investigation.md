@@ -19,7 +19,7 @@ An investigation request should make the intent and outcomes explicit: what need
 ## Section Notes
 
 - **Summary** (omit header in output): Write as a question or uncertainty paired with impact. Focus on the learning objective and the decision it will inform.
-- **Background** (omit header in output): Only context required to understand why the investigation is needed now. Concise and factual.
+- **Background** (omit header in output): Only context required to understand why the investigation is needed now. Concise and factual. Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — instead of backtick code spans so references are clickable in the card-detail webview. Non-workspace paths remain as backtick code spans.
 - **Key Questions / Hypotheses**: Phrase questions so they can be answered with data. Replace vague "Is this scalable?" with "What throughput is sustainable under current resource constraints?"
 - **Scope & Constraints**: Narrow enough to complete, broad enough to answer the key questions.
 - **Approach & Evidence Sources**: Favor evidence that is repeatable and verifiable.

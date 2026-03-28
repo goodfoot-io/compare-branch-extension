@@ -20,7 +20,7 @@ Documentation requests should capture intent, audience, and outcomes without pre
 - **Anchor in user need**: Who is the audience, what job are they doing, what is the current pain
 - **Classify doc type**: Tutorial, how-to, reference, explanation (Diataxis), runbook/playbook, knowledge-base article, or examples
 - **Outcomes over implementation**: State what the reader should be able to do, not the exact file or format. "Operators can resolve alert X within 10 minutes" not "Write a Markdown file at path Y"
-- **Source of truth**: Where authoritative information lives, accuracy boundaries, update cadence, time sensitivity (use versions/dates, not "new" or "currently")
+- **Source of truth**: Where authoritative information lives, accuracy boundaries, update cadence, time sensitivity (use versions/dates, not "new" or "currently"). Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — instead of backtick code spans so references are clickable in the card-detail webview. Non-workspace paths remain as backtick code spans.
 - **Scannable**: Front-load essentials (audience, task, outcome), short sections, direct language
 - **Visual when structural**: Use mermaid diagrams for system interactions, decision trees, or data flows — prose for everything else
 

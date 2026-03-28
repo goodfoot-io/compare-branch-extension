@@ -27,3 +27,11 @@ runtime/skills/interview-operations/operations.md        -> ../../../cards/skill
 ```
 
 Edit the files here; the symlinks ensure both consumers see the same content.
+
+## Shared References
+
+`fragment-links.md` documents the markdown fragment link syntax that agents
+should use when referencing workspace files in CARD.md descriptions. Each
+card-type guide incorporates this guidance in its writing principles. The
+syntax matches what `ReadOnlyMarkdown` renders as clickable buttons via
+`fragmentLinkParser.ts`.

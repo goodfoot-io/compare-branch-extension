@@ -25,7 +25,7 @@ Maintenance requests should explain **why the work matters** and **what success 
 ## Key Principles
 
 - **Intent over implementation**: State why and outcomes, not exact steps
-- **Evidence over assertion**: Metrics, incidents, code references, diagrams for complex dependency or data flow relationships — not opinions
+- **Evidence over assertion**: Metrics, incidents, code references as fragment links, diagrams for complex dependency or data flow relationships — not opinions. Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — instead of backtick code spans so references are clickable in the card-detail webview. Non-workspace paths remain as backtick code spans.
 - **Scope control**: Firm boundaries prevent refactor growth
 - **Risk awareness**: Make dependencies and rollback paths explicit early
 
