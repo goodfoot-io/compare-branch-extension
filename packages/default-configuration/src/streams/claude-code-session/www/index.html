@@ -24,10 +24,15 @@
       line-height: 1.5;
     }
 
-    /* In expanded mode the host wrapper is the sole scroll container.
-       Prevent the iframe body from generating a competing scrollbar. */
+    /* In expanded mode:
+       - overflow:hidden prevents the iframe body from generating a competing scrollbar
+         (the host wrapper div is the scroll container)
+       - height:auto overrides the inherited height:100% so the body can grow to its
+         natural content height; ResizeObserver on document.body then correctly reports
+         the full content height via observeHeight(), which the host uses to size the iframe */
     body.mode-expanded {
       overflow: hidden;
+      height: auto;
     }
 
     /* =========================================================
@@ -250,7 +255,7 @@
       background: var(--vscode-textCodeBlock-background, #0a0a0a);
       border: 1px solid var(--vscode-panel-border, #3c3c3c);
       padding: 10px 12px;
-      border-radius: 4px;
+      border-radius: 3px;
       max-width: 100%;
       box-sizing: border-box;
       white-space: pre-wrap;
@@ -963,12 +968,70 @@
           const humanTextParts = [];
 
           const classifyText = (raw) => {
-            if (/^\s*[{[<]/.test(raw)) {
-              const stripped = stripMarkup(raw);
-              const el = document.createElement('div');
-              el.className = 'cc-system-line';
-              el.textContent = stripped.length > 120 ? stripped.slice(0, 120) + '…' : stripped;
-              nodes.push(el);
+            if (/^\s*[{[]/.test(raw)) {
+              // JSON coordination message — parse for a human-readable summary.
+              // idle_notification entries are pure coordination noise; suppress them.
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed.type === 'idle_notification') return;
+                const el = document.createElement('div');
+                el.className = 'cc-system-line';
+                const parts = [];
+                if (parsed.from) parts.push(parsed.from);
+                if (parsed.type) parts.push(String(parsed.type).replace(/_/g, ' '));
+                el.textContent = parts.length > 0 ? parts.join(': ') : raw.slice(0, 80) + '…';
+                nodes.push(el);
+              } catch {
+                const el = document.createElement('div');
+                el.className = 'cc-system-line';
+                el.textContent = raw.slice(0, 120) + (raw.length > 120 ? '…' : '');
+                nodes.push(el);
+              }
+            } else if (/^\s*</.test(raw)) {
+              // XML coordination message. A single user content string may contain
+              // multiple <teammate-message> elements. Extract each element's inner
+              // content individually so JSON objects can be classified per-element.
+              const elemRegex = /<[^/][^>]*>([\s\S]*?)<\/[^>]+>/g;
+              let match;
+              let processedAny = false;
+              while ((match = elemRegex.exec(raw)) !== null) {
+                processedAny = true;
+                const inner = match[1].trim();
+                if (!inner) continue;
+                if (/^\s*\{/.test(inner)) {
+                  try {
+                    const parsed = JSON.parse(inner);
+                    if (parsed.type === 'idle_notification') continue; // suppress
+                    const el = document.createElement('div');
+                    el.className = 'cc-system-line';
+                    const parts = [];
+                    if (parsed.from) parts.push(parsed.from);
+                    if (parsed.type) parts.push(String(parsed.type).replace(/_/g, ' '));
+                    el.textContent = parts.length > 0 ? parts.join(': ') : inner.slice(0, 80) + '…';
+                    nodes.push(el);
+                  } catch {
+                    const el = document.createElement('div');
+                    el.className = 'cc-system-line';
+                    el.textContent = inner.length > 120 ? inner.slice(0, 120) + '…' : inner;
+                    nodes.push(el);
+                  }
+                } else {
+                  const el = document.createElement('div');
+                  el.className = 'cc-system-line';
+                  el.textContent = inner.length > 120 ? inner.slice(0, 120) + '…' : inner;
+                  nodes.push(el);
+                }
+              }
+              if (!processedAny) {
+                // Fallback: no matching XML elements — strip everything and show
+                const stripped = stripMarkup(raw).trim();
+                if (stripped.length > 0) {
+                  const el = document.createElement('div');
+                  el.className = 'cc-system-line';
+                  el.textContent = stripped.length > 120 ? stripped.slice(0, 120) + '…' : stripped;
+                  nodes.push(el);
+                }
+              }
             } else {
               humanTextParts.push(raw);
             }
@@ -1031,12 +1094,65 @@
             if (block.type === 'text' && block.text) {
               // Apply the same data heuristic as user messages: raw text
               // starting with {, [, or < is machine-generated data, not prose.
-              if (/^\s*[{[<]/.test(block.text)) {
-                const stripped = stripMarkup(block.text);
-                const el = document.createElement('div');
-                el.className = 'cc-system-line';
-                el.textContent = stripped.length > 120 ? stripped.slice(0, 120) + '…' : stripped;
-                nodes.push(el);
+              if (/^\s*[{[]/.test(block.text)) {
+                try {
+                  const parsed = JSON.parse(block.text);
+                  if (parsed.type !== 'idle_notification') {
+                    const el = document.createElement('div');
+                    el.className = 'cc-system-line';
+                    const parts = [];
+                    if (parsed.from) parts.push(parsed.from);
+                    if (parsed.type) parts.push(String(parsed.type).replace(/_/g, ' '));
+                    el.textContent = parts.length > 0 ? parts.join(': ') : block.text.slice(0, 80) + '…';
+                    nodes.push(el);
+                  }
+                } catch {
+                  const el = document.createElement('div');
+                  el.className = 'cc-system-line';
+                  el.textContent = block.text.slice(0, 120) + (block.text.length > 120 ? '…' : '');
+                  nodes.push(el);
+                }
+              } else if (/^\s*</.test(block.text)) {
+                const elemRegex2 = /<[^/][^>]*>([\s\S]*?)<\/[^>]+>/g;
+                let match2;
+                let processedAny2 = false;
+                while ((match2 = elemRegex2.exec(block.text)) !== null) {
+                  processedAny2 = true;
+                  const inner = match2[1].trim();
+                  if (!inner) continue;
+                  if (/^\s*\{/.test(inner)) {
+                    try {
+                      const parsed = JSON.parse(inner);
+                      if (parsed.type === 'idle_notification') continue;
+                      const el = document.createElement('div');
+                      el.className = 'cc-system-line';
+                      const parts = [];
+                      if (parsed.from) parts.push(parsed.from);
+                      if (parsed.type) parts.push(String(parsed.type).replace(/_/g, ' '));
+                      el.textContent = parts.length > 0 ? parts.join(': ') : inner.slice(0, 80) + '…';
+                      nodes.push(el);
+                    } catch {
+                      const el = document.createElement('div');
+                      el.className = 'cc-system-line';
+                      el.textContent = inner.length > 120 ? inner.slice(0, 120) + '…' : inner;
+                      nodes.push(el);
+                    }
+                  } else {
+                    const el = document.createElement('div');
+                    el.className = 'cc-system-line';
+                    el.textContent = inner.length > 120 ? inner.slice(0, 120) + '…' : inner;
+                    nodes.push(el);
+                  }
+                }
+                if (!processedAny2) {
+                  const stripped2 = stripMarkup(block.text).trim();
+                  if (stripped2.length > 0) {
+                    const el = document.createElement('div');
+                    el.className = 'cc-system-line';
+                    el.textContent = stripped2.length > 120 ? stripped2.slice(0, 120) + '…' : stripped2;
+                    nodes.push(el);
+                  }
+                }
               } else {
                 const textDiv = document.createElement('div');
                 textDiv.className = 'cc-text';
