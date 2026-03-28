@@ -556,38 +556,49 @@ describe('Default Actions', () => {
 
       it('cleans up merged branches in background mode', async () => {
         const { spawn, execFile } = await import('node:child_process');
-        const { access } = await import('node:fs/promises');
+        const { access, readFile } = await import('node:fs/promises');
 
-        const mergeBaseKey = 'git merge-base --is-ancestor cards/card-123/1 main';
-        const worktreeRemoveKey = 'git worktree remove';
-        const branchDeleteKey = 'git branch -d cards/card-123/1';
+        const branchesJson = JSON.stringify(
+          {
+            'cards/card-123/1': {
+              worktree: '/test/workspace/.worktrees/cards/card-123/1',
+              parentBranch: 'main',
+              addedAt: '2025-01-01T00:00:00Z'
+            }
+          },
+          null,
+          2
+        );
+
+        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+          const p = String(filePath);
+          if (p.endsWith('workspace-branches.json')) {
+            return Promise.resolve(branchesJson);
+          }
+          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        });
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
-          [mergeBaseKey]: { stdout: '' },
-          [worktreeRemoveKey]: { stdout: '' },
-          [branchDeleteKey]: { stdout: '' }
+          'git branch --list': { stdout: '  cards/card-123/1\n' },
+          'git merge-base --is-ancestor cards/card-123/1 main': { stdout: '' },
+          'git worktree remove': { stdout: '' },
+          'git branch -d cards/card-123/1': { stdout: '' },
+          'git add workspace-branches.json': { stdout: '' },
+          'git commit': { stdout: '' }
         });
-
-        const branch: BranchInfo = {
-          name: 'cards/card-123/1',
-          worktree: '/test/workspace/.worktrees/cards/card-123/1',
-          parentBranch: 'main',
-          addedAt: '2025-01-01T00:00:00Z',
-          exists: true
-        };
 
         globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
           if (typeof url === 'string' && url.includes('/branches')) {
             if (!opts?.method || opts.method === 'GET') {
               return Promise.resolve(
-                new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), {
+                new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), {
                   status: 200
                 })
               );
             }
-            if (opts?.method === 'DELETE') {
-              return Promise.resolve(new Response(null, { status: 204 }));
+            if (opts?.method === 'POST') {
+              return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
             }
           }
           return Promise.resolve(
@@ -609,7 +620,7 @@ describe('Default Actions', () => {
         child.emit('close', 0);
         await promise;
 
-        // Verify cleanup was attempted: worktree remove, branch delete, API remove
+        // Verify cleanup was attempted: worktree remove and branch delete
         const execCalls = vi.mocked(execFile).mock.calls;
         const worktreeRemoveCall = execCalls.find(
           (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
@@ -620,12 +631,6 @@ describe('Default Actions', () => {
           (c) => (c[1] as string[])?.includes('branch') && (c[1] as string[])?.includes('-d')
         );
         expect(branchDeleteCall).toBeDefined();
-
-        const fetchCalls = vi.mocked(globalThis.fetch).mock.calls;
-        const deleteCall = fetchCalls.find(
-          (c) => (c[1] as RequestInit)?.method === 'DELETE' && (c[0] as string).includes('/branches/')
-        );
-        expect(deleteCall).toBeDefined();
       });
 
       it('throws when resolveBaseBranch fails', async () => {
