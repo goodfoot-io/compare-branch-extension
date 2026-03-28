@@ -43,8 +43,8 @@ Get:
     card.mjs main-0001
 
 Create:
-  Pipe a JSON object to stdin. Required fields: title (non-empty string),
-  description (string). Optional fields: tags (string[]), environment
+  Pipe a JSON object to stdin. Required fields: title (non-empty string).
+  Optional fields: description (string), tags (string[]), environment
   (string), gates ({ planRequired?: boolean, mergeRequestRequired?: boolean }),
   relations ({ type: "related", cardId: string }[]),
   plan (string, markdown content written to the card's PLAN.md),
