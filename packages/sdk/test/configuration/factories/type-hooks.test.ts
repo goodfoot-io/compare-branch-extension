@@ -38,9 +38,7 @@ const createMockInput = (): TypeHookInput => ({
   filePath: '/test/test.json',
   fileSize: 100,
   fileSha256: 'abc123',
-  contentType: 'application/json',
-  apiBaseUrl: 'https://api.example.com',
-  apiAccessToken: 'token-123'
+  contentType: 'application/json'
 });
 
 const createMockContext = (): TypeHookContext => ({
@@ -74,8 +72,7 @@ const createMockValidatorContext = (): TypeValidatorContext => ({
   fileName: 'test.json',
   cardId: 'card-123',
   environment: 'dev',
-  apiBaseUrl: 'https://api.example.com',
-  apiAccessToken: 'token-123'
+  client: null
 });
 
 describe('defineTypeValidator', () => {

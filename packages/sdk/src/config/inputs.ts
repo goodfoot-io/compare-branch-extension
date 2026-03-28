@@ -10,6 +10,8 @@
  * @module
  */
 
+import type { CardsClient } from '../client/cardsClient.js';
+
 /**
  * Input payload for action handlers.
  *
@@ -17,20 +19,11 @@
  * when spawning action commands. The runtime extracts them and passes them to
  * your handler as a typed object.
  *
- * The `apiBaseUrl` and `apiAccessToken` fields enable actions to make
- * authenticated API calls back to the Cards server for operations like
- * updating card state or fetching additional data.
- *
  * @example
  * ```typescript
  * async (input: ActionInput, { logger }) => {
  *   // Access card context
  *   logger.info(`Processing card ${input.cardId}`);
- *
- *   // Make authenticated API calls
- *   const response = await fetch(`${input.apiBaseUrl}/cards/${input.cardId}`, {
- *     headers: { Authorization: `Bearer ${input.apiAccessToken}` }
- *   });
  * }
  * ```
  */
@@ -66,22 +59,6 @@ export interface ActionInput {
    * - `background`: Action runs without user attention; minimize prompts
    */
   executionMode: 'interactive' | 'background';
-
-  /**
-   * Cards server base URL for API calls.
-   *
-   * Use this as the base for constructing API endpoints. The URL does not
-   * include a trailing slash.
-   */
-  apiBaseUrl: string;
-
-  /**
-   * Authentication token for API calls.
-   *
-   * Bearer token valid for the duration of this action execution. Include
-   * in Authorization headers when calling the Cards API.
-   */
-  apiAccessToken: string;
 
   /**
    * Configured coding agent identifier from `cards.codingAgent` setting.
@@ -215,16 +192,6 @@ export interface TypeHookInput {
    * parse or process the file.
    */
   contentType: string;
-
-  /**
-   * Cards server base URL for API calls.
-   */
-  apiBaseUrl: string;
-
-  /**
-   * Authentication token for API calls.
-   */
-  apiAccessToken: string;
 }
 
 /**
@@ -417,12 +384,10 @@ export interface TypeValidatorContext {
   environment: string;
 
   /**
-   * Cards server base URL for API calls.
+   * Cards API client for making authenticated API calls.
+   *
+   * `null` when discovery failed (e.g. `~/.cards/cards-api.json` not yet written).
+   * Validators that need API access must check for null before use (fail-closed).
    */
-  apiBaseUrl: string;
-
-  /**
-   * Authentication token for API calls.
-   */
-  apiAccessToken: string;
+  client: CardsClient | null;
 }

@@ -55,18 +55,6 @@ export const CARDS_ENV_VARS = {
   EXECUTION_MODE: 'EXECUTION_MODE',
 
   /**
-   * Cards server base URL for API calls.
-   * Available in all actions and type hooks.
-   */
-  API_BASE_URL: 'API_BASE_URL',
-
-  /**
-   * Authentication token for API calls.
-   * Available in all actions and type hooks.
-   */
-  API_ACCESS_TOKEN: 'API_ACCESS_TOKEN',
-
-  /**
    * Configured coding agent identifier from cards.codingAgent setting.
    * Available in actions only (not type hooks).
    * Optional.
@@ -326,50 +314,6 @@ export function getExecutionMode(): 'interactive' | 'background' {
   }
   if (value !== 'interactive' && value !== 'background') {
     throw new Error(`Invalid ${CARDS_ENV_VARS.EXECUTION_MODE}: expected 'interactive' or 'background', got "${value}"`);
-  }
-  return value;
-}
-
-/**
- * Reads the API base URL from the environment.
- *
- * Use this as the base for constructing API endpoints. The URL does not include
- * a trailing slash.
- * @returns Base URL used to construct Cards API endpoints for this execution.
- * @throws Error if API_BASE_URL is missing or empty
- * @example
- * ```typescript
- * const apiUrl = getApiBaseUrl();
- * const endpoint = `${apiUrl}/cards/${cardId}`;
- * ```
- */
-export function getApiBaseUrl(): string {
-  const value = process.env[CARDS_ENV_VARS.API_BASE_URL];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.API_BASE_URL}`);
-  }
-  return value;
-}
-
-/**
- * Reads the API access token from the environment.
- *
- * Bearer token valid for the duration of this action or type hook execution.
- * Include in Authorization headers when calling the Cards API.
- * @returns Bearer token that authorizes API requests for this execution context.
- * @throws Error if API_ACCESS_TOKEN is missing or empty
- * @example
- * ```typescript
- * const token = getApiAccessToken();
- * const response = await fetch(apiUrl, {
- *   headers: { Authorization: `Bearer ${token}` }
- * });
- * ```
- */
-export function getApiAccessToken(): string {
-  const value = process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.API_ACCESS_TOKEN}`);
   }
   return value;
 }
@@ -717,8 +661,6 @@ export function extractActionInput(): ActionInput {
     actionName: getActionName(),
     environment: getEnvironment(),
     executionMode: getExecutionMode(),
-    apiBaseUrl: getApiBaseUrl(),
-    apiAccessToken: getApiAccessToken(),
     codingAgent: getCodingAgent(),
     switchToInteractiveData: readSwitchToInteractiveData(),
     repoRoot: getRepoRoot(),
@@ -754,8 +696,6 @@ export function extractTypeInput(): TypeHookInput {
     filePath: getFilePath(),
     fileSize: getFileSize(),
     fileSha256: getSha256(),
-    contentType: getContentType(),
-    apiBaseUrl: getApiBaseUrl(),
-    apiAccessToken: getApiAccessToken()
+    contentType: getContentType()
   };
 }

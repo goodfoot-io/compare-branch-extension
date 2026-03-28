@@ -10,8 +10,6 @@ import {
   extractActionInput,
   extractTypeInput,
   getActionName,
-  getApiAccessToken,
-  getApiBaseUrl,
   getCardId,
   getCodingAgent,
   getContentType,
@@ -36,8 +34,6 @@ describe('env', () => {
     delete process.env[CARDS_ENV_VARS.ACTION_NAME];
     delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
     delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
-    delete process.env[CARDS_ENV_VARS.API_BASE_URL];
-    delete process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN];
     delete process.env[CARDS_ENV_VARS.CODING_AGENT];
     delete process.env[CARDS_ENV_VARS.TYPE_NAME];
     delete process.env[CARDS_ENV_VARS.TYPE_VERSION];
@@ -61,8 +57,6 @@ describe('env', () => {
         ACTION_NAME: 'ACTION_NAME',
         ENVIRONMENT: 'ENVIRONMENT',
         EXECUTION_MODE: 'EXECUTION_MODE',
-        API_BASE_URL: 'API_BASE_URL',
-        API_ACCESS_TOKEN: 'API_ACCESS_TOKEN',
         CODING_AGENT: 'CODING_AGENT',
         TYPE_NAME: 'TYPE_NAME',
         TYPE_VERSION: 'TYPE_VERSION',
@@ -163,38 +157,6 @@ describe('env', () => {
       expect(() => getExecutionMode()).toThrow(
         "Invalid EXECUTION_MODE: expected 'interactive' or 'background', got \"invalid\""
       );
-    });
-  });
-
-  describe('getApiBaseUrl', () => {
-    it('should return API base URL when set', () => {
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-      expect(getApiBaseUrl()).toBe('https://api.example.com');
-    });
-
-    it('should throw when API_BASE_URL is undefined', () => {
-      expect(() => getApiBaseUrl()).toThrow('Missing required environment variable: API_BASE_URL');
-    });
-
-    it('should throw when API_BASE_URL is empty string', () => {
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = '';
-      expect(() => getApiBaseUrl()).toThrow('Missing required environment variable: API_BASE_URL');
-    });
-  });
-
-  describe('getApiAccessToken', () => {
-    it('should return API access token when set', () => {
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
-      expect(getApiAccessToken()).toBe('token-abc123');
-    });
-
-    it('should throw when API_ACCESS_TOKEN is undefined', () => {
-      expect(() => getApiAccessToken()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
-    });
-
-    it('should throw when API_ACCESS_TOKEN is empty string', () => {
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = '';
-      expect(() => getApiAccessToken()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
     });
   });
 
@@ -365,8 +327,6 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
       process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace/project';
       process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/project/.cards/repo';
       process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/project/.cards/config';
@@ -384,8 +344,6 @@ describe('env', () => {
         actionName: 'Launch Claude',
         environment: 'production',
         executionMode: 'interactive',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc123',
         codingAgent: 'claude',
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',
@@ -405,8 +363,6 @@ describe('env', () => {
         actionName: 'Launch Claude',
         environment: 'production',
         executionMode: 'interactive',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc123',
         codingAgent: undefined,
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',
@@ -429,8 +385,6 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
       expect(() => extractActionInput()).toThrow('Missing required environment variable: CARD_ID');
     });
@@ -439,8 +393,6 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
       expect(() => extractActionInput()).toThrow('Missing required environment variable: ACTION_NAME');
     });
@@ -449,8 +401,6 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
       process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
       expect(() => extractActionInput()).toThrow('Missing required environment variable: ENVIRONMENT');
     });
@@ -459,30 +409,8 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
       process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
       process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
 
       expect(() => extractActionInput()).toThrow('Missing required environment variable: EXECUTION_MODE');
-    });
-
-    it('should throw when required API_BASE_URL is missing', () => {
-      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
-      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
-      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
-      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-abc123';
-
-      expect(() => extractActionInput()).toThrow('Missing required environment variable: API_BASE_URL');
-    });
-
-    it('should throw when required API_ACCESS_TOKEN is missing', () => {
-      process.env[CARDS_ENV_VARS.CARD_ID] = 'card-123';
-      process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Launch Claude';
-      process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'production';
-      process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-
-      expect(() => extractActionInput()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
     });
 
     it('should throw when EXECUTION_MODE has invalid value', () => {
@@ -507,8 +435,6 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.FILE_SIZE] = '2048';
       process.env[CARDS_ENV_VARS.SHA256] = 'def789ghi012';
       process.env[CARDS_ENV_VARS.CONTENT_TYPE] = 'application/json';
-      process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-      process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-xyz789';
     }
 
     it('should extract all type input fields when all are set', () => {
@@ -525,9 +451,7 @@ describe('env', () => {
         filePath: '/cards/card-456/adaptive-card/card.json',
         fileSize: 2048,
         fileSha256: 'def789ghi012',
-        contentType: 'application/json',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-xyz789'
+        contentType: 'application/json'
       });
     });
 
@@ -592,20 +516,6 @@ describe('env', () => {
       delete process.env[CARDS_ENV_VARS.CONTENT_TYPE];
 
       expect(() => extractTypeInput()).toThrow('Missing required environment variable: CONTENT_TYPE');
-    });
-
-    it('should throw when required API_BASE_URL is missing', () => {
-      setupTypeEnv();
-      delete process.env[CARDS_ENV_VARS.API_BASE_URL];
-
-      expect(() => extractTypeInput()).toThrow('Missing required environment variable: API_BASE_URL');
-    });
-
-    it('should throw when required API_ACCESS_TOKEN is missing', () => {
-      setupTypeEnv();
-      delete process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN];
-
-      expect(() => extractTypeInput()).toThrow('Missing required environment variable: API_ACCESS_TOKEN');
     });
 
     it('should throw when FILE_SIZE is not a valid number', () => {

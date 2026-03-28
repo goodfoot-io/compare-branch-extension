@@ -19,8 +19,6 @@ describe('inputs', () => {
         actionName: string;
         environment: string;
         executionMode: 'interactive' | 'background';
-        apiBaseUrl: string;
-        apiAccessToken: string;
         repoRoot: string;
         cardRepoPath: string;
       }>();
@@ -44,8 +42,6 @@ describe('inputs', () => {
         actionName: 'Test Action',
         environment: 'default',
         executionMode: 'interactive',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc',
         repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
@@ -61,8 +57,6 @@ describe('inputs', () => {
         actionName: 'Test Action',
         environment: 'default',
         executionMode: 'background',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc',
         repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
@@ -78,8 +72,6 @@ describe('inputs', () => {
         actionName: 'Test Action',
         environment: 'default',
         executionMode: 'interactive',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc',
         codingAgent: 'claude',
         repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
@@ -92,8 +84,6 @@ describe('inputs', () => {
         actionName: 'Test Action',
         environment: 'default',
         executionMode: 'interactive',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc',
         repoRoot: '/workspace',
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
@@ -117,8 +107,6 @@ describe('inputs', () => {
         fileSize: number;
         fileSha256: string;
         contentType: string;
-        apiBaseUrl: string;
-        apiAccessToken: string;
       }>();
     });
 
@@ -132,9 +120,7 @@ describe('inputs', () => {
         filePath: '/path/to/card.json',
         fileSize: 1024,
         fileSha256: 'abc123',
-        contentType: 'application/json',
-        apiBaseUrl: 'https://api.example.com',
-        apiAccessToken: 'token-abc'
+        contentType: 'application/json'
       };
 
       expectTypeOf(input).toMatchTypeOf<TypeHookInput>();
@@ -154,11 +140,6 @@ describe('inputs', () => {
     it('should have type-related fields', () => {
       expectTypeOf<TypeHookInput['typeName']>().toEqualTypeOf<string>();
       expectTypeOf<TypeHookInput['typeVersion']>().toEqualTypeOf<string>();
-    });
-
-    it('should have API access fields', () => {
-      expectTypeOf<TypeHookInput['apiBaseUrl']>().toEqualTypeOf<string>();
-      expectTypeOf<TypeHookInput['apiAccessToken']>().toEqualTypeOf<string>();
     });
   });
 

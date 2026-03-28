@@ -119,8 +119,7 @@ export async function testValidation(
     fileName: '',
     cardId: '',
     environment: '',
-    apiBaseUrl: '',
-    apiAccessToken: '',
+    client: null,
     ...contextOverrides
   };
   const result = await validation(validationRequest, context);

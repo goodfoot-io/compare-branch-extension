@@ -241,8 +241,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -283,8 +281,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -318,8 +314,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -353,8 +347,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'data.json';
     process.env['CARD_ID'] = 'card-42';
     process.env['ENVIRONMENT'] = 'staging';
-    process.env['API_BASE_URL'] = 'https://api.example.com';
-    process.env['API_ACCESS_TOKEN'] = 'secret-token';
 
     try {
       await executeValidation(validation);
@@ -368,8 +360,7 @@ describe('executeValidation', () => {
     expect(ctx['fileName']).toBe('data.json');
     expect(ctx['cardId']).toBe('card-42');
     expect(ctx['environment']).toBe('staging');
-    expect(ctx['apiBaseUrl']).toBe('https://api.example.com');
-    expect(ctx['apiAccessToken']).toBe('secret-token');
+    expect(ctx).toHaveProperty('client');
   });
 
   it('handler returning validationSuccess() writes { valid: true } to stdout', async () => {
@@ -395,8 +386,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -431,8 +420,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -467,8 +454,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -494,8 +479,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     // Test success
     const successValidation = defineTypeValidator(
@@ -549,8 +532,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -614,8 +595,6 @@ describe('executeValidation', () => {
     process.env['FILE_NAME'] = 'test.json';
     process.env['CARD_ID'] = 'card-1';
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);
@@ -652,8 +631,6 @@ describe('executeValidation', () => {
     // Deliberately NOT setting CARD_ID
     delete process.env['CARD_ID'];
     process.env['ENVIRONMENT'] = 'dev';
-    process.env['API_BASE_URL'] = 'http://localhost';
-    process.env['API_ACCESS_TOKEN'] = 'token';
 
     try {
       await executeValidation(validation);

@@ -11,18 +11,10 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { createCardsClient } from '../client/api-discovery.js';
 import type { ValidationResult } from '../protocol/index.js';
 import type { TypeValidatorCommand } from './command-types.js';
-import {
-  CARDS_ENV_VARS,
-  getApiAccessToken,
-  getApiBaseUrl,
-  getCardId,
-  getEnvironment,
-  getFileName,
-  getTypeName,
-  getTypeVersion
-} from './env.js';
+import { CARDS_ENV_VARS, getCardId, getEnvironment, getFileName, getTypeName, getTypeVersion } from './env.js';
 import type { TypeValidatorContext, ValidatorFileRequest } from './inputs.js';
 import { Logger } from './logger.js';
 
@@ -153,8 +145,7 @@ export async function executeValidation(validation: TypeValidatorCommand): Promi
       fileName: getFileName(),
       cardId: getCardId(),
       environment: getEnvironment(),
-      apiBaseUrl: getApiBaseUrl(),
-      apiAccessToken: getApiAccessToken()
+      client: await createCardsClient()
     };
 
     // Execute handler

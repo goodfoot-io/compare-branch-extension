@@ -168,8 +168,7 @@ describe('Testing Utilities', () => {
       expect(context).toHaveProperty('fileName');
       expect(context).toHaveProperty('cardId');
       expect(context).toHaveProperty('environment');
-      expect(context).toHaveProperty('apiBaseUrl');
-      expect(context).toHaveProperty('apiAccessToken');
+      expect(context).toHaveProperty('client');
     });
 
     it('testValidation uses default context values', async () => {
@@ -181,8 +180,7 @@ describe('Testing Utilities', () => {
           expect(context.fileName).toBe('');
           expect(context.cardId).toBe('');
           expect(context.environment).toBe('');
-          expect(context.apiBaseUrl).toBe('');
-          expect(context.apiAccessToken).toBe('');
+          expect(context.client).toBeNull();
           expect(context.cwd).toBe(process.cwd());
           return validationSuccess();
         }
@@ -200,8 +198,7 @@ describe('Testing Utilities', () => {
           expect(context.fileName).toBe('custom.json');
           expect(context.cardId).toBe('card-123');
           expect(context.environment).toBe('staging');
-          expect(context.apiBaseUrl).toBe('https://api.example.com');
-          expect(context.apiAccessToken).toBe('token-abc');
+          expect(context.client).toBeNull();
           expect(context.cwd).toBe('/custom/cwd');
           return validationSuccess();
         }
@@ -217,8 +214,7 @@ describe('Testing Utilities', () => {
             fileName: 'custom.json',
             cardId: 'card-123',
             environment: 'staging',
-            apiBaseUrl: 'https://api.example.com',
-            apiAccessToken: 'token-abc',
+            client: null,
             cwd: '/custom/cwd'
           }
         }

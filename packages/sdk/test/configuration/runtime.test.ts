@@ -49,8 +49,6 @@ describe('runtime', () => {
     process.env[CARDS_ENV_VARS.ACTION_NAME] = 'Test Action';
     process.env[CARDS_ENV_VARS.ENVIRONMENT] = 'default';
     process.env[CARDS_ENV_VARS.EXECUTION_MODE] = 'interactive';
-    process.env[CARDS_ENV_VARS.API_BASE_URL] = 'https://api.example.com';
-    process.env[CARDS_ENV_VARS.API_ACCESS_TOKEN] = 'token-456';
     process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace';
     process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace';
     process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/cards';
@@ -81,9 +79,7 @@ describe('runtime', () => {
           expect.objectContaining({
             cardId: 'card-123',
             environment: 'default',
-            executionMode: 'interactive',
-            apiBaseUrl: 'https://api.example.com',
-            apiAccessToken: 'token-456'
+            executionMode: 'interactive'
           }),
           expect.objectContaining({
             logger: expect.any(Object),
@@ -472,8 +468,10 @@ describe('runtime', () => {
         }
         try {
           fs.unlinkSync(socketPath);
-        } catch {
-          // Ignore
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw error;
+          }
         }
       });
 

@@ -20,8 +20,6 @@ describe('defineAction', () => {
     actionName: 'Test Action',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: 'https://api.example.com',
-    apiAccessToken: 'token-abc',
     codingAgent: 'claude',
     repoRoot: '/workspace',
     cardRepoPath: '/workspace/.cards/card-123',
