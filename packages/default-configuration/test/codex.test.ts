@@ -40,6 +40,7 @@ const originalFetch = globalThis.fetch;
 beforeEach(async () => {
   vi.clearAllMocks();
   process.env['EXTENSION_PATH'] = '/test/extension';
+  process.env['API_TEST_MODE'] = '1';
   delete process.env['CODEX_HOME'];
 
   const { execFile } = await import('node:child_process');
@@ -100,6 +101,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  delete process.env['API_TEST_MODE'];
 });
 
 function createMockContext(): ActionContext {
@@ -134,8 +136,6 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     actionName: 'Codex',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: 'http://localhost:3000',
-    apiAccessToken: 'test-token',
     repoRoot: '/test/workspace',
     cardRepoPath: '/test/repo',
     configPath: '/test/config',

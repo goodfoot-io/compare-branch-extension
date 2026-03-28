@@ -46,6 +46,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
 
   process.env['EXTENSION_PATH'] = '/test/extension';
+  process.env['API_TEST_MODE'] = '1';
 
   const fsPromises = await import('node:fs/promises');
   const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
@@ -80,6 +81,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  delete process.env['API_TEST_MODE'];
 });
 
 function createMockContext(): ActionContext {
@@ -115,8 +117,6 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     actionName: 'Launch',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: 'http://localhost:3000',
-    apiAccessToken: 'test-token',
     repoRoot: '/test/workspace',
     cardRepoPath: '/test/repo',
     configPath: '/test/config',

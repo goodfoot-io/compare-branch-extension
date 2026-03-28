@@ -44,6 +44,10 @@ const originalFetch = globalThis.fetch;
 beforeEach(async () => {
   vi.clearAllMocks();
 
+  // Enable discovery test mode so createCardsClient() returns a client without
+  // a real cards-api.json file on disk.
+  process.env['API_TEST_MODE'] = '1';
+
   // Default: resolveBaseBranch → 'main'
   const { execFile } = await import('node:child_process');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
@@ -98,6 +102,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  delete process.env['API_TEST_MODE'];
 });
 
 function createMockChild(overrides?: Partial<ChildProcess>): ChildProcess {
@@ -133,8 +138,6 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     actionName: 'Launch',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: 'http://localhost:3000',
-    apiAccessToken: 'test-token',
     repoRoot: '/test/workspace',
     cardRepoPath: '/test/repo',
     configPath: '/test/config',

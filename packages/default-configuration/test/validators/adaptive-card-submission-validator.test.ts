@@ -57,8 +57,6 @@ function createContext(overrides: Partial<TypeValidatorContext> = {}): TypeValid
     fileName: 'test.json',
     cardId: 'test-card',
     environment: 'default',
-    apiBaseUrl: 'http://localhost:3000',
-    apiAccessToken: 'test-token',
     ...overrides
   };
 }

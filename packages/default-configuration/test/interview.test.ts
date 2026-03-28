@@ -42,6 +42,10 @@ beforeEach(async () => {
   // Set EXTENSION_PATH so resolveMarketplacePath() succeeds
   process.env['EXTENSION_PATH'] = '/test/extension';
 
+  // Enable discovery test mode so createCardsClient() returns a client without
+  // a real cards-api.json file on disk.
+  process.env['API_TEST_MODE'] = '1';
+
   // Default: updateMarketplaceRegistration reads known_marketplaces.json — return
   // ENOENT so it exits early. Tests that need marketplace behaviour override explicitly.
   const fsPromises = await import('node:fs/promises');
@@ -92,6 +96,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  delete process.env['API_TEST_MODE'];
 });
 
 function createMockContext(): ActionContext {
@@ -134,8 +139,6 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     actionName: 'Interview',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: 'http://localhost:3000',
-    apiAccessToken: 'test-token',
     repoRoot: '/test/workspace',
     cardRepoPath: '/test/repo',
     configPath: '/test/config',

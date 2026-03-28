@@ -36,6 +36,10 @@ beforeEach(async () => {
   vi.clearAllMocks();
   tempCardRepo = fsSyncNs.mkdtempSync(path.join(os.tmpdir(), 'self-ref-test-'));
 
+  // Enable discovery test mode so createCardsClient() returns a client without
+  // a real cards-api.json file on disk.
+  process.env['API_TEST_MODE'] = '1';
+
   const { execFile } = await import('node:child_process');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
     const cb = args[args.length - 1];
@@ -48,6 +52,8 @@ beforeEach(async () => {
 
 afterEach(() => {
   fsSyncNs.rmSync(tempCardRepo, { recursive: true, force: true });
+  globalThis.fetch = originalFetch;
+  delete process.env['API_TEST_MODE'];
 });
 
 function createMockLogger(): ActionContext['logger'] {
@@ -60,8 +66,6 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     actionName: 'Launch',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: '',
-    apiAccessToken: '',
     repoRoot: '/test/workspace',
     cardRepoPath: tempCardRepo,
     configPath: '/test/config',
