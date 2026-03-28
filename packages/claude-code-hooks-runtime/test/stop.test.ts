@@ -37,8 +37,6 @@ const ACTION_ENV = {
   ACTION_NAME: 'Launch Claude',
   ENVIRONMENT: 'staging',
   EXECUTION_MODE: 'interactive',
-  API_BASE_URL: 'http://localhost:3000',
-  API_ACCESS_TOKEN: 'test-token',
   REPO_ROOT: '/workspace',
   CARD_REPO_PATH: '/workspace/.cards/repo',
   CONFIG_PATH: '/tmp/config',

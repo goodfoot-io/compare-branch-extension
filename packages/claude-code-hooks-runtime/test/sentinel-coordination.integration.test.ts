@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Satisfy the import graph for transcript-watcher.ts without mocking fs.
-vi.mock('../src/lib/api-discovery.js', () => ({
+vi.mock('@cards/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 

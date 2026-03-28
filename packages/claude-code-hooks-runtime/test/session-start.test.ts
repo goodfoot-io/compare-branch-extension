@@ -96,8 +96,6 @@ describe('SessionStart Hook', () => {
         ACTION_NAME: 'Launch Claude',
         ENVIRONMENT: 'default',
         EXECUTION_MODE: 'background',
-        API_BASE_URL: 'http://localhost:3000',
-        API_ACCESS_TOKEN: 'test-token',
         REPO_ROOT: '/workspace',
         CARD_REPO_PATH: repoPath,
         CONFIG_PATH: '/tmp/config',

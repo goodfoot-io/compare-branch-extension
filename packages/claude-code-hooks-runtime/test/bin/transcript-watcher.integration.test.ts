@@ -14,17 +14,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../src/lib/api-discovery.js', () => ({
+vi.mock('@cards/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 
+import { createCardsClient } from '@cards/sdk/client/discovery';
 import {
   POLL_INTERVAL_MS,
   runStreamingLoop,
   sentinelFileExists,
   type TranscriptWatcherArgs
 } from '../../src/bin/transcript-watcher.js';
-import { createCardsClient } from '../../src/lib/api-discovery.js';
 
 const mockCreateCardsClient = vi.mocked(createCardsClient);
 

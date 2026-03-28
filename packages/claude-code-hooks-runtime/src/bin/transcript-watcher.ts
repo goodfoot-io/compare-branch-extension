@@ -15,8 +15,8 @@ import { access, open, unlink } from 'node:fs/promises';
 import * as net from 'node:net';
 import { join } from 'node:path';
 import type { IngestWsFactory, WsStreamSession } from '@cards/sdk/client';
+import { createCardsClient } from '@cards/sdk/client/discovery';
 import { WebSocket as WS } from 'ws';
-import { createCardsClient } from '../lib/api-discovery.js';
 
 const wsFactory: IngestWsFactory = (url, options) => {
   return new WS(url, { headers: options.headers }) as unknown as WebSocket;

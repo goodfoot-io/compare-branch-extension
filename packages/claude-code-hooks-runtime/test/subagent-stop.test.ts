@@ -14,7 +14,7 @@ vi.mock('@cards/sdk/config', () => ({
   extractActionInput: vi.fn()
 }));
 
-vi.mock('../src/lib/api-discovery.js', () => ({
+vi.mock('@cards/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
 }));
 
@@ -22,7 +22,7 @@ vi.mock('node:fs/promises', () => ({
   readFile: vi.fn()
 }));
 
-import { createCardsClient } from '../src/lib/api-discovery.js';
+import { createCardsClient } from '@cards/sdk/client/discovery';
 
 const mockExtractActionInput = vi.mocked(extractActionInput);
 const mockCreateCardsClient = vi.mocked(createCardsClient);
@@ -35,8 +35,6 @@ const baseActionInput = {
   actionName: 'Launch',
   environment: 'default',
   executionMode: 'interactive' as const,
-  apiBaseUrl: 'http://localhost:3000',
-  apiAccessToken: 'test-token',
   repoRoot: '/workspace',
   cardRepoPath: '/tmp/card-repos/card-123',
   configPath: '/tmp/config',

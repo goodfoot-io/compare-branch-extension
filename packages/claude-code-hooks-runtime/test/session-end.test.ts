@@ -46,8 +46,6 @@ const baseActionInput = {
   actionName: 'Launch',
   environment: 'default',
   executionMode: 'interactive' as const,
-  apiBaseUrl: 'http://localhost:3000',
-  apiAccessToken: 'test-token',
   repoRoot: '/workspace',
   cardRepoPath: '/tmp/card-repos/card-123',
   configPath: '/tmp/config',

@@ -12,9 +12,9 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { createCardsClient } from '@cards/sdk/client/discovery';
 import { extractActionInput } from '@cards/sdk/config';
 import { subagentStopHook, subagentStopOutput } from '@goodfoot/claude-code-hooks';
-import { createCardsClient } from './lib/api-discovery.js';
 
 /**
  * Uploads the completed subagent transcript to the Cards API via streaming.
