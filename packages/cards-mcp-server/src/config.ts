@@ -1,10 +1,10 @@
 /**
  * Configuration reader for the Cards MCP server.
  *
- * Reads all required runtime values from environment variables and derives
- * the WebSocket URL from the HTTP API base URL. The session ID is resolved
- * lazily from the card-repo PID registry because the MCP server may start
- * before the session-start hook has registered the session.
+ * Reads all required runtime values from the cards-api.json discovery file.
+ * The session ID is resolved lazily from the card-repo PID registry because
+ * the MCP server may start before the session-start hook has registered the
+ * session.
  *
  * @summary Configuration reader for the Cards MCP server
  * @module cards-mcp-server/config
@@ -13,7 +13,8 @@
 import { join } from 'node:path';
 import { findClaudePid, getSessionIdForPid } from '@cards/claude-code-sessions';
 import type { DiscoverResult } from '@cards/sdk/client';
-import { getApiAccessToken, getApiBaseUrl, getCardId, getRepoRoot } from '@cards/sdk/config/env';
+import { discoverApiInfo } from '@cards/sdk/client/discovery';
+import { getCardId, getRepoRoot } from '@cards/sdk/config/env';
 
 export interface CardsServerConfig {
   cardId: string;
@@ -58,18 +59,22 @@ async function resolveSessionIdFromPidRegistry(): Promise<SessionResolution> {
 }
 
 /**
- * Reads and validates the Cards MCP server configuration from environment variables.
+ * Reads and validates the Cards MCP server configuration via API discovery.
  *
  * @returns Validated server configuration.
- * @throws When any required environment variable is missing or empty.
+ * @throws When discovery returns null (cards-api.json not found or invalid).
  */
-export function readConfig(): CardsServerConfig {
+export async function readConfig(): Promise<CardsServerConfig> {
   const cardId = getCardId();
-  const apiBaseUrl = getApiBaseUrl();
-  const apiAccessToken = getApiAccessToken();
   const logPath = resolveLogPath();
 
-  const wsUrl = apiBaseUrl.replace(/^http(s?):\/\//, 'ws$1://');
+  const info = await discoverApiInfo();
+  if (info === null) {
+    throw new Error('Cards API discovery failed: cards-api.json not found or invalid');
+  }
+
+  const wsUrl = `ws://${info.host}:${info.port}`;
+  const apiAccessToken = info.accessToken;
 
   return { cardId, resolveSessionId: resolveSessionIdFromPidRegistry, apiAccessToken, wsUrl, logPath };
 }

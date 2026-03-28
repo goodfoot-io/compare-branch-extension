@@ -13,7 +13,7 @@ import { createFileLogger } from './logger.js';
 import { createServer } from './server.js';
 
 async function main(): Promise<void> {
-  const config = readConfig();
+  const config = await readConfig();
   const logger = createFileLogger(config.logPath);
   const server = createServer(config, { logger });
 
