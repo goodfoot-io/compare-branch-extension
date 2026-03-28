@@ -10,7 +10,6 @@
  * @summary Tests for cleanupMergedBranches cleanup step ordering
  */
 
-import { execFileSync } from 'node:child_process';
 import * as fsSyncNs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -20,8 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
-  execFile: vi.fn(),
-  execFileSync: vi.fn()
+  execFile: vi.fn()
 }));
 
 vi.mock('@cards/sdk/worktree', () => ({
