@@ -11,6 +11,7 @@
  */
 
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
+import * as fsSyncNs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
@@ -268,6 +269,73 @@ export async function resolveOrCreateWorktree(
 }
 
 /**
+ * Kills processes whose current working directory is inside the given directory.
+ *
+ * Scans `/proc/[pid]/cwd` symlinks to find processes rooted under `dirPath`,
+ * sends SIGTERM, waits briefly, then SIGKILL any survivors. Skips the current
+ * process. Non-fatal: errors reading `/proc` entries are silently ignored.
+ *
+ * @param dirPath - Absolute path to the directory whose child processes should be killed.
+ * @param logger - Logger for diagnostic output.
+ */
+export async function killProcessesInDirectory(dirPath: string, logger: ActionContext['logger']): Promise<void> {
+  const resolvedDir = fsSyncNs.realpathSync(dirPath);
+  const pidsToKill: number[] = [];
+
+  let entries: string[];
+  try {
+    entries = await fs.readdir('/proc');
+  } catch {
+    return; // /proc not available (non-Linux)
+  }
+
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue;
+    const pid = parseInt(entry, 10);
+    if (pid === process.pid) continue;
+
+    try {
+      const cwdLink = await fs.readlink(`/proc/${pid}/cwd`);
+      if (cwdLink === resolvedDir || cwdLink.startsWith(`${resolvedDir}/`)) {
+        pidsToKill.push(pid);
+      }
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'EACCES') continue;
+      logger.debug('Failed to read /proc cwd symlink', { pid, error: errorMessage(error) });
+    }
+  }
+
+  if (pidsToKill.length === 0) return;
+
+  logger.info('Killing processes with cwd inside worktree', { dirPath, pids: pidsToKill });
+
+  for (const pid of pidsToKill) {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'ESRCH') {
+        logger.debug('SIGTERM failed', { pid, error: errorMessage(error) });
+      }
+    }
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  for (const pid of pidsToKill) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'ESRCH') {
+        logger.debug('SIGKILL failed', { pid, error: errorMessage(error) });
+      }
+    }
+  }
+}
+
+/**
  * Runs a single cleanup step, logging a warning on failure rather than
  * aborting the sweep. Each step (worktree removal, branch deletion, API
  * record removal) is independent — a failure in one must not prevent the
@@ -359,6 +427,12 @@ export async function cleanupMergedBranches(
     // Branch is merged — clean up worktree, branch ref, and API record
     if (branch.worktree) {
       t0 = performance.now();
+      await tryCleanupStep(
+        () => killProcessesInDirectory(branch.worktree!, logger),
+        'Failed to kill processes in worktree',
+        branch.name,
+        logger
+      );
       await tryCleanupStep(
         () => execFileAsync('git', ['worktree', 'remove', '--force', branch.worktree!], { cwd: input.repoRoot }),
         'Failed to remove worktree',
