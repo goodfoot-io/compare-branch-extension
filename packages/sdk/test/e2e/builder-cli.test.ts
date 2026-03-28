@@ -841,8 +841,6 @@ export default {
       ACTION_NAME: 'Test',
       ENVIRONMENT: 'default',
       EXECUTION_MODE: 'interactive',
-      API_BASE_URL: 'http://localhost',
-      API_ACCESS_TOKEN: 'token',
       WORKSPACE_PATH: testDir,
       REPO_ROOT: testDir,
       CARD_REPO_PATH: testDir,
@@ -900,9 +898,7 @@ export default {
         ENVIRONMENT: 'default',
         TYPE_NAME: 'test-type',
         TYPE_VERSION: '1.0.0',
-        FILE_NAME: 'test-file.txt',
-        API_BASE_URL: 'http://localhost',
-        API_ACCESS_TOKEN: 'token'
+        FILE_NAME: 'test-file.txt'
       },
       { contentType: 'text/plain' }
     );
@@ -958,8 +954,6 @@ export default {
       ACTION_NAME: 'CJS Test',
       ENVIRONMENT: 'default',
       EXECUTION_MODE: 'interactive',
-      API_BASE_URL: 'http://localhost',
-      API_ACCESS_TOKEN: 'token',
       WORKSPACE_PATH: testDir,
       REPO_ROOT: testDir,
       CARD_REPO_PATH: testDir,

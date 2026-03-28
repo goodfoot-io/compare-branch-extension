@@ -37,24 +37,10 @@ beforeEach(async () => {
   // Enable discovery test mode so createCardsClient() returns a client without
   // a real cards-api.json file on disk.
   process.env['API_TEST_MODE'] = '1';
-
-  const { readFile } = await import('node:fs/promises');
-  const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-  vi.mocked(readFile).mockRejectedValue(enoent);
-
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
-  vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
-  vi.mocked(checkWorktreeExists).mockResolvedValue(false);
-  vi.mocked(createWorktree).mockResolvedValue({
-    branch: 'cards/card-123/1',
-    worktree: '/test/workspace/.worktrees/cards/card-123/1',
-    baseSha: 'abc123'
-  });
 });
 
 afterEach(() => {
   fsSyncNs.rmSync(tempCardRepo, { recursive: true, force: true });
-  globalThis.fetch = originalFetch;
   delete process.env['API_TEST_MODE'];
 });
 

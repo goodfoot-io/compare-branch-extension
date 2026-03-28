@@ -52,7 +52,6 @@ beforeEach(async () => {
 
 afterEach(() => {
   fsSyncNs.rmSync(tempCardRepo, { recursive: true, force: true });
-  globalThis.fetch = originalFetch;
   delete process.env['API_TEST_MODE'];
 });
 
