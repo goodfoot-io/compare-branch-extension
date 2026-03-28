@@ -53,10 +53,14 @@ git commit -m "[single sentence summarizing the feedback and the targeted change
 
 ## 3. Prepare Environment
 
-Create a baseline tag for the update:
+Create a baseline tag if one does not already exist:
 
 ```bash
-git tag -f "feedback/!` echo $CARD_ID`/baseline" HEAD
+if git rev-parse "feedback/!` echo $CARD_ID`/baseline" >/dev/null 2>&1; then
+  echo "Baseline tag already exists — resuming from prior checkpoint."
+else
+  git tag "feedback/!` echo $CARD_ID`/baseline" HEAD
+fi
 ```
 
 ---

@@ -39,10 +39,14 @@ Enforce strict test-first verification:
 
 Verify the workspace has a clean working tree (`git status --porcelain` in `$WORKSPACE_PATH`). If the working tree is dirty, write a comment explaining the dirty state prevents safe operation, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
 
-Create baseline tag:
+Create baseline tag if one does not already exist:
 
 ```bash
-git tag -f "bug/!` echo $CARD_ID`/baseline" HEAD
+if git rev-parse "bug/!` echo $CARD_ID`/baseline" >/dev/null 2>&1; then
+  echo "Baseline tag already exists — resuming from prior checkpoint."
+else
+  git tag "bug/!` echo $CARD_ID`/baseline" HEAD
+fi
 ```
 
 ### 1.2 Read Card and Extract Context

@@ -12,10 +12,14 @@ description: Implement cards.
 
 ## 1. Prepare Environment
 
-Create baseline tag:
+Create baseline tag if one does not already exist:
 
 ```bash
-git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
+if git rev-parse "implement/!` echo $CARD_ID`/baseline" >/dev/null 2>&1; then
+  echo "Baseline tag already exists — resuming from prior checkpoint."
+else
+  git tag "implement/!` echo $CARD_ID`/baseline" HEAD
+fi
 ```
 
 If you need to test against the baseline to verify a pre-existing failure, create a temporary worktree from the baseline tag — never switch branches or stash in the current workspace:
