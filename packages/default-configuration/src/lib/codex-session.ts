@@ -12,7 +12,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
-import { CardsClient } from '@cards/sdk/client';
+import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
@@ -165,10 +165,10 @@ export async function spawnCodexSession(
     executionMode: input.executionMode
   });
 
-  const client = new CardsClient({
-    baseUrl: input.apiBaseUrl,
-    accessToken: input.apiAccessToken
-  });
+  const client = await createCardsClient(context.logger);
+  if (!client) {
+    throw new Error('Cards API discovery failed — cannot start session');
+  }
 
   const baseBranch = await resolveBaseBranch(input.repoRoot, client);
   const {

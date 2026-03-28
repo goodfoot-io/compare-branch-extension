@@ -15,7 +15,8 @@ import * as fsSyncNs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { CardsClient } from '@cards/sdk/client';
+import type { CardsClient } from '@cards/sdk/client';
+import { createCardsClient } from '@cards/sdk/client/discovery';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
@@ -593,10 +594,10 @@ export async function spawnClaudeSession(
     sessionId
   });
 
-  const client = new CardsClient({
-    baseUrl: input.apiBaseUrl,
-    accessToken: input.apiAccessToken
-  });
+  const client = await createCardsClient(context.logger);
+  if (!client) {
+    throw new Error('Cards API discovery failed — cannot start session');
+  }
 
   const baseBranch = await resolveBaseBranch(input.repoRoot, client);
 

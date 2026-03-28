@@ -12,6 +12,7 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import * as path from 'node:path';
+import { createCardsClient } from '@cards/sdk/client/discovery';
 import { type ActionInput, Logger } from '@cards/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
 
@@ -93,8 +94,6 @@ if (process.argv.includes('--branch-cleanup')) {
       const input: ActionInput = {
         cardId,
         repoRoot,
-        apiBaseUrl: '',
-        apiAccessToken: '',
         actionName: 'branch-cleanup-watcher',
         environment: '',
         executionMode: 'background',
@@ -104,6 +103,11 @@ if (process.argv.includes('--branch-cleanup')) {
         configPath: '',
         extensionPath: ''
       };
+
+      const client = await createCardsClient();
+      if (!client) {
+        throw new Error('Cards API discovery failed — cannot run branch cleanup');
+      }
 
       const logger = new Logger({
         logFilePath: path.join(repoRoot, '.cards', 'logs', 'cards-default-configuration-hooks.log')
