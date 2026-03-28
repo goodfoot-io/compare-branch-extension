@@ -388,6 +388,8 @@ export interface CardsMetadataEvent {
   type: 'cards:metadata';
   /** ID of the card whose metadata changed. */
   cardId: string;
+  /** Repository identifier the card belongs to. */
+  repositoryId: string;
   /** Card title. */
   title: string;
   /** Current status. */
