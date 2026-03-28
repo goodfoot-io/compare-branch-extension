@@ -274,8 +274,7 @@ describe('codex action', () => {
     expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith({
       cardId: 'card-123',
       repoRoot: '/test/workspace',
-      apiBaseUrl: 'http://localhost:3000',
-      apiAccessToken: 'test-token'
+      cardRepoPath: '/test/repo'
     });
 
     // Verify no inline cleanup (no merge-base calls)

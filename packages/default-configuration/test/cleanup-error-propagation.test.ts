@@ -1,22 +1,15 @@
 /**
- * Reproduction test for exit-code-1 bug: post-session cleanup error propagation.
+ * Regression test: post-session cleanup error propagation.
  *
- * When claude exits cleanly (code 0), `spawnClaudeSession` calls
- * `cleanupMergedBranches` with `await`. If the Cards API is unreachable
- * (e.g. server restarted during a long session), `client.getBranches()` throws.
- * The error propagates through spawnClaudeSession → the action handler →
- * executeCommand → handleHandlerError → process.exit(1).
- *
- * The watcher already catches its own `cleanupMergedBranches` errors
- * (wrapper.ts:748-750), and the extension's `handleTerminalClose` has fallback
- * cleanup (ActionDispatcher.ts:566-571). The handler's cleanup is
- * triple-redundant and should not be fatal.
+ * When claude exits cleanly (code 0) in background mode, `spawnClaudeSession`
+ * calls `cleanupMergedBranches` inline. If the card repo is inaccessible
+ * (e.g. disk error reading workspace-branches.json), the error must not
+ * propagate — cleanup is triple-redundant and should not be fatal.
  *
  * This test asserts that `spawnClaudeSession` resolves successfully even when
- * `cleanupMergedBranches` throws. It MUST FAIL against the current (unfixed)
- * code, which propagates the error.
+ * `cleanupMergedBranches` throws due to a filesystem error.
  *
- * @summary Reproduction test for post-session cleanup error propagation bug
+ * @summary Regression test for post-session cleanup error propagation
  */
 
 import type { ChildProcess } from 'node:child_process';
@@ -69,7 +62,7 @@ beforeEach(async () => {
     return {} as ReturnType<typeof execFile>;
   });
 
-  // Default: no existing branches
+  // Default: no existing branches (API still used for addBranch in spawnClaudeSession)
   globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
     if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
       return Promise.resolve(
@@ -82,10 +75,16 @@ beforeEach(async () => {
     return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
   });
 
-  // readFile: reject with ENOENT so updateMarketplaceRegistration skips cleanly
+  // readFile: reject with EACCES to simulate inaccessible card repo for cleanupMergedBranches
   const { readFile } = await import('node:fs/promises');
-  const enoent = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
-  vi.mocked(readFile).mockRejectedValue(enoent);
+  vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+    const p = String(filePath);
+    if (p.endsWith('workspace-branches.json')) {
+      return Promise.reject(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
+    }
+    // Other reads (e.g. marketplace registration) return ENOENT
+    return Promise.reject(Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' }));
+  });
 
   const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
@@ -154,26 +153,6 @@ describe('spawnClaudeSession post-exit cleanup error propagation', () => {
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
 
-    // Track fetch call count so we can make cleanup's getBranches fail
-    let branchGetCallCount = 0;
-    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-        branchGetCallCount++;
-        if (branchGetCallCount > 1) {
-          // Second GET /branches call is from cleanupMergedBranches (post-exit).
-          // Simulate API unreachable — server restarted on a different port.
-          return Promise.reject(new Error('fetch failed: ECONNREFUSED'));
-        }
-        return Promise.resolve(
-          new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
-        );
-      }
-      if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'POST') {
-        return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
-      }
-      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-    });
-
     const context = createMockContext();
     const promise = spawnClaudeSession(baseInput(), context, {
       prompt: 'test prompt',
@@ -187,8 +166,7 @@ describe('spawnClaudeSession post-exit cleanup error propagation', () => {
     child.emit('close', 0);
 
     // spawnClaudeSession should resolve without error even though
-    // cleanupMergedBranches throws due to API being unreachable.
-    // Current (unfixed) code: this rejects with "fetch failed: ECONNREFUSED"
+    // cleanupMergedBranches throws due to EACCES on workspace-branches.json.
     await expect(promise).resolves.toBeUndefined();
   });
 });

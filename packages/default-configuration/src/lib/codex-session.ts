@@ -214,8 +214,7 @@ export async function spawnCodexSession(
     spawnBranchCleanupWatcher({
       cardId: input.cardId,
       repoRoot: input.repoRoot,
-      apiBaseUrl: input.apiBaseUrl,
-      apiAccessToken: input.apiAccessToken
+      cardRepoPath: input.cardRepoPath
     });
   } catch (error) {
     context.logger.warn('Failed to spawn branch-cleanup watcher (non-fatal)', {

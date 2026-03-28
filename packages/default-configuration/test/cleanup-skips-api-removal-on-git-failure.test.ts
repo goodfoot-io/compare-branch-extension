@@ -1,28 +1,27 @@
 /**
  * Tests for cleanupMergedBranches cleanup step ordering.
  *
- * After the "Branch deleted fix" (cbc496fd2), API record removal only runs when
- * `git branch -d` succeeds. If the local branch still exists, the API record is
- * preserved to keep local and remote state in sync. Worktree removal and branch
- * deletion failures are logged but do not abort the sweep for other branches.
+ * After the "Branch deleted fix" (cbc496fd2), branch record removal only runs
+ * when `git branch -d` succeeds. If the local branch still exists, the record
+ * is preserved to keep local and card repo state in sync. Worktree removal
+ * and branch deletion failures are logged but do not abort the sweep for
+ * other branches.
  *
  * @summary Tests for cleanupMergedBranches cleanup step ordering
  */
 
+import { execFileSync } from 'node:child_process';
+import * as fsSyncNs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
-import type { BranchInfo } from '@cards/sdk/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
-  execFile: vi.fn()
-}));
-
-vi.mock('node:fs/promises', () => ({
-  access: vi.fn(),
-  readFile: vi.fn(),
-  writeFile: vi.fn()
+  execFile: vi.fn(),
+  execFileSync: vi.fn()
 }));
 
 vi.mock('@cards/sdk/worktree', () => ({
@@ -31,31 +30,15 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
-vi.mock('node:crypto', () => ({
-  randomUUID: vi.fn(() => 'test-uuid-1234')
-}));
-
-const originalFetch = globalThis.fetch;
+let tempCardRepo: string;
 
 beforeEach(async () => {
   vi.clearAllMocks();
-
-  const { readFile } = await import('node:fs/promises');
-  const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-  vi.mocked(readFile).mockRejectedValue(enoent);
-
-  const { createWorktree, checkWorktreeExists, findGitRoots } = await import('@cards/sdk/worktree');
-  vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
-  vi.mocked(checkWorktreeExists).mockResolvedValue(false);
-  vi.mocked(createWorktree).mockResolvedValue({
-    branch: 'cards/card-123/1',
-    worktree: '/test/workspace/.worktrees/cards/card-123/1',
-    baseSha: 'abc123'
-  });
+  tempCardRepo = fsSyncNs.mkdtempSync(path.join(os.tmpdir(), 'cleanup-order-test-'));
 });
 
 afterEach(() => {
-  globalThis.fetch = originalFetch;
+  fsSyncNs.rmSync(tempCardRepo, { recursive: true, force: true });
 });
 
 function createMockLogger(): ActionContext['logger'] {
@@ -68,29 +51,34 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     actionName: 'Launch',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: 'http://localhost:3000',
-    apiAccessToken: 'test-token',
+    apiBaseUrl: '',
+    apiAccessToken: '',
     repoRoot: '/test/workspace',
-    cardRepoPath: '/test/repo',
+    cardRepoPath: tempCardRepo,
     configPath: '/test/config',
     extensionPath: '/test/extension',
     ...overrides
   };
 }
 
+function writeBranchesJson(
+  branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
+): void {
+  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'workspace-branches.json'), `${JSON.stringify(branches, null, 2)}\n`);
+}
+
 describe('cleanupMergedBranches — cleanup steps run independently', () => {
-  it('skips removeBranch when git branch -d fails', async () => {
+  it('skips branch record removal when git branch -d fails', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-    const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
 
-    const branch: BranchInfo = {
-      name: 'cards/card-123/1',
-      worktree: '/test/workspace/.worktrees/cards/card-123/1',
-      parentBranch: 'main',
-      addedAt: '2025-01-01T00:00:00Z',
-      exists: true
-    };
+    writeBranchesJson({
+      'cards/card-123/1': {
+        worktree: '/test/workspace/.worktrees/cards/card-123/1',
+        parentBranch: 'main',
+        addedAt: '2025-01-01T00:00:00Z'
+      }
+    });
 
     // merge-base succeeds (branch is merged), worktree remove succeeds,
     // but git branch -d FAILS
@@ -101,7 +89,9 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
       const key = `${cmd} ${cmdArgs.join(' ')}`;
 
       if (typeof cb === 'function') {
-        if (key.includes('merge-base --is-ancestor')) {
+        if (key.includes('branch --list')) {
+          cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+        } else if (key.includes('merge-base --is-ancestor')) {
           cb(null, { stdout: '', stderr: '' }); // merged
         } else if (key.includes('worktree remove')) {
           cb(null, { stdout: '', stderr: '' }); // worktree removal succeeds
@@ -114,45 +104,25 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
       return {} as ReturnType<typeof execFile>;
     });
 
-    const fetchCalls: Array<{ url: string; method: string }> = [];
-    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      const method = opts?.method ?? 'GET';
-      fetchCalls.push({ url, method });
+    await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
 
-      if (typeof url === 'string' && url.includes('/branches') && method === 'GET') {
-        return Promise.resolve(
-          new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), { status: 200 })
-        );
-      }
-      if (typeof url === 'string' && url.includes('/branches') && method === 'DELETE') {
-        return Promise.resolve(new Response(null, { status: 204 }));
-      }
-      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-    });
-
-    const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-    await cleanupMergedBranches(baseInput(), client, createMockLogger());
-
-    // When git branch -d fails the branch still exists locally, so the API
-    // record must be preserved to keep local and remote state in sync.
-    const deleteCall = fetchCalls.find((c) => c.method === 'DELETE');
-    expect(deleteCall).toBeUndefined();
+    // workspace-branches.json should still contain the branch
+    const branches = JSON.parse(fsSyncNs.readFileSync(path.join(tempCardRepo, 'workspace-branches.json'), 'utf-8'));
+    expect(branches['cards/card-123/1']).toBeDefined();
   });
 
-  it('skips removeBranch when both worktree remove and branch -d fail', async () => {
+  it('skips branch record removal when both worktree remove and branch -d fail', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-    const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
 
-    const branch: BranchInfo = {
-      name: 'cards/card-123/1',
-      worktree: '/test/workspace/.worktrees/cards/card-123/1',
-      parentBranch: 'main',
-      addedAt: '2025-01-01T00:00:00Z',
-      exists: true
-    };
+    writeBranchesJson({
+      'cards/card-123/1': {
+        worktree: '/test/workspace/.worktrees/cards/card-123/1',
+        parentBranch: 'main',
+        addedAt: '2025-01-01T00:00:00Z'
+      }
+    });
 
-    // merge-base succeeds, but BOTH worktree remove and branch -d fail
     vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1];
       const cmd = args[0] as string;
@@ -160,7 +130,9 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
       const key = `${cmd} ${cmdArgs.join(' ')}`;
 
       if (typeof cb === 'function') {
-        if (key.includes('merge-base --is-ancestor')) {
+        if (key.includes('branch --list')) {
+          cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+        } else if (key.includes('merge-base --is-ancestor')) {
           cb(null, { stdout: '', stderr: '' });
         } else if (key.includes('worktree remove')) {
           cb(new Error('cannot remove worktree: still checked out'));
@@ -173,74 +145,46 @@ describe('cleanupMergedBranches — cleanup steps run independently', () => {
       return {} as ReturnType<typeof execFile>;
     });
 
-    const fetchCalls: Array<{ url: string; method: string }> = [];
-    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      const method = opts?.method ?? 'GET';
-      fetchCalls.push({ url, method });
+    await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
 
-      if (typeof url === 'string' && url.includes('/branches') && method === 'GET') {
-        return Promise.resolve(
-          new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), { status: 200 })
-        );
-      }
-      if (typeof url === 'string' && url.includes('/branches') && method === 'DELETE') {
-        return Promise.resolve(new Response(null, { status: 204 }));
-      }
-      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-    });
-
-    const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-    await cleanupMergedBranches(baseInput(), client, createMockLogger());
-
-    // When git branch -d fails the branch still exists locally, so the API
-    // record must be preserved to keep local and remote state in sync.
-    const deleteCall = fetchCalls.find((c) => c.method === 'DELETE');
-    expect(deleteCall).toBeUndefined();
+    // workspace-branches.json should still contain the branch
+    const branches = JSON.parse(fsSyncNs.readFileSync(path.join(tempCardRepo, 'workspace-branches.json'), 'utf-8'));
+    expect(branches['cards/card-123/1']).toBeDefined();
   });
 
-  it('calls removeBranch when git branch -d succeeds', async () => {
+  it('removes branch record when git branch -d succeeds', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-    const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
 
-    const branch: BranchInfo = {
-      name: 'cards/card-123/1',
-      worktree: '/test/workspace/.worktrees/cards/card-123/1',
-      parentBranch: 'main',
-      addedAt: '2025-01-01T00:00:00Z',
-      exists: true
-    };
+    writeBranchesJson({
+      'cards/card-123/1': {
+        worktree: '/test/workspace/.worktrees/cards/card-123/1',
+        parentBranch: 'main',
+        addedAt: '2025-01-01T00:00:00Z'
+      }
+    });
 
     // Everything succeeds
     vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1];
+      const cmd = args[0] as string;
+      const cmdArgs = args[1] as string[];
+      const key = `${cmd} ${cmdArgs.join(' ')}`;
+
       if (typeof cb === 'function') {
-        cb(null, { stdout: '', stderr: '' });
+        if (key.includes('branch --list')) {
+          cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+        } else {
+          cb(null, { stdout: '', stderr: '' });
+        }
       }
       return {} as ReturnType<typeof execFile>;
     });
 
-    const fetchCalls: Array<{ url: string; method: string }> = [];
-    globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-      const method = opts?.method ?? 'GET';
-      fetchCalls.push({ url, method });
+    await cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger());
 
-      if (typeof url === 'string' && url.includes('/branches') && method === 'GET') {
-        return Promise.resolve(
-          new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), { status: 200 })
-        );
-      }
-      if (typeof url === 'string' && url.includes('/branches') && method === 'DELETE') {
-        return Promise.resolve(new Response(null, { status: 204 }));
-      }
-      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-    });
-
-    const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-    await cleanupMergedBranches(baseInput(), client, createMockLogger());
-
-    // When branch -d succeeds, removeBranch SHOULD be called
-    const deleteCall = fetchCalls.find((c) => c.method === 'DELETE');
-    expect(deleteCall).toBeDefined();
+    // workspace-branches.json should no longer contain the branch
+    const branches = JSON.parse(fsSyncNs.readFileSync(path.join(tempCardRepo, 'workspace-branches.json'), 'utf-8'));
+    expect(branches['cards/card-123/1']).toBeUndefined();
   });
 });

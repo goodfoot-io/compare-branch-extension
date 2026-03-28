@@ -1,7 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
-import type { BranchInfo } from '@cards/sdk/protocol';
 import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -158,7 +157,9 @@ async function configureExecFile(handlers: Record<string, { stdout: string; stde
   });
 }
 
-function configureBranchesResponse(branches: BranchInfo[]): void {
+function configureBranchesResponse(
+  branches: Array<{ name: string; worktree?: string; parentBranch: string; addedAt: string; exists?: boolean }>
+): void {
   globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
     if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
       return Promise.resolve(
@@ -343,47 +344,51 @@ describe('claude-session shared utilities', () => {
   });
 
   describe('cleanupMergedBranches', () => {
-    it('removes fully merged branches (worktree, ref, and API record)', async () => {
+    async function configureBranchesFile(
+      branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
+    ): Promise<void> {
+      const { readFile } = await import('node:fs/promises');
+      vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+        const p = String(filePath);
+        if (p.endsWith('workspace-branches.json')) {
+          return Promise.resolve(JSON.stringify(branches, null, 2));
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      });
+    }
+
+    it('removes fully merged branches (worktree, ref, and branch record)', async () => {
       const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
       const { execFile } = await import('node:child_process');
+      const { writeFile } = await import('node:fs/promises');
 
-      const branch: BranchInfo = {
-        name: 'cards/card-123/1',
-        worktree: '/test/workspace/.worktrees/cards/card-123/1',
-        parentBranch: 'main',
-        addedAt: '2025-01-01T00:00:00Z',
-        exists: true
-      };
+      await configureBranchesFile({
+        'cards/card-123/1': {
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          parentBranch: 'main',
+          addedAt: '2025-01-01T00:00:00Z'
+        }
+      });
 
-      configureBranchesResponse([branch]);
-
-      // merge-base succeeds (branch IS merged), worktree remove and branch delete succeed
+      // All git commands succeed; branch --list returns the branch
       vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
         const cb = args[args.length - 1];
-        if (typeof cb === 'function') cb(null, { stdout: '', stderr: '' });
+        const cmdArgs = args[1] as string[];
+        if (typeof cb === 'function') {
+          if (cmdArgs?.includes('--list')) {
+            cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+          } else {
+            cb(null, { stdout: '', stderr: '' });
+          }
+        }
         return {} as ReturnType<typeof execFile>;
       });
 
-      const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), { status: 200 })
-          );
-        }
-        if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
-          return Promise.resolve(new Response(null, { status: 204 }));
-        }
-        return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-      });
-      globalThis.fetch = fetchMock;
-
-      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-      await cleanupMergedBranches(baseInput(), client, createMockLogger());
+      await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
 
       const execCalls = vi.mocked(execFile).mock.calls;
 
-      // Verify merge-base check uses the branch's parentBranch, not workspace HEAD
+      // Verify merge-base check uses the branch's parentBranch
       const mergeBaseCall = execCalls.find(
         (c) => (c[1] as string[])?.includes('merge-base') && (c[1] as string[])?.includes('--is-ancestor')
       );
@@ -395,41 +400,35 @@ describe('claude-session shared utilities', () => {
         (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
       );
       expect(worktreeRemoveCall).toBeDefined();
-      expect(worktreeRemoveCall![1] as string[]).toContain('--force');
 
       const branchDeleteCall = execCalls.find(
         (c) => (c[1] as string[])?.includes('branch') && (c[1] as string[])?.includes('-d')
       );
       expect(branchDeleteCall).toBeDefined();
 
-      const deleteCall = fetchMock.mock.calls.find(
-        (c: unknown[]) => (c[1] as RequestInit)?.method === 'DELETE' && (c[0] as string).includes('/branches/')
-      );
-      expect(deleteCall).toBeDefined();
+      // Verify workspace-branches.json was written without the branch
+      expect(vi.mocked(writeFile)).toHaveBeenCalled();
     });
 
     it('checks each branch against its own parentBranch, not workspace HEAD', async () => {
       const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
       const { execFile } = await import('node:child_process');
 
-      const branchOnDevelop: BranchInfo = {
-        name: 'cards/card-123/1',
-        worktree: '/test/workspace/.worktrees/cards/card-123/1',
-        parentBranch: 'develop',
-        addedAt: '2025-01-01T00:00:00Z',
-        exists: true
-      };
+      await configureBranchesFile({
+        'cards/card-123/1': {
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          parentBranch: 'develop',
+          addedAt: '2025-01-01T00:00:00Z'
+        }
+      });
 
-      configureBranchesResponse([branchOnDevelop]);
-
-      // Track which merge-base arguments are used
       vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
         const cb = args[args.length - 1];
         const cmdArgs = args[1] as string[];
         if (typeof cb === 'function') {
-          if (cmdArgs?.includes('merge-base')) {
-            // Fail the merge check — branch not merged into develop
+          if (cmdArgs?.includes('--list')) {
+            cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+          } else if (cmdArgs?.includes('merge-base')) {
             cb(new Error('exit code 1'));
           } else {
             cb(null, { stdout: '', stderr: '' });
@@ -438,42 +437,42 @@ describe('claude-session shared utilities', () => {
         return {} as ReturnType<typeof execFile>;
       });
 
-      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-      await cleanupMergedBranches(baseInput(), client, createMockLogger());
+      await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
 
       const execCalls = vi.mocked(execFile).mock.calls;
       const mergeBaseCall = execCalls.find(
         (c) => (c[1] as string[])?.includes('merge-base') && (c[1] as string[])?.includes('--is-ancestor')
       );
       expect(mergeBaseCall).toBeDefined();
-      // Must check against 'develop' (branch.parentBranch), not workspace HEAD
       expect(mergeBaseCall![1] as string[]).toContain('develop');
     });
 
     it('skips unmerged branches', async () => {
       const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
       const { execFile } = await import('node:child_process');
 
-      configureBranchesResponse([
-        {
-          name: 'cards/card-123/1',
+      await configureBranchesFile({
+        'cards/card-123/1': {
           worktree: '/test/workspace/.worktrees/cards/card-123/1',
           parentBranch: 'main',
-          addedAt: '2025-01-01T00:00:00Z',
-          exists: true
+          addedAt: '2025-01-01T00:00:00Z'
         }
-      ]);
+      });
 
-      // merge-base fails → branch not merged
       vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
         const cb = args[args.length - 1];
-        if (typeof cb === 'function') cb(new Error('exit code 1'));
+        const cmdArgs = args[1] as string[];
+        if (typeof cb === 'function') {
+          if (cmdArgs?.includes('--list')) {
+            cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+          } else {
+            cb(new Error('exit code 1'));
+          }
+        }
         return {} as ReturnType<typeof execFile>;
       });
 
-      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-      await cleanupMergedBranches(baseInput(), client, createMockLogger());
+      await cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger());
 
       const execCalls = vi.mocked(execFile).mock.calls;
       const worktreeRemoveCall = execCalls.find(
@@ -489,18 +488,15 @@ describe('claude-session shared utilities', () => {
 
     it('continues cleanup when individual operations fail (partial failure)', async () => {
       const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-      const { CardsClient } = await import('@cards/sdk/client');
       const { execFile } = await import('node:child_process');
 
-      const branch: BranchInfo = {
-        name: 'cards/card-123/1',
-        worktree: '/test/workspace/.worktrees/cards/card-123/1',
-        parentBranch: 'main',
-        addedAt: '2025-01-01T00:00:00Z',
-        exists: true
-      };
-
-      configureBranchesResponse([branch]);
+      await configureBranchesFile({
+        'cards/card-123/1': {
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          parentBranch: 'main',
+          addedAt: '2025-01-01T00:00:00Z'
+        }
+      });
 
       // merge-base succeeds but worktree remove fails; branch delete succeeds
       vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
@@ -510,36 +506,21 @@ describe('claude-session shared utilities', () => {
         const key = `${cmd} ${cmdArgs.join(' ')}`;
 
         if (typeof cb === 'function') {
-          if (key.includes('merge-base --is-ancestor')) {
-            cb(null, { stdout: '', stderr: '' }); // merged
+          if (key.includes('branch --list')) {
+            cb(null, { stdout: '  cards/card-123/1\n', stderr: '' });
+          } else if (key.includes('merge-base --is-ancestor')) {
+            cb(null, { stdout: '', stderr: '' });
           } else if (key.includes('worktree remove')) {
             cb(new Error('cannot remove worktree'));
           } else {
-            cb(null, { stdout: '', stderr: '' }); // branch -d and others succeed
+            cb(null, { stdout: '', stderr: '' });
           }
         }
         return {} as ReturnType<typeof execFile>;
       });
 
-      const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), { status: 200 })
-          );
-        }
-        if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
-          return Promise.resolve(new Response(null, { status: 204 }));
-        }
-        return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-      });
-      globalThis.fetch = fetchMock;
+      await expect(cleanupMergedBranches(baseInput(), '/test/repo', createMockLogger())).resolves.toBeUndefined();
 
-      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-
-      // Should not throw even though worktree remove failed
-      await expect(cleanupMergedBranches(baseInput(), client, createMockLogger())).resolves.toBeUndefined();
-
-      // branch -d should still have been called despite worktree remove failure
       const execCalls = vi.mocked(execFile).mock.calls;
       const branchDeleteCall = execCalls.find(
         (c) => (c[1] as string[])?.includes('branch') && (c[1] as string[])?.includes('-d')

@@ -374,32 +374,60 @@ async function tryCleanupStep(
  * only cleaned up when truly merged into their intended target.
  *
  * @param input - Action input containing cardId and workspace paths.
- * @param client - Cards API client for branch removal.
+ * @param cardRepoPath - Absolute path to the card's git repository.
  * @param logger - Logger for diagnostic output.
- * @param sessionId - Claude Code session ID forwarded to the API so the card repo post-commit hook can attribute the commit.
+ * @param sessionId - Claude Code session ID set as CARDS_SESSION_ID in the git subprocess environment so the card repo post-commit hook can attribute the commit.
  */
 export async function cleanupMergedBranches(
   input: ActionInput,
-  client: CardsClient,
+  cardRepoPath: string,
   logger: ActionContext['logger'],
   sessionId?: string
 ): Promise<void> {
   let t0 = performance.now();
-  const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
-  logger.debug('getBranches completed', {
+
+  // Read workspace-branches.json directly from the card repository
+  const branchesPath = path.join(cardRepoPath, 'workspace-branches.json');
+  let branchesJson: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>;
+  try {
+    const content = await fs.readFile(branchesPath, 'utf-8');
+    branchesJson = JSON.parse(content) as typeof branchesJson;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      logger.debug('No workspace-branches.json found, nothing to clean up');
+      return;
+    }
+    throw error;
+  }
+
+  // Compute existence for each branch via git
+  const entries = Object.entries(branchesJson);
+  logger.debug('Read workspace-branches.json', {
     cardId: input.cardId,
-    branchCount: branches.length,
+    branchCount: entries.length,
     elapsedMs: Math.round(performance.now() - t0)
   });
 
-  for (const branch of branches) {
-    if (!branch.exists) continue;
+  for (const [branchName, branchData] of entries) {
+    // Check if branch exists in git
+    let branchExists = false;
+    try {
+      const result = await execFileAsync('git', ['branch', '--list', branchName], { cwd: input.repoRoot });
+      branchExists = result.stdout.trim().length > 0;
+    } catch (error) {
+      logger.debug('git branch --list failed, treating as non-existent', {
+        branch: branchName,
+        error: errorMessage(error)
+      });
+    }
+
+    if (!branchExists) continue;
 
     // Self-referential parentBranch is a corrupt state — `merge-base --is-ancestor X X`
     // trivially succeeds, so cleanup would incorrectly remove unmerged work.
-    if (branch.parentBranch === branch.name) {
+    if (branchData.parentBranch === branchName) {
       throw new Error(
-        `Branch "${branch.name}" has self-referential parentBranch — refusing to run cleanup. ` +
+        `Branch "${branchName}" has self-referential parentBranch — refusing to run cleanup. ` +
           'This is a data corruption bug: a branch cannot be its own parent.'
       );
     }
@@ -408,39 +436,39 @@ export async function cleanupMergedBranches(
     try {
       // merge-base --is-ancestor exits non-zero when NOT an ancestor (not merged).
       // Check against the branch's own parentBranch, not the workspace HEAD.
-      await execFileAsync('git', ['merge-base', '--is-ancestor', branch.name, branch.parentBranch], {
+      await execFileAsync('git', ['merge-base', '--is-ancestor', branchName, branchData.parentBranch], {
         cwd: input.repoRoot
       });
     } catch {
       // Expected for unmerged branches — skip cleanup
       logger.debug('Branch not merged, skipping cleanup', {
-        branch: branch.name,
+        branch: branchName,
         elapsedMs: Math.round(performance.now() - t0)
       });
       continue;
     }
     logger.debug('merge-base check completed (merged)', {
-      branch: branch.name,
+      branch: branchName,
       elapsedMs: Math.round(performance.now() - t0)
     });
 
-    // Branch is merged — clean up worktree, branch ref, and API record
-    if (branch.worktree) {
+    // Branch is merged — clean up worktree, branch ref, and branch record
+    if (branchData.worktree) {
       t0 = performance.now();
       await tryCleanupStep(
-        () => killProcessesInDirectory(branch.worktree!, logger),
+        () => killProcessesInDirectory(branchData.worktree!, logger),
         'Failed to kill processes in worktree',
-        branch.name,
+        branchName,
         logger
       );
       await tryCleanupStep(
-        () => execFileAsync('git', ['worktree', 'remove', '--force', branch.worktree!], { cwd: input.repoRoot }),
+        () => execFileAsync('git', ['worktree', 'remove', '--force', branchData.worktree!], { cwd: input.repoRoot }),
         'Failed to remove worktree',
-        branch.name,
+        branchName,
         logger
       );
       logger.debug('Worktree removal completed', {
-        branch: branch.name,
+        branch: branchName,
         elapsedMs: Math.round(performance.now() - t0)
       });
     }
@@ -448,33 +476,55 @@ export async function cleanupMergedBranches(
     t0 = performance.now();
     let branchDeleted = false;
     try {
-      await execFileAsync('git', ['branch', '-d', branch.name], { cwd: input.repoRoot });
+      await execFileAsync('git', ['branch', '-d', branchName], { cwd: input.repoRoot });
       branchDeleted = true;
     } catch (error) {
-      logger.warn('Failed to delete branch', { branch: branch.name, error: errorMessage(error) });
+      logger.warn('Failed to delete branch', { branch: branchName, error: errorMessage(error) });
     }
     logger.debug('Branch deletion completed', {
-      branch: branch.name,
+      branch: branchName,
       branchDeleted,
       elapsedMs: Math.round(performance.now() - t0)
     });
 
     if (branchDeleted) {
+      // Remove the branch entry from workspace-branches.json and commit
       t0 = performance.now();
       await tryCleanupStep(
-        () => client.removeBranch(input.cardId, branch.name, { sessionId }),
-        'Failed to remove branch from API',
-        branch.name,
+        async () => {
+          // Re-read to avoid stale data after earlier iterations
+          const freshContent = await fs.readFile(branchesPath, 'utf-8');
+          const freshBranches = JSON.parse(freshContent) as Record<string, unknown>;
+          delete freshBranches[branchName];
+          await fs.writeFile(branchesPath, `${JSON.stringify(freshBranches, null, 2)}\n`, 'utf-8');
+
+          const gitEnv: Record<string, string> = {};
+          if (sessionId) {
+            gitEnv['CARDS_SESSION_ID'] = sessionId;
+          }
+          await execFileAsync('git', ['add', 'workspace-branches.json'], {
+            cwd: cardRepoPath,
+            env: { ...process.env, ...gitEnv }
+          });
+          const branchCount = Object.keys(freshBranches).length;
+          await execFileAsync(
+            'git',
+            ['commit', '-m', `Removed branch "${branchName}" (now tracking ${branchCount}).`],
+            { cwd: cardRepoPath, env: { ...process.env, ...gitEnv } }
+          );
+        },
+        'Failed to remove branch from card repo',
+        branchName,
         logger
       );
-      logger.debug('API branch removal completed', {
-        branch: branch.name,
+      logger.debug('Card repo branch removal completed', {
+        branch: branchName,
         elapsedMs: Math.round(performance.now() - t0)
       });
 
-      logger.info('Cleaned up merged branch', { branch: branch.name });
+      logger.info('Cleaned up merged branch', { branch: branchName });
     } else {
-      logger.info('Skipped API record removal — git branch still exists', { branch: branch.name });
+      logger.info('Skipped branch record removal — git branch still exists', { branch: branchName });
     }
   }
 }
@@ -613,8 +663,7 @@ export async function spawnClaudeSession(
       spawnBranchCleanupWatcher({
         cardId: input.cardId,
         repoRoot: input.repoRoot,
-        apiBaseUrl: input.apiBaseUrl,
-        apiAccessToken: input.apiAccessToken,
+        cardRepoPath: input.cardRepoPath,
         sessionId
       });
     } catch (error) {
@@ -624,7 +673,7 @@ export async function spawnClaudeSession(
   } else {
     const cleanupStart = performance.now();
     try {
-      await cleanupMergedBranches(input, client, context.logger, sessionId);
+      await cleanupMergedBranches(input, input.cardRepoPath, context.logger, sessionId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes('self-referential parentBranch') || message.includes('data corruption')) {

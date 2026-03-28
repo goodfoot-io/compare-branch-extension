@@ -1,6 +1,8 @@
+import * as fsSyncNs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
-import type { BranchInfo } from '@cards/sdk/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -11,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * treats the branch as merged because `git merge-base --is-ancestor X X`
  * always succeeds — a branch is trivially an ancestor of itself.
  *
- * This causes worktrees and API records to be removed for branches with
+ * This causes worktrees and branch records to be removed for branches with
  * unmerged work.
  *
  * @summary Reproduction tests for self-referential parentBranch bug
@@ -22,22 +24,17 @@ vi.mock('node:child_process', () => ({
   execFile: vi.fn()
 }));
 
-vi.mock('node:fs/promises', () => ({
-  access: vi.fn(),
-  readFile: vi.fn(),
-  writeFile: vi.fn()
-}));
-
 vi.mock('@cards/sdk/worktree', () => ({
   createWorktree: vi.fn(),
   checkWorktreeExists: vi.fn(),
   findGitRoots: vi.fn()
 }));
 
-const originalFetch = globalThis.fetch;
+let tempCardRepo: string;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  tempCardRepo = fsSyncNs.mkdtempSync(path.join(os.tmpdir(), 'self-ref-test-'));
 
   const { execFile } = await import('node:child_process');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
@@ -47,14 +44,10 @@ beforeEach(async () => {
     }
     return {} as ReturnType<typeof execFile>;
   });
-
-  globalThis.fetch = vi.fn().mockImplementation(() => {
-    return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-  });
 });
 
 afterEach(() => {
-  globalThis.fetch = originalFetch;
+  fsSyncNs.rmSync(tempCardRepo, { recursive: true, force: true });
 });
 
 function createMockLogger(): ActionContext['logger'] {
@@ -67,79 +60,82 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     actionName: 'Launch',
     environment: 'default',
     executionMode: 'interactive',
-    apiBaseUrl: 'http://localhost:3000',
-    apiAccessToken: 'test-token',
+    apiBaseUrl: '',
+    apiAccessToken: '',
     repoRoot: '/test/workspace',
-    cardRepoPath: '/test/repo',
+    cardRepoPath: tempCardRepo,
     configPath: '/test/config',
     extensionPath: '/test/extension',
     ...overrides
   };
 }
 
-function configureBranchesResponse(branches: BranchInfo[]): void {
-  globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-    if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
-      return Promise.resolve(
-        new Response(JSON.stringify({ branches, commits: [], defaultBranch: 'main' }), { status: 200 })
-      );
-    }
-    if (typeof url === 'string' && url.includes('/branches') && opts?.method === 'DELETE') {
-      return Promise.resolve(new Response(null, { status: 204 }));
-    }
-    return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-  });
+function writeBranchesJson(
+  branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
+): void {
+  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'workspace-branches.json'), JSON.stringify(branches, null, 2));
 }
 
 describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
   it('must throw when a branch has self-referential parentBranch', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-    const { CardsClient } = await import('@cards/sdk/client');
+    const { execFile } = await import('node:child_process');
 
-    const selfRefBranch: BranchInfo = {
-      name: 'cards/main-25/1',
-      worktree: '/test/workspace/.worktrees/cards/main-25/1',
-      parentBranch: 'cards/main-25/1',
-      addedAt: '2025-01-01T00:00:00Z',
-      exists: true
-    };
+    writeBranchesJson({
+      'cards/main-25/1': {
+        worktree: '/test/workspace/.worktrees/cards/main-25/1',
+        parentBranch: 'cards/main-25/1',
+        addedAt: '2025-01-01T00:00:00Z'
+      }
+    });
 
-    configureBranchesResponse([selfRefBranch]);
+    // git branch --list returns the branch (it exists)
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1];
+      const cmdArgs = args[1] as string[];
 
-    const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-    await expect(cleanupMergedBranches(baseInput(), client, createMockLogger())).rejects.toThrow(
+      if (typeof cb === 'function') {
+        if (cmdArgs?.includes('--list')) {
+          cb(null, { stdout: '  cards/main-25/1\n', stderr: '' });
+        } else {
+          cb(new Error('mock: unhandled command'));
+        }
+      }
+      return {} as ReturnType<typeof execFile>;
+    });
+
+    await expect(cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger())).rejects.toThrow(
       'self-referential parentBranch'
     );
   });
 
   it('must throw on corrupt branch even when valid siblings exist', async () => {
     const { cleanupMergedBranches } = await import('../src/lib/claude-session.js');
-    const { CardsClient } = await import('@cards/sdk/client');
     const { execFile } = await import('node:child_process');
 
-    const validBranch: BranchInfo = {
-      name: 'cards/card-123/1',
-      worktree: '/test/workspace/.worktrees/cards/card-123/1',
-      parentBranch: 'main',
-      addedAt: '2025-01-01T00:00:00Z',
-      exists: true
-    };
-    const corruptBranch: BranchInfo = {
-      name: 'cards/card-456/1',
-      worktree: '/test/workspace/.worktrees/cards/card-456/1',
-      parentBranch: 'cards/card-456/1',
-      addedAt: '2025-01-01T00:00:00Z',
-      exists: true
-    };
-
-    configureBranchesResponse([validBranch, corruptBranch]);
+    writeBranchesJson({
+      'cards/card-123/1': {
+        worktree: '/test/workspace/.worktrees/cards/card-123/1',
+        parentBranch: 'main',
+        addedAt: '2025-01-01T00:00:00Z'
+      },
+      'cards/card-456/1': {
+        worktree: '/test/workspace/.worktrees/cards/card-456/1',
+        parentBranch: 'cards/card-456/1',
+        addedAt: '2025-01-01T00:00:00Z'
+      }
+    });
 
     vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1];
       const cmdArgs = args[1] as string[];
 
       if (typeof cb === 'function') {
-        if (cmdArgs?.includes('merge-base') && cmdArgs?.includes('--is-ancestor')) {
+        if (cmdArgs?.includes('--list')) {
+          // Both branches exist
+          const branchName = cmdArgs[cmdArgs.length - 1];
+          cb(null, { stdout: `  ${branchName}\n`, stderr: '' });
+        } else if (cmdArgs?.includes('merge-base') && cmdArgs?.includes('--is-ancestor')) {
           // Valid branch: not merged into main
           cb(new Error('exit code 1'));
         } else {
@@ -149,8 +145,7 @@ describe('cleanupMergedBranches — self-referential parentBranch bug', () => {
       return {} as ReturnType<typeof execFile>;
     });
 
-    const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
-    await expect(cleanupMergedBranches(baseInput(), client, createMockLogger())).rejects.toThrow(
+    await expect(cleanupMergedBranches(baseInput(), tempCardRepo, createMockLogger())).rejects.toThrow(
       'self-referential parentBranch'
     );
   });

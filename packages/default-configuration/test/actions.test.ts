@@ -617,15 +617,35 @@ describe('Default Actions', () => {
         expect(spawnBranchCleanupWatcher).toHaveBeenCalledWith({
           cardId: 'card-123',
           repoRoot: '/test/workspace',
-          apiBaseUrl: 'http://localhost:3000',
-          apiAccessToken: 'test-token',
+          cardRepoPath: '/test/repo',
           sessionId: 'test-uuid-1234'
         });
       });
 
       it('cleans up fully-merged branches in background mode', async () => {
         const { spawn, execFile } = await import('node:child_process');
-        const { access } = await import('node:fs/promises');
+        const { access, readFile } = await import('node:fs/promises');
+
+        const branchesJson = JSON.stringify(
+          {
+            'cards/card-123/1': {
+              worktree: '/test/workspace/.worktrees/cards/card-123/1',
+              parentBranch: 'main',
+              addedAt: '2025-01-01T00:00:00Z'
+            }
+          },
+          null,
+          2
+        );
+
+        // readFile: return branches JSON for workspace-branches.json, ENOENT for others
+        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+          const p = String(filePath);
+          if (p.endsWith('workspace-branches.json')) {
+            return Promise.resolve(branchesJson);
+          }
+          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        });
 
         const mergeBaseKey = 'git merge-base --is-ancestor cards/card-123/1 main';
         const worktreeRemoveKey = 'git worktree remove';
@@ -633,30 +653,23 @@ describe('Default Actions', () => {
 
         await configureExecFile({
           'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
+          'git branch --list': { stdout: '  cards/card-123/1\n' },
           [mergeBaseKey]: { stdout: '' },
           [worktreeRemoveKey]: { stdout: '' },
-          [branchDeleteKey]: { stdout: '' }
+          [branchDeleteKey]: { stdout: '' },
+          'git add workspace-branches.json': { stdout: '' },
+          'git commit': { stdout: '' }
         });
-
-        const branch: BranchInfo = {
-          name: 'cards/card-123/1',
-          worktree: '/test/workspace/.worktrees/cards/card-123/1',
-          parentBranch: 'main',
-          addedAt: '2025-01-01T00:00:00Z',
-          exists: true
-        };
 
         globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
           if (typeof url === 'string' && url.includes('/branches')) {
             if (!opts?.method || opts.method === 'GET') {
               return Promise.resolve(
-                new Response(JSON.stringify({ branches: [branch], commits: [], defaultBranch: 'main' }), {
-                  status: 200
-                })
+                new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
               );
             }
-            if (opts?.method === 'DELETE') {
-              return Promise.resolve(new Response(null, { status: 204 }));
+            if (opts?.method === 'POST') {
+              return Promise.resolve(new Response(JSON.stringify({}), { status: 201 }));
             }
           }
           return Promise.resolve(
@@ -678,7 +691,7 @@ describe('Default Actions', () => {
         child.emit('close', 0);
         await promise;
 
-        // Verify cleanup was attempted: worktree remove, branch delete, API remove
+        // Verify cleanup was attempted: worktree remove and branch delete
         const execCalls = vi.mocked(execFile).mock.calls;
         const worktreeRemoveCall = execCalls.find(
           (c) => (c[1] as string[])?.includes('worktree') && (c[1] as string[])?.includes('remove')
@@ -690,22 +703,38 @@ describe('Default Actions', () => {
         );
         expect(branchDeleteCall).toBeDefined();
 
-        const fetchCalls = vi.mocked(globalThis.fetch).mock.calls;
-        const deleteCall = fetchCalls.find(
-          (c) => (c[1] as RequestInit)?.method === 'DELETE' && (c[0] as string).includes('/branches/')
-        );
-        expect(deleteCall).toBeDefined();
-
         const { spawnBranchCleanupWatcher } = await import('../src/lib/branch-cleanup-watcher.js');
         expect(spawnBranchCleanupWatcher).not.toHaveBeenCalled();
       });
 
       it('skips cleanup for unmerged branches in background mode', async () => {
         const { spawn, execFile } = await import('node:child_process');
-        const { access } = await import('node:fs/promises');
+        const { access, readFile } = await import('node:fs/promises');
+
+        const branchesJson = JSON.stringify(
+          {
+            'cards/card-123/1': {
+              worktree: '/test/workspace/.worktrees/cards/card-123/1',
+              parentBranch: 'main',
+              addedAt: '2025-01-01T00:00:00Z'
+            }
+          },
+          null,
+          2
+        );
+
+        // readFile: return branches JSON for workspace-branches.json, ENOENT for others
+        vi.mocked(readFile).mockImplementation((filePath: unknown) => {
+          const p = String(filePath);
+          if (p.endsWith('workspace-branches.json')) {
+            return Promise.resolve(branchesJson);
+          }
+          return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        });
 
         const handlers: Record<string, { stdout: string }> = {
-          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' }
+          'git rev-parse --abbrev-ref HEAD': { stdout: 'main\n' },
+          'git branch --list': { stdout: '  cards/card-123/1\n' }
         };
 
         vi.mocked(execFile).mockImplementation((...args: unknown[]) => {

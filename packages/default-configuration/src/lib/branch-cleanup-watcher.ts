@@ -12,7 +12,6 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import * as path from 'node:path';
-import { CardsClient } from '@cards/sdk/client';
 import { type ActionInput, Logger } from '@cards/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
 
@@ -24,10 +23,8 @@ export interface BranchCleanupParams {
   cardId: string;
   /** Absolute path to the repository root. */
   repoRoot: string;
-  /** Base URL for the Cards API. */
-  apiBaseUrl: string;
-  /** Access token for the Cards API. */
-  apiAccessToken: string;
+  /** Absolute path to the card's git repository. */
+  cardRepoPath: string;
   /** Optional session ID for log correlation. */
   sessionId?: string;
 }
@@ -91,34 +88,29 @@ if (process.argv.includes('--branch-cleanup')) {
         process.exit(1);
       }
 
-      const { cardId, repoRoot, apiBaseUrl, apiAccessToken, sessionId } = params;
+      const { cardId, repoRoot, cardRepoPath, sessionId } = params;
 
       const input: ActionInput = {
         cardId,
         repoRoot,
-        apiBaseUrl,
-        apiAccessToken,
+        apiBaseUrl: '',
+        apiAccessToken: '',
         actionName: 'branch-cleanup-watcher',
         environment: '',
         executionMode: 'background',
         codingAgent: undefined,
         switchToInteractiveData: undefined,
-        cardRepoPath: '',
+        cardRepoPath,
         configPath: '',
         extensionPath: ''
       };
-
-      const client = new CardsClient({
-        baseUrl: apiBaseUrl,
-        accessToken: apiAccessToken
-      });
 
       const logger = new Logger({
         logFilePath: path.join(repoRoot, '.cards', 'logs', 'cards-default-configuration-hooks.log')
       });
 
       try {
-        await cleanupMergedBranches(input, client, logger, sessionId);
+        await cleanupMergedBranches(input, cardRepoPath, logger, sessionId);
       } catch (error) {
         const message = errorMessage(error);
         logger.error('Branch cleanup watcher failed', { error: message, sessionId });
