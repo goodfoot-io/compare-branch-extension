@@ -33,7 +33,6 @@ export type {
   HealthResponse,
   ListCardsRequest,
   ListTagsRequest,
-  PlanResponse,
   TagsResponse,
   TimelineRequest,
   TimelineResponse,
@@ -41,7 +40,6 @@ export type {
   TypedFileResponse,
   UpdateCardRequest,
   UpdateCommentRequest,
-  UpdatePlanRequest,
   WorkspacePostCommitRequest,
   WorkspacePostCommitResponse
 } from './api-requests.js';
@@ -127,9 +125,11 @@ export type { CardCommit, CardCommitFile, CardSnapshot } from './fs.js';
 // --- Filesystem Callback Types ---
 export type {
   AsyncFileExistsCallback,
+  AsyncListFilesCallback,
   AsyncReadFileCallback,
   AsyncWriteFileCallback,
   FileExistsCallback,
+  ListFilesCallback,
   ReadFileCallback
 } from './fs-callbacks.js';
 // --- Hook Configuration Types ---

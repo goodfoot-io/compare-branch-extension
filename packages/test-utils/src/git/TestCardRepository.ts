@@ -109,6 +109,7 @@ export class TestCardRepository {
   private reposPath: string | null = null;
   private git: SimpleGit | null = null;
   private readonly cardGitClients = new Map<string, SimpleGit>();
+  private readonly descriptionFile = 'CARD.md';
 
   /**
    * Gets the SimpleGit instance for the first created card repo.
@@ -196,8 +197,8 @@ export class TestCardRepository {
     };
     await fs.writeFile(path.join(cardPath, 'CARD.meta.json'), JSON.stringify(metadata, null, 2));
 
-    // Create CARD.md with pure markdown content
-    await fs.writeFile(path.join(cardPath, 'CARD.md'), options.description ?? '');
+    // Create description markdown content
+    await fs.writeFile(path.join(cardPath, this.descriptionFile), options.description ?? '');
 
     // Initial commit
     await git.add('.');
@@ -242,7 +243,7 @@ export class TestCardRepository {
 
     // Update description if provided
     if (options.description !== undefined) {
-      await fs.writeFile(path.join(cardPath, 'CARD.md'), options.description);
+      await fs.writeFile(path.join(cardPath, this.descriptionFile), options.description);
     }
 
     // Commit

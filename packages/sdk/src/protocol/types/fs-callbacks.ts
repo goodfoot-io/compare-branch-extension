@@ -22,6 +22,11 @@ export type FileExistsCallback = (path: string) => boolean;
  */
 export type ReadFileCallback = (path: string) => string;
 
+/**
+ * Synchronous directory listing returning filenames (not full paths).
+ */
+export type ListFilesCallback = (dirPath: string) => string[];
+
 // --- Asynchronous Callbacks ---
 
 /**
@@ -33,6 +38,11 @@ export type AsyncFileExistsCallback = (path: string) => Promise<boolean>;
  * Async file read returning UTF-8 content.
  */
 export type AsyncReadFileCallback = (path: string) => Promise<string>;
+
+/**
+ * Async directory listing returning filenames (not full paths).
+ */
+export type AsyncListFilesCallback = (dirPath: string) => Promise<string[]>;
 
 /**
  * Async file write that replaces the file contents.

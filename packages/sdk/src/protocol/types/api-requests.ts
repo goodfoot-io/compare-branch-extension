@@ -428,37 +428,6 @@ export interface TimelineRequest {
 export type TimelineResponse = TimelineItem[];
 
 // ============================================================================
-// Plan API Types
-// ============================================================================
-
-/**
- * Request body for `PUT /cards/:id/plan`.
- *
- * Creates or updates the plan document for a card. Plans are stored as
- * separate markdown files and can be gated for approval before work begins.
- */
-export interface UpdatePlanRequest {
-  /**
-   * Plan markdown content.
-   * Typically includes goals, approach, and acceptance criteria.
-   */
-  content: string;
-}
-
-/**
- * Response from plan endpoints.
- *
- * Returns the current plan content for the card.
- */
-export interface PlanResponse {
-  /**
-   * Plan markdown content.
-   * Empty string if no plan has been created.
-   */
-  content: string;
-}
-
-// ============================================================================
 // Commit API Types
 // ============================================================================
 

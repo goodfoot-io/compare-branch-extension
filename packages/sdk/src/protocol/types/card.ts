@@ -270,7 +270,6 @@ export interface Card extends CardMetadata {
   /**
    * List of non-excluded `.md` filenames present in the card repository.
    *
-   * Consumers derive plan existence via `documents.includes('PLAN.md')`.
    * Only `.md` files are included, not `.md.meta.json` sidecars.
    */
   documents: string[];

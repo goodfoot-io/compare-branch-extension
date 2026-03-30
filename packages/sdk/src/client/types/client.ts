@@ -30,13 +30,11 @@ export type {
   HasUpdatesResponse,
   ListCardsRequest,
   ListTagsRequest,
-  PlanResponse,
   TagsResponse,
   TimelineRequest,
   TimelineResponse,
   UpdateCardRequest,
-  UpdateCommentRequest,
-  UpdatePlanRequest
+  UpdateCommentRequest
 } from '../../protocol/index.js';
 
 // ============================================================================
