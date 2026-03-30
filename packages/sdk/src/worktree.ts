@@ -78,6 +78,18 @@ export interface CreateWorktreeResult {
 }
 
 /**
+ * Early return from {@link createWorktree} available as soon as `git worktree add` completes.
+ *
+ * `path` is the worktree directory, usable immediately (e.g. as a `cwd` for spawning processes).
+ * `settle` resolves when the remaining setup (symlinks, node_modules rerouting, git excludes)
+ * finishes. Errors in the settle phase reject the promise — they are never silently swallowed.
+ */
+export interface EarlyWorktreeResult {
+  path: string;
+  settle: Promise<CreateWorktreeResult>;
+}
+
+/**
  * Creates and configures a new git worktree.
  *
  * The workflow validates the ref, creates the worktree, mirrors existing root
@@ -91,9 +103,9 @@ export interface CreateWorktreeResult {
  * @param ref - Branch name, tag name, or commit SHA.
  * @param options - Optional configuration.
  * @param options.cwd - Working directory to use when locating git roots. Defaults to `process.cwd()`.
- * @returns Metadata describing the created worktree and base commit.
+ * @returns Early result with `path` available immediately and `settle` resolving when setup completes.
  */
-export async function createWorktree(ref: string, options?: { cwd?: string }): Promise<CreateWorktreeResult> {
+export async function createWorktree(ref: string, options?: { cwd?: string }): Promise<EarlyWorktreeResult> {
   const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
 
   // Determine whether this is an existing ref or a new branch name.
@@ -128,35 +140,42 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
     await addDetachedWorktree(repoRoot, worktreeDir, ref);
   }
 
-  const ignored = await discoverIgnoredPaths(sourceRoot);
-  await copyExistingSymlinks(sourceRoot, worktreeDir);
+  // The worktree directory exists on disk — return early so callers can use
+  // the path (e.g. as cwd for spawning processes) while the remaining setup
+  // (symlinks, node_modules rerouting, git excludes) runs concurrently.
+  const settle = (async (): Promise<CreateWorktreeResult> => {
+    const ignored = await discoverIgnoredPaths(sourceRoot);
+    await copyExistingSymlinks(sourceRoot, worktreeDir);
 
-  // .cards is copied rather than symlinked so each worktree gets an independent copy
-  const filteredIgnored: IgnoredPaths = {
-    directories: ignored.directories.filter((d) => d !== '.cards' && !d.startsWith('.cards/')),
-    files: ignored.files.filter((f) => !f.startsWith('.cards/'))
-  };
-  await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
-  await copyCardsDirectory(sourceRoot, worktreeDir);
+    // .cards is copied rather than symlinked so each worktree gets an independent copy
+    const filteredIgnored: IgnoredPaths = {
+      directories: ignored.directories.filter((d) => d !== '.cards' && !d.startsWith('.cards/')),
+      files: ignored.files.filter((f) => !f.startsWith('.cards/'))
+    };
+    await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
+    await copyCardsDirectory(sourceRoot, worktreeDir);
 
-  const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
+    const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
 
-  const [, baseSha] = await Promise.all([
-    updateGitExclude({ worktreeDir, repoRoot, directories: ignored.directories, files: ignored.files }),
-    resolveHead(worktreeDir)
-  ]);
+    const [, baseSha] = await Promise.all([
+      updateGitExclude({ worktreeDir, repoRoot, directories: ignored.directories, files: ignored.files }),
+      resolveHead(worktreeDir)
+    ]);
 
-  const result: CreateWorktreeResult = {
-    branch: ref,
-    worktree: worktreeDir,
-    baseSha
-  };
+    const result: CreateWorktreeResult = {
+      branch: ref,
+      worktree: worktreeDir,
+      baseSha
+    };
 
-  if (reroutedCount > 0) {
-    result.reroutedSymlinks = reroutedCount;
-  }
+    if (reroutedCount > 0) {
+      result.reroutedSymlinks = reroutedCount;
+    }
 
-  return result;
+    return result;
+  })();
+
+  return { path: worktreeDir, settle };
 }
 
 /**

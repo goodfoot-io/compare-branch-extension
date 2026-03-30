@@ -21,6 +21,7 @@ import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
+import type { CreateWorktreeResult } from '@cards/sdk/worktree';
 import { checkWorktreeExists, createWorktree, findGitRoots } from '@cards/sdk/worktree';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 
@@ -206,7 +207,12 @@ export async function resolveOrCreateWorktree(
   baseBranch: string,
   logger: ActionContext['logger'],
   sessionId?: string
-): Promise<{ worktreePath: string; branchName: string; parentBranch: string }> {
+): Promise<{
+  worktreePath: string;
+  branchName: string;
+  parentBranch: string;
+  settle?: Promise<CreateWorktreeResult>;
+}> {
   const { branches } = await client.getBranches(input.cardId, { workspacePath: input.repoRoot });
 
   // Step 1: Try to reuse an existing branch with a valid worktree on disk
@@ -225,16 +231,16 @@ export async function resolveOrCreateWorktree(
     if (!branch.name.startsWith(`cards/${input.cardId}/`)) continue;
 
     logger.info('Reattaching worktree for existing branch', { branch: branch.name });
-    const result = await createWorktree(branch.name, { cwd: input.repoRoot });
+    const { path: worktreePath, settle } = await createWorktree(branch.name, { cwd: input.repoRoot });
 
     // Update the API record with the new worktree path
     await client.addBranch(
       input.cardId,
-      { name: branch.name, worktree: result.worktree, parentBranch: branch.parentBranch },
+      { name: branch.name, worktree: worktreePath, parentBranch: branch.parentBranch },
       { sessionId }
     );
 
-    return { worktreePath: result.worktree, branchName: branch.name, parentBranch: branch.parentBranch };
+    return { worktreePath, branchName: branch.name, parentBranch: branch.parentBranch, settle };
   }
 
   // Step 3: No valid existing branch — create new one.
@@ -258,15 +264,15 @@ export async function resolveOrCreateWorktree(
   }
 
   const branchName = `${prefix}${nextNumber}`;
-  const result = await createWorktree(branchName, { cwd: input.repoRoot });
+  const { path: worktreePath, settle } = await createWorktree(branchName, { cwd: input.repoRoot });
   await client.addBranch(
     input.cardId,
-    { name: branchName, worktree: result.worktree, parentBranch: baseBranch },
+    { name: branchName, worktree: worktreePath, parentBranch: baseBranch },
     { sessionId }
   );
 
-  logger.info('Created new worktree', { branch: branchName, worktree: result.worktree });
-  return { worktreePath: result.worktree, branchName, parentBranch: baseBranch };
+  logger.info('Created new worktree', { branch: branchName, worktree: worktreePath });
+  return { worktreePath, branchName, parentBranch: baseBranch, settle };
 }
 
 /**
@@ -603,8 +609,16 @@ export async function spawnClaudeSession(
 
   const worktreeResult = await resolveOrCreateWorktree(input, client, baseBranch, context.logger, sessionId);
 
-  const { worktreePath: cwd, branchName, parentBranch } = worktreeResult;
+  const { worktreePath: cwd, branchName, parentBranch, settle } = worktreeResult;
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
+
+  // Let the worktree settle (symlinks, node_modules, git excludes) run
+  // concurrently with the claude spawn. Errors are logged, not swallowed.
+  if (settle) {
+    settle.catch((error) => {
+      context.logger.error('Worktree settle failed', { error: errorMessage(error) });
+    });
+  }
 
   const marketplacePath = resolveMarketplacePath();
   await updateMarketplaceRegistration(marketplacePath, context.logger);

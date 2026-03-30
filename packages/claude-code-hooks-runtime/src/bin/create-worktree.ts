@@ -18,6 +18,7 @@ if (!ref) {
 }
 
 createWorktree(ref)
+  .then(({ settle }) => settle)
   .then((result) => {
     process.stdout.write(`${JSON.stringify(result)}\n`);
   })
