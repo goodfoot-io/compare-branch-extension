@@ -46,15 +46,17 @@ describe('stale worktree directory repair', () => {
     // into a non-empty directory.
     const result = await createWorktree(branchName, { cwd: repoRoot });
 
-    expect(result.branch).toBe(branchName);
-    expect(result.worktree).toBe(staleDir);
+    expect(result.path).toBe(staleDir);
+    const settled = await result.settle;
+    expect(settled.branch).toBe(branchName);
+    expect(settled.worktree).toBe(staleDir);
 
     // Verify the worktree was properly created
-    const stat = await fs.stat(result.worktree);
+    const stat = await fs.stat(settled.worktree);
     expect(stat.isDirectory()).toBe(true);
 
     // Verify a .git file exists (marker for a valid worktree checkout)
-    const gitMarker = path.join(result.worktree, '.git');
+    const gitMarker = path.join(settled.worktree, '.git');
     const gitStat = await fs.stat(gitMarker);
     expect(gitStat.isFile() || gitStat.isDirectory()).toBe(true);
   });

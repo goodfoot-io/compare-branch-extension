@@ -79,9 +79,12 @@ beforeEach(async () => {
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
   vi.mocked(createWorktree).mockResolvedValue({
-    branch: 'cards/card-123/1',
-    worktree: '/test/workspace/.worktrees/cards/card-123/1',
-    baseSha: 'abc123'
+    path: '/test/workspace/.worktrees/cards/card-123/1',
+    settle: Promise.resolve({
+      branch: 'cards/card-123/1',
+      worktree: '/test/workspace/.worktrees/cards/card-123/1',
+      baseSha: 'abc123'
+    })
   });
 });
 
@@ -298,9 +301,12 @@ describe('claude-session shared utilities', () => {
       vi.mocked(checkWorktreeExists).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
       vi.mocked(createWorktree).mockResolvedValue({
-        branch: 'cards/card-123/2',
-        worktree: '/test/workspace/.worktrees/cards/card-123/2',
-        baseSha: 'abc123'
+        path: '/test/workspace/.worktrees/cards/card-123/2',
+        settle: Promise.resolve({
+          branch: 'cards/card-123/2',
+          worktree: '/test/workspace/.worktrees/cards/card-123/2',
+          baseSha: 'abc123'
+        })
       });
 
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
@@ -330,9 +336,12 @@ describe('claude-session shared utilities', () => {
       vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       vi.mocked(createWorktree).mockResolvedValue({
-        branch: 'cards/card-123/1',
-        worktree: '/test/workspace/.worktrees/cards/card-123/1',
-        baseSha: 'abc123'
+        path: '/test/workspace/.worktrees/cards/card-123/1',
+        settle: Promise.resolve({
+          branch: 'cards/card-123/1',
+          worktree: '/test/workspace/.worktrees/cards/card-123/1',
+          baseSha: 'abc123'
+        })
       });
 
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });

@@ -96,9 +96,12 @@ beforeEach(async () => {
 
   // Default createWorktree succeeds (overridden per-test below)
   vi.mocked(createWorktree).mockResolvedValue({
-    branch: 'cards/card-123/1',
-    worktree: '/test/workspace/.worktrees/cards/card-123/1',
-    baseSha: 'abc123'
+    path: '/test/workspace/.worktrees/cards/card-123/1',
+    settle: Promise.resolve({
+      branch: 'cards/card-123/1',
+      worktree: '/test/workspace/.worktrees/cards/card-123/1',
+      baseSha: 'abc123'
+    })
   });
 });
 
@@ -160,9 +163,12 @@ describe('worktree-API desync', () => {
       .mockResolvedValueOnce(false); // slot 2 free
 
     vi.mocked(createWorktree).mockResolvedValue({
-      branch: 'cards/card-123/2',
-      worktree: '/test/workspace/.worktrees/cards/card-123/2',
-      baseSha: 'abc123'
+      path: '/test/workspace/.worktrees/cards/card-123/2',
+      settle: Promise.resolve({
+        branch: 'cards/card-123/2',
+        worktree: '/test/workspace/.worktrees/cards/card-123/2',
+        baseSha: 'abc123'
+      })
     });
 
     const child = createMockChild();
@@ -194,9 +200,12 @@ describe('worktree-API desync', () => {
     vi.mocked(checkWorktreeExists).mockResolvedValueOnce(false); // slot 16 free
 
     vi.mocked(createWorktree).mockResolvedValue({
-      branch: 'cards/card-123/16',
-      worktree: '/test/workspace/.worktrees/cards/card-123/16',
-      baseSha: 'abc123'
+      path: '/test/workspace/.worktrees/cards/card-123/16',
+      settle: Promise.resolve({
+        branch: 'cards/card-123/16',
+        worktree: '/test/workspace/.worktrees/cards/card-123/16',
+        baseSha: 'abc123'
+      })
     });
 
     const child = createMockChild();

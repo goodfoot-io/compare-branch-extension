@@ -78,9 +78,12 @@ beforeEach(async () => {
   vi.mocked(findGitRoots).mockResolvedValue({ sourceRoot: '/test/workspace', repoRoot: '/test/workspace' });
   vi.mocked(checkWorktreeExists).mockResolvedValue(false);
   vi.mocked(createWorktree).mockResolvedValue({
-    branch: 'cards/card-123/1',
-    worktree: '/test/workspace/.worktrees/cards/card-123/1',
-    baseSha: 'abc123'
+    path: '/test/workspace/.worktrees/cards/card-123/1',
+    settle: Promise.resolve({
+      branch: 'cards/card-123/1',
+      worktree: '/test/workspace/.worktrees/cards/card-123/1',
+      baseSha: 'abc123'
+    })
   });
 
   vi.mocked(fs.access).mockResolvedValue(undefined);

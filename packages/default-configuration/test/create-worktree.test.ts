@@ -1174,10 +1174,12 @@ describe('createWorktree end-to-end', () => {
   it('resolves with correct branch, worktree path, 40-char baseSha, and reroutedSymlinks > 0', async () => {
     const result = await createWorktree('e2e-test-branch');
 
-    expect(result.branch).toBe('e2e-test-branch');
-    expect(result.worktree).toBe(path.join(repoPath, '.worktrees', 'e2e-test-branch'));
-    expect(result.baseSha).toMatch(/^[0-9a-f]{40}$/);
-    expect(result.reroutedSymlinks).toBeGreaterThan(0);
+    expect(result.path).toBe(path.join(repoPath, '.worktrees', 'e2e-test-branch'));
+    const settled = await result.settle;
+    expect(settled.branch).toBe('e2e-test-branch');
+    expect(settled.worktree).toBe(path.join(repoPath, '.worktrees', 'e2e-test-branch'));
+    expect(settled.baseSha).toMatch(/^[0-9a-f]{40}$/);
+    expect(settled.reroutedSymlinks).toBeGreaterThan(0);
   });
 
   it('the worktree directory exists on disk with .git as a file', async () => {
@@ -1270,12 +1272,14 @@ describe('createWorktree end-to-end', () => {
     // So this proves cwd option is used instead of process.cwd()
     const result = await createWorktree('cwd-test-branch', { cwd: repoPath2 });
 
-    expect(result.branch).toBe('cwd-test-branch');
-    expect(result.worktree).toBe(path.join(repoPath2, '.worktrees', 'cwd-test-branch'));
-    expect(result.baseSha).toMatch(/^[0-9a-f]{40}$/);
+    expect(result.path).toBe(path.join(repoPath2, '.worktrees', 'cwd-test-branch'));
+    const settled = await result.settle;
+    expect(settled.branch).toBe('cwd-test-branch');
+    expect(settled.worktree).toBe(path.join(repoPath2, '.worktrees', 'cwd-test-branch'));
+    expect(settled.baseSha).toMatch(/^[0-9a-f]{40}$/);
 
     // Cleanup
-    await git2.raw(['worktree', 'remove', result.worktree, '--force']);
+    await git2.raw(['worktree', 'remove', settled.worktree, '--force']);
     await workspace2.destroy();
   });
 });
@@ -1413,8 +1417,10 @@ describe('createWorktree with tag (detached)', () => {
   it('creates a detached worktree for a tag ref', async () => {
     const result = await createWorktree('implement/test-card/baseline');
 
-    expect(result.branch).toBe('implement/test-card/baseline');
-    expect(result.worktree).toBe(path.join(repoPath, '.worktrees', 'implement/test-card/baseline'));
-    expect(result.baseSha).toMatch(/^[0-9a-f]{40}$/);
+    expect(result.path).toBe(path.join(repoPath, '.worktrees', 'implement/test-card/baseline'));
+    const settled = await result.settle;
+    expect(settled.branch).toBe('implement/test-card/baseline');
+    expect(settled.worktree).toBe(path.join(repoPath, '.worktrees', 'implement/test-card/baseline'));
+    expect(settled.baseSha).toMatch(/^[0-9a-f]{40}$/);
   });
 });
