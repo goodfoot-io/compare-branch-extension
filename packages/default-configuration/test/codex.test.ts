@@ -19,10 +19,10 @@ vi.mock('node:child_process', () => ({
 
 vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
+  cp: vi.fn(),
   readFile: vi.fn(),
   rm: vi.fn(),
-  mkdir: vi.fn(),
-  symlink: vi.fn()
+  mkdir: vi.fn()
 }));
 
 vi.mock('@cards/sdk/worktree', () => ({
@@ -88,10 +88,9 @@ beforeEach(async () => {
 
   vi.mocked(fs.access).mockResolvedValue(undefined);
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-    if (String(filePath) === '/test/extension/dist/marketplace/plugins/codex-runtime/.codex-plugin/plugin.json') {
+    if (String(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
       return JSON.stringify({
-        name: 'codex-runtime',
-        version: '1.0.0',
+        name: 'runtime',
         description: 'Codex runtime plugin for the Cards extension'
       });
     }
@@ -99,7 +98,7 @@ beforeEach(async () => {
   });
   vi.mocked(fs.rm).mockResolvedValue(undefined);
   vi.mocked(fs.mkdir).mockResolvedValue(undefined);
-  vi.mocked(fs.symlink).mockResolvedValue(undefined);
+  vi.mocked(fs.cp).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -186,30 +185,25 @@ describe('codex action', () => {
     expect(args).toContain('/test/repo');
     expect(args).toContain('--config');
     expect(args).toContain('features.plugins=true');
-    expect(args).toContain('plugins.codex-runtime@local.enabled=true');
+    expect(args).toContain('plugins.runtime@local.enabled=true');
     expect(args[args.length - 1]).toBe(
-      'Use the `cards-runtime` skill for card repository conventions, then continue work on the card.'
+      'Use the `runtime:runtime` skill for card repository conventions, then continue work on the card.'
     );
 
-    expect(fs.access).toHaveBeenCalledWith('/test/extension/dist/marketplace/plugins/codex-runtime');
-    expect(fs.access).toHaveBeenCalledWith(
-      '/test/extension/dist/marketplace/plugins/codex-runtime/skills/cards-runtime'
-    );
-    expect(fs.readFile).toHaveBeenCalledWith(
-      '/test/extension/dist/marketplace/plugins/codex-runtime/.codex-plugin/plugin.json',
-      'utf-8'
-    );
-    expect(fs.rm).toHaveBeenCalledWith('/home/node/.codex/plugins/cache/local/codex-runtime', {
+    expect(fs.access).toHaveBeenCalledWith('/test/extension/dist/codex/runtime');
+    expect(fs.access).toHaveBeenCalledWith('/test/extension/dist/codex/runtime/skills/runtime');
+    expect(fs.readFile).toHaveBeenCalledWith('/test/extension/dist/codex/runtime/.codex-plugin/plugin.json', 'utf-8');
+    expect(fs.rm).toHaveBeenCalledWith('/home/node/.codex/plugins/cache/local/runtime', {
       recursive: true,
       force: true
     });
-    expect(fs.mkdir).toHaveBeenCalledWith('/home/node/.codex/plugins/cache/local/codex-runtime', {
+    expect(fs.mkdir).toHaveBeenCalledWith('/home/node/.codex/plugins/cache/local/runtime', {
       recursive: true
     });
-    expect(fs.symlink).toHaveBeenCalledWith(
-      '/test/extension/dist/marketplace/plugins/codex-runtime',
-      '/home/node/.codex/plugins/cache/local/codex-runtime/1.0.0',
-      'junction'
+    expect(fs.cp).toHaveBeenCalledWith(
+      '/test/extension/dist/codex/runtime',
+      '/home/node/.codex/plugins/cache/local/runtime/local',
+      { recursive: true }
     );
 
     child.emit('close', 0);
@@ -227,11 +221,11 @@ describe('codex action', () => {
     expect(spawn).not.toHaveBeenCalled();
   });
 
-  it('fails closed when the packaged cards-runtime skill directory is missing', async () => {
+  it('fails closed when the packaged runtime skill directory is missing', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
     vi.mocked(fs.access).mockImplementation(async (targetPath: string | URL) => {
-      if (String(targetPath) === '/test/extension/dist/marketplace/plugins/codex-runtime/skills/cards-runtime') {
+      if (String(targetPath) === '/test/extension/dist/codex/runtime/skills/runtime') {
         throw Object.assign(new Error('skill missing'), { code: 'ENOENT' });
       }
     });

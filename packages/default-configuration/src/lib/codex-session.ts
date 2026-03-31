@@ -30,12 +30,12 @@ export interface CodexSessionOptions {
  */
 interface CodexPluginManifest {
   name: string;
-  version: string;
 }
 
-const CODEX_PLUGIN_NAME = 'codex-runtime';
+const CODEX_PLUGIN_NAME = 'runtime';
 const CODEX_PLUGIN_MARKETPLACE = 'local';
-const CODEX_RUNTIME_SKILL_NAME = 'cards-runtime';
+const CODEX_PLUGIN_VERSION = 'local';
+const CODEX_RUNTIME_SKILL_NAME = 'runtime';
 
 /**
  * Resolves the packaged Codex plugin bundled in the extension marketplace.
@@ -44,7 +44,7 @@ const CODEX_RUNTIME_SKILL_NAME = 'cards-runtime';
  * @returns Absolute path to the packaged Codex plugin directory.
  */
 export function resolveCodexPluginPath(marketplacePath: string): string {
-  return path.join(marketplacePath, 'plugins', CODEX_PLUGIN_NAME);
+  return path.join(path.dirname(marketplacePath), 'codex', CODEX_PLUGIN_NAME);
 }
 
 /**
@@ -69,13 +69,9 @@ export async function readCodexPluginManifest(pluginPath: string): Promise<Codex
   if (manifest.name !== CODEX_PLUGIN_NAME) {
     throw new Error(`Invalid Codex plugin manifest name at ${manifestPath}: expected "${CODEX_PLUGIN_NAME}"`);
   }
-  if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
-    throw new Error(`Invalid Codex plugin manifest version at ${manifestPath}`);
-  }
 
   return {
-    name: manifest.name,
-    version: manifest.version
+    name: manifest.name
   };
 }
 
@@ -83,7 +79,8 @@ export async function readCodexPluginManifest(pluginPath: string): Promise<Codex
  * Installs the packaged Codex plugin into the local Codex plugin cache.
  *
  * The packaged extension bundle remains the source of truth. The cache entry is
- * replaced atomically at the plugin subtree boundary so only `codex-runtime`
+ * replaced atomically at the plugin subtree boundary so only the packaged
+ * runtime plugin entries are touched.
  * entries are touched.
  *
  * @param marketplacePath - Absolute path to the packaged marketplace directory.
@@ -91,7 +88,6 @@ export async function readCodexPluginManifest(pluginPath: string): Promise<Codex
  */
 export async function ensureCodexPluginInstalled(marketplacePath: string): Promise<{
   pluginPath: string;
-  version: string;
   cachePath: string;
 }> {
   const pluginPath = resolveCodexPluginPath(marketplacePath);
@@ -100,7 +96,7 @@ export async function ensureCodexPluginInstalled(marketplacePath: string): Promi
   await fs.access(pluginPath);
   await fs.access(skillPath);
 
-  const manifest = await readCodexPluginManifest(pluginPath);
+  await readCodexPluginManifest(pluginPath);
   const pluginVersionsPath = path.join(
     resolveCodexHome(),
     'plugins',
@@ -108,15 +104,14 @@ export async function ensureCodexPluginInstalled(marketplacePath: string): Promi
     CODEX_PLUGIN_MARKETPLACE,
     CODEX_PLUGIN_NAME
   );
-  const cachePath = path.join(pluginVersionsPath, manifest.version);
+  const cachePath = path.join(pluginVersionsPath, CODEX_PLUGIN_VERSION);
 
   await fs.rm(pluginVersionsPath, { recursive: true, force: true });
   await fs.mkdir(pluginVersionsPath, { recursive: true });
-  await fs.symlink(pluginPath, cachePath, 'junction');
+  await fs.cp(pluginPath, cachePath, { recursive: true });
 
   return {
     pluginPath,
-    version: manifest.version,
     cachePath
   };
 }
@@ -178,10 +173,9 @@ export async function spawnCodexSession(
   } = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
 
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
-  const { pluginPath, version, cachePath } = await ensureCodexPluginInstalled(marketplacePath);
+  const { pluginPath, cachePath } = await ensureCodexPluginInstalled(marketplacePath);
   context.logger.info('Installed Codex runtime plugin', {
     pluginPath,
-    version,
     cachePath
   });
 

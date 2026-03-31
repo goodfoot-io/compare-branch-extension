@@ -16,7 +16,7 @@ import { spawnCodexSession } from '../lib/codex-session.js';
  * Codex action handler.
  *
  * Starts an interactive Codex session rooted at the card worktree with the
- * packaged `codex-runtime` plugin enabled for `cards-runtime` skill discovery.
+ * packaged `runtime` plugin enabled for `runtime:runtime` skill discovery.
  */
 export default defineAction(
   {
@@ -27,7 +27,7 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     await spawnCodexSession(input, context, {
-      prompt: 'Use the `cards-runtime` skill for card repository conventions, then continue work on the card.'
+      prompt: 'Use the `runtime:runtime` skill for card repository conventions, then continue work on the card.'
     });
   }
 );

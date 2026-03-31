@@ -1,5 +1,5 @@
 ---
-name: cards-runtime
+name: runtime
 description: Card repository reference
 ---
 
