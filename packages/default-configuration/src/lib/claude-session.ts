@@ -161,6 +161,18 @@ export async function resolveBaseBranch(workspacePath: string, client?: CardsCli
     const { branches } = await client.getBranches(cardId, { workspacePath });
     const record = branches.find((b) => b.name === branch);
     if (!record?.parentBranch) {
+      // Fallback: read card-level parentBranch from CARD.meta.json via API.
+      // Parallel implementations: Router (POST /cards) and CardsViewProvider resolve via store.getBranches().
+      let cardParentBranch: string | undefined;
+      try {
+        const card = await client.getCard(cardId);
+        cardParentBranch = card.parentBranch;
+      } catch (error) {
+        console.warn(`resolveBaseBranch: getCard(${cardId}) failed, using branch-record error`, errorMessage(error));
+      }
+      if (cardParentBranch && !cardParentBranch.startsWith('cards/')) {
+        return cardParentBranch;
+      }
       throw new Error(
         `Card branch "${branch}" has no parentBranch record. ` +
           'Switch the main checkout to a non-card branch (e.g., main).'

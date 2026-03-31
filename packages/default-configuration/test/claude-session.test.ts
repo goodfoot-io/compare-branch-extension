@@ -244,6 +244,90 @@ describe('claude-session shared utilities', () => {
       });
       await expect(resolveBaseBranch('/not/a/repo')).rejects.toThrow('not a git repo');
     });
+
+    it('falls back to card-level parentBranch when branch records are absent', async () => {
+      const { resolveBaseBranch } = await import('../src/lib/claude-session.js');
+      const { CardsClient } = await import('@cards/sdk/client');
+
+      await configureExecFile({
+        'git rev-parse --abbrev-ref HEAD': { stdout: 'cards/card-123/1\n' }
+      });
+
+      // getBranches returns no records for this branch
+      globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+          );
+        }
+        if (typeof url === 'string' && url.includes('/cards/card-123') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ id: 'card-123', title: 'Test', parentBranch: 'main' }), { status: 200 })
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+      });
+
+      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
+      const result = await resolveBaseBranch('/test/workspace', client);
+      expect(result).toBe('main');
+    });
+
+    it('rejects card-level parentBranch that is itself a cards/* branch', async () => {
+      const { resolveBaseBranch } = await import('../src/lib/claude-session.js');
+      const { CardsClient } = await import('@cards/sdk/client');
+
+      await configureExecFile({
+        'git rev-parse --abbrev-ref HEAD': { stdout: 'cards/card-123/1\n' }
+      });
+
+      globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+          );
+        }
+        if (typeof url === 'string' && url.includes('/cards/card-123') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ id: 'card-123', title: 'Test', parentBranch: 'cards/other-card/1' }), {
+              status: 200
+            })
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+      });
+
+      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
+      await expect(resolveBaseBranch('/test/workspace', client)).rejects.toThrow(
+        'Card branch "cards/card-123/1" has no parentBranch record.'
+      );
+    });
+
+    it('throws when getCard API call fails and branch records are absent', async () => {
+      const { resolveBaseBranch } = await import('../src/lib/claude-session.js');
+      const { CardsClient } = await import('@cards/sdk/client');
+
+      await configureExecFile({
+        'git rev-parse --abbrev-ref HEAD': { stdout: 'cards/card-123/1\n' }
+      });
+
+      globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/branches') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ branches: [], commits: [], defaultBranch: 'main' }), { status: 200 })
+          );
+        }
+        if (typeof url === 'string' && url.includes('/cards/card-123') && (!opts?.method || opts.method === 'GET')) {
+          return Promise.resolve(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }));
+        }
+        return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+      });
+
+      const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
+      await expect(resolveBaseBranch('/test/workspace', client)).rejects.toThrow(
+        'Card branch "cards/card-123/1" has no parentBranch record.'
+      );
+    });
   });
 
   describe('resolveOrCreateWorktree', () => {
