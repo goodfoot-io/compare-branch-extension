@@ -26,7 +26,7 @@ Evaluate design and approach first. Line-level quality last.
 
 **N/A dimensions**: When an end-to-end dimension does not apply (e.g., no events exist, no config keys are used, no barrel files in scope), mark it PASS with a brief note explaining why it is not applicable. Do not invent findings to fill an empty dimension.
 
-**Intent vs. approach conflicts**: The commander's intent (PLAN.md opening) takes precedence — it describes the "why." The technical approach describes the "how." If the implementation contradicts the intent, that is itself a required change.
+**Intent vs. approach conflicts**: The plan's intent (PLAN.md opening) takes precedence — it describes the "why." The technical approach describes the "how." If the implementation contradicts the intent, that is itself a required change.
 
 **Project conventions**: Read CLAUDE.md and any other project configuration files (e.g., .claude/settings.json) in the workspace root. Enforce their conventions as required changes — violations are not style preferences, they are project standards. Common examples: error handling policy, data-flow connectivity rules, validation requirements, commit conventions.
 
@@ -36,10 +36,10 @@ Evaluate design and approach first. Line-level quality last.
 
 ### Phase 1: Validation
 
-Run all validation commands from the plan's "Validation Commands" section. Capture output for the report.
+Run all validation commands from the plan. Capture output for the report.
 
-- Parse PLAN.md for the "Validation Commands" section and extract commands for affected packages. If no plan or no "Validation Commands" section, use defaults (typecheck, test, lint).
-- **For monorepos**: Change to the specific package directory before running quality checks. Derive the package path from the `cd packages/<name> &&` prefixes in the Validation Commands section of PLAN.md. If no such prefix exists, derive the path from the affected files — the first path segment under `packages/` is the package directory.
+- Parse PLAN.md for validation commands and extract commands for affected packages. If no plan or no validation commands found, use defaults (typecheck, test, lint).
+- **For monorepos**: Change to the specific package directory before running quality checks. Derive the package path from the `cd packages/<name> &&` prefixes in the plan's validation commands. If no such prefix exists, derive the path from the affected files — the first path segment under `packages/` is the package directory.
 - Use `--detectOpenHandles` flag when debugging test exit issues.
 
 Based on Bash tool timeout behavior:
@@ -54,9 +54,9 @@ Exercise the change in a running environment. This is your primary source of uni
 
 ### Phase 3: Design Assessment
 
-Step back from the diff. Evaluate the implementation as a whole against the commander's intent.
+Step back from the diff. Evaluate the implementation as a whole against the plan's intent.
 
-- Does this implementation achieve the commander's intent — does it fulfill the purpose, satisfy the constraints, and reach the done state? Or does it solve a different problem?
+- Does this implementation achieve the plan's intent — does it fulfill the purpose, satisfy the constraints, and reach the done state? Or does it solve a different problem?
 - Is the approach proportional to the need — or does it introduce abstractions, indirection, or generalization beyond what the intent demands?
 - Could a simpler implementation achieve the same done state? If so, the complexity must be justified by a concrete current requirement, not a hypothetical future one.
 - What could be deleted and still satisfy the requirements?
@@ -67,7 +67,7 @@ Findings here are required changes — a working implementation of the wrong app
 
 ### Phase 4: End-to-End Wiring Review
 
-From the plan and commander's intent, identify concrete end-to-end paths: "When [trigger] occurs, [outcome] should happen via [intermediate steps]." When a consumer receives the same data type from multiple sources (e.g., REST response and WebSocket event, initial load and cache), treat each source as a separate path. Work through each dimension systematically.
+From the plan and its stated intent, identify concrete end-to-end paths: "When [trigger] occurs, [outcome] should happen via [intermediate steps]." When a consumer receives the same data type from multiple sources (e.g., REST response and WebSocket event, initial load and cache), treat each source as a separate path. Work through each dimension systematically.
 
 #### Reachability
 
@@ -200,7 +200,7 @@ External constraints prevent review or deployment (infrastructure failure, missi
 [From PLAN.md opening paragraph — quote verbatim]
 
 ### Strategy Assessment
-[Does this implementation achieve the commander's intent?
+[Does this implementation achieve the plan's intent?
 Is the approach proportional to the need? Could this be simpler?
 What assumptions does the code embed, and are they validated?
 If the direction is wrong: sketch the alternative approach at the level of components and responsibilities.]
@@ -271,7 +271,7 @@ Do not modify files during evaluation. If a tool invoked during validation appli
 
 ## 1. Gather Context
 
-Read PLAN.md from the card repository path provided in the invocation prompt. The opening paragraph is the commander's intent — done state first, then constraints. Quote it verbatim in the report. Understand intended changes, affected packages, and validation commands.
+Read PLAN.md from the card repository path provided in the invocation prompt. The opening paragraph is the plan's intent — done state first, then constraints. Quote it verbatim in the report. Understand intended changes, affected packages, and validation commands.
 
 Read `CARD.md` from the card repository for fuller context on the user's goals and constraints.
 
@@ -299,7 +299,7 @@ Execute Phase 3. Step back from the diff and evaluate whether this is the right 
 
 ## 5. Review End-to-End Wiring
 
-Execute Phase 4. Identify concrete end-to-end paths from the plan and commander's intent, then evaluate each dimension against those paths.
+Execute Phase 4. Identify concrete end-to-end paths from the plan and its stated intent, then evaluate each dimension against those paths.
 
 ## 6. Review Code Quality
 

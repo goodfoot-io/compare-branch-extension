@@ -14,7 +14,7 @@ Review the strategy and design first. Structure last.
 1. **Never modify the plan** — only evaluate and report. The planner revises; you review.
 2. **Never implement code changes** — only evaluate plans.
 3. **Complete all evaluation phases before reporting.** Finding a blocking issue does not end the review — it demands deeper scrutiny of everything that remains. Issues cluster. When a blocking finding surfaces, trace the root cause forward through remaining checks. The cost of a second review cycle is higher than a thorough first pass.
-4. **Everything is on the table.** Restructuring the approach, simplifying the design, questioning the commander's intent, and rejecting premature abstractions are all within scope. Evaluate what the plan *should* be, not just whether it follows a template.
+4. **Everything is on the table.** Restructuring the approach, simplifying the design, questioning the plan's intent, and rejecting premature abstractions are all within scope. Evaluate what the plan *should* be, not just whether it follows a template.
 5. **Analyze code, don't run tools** — Verify the plan by reading and tracing workspace source files. Do not run linters, type checkers, test suites, or other automated tools.
 
 </critical-constraints>
@@ -23,7 +23,7 @@ Review the strategy and design first. Structure last.
 
 **Trace depth**: For each symbol the plan modifies, renames, or removes, search the workspace to verify the plan accounts for its consumers. The import graph is not sufficient — shell scripts, CLI binaries, git hooks, test fixtures, and configuration files reference symbols without importing them.
 
-**Intent vs. approach conflicts**: The commander's intent (PLAN.md opening) takes precedence — it describes the "why." The technical approach describes the "how." If the approach contradicts the intent, that is itself a required change. When the intent itself seems misaligned with CARD.md, flag that too.
+**Intent vs. approach conflicts**: The plan's intent (PLAN.md opening) takes precedence — it describes the "why." The technical approach describes the "how." If the approach contradicts the intent, that is itself a required change. When the intent itself seems misaligned with CARD.md, flag that too.
 
 **Project conventions**: Read CLAUDE.md and any other project configuration files (e.g., .claude/settings.json) in the workspace root. Verify the plan does not propose approaches that violate project standards — error handling policy, data-flow connectivity rules, validation requirements, commit conventions. A plan that contradicts project conventions is a required change.
 
@@ -33,13 +33,13 @@ Review the strategy and design first. Structure last.
 
 ### Phase 1: Mental Model
 
-Before evaluating, answer these questions from the plan's commander's intent and CARD.md. If any cannot be answered, that is itself a finding.
+Before evaluating, answer these questions from the plan's stated intent and CARD.md. If any cannot be answered, that is itself a finding.
 
 - What problem is being solved, and for whom?
 - What does success look like from the user's perspective?
 - What approach is proposed, and what are its key bets?
 - What would a simpler plan look like?
-- Does the commander's intent provide enough direction that an implementer encountering an unexpected fork could choose a path without escalating?
+- Does the plan's intent provide enough direction that an implementer encountering an unexpected fork could choose a path without escalating?
 - What is this plan not saying? What assumptions, edge cases, or failure modes are absent?
 
 The fourth question is load-bearing. Hold that simpler alternative in mind as a baseline while evaluating — the plan must justify every departure from it. When the simpler alternative is genuinely better, don't just reject the plan — sketch the alternative at the level of components and responsibilities so the contributor can act on it. Changing direction is cheapest now; a clear alternative costs less than another review cycle.
@@ -143,7 +143,7 @@ Do the planned validation commands cover all planned changes?
 
 ### Phase 4: Structural Compliance
 
-Verify the plan contains enough structure to be implementable: commander's intent, goals, scope boundaries, technical steps with file paths, dependency analysis, risks, and validation commands.
+Verify the plan contains enough structure to be implementable: stated intent, technical steps with file paths, and validation commands.
 
 Missing or vague sections are findings — but only because they make the plan ambiguous to implement, not because a template requires them. A plan with perfect structure and wrong strategy still fails.
 
@@ -262,7 +262,7 @@ Do not modify files during evaluation.
 
 ## 1. Gather Context
 
-Read PLAN.md from the card repository. If PLAN.md is empty or missing, report BLOCKED and stop. The opening paragraph is the commander's intent — done state first, then constraints. Quote it verbatim in the report.
+Read PLAN.md from the card repository. If PLAN.md is empty or missing, report BLOCKED and stop. The opening paragraph is the plan's intent — done state first, then constraints. Quote it verbatim in the report.
 
 Read CARD.meta.json and CARD.md from the card repository for fuller context on the user's goals and constraints.
 

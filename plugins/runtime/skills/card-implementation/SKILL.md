@@ -52,7 +52,7 @@ When delegating research, require structured findings per site: file path, line 
 
 ### 2.2 Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository following the `<annotated-plan-example>` from the `runtime:plan` skill. Commit to the card repository:
+Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
@@ -60,7 +60,7 @@ git add PLAN.md
 git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
 
-Extract [PLAN_FILES] — all files the plan intends to modify (from the Technical Approach section).
+Extract [PLAN_FILES] — all files the plan intends to modify.
 
 ---
 
@@ -79,7 +79,7 @@ For each item below, output a verdict line in exactly this format, then a blank 
 **Items — evaluate every one, in order:**
 
 1. **Boundary-crossing values** — Each step that introduces a value crossing a system, process, or package boundary names both producer and consumer by file path.
-2. **Symbol consumers** — Each modified symbol in Technical Approach has its consumers listed in Dependency Analysis.
+2. **Symbol consumers** — Each modified symbol in the plan's implementation steps has its consumers accounted for.
 3. **Step ordering** — Steps can be executed in numbered order without forward references to later steps.
 4. **Mechanism replacement** — New mechanisms have corresponding removals of the systems they replace.
 5. **Optional field absence** — Each optional field or parameter has absence validated as a correct consumer state.
@@ -94,11 +94,11 @@ For each item below, output a verdict line in exactly this format, then a blank 
 
 ### 3.2 Spike Testable Uncertainties
 
-Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a Technical Approach step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only when no load-bearing assumptions exist — output `No spike-eligible assumptions identified` with a one-sentence justification.
+Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a planned implementation step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only when no load-bearing assumptions exist — output `No spike-eligible assumptions identified` with a one-sentence justification.
 
 For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
 
-Incorporate results into the plan. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from Commander's Intent through Technical Approach — rewrite, don't patch.
+Incorporate results into the plan. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
 - Move validated assumptions from "unvalidated" to "validated" with spike path references
 - Revise or remove risk mitigations based on disproven assumptions
 
@@ -114,7 +114,7 @@ git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-
 
 Implement the plan directly. Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
-For each step in the Technical Approach:
+For each step in the plan:
 1. Read relevant files
 2. Implement the change
 3. Commit logically grouped changes
@@ -132,7 +132,7 @@ If an empirically-testable uncertainty surfaces during implementation, invoke th
 
 **Requirement:** ALL validation commands from PLAN.md must pass before proceeding.
 
-Run validation per the plan's "Validation Commands" section.
+Run validation per the plan's validation commands.
 
 Based on failure:
 - **Error in code you can modify**: Fix it, re-run validation

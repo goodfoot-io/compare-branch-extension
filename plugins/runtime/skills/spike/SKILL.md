@@ -127,7 +127,7 @@ Based on spike type, use the appropriate result template:
     - `comparison.md` - Side-by-side analysis
     - `recommendation.md` - Selection rationale
     - `results.md` - Findings using template format
-  - **Impact**: [How this result influences the Technical Approach or implementation]
+  - **Impact**: [How this result influences the plan's approach or implementation]
   ```
 - **Validation Spike**: Use Validation Result Template
   ```markdown
@@ -205,11 +205,11 @@ Based on spike type:
 Check that spike results meet quality criteria.
 
 Based on spike type:
-- **Comparison Spike**: Require question format showing uncertainty between alternatives, 2-3 approaches tested (not 1, not 5+), comparative analysis with clear selection criteria, recommendation with rationale, evidence from actual prototypes (not speculation), impact statement selecting specific technology for Technical Approach
-- **Validation Spike**: Require question format showing capability/compatibility concern, single approach tested, pass/fail or capability verification result, concrete evidence (version-specific behavior, API demonstration), impact statement confirming feasibility for Technical Approach
+- **Comparison Spike**: Require question format showing uncertainty between alternatives, 2-3 approaches tested (not 1, not 5+), comparative analysis with clear selection criteria, recommendation with rationale, evidence from actual prototypes (not speculation), impact statement selecting specific technology for the plan's approach
+- **Validation Spike**: Require question format showing capability/compatibility concern, single approach tested, pass/fail or capability verification result, concrete evidence (version-specific behavior, API demonstration), impact statement confirming feasibility for the plan's approach
 
 Based on quality (applies to both types):
-- **Always required**: Spike artifacts exist at specified paths, evidence is empirical (working code, not "should work" or "probably supports"), impact statement clearly influences Technical Approach section, question is answerable within isolated spike environment, results directly address the stated uncertainty
+- **Always required**: Spike artifacts exist at specified paths, evidence is empirical (working code, not "should work" or "probably supports"), impact statement clearly influences the plan's approach, question is answerable within isolated spike environment, results directly address the stated uncertainty
 
 ### Step 3: Flag Quality Issues
 
@@ -218,7 +218,7 @@ Based on detected problem:
 - **Validation spike comparing alternatives**: Request revision - misclassified, should be comparison
 - **Excessive alternatives (4+ approaches)**: Request revision - narrow scope
 - **Speculative evidence (documentation reading, not testing)**: Request revision - require empirical results
-- **Unclear impact (results don't inform Technical Approach)**: Request revision - clarify decision impact
+- **Unclear impact (results don't inform the plan's approach)**: Request revision - clarify decision impact
 - **Missing artifacts (no spike path or artifacts don't match)**: Request revision - produce required artifacts
 
 ### Step 4: Commit Spike Artifacts
@@ -235,12 +235,12 @@ git commit -m "[single sentence summarizing the spike's question and finding]"  
 
 After committing, incorporate findings:
 
-1. **Add to Technical Spike Results section** (if plan has this section):
+1. **Add to the plan's spike results section** (if plan has one):
    - Copy the formatted result (Question, Approaches Tested, Evidence, etc.)
    - Include the spike path reference
    - Preserve the Impact statement
 
-2. **Update Technical Approach section**:
+2. **Update the plan's approach**:
    - Incorporate the spike's recommendation or validation
    - Reference specific versions/technologies confirmed by testing
    - Adjust implementation steps based on findings

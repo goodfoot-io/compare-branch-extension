@@ -20,7 +20,7 @@ COMMITMSG
 
 ## 2. Pre-Evaluation Validation
 
-Run validation per the plan's "Validation Commands" section.
+Run validation per the plan's validation commands.
 
 **On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
 
@@ -112,7 +112,7 @@ COMMITMSG
 )"
 ```
 
-Run validation per the plan's "Validation Commands" section. On failure, delegate fixes (same as Step 2), then stage and re-validate.
+Run validation per the plan's validation commands. On failure, delegate fixes (same as Step 2), then stage and re-validate.
 
 When a finding reveals unclear code, the fix should make the code self-explanatory — explanations in the re-submission message do not help future code readers.
 

@@ -156,7 +156,7 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 - Only make requested changes
 - Don't add unrequested features or abstractions
 - Keep implementation minimal and focused
-- When the task is ambiguous or could go two ways, the commander's intent (opening of PLAN.md) is the tiebreaker
+- When the task is ambiguous or could go two ways, the plan's intent (opening of PLAN.md) is the tiebreaker
 
 ## Success Criteria
 - [ ] Implementation complete
@@ -232,7 +232,7 @@ git tag -f "implement/!` echo $CARD_ID`/post-implementation" HEAD
 
 **Requirement:** ALL validation commands must pass before proceeding.
 
-Run validation per the plan's "Validation Commands" section.
+Run validation per the plan's validation commands.
 
 **On failure:**
 1. Error in code you can modify -> delegate fix to implementer, re-run validation

@@ -4,7 +4,6 @@ description: Review implementation as the repository maintainer — code quality
 tools: "*"
 # skills:
 #   - runtime:card-repo
-#   - runtime:plan
 #   - runtime:card-maintainer
 ---
 
@@ -13,5 +12,5 @@ cat $CLAUDE_PLUGIN_ROOT/lib/default-agent.md
 ```
 
 <load-skills-immediately>
-**CRITICAL:** Load the `runtime:card-repo`, `runtime:plan`, and `runtime:card-maintainer` skills immediately.
+**CRITICAL:** Load the `runtime:card-repo` and `runtime:card-maintainer` skills immediately.
 </load-skills-immediately>

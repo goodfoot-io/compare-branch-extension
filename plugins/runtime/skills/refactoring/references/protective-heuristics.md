@@ -38,8 +38,8 @@ Stop and investigate further if ANY of the following apply:
 Before removing any code, verify against these sources:
 
 ### Plan Document
-- [ ] **Goals & Objectives**: Is this behaviour mentioned as a requirement?
-- [ ] **Technical Approach**: Is this part of the specified implementation?
+- [ ] **Plan goals**: Is this behaviour mentioned as a requirement?
+- [ ] **Plan approach**: Is this part of the specified implementation?
 - [ ] **Constraints**: Does this address a stated constraint or limitation?
 - [ ] **Non-Goals**: Is this explicitly out of scope (if so, removal may be appropriate)?
 

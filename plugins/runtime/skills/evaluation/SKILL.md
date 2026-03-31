@@ -73,33 +73,38 @@ Right-sized: one checkpoint per observable outcome. If the tester reaches a dist
 ```markdown
 ## Overview
 
-The evaluation endpoint serves a card's EVALUATION.md content as JSON.
-Verify that it returns content when the file exists, 404 when it does not,
-and that the CLI can write content that the API then reads back correctly.
+The evaluation document verifies a card's implementation from a tester's
+perspective. Verify that it can be written to the card repository, read
+back via the filesystem endpoint, and that missing files are handled
+correctly.
 
 <checkpoint>
 Open a card that has no EVALUATION.md file. Send a GET request to
-/cards/{id}/evaluation. Confirm the response is 404 with a JSON body
-containing an "error" field.
+/cards/{id}/fs/EVALUATION.md. Confirm the response is 404 with a JSON
+body containing an "error" field.
 </checkpoint>
 
 <checkpoint>
-Using the card CLI, write evaluation content to the card:
-  node card.mjs update-evaluation {id} "## Overview\n\nTest content."
-Confirm the command exits with code 0 and prints no error.
+Write evaluation content directly to the card repository:
+  cat <<'EOF' > "$REPO/EVALUATION.md"
+  ## Overview
+
+  Test content.
+  EOF
+  cd "$REPO" && git add EVALUATION.md && git commit -m "Add evaluation"
+Confirm the commit succeeds.
 </checkpoint>
 
 <checkpoint>
-Send GET /cards/{id}/evaluation again. Confirm the response is 200
-with Content-Type application/json and a body of the form
-{ "content": "## Overview\n\nTest content." }.
+Send GET /cards/{id}/fs/EVALUATION.md again. Confirm the response is
+200 with the written content.
 </checkpoint>
 
 <checkpoint>
-Send GET /cards/nonexistent-card-id/evaluation. Confirm the response
-is 404. This verifies that missing cards are distinguished from missing
-evaluation files.
+Send GET /cards/nonexistent-card-id/fs/EVALUATION.md. Confirm the
+response is 404. This verifies that missing cards are distinguished
+from missing evaluation files.
 </checkpoint>
 ```
 
-The first checkpoint establishes baseline (no file → 404). The second performs the write action. The third confirms the round-trip. The fourth tests a distinct error path (bad card ID vs. missing file). Each is independently observable without reading code.
+The first checkpoint establishes baseline (no file → 404). The second writes the file directly to the card repository. The third confirms the round-trip via the filesystem endpoint. The fourth tests a distinct error path (bad card ID vs. missing file). Each is independently observable without reading code.

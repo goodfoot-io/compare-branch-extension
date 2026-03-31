@@ -4,7 +4,7 @@ description: Handle blocked cards by reporting blockers.
 ---
 
 <placeholder-variables>
-[REFERENCED CARD ID] — The card ID extracted from blocker keywords ("blocked by", "waiting on", "depends on") in the description or comments
+[REFERENCED CARD ID] — A card ID from the `relations` array in CARD.meta.json or referenced in the description or comments
 </placeholder-variables>
 
 <instructions>
@@ -13,7 +13,7 @@ Do not attempt implementation until the blocker is resolved.
 
 ## 1. Analyze Blocker
 
-Search the card description and comments for blocker keywords ("blocked by", "waiting on", "depends on"). Identify all blocker reasons and referenced card IDs. If multiple blockers are found, check each referenced card's status. All blockers must be resolved before removing the "blocked" tag.
+Read `CARD.meta.json` for `relations` entries that reference other cards. Read the card description and comments for context on what is blocking progress. Identify all blocker reasons and referenced card IDs. If multiple blockers are found, check each referenced card's status. All blockers must be resolved before removing the "blocked" tag.
 
 Based on blocker analysis:
 - **Blocker references another card**: Look up its metadata and check its status

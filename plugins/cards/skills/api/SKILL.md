@@ -39,20 +39,31 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 
 The response includes `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits. `parentBranch` is the workspace branch the card was created from; present when the card was created in a workspace with a resolvable branch.
 
-**Create a card** — Pipe JSON to stdin with `title` (required). Optional: `description` (written as CARD.md), `plan` (written as PLAN.md), `evaluation` (written as EVALUATION.md), `tags`, `environment`, `gates`, `relations`:
+**Create a card** — Pipe JSON to stdin with `title` (required). Optional: `tags`, `environment`, `gates`, `relations`:
 ```
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
-{ "title": "Fix auth", "description": "Token refresh fails", "tags": ["bug"] }
+{ "title": "Fix auth", "tags": ["bug"] }
 EOF
 ```
 
-When `description`, `plan`, or `evaluation` are provided, the CLI writes them to the card repository as separate files (CARD.md, PLAN.md, EVALUATION.md) after creation via the generic file write endpoint.
+The response includes `repositoryPath`. After creation, write card content (CARD.md, PLAN.md, EVALUATION.md) directly to the card repository and commit:
+
+```bash
+REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF' | jq -r '.repositoryPath'
+{ "title": "Fix auth", "tags": ["bug"] }
+EOF
+)
+cat <<'CARD_EOF' > "$REPO/CARD.md"
+Your card description here (plain markdown, no frontmatter).
+CARD_EOF
+cd "$REPO" && git add CARD.md && git commit -m "Add description"
+```
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
 ```
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
-{ "title": "Unify tag layout", "description": "...", "relations": [{ "type": "related", "cardId": "main-67" }] }
+{ "title": "Unify tag layout", "relations": [{ "type": "related", "cardId": "main-67" }] }
 EOF
 ```
 

@@ -5,7 +5,6 @@ tools: "*"
 skills:
   - runtime:card-repo
   - runtime:card-plan
-  - runtime:plan
 ---
 
 ```!

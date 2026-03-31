@@ -89,7 +89,7 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 
 **Requirement:** ALL validation commands must pass before proceeding.
 
-If `PLAN.md` exists, run validation per its "Validation Commands" section. Otherwise, run `yarn typecheck`, `yarn lint`, and `yarn test` in each package containing modified files.
+If `PLAN.md` exists, run validation per its validation commands. Otherwise, run `yarn typecheck`, `yarn lint`, and `yarn test` in each package containing modified files.
 
 Based on failure:
 - **Error in code you can modify**: Fix it, re-run validation
@@ -127,7 +127,7 @@ COMMITMSG
 
 ### 5.2 Pre-Evaluation Validation
 
-Run validation per the plan's "Validation Commands" section (or `yarn typecheck`, `yarn lint`, `yarn test` in each package containing modified files if no plan exists).
+Run validation per the plan's validation commands (or `yarn typecheck`, `yarn lint`, `yarn test` in each package containing modified files if no plan exists).
 
 **On any failure:** Fix all validation failures, then re-run validation. Only proceed to **Step 5.3** when ALL validations pass.
 

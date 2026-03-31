@@ -104,8 +104,8 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
 - **`CARD.md`** is the *requirement*: what needs to be done, acceptance criteria, and
   context. Written by the card creator (human or agent). Stable once the card is understood.
 - **`PLAN.md`** is the *approach*: how the requirement will be implemented, broken into
-  tasks, with technical decisions. Written by the implementing agent following the
-  `runtime:plan` skill structure. Subject to revision and approval via the
+  tasks, with technical decisions. Written by the implementing agent. Subject to revision
+  and approval via the
   `planRequired`/`planApproved` gates.
 - **`EVALUATION.md`** is the *verification rubric*: how to confirm the implementation
   works from an end-user perspective. Written by the implementing agent following the
@@ -343,7 +343,6 @@ When crafting final commits from agent reports: collect Decision Narratives, ext
 
 Load only the reference that matches the artifact you are writing:
 
-- `references/plan.md`: Load when the task is to create or revise a repository `PLAN.md`. This is the only reference for plan structure and approval requirements.
 - `references/bug-report.md`: Load when writing a `CARD.md` for a defect, regression, broken behavior, or reproducible failure.
 - `references/documentation.md`: Load when writing a `CARD.md` that requests docs, guides, runbooks, references, or other documentation work.
 - `references/enhancement.md`: Load when writing a `CARD.md` for a feature, product change, or behavior improvement.

@@ -56,30 +56,22 @@ Select the **first** matching condition:
 - **4. HAS_IMPLEMENTATION_FEEDBACK**: `runtime:card-implementation-feedback`
 - **5. REVIEW_APPROVED**: `runtime:card-merge`
 - **6. IS_STALE**: `runtime:card-clarify-and-enrich`
-- **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback` + `runtime:plan`
-- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan` + `runtime:plan`
+- **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback`
+- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
 - **9. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
 - **10. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
 - **11. IS_TESTABLE_BUG**: `runtime:card-bug`
-- **12. Otherwise**: `runtime:card-implementation` + `runtime:plan`
+- **12. Otherwise**: `runtime:card-implementation`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
 
 ## 3. Load Routed Skill
 
-Load the matched skill using the Skill tool. Some routes require additional skills to be loaded alongside the primary skill.
+Load the matched skill using the Skill tool.
 
 ```xml
 <invoke name="Skill">
 <parameter name="skill">[MATCHED_SKILL]</parameter>
-</invoke>
-```
-
-When the route specifies additional skills (shown as "+ `skill:name`"), load each one immediately after:
-
-```xml
-<invoke name="Skill">
-<parameter name="skill">[ADDITIONAL_SKILL]</parameter>
 </invoke>
 ```
 
