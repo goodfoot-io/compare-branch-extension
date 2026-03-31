@@ -246,24 +246,15 @@ describe('card binary', () => {
 
   describe('parseCardCreateInput', () => {
     it('parses valid input with required fields', () => {
-      const result = parseCardCreateInput('{"title":"Test","description":"A test card"}');
-      expect(result.data.title).toBe('Test');
-      expect(result.description).toBe('A test card');
-      expect(result.plan).toBeUndefined();
-      expect(result.inputKeys).toEqual(new Set(['title', 'description']));
-    });
-
-    it('parses valid input without description', () => {
       const result = parseCardCreateInput('{"title":"Test"}');
       expect(result.data.title).toBe('Test');
-      expect(result.description).toBeUndefined();
+      expect(result.inputKeys).toEqual(new Set(['title']));
     });
 
     it('parses optional fields', () => {
       const result = parseCardCreateInput(
         JSON.stringify({
           title: 'Test',
-          description: 'Desc',
           tags: ['bug'],
           environment: 'staging',
           gates: { planRequired: true, mergeRequestRequired: false }
@@ -274,20 +265,9 @@ describe('card binary', () => {
       expect(result.data.gates).toEqual({ planRequired: true, mergeRequestRequired: false });
     });
 
-    it('parses optional plan field', () => {
-      const result = parseCardCreateInput(
-        JSON.stringify({ title: 'Test', description: 'Desc', plan: '## My Plan\nStep 1' })
-      );
-      expect(result.plan).toBe('## My Plan\nStep 1');
-      expect(result.inputKeys).toContain('plan');
-    });
-
-    it('parses optional evaluation field', () => {
-      const result = parseCardCreateInput(
-        JSON.stringify({ title: 'Test', description: 'Desc', evaluation: '# Evaluation\nCheck it' })
-      );
-      expect(result.evaluation).toBe('# Evaluation\nCheck it');
-      expect(result.inputKeys).toContain('evaluation');
+    it('tracks all caller-provided keys in inputKeys', () => {
+      const result = parseCardCreateInput(JSON.stringify({ title: 'Test', tags: ['bug'], environment: 'staging' }));
+      expect(result.inputKeys).toEqual(new Set(['title', 'tags', 'environment']));
     });
 
     it('throws on empty input', () => {
@@ -299,17 +279,11 @@ describe('card binary', () => {
     });
 
     it('throws on missing title', () => {
-      expect(() => parseCardCreateInput('{"description":"x"}')).toThrow('missing required field "title"');
+      expect(() => parseCardCreateInput('{"tags":["bug"]}')).toThrow('missing required field "title"');
     });
 
     it('throws on empty title', () => {
-      expect(() => parseCardCreateInput('{"title":"  ","description":"x"}')).toThrow('missing required field "title"');
-    });
-
-    it('parses optional description field', () => {
-      const result = parseCardCreateInput(JSON.stringify({ title: 'Test', description: 'Some desc' }));
-      expect(result.description).toBe('Some desc');
-      expect(result.inputKeys).toContain('description');
+      expect(() => parseCardCreateInput('{"title":"  "}')).toThrow('missing required field "title"');
     });
   });
 
@@ -720,7 +694,7 @@ describe('card binary', () => {
     it('returns only server-generated fields plus repositoryPath', async () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
-        await withStdin(JSON.stringify({ title: 'Test', description: 'A test card', tags: ['bug'] }), () =>
+        await withStdin(JSON.stringify({ title: 'Test', tags: ['bug'] }), () =>
           createCard(['--workspace-path', '/tmp/workspace'])
         );
         expect(logSpy).toHaveBeenCalledOnce();
@@ -732,91 +706,19 @@ describe('card binary', () => {
         expect(output['createdAt']).toBeDefined();
         // Caller-provided fields omitted
         expect(output).not.toHaveProperty('title');
-        expect(output).not.toHaveProperty('description');
         expect(output).not.toHaveProperty('tags');
       } finally {
         logSpy.mockRestore();
       }
     });
 
-    it('writes description to CARD.md when description field is provided', async () => {
+    it('does not write any files to the card repository', async () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
-        await withStdin(JSON.stringify({ title: 'Test', description: 'A test card', tags: ['bug'] }), () =>
+        await withStdin(JSON.stringify({ title: 'Test', tags: ['bug'] }), () =>
           createCard(['--workspace-path', '/tmp/workspace'])
         );
-        expect(files.get('test-1/CARD.md')).toBe('A test card');
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
-    it('does not write CARD.md when description is absent', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await withStdin(JSON.stringify({ title: 'No desc' }), () => createCard(['--workspace-path', '/tmp/workspace']));
-        expect(files.has('test-1/CARD.md')).toBe(false);
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
-    it('writes plan to PLAN.md when plan field is provided', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await withStdin(
-          JSON.stringify({ title: 'Planned', description: 'Has a plan', plan: '## Step 1\nDo things' }),
-          () => createCard(['--workspace-path', '/tmp/workspace'])
-        );
-        expect(files.get('test-1/PLAN.md')).toBe('## Step 1\nDo things');
-        // plan field itself should not appear in the output
-        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
-        expect(output).not.toHaveProperty('plan');
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
-    it('does not write PLAN.md when plan is absent', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await withStdin(JSON.stringify({ title: 'No plan', description: 'Simple card' }), () =>
-          createCard(['--workspace-path', '/tmp/workspace'])
-        );
-        expect(files.has('test-1/PLAN.md')).toBe(false);
-        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
-        expect(output['id']).toBe('test-1');
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
-    it('writes evaluation to EVALUATION.md when evaluation field is provided', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await withStdin(
-          JSON.stringify({
-            title: 'Evaluated',
-            description: 'Has evaluation',
-            evaluation: '# Check\nVerify it works'
-          }),
-          () => createCard(['--workspace-path', '/tmp/workspace'])
-        );
-        expect(files.get('test-1/EVALUATION.md')).toBe('# Check\nVerify it works');
-        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
-        expect(output).not.toHaveProperty('evaluation');
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
-    it('does not write EVALUATION.md when evaluation is absent', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await withStdin(JSON.stringify({ title: 'No eval', description: 'Simple card' }), () =>
-          createCard(['--workspace-path', '/tmp/workspace'])
-        );
-        expect(files.has('test-1/EVALUATION.md')).toBe(false);
+        expect(files.size).toBe(0);
       } finally {
         logSpy.mockRestore();
       }
