@@ -390,6 +390,11 @@ export interface CardsMetadataEvent {
   cardId: string;
   /** Repository identifier the card belongs to. */
   repositoryId: string;
+  /**
+   * Workspace branch the card was created from (e.g., 'main').
+   * Absent on cards created before this field was introduced.
+   */
+  parentBranch?: string;
   /** Card title. */
   title: string;
   /** Current status. */
