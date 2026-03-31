@@ -37,7 +37,7 @@ Read the matched reference file, then follow its guidance to compose the card's 
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 ```
 
-The response includes `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
+The response includes `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits. `parentBranch` is the workspace branch the card was created from; present when the card was created in a workspace with a resolvable branch.
 
 **Create a card** — Pipe JSON to stdin with `title` (required). Optional: `description` (written as CARD.md), `plan` (written as PLAN.md), `evaluation` (written as EVALUATION.md), `tags`, `environment`, `gates`, `relations`:
 ```
@@ -63,6 +63,8 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --status in_progress
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --tag bug --tag feature
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --search "auth" --status todo
 ```
+
+Each card in the response includes `parentBranch` when the card was created in a workspace with a resolvable branch.
 
 Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag> (repeatable; tags are OR-combined)`, `--search <query>`, `--limit <n>`, `--offset <n>`
 
