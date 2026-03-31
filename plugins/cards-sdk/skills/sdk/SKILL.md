@@ -6,7 +6,7 @@ version: 1.0.0
 
 ## Purpose
 
-This skill provides SDK documentation and development guidance for the `@cards/sdk/config` library. Use it to create type-safe action handlers, type validators, and lifecycle hooks for the Cards Extension.
+SDK documentation for the `@cards/sdk/config` library: type-safe action handlers, type validators, and lifecycle hooks for the Cards Extension.
 
 ## Build Process
 

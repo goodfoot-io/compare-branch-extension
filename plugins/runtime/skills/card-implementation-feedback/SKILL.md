@@ -12,14 +12,13 @@ description: Apply user feedback to completed implementations.
 
 ## 1. Read Feedback
 
-Read the latest user comment in the card repository to identify the feedback on the completed implementation.
-
-Read `PLAN.md` from the card repository if it exists (for validation commands and context).
-
-Read `CARD.md` for the card's broader purpose.
+Read:
+- The latest user comment in the card repository (the feedback)
+- `PLAN.md` from the card repository if it exists (validation commands and context)
+- `CARD.md` for the card's broader purpose
 
 Based on the latest user comment:
-- **Empty or does not indicate what changes are needed**: Write a comment to the card repository requesting clarification, commit, and **STOP**
+- **Empty or does not indicate what changes are needed**: Write a comment requesting clarification, commit, and **STOP**
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
@@ -87,13 +86,13 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 
 ### 4.1 Validation Gate
 
-**Requirement:** ALL validation commands must pass before proceeding.
+ALL validation commands must pass before proceeding.
 
-If `PLAN.md` exists, run validation per its validation commands. Otherwise, run the project's typecheck, lint, and test commands in each package containing modified files.
+**`PLAN.md` exists:** Run validation per its validation commands.
+**`PLAN.md` absent:** Run typecheck, lint, and test in each package containing modified files.
 
-Based on failure:
-- **Error in code you can modify**: Fix it, re-run validation
-- **Error outside your scope**: Block immediately
+- **Error in code you can modify**: Fix it, re-run validation.
+- **Error outside your scope**: Block immediately.
 
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
@@ -141,14 +140,38 @@ git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
 
 Use this as [MODIFIED_FILES] for the maintainer.
 
-### 5.4 Start Maintainer Review
+### 5.4 Start Review
 
-Create the review team and spawn the maintainer. The team stays alive across review iterations — the maintainer persists and retains context from prior reviews.
+Create the review team and spawn the maintainer and failure-mode analyst in parallel. The team stays alive across review iterations — both agents persist and retain context from prior reviews.
 
 ```xml
 <invoke name="TeamCreate">
 <parameter name="team_name">review-feedback-!` echo $CARD_ID`</parameter>
 <parameter name="description">!` echo $CARD_ID`: feedback update review</parameter>
+</invoke>
+```
+
+```xml
+<invoke name="Agent">
+<parameter name="description">Failure mode analysis</parameter>
+<parameter name="subagent_type">runtime:card:failure-mode</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="team_name">review-feedback-!` echo $CARD_ID`</parameter>
+<parameter name="name">failure-mode</parameter>
+<parameter name="prompt">
+Identify potential failure modes in this feedback-driven update.
+
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
+## Workspace
+!` echo $WORKSPACE_PATH`
+
+## Baseline
+Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
+
+Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. The failure modes live in the gap between the implementer's model and the system's actual behavior.
+</parameter>
 </invoke>
 ```
 
@@ -171,14 +194,16 @@ Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
 ## Modified Files
 [MODIFIED_FILES]
 
-You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate both code quality and end-to-end wiring. Everything is on the table, including major refactors.
+For every claim the code makes about the system — type contracts, error handling assumptions, consumer expectations — verify by running or tracing the code. Do not evaluate claims by reasoning about them. Send a review report per your instructions.
 </parameter>
 </invoke>
 ```
 
 ### 5.5 Wait for Review
 
-Wait for the maintainer to deliver the review report via SendMessage.
+Wait for the maintainer to deliver the review report via SendMessage. The maintainer incorporates failure-mode findings at their judgment.
+
+**Failure-mode report not yet arrived when maintainer reports:** Proceed — findings will arrive and can inform revision in Step 5.8.
 
 ### 5.6 Process Verdict
 
@@ -190,9 +215,15 @@ The maintainer's verdict is final. Apply the first matching condition:
 
 ### 5.7 Engage with Review
 
-You are a contributor to this repository. Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). The maintainer has invested time reviewing your changes and their feedback is helping you reach that bar. Engage with the review before acting on it.
+Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). Engage with the review before acting on it.
 
-For each required change, formulate a question that demonstrates you understand the finding and surfaces what you need clarified — the reasoning behind the request, the intended scope, or whether an alternative you're considering would satisfy the concern. If you believe a finding is incorrect, present your case with evidence: "I went with X because of [tradeoffs]. My understanding is that Y would be worse because [reasons]. Are you suggesting Y better serves the codebase, or something else?" Do not ask questions answerable by reading the code.
+For each required change, formulate a question that:
+- Demonstrates you understand the finding
+- Surfaces what you need clarified — the reasoning, the intended scope, or whether an alternative would satisfy the concern
+
+**Finding you believe is incorrect:** Present your case with evidence: "I went with X because of [tradeoffs]. My understanding is that Y would be worse because [reasons]. Are you suggesting Y better serves the codebase, or something else?"
+
+Do not ask questions answerable by reading the code.
 
 ```xml
 <invoke name="SendMessage">
@@ -212,7 +243,9 @@ Wait for the maintainer's response. Use their answers to inform your fixes.
 
 ### 5.8 Address Changes and Re-submit
 
-For each required change, assess viability and either fix it directly or note why it cannot be done. When a finding reveals unclear code, the fix should make the code self-explanatory — explanations in the re-submission message do not help future code readers. Re-run validation. If validation fails on code outside your scope, shut down the team (Step 5.9) and block.
+For each required change, assess viability and either fix directly or note why it cannot be done. Make unclear code self-explanatory — explanations in the re-submission message do not help future code readers.
+
+Re-run validation. **Validation fails on code outside your scope:** Shut down the team (Step 5.9) and block.
 
 Stage any uncommitted review fixes:
 
@@ -224,7 +257,15 @@ COMMITMSG
 )"
 ```
 
-Message the maintainer to re-review. Explain what you changed, why, and where you made judgment calls:
+Review the failure-mode analyst's findings. Approach-level findings — runtime risks, silent failure paths, data flow gaps — deserve the most consideration. Decide what to do:
+- Fix the code
+- Add mitigations
+- Acknowledge an accepted risk
+- Determine the finding doesn't apply
+
+Not every finding requires a code change. No response to the failure-mode analyst is required.
+
+Message both the maintainer and failure-mode analyst to re-review. Explain what you changed, why, and where you made judgment calls:
 
 ```xml
 <invoke name="SendMessage">
@@ -245,11 +286,20 @@ All validations pass.
 </invoke>
 ```
 
+```xml
+<invoke name="SendMessage">
+<parameter name="recipient">failure-mode</parameter>
+<parameter name="content">
+The implementation has been revised. Diff the workspace against the baseline again and send updated findings to both the team lead and the maintainer.
+</parameter>
+</invoke>
+```
+
 Return to Step 5.5.
 
 ### 5.9 Shut Down Team
 
-Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
+Send shutdown requests to both agents. Wait for acknowledgment before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
@@ -259,7 +309,15 @@ Send shutdown request to the maintainer. Wait for acknowledgment before deleting
 </invoke>
 ```
 
-After the maintainer has shut down:
+```xml
+<invoke name="SendMessage">
+<parameter name="type">shutdown_request</parameter>
+<parameter name="recipient">failure-mode</parameter>
+<parameter name="content">Review complete.</parameter>
+</invoke>
+```
+
+After both agents have shut down:
 
 ```xml
 <invoke name="TeamDelete"/>
@@ -271,10 +329,7 @@ After the maintainer has shut down:
 
 ### 6.1 Complete or Await Review
 
-Based on review gate:
-
-- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval. Workspace commits describe the feedback-driven changes.
-
+- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval.
 - **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 ### 6.2 Tag Cleanup

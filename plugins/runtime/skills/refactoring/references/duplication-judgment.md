@@ -7,9 +7,8 @@ This document provides guidance for deciding whether to consolidate duplicated c
 <core-principle>
 ## The DRY Principle and Its Limits
 
-"Don't Repeat Yourself" (DRY) is a valuable principle, but applying it without judgment can harm code quality. The goal is not to eliminate all textual similarity but to ensure that **knowledge is expressed in a single, authoritative location**.
+The goal is not to eliminate all textual similarity but to ensure that **knowledge is expressed in a single, authoritative location**.
 
-**Key distinction:**
 - **Harmful duplication**: The same business logic or algorithm copied to multiple places, requiring parallel updates when requirements change
 - **Acceptable similarity**: Code that looks similar but represents genuinely different concepts or serves different purposes
 </core-principle>

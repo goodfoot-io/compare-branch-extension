@@ -41,8 +41,6 @@ git commit -m "[single sentence summarizing the additional work requested]"  # <
 
 ## 3. Delegate to Implementation
 
-Re-evaluate the card's routing conditions based on the updated state and delegate to the appropriate implementation agent. Focus on addressing the specific request from the latest user comment.
-
-The delegated agent handles finalization; this agent's execution ends after delegation.
+Re-evaluate the card's routing conditions based on the updated state and delegate to the appropriate implementation agent. Focus on the specific request from the latest user comment. This agent's execution ends after delegation.
 
 </instructions>

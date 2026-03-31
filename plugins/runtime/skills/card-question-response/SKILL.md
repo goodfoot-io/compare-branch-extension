@@ -6,8 +6,6 @@ description: Respond to user questions without code changes.
 
 <instructions>
 
-Answer user questions before proceeding with any implementation work.
-
 ## 1. Research the Answer
 
 Read the most recent user comment in the card repository to identify the question.

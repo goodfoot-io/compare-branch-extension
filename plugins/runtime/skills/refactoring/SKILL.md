@@ -3,16 +3,11 @@ name: refactoring
 description: Refactor code to reduce complexity and duplication.
 ---
 
-## Available Refactoring Methodologies
+Reference documents are in `references/` relative to this skill's directory.
 
-All reference documents are located in the `references/` subdirectory of this skill's directory. Paths such as `references/complexity-assessment.md` are relative to the skill root, not to the workspace root or card repository.
+Load the relevant reference for the scenario:
 
-Based on the refactoring scenario, load the relevant reference document:
-
-- **Code seems over-engineered, implementation appears sophisticated for the problem scope, or abstractions exist without clear justification**: Read `references/complexity-assessment.md` for determining whether complexity is essential or accidental
-
-- **Similar code exists in multiple locations, uncertain whether abstraction would help or harm, or weighing maintenance burden against readability**: Read `references/duplication-judgment.md` for deciding whether to consolidate or tolerate duplicated code
-
-- **Tests appear coupled to implementation details, test suite has redundant or overlapping coverage, or uncertain whether to consolidate or separate test cases**: Read `references/test-refinement.md` for improving test code clarity and maintainability
-
-- **Code purpose is not immediately clear, no obvious tests or plan references exist, or uncertain whether removal would break subtle requirements**: Read `references/protective-heuristics.md` for safeguards before removing code you do not fully understand
+- **Over-engineered code or unjustified abstractions**: `references/complexity-assessment.md`
+- **Similar code in multiple locations or consolidation uncertainty**: `references/duplication-judgment.md`
+- **Tests coupled to implementation or redundant coverage**: `references/test-refinement.md`
+- **Unclear code purpose or uncertain whether removal is safe**: `references/protective-heuristics.md`

@@ -1,17 +1,11 @@
 # Card-Type Writing Guides
 
-These reference files are the single source of truth for card-type writing
-guidance. Each file teaches how to compose a CARD.md for a specific card type.
+Single source of truth for card-type writing guidance. Each file teaches how to compose a CARD.md for a specific card type.
 
 ## Consumers
 
-Two paths load these guides:
-
-1. **Card creation** (`cards:api` skill) — reads a reference file to guide
-   CARD.md composition when creating a new card.
-2. **Interview skills** (`runtime:interview-*`) — symlink each reference into
-   their skill directory and load it via `@${CLAUDE_SKILL_DIR}/<type>.md` so
-   the writing guide is in context during the interview.
+1. **Card creation** (`cards:api` skill) — reads a reference file to guide CARD.md composition when creating a new card.
+2. **Interview skills** (`runtime:interview-*`) — symlink each reference into their skill directory and load it via `@${CLAUDE_SKILL_DIR}/<type>.md` during the interview.
 
 ## Symlinks
 

@@ -32,7 +32,10 @@ Tests should verify WHAT code accomplishes, not HOW it accomplishes it internall
 <redundancy-assessment>
 ## Assessing Test Redundancy
 
-Tests are redundant when they exercise the same code path with trivially different inputs, assert the same behaviour as another test, or exist only because someone followed a "test everything" mandate without judgment.
+Tests are redundant when they:
+- Exercise the same code path with trivially different inputs
+- Assert the same behaviour as another test
+- Exist only because of a "test everything" mandate without judgment
 
 **Questions to assess:**
 - Do two tests always fail together for the same root cause? One may be redundant.

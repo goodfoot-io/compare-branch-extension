@@ -37,7 +37,9 @@ Read the matched reference file, then follow its guidance to compose the card's 
 node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
 ```
 
-The response includes `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits. `parentBranch` is the workspace branch the card was created from; present when the card was created in a workspace with a resolvable branch.
+The response includes:
+- `isMerged: boolean | null` — `true` when all workspace commits are merged into the viewer's HEAD, `false` when commits exist but are not merged, `null` when the card has no workspace commits.
+- `parentBranch` — the workspace branch the card was created from; present when the card was created in a workspace with a resolvable branch.
 
 **Create a card** — Pipe JSON to stdin with `title` (required). Optional: `tags`, `environment`, `gates`, `relations`:
 ```
@@ -81,9 +83,9 @@ Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag> (repeatabl
 
 #### Workspace Path
 
-The CLI auto-detects the workspace from `pwd`. Cards are scoped to the branch you're working on — in a worktree, the card belongs to that worktree's branch (e.g., branch `feature` → prefix `feature-`). This is the default and usually what you want.
+The CLI auto-detects the workspace from `pwd`. Cards are scoped to the branch you're working on — in a worktree, the card belongs to that worktree's branch (e.g., branch `feature` -> prefix `feature-`).
 
-Only use `--workspace-path` if the user explicitly requests creating a card in a different repository.
+Use `--workspace-path` only if the user explicitly requests creating a card in a different repository.
 
 **Attach a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
 ```

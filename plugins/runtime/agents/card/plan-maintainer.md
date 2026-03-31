@@ -2,9 +2,9 @@
 name: plan-maintainer
 description: Review implementation plans as the repository maintainer — structural compliance, design quality, and completeness. Verdict is final.
 tools: "*"
-# skills:
-#   - runtime:card-repo
-#   - runtime:card-plan-maintainer
+skills:
+  - runtime:card-repo
+  - runtime:card-plan-maintainer
 ---
 
 ```!

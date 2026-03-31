@@ -16,7 +16,7 @@ Before evaluating any placeholder variables: (1) read `CARD.md` for the enhancem
 
 <how-to-write-an-enhancement-request>
 
-Enhancement requests bridge understanding between what exists, what should exist, and why the gap matters. The document should enable someone unfamiliar with the system's history to understand the full context.
+Bridge understanding between what exists, what should exist, and why the gap matters. Enable a reader unfamiliar with the system's history to understand the full context.
 
 ## Document Structure
 
@@ -29,9 +29,19 @@ Enhancement requests bridge understanding between what exists, what should exist
 
 ## Section Notes
 
-- **Historical Context** (omit header in output): Organize chronologically or by conceptual phases. Each phase explains what changed, why, and its effect. Write for a reader with no prior context. Reference commits/PRs with explanations, not just citations.
-- **Current Functionality**: Ground every claim in observable code with file paths and line numbers. Describe behavior, not implementation details. Use present tense. Distinguish intentional from incidental behavior.
-- **Desired Functionality**: Write requirements as outcomes, not tasks. Where the desired behavior involves multi-step flows or state transitions, a mermaid diagram can replace verbose prose. Be specific about boundaries and out-of-scope items. State the "why" alongside the "what." Distinguish must-have from nice-to-have.
+- **Historical Context** (omit header in output): Organize chronologically or by conceptual phases.
+  - Each phase explains what changed, why, and its effect.
+  - Write for a reader with no prior context.
+  - Reference commits/PRs with explanations, not just citations.
+- **Current Functionality**: Ground every claim in observable code with file paths and line numbers.
+  - Describe behavior, not implementation details.
+  - Use present tense.
+  - Distinguish intentional from incidental behavior.
+- **Desired Functionality**: Write requirements as outcomes, not tasks.
+  - Use mermaid diagrams for multi-step flows or state transitions.
+  - Be specific about boundaries and out-of-scope items.
+  - State the "why" alongside the "what."
+  - Distinguish must-have from nice-to-have.
 - **Implementation Approach** (Optional): See conditional logic below.
 
 ## Implementation Approach (Section 5)
@@ -47,9 +57,11 @@ When included: Write in natural language without code examples. Focus on "what" 
 ## Key Principles
 
 - **Progressive understanding**: Each section builds on the previous. A reader can stop at any section and have coherent understanding.
-- **Evidence over assertion**: Point to code for current behavior, reference commits for history, make desired behavior specific enough to test. When referencing workspace files, use markdown fragment links — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — instead of backtick code spans so the card-detail webview renders them as clickable buttons. Non-workspace paths (e.g. `~/.cards/cards-api.json`) remain as backtick code spans.
-- **Separation of concerns**: Current Functionality describes what is; Desired Functionality what should be; Implementation Approach how to bridge them. Do not mix.
-- **Audience awareness**: Write for the implementer who lacks your context and the future reader who encounters this after implementation. Make the implicit explicit.
+- **Evidence over assertion**: Point to code for current behavior, reference commits for history, make desired behavior specific enough to test.
+  - Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — so the card-detail webview renders them as clickable buttons.
+  - Non-workspace paths (e.g. `~/.cards/cards-api.json`) remain as backtick code spans.
+- **Separation of concerns**: Current Functionality describes what is; Desired Functionality what should be; Implementation Approach how to bridge them.
+- **Audience awareness**: Write for the implementer who lacks your context and the future reader who encounters this after implementation.
 - **Appropriate abstraction**: Match detail level to section purpose — narrative for history, specific file references for current behavior, testable requirements for desired behavior, direction without code for approach.
 
 </how-to-write-an-enhancement-request>

@@ -1,6 +1,6 @@
 <how-to-write-an-operations-request>
 
-Operations requests should capture the operational goal, evidence, and verification while minimizing risk. They emphasize outcomes, constraints, and safety over implementation details so work can be planned and executed by the right operator or team.
+Capture the operational goal, evidence, and verification while minimizing risk. Emphasize outcomes, constraints, and safety over implementation details.
 
 ## Request Structure
 
@@ -18,12 +18,14 @@ Operations requests should capture the operational goal, evidence, and verificat
 
 ## Writing Principles
 
-- **Objective and urgency**: What needs to be true after the work, what impact is at risk (SLA/SLO, error budget), how urgent and why
-- **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost). Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — instead of backtick code spans so references are clickable in the card-detail webview. Non-workspace paths remain as backtick code spans.
-- **Measurable outcomes**: Success targets, verification steps (dashboard checks, canary signals), must-have vs nice-to-have
-- **Change classification**: Standard/normal/emergency (ITSM/ITIL), environments affected, change windows, approvals
-- **Risk and reversibility**: Blast radius, failure modes, rollback/backout expectations, preconditions (access, feature flags, backups)
-- **Ownership**: Primary owner/on-call, escalation path, stakeholder update expectations
+- **Objective and urgency**: What needs to be true after the work, what impact is at risk (SLA/SLO, error budget), how urgent and why.
+- **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost).
+  - Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — so references are clickable in the card-detail webview.
+  - Non-workspace paths remain as backtick code spans.
+- **Measurable outcomes**: Success targets, verification steps (dashboard checks, canary signals), must-have vs nice-to-have.
+- **Change classification**: Standard/normal/emergency (ITSM/ITIL), environments affected, change windows, approvals.
+- **Risk and reversibility**: Blast radius, failure modes, rollback/backout expectations, preconditions (access, feature flags, backups).
+- **Ownership**: Primary owner/on-call, escalation path, stakeholder update expectations.
 
 ## Domain-Specific Guidance
 

@@ -54,13 +54,11 @@ git commit -m "[single sentence describing the conflict or validation failure an
 After rebase completes, run linting, type checking, and tests.
 
 **Validation rules:**
-- All validation commands must execute and pass. A command that errors before producing results is a failure.
-- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
-- "Resolve or block" is the only valid outcome. There is no "proceed despite errors" path.
-- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
-- If blocked, report the failure by adding to existing open cards about the block, or by creating a new card with "backlog" status.
-
-Blocking is not failure — it is honest acknowledgment that human intervention is needed. A clean block with clear documentation serves the project better than a rationalized merge.
+- All validation commands must execute and pass — a command that errors before producing results is a failure
+- Fix any errors you encounter — do not dismiss errors as "pre-existing" or "unrelated"
+- "Resolve or block" is the only valid outcome — there is no "proceed despite errors" path
+- Fix infrastructure failures (missing dependencies, path issues) directly — do not work around them
+- **If blocked**: Report by adding to existing open cards about the block, or create a new card with "backlog" status
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 3
@@ -88,7 +86,8 @@ cd "$BASE_WORKTREE"
 git merge --ff-only "$WORKSPACE_BRANCH"
 ```
 
-**STOP** — Merge complete. Do not update card status, write comments, or take any further action. Status updates are the user's responsibility after they verify the merge.
+**STOP** — Merge complete. Do not update card status, write comments, or take further action.
+
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
 
 ```bash

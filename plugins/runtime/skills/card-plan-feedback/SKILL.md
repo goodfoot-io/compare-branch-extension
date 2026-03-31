@@ -6,8 +6,6 @@ description: Incorporate user feedback into an existing plan and re-assess.
 
 <instructions>
 
-Incorporate user feedback into an existing implementation plan and re-run assessments.
-
 ## 1. Review Feedback
 
 ### 1.1 Read Card State
@@ -34,7 +32,8 @@ From the latest user comment, identify:
 If feedback requires additional investigation in the workspace repository:
 
 - Read relevant files in the workspace codebase (track paths for code references)
-- Understand implications of requested changes. When the feedback modifies the Technical Approach (changes data structures, shifts responsibility between components, replaces a component, simplifies a step), re-verify the complete data-flow connections for the affected path — not only the changed sections. A design revision can disconnect wiring that was correct under the previous design; incremental research on the changed parts alone is insufficient.
+- Understand implications of requested changes
+  - **Feedback modifies Technical Approach** (changes data structures, shifts responsibility between components, replaces a component, simplifies a step): Re-verify the complete data-flow connections for the affected path — not only the changed sections. A design revision can disconnect wiring that was correct under the previous design.
 - Identify new dependencies or risks
 
 ### 2.2 Incorporate Feedback
@@ -62,11 +61,13 @@ Load the `runtime:card-plan-evaluation` skill and follow its instructions.
 
 ## 4. Submit for Re-Approval
 
-**Post a process-oriented comment.** The plan content is already accessible in `PLAN.md` — do not summarize it.
+Post a process-oriented comment. The plan content is already in `PLAN.md` — do not summarize it.
 
-Explain how you incorporated the feedback, especially where interpretation was required. Focus on what the reviewer cannot see: your reasoning process, what you learned from the revision, where you made judgment calls, and where you are less certain. Mention the plan version.
-
-When feedback was ambiguous, surface your interpretation as a question with your selected answer inline. Include surprises, new assumptions, or risks discovered during revision when they would help the reviewer. Write naturally — only include what is genuinely useful.
+- Explain how you incorporated the feedback, especially where interpretation was required
+- Focus on what the reviewer cannot see: reasoning process, judgment calls, areas of lower certainty
+- **Ambiguous feedback**: Surface your interpretation as a question with your selected answer inline
+- Include surprises, new assumptions, or risks discovered during revision when useful
+- Mention the plan version
 
 Write the comment to the card repository. Commit to the card repository:
 

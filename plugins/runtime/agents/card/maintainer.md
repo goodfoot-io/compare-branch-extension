@@ -2,9 +2,9 @@
 name: maintainer
 description: Review implementation as the repository maintainer — code quality, end-to-end wiring, and production readiness. Verdict is final.
 tools: "*"
-# skills:
-#   - runtime:card-repo
-#   - runtime:card-maintainer
+skills:
+  - runtime:card-repo
+  - runtime:card-maintainer
 ---
 
 ```!

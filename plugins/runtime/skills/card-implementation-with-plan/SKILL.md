@@ -6,7 +6,7 @@ description: Implement approved plans.
 
 <placeholder-variables>
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
-[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1 by extracting task file assignments from PLAN.md; consumed in Step 4.3 cleanup annotation and passed to maintainer as modified-file context)
+[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1; consumed in Step 4.3 cleanup annotation and passed to maintainer as modified-file context)
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -42,7 +42,7 @@ else
 fi
 ```
 
-If you need to test against the baseline to verify a pre-existing failure, create a temporary worktree from the baseline tag — never switch branches or stash in the current workspace:
+To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
 BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/!` echo $CARD_ID`/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
@@ -56,9 +56,9 @@ git worktree remove "$BASELINE_WORKTREE"
 
 ### 2.1 Validate and Initialize
 
-Read `PLAN.md` from the card repository:
+Read `PLAN.md` from the card repository.
 
-If `PLAN.md` is empty or missing: write an error comment using the canonical comment pattern, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+- **PLAN.md is empty or missing**: Write an error comment using the canonical comment pattern, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
 
 Create todos from the plan content using TodoWrite.
 
@@ -75,21 +75,20 @@ Analyze tasks along three dimensions:
 | **Size** | Substantial tasks with clear completion gates? |
 
 **Route**:
-- Independent files OR uniform tasks -> **Parallel** (concurrent agents)
-- Dependent + varied + small -> **Coherent** (single agent)
-- Dependent + varied + substantial with clear gates -> **Sequential** (ordered agents, validate between)
+- **Independent files OR uniform tasks**: Parallel (concurrent agents)
+- **Dependent + varied + small**: Coherent (single agent)
+- **Dependent + varied + substantial with clear gates**: Sequential (ordered agents, validate between)
 
-When uncertain between Coherent and Sequential, choose **Sequential**.
-Validation gates have low cost; missed validation opportunities have high cost.
+When uncertain between Coherent and Sequential, choose **Sequential** — validation gates have low cost; missed validation opportunities have high cost.
 
 Clear gates: type-check passes, tests pass, API functional, UI renders.
 
 ### 2.3 Delegate Implementation
 
-Choose the [MODEL] based on the tasks:
-- **Ambiguous requirements, multiple possible approaches, or tasks where you are unsure how to start:** `opus`
-- **Clear goal with multiple steps, building features, or fixing bugs in unfamiliar code:** `sonnet`
-- **Single-step tasks, following established patterns, or making changes you already understand:** `haiku`
+Choose [MODEL] based on the tasks:
+- **Ambiguous requirements, multiple possible approaches, or uncertain starting point**: `opus`
+- **Clear goal with multiple steps, building features, or fixing bugs in unfamiliar code**: `sonnet`
+- **Single-step tasks, following established patterns, or well-understood changes**: `haiku`
 
 Based on coherence assessment:
 
@@ -114,7 +113,7 @@ Based on coherence assessment:
 
 **Coherent**: Single agent for all todos.
 
-Agent prompt template — prompts must be self-contained. Agents have no conversation context. Read all files to be modified before dispatching.
+Agent prompts must be self-contained — agents have no conversation context. Read all files to be modified before dispatching.
 
 ```xml
 <invoke name="Agent">
@@ -156,7 +155,7 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 - Only make requested changes
 - Don't add unrequested features or abstractions
 - Keep implementation minimal and focused
-- When the task is ambiguous or could go two ways, the plan's intent (opening of PLAN.md) is the tiebreaker
+- When the task is ambiguous, the plan's intent (opening of PLAN.md) is the tiebreaker
 
 ## Success Criteria
 - [ ] Implementation complete
@@ -169,7 +168,6 @@ For new functions or methods, load the `runtime:tdd-implementation` skill and fo
 
 ### 2.4 Process Result
 
-Based on agent status:
 - **COMPLETED**: Mark todo completed, commit if changes exist, continue
 - **NEEDS_REVISION**: Update todo with attempt count, revert the agent's owned files to baseline:
   ```bash
@@ -182,8 +180,8 @@ Based on agent status:
   git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A -- [AGENT_FILES] | \
     xargs -r git rm -f
   ```
-  - **If attempts < 3**: Re-delegate to agent
-  - **If attempts >= 3**: Mark todo blocked
+  - **Attempts < 3**: Re-delegate to agent
+  - **Attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue
 
 **COMPLETED:** Commit all workspace changes including new files:
@@ -200,7 +198,7 @@ git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
 The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
 
 **After all todos:**
-- ALL blocked -> write summary comment, add `blocked` tag, **STOP**:
+- **ALL blocked**: Write summary comment, add `blocked` tag, **STOP**:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
@@ -214,8 +212,8 @@ git add comment/all-tasks-blocked.md CARD.meta.json
 git commit -m "[single sentence describing what is blocking all tasks]"  # <card-repo-commit-style>
 ```
 
-- SOME blocked -> note in summary, proceed to Step 3
-- NONE blocked -> proceed to Step 3
+- **SOME blocked**: Note in summary, proceed to Step 3
+- **NONE blocked**: Proceed to Step 3
 
 ### 2.5 Validation Gate
 
@@ -235,8 +233,8 @@ git tag -f "implement/!` echo $CARD_ID`/post-implementation" HEAD
 Run validation per the plan's validation commands.
 
 **On failure:**
-1. Error in code you can modify -> delegate fix to implementer, re-run validation
-2. Error outside your scope -> block immediately
+- **Error in code you can modify**: Delegate fix to implementer, re-run validation
+- **Error outside your scope**: Block immediately
 
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
@@ -252,7 +250,7 @@ git add comment/validation-failed.md CARD.meta.json
 git commit -m "[single sentence describing the validation failure and why it is outside scope]"  # <card-repo-commit-style>
 ```
 
-Only proceed to **3. Evaluate Quality** when ALL validations pass.
+Proceed to **3. Evaluate Quality** only when ALL validations pass.
 
 ---
 
@@ -278,13 +276,8 @@ COMMITMSG
 
 ### 4.2 Complete or Await Review
 
-**If review is NOT required (gates.mergeRequestRequired is false or unset):**
-
-Load the `runtime:card-merge` skill and follow its `<instructions>`.
-
-**If review is required (gates.mergeRequestRequired is true):**
-
-**STOP** — Merge occurs after user approval. Workspace commits describe what was implemented.
+- **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
+- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval.
 
 ### 4.3 Tag Cleanup
 
@@ -297,7 +290,7 @@ git tag -d "implement/!` echo $CARD_ID`/baseline" \
 
 ### Rollback Points
 
-The following tags mark rollback points during execution. Tags point to the most recent real commit at each milestone — no dedicated rollback commits are created.
+Tags mark rollback points during execution. Tags point to the most recent real commit at each milestone — no dedicated rollback commits are created.
 
 | Tag | Created At | Advances | Purpose |
 |-----|------------|----------|---------|

@@ -47,7 +47,7 @@ Select the **first** matching condition:
 - **IS_ENHANCEMENT_REQUEST**: `runtime:interview-enhancement`
 - **Otherwise**: `runtime:interview-enhancement`
 
-**Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
+**Conflicting conditions**: Ask "What would a human team member do?" and write down why you're asking. Articulating the ambiguity usually resolves it.
 
 ## 3. Load Routed Skill
 

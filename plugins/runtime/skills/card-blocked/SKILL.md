@@ -13,7 +13,9 @@ Do not attempt implementation until the blocker is resolved.
 
 ## 1. Analyze Blocker
 
-Read `CARD.meta.json` for `relations` entries that reference other cards. Read the card description and comments for context on what is blocking progress. Identify all blocker reasons and referenced card IDs. If multiple blockers are found, check each referenced card's status. All blockers must be resolved before removing the "blocked" tag.
+Read `CARD.meta.json` for `relations` entries that reference other cards. Read the card description and comments for context on what is blocking progress. Identify all blocker reasons and referenced card IDs.
+
+- **Multiple blockers found**: Check each referenced card's status; all must be resolved before removing the "blocked" tag.
 
 Based on blocker analysis:
 - **Blocker references another card**: Look up its metadata and check its status
@@ -51,7 +53,10 @@ Skip if a comment already exists containing "## Blocked" that describes the same
 
 ## 3. Write Comment and Commit
 
-Write a comment to the card repository explaining what is preventing progress, identifying the specific blocker (including any referenced card IDs), describing what action is needed to resolve it, and indicating that work will resume once the blocker is cleared.
+Write a comment explaining:
+- What is preventing progress
+- The specific blocker (including any referenced card IDs)
+- What action is needed to resolve it
 
 ```bash
 cd !` echo $CARD_REPO_PATH`

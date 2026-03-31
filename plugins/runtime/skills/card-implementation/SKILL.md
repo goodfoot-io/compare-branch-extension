@@ -22,7 +22,7 @@ else
 fi
 ```
 
-If you need to test against the baseline to verify a pre-existing failure, create a temporary worktree from the baseline tag — never switch branches or stash in the current workspace:
+To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
 BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/!` echo $CARD_ID`/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
@@ -36,11 +36,11 @@ git worktree remove "$BASELINE_WORKTREE"
 
 ### 2.1 Commander's Intent
 
-Distill from the card what the situation looks like when the work is done, and what constraints must hold regardless of implementation approach. Lead with the done state, not the problem. The card describes what the user needs; the plan's intent translates that into operational direction for the implementer.
+Distill from the card what the situation looks like when the work is done and what constraints must hold regardless of approach. Lead with the done state, not the problem.
 
 ### 2.2 Research
 
-Research by reviewing any relevant resource available to you, including files, web searches, or tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
+Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
 
 ### 2.3 Write and Store Plan
 
@@ -60,9 +60,12 @@ Extract [PLAN_FILES] — all files the plan intends to modify.
 
 ### 3.1 Spike Testable Uncertainties
 
-Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a planned implementation step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only when no load-bearing assumptions exist.
+Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source). Any assumption that affects a planned implementation step is spike-eligible. Skip only when no load-bearing assumptions exist.
 
-For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
+For each spike-eligible uncertainty, invoke the `runtime:spike` skill:
+- **Pass/fail questions**: Use validation spikes
+- **Alternative selection**: Use comparison spikes
+- **Independent spikes**: Launch in parallel
 
 Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
 
@@ -76,13 +79,13 @@ git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-
 
 ## 4. Implement
 
-Implement the plan directly. Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
+Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
 For each step in the plan:
 1. Read relevant files
 2. Implement the change
 3. Commit logically grouped changes
-4. Tag the rollback point for this step:
+4. Tag the rollback point:
 
    ```bash
       git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
@@ -98,7 +101,6 @@ If an empirically-testable uncertainty surfaces during implementation, invoke th
 
 Run validation per the plan's validation commands.
 
-Based on failure:
 - **Error in code you can modify**: Fix it, re-run validation
 - **Error outside your scope**: Block immediately
 
@@ -114,7 +116,7 @@ git add comment/validation-failed.md CARD.meta.json
 git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
 ```
 
-Only proceed to **5. Finalize** when ALL validations pass.
+Proceed to **5. Finalize** only when ALL validations pass.
 
 ---
 
@@ -122,18 +124,13 @@ Only proceed to **5. Finalize** when ALL validations pass.
 
 ### 5.1 Clean Up Tags
 
-Clean up rollback tags:
-
 ```bash
 git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d
 ```
 
 ### 5.2 Complete
 
-Based on review gate:
-
 - **gates.mergeRequestRequired is true**: Commit to the card repository. **STOP** — Merge occurs after user approval.
-
 - **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 </instructions>

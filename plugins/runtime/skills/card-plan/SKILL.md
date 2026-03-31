@@ -6,17 +6,17 @@ description: Create implementation plans for user approval.
 
 <instructions>
 
-Create implementation plans for cards requiring user approval before coding begins. Do NOT make code changes — plans must be approved before any implementation begins.
+Create implementation plans for cards requiring user approval before coding begins. Do NOT make code changes.
 
 ## 1. Create Plan
 
 ### 1.1 Commander's Intent
 
-Distill from the card what the situation looks like when the work is done, and what constraints must hold regardless of implementation approach. Lead with the done state, not the problem. The card describes what the user needs; the plan's intent translates that into operational direction for the implementer.
+Distill from the card what the situation looks like when the work is done and what constraints must hold regardless of approach. Lead with the done state, not the problem.
 
 ### 1.2 Research
 
-Research by reviewing any relevant resource avaialble to you, including files, web searches, or tool. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
+Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
 
 ### 1.3 Write and Store Plan
 
@@ -32,9 +32,12 @@ git commit -m "[single sentence summarizing the approach and key decisions]"  # 
 
 ### 2.1 Spike Testable Uncertainties
 
-Scan the plan for assumptions — both explicit (labeled as such) and implicit (statements presented as facts that were not read from source). Any assumption that affects a planned implementation step is spike-eligible. The cost of an incorrect assumption is a plan revision; the cost of a spike is smaller. Skip this step only when no load-bearing assumptions exist.
+Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source). Any assumption that affects a planned implementation step is spike-eligible. Skip only when no load-bearing assumptions exist.
 
-For each spike-eligible uncertainty, invoke the `runtime:spike` skill — use validation spikes for pass/fail questions, comparison spikes for alternative selection. Launch independent spikes in parallel.
+For each spike-eligible uncertainty, invoke the `runtime:spike` skill:
+- **Pass/fail questions**: Use validation spikes
+- **Alternative selection**: Use comparison spikes
+- **Independent spikes**: Launch in parallel
 
 Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
 

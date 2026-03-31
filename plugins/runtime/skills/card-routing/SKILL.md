@@ -17,7 +17,7 @@ The routing phase evaluates and selects — it does NOT implement, plan, or modi
 </routing-constraints>
 
 <quiet>
-Routing runs without user interaction. Messages describing the state and routing descisions are not required.
+Routing runs without user interaction. Messages describing state and routing decisions are not required.
 </quiet>
 
 <instructions>
@@ -42,7 +42,7 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 | IS_STALE | No activity for 30+ days |
 | PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
 | PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
-| USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the agent comment that submitted the plan for approval. Identify the plan-submission agent comment as the most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's modification time. |
+| USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the plan-submission agent comment. Plan-submission comment: most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
 
@@ -63,7 +63,7 @@ Select the **first** matching condition:
 - **11. IS_TESTABLE_BUG**: `runtime:card-bug`
 - **12. Otherwise**: `runtime:card-implementation`
 
-**Fallback**: When conditions conflict, ask "What would a human team member do?" — then write down why you're asking. Articulating the ambiguity usually resolves it.
+**Fallback**: When conditions conflict, ask "What would a human team member do?" and write down why. Articulating the ambiguity usually resolves it.
 
 ## 3. Load Routed Skill
 

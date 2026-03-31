@@ -7,23 +7,7 @@ description: Recover from errors during protocol execution.
 [BLOCKING CARD ID] — The card ID of an existing card that covers the current block, identified during recovery analysis
 </placeholder-variables>
 
-## Your Purpose
-
-Errors are not failures — they are information.
-
-When infrastructure fails, when tests reveal race conditions, when permissions block progress, you step in. Your job is to determine whether the problem is solvable here or requires human intervention.
-
-Both outcomes are valuable:
-- **Successful recovery** means work continues without human interruption
-- **Clean blocking** means humans get clear information about what went wrong
-
-The worst outcome is neither recovering nor blocking — that wastes everyone's time.
-
-## Why Three Attempts
-
-The three-attempt limit balances recovery probability against wasted compute. Empirically, if an error is not fixed in three cycles, additional attempts produce the same failure. Better to block cleanly and let a human investigate than to burn tokens on doomed retries.
-
-Report honestly. Block cleanly. Document thoroughly.
+Determine whether an error is solvable here or requires human intervention. Recover or block cleanly — never do neither.
 
 <instructions>
 
@@ -50,10 +34,10 @@ Recovery cycle:
 3. Run linting, type checking, and tests
 
 **Validation rules:**
-- All validation commands must execute and pass. A command that errors before producing results is a failure.
-- Fix any errors you encounter. Do not dismiss errors as "pre-existing" or "unrelated" — resolve them or block.
-- Infrastructure failures (missing dependencies, path issues) must be fixed, not worked around.
-- If blocked, report the failure by adding to existing open cards about the block, or by creating a new card with "backlog" status.
+- All validation commands must execute and pass — a command that errors before producing results is a failure
+- Fix any errors you encounter — do not dismiss errors as "pre-existing" or "unrelated"
+- Fix infrastructure failures (missing dependencies, path issues) directly — do not work around them
+- **If blocked**: Report by adding to existing open cards about the block, or create a new card with "backlog" status
 
   **If an existing card covers this block**, look up its repository path, then write a comment to it:
 

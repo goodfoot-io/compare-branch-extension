@@ -14,7 +14,7 @@ Based on comments and prior clarification requests:
 
 - **No existing "## Clarification Needed" comment**: Proceed to Step 2.
 
-- **Existing clarification request AND later comment from non-agent author**: Write a comment to the card repository acknowledging the new information and explaining how it affects requirements analysis. Commit. **Enrichment complete** — proceed to Step 4.
+- **Existing clarification request AND later comment from non-agent author**: Write a comment acknowledging the new information and how it affects requirements analysis. Commit. Proceed to Step 4.
 
   ```bash
   cd !` echo $CARD_REPO_PATH`
@@ -25,7 +25,7 @@ Based on comments and prior clarification requests:
   git commit -m "[single sentence summarizing the new information and how it affects requirements]"  # <card-repo-commit-style>
   ```
 
-- **Existing clarification request AND no new user response**: Write a comment to the card repository confirming you are still waiting for the previously requested information, referencing which questions remain unanswered. Commit and **STOP** — already waiting for user clarification.
+- **Existing clarification request AND no new user response**: Write a comment confirming you are still waiting, referencing which questions remain unanswered. Commit and **STOP**.
 
   ```bash
   cd !` echo $CARD_REPO_PATH`
@@ -63,8 +63,7 @@ A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 - Relevant file paths and component names
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)
-- Brief background on why this change matters
-- Mermaid diagrams when multi-component interactions or state transitions are central to the request
+- Mermaid diagrams when multi-component interactions or state transitions are central
 
 #### For bug cards
 
@@ -92,8 +91,7 @@ A good bug title describes behavior: *"[Component] fails when [action]"* or *"[E
 - Preserve all user-provided details, requirements, constraints, error messages, and reproduction steps
 - Maintain user intent — the clarified version must request the same outcome or describe the same bug
 - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
-
-Do not expand scope beyond user intent.
+- Do not expand scope beyond user intent
 
 If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
@@ -109,24 +107,24 @@ Skip the commit entirely if no enrichment or clarification is needed.
 
 ### 3.1 Check Definition of Ready
 
-Mark as MISSING if not present or inferable from the card description, comments, and exploration results:
+Mark as MISSING if not present or inferable from card description, comments, and exploration:
 
-- **Commander's intent**: What this change should achieve and why it matters
+- **Commander's intent**: What this change should achieve and why
 - **Acceptance criteria**: Testable completion conditions
 - **Dependencies**: Blockers or prerequisites
 - **Technical feasibility**: Enough detail to determine approach
 - **Unanswered questions**: All comment questions answered
 
-If all requirements are met (DOR satisfied): **Enrichment complete** — proceed to Step 4.
+**All met (DOR satisfied)**: Proceed to Step 4.
 
 ### 3.2 Research Context
 
-If gaps remain, search the workspace codebase for keywords from the card description:
+Search the workspace codebase for keywords from the card description:
 1. Look for similar implementations
 2. Check tests for expected behavior
 3. Identify relevant file paths for code references
 
-- **If research resolves all gaps**: Write findings as a comment to the card repository and commit. **Enrichment complete** — proceed to Step 4.
+- **Research resolves all gaps**: Write findings as a comment to the card repository and commit. Proceed to Step 4.
 
   ```bash
   cd !` echo $CARD_REPO_PATH`
@@ -139,7 +137,7 @@ If gaps remain, search the workspace codebase for keywords from the card descrip
 
 ### 3.3 Request Clarification
 
-If gaps remain after research, write a comment to the card repository presenting the specific questions needed to proceed with implementation. Prioritize by what is most blocking, explain why each piece of information is needed, and reference relevant workspace code where applicable.
+Write a comment presenting specific questions needed to proceed. Prioritize by what is most blocking, explain why each is needed, and reference relevant workspace code.
 
 ```bash
 cd !` echo $CARD_REPO_PATH`

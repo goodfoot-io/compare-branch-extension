@@ -2,7 +2,7 @@
 
 ## Why This Methodology Matters
 
-Most methodology files are insurance policies—loaded rarely, referenced occasionally. This one gets used. The core principle—"when in doubt, don't delete it"—has prevented more production incidents than any static analysis tool. The cost of keeping unclear code is maintenance burden. The cost of deleting necessary code is production failures. The asymmetry makes conservatism the right default.
+The cost of keeping unclear code is maintenance burden. The cost of deleting necessary code is production failures. The asymmetry makes conservatism the right default.
 
 <purpose>
 This document provides safeguards against destructive refactoring. Use this framework when considering removal or significant modification of code whose purpose is not immediately clear. The goal is to avoid accidentally removing code that serves an important but non-obvious purpose.
@@ -17,7 +17,7 @@ Before labelling unfamiliar code as unnecessary, reconstruct the author's reason
 - **What constraints might have led to this approach?**
 - **Is there a subtle requirement this addresses?**
 
-Only after understanding intent should you determine whether code is truly unnecessary. The expert mindset treats unclear code with curiosity rather than immediate judgment. Strange constructs often exist for reasons that become clear only with domain knowledge or historical context.
+Only after understanding intent should you determine whether code is truly unnecessary.
 </core-philosophy>
 
 <pause-signals>

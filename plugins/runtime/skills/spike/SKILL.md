@@ -3,11 +3,7 @@ name: spike
 description: Investigate technical uncertainty via isolated subagent spikes.
 ---
 
-## Design Philosophy
-
-Technical investigations follow a simple pattern: define question, create isolated directory, run experiment, report findings. This pattern has proven stable.
-
-Feature proposals are welcome, but should demonstrate clear value. Previous additions (spike comparison, spike history, spike templates) were removed because they added latency without improving investigation quality. New proposals should include benchmarks showing improvement on real spike workflows.
+Technical investigations follow: define question, create isolated directory, run experiment, report findings.
 
 <instructions>
 
@@ -17,7 +13,6 @@ Use the `Task()` tool to launch a subagent to perform a technical spike investig
 
 ### Comparison Spikes (Testing Multiple Alternatives)
 
-Based on decision context:
 - **Technology NOT chosen and 2-3 viable approaches exist**: Use Comparison Spike
 
 **Derive these values from your context:**
@@ -34,7 +29,7 @@ Based on decision context:
 
 ### Validation Spikes (Testing Single Approach)
 
-- **Technology IS chosen but specific capability/compatibility needs verification**: Use Validation Spike
+- **Technology chosen but capability/compatibility needs verification**: Use Validation Spike
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Does [Library@version] support [specific capability]?"
@@ -53,12 +48,11 @@ Based on decision context:
 Subagents have no context from this conversation. Provide absolute paths:
 - Spike directory: !` echo $CARD_REPO_PATH`/spike/[test-name]/
 - Card plan: !` echo $CARD_REPO_PATH`/PLAN.md (when the spike needs implementation context)
-- Codebase files: use absolute workspace paths (e.g., `/workspace/packages/api/src/server.ts`)
+- Codebase files: absolute workspace paths (e.g., `/workspace/packages/api/src/server.ts`)
 
-Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags that organize technical details.
+Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags.
 
-Based on spike type:
-- **Comparison Spike**: Use the following XML structure:
+- **Comparison Spike**:
   ```xml
   <spike-purpose>
   [Why this investigation is needed and what decision depends on it]
@@ -80,7 +74,7 @@ Based on spike type:
   !` echo $CARD_REPO_PATH`/spike/[test-name]/
   </spike-path>
   ```
-- **Validation Spike**: Use the following XML structure:
+- **Validation Spike**:
   ```xml
   <spike-purpose>
   [Why this validation is needed and what implementation step depends on it]
@@ -107,8 +101,7 @@ Based on spike type:
 <spike-result-format>
 Instruct the subagent to document findings in a structured format within the spike directory.
 
-Based on spike type, use the appropriate result template:
-- **Comparison Spike**: Use Comparison Result Template
+- **Comparison Spike**:
   ```markdown
   ## [Question]
 
@@ -129,7 +122,7 @@ Based on spike type, use the appropriate result template:
     - `results.md` - Findings using template format
   - **Impact**: [How this result influences the plan's approach or implementation]
   ```
-- **Validation Spike**: Use Validation Result Template
+- **Validation Spike**:
   ```markdown
   ## [Question]
 
@@ -144,15 +137,15 @@ Based on spike type, use the appropriate result template:
   ```
 </spike-result-format>
 
-Assemble the Task() invocation by composing the spike-context XML and subagent instructions into the prompt parameter. The derived values fill the template placeholders, and the XML context tags provide the subagent with all necessary technical context.
+Assemble the Task() invocation by composing the spike-context XML and subagent instructions into the prompt parameter.
 
 <spike-execution-principles>
 ## Spike Execution Principles
 
-1. **Always use spike isolation**: All spike artifacts must be in !` echo $CARD_REPO_PATH`/spike/, never in the main codebase
-2. **Require empirical evidence**: Spikes must produce working code or concrete test results, not documentation research
-3. **Focus on the question**: Stay narrowly focused on answering the specific technical uncertainty
-4. **Document for decisions**: Results must clearly inform implementation decisions with actionable recommendations
+1. Place all spike artifacts in !` echo $CARD_REPO_PATH`/spike/, never in the main codebase
+2. Produce working code or concrete test results, not documentation research
+3. Stay narrowly focused on the specific technical uncertainty
+4. Results must clearly inform implementation decisions with actionable recommendations
 </spike-execution-principles>
 
 <running-multiple-spikes>
@@ -186,7 +179,7 @@ When multiple independent spike questions need investigation, launch all spikes 
 </invoke>
 ```
 
-**Important**: All `Task()` invocations must be in a SINGLE message to execute simultaneously. This maximizes efficiency when investigating multiple independent technical questions.
+All `Task()` invocations must be in a SINGLE message to execute simultaneously.
 </running-multiple-spikes>
 
 <processing-spike-results>
@@ -194,32 +187,39 @@ When multiple independent spike questions need investigation, launch all spikes 
 
 ### Step 1: Review Spike Artifacts
 
-The subagent will create artifacts in the spike directory. Review these to ensure quality.
+Review subagent artifacts in the spike directory.
 
-Based on spike type:
-- **Comparison Spike**: Verify multiple prototype directories exist (one per approach), `comparison.md` provides side-by-side analysis, `recommendation.md` contains clear selection rationale, `results.md` follows the Comparison Result Template
-- **Validation Spike**: Verify `test-implementation/` directory contains working test code, `results.md` contains pass/fail determination with evidence, results follow the Validation Result Template
+- **Comparison Spike**: Verify multiple prototype directories (one per approach), `comparison.md` with side-by-side analysis, `recommendation.md` with selection rationale, `results.md` following the template
+- **Validation Spike**: Verify `test-implementation/` with working test code, `results.md` with pass/fail determination and evidence
 
 ### Step 2: Validate Result Quality
 
 Check that spike results meet quality criteria.
 
-Based on spike type:
-- **Comparison Spike**: Require question format showing uncertainty between alternatives, 2-3 approaches tested (not 1, not 5+), comparative analysis with clear selection criteria, recommendation with rationale, evidence from actual prototypes (not speculation), impact statement selecting specific technology for the plan's approach
-- **Validation Spike**: Require question format showing capability/compatibility concern, single approach tested, pass/fail or capability verification result, concrete evidence (version-specific behavior, API demonstration), impact statement confirming feasibility for the plan's approach
-
-Based on quality (applies to both types):
-- **Always required**: Spike artifacts exist at specified paths, evidence is empirical (working code, not "should work" or "probably supports"), impact statement clearly influences the plan's approach, question is answerable within isolated spike environment, results directly address the stated uncertainty
+- **Comparison Spike**: Require:
+  - Question format showing uncertainty between alternatives
+  - 2-3 approaches tested (not 1, not 5+)
+  - Comparative analysis with clear selection criteria
+  - Recommendation with rationale
+  - Evidence from actual prototypes (not speculation)
+  - Impact statement selecting specific technology for the plan's approach
+- **Validation Spike**: Require:
+  - Question format showing capability/compatibility concern
+  - Single approach tested
+  - Pass/fail or capability verification result
+  - Concrete evidence (version-specific behavior, API demonstration)
+  - Impact statement confirming feasibility for the plan's approach
+- **Both types**: Spike artifacts exist at specified paths, evidence is empirical, impact statement influences the plan's approach, results directly address the stated uncertainty
 
 ### Step 3: Flag Quality Issues
 
-Based on detected problem:
-- **Comparison spike with single approach**: Request revision - should be validation or decision needs justification
-- **Validation spike comparing alternatives**: Request revision - misclassified, should be comparison
-- **Excessive alternatives (4+ approaches)**: Request revision - narrow scope
-- **Speculative evidence (documentation reading, not testing)**: Request revision - require empirical results
-- **Unclear impact (results don't inform the plan's approach)**: Request revision - clarify decision impact
-- **Missing artifacts (no spike path or artifacts don't match)**: Request revision - produce required artifacts
+Request revision when:
+- **Comparison spike with single approach**: Should be validation, or decision needs justification
+- **Validation spike comparing alternatives**: Misclassified — should be comparison
+- **Excessive alternatives (4+ approaches)**: Narrow scope
+- **Speculative evidence (documentation reading, not testing)**: Require empirical results
+- **Unclear impact (results don't inform the plan's approach)**: Clarify decision impact
+- **Missing artifacts**: Produce required artifacts
 
 ### Step 4: Commit Spike Artifacts
 
@@ -235,27 +235,13 @@ git commit -m "[single sentence summarizing the spike's question and finding]"  
 
 After committing, incorporate findings:
 
-1. **Add to the plan's spike results section** (if plan has one):
-   - Copy the formatted result (Question, Approaches Tested, Evidence, etc.)
-   - Include the spike path reference
-   - Preserve the Impact statement
-
-2. **Update the plan's approach**:
-   - Incorporate the spike's recommendation or validation
-   - Reference specific versions/technologies confirmed by testing
-   - Adjust implementation steps based on findings
-
-3. **Update Technology Stack** (if needed):
-   - Add any libraries/frameworks selected by comparison spikes
-   - Include specific versions validated by the spike
+1. **Add to the plan's spike results section** (if present): Copy formatted result with spike path reference and Impact statement
+2. **Update the plan's approach**: Incorporate recommendation/validation, reference confirmed versions/technologies, adjust implementation steps
+3. **Update Technology Stack** (if needed): Add libraries/frameworks and versions validated by the spike
 
 ### Step 6: Report to User
 
-Summarize findings in conversational language:
-- State the question that was investigated
-- Briefly describe what was tested
-- Share the key finding or recommendation
-- Explain how this impacts the implementation plan
+Summarize: the question investigated, what was tested, the key finding, and how it impacts the implementation plan.
 </processing-spike-results>
 
 </instructions>
