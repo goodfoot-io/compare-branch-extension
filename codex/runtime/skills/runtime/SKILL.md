@@ -323,10 +323,10 @@ Active voice, present tense. Write paragraphs as continuous prose — do not bre
 
 #### File References
 
-When referencing files or concepts in the commit body, use markdown inline links with paths relative to the workspace root. Two styles:
+When referencing files or concepts in the commit body, use markdown inline links with paths relative to the workspace root. In the cards-detail webview, these links open the parent-to-commit diff for the referenced file — the reader sees the change the commit introduced, not the current file state. Two styles:
 
-- **Soft link** — anchor natural prose to a relevant file, as you would on the web: `the [token refresh logic](./src/auth/refresh.ts) now handles network timeouts`
-- **Precise link** — point to a specific line or range with GitHub-style anchors: `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` or `[src/auth/provider.ts L42–L58](./src/auth/provider.ts#L42-L58)`
+- **Soft link** — anchor natural prose to a relevant file, as you would on the web: `the [token refresh logic](./src/auth/refresh.ts) now handles network timeouts`. Opens the diff without line selection.
+- **Precise link** — point to a specific line or range with GitHub-style anchors: `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` or `[src/auth/provider.ts L42–L58](./src/auth/provider.ts#L42-L58)`. Scrolls the diff to the referenced line.
 
 #### Truth Over Profundity
 
