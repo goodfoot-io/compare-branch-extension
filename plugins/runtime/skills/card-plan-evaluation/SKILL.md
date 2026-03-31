@@ -20,10 +20,10 @@ Create the review team and spawn the maintainer and failure-mode analyst. Both b
 ```xml
 <invoke name="Agent">
 <parameter name="description">Failure mode analysis</parameter>
-<parameter name="subagent_type">runtime:card:failure-mode</parameter>
+<parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
-<parameter name="name">failure-mode</parameter>
+<parameter name="name">plan-failure-mode</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this implementation plan.
 
@@ -33,7 +33,7 @@ Identify potential failure modes in this implementation plan.
 ## Workspace
 !` echo $WORKSPACE_PATH`
 
-Read the plan from PLAN.md in the card repository. Read the workspace source files the plan references. Identify ways the approach could fail when built.
+Read the plan from PLAN.md in the card repository. Read the workspace source files the plan references — then search the workspace for consumers of every symbol, type, and file the plan modifies. The failure modes live in the gap between the plan's model and the system's actual behavior.
 </parameter>
 </invoke>
 ```
@@ -54,9 +54,7 @@ Review this implementation plan for quality and completeness.
 ## Workspace
 !` echo $WORKSPACE_PATH`
 
-Read the plan from PLAN.md in the card repository. Verify plan claims against workspace source files. Send a review report per your instructions.
-
-You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate strategy and design first, completeness second, structure last. Everything is on the table, including fundamental redesigns.
+Read the plan from PLAN.md in the card repository. For every claim the plan makes about the codebase, search the workspace to confirm or refute it — do not evaluate claims by reasoning about them. Send a review report per your instructions.
 </parameter>
 </invoke>
 ```
@@ -135,7 +133,7 @@ I've revised the plan based on your review. Here's what I changed and why:
 
 ```xml
 <invoke name="SendMessage">
-<parameter name="recipient">failure-mode</parameter>
+<parameter name="recipient">plan-failure-mode</parameter>
 <parameter name="content">
 The plan has been revised. Re-read PLAN.md and send updated findings to both the team lead and the maintainer.
 </parameter>
@@ -159,7 +157,7 @@ Send shutdown requests to both agents. Wait for acknowledgment before deleting t
 ```xml
 <invoke name="SendMessage">
 <parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">failure-mode</parameter>
+<parameter name="recipient">plan-failure-mode</parameter>
 <parameter name="content">Review complete.</parameter>
 </invoke>
 ```

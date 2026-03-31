@@ -26,14 +26,38 @@ Run validation per the plan's validation commands.
 
 Only proceed to **3. Start Maintainer Review** when ALL validations pass.
 
-## 3. Start Maintainer Review
+## 3. Start Review
 
-Create the review team and spawn the maintainer. The team stays alive across review iterations — the maintainer persists and retains context from prior reviews.
+Create the review team and spawn the maintainer and failure-mode analyst. Both begin analysis immediately in parallel. The failure-mode analyst typically finishes first and sends findings to the maintainer during their review, giving the maintainer richer input for the first pass. The team stays alive across review iterations — both agents persist and retain context from prior reviews.
 
 ```xml
 <invoke name="TeamCreate">
 <parameter name="team_name">review-!` echo $CARD_ID`</parameter>
-<parameter name="description">!` echo $CARD_ID`: maintainer review</parameter>
+<parameter name="description">!` echo $CARD_ID`: implementation review</parameter>
+</invoke>
+```
+
+```xml
+<invoke name="Agent">
+<parameter name="description">Failure mode analysis</parameter>
+<parameter name="subagent_type">runtime:card:failure-mode</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="team_name">review-!` echo $CARD_ID`</parameter>
+<parameter name="name">failure-mode</parameter>
+<parameter name="prompt">
+Identify potential failure modes in this implementation.
+
+## Card Repository
+!` echo $CARD_REPO_PATH`
+
+## Workspace
+!` echo $WORKSPACE_PATH`
+
+## Baseline
+Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
+
+Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. The failure modes live in the gap between the implementer's model and the system's actual behavior.
+</parameter>
 </invoke>
 ```
 
@@ -56,14 +80,14 @@ Changes are relative to git tag: `implement/!` echo $CARD_ID`/baseline`
 ## Modified Files
 [PLAN_FILES]
 
-You are the maintainer of this repository. Your verdict is final — APPROVED, CHANGES_REQUESTED, or BLOCKED. Evaluate design and approach first, end-to-end wiring second, code quality last. Everything is on the table, including major refactors.
+For every claim the code makes about the system — type contracts, error handling assumptions, consumer expectations — verify by running or tracing the code. Do not evaluate claims by reasoning about them. Send a review report per your instructions.
 </parameter>
 </invoke>
 ```
 
 ## 4. Wait for Review
 
-Wait for the maintainer to deliver the review report via SendMessage.
+Wait for the maintainer to deliver the review report via SendMessage. The failure-mode analyst's findings may arrive before or during the maintainer's review — the maintainer incorporates them at their judgment. If the failure-mode report has not arrived by the time the maintainer reports, proceed — failure-mode findings will arrive and can inform the revision in Step 7.
 
 ## 5. Process Verdict
 
@@ -114,9 +138,11 @@ COMMITMSG
 
 Run validation per the plan's validation commands. On failure, delegate fixes (same as Step 2), then stage and re-validate.
 
+Review the failure-mode analyst's findings. Approach-level findings — where the analyst identifies runtime risks, silent failure paths, or data flow gaps — deserve the most consideration. Decide what to do: fix the code, add mitigations, acknowledge an accepted risk, or determine the finding doesn't apply. Not every finding requires a code change. No response to the failure-mode analyst is required.
+
 When a finding reveals unclear code, the fix should make the code self-explanatory — explanations in the re-submission message do not help future code readers.
 
-Message the maintainer to re-review. Explain what you changed, why, and where you made judgment calls:
+Message both the maintainer and failure-mode analyst to re-review. Explain what you changed, why, and where you made judgment calls:
 
 ```xml
 <invoke name="SendMessage">
@@ -137,11 +163,20 @@ All validations pass.
 </invoke>
 ```
 
+```xml
+<invoke name="SendMessage">
+<parameter name="recipient">failure-mode</parameter>
+<parameter name="content">
+The implementation has been revised. Diff the workspace against the baseline again and send updated findings to both the team lead and the maintainer.
+</parameter>
+</invoke>
+```
+
 Return to Step 4.
 
 ## 8. Shut Down Team
 
-Send shutdown request to the maintainer. Wait for acknowledgment before deleting the team:
+Send shutdown requests to both agents. Wait for acknowledgment before deleting the team:
 
 ```xml
 <invoke name="SendMessage">
@@ -151,7 +186,15 @@ Send shutdown request to the maintainer. Wait for acknowledgment before deleting
 </invoke>
 ```
 
-After the maintainer has shut down:
+```xml
+<invoke name="SendMessage">
+<parameter name="type">shutdown_request</parameter>
+<parameter name="recipient">failure-mode</parameter>
+<parameter name="content">Review complete.</parameter>
+</invoke>
+```
+
+After both agents have shut down:
 
 ```xml
 <invoke name="TeamDelete"/>

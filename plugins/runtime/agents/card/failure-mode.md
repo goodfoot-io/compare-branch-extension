@@ -1,6 +1,6 @@
 ---
 name: failure-mode
-description: Identify potential failure modes in implementation plans.
+description: Identify potential failure modes in implemented code.
 tools: "*"
 skills:
   - runtime:card-repo

@@ -12,13 +12,13 @@ Follow this workflow when implementing new functionality.
 Create type definitions and function/method stubs first:
 - Define all input/output types
 - Export functions/methods with correct signatures
-- Throw `Error('Not Implemented')` in function bodies
+- Stub bodies should throw a "not implemented" error
 - This establishes the API contract before implementation
 
 ## Phase 2: Write Skipped Tests
 
-Write tests using `it.skip` for the functionality:
-- Use `it.skip` for all new tests (they would fail against stubs)
+Write tests that are marked to skip for the functionality:
+- Mark all new tests as skipped (they would fail against stubs)
 - Cover the expected behavior thoroughly
 - Include error cases and edge cases
 - Tests document the expected contract
@@ -27,7 +27,7 @@ Write tests using `it.skip` for the functionality:
 
 Implement the function, then unskip and run tests:
 1. Implement the function
-2. Change `it.skip` to `it` for related tests
+2. Remove the skip marker from related tests
 3. Run tests to verify
 4. Fix any failures
 5. Repeat for remaining skipped tests
@@ -37,5 +37,5 @@ Implement the function, then unskip and run tests:
 | Phase | Action | Test State |
 |-------|--------|------------|
 | 1. Types & Stubs | Define types, create throwing stubs | No tests yet |
-| 2. Write Tests | Write comprehensive tests | `it.skip` |
-| 3. Implement | Fill in implementation | `it` (unskipped) |
+| 2. Write Tests | Write comprehensive tests | Skipped |
+| 3. Implement | Fill in implementation | Unskipped |

@@ -25,12 +25,6 @@ Enforce strict test-first verification:
 3. Test MUST pass after fix
 </test-first-invariant>
 
-<scope-rules>
-**Evaluation and refactoring**: The bug workflow omits the evaluation and refactoring phases present in card-implementation-with-plan. Bug fixes are scoped to the minimal change that makes the reproduction test pass, then validated by the full test suite. The test-first methodology (reproduction test must fail before fix, must pass after) provides the quality gate that evaluation serves in the implementation workflow.
-
-**Non-deterministic bugs**: If [TEST_FAILURE_OUTPUT] lacks file:line location information (e.g., timeout, race condition), data flow tracing in Step 3.1 may not be possible. In that case, document what is known about the failure mode and pass the available context to the resolver. The data flow path becomes a hypothesis rather than a trace.
-</scope-rules>
-
 <instructions>
 
 ## 1. Research Workspace based on Card Content
@@ -179,10 +173,9 @@ Verify independently using git — do not rely solely on the subagent status:
 
    ```bash
       git add "$TEST_FILE_PATH"
-   yarn test "$TEST_FILE_PATH"
    ```
 
-   Capture the full test output and exit code.
+   Run the test file using the project's test command. Capture the full test output and exit code.
 
 ### 2.3 Outcomes
 
@@ -218,6 +211,10 @@ Based on subagent response and test result:
 Initialize: RESOLVE_ATTEMPT = 0 (max 3), TEST_CORRECTION_COUNT = 0 (max 1)
 
 ### 3.1 Trace Data Flow
+
+<scope-rules>
+**Non-deterministic bugs**: If [TEST_FAILURE_OUTPUT] lacks file:line location information (e.g., timeout, race condition), data flow tracing may not be possible. In that case, document what is known about the failure mode and pass the available context to the resolver. The data flow path becomes a hypothesis rather than a trace.
+</scope-rules>
 
 Before proposing a fix, map how bad data flows from origin to symptom:
 
