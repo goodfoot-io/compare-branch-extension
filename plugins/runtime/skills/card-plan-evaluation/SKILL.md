@@ -117,13 +117,12 @@ Wait for the maintainer's response.
 
 ### 2.4 Review Failure-Mode Findings
 
-Review the failure-mode analyst's findings. Approach-level findings — risks inherent to the plan's key bets or complexity disproportionate to the problem — deserve the most consideration. For each finding, decide:
+Review the failure-mode analyst's findings. Approach-level findings — risks inherent to the plan's key bets or complexity disproportionate to the problem — deserve the most consideration. Every finding must be addressed — "pre-existing" or "not part of the planned changes" is not grounds for dismissal. For each finding, decide:
 - Revise the approach
 - Add mitigations
-- Acknowledge an accepted risk
-- Determine the finding doesn't apply
+- Acknowledge an accepted risk with explicit justification of why the risk is tolerable in context
 
-Not every finding requires a plan change.
+**Out-of-scope issues**: If you or a reviewer discover an issue in code the plan does not interact with, do not treat it as a finding on this review. Instead, load the `cards:api` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Alert the team via `SendMessage`, then continue.
 
 ### 2.5 Revise and Re-submit
 

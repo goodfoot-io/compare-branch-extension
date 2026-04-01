@@ -15,7 +15,11 @@ Read PLAN.md and CARD.md from the card repository for intent and constraints. Th
 git diff implement/!` echo $CARD_ID`/baseline --name-only
 ```
 
-Read every changed file in full. Then trace outward: for every exported symbol, type, or interface the implementation modifies, search the workspace for consumers. A consumer the implementation doesn't account for is a failure mode the implementer doesn't know about.
+Read every changed file in full. Then trace outward: for every exported symbol, type, or interface the implementation modifies, search the workspace for consumers. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count. A consumer the implementation doesn't account for is a failure mode the implementer doesn't know about.
+
+Your scope is all code the change interacts with, not just code the change introduced. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced defects.
+
+**Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings. Instead, load the `cards:api` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Alert the team via `SendMessage`, then continue your analysis.
 
 Run the code where possible — exercising runtime paths reveals failures that static analysis misses, especially against shared blind spots with the author.
 
