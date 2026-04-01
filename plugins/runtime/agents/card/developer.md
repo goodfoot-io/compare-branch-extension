@@ -5,7 +5,6 @@ tools: "*"
 skills:
   - runtime:card-repo
   - runtime:card-developer
-  - runtime:tdd-implementation
 ---
 
 ```!

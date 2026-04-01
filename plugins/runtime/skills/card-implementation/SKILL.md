@@ -91,8 +91,6 @@ For each step in the plan:
       git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
    ```
 
-For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
-
 If an empirically-testable uncertainty surfaces during implementation, invoke the `runtime:spike` skill before proceeding. Update the plan with findings and commit to the card repo.
 
 ### 4.1 Validation Gate

@@ -148,9 +148,6 @@ This task owns: [absolute paths from plan]
 ## Patterns to Follow
 [Code snippets showing conventions — from exploration or file reads]
 
-## Implementation Approach
-For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
-
 ## Guidelines
 - Only make requested changes
 - Don't add unrequested features or abstractions

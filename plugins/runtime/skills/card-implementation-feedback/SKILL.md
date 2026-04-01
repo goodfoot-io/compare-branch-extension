@@ -82,8 +82,6 @@ COMMITMSG
 )"
 ```
 
-For new functions or methods, load the `runtime:tdd-implementation` skill and follow its instructions.
-
 ### 4.1 Validation Gate
 
 ALL validation commands must pass before proceeding.

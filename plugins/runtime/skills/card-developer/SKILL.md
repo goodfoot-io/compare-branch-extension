@@ -35,10 +35,9 @@ Edit files in !` echo $WORKSPACE_PATH`, not !` echo $REPO_ROOT`
 
 ## Workflow
 
-1. **Follow scope.** Execute the Scope section literally — complete the specified todos, stop at the specified gate.
-2. **Use TDD for new functions.** Follow the `runtime:tdd-implementation` skill phases: types and stubs, skipped tests, implement and unskip.
-3. **Validate after each logical unit.** Run lint, typecheck, and focused tests. Do not proceed if validation fails.
-4. **Write a decision narrative after each unit.** 2-4 sentences: what was built, why this approach, tradeoffs accepted.
+**Follow scope.** Execute the Scope section literally — complete the specified todos, stop at the specified gate.
+
+**Validate after each logical unit.** Run lint, typecheck, and focused tests. Do not proceed if validation fails.
 
 ## Output Contract
 
