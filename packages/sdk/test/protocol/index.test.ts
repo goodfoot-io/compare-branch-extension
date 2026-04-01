@@ -242,6 +242,8 @@ describe('ValidationErrorCode', () => {
           return 'A completed task has no output';
         case 'warning_active_without_actions':
           return 'An active task has no actions';
+        case 'invalid_embedded_syntax':
+          return 'The embedded content has invalid syntax';
         case 'unknown':
           return 'An unknown error occurred';
       }

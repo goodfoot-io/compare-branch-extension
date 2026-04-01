@@ -60,4 +60,5 @@ export type ValidationErrorCode =
   | 'blocked_without_dependencies'
   | 'warning_completed_without_output'
   | 'warning_active_without_actions'
+  | 'invalid_embedded_syntax'
   | 'unknown';
