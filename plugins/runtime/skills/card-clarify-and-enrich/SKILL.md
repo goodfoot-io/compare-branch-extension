@@ -59,11 +59,10 @@ A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 - Description contains factual errors (wrong paths, incorrect component names)
 - Description lacks context needed to begin work
 
-**Enrich descriptions** with context discovered during exploration:
+**Enrich descriptions** with context discovered during exploration. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references, code locations, and diagrams:
 - Relevant file paths and component names
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)
-- Mermaid diagrams when multi-component interactions or state transitions are central
 
 #### For bug cards
 

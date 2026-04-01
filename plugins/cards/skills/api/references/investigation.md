@@ -19,9 +19,7 @@ Make the intent and outcomes explicit: what needs to be learned, why it matters,
 ## Section Notes
 
 - **Summary** (omit header in output): Write as a question or uncertainty paired with impact.
-- **Background** (omit header in output): Only context required to understand why the investigation is needed now.
-  - Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — so references are clickable in the card-detail webview.
-  - Non-workspace paths remain as backtick code spans.
+- **Background** (omit header in output): Only context required to understand why the investigation is needed now. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references and code locations.
 - **Key Questions / Hypotheses**: Phrase questions so they can be answered with data.
 - **Scope & Constraints**: Narrow enough to complete, broad enough to answer the key questions.
 - **Approach & Evidence Sources**: Favor evidence that is repeatable and verifiable.

@@ -19,9 +19,7 @@ Capture the operational goal, evidence, and verification while minimizing risk. 
 ## Writing Principles
 
 - **Objective and urgency**: What needs to be true after the work, what impact is at risk (SLA/SLO, error budget), how urgent and why.
-- **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost).
-  - Use markdown fragment links for workspace files — `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` — so references are clickable in the card-detail webview.
-  - Non-workspace paths remain as backtick code spans.
+- **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost). Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references and code locations.
 - **Measurable outcomes**: Success targets, verification steps (dashboard checks, canary signals), must-have vs nice-to-have.
 - **Change classification**: Standard/normal/emergency (ITSM/ITIL), environments affected, change windows, approvals.
 - **Risk and reversibility**: Blast radius, failure modes, rollback/backout expectations, preconditions (access, feature flags, backups).

@@ -375,10 +375,7 @@ Active voice, present tense. Write paragraphs as continuous prose — do not bre
 
 #### File References
 
-When referencing files or concepts in the commit body, use markdown inline links with paths relative to the workspace root. Two styles:
-
-- **Soft link** — anchor natural prose to a relevant file, as you would on the web: `the [token refresh logic](./src/auth/refresh.ts) now handles network timeouts`
-- **Precise link** — point to a specific line or range with GitHub-style anchors: `[src/auth/provider.ts L42](./src/auth/provider.ts#L42)` or `[src/auth/provider.ts L42–L58](./src/auth/provider.ts#L42-L58)`
+Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references in commit bodies.
 
 #### Truth Over Profundity
 
