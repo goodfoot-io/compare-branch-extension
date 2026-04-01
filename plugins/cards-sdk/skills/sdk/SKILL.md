@@ -1,16 +1,16 @@
 ---
 name: Cards Configuration SDK
-description: This skill should be used when the user asks about "@cards/sdk/config", "cards extension settings", "defineAction", "type lifecycle hooks", "settings.config.ts", "stream renderers", "wwwRoot", "iframe renderer", "JSONL streaming", or mentions building settings.json for Cards Extension.
+description: This skill should be used when the user asks about "@cards/sdk/config", "cards extension settings", "defineAction", "settings.config.ts", "stream renderers", "wwwRoot", "iframe renderer", "JSONL streaming", or mentions building settings.json for Cards Extension.
 version: 1.0.0
 ---
 
 ## Purpose
 
-SDK documentation for the `@cards/sdk/config` library: type-safe action handlers and lifecycle hooks for the Cards Extension.
+SDK documentation for the `@cards/sdk/config` library: type-safe action handlers for the Cards Extension.
 
 ## Build Process
 
-Actions and stream renderer www-root directories are processed at build time. Rebuild after every code change.
+Actions and stream renderer www-root directories are processed at build time. Rebuild after every change.
 
 ```bash
 npx @cards/sdk/config build -c settings.config.ts -o dist
@@ -58,7 +58,7 @@ export default defineAction(
 
 ## Configuration File Structure
 
-Define environments, actions, types, and streams in `settings.config.ts`:
+Define environments, actions, and streams in `settings.config.ts`:
 
 ```typescript
 import { defineConfig } from '@cards/sdk/config';
@@ -70,11 +70,6 @@ export default defineConfig({
       version: 1,
       description: 'Default environment',
       actions: [launchClaude],
-      types: {
-        'adaptive-card': {
-          version: '1.0.0'
-        }
-      },
       streams: {
         'chat-log': {
           version: 1,
@@ -85,38 +80,6 @@ export default defineConfig({
     }
   }
 });
-```
-
-## Type Lifecycle Hooks
-
-Define hooks for create, update, and delete events:
-
-```typescript
-import { defineTypeCreate, defineTypeUpdate, defineTypeDelete } from '@cards/sdk/config';
-
-// Create hook
-export const create = defineTypeCreate(
-  { typeName: 'adaptive-card' },
-  async (input, { logger }) => {
-    logger.info('Card created', { file: input.fileName, hash: input.fileSha256.slice(0, 8) });
-  }
-);
-
-// Update hook
-export const update = defineTypeUpdate(
-  { typeName: 'adaptive-card' },
-  async (input, { logger }) => {
-    logger.info('Card updated', { file: input.fileName });
-  }
-);
-
-// Delete hook
-export const del = defineTypeDelete(
-  { typeName: 'adaptive-card' },
-  async (input, { logger }) => {
-    logger.info('Card deleted', { file: input.fileName });
-  }
-);
 ```
 
 ## Stream Renderer Example
@@ -194,9 +157,6 @@ Minimal renderer template:
 | Factory | Purpose | Config Fields |
 |---------|---------|---------------|
 | `defineAction` | Action handler | `actionName`, `id?`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?` |
-| `defineTypeCreate` | New file hook | `typeName`, `timeout?` |
-| `defineTypeUpdate` | Modified file hook | `typeName`, `timeout?` |
-| `defineTypeDelete` | Deleted file hook | `typeName`, `timeout?` |
 
 ## Stream Configuration Fields
 
@@ -223,7 +183,7 @@ Before debugging issues, verify:
 
 Consult these reference files for detailed information:
 
-- **[reference/input-types.md](reference/input-types.md)**: ActionInput, TypeHookInput
+- **[reference/input-types.md](reference/input-types.md)**: ActionInput
 - **[reference/environment.md](reference/environment.md)**: CARDS_ENV_VARS and extraction utilities
 - **[reference/logging.md](reference/logging.md)**: Logger API and configuration
 - **[reference/streams.md](reference/streams.md)**: Stream renderer configuration and the stream-store SDK

@@ -15,13 +15,6 @@ CARDS_ENV_VARS.ACTION_NAME                   // 'ACTION_NAME'
 CARDS_ENV_VARS.ENVIRONMENT                   // 'ENVIRONMENT'
 CARDS_ENV_VARS.EXECUTION_MODE                // 'EXECUTION_MODE'
 CARDS_ENV_VARS.CODING_AGENT                  // 'CODING_AGENT'
-CARDS_ENV_VARS.TYPE_NAME                     // 'TYPE_NAME'
-CARDS_ENV_VARS.TYPE_VERSION                  // 'TYPE_VERSION'
-CARDS_ENV_VARS.FILE_NAME                     // 'FILE_NAME'
-CARDS_ENV_VARS.FILE_PATH                     // 'FILE_PATH'
-CARDS_ENV_VARS.FILE_SIZE                     // 'FILE_SIZE'
-CARDS_ENV_VARS.SHA256                        // 'SHA256'
-CARDS_ENV_VARS.CONTENT_TYPE                  // 'CONTENT_TYPE'
 CARDS_ENV_VARS.VSCODE_NODE               // 'VSCODE_NODE'
 CARDS_ENV_VARS.SOCKET_PATH                   // 'SOCKET_PATH'
 CARDS_ENV_VARS.SWITCH_TO_INTERACTIVE_DATA_PATH // 'SWITCH_TO_INTERACTIVE_DATA_PATH'
@@ -32,26 +25,19 @@ CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 
 ## Variable Availability
 
-| Variable | Actions | Type Lifecycle |
-|----------|---------|----------------|
-| `CARD_ID` | Yes | Yes |
-| `ACTION_NAME` | Yes | No |
-| `ENVIRONMENT` | Yes | Yes |
-| `EXECUTION_MODE` | Yes | No |
-| `CODING_AGENT` | Yes (optional) | No |
-| `TYPE_NAME` | No | Yes |
-| `TYPE_VERSION` | No | Yes |
-| `FILE_NAME` | No | Yes |
-| `FILE_PATH` | No | Yes |
-| `FILE_SIZE` | No | Yes |
-| `SHA256` | No | Yes |
-| `CONTENT_TYPE` | No | Yes |
-| `VSCODE_NODE` | Yes | Yes |
-| `SOCKET_PATH` | Yes | No |
-| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes | No |
-| `CONFIG_PATH` | Yes | No |
-| `WORKSPACE_PATH` | Yes | No |
-| `CARD_REPO_PATH` | Yes | No |
+| Variable | Actions |
+|----------|---------|
+| `CARD_ID` | Yes |
+| `ACTION_NAME` | Yes |
+| `ENVIRONMENT` | Yes |
+| `EXECUTION_MODE` | Yes |
+| `CODING_AGENT` | Yes (optional) |
+| `VSCODE_NODE` | Yes |
+| `SOCKET_PATH` | Yes |
+| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes |
+| `CONFIG_PATH` | Yes |
+| `WORKSPACE_PATH` | Yes |
+| `CARD_REPO_PATH` | Yes |
 
 ## Individual Getters
 
@@ -113,33 +99,6 @@ const repoRoot = getRepoRoot();                            // Main git repositor
 const cardRepoPath = getCardRepoPath();                    // Card repository path
 ```
 
-### Type Hook Variables
-
-```typescript
-import {
-  getTypeName,
-  getTypeVersion,
-  getFileName,
-  getFilePath,
-  getFileSize,
-  getSha256,
-  getContentType
-} from '@cards/sdk/config';
-
-// All throw Error if missing or empty
-const typeName = getTypeName();      // e.g., 'adaptive-card'
-const typeVersion = getTypeVersion(); // e.g., '1.0.0'
-const fileName = getFileName();       // e.g., 'card.json'
-const filePath = getFilePath();       // e.g., '/path/to/card.json'
-const contentType = getContentType(); // e.g., 'application/json'
-
-// getFileSize parses and validates as number
-const fileSize = getFileSize();       // e.g., 1234
-
-// getSha256 returns hex string
-const sha256 = getSha256();           // e.g., 'abc123...'
-```
-
 ## Typed Input Extraction
 
 For convenience, extract complete typed input objects.
@@ -163,26 +122,6 @@ const input = extractActionInput();
 // }
 ```
 
-### Type Hook Input
-
-```typescript
-import { extractTypeInput } from '@cards/sdk/config';
-
-// Returns TypeHookInput with all type hook variables
-const input = extractTypeInput();
-// {
-//   cardId: string,
-//   environment: string,
-//   typeName: string,
-//   typeVersion: string,
-//   fileName: string,
-//   filePath: string,
-//   fileSize: number,
-//   fileSha256: string,
-//   contentType: string
-// }
-```
-
 ## Error Handling
 
 Getters throw descriptive errors when variables are missing:
@@ -200,11 +139,6 @@ try {
   // Error: "Invalid EXECUTION_MODE: expected 'interactive' or 'background', got 'foo'"
 }
 
-try {
-  const size = getFileSize();
-} catch (error) {
-  // Error: "Invalid FILE_SIZE: expected number, got 'not-a-number'"
-}
 ```
 
 ## API Access

@@ -208,14 +208,12 @@ Each commit's `diff.files` array contains `CardCommitFile` records:
 
 ### Workspace-Scoped Endpoints
 
-When the server manages multiple workspace folders, several endpoints accept an optional `workspacePath` query parameter to resolve per-workspace settings (environments, typed file schemas). If `workspacePath` is provided but the workspace is not registered, the endpoint returns `400` (fail-closed).
+When the server manages multiple workspace folders, several endpoints accept an optional `workspacePath` query parameter to resolve per-workspace settings (environments). If `workspacePath` is provided but the workspace is not registered, the endpoint returns `400` (fail-closed).
 
 | Endpoint | Resolution |
 |----------|------------|
 | `GET /environments` | Settings loader (environment definitions) |
 | `GET /cards/:id/schema` | Settings loader (environment schema) |
-| `GET /cards/:id/:typeName` | Types config (typed file handlers) |
-| `GET /cards/:id/:typeName/:fileName` | Types config (typed file handlers) |
 | `POST /cards/:cardId/streams/:streamType/:filename` | Settings loader (stream transforms) |
 
 Usage: append `?workspacePath=/absolute/path/to/workspace` to any of the above.
@@ -286,7 +284,7 @@ git -C "$REPO" log --reverse --diff-filter=A --format='%an: %s' --name-only -- c
 ```
 
 Replace both occurrences of `comment/` with the target directory
-(e.g., `attachment/`, `note/`, `adaptive-card/`).
+(e.g., `attachment/`).
 
 ### Adding a Comment
 

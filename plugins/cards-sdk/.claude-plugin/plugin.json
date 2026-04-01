@@ -1,6 +1,6 @@
 {
   "name": "cards-sdk",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "SDK documentation and development guidance for @cards/sdk/config library - type-safe configuration for Cards Extension with actions and lifecycle hooks",
   "author": {
     "name": "Goodfoot",

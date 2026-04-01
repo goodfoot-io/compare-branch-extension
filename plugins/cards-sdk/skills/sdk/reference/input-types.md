@@ -52,50 +52,11 @@ async (input: ActionInput, context) => {
 }
 ```
 
-## Type Hook Input Types
-
-### TypeHookInput
-
-Input payload for type lifecycle hooks (create, update, delete).
-
-```typescript
-interface TypeHookInput {
-  cardId: string;          // Unique card identifier
-  environment: string;     // Environment name
-  typeName: string;        // Registered type name (e.g., 'adaptive-card')
-  typeVersion: string;     // Type version from settings.json
-  fileName: string;        // File name within type directory
-  filePath: string;        // Full absolute path to the file
-  fileSize: number;        // File size in bytes
-  fileSha256: string;      // SHA-256 hash of file content (hex string)
-  contentType: string;     // MIME type (e.g., 'application/json')
-}
-```
-
-**Usage Example:**
-
-```typescript
-async (input: TypeHookInput, { logger }) => {
-  logger.info('Processing typed file', {
-    type: input.typeName,
-    file: input.fileName,
-    size: input.fileSize,
-    hash: input.fileSha256.slice(0, 8)
-  });
-
-  // Read and process the file
-  const content = await fs.readFile(input.filePath, 'utf-8');
-
-  // Use hash for caching
-  const cacheKey = `${input.typeName}:${input.fileSha256}`;
-}
-```
-
 ## Context Types
 
 ### ActionContext
 
-Runtime context injected for **action** handlers. Not used for type lifecycle hooks — see `TypeHookContext`.
+Runtime context injected for **action** handlers.
 
 ```typescript
 interface ActionContext {
@@ -134,43 +95,16 @@ async (input: ActionInput, context: ActionContext) => {
 }
 ```
 
-### TypeHookContext
-
-Runtime context injected for type lifecycle hooks (create, update, delete). Unlike `ActionContext`, type hooks do not have `onCancel` or `onSwitchToInteractive` callbacks.
-
-```typescript
-interface TypeHookContext {
-  logger: ILogger;  // Logger for structured logging
-  cwd: string;      // Current working directory
-}
-```
-
-**Usage Example:**
-
-```typescript
-async (input: TypeHookInput, context: TypeHookContext) => {
-  context.logger.info('Processing type event', {
-    type: input.typeName,
-    file: input.fileName,
-    cwd: context.cwd
-  });
-}
-```
-
 ### Typed Input Extraction
 
 Extract complete typed input objects:
 
 ```typescript
-import { extractActionInput, extractTypeInput } from '@cards/sdk/config';
+import { extractActionInput } from '@cards/sdk/config';
 
 // For action handlers
 const actionInput = extractActionInput();
 // Returns ActionInput with all fields
-
-// For type hooks
-const typeInput = extractTypeInput();
-// Returns TypeHookInput with all fields
 ```
 
 ## Switch to Interactive Flow
