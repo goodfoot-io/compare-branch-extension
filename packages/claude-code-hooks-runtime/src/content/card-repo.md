@@ -122,11 +122,11 @@ Any `.md` file at the card repository root may have a `.md.meta.json` sidecar (e
 ```json
 {
   "title": "4–10 word display title",
-  "summary": "[100–300 word preview shown when the section is collapsed."]
+  "summary": "[100–300 word markdown-formatted preview shown when the section is collapsed.]"
 }
 ```
 
-The UI renders `title` as the section header (falling back to the filename when absent) and `summary` as markdown in the collapsed preview.
+The UI renders `title` as the section header (falling back to the filename when absent) and `summary` as markdown in the collapsed preview. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for both the `.md` document and its `summary` field — use [fragment links](./path) for file references, **bold** for emphasis, and `backticks` for identifiers.
 
 ## Comments
 

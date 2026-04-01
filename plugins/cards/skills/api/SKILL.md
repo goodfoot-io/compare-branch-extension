@@ -71,7 +71,7 @@ cat <<'CARD_EOF' > "$REPO/CARD.md"
 Card description here (plain markdown, no frontmatter).
 CARD_EOF
 cat <<'META_EOF' > "$REPO/CARD.md.meta.json"
-{ "title": "Description", "summary": "[100–300 word summary]" }
+{ "title": "Description", "summary": "[100–300 word markdown-formatted summary]" }
 META_EOF
 cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
@@ -83,7 +83,7 @@ cat <<'PLAN_EOF' > "$REPO/PLAN.md"
 Plan content here (plain markdown, no frontmatter).
 PLAN_EOF
 cat <<'META_EOF' > "$REPO/PLAN.md.meta.json"
-{ "title": "Plan: [approach title]", "summary": "[100–300 word multi-paragraph mini-plan: intent and done-state, then approach overview with components touched and key constraints]" }
+{ "title": "Plan: [approach title]", "summary": "[100–300 word markdown-formatted multi-paragraph mini-plan: intent and done-state, then approach overview with components touched and key constraints]" }
 META_EOF
 cd "$REPO" && git add PLAN.md PLAN.md.meta.json && git commit -m "Added plan [single sentence summarizing the approach and key components]."
 ```

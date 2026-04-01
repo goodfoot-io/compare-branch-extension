@@ -92,7 +92,7 @@ A good bug title describes behavior: *"[Component] fails when [action]"* or *"[E
 - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
 - Do not expand scope beyond user intent
 
-If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Write or update `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: the problem or need that triggered the card). Follow the `<markdown-guidelines>` in the `cards:markdown` skill. Commit to the card repository:
+If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Write or update `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: the problem or need that triggered the card). Follow the `<markdown-guidelines>` in the `cards:markdown` skill for both `CARD.md` and the `summary` field. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
