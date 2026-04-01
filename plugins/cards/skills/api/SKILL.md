@@ -48,7 +48,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
 EOF
 ```
 
-The response includes `repositoryPath`. After creation, write card content (CARD.md, PLAN.md, EVALUATION.md) directly to the card repository and commit:
+The response includes `repositoryPath`. After creation, write card content (CARD.md, PLAN.md, EVALUATION.md) and their document sidecars directly to the card repository and commit:
 
 ```bash
 REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF' | jq -r '.repositoryPath'
@@ -58,7 +58,10 @@ EOF
 cat <<'CARD_EOF' > "$REPO/CARD.md"
 Your card description here (plain markdown, no frontmatter).
 CARD_EOF
-cd "$REPO" && git add CARD.md && git commit -m "Add description"
+cat <<'META_EOF' > "$REPO/CARD.md.meta.json"
+{ "title": "4–10 word title", "summary": "100–300 character summary of the problem or need" }
+META_EOF
+cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Add description"
 ```
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
@@ -217,7 +220,9 @@ Returns `{ "success": true, "workspacePath": "..." }` on success. Returns `400` 
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
+CARD.md.meta.json           # Document sidecar (title, summary)
 PLAN.md                     # Optional plan document
+PLAN.md.meta.json           # Document sidecar (title, summary)
 EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown

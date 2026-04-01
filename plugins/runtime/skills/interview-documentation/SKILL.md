@@ -36,11 +36,13 @@ Decorate and enrich the user's request — do not implement it. Research the cod
 
 Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
 
+Write `CARD.md.meta.json` with a `title` (4–10 word document title naming the documentation gap) and `summary` (100–300 characters: what is missing or outdated and who is affected by the gap).
+
 ## 3. Commit
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-git add CARD.meta.json CARD.md
+git add CARD.meta.json CARD.md CARD.md.meta.json
 git commit -m "[single sentence summarizing the documentation scope, audience, and key decisions from the interview]"  # <card-repo-commit-style>
 ```
 

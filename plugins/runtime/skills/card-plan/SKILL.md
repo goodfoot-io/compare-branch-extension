@@ -20,11 +20,11 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 
 ### 1.3 Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
+Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` (4–10 word document title naming the approach or solution) and `summary` (100–300 characters of natural prose conveying the commander's intent and how the plan achieves it). Commit to the card repository:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-git add PLAN.md
+git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
 
@@ -39,11 +39,11 @@ For each spike-eligible uncertainty, invoke the `runtime:spike` skill:
 - **Alternative selection**: Use comparison spikes
 - **Independent spikes**: Launch in parallel
 
-Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
+Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch. Update `PLAN.md.meta.json` if the approach or intent changed.
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-git add PLAN.md
+git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
 

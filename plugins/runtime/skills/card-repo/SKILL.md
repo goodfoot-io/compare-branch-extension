@@ -35,7 +35,9 @@ The session runs in one of two modes, surfaced as the `mode` attribute on the `<
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
+CARD.md.meta.json           # Document sidecar (title, summary)
 PLAN.md                     # Optional plan document
+PLAN.md.meta.json           # Document sidecar (title, summary)
 EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
@@ -123,6 +125,19 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
   `runtime:evaluation` skill structure. Optional — cards function identically without it.
 
 All three are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
+
+### Document Sidecars
+
+Any `.md` file at the card repository root may have a `.md.meta.json` sidecar (e.g., `CARD.md` → `CARD.md.meta.json`). Write or update the sidecar whenever writing or updating the document. Commit the sidecar alongside its document.
+
+```json
+{
+  "title": "4–10 word display title",
+  "summary": "100–300 character preview shown when the section is collapsed."
+}
+```
+
+The UI renders `title` as the section header (falling back to the filename when absent) and `summary` as markdown in the collapsed preview.
 
 ## Comments
 

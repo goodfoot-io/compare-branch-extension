@@ -35,11 +35,13 @@ Decorate and enrich the user's request — do not implement it. Research the cod
 
 Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
 
+Write `CARD.md.meta.json` with a `title` (4–10 word document title naming the operational situation) and `summary` (100–300 characters: what is failing or at risk, the urgency, and the operational impact).
+
 ## 3. Commit
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
-git add CARD.meta.json CARD.md
+git add CARD.meta.json CARD.md CARD.md.meta.json
 git commit -m "[single sentence summarizing the operational scope, risk assessment, and key decisions from the interview]"  # <card-repo-commit-style>
 ```
 
