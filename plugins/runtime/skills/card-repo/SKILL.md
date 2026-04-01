@@ -295,11 +295,3 @@ Include genuine insight when it emerges — a surprise, an irony, a lesson that 
 
 Collect Decision Narratives from agent reports, extract what changed and what was learned, discard performative struggle. Weave a unified story, not a list.
 </workspace-commit-style>
-
-## Additional Resources
-
-### Reference Files
-
-For detailed schemas and validation rules, consult:
-
-- **`references/validation.md`** - Field constraints, tag patterns, gate logic
