@@ -1,10 +1,10 @@
 /**
- * Tests for the SessionStart hook that persists CARD_CLI.
+ * Tests for the SessionStart hook that persists CLI env vars.
  *
- * Verifies that the hook resolves the card-cli wrapper path and persists
- * it via persistEnvVar, and warns when the wrapper is missing.
+ * Verifies that the hook resolves all CLI wrapper paths and persists
+ * them via persistEnvVar, and warns when any wrapper is missing.
  *
- * @summary Tests for CARD_CLI SessionStart hook
+ * @summary Tests for CLI env var SessionStart hook
  */
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -25,6 +25,9 @@ import { fileURLToPath } from 'node:url';
 
 const mockFileURLToPath = vi.mocked(fileURLToPath);
 
+const WRAPPER_FILES = ['card-cli', 'notification-cli', 'compare-cli', 'cards-dev-cli'] as const;
+const ENV_VARS = ['CARD_CLI', 'NOTIFICATION_CLI', 'COMPARE_CLI', 'CARDS_DEV_CLI'] as const;
+
 describe('session-start hook', () => {
   const mockPersistEnvVar = vi.fn();
   const mockPersistEnvVars = vi.fn();
@@ -44,10 +47,14 @@ describe('session-start hook', () => {
   };
 
   let testDir: string;
+  let hookBinDir: string;
+  let binDir: string;
 
   beforeEach(() => {
     testDir = join(tmpdir(), `session-start-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(testDir, { recursive: true });
+    hookBinDir = join(testDir, 'hooks', 'bin');
+    binDir = join(testDir, 'bin');
+    mkdirSync(hookBinDir, { recursive: true });
     mockPersistEnvVar.mockReset();
     mockPersistEnvVars.mockReset();
     vi.mocked(mockLogger.info).mockReset();
@@ -59,52 +66,65 @@ describe('session-start hook', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
+  /**
+   * Creates wrapper files in the test bin directory.
+   *
+   * @param filenames - Wrapper filenames to create.
+   */
+  function createWrappers(filenames: readonly string[]): void {
+    mkdirSync(binDir, { recursive: true });
+    for (const name of filenames) {
+      writeFileSync(join(binDir, name), '#!/bin/sh\necho test');
+    }
+  }
+
+  function runHook() {
+    mockFileURLToPath.mockReturnValue(join(hookBinDir, 'hook.mjs'));
+    return import('../src/session-start.js').then((m) =>
+      m.default(baseInput, {
+        logger: mockLogger,
+        persistEnvVar: mockPersistEnvVar,
+        persistEnvVars: mockPersistEnvVars
+      })
+    );
+  }
+
   it('has correct hookEventName', async () => {
     const hookFn = (await import('../src/session-start.js')).default;
     expect(hookFn.hookEventName).toBe('SessionStart');
   });
 
-  it('persists CARD_CLI when card-cli wrapper exists', async () => {
-    // Simulate compiled hook at <testDir>/hooks/bin/hook.mjs
-    // card-cli should resolve to <testDir>/bin/card-cli
-    const hookBinDir = join(testDir, 'hooks', 'bin');
-    mkdirSync(hookBinDir, { recursive: true });
-    const binDir = join(testDir, 'bin');
-    mkdirSync(binDir, { recursive: true });
-    writeFileSync(join(binDir, 'card-cli'), '#!/bin/sh\necho test');
+  it('persists all four CLI env vars when all wrappers exist', async () => {
+    createWrappers(WRAPPER_FILES);
+    const result = await runHook();
 
-    mockFileURLToPath.mockReturnValue(join(hookBinDir, 'hook.mjs'));
-
-    const hookFn = (await import('../src/session-start.js')).default;
-    const result = await hookFn(baseInput, {
-      logger: mockLogger,
-      persistEnvVar: mockPersistEnvVar,
-      persistEnvVars: mockPersistEnvVars
-    });
-
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARD_CLI', join(binDir, 'card-cli'));
-    expect(vi.mocked(mockLogger.info)).toHaveBeenCalledWith('Persisted CARD_CLI', { path: join(binDir, 'card-cli') });
+    for (let i = 0; i < WRAPPER_FILES.length; i++) {
+      expect(mockPersistEnvVar).toHaveBeenCalledWith(ENV_VARS[i]!, join(binDir, WRAPPER_FILES[i]!));
+    }
+    expect(mockPersistEnvVar).toHaveBeenCalledTimes(4);
     expect(result.stdout).not.toHaveProperty('systemMessage');
   });
 
-  it('warns and returns systemMessage when card-cli wrapper is missing', async () => {
-    // Point to a directory with no card-cli file
-    const hookBinDir = join(testDir, 'hooks', 'bin');
-    mkdirSync(hookBinDir, { recursive: true });
-
-    mockFileURLToPath.mockReturnValue(join(hookBinDir, 'hook.mjs'));
-
-    const hookFn = (await import('../src/session-start.js')).default;
-    const result = await hookFn(baseInput, {
-      logger: mockLogger,
-      persistEnvVar: mockPersistEnvVar,
-      persistEnvVars: mockPersistEnvVars
-    });
+  it('warns and returns systemMessage when all wrappers are missing', async () => {
+    const result = await runHook();
 
     expect(mockPersistEnvVar).not.toHaveBeenCalled();
-    expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledWith('card-cli wrapper not found', {
-      path: join(testDir, 'bin', 'card-cli')
-    });
-    expect(result.stdout.systemMessage).toContain('card-cli wrapper not found');
+    expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledTimes(4);
+    expect(result.stdout.systemMessage).toContain('card-cli');
+    expect(result.stdout.systemMessage).toContain('cards-dev-cli');
+  });
+
+  it('persists available wrappers and warns about missing ones', async () => {
+    createWrappers(['card-cli', 'compare-cli']);
+    const result = await runHook();
+
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARD_CLI', join(binDir, 'card-cli'));
+    expect(mockPersistEnvVar).toHaveBeenCalledWith('COMPARE_CLI', join(binDir, 'compare-cli'));
+    expect(mockPersistEnvVar).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledTimes(2);
+    expect(result.stdout.systemMessage).toContain('notification-cli');
+    expect(result.stdout.systemMessage).toContain('cards-dev-cli');
+    expect(result.stdout.systemMessage).not.toContain('card-cli');
+    expect(result.stdout.systemMessage).not.toContain('compare-cli');
   });
 });
