@@ -75,7 +75,7 @@ Write evaluation content directly to the card repository:
 
   Test content.
   EOF
-  cd "$REPO" && git add EVALUATION.md && git commit -m "Add evaluation"
+  cd "$REPO" && git add EVALUATION.md && git commit -m "Added evaluation [single sentence summarizing what the rubric verifies]."
 Confirm the commit succeeds.
 </checkpoint>
 

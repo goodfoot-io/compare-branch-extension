@@ -65,7 +65,7 @@ CARD_EOF
 cat <<'META_EOF' > "$REPO/CARD.md.meta.json"
 { "title": "Description", "summary": "[100–300 word summary]" }
 META_EOF
-cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Add description"
+cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
 If the approach is clear, write PLAN.md in the same flow:
@@ -77,7 +77,7 @@ PLAN_EOF
 cat <<'META_EOF' > "$REPO/PLAN.md.meta.json"
 { "title": "Plan: [approach title]", "summary": "[100–300 word multi-paragraph mini-plan: intent and done-state, then approach overview with components touched and key constraints]" }
 META_EOF
-cd "$REPO" && git add PLAN.md PLAN.md.meta.json && git commit -m "Add plan"
+cd "$REPO" && git add PLAN.md PLAN.md.meta.json && git commit -m "Added plan [single sentence summarizing the approach and key components]."
 ```
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
@@ -298,7 +298,7 @@ mkdir -p "$REPO/comment"
 cat <<'COMMENT_EOF' > "$REPO/comment/my-slug-name.md"
 Your comment content here (plain markdown, no frontmatter).
 COMMENT_EOF
-cd "$REPO" && git add "comment/my-slug-name.md" && git commit -m "Add comment"
+cd "$REPO" && git add "comment/my-slug-name.md" && git commit -m "Added comment [single sentence summarizing the comment's substance]."
 ```
 
 ### Adding an Attachment
@@ -321,7 +321,7 @@ cat <<METAEOF > "$REPO/attachment/${ATT_NAME}.meta.json"
   "mimeType": "image/png"
 }
 METAEOF
-cd "$REPO" && git add "attachment/$ATT_NAME" "attachment/${ATT_NAME}.meta.json" && git commit -m "Add attachment"
+cd "$REPO" && git add "attachment/$ATT_NAME" "attachment/${ATT_NAME}.meta.json" && git commit -m "Added attachment [single sentence describing what was attached and why]."
 ```
 
 <card-status>
