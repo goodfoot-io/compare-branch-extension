@@ -298,7 +298,7 @@ export interface Card extends CardMetadata {
    * Absolute filesystem path to the repository containing the card directory.
    * Used for resolving relative paths in actions and typed files.
    */
-  repositoryPath?: string;
+  repositoryPath: string;
 
   /** Incoming relations targeting this card (derived from card_relations at read time, not persisted). */
   incomingRelations?: CardRelation[];

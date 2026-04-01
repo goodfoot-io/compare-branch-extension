@@ -222,6 +222,7 @@ describe('webview types', () => {
           isMerged: null,
           order: 0,
           repositoryId: 'main',
+          repositoryPath: '/tmp/cards/card-1',
           environment: 'default',
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z'
@@ -313,6 +314,7 @@ describe('webview types', () => {
             isMerged: null,
             order: 0,
             repositoryId: 'main',
+            repositoryPath: '/tmp/cards/i1',
             environment: 'default',
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01'
@@ -350,6 +352,7 @@ describe('webview types', () => {
             isMerged: null,
             order: 0,
             repositoryId: 'main',
+            repositoryPath: '/tmp/cards/i1',
             environment: 'default',
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01'
@@ -629,6 +632,7 @@ describe('webview types', () => {
           isMerged: null,
           order: 0,
           repositoryId: 'main',
+          repositoryPath: '/tmp/cards/card-1',
           environment: 'default',
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-02T00:00:00Z'
