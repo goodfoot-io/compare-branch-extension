@@ -1,16 +1,16 @@
 ---
 name: Cards Configuration SDK
-description: This skill should be used when the user asks about "@cards/sdk/config", "cards extension settings", "defineAction", "defineTypeValidator", "type lifecycle hooks", "settings.config.ts", "validationSuccess", "validationError", "stream renderers", "wwwRoot", "iframe renderer", "JSONL streaming", or mentions building settings.json for Cards Extension.
+description: This skill should be used when the user asks about "@cards/sdk/config", "cards extension settings", "defineAction", "type lifecycle hooks", "settings.config.ts", "stream renderers", "wwwRoot", "iframe renderer", "JSONL streaming", or mentions building settings.json for Cards Extension.
 version: 1.0.0
 ---
 
 ## Purpose
 
-SDK documentation for the `@cards/sdk/config` library: type-safe action handlers, type validators, and lifecycle hooks for the Cards Extension.
+SDK documentation for the `@cards/sdk/config` library: type-safe action handlers and lifecycle hooks for the Cards Extension.
 
 ## Build Process
 
-Actions, validators, and stream renderer www-root directories are processed at build time. Rebuild after every code change.
+Actions and stream renderer www-root directories are processed at build time. Rebuild after every code change.
 
 ```bash
 npx @cards/sdk/config build -c settings.config.ts -o dist
@@ -56,46 +56,6 @@ export default defineAction(
 );
 ```
 
-## Type Validator Example
-
-Validators receive the file path via `ValidatorFileRequest` and read the file from disk themselves. Return a `ValidationResult` using `validationSuccess()` or `validationError()`:
-
-```typescript
-// src/validators/adaptive-card-validator.ts
-import { readFileSync } from 'node:fs';
-import {
-  defineTypeValidator,
-  validationSuccess,
-  validationError
-} from '@cards/sdk/config';
-export default defineTypeValidator(
-  {
-    typeName: 'adaptive-card'
-  },
-  async (request, context) => {
-    let card: { type: string; version: string };
-    try {
-      const content = readFileSync(request.filePath, 'utf-8');
-      card = JSON.parse(content) as { type: string; version: string };
-    } catch {
-      return validationError(['File must contain valid JSON']);
-    }
-
-    const errors: string[] = [];
-    if (card.type !== 'AdaptiveCard') {
-      errors.push('**type**: Must be `AdaptiveCard`');
-    }
-
-    if (errors.length > 0) {
-      return validationError(errors);
-    }
-
-    context.logger.info('Validation passed', { file: context.fileName });
-    return validationSuccess({ cardId: card.type });
-  }
-);
-```
-
 ## Configuration File Structure
 
 Define environments, actions, types, and streams in `settings.config.ts`:
@@ -103,7 +63,6 @@ Define environments, actions, types, and streams in `settings.config.ts`:
 ```typescript
 import { defineConfig } from '@cards/sdk/config';
 import launchClaude from './src/actions/launch-claude.js';
-import adaptiveCardValidator from './src/validators/adaptive-card-validator.js';
 
 export default defineConfig({
   environments: {
@@ -113,8 +72,7 @@ export default defineConfig({
       actions: [launchClaude],
       types: {
         'adaptive-card': {
-          version: '1.0.0',
-          validator: adaptiveCardValidator
+          version: '1.0.0'
         }
       },
       streams: {
@@ -172,7 +130,6 @@ my-config/
 ├── settings.config.ts
 └── src/
     ├── actions/
-    ├── validators/
     └── streams/
         └── my-stream/
             └── www/
@@ -237,7 +194,6 @@ Minimal renderer template:
 | Factory | Purpose | Config Fields |
 |---------|---------|---------------|
 | `defineAction` | Action handler | `actionName`, `id?`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?` |
-| `defineTypeValidator` | Pre-save validation | `typeName`, `timeout?` |
 | `defineTypeCreate` | New file hook | `typeName`, `timeout?` |
 | `defineTypeUpdate` | Modified file hook | `typeName`, `timeout?` |
 | `defineTypeDelete` | Deleted file hook | `typeName`, `timeout?` |
@@ -251,13 +207,6 @@ Minimal renderer template:
 | `entrypoint` | `string?` | No | HTML file within `wwwRoot` to load (default: `index.html`) |
 | `maxLineLength` | `number?` | No | Max bytes per line before truncation (default: 1 MB) |
 | `maxStreamSize` | `number?` | No | Max cumulative bytes before auto-close (default: 100 MB) |
-
-## Validation Response Builders
-
-| Builder | Result | Use Case |
-|---------|--------|----------|
-| `validationSuccess(metadata?)` | `{ valid: true, metadata? }` | Validation passed; optional metadata stored in `.meta.json` sidecar |
-| `validationError(errors)` | `{ valid: false, errors }` | Validation failed; `errors` is `string[]` of markdown-formatted messages |
 
 ## Development Checklist
 
@@ -274,9 +223,7 @@ Before debugging issues, verify:
 
 Consult these reference files for detailed information:
 
-- **[reference/input-types.md](reference/input-types.md)**: ActionInput, TypeHookInput, ValidatorFileRequest
-- **[reference/output-builders.md](reference/output-builders.md)**: Validation responses and error handling patterns
+- **[reference/input-types.md](reference/input-types.md)**: ActionInput, TypeHookInput
 - **[reference/environment.md](reference/environment.md)**: CARDS_ENV_VARS and extraction utilities
 - **[reference/logging.md](reference/logging.md)**: Logger API and configuration
-- **[reference/testing.md](reference/testing.md)**: Testing utilities for validators
 - **[reference/streams.md](reference/streams.md)**: Stream renderer configuration and the stream-store SDK

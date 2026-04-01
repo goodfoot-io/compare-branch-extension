@@ -21,7 +21,6 @@ my-config/
 ├── settings.config.ts
 ├── src/
 │   ├── actions/
-│   ├── validators/
 │   └── streams/
 │       └── my-stream/
 │           └── www/

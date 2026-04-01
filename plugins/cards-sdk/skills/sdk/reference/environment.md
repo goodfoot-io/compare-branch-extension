@@ -32,26 +32,26 @@ CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 
 ## Variable Availability
 
-| Variable | Actions | Type Validators | Type Lifecycle |
-|----------|---------|-----------------|----------------|
-| `CARD_ID` | Yes | Yes | Yes |
-| `ACTION_NAME` | Yes | No | No |
-| `ENVIRONMENT` | Yes | Yes | Yes |
-| `EXECUTION_MODE` | Yes | No | No |
-| `CODING_AGENT` | Yes (optional) | No | No |
-| `TYPE_NAME` | No | Yes | Yes |
-| `TYPE_VERSION` | No | Yes | Yes |
-| `FILE_NAME` | No | Yes | Yes |
-| `FILE_PATH` | No | No | Yes |
-| `FILE_SIZE` | No | No | Yes |
-| `SHA256` | No | No | Yes |
-| `CONTENT_TYPE` | No | Yes | Yes |
-| `VSCODE_NODE` | Yes | Yes | Yes |
-| `SOCKET_PATH` | Yes | No | No |
-| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes | No | No |
-| `CONFIG_PATH` | Yes | No | No |
-| `WORKSPACE_PATH` | Yes | No | No |
-| `CARD_REPO_PATH` | Yes | No | No |
+| Variable | Actions | Type Lifecycle |
+|----------|---------|----------------|
+| `CARD_ID` | Yes | Yes |
+| `ACTION_NAME` | Yes | No |
+| `ENVIRONMENT` | Yes | Yes |
+| `EXECUTION_MODE` | Yes | No |
+| `CODING_AGENT` | Yes (optional) | No |
+| `TYPE_NAME` | No | Yes |
+| `TYPE_VERSION` | No | Yes |
+| `FILE_NAME` | No | Yes |
+| `FILE_PATH` | No | Yes |
+| `FILE_SIZE` | No | Yes |
+| `SHA256` | No | Yes |
+| `CONTENT_TYPE` | No | Yes |
+| `VSCODE_NODE` | Yes | Yes |
+| `SOCKET_PATH` | Yes | No |
+| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes | No |
+| `CONFIG_PATH` | Yes | No |
+| `WORKSPACE_PATH` | Yes | No |
+| `CARD_REPO_PATH` | Yes | No |
 
 ## Individual Getters
 

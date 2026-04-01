@@ -214,8 +214,8 @@ When the server manages multiple workspace folders, several endpoints accept an 
 |----------|------------|
 | `GET /environments` | Settings loader (environment definitions) |
 | `GET /cards/:id/schema` | Settings loader (environment schema) |
-| `GET /cards/:id/:typeName` | Types config (typed file validators) |
-| `GET /cards/:id/:typeName/:fileName` | Types config (typed file validators) |
+| `GET /cards/:id/:typeName` | Types config (typed file handlers) |
+| `GET /cards/:id/:typeName/:fileName` | Types config (typed file handlers) |
 | `POST /cards/:cardId/streams/:streamType/:filename` | Settings loader (stream transforms) |
 
 Usage: append `?workspacePath=/absolute/path/to/workspace` to any of the above.
