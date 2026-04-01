@@ -58,7 +58,8 @@ After rebase completes, run linting, type checking, and tests.
 - Fix any errors you encounter — do not dismiss errors as "pre-existing" or "unrelated"
 - "Resolve or block" is the only valid outcome — there is no "proceed despite errors" path
 - Fix infrastructure failures (missing dependencies, path issues) directly — do not work around them
-- **If blocked**: Report by adding to existing open cards about the block, or create a new card with "backlog" status
+- Creating a card is not an alternative to fixing a validation failure — test failures, lint errors, and type errors must be fixed in this branch
+- **If blocked by an issue outside the validation toolchain** (e.g., missing credentials, network outage, unavailable service): Report by adding to existing open cards about the block, or create a new card with "backlog" status
 
 Based on validation result:
 - **All validation passes**: Proceed to Step 3

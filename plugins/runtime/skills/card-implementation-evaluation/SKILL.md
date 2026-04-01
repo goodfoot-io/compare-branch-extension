@@ -146,7 +146,7 @@ Review the failure-mode analyst's findings. Approach-level findings — runtime 
 - Add mitigations
 - Acknowledge an accepted risk with explicit justification of why the risk is tolerable in context
 
-**Out-of-scope issues**: If you or a reviewer discover an issue in code the change does not interact with, do not treat it as a finding on this review. Instead, load the `cards:api` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Alert the team via `SendMessage`, then continue.
+**Out-of-scope issues**: If you or a reviewer discover a latent issue in code the change does not interact with — visible only through code reading, not through validation output — do not treat it as a finding on this review. Instead, load the `cards:api` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Alert the team via `SendMessage`, then continue. Errors surfaced by validation (tests, lint, typecheck) are never out-of-scope — they must be fixed before proceeding.
 
 ### 4.5 Address Changes and Re-submit
 
