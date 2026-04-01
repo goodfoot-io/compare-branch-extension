@@ -140,9 +140,6 @@ describe('runtime', () => {
       });
     });
 
-    // Note: Type validator commands are not tested here because they use
-    // executeValidation (file-path protocol) instead of executeCommand
-
     describe('type create commands', () => {
       beforeEach(() => {
         // Setup type environment variables

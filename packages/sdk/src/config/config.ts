@@ -186,7 +186,7 @@ export interface EnvironmentConfig {
   /**
    * Optional type definitions.
    *
-   * Maps type names to their configurations (validator and lifecycle hooks).
+   * Maps type names to their configurations (lifecycle hooks).
    * Type names should match the type discriminant in typed files.
    */
   types?: Record<string, TypeConfigDefinition>;

@@ -161,8 +161,7 @@ export interface StreamDefinition {
  *   ],
  *   types: {
  *     note: {
- *       version: '1.0.0',
- *       validator: { command: 'node ./bin/note-validator.js' }
+ *       version: '1.0.0'
  *     }
  *   }
  * };
