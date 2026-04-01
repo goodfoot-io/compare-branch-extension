@@ -746,25 +746,6 @@ export class CardsClient {
     return this.request(() => this.getHttpClient().get<Array<{ name: string; description?: string }>>(url));
   }
 
-  // --- Typed File Operations ---
-
-  /**
-   * Submits an adaptive card action by writing an `adaptive-card-submission` typed file.
-   *
-   * @param cardId - The card containing the adaptive card.
-   * @param actionId - The action ID from the adaptive card submit action.
-   * @param data - The form data collected by the adaptive card.
-   * @returns Promise resolving when the submission is persisted.
-   * @throws ApiError when the server rejects the submission (e.g. validation failure).
-   * @throws NetworkError when the request fails to reach the server.
-   */
-  async submitCardAction(cardId: string, actionId: string, data: Record<string, unknown>): Promise<void> {
-    const fileName = `${actionId}-${Date.now()}.json`;
-    const url = this.buildUrl(`/cards/${cardId}/adaptive-card-submission/${encodeURIComponent(fileName)}`);
-    const body = { cardId, actionId, data };
-    await this.request(() => this.getHttpClient().put<unknown>(url, body));
-  }
-
   // --- Type Schema Operations ---
 
   /**

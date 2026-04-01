@@ -546,27 +546,6 @@ describe('CardsClient', () => {
     });
   });
 
-  describe('Typed File Operations', () => {
-    it('should PUT /cards/:id/adaptive-card-submission/:fileName when submitting card action', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.submitCardAction('card-123', 'submit-btn', { name: 'Alice' });
-      expect(httpClient.requests[0]).toMatchObject({
-        method: 'PUT',
-        url: expect.stringContaining('/cards/card-123/adaptive-card-submission/'),
-        body: { cardId: 'card-123', actionId: 'submit-btn', data: { name: 'Alice' } }
-      });
-    });
-
-    it('should include actionId in the generated fileName', async () => {
-      const httpClient = new TestHttpClient();
-      const client = new CardsClient(options, httpClient);
-      await client.submitCardAction('card-123', 'my-action', {});
-      expect(httpClient.requests[0]?.url).toContain('my-action-');
-      expect(httpClient.requests[0]?.url).toContain('.json');
-    });
-  });
-
   describe('Action Operations', () => {
     it('executeAction sends POST to /cards/:id/actions/:name and returns ActionResult', async () => {
       const httpClient = new TestHttpClient();
