@@ -114,12 +114,15 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
 
 ## CARD.md, PLAN.md, and EVALUATION.md
 
-- **`CARD.md`** is the *requirement*: what needs to be done, acceptance criteria, and
-  context. Written by the card creator (human or agent). Stable once the card is understood.
-- **`PLAN.md`** is the *approach*: how the requirement will be implemented, broken into
-  tasks, with technical decisions. Written by the implementing agent. Subject to revision
-  and approval via the
-  `planRequired`/`planApproved` gates.
+- **`CARD.md`** is the *description*: what's happening, what's needed, and why it matters.
+  Content varies by card type — a bug report describes the defect, an enhancement describes
+  the capability gap, an investigation describes the unknown. Written by the card creator
+  (human or agent). Stable once the card is understood.
+- **`PLAN.md`** is the *approach*: how the card's action will be performed and for what
+  purpose (commander's intent). Includes technical decisions and steps, but starts with the
+  end state. Written by the implementing agent or alongside CARD.md when the approach is
+  clear at creation time. Subject to revision and approval via the `planRequired`/`planApproved`
+  gates.
 - **`EVALUATION.md`** is the *verification rubric*: how to confirm the implementation
   works from an end-user perspective. Written by the implementing agent following the
   `runtime:evaluation` skill structure. Optional — cards function identically without it.

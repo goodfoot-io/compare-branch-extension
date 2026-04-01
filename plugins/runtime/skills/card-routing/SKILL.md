@@ -42,6 +42,7 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 | IS_STALE | No activity for 30+ days |
 | PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
 | PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
+| HAS_PLAN | PLAN.md exists in the card repository |
 | USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the plan-submission agent comment. Plan-submission comment: most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
@@ -57,11 +58,12 @@ Select the **first** matching condition:
 - **5. REVIEW_APPROVED**: `runtime:card-merge`
 - **6. IS_STALE**: `runtime:card-clarify-and-enrich`
 - **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback`
-- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
-- **9. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
-- **10. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
-- **11. IS_TESTABLE_BUG**: `runtime:card-bug`
-- **12. Otherwise**: `runtime:card-implementation`
+- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED AND HAS_PLAN**: `runtime:card-plan-evaluation` — plan exists (e.g., created alongside CARD.md), skip to evaluation
+- **9. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
+- **10. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
+- **11. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
+- **12. IS_TESTABLE_BUG**: `runtime:card-bug`
+- **13. Otherwise**: `runtime:card-implementation`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" and write down why. Articulating the ambiguity usually resolves it.
 

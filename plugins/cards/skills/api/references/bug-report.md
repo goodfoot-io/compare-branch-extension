@@ -1,7 +1,7 @@
 
 <how-to-write-a-bug-report>
 
-Capture what happened with enough precision that someone else can reproduce it. Separate observation from speculation.
+Capture what happened with enough precision that someone else can reproduce it. Separate observation from speculation. CARD.md describes the defect and its impact — approach details (how to fix it) belong in PLAN.md.
 
 ## Report Structure
 

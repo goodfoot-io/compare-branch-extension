@@ -35,7 +35,7 @@ cd !` echo $CARD_REPO_PATH`
 cat <<'EOF' > comment/reopen-acknowledged.md
 [summary of the user's request, confirmation of understanding, and what additional work will be done]
 EOF
-git add CARD.meta.json comment/reopen-acknowledged.md
+git add comment/reopen-acknowledged.md
 git commit -m "[single sentence summarizing the additional work requested]"  # <card-repo-commit-style>
 ```
 

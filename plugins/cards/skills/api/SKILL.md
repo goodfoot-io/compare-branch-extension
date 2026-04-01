@@ -26,6 +26,10 @@ Determine the card type using the first matching signal:
 
 Read the matched reference file, then follow its guidance to compose the card's CARD.md content.
 
+### Optional PLAN.md at Creation Time
+
+If research during CARD.md writing reveals a clear approach, write PLAN.md alongside CARD.md rather than forcing a separate planning pass that duplicates the research. PLAN.md describes how the card's action will be performed and for what purpose (commander's intent). Write PLAN.md only when the approach is clear — if it isn't, write only CARD.md and let the planning step handle it.
+
 ## CLI Binaries
 
 ### card.mjs — Card operations
@@ -48,7 +52,7 @@ node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
 EOF
 ```
 
-The response includes `repositoryPath`. After creation, write card content (CARD.md, PLAN.md, EVALUATION.md) and their document sidecars directly to the card repository and commit:
+The response includes `repositoryPath`. After creation, write card content and document sidecars directly to the card repository and commit:
 
 ```bash
 REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF' | jq -r '.repositoryPath'
@@ -56,12 +60,24 @@ REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF' | jq -r '.reposito
 EOF
 )
 cat <<'CARD_EOF' > "$REPO/CARD.md"
-Your card description here (plain markdown, no frontmatter).
+Card description here (plain markdown, no frontmatter).
 CARD_EOF
 cat <<'META_EOF' > "$REPO/CARD.md.meta.json"
-{ "title": "Description", "summary": "[100–300 word summary of the problem or need]" }
+{ "title": "Description", "summary": "[100–300 word summary]" }
 META_EOF
 cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Add description"
+```
+
+If the approach is clear, write PLAN.md in the same flow:
+
+```bash
+cat <<'PLAN_EOF' > "$REPO/PLAN.md"
+Plan content here (plain markdown, no frontmatter).
+PLAN_EOF
+cat <<'META_EOF' > "$REPO/PLAN.md.meta.json"
+{ "title": "Plan: [approach title]", "summary": "[100–300 word summary]" }
+META_EOF
+cd "$REPO" && git add PLAN.md PLAN.md.meta.json && git commit -m "Add plan"
 ```
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.

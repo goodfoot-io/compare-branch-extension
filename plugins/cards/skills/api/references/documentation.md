@@ -1,7 +1,7 @@
 
 <how-to-write-a-documentation-request>
 
-Capture intent, audience, and outcomes without prescribing the solution. Leave room for the planner or implementer to choose format and placement.
+Capture intent, audience, and outcomes without prescribing the solution. Leave room for the planner or implementer to choose format and placement. CARD.md describes the documentation gap and audience — approach details (how to write it) belong in PLAN.md.
 
 ## Request Structure
 
