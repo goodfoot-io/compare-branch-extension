@@ -7,7 +7,7 @@
  *
  * Cards follow a directory-based storage model where each card lives in its own
  * folder containing `CARD.json` (metadata), `DESCRIPTION.md` (description),
- * optional plan documents, attachments, and typed files.
+ * optional plan documents, and attachments.
  *
  *
  * @summary Core card metadata for the Cards V2 protocol
@@ -296,7 +296,7 @@ export interface Card extends CardMetadata {
 
   /**
    * Absolute filesystem path to the repository containing the card directory.
-   * Used for resolving relative paths in actions and typed files.
+   * Used for resolving relative paths in actions.
    */
   repositoryPath: string;
 
