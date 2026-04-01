@@ -74,15 +74,6 @@ export interface CompileOptions {
    * source maps are generated. Defaults to false.
    */
   sourcemap?: boolean;
-
-  /**
-   * Factory type of the handler.
-   *
-   * When 'typeValidator', the wrapper will use executeValidation() which
-   * reads HTTP input from stdin and writes JSON response to stdout.
-   * For other types, the wrapper uses executeCommand() which reads from env vars.
-   */
-  factoryType?: string;
 }
 
 /**
@@ -221,7 +212,7 @@ const require = __createRequire(import.meta.url);`;
  * ```
  */
 export async function compileHandler(options: CompileOptions): Promise<CompileResult> {
-  const { sourcePath, outputPath, sourcemap = false, factoryType } = options;
+  const { sourcePath, outputPath, sourcemap = false } = options;
 
   try {
     // Verify source file exists
@@ -243,23 +234,12 @@ export async function compileHandler(options: CompileOptions): Promise<CompileRe
     };
     const sourceImport = toRelativeImport(sourcePath);
 
-    let wrapperContent: string;
-    if (factoryType === 'typeValidator') {
-      // Type validators use file-path protocol via executeValidation
-      const validationImport = toRelativeImport(path.resolve(getPackageRoot(), 'src/config/validation.ts'));
-      wrapperContent = `
-import handler from '${sourceImport}';
-import { executeValidation } from '${validationImport}';
-
-executeValidation(handler);
-`;
-    } else {
-      // Other handlers use environment variable extraction via executeCommand.
-      // Guard against --branch-cleanup: the branch-cleanup watcher re-executes
-      // this same bundle with that flag. Without the guard, executeCommand runs
-      // alongside the cleanup logic, spawning an unintended action loop.
-      const runtimeImport = toRelativeImport(path.resolve(getPackageRoot(), 'src/config/runtime.ts'));
-      wrapperContent = `
+    // Generate wrapper code that imports the handler and calls executeCommand.
+    // Guard against --branch-cleanup: the branch-cleanup watcher re-executes
+    // this same bundle with that flag. Without the guard, executeCommand runs
+    // alongside the cleanup logic, spawning an unintended action loop.
+    const runtimeImport = toRelativeImport(path.resolve(getPackageRoot(), 'src/config/runtime.ts'));
+    const wrapperContent = `
 import handler from '${sourceImport}';
 import { executeCommand } from '${runtimeImport}';
 
@@ -267,7 +247,6 @@ if (!process.argv.includes('--branch-cleanup')) {
   executeCommand(handler);
 }
 `;
-    }
 
     // Create output directory if it doesn't exist
     const outputDir = path.dirname(outputPath);

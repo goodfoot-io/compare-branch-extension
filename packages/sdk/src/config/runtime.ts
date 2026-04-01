@@ -54,9 +54,6 @@ import { SocketClient } from './socket-client.js';
  * the factory functions. The runtime dispatches based on the `factoryType`
  * discriminant.
  *
- * Note: TypeValidatorCommand is excluded because validators use a different
- * execution model (file-path protocol via {@link executeValidation}).
- *
  * @internal
  */
 type AnyCommand = ActionCommand | TypeCreateCommand | TypeUpdateCommand | TypeDeleteCommand;
@@ -159,9 +156,6 @@ function handleHandlerError(error: unknown): never {
  * - **Type Create** (`typeCreate`): Runs after new typed file creation
  * - **Type Update** (`typeUpdate`): Runs after typed file modification
  * - **Type Delete** (`typeDelete`): Runs when typed file is deleted
- *
- * Note: Type validators use a different execution model (file-path protocol)
- * and should be executed via {@link executeValidation} instead.
  *
  * ## Error Handling
  *

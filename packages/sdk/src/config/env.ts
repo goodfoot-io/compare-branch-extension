@@ -673,8 +673,8 @@ export function extractActionInput(): ActionInput {
 /**
  * Builds a typed type hook input object from environment variables.
  *
- * Extracts all fields required for type lifecycle hooks (validator, create,
- * update, delete).
+ * Extracts all fields required for type lifecycle hooks (create, update,
+ * delete).
  *
  * @returns Typed TypeHookInput object
  * @throws Error if required env vars are missing or invalid

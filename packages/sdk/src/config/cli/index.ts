@@ -181,7 +181,7 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
 
     // Extract type commands
     if (envConfig.types) {
-      const typeHookKeys = ['validator', 'create', 'update', 'delete'] as const;
+      const typeHookKeys = ['create', 'update', 'delete'] as const;
       for (const typeConfig of Object.values(envConfig.types)) {
         for (const hookKey of typeHookKeys) {
           const hook = typeConfig[hookKey];
@@ -270,8 +270,7 @@ async function compileHandlers(
     const result = await compileHandler({
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
-      sourcemap: true,
-      factoryType: cmd.factoryType
+      sourcemap: true
     });
 
     if (!result.success) {
@@ -423,11 +422,6 @@ function generateSettings(
           version: typeConfig.version
         };
 
-        if (typeConfig.validator) {
-          const key = `${typeConfig.validator.factoryType}:${typeConfig.validator.typeName}`;
-          const compiled = compiledByKey.get(key);
-          typeDef.validator = generateCommand(typeConfig.validator, compiled, binDir);
-        }
         if (typeConfig.create) {
           const key = `${typeConfig.create.factoryType}:${typeConfig.create.typeName}`;
           const compiled = compiledByKey.get(key);

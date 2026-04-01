@@ -13,14 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  defineAction,
-  defineTypeValidator,
-  type SettingsConfig,
-  type StreamDefinition,
-  serializeSettings,
-  validationSuccess
-} from '../../src/index.js';
+import { defineAction, type SettingsConfig, type StreamDefinition, serializeSettings } from '../../src/index.js';
 
 // ============================================================================
 // Stream Configuration Serialization Tests
@@ -229,11 +222,6 @@ describe('stream configuration serialization', () => {
     });
 
     it('should serialize streams alongside types', () => {
-      const validator = defineTypeValidator(
-        { typeName: 'note', schema: 'Note format', description: 'Validates notes' },
-        async () => validationSuccess()
-      );
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -241,8 +229,7 @@ describe('stream configuration serialization', () => {
             actions: [],
             types: {
               note: {
-                version: '1.0.0',
-                validator
+                version: '1.0.0'
               }
             },
             streams: {
@@ -270,11 +257,6 @@ describe('stream configuration serialization', () => {
         // Action implementation
       });
 
-      const validator = defineTypeValidator(
-        { typeName: 'note', schema: 'Note format', description: 'Validates notes' },
-        async () => validationSuccess()
-      );
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -282,8 +264,7 @@ describe('stream configuration serialization', () => {
             actions: [actionCommand],
             types: {
               note: {
-                version: '1.0.0',
-                validator
+                version: '1.0.0'
               }
             },
             streams: {

@@ -99,9 +99,6 @@ describe('build output: settings.json structure', () => {
             expect(typeof typeDef.version).toBe('string');
 
             // Validate optional hooks
-            if (typeDef.validator) {
-              expect(typeDef.validator).toHaveProperty('command');
-            }
             if (typeDef.create) {
               expect(typeDef.create).toHaveProperty('command');
             }
@@ -127,8 +124,8 @@ describe('build output: settings.json structure', () => {
 
         if (env.types) {
           for (const [_typeName, typeDef] of Object.entries(env.types)) {
-            if (typeDef.validator) {
-              expect(typeDef.validator.command).toMatch(/bin\//);
+            if (typeDef.create) {
+              expect(typeDef.create.command).toMatch(/bin\//);
             }
           }
         }
@@ -146,8 +143,8 @@ describe('build output: settings.json structure', () => {
 
         if (env.types) {
           for (const [_typeName, typeDef] of Object.entries(env.types)) {
-            if (typeDef.validator) {
-              expect(typeDef.validator.command).toMatch(hashPattern);
+            if (typeDef.create) {
+              expect(typeDef.create.command).toMatch(hashPattern);
             }
           }
         }
@@ -264,9 +261,6 @@ describe('build output: cross-reference validation', () => {
 
       if (env.types) {
         for (const [_typeName, typeDef] of Object.entries(env.types)) {
-          if (typeDef.validator) {
-            referencedFiles.push(extractFilename(typeDef.validator.command));
-          }
           if (typeDef.create) {
             referencedFiles.push(extractFilename(typeDef.create.command));
           }

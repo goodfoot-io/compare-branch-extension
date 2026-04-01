@@ -80,14 +80,13 @@ export interface Action {
 /**
  * Represents a typed file configuration with lifecycle hooks.
  *
- * Type definitions specify how to validate, create, update, and delete
+ * Type definitions specify how to create, update, and delete
  * typed files in the Cards Extension.
  *
  * @example
  * ```typescript
  * const typeDef: TypeDefinition = {
  *   version: '1.0.0',
- *   validator: { command: 'node ./bin/note-validator.js' },
  *   create: { command: 'node ./bin/note-create.js' },
  *   update: { command: 'node ./bin/note-update.js' },
  *   delete: { command: 'node ./bin/note-delete.js' }
@@ -97,18 +96,12 @@ export interface Action {
 export interface TypeDefinition {
   /** Version string for the type definition */
   version: string;
-  /** Optional validator command for typed files */
-  validator?: Command;
   /** Optional command for creating new typed files */
   create?: Command;
   /** Optional command for updating typed files */
   update?: Command;
   /** Optional command for deleting typed files */
   delete?: Command;
-  /** Human-readable schema describing the expected file format. */
-  schema?: string;
-  /** Description of the type's purpose. */
-  description?: string;
 }
 
 // ============================================================================

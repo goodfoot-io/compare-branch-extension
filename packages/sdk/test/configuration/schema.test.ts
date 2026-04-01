@@ -145,14 +145,6 @@ describe('TypeDefinition', () => {
     expectTypeOf(minimalType).toMatchTypeOf<TypeDefinition>();
   });
 
-  it('should allow optional validator command', () => {
-    const typeWithValidator: TypeDefinition = {
-      version: '1.0.0',
-      validator: { command: 'node ./bin/validator.js' }
-    };
-    expectTypeOf(typeWithValidator.validator).toEqualTypeOf<Command | undefined>();
-  });
-
   it('should allow optional create command', () => {
     const typeWithCreate: TypeDefinition = {
       version: '1.0.0',
@@ -180,7 +172,6 @@ describe('TypeDefinition', () => {
   it('should allow all lifecycle commands together', () => {
     const fullType: TypeDefinition = {
       version: '1.0.0',
-      validator: { command: 'node ./bin/validator.js' },
       create: { command: 'node ./bin/create.js' },
       update: { command: 'node ./bin/update.js' },
       delete: { command: 'node ./bin/delete.js' }
@@ -381,8 +372,7 @@ describe('Environment', () => {
       ],
       types: {
         note: {
-          version: '1.0.0',
-          validator: { command: 'node ./bin/validator.js' }
+          version: '1.0.0'
         }
       },
       streams: {
@@ -459,7 +449,6 @@ describe('Settings', () => {
           types: {
             note: {
               version: '1.0.0',
-              validator: { command: 'node ./bin/note-validator.js' },
               create: { command: 'node ./bin/note-create.js' },
               update: { command: 'node ./bin/note-update.js' },
               delete: { command: 'node ./bin/note-delete.js' }

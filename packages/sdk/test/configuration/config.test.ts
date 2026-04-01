@@ -13,8 +13,7 @@ import type {
   ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
+  TypeUpdateCommand
 } from '../../src/config/command-types.js';
 import type {
   EnvironmentConfig,
@@ -140,11 +139,6 @@ describe('config types', () => {
 
   describe('TypeConfigDefinition', () => {
     it('should accept all lifecycle hooks', () => {
-      const validator: TypeValidatorCommand<'test-type'> = {
-        factoryType: 'typeValidator',
-        typeName: 'test-type'
-      } as TypeValidatorCommand<'test-type'>;
-
       const create: TypeCreateCommand<'test-type'> = {
         factoryType: 'typeCreate',
         typeName: 'test-type'
@@ -162,14 +156,12 @@ describe('config types', () => {
 
       const typeConfig: TypeConfigDefinition = {
         version: '1.0.0',
-        validator,
         create,
         update,
         delete: deleteCmd
       };
 
       expect(typeConfig.version).toBe('1.0.0');
-      expect(typeConfig.validator?.typeName).toBe('test-type');
       expect(typeConfig.create?.typeName).toBe('test-type');
       expect(typeConfig.update?.typeName).toBe('test-type');
       expect(typeConfig.delete?.typeName).toBe('test-type');
@@ -181,7 +173,6 @@ describe('config types', () => {
       };
 
       expect(typeConfig.version).toBe('1.0.0');
-      expect(typeConfig.validator).toBeUndefined();
       expect(typeConfig.create).toBeUndefined();
       expect(typeConfig.update).toBeUndefined();
       expect(typeConfig.delete).toBeUndefined();
@@ -199,7 +190,6 @@ describe('config types', () => {
       // Type-level check that hooks are optional
       type ConfigType = TypeConfigDefinition;
 
-      expectTypeOf<ConfigType['validator']>().toEqualTypeOf<TypeValidatorCommand | undefined>();
       expectTypeOf<ConfigType['create']>().toEqualTypeOf<TypeCreateCommand | undefined>();
       expectTypeOf<ConfigType['update']>().toEqualTypeOf<TypeUpdateCommand | undefined>();
       expectTypeOf<ConfigType['delete']>().toEqualTypeOf<TypeDeleteCommand | undefined>();
@@ -412,11 +402,6 @@ describe('config types', () => {
         supportsBackgroundMode: true
       } as ActionCommand<'Deploy'>;
 
-      const validator: TypeValidatorCommand<'adaptive-card'> = {
-        factoryType: 'typeValidator',
-        typeName: 'adaptive-card'
-      } as TypeValidatorCommand<'adaptive-card'>;
-
       const config: SettingsConfig = {
         environments: {
           development: {
@@ -425,8 +410,7 @@ describe('config types', () => {
             actions: [launchCommand, deployCommand],
             types: {
               'adaptive-card': {
-                version: '1.0.0',
-                validator
+                version: '1.0.0'
               }
             }
           },
@@ -492,11 +476,6 @@ describe('config types', () => {
         actionName: 'Launch'
       } as ActionCommand<'Launch'>;
 
-      const validator: TypeValidatorCommand<'adaptive-card'> = {
-        factoryType: 'typeValidator',
-        typeName: 'adaptive-card'
-      } as TypeValidatorCommand<'adaptive-card'>;
-
       const config: SettingsConfig = {
         environments: {
           default: {
@@ -504,7 +483,7 @@ describe('config types', () => {
             description: 'Full environment with streams',
             actions: [command],
             types: {
-              'adaptive-card': { version: '1.0.0', validator }
+              'adaptive-card': { version: '1.0.0' }
             },
             streams: {
               jsonl: { version: 1, wwwRoot: './renderers/jsonl' }

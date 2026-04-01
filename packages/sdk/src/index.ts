@@ -14,17 +14,13 @@ export * from './protocol/index.js';
 // The colliding configuration types (Action, Command, Environment, Settings,
 // StreamDefinition, TypeDefinition, TypeConfig) are available via the
 // `@cards/sdk/config` subpath export.
-// ValidationFailure, ValidationResult, ValidationSuccess are re-exported from
-// protocol by the configuration barrel and are identical -- excluded here to
-// avoid duplicate-export errors.
 
 // --- Command Types ---
 export type {
   ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
+  TypeUpdateCommand
 } from './config/command-types.js';
 // --- Configuration ---
 export type {
@@ -60,18 +56,14 @@ export {
   defineTypeCreate,
   defineTypeDelete,
   defineTypeUpdate,
-  defineTypeValidator,
-  type TypeHandler,
-  type TypeValidatorHandler
+  type TypeHandler
 } from './config/factories/type-hooks.js';
 // --- Input Types ---
 export type {
   ActionContext,
   ActionInput,
   TypeHookContext,
-  TypeHookInput,
-  TypeValidatorContext,
-  ValidatorFileRequest
+  TypeHookInput
 } from './config/inputs.js';
 // --- Logger ---
 export {
@@ -88,18 +80,5 @@ export {
 } from './config/logger.js';
 // --- Runtime ---
 export { executeCommand } from './config/runtime.js';
-// --- Testing Utilities ---
-export type {
-  TestRequestOptions,
-  TestValidationOptions,
-  TestValidationResult
-} from './config/testing.js';
-export { createTestRequest, testValidation } from './config/testing.js';
 // --- Type Utilities ---
 export type { SameShape } from './config/type-utils.js';
-// --- Validation ---
-export {
-  executeValidation,
-  validationError,
-  validationSuccess
-} from './config/validation.js';

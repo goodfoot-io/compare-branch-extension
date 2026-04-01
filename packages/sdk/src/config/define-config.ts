@@ -147,7 +147,7 @@ function serializeAction(actionCommand: ActionCommand): Action {
  * Serializes a type configuration to a TypeDefinition object.
  *
  * @param typeName - Type key used in the environment's `types` map.
- * @param typeConfig - Type configuration containing validator and lifecycle hooks.
+ * @param typeConfig - Type configuration containing lifecycle hooks.
  * @returns Serialized type definition for `settings.json`.
  * @throws Error if the type configuration omits the required `version` field.
  */
@@ -158,18 +158,10 @@ function serializeTypeConfig(typeName: string, typeConfig: TypeConfigDefinition)
 
   const typeDef: TypeDefinition = {
     version: typeConfig.version,
-    validator: serializeTypeHook(typeConfig.validator),
     create: serializeTypeHook(typeConfig.create),
     update: serializeTypeHook(typeConfig.update),
     delete: serializeTypeHook(typeConfig.delete)
   };
-
-  if (typeConfig.validator?.schema !== undefined) {
-    typeDef.schema = typeConfig.validator.schema;
-  }
-  if (typeConfig.validator?.description !== undefined) {
-    typeDef.description = typeConfig.validator.description;
-  }
 
   return typeDef;
 }
@@ -244,7 +236,7 @@ export function defineConfig(config: SettingsConfig): SettingsConfig {
  *
  * The transformation extracts metadata from command objects:
  * - Action metadata (name, description, icon, etc.) from ActionCommand
- * - Type hook metadata from TypeValidatorCommand, TypeCreateCommand, etc.
+ * - Type hook metadata from TypeCreateCommand, TypeUpdateCommand, TypeDeleteCommand
  *
  * @param config - The settings configuration with command objects
  * @returns Settings object compatible with settings.json schema

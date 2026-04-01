@@ -1,7 +1,7 @@
 /**
  * Type lifecycle hook factories.
  *
- * These factories create type-specific hooks for validation and lifecycle events.
+ * These factories create type-specific hooks for lifecycle events.
  * They use SameShape for compile-time typo detection and preserve the type name
  * as a generic parameter.
  *
@@ -10,14 +10,8 @@
  * @module factories/type-hooks
  */
 
-import type { ValidationResult } from '../../protocol/index.js';
-import type {
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
-} from '../command-types.js';
-import type { TypeHookContext, TypeHookInput, TypeValidatorContext, ValidatorFileRequest } from '../inputs.js';
+import type { TypeCreateCommand, TypeDeleteCommand, TypeUpdateCommand } from '../command-types.js';
+import type { TypeHookContext, TypeHookInput } from '../inputs.js';
 import type { SameShape } from '../type-utils.js';
 
 /**
@@ -39,90 +33,12 @@ export interface TypeConfig {
 }
 
 /**
- * Configuration for type validators, extending TypeConfig with schema metadata.
- */
-export interface TypeValidatorConfig extends TypeConfig {
-  /** Human-readable schema describing the expected file format. */
-  schema: string;
-  /** Description of the type's purpose. */
-  description: string;
-}
-
-/**
  * Handler function for type lifecycle events (create, update, delete).
  *
  * @param input - Type hook input containing file metadata
  * @param context - Action context with logger and utilities
  */
 export type TypeHandler = (input: TypeHookInput, context: TypeHookContext) => void | Promise<void>;
-
-/**
- * Handler function for type validators.
- *
- * Receives a file request with the path and optional sidecar metadata.
- * The file is already on disk; validators read it themselves.
- *
- * @param request - File request with path and optional metadata
- * @param context - Validator context with type metadata
- * @returns Validation result indicating success or failure
- */
-export type TypeValidatorHandler = (
-  request: ValidatorFileRequest,
-  context: TypeValidatorContext
-) => ValidationResult | Promise<ValidationResult>;
-
-/**
- * Creates a type validator hook for file validation.
- *
- * Validators receive the file path and optional sidecar metadata.
- * The file is already on disk; validators read it themselves. Return a
- * `ValidationResult` to indicate success or failure.
- *
- * @template T - Config type (inferred)
- * @param config - Type metadata including the type name
- * @param handler - Function that validates the file and returns a result
- * @returns A command wrapper suitable for default export
- *
- * @example
- * ```typescript
- * // validators/adaptive-card-validator.ts
- * import { readFileSync } from 'node:fs';
- * import { defineTypeValidator, validationSuccess, validationError } from '@cards/sdk/config';
- *
- * export default defineTypeValidator(
- *   { typeName: 'adaptive-card' },
- *   async (request, context) => {
- *     const content = readFileSync(request.filePath, 'utf-8');
- *     const card = JSON.parse(content) as AdaptiveCard;
- *
- *     const errors = validateAdaptiveCard(card);
- *     if (errors.length > 0) {
- *       return validationError(errors.map(e => e.message));
- *     }
- *
- *     context.logger.info('Validation passed', { file: context.fileName });
- *     return validationSuccess({ cardId: card.id });
- *   }
- * );
- * ```
- */
-export function defineTypeValidator<T extends TypeValidatorConfig>(
-  config: SameShape<TypeValidatorConfig, T>,
-  handler: TypeValidatorHandler
-): TypeValidatorCommand<T['typeName']> {
-  const fn = async (request: ValidatorFileRequest, context: TypeValidatorContext): Promise<ValidationResult> => {
-    return await Promise.resolve(handler(request, context));
-  };
-
-  return Object.assign(fn, {
-    factoryType: 'typeValidator' as const,
-    typeName: config.typeName,
-    timeout: config.timeout,
-    sourcePath: config.sourcePath,
-    schema: config.schema,
-    description: config.description
-  }) as TypeValidatorCommand<T['typeName']>;
-}
 
 /**
  * Creates a type create hook for new file events.

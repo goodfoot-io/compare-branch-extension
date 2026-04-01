@@ -1,10 +1,10 @@
 /**
  * Type-safe configuration authoring for the Cards extension, providing factory
  * functions to define actions, type hooks, and stream transforms along with
- * environment helpers, structured logging, validation utilities, and a runtime
- * executor that compiles configuration into deployable settings.
+ * environment helpers, structured logging, and a runtime executor that compiles
+ * configuration into deployable settings.
  *
- * @summary Configuration authoring, validation, and runtime execution for Cards extensions
+ * @summary Configuration authoring and runtime execution for Cards extensions
  * @module
  */
 
@@ -26,11 +26,8 @@ export {
   defineTypeCreate,
   defineTypeDelete,
   defineTypeUpdate,
-  defineTypeValidator,
   type TypeConfig,
-  type TypeHandler,
-  type TypeValidatorConfig,
-  type TypeValidatorHandler
+  type TypeHandler
 } from './factories/type-hooks.js';
 
 // ============================================================================
@@ -66,9 +63,7 @@ export type {
   ActionContext,
   ActionInput,
   TypeHookContext,
-  TypeHookInput,
-  TypeValidatorContext,
-  ValidatorFileRequest
+  TypeHookInput
 } from './inputs.js';
 
 // ============================================================================
@@ -79,8 +74,7 @@ export type {
   ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
+  TypeUpdateCommand
 } from './command-types.js';
 
 // ============================================================================
@@ -134,34 +128,3 @@ export {
 // ============================================================================
 
 export { executeCommand } from './runtime.js';
-
-// ============================================================================
-// Validation
-// ============================================================================
-
-export {
-  executeValidation,
-  validationError,
-  validationSuccess
-} from './validation.js';
-
-// ============================================================================
-// Validation Result Types (from @cards/protocol)
-// ============================================================================
-
-export type {
-  ValidationFailure,
-  ValidationResult,
-  ValidationSuccess
-} from '../protocol/index.js';
-
-// ============================================================================
-// Testing Utilities
-// ============================================================================
-
-export type {
-  TestRequestOptions,
-  TestValidationOptions,
-  TestValidationResult
-} from './testing.js';
-export { createTestRequest, testValidation } from './testing.js';

@@ -6,9 +6,8 @@
  *
  *
  * @summary HTTP request parser for the validation system
- * @deprecated This module is no longer used by the validation system.
- * Validators now use the file-path protocol via `ValidatorFileRequest`
- * instead of parsing HTTP requests from stdin.
+ * @deprecated This module is no longer used. The validation system has been
+ * removed from the SDK.
  * @module
  */
 

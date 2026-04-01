@@ -78,8 +78,8 @@ export default {
   writeFileSync(
     join(FIXTURES_DIR, 'with-types.config.ts'),
     `
-const noteValidator = {
-  factoryType: 'typeValidator',
+const noteCreate = {
+  factoryType: 'typeCreate',
   typeName: 'note',
   handler: async () => {}
 };
@@ -98,7 +98,7 @@ export default {
       types: {
         note: {
           version: '1.0.0',
-          validator: noteValidator
+          create: noteCreate
         }
       }
     }
@@ -221,7 +221,7 @@ describe('build', () => {
         expect(settings.environments.default.types).toHaveProperty('note');
         expect(settings.environments.default.types.note.version).toBe('1.0.0');
         // Without sourcePath, commands use placeholder format
-        expect(settings.environments.default.types.note.validator.command).toBe('typeValidator-placeholder.js');
+        expect(settings.environments.default.types.note.create.command).toBe('typeCreate-placeholder.js');
       }
     });
 
@@ -598,12 +598,6 @@ export default {
       `
 import action from './action.js';
 
-const noteValidator = {
-  factoryType: 'typeValidator',
-  typeName: 'note',
-  handler: async () => {}
-};
-
 export default {
   environments: {
     default: {
@@ -611,8 +605,7 @@ export default {
       actions: [action],
       types: {
         note: {
-          version: '1.0.0',
-          validator: noteValidator
+          version: '1.0.0'
         }
       },
       streams: {

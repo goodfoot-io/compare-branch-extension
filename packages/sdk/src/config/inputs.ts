@@ -10,8 +10,6 @@
  * @module
  */
 
-import type { CardsClient } from '../client/cardsClient.js';
-
 /**
  * Input payload for action handlers.
  *
@@ -296,98 +294,4 @@ export interface TypeHookContext {
    * Current working directory.
    */
   cwd: string;
-}
-
-// ============================================================================
-// Type Validator Types
-// ============================================================================
-
-/**
- * File-oriented request for type validators.
- *
- * Validators receive the file path and optional sidecar metadata. The file
- * is already written to disk; validators read it themselves. If a `.meta.json`
- * sidecar exists alongside the file, its parsed contents are provided as
- * `metadata`.
- *
- * @example
- * ```typescript
- * import { readFileSync } from 'node:fs';
- *
- * async (request: ValidatorFileRequest, context) => {
- *   const content = readFileSync(request.filePath, 'utf-8');
- *   const data = JSON.parse(content);
- *
- *   if (!data.id) {
- *     return validationError(['`id` field is required']);
- *   }
- *   return validationSuccess({ version: data.version });
- * }
- * ```
- */
-export interface ValidatorFileRequest {
-  /** Absolute path to the file being validated. Validators read the file themselves. */
-  filePath: string;
-  /** Parsed .meta.json content if a sidecar already exists, undefined otherwise. */
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Context for type validators.
- *
- * Provides logger, type metadata, and card context for validation handlers.
- *
- * @example
- * ```typescript
- * async (request, context: TypeValidatorContext) => {
- *   context.logger.info('Validating', {
- *     type: context.typeName,
- *     file: context.fileName
- *   });
- * }
- * ```
- */
-export interface TypeValidatorContext {
-  /**
-   * Logger for structured logging during validation.
-   */
-  logger: import('./logger.js').ILogger;
-
-  /**
-   * Current working directory.
-   */
-  cwd: string;
-
-  /**
-   * The registered type name (e.g., 'adaptive-card', 'note').
-   */
-  typeName: string;
-
-  /**
-   * The type's version string from settings.json.
-   */
-  typeVersion: string;
-
-  /**
-   * The filename being validated (e.g., 'my-note.md').
-   */
-  fileName: string;
-
-  /**
-   * Unique identifier for the current card.
-   */
-  cardId: string;
-
-  /**
-   * The environment name from settings.json.
-   */
-  environment: string;
-
-  /**
-   * Cards API client for making authenticated API calls.
-   *
-   * `null` when discovery failed (e.g. `~/.cards/cards-api.json` not yet written).
-   * Validators that need API access must check for null before use (fail-closed).
-   */
-  client: CardsClient | null;
 }

@@ -26,13 +26,7 @@
  * ```
  */
 
-import type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
-} from './command-types.js';
+import type { ActionCommand, TypeCreateCommand, TypeDeleteCommand, TypeUpdateCommand } from './command-types.js';
 
 // ============================================================================
 // Stream Configuration
@@ -94,9 +88,9 @@ export interface StreamConfigDefinition {
 /**
  * Type definition with lifecycle hooks for settings configuration.
  *
- * Defines validation and lifecycle handlers for a specific card type. The
- * validator runs before create/update hooks and can reject invalid content.
- * Lifecycle hooks (create, update, delete) run after successful validation.
+ * Defines lifecycle handlers for a specific card type. Lifecycle hooks
+ * (create, update, delete) run when typed files are created, modified,
+ * or removed.
  *
  * This is the input format for type definitions in settings.config.ts files.
  * It uses direct imports of command objects created by factory functions.
@@ -105,7 +99,6 @@ export interface StreamConfigDefinition {
  * ```typescript
  * const adaptiveCardType: TypeConfigDefinition = {
  *   version: '1.0.0',
- *   validator: defineTypeValidator({ typeName: 'adaptive-card' }, validatorHandler),
  *   create: defineTypeCreate({ typeName: 'adaptive-card' }, createHandler),
  *   update: defineTypeUpdate({ typeName: 'adaptive-card' }, updateHandler),
  *   delete: defineTypeDelete({ typeName: 'adaptive-card' }, deleteHandler)
@@ -120,14 +113,6 @@ export interface TypeConfigDefinition {
    * versioning (e.g., '1.0.0').
    */
   version: string;
-
-  /**
-   * Optional validator command.
-   *
-   * Runs before create/update hooks to validate file content. If the
-   * validator throws an error, create/update hooks are not executed.
-   */
-  validator?: TypeValidatorCommand;
 
   /**
    * Optional create hook command.

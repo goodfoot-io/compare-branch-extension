@@ -8,7 +8,7 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
-import type { ActionContext, ActionInput, TypeHookInput, ValidatorFileRequest } from '../../src/config/inputs.js';
+import type { ActionContext, ActionInput, TypeHookInput } from '../../src/config/inputs.js';
 import type { ILogger } from '../../src/config/logger.js';
 
 describe('inputs', () => {
@@ -140,50 +140,6 @@ describe('inputs', () => {
     it('should have type-related fields', () => {
       expectTypeOf<TypeHookInput['typeName']>().toEqualTypeOf<string>();
       expectTypeOf<TypeHookInput['typeVersion']>().toEqualTypeOf<string>();
-    });
-  });
-
-  describe('ValidatorFileRequest', () => {
-    it('should have filePath as string', () => {
-      expectTypeOf<ValidatorFileRequest['filePath']>().toEqualTypeOf<string>();
-    });
-
-    it('should have optional metadata field', () => {
-      // metadata is optional
-      expectTypeOf<ValidatorFileRequest>().toMatchTypeOf<{
-        filePath: string;
-        metadata?: Record<string, unknown>;
-      }>();
-
-      // Can construct without metadata
-      const withoutMeta: ValidatorFileRequest = { filePath: '/test/file.json' };
-      expectTypeOf(withoutMeta).toMatchTypeOf<ValidatorFileRequest>();
-
-      // Can construct with metadata
-      const withMeta: ValidatorFileRequest = {
-        filePath: '/test/file.json',
-        metadata: { version: '1.0' }
-      };
-      expectTypeOf(withMeta).toMatchTypeOf<ValidatorFileRequest>();
-    });
-
-    it('should not have HTTP fields (method, path, headers, etc.)', () => {
-      // Verify HTTP-specific fields are NOT present
-      type HasMethod = ValidatorFileRequest extends { method: unknown } ? true : false;
-      type HasPath = ValidatorFileRequest extends { path: unknown } ? true : false;
-      type HasHeaders = ValidatorFileRequest extends { headers: unknown } ? true : false;
-      type HasBody = ValidatorFileRequest extends { body: unknown } ? true : false;
-      type HasBodyText = ValidatorFileRequest extends { bodyText: unknown } ? true : false;
-      type HasBodyJson = ValidatorFileRequest extends { bodyJson: unknown } ? true : false;
-      type HasHttpVersion = ValidatorFileRequest extends { httpVersion: unknown } ? true : false;
-
-      expectTypeOf<HasMethod>().toEqualTypeOf<false>();
-      expectTypeOf<HasPath>().toEqualTypeOf<false>();
-      expectTypeOf<HasHeaders>().toEqualTypeOf<false>();
-      expectTypeOf<HasBody>().toEqualTypeOf<false>();
-      expectTypeOf<HasBodyText>().toEqualTypeOf<false>();
-      expectTypeOf<HasBodyJson>().toEqualTypeOf<false>();
-      expectTypeOf<HasHttpVersion>().toEqualTypeOf<false>();
     });
   });
 

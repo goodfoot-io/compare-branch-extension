@@ -13,8 +13,7 @@ import type {
   ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
+  TypeUpdateCommand
 } from '../../src/config/command-types.js';
 import type { SettingsConfig } from '../../src/config/config.js';
 import { defineConfig, serializeSettings } from '../../src/config/define-config.js';
@@ -343,33 +342,6 @@ describe('serializeSettings', () => {
       expect(result.environments['default']!.types?.['simple-type']!.version).toBe('1.0.0');
     });
 
-    it('should convert type validator command', () => {
-      const validatorCommand = vi.fn() as unknown as TypeValidatorCommand;
-      validatorCommand.factoryType = 'typeValidator';
-      validatorCommand.typeName = 'adaptive-card';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              'adaptive-card': {
-                version: '1.0.0',
-                validator: validatorCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['adaptive-card'];
-
-      expect(typeDef?.validator).toBeDefined();
-      expect(typeDef?.validator?.command).toBe('typeValidator-adaptive-card.js');
-    });
-
     it('should convert type create command', () => {
       const createCommand = vi.fn() as unknown as TypeCreateCommand;
       createCommand.factoryType = 'typeCreate';
@@ -451,38 +423,7 @@ describe('serializeSettings', () => {
       expect(typeDef?.delete?.command).toBe('typeDelete-deprecated-type.js');
     });
 
-    it('should extract timeout from type hook commands', () => {
-      const validatorCommand = vi.fn() as unknown as TypeValidatorCommand;
-      validatorCommand.factoryType = 'typeValidator';
-      validatorCommand.typeName = 'slow-type';
-      validatorCommand.timeout = 10000;
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              'slow-type': {
-                version: '1.0.0',
-                validator: validatorCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['slow-type'];
-
-      expect(typeDef?.validator?.timeout).toBe(10000);
-    });
-
     it('should convert type with all lifecycle hooks', () => {
-      const validatorCommand = vi.fn() as unknown as TypeValidatorCommand;
-      validatorCommand.factoryType = 'typeValidator';
-      validatorCommand.typeName = 'full-type';
-
       const createCommand = vi.fn() as unknown as TypeCreateCommand;
       createCommand.factoryType = 'typeCreate';
       createCommand.typeName = 'full-type';
@@ -503,7 +444,6 @@ describe('serializeSettings', () => {
             types: {
               'full-type': {
                 version: '2.0.0',
-                validator: validatorCommand,
                 create: createCommand,
                 update: updateCommand,
                 delete: deleteCommand
@@ -517,66 +457,9 @@ describe('serializeSettings', () => {
       const typeDef = result.environments['default']!.types?.['full-type'];
 
       expect(typeDef?.version).toBe('2.0.0');
-      expect(typeDef?.validator?.command).toBe('typeValidator-full-type.js');
       expect(typeDef?.create?.command).toBe('typeCreate-full-type.js');
       expect(typeDef?.update?.command).toBe('typeUpdate-full-type.js');
       expect(typeDef?.delete?.command).toBe('typeDelete-full-type.js');
-    });
-
-    it('should include schema and description from validator command', () => {
-      const validatorCommand = vi.fn() as unknown as TypeValidatorCommand;
-      validatorCommand.factoryType = 'typeValidator';
-      validatorCommand.typeName = 'noted';
-      validatorCommand.schema = 'YAML frontmatter with id, author, title + markdown body';
-      validatorCommand.description = 'Structured notes with metadata';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              noted: {
-                version: '1.0.0',
-                validator: validatorCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['noted'];
-
-      expect(typeDef?.schema).toBe('YAML frontmatter with id, author, title + markdown body');
-      expect(typeDef?.description).toBe('Structured notes with metadata');
-    });
-
-    it('should not include schema and description when not on validator', () => {
-      const validatorCommand = vi.fn() as unknown as TypeValidatorCommand;
-      validatorCommand.factoryType = 'typeValidator';
-      validatorCommand.typeName = 'basic';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              basic: {
-                version: '1.0.0',
-                validator: validatorCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['basic'];
-
-      expect(typeDef?.schema).toBeUndefined();
-      expect(typeDef?.description).toBeUndefined();
     });
   });
 
@@ -898,10 +781,9 @@ describe('serializeSettings', () => {
       launchAction.allowConcurrent = false;
       launchAction.timeout = 30000;
 
-      const noteValidator = vi.fn() as unknown as TypeValidatorCommand;
-      noteValidator.factoryType = 'typeValidator';
-      noteValidator.typeName = 'note';
-      noteValidator.timeout = 2000;
+      const createCommand = vi.fn() as unknown as TypeCreateCommand;
+      createCommand.factoryType = 'typeCreate';
+      createCommand.typeName = 'note';
 
       const config: SettingsConfig = {
         environments: {
@@ -912,7 +794,7 @@ describe('serializeSettings', () => {
             types: {
               note: {
                 version: '1.0.0',
-                validator: noteValidator
+                create: createCommand
               }
             }
           }
@@ -939,8 +821,7 @@ describe('serializeSettings', () => {
       // Verify type
       const typeDef = result.environments['default']!.types?.['note'];
       expect(typeDef?.version).toBe('1.0.0');
-      expect(typeDef?.validator?.command).toBe('typeValidator-note.js');
-      expect(typeDef?.validator?.timeout).toBe(2000);
+      expect(typeDef?.create?.command).toBe('typeCreate-note.js');
     });
   });
 

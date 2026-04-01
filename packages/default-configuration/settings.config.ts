@@ -16,10 +16,6 @@ import chat from './src/actions/chat.js';
 import codex from './src/actions/codex.js';
 import interview from './src/actions/interview.js';
 import launch from './src/actions/launch.js';
-// Type validators
-import adaptiveCardSubmissionValidator from './src/validators/adaptive-card-submission-validator.js';
-import adaptiveCardValidator from './src/validators/adaptive-card-validator.js';
-import noteValidator from './src/validators/note-validator.js';
 
 export default defineConfig({
   environments: {
@@ -29,16 +25,13 @@ export default defineConfig({
       actions: [launch, codex, interview, chat],
       types: {
         'adaptive-card': {
-          version: '1.0.0',
-          validator: adaptiveCardValidator
+          version: '1.0.0'
         },
         'adaptive-card-submission': {
-          version: '1.0.0',
-          validator: adaptiveCardSubmissionValidator
+          version: '1.0.0'
         },
         note: {
-          version: '1.0.0',
-          validator: noteValidator
+          version: '1.0.0'
         }
       },
       streams: {

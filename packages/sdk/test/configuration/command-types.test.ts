@@ -12,18 +12,9 @@ import type {
   ActionCommand,
   TypeCreateCommand,
   TypeDeleteCommand,
-  TypeUpdateCommand,
-  TypeValidatorCommand
+  TypeUpdateCommand
 } from '../../src/config/command-types.js';
-import type {
-  ActionContext,
-  ActionInput,
-  TypeHookContext,
-  TypeHookInput,
-  TypeValidatorContext,
-  ValidatorFileRequest
-} from '../../src/config/inputs.js';
-import type { ValidationResult } from '../../src/protocol/index.js';
+import type { ActionContext, ActionInput, TypeHookContext, TypeHookInput } from '../../src/config/inputs.js';
 
 describe('command-types', () => {
   describe('ActionCommand', () => {
@@ -107,72 +98,6 @@ describe('command-types', () => {
       expectTypeOf(launchCommand.actionName).toEqualTypeOf<'Launch'>();
       expectTypeOf(deployCommand.actionName).toEqualTypeOf<'Deploy'>();
       expectTypeOf(launchCommand.actionName).not.toEqualTypeOf<'Deploy'>();
-    });
-  });
-
-  describe('TypeValidatorCommand', () => {
-    it('should be callable with ValidatorFileRequest and TypeValidatorContext', () => {
-      const fn = async (request: ValidatorFileRequest, context: TypeValidatorContext): Promise<ValidationResult> => {
-        expectTypeOf(request).toEqualTypeOf<ValidatorFileRequest>();
-        expectTypeOf(context).toEqualTypeOf<TypeValidatorContext>();
-        return { valid: true };
-      };
-      const command = Object.assign(fn, {
-        factoryType: 'typeValidator' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).toBeCallableWith({} as ValidatorFileRequest, {} as TypeValidatorContext);
-    });
-
-    it('should return Promise<ValidationResult>', () => {
-      const fn = async (): Promise<ValidationResult> => ({ valid: true });
-      const command = Object.assign(fn, {
-        factoryType: 'typeValidator' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).returns.toEqualTypeOf<Promise<ValidationResult>>();
-    });
-
-    it('should have factoryType property', () => {
-      expectTypeOf<TypeValidatorCommand>().toHaveProperty('factoryType');
-      expectTypeOf<TypeValidatorCommand['factoryType']>().toEqualTypeOf<'typeValidator'>();
-    });
-
-    it('should have typeName property', () => {
-      expectTypeOf<TypeValidatorCommand>().toHaveProperty('typeName');
-      expectTypeOf<TypeValidatorCommand['typeName']>().toEqualTypeOf<string>();
-    });
-
-    it('should have optional timeout property', () => {
-      expectTypeOf<TypeValidatorCommand>().toMatchTypeOf<{
-        timeout?: number;
-      }>();
-    });
-
-    it('should preserve literal type name', () => {
-      const fn = async (): Promise<ValidationResult> => ({ valid: true });
-      const command: TypeValidatorCommand<'adaptive-card'> = Object.assign(fn, {
-        factoryType: 'typeValidator' as const,
-        typeName: 'adaptive-card' as const,
-        schema: 'test schema',
-        description: 'test description'
-      });
-
-      expectTypeOf(command.typeName).toEqualTypeOf<'adaptive-card'>();
-    });
-
-    it('should default to string when no generic provided', () => {
-      const fn = async (): Promise<ValidationResult> => ({ valid: true });
-      const command: TypeValidatorCommand = Object.assign(fn, {
-        factoryType: 'typeValidator' as const,
-        typeName: 'any-type',
-        schema: 'test schema',
-        description: 'test description'
-      });
-
-      expectTypeOf(command.typeName).toEqualTypeOf<string>();
     });
   });
 
@@ -313,12 +238,10 @@ describe('command-types', () => {
     });
 
     it('should preserve literal types for type commands', () => {
-      type ValidatorCmd = TypeValidatorCommand<'schema'>;
       type CreateCmd = TypeCreateCommand<'schema'>;
       type UpdateCmd = TypeUpdateCommand<'schema'>;
       type DeleteCmd = TypeDeleteCommand<'schema'>;
 
-      expectTypeOf<ValidatorCmd['typeName']>().toEqualTypeOf<'schema'>();
       expectTypeOf<CreateCmd['typeName']>().toEqualTypeOf<'schema'>();
       expectTypeOf<UpdateCmd['typeName']>().toEqualTypeOf<'schema'>();
       expectTypeOf<DeleteCmd['typeName']>().toEqualTypeOf<'schema'>();
@@ -326,10 +249,8 @@ describe('command-types', () => {
 
     it('should allow string as default generic', () => {
       type Cmd = ActionCommand;
-      type ValidatorCmd = TypeValidatorCommand;
 
       expectTypeOf<Cmd['actionName']>().toEqualTypeOf<string>();
-      expectTypeOf<ValidatorCmd['typeName']>().toEqualTypeOf<string>();
     });
   });
 });

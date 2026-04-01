@@ -13,15 +13,7 @@
  * @module
  */
 
-import type { ValidationResult } from '../protocol/index.js';
-import type {
-  ActionContext,
-  ActionInput,
-  TypeHookContext,
-  TypeHookInput,
-  TypeValidatorContext,
-  ValidatorFileRequest
-} from './inputs.js';
+import type { ActionContext, ActionInput, TypeHookContext, TypeHookInput } from './inputs.js';
 
 // ============================================================================
 // Command Types
@@ -89,31 +81,6 @@ export interface ActionCommand<N extends string = string> {
    * CLI will generate placeholder command strings.
    */
   sourcePath?: string;
-}
-
-/**
- * Callable command returned by type validator factory.
- *
- * Validators receive the file path and optional sidecar metadata.
- * The file is already on disk; validators read it themselves. Return a
- * `ValidationResult` to indicate success or failure.
- *
- * @template T - The literal type name (e.g., 'adaptive-card')
- */
-export interface TypeValidatorCommand<T extends string = string> {
-  (request: ValidatorFileRequest, context: TypeValidatorContext): Promise<ValidationResult>;
-  factoryType: 'typeValidator';
-  /** Type name from config - preserved as literal type. */
-  typeName: T;
-  timeout?: number;
-  /**
-   * Path to the handler source file for CLI compilation.
-   */
-  sourcePath?: string;
-  /** Human-readable schema describing the expected file format. */
-  schema: string;
-  /** Description of the type's purpose. */
-  description: string;
 }
 
 /**

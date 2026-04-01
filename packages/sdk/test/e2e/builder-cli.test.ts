@@ -112,32 +112,6 @@ export default defineAction(
 }
 
 /**
- * Creates a minimal valid type validator handler.
- *
- * @param typeName - Type name embedded into validator fixture source.
- * @param _handlerPath - Reserved argument kept for API symmetry with other fixture builders.
- * @returns Handler module source code string.
- */
-function createTypeValidatorHandler(typeName: string, _handlerPath: string): string {
-  return `
-import { defineTypeValidator, validationSuccess } from '${FACTORIES_PATH.replace(/\\/g, '/')}';
-
-export default defineTypeValidator(
-  {
-    typeName: '${typeName}',
-    schema: '${typeName} file content',
-    description: 'Validates ${typeName} files',
-    timeout: 30000
-  },
-  async (request, context) => {
-    context.logger.info('${typeName} validated');
-    return validationSuccess({ typeName: '${typeName}' });
-  }
-);
-`;
-}
-
-/**
  * Reads and parses settings.json from the output directory.
  *
  * @param outdir - Build output directory expected to contain `settings.json`.
@@ -266,50 +240,6 @@ export default {
       // Verify both handlers compiled
       const binFiles = listBinFiles(outdir);
       expect(binFiles.length).toBe(2);
-    });
-
-    it('should build a config with type validators', async () => {
-      // Create handlers
-      writeHandler(testDir, 'action-start.ts', createActionHandler('Test Action', testDir));
-      writeHandler(testDir, 'note-validator.ts', createTypeValidatorHandler('note', testDir));
-
-      // Create config
-      const configPath = writeConfig(
-        testDir,
-        `
-import action from './action-start.js';
-import noteValidator from './note-validator.js';
-
-export default {
-  environments: {
-    default: {
-      version: 1,
-      actions: [action],
-      types: {
-        note: {
-          version: '1.0.0',
-          validator: noteValidator
-        }
-      }
-    }
-  }
-};
-`
-      );
-
-      const outdir = path.join(testDir, 'dist');
-      const result = await build({ config: configPath, outdir });
-
-      expect(result.success).toBe(true);
-
-      // Verify settings.json has types
-      const settings = readSettings(outdir);
-      expect(settings.environments['default']!.types).toBeDefined();
-      expect(settings.environments['default']!.types?.['note']).toBeDefined();
-      expect(settings.environments['default']!.types?.['note']!.version).toBe('1.0.0');
-      expect(settings.environments['default']!.types?.['note']!.validator?.command).toMatch(
-        /note-validator\.[a-f0-9]{8}\.mjs$/
-      );
     });
 
     it('should build a config with multiple environments', async () => {
@@ -734,82 +664,6 @@ describe('builder CLI: compiled handler execution', () => {
     }
   }
 
-  /**
-   * Helper to execute a validator handler with file-path protocol.
-   *
-   * Creates a temporary file with the given content, sets FILE_PATH in env,
-   * and executes the handler. Returns the parsed ValidationResult from stdout.
-   *
-   * @param handlerPath - Absolute path to the compiled validator executable.
-   * @param content - File contents to place in the temporary validator input file.
-   * @param env - Environment variable overrides supplied to the process.
-   * @param _options - Reserved options bag for future validator protocol variants.
-   * @param _options.method - Reserved HTTP method override for future use.
-   * @param _options.contentType - Reserved content type override for future use.
-   * @returns Exit code, captured stdio, and parsed JSON response when available.
-   */
-  async function executeValidator(
-    handlerPath: string,
-    content: string | Buffer,
-    env: Record<string, string>,
-    _options: { method?: string; contentType?: string } = {}
-  ): Promise<{
-    exitCode: number;
-    stdout: string;
-    stderr: string;
-    response?: { valid?: boolean; metadata?: Record<string, unknown> };
-  }> {
-    const { spawn } = await import('node:child_process');
-    const fs = await import('node:fs');
-
-    // Write content to a temp file and pass FILE_PATH
-    const filePath = path.join(testDir, `validator-input-${Date.now()}.tmp`);
-    const body = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf-8');
-    fs.writeFileSync(filePath, body);
-
-    return new Promise((resolve) => {
-      const proc = spawn('node', [handlerPath], {
-        env: { ...process.env, ...env, FILE_PATH: filePath },
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      proc.stdout.on('data', (data: Buffer) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString();
-      });
-
-      proc.on('close', (code) => {
-        let response: { valid?: boolean; metadata?: Record<string, unknown> } | undefined;
-        try {
-          response = JSON.parse(stdout);
-        } catch {
-          // Ignore parse errors
-        }
-        // Clean up temp file
-        try {
-          fs.unlinkSync(filePath);
-        } catch {
-          /* ignore */
-        }
-        resolve({
-          exitCode: code ?? 0,
-          stdout,
-          stderr,
-          response
-        });
-      });
-
-      // Close stdin immediately (no longer needed)
-      proc.stdin.end();
-    });
-  }
-
   it('should compile handlers that execute successfully', async () => {
     writeHandler(testDir, 'action.ts', createActionHandler('Executable', testDir));
 
@@ -849,62 +703,6 @@ export default {
     });
 
     expect(result.exitCode).toBe(0);
-  });
-
-  it('should compile type validators that execute successfully', async () => {
-    writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
-    writeHandler(testDir, 'validator.ts', createTypeValidatorHandler('test-type', testDir));
-
-    const configPath = writeConfig(
-      testDir,
-      `
-import action from './action.js';
-import validator from './validator.js';
-
-export default {
-  environments: {
-    default: {
-      version: 1,
-      actions: [action],
-      types: {
-        'test-type': {
-          version: '1.0.0',
-          validator: validator
-        }
-      }
-    }
-  }
-};
-`
-    );
-
-    const outdir = path.join(testDir, 'dist');
-    await build({ config: configPath, outdir });
-
-    // Find the validator handler
-    const binFiles = listBinFiles(outdir);
-    const validatorFile = binFiles.find((f) => f.includes('validator'));
-    expect(validatorFile).toBeDefined();
-
-    // Test content to validate
-    const testContent = 'test content for validation';
-
-    const handlerPath = path.join(outdir, 'bin', validatorFile!);
-    const result = await executeValidator(
-      handlerPath,
-      testContent,
-      {
-        CARD_ID: 'test-card',
-        ENVIRONMENT: 'default',
-        TYPE_NAME: 'test-type',
-        TYPE_VERSION: '1.0.0',
-        FILE_NAME: 'test-file.txt'
-      },
-      { contentType: 'text/plain' }
-    );
-
-    expect(result.exitCode).toBe(0);
-    expect(result.response?.valid).toBe(true);
   });
 
   it('should compile handlers with CommonJS dependencies', async () => {
@@ -1149,13 +947,11 @@ export default {
 
   it('should support streams coexisting with actions and types', async () => {
     writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
-    writeHandler(testDir, 'validator.ts', createTypeValidatorHandler('test-type', testDir));
 
     const configPath = writeConfig(
       testDir,
       `
 import action from './action.js';
-import validator from './validator.js';
 
 export default {
   environments: {
@@ -1164,8 +960,7 @@ export default {
       actions: [action],
       types: {
         'test-type': {
-          version: '1.0.0',
-          validator: validator
+          version: '1.0.0'
         }
       },
       streams: {
@@ -1194,11 +989,10 @@ export default {
     expect(settings.environments['default']!.streams).toBeDefined();
     expect(settings.environments['default']!.streams?.['test-stream']).toBeDefined();
 
-    // Verify bin/ has files for action and type (not stream — no compilation)
+    // Verify bin/ has file for action (not stream — no compilation)
     const binFiles = listBinFiles(outdir);
-    expect(binFiles.length).toBe(2);
+    expect(binFiles.length).toBe(1);
     expect(binFiles.some((f) => f.includes('action'))).toBe(true);
-    expect(binFiles.some((f) => f.includes('validator'))).toBe(true);
   });
 
   it('should preserve stream metadata in settings.json', async () => {
