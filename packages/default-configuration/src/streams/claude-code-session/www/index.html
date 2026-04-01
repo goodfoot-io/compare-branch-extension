@@ -62,50 +62,102 @@
     }
 
     /* =========================================================
-       COMPACT VIEW
+       COMPACT VIEW — MICRO-CARD
        ========================================================= */
 
-    .cc-compact-header {
+    .mc-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 6px;
+      margin-bottom: 2px;
     }
 
-    .cc-compact-status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
+    .mc-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.25rem;
+      height: 1.25rem;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
       flex-shrink: 0;
-      margin-top: 4px; /* optical alignment with first text line */
-      background: var(--vscode-charts-yellow, #cca700);
     }
 
-    .cc-compact-status-dot.status-success {
-      background: var(--vscode-charts-green, #89d185);
-    }
+    .mc-badge-orchestrator { background: var(--vscode-terminal-ansiBlue, #2563eb); }
+    .mc-badge-agent { background: var(--vscode-terminal-ansiGreen, #16a34a); }
+    .mc-badge-error { background: var(--vscode-errorForeground, #f48771); }
 
-    .cc-compact-status-dot.status-error {
-      background: var(--vscode-charts-red, #f48771);
-    }
-
-    .cc-compact-prompt {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 3;
+    .mc-title {
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 0.85em;
       overflow: hidden;
-      color: var(--vscode-descriptionForeground, #858585);
-      font-size: 0.9em;
-      word-break: break-word;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       flex: 1;
       min-width: 0;
     }
 
-    .cc-compact-meta {
+    .mc-duration {
       font-size: 0.8em;
-      color: var(--vscode-descriptionForeground, #858585);
-      margin-top: 2px;
-      padding-left: 13px; /* align under text past the dot */
+      color: var(--vscode-descriptionForeground);
+      white-space: nowrap;
     }
+
+    .mc-tail {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      margin-bottom: 2px;
+    }
+
+    .mc-tail-line {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 1rem;
+      font-size: 0.8em;
+      transition: background-color 0.3s ease;
+      padding: 0 2px;
+      border-radius: 1px;
+    }
+
+    .mc-tail-gutter {
+      width: 2px;
+      align-self: stretch;
+      border-radius: 1px;
+      flex-shrink: 0;
+    }
+
+    .mc-gutter-blue { background: var(--vscode-terminal-ansiBlue, #2563eb); }
+    .mc-gutter-green { background: var(--vscode-terminal-ansiGreen, #16a34a); }
+    .mc-gutter-teal { background: var(--vscode-terminal-ansiGreen, #16a34a); opacity: 0.5; }
+    .mc-gutter-red { background: var(--vscode-errorForeground, #f48771); }
+
+    .mc-tail-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--vscode-foreground);
+      font-family: var(--vscode-editor-font-family, monospace);
+    }
+
+    .mc-tail-line.mc-highlight {
+      background-color: color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 12%, transparent);
+    }
+
+    .mc-footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75em;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .mc-footer-status { margin-left: auto; }
+
+    .mc-footer-error { color: var(--vscode-errorForeground); }
 
     /* =========================================================
        EXPANDED VIEW — SESSION HEADER
@@ -600,13 +652,130 @@
     }
 
     // =========================================================
+    // COMPACT — EVENT PARSING
+    // =========================================================
+
+    const INFRASTRUCTURE_TOOLS = new Set([
+      'TaskUpdate', 'TaskCreate', 'TaskGet', 'TaskList', 'TaskOutput', 'TaskStop',
+      'ToolSearch', 'TeamCreate', 'TeamDelete', 'SendMessage', 'Skill',
+      'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger'
+    ]);
+
+    function summarizeTool(toolName, input) {
+      if (!input) return '';
+      switch (toolName) {
+        case 'Bash': return input.description || '';
+        case 'Read':
+        case 'Edit':
+        case 'Write': {
+          const fp = input.file_path || '';
+          const parts = fp.split('/');
+          return parts.slice(-2).join('/');
+        }
+        case 'Grep':
+        case 'Glob': return input.pattern || '';
+        case 'Agent': return input.description || '';
+        default: return input.skill || '';
+      }
+    }
+
+    function parseLineEvents(line) {
+      if (!line || !line.trim()) return [];
+      let msg;
+      try { msg = JSON.parse(line); } catch { return []; }
+
+      const events = [];
+
+      // Error path (assistant with error field)
+      if (msg.type === 'assistant' && msg.error) {
+        events.push({ kind: 'error', message: String(msg.error) });
+        return events;
+      }
+
+      // Assistant message
+      if (msg.type === 'assistant') {
+        const blocks = msg.message?.content ?? [];
+        for (const block of blocks) {
+          if (block.type === 'text' && typeof block.text === 'string') {
+            const cleaned = block.text.trim();
+            if (cleaned && !/^\s*[{[<]/.test(cleaned)) {
+              events.push({ kind: 'text', text: cleaned });
+            }
+          }
+          if (block.type === 'tool_use') {
+            const name = block.name || 'tool';
+            events.push({
+              kind: 'tool-call',
+              toolName: name,
+              summary: summarizeTool(name, block.input),
+              isInfrastructure: INFRASTRUCTURE_TOOLS.has(name)
+            });
+          }
+        }
+        // Usage
+        const outputTokens = msg.message?.usage?.output_tokens;
+        if (outputTokens != null) {
+          events.push({ kind: 'usage', outputTokens });
+        }
+        return events;
+      }
+
+      // Subagent progress
+      if (msg.type === 'progress' && msg.data?.type === 'agent_progress') {
+        const content = msg.data.content ?? [];
+        for (const block of content) {
+          if (block.type === 'tool_use') {
+            const name = block.name || 'tool';
+            events.push({
+              kind: 'subagent-tool-call',
+              toolName: name,
+              summary: summarizeTool(name, block.input),
+              isInfrastructure: INFRASTRUCTURE_TOOLS.has(name)
+            });
+          }
+        }
+        return events;
+      }
+
+      // Turn duration
+      if (msg.type === 'system' && msg.subtype === 'turn_duration') {
+        events.push({ kind: 'turn-duration', durationMs: msg.durationMs ?? 0 });
+        return events;
+      }
+
+      // Result
+      if (msg.type === 'result') {
+        events.push({
+          kind: 'result',
+          status: msg.subtype === 'success' ? 'success' : 'error',
+          turns: msg.num_turns ?? 0,
+          durationS: Math.round((msg.duration_ms ?? 0) / 1000)
+        });
+        return events;
+      }
+
+      return [];
+    }
+
+    // =========================================================
     // COMPACT VIEW STATE
     // =========================================================
 
-    let compactPromptText = '';
-    let compactTurns = 0;
-    let compactDurationS = 0;
-    let compactSessionStatus = 'running';
+    const compactState = {
+      sessionStatus: 'running',
+      hasErrors: false,
+      isSubagent: false,
+      promptText: '',
+      durationS: 0,
+      tail: [null, null],
+      turnCount: 0,
+      outputTokensTotal: 0,
+      totalDurationMs: 0,
+      errorCount: 0
+    };
+
+    let highlightTimer = null;
+
     // Populated from stream meta at bootstrap; used as fallback when no clean prompt text is found
     let metaTitle = '';
 
@@ -623,84 +792,200 @@
     const pendingToolUses = new Map();
 
     // =========================================================
-    // COMPACT RENDER
+    // COMPACT — STATE MANAGEMENT & RENDERING
     // =========================================================
 
-    function renderCompact(lines, initialStatus) {
-      // Extract compact data from lines
-      compactPromptText = '';
-      compactTurns = 0;
-      compactDurationS = 0;
-      compactSessionStatus = initialStatus ?? 'running';
+    function processLineForCompact(line) {
+      if (!line || !line.trim()) return;
+      let msg;
+      try { msg = JSON.parse(line); } catch { return; }
 
-      for (const line of lines) {
-        if (!line || !line.trim()) continue;
-        let msg;
-        try { msg = JSON.parse(line); } catch { continue; }
-
-        if (msg.type === 'user' && !msg.tool_use_result) {
-          const content = msg.message?.content;
-          let text = '';
-          if (typeof content === 'string') {
-            text = content;
-          } else if (Array.isArray(content)) {
-            for (const block of content) {
-              if (block?.type === 'text' && typeof block.text === 'string') {
-                text += block.text;
-              }
+      // Extract prompt text from user messages
+      if (msg.type === 'user' && !msg.tool_use_result) {
+        const content = msg.message?.content;
+        let text = '';
+        if (typeof content === 'string') {
+          text = content;
+        } else if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block?.type === 'text' && typeof block.text === 'string') {
+              text += block.text;
             }
           }
-          // Strip XML/HTML tags, then reject JSON-looking content (e.g. raw
-          // coordination messages embedded in user turns by multi-agent sessions).
-          const cleaned = stripMarkup(text);
-          const looksLikeData = /^\s*[{[<]/.test(cleaned);
-          if (cleaned && !looksLikeData) compactPromptText = cleaned;
         }
+        const cleaned = stripMarkup(text);
+        const looksLikeData = /^\s*[{[<]/.test(cleaned);
+        if (cleaned && !looksLikeData) compactState.promptText = cleaned;
+      }
 
-        if (msg.type === 'result') {
-          compactTurns = msg.num_turns ?? 0;
-          compactDurationS = Math.round((msg.duration_ms ?? 0) / 1000);
-          compactSessionStatus = msg.subtype === 'success' ? 'success' : 'error';
+      const events = parseLineEvents(line);
+      for (const evt of events) {
+        switch (evt.kind) {
+          case 'tool-call':
+          case 'text':
+          case 'error':
+          case 'subagent-tool-call': {
+            // Infrastructure events only enter tail when both slots are null
+            // or tail contains only infrastructure events
+            if (evt.isInfrastructure) {
+              const hasNonInfra = compactState.tail.some(t => t && !t.isInfrastructure);
+              if (hasNonInfra) break; // skip infrastructure when non-infra exists
+            }
+            compactState.tail[0] = compactState.tail[1];
+            compactState.tail[1] = evt;
+            if (evt.kind === 'error') {
+              compactState.errorCount++;
+              compactState.hasErrors = true;
+            }
+            break;
+          }
+          case 'turn-duration':
+            compactState.totalDurationMs += evt.durationMs;
+            compactState.turnCount++;
+            break;
+          case 'usage':
+            compactState.outputTokensTotal += evt.outputTokens;
+            break;
+          case 'result':
+            compactState.sessionStatus = evt.status;
+            compactState.turnCount = evt.turns;
+            compactState.durationS = evt.durationS;
+            break;
+        }
+      }
+    }
+
+    function renderCompactDom(highlight) {
+      const root = document.getElementById('compact-root');
+      const s = compactState;
+
+      // Badge
+      let badgeChar, badgeClass;
+      if (s.hasErrors) {
+        badgeChar = '!';
+        badgeClass = 'mc-badge-error';
+      } else if (s.isSubagent) {
+        badgeChar = 'A';
+        badgeClass = 'mc-badge-agent';
+      } else {
+        badgeChar = 'O';
+        badgeClass = 'mc-badge-orchestrator';
+      }
+
+      // Title
+      const title = s.promptText || metaTitle || 'Claude Code session';
+
+      // Duration
+      let durationStr = '';
+      if (s.durationS > 0) {
+        durationStr = `${s.durationS}s`;
+      } else if (s.totalDurationMs > 0) {
+        durationStr = `${Math.round(s.totalDurationMs / 1000)}s`;
+      }
+
+      // Tokens
+      let tokenStr = '';
+      if (s.outputTokensTotal >= 1000) {
+        tokenStr = `${(s.outputTokensTotal / 1000).toFixed(1)}k`;
+      } else if (s.outputTokensTotal > 0) {
+        tokenStr = String(s.outputTokensTotal);
+      }
+
+      // Gutter color mapping
+      function gutterColor(evt) {
+        switch (evt.kind) {
+          case 'tool-call': return 'blue';
+          case 'text': return 'green';
+          case 'subagent-tool-call': return 'teal';
+          case 'error': return 'red';
+          default: return 'blue';
         }
       }
 
-      applyCompactDom();
-    }
+      // Tail line HTML
+      function tailLineHtml(evt, isNewest) {
+        if (!evt) return '';
+        const color = gutterColor(evt);
+        const highlightClass = (highlight && isNewest) ? ' mc-highlight' : '';
+        let textHtml = '';
+        if (evt.kind === 'tool-call' || evt.kind === 'subagent-tool-call') {
+          textHtml = `<strong>${escapeHtml(evt.toolName)}</strong> ${escapeHtml(evt.summary)}`;
+        } else if (evt.kind === 'text') {
+          textHtml = escapeHtml(evt.text.length > 120 ? evt.text.slice(0, 120) + '…' : evt.text);
+        } else if (evt.kind === 'error') {
+          textHtml = escapeHtml(evt.message.length > 120 ? evt.message.slice(0, 120) + '…' : evt.message);
+        }
+        return `<div class="mc-tail-line${highlightClass}">
+          <div class="mc-tail-gutter mc-gutter-${color}"></div>
+          <span class="mc-tail-text">${textHtml}</span>
+        </div>`;
+      }
 
-    function applyCompactDom() {
-      const root = document.getElementById('compact-root');
-
-      const summaryText = compactPromptText || metaTitle;
-      const promptDisplay = summaryText
-        ? escapeHtml(summaryText)
-        : '<em style="color:var(--vscode-descriptionForeground)">Claude Code session</em>';
-
-      const dotClass = compactSessionStatus === 'success'
-        ? 'cc-compact-status-dot status-success'
-        : compactSessionStatus === 'error'
-          ? 'cc-compact-status-dot status-error'
-          : 'cc-compact-status-dot';
-
-      const metaParts = [];
-      if (compactDurationS > 0) metaParts.push(`${compactDurationS}s`);
-      if (compactTurns > 0) metaParts.push(`${compactTurns} turn${compactTurns !== 1 ? 's' : ''}`);
-      const metaHtml = metaParts.length > 0
-        ? `<div class="cc-compact-meta">${metaParts.join(' · ')}</div>`
+      // Build tail HTML
+      const tailHtml = (s.tail[0] || s.tail[1])
+        ? `<div class="mc-tail">${tailLineHtml(s.tail[0], false)}${tailLineHtml(s.tail[1], true)}</div>`
         : '';
 
+      // Footer
+      const footerParts = [];
+      if (s.turnCount > 0) footerParts.push(`<span>${s.turnCount} turns</span>`);
+      if (tokenStr) footerParts.push(`<span>${tokenStr}</span>`);
+      if (s.errorCount > 0) footerParts.push(`<span class="mc-footer-error">${s.errorCount} error${s.errorCount !== 1 ? 's' : ''}</span>`);
+
+      // Status label
+      const statusLabel = s.sessionStatus === 'success' ? 'done'
+        : s.sessionStatus === 'error' ? 'error'
+        : 'running';
+      footerParts.push(`<span class="mc-footer-status">${statusLabel}</span>`);
+
       root.innerHTML = `
-        <div class="cc-compact-header">
-          <span class="${dotClass}"></span>
-          <span class="cc-compact-prompt">${promptDisplay}</span>
+        <div class="mc-header">
+          <span class="mc-badge ${badgeClass}">${badgeChar}</span>
+          <span class="mc-title">${escapeHtml(title)}</span>
+          ${durationStr ? `<span class="mc-duration">${durationStr}</span>` : ''}
         </div>
-        ${metaHtml}
+        ${tailHtml}
+        <div class="mc-footer">${footerParts.join('')}</div>
       `;
+
+      // Highlight animation: clear after 300ms
+      if (highlight) {
+        if (highlightTimer) clearTimeout(highlightTimer);
+        highlightTimer = setTimeout(() => {
+          const el = root.querySelector('.mc-highlight');
+          if (el) el.classList.remove('mc-highlight');
+          highlightTimer = null;
+        }, 300);
+      }
     }
 
-    function updateCompactStats(newStatus, turns, durationS) {
-      compactSessionStatus = newStatus;
-      compactTurns = turns;
-      compactDurationS = durationS;
+    function renderCompact(lines, initialStatus) {
+      // Reset state
+      compactState.sessionStatus = initialStatus ?? 'running';
+      compactState.hasErrors = false;
+      compactState.promptText = '';
+      compactState.durationS = 0;
+      compactState.tail = [null, null];
+      compactState.turnCount = 0;
+      compactState.outputTokensTotal = 0;
+      compactState.totalDurationMs = 0;
+      compactState.errorCount = 0;
+
+      // Detect subagent from primary filename
+      const state = streamStore.getState();
+      const primaryFilename = state.primary || '';
+      // Pattern: {uuid}-{uuid}.jsonl — a second UUID segment before .jsonl
+      compactState.isSubagent = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/.test(primaryFilename);
+
+      for (const line of lines) {
+        processLineForCompact(line);
+      }
+      renderCompactDom(false);
+    }
+
+    function updateCompactFromLine(line) {
+      processLineForCompact(line);
+      renderCompactDom(true);
     }
 
     // =========================================================
@@ -1200,9 +1485,6 @@
           sessionStatus = newStatus;
           updateSessionHeaderStatus(newStatus);
 
-          // Update compact stats reactively
-          updateCompactStats(newStatus, turns, durationS);
-
           const el = document.createElement('div');
           el.className = 'cc-session-boundary';
           el.textContent = isSuccess
@@ -1294,49 +1576,6 @@
     }
 
     // =========================================================
-    // INCREMENTAL COMPACT UPDATE (for new lines while compact)
-    // =========================================================
-
-    function updateCompactFromLine(line) {
-      if (!line || !line.trim()) return;
-      let msg;
-      try { msg = JSON.parse(line); } catch { return; }
-
-      // Track first user prompt
-      if (msg.type === 'user' && !msg.tool_use_result) {
-        const content = msg.message?.content;
-        let text = '';
-        if (typeof content === 'string') {
-          text = content;
-        } else if (Array.isArray(content)) {
-          for (const block of content) {
-            if (block?.type === 'text' && typeof block.text === 'string') {
-              text += (text ? '\n\n' : '') + block.text;
-            }
-          }
-        }
-        const cleaned = stripMarkup(text);
-        const looksLikeData = /^\s*[{[<]/.test(cleaned);
-        if (cleaned && !looksLikeData && !compactPromptText) {
-          compactPromptText = cleaned;
-          // Update prompt display in place
-          const promptEl = document.querySelector('.cc-compact-prompt');
-          if (promptEl) {
-            promptEl.innerHTML = escapeHtml(compactPromptText);
-          }
-        }
-      }
-
-      // Update stats on result
-      if (msg.type === 'result') {
-        const turns = msg.num_turns ?? 0;
-        const durationS = Math.round((msg.duration_ms ?? 0) / 1000);
-        const newStatus = msg.subtype === 'success' ? 'success' : 'error';
-        updateCompactStats(newStatus, turns, durationS);
-      }
-    }
-
-    // =========================================================
     // MODE SWITCHING
     // =========================================================
 
@@ -1353,6 +1592,18 @@
         const state = streamStore.getState();
         const file = state.files.get(state.primary);
         renderExpanded(file ? file.lines : []);
+      }
+
+      // On return to compact: re-render compact from current lines
+      if (mode === 'compact' && prev !== 'compact') {
+        const state = streamStore.getState();
+        const file = state.files.get(state.primary);
+        const metaStatus = file?.meta?.status;
+        const derivedStatus =
+          metaStatus === 'completed' ? 'success' :
+          metaStatus === 'error'     ? 'error'   :
+          null;
+        renderCompact(file ? file.lines : [], derivedStatus);
       }
     }
 
