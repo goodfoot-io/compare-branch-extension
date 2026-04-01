@@ -24,7 +24,7 @@ Run validation per the plan's validation commands.
 
 **On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
 
-Only proceed to **3. Start Maintainer Review** when ALL validations pass.
+Only proceed to **3. Start Review** when ALL validations pass.
 
 ## 3. Start Review
 
@@ -85,21 +85,33 @@ For every claim the code makes about the system — type contracts, error handli
 </invoke>
 ```
 
-## 4. Wait for Review
+## 4. Review Loop
 
-Wait for the maintainer to deliver the review report via SendMessage. The maintainer incorporates failure-mode findings at their judgment.
+This is an iterative review loop. Each iteration waits for both the maintainer and failure-mode analyst, then processes their findings. The loop terminates only when one of these conditions is met:
 
-**Failure-mode report not yet arrived when maintainer reports:** Proceed — findings will arrive and can inform revision in Step 7.
+- **APPROVED**: The maintainer's verdict is APPROVED and no unaddressed failure-mode findings remain
+- **BLOCKED**: The maintainer's verdict is BLOCKED
 
-## 5. Process Verdict
+Every code revision — whether from maintainer findings, failure-mode findings, or both — requires a full round of re-review from all agents before the loop can terminate.
 
-The maintainer's verdict is final. Apply the first matching condition:
+### 4.1 Wait for Reports
 
-1. **BLOCKED**: Shut down the team (Step 8). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: Proceed to Step 6.
-3. **APPROVED**: Shut down the team (Step 8). Proceed to the next step in the implementation workflow. Do not modify gates in `CARD.meta.json`.
+Wait for both the maintainer's review report and the failure-mode analyst's findings.
 
-## 6. Engage with Review
+Based on report arrival:
+- **Both arrived**: Proceed to Step 4.2
+- **Maintainer arrived, failure-mode pending**: Proceed to Step 4.2 — incorporate failure-mode findings when they arrive in Step 4.4
+
+### 4.2 Process Maintainer Verdict
+
+The maintainer's verdict determines the path. Apply the first matching condition:
+
+- **BLOCKED**: Go to Step 5. Document in comment, add `blocked` tag, commit, **STOP**.
+- **CHANGES_REQUESTED**: Go to Step 4.3.
+- **APPROVED and no unaddressed failure-mode findings**: Go to Step 5. Proceed to the next step in the implementation workflow. Do not modify gates in `CARD.meta.json`.
+- **APPROVED and unaddressed failure-mode findings remain**: Go to Step 4.4 — failure-mode findings may require revision, which triggers re-review.
+
+### 4.3 Engage with Maintainer Review
 
 Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). Engage with the review before acting on it.
 
@@ -127,12 +139,23 @@ Thank you for the review. Before I address these, I want to make sure I understa
 
 Wait for the maintainer's response. Use their answers to inform your fixes.
 
-## 7. Address Changes and Re-submit
+### 4.4 Review Failure-Mode Findings
+
+Review the failure-mode analyst's findings. Approach-level findings — runtime risks, silent failure paths, data flow gaps — deserve the most consideration. For each finding, decide:
+- Fix the code
+- Add mitigations
+- Acknowledge an accepted risk
+- Determine the finding doesn't apply
+
+Not every finding requires a code change.
+
+### 4.5 Address Changes and Re-submit
 
 For each required change from the maintainer's report:
-
 - **Viable**: Create a todo with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate via Steps 2.3–2.4.
 - **Not viable**: Note the reason (e.g., attempted but introduced a regression, rejected during planning, blocked by an external constraint). Include this in the re-submission message.
+
+Apply any failure-mode fixes decided in Step 4.4 using the same delegation pattern.
 
 After all fixes are delegated and complete, stage and re-validate:
 
@@ -145,14 +168,6 @@ COMMITMSG
 ```
 
 Run validation per the plan's validation commands. On failure, delegate fixes (same as Step 2), then stage and re-validate.
-
-Review the failure-mode analyst's findings. Approach-level findings — runtime risks, silent failure paths, data flow gaps — deserve the most consideration. Decide what to do:
-- Fix the code
-- Add mitigations
-- Acknowledge an accepted risk
-- Determine the finding doesn't apply
-
-Not every finding requires a code change. No response to the failure-mode analyst is required.
 
 Make unclear code self-explanatory — explanations in the re-submission message do not help future code readers.
 
@@ -186,9 +201,9 @@ The implementation has been revised. Diff the workspace against the baseline aga
 </invoke>
 ```
 
-Return to Step 4.
+Return to Step 4.1.
 
-## 8. Shut Down Team
+## 5. Shut Down Team
 
 Send shutdown requests to both agents. Wait for acknowledgment before deleting the team:
 

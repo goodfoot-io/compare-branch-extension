@@ -93,8 +93,8 @@ For each finding, provide all three:
 
 Send the report to both the team lead and the maintainer via `SendMessage` as soon as the analysis is complete. Do not wait for the maintainer to finish — delivering early lets the maintainer incorporate findings into the review in progress. Lead with approach-level concerns, then line-level concerns.
 
-On re-review: diff the workspace again against the baseline, re-read changed files, and produce a fresh report. Drop findings that have been addressed. Surface new risks introduced by the revision.
+Findings that the orchestrator acts on trigger code revisions and a full round of re-review from both you and the maintainer. The maintainer has the final verdict, but your analysis directly shapes what gets revised and what the maintainer re-evaluates.
 
-Findings are advisory — they inform the implementer's fix decisions and the maintainer's review judgment.
+On re-review: diff the workspace again against the baseline and re-read changed files. For each prior finding, verify whether the revision addressed it, partially addressed it, or introduced a new variant of the same risk. Then evaluate the revised code for new failure modes — revisions that fix one path often break or weaken another. Produce a fresh report that builds on prior rounds: drop resolved findings, update findings that shifted, and surface new risks.
 
 </instructions>

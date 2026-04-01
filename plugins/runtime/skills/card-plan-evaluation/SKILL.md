@@ -59,21 +59,33 @@ Read the plan from PLAN.md in the card repository. For every claim the plan make
 </invoke>
 ```
 
-## 2. Wait for Review
+## 2. Review Loop
 
-Wait for the maintainer to deliver the review report via SendMessage. The maintainer incorporates failure-mode findings at their judgment.
+This is an iterative review loop. Each iteration waits for both the maintainer and failure-mode analyst, then processes their findings. The loop terminates only when one of these conditions is met:
 
-**Failure-mode report not yet arrived when maintainer reports:** Proceed — findings will arrive and can inform revision in Step 5.
+- **APPROVED**: The maintainer's verdict is APPROVED and no unaddressed failure-mode findings remain
+- **BLOCKED**: The maintainer's verdict is BLOCKED
 
-## 3. Process Verdict
+Every plan revision — whether from maintainer findings, failure-mode findings, or both — requires a full round of re-review from all agents before the loop can terminate.
 
-The maintainer's verdict is final. Apply the first matching condition:
+### 2.1 Wait for Reports
 
-1. **BLOCKED**: Shut down the team (Step 6). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: Proceed to Step 4.
-3. **APPROVED**: Shut down the team (Step 6). Proceed to the next step in the planning workflow. Do not modify gates in `CARD.meta.json`.
+Wait for both the maintainer's review report and the failure-mode analyst's findings.
 
-## 4. Engage with Review
+Based on report arrival:
+- **Both arrived**: Proceed to Step 2.2
+- **Maintainer arrived, failure-mode pending**: Proceed to Step 2.2 — incorporate failure-mode findings when they arrive in Step 2.4
+
+### 2.2 Process Maintainer Verdict
+
+The maintainer's verdict determines the path. Apply the first matching condition:
+
+- **BLOCKED**: Go to Step 3. Document in comment, add `blocked` tag, commit, **STOP**.
+- **CHANGES_REQUESTED**: Go to Step 2.3.
+- **APPROVED and no unaddressed failure-mode findings**: Go to Step 3. Proceed to the next step in the planning workflow. Do not modify gates in `CARD.meta.json`.
+- **APPROVED and unaddressed failure-mode findings remain**: Go to Step 2.4 — failure-mode findings may require revision, which triggers re-review.
+
+### 2.3 Engage with Maintainer Review
 
 Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). Engage with the review before acting on it.
 
@@ -103,20 +115,23 @@ Wait for the maintainer's response.
 - Route empirically-testable uncertainties to spike investigation before revising.
 - Make decisions for non-blocking issues and document them in the plan revision.
 
-## 5. Revise and Re-submit
+### 2.4 Review Failure-Mode Findings
 
-For each required change from the maintainer's report:
-
-- **Viable**: Revise PLAN.md to address the finding.
-- **Not viable**: Note the reason (e.g., simpler approach doesn't satisfy a constraint, structural requirement doesn't apply given scope).
-
-Review the failure-mode analyst's findings. Approach-level findings — risks inherent to the plan's key bets or complexity disproportionate to the problem — deserve the most consideration. Decide what to do:
+Review the failure-mode analyst's findings. Approach-level findings — risks inherent to the plan's key bets or complexity disproportionate to the problem — deserve the most consideration. For each finding, decide:
 - Revise the approach
 - Add mitigations
 - Acknowledge an accepted risk
 - Determine the finding doesn't apply
 
-Not every finding requires a plan change. No response to the failure-mode analyst is required.
+Not every finding requires a plan change.
+
+### 2.5 Revise and Re-submit
+
+For each required change from the maintainer's report:
+- **Viable**: Revise PLAN.md to address the finding.
+- **Not viable**: Note the reason (e.g., simpler approach doesn't satisfy a constraint, structural requirement doesn't apply given scope).
+
+Apply any failure-mode revisions decided in Step 2.4.
 
 Commit the revised plan:
 
@@ -156,9 +171,9 @@ The plan has been revised. Re-read PLAN.md and send updated findings to both the
 </invoke>
 ```
 
-Return to Step 2.
+Return to Step 2.1.
 
-## 6. Shut Down Team
+## 3. Shut Down Team
 
 Send shutdown requests to both agents. Wait for acknowledgment before deleting the team:
 

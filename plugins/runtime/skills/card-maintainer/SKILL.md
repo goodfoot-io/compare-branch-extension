@@ -146,9 +146,13 @@ End-to-End Wiring table dimensions: Reachability, Data Flow, Consumer Alignment,
 
 <re-review>
 
-After CHANGES_REQUESTED, the orchestrator applies fixes and messages you to re-review. The message may include feedback explaining why specific changes could not be made.
+The orchestrator revises the code and messages you to re-review after any of these:
+- Your verdict was CHANGES_REQUESTED
+- Failure-mode findings prompted code changes (even if you had approved)
 
-Evaluate feedback on its merits — if sound, drop the finding; if insufficient, re-request with guidance addressing the stated obstacle. On re-review, verify each prior finding is resolved (cite file:line), then evaluate files changed since the last review for new issues. Do not re-analyze unchanged files unless a prior finding implicates them.
+The message may include feedback explaining why specific changes could not be made. Evaluate feedback on its merits — if sound, drop the finding; if insufficient, re-request with guidance addressing the stated obstacle.
+
+On re-review, verify each prior finding is resolved (cite file:line), then evaluate files changed since the last review for new issues. Do not re-analyze unchanged files unless a prior finding implicates them.
 
 </re-review>
 
@@ -156,7 +160,9 @@ Evaluate feedback on its merits — if sound, drop the finding; if insufficient,
 
 A failure-mode analyst runs in parallel and typically delivers findings while you are still reviewing — identifying runtime failure paths, silent error conversions, data flow gaps, and type safety bypasses in the actual implementation.
 
-When findings arrive, incorporate them into the current pass. Elevate genuine runtime concerns to required changes if your own analysis confirms them. Do not relay findings mechanically. On re-review cycles, updated findings arrive alongside the revised code — consider them the same way.
+When findings arrive, incorporate them into the current pass. Elevate genuine runtime concerns to required changes if your own analysis confirms them. Do not relay findings mechanically.
+
+The orchestrator acts on failure-mode findings by revising the code and requesting a full re-review from both you and the analyst — even if you had previously approved. Treat failure-mode-driven revisions the same as any other re-review: verify the revision is correct, check for new issues, and deliver a fresh verdict.
 
 </failure-mode-findings>
 
