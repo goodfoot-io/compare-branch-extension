@@ -7,7 +7,7 @@ description: This skill should be used when the user asks to "take a screenshot 
 
 ## 1. Prerequisites
 
-The `cards-dev.mjs` CLI connects to the running VS Code Electron process via CDP on port 19222. Verify connectivity before use:
+The `$CARDS_DEV_CLI` CLI connects to the running VS Code Electron process via CDP on port 19222. Verify connectivity before use:
 
 ```bash
 curl -s --connect-timeout 2 "http://127.0.0.1:19222/json/version" | head -c 100
@@ -23,7 +23,7 @@ All commands output JSON to stdout and errors to stderr. Exit code 0 on success,
 - `list` — The sidebar card list panel
 
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs <subcommand> [flags]
+$CARDS_DEV_CLI <subcommand> [flags]
 ```
 
 ### screenshot
@@ -32,13 +32,13 @@ Capture the full VS Code window or a specific webview body.
 
 ```bash
 # Full window screenshot
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs screenshot
+$CARDS_DEV_CLI screenshot
 
 # Card detail webview body
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs screenshot --target detail
+$CARDS_DEV_CLI screenshot --target detail
 
 # Card list sidebar with custom output path
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs screenshot --target list --output /tmp/list.png
+$CARDS_DEV_CLI screenshot --target list --output /tmp/list.png
 ```
 
 Output: `{ "path": "/tmp/screenshot.png" }`
@@ -50,7 +50,7 @@ Flags: `--target detail|list` (optional), `--output <path>` (default: `/tmp/scre
 Enumerate interactive elements (buttons, inputs, checkboxes, dropdowns) in a webview.
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs list-elements --target detail
+$CARDS_DEV_CLI list-elements --target detail
 ```
 
 Output: JSON array of `{ tag, text, title, ariaLabel, type, disabled, checked }` objects.
@@ -63,10 +63,10 @@ Click an element by matching its `textContent`, `title`, or `aria-label`.
 
 ```bash
 # Click a button by label
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs click --target detail --label "Create Comment"
+$CARDS_DEV_CLI click --target detail --label "Create Comment"
 
 # Click the second matching element
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs click --target detail --label "Save" --index 1
+$CARDS_DEV_CLI click --target detail --label "Save" --index 1
 ```
 
 Output: `{ "clicked": true, "element": { "tag": "BUTTON", "text": "Create Comment" } }`
@@ -79,10 +79,10 @@ Type text into an input field found by placeholder, aria-label, or associated la
 
 ```bash
 # Type into an input, clearing existing value first
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs type --target detail --label "Title" --text "New card title"
+$CARDS_DEV_CLI type --target detail --label "Title" --text "New card title"
 
 # Append text without clearing
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs type --target detail --label "Search" --text " additional terms" --append
+$CARDS_DEV_CLI type --target detail --label "Search" --text " additional terms" --append
 ```
 
 Output: `{ "typed": true, "element": { "tag": "INPUT", "label": "Title" } }`
@@ -95,10 +95,10 @@ Scroll a webview body or a specific container.
 
 ```bash
 # Scroll the detail webview down by one viewport height
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs scroll --target detail --direction down
+$CARDS_DEV_CLI scroll --target detail --direction down
 
 # Scroll a specific container up by 200 pixels
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs scroll --target detail --direction up --selector ".timeline-container" --amount 200
+$CARDS_DEV_CLI scroll --target detail --direction up --selector ".timeline-container" --amount 200
 ```
 
 Output: `{ "scrolled": true, "scrollTop": 420 }`
@@ -111,13 +111,13 @@ Read text content or attributes from the webview DOM.
 
 ```bash
 # Read all visible text from the detail webview
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs read --target detail
+$CARDS_DEV_CLI read --target detail
 
 # Read text from specific elements
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs read --target detail --selector "[data-timeline-kind]"
+$CARDS_DEV_CLI read --target detail --selector "[data-timeline-kind]"
 
 # Read a specific attribute from elements
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs read --target detail --selector "[data-timeline-kind]" --attribute "data-timeline-kind"
+$CARDS_DEV_CLI read --target detail --selector "[data-timeline-kind]" --attribute "data-timeline-kind"
 ```
 
 Output (body): `{ "text": "..." }`
@@ -131,10 +131,10 @@ Wait for an element or text to appear (or disappear) in the webview.
 
 ```bash
 # Wait for a selector to appear
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs wait --target detail --selector "[data-timeline-kind]"
+$CARDS_DEV_CLI wait --target detail --selector "[data-timeline-kind]"
 
 # Wait for text to disappear with custom timeout
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs wait --target detail --text "Loading" --absent --timeout 10000
+$CARDS_DEV_CLI wait --target detail --text "Loading" --absent --timeout 10000
 ```
 
 Output: `{ "found": true, "elapsed": 1200 }`
@@ -152,25 +152,25 @@ yarn build
 Reload the window, wait for the webview to settle, then screenshot:
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs wait --target detail --selector "[data-timeline-kind]" --timeout 15000
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs screenshot --target detail --output /tmp/after-rebuild.png
+$CARDS_DEV_CLI wait --target detail --selector "[data-timeline-kind]" --timeout 15000
+$CARDS_DEV_CLI screenshot --target detail --output /tmp/after-rebuild.png
 ```
 
 ### Discover and click a button
 
 ```bash
 # List all interactive elements to find the right label
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs list-elements --target detail
+$CARDS_DEV_CLI list-elements --target detail
 
 # Click the desired button
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs click --target detail --label "Create Comment"
+$CARDS_DEV_CLI click --target detail --label "Create Comment"
 ```
 
 ### Read DOM state for assertions
 
 ```bash
 # Read timeline entry types
-node ${CLAUDE_PLUGIN_ROOT}/bin/cards-dev.mjs read --target detail --selector "[data-timeline-kind]" --attribute "data-timeline-kind"
+$CARDS_DEV_CLI read --target detail --selector "[data-timeline-kind]" --attribute "data-timeline-kind"
 ```
 
 </instructions>

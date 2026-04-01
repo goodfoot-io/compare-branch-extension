@@ -42,7 +42,7 @@ Recovery cycle:
   **If an existing card covers this block**, look up its repository path, then write a comment to it:
 
   ```bash
-  $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs [BLOCKING CARD ID]
+  $CARD_CLI [BLOCKING CARD ID]
   ```
 
   Extract `repositoryPath` from the JSON output, then write a comment:

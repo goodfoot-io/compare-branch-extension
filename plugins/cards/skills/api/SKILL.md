@@ -38,7 +38,7 @@ If research during CARD.md writing reveals a clear approach, write PLAN.md along
 
 **Get a card** — Fetch card details by ID. The response includes `repositoryPath` for filesystem access:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id>
+$CARD_CLI <card-id>
 ```
 
 The response includes:
@@ -47,7 +47,7 @@ The response includes:
 
 **Create a card** — Pipe JSON to stdin with `title` (required). Optional: `tags`, `environment`, `gates`, `relations`:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
+$CARD_CLI create <<'EOF'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 ```
@@ -55,7 +55,7 @@ EOF
 The response includes `repositoryPath`. After creation, write card content and document sidecars directly to the card repository and commit:
 
 ```bash
-REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF' | jq -r '.repositoryPath'
+REPO=$($CARD_CLI create <<'EOF' | jq -r '.repositoryPath'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 )
@@ -83,17 +83,17 @@ cd "$REPO" && git add PLAN.md PLAN.md.meta.json && git commit -m "Added plan [si
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs create <<'EOF'
+$CARD_CLI create <<'EOF'
 { "title": "Unify tag layout", "relations": [{ "type": "related", "cardId": "main-67" }] }
 EOF
 ```
 
 **List cards** — List cards for the current workspace. Detects workspace path from git automatically:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --status in_progress
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --tag bug --tag feature
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs list --search "auth" --status todo
+$CARD_CLI list
+$CARD_CLI list --status in_progress
+$CARD_CLI list --tag bug --tag feature
+$CARD_CLI list --search "auth" --status todo
 ```
 
 Each card in the response includes `parentBranch` when the card was created in a workspace with a resolvable branch.
@@ -108,42 +108,34 @@ Use `--workspace-path` only if the user explicitly requests creating a card in a
 
 **Attach a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs attach <card-id>
+$CARD_CLI attach <card-id>
 ```
 Always call `attach` before your first code change on a card. This establishes commit attribution.
 
 **Detach a session** — Disassociate this Claude session from its card:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs detach
+$CARD_CLI detach
 ```
 
 **Execute an action** — Execute an action on a card via the server relay:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> action <action-id>
+$CARD_CLI <card-id> action <action-id>
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
-### notification.mjs — Send notifications
+### $NOTIFICATION_CLI — Send notifications
 
 Send a notification to the VSCode UI.
 
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type info --title "Build complete" --message "All tests pass" --source my-agent
-node ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
-node ${CLAUDE_PLUGIN_ROOT}/bin/notification.mjs --type error --title "Deploy failed" --message "Exit code 1" --source ci
+$NOTIFICATION_CLI --type info --title "Build complete" --message "All tests pass" --source my-agent
+$NOTIFICATION_CLI --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
+$NOTIFICATION_CLI --type error --title "Deploy failed" --message "Exit code 1" --source ci
 ```
 
 Required: `--type` (error|warning|info), `--title`, `--message`, `--source`
 
-### uuid7.mjs — Generate UUIDv7
-
-Generates a UUIDv7 identifier (RFC 9562).
-
-```bash
-UUID=$(node ${CLAUDE_PLUGIN_ROOT}/bin/uuid7.mjs)
-```
-
-### compare.mjs — Compare operations
+### $COMPARE_CLI — Compare operations
 
 Manage the attribution tree comparison mode. One active comparison per server.
 
@@ -153,38 +145,38 @@ Manage the attribution tree comparison mode. One active comparison per server.
 
 Branch range — compare two arbitrary refs:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+$COMPARE_CLI set <<'EOF'
 { "baseRef": "main", "compareRef": "feature-branch", "title": "My Comparison" }
 EOF
 ```
 
 Dynamic worktree — track a worktree's HEAD live:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+$COMPARE_CLI set <<'EOF'
 { "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1", "title": "Card Changes" }
 EOF
 ```
 
 Fixed attribution — show pre-computed SHAs against a ref:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs set <<'EOF'
+$COMPARE_CLI set <<'EOF'
 { "compareRef": "main", "attributionShas": ["abc123", "def456"], "title": "Squash Attribution" }
 EOF
 ```
 
 **Get current comparison**:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs get
+$COMPARE_CLI get
 ```
 
 **Clear comparison**:
 ```
-node ${CLAUDE_PLUGIN_ROOT}/bin/compare.mjs clear
+$COMPARE_CLI clear
 ```
 
 ## Card Repository
 
-Each card is an isolated Git repository. The `repositoryPath` field from `card.mjs <id>`
+Each card is an isolated Git repository. The `repositoryPath` field from `$CARD_CLI <id>`
 gives the absolute path to this repository.
 
 ### Commit History API
@@ -278,7 +270,7 @@ Authorship is determined by git commit ownership. List files in any card
 repository directory chronologically with author and commit message:
 
 ```bash
-REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+REPO=$($CARD_CLI <card-id> | jq -r '.repositoryPath')
 git -C "$REPO" log --reverse --diff-filter=A --format='%an: %s' --name-only -- comment/ \
   | awk 'NF{if(/^comment\//){print $0"  "prev}else{prev=$0}}'
 ```
@@ -291,7 +283,7 @@ Replace both occurrences of `comment/` with the target directory
 Comments are pure markdown files with descriptive slug filenames.
 
 ```bash
-REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+REPO=$($CARD_CLI <card-id> | jq -r '.repositoryPath')
 mkdir -p "$REPO/comment"
 cat <<'COMMENT_EOF' > "$REPO/comment/my-slug-name.md"
 Your comment content here (plain markdown, no frontmatter).
@@ -305,7 +297,7 @@ Attachments use UUID4 identifiers with a sanitized original filename, plus a
 `.meta.json` sidecar describing the file.
 
 ```bash
-REPO=$(node ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs <card-id> | jq -r '.repositoryPath')
+REPO=$($CARD_CLI <card-id> | jq -r '.repositoryPath')
 ATT_UUID=$(cat /proc/sys/kernel/random/uuid)  # UUID4
 ATT_NAME="att-${ATT_UUID}_screenshot.png"
 mkdir -p "$REPO/attachment"

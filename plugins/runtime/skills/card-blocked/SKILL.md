@@ -21,7 +21,7 @@ Based on blocker analysis:
 - **Blocker references another card**: Look up its metadata and check its status
 
   ```bash
-  $NODE ${CLAUDE_PLUGIN_ROOT}/bin/card.mjs [REFERENCED CARD ID]
+  $CARD_CLI [REFERENCED CARD ID]
   ```
 
   The output is JSON containing the card's metadata (status, tags, gates) and `repositoryPath`.
