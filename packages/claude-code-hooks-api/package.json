@@ -7,7 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "rm -rf ../../plugins/cards/hooks ../../plugins/cards/bin && claude-code-hooks -i \"src/*.ts\" -o \"../../plugins/cards/hooks/hooks.json\" --log-env-var CLAUDE_CODE_API_HOOKS_LOG_FILE --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:card && yarn build:compare && yarn build:uuid7 && yarn build:notification && yarn build:cards-dev",
+    "build": "rm -rf ../../plugins/cards/hooks ../../plugins/cards/bin && claude-code-hooks -i \"src/*.ts\" -o \"../../plugins/cards/hooks/hooks.json\" --log-env-var CLAUDE_CODE_API_HOOKS_LOG_FILE --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:card && yarn build:card-cli && yarn build:compare && yarn build:uuid7 && yarn build:notification && yarn build:cards-dev",
+    "build:card-cli": "cp src/bin/card-cli.sh ../../plugins/cards/bin/card-cli && chmod +x ../../plugins/cards/bin/card-cli",
     "build:card": "esbuild src/bin/card.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/card.mjs '--external:node:*'",
     "build:compare": "esbuild src/bin/compare.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/compare.mjs '--external:node:*'",
     "build:uuid7": "esbuild src/bin/uuid7.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/uuid7.mjs '--external:node:*'",
