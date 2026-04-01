@@ -945,7 +945,7 @@ export default {
     expect(settings.environments['default']!.streams?.['test-stream']!.wwwRoot).toBe('./renderers/test-stream');
   });
 
-  it('should support streams coexisting with actions and types', async () => {
+  it('should support streams coexisting with actions', async () => {
     writeHandler(testDir, 'action.ts', createActionHandler('Test Action', testDir));
 
     const configPath = writeConfig(
@@ -958,11 +958,6 @@ export default {
     default: {
       version: 1,
       actions: [action],
-      types: {
-        'test-type': {
-          version: '1.0.0'
-        }
-      },
       streams: {
         'test-stream': {
           version: 1,
@@ -980,12 +975,10 @@ export default {
 
     expect(result.success).toBe(true);
 
-    // Verify settings.json has all three sections
+    // Verify settings.json has actions and streams sections
     const settings = readSettings(outdir);
     expect(settings.environments['default']!.actions).toBeDefined();
     expect(settings.environments['default']!.actions.length).toBe(1);
-    expect(settings.environments['default']!.types).toBeDefined();
-    expect(settings.environments['default']!.types?.['test-type']).toBeDefined();
     expect(settings.environments['default']!.streams).toBeDefined();
     expect(settings.environments['default']!.streams?.['test-stream']).toBeDefined();
 

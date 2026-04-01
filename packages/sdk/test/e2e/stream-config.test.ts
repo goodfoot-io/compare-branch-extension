@@ -221,38 +221,7 @@ describe('stream configuration serialization', () => {
       expect(env.streams?.['test-stream']!.wwwRoot).toBe('./renderers/test');
     });
 
-    it('should serialize streams alongside types', () => {
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              note: {
-                version: '1.0.0'
-              }
-            },
-            streams: {
-              'test-stream': {
-                version: 1,
-                wwwRoot: './renderers/test'
-              }
-            }
-          }
-        }
-      };
-
-      const settings = serializeSettings(config);
-      const env = settings.environments['default']!;
-
-      expect(env.types).toBeDefined();
-      expect(env.types?.['note']).toBeDefined();
-      expect(env.streams).toBeDefined();
-      expect(env.streams?.['test-stream']).toBeDefined();
-      expect(env.streams?.['test-stream']!.wwwRoot).toBe('./renderers/test');
-    });
-
-    it('should serialize full config with actions, types, and streams', () => {
+    it('should serialize full config with actions and streams', () => {
       const actionCommand = defineAction({ actionName: 'test-action' }, async () => {
         // Action implementation
       });
@@ -262,11 +231,6 @@ describe('stream configuration serialization', () => {
           default: {
             version: 1,
             actions: [actionCommand],
-            types: {
-              note: {
-                version: '1.0.0'
-              }
-            },
             streams: {
               'test-stream': {
                 version: 1,
@@ -282,7 +246,6 @@ describe('stream configuration serialization', () => {
 
       expect(env.version).toBe(1);
       expect(env.actions).toHaveLength(1);
-      expect(env.types).toBeDefined();
       expect(env.streams).toBeDefined();
       expect(Object.keys(env.streams!)).toHaveLength(1);
     });

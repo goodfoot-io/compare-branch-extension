@@ -12,7 +12,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { SettingsConfig, StreamConfigDefinition } from '../config.js';
-import type { Action, Command, Settings, StreamDefinition, TypeDefinition } from '../schema.js';
+import type { Action, Command, Settings, StreamDefinition } from '../schema.js';
 import type { BuildArgs } from './args.js';
 import { compileHandler } from './compiler.js';
 import { processWwwRoot } from './www-bundler.js';
@@ -177,24 +177,6 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
         supportsBackgroundMode: action.supportsBackgroundMode,
         allowConcurrent: action.allowConcurrent
       });
-    }
-
-    // Extract type commands
-    if (envConfig.types) {
-      const typeHookKeys = ['create', 'update', 'delete'] as const;
-      for (const typeConfig of Object.values(envConfig.types)) {
-        for (const hookKey of typeHookKeys) {
-          const hook = typeConfig[hookKey];
-          if (hook) {
-            commands.push({
-              factoryType: hook.factoryType,
-              name: hook.typeName,
-              sourcePath: hook.sourcePath,
-              timeout: hook.timeout
-            });
-          }
-        }
-      }
     }
 
     // Stream configs no longer produce compiled handlers — wwwRoot directories
@@ -413,35 +395,6 @@ function generateSettings(
       actions.push(action);
     }
 
-    // Generate types
-    let types: Record<string, TypeDefinition> | undefined;
-    if (envConfig.types) {
-      types = {};
-      for (const [typeName, typeConfig] of Object.entries(envConfig.types)) {
-        const typeDef: TypeDefinition = {
-          version: typeConfig.version
-        };
-
-        if (typeConfig.create) {
-          const key = `${typeConfig.create.factoryType}:${typeConfig.create.typeName}`;
-          const compiled = compiledByKey.get(key);
-          typeDef.create = generateCommand(typeConfig.create, compiled, binDir);
-        }
-        if (typeConfig.update) {
-          const key = `${typeConfig.update.factoryType}:${typeConfig.update.typeName}`;
-          const compiled = compiledByKey.get(key);
-          typeDef.update = generateCommand(typeConfig.update, compiled, binDir);
-        }
-        if (typeConfig.delete) {
-          const key = `${typeConfig.delete.factoryType}:${typeConfig.delete.typeName}`;
-          const compiled = compiledByKey.get(key);
-          typeDef.delete = generateCommand(typeConfig.delete, compiled, binDir);
-        }
-
-        types[typeName] = typeDef;
-      }
-    }
-
     // Build environment
     environments[envName] = {
       version: envConfig.version ?? 1,
@@ -450,10 +403,6 @@ function generateSettings(
 
     if (envConfig.description !== undefined) {
       environments[envName].description = envConfig.description;
-    }
-
-    if (types) {
-      environments[envName].types = types;
     }
 
     // Generate streams — wwwRoot paths are rewritten to bundled output locations

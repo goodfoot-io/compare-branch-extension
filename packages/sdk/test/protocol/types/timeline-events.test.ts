@@ -5,10 +5,7 @@ import type {
   TimelineCommentRemovedEvent,
   TimelineCommentUpdatedEvent,
   TimelineCommitAddedEvent,
-  TimelineCommitRemovedEvent,
-  TimelineTypedFileAddedEvent,
-  TimelineTypedFileRemovedEvent,
-  TimelineTypedFileUpdatedEvent
+  TimelineCommitRemovedEvent
 } from '../../../src/protocol/types/events.js';
 
 /**
@@ -74,68 +71,6 @@ describe('timeline event types', () => {
       expect(event.type).toBe('timeline:comment:removed');
       expect(event.cardId).toBe('card-1');
       expect(event.commentId).toBe('comment-1');
-    });
-  });
-
-  describe('TimelineTypedFileAddedEvent', () => {
-    it('should have correct properties', () => {
-      const event: TimelineTypedFileAddedEvent = {
-        type: 'timeline:typedFile:added',
-        cardId: 'card-1',
-        typeName: 'note',
-        item: {
-          type: 'note',
-          id: 'note-1',
-          fileName: 'note-1.md',
-          content: 'Note content',
-          createdAt: '2024-01-01T00:00:00Z'
-        }
-      };
-
-      expect(event.type).toBe('timeline:typedFile:added');
-      expect(event.cardId).toBe('card-1');
-      expect(event.typeName).toBe('note');
-      expect(event.item.type).toBe('note');
-      expect(event.item.id).toBe('note-1');
-    });
-  });
-
-  describe('TimelineTypedFileUpdatedEvent', () => {
-    it('should have correct properties', () => {
-      const event: TimelineTypedFileUpdatedEvent = {
-        type: 'timeline:typedFile:updated',
-        cardId: 'card-1',
-        typeName: 'adaptive-card',
-        item: {
-          type: 'adaptive-card',
-          id: 'ac-1',
-          fileName: 'ac-1.json',
-          content: { summary: 'Updated card' },
-          createdAt: '2024-01-01T00:00:00Z'
-        }
-      };
-
-      expect(event.type).toBe('timeline:typedFile:updated');
-      expect(event.cardId).toBe('card-1');
-      expect(event.typeName).toBe('adaptive-card');
-    });
-  });
-
-  describe('TimelineTypedFileRemovedEvent', () => {
-    it('should have correct properties', () => {
-      const event: TimelineTypedFileRemovedEvent = {
-        type: 'timeline:typedFile:removed',
-        cardId: 'card-1',
-        typeName: 'note',
-        fileName: 'note-1.md',
-        itemId: 'note-1'
-      };
-
-      expect(event.type).toBe('timeline:typedFile:removed');
-      expect(event.cardId).toBe('card-1');
-      expect(event.typeName).toBe('note');
-      expect(event.fileName).toBe('note-1.md');
-      expect(event.itemId).toBe('note-1');
     });
   });
 
@@ -247,30 +182,6 @@ describe('timeline event types', () => {
       }
     });
 
-    it('should narrow types correctly for timeline:typedFile:added', () => {
-      const event: DomainEvent = {
-        type: 'timeline:typedFile:added',
-        cardId: 'card-1',
-        typeName: 'note',
-        item: {
-          type: 'note',
-          id: 'note-1',
-          fileName: 'note-1.md',
-          content: 'Content',
-          createdAt: '2024-01-01'
-        }
-      };
-
-      switch (event.type) {
-        case 'timeline:typedFile:added':
-          expect(event.typeName).toBe('note');
-          expect(event.item.id).toBe('note-1');
-          break;
-        default:
-          throw new Error('Unexpected event type');
-      }
-    });
-
     it('should narrow types correctly for timeline:commit:added', () => {
       const event: DomainEvent = {
         type: 'timeline:commit:added',
@@ -315,12 +226,6 @@ describe('timeline event types', () => {
             return 'timeline-commit-added';
           case 'timeline:commit:removed':
             return 'timeline-commit-removed';
-          case 'timeline:typedFile:added':
-            return 'timeline-typedFile-added';
-          case 'timeline:typedFile:updated':
-            return 'timeline-typedFile-updated';
-          case 'timeline:typedFile:removed':
-            return 'timeline-typedFile-removed';
           case 'stream:started':
             return 'stream-started';
           case 'stream:resumed':
@@ -381,31 +286,6 @@ describe('timeline event types', () => {
           }
         })
       ).toBe('timeline-commit-added');
-
-      expect(
-        handleEvent({
-          type: 'timeline:typedFile:added',
-          cardId: 'c1',
-          typeName: 'note',
-          item: {
-            type: 'note',
-            id: 'n1',
-            fileName: 'n1.md',
-            content: 'content',
-            createdAt: '2024-01-01'
-          }
-        })
-      ).toBe('timeline-typedFile-added');
-
-      expect(
-        handleEvent({
-          type: 'timeline:typedFile:removed',
-          cardId: 'c1',
-          typeName: 'note',
-          fileName: 'n1.md',
-          itemId: 'n1'
-        })
-      ).toBe('timeline-typedFile-removed');
 
       expect(
         handleEvent({

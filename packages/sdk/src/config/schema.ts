@@ -74,37 +74,6 @@ export interface Action {
 }
 
 // ============================================================================
-// TypeDefinition
-// ============================================================================
-
-/**
- * Represents a typed file configuration with lifecycle hooks.
- *
- * Type definitions specify how to create, update, and delete
- * typed files in the Cards Extension.
- *
- * @example
- * ```typescript
- * const typeDef: TypeDefinition = {
- *   version: '1.0.0',
- *   create: { command: 'node ./bin/note-create.js' },
- *   update: { command: 'node ./bin/note-update.js' },
- *   delete: { command: 'node ./bin/note-delete.js' }
- * };
- * ```
- */
-export interface TypeDefinition {
-  /** Version string for the type definition */
-  version: string;
-  /** Optional command for creating new typed files */
-  create?: Command;
-  /** Optional command for updating typed files */
-  update?: Command;
-  /** Optional command for deleting typed files */
-  delete?: Command;
-}
-
-// ============================================================================
 // StreamDefinition
 // ============================================================================
 
@@ -145,7 +114,7 @@ export interface StreamDefinition {
 /**
  * Represents a configuration environment.
  *
- * Environments group actions and type definitions together, allowing
+ * Environments group actions and stream definitions together, allowing
  * different configurations for different contexts (e.g., development, production).
  *
  * @example
@@ -158,12 +127,7 @@ export interface StreamDefinition {
  *       name: 'Launch Claude',
  *       start: { command: 'node ./bin/launch-start.js' }
  *     }
- *   ],
- *   types: {
- *     note: {
- *       version: '1.0.0'
- *     }
- *   }
+ *   ]
  * };
  * ```
  */
@@ -174,8 +138,6 @@ export interface Environment {
   description?: string;
   /** Array of actions available in this environment */
   actions: Action[];
-  /** Optional record of type definitions keyed by type name */
-  types?: Record<string, TypeDefinition>;
   /** Optional record of stream definitions keyed by stream name */
   streams?: Record<string, StreamDefinition>;
 }

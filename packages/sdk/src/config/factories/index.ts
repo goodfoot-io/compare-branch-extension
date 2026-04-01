@@ -1,8 +1,7 @@
 /**
- * Factory functions for declaring type-safe action handlers and type lifecycle
- * hooks (create, update, delete).
+ * Factory functions for declaring type-safe action handlers.
  *
- * @summary Factories for defining actions and type hooks
+ * @summary Factories for defining actions
  * @module
  */
 
@@ -11,10 +10,3 @@ export {
   type ActionHandler,
   defineAction
 } from './action.js';
-export {
-  defineTypeCreate,
-  defineTypeDelete,
-  defineTypeUpdate,
-  type TypeConfig,
-  type TypeHandler
-} from './type-hooks.js';

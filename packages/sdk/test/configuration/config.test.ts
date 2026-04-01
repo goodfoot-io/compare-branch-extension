@@ -9,18 +9,8 @@
  */
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand
-} from '../../src/config/command-types.js';
-import type {
-  EnvironmentConfig,
-  SettingsConfig,
-  StreamConfigDefinition,
-  TypeConfigDefinition
-} from '../../src/config/config.js';
+import type { ActionCommand } from '../../src/config/command-types.js';
+import type { EnvironmentConfig, SettingsConfig, StreamConfigDefinition } from '../../src/config/config.js';
 
 // ============================================================================
 // Type-Level Tests
@@ -137,65 +127,6 @@ describe('config types', () => {
     });
   });
 
-  describe('TypeConfigDefinition', () => {
-    it('should accept all lifecycle hooks', () => {
-      const create: TypeCreateCommand<'test-type'> = {
-        factoryType: 'typeCreate',
-        typeName: 'test-type'
-      } as TypeCreateCommand<'test-type'>;
-
-      const update: TypeUpdateCommand<'test-type'> = {
-        factoryType: 'typeUpdate',
-        typeName: 'test-type'
-      } as TypeUpdateCommand<'test-type'>;
-
-      const deleteCmd: TypeDeleteCommand<'test-type'> = {
-        factoryType: 'typeDelete',
-        typeName: 'test-type'
-      } as TypeDeleteCommand<'test-type'>;
-
-      const typeConfig: TypeConfigDefinition = {
-        version: '1.0.0',
-        create,
-        update,
-        delete: deleteCmd
-      };
-
-      expect(typeConfig.version).toBe('1.0.0');
-      expect(typeConfig.create?.typeName).toBe('test-type');
-      expect(typeConfig.update?.typeName).toBe('test-type');
-      expect(typeConfig.delete?.typeName).toBe('test-type');
-    });
-
-    it('should accept minimal TypeConfig with only version', () => {
-      const typeConfig: TypeConfigDefinition = {
-        version: '1.0.0'
-      };
-
-      expect(typeConfig.version).toBe('1.0.0');
-      expect(typeConfig.create).toBeUndefined();
-      expect(typeConfig.update).toBeUndefined();
-      expect(typeConfig.delete).toBeUndefined();
-    });
-
-    it('should verify version is required in TypeConfig', () => {
-      // Type-level check that version is required
-      type ConfigType = TypeConfigDefinition;
-
-      // Verify version property exists and is a string
-      expectTypeOf<ConfigType>().toHaveProperty('version').toEqualTypeOf<string>();
-    });
-
-    it('should verify all hooks are optional', () => {
-      // Type-level check that hooks are optional
-      type ConfigType = TypeConfigDefinition;
-
-      expectTypeOf<ConfigType['create']>().toEqualTypeOf<TypeCreateCommand | undefined>();
-      expectTypeOf<ConfigType['update']>().toEqualTypeOf<TypeUpdateCommand | undefined>();
-      expectTypeOf<ConfigType['delete']>().toEqualTypeOf<TypeDeleteCommand | undefined>();
-    });
-  });
-
   describe('EnvironmentConfig', () => {
     it('should accept full environment configuration', () => {
       const command: ActionCommand<'Launch'> = {
@@ -203,23 +134,15 @@ describe('config types', () => {
         actionName: 'Launch'
       } as ActionCommand<'Launch'>;
 
-      const typeConfig: TypeConfigDefinition = {
-        version: '1.0.0'
-      };
-
       const envConfig: EnvironmentConfig = {
         version: 1,
         description: 'Test environment',
-        actions: [command],
-        types: {
-          'test-type': typeConfig
-        }
+        actions: [command]
       };
 
       expect(envConfig.version).toBe(1);
       expect(envConfig.description).toBe('Test environment');
       expect(envConfig.actions).toHaveLength(1);
-      expect(envConfig.types?.['test-type']).toBe(typeConfig);
     });
 
     it('should accept minimal environment with only actions', () => {
@@ -235,7 +158,6 @@ describe('config types', () => {
       expect(envConfig.actions).toHaveLength(1);
       expect(envConfig.version).toBeUndefined();
       expect(envConfig.description).toBeUndefined();
-      expect(envConfig.types).toBeUndefined();
     });
 
     it('should verify actions is required in EnvironmentConfig', () => {
@@ -260,7 +182,6 @@ describe('config types', () => {
 
       expectTypeOf<EnvType['version']>().toEqualTypeOf<number | undefined>();
       expectTypeOf<EnvType['description']>().toEqualTypeOf<string | undefined>();
-      expectTypeOf<EnvType['types']>().toEqualTypeOf<Record<string, TypeConfigDefinition> | undefined>();
     });
 
     it('should accept environment with streams', () => {
@@ -407,12 +328,7 @@ describe('config types', () => {
           development: {
             version: 1,
             description: 'Development environment',
-            actions: [launchCommand, deployCommand],
-            types: {
-              'adaptive-card': {
-                version: '1.0.0'
-              }
-            }
+            actions: [launchCommand, deployCommand]
           },
           production: {
             version: 1,
@@ -424,7 +340,6 @@ describe('config types', () => {
 
       expect(config.environments['development']!.actions).toHaveLength(2);
       expect(config.environments['production']!.actions).toHaveLength(1);
-      expect(config.environments['development']!.types?.['adaptive-card']).toBeDefined();
     });
 
     it('should enforce type safety across nested structures', () => {
@@ -470,7 +385,7 @@ describe('config types', () => {
       expectTypeOf(config.environments['default']!.actions[0].actionName).toEqualTypeOf<'SpecificAction'>();
     });
 
-    it('should support configuration with streams alongside actions and types', () => {
+    it('should support configuration with streams alongside actions', () => {
       const command: ActionCommand<'Launch'> = {
         factoryType: 'action',
         actionName: 'Launch'
@@ -482,9 +397,6 @@ describe('config types', () => {
             version: 1,
             description: 'Full environment with streams',
             actions: [command],
-            types: {
-              'adaptive-card': { version: '1.0.0' }
-            },
             streams: {
               jsonl: { version: 1, wwwRoot: './renderers/jsonl' }
             }
@@ -493,7 +405,6 @@ describe('config types', () => {
       };
 
       expect(config.environments['default']!.actions).toHaveLength(1);
-      expect(config.environments['default']!.types?.['adaptive-card']).toBeDefined();
       expect(config.environments['default']!.streams?.['jsonl']).toBeDefined();
       expect(config.environments['default']!.streams?.['jsonl']!.version).toBe(1);
     });

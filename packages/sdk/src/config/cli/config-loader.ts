@@ -33,12 +33,12 @@ import type { SettingsConfig } from '../config.js';
 /**
  * Pattern matching factory call sites in handler files.
  *
- * Matches `defineAction({`, `defineTypeCreate({`, etc. at the start of a
- * config object literal. The plugin injects `sourcePath` as the first property
- * so that the V8-based `getCallerFile()` fallback (which returns the temp
- * bundle path) is never reached.
+ * Matches `defineAction({` at the start of a config object literal.
+ * The plugin injects `sourcePath` as the first property so that the
+ * V8-based `getCallerFile()` fallback (which returns the temp bundle
+ * path) is never reached.
  */
-const FACTORY_CALL_RE = /\b(define(?:Action|TypeCreate|TypeUpdate|TypeDelete|StreamTransform))\s*\(\s*\{/g;
+const FACTORY_CALL_RE = /\b(define(?:Action|StreamTransform))\s*\(\s*\{/g;
 
 /**
  * esbuild plugin that injects `sourcePath` into factory config objects during

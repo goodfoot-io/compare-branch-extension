@@ -1,21 +1,20 @@
 /**
- * Environment variable utilities for Cards Extension actions and type hooks.
+ * Environment variable utilities for Cards Extension actions.
  *
- * The execution wrapper injects action and type hook inputs via process.env.
+ * The execution wrapper injects action inputs via process.env.
  * This module provides strict getters and typed extractors so handlers do not
  * need to parse environment variables manually.
  *
  * Use the individual getters when you only need one value; use
- * {@link extractActionInput} or {@link extractTypeInput} when you need a full
- * typed payload for an action or type hook.
+ * {@link extractActionInput} when you need a full typed payload for an action.
  *
  *
- * @summary Environment variable utilities for Cards Extension actions and type hooks
+ * @summary Environment variable utilities for Cards Extension actions
  * @module
  */
 
 import { readFileSync } from 'node:fs';
-import type { ActionInput, TypeHookInput } from './inputs.js';
+import type { ActionInput } from './inputs.js';
 
 // ============================================================================
 // Constants
@@ -60,48 +59,6 @@ export const CARDS_ENV_VARS = {
    * Optional.
    */
   CODING_AGENT: 'CODING_AGENT',
-
-  /**
-   * The registered type name.
-   * Available in type hooks only.
-   */
-  TYPE_NAME: 'TYPE_NAME',
-
-  /**
-   * The type's version string from settings.json configuration.
-   * Available in type hooks only.
-   */
-  TYPE_VERSION: 'TYPE_VERSION',
-
-  /**
-   * The file name within the type directory.
-   * Available in type hooks only.
-   */
-  FILE_NAME: 'FILE_NAME',
-
-  /**
-   * Full path to the file.
-   * Available in type hooks only.
-   */
-  FILE_PATH: 'FILE_PATH',
-
-  /**
-   * File size in bytes.
-   * Available in type hooks only.
-   */
-  FILE_SIZE: 'FILE_SIZE',
-
-  /**
-   * SHA256 hash of content.
-   * Available in type hooks only.
-   */
-  SHA256: 'SHA256',
-
-  /**
-   * MIME type of the content.
-   * Available in type hooks only.
-   */
-  CONTENT_TYPE: 'CONTENT_TYPE',
 
   /**
    * Path to the VS Code bundled Node.js interpreter.
@@ -342,150 +299,6 @@ export function getCodingAgent(): string | undefined {
 }
 
 /**
- * Reads the registered type name for type hooks.
- *
- * This value is only present for type hook events.
- * @returns The registered type name
- * @throws Error if TYPE_NAME is missing or empty
- * @example
- * ```typescript
- * const typeName = getTypeName();
- * console.log(`Type: ${typeName}`);
- * ```
- */
-export function getTypeName(): string {
-  const value = process.env[CARDS_ENV_VARS.TYPE_NAME];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.TYPE_NAME}`);
-  }
-  return value;
-}
-
-/**
- * Reads the type version from the environment.
- *
- * This version comes from the type configuration in settings.json.
- * @returns The version string from type config
- * @throws Error if TYPE_VERSION is missing or empty
- * @example
- * ```typescript
- * const version = getTypeVersion();
- * console.log(`Version: ${version}`);
- * ```
- */
-export function getTypeVersion(): string {
-  const value = process.env[CARDS_ENV_VARS.TYPE_VERSION];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.TYPE_VERSION}`);
-  }
-  return value;
-}
-
-/**
- * Reads the typed file name for type hook events.
- *
- * This is the file name relative to the type directory, not a full path.
- * @returns The file name within the type directory
- * @throws Error if FILE_NAME is missing or empty
- * @example
- * ```typescript
- * const fileName = getFileName();
- * console.log(`File: ${fileName}`);
- * ```
- */
-export function getFileName(): string {
-  const value = process.env[CARDS_ENV_VARS.FILE_NAME];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.FILE_NAME}`);
-  }
-  return value;
-}
-
-/**
- * Reads the absolute path to the typed file.
- *
- * This is the fully resolved path on disk provided by the execution wrapper.
- * @returns The full path to the file
- * @throws Error if FILE_PATH is missing or empty
- * @example
- * ```typescript
- * const filePath = getFilePath();
- * console.log(`Path: ${filePath}`);
- * ```
- */
-export function getFilePath(): string {
-  const value = process.env[CARDS_ENV_VARS.FILE_PATH];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.FILE_PATH}`);
-  }
-  return value;
-}
-
-/**
- * Reads the typed file size from the environment.
- *
- * The value is parsed as a base-10 integer.
- * @returns The file size in bytes
- * @throws Error if FILE_SIZE is missing or not a number
- * @example
- * ```typescript
- * const size = getFileSize();
- * console.log(`Size: ${size} bytes`);
- * ```
- */
-export function getFileSize(): number {
-  const value = process.env[CARDS_ENV_VARS.FILE_SIZE];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.FILE_SIZE}`);
-  }
-  const size = Number.parseInt(value, 10);
-  if (Number.isNaN(size)) {
-    throw new Error(`Invalid ${CARDS_ENV_VARS.FILE_SIZE}: expected number, got "${value}"`);
-  }
-  return size;
-}
-
-/**
- * Reads the SHA256 hash for the typed file content.
- *
- * Useful for detecting content changes without reading the file again.
- * @returns The SHA256 hash of the content
- * @throws Error if SHA256 is missing or empty
- * @example
- * ```typescript
- * const hash = getSha256();
- * console.log(`Hash: ${hash}`);
- * ```
- */
-export function getSha256(): string {
-  const value = process.env[CARDS_ENV_VARS.SHA256];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.SHA256}`);
-  }
-  return value;
-}
-
-/**
- * Reads the MIME type for the typed file content.
- *
- * Provided for type hook events so handlers can branch on content type.
- * @returns The MIME type of the content
- * @throws Error if CONTENT_TYPE is missing or empty
- * @example
- * ```typescript
- * const contentType = getContentType();
- * console.log(`Content type: ${contentType}`);
- * ```
- */
-export function getContentType(): string {
-  const value = process.env[CARDS_ENV_VARS.CONTENT_TYPE];
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.CONTENT_TYPE}`);
-  }
-  return value;
-}
-
-/**
  * Reads the VS Code bundled Node.js interpreter path from the environment.
  *
  * This is set by the extension during activation and injected into all
@@ -667,35 +480,5 @@ export function extractActionInput(): ActionInput {
     cardRepoPath: getCardRepoPath(),
     configPath: getConfigPath(),
     extensionPath: getExtensionPath()
-  };
-}
-
-/**
- * Builds a typed type hook input object from environment variables.
- *
- * Extracts all fields required for type lifecycle hooks (create, update,
- * delete).
- *
- * @returns Typed TypeHookInput object
- * @throws Error if required env vars are missing or invalid
- * @example
- * ```typescript
- * // For a type hook handler
- * const input = extractTypeInput();
- * console.log(input.typeName);
- * console.log(input.fileName);
- * ```
- */
-export function extractTypeInput(): TypeHookInput {
-  return {
-    cardId: getCardId(),
-    environment: getEnvironment(),
-    typeName: getTypeName(),
-    typeVersion: getTypeVersion(),
-    fileName: getFileName(),
-    filePath: getFilePath(),
-    fileSize: getFileSize(),
-    fileSha256: getSha256(),
-    contentType: getContentType()
   };
 }

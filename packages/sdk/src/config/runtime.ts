@@ -1,5 +1,5 @@
 /**
- * Runtime orchestration for compiled Cards action and type handlers.
+ * Runtime orchestration for compiled Cards action handlers.
  *
  * This module is bundled into compiled handlers by the CLI. It provides the
  * execution harness that reads handler input from environment variables, sets
@@ -21,7 +21,7 @@
  * 7. On error: log error, write to stderr, clean up and exit with code 1
  *
  *
- * @summary Runtime orchestration for compiled Cards action and type handlers
+ * @summary Runtime orchestration for compiled Cards action handlers
  * @module
  * @see {@link executeCommand} for the main entry point
  *
@@ -35,10 +35,10 @@
  * ```
  */
 
-import type { ActionCommand, TypeCreateCommand, TypeDeleteCommand, TypeUpdateCommand } from './command-types.js';
-import { CARDS_ENV_VARS, extractActionInput, extractTypeInput } from './env.js';
+import type { ActionCommand } from './command-types.js';
+import { CARDS_ENV_VARS, extractActionInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
-import type { ActionContext, ActionInput, TypeHookContext, TypeHookInput } from './inputs.js';
+import type { ActionContext, ActionInput } from './inputs.js';
 import { logger } from './logger.js';
 import type { SocketCommand } from './socket-client.js';
 import { SocketClient } from './socket-client.js';
@@ -56,7 +56,7 @@ import { SocketClient } from './socket-client.js';
  *
  * @internal
  */
-type AnyCommand = ActionCommand | TypeCreateCommand | TypeUpdateCommand | TypeDeleteCommand;
+type AnyCommand = ActionCommand;
 
 // ============================================================================
 // Helper Functions
@@ -150,13 +150,6 @@ function handleHandlerError(error: unknown): never {
  * scenarios. Production code should not await this function or expect it
  * to return.
  *
- * ## Supported Command Types
- *
- * - **Action** (`action`): Invoked when an action is triggered
- * - **Type Create** (`typeCreate`): Runs after new typed file creation
- * - **Type Update** (`typeUpdate`): Runs after typed file modification
- * - **Type Delete** (`typeDelete`): Runs when typed file is deleted
- *
  * ## Error Handling
  *
  * Errors are handled at three levels:
@@ -195,14 +188,10 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
   process.on('SIGHUP', () => {});
 
   try {
-    let input: ActionInput | TypeHookInput;
+    let input: ActionInput;
 
     try {
-      if (command.factoryType === 'action') {
-        input = extractActionInput();
-      } else {
-        input = extractTypeInput();
-      }
+      input = extractActionInput();
     } catch (error) {
       return handleEnvExtractionError(error);
     }
@@ -210,78 +199,61 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
     // Set logger context with command type
     logger.setContext(command.factoryType, { ...input });
 
-    if (command.factoryType === 'action') {
-      // Socket connection and ActionContext for action commands
-      let socketClient: SocketClient | undefined;
-      const socketPath = process.env[CARDS_ENV_VARS.SOCKET_PATH];
-      if (socketPath) {
-        try {
-          socketClient = await SocketClient.connect(socketPath);
-        } catch (error) {
-          logger.warn(`Failed to connect to socket at ${socketPath}: ${getErrorMessage(error)}`);
-          // Fail-open: continue without socket
-        }
-      }
-
-      // Callback registration state
-      let cancelCallback: (() => void | Promise<void>) | undefined;
-      let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
-      let commandProcessed = false;
-
-      // Build ActionContext with logger, cwd, and socket-backed callbacks
-      const context: ActionContext = {
-        logger,
-        cwd: process.cwd(),
-        onCancel: (callback) => {
-          cancelCallback = callback;
-        },
-        onSwitchToInteractive: (callback) => {
-          switchToInteractiveCallback = callback;
-        }
-      };
-
-      // Wire socket command dispatch
-      if (socketClient) {
-        socketClient.onCommand((cmd: SocketCommand) => {
-          // First-wins semantics: ignore subsequent commands
-          if (commandProcessed) return;
-          commandProcessed = true;
-
-          if (cmd.type === 'cancel') {
-            handleCancelCommand(cancelCallback, socketClient);
-          } else if (cmd.type === 'switchToInteractive') {
-            handleSwitchToInteractiveCommand(switchToInteractiveCallback, socketClient!);
-          }
-        });
-      }
-
-      // Execute the action command handler
+    // Socket connection and ActionContext for action commands
+    let socketClient: SocketClient | undefined;
+    const socketPath = process.env[CARDS_ENV_VARS.SOCKET_PATH];
+    if (socketPath) {
       try {
-        await command(input as ActionInput, context);
+        socketClient = await SocketClient.connect(socketPath);
       } catch (error) {
-        socketClient?.close();
-        return handleHandlerError(error);
+        logger.warn(`Failed to connect to socket at ${socketPath}: ${getErrorMessage(error)}`);
+        // Fail-open: continue without socket
       }
-
-      // Clean up socket and exit successfully
-      socketClient?.close();
-      cleanupAndExit(EXIT_CODES.SUCCESS);
-    } else {
-      // TypeHookContext for type lifecycle hooks
-      const context: TypeHookContext = {
-        logger,
-        cwd: process.cwd()
-      };
-
-      // Execute the type hook command handler
-      try {
-        await command(input as TypeHookInput, context);
-      } catch (error) {
-        return handleHandlerError(error);
-      }
-
-      cleanupAndExit(EXIT_CODES.SUCCESS);
     }
+
+    // Callback registration state
+    let cancelCallback: (() => void | Promise<void>) | undefined;
+    let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
+    let commandProcessed = false;
+
+    // Build ActionContext with logger, cwd, and socket-backed callbacks
+    const context: ActionContext = {
+      logger,
+      cwd: process.cwd(),
+      onCancel: (callback) => {
+        cancelCallback = callback;
+      },
+      onSwitchToInteractive: (callback) => {
+        switchToInteractiveCallback = callback;
+      }
+    };
+
+    // Wire socket command dispatch
+    if (socketClient) {
+      socketClient.onCommand((cmd: SocketCommand) => {
+        // First-wins semantics: ignore subsequent commands
+        if (commandProcessed) return;
+        commandProcessed = true;
+
+        if (cmd.type === 'cancel') {
+          handleCancelCommand(cancelCallback, socketClient);
+        } else if (cmd.type === 'switchToInteractive') {
+          handleSwitchToInteractiveCommand(switchToInteractiveCallback, socketClient!);
+        }
+      });
+    }
+
+    // Execute the action command handler
+    try {
+      await command(input, context);
+    } catch (error) {
+      socketClient?.close();
+      return handleHandlerError(error);
+    }
+
+    // Clean up socket and exit successfully
+    socketClient?.close();
+    cleanupAndExit(EXIT_CODES.SUCCESS);
   } catch (error) {
     // Unexpected error - try to clean up and exit
     logger.error(`Unexpected runtime error: ${getErrorMessage(error)}`);

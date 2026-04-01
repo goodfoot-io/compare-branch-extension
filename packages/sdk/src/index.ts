@@ -12,29 +12,21 @@ export * from './protocol/index.js';
 
 // Re-export configuration exports, excluding names that collide with protocol.
 // The colliding configuration types (Action, Command, Environment, Settings,
-// StreamDefinition, TypeDefinition, TypeConfig) are available via the
-// `@cards/sdk/config` subpath export.
+// StreamDefinition) are available via the `@cards/sdk/config` subpath export.
 
 // --- Command Types ---
-export type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand
-} from './config/command-types.js';
+export type { ActionCommand } from './config/command-types.js';
 // --- Configuration ---
 export type {
   EnvironmentConfig,
   SettingsConfig,
-  StreamConfigDefinition,
-  TypeConfigDefinition
+  StreamConfigDefinition
 } from './config/config.js';
 export { defineConfig, serializeSettings } from './config/define-config.js';
 // --- Environment Variables ---
 export {
   CARDS_ENV_VARS,
   extractActionInput,
-  extractTypeInput,
   getExecutionMode,
   readSwitchToInteractiveData
 } from './config/env.js';
@@ -51,19 +43,10 @@ export {
   type ActionHandler,
   defineAction
 } from './config/factories/action.js';
-// --- Type Hook Factories (excluding TypeConfig) ---
-export {
-  defineTypeCreate,
-  defineTypeDelete,
-  defineTypeUpdate,
-  type TypeHandler
-} from './config/factories/type-hooks.js';
 // --- Input Types ---
 export type {
   ActionContext,
-  ActionInput,
-  TypeHookContext,
-  TypeHookInput
+  ActionInput
 } from './config/inputs.js';
 // --- Logger ---
 export {

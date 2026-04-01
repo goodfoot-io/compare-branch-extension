@@ -1,7 +1,7 @@
 /**
  * Type-safe configuration authoring for the Cards extension, providing factory
- * functions to define actions, type hooks, and stream transforms along with
- * environment helpers, structured logging, and a runtime executor that compiles
+ * functions to define actions and stream transforms along with environment
+ * helpers, structured logging, and a runtime executor that compiles
  * configuration into deployable settings.
  *
  * @summary Configuration authoring and runtime execution for Cards extensions
@@ -19,26 +19,13 @@ export {
 } from './factories/action.js';
 
 // ============================================================================
-// Type Hook Factories
-// ============================================================================
-
-export {
-  defineTypeCreate,
-  defineTypeDelete,
-  defineTypeUpdate,
-  type TypeConfig,
-  type TypeHandler
-} from './factories/type-hooks.js';
-
-// ============================================================================
 // Configuration
 // ============================================================================
 
 export type {
   EnvironmentConfig,
   SettingsConfig,
-  StreamConfigDefinition,
-  TypeConfigDefinition
+  StreamConfigDefinition
 } from './config.js';
 export { defineConfig, serializeSettings } from './define-config.js';
 
@@ -51,8 +38,7 @@ export type {
   Command,
   Environment,
   Settings,
-  StreamDefinition,
-  TypeDefinition
+  StreamDefinition
 } from './schema.js';
 
 // ============================================================================
@@ -61,21 +47,14 @@ export type {
 
 export type {
   ActionContext,
-  ActionInput,
-  TypeHookContext,
-  TypeHookInput
+  ActionInput
 } from './inputs.js';
 
 // ============================================================================
 // Command Types
 // ============================================================================
 
-export type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand
-} from './command-types.js';
+export type { ActionCommand } from './command-types.js';
 
 // ============================================================================
 // Type Utilities
@@ -90,7 +69,6 @@ export type { SameShape } from './type-utils.js';
 export {
   CARDS_ENV_VARS,
   extractActionInput,
-  extractTypeInput,
   getExecutionMode,
   readSwitchToInteractiveData
 } from './env.js';

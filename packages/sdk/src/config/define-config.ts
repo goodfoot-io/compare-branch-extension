@@ -28,18 +28,8 @@
  */
 
 import type { ActionCommand } from './command-types.js';
-import type { EnvironmentConfig, SettingsConfig, StreamConfigDefinition, TypeConfigDefinition } from './config.js';
-import type { Action, Command, Environment, Settings, StreamDefinition, TypeDefinition } from './schema.js';
-
-/**
- * Type hook command with factoryType and typeName properties.
- * Used internally for serializing type lifecycle hooks.
- */
-interface TypeHookCommand {
-  factoryType: string;
-  typeName: string;
-  timeout?: number;
-}
+import type { EnvironmentConfig, SettingsConfig, StreamConfigDefinition } from './config.js';
+import type { Action, Environment, Settings, StreamDefinition } from './schema.js';
 
 /**
  * Converts a string to a URL-safe slug.
@@ -54,26 +44,6 @@ function slugify(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
-}
-
-/**
- * Serializes a type hook command to a Command object.
- * Returns undefined if the hook is not present.
- *
- * @param hook - Type hook command metadata from a type lifecycle definition.
- * @returns Serialized command descriptor, or undefined when no hook is configured.
- */
-function serializeTypeHook(hook: TypeHookCommand | undefined): Command | undefined {
-  if (!hook) {
-    return undefined;
-  }
-  const command: Command = {
-    command: `${hook.factoryType}-${hook.typeName}.js`
-  };
-  if (hook.timeout !== undefined) {
-    command.timeout = hook.timeout;
-  }
-  return command;
 }
 
 /**
@@ -144,29 +114,6 @@ function serializeAction(actionCommand: ActionCommand): Action {
 }
 
 /**
- * Serializes a type configuration to a TypeDefinition object.
- *
- * @param typeName - Type key used in the environment's `types` map.
- * @param typeConfig - Type configuration containing lifecycle hooks.
- * @returns Serialized type definition for `settings.json`.
- * @throws Error if the type configuration omits the required `version` field.
- */
-function serializeTypeConfig(typeName: string, typeConfig: TypeConfigDefinition): TypeDefinition {
-  if (!typeConfig.version) {
-    throw new Error(`Type "${typeName}" must have a version`);
-  }
-
-  const typeDef: TypeDefinition = {
-    version: typeConfig.version,
-    create: serializeTypeHook(typeConfig.create),
-    update: serializeTypeHook(typeConfig.update),
-    delete: serializeTypeHook(typeConfig.delete)
-  };
-
-  return typeDef;
-}
-
-/**
  * Serializes an environment configuration to an Environment object.
  *
  * @param envConfig - Environment-level configuration containing actions and optional hooks.
@@ -180,13 +127,6 @@ function serializeEnvironment(envConfig: EnvironmentConfig): Environment {
 
   if (envConfig.description !== undefined) {
     env.description = envConfig.description;
-  }
-
-  if (envConfig.types) {
-    env.types = {};
-    for (const [typeName, typeConfig] of Object.entries(envConfig.types)) {
-      env.types[typeName] = serializeTypeConfig(typeName, typeConfig);
-    }
   }
 
   if (envConfig.streams) {
@@ -236,7 +176,6 @@ export function defineConfig(config: SettingsConfig): SettingsConfig {
  *
  * The transformation extracts metadata from command objects:
  * - Action metadata (name, description, icon, etc.) from ActionCommand
- * - Type hook metadata from TypeCreateCommand, TypeUpdateCommand, TypeDeleteCommand
  *
  * @param config - The settings configuration with command objects
  * @returns Settings object compatible with settings.json schema

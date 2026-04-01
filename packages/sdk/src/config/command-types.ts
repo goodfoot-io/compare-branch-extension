@@ -1,19 +1,19 @@
 /**
- * Command type definitions for action and type lifecycle handlers.
+ * Command type definitions for action handlers.
  *
  * These types define the callable command interfaces returned by factory
  * functions. Each command preserves metadata for CLI extraction and settings.json
  * generation while remaining executable by the runtime.
  *
- * The generic parameter `N` preserves the action/type name as a literal type,
+ * The generic parameter `N` preserves the action name as a literal type,
  * enabling compile-time validation of action references.
  *
  *
- * @summary Command type definitions for action and type lifecycle handlers
+ * @summary Command type definitions for action handlers
  * @module
  */
 
-import type { ActionContext, ActionInput, TypeHookContext, TypeHookInput } from './inputs.js';
+import type { ActionContext, ActionInput } from './inputs.js';
 
 // ============================================================================
 // Command Types
@@ -79,65 +79,6 @@ export interface ActionCommand<N extends string = string> {
    * When provided, the CLI will compile this file into a standalone bundle
    * and generate proper command paths in settings.json. If omitted, the
    * CLI will generate placeholder command strings.
-   */
-  sourcePath?: string;
-}
-
-/**
- * Callable command returned by type create factory.
- *
- * Runs after a new typed file passes validation.
- *
- * @template T - The literal type name (e.g., 'adaptive-card')
- */
-export interface TypeCreateCommand<T extends string = string> {
-  (input: TypeHookInput, context: TypeHookContext): Promise<void>;
-  factoryType: 'typeCreate';
-  /** Type name from config - preserved as literal type. */
-  typeName: T;
-  timeout?: number;
-  /**
-   * Path to the handler source file for CLI compilation.
-   */
-  sourcePath?: string;
-}
-
-/**
- * Callable command returned by type update factory.
- *
- * Runs after an existing typed file is modified and passes validation.
- *
- * @template T - The literal type name (e.g., 'adaptive-card')
- */
-export interface TypeUpdateCommand<T extends string = string> {
-  (input: TypeHookInput, context: TypeHookContext): Promise<void>;
-  factoryType: 'typeUpdate';
-  /** Type name from config - preserved as literal type. */
-  typeName: T;
-  timeout?: number;
-  /**
-   * Path to the handler source file for CLI compilation.
-   */
-  sourcePath?: string;
-}
-
-/**
- * Callable command returned by type delete factory.
- *
- * Runs when a typed file is deleted. The file may already be gone from disk
- * by the time this hook runs; use the metadata in input rather than reading
- * the file.
- *
- * @template T - The literal type name (e.g., 'adaptive-card')
- */
-export interface TypeDeleteCommand<T extends string = string> {
-  (input: TypeHookInput, context: TypeHookContext): Promise<void>;
-  factoryType: 'typeDelete';
-  /** Type name from config - preserved as literal type. */
-  typeName: T;
-  timeout?: number;
-  /**
-   * Path to the handler source file for CLI compilation.
    */
   sourcePath?: string;
 }

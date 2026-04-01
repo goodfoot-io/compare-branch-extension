@@ -8,13 +8,8 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
-import type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand
-} from '../../src/config/command-types.js';
-import type { ActionContext, ActionInput, TypeHookContext, TypeHookInput } from '../../src/config/inputs.js';
+import type { ActionCommand } from '../../src/config/command-types.js';
+import type { ActionContext, ActionInput } from '../../src/config/inputs.js';
 
 describe('command-types', () => {
   describe('ActionCommand', () => {
@@ -101,150 +96,11 @@ describe('command-types', () => {
     });
   });
 
-  describe('TypeCreateCommand', () => {
-    it('should be callable with TypeHookInput and TypeHookContext', () => {
-      const fn = async (input: TypeHookInput, context: TypeHookContext) => {
-        expectTypeOf(input).toEqualTypeOf<TypeHookInput>();
-        expectTypeOf(context).toEqualTypeOf<TypeHookContext>();
-      };
-      const command = Object.assign(fn, {
-        factoryType: 'typeCreate' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as TypeHookContext);
-    });
-
-    it('should return Promise<void>', () => {
-      const fn = async () => {};
-      const command = Object.assign(fn, {
-        factoryType: 'typeCreate' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).returns.toEqualTypeOf<Promise<void>>();
-    });
-
-    it('should have factoryType property', () => {
-      expectTypeOf<TypeCreateCommand['factoryType']>().toEqualTypeOf<'typeCreate'>();
-    });
-
-    it('should have typeName property', () => {
-      expectTypeOf<TypeCreateCommand['typeName']>().toEqualTypeOf<string>();
-    });
-
-    it('should preserve literal type name', () => {
-      const fn = async () => {};
-      const command: TypeCreateCommand<'task-spec'> = Object.assign(fn, {
-        factoryType: 'typeCreate' as const,
-        typeName: 'task-spec' as const
-      });
-
-      expectTypeOf(command.typeName).toEqualTypeOf<'task-spec'>();
-    });
-  });
-
-  describe('TypeUpdateCommand', () => {
-    it('should be callable with TypeHookInput and TypeHookContext', () => {
-      const fn = async (input: TypeHookInput, context: TypeHookContext) => {
-        expectTypeOf(input).toEqualTypeOf<TypeHookInput>();
-        expectTypeOf(context).toEqualTypeOf<TypeHookContext>();
-      };
-      const command = Object.assign(fn, {
-        factoryType: 'typeUpdate' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as TypeHookContext);
-    });
-
-    it('should return Promise<void>', () => {
-      const fn = async () => {};
-      const command = Object.assign(fn, {
-        factoryType: 'typeUpdate' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).returns.toEqualTypeOf<Promise<void>>();
-    });
-
-    it('should have factoryType property', () => {
-      expectTypeOf<TypeUpdateCommand['factoryType']>().toEqualTypeOf<'typeUpdate'>();
-    });
-
-    it('should have typeName property', () => {
-      expectTypeOf<TypeUpdateCommand['typeName']>().toEqualTypeOf<string>();
-    });
-
-    it('should preserve literal type name', () => {
-      const fn = async () => {};
-      const command: TypeUpdateCommand<'note'> = Object.assign(fn, {
-        factoryType: 'typeUpdate' as const,
-        typeName: 'note' as const
-      });
-
-      expectTypeOf(command.typeName).toEqualTypeOf<'note'>();
-    });
-  });
-
-  describe('TypeDeleteCommand', () => {
-    it('should be callable with TypeHookInput and TypeHookContext', () => {
-      const fn = async (input: TypeHookInput, context: TypeHookContext) => {
-        expectTypeOf(input).toEqualTypeOf<TypeHookInput>();
-        expectTypeOf(context).toEqualTypeOf<TypeHookContext>();
-      };
-      const command = Object.assign(fn, {
-        factoryType: 'typeDelete' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).toBeCallableWith({} as TypeHookInput, {} as TypeHookContext);
-    });
-
-    it('should return Promise<void>', () => {
-      const fn = async () => {};
-      const command = Object.assign(fn, {
-        factoryType: 'typeDelete' as const,
-        typeName: 'test-type'
-      });
-
-      expectTypeOf(command).returns.toEqualTypeOf<Promise<void>>();
-    });
-
-    it('should have factoryType property', () => {
-      expectTypeOf<TypeDeleteCommand['factoryType']>().toEqualTypeOf<'typeDelete'>();
-    });
-
-    it('should have typeName property', () => {
-      expectTypeOf<TypeDeleteCommand['typeName']>().toEqualTypeOf<string>();
-    });
-
-    it('should preserve literal type name', () => {
-      const fn = async () => {};
-      const command: TypeDeleteCommand<'config'> = Object.assign(fn, {
-        factoryType: 'typeDelete' as const,
-        typeName: 'config' as const
-      });
-
-      expectTypeOf(command.typeName).toEqualTypeOf<'config'>();
-    });
-  });
-
   describe('Generic type preservation across all commands', () => {
     it('should preserve literal types for action commands', () => {
       type Cmd = ActionCommand<'Build'>;
 
       expectTypeOf<Cmd['actionName']>().toEqualTypeOf<'Build'>();
-    });
-
-    it('should preserve literal types for type commands', () => {
-      type CreateCmd = TypeCreateCommand<'schema'>;
-      type UpdateCmd = TypeUpdateCommand<'schema'>;
-      type DeleteCmd = TypeDeleteCommand<'schema'>;
-
-      expectTypeOf<CreateCmd['typeName']>().toEqualTypeOf<'schema'>();
-      expectTypeOf<UpdateCmd['typeName']>().toEqualTypeOf<'schema'>();
-      expectTypeOf<DeleteCmd['typeName']>().toEqualTypeOf<'schema'>();
     });
 
     it('should allow string as default generic', () => {

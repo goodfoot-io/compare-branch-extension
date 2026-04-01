@@ -8,14 +8,7 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
-import type {
-  Action,
-  Command,
-  Environment,
-  Settings,
-  StreamDefinition,
-  TypeDefinition
-} from '../../src/config/schema.js';
+import type { Action, Command, Environment, Settings, StreamDefinition } from '../../src/config/schema.js';
 
 // ============================================================================
 // Command Tests
@@ -126,57 +119,6 @@ describe('Action', () => {
       allowConcurrent: false
     };
     expectTypeOf(fullAction).toMatchTypeOf<Action>();
-  });
-});
-
-// ============================================================================
-// TypeDefinition Tests
-// ============================================================================
-
-describe('TypeDefinition', () => {
-  it('should require version property', () => {
-    expectTypeOf<TypeDefinition>().toMatchTypeOf<{ version: string }>();
-  });
-
-  it('should allow minimal type definition with only version', () => {
-    const minimalType: TypeDefinition = {
-      version: '1.0.0'
-    };
-    expectTypeOf(minimalType).toMatchTypeOf<TypeDefinition>();
-  });
-
-  it('should allow optional create command', () => {
-    const typeWithCreate: TypeDefinition = {
-      version: '1.0.0',
-      create: { command: 'node ./bin/create.js' }
-    };
-    expectTypeOf(typeWithCreate.create).toEqualTypeOf<Command | undefined>();
-  });
-
-  it('should allow optional update command', () => {
-    const typeWithUpdate: TypeDefinition = {
-      version: '1.0.0',
-      update: { command: 'node ./bin/update.js' }
-    };
-    expectTypeOf(typeWithUpdate.update).toEqualTypeOf<Command | undefined>();
-  });
-
-  it('should allow optional delete command', () => {
-    const typeWithDelete: TypeDefinition = {
-      version: '1.0.0',
-      delete: { command: 'node ./bin/delete.js' }
-    };
-    expectTypeOf(typeWithDelete.delete).toEqualTypeOf<Command | undefined>();
-  });
-
-  it('should allow all lifecycle commands together', () => {
-    const fullType: TypeDefinition = {
-      version: '1.0.0',
-      create: { command: 'node ./bin/create.js' },
-      update: { command: 'node ./bin/update.js' },
-      delete: { command: 'node ./bin/delete.js' }
-    };
-    expectTypeOf(fullType).toMatchTypeOf<TypeDefinition>();
   });
 });
 
@@ -298,32 +240,6 @@ describe('Environment', () => {
     expectTypeOf(envWithDescription.description).toEqualTypeOf<string | undefined>();
   });
 
-  it('should allow optional types property', () => {
-    const envWithTypes: Environment = {
-      version: 1,
-      actions: [],
-      types: {
-        note: { version: '1.0.0' }
-      }
-    };
-    expectTypeOf(envWithTypes.types).toEqualTypeOf<Record<string, TypeDefinition> | undefined>();
-  });
-
-  it('should allow types to be a record of TypeDefinitions', () => {
-    const env: Environment = {
-      version: 1,
-      actions: [],
-      types: {
-        note: { version: '1.0.0' },
-        task: { version: '2.0.0' }
-      }
-    };
-    if (env.types) {
-      expectTypeOf(env.types!['note']!).toMatchTypeOf<TypeDefinition>();
-      expectTypeOf(env.types!['task']!).toMatchTypeOf<TypeDefinition>();
-    }
-  });
-
   it('should allow optional streams property', () => {
     const envWithStreams: Environment = {
       version: 1,
@@ -370,11 +286,6 @@ describe('Environment', () => {
           command: { command: 'node ./bin/test.js' }
         }
       ],
-      types: {
-        note: {
-          version: '1.0.0'
-        }
-      },
       streams: {
         logs: {
           version: 1,
@@ -445,15 +356,7 @@ describe('Settings', () => {
               supportsBackgroundMode: true,
               allowConcurrent: false
             }
-          ],
-          types: {
-            note: {
-              version: '1.0.0',
-              create: { command: 'node ./bin/note-create.js' },
-              update: { command: 'node ./bin/note-update.js' },
-              delete: { command: 'node ./bin/note-delete.js' }
-            }
-          }
+          ]
         }
       }
     };

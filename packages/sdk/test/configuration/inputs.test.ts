@@ -8,7 +8,7 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
-import type { ActionContext, ActionInput, TypeHookInput } from '../../src/config/inputs.js';
+import type { ActionContext, ActionInput } from '../../src/config/inputs.js';
 import type { ILogger } from '../../src/config/logger.js';
 
 describe('inputs', () => {
@@ -92,54 +92,6 @@ describe('inputs', () => {
 
       expectTypeOf(inputWithAgent.codingAgent).toEqualTypeOf<string | undefined>();
       expectTypeOf(inputWithoutAgent.codingAgent).toEqualTypeOf<string | undefined>();
-    });
-  });
-
-  describe('TypeHookInput', () => {
-    it('should have all required fields with correct types', () => {
-      expectTypeOf<TypeHookInput>().toMatchTypeOf<{
-        cardId: string;
-        environment: string;
-        typeName: string;
-        typeVersion: string;
-        fileName: string;
-        filePath: string;
-        fileSize: number;
-        fileSha256: string;
-        contentType: string;
-      }>();
-    });
-
-    it('should require all fields (no optional fields)', () => {
-      const input: TypeHookInput = {
-        cardId: 'card-123',
-        environment: 'default',
-        typeName: 'adaptive-card',
-        typeVersion: '1.0.0',
-        fileName: 'card.json',
-        filePath: '/path/to/card.json',
-        fileSize: 1024,
-        fileSha256: 'abc123',
-        contentType: 'application/json'
-      };
-
-      expectTypeOf(input).toMatchTypeOf<TypeHookInput>();
-    });
-
-    it('should have numeric fileSize', () => {
-      expectTypeOf<TypeHookInput['fileSize']>().toEqualTypeOf<number>();
-    });
-
-    it('should have string fields for file metadata', () => {
-      expectTypeOf<TypeHookInput['fileName']>().toEqualTypeOf<string>();
-      expectTypeOf<TypeHookInput['filePath']>().toEqualTypeOf<string>();
-      expectTypeOf<TypeHookInput['fileSha256']>().toEqualTypeOf<string>();
-      expectTypeOf<TypeHookInput['contentType']>().toEqualTypeOf<string>();
-    });
-
-    it('should have type-related fields', () => {
-      expectTypeOf<TypeHookInput['typeName']>().toEqualTypeOf<string>();
-      expectTypeOf<TypeHookInput['typeVersion']>().toEqualTypeOf<string>();
     });
   });
 

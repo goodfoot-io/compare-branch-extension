@@ -206,25 +206,6 @@ describe('build', () => {
       }
     });
 
-    it('should serialize type definitions', async () => {
-      const outdir = join(FIXTURES_DIR, 'output-types');
-      const result = await build({
-        config: join(FIXTURES_DIR, 'with-types.config.ts'),
-        outdir
-      });
-
-      expect(result.success).toBe(true);
-      if (result.success) {
-        const settingsContent = readFileSync(result.settingsPath, 'utf-8');
-        const settings = JSON.parse(settingsContent);
-
-        expect(settings.environments.default.types).toHaveProperty('note');
-        expect(settings.environments.default.types.note.version).toBe('1.0.0');
-        // Without sourcePath, commands use placeholder format
-        expect(settings.environments.default.types.note.create.command).toBe('typeCreate-placeholder.js');
-      }
-    });
-
     it('should accept absolute config path', async () => {
       const outdir = join(FIXTURES_DIR, 'output-absolute');
       const absoluteConfigPath = join(FIXTURES_DIR, 'valid.config.ts');
@@ -579,7 +560,7 @@ export default {
     }
   });
 
-  it('should produce settings.json with streams alongside actions and types', async () => {
+  it('should produce settings.json with streams alongside actions', async () => {
     const actionHandlerPath = join(testDir, 'action.ts');
     writeFileSync(
       actionHandlerPath,
@@ -603,11 +584,6 @@ export default {
     default: {
       version: 1,
       actions: [action],
-      types: {
-        note: {
-          version: '1.0.0'
-        }
-      },
       streams: {
         'full': {
           version: 1,
@@ -629,11 +605,9 @@ export default {
       const settings = JSON.parse(settingsContent);
 
       expect(settings.environments.default.actions).toBeDefined();
-      expect(settings.environments.default.types).toBeDefined();
       expect(settings.environments.default.streams).toBeDefined();
 
       expect(settings.environments.default.actions).toHaveLength(1);
-      expect(settings.environments.default.types.note).toBeDefined();
       expect(settings.environments.default.streams.full).toBeDefined();
       expect(settings.environments.default.streams.full.wwwRoot).toBe('./renderers/full');
     }

@@ -26,7 +26,7 @@
  * ```
  */
 
-import type { ActionCommand, TypeCreateCommand, TypeDeleteCommand, TypeUpdateCommand } from './command-types.js';
+import type { ActionCommand } from './command-types.js';
 
 // ============================================================================
 // Stream Configuration
@@ -85,59 +85,6 @@ export interface StreamConfigDefinition {
 // Type Configuration
 // ============================================================================
 
-/**
- * Type definition with lifecycle hooks for settings configuration.
- *
- * Defines lifecycle handlers for a specific card type. Lifecycle hooks
- * (create, update, delete) run when typed files are created, modified,
- * or removed.
- *
- * This is the input format for type definitions in settings.config.ts files.
- * It uses direct imports of command objects created by factory functions.
- *
- * @example
- * ```typescript
- * const adaptiveCardType: TypeConfigDefinition = {
- *   version: '1.0.0',
- *   create: defineTypeCreate({ typeName: 'adaptive-card' }, createHandler),
- *   update: defineTypeUpdate({ typeName: 'adaptive-card' }, updateHandler),
- *   delete: defineTypeDelete({ typeName: 'adaptive-card' }, deleteHandler)
- * };
- * ```
- */
-export interface TypeConfigDefinition {
-  /**
-   * Type schema version.
-   *
-   * Identifies the version of the type definition. Should follow semantic
-   * versioning (e.g., '1.0.0').
-   */
-  version: string;
-
-  /**
-   * Optional create hook command.
-   *
-   * Runs after a new typed file passes validation.
-   */
-  create?: TypeCreateCommand;
-
-  /**
-   * Optional update hook command.
-   *
-   * Runs after an existing typed file is modified and passes validation.
-   */
-  update?: TypeUpdateCommand;
-
-  /**
-   * Optional delete hook command.
-   *
-   * Runs when a typed file is deleted. The file may already be gone from
-   * disk by the time this hook runs; use the metadata in input rather than
-   * reading the file.
-   */
-  delete?: TypeDeleteCommand;
-}
-
 // ============================================================================
 // Environment Configuration
 // ============================================================================
@@ -145,7 +92,7 @@ export interface TypeConfigDefinition {
 /**
  * Environment configuration.
  *
- * An environment groups actions and types together. Multiple environments can
+ * An environment groups actions and streams together. Multiple environments can
  * be defined (e.g., 'development', 'production') and the active environment
  * is selected at runtime.
  *
@@ -154,10 +101,7 @@ export interface TypeConfigDefinition {
  * const devEnvironment: EnvironmentConfig = {
  *   version: 1,
  *   description: 'Development environment with debug actions',
- *   actions: [launch, deploy],
- *   types: {
- *     'adaptive-card': adaptiveCardTypeConfig
- *   }
+ *   actions: [launch, deploy]
  * };
  * ```
  */
@@ -182,14 +126,6 @@ export interface EnvironmentConfig {
    * Array of action commands created by the defineAction factory.
    */
   actions: ActionCommand[];
-
-  /**
-   * Optional type definitions.
-   *
-   * Maps type names to their configurations (lifecycle hooks).
-   * Type names should match the type discriminant in typed files.
-   */
-  types?: Record<string, TypeConfigDefinition>;
 
   /**
    * Optional stream definitions.

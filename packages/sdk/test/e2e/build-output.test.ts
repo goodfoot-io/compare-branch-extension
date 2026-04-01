@@ -90,28 +90,6 @@ describe('build output: settings.json structure', () => {
         }
       }
     });
-
-    it('should have valid types if present', () => {
-      for (const [_envName, env] of Object.entries(settings.environments)) {
-        if (env.types) {
-          for (const [_typeName, typeDef] of Object.entries(env.types)) {
-            expect(typeDef).toHaveProperty('version');
-            expect(typeof typeDef.version).toBe('string');
-
-            // Validate optional hooks
-            if (typeDef.create) {
-              expect(typeDef.create).toHaveProperty('command');
-            }
-            if (typeDef.update) {
-              expect(typeDef.update).toHaveProperty('command');
-            }
-            if (typeDef.delete) {
-              expect(typeDef.delete).toHaveProperty('command');
-            }
-          }
-        }
-      }
-    });
   });
 
   describe('command paths', () => {
@@ -120,14 +98,6 @@ describe('build output: settings.json structure', () => {
         for (const action of env.actions) {
           // Commands should reference bin directory (either ./bin/ or $CARDS_PLUGIN_ROOT/bin/)
           expect(action.command.command).toMatch(/bin\//);
-        }
-
-        if (env.types) {
-          for (const [_typeName, typeDef] of Object.entries(env.types)) {
-            if (typeDef.create) {
-              expect(typeDef.create.command).toMatch(/bin\//);
-            }
-          }
         }
       }
     });
@@ -139,14 +109,6 @@ describe('build output: settings.json structure', () => {
       for (const [_envName, env] of Object.entries(settings.environments)) {
         for (const action of env.actions) {
           expect(action.command.command).toMatch(hashPattern);
-        }
-
-        if (env.types) {
-          for (const [_typeName, typeDef] of Object.entries(env.types)) {
-            if (typeDef.create) {
-              expect(typeDef.create.command).toMatch(hashPattern);
-            }
-          }
         }
       }
     });
@@ -257,20 +219,6 @@ describe('build output: cross-reference validation', () => {
     for (const [_envName, env] of Object.entries(settings.environments)) {
       for (const action of env.actions) {
         referencedFiles.push(extractFilename(action.command.command));
-      }
-
-      if (env.types) {
-        for (const [_typeName, typeDef] of Object.entries(env.types)) {
-          if (typeDef.create) {
-            referencedFiles.push(extractFilename(typeDef.create.command));
-          }
-          if (typeDef.update) {
-            referencedFiles.push(extractFilename(typeDef.update.command));
-          }
-          if (typeDef.delete) {
-            referencedFiles.push(extractFilename(typeDef.delete.command));
-          }
-        }
       }
     }
 

@@ -9,12 +9,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  ActionCommand,
-  TypeCreateCommand,
-  TypeDeleteCommand,
-  TypeUpdateCommand
-} from '../../src/config/command-types.js';
+import type { ActionCommand } from '../../src/config/command-types.js';
 import type { SettingsConfig } from '../../src/config/config.js';
 import { defineConfig, serializeSettings } from '../../src/config/define-config.js';
 
@@ -320,149 +315,6 @@ describe('serializeSettings', () => {
     });
   });
 
-  describe('type hooks to TypeDefinition conversion', () => {
-    it('should convert type with only version', () => {
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              'simple-type': {
-                version: '1.0.0'
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-
-      expect(result.environments['default']!.types).toBeDefined();
-      expect(result.environments['default']!.types?.['simple-type']!.version).toBe('1.0.0');
-    });
-
-    it('should convert type create command', () => {
-      const createCommand = vi.fn() as unknown as TypeCreateCommand;
-      createCommand.factoryType = 'typeCreate';
-      createCommand.typeName = 'note';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              note: {
-                version: '1.0.0',
-                create: createCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['note'];
-
-      expect(typeDef?.create).toBeDefined();
-      expect(typeDef?.create?.command).toBe('typeCreate-note.js');
-    });
-
-    it('should convert type update command', () => {
-      const updateCommand = vi.fn() as unknown as TypeUpdateCommand;
-      updateCommand.factoryType = 'typeUpdate';
-      updateCommand.typeName = 'task';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              task: {
-                version: '1.0.0',
-                update: updateCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['task'];
-
-      expect(typeDef?.update).toBeDefined();
-      expect(typeDef?.update?.command).toBe('typeUpdate-task.js');
-    });
-
-    it('should convert type delete command', () => {
-      const deleteCommand = vi.fn() as unknown as TypeDeleteCommand;
-      deleteCommand.factoryType = 'typeDelete';
-      deleteCommand.typeName = 'deprecated-type';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              'deprecated-type': {
-                version: '1.0.0',
-                delete: deleteCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['deprecated-type'];
-
-      expect(typeDef?.delete).toBeDefined();
-      expect(typeDef?.delete?.command).toBe('typeDelete-deprecated-type.js');
-    });
-
-    it('should convert type with all lifecycle hooks', () => {
-      const createCommand = vi.fn() as unknown as TypeCreateCommand;
-      createCommand.factoryType = 'typeCreate';
-      createCommand.typeName = 'full-type';
-
-      const updateCommand = vi.fn() as unknown as TypeUpdateCommand;
-      updateCommand.factoryType = 'typeUpdate';
-      updateCommand.typeName = 'full-type';
-
-      const deleteCommand = vi.fn() as unknown as TypeDeleteCommand;
-      deleteCommand.factoryType = 'typeDelete';
-      deleteCommand.typeName = 'full-type';
-
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              'full-type': {
-                version: '2.0.0',
-                create: createCommand,
-                update: updateCommand,
-                delete: deleteCommand
-              }
-            }
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-      const typeDef = result.environments['default']!.types?.['full-type'];
-
-      expect(typeDef?.version).toBe('2.0.0');
-      expect(typeDef?.create?.command).toBe('typeCreate-full-type.js');
-      expect(typeDef?.update?.command).toBe('typeUpdate-full-type.js');
-      expect(typeDef?.delete?.command).toBe('typeDelete-full-type.js');
-    });
-  });
-
   describe('stream config to StreamDefinition conversion', () => {
     it('should pass through wwwRoot', () => {
       const config: SettingsConfig = {
@@ -682,21 +534,6 @@ describe('serializeSettings', () => {
       expect(result.environments['default']!.description).toBe('Development environment');
     });
 
-    it('should handle environment without types', () => {
-      const config: SettingsConfig = {
-        environments: {
-          default: {
-            version: 1,
-            actions: []
-          }
-        }
-      };
-
-      const result = serializeSettings(config);
-
-      expect(result.environments['default']!.types).toBeUndefined();
-    });
-
     it('should convert multiple actions in an environment', () => {
       const action1 = vi.fn() as unknown as ActionCommand;
       action1.factoryType = 'action';
@@ -771,7 +608,7 @@ describe('serializeSettings', () => {
   });
 
   describe('complex integration', () => {
-    it('should handle full config with actions and types', () => {
+    it('should handle full config with actions', () => {
       const launchAction = vi.fn() as unknown as ActionCommand;
       launchAction.factoryType = 'action';
       launchAction.actionName = 'Launch Claude';
@@ -781,22 +618,12 @@ describe('serializeSettings', () => {
       launchAction.allowConcurrent = false;
       launchAction.timeout = 30000;
 
-      const createCommand = vi.fn() as unknown as TypeCreateCommand;
-      createCommand.factoryType = 'typeCreate';
-      createCommand.typeName = 'note';
-
       const config: SettingsConfig = {
         environments: {
           default: {
             version: 1,
             description: 'Default environment',
-            actions: [launchAction],
-            types: {
-              note: {
-                version: '1.0.0',
-                create: createCommand
-              }
-            }
+            actions: [launchAction]
           }
         }
       };
@@ -817,29 +644,6 @@ describe('serializeSettings', () => {
       expect(action.command.command).toBe('action-Launch Claude.js');
       expect(action.command.timeout).toBe(30000);
       expect(action.id).toBe('launch-claude');
-
-      // Verify type
-      const typeDef = result.environments['default']!.types?.['note'];
-      expect(typeDef?.version).toBe('1.0.0');
-      expect(typeDef?.create?.command).toBe('typeCreate-note.js');
-    });
-  });
-
-  describe('error handling', () => {
-    it('should throw for type without version', () => {
-      const config = {
-        environments: {
-          default: {
-            version: 1,
-            actions: [],
-            types: {
-              invalid: {}
-            }
-          }
-        }
-      } as unknown as SettingsConfig;
-
-      expect(() => serializeSettings(config)).toThrow();
     });
   });
 });
