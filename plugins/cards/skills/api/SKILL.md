@@ -59,7 +59,7 @@ cat <<'CARD_EOF' > "$REPO/CARD.md"
 Your card description here (plain markdown, no frontmatter).
 CARD_EOF
 cat <<'META_EOF' > "$REPO/CARD.md.meta.json"
-{ "title": "4–10 word title", "summary": "100–300 character summary of the problem or need" }
+{ "title": "Description", "summary": "[100–300 word summary of the problem or need]" }
 META_EOF
 cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Add description"
 ```

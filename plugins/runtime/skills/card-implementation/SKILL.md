@@ -44,7 +44,7 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 
 ### 2.3 Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` (4–10 word document title naming the approach or solution) and `summary` (100–300 characters of natural prose conveying the commander's intent and how the plan achieves it). Commit to the card repository:
+Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and `summary` (100–300 words of natural prose conveying the commander's intent and how the plan achieves it). Commit to the card repository:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`

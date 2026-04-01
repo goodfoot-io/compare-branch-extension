@@ -133,7 +133,7 @@ Any `.md` file at the card repository root may have a `.md.meta.json` sidecar (e
 ```json
 {
   "title": "4–10 word display title",
-  "summary": "100–300 character preview shown when the section is collapsed."
+  "summary": "[100–300 word preview shown when the section is collapsed."]
 }
 ```
 

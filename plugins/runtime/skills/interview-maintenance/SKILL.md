@@ -35,7 +35,7 @@ Decorate and enrich the user's request — do not implement it. Research the cod
 
 Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
 
-Write `CARD.md.meta.json` with a `title` (4–10 word document title naming the debt or degradation) and `summary` (100–300 characters: what technical debt or degradation exists and its measurable impact).
+Write `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: what technical debt or degradation exists and its measurable impact).
 
 ## 3. Commit
 
