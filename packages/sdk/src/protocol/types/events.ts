@@ -365,8 +365,6 @@ export interface CardsMetadataEvent {
   createdAt: string;
   /** ISO 8601 last-updated timestamp. */
   updatedAt: string;
-  /** Non-excluded `.md` filenames present in the card repository. */
-  documents: string[];
   /** Merge status of workspace commits. `null` when unknown or no workspace commits exist. */
   isMerged: boolean | null;
   /** Outgoing relations from this card. */

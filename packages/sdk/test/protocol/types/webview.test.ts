@@ -218,7 +218,6 @@ describe('webview types', () => {
             mergeApproved: false
           },
           isPinned: false,
-          documents: [],
           isMerged: null,
           order: 0,
           repositoryId: 'main',
@@ -310,7 +309,6 @@ describe('webview types', () => {
             tags: [],
             gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
             isPinned: false,
-            documents: [],
             isMerged: null,
             order: 0,
             repositoryId: 'main',
@@ -348,7 +346,6 @@ describe('webview types', () => {
             tags: [],
             gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
             isPinned: false,
-            documents: [],
             isMerged: null,
             order: 0,
             repositoryId: 'main',
@@ -628,7 +625,6 @@ describe('webview types', () => {
             mergeApproved: false
           },
           isPinned: false,
-          documents: [],
           isMerged: null,
           order: 0,
           repositoryId: 'main',

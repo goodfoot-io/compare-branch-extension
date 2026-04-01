@@ -71,17 +71,14 @@ describe('Entity Fixtures', () => {
 
       expect(card.id).toBeTruthy();
       expect(card.title).toContain('Test Card');
-      expect(card.documents).toEqual([]);
     });
 
     it('applies overrides', () => {
       const card = createCard({
-        title: 'My Card',
-        documents: ['PLAN.md']
+        title: 'My Card'
       });
 
       expect(card.title).toBe('My Card');
-      expect(card.documents).toEqual(['PLAN.md']);
     });
   });
 

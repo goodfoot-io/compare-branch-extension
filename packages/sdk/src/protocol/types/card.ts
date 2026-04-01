@@ -275,13 +275,6 @@ export interface Card extends CardMetadata {
   updatedAt: string;
 
   /**
-   * List of non-excluded `.md` filenames present in the card repository.
-   *
-   * Only `.md` files are included, not `.md.meta.json` sidecars.
-   */
-  documents: string[];
-
-  /**
    * Merge status of attributed workspace commits into the viewer's current branch HEAD.
    *
    * This is a computed, workspace-relative field. It is not persisted in CARD.meta.json.

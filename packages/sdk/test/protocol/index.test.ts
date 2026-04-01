@@ -66,7 +66,6 @@ describe('DomainEvent discriminated union', () => {
       gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
-      documents: [],
       isMerged: null,
       relations: [],
       incomingRelations: []
@@ -113,7 +112,6 @@ describe('DomainEvent discriminated union', () => {
         gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
         createdAt: '',
         updatedAt: '',
-        documents: [],
         isMerged: null,
         relations: [],
         incomingRelations: []
