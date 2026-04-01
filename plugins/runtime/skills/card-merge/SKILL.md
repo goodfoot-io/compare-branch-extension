@@ -40,7 +40,7 @@ git rebase --continue
 - **Conflicts cannot be resolved**: Write an error comment to the card repository, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** — Awaiting user intervention.
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 cat <<'EOF' > comment/merge-conflict.md
 [rebase conflict details, files involved, manual resolution steps]
@@ -66,7 +66,7 @@ Based on validation result:
 - **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** — Awaiting user intervention.
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 cat <<'EOF' > comment/validation-failed.md
 [validation failure details, what was attempted, what intervention is needed]
@@ -91,7 +91,7 @@ git merge --ff-only "$WORKSPACE_BRANCH"
 - **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 cat <<'EOF' > comment/merge-failed.md
 [merge failure details: branch is not a fast-forward of $BASE_BRANCH, likely cause and resolution steps]

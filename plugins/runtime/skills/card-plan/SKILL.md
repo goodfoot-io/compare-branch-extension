@@ -23,7 +23,7 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and a `summary` — a multi-paragraph mini-plan in natural prose (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names. Follow the `<markdown-guidelines>` in the `cards:markdown` skill. Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
@@ -42,7 +42,7 @@ For each spike-eligible uncertainty, invoke the `runtime:spike` skill:
 Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch. Update `PLAN.md.meta.json` if the approach or intent changed.
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```

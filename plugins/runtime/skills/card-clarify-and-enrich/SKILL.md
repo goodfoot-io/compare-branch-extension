@@ -17,7 +17,7 @@ Based on comments and prior clarification requests:
 - **Existing clarification request AND later comment from non-agent author**: Write a comment acknowledging the new information and how it affects requirements analysis. Commit. Proceed to Step 4.
 
   ```bash
-  cd !` echo $CARD_REPO_PATH`
+  cd $CARD_REPO_PATH
   cat <<'EOF' > comment/clarification-received.md
   [acknowledge the new information and explain how it affects requirements analysis]
   EOF
@@ -28,7 +28,7 @@ Based on comments and prior clarification requests:
 - **Existing clarification request AND no new user response**: Write a comment confirming you are still waiting, referencing which questions remain unanswered. Commit and **STOP**.
 
   ```bash
-  cd !` echo $CARD_REPO_PATH`
+  cd $CARD_REPO_PATH
   cat <<'EOF' > comment/clarification-pending.md
   [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
   EOF
@@ -95,7 +95,7 @@ A good bug title describes behavior: *"[Component] fails when [action]"* or *"[E
 If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Write or update `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: the problem or need that triggered the card). Follow the `<markdown-guidelines>` in the `cards:markdown` skill. Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add CARD.meta.json CARD.md CARD.md.meta.json
 git commit -m "[single sentence summarizing what was corrected or enriched in the card]"  # <card-repo-commit-style>
 ```
@@ -126,7 +126,7 @@ Search the workspace codebase for keywords from the card description:
 - **Research resolves all gaps**: Write findings as a comment to the card repository and commit. Proceed to Step 4.
 
   ```bash
-  cd !` echo $CARD_REPO_PATH`
+  cd $CARD_REPO_PATH
   cat <<'EOF' > comment/research-findings.md
   [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
   EOF
@@ -139,7 +139,7 @@ Search the workspace codebase for keywords from the card description:
 Write a comment presenting specific questions needed to proceed. Prioritize by what is most blocking, explain why each is needed, and reference relevant workspace code.
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 cat <<'EOF' > comment/clarification-request.md
 [specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
 EOF

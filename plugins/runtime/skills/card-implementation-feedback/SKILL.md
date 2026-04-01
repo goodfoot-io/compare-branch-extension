@@ -21,7 +21,7 @@ Based on the latest user comment:
 - **Empty or does not indicate what changes are needed**: Write a comment requesting clarification, commit, and **STOP**
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 cat <<'EOF' > comment/feedback-clarification.md
 [clarification request: what specific changes are needed based on the feedback?]
 EOF
@@ -40,7 +40,7 @@ Then **STOP**.
 Write a comment to the card repository acknowledging the feedback and describing the targeted changes you will make. Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 cat <<'EOF' > comment/feedback-acknowledged.md
 [acknowledgment of the user's feedback, confirmation of understanding, and what targeted changes will be made]
 EOF
@@ -55,10 +55,10 @@ git commit -m "[single sentence summarizing the feedback and the targeted change
 Create a baseline tag if one does not already exist:
 
 ```bash
-if git rev-parse "feedback/!` echo $CARD_ID`/baseline" >/dev/null 2>&1; then
+if git rev-parse "feedback/$CARD_ID/baseline" >/dev/null 2>&1; then
   echo "Baseline tag already exists — resuming from prior checkpoint."
 else
-  git tag "feedback/!` echo $CARD_ID`/baseline" HEAD
+  git tag "feedback/$CARD_ID/baseline" HEAD
 fi
 ```
 
@@ -95,7 +95,7 @@ ALL validation commands must pass before proceeding.
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 cat <<'EOF' > comment/feedback-validation-failed.md
 [exact validation failure output]
@@ -133,7 +133,7 @@ Run validation per the plan's validation commands (or `yarn typecheck`, `yarn li
 Get the list of files modified since the feedback baseline:
 
 ```bash
-git diff "feedback/!` echo $CARD_ID`/baseline" --name-only
+git diff "feedback/$CARD_ID/baseline" --name-only
 ```
 
 Use this as [MODIFIED_FILES] for the maintainer.
@@ -335,7 +335,7 @@ After both agents have shut down:
 Clean up the feedback baseline tag:
 
 ```bash
-git tag -d "feedback/!` echo $CARD_ID`/baseline" 2>/dev/null
+git tag -d "feedback/$CARD_ID/baseline" 2>/dev/null
 ```
 
 </instructions>

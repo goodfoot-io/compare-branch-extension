@@ -35,17 +35,17 @@ Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/Mu
 Create baseline tag if one does not already exist:
 
 ```bash
-if git rev-parse "implement/!` echo $CARD_ID`/baseline" >/dev/null 2>&1; then
+if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
   echo "Baseline tag already exists — resuming from prior checkpoint."
 else
-  git tag "implement/!` echo $CARD_ID`/baseline" HEAD
+  git tag "implement/$CARD_ID/baseline" HEAD
 fi
 ```
 
 To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
-BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/!` echo $CARD_ID`/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
+BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/$CARD_ID/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
 # run tests in $BASELINE_WORKTREE, then clean up:
 git worktree remove "$BASELINE_WORKTREE"
 ```
@@ -171,10 +171,10 @@ This task owns: [absolute paths from plan]
   # [AGENT_FILES] is the list of absolute paths from the agent's File Ownership section.
   # Revert only files this agent owns — do not touch other agents' work.
   # Restore owned files that were modified or deleted since baseline
-  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD -- [AGENT_FILES] | \
-    xargs -r git checkout "implement/!` echo $CARD_ID`/baseline" --
+  git diff "implement/$CARD_ID/baseline" --name-only --diff-filter=MD -- [AGENT_FILES] | \
+    xargs -r git checkout "implement/$CARD_ID/baseline" --
   # Remove owned files that were added since baseline
-  git diff "implement/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A -- [AGENT_FILES] | \
+  git diff "implement/$CARD_ID/baseline" --name-only --diff-filter=A -- [AGENT_FILES] | \
     xargs -r git rm -f
   ```
   - **Attempts < 3**: Re-delegate to agent
@@ -189,7 +189,7 @@ git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
 [commit message per <workspace-commit-style>]
 COMMITMSG
 )"
-git tag -f "implement/!` echo $CARD_ID`/baseline" HEAD
+git tag -f "implement/$CARD_ID/baseline" HEAD
 ```
 
 The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
@@ -198,7 +198,7 @@ The baseline tag advances after each successful commit. NEEDS_REVISION rollback 
 - **ALL blocked**: Write summary comment, add `blocked` tag, **STOP**:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 cat <<'EOF' > comment/all-tasks-blocked.md
 All implementation tasks are blocked.
@@ -222,7 +222,7 @@ git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
 [commit message per <workspace-commit-style> — describe the uncommitted changes]
 COMMITMSG
 )"
-git tag -f "implement/!` echo $CARD_ID`/post-implementation" HEAD
+git tag -f "implement/$CARD_ID/post-implementation" HEAD
 ```
 
 **Requirement:** ALL validation commands must pass before proceeding.
@@ -236,7 +236,7 @@ Run validation per the plan's validation commands.
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 cat <<'EOF' > comment/validation-failed.md
 Blocked: validation failure outside modifiable scope.
@@ -281,8 +281,8 @@ COMMITMSG
 Clean up rollback tags:
 
 ```bash
-git tag -d "implement/!` echo $CARD_ID`/baseline" \
-         "implement/!` echo $CARD_ID`/post-implementation" 2>/dev/null
+git tag -d "implement/$CARD_ID/baseline" \
+         "implement/$CARD_ID/post-implementation" 2>/dev/null
 ```
 
 ### Rollback Points

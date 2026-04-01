@@ -226,7 +226,7 @@ Request revision when:
 After passing quality checks, commit spike artifacts to the card repo:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add spike/[test-name]/
 git commit -m "[single sentence summarizing the spike's question and finding]"  # <card-repo-commit-style>
 ```

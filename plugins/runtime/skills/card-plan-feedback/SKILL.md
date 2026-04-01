@@ -11,7 +11,7 @@ description: Incorporate user feedback into an existing plan and re-assess.
 ### 1.1 Read Card State
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 ```
 
 Read `PLAN.md` and the most recent `comment/*.md` files in the card repository.
@@ -50,7 +50,7 @@ Update the plan to address all feedback points:
 Write the updated plan to `PLAN.md` in the card repository. Update `PLAN.md.meta.json` with a revised `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and `summary` reflecting the feedback changes — a multi-paragraph mini-plan in natural prose (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names. Follow the `<markdown-guidelines>` in the `cards:markdown` skill. Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing what feedback was incorporated into the plan]"  # <card-repo-commit-style>
 ```
@@ -72,7 +72,7 @@ Post a process-oriented comment. The plan content is already in `PLAN.md` — do
 Write the comment to the card repository. Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 cat <<'EOF' > comment/plan-revised.md
 [how feedback was incorporated, reasoning process and judgment calls made, interpretations of ambiguous feedback, and any surprises, new assumptions, or risks discovered during revision]
 EOF

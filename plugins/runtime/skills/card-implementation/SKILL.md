@@ -15,17 +15,17 @@ description: Implement cards.
 Create baseline tag if one does not already exist:
 
 ```bash
-if git rev-parse "implement/!` echo $CARD_ID`/baseline" >/dev/null 2>&1; then
+if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
   echo "Baseline tag already exists — resuming from prior checkpoint."
 else
-  git tag "implement/!` echo $CARD_ID`/baseline" HEAD
+  git tag "implement/$CARD_ID/baseline" HEAD
 fi
 ```
 
 To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
-BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/!` echo $CARD_ID`/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
+BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/$CARD_ID/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
 # run tests in $BASELINE_WORKTREE, then clean up:
 git worktree remove "$BASELINE_WORKTREE"
 ```
@@ -47,7 +47,7 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and a `summary` — a multi-paragraph mini-plan in natural prose (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names. Follow the `<markdown-guidelines>` in the `cards:markdown` skill. Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing the approach and key decisions]"  # <card-repo-commit-style>
 ```
@@ -70,7 +70,7 @@ For each spike-eligible uncertainty, invoke the `runtime:spike` skill:
 Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch. Update `PLAN.md.meta.json` if the approach or intent changed.
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing what the spikes resolved]"  # <card-repo-commit-style>
 ```
@@ -88,7 +88,7 @@ For each step in the plan:
 4. Tag the rollback point:
 
    ```bash
-      git tag -f "implement/!` echo $CARD_ID`/step-N" HEAD
+      git tag -f "implement/$CARD_ID/step-N" HEAD
    ```
 
 If an empirically-testable uncertainty surfaces during implementation, invoke the `runtime:spike` skill before proceeding. Update the plan with findings and commit to the card repo.
@@ -105,7 +105,7 @@ Run validation per the plan's validation commands.
 **When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 cat <<'EOF' > comment/validation-failed.md
 [exact validation failure output]
@@ -123,7 +123,7 @@ Proceed to **5. Finalize** only when ALL validations pass.
 ### 5.1 Clean Up Tags
 
 ```bash
-git tag -l "implement/!` echo $CARD_ID`/*" | xargs -r git tag -d
+git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 ```
 
 ### 5.2 Complete

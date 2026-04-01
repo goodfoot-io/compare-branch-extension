@@ -34,10 +34,10 @@ Verify a clean working tree (`git status --porcelain` in `$WORKSPACE_PATH`). If 
 Create baseline tag if one does not already exist:
 
 ```bash
-if git rev-parse "bug/!` echo $CARD_ID`/baseline" >/dev/null 2>&1; then
+if git rev-parse "bug/$CARD_ID/baseline" >/dev/null 2>&1; then
   echo "Baseline tag already exists — resuming from prior checkpoint."
 else
-  git tag "bug/!` echo $CARD_ID`/baseline" HEAD
+  git tag "bug/$CARD_ID/baseline" HEAD
 fi
 ```
 
@@ -191,9 +191,9 @@ Verify independently using git — do not rely solely on the subagent status:
   - Revert all workspace changes to baseline:
 
     ```bash
-        git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=MD | \
-      xargs -r git checkout "bug/!` echo $CARD_ID`/baseline" --
-    git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=A | \
+        git diff "bug/$CARD_ID/baseline" --name-only --diff-filter=MD | \
+      xargs -r git checkout "bug/$CARD_ID/baseline" --
+    git diff "bug/$CARD_ID/baseline" --name-only --diff-filter=A | \
       xargs -r git rm -f
     ```
   - Return to Step 2.1
@@ -357,7 +357,7 @@ There is no "probably fine" state.
 ### 5.1 Clean Up Tags
 
 ```bash
-git tag -d "bug/!` echo $CARD_ID`/baseline" "bug/!` echo $CARD_ID`/reproduction" 2>/dev/null
+git tag -d "bug/$CARD_ID/baseline" "bug/$CARD_ID/reproduction" 2>/dev/null
 ```
 
 ### 5.2 Complete

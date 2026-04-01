@@ -68,7 +68,7 @@ Based on validation result:
 Add the "blocked" tag to the `tags` array in `CARD.meta.json`.
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
 ```
 
@@ -77,7 +77,7 @@ Based on card state:
 - **Card already has "blocked" tag** (from a previous recovery attempt): Commit without a duplicate comment:
 
   ```bash
-  cd !` echo $CARD_REPO_PATH`
+  cd $CARD_REPO_PATH
   git add CARD.meta.json
   git commit -m "[single sentence describing the error and that manual fix is needed]"  # <card-repo-commit-style>
   ```
@@ -85,7 +85,7 @@ Based on card state:
 - **Otherwise**: Write an error comment documenting what happened, then commit:
 
   ```bash
-  cd !` echo $CARD_REPO_PATH`
+  cd $CARD_REPO_PATH
   cat <<'EOF' > comment/error-blocked.md
   [what happened, repository state (base branch status, failed step), relevant error output, manual resolution steps, and how to retry after fixing]
   EOF

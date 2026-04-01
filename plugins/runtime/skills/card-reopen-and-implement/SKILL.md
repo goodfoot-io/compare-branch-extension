@@ -14,7 +14,7 @@ Based on the latest user comment:
 - **Empty or does not indicate what additional work is needed**: Write a comment to the card repository requesting clarification, commit, and **STOP**
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 cat <<'EOF' > comment/reopen-clarification.md
 [clarification request content]
 EOF
@@ -31,7 +31,7 @@ Then **STOP**.
 Write a comment to the card repository summarizing the user's request to confirm you understand what additional work they want done. Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 cat <<'EOF' > comment/reopen-acknowledged.md
 [summary of the user's request, confirmation of understanding, and what additional work will be done]
 EOF

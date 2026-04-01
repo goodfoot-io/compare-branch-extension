@@ -61,7 +61,7 @@ Read PLAN.md from the card repository. The opening paragraph is the plan's inten
 Identify the baseline:
 
 ```bash
-git diff implement/!` echo $CARD_ID`/baseline --name-only
+git diff implement/$CARD_ID/baseline --name-only
 ```
 
 This is the scope — read the modified files listed in the invocation prompt.

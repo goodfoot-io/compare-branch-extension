@@ -135,7 +135,7 @@ Apply any failure-mode revisions decided in Step 2.4.
 Update `PLAN.md.meta.json` if the approach or intent changed. Commit the revised plan:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add PLAN.md PLAN.md.meta.json
 git commit -m "[single sentence summarizing what findings were addressed]"  # <card-repo-commit-style>
 ```

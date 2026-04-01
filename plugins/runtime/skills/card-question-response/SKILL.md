@@ -19,7 +19,7 @@ Write a comment to the card repository with the answer. Follow the `<markdown-gu
 Commit to the card repository:
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 cat <<'EOF' > comment/question-response.md
 [answer to the question with fragment links for code references per the cards:markdown skill]
 EOF

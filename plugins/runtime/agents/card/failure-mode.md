@@ -43,7 +43,7 @@ Important constraints:
 Read PLAN.md and CARD.md from the card repository for intent and constraints. Then diff the workspace against the implementation baseline tag to identify every changed file:
 
 ```bash
-git diff implement/!` echo $CARD_ID`/baseline --name-only
+git diff implement/$CARD_ID/baseline --name-only
 ```
 
 Read every changed file in full. Then trace outward: for every exported symbol, type, or interface the implementation modifies, search the workspace for consumers. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count. A consumer the implementation doesn't account for is a failure mode the implementer doesn't know about.

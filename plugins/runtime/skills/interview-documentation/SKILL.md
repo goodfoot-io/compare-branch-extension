@@ -41,7 +41,7 @@ Write `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100
 ## 3. Commit
 
 ```bash
-cd !` echo $CARD_REPO_PATH`
+cd $CARD_REPO_PATH
 git add CARD.meta.json CARD.md CARD.md.meta.json
 git commit -m "[single sentence summarizing the documentation scope, audience, and key decisions from the interview]"  # <card-repo-commit-style>
 ```
