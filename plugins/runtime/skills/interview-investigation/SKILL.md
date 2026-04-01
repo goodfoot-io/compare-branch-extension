@@ -3,7 +3,7 @@ name: interview-investigation
 description: Enrich investigation request cards with codebase context. Does not implement.
 ---
 
-@${CLAUDE_SKILL_DIR}/investigation.md
+Review ./investigation.md
 
 <research-before-asking>
 ## Research-Before-Asking Protocol

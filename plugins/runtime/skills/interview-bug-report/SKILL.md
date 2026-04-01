@@ -3,7 +3,7 @@ name: interview-bug-report
 description: Enrich bug report cards with codebase context.
 ---
 
-@${CLAUDE_SKILL_DIR}/bug-report.md
+Review ./bug-report.md
 
 <research-before-asking>
 ## Research-Before-Asking Protocol

@@ -3,7 +3,7 @@ name: interview-enhancement
 description: Enrich enhancement request cards with codebase context. Does not implement.
 ---
 
-@${CLAUDE_SKILL_DIR}/enhancement.md
+Review ./enhancement.md
 
 <research-before-asking>
 ## Research-Before-Asking Protocol

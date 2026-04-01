@@ -3,7 +3,7 @@ name: interview-documentation
 description: Enrich documentation request cards with codebase context. Does not implement.
 ---
 
-@${CLAUDE_SKILL_DIR}/documentation.md
+Review ./documentation.md
 
 <research-before-asking>
 ## Research-Before-Asking Protocol
