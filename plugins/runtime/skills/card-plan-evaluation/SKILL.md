@@ -12,8 +12,8 @@ Create the review team and spawn the maintainer and failure-mode analyst in para
 
 ```xml
 <invoke name="TeamCreate">
-<parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
-<parameter name="description">!` echo $CARD_ID`: plan review</parameter>
+<parameter name="team_name">plan-review-[CARD_ID]</parameter>
+<parameter name="description">[CARD_ID]: plan review</parameter>
 </invoke>
 ```
 
@@ -22,16 +22,16 @@ Create the review team and spawn the maintainer and failure-mode analyst in para
 <parameter name="description">Failure mode analysis</parameter>
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
+<parameter name="team_name">plan-review-[CARD_ID]</parameter>
 <parameter name="name">plan-failure-mode</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this implementation plan.
 
 ## Card Repository
-!` echo $CARD_REPO_PATH`
+[CARD_REPO_PATH]
 
 ## Workspace
-!` echo $WORKSPACE_PATH`
+[WORKSPACE_PATH]
 
 Read the plan from PLAN.md in the card repository. Read the workspace source files the plan references — then search the workspace for consumers of every symbol, type, and file the plan modifies. The failure modes live in the gap between the plan's model and the system's actual behavior.
 </parameter>
@@ -43,16 +43,16 @@ Read the plan from PLAN.md in the card repository. Read the workspace source fil
 <parameter name="description">Plan maintainer review</parameter>
 <parameter name="subagent_type">runtime:card:plan-maintainer</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">plan-review-!` echo $CARD_ID`</parameter>
+<parameter name="team_name">plan-review-[CARD_ID]</parameter>
 <parameter name="name">maintainer</parameter>
 <parameter name="prompt">
 Review this implementation plan for quality and completeness.
 
 ## Card Repository
-!` echo $CARD_REPO_PATH`
+[CARD_REPO_PATH]
 
 ## Workspace
-!` echo $WORKSPACE_PATH`
+[WORKSPACE_PATH]
 
 Read the plan from PLAN.md in the card repository. For every claim the plan makes about the codebase, search the workspace to confirm or refute it — do not evaluate claims by reasoning about them. Send a review report per your instructions.
 </parameter>

@@ -104,7 +104,7 @@ git add [test files]
 git commit -m "[single sentence summarizing the reproduction tests and what behavior they verify]"  # <workspace-commit-style>
 ```
 
-Tag the state: `git tag -f "bug/$(echo $CARD_ID)/reproduction" HEAD`
+Tag the state: `git tag -f "bug/$CARD_ID/reproduction" HEAD`
 
 Capture the combined `TEST_FAILURE_OUTPUT` from all failing tests. Write a progress comment to the card repository listing each viable pathway and its corresponding test. Commit to the card repository.
 
@@ -165,7 +165,7 @@ Verify independently using git — do not rely solely on the subagent status:
 
 1. **Verify file exists.** If TEST_FILE_PATH does not exist and attempts remain (< 3), return to Step 2.1. If no attempts remain, write a failure comment and **STOP**.
 
-2. **Check for unexpected modifications.** Compare against the baseline tag (`git diff "bug/!` echo $CARD_ID`/baseline" --name-only --diff-filter=M`). If existing files were modified, write a comment asking whether to proceed or revert, and **STOP**.
+2. **Check for unexpected modifications.** Compare against the baseline tag (`git diff "bug/$CARD_ID/baseline" --name-only --diff-filter=M`). If existing files were modified, write a comment asking whether to proceed or revert, and **STOP**.
 
 3. **Run the test.** Stage and run:
 
@@ -181,7 +181,7 @@ Verify independently using git — do not rely solely on the subagent status:
 
 - **Test FAILS (expected)**:
   - Commit: `git add "$TEST_FILE_PATH" && git commit -m "[one sentence summarizing what the reproduction test verifies]"`  # <workspace-commit-style>
-  - Tag: `git tag -f "bug/!` echo $CARD_ID`/reproduction" HEAD`
+  - Tag: `git tag -f "bug/$CARD_ID/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment explaining the reproduction test and why it currently fails. Commit to the card repository.
   - Proceed to Step 3
@@ -288,8 +288,8 @@ Capture RESOLVER_REASONING from response.
 
 Determine what changed since the reproduction tag:
 
-1. List all files changed since `bug/!` echo $CARD_ID`/reproduction` (`git diff "bug/!` echo $CARD_ID`/reproduction" --name-only`).
-2. Check whether the test file was modified (`git diff --quiet "bug/!` echo $CARD_ID`/reproduction" -- "$TEST_FILE_PATH"`).
+1. List all files changed since `bug/$CARD_ID/reproduction` (`git diff "bug/$CARD_ID/reproduction" --name-only`).
+2. Check whether the test file was modified (`git diff --quiet "bug/$CARD_ID/reproduction" -- "$TEST_FILE_PATH"`).
 3. Identify source-only changes by excluding the test file from the change list.
 4. Run the reproduction test and capture the output.
 
@@ -310,10 +310,10 @@ Determine what changed since the reproduction tag:
 
 1. Increment TEST_CORRECTION_COUNT
 2. **Count > 2**: Write a comment reporting the reproduction test became unreliable during the fix process. Describe what went wrong and why it cannot be trusted to verify the fix. Commit. **STOP**.
-3. Revert source changes: `git checkout "bug/!` echo $CARD_ID`/reproduction" -- $SOURCE_CHANGES`
+3. Revert source changes: `git checkout "bug/$CARD_ID/reproduction" -- $SOURCE_CHANGES`
 4. Run test to verify it still fails
 5. Based on corrected test result:
-   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/!` echo $CARD_ID`/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
+   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/$CARD_ID/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
    - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP**.
 
 ## 4. Validate Full Suite

@@ -31,7 +31,7 @@ On validation failure, fix and retry. After 5 failed attempts on the same issue,
 
 ## File Locations
 
-Edit files in !` echo $WORKSPACE_PATH`, not !` echo $REPO_ROOT`
+Do not edit files in [REPO_ROOT]
 
 ## Workflow
 

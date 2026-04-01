@@ -17,7 +17,7 @@ Use the `Task()` tool to launch a subagent to perform a technical spike investig
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Which approach ([A] vs [B] vs [C]) best supports [use case] with [constraints]?"
-- `[SPIKE_PATH]`: !` echo $CARD_REPO_PATH`/spike/[test-name]/
+- `[SPIKE_PATH]`: [CARD_REPO_PATH]/spike/[test-name]/
   - `[test-name]`: Use kebab-case like `realtime-comparison` or `socketio-vs-sse`
 - `[APPROACHES]`: List 2-3 technologies with versions (e.g., `["Socket.io v4.6.1 (WebSocket)", "EventSource (SSE)", "long-polling"]`)
 - `[COMPARISON_CRITERIA]`: Measurable aspects (e.g., `"Developer experience, bidirectional communication, horizontal scaling"`)
@@ -33,7 +33,7 @@ Use the `Task()` tool to launch a subagent to perform a technical spike investig
 
 **Derive these values from your context:**
 - `[SPIKE_QUESTION]`: Format as "Does [Library@version] support [specific capability]?"
-- `[SPIKE_PATH]`: !` echo $CARD_REPO_PATH`/spike/[test-name]/
+- `[SPIKE_PATH]`: [CARD_REPO_PATH]/spike/[test-name]/
   - `[test-name]`: Use kebab-case like `redis-compatibility-check` or `react-query-types-export`
 - `[APPROACH]`: Single technology to validate (e.g., `"Socket.io v4.6.1 with @socket.io/redis-adapter"`)
 - `[VALIDATION_CRITERIA]`: What needs verification (e.g., `"Redis adapter compatibility for horizontal scaling"`)
@@ -46,8 +46,8 @@ Use the `Task()` tool to launch a subagent to perform a technical spike investig
 
 <subagent-context>
 Subagents have no context from this conversation. Provide absolute paths:
-- Spike directory: !` echo $CARD_REPO_PATH`/spike/[test-name]/
-- Card plan: !` echo $CARD_REPO_PATH`/PLAN.md (when the spike needs implementation context)
+- Spike directory: [CARD_REPO_PATH]/spike/[test-name]/
+- Card plan: [CARD_REPO_PATH]/PLAN.md (when the spike needs implementation context)
 - Codebase files: absolute workspace paths (e.g., `/workspace/packages/api/src/server.ts`)
 
 Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags.
@@ -71,7 +71,7 @@ Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags.
   </technical-context>
 
   <spike-path>
-  !` echo $CARD_REPO_PATH`/spike/[test-name]/
+  [CARD_REPO_PATH]/spike/[test-name]/
   </spike-path>
   ```
 - **Validation Spike**:
@@ -93,7 +93,7 @@ Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags.
   </technical-context>
 
   <spike-path>
-  !` echo $CARD_REPO_PATH`/spike/[test-name]/
+  [CARD_REPO_PATH]/spike/[test-name]/
   </spike-path>
   ```
 </subagent-context>
@@ -113,7 +113,7 @@ Instruct the subagent to document findings in a structured format within the spi
     - [Approach 1]: [Specific findings from prototype]
     - [Approach 2]: [Specific findings from prototype]
     - [Approach 3]: [Specific findings from prototype]
-  - **Artifacts**: !` echo $CARD_REPO_PATH`/spike/[test-name]/ contains:
+  - **Artifacts**: [CARD_REPO_PATH]/spike/[test-name]/ contains:
     - `approach-[name1]/` - [Description]
     - `approach-[name2]/` - [Description]
     - `approach-[name3]/` - [Description]
@@ -130,7 +130,7 @@ Instruct the subagent to document findings in a structured format within the spi
   - **Approach Tested**: [Technology/version being validated]
   - **Result**: [Pass/Fail or capability confirmation]
   - **Evidence**: [Concrete demonstration - working code, API output, test results]
-  - **Artifacts**: !` echo $CARD_REPO_PATH`/spike/[test-name]/ contains:
+  - **Artifacts**: [CARD_REPO_PATH]/spike/[test-name]/ contains:
     - `test-implementation/` - [Description]
     - `results.md` - Detailed findings
   - **Impact**: [How this result confirms feasibility or influences implementation details]
@@ -142,7 +142,7 @@ Assemble the Task() invocation by composing the spike-context XML and subagent i
 <spike-execution-principles>
 ## Spike Execution Principles
 
-1. Place all spike artifacts in !` echo $CARD_REPO_PATH`/spike/, never in the main codebase
+1. Place all spike artifacts in [CARD_REPO_PATH]/spike/, never in the main codebase
 2. Produce working code or concrete test results, not documentation research
 3. Stay narrowly focused on the specific technical uncertainty
 4. Results must clearly inform implementation decisions with actionable recommendations

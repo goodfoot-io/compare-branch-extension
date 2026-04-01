@@ -144,8 +144,8 @@ Create the review team and spawn the maintainer and failure-mode analyst in para
 
 ```xml
 <invoke name="TeamCreate">
-<parameter name="team_name">review-feedback-!` echo $CARD_ID`</parameter>
-<parameter name="description">!` echo $CARD_ID`: feedback update review</parameter>
+<parameter name="team_name">review-feedback-[CARD_ID]</parameter>
+<parameter name="description">[CARD_ID]: feedback update review</parameter>
 </invoke>
 ```
 
@@ -154,19 +154,19 @@ Create the review team and spawn the maintainer and failure-mode analyst in para
 <parameter name="description">Failure mode analysis</parameter>
 <parameter name="subagent_type">runtime:card:failure-mode</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">review-feedback-!` echo $CARD_ID`</parameter>
+<parameter name="team_name">review-feedback-[CARD_ID]</parameter>
 <parameter name="name">failure-mode</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this feedback-driven update.
 
 ## Card Repository
-!` echo $CARD_REPO_PATH`
+[CARD_REPO_PATH]
 
 ## Workspace
-!` echo $WORKSPACE_PATH`
+[WORKSPACE_PATH]
 
 ## Baseline
-Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
+Changes are relative to git tag: `feedback/[CARD_ID]/baseline`
 
 Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. The failure modes live in the gap between the implementer's model and the system's actual behavior.
 </parameter>
@@ -178,16 +178,16 @@ Diff the workspace against the baseline to identify changed files. Read every ch
 <parameter name="description">Maintainer review</parameter>
 <parameter name="subagent_type">runtime:card:maintainer</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">review-feedback-!` echo $CARD_ID`</parameter>
+<parameter name="team_name">review-feedback-[CARD_ID]</parameter>
 <parameter name="name">maintainer</parameter>
 <parameter name="prompt">
 Review this targeted update for production readiness. This is a feedback-driven change, not a full implementation.
 
 ## Card Repository
-!` echo $CARD_REPO_PATH`
+[CARD_REPO_PATH]
 
 ## Baseline
-Changes are relative to git tag: `feedback/!` echo $CARD_ID`/baseline`
+Changes are relative to git tag: `feedback/[CARD_ID]/baseline`
 
 ## Modified Files
 [MODIFIED_FILES]

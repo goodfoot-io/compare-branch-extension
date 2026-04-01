@@ -125,7 +125,7 @@ Agent prompts must be self-contained — agents have no conversation context. Re
 [Description with testing requirements from plan]
 
 ## Plan
-@!` echo $CARD_REPO_PATH`/PLAN.md
+@[CARD_REPO_PATH]/PLAN.md
 
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
@@ -291,8 +291,8 @@ Tags mark rollback points during execution. Tags point to the most recent real c
 
 | Tag | Created At | Advances | Purpose |
 |-----|------------|----------|---------|
-| `implement/!` echo $CARD_ID`/baseline` | Step 1 | After each COMPLETED todo commit (Step 2.4) | Last known good state — NEEDS_REVISION reverts to this tag |
-| `implement/!` echo $CARD_ID`/post-implementation` | Step 2.5 | Never | After implementation, before validation |
+| `implement/[CARD_ID]/baseline` | Step 1 | After each COMPLETED todo commit (Step 2.4) | Last known good state — NEEDS_REVISION reverts to this tag |
+| `implement/[CARD_ID]/post-implementation` | Step 2.5 | Never | After implementation, before validation |
 
 
 </instructions>
