@@ -32,7 +32,15 @@ If research during CARD.md writing reveals a clear approach, write PLAN.md along
 
 ## CLI Binaries
 
-### card.mjs — Card operations
+Like `$EDITOR` or `$SHELL`, the CLI variables below hold absolute paths to executables and can be used directly as commands. They are set automatically at session start.
+
+| Variable | CLI |
+|----------|-----|
+| `$CARD_CLI` | Card operations (get, create, list, attach, detach, action) |
+| `$NOTIFICATION_CLI` | Send notifications to the VS Code UI |
+| `$COMPARE_CLI` | Manage the attribution tree comparison mode |
+
+### $CARD_CLI — Card operations
 
 #### Commands
 

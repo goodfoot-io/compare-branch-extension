@@ -7,7 +7,7 @@ description: This skill should be used when the user asks to "take a screenshot 
 
 ## 1. Prerequisites
 
-The `$CARDS_DEV_CLI` CLI connects to the running VS Code Electron process via CDP on port 19222. Verify connectivity before use:
+`$CARDS_DEV_CLI` is an executable path variable set at session start (like `$EDITOR`). It connects to the running VS Code Electron process via CDP on port 19222. Verify connectivity before use:
 
 ```bash
 curl -s --connect-timeout 2 "http://127.0.0.1:19222/json/version" | head -c 100
