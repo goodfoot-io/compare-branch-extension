@@ -678,6 +678,7 @@ describe('buildAdditionalContext', () => {
   it('contains card block, repo block, and log block', () => {
     const result = buildAdditionalContext(makeActionInput());
 
+    expect(result.startsWith('## Card Repository Reference')).toBe(true);
     expect(result).toMatch(/<card [^>]+>/);
     expect(result).toContain('</card>');
     expect(result).toContain('<card-repo>');

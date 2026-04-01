@@ -130,6 +130,8 @@ describe('SessionStart Hook', () => {
 
       const stdout = result.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
 
+      expect(stdout.systemMessage?.startsWith('## Card Repository Reference')).toBe(true);
+
       // <card> block with identity and env vars
       expect(stdout.systemMessage).toContain('<card ');
       expect(stdout.systemMessage).toContain('id="card-123"');

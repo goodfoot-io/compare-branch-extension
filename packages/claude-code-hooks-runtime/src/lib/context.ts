@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
 import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import cardRepoContent from '../content/card-repo.md';
 import { formatCommitLog } from './file-tree.js';
 import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from './gitPathspecs.js';
 
@@ -623,7 +624,7 @@ export function buildAdditionalContext(actionInput: ActionInput): string {
   const logBlock = buildCardRepoLogBlock(actionInput.cardRepoPath);
   const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.repoRoot, actionInput.cardRepoPath);
 
-  const parts = [cardBlock, repoBlock];
+  const parts = [cardRepoContent.trim(), cardBlock, repoBlock];
   if (logBlock) parts.push(logBlock);
   parts.push(...workspaceLogBlocks);
   return parts.join('\n\n');
