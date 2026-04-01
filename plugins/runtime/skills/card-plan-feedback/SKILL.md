@@ -47,7 +47,7 @@ Update the plan to address all feedback points:
 
 ### 2.3 Store Revised Plan
 
-Write the updated plan to `PLAN.md` in the card repository. Update `PLAN.md.meta.json` with a revised `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and `summary` (100–300 words of natural prose conveying the commander's intent and how the plan achieves it) reflecting the feedback changes. Commit to the card repository:
+Write the updated plan to `PLAN.md` in the card repository. Update `PLAN.md.meta.json` with a revised `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and `summary` reflecting the feedback changes — a multi-paragraph mini-plan in natural prose (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names. Follow the `<markdown-guidelines>` in the `cards:markdown` skill. Commit to the card repository:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`

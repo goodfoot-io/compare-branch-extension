@@ -36,7 +36,7 @@ Decorate and enrich the user's request — do not implement it. Research the cod
 
 Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
 
-Write `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: the gap between current and desired state that motivates this work).
+Write `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: the gap between current and desired state that motivates this work). Follow the `<markdown-guidelines>` in the `cards:markdown` skill.
 
 ## 3. Commit
 

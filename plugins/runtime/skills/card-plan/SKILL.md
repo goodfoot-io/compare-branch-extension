@@ -20,7 +20,7 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 
 ### 1.3 Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and `summary` (100–300 words of natural prose conveying the commander's intent and how the plan achieves it). Commit to the card repository:
+Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and a `summary` — a multi-paragraph mini-plan in natural prose (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names. Follow the `<markdown-guidelines>` in the `cards:markdown` skill. Commit to the card repository:
 
 ```bash
 cd !` echo $CARD_REPO_PATH`
