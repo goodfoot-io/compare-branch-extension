@@ -468,7 +468,7 @@ export function getSha256(): string {
 /**
  * Reads the MIME type for the typed file content.
  *
- * Provided for type hook events so validators can branch on content type.
+ * Provided for type hook events so handlers can branch on content type.
  * @returns The MIME type of the content
  * @throws Error if CONTENT_TYPE is missing or empty
  * @example
