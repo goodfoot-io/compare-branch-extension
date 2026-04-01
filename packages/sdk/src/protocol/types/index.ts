@@ -36,8 +36,6 @@ export type {
   TagsResponse,
   TimelineRequest,
   TimelineResponse,
-  TypedFileListResponse,
-  TypedFileResponse,
   UpdateCardRequest,
   UpdateCommentRequest,
   WorkspacePostCommitRequest,
@@ -82,16 +80,6 @@ export {
   MAX_TITLE_LENGTH,
   TAG_PATTERN
 } from './constraints.js';
-// --- Custom Types ---
-export type {
-  TypeConfig,
-  TypedFileHookInput,
-  TypedFileMetadata,
-  TypesConfig,
-  ValidationFailure,
-  ValidationResult,
-  ValidationSuccess
-} from './custom-types.js';
 // --- WebSocket Event Types ---
 export type {
   AttachmentAddedEvent,
@@ -115,9 +103,6 @@ export type {
   TimelineCommentUpdatedEvent,
   TimelineCommitAddedEvent,
   TimelineCommitRemovedEvent,
-  TimelineTypedFileAddedEvent,
-  TimelineTypedFileRemovedEvent,
-  TimelineTypedFileUpdatedEvent,
   WorkspaceCommitEvent
 } from './events.js';
 // --- Filesystem Types ---
@@ -154,8 +139,7 @@ export type {
   Command,
   Environment,
   ExecutionMode,
-  Settings,
-  TypeDefinition
+  Settings
 } from './settings.js';
 // --- Status Types ---
 export type {
@@ -180,8 +164,7 @@ export type {
   CommitStats,
   CommitTimelineItem,
   FileChange,
-  TimelineItem,
-  TypedFileTimelineItem
+  TimelineItem
 } from './timeline.js';
 // --- Validation Types ---
 export type { ValidationErrorCode } from './validation.js';

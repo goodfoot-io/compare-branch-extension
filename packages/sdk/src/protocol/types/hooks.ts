@@ -11,8 +11,7 @@
  * replace earlier ones entirely rather than merging).
  *
  * Note: The hooks system is being superseded by the actions-based architecture
- * defined in {@link Settings}. New integrations should prefer actions with
- * typed file lifecycle commands.
+ * defined in {@link Settings}. New integrations should prefer actions.
  *
  *
  * @summary Hook configuration types for Cards V2 lifecycle events
@@ -44,21 +43,10 @@
  * - `EndCard`: Card work session ends (action completes or is cancelled)
  * - `StartInterview`: Interactive interview session begins
  * - `EndInterview`: Interactive interview session ends
- * - `TypedFileCreated`: A new typed file is validated and stored
- * - `TypedFileUpdated`: An existing typed file is updated
- * - `TypedFileDeleted`: A typed file is removed
  *
  * @see {@link HookConfig} for mapping events to scripts
- * @see {@link TypedFileHookInput} for typed file event payloads
  */
-export type HookEvent =
-  | 'StartCard'
-  | 'EndCard'
-  | 'StartInterview'
-  | 'EndInterview'
-  | 'TypedFileCreated'
-  | 'TypedFileUpdated'
-  | 'TypedFileDeleted';
+export type HookEvent = 'StartCard' | 'EndCard' | 'StartInterview' | 'EndInterview';
 
 /**
  * Configuration for a single hook script invocation.
@@ -102,7 +90,7 @@ export interface HookScript {
  * const hooks: HookConfig = {
  *   StartCard: { path: './scripts/notify.sh', timeout: 5000 },
  *   EndCard: { path: './scripts/cleanup.sh' },
- *   TypedFileCreated: { path: './scripts/process-typed-file.sh', timeout: 30000 }
+ *   StartInterview: { path: './scripts/on-interview.sh', timeout: 30000 }
  * };
  * ```
  */

@@ -71,13 +71,10 @@ describe('Event Types', () => {
         'timeline:comment:added',
         'timeline:comment:updated',
         'timeline:comment:removed',
-        'timeline:typedFile:added',
-        'timeline:typedFile:updated',
-        'timeline:typedFile:removed',
         'timeline:commit:added',
         'timeline:commit:removed'
       ];
-      expect(eventKeys).toHaveLength(11);
+      expect(eventKeys).toHaveLength(8);
     });
 
     it('should have timeline:comment:added event type', () => {
@@ -123,57 +120,6 @@ describe('Event Types', () => {
       };
       expect(event.cardId).toBe('card-123');
       expect(event.commentId).toBe('comment-456');
-    });
-
-    it('should have timeline:typedFile:added event type', () => {
-      const event: EventMap['timeline:typedFile:added'] = {
-        type: 'timeline:typedFile:added',
-        cardId: 'card-123',
-        typeName: 'note',
-        item: {
-          type: 'note',
-          id: 'note-789',
-          fileName: 'note-789.md',
-          content: 'Note content',
-          createdAt: '2026-01-01T00:00:00Z'
-        }
-      };
-      expect(event.cardId).toBe('card-123');
-      expect(event.typeName).toBe('note');
-      expect(event.item.type).toBe('note');
-      expect(event.item.id).toBe('note-789');
-    });
-
-    it('should have timeline:typedFile:updated event type', () => {
-      const event: EventMap['timeline:typedFile:updated'] = {
-        type: 'timeline:typedFile:updated',
-        cardId: 'card-123',
-        typeName: 'adaptive-card',
-        item: {
-          type: 'adaptive-card',
-          id: 'ac-111',
-          fileName: 'ac-111.json',
-          content: { summary: 'Updated adaptive card' },
-          createdAt: '2026-01-01T00:00:00Z'
-        }
-      };
-      expect(event.cardId).toBe('card-123');
-      expect(event.typeName).toBe('adaptive-card');
-      expect(event.item.type).toBe('adaptive-card');
-    });
-
-    it('should have timeline:typedFile:removed event type', () => {
-      const event: EventMap['timeline:typedFile:removed'] = {
-        type: 'timeline:typedFile:removed',
-        cardId: 'card-123',
-        typeName: 'note',
-        fileName: 'note-789.md',
-        itemId: 'note-789'
-      };
-      expect(event.cardId).toBe('card-123');
-      expect(event.typeName).toBe('note');
-      expect(event.fileName).toBe('note-789.md');
-      expect(event.itemId).toBe('note-789');
     });
 
     it('should have timeline:commit:added event type', () => {

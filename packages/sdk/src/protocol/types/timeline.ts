@@ -1,15 +1,13 @@
 /**
  * Timeline entity types for Cards V2 activity streams.
  *
- * Timeline items capture user-authored content, adaptive card updates, and
- * commit metadata so the UI can render a chronological history of work.
+ * Timeline items capture user-authored comments and commit metadata so the
+ * UI can render a chronological history of work.
  *
  *
  * @summary Timeline entity types for Cards V2 activity streams
  * @module types/timeline
  */
-
-import type { TypedFileMetadata } from './custom-types.js';
 
 // --- Comment ---
 
@@ -110,28 +108,6 @@ export interface CommitTimelineItem {
 }
 
 /**
- * Generic timeline item for any registered typed file.
- *
- * Replaces per-type timeline items (NoteTimelineItem, AdaptiveCardTimelineItem)
- * with a single generic shape. The `type` field contains the typed file type name
- * (e.g. 'note', 'adaptive-card').
- */
-export interface TypedFileTimelineItem {
-  /** Typed file type name (e.g. 'note', 'adaptive-card'). Used as discriminator in TimelineItem union. */
-  type: string;
-  /** Logical ID extracted from content (e.g., .meta.json .id field or parsed from content) */
-  id: string;
-  /** File name within the typed file directory */
-  fileName: string;
-  /** Typed file metadata from .meta.json sidecar */
-  metadata?: TypedFileMetadata;
-  /** Raw parsed content (JSON object for JSON types, string for text types, undefined for binary files) */
-  content?: unknown;
-  /** ISO 8601 timestamp. Resolution: from metadata createdAt if available, else fs.stat mtime */
-  createdAt: string;
-}
-
-/**
  * Union of all possible timeline items.
  */
-export type TimelineItem = CommentTimelineItem | TypedFileTimelineItem | CommitTimelineItem;
+export type TimelineItem = CommentTimelineItem | CommitTimelineItem;

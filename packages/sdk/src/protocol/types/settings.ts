@@ -2,16 +2,15 @@
  * Settings schema types for the actions-based execution system.
  *
  * This module defines the `settings.json` structure that provides composable
- * environments containing actions and typed file definitions. Settings are
- * loaded from project, user, and default locations with complete override
- * semantics (later sources replace earlier ones for each environment key).
+ * environments containing actions. Settings are loaded from project, user,
+ * and default locations with complete override semantics (later sources
+ * replace earlier ones for each environment key).
  *
  * The settings system replaces the older hooks-based architecture with a more
  * flexible model where:
  *
  * - **Environments** group related configurations by deployment target
  * - **Actions** define executable workflows with start/end lifecycle commands
- * - **Type definitions** specify validators and lifecycle hooks for typed files
  *
  *
  * @summary Settings schema types for the actions-based execution system
@@ -31,12 +30,6 @@
  *           "supportsBackgroundMode": true
  *         }
  *       ],
- *       "types": {
- *         "contract": {
- *           "version": "1.0.0",
- *           "validator": { "command": "node ./validators/contract.mjs" }
- *         }
- *       }
  *     }
  *   }
  * }
@@ -147,80 +140,14 @@ export interface Action {
   allowConcurrent?: boolean;
 }
 
-// --- Type (Typed File Definition) ---
-
-/**
- * Configuration for a typed file type and its lifecycle hooks.
- *
- * Typed files are validated by external processes before storage. The type
- * definition specifies the validator command and optional lifecycle hooks
- * that run when files are created, updated, or deleted.
- *
- * @example
- * ```typescript
- * const typeDef: TypeDefinition = {
- *   version: '1.0.0',
- *   validator: { command: 'node ./validators/contract.mjs', timeout: 5000 },
- *   create: { command: './scripts/on-contract-created.sh' },
- *   update: { command: './scripts/on-contract-updated.sh' },
- *   delete: { command: './scripts/on-contract-deleted.sh' }
- * };
- * ```
- */
-export interface TypeDefinition {
-  /**
-   * Semantic version of the type schema (e.g., "1.0.0").
-   * Used for compatibility checking and stored with each typed file.
-   * Increment when the validation rules change.
-   */
-  version: string;
-
-  /**
-   * Validation command for file content.
-   * Receives file information via environment variables (FILE_PATH, TYPE_NAME,
-   * TYPE_VERSION, FILE_NAME, CARD_ID, CONTENT_TYPE) and must write a
-   * {@link ValidationResult} JSON object to stdout.
-   */
-  validator?: Command;
-
-  /**
-   * Hook invoked when a new file of this type is created.
-   * Receives {@link TypedFileHookInput} as JSON on stdin.
-   */
-  create?: Command;
-
-  /**
-   * Hook invoked when an existing file of this type is updated.
-   * Receives {@link TypedFileHookInput} as JSON on stdin.
-   */
-  update?: Command;
-
-  /**
-   * Hook invoked when a file of this type is deleted.
-   * Receives {@link TypedFileHookInput} as JSON on stdin.
-   */
-  delete?: Command;
-
-  /**
-   * Human-readable schema describing the expected file format.
-   * Opaque string — no validation is performed on the content.
-   */
-  schema?: string;
-
-  /**
-   * Description of the type's purpose.
-   */
-  description?: string;
-}
-
 // --- Environment ---
 
 /**
- * An environment groups related actions and typed file definitions.
+ * An environment groups related actions.
  *
  * Environments represent deployment targets or workflow contexts (e.g.,
  * "development", "staging", "production"). Each card is assigned to an
- * environment, which determines the available actions and type validators.
+ * environment, which determines the available actions.
  *
  * @example
  * ```typescript
@@ -230,10 +157,7 @@ export interface TypeDefinition {
  *   actions: [
  *     { name: 'Start Work', command: { command: 'npx claude-code' } },
  *     { name: 'Run Tests', command: { command: 'npm test' } }
- *   ],
- *   types: {
- *     'contract': { version: '1.0.0', validator: { command: 'node ./validate.mjs' } }
- *   }
+ *   ]
  * };
  * ```
  */
@@ -257,13 +181,6 @@ export interface Environment {
    * An empty array is valid but triggers a configuration warning.
    */
   actions: Action[];
-
-  /**
-   * Typed file definitions keyed by type name.
-   * The keys are used in API paths: `PUT /cards/:id/types/:typeName/:fileName`.
-   * Type names should be lowercase with hyphens.
-   */
-  types?: Record<string, TypeDefinition>;
 
   /**
    * Stream type definitions keyed by type name (e.g., `"claude-session"`).
@@ -309,7 +226,7 @@ export interface Environment {
  */
 export interface Settings {
   /**
-   * Named environments, each containing actions and types.
+   * Named environments, each containing actions.
    * Cards reference environments by key name.
    * The `'default'` environment is used when no specific environment is set.
    */

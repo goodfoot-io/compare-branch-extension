@@ -16,7 +16,7 @@ import type { CardCommit } from './fs.js';
 import type { ActionResult, ExecutionMode } from './settings.js';
 import type { CardStatus } from './status.js';
 import type { StreamMeta, StreamStatus } from './stream.js';
-import type { CommentTimelineItem, CommitDetails, CommitTimelineItem, TypedFileTimelineItem } from './timeline.js';
+import type { CommentTimelineItem, CommitDetails, CommitTimelineItem } from './timeline.js';
 
 // --- Card Events ---
 
@@ -118,52 +118,6 @@ export interface TimelineCommitRemovedEvent {
   cardId: string;
   /** SHA of the removed commit. */
   sha: string;
-}
-
-// --- Generic Typed File Events ---
-
-/**
- * Event payload when a typed file is added to the timeline.
- */
-export interface TimelineTypedFileAddedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:typedFile:added';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
-  typeName: string;
-  /** Full typed file timeline item. */
-  item: TypedFileTimelineItem;
-}
-
-/**
- * Event payload when a typed file on the timeline is updated.
- */
-export interface TimelineTypedFileUpdatedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:typedFile:updated';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
-  typeName: string;
-  /** Updated typed file timeline item. */
-  item: TypedFileTimelineItem;
-}
-
-/**
- * Event payload when a typed file is removed from the timeline.
- */
-export interface TimelineTypedFileRemovedEvent {
-  /** Event type discriminator. */
-  type: 'timeline:typedFile:removed';
-  /** ID of the parent card. */
-  cardId: string;
-  /** Typed file type name (e.g. 'note', 'adaptive-card'). */
-  typeName: string;
-  /** File name of the removed typed file. */
-  fileName: string;
-  /** Logical ID for client-side list diffing. */
-  itemId: string;
 }
 
 // --- Attachment Events ---
@@ -488,9 +442,6 @@ export type DomainEvent =
   | TimelineCommentRemovedEvent
   | TimelineCommitAddedEvent
   | TimelineCommitRemovedEvent
-  | TimelineTypedFileAddedEvent
-  | TimelineTypedFileUpdatedEvent
-  | TimelineTypedFileRemovedEvent
   | StreamStartedEvent
   | StreamResumedEvent
   | StreamLineEvent
