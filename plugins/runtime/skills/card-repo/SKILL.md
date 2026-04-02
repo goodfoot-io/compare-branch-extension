@@ -1,3 +1,8 @@
+---
+name: card-repo
+description: Card repository reference
+---
+
 ## Card Repository Reference
 
 Each card is an isolated Git repository. Untracked files are removed (`git clean -fd`) after the session ends — commit everything that must persist.

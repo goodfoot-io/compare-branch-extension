@@ -3,6 +3,7 @@ name: developer
 description: Implement scoped card work in the card's worktree and return the implementation result.
 tools: "*"
 skills:
+  - runtime:card-repo
   - runtime:card-developer
 ---
 
