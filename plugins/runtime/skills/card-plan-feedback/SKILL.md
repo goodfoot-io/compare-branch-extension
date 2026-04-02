@@ -31,7 +31,7 @@ From the latest user comment, identify:
 
 If feedback requires additional investigation in the workspace repository:
 
-- Read relevant files in the workspace codebase — use fragment links per the `<markdown-guidelines>` in the `cards:markdown` skill when referencing code in the revised plan
+- Read relevant files in the workspace codebase — use fragment links per the `<markdown-guidelines>` when referencing code in the revised plan
 - Understand implications of requested changes
   - **Feedback modifies Technical Approach** (changes data structures, shifts responsibility between components, replaces a component, simplifies a step): Re-verify the complete data-flow connections for the affected path — not only the changed sections. A design revision can disconnect wiring that was correct under the previous design. Verify that existing fragment links in PLAN.md still point to correct locations.
 - Identify new dependencies or risks
@@ -47,7 +47,7 @@ Update the plan to address all feedback points:
 
 ### 2.3 Store Revised Plan
 
-Write the updated plan to `PLAN.md` in the card repository. Update `PLAN.md.meta.json` with a revised `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and `summary` reflecting the feedback changes — a multi-paragraph markdown-formatted mini-plan (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for both `PLAN.md` and the `summary` field. Commit to the card repository:
+Write the updated plan to `PLAN.md` in the card repository. Update `PLAN.md.meta.json` with a revised `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and `summary` reflecting the feedback changes — a multi-paragraph markdown-formatted mini-plan (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names. Follow the `<markdown-guidelines>` for both `PLAN.md` and the `summary` field. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH

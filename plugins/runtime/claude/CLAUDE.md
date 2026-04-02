@@ -126,7 +126,7 @@ Any `.md` file at the card repository root may have a `.md.meta.json` sidecar (e
 }
 ```
 
-The UI renders `title` as the section header (falling back to the filename when absent) and `summary` as markdown in the collapsed preview. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for both the `.md` document and its `summary` field — use [fragment links](./path) for file references, **bold** for emphasis, and `backticks` for identifiers.
+The UI renders `title` as the section header (falling back to the filename when absent) and `summary` as markdown in the collapsed preview. Follow the `<markdown-guidelines>` for both the `.md` document and its `summary` field — use [fragment links](./path) for file references, **bold** for emphasis, and `backticks` for identifiers.
 
 ## Comments
 

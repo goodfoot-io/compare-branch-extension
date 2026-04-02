@@ -17,7 +17,7 @@ Capture what happened with enough precision that someone else can reproduce it. 
 
 ## Writing Principles
 
-- **Document observable facts**: Exact error messages (copy-paste), file paths, line numbers, git state, environment details. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references and code locations.
+- **Document observable facts**: Exact error messages (copy-paste), file paths, line numbers, git state, environment details. Follow the `<markdown-guidelines>` for all file references and code locations.
 - **Reproduction steps**: Numbered, specific, noting prerequisites and consistency (reproducible vs intermittent).
 - **Separate observation from speculation**: Frame hypotheses as exploration — "This suggests..." not "The bug is caused by..."
 - **Multiple observation channels**: Document which channels (logs, APIs, UIs, monitoring) you checked and what each showed.

@@ -32,7 +32,7 @@ Explain **why the work matters** and **what success looks like** without prescri
 ## Key Principles
 
 - **Intent over implementation**: State why and outcomes, not exact steps
-- **Evidence over assertion**: Metrics, incidents, code references, diagrams for complex dependency or data flow relationships — not opinions. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references and code locations.
+- **Evidence over assertion**: Metrics, incidents, code references, diagrams for complex dependency or data flow relationships — not opinions. Follow the `<markdown-guidelines>` for all file references and code locations.
 - **Scope control**: Firm boundaries prevent refactor growth
 - **Risk awareness**: Make dependencies and rollback paths explicit early
 

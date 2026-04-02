@@ -13,7 +13,7 @@ The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before writing a card's description (CARD.md), load the reference that matches the user's request. References are located at `${CLAUDE_PLUGIN_ROOT}/skills/api/references/`.
+Before writing a card's description (CARD.md), load the `cards:markdown` skill and the reference that matches the user's request. References are located at `${CLAUDE_PLUGIN_ROOT}/skills/api/references/`.
 
 Determine the card type using the first matching signal:
 - **Bug, error, crash, regression, broken behavior**: `bug-report.md`

@@ -59,7 +59,7 @@ A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 - Description contains factual errors (wrong paths, incorrect component names)
 - Description lacks context needed to begin work
 
-**Enrich descriptions** with context discovered during exploration. Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references, code locations, and diagrams:
+**Enrich descriptions** with context discovered during exploration. Follow the `<markdown-guidelines>` for all file references, code locations, and diagrams:
 - Relevant file paths and component names
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)
@@ -92,7 +92,7 @@ A good bug title describes behavior: *"[Component] fails when [action]"* or *"[E
 - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
 - Do not expand scope beyond user intent
 
-If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Write or update `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: the problem or need that triggered the card). Follow the `<markdown-guidelines>` in the `cards:markdown` skill for both `CARD.md` and the `summary` field. Commit to the card repository:
+If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Write or update `CARD.md.meta.json` with `title` set to `"Description"` and `summary` (100–300 words: the problem or need that triggered the card). Follow the `<markdown-guidelines>` for both `CARD.md` and the `summary` field. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH

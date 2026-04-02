@@ -60,7 +60,7 @@ Active voice, present tense. Write paragraphs as continuous prose — do not bre
 
 #### File References
 
-Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references in commit bodies.
+Follow the `<markdown-guidelines>` for all file references in commit bodies.
 
 #### Truth Over Profundity
 
@@ -70,3 +70,78 @@ Include genuine insight when it emerges — a surprise, an irony, a lesson that 
 
 Collect Decision Narratives from agent reports, extract what changed and what was learned, discard performative struggle. Weave a unified story, not a list.
 </workspace-commit-style>
+
+<markdown-guidelines>
+
+## 1. Fragment Links
+
+When markdown references a workspace file, function, or code location, use a markdown fragment link — not a backtick code span. The card-detail webview renders fragment links as clickable buttons that open the file in the editor.
+
+Non-workspace paths (e.g., `~/.cards/cards-api.json`) and external URLs remain as backtick code spans or plain text.
+
+### 1.1 Soft Links
+
+Anchor natural prose to a relevant file. The reader follows the narrative; the link provides navigation.
+
+```markdown
+The [token refresh logic](./src/auth/refresh.ts) now handles network timeouts.
+```
+
+### 1.2 Precise Links
+
+Point to a specific line or range when the reader needs the exact location.
+
+```markdown
+[src/auth/provider.ts L42](./src/auth/provider.ts#L42)
+[src/auth/provider.ts L42–L58](./src/auth/provider.ts#L42-L58)
+```
+
+### 1.3 Function References
+
+Anchor a function or method name to its definition site.
+
+```markdown
+[startCardsApi()](./packages/extension/src/lifecycle/cardsApiLifecycle.ts#L42)
+```
+
+## 2. Mermaid Diagrams
+
+The webview renders fenced `mermaid` code blocks as inline SVG diagrams. If rendering fails, the raw source is displayed as a fallback.
+
+Use mermaid when the structure is the point — multi-component interactions, state transitions, data flows, or decision trees. Use prose when the explanation is the point.
+
+````markdown
+```mermaid
+graph LR
+    A[Request] --> B{Auth?}
+    B -->|Yes| C[Process]
+    B -->|No| D[Reject]
+```
+````
+
+## 3. Collapsible Sections
+
+Use `<details>` and `<summary>` for content that supports the narrative but would interrupt it inline — long error output, verbose investigation logs, or optional context.
+
+A blank line is required after `<summary>` for markdown to render inside the block.
+
+```markdown
+<details>
+<summary>Full error output</summary>
+
+Error content here. **Markdown works** inside the block.
+
+</details>
+```
+
+## 4. Code Blocks
+
+Always include a language tag on fenced code blocks for syntax highlighting. The webview highlights: `typescript`, `javascript`, `jsx`, `tsx`, `python`, `css`, `html`, `shell`, `json`, `yaml`, `go`, `rust`, `markdown`, `diff`, `sql`, `ruby`, `java`, `c`, `cpp`, `csharp`.
+
+````markdown
+```typescript
+const x: number = 42;
+```
+````
+
+</markdown-guidelines>

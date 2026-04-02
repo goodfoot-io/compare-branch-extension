@@ -22,7 +22,7 @@ Capture intent, audience, and outcomes without prescribing the solution. Leave r
 - **Outcomes over implementation**: State what the reader should be able to do, not the exact file or format.
 - **Source of truth**: Where authoritative information lives, accuracy boundaries, update cadence.
   - Use versions/dates, not "new" or "currently."
-  - Follow the `<markdown-guidelines>` in the `cards:markdown` skill for all file references and code locations.
+  - Follow the `<markdown-guidelines>` for all file references and code locations.
 - **Scannable**: Front-load essentials (audience, task, outcome), short sections, direct language.
 - **Visual when structural**: Use mermaid diagrams for system interactions, decision trees, or data flows — prose for everything else.
 
