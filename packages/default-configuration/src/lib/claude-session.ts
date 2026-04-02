@@ -23,17 +23,16 @@ export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
 import type { CreateWorktreeResult } from '@cards/sdk/worktree';
 import { checkWorktreeExists, createWorktree, findGitRoots } from '@cards/sdk/worktree';
-import grayMatter from 'gray-matter';
-import cardRepoSkillRaw from '../../../../plugins/runtime/skills/card-repo/SKILL.md';
+import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 
 const execFileAsync = promisify(execFile);
 
 /**
- * Card repository reference content (SKILL.md with YAML frontmatter stripped).
- * Injected into every Claude session via `--append-system-prompt`.
+ * Commit message style guide injected into every Claude session via
+ * `--append-system-prompt`. Loaded as a raw string at build time.
  */
-const CARD_REPO_SKILL_CONTENT: string = grayMatter(cardRepoSkillRaw).content.trim();
+const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
 
 /**
  * Extracts a human-readable message from an unknown catch value.
@@ -57,6 +56,18 @@ export function resolveMarketplacePath(): string {
     throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.EXTENSION_PATH}`);
   }
   return path.join(extensionPath, 'dist', 'marketplace');
+}
+
+/**
+ * Resolves the claude configuration directory inside the bundled marketplace.
+ * Contains the CLAUDE.md that is provided to the launched claude process and
+ * teammates via `--add-dir`.
+ *
+ * @param marketplacePath - Absolute path to the bundled marketplace directory.
+ * @returns Absolute path to the claude directory within the runtime plugin.
+ */
+export function resolveClaudeDirPath(marketplacePath: string): string {
+  return path.join(marketplacePath, 'plugins', 'runtime', 'claude');
 }
 
 /**
@@ -91,6 +102,7 @@ export function buildPluginSettings(marketplacePath: string): string {
  * @param mode - Execution mode; `'background'` appends `--print`.
  * @param cardRepoPath - Absolute path passed via `--add-dir`.
  * @param marketplacePath - Absolute path to the bundled marketplace directory.
+ * @param claudeDirPath - Absolute path to the bundled claude directory (contains CLAUDE.md).
  * @returns Array of CLI arguments.
  */
 export function buildArgs(
@@ -99,7 +111,8 @@ export function buildArgs(
   resume: boolean,
   mode: ActionInput['executionMode'],
   cardRepoPath: string,
-  marketplacePath: string
+  marketplacePath: string,
+  claudeDirPath: string
 ): string[] {
   const args: string[] = [];
 
@@ -113,7 +126,9 @@ export function buildArgs(
   }
   args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
-  args.push('--append-system-prompt', CARD_REPO_SKILL_CONTENT);
+  args.push('--add-dir', claudeDirPath);
+  args.push('--teammate-mode', 'in-process');
+  args.push('--append-system-prompt', COMMIT_MESSAGE_STYLE);
   // Temporarily disable as this creates an interactive warning dialog
   // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
   if (mode === 'background') {
@@ -644,9 +659,18 @@ export async function spawnClaudeSession(
   }
 
   const marketplacePath = resolveMarketplacePath();
+  const claudeDirPath = resolveClaudeDirPath(marketplacePath);
   await updateMarketplaceRegistration(marketplacePath, context.logger);
 
-  const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath, marketplacePath);
+  const args = buildArgs(
+    prompt,
+    sessionId,
+    resume,
+    input.executionMode,
+    input.cardRepoPath,
+    marketplacePath,
+    claudeDirPath
+  );
   const isInteractive = input.executionMode === 'interactive';
 
   const child: ChildProcess = spawn('claude', args, {
@@ -657,6 +681,7 @@ export async function spawnClaudeSession(
       WORKSPACE_PATH: cwd,
       CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+      CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,
       WORKSPACE_BRANCH: branchName

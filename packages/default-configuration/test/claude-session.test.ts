@@ -186,14 +186,22 @@ describe('claude-session shared utilities', () => {
   describe('buildArgs', () => {
     it('includes --session-id for new sessions', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
+      const args = buildArgs(
+        'my prompt',
+        'session-abc',
+        false,
+        'interactive',
+        '/card/repo',
+        '/ext/path',
+        '/ext/claude'
+      );
       expect(args).toContain('--session-id');
       expect(args).toContain('session-abc');
     });
 
     it('includes --resume for resumed sessions and omits --session-id', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', true, 'interactive', '/card/repo', '/ext/path');
+      const args = buildArgs('my prompt', 'session-abc', true, 'interactive', '/card/repo', '/ext/path', '/ext/claude');
       expect(args).toContain('--resume');
       expect(args).toContain('session-abc');
       expect(args).not.toContain('--session-id');
@@ -201,35 +209,52 @@ describe('claude-session shared utilities', () => {
 
     it('excludes --print in interactive mode', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
+      const args = buildArgs(
+        'my prompt',
+        'session-abc',
+        false,
+        'interactive',
+        '/card/repo',
+        '/ext/path',
+        '/ext/claude'
+      );
       expect(args).not.toContain('--print');
     });
 
     it('includes --print in background mode', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'background', '/card/repo', '/ext/path');
+      const args = buildArgs('my prompt', 'session-abc', false, 'background', '/card/repo', '/ext/path', '/ext/claude');
       expect(args).toContain('--print');
     });
 
     it('omits prompt from args when undefined', async () => {
       const { buildArgs } = await import('../src/lib/claude-session.js');
-      const args = buildArgs(undefined, 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
+      const args = buildArgs(undefined, 'session-abc', false, 'interactive', '/card/repo', '/ext/path', '/ext/claude');
       expect(args).toContain('--session-id');
       expect(args).toContain('session-abc');
       // First arg should be a flag, not a prompt string
       expect(args[0]).toBe('--session-id');
     });
 
-    it('includes --settings, --add-dir, and --channels', async () => {
+    it('includes --settings, --add-dir, --teammate-mode, and claude dir', async () => {
       const { buildArgs, buildPluginSettings } = await import('../src/lib/claude-session.js');
-      const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/marketplace');
+      const args = buildArgs(
+        'my prompt',
+        'session-abc',
+        false,
+        'interactive',
+        '/card/repo',
+        '/ext/marketplace',
+        '/ext/claude'
+      );
       expect(args).toContain('--settings');
       expect(args).toContain(buildPluginSettings('/ext/marketplace'));
       expect(args).not.toContain('--plugin-dir');
       expect(args).toContain('--add-dir');
       expect(args).toContain('/card/repo');
-      // expect(args).toContain('--dangerously-load-development-channels');
-      // expect(args).toContain('plugin:runtime@cards.management');
+      expect(args).toContain('/ext/claude');
+      expect(args).toContain('--teammate-mode');
+      expect(args).toContain('in-process');
     });
   });
 
@@ -669,6 +694,13 @@ describe('claude-session shared utilities', () => {
       } finally {
         if (saved !== undefined) process.env['EXTENSION_PATH'] = saved;
       }
+    });
+  });
+
+  describe('resolveClaudeDirPath', () => {
+    it('returns claude dir path within the marketplace runtime plugin', async () => {
+      const { resolveClaudeDirPath } = await import('../src/lib/claude-session.js');
+      expect(resolveClaudeDirPath('/ext/dist/marketplace')).toBe('/ext/dist/marketplace/plugins/runtime/claude');
     });
   });
 
