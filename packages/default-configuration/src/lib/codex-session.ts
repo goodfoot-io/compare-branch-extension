@@ -42,7 +42,6 @@ type TomlTable = Record<string, unknown>;
 
 const CODEX_PLUGIN_NAME = 'runtime';
 const CODEX_PLUGIN_MARKETPLACE = 'local';
-const CODEX_RUNTIME_SKILL_NAME = 'runtime';
 const CODEX_CONFIG_FILE_NAME = 'config.toml';
 const CODEX_AGENTS_FILE_NAME = 'AGENTS.md';
 
@@ -134,12 +133,10 @@ async function ensureCodexBundleAvailable(marketplacePath: string): Promise<{
 }> {
   const bundlePath = resolveCodexBundlePath(marketplacePath);
   const pluginPath = resolveCodexPluginPath(marketplacePath);
-  const skillPath = path.join(pluginPath, 'skills', CODEX_RUNTIME_SKILL_NAME);
   const marketplaceManifestPath = path.join(bundlePath, '.agents', 'plugins', 'marketplace.json');
 
   await fs.access(bundlePath);
   await fs.access(pluginPath);
-  await fs.access(skillPath);
   await fs.access(marketplaceManifestPath);
   await readCodexMarketplaceManifest(bundlePath);
   await readCodexPluginManifest(pluginPath);
