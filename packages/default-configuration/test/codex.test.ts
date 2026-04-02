@@ -14,7 +14,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
-  execFile: vi.fn()
+  execFile: vi.fn(),
+  execFileSync: vi.fn()
+}));
+
+vi.mock('node:fs', () => ({
+  readdirSync: vi.fn(),
+  readFileSync: vi.fn(),
+  statSync: vi.fn()
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -51,7 +58,9 @@ beforeEach(async () => {
   delete process.env['XDG_CONFIG_HOME'];
 
   const { execFile } = await import('node:child_process');
+  const { execFileSync } = await import('node:child_process');
   const fs = await import('node:fs/promises');
+  const syncFs = await import('node:fs');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
     const cb = args[args.length - 1];
     const cmd = args[0] as string;
@@ -67,6 +76,121 @@ beforeEach(async () => {
     }
 
     return {} as ReturnType<typeof execFile>;
+  });
+  vi.mocked(execFileSync).mockImplementation((command: string, args?: readonly string[], options?: unknown) => {
+    const normalizedArgs = [...(args ?? [])];
+    const cwd =
+      options && typeof options === 'object' && options !== null && 'cwd' in options
+        ? String((options as { cwd?: unknown }).cwd)
+        : '';
+    const key = `${command} ${normalizedArgs.join(' ')}`;
+
+    if (cwd === '/test/repo' && key.startsWith('git log -5 --pretty=format:%x00%h - %an: %s --name-only -- .')) {
+      return '\u0000123abcd - Test User: Add card plan\nPLAN.md\nCARD.md';
+    }
+    if (cwd === '/test/repo' && key === 'git rev-list --count HEAD') {
+      return '3';
+    }
+    if (cwd === '/test/workspace' && key === 'git log --format=%H cards/card-123/1') {
+      return 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    }
+    if (cwd === '/test/workspace' && key === 'git log --format=%H main') {
+      return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
+    }
+    if (
+      cwd === '/test/workspace' &&
+      key === 'git log --no-walk --pretty=format:%H %h - %s --name-only aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    ) {
+      return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa abcdef1 - Branch change', '', 'src/feature.ts'].join('\n');
+    }
+    if (
+      cwd === '/test/workspace' &&
+      key === 'git log --no-walk --pretty=format:%H %h - %s --name-only bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    ) {
+      return ['bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb bcdefg2 - Merged fix', '', 'src/fix.ts'].join('\n');
+    }
+    if (cwd === '/test/workspace' && key === 'git cat-file --batch-check') {
+      return '';
+    }
+
+    throw new Error(`mock: unhandled execFileSync: ${key} cwd=${cwd}`);
+  });
+
+  const cardRepoDirents = [
+    {
+      name: 'CARD.md',
+      isDirectory: () => false,
+      isFile: () => true
+    },
+    {
+      name: 'PLAN.md',
+      isDirectory: () => false,
+      isFile: () => true
+    },
+    {
+      name: 'streams',
+      isDirectory: () => true,
+      isFile: () => false
+    }
+  ];
+  const streamDirents = [
+    {
+      name: 'claude-code-session',
+      isDirectory: () => true,
+      isFile: () => false
+    }
+  ];
+  const streamFileDirents = [
+    {
+      name: 'a.jsonl',
+      isDirectory: () => false,
+      isFile: () => true
+    }
+  ];
+
+  vi.mocked(syncFs.readdirSync).mockImplementation((targetPath: string | Buffer | URL) => {
+    if (String(targetPath) === '/test/repo') {
+      return cardRepoDirents as ReturnType<typeof syncFs.readdirSync>;
+    }
+    if (String(targetPath) === '/test/repo/streams') {
+      return streamDirents as ReturnType<typeof syncFs.readdirSync>;
+    }
+    if (String(targetPath) === '/test/repo/streams/claude-code-session') {
+      return streamFileDirents as ReturnType<typeof syncFs.readdirSync>;
+    }
+    throw Object.assign(new Error(`mock: unhandled readdirSync: ${String(targetPath)}`), { code: 'ENOENT' });
+  });
+  vi.mocked(syncFs.statSync).mockImplementation((_targetPath: string | Buffer | URL) => {
+    return {
+      mtimeMs: new Date('2026-04-02T12:34:56Z').getTime()
+    } as ReturnType<typeof syncFs.statSync>;
+  });
+  vi.mocked(syncFs.readFileSync).mockImplementation((filePath: string | Buffer | URL) => {
+    if (String(filePath) === '/test/repo/CARD.meta.json') {
+      return JSON.stringify({
+        id: 'card-123',
+        title: 'Test card',
+        status: 'active',
+        gates: {
+          planRequired: true,
+          planApproved: false,
+          mergeRequestRequired: false,
+          mergeApproved: false
+        }
+      });
+    }
+    if (String(filePath) === '/test/repo/workspace-branches.json') {
+      return JSON.stringify({
+        'cards/card-123/1': {
+          parentBranch: 'main',
+          addedAt: '2026-04-02T00:00:00.000Z'
+        }
+      });
+    }
+    if (String(filePath) === '/test/repo/workspace-commits.csv') {
+      return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
+    }
+    throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
   });
 
   globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
@@ -281,9 +405,18 @@ describe('codex action', () => {
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
     expect(args).not.toContain('--config');
-    expect(args[args.length - 1]).toBe(
-      'Use the `runtime:runtime` skill for card repository conventions, then continue work on the card.'
+    expect(args[args.length - 1]).toContain('<card id="card-123" status="active" mode="interactive">');
+    expect(args[args.length - 1]).toContain('<card-repo>');
+    expect(args[args.length - 1]).toContain('<card-repo-log count="3">');
+    expect(args[args.length - 1]).toContain(
+      '<workspace-repo-log branch="cards/card-123/1" parentBranch="main" count="1">'
     );
+    expect(args[args.length - 1]).toContain('<workspace-repo-log branch="main" count="1">');
+    expect(args[args.length - 1]).toContain('CARD_REPO_PATH=/test/repo');
+    expect(args[args.length - 1]).toContain('WORKSPACE_PATH=/test/workspace/.worktrees/cards/card-123/1');
+    expect(args[args.length - 1]).toContain('BASE_BRANCH=main');
+    expect(args[args.length - 1]).toContain('WORKSPACE_BRANCH=cards/card-123/1');
+    expect(args[args.length - 1]).toContain('Continue work on the card.');
 
     child.emit('close', 0);
     await promise;
@@ -309,6 +442,33 @@ describe('codex action', () => {
 
     child.emit('close', 0);
     await promise;
+  });
+
+  it('prepends additional context only when a prompt is provided', async () => {
+    const { buildAdditionalContext, buildCodexPrompt } = await import('../src/lib/codex-session.js');
+
+    const additionalContext = buildAdditionalContext(
+      baseInput(),
+      '/test/workspace/.worktrees/cards/card-123/1',
+      'main',
+      'cards/card-123/1'
+    );
+
+    expect(additionalContext).toContain('<card id="card-123" status="active" mode="interactive">');
+    expect(additionalContext).toContain('title: Test card');
+    expect(additionalContext).toContain('<card-repo>');
+    expect(additionalContext).toContain('CARD.md');
+    expect(additionalContext).toContain('<card-repo-log count="3">');
+    expect(additionalContext).toContain('123abcd - Test User: Add card plan');
+    expect(additionalContext).toContain('<workspace-repo-log branch="cards/card-123/1" parentBranch="main" count="1">');
+    expect(additionalContext).toContain('abcdef1 - Branch change [merged]');
+    expect(additionalContext).toContain('<workspace-repo-log branch="main" count="1">');
+    expect(additionalContext).toContain('bcdefg2 - Merged fix');
+
+    expect(buildCodexPrompt('Continue work on the card.', additionalContext)).toBe(
+      `${additionalContext}\n\nContinue work on the card.`
+    );
+    expect(buildCodexPrompt(undefined, additionalContext)).toBeUndefined();
   });
 
   it('stages codex home from CODEX_HOME when provided', async () => {

@@ -27,7 +27,7 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     await spawnCodexSession(input, context, {
-      prompt: 'Use the `runtime:runtime` skill for card repository conventions, then continue work on the card.'
+      prompt: 'Continue work on the card.'
     });
   }
 );
