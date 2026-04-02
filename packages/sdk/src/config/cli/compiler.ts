@@ -74,6 +74,14 @@ export interface CompileOptions {
    * source maps are generated. Defaults to false.
    */
   sourcemap?: boolean;
+
+  /**
+   * Additional esbuild loaders for non-code imports.
+   *
+   * Maps file extensions to esbuild loader types (e.g., `{ '.md': 'text' }`).
+   * Allows handler code to import non-JS assets like markdown files.
+   */
+  loaders?: Record<string, string>;
 }
 
 /**
@@ -212,7 +220,7 @@ const require = __createRequire(import.meta.url);`;
  * ```
  */
 export async function compileHandler(options: CompileOptions): Promise<CompileResult> {
-  const { sourcePath, outputPath, sourcemap = false } = options;
+  const { sourcePath, outputPath, sourcemap = false, loaders } = options;
 
   try {
     // Verify source file exists
@@ -275,7 +283,8 @@ if (!process.argv.includes('--branch-cleanup')) {
       treeShaking: true,
       external: EXTERNALS,
       banner: { js: BANNER },
-      logLevel: 'silent'
+      logLevel: 'silent',
+      loader: loaders as Record<string, esbuild.Loader> | undefined
     });
 
     if (result.errors.length > 0) {

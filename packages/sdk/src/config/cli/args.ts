@@ -1,4 +1,67 @@
 /**
+ * CLI argument parsing for the cards-sdk build command.
+ *
+ * @summary CLI argument parsing for cards-sdk build
+ * @module
+ */
+
+/**
+ * Valid esbuild loader types that can be used with the `--loader` flag.
+ */
+const VALID_ESBUILD_LOADERS: readonly string[] = [
+  'base64',
+  'binary',
+  'copy',
+  'css',
+  'dataurl',
+  'empty',
+  'file',
+  'js',
+  'json',
+  'jsx',
+  'local-css',
+  'text',
+  'ts',
+  'tsx'
+];
+
+/**
+ * Parses a `--loader` flag value (e.g., `.md=text`) into extension and loader type.
+ *
+ * @param spec - Loader specification in `.ext=type` format.
+ * @returns Parsed loader, or `undefined` if the format is invalid.
+ */
+function parseLoaderFlag(spec: string): { extension: string; loader: string } | undefined {
+  const separatorIndex = spec.indexOf('=');
+  if (separatorIndex <= 0 || separatorIndex === spec.length - 1) {
+    return undefined;
+  }
+  const extension = spec.slice(0, separatorIndex);
+  const loader = spec.slice(separatorIndex + 1);
+  if (!extension.startsWith('.') || extension.length < 2) {
+    return undefined;
+  }
+  return { extension, loader };
+}
+
+/**
+ * Builds a loader map from parsed `--loader` flag values.
+ *
+ * @param loaderFlags - Raw `--loader` flag values from the CLI.
+ * @returns Map of file extensions to esbuild loader types.
+ */
+export function buildLoaderMap(loaderFlags: string[]): Record<string, string> {
+  const loaders: Record<string, string> = {};
+  for (const loaderFlag of loaderFlags) {
+    const parsed = parseLoaderFlag(loaderFlag);
+    if (parsed !== undefined) {
+      loaders[parsed.extension] = parsed.loader;
+    }
+  }
+  return loaders;
+}
+
+/**
  * Arguments for the build command
  *
  * @summary Arguments for the build command
@@ -8,6 +71,8 @@ export interface BuildArgs {
   config: string;
   /** Output directory for settings.json and compiled handlers */
   outdir: string;
+  /** Raw `--loader` flag values (e.g., `['.md=text']`) */
+  loaderFlags?: string[];
 }
 
 /**
@@ -38,15 +103,17 @@ export type ParseResult = SuccessResult | ErrorResult;
  * Supports the build command with the following arguments:
  * - `-c, --config <path>` - Path to settings.config.ts (required)
  * - `-o, --outdir <path>` - Output directory (required)
+ * - `--loader <.ext=type>` - Register an esbuild loader for non-code imports (repeatable)
  *
  * @param argv - Command arguments (process.argv.slice(2))
  * @returns Parse result with success/error status
  *
  * @example
  * ```typescript
- * const result = parseArgs(['build', '-c', 'settings.config.ts', '-o', 'dist/']);
+ * const result = parseArgs(['build', '-c', 'settings.config.ts', '-o', 'dist/', '--loader', '.md=text']);
  * if (result.success) {
  *   console.log(result.args.config); // 'settings.config.ts'
+ *   console.log(result.args.loaderFlags); // ['.md=text']
  * } else {
  *   console.error(result.error);
  * }
@@ -64,8 +131,8 @@ export function parseArgs(argv: string[]): ParseResult {
   }
 
   // Parse flags
-  const args: Partial<BuildArgs> = {};
-  const knownFlags = new Set(['-c', '--config', '-o', '--outdir']);
+  const args: Partial<BuildArgs> & { loaderFlags: string[] } = { loaderFlags: [] };
+  const knownFlags = new Set(['-c', '--config', '-o', '--outdir', '--loader']);
 
   for (let i = 1; i < argv.length; i++) {
     const flag = argv[i] as string;
@@ -109,6 +176,9 @@ export function parseArgs(argv: string[]): ParseResult {
       case '--outdir':
         args.outdir = value;
         break;
+      case '--loader':
+        args.loaderFlags.push(value);
+        break;
     }
 
     // Skip the next item since it's the value we just processed
@@ -122,6 +192,20 @@ export function parseArgs(argv: string[]): ParseResult {
 
   if (!args.outdir) {
     return { success: false, error: 'Missing required argument: --outdir' };
+  }
+
+  // Validate loader flags
+  for (const loaderFlag of args.loaderFlags) {
+    const parsed = parseLoaderFlag(loaderFlag);
+    if (parsed === undefined) {
+      return { success: false, error: `Invalid --loader value: ${loaderFlag}. Expected .ext=type` };
+    }
+    if (!VALID_ESBUILD_LOADERS.includes(parsed.loader)) {
+      return {
+        success: false,
+        error: `Invalid esbuild loader type for ${parsed.extension}: ${parsed.loader}`
+      };
+    }
   }
 
   // Return success with parsed args

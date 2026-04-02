@@ -125,6 +125,7 @@ export type LoadResult = LoadSuccess | LoadFailure;
  * 'environments' property.
  *
  * @param configPath - Path to the configuration file (relative or absolute)
+ * @param loaders - Additional esbuild loaders for non-code imports (e.g., `{ '.md': 'text' }`).
  * @returns Promise resolving to a LoadResult indicating success or failure
  *
  * @example
@@ -141,7 +142,7 @@ export type LoadResult = LoadSuccess | LoadFailure;
  * }
  * ```
  */
-export async function loadConfig(configPath: string): Promise<LoadResult> {
+export async function loadConfig(configPath: string, loaders?: Record<string, string>): Promise<LoadResult> {
   // Resolve to absolute path
   const absolutePath = resolve(configPath);
 
@@ -169,7 +170,8 @@ export async function loadConfig(configPath: string): Promise<LoadResult> {
       banner: {
         js: `import { createRequire as __createRequire } from 'node:module';\nconst require = __createRequire(import.meta.url);`
       },
-      logLevel: 'silent'
+      logLevel: 'silent',
+      loader: loaders as Record<string, esbuild.Loader> | undefined
     });
 
     if (buildResult.errors.length > 0) {

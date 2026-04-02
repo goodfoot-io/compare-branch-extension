@@ -13,7 +13,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { SettingsConfig, StreamConfigDefinition } from '../config.js';
 import type { Action, Command, Settings, StreamDefinition } from '../schema.js';
-import type { BuildArgs } from './args.js';
+import { type BuildArgs, buildLoaderMap } from './args.js';
 import { compileHandler } from './compiler.js';
 import { processWwwRoot } from './www-bundler.js';
 
@@ -213,11 +213,13 @@ function stripSourceMapComment(content: string): string {
  *
  * @param commands - Flattened command descriptors extracted from configuration.
  * @param binDir - Absolute output directory for compiled handler bundles.
+ * @param loaders - Additional esbuild loaders for non-code imports (e.g., `{ '.md': 'text' }`).
  * @returns Compiled handler metadata plus a list of compilation error strings.
  */
 async function compileHandlers(
   commands: CommandInfo[],
-  binDir: string
+  binDir: string,
+  loaders?: Record<string, string>
 ): Promise<{ compiled: CompiledHandler[]; errors: string[] }> {
   const compiled: CompiledHandler[] = [];
   const errors: string[] = [];
@@ -252,7 +254,8 @@ async function compileHandlers(
     const result = await compileHandler({
       sourcePath: cmd.sourcePath,
       outputPath: tempOutputPath,
-      sourcemap: true
+      sourcemap: true,
+      loaders
     });
 
     if (!result.success) {
@@ -533,7 +536,8 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
   try {
     // 1. Load configuration file
     const { loadConfig } = await import('./config-loader.js');
-    const loadResult = await loadConfig(args.config);
+    const loaderMap = args.loaderFlags ? buildLoaderMap(args.loaderFlags) : undefined;
+    const loadResult = await loadConfig(args.config, loaderMap);
 
     if (!loadResult.success) {
       return {
@@ -567,7 +571,7 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
     const commands = extractCommands(config);
 
     // 5. Compile handlers
-    const { compiled, errors } = await compileHandlers(commands, binDir);
+    const { compiled, errors } = await compileHandlers(commands, binDir, loaderMap);
 
     if (errors.length > 0) {
       return {

@@ -11,6 +11,7 @@
  * @module
  */
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -25,6 +26,23 @@ import type { Settings } from '../../src/config/schema.js';
  * This tests against actual built artifacts rather than mocked fixtures.
  */
 const CLAUDE_CODE_DIST = path.resolve(__dirname, '../../../default-configuration/dist');
+const DEFAULT_CONFIG_PKG = path.resolve(__dirname, '../../../default-configuration');
+
+/**
+ * Builds default-configuration if its dist output is missing.
+ * Runs once before all test suites in this file.
+ */
+function ensureBuildOutput(): void {
+  const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
+  if (fs.existsSync(settingsPath)) {
+    return;
+  }
+  execFileSync('yarn', ['build'], { cwd: DEFAULT_CONFIG_PKG, stdio: 'pipe' });
+}
+
+beforeAll(() => {
+  ensureBuildOutput();
+});
 
 // ============================================================================
 // Settings.json Structure Validation
@@ -36,12 +54,6 @@ describe('build output: settings.json structure', () => {
 
   beforeAll(() => {
     settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
-    if (!fs.existsSync(settingsPath)) {
-      throw new Error(
-        `Build output not found at ${settingsPath}. ` +
-          'Run the build first: yarn workspace @cards/default-configuration build'
-      );
-    }
     const content = fs.readFileSync(settingsPath, 'utf-8');
     settings = JSON.parse(content);
   });
@@ -125,9 +137,6 @@ describe('build output: compiled handlers', () => {
 
   beforeAll(() => {
     const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
-    if (!fs.existsSync(settingsPath)) {
-      throw new Error(`Build output not found at ${settingsPath}`);
-    }
     const content = fs.readFileSync(settingsPath, 'utf-8');
     settings = JSON.parse(content);
     binDir = path.join(CLAUDE_CODE_DIST, 'bin');
@@ -227,9 +236,6 @@ describe('build output: cross-reference validation', () => {
 
   beforeAll(() => {
     const settingsPath = path.join(CLAUDE_CODE_DIST, 'settings.json');
-    if (!fs.existsSync(settingsPath)) {
-      throw new Error(`Build output not found at ${settingsPath}`);
-    }
     const content = fs.readFileSync(settingsPath, 'utf-8');
     settings = JSON.parse(content);
     binDir = path.join(CLAUDE_CODE_DIST, 'bin');

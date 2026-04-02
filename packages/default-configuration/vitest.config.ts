@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -8,7 +10,31 @@ import { defineConfig } from 'vitest/config';
  * @summary Vitest logic for package
  */
 
+const textAssetPlugin = {
+  name: 'text-asset-loader',
+  enforce: 'pre' as const,
+  resolveId(source: string, importer: string | undefined) {
+    if (!source.endsWith('.md')) {
+      return null;
+    }
+    if (importer) {
+      return resolve(dirname(importer), source);
+    }
+    return null;
+  },
+  load(id: string) {
+    if (!id.endsWith('.md')) {
+      return null;
+    }
+
+    // Vite may prefix absolute paths with /@fs for files outside the project root
+    const filePath = id.startsWith('/@fs') ? id.slice(4) : id;
+    return `export default ${JSON.stringify(readFileSync(filePath, 'utf-8'))};`;
+  }
+};
+
 export default defineConfig({
+  plugins: [textAssetPlugin],
   test: {
     include: ['test/**/*.test.ts'],
     globals: false,

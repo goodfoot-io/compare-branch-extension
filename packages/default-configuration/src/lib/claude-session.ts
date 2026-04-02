@@ -23,9 +23,17 @@ export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
 import type { CreateWorktreeResult } from '@cards/sdk/worktree';
 import { checkWorktreeExists, createWorktree, findGitRoots } from '@cards/sdk/worktree';
+import grayMatter from 'gray-matter';
+import cardRepoSkillRaw from '../../../../plugins/runtime/skills/card-repo/SKILL.md';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Card repository reference content (SKILL.md with YAML frontmatter stripped).
+ * Injected into every Claude session via `--append-system-prompt`.
+ */
+const CARD_REPO_SKILL_CONTENT: string = grayMatter(cardRepoSkillRaw).content.trim();
 
 /**
  * Extracts a human-readable message from an unknown catch value.
@@ -105,6 +113,7 @@ export function buildArgs(
   }
   args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
+  args.push('--append-system-prompt', CARD_REPO_SKILL_CONTENT);
   // Temporarily disable as this creates an interactive warning dialog
   // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
   if (mode === 'background') {
