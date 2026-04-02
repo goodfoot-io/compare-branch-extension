@@ -47,6 +47,19 @@ streams/                    # Append-only JSONL
 
 `comment/` and `attachment/` directories do not exist until first use (lazy creation).
 
+## Workspace Tracking Files
+
+The card repository may also contain two system-managed workspace tracking files:
+
+| File | Purpose |
+|---|---|
+| `workspace-branches.json` | Tracks workspace branches associated with the card, including branch ancestry and when each branch was registered. |
+| `workspace-commits.csv` | Tracks workspace commit SHAs associated with the card. This is the record of all work performed on the card for workspace history and context rendering. |
+
+If `workspace-commits.csv` is empty or does not exist, no work has been performed on the card yet.
+
+These files are automatically updated by Cards infrastructure. Do not create, edit, reorder, or delete them directly. If they appear in diffs, treat them as generated bookkeeping files rather than user-authored content.
+
 ## CARD.meta.json
 
 ```json
@@ -217,5 +230,3 @@ Each line in the `.jsonl` file is a JSON object from the Claude Code SDK (`--out
 | `tool_progress`    |            | Long-running tool status             |
 | `result`           | `success`  | Turns, duration, cost                |
 | `result`           | `error`    | Error details with stats             |
-
-
