@@ -7,6 +7,7 @@
  * @module
  */
 
+export { CARDS_DIR_NAME, resolveGlobalCardsConfigDir } from './cards-config.js';
 // Re-export all protocol types at the top level for convenience
 export * from './protocol/index.js';
 

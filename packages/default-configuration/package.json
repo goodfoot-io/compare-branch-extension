@@ -18,7 +18,8 @@
   "dependencies": {
     "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
-    "marked": "^17.0.4"
+    "marked": "^17.0.4",
+    "smol-toml": "^1.6.0"
   },
   "files": [
     "dist/**"

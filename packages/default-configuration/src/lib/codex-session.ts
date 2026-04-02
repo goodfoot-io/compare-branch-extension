@@ -2,7 +2,7 @@
  * Shared session utilities for Codex action workflows.
  *
  * Reuses the existing worktree lifecycle used by Claude-based actions, while
- * tailoring process spawn arguments and environment for the `codex` CLI.
+ * staging an extension-managed Codex home before launching the `codex` CLI.
  *
  * @summary Shared session utilities for Codex action workflows
  * @module
@@ -12,8 +12,10 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
+import { resolveGlobalCardsConfigDir } from '@cards/sdk';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
+import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
 
@@ -22,7 +24,7 @@ import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreat
  */
 export interface CodexSessionOptions {
   /** Prompt string passed to the Codex CLI. */
-  prompt: string;
+  prompt?: string;
 }
 
 /**
@@ -32,28 +34,64 @@ interface CodexPluginManifest {
   name: string;
 }
 
+interface CodexPluginMarketplaceManifest {
+  name: string;
+}
+
+type TomlTable = Record<string, unknown>;
+
 const CODEX_PLUGIN_NAME = 'runtime';
 const CODEX_PLUGIN_MARKETPLACE = 'local';
-const CODEX_PLUGIN_VERSION = 'local';
 const CODEX_RUNTIME_SKILL_NAME = 'runtime';
+const CODEX_CONFIG_FILE_NAME = 'config.toml';
+const CODEX_AGENTS_FILE_NAME = 'AGENTS.md';
 
 /**
- * Resolves the packaged Codex plugin bundled in the extension marketplace.
+ * Resolves the packaged Codex bundle directory bundled alongside the extension marketplace.
  *
  * @param marketplacePath - Absolute path to the packaged marketplace directory.
- * @returns Absolute path to the packaged Codex plugin directory.
+ * @returns Absolute path to the bundled Codex root directory.
  */
-export function resolveCodexPluginPath(marketplacePath: string): string {
-  return path.join(path.dirname(marketplacePath), 'codex', CODEX_PLUGIN_NAME);
+export function resolveCodexBundlePath(marketplacePath: string): string {
+  return path.join(path.dirname(marketplacePath), 'codex');
 }
 
 /**
- * Resolves the Codex home directory used for plugin cache installation.
+ * Resolves the packaged Codex plugin bundled in the extension installation.
  *
- * @returns Absolute path to the Codex home directory.
+ * @param marketplacePath - Absolute path to the packaged marketplace directory.
+ * @returns Absolute path to the packaged Codex runtime plugin directory.
  */
-export function resolveCodexHome(): string {
+export function resolveCodexPluginPath(marketplacePath: string): string {
+  return path.join(resolveCodexBundlePath(marketplacePath), CODEX_PLUGIN_NAME);
+}
+
+/**
+ * Resolves the packaged Claude instruction directory bundled in the extension marketplace.
+ *
+ * @param marketplacePath - Absolute path to the packaged marketplace directory.
+ * @returns Absolute path to the bundled Claude instruction directory.
+ */
+export function resolveCodexClaudeInstructionsPath(marketplacePath: string): string {
+  return path.join(marketplacePath, 'plugins', 'runtime', 'claude');
+}
+
+/**
+ * Resolves the source Codex home that should be staged into the Cards-managed home.
+ *
+ * @returns Absolute path to the source Codex home.
+ */
+export function resolveDefaultCodexHome(): string {
   return process.env['CODEX_HOME'] ?? path.join(homedir(), '.codex');
+}
+
+/**
+ * Resolves the Cards-managed staged Codex home.
+ *
+ * @returns Absolute path to the staged Codex home.
+ */
+export function resolveStagedCodexHome(): string {
+  return path.join(resolveGlobalCardsConfigDir(), 'codex');
 }
 
 /**
@@ -75,44 +113,182 @@ export async function readCodexPluginManifest(pluginPath: string): Promise<Codex
   };
 }
 
-/**
- * Installs the packaged Codex plugin into the local Codex plugin cache.
- *
- * The packaged extension bundle remains the source of truth. The cache entry is
- * replaced atomically at the plugin subtree boundary so only the packaged
- * runtime plugin entries are touched.
- * entries are touched.
- *
- * @param marketplacePath - Absolute path to the packaged marketplace directory.
- * @returns Installed plugin cache metadata.
- */
-export async function ensureCodexPluginInstalled(marketplacePath: string): Promise<{
-  pluginPath: string;
-  cachePath: string;
-}> {
-  const pluginPath = resolveCodexPluginPath(marketplacePath);
-  const skillPath = path.join(pluginPath, 'skills', CODEX_RUNTIME_SKILL_NAME);
+async function readCodexMarketplaceManifest(bundlePath: string): Promise<CodexPluginMarketplaceManifest> {
+  const manifestPath = path.join(bundlePath, '.agents', 'plugins', 'marketplace.json');
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as Partial<CodexPluginMarketplaceManifest>;
 
-  await fs.access(pluginPath);
-  await fs.access(skillPath);
-
-  await readCodexPluginManifest(pluginPath);
-  const pluginVersionsPath = path.join(
-    resolveCodexHome(),
-    'plugins',
-    'cache',
-    CODEX_PLUGIN_MARKETPLACE,
-    CODEX_PLUGIN_NAME
-  );
-  const cachePath = path.join(pluginVersionsPath, CODEX_PLUGIN_VERSION);
-
-  await fs.rm(pluginVersionsPath, { recursive: true, force: true });
-  await fs.mkdir(pluginVersionsPath, { recursive: true });
-  await fs.cp(pluginPath, cachePath, { recursive: true });
+  if (manifest.name !== CODEX_PLUGIN_MARKETPLACE) {
+    throw new Error(
+      `Invalid Codex marketplace manifest name at ${manifestPath}: expected "${CODEX_PLUGIN_MARKETPLACE}"`
+    );
+  }
 
   return {
+    name: manifest.name
+  };
+}
+
+async function ensureCodexBundleAvailable(marketplacePath: string): Promise<{
+  bundlePath: string;
+  pluginPath: string;
+}> {
+  const bundlePath = resolveCodexBundlePath(marketplacePath);
+  const pluginPath = resolveCodexPluginPath(marketplacePath);
+  const skillPath = path.join(pluginPath, 'skills', CODEX_RUNTIME_SKILL_NAME);
+  const marketplaceManifestPath = path.join(bundlePath, '.agents', 'plugins', 'marketplace.json');
+
+  await fs.access(bundlePath);
+  await fs.access(pluginPath);
+  await fs.access(skillPath);
+  await fs.access(marketplaceManifestPath);
+  await readCodexMarketplaceManifest(bundlePath);
+  await readCodexPluginManifest(pluginPath);
+
+  return { bundlePath, pluginPath };
+}
+
+async function readDirectoryEntries(directoryPath: string): Promise<string[]> {
+  return (await fs.readdir(directoryPath)).sort((left, right) => left.localeCompare(right));
+}
+
+async function copyDirectoryContents(sourceDir: string, destinationDir: string): Promise<void> {
+  const entries = await readDirectoryEntries(sourceDir);
+  for (const entry of entries) {
+    await fs.cp(path.join(sourceDir, entry), path.join(destinationDir, entry), {
+      force: true,
+      recursive: true
+    });
+  }
+}
+
+async function resolveExistingDirectory(directoryPath: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(directoryPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`Expected directory at ${directoryPath}`);
+    }
+    return true;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function ensureTomlTable(value: unknown, fieldName: string): TomlTable {
+  if (value === undefined) {
+    return {};
+  }
+
+  if (!value || Array.isArray(value) || typeof value !== 'object') {
+    throw new Error(`Expected TOML table for "${fieldName}"`);
+  }
+
+  return value as TomlTable;
+}
+
+/**
+ * Merges the staged config with the runtime plugin settings required by the bundled marketplace.
+ *
+ * @param stagedCodexHome - Absolute path to the staged Codex home.
+ */
+export async function mergeCodexRuntimeConfig(stagedCodexHome: string): Promise<void> {
+  const configPath = path.join(stagedCodexHome, CODEX_CONFIG_FILE_NAME);
+
+  let config: TomlTable = {};
+  try {
+    const rawConfig = await fs.readFile(configPath, 'utf-8');
+    const parsedConfig = parseToml(rawConfig);
+    config = ensureTomlTable(parsedConfig, 'root');
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      config = {};
+    } else {
+      throw error;
+    }
+  }
+
+  const features = ensureTomlTable(config['features'], 'features');
+  features['plugins'] = true;
+  config['features'] = features;
+
+  const plugins = ensureTomlTable(config['plugins'], 'plugins');
+  const pluginKey = `${CODEX_PLUGIN_NAME}@${CODEX_PLUGIN_MARKETPLACE}`;
+  const pluginConfig = ensureTomlTable(plugins[pluginKey], `plugins.${pluginKey}`);
+  pluginConfig['enabled'] = true;
+  plugins[pluginKey] = pluginConfig;
+  config['plugins'] = plugins;
+
+  await fs.writeFile(configPath, `${stringifyToml(config)}\n`);
+}
+
+/**
+ * Appends packaged Claude instruction content to the staged Codex home AGENTS.md.
+ *
+ * @param stagedCodexHome - Absolute path to the staged Codex home.
+ * @param marketplacePath - Absolute path to the packaged marketplace directory.
+ */
+export async function mergeCodexAgentsInstructions(stagedCodexHome: string, marketplacePath: string): Promise<void> {
+  const claudeInstructionsPath = resolveCodexClaudeInstructionsPath(marketplacePath);
+  const claudeDocument = await fs.readFile(path.join(claudeInstructionsPath, 'CLAUDE.md'), 'utf-8');
+  const commitMessageStyle = await fs.readFile(path.join(claudeInstructionsPath, 'COMMIT_MESSAGE_STYLE.md'), 'utf-8');
+  const appendedContent = `${claudeDocument.trimEnd()}\n\n${commitMessageStyle.trimEnd()}\n`;
+  const agentsPath = path.join(stagedCodexHome, CODEX_AGENTS_FILE_NAME);
+
+  let existingContent = '';
+  try {
+    existingContent = await fs.readFile(agentsPath, 'utf-8');
+  } catch (error) {
+    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+      throw error;
+    }
+  }
+
+  const nextContent =
+    existingContent.length === 0 ? appendedContent : `${existingContent.replace(/\s*$/, '')}\n\n${appendedContent}`;
+
+  await fs.writeFile(agentsPath, nextContent);
+}
+
+/**
+ * Prepares the staged Codex home under the Cards global config directory.
+ *
+ * @param marketplacePath - Absolute path to the packaged marketplace directory.
+ * @returns Staging metadata for logging and spawning.
+ */
+export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
+  bundlePath: string;
+  pluginPath: string;
+  sourceCodexHome: string;
+  stagedCodexHome: string;
+}> {
+  const { bundlePath, pluginPath } = await ensureCodexBundleAvailable(marketplacePath);
+  const sourceCodexHome = resolveDefaultCodexHome();
+  const stagedCodexHome = resolveStagedCodexHome();
+  const stagingParent = path.dirname(stagedCodexHome);
+  const tempHome = path.join(stagingParent, `codex.tmp-${process.pid}-${Date.now()}`);
+
+  await fs.mkdir(stagingParent, { recursive: true });
+  await fs.rm(tempHome, { recursive: true, force: true });
+
+  if (await resolveExistingDirectory(sourceCodexHome)) {
+    await fs.cp(sourceCodexHome, tempHome, { recursive: true });
+  } else {
+    await fs.mkdir(tempHome, { recursive: true });
+  }
+
+  await copyDirectoryContents(bundlePath, tempHome);
+  await mergeCodexRuntimeConfig(tempHome);
+  await mergeCodexAgentsInstructions(tempHome, marketplacePath);
+  await fs.rm(stagedCodexHome, { recursive: true, force: true });
+  await fs.rename(tempHome, stagedCodexHome);
+
+  return {
+    bundlePath,
     pluginPath,
-    cachePath
+    sourceCodexHome,
+    stagedCodexHome
   };
 }
 
@@ -124,19 +300,14 @@ export async function ensureCodexPluginInstalled(marketplacePath: string): Promi
  * @param cardRepoPath - Additional writable directory for the card repo.
  * @returns Array of CLI arguments.
  */
-export function buildCodexArgs(prompt: string, workspacePath: string, cardRepoPath: string): string[] {
-  return [
-    '--dangerously-bypass-approvals-and-sandbox',
-    '--cd',
-    workspacePath,
-    '--add-dir',
-    cardRepoPath,
-    '--config',
-    'features.plugins=true',
-    '--config',
-    `plugins.${CODEX_PLUGIN_NAME}@${CODEX_PLUGIN_MARKETPLACE}.enabled=true`,
-    prompt
-  ];
+export function buildCodexArgs(prompt: string | undefined, workspacePath: string, cardRepoPath: string): string[] {
+  const args = ['--dangerously-bypass-approvals-and-sandbox', '--cd', workspacePath, '--add-dir', cardRepoPath];
+
+  if (prompt !== undefined) {
+    args.push(prompt);
+  }
+
+  return args;
 }
 
 /**
@@ -173,10 +344,13 @@ export async function spawnCodexSession(
   } = await resolveOrCreateWorktree(input, client, baseBranch, context.logger);
 
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
-  const { pluginPath, cachePath } = await ensureCodexPluginInstalled(marketplacePath);
-  context.logger.info('Installed Codex runtime plugin', {
+
+  const { bundlePath, pluginPath, sourceCodexHome, stagedCodexHome } = await prepareStagedCodexHome(marketplacePath);
+  context.logger.info('Prepared staged Codex home', {
+    bundlePath,
     pluginPath,
-    cachePath
+    sourceCodexHome,
+    stagedCodexHome
   });
 
   const args = buildCodexArgs(prompt, cwd, input.cardRepoPath);
@@ -186,6 +360,7 @@ export async function spawnCodexSession(
     stdio: 'inherit',
     env: {
       ...process.env,
+      CODEX_HOME: stagedCodexHome,
       WORKSPACE_PATH: cwd,
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,

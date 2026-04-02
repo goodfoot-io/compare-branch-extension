@@ -14,6 +14,7 @@ import { defineConfig } from '@cards/sdk/config';
 // Action handlers
 import chat from './src/actions/chat.js';
 import codex from './src/actions/codex.js';
+import codexChat from './src/actions/codex-chat.js';
 import interview from './src/actions/interview.js';
 import launch from './src/actions/launch.js';
 
@@ -22,7 +23,7 @@ export default defineConfig({
     default: {
       version: 1,
       description: 'Standard Claude Code workflows',
-      actions: [launch, codex, interview, chat],
+      actions: [launch, codex, codexChat, interview, chat],
       types: {
         'adaptive-card': {
           version: '1.0.0'
