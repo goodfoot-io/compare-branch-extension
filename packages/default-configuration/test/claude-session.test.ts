@@ -211,6 +211,15 @@ describe('claude-session shared utilities', () => {
       expect(args).toContain('--print');
     });
 
+    it('omits prompt from args when undefined', async () => {
+      const { buildArgs } = await import('../src/lib/claude-session.js');
+      const args = buildArgs(undefined, 'session-abc', false, 'interactive', '/card/repo', '/ext/path');
+      expect(args).toContain('--session-id');
+      expect(args).toContain('session-abc');
+      // First arg should be a flag, not a prompt string
+      expect(args[0]).toBe('--session-id');
+    });
+
     it('includes --settings, --add-dir, and --channels', async () => {
       const { buildArgs, buildPluginSettings } = await import('../src/lib/claude-session.js');
       const args = buildArgs('my prompt', 'session-abc', false, 'interactive', '/card/repo', '/ext/marketplace');

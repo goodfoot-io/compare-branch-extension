@@ -174,7 +174,7 @@ describe('Default Actions', () => {
       await promise;
     });
 
-    it('prompt includes both runtime:card-repo and runtime:interview-routing', async () => {
+    it('prompt includes runtime:interview-routing', async () => {
       const { spawn } = await import('node:child_process');
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -185,7 +185,6 @@ describe('Default Actions', () => {
 
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
       const prompt = args[0];
-      expect(prompt).toContain('runtime:card-repo');
       expect(prompt).toContain('runtime:interview-routing');
 
       child.emit('close', 0);

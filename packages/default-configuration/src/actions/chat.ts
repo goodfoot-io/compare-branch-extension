@@ -34,7 +34,6 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     await spawnClaudeSession(input, context, {
-      prompt: 'Load the `runtime:card-repo` and `runtime:chat` skills then follow the `<instructions>`.',
       sessionId: randomUUID(),
       resume: false,
       supportsSwitchToInteractive: false

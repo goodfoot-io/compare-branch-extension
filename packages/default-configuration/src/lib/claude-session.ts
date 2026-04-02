@@ -77,7 +77,7 @@ export function buildPluginSettings(marketplacePath: string): string {
 /**
  * Builds the CLI argument list for the `claude` process.
  *
- * @param prompt - The prompt string for new sessions.
+ * @param prompt - The prompt string for new sessions. Omit for prompt-less sessions.
  * @param sessionId - Session identifier (used for `--session-id` or `--resume`).
  * @param resume - When true, passes `--resume` instead of starting a new session.
  * @param mode - Execution mode; `'background'` appends `--print`.
@@ -86,7 +86,7 @@ export function buildPluginSettings(marketplacePath: string): string {
  * @returns Array of CLI arguments.
  */
 export function buildArgs(
-  prompt: string,
+  prompt: string | undefined,
   sessionId: string,
   resume: boolean,
   mode: ActionInput['executionMode'],
@@ -98,7 +98,9 @@ export function buildArgs(
   if (resume) {
     args.push('--resume', sessionId);
   } else {
-    args.push(prompt);
+    if (prompt !== undefined) {
+      args.push(prompt);
+    }
     args.push('--session-id', sessionId);
   }
   args.push('--settings', buildPluginSettings(marketplacePath));
@@ -561,8 +563,8 @@ export async function cleanupMergedBranches(
  * callbacks, and post-exit branch cleanup.
  */
 export interface ClaudeSessionOptions {
-  /** Prompt string passed to the Claude CLI. */
-  prompt: string;
+  /** Prompt string passed to the Claude CLI. Omit for prompt-less sessions. */
+  prompt?: string;
   /** Session identifier (used for `--session-id` or `--resume`). */
   sessionId: string;
   /** When true, passes `--resume` instead of starting a new session. */
