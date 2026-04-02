@@ -229,6 +229,28 @@ Request body:
 
 Returns `{ "success": true, "workspacePath": "..." }` on success. Returns `400` if `workspacePath` is missing, empty, or not an absolute path.
 
+`POST /internal/validate-markdown` validates embedded content (e.g., mermaid diagrams) in markdown text. Returns structured validation errors for invalid syntax.
+
+Request body:
+```json
+{ "content": "# Title\n\n```mermaid\nflowchart TD\n  A --> B\n```" }
+```
+
+Success response:
+```json
+{ "valid": true, "errors": [] }
+```
+
+Error response (400):
+```json
+{
+  "error": "Markdown contains invalid embedded syntax",
+  "code": "VALIDATION_ERROR",
+  "requestId": "...",
+  "fields": [{ "field": "mermaid:L3", "message": "mermaid syntax error: ..." }]
+}
+```
+
 ### Directory Layout
 
 ```
