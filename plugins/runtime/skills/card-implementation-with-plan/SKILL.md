@@ -32,6 +32,8 @@ Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/Mu
 
 ## 1. Prepare Environment
 
+`$CREATE_WORKTREE_CLI` is an absolute-path CLI handle, set automatically at session start like `$CARD_CLI`. Use it directly as a command when you need an isolated Git worktree.
+
 Create baseline tag if one does not already exist:
 
 ```bash
@@ -45,7 +47,7 @@ fi
 To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
-BASELINE_WORKTREE=$($NODE ${CLAUDE_PLUGIN_ROOT}/bin/create-worktree.mjs "implement/$CARD_ID/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
+BASELINE_WORKTREE=$($CREATE_WORKTREE_CLI "implement/$CARD_ID/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
 # run tests in $BASELINE_WORKTREE, then clean up:
 git worktree remove "$BASELINE_WORKTREE"
 ```

@@ -13,16 +13,16 @@ The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before writing a card's description (CARD.md), load the `cards:markdown` skill and the reference that matches the user's request. References are located at `${CLAUDE_PLUGIN_ROOT}/skills/api/references/`.
+Before writing a card's description (CARD.md), load the `cards:markdown` skill and the reference that matches the user's request.
 
 Determine the card type using the first matching signal:
-- **Bug, error, crash, regression, broken behavior**: `bug-report.md`
-- **Feature, improvement, new capability**: `enhancement.md`
-- **Research, spike, unknown root cause, feasibility**: `investigation.md`
-- **Documentation, guides, runbooks, API reference**: `documentation.md`
-- **Refactor, cleanup, tech debt, upgrade, migration**: `maintenance.md`
-- **Infrastructure, CI/CD, deploy, monitoring, scaling**: `operations.md`
-- **Otherwise**: `enhancement.md`
+- **Bug, error, crash, regression, broken behavior**: `./references/bug-report.md`
+- **Feature, improvement, new capability**: `./references/enhancement.md`
+- **Research, spike, unknown root cause, feasibility**: `./references/investigation.md`
+- **Documentation, guides, runbooks, API reference**: `./references/documentation.md`
+- **Refactor, cleanup, tech debt, upgrade, migration**: `./references/maintenance.md`
+- **Infrastructure, CI/CD, deploy, monitoring, scaling**: `./references/operations.md`
+- **Otherwise**: `./references/enhancement.md`
 
 Read the matched reference file, then follow its guidance to compose the card's CARD.md content.
 

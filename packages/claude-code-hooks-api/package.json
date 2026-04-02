@@ -7,12 +7,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "rm -rf ../../plugins/cards/hooks ../../plugins/cards/bin && claude-code-hooks -i \"src/*.ts\" -o \"../../plugins/cards/hooks/hooks.json\" --log-env-var CLAUDE_CODE_API_HOOKS_LOG_FILE --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:card && yarn build:card-cli && yarn build:compare && yarn build:compare-cli && yarn build:notification && yarn build:notification-cli && yarn build:cards-dev && yarn build:cards-dev-cli",
+    "build": "rm -rf ../../plugins/cards/hooks ../../plugins/cards/bin && claude-code-hooks -i \"src/*.ts\" -o \"../../plugins/cards/hooks/hooks.json\" --log-env-var CLAUDE_CODE_API_HOOKS_LOG_FILE --executable \"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\" && yarn build:card && yarn build:card-cli && yarn build:create-worktree && yarn build:create-worktree-cli && yarn build:compare && yarn build:compare-cli && yarn build:notification && yarn build:notification-cli && yarn build:cards-dev && yarn build:cards-dev-cli",
     "build:card-cli": "cp src/bin/card-cli.sh ../../plugins/cards/bin/card-cli && chmod +x ../../plugins/cards/bin/card-cli",
+    "build:create-worktree-cli": "cp src/bin/create-worktree-cli.sh ../../plugins/cards/bin/create-worktree-cli && chmod +x ../../plugins/cards/bin/create-worktree-cli",
     "build:compare-cli": "cp src/bin/compare-cli.sh ../../plugins/cards/bin/compare-cli && chmod +x ../../plugins/cards/bin/compare-cli",
     "build:notification-cli": "cp src/bin/notification-cli.sh ../../plugins/cards/bin/notification-cli && chmod +x ../../plugins/cards/bin/notification-cli",
     "build:cards-dev-cli": "cp src/bin/cards-dev-cli.sh ../../plugins/cards/bin/cards-dev-cli && chmod +x ../../plugins/cards/bin/cards-dev-cli",
     "build:card": "esbuild src/bin/card.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/card.mjs '--external:node:*'",
+    "build:create-worktree": "esbuild src/bin/create-worktree.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/create-worktree.mjs '--external:node:*'",
     "build:compare": "esbuild src/bin/compare.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/compare.mjs '--external:node:*'",
     "build:notification": "esbuild src/bin/notification.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/notification.mjs '--external:node:*'",
     "build:cards-dev": "esbuild src/bin/cards-dev.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../plugins/cards/bin/cards-dev.mjs '--external:node:*' \"--banner:js=import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",

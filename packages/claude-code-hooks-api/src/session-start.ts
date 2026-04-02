@@ -19,6 +19,7 @@ import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hook
  */
 const CLI_WRAPPERS = [
   { envVar: 'CARD_CLI', filename: 'card-cli' },
+  { envVar: 'CREATE_WORKTREE_CLI', filename: 'create-worktree-cli' },
   { envVar: 'NOTIFICATION_CLI', filename: 'notification-cli' },
   { envVar: 'COMPARE_CLI', filename: 'compare-cli' },
   { envVar: 'CARDS_DEV_CLI', filename: 'cards-dev-cli' }
