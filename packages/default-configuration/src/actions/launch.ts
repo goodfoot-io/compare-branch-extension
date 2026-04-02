@@ -39,7 +39,7 @@ export default defineAction(
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
     await spawnClaudeSession(input, context, {
-      prompt: 'Load the `runtime:card-repo` and `runtime:card-routing` skills then follow the `<instructions>`.',
+      prompt: 'Load the `runtime:card-routing` skill then follow the `<instructions>`.',
       sessionId,
       resume,
       supportsSwitchToInteractive: true
