@@ -9,7 +9,7 @@
  */
 
 import type { CardCommit } from '@cards/sdk/protocol';
-import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 
 const SESSION_STREAM_PREFIX = 'streams/claude-code-session/';
 
@@ -19,8 +19,8 @@ const SESSION_STREAM_PREFIX = 'streams/claude-code-session/';
  *
  * Exclusions mirror the stop hook:
  * - `streams/claude-code-session/` (prefix match)
- * - `workspace-commits.csv` (exact match)
- * - `workspace-branches.json` (exact match)
+ * - `commits.csv` (exact match)
+ * - `branches.json` (exact match)
  *
  * A commit with zero changed files is treated as bookkeeping-only (nothing
  * user-visible changed).
@@ -30,9 +30,6 @@ const SESSION_STREAM_PREFIX = 'streams/claude-code-session/';
  */
 export function isBookkeepingCommit(commit: CardCommit): boolean {
   return commit.diff.files.every(
-    (f) =>
-      f.file === WORKSPACE_COMMITS_FILE ||
-      f.file === WORKSPACE_BRANCHES_FILE ||
-      f.file.startsWith(SESSION_STREAM_PREFIX)
+    (f) => f.file === COMMITS_FILE || f.file === BRANCHES_FILE || f.file.startsWith(SESSION_STREAM_PREFIX)
   );
 }

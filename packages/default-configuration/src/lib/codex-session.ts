@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { resolveGlobalCardsConfigDir } from '@cards/sdk';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { Effort, WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { BRANCHES_FILE, COMMITS_FILE, Effort } from '@cards/sdk/protocol';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
@@ -48,11 +48,7 @@ const CODEX_CONFIG_FILE_NAME = 'config.toml';
 const CODEX_AGENTS_FILE_NAME = 'AGENTS.md';
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
-const CARD_REPO_LOG_PATHSPEC_EXCLUSIONS = [
-  ':!streams/',
-  `:!${WORKSPACE_COMMITS_FILE}`,
-  `:!${WORKSPACE_BRANCHES_FILE}`
-] as const;
+const CARD_REPO_LOG_PATHSPEC_EXCLUSIONS = [':!streams/', `:!${COMMITS_FILE}`, `:!${BRANCHES_FILE}`] as const;
 
 interface CardMeta {
   id: string;
@@ -418,7 +414,7 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   let commits: string[] = [];
 
   try {
-    const raw = readFileSync(path.join(cardRepoPath, WORKSPACE_BRANCHES_FILE), 'utf-8');
+    const raw = readFileSync(path.join(cardRepoPath, BRANCHES_FILE), 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, { parentBranch?: string; addedAt?: string }>;
     for (const [name, meta] of Object.entries(parsed)) {
       if (meta && typeof meta === 'object') {
@@ -435,7 +431,7 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   }
 
   try {
-    const raw = readFileSync(path.join(cardRepoPath, WORKSPACE_COMMITS_FILE), 'utf-8');
+    const raw = readFileSync(path.join(cardRepoPath, COMMITS_FILE), 'utf-8');
     commits = raw
       .split('\n')
       .map((line) => line.trim())

@@ -79,7 +79,7 @@ function assertValidSha(sha: string, label: string): void {
 /**
  * Returns all commit SHAs between sinceSha and HEAD in the given repo,
  * excluding commits that only touch system-managed bookkeeping paths
- * (session streams, workspace-commits.csv, workspace-branches.json).
+ * (session streams, commits.csv, branches.json).
  *
  * @param repoPath - Card repository path where git commands should execute.
  * @param sinceSha - Baseline SHA captured at session start.

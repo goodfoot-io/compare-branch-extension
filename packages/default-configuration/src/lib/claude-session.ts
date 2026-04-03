@@ -19,7 +19,7 @@ import type { CardsClient } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
-import { Effort } from '@cards/sdk/protocol';
+import { BRANCHES_FILE, Effort } from '@cards/sdk/protocol';
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
 import type { CreateWorktreeResult } from '@cards/sdk/worktree';
@@ -424,15 +424,15 @@ export async function cleanupMergedBranches(
 ): Promise<void> {
   let t0 = performance.now();
 
-  // Read workspace-branches.json directly from the card repository
-  const branchesPath = path.join(cardRepoPath, 'workspace-branches.json');
+  // Read branches.json directly from the card repository
+  const branchesPath = path.join(cardRepoPath, BRANCHES_FILE);
   let branchesJson: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>;
   try {
     const content = await fs.readFile(branchesPath, 'utf-8');
     branchesJson = JSON.parse(content) as typeof branchesJson;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      logger.debug('No workspace-branches.json found, nothing to clean up');
+      logger.debug(`No ${BRANCHES_FILE} found, nothing to clean up`);
       return;
     }
     throw error;
@@ -440,7 +440,7 @@ export async function cleanupMergedBranches(
 
   // Compute existence for each branch via git
   const entries = Object.entries(branchesJson);
-  logger.debug('Read workspace-branches.json', {
+  logger.debug(`Read ${BRANCHES_FILE}`, {
     cardId: input.cardId,
     branchCount: entries.length,
     elapsedMs: Math.round(performance.now() - t0)
@@ -526,7 +526,7 @@ export async function cleanupMergedBranches(
     });
 
     if (branchDeleted) {
-      // Remove the branch entry from workspace-branches.json and commit
+      // Remove the branch entry from branches.json and commit
       t0 = performance.now();
       await tryCleanupStep(
         async () => {
@@ -540,7 +540,7 @@ export async function cleanupMergedBranches(
           if (sessionId) {
             gitEnv['CARDS_SESSION_ID'] = sessionId;
           }
-          await execFileAsync('git', ['add', 'workspace-branches.json'], {
+          await execFileAsync('git', ['add', BRANCHES_FILE], {
             cwd: cardRepoPath,
             env: { ...process.env, ...gitEnv }
           });

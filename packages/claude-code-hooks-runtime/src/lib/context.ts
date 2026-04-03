@@ -13,7 +13,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
-import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import { formatCommitLog } from './file-tree.js';
 import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from './gitPathspecs.js';
 
@@ -432,8 +432,8 @@ interface WorkspaceData {
 /**
  * Reads workspace data from separate files in the card repository.
  *
- * Reads branches from `workspace-branches.json` and commits from
- * `workspace-commits.csv`. Each file is read independently — ENOENT is
+ * Reads branches from `branches.json` and commits from
+ * `commits.csv`. Each file is read independently — ENOENT is
  * treated as an empty result, other errors cause `null` to be returned.
  *
  * Returns data whenever either file has content. Returns `null` only when
@@ -446,9 +446,9 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   const branches: WorkspaceData['branches'] = {};
   let commits: string[] = [];
 
-  // Read branches from workspace-branches.json
+  // Read branches from branches.json
   try {
-    const raw = readFileSync(join(cardRepoPath, WORKSPACE_BRANCHES_FILE), 'utf-8');
+    const raw = readFileSync(join(cardRepoPath, BRANCHES_FILE), 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, { parentBranch?: string; addedAt?: string }>;
     for (const [name, meta] of Object.entries(parsed)) {
       if (meta && typeof meta === 'object') {
@@ -464,9 +464,9 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
     }
   }
 
-  // Read commits from workspace-commits.csv
+  // Read commits from commits.csv
   try {
-    const raw = readFileSync(join(cardRepoPath, WORKSPACE_COMMITS_FILE), 'utf-8');
+    const raw = readFileSync(join(cardRepoPath, COMMITS_FILE), 'utf-8');
     commits = raw
       .split('\n')
       .map((l) => l.trim())
@@ -600,8 +600,8 @@ interface CommitGroup {
 /**
  * Builds `<workspace-repo-log>` blocks showing workspace commits grouped by branch.
  *
- * Reads branches from `workspace-branches.json` and commits from
- * `workspace-commits.csv`, partitions commits across branches using git
+ * Reads branches from `branches.json` and commits from
+ * `commits.csv`, partitions commits across branches using git
  * reachability, and renders per-branch XML blocks. Already-printed commits
  * appear as bare short hashes in subsequent blocks (dedup).
  *

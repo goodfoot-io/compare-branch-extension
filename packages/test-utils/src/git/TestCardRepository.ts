@@ -22,7 +22,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { CardGates, CardStatus } from '@cards/sdk/protocol';
-import { CARD_GITIGNORE, DEFAULT_CARD_GATES, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { CARD_GITIGNORE, COMMITS_FILE, DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4 } from 'uuid';
@@ -321,7 +321,7 @@ export class TestCardRepository {
   /**
    * Adds an attribution commit SHA to a card.
    *
-   * Behavior: appends the SHA to `workspace-commits.csv` and commits the file.
+   * Behavior: appends the SHA to `commits.csv` and commits the file.
    *
    * @param cardId Identifier of the card repository receiving attribution data
    * @param sha The commit SHA to attribute
@@ -332,7 +332,7 @@ export class TestCardRepository {
     }
 
     const cardPath = path.join(this.reposPath, cardId);
-    const csvPath = path.join(cardPath, WORKSPACE_COMMITS_FILE);
+    const csvPath = path.join(cardPath, COMMITS_FILE);
 
     // Read existing commits, append new SHA
     let existing: string[] = [];
