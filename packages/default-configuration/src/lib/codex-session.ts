@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { resolveGlobalCardsConfigDir } from '@cards/sdk';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
-import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { Effort, WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
@@ -955,7 +955,8 @@ export async function spawnCodexSession(
       WORKSPACE_PATH: cwd,
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,
-      WORKSPACE_BRANCH: branchName
+      WORKSPACE_BRANCH: branchName,
+      EFFORT: input.effort ?? Effort.medium
     }
   });
 

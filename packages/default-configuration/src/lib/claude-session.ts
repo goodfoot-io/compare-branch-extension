@@ -19,6 +19,7 @@ import type { CardsClient } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
+import { Effort } from '@cards/sdk/protocol';
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
 import type { CreateWorktreeResult } from '@cards/sdk/worktree';
@@ -684,7 +685,8 @@ export async function spawnClaudeSession(
       CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,
-      WORKSPACE_BRANCH: branchName
+      WORKSPACE_BRANCH: branchName,
+      EFFORT: input.effort ?? Effort.medium
     }
   });
 

@@ -10,6 +10,8 @@
  * @module
  */
 
+import type { Effort } from '../protocol/types/effort.js';
+
 /**
  * Input payload for action handlers.
  *
@@ -101,6 +103,15 @@ export interface ActionInput {
    * (`<extensionPath>/dist/plugins/runtime`).
    */
   extensionPath: string;
+
+  /**
+   * Effort level selected by the user in the Actions dropdown UI.
+   *
+   * Reflects the TriStateSwitch value chosen before executing the action.
+   * Undefined when the action was dispatched without a UI effort selection
+   * (e.g. programmatically). Defaults to `Effort.medium` in session spawns.
+   */
+  effort?: Effort;
 }
 
 /**

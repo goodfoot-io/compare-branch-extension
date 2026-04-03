@@ -80,6 +80,8 @@ export {
   MAX_TITLE_LENGTH,
   TAG_PATTERN
 } from './constraints.js';
+// --- Effort Types ---
+export { Effort } from './effort.js';
 // --- WebSocket Event Types ---
 export type {
   AttachmentAddedEvent,
