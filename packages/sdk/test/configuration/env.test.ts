@@ -27,7 +27,6 @@ describe('env', () => {
     delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
     delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
     delete process.env[CARDS_ENV_VARS.CODING_AGENT];
-    delete process.env[CARDS_ENV_VARS.EFFORT];
     delete process.env[CARDS_ENV_VARS.VSCODE_NODE];
   });
 
@@ -188,7 +187,6 @@ describe('env', () => {
     it('should extract all action input fields when all are set', () => {
       setupActionEnv();
       process.env[CARDS_ENV_VARS.CODING_AGENT] = 'claude';
-      process.env[CARDS_ENV_VARS.EFFORT] = 'low';
 
       const input = extractActionInput();
 
@@ -198,7 +196,7 @@ describe('env', () => {
         environment: 'production',
         executionMode: 'interactive',
         codingAgent: 'claude',
-        effort: 'low',
+        effort: 'medium',
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',
@@ -218,7 +216,7 @@ describe('env', () => {
         environment: 'production',
         executionMode: 'interactive',
         codingAgent: undefined,
-        effort: undefined,
+        effort: 'medium',
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',
