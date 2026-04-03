@@ -53,7 +53,7 @@ Guidelines:
 
 ## 1. Gather Context
 
-Check whether PLAN.md exists in the card repository. If missing, **STOP** — the planner will to notify you when it's time to continue.
+**STOP** — Wait for the planner to submit the plan for review via `SendMessage` before proceeding.
 
 Read PLAN.md from the card repository. If empty, report BLOCKED and stop.
 
