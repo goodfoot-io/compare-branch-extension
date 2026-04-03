@@ -53,17 +53,7 @@ Run validation per the workspace validation configuration.
 - **Error in code you can modify**: Fix it, re-run validation
 - **Error outside your scope**: Block immediately
 
-**When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-cat <<'EOF' > comment/validation-failed.md
-[exact validation failure output]
-EOF
-git add comment/validation-failed.md CARD.meta.json
-git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
-```
+**When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
 
 Proceed to **3. Finalize** only when ALL validations pass.
 

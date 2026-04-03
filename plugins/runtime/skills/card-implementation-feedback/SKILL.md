@@ -92,17 +92,7 @@ ALL validation commands must pass before proceeding.
 - **Error in code you can modify**: Fix it, re-run validation.
 - **Error outside your scope**: Block immediately.
 
-**When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-cat <<'EOF' > comment/feedback-validation-failed.md
-[exact validation failure output]
-EOF
-git add comment/feedback-validation-failed.md CARD.meta.json
-git commit -m "[single sentence describing the validation failure]"  # <card-repo-commit-style>
-```
+**When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/feedback-validation-failed.md`. Commit both files and **STOP**.
 
 Only proceed to **5. Evaluate Quality** when ALL validations pass.
 

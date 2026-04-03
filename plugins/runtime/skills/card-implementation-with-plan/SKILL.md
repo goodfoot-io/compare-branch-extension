@@ -197,19 +197,7 @@ git tag -f "implement/$CARD_ID/baseline" HEAD
 The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
 
 **After all todos:**
-- **ALL blocked**: Write summary comment, add `blocked` tag, **STOP**:
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-cat <<'EOF' > comment/all-tasks-blocked.md
-All implementation tasks are blocked.
-
-[per-task blocker summary]
-EOF
-git add comment/all-tasks-blocked.md CARD.meta.json
-git commit -m "[single sentence describing what is blocking all tasks]"  # <card-repo-commit-style>
-```
+- **ALL blocked**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary comment to `comment/all-tasks-blocked.md` with per-task blocker details. Commit both files and **STOP**.
 
 - **SOME blocked**: Note in summary, proceed to Step 3
 - **NONE blocked**: Proceed to Step 3
@@ -235,19 +223,7 @@ Run validation per the plan's validation commands.
 - **Error in code you can modify**: Delegate fix to implementer, re-run validation
 - **Error outside your scope**: Block immediately
 
-**When blocked:** Write exact failure output as a comment, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**:
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-cat <<'EOF' > comment/validation-failed.md
-Blocked: validation failure outside modifiable scope.
-
-[exact validation command and full output]
-EOF
-git add comment/validation-failed.md CARD.meta.json
-git commit -m "[single sentence describing the validation failure and why it is outside scope]"  # <card-repo-commit-style>
-```
+**When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
 
 Proceed to **3. Evaluate Quality** only when ALL validations pass.
 

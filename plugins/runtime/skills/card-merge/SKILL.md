@@ -37,17 +37,7 @@ git add <resolved-file-1> <resolved-file-2>
 git rebase --continue
 ```
 
-- **Conflicts cannot be resolved**: Write an error comment to the card repository, add `blocked` tag to `CARD.meta.json`, commit to the card repository, and **STOP** — Awaiting user intervention.
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-cat <<'EOF' > comment/merge-conflict.md
-[rebase conflict details, files involved, manual resolution steps]
-EOF
-git add CARD.meta.json comment/merge-conflict.md
-git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
-```
+- **Conflicts cannot be resolved**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write conflict details to `comment/merge-conflict.md` (files involved, manual resolution steps). Commit both files and **STOP** — Awaiting user intervention.
 
 - **Rebase completes with 0 commits ahead of `$BASE_BRANCH`** (commit was dropped as empty): The changes are already present in `$BASE_BRANCH`. Write a comment to the card repository noting this, and **STOP** — nothing to merge.
 
@@ -64,17 +54,7 @@ After rebase completes, run linting, type checking, and tests.
 Based on validation result:
 - **All validation passes**: Proceed to Step 3
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
-- **Validation fails and attempts >= 3**: Write a comment to the card repository explaining what failed and what you attempted. Add `blocked` tag to `CARD.meta.json`. Commit to the card repository and **STOP** — Awaiting user intervention.
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-cat <<'EOF' > comment/validation-failed.md
-[validation failure details, what was attempted, what intervention is needed]
-EOF
-git add CARD.meta.json comment/validation-failed.md
-git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
-```
+- **Validation fails and attempts >= 3**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/validation-failed.md` (what failed, what was attempted, what intervention is needed). Commit both files and **STOP** — Awaiting user intervention.
 
 ## 3. Fast-Forward Merge
 
@@ -89,16 +69,6 @@ git merge --ff-only "$WORKSPACE_BRANCH"
 
 **STOP** — Merge complete. Do not update card status, write comments, or take further action.
 
-- **Merge fails**: Post error comment, add `blocked` tag, **STOP** — Branch is not a fast-forward of `$BASE_BRANCH` (rebase may be missing or outdated).
-
-```bash
-cd $CARD_REPO_PATH
-$NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); if(!d.tags.includes('blocked')) d.tags.push('blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-cat <<'EOF' > comment/merge-failed.md
-[merge failure details: branch is not a fast-forward of $BASE_BRANCH, likely cause and resolution steps]
-EOF
-git add CARD.meta.json comment/merge-failed.md
-git commit -m "[single sentence describing the conflict or validation failure and what intervention is needed]"  # <card-repo-commit-style>
-```
+- **Merge fails**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` (branch is not a fast-forward of `$BASE_BRANCH`, likely cause and resolution steps). Commit both files and **STOP**.
 
 </instructions>

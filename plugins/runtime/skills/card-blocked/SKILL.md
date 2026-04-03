@@ -26,14 +26,7 @@ Based on blocker analysis:
 
   The output is JSON containing the card's metadata (status, tags, gates) and `repositoryPath`.
 
-  - **If resolved (status = "done")**: Remove the "blocked" tag from `CARD.meta.json` and re-invoke routing
-
-    ```bash
-    cd $CARD_REPO_PATH
-    $NODE -e "const f='CARD.meta.json',d=JSON.parse(require('fs').readFileSync(f,'utf8')); d.tags=d.tags.filter(t=>t!=='blocked'); require('fs').writeFileSync(f,JSON.stringify(d,null,2)+'\n')"
-    git add CARD.meta.json
-    git commit -m "[single sentence describing the resolved blocker]"  # <card-repo-commit-style>
-    ```
+  - **If resolved (status = "done")**: Remove `blocked` from `tags` in `CARD.meta.json`. Commit, then re-invoke routing.
 
   - **If not resolved**: Continue to Step 2
 - **Blocker cannot be identified**: Post a comment asking for clarification and stop
