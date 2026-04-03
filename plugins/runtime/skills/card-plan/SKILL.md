@@ -17,7 +17,15 @@ description: Spawn the planning team and wait for the planner to signal completi
 
 ## 2. Spawn Agents
 
-Spawn all three agents in parallel via the `Agent` tool:
+Read the `$EFFORT` environment variable (default: `medium`). Spawn agents based on effort level:
+
+- **Low**: Planner only
+- **Medium**: Planner and maintainer
+- **High**: Planner, maintainer, and failure-mode analyst
+
+### Planner (all effort levels)
+
+Include teammate availability in the planner's prompt so it knows who to engage for review.
 
 ```xml
 <invoke name="Agent">
@@ -35,10 +43,15 @@ Create and refine an implementation plan for this card.
 ## Workspace
 [WORKSPACE_PATH]
 
+## Teammates
+[TEAMMATE_NAMES or "None"]
+
 Read the card from the card repository. Create the plan, investigate uncertainties, submit for review, and revise until approved or blocked. Signal the outcome to the team lead when done.
 </parameter>
 </invoke>
 ```
+
+### Maintainer (medium and high effort)
 
 ```xml
 <invoke name="Agent">
@@ -60,6 +73,8 @@ Wait for the planner to submit the plan for review. For every claim the plan mak
 </parameter>
 </invoke>
 ```
+
+### Failure-Mode Analyst (high effort only)
 
 ```xml
 <invoke name="Agent">
@@ -92,30 +107,7 @@ Based on the planner's signal:
 
 ## 4. Shut Down Team
 
-Send shutdown requests to all three agents. Wait for acknowledgment before deleting the team:
-
-```xml
-<invoke name="SendMessage">
-<parameter name="to">planner</parameter>
-<parameter name="message">Review complete.</parameter>
-</invoke>
-```
-
-```xml
-<invoke name="SendMessage">
-<parameter name="to">maintainer</parameter>
-<parameter name="message">Review complete.</parameter>
-</invoke>
-```
-
-```xml
-<invoke name="SendMessage">
-<parameter name="to">plan-failure-mode</parameter>
-<parameter name="message">Review complete.</parameter>
-</invoke>
-```
-
-After all agents have shut down:
+Send shutdown messages to all spawned agents. Wait for acknowledgment, then delete the team:
 
 ```xml
 <invoke name="TeamDelete"/>
