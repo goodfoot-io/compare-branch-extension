@@ -32,7 +32,7 @@ git worktree remove "$BASELINE_WORKTREE"
 
 Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
-Read CARD.md and CARD.meta.json for goals and constraints. Implement directly from the card description.
+Read CARD.md for goals and constraints. Card metadata (title, gates, tags) is available in the `<card>` block. Implement directly from the card description.
 
 For each logical unit of work:
 1. Read relevant files

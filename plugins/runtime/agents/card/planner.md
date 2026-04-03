@@ -40,7 +40,7 @@ Guidelines:
 
 ## 1. Assess Starting State
 
-Read CARD.md, CARD.meta.json, and the 5 most recently modified `comment/*.md` files for goals, constraints, and context.
+Read CARD.md for goals and constraints. Card metadata (title, gates, tags) is available in the `<card>` block; the comment file listing is in the `<card-repo>` block. Read the contents of the 5 most recent `comment/*.md` files for context.
 
 Check whether `PLAN.md` exists in the card repository:
 - **PLAN.md exists**: Go to Step 1.1.

@@ -43,7 +43,7 @@ fi
 
 ### 1.2 Read Card and Extract Context
 
-Read `CARD.meta.json` and `CARD.md` from the card repository. Extract:
+Read `CARD.md` from the card repository. Card metadata (title, gates, tags) is available in the `<card>` block. Extract:
 
 - BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
 - SCOPE_HINT — Files, packages, or functions mentioned

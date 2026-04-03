@@ -69,6 +69,7 @@ interface CardMeta {
   id: string;
   title: string;
   status: string;
+  tags: string[];
   gates: {
     planRequired: boolean;
     planApproved: boolean;
@@ -95,6 +96,7 @@ function readCardMeta(rootPath: string): CardMeta | null {
       id: String(parsed['id'] ?? ''),
       title: String(parsed['title'] ?? ''),
       status: String(parsed['status'] ?? ''),
+      tags: Array.isArray(parsed['tags']) ? (parsed['tags'] as string[]) : [],
       gates: {
         planRequired: gates?.['planRequired'] === true,
         planApproved: gates?.['planApproved'] === true,
@@ -122,6 +124,8 @@ export function buildCardBlock(actionInput: ActionInput): string {
   const title = meta?.title || '';
   const status = meta?.status || '';
 
+  const tagsLine = meta && meta.tags.length > 0 ? `tags: ${meta.tags.join(', ')}` : '';
+
   const gatesLine = meta
     ? `gates: planRequired=${meta.gates.planRequired} planApproved=${meta.gates.planApproved} mergeRequestRequired=${meta.gates.mergeRequestRequired} mergeApproved=${meta.gates.mergeApproved}`
     : '';
@@ -139,6 +143,7 @@ export function buildCardBlock(actionInput: ActionInput): string {
   const bodyLines: string[] = [];
   if (title) bodyLines.push(`title: ${title}`);
   bodyLines.push('');
+  if (tagsLine) bodyLines.push(tagsLine);
   if (gatesLine) bodyLines.push(gatesLine);
   bodyLines.push('env:');
   bodyLines.push(...envLines);
@@ -234,6 +239,31 @@ export function buildCardRepoBlock(rootPath: string): string {
           }
         } catch (_readdirError: unknown) {
           void _readdirError; // streams dir unreadable — already listed the directory name
+        }
+      } else if (entry.name === 'comment') {
+        // Comment: list individual files sorted by creation time
+        lines.push('comment/');
+        try {
+          const commentEntries = readdirSync(fullPath, { withFileTypes: true });
+          const fileStats: { name: string; birthtime: number }[] = [];
+          for (const f of commentEntries) {
+            if (f.isFile()) {
+              try {
+                const stat = statSync(join(fullPath, f.name));
+                const birthtime = stat.birthtimeMs > 0 ? stat.birthtimeMs : stat.mtimeMs;
+                fileStats.push({ name: f.name, birthtime });
+              } catch {
+                fileStats.push({ name: f.name, birthtime: 0 });
+              }
+            }
+          }
+          fileStats.sort((a, b) => a.birthtime - b.birthtime);
+          for (const f of fileStats) {
+            const ts = f.birthtime > 0 ? formatTimestamp(f.birthtime) : '';
+            lines.push(`  ${f.name.padEnd(22)}${ts}`);
+          }
+        } catch (_readdirError: unknown) {
+          void _readdirError; // comment dir unreadable — already listed the directory name
         }
       } else {
         // Non-streams directory: show child count + latest timestamp

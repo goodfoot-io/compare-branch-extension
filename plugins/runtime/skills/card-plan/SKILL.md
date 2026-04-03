@@ -17,7 +17,7 @@ description: Spawn the planning team and wait for the planner to signal completi
 
 ## 2. Spawn Agents
 
-Read the `$EFFORT` environment variable (default: `medium`). Spawn agents based on effort level:
+Read `EFFORT` from the `<card>` block (default: `medium`). Spawn agents based on effort level:
 
 - **Low**: Planner only
 - **Medium**: Planner and maintainer

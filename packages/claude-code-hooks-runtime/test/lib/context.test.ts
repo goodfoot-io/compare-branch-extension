@@ -88,6 +88,44 @@ describe('buildCardBlock', () => {
     expect(result).toContain('mergeApproved=false');
   });
 
+  it('includes tags from CARD.meta.json when present', () => {
+    const tmpDir = join(repoPath, '..', `card-block-tags-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(
+      join(tmpDir, 'CARD.meta.json'),
+      JSON.stringify({
+        id: 'test-tags',
+        title: 'Tagged card',
+        status: 'active',
+        tags: ['bug', 'security'],
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
+      })
+    );
+
+    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
+
+    expect(result).toContain('tags: bug, security');
+  });
+
+  it('omits tags line when tags array is empty', () => {
+    const tmpDir = join(repoPath, '..', `card-block-no-tags-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(
+      join(tmpDir, 'CARD.meta.json'),
+      JSON.stringify({
+        id: 'test-no-tags',
+        title: 'No tags',
+        status: 'active',
+        tags: [],
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
+      })
+    );
+
+    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
+
+    expect(result).not.toContain('tags:');
+  });
+
   it('falls back to actionInput.cardId when CARD.meta.json is missing', () => {
     const tmpDir = join(repoPath, '..', `card-block-no-meta-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
@@ -159,13 +197,28 @@ describe('buildCardRepoBlock', () => {
 
   it('lists directories with child counts', () => {
     const dir = join(tmpDir, 'dirs-test');
-    mkdirSync(join(dir, 'comment'), { recursive: true });
-    writeFileSync(join(dir, 'comment', 'a.md'), 'a');
-    writeFileSync(join(dir, 'comment', 'b.md'), 'b');
+    mkdirSync(join(dir, 'attachment'), { recursive: true });
+    writeFileSync(join(dir, 'attachment', 'a.png'), 'a');
+    writeFileSync(join(dir, 'attachment', 'b.png'), 'b');
 
     const result = buildCardRepoBlock(dir);
 
-    expect(result).toMatch(/comment\/\s+2 files\s+latest \d{4}/);
+    expect(result).toMatch(/attachment\/\s+2 files\s+latest \d{4}/);
+  });
+
+  it('expands comment/ to list individual files with timestamps', () => {
+    const dir = join(tmpDir, 'comment-expand-test');
+    mkdirSync(join(dir, 'comment'), { recursive: true });
+    writeFileSync(join(dir, 'comment', 'initial.md'), 'first');
+    writeFileSync(join(dir, 'comment', 'followup.md'), 'second');
+
+    const result = buildCardRepoBlock(dir);
+
+    expect(result).toContain('comment/');
+    expect(result).toMatch(/initial\.md\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
+    expect(result).toMatch(/followup\.md\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
+    // Should NOT show count summary like "2 files"
+    expect(result).not.toMatch(/comment\/\s+2 files/);
   });
 
   it('lists streams subdirectories with child counts', () => {

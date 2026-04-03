@@ -21,7 +21,7 @@ The routing phase evaluates and selects — it does NOT interview the user or mo
 
 ### 1.1 Read Card State
 
-Read `CARD.meta.json` to obtain `title`, `status`, and `tags`. Read `CARD.md` to obtain the card description, including problem statements, desired outcomes, and any error evidence.
+Obtain `title`, `status`, and `tags` from the `<card>` block in your session context. Read `CARD.md` to obtain the card description, including problem statements, desired outcomes, and any error evidence.
 
 ### 1.2 Derive Routing Signals
 

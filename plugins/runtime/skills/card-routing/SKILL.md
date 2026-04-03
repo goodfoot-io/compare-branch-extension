@@ -26,7 +26,7 @@ Routing runs without user interaction. Messages describing state and routing dec
 
 ### 1.1 Read Card State
 
-Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files sorted by modification time (newest first) to identify the latest user comment and the most recent agent comment.
+Obtain `gates.*`, `tags`, and `EFFORT` from the `<card>` block in your session context. Obtain the comment file listing from the `<card-repo>` block.
 
 ### 1.2 Derive Routing Signals
 
@@ -37,15 +37,15 @@ Read `CARD.meta.json` to obtain `gates.*` and `tags`. Read `comment/*.md` files 
 | HAS_QUESTION | Latest user comment contains a genuine information-seeking question (not rhetorical, not "Can you fix X?", not "Could you implement Y?") |
 | IS_BLOCKED | `tags` contains "blocked" |
 | HAS_IMPLEMENTATION_FEEDBACK | `workspace-commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
-| REVIEW_APPROVED | `gates.mergeApproved` in CARD.meta.json |
+| REVIEW_APPROVED | `gates.mergeApproved` in the `<card>` block |
 | IS_STALE | No activity for 30+ days |
-| PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
-| PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
+| PLAN_REQUIRED | `gates.planRequired` in the `<card>` block |
+| PLAN_APPROVED | `gates.planApproved` in the `<card>` block |
 | HAS_PLAN | PLAN.md exists in the card repository |
 | USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the plan-submission agent comment. Plan-submission comment: most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
-| EFFORT | `$EFFORT` environment variable: `low`, `medium`, or `high`. Default `medium` when unset. |
+| EFFORT | `EFFORT` in the `<card>` block `env:` section: `low`, `medium`, or `high`. Default `medium` when unset. |
 
 ## 2. Route
 
