@@ -57,7 +57,8 @@ describe('env', () => {
         PARENT_BRANCH: 'PARENT_BRANCH',
         WORKSPACE_BRANCH: 'WORKSPACE_BRANCH',
         EXTENSION_PATH: 'EXTENSION_PATH',
-        HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE'
+        HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE',
+        EFFORT: 'EFFORT'
       });
     });
   });
