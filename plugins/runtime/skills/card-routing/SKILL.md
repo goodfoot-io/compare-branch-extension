@@ -58,12 +58,11 @@ Select the **first** matching condition:
 - **5. REVIEW_APPROVED**: `runtime:card-merge`
 - **6. IS_STALE**: `runtime:card-clarify-and-enrich`
 - **7. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback`
-- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED AND HAS_PLAN**: `runtime:card-plan-evaluation` — plan exists (e.g., created alongside CARD.md), skip to evaluation
-- **9. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
-- **10. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
-- **11. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
-- **12. IS_TESTABLE_BUG**: `runtime:card-bug`
-- **13. Otherwise**: `runtime:card-implementation`
+- **8. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
+- **9. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
+- **10. PLAN_APPROVED**: `runtime:card-implementation-with-plan`
+- **11. IS_TESTABLE_BUG**: `runtime:card-bug`
+- **12. Otherwise**: `runtime:card-implementation`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" and write down why. Articulating the ambiguity usually resolves it.
 

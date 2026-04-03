@@ -57,7 +57,7 @@ git commit -m "[single sentence summarizing what feedback was incorporated into 
 
 ## 3. Assess Revised Plan
 
-Load the `runtime:card-plan-evaluation` skill and follow its instructions.
+Load the `runtime:card-plan` skill and follow its instructions.
 
 ## 4. Submit for Re-Approval
 

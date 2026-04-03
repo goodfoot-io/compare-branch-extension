@@ -35,6 +35,8 @@ Important constraints:
 
 ## 1. Read the System, Not the Plan's Description of It
 
+Check whether PLAN.md exists in the card repository. If missing, **STOP** — the planner will to notify you when it's time to continue.
+
 Read PLAN.md, CARD.md, and CARD.meta.json. Then read every source file the plan references — the files themselves, not the plan's characterization of them. Trace the runtime paths the plan will modify: follow function calls, check error paths, read the tests that cover the affected code. Search the workspace for consumers of every symbol, type, and file the plan modifies. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count.
 
 Your scope is all code the plan interacts with, not just code the plan directly modifies. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced risks.

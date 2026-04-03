@@ -53,7 +53,9 @@ Guidelines:
 
 ## 1. Gather Context
 
-Read PLAN.md from the card repository. If empty or missing, report BLOCKED and stop.
+Check whether PLAN.md exists in the card repository. If missing, **STOP** — the planner will to notify you when it's time to continue.
+
+Read PLAN.md from the card repository. If empty, report BLOCKED and stop.
 
 Read CARD.meta.json and CARD.md for goals and constraints. Read the 5 most recently modified comment/*.md files. Search the workspace for every claim the plan makes about existing code — do not evaluate claims by reasoning about them.
 
