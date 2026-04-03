@@ -63,6 +63,14 @@ export class CardRepoAccessError extends Error {
 // ============================================================================
 
 /**
+ * A relation entry parsed from `CARD.meta.json`.
+ */
+interface CardRelation {
+  type: string;
+  cardId: string;
+}
+
+/**
  * Subset of CARD.meta.json fields surfaced in the `<card>` context block.
  */
 interface CardMeta {
@@ -76,6 +84,7 @@ interface CardMeta {
     mergeRequestRequired: boolean;
     mergeApproved: boolean;
   };
+  relations: CardRelation[];
 }
 
 /**
@@ -102,8 +111,49 @@ function readCardMeta(rootPath: string): CardMeta | null {
         planApproved: gates?.['planApproved'] === true,
         mergeRequestRequired: gates?.['mergeRequestRequired'] === true,
         mergeApproved: gates?.['mergeApproved'] === true
-      }
+      },
+      relations: parseRelations(parsed['relations'])
     };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parses the `relations` field from raw CARD.meta.json data.
+ *
+ * @param raw - The raw `relations` value from the parsed JSON.
+ * @returns Array of validated relation entries, or empty array when invalid/absent.
+ */
+function parseRelations(raw: unknown): CardRelation[] {
+  if (!Array.isArray(raw)) return [];
+  const result: CardRelation[] = [];
+  for (const entry of raw) {
+    if (entry && typeof entry === 'object' && typeof entry.type === 'string' && typeof entry.cardId === 'string') {
+      result.push({ type: entry.type, cardId: entry.cardId });
+    }
+  }
+  return result;
+}
+
+/**
+ * Reads the title from a related card's CARD.meta.json.
+ *
+ * Resolves the related card's repository path as a sibling directory
+ * of the current card's repository.
+ *
+ * @param cardRepoPath - Root directory of the current card's repository.
+ * @param relatedCardId - The ID of the related card.
+ * @returns The related card's title, or `null` when unreadable.
+ */
+function readRelatedCardTitle(cardRepoPath: string, relatedCardId: string): string | null {
+  try {
+    const parentDir = join(cardRepoPath, '..');
+    const relatedPath = join(parentDir, relatedCardId, 'CARD.meta.json');
+    const raw = readFileSync(relatedPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const title = parsed['title'];
+    return typeof title === 'string' ? title : null;
   } catch {
     return null;
   }
@@ -147,6 +197,17 @@ export function buildCardBlock(actionInput: ActionInput): string {
   if (gatesLine) bodyLines.push(gatesLine);
   bodyLines.push('env:');
   bodyLines.push(...envLines);
+
+  if (meta && meta.relations.length > 0) {
+    const relationLines = meta.relations.map((rel) => {
+      const relatedRepoPath = join(actionInput.cardRepoPath, '..', rel.cardId);
+      const relatedTitle = readRelatedCardTitle(actionInput.cardRepoPath, rel.cardId);
+      const titlePart = relatedTitle ? ` "${relatedTitle}"` : '';
+      return `  ${rel.type}: ${rel.cardId}${titlePart} (${relatedRepoPath})`;
+    });
+    bodyLines.push('relations:');
+    bodyLines.push(...relationLines);
+  }
 
   const attrs = [`id="${id}"`, `status="${status}"`, `mode="${actionInput.executionMode}"`];
 

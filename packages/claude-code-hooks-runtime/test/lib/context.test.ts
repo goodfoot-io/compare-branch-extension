@@ -171,6 +171,94 @@ describe('buildCardBlock', () => {
 
     expect(result).not.toContain('EFFORT=');
   });
+
+  it('includes relations with title and path when present', () => {
+    const tmpDir = join(repoPath, '..', `card-block-relations-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(
+      join(tmpDir, 'CARD.meta.json'),
+      JSON.stringify({
+        id: 'test-rel',
+        title: 'Card with relations',
+        status: 'active',
+        tags: [],
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        relations: [{ type: 'related', cardId: 'main-99' }]
+      })
+    );
+    // Create the related card's repo as a sibling directory
+    const relatedDir = join(tmpDir, '..', 'main-99');
+    mkdirSync(relatedDir, { recursive: true });
+    writeFileSync(join(relatedDir, 'CARD.meta.json'), JSON.stringify({ id: 'main-99', title: 'Related card title' }));
+
+    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
+
+    expect(result).toContain('relations:');
+    expect(result).toContain('related: main-99 "Related card title"');
+    expect(result).toContain(`(${relatedDir})`);
+  });
+
+  it('includes relations without title when related card is unreadable', () => {
+    const tmpDir = join(repoPath, '..', `card-block-relations-notitle-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(
+      join(tmpDir, 'CARD.meta.json'),
+      JSON.stringify({
+        id: 'test-rel2',
+        title: 'Card with broken relation',
+        status: 'active',
+        tags: [],
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        relations: [{ type: 'related', cardId: 'nonexistent-card' }]
+      })
+    );
+
+    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
+
+    expect(result).toContain('relations:');
+    expect(result).toContain('related: nonexistent-card (');
+    // No quoted title should appear in the relation line
+    expect(result).not.toMatch(/related: nonexistent-card "/);
+  });
+
+  it('omits relations section when relations array is empty', () => {
+    const tmpDir = join(repoPath, '..', `card-block-no-relations-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(
+      join(tmpDir, 'CARD.meta.json'),
+      JSON.stringify({
+        id: 'test-norel',
+        title: 'No relations',
+        status: 'active',
+        tags: [],
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        relations: []
+      })
+    );
+
+    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
+
+    expect(result).not.toContain('relations:');
+  });
+
+  it('omits relations section when relations field is absent', () => {
+    const tmpDir = join(repoPath, '..', `card-block-absent-relations-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(
+      join(tmpDir, 'CARD.meta.json'),
+      JSON.stringify({
+        id: 'test-absentrel',
+        title: 'No relations field',
+        status: 'active',
+        tags: [],
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
+      })
+    );
+
+    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
+
+    expect(result).not.toContain('relations:');
+  });
 });
 
 describe('buildCardRepoBlock', () => {
