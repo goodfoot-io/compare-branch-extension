@@ -34,6 +34,8 @@ CARD.md.meta.json           # Document sidecar (title, summary)
 PLAN.md                     # Optional plan document
 PLAN.md.meta.json           # Document sidecar (title, summary)
 EVALUATION.md               # Optional evaluation rubric
+workspace-branches.json     # Branches associated with the card
+workspace-commits.csv       # Git commit SHAs associated with the card
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
 attachment/                 # Created on first attachment
@@ -45,20 +47,7 @@ streams/                    # Append-only JSONL
     {filename}.meta.json
 ```
 
-`comment/` and `attachment/` directories do not exist until first use (lazy creation).
-
-## Workspace Tracking Files
-
-The card repository may also contain two system-managed workspace tracking files:
-
-| File | Purpose |
-|---|---|
-| `workspace-branches.json` | Tracks workspace branches associated with the card, including branch ancestry and when each branch was registered. |
-| `workspace-commits.csv` | Tracks workspace commit SHAs associated with the card. This is the record of all work performed on the card for workspace history and context rendering. |
-
-If `workspace-commits.csv` is empty or does not exist, no work has been performed on the card yet.
-
-These files are automatically updated by Cards infrastructure. Do not create, edit, reorder, or delete them directly. If they appear in diffs, treat them as generated bookkeeping files rather than user-authored content.
+`workspace-commits.csv` and `workspace-branches.json` are automatically updated by Cards infrastructure. Do not modify them directly.
 
 ## CARD.meta.json
 
@@ -145,16 +134,7 @@ The UI renders `title` as the section header (falling back to the filename when 
 
 `comment/*.md` files are **pure markdown with no YAML frontmatter**.
 
-Comment filenames are free-form — use descriptive semantic slugs (e.g., `plan-approved.md`, `blocked-status.md`). Authorship is determined by git commit ownership.
-
-**Listing** — List chronologically with author and commit message:
-```bash
-git log --reverse --diff-filter=A --format='%an: %s' --name-only -- comment/ \
-  | awk 'NF{if(/^comment\//){print $0"  "prev}else{prev=$0}}'
-```
-
-Replace both occurrences of `comment/` with the target directory
-(e.g., `attachment/`) to list other file types.
+Comment filenames are free-form — use descriptive semantic slugs (e.g., `plan-approved.md`, `blocked-status.md`). Authorship is determined by git commit ownership, order is determined by git creation time.
 
 **Adding:**
 ```bash
