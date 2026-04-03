@@ -47,10 +47,10 @@ fi
 To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
-BASELINE_WORKTREE=$($CREATE_WORKTREE_CLI "implement/$CARD_ID/baseline" | $NODE -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).worktree)")
-# run tests in $BASELINE_WORKTREE, then clean up:
-git worktree remove "$BASELINE_WORKTREE"
+$CREATE_WORKTREE_CLI "implement/$CARD_ID/baseline"
 ```
+
+Run tests in the worktree, then delete the worktree and branch.
 
 ---
 
