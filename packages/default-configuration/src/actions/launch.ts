@@ -17,7 +17,21 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
+import cardRoutingSkill from '../../../../plugins/runtime/skills/card-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
+
+/**
+ * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
+ * @param md - Markdown string potentially containing frontmatter.
+ * @returns The markdown content without frontmatter.
+ */
+function stripFrontmatter(md: string): string {
+  return md.replace(/^---\n[\s\S]*?\n---\n*/, '');
+}
+
+const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
+const CARD_ROUTING_SKILL: string = stripFrontmatter(cardRoutingSkill).trim();
 
 /**
  * Launch action handler.
@@ -39,10 +53,11 @@ export default defineAction(
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
     await spawnClaudeSession(input, context, {
-      prompt: 'Load the `runtime:card-routing` skill then follow the `<instructions>`.',
+      prompt: 'Follow the routing `<instructions>`.',
       sessionId,
       resume,
-      supportsSwitchToInteractive: true
+      supportsSwitchToInteractive: true,
+      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${CARD_ROUTING_SKILL}`
     });
   }
 );

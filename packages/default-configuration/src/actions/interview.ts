@@ -16,7 +16,10 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
+
+const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
 
 /**
  * Interview action handler.
@@ -37,7 +40,8 @@ export default defineAction(
       prompt: 'Load the `runtime:interview-routing` skill then follow the `<instructions>`.',
       sessionId: randomUUID(),
       resume: false,
-      supportsSwitchToInteractive: false
+      supportsSwitchToInteractive: false,
+      appendSystemPrompt: COMMIT_MESSAGE_STYLE
     });
   }
 );

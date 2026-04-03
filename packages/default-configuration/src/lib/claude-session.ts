@@ -23,16 +23,9 @@ export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
 import type { CreateWorktreeResult } from '@cards/sdk/worktree';
 import { checkWorktreeExists, createWorktree, findGitRoots } from '@cards/sdk/worktree';
-import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 
 const execFileAsync = promisify(execFile);
-
-/**
- * Commit message style guide injected into every Claude session via
- * `--append-system-prompt`. Loaded as a raw string at build time.
- */
-const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
 
 /**
  * Extracts a human-readable message from an unknown catch value.
@@ -128,7 +121,6 @@ export function buildArgs(
   args.push('--add-dir', cardRepoPath);
   args.push('--add-dir', claudeDirPath);
   args.push('--teammate-mode', 'in-process');
-  args.push('--append-system-prompt', COMMIT_MESSAGE_STYLE);
   // Temporarily disable as this creates an interactive warning dialog
   // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
   if (mode === 'background') {
@@ -598,6 +590,11 @@ export interface ClaudeSessionOptions {
    * background-mode sessions can be promoted to interactive.
    */
   supportsSwitchToInteractive: boolean;
+  /**
+   * Content injected into the Claude CLI via `--append-system-prompt`.
+   * When provided, appended after all other arguments.
+   */
+  appendSystemPrompt?: string;
 }
 
 /**
@@ -629,7 +626,7 @@ export async function spawnClaudeSession(
   context: ActionContext,
   options: ClaudeSessionOptions
 ): Promise<void> {
-  const { prompt, sessionId, resume, supportsSwitchToInteractive } = options;
+  const { prompt, sessionId, resume, supportsSwitchToInteractive, appendSystemPrompt } = options;
 
   context.logger.info(`${input.actionName} action started`, {
     cardId: input.cardId,
@@ -671,6 +668,9 @@ export async function spawnClaudeSession(
     marketplacePath,
     claudeDirPath
   );
+  if (appendSystemPrompt) {
+    args.push('--append-system-prompt', appendSystemPrompt);
+  }
   const isInteractive = input.executionMode === 'interactive';
 
   const child: ChildProcess = spawn('claude', args, {
