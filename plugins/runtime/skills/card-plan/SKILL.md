@@ -121,6 +121,13 @@ After all agents have shut down:
 <invoke name="TeamDelete"/>
 ```
 
-**STOP** — Do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
+## 5. Next Step
+
+Read `gates.planRequired` from `CARD.meta.json`.
+
+Based on the planner's outcome and `planRequired`:
+- **Blocked**: **STOP** — Do not proceed to implementation.
+- **Approved and planRequired**: **STOP** — Plan submitted for approval. Do not modify gates in `CARD.meta.json`.
+- **Approved and not planRequired**: Load the `runtime:card-implementation-with-plan` skill and follow its instructions.
 
 </instructions>
