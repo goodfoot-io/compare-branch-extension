@@ -302,7 +302,7 @@ export interface WorkspaceCommitEvent {
   sha: string;
   /** Tracked branches with computed fields. Optional — absent if git operations failed at broadcast time. */
   branches?: BranchInfo[];
-  /** All card-level commit SHAs from workspace-commits.csv. Optional. */
+  /** All card-level commit SHAs from commits.csv. Optional. */
   commits?: string[];
   /** Default branch of the workspace repository. Optional. */
   defaultBranch?: string;

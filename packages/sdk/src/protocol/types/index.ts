@@ -49,9 +49,9 @@ export type {
   WorkspaceBranch
 } from './branch.js';
 export {
-  EMPTY_TREE_SHA,
-  WORKSPACE_BRANCHES_FILE,
-  WORKSPACE_COMMITS_FILE
+  BRANCHES_FILE,
+  COMMITS_FILE,
+  EMPTY_TREE_SHA
 } from './branch.js';
 // --- Callback Types ---
 export type { IpcMessageCallback } from './callbacks.js';

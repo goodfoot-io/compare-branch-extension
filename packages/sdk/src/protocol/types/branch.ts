@@ -2,8 +2,8 @@
  * Branch and worktree tracking types for Cards V2 workspace integration.
  *
  * These types support tracking Git branches and their associated worktrees within
- * a card's workspace. Branch metadata is persisted in separate workspace-branches.json
- * and workspace-commits.csv files, tracked with static metadata (branch name, worktree path,
+ * a card's workspace. Branch metadata is persisted in separate branches.json
+ * and commits.csv files, tracked with static metadata (branch name, worktree path,
  * addedAt timestamp) and derived fields computed at read time (exists, isMerged, commits).
  *
  * The branch API (`GET /cards/:id/branches`, `POST /cards/:id/branches`) uses
@@ -25,13 +25,13 @@ import type { CommitDetails } from './timeline.js';
  */
 export const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
-export const WORKSPACE_BRANCHES_FILE = 'workspace-branches.json';
-export const WORKSPACE_COMMITS_FILE = 'workspace-commits.csv';
+export const BRANCHES_FILE = 'branches.json';
+export const COMMITS_FILE = 'commits.csv';
 
 /**
  * A single tracked branch within a card's workspace block.
  *
- * This is the minimal metadata persisted for each branch in workspace-branches.json.
+ * This is the minimal metadata persisted for each branch in branches.json.
  * The worktree path is optional and machine-specific; it may become stale if
  * the worktree is moved or deleted outside of the cards system.
  */
@@ -119,7 +119,7 @@ export interface BranchesResponse {
   branches: BranchInfo[];
 
   /**
-   * All card-level commit SHAs from workspace-commits.csv.
+   * All card-level commit SHAs from commits.csv.
    * Present regardless of branch state, so the UI can show changes
    * even after all tracked branches have been removed.
    */
