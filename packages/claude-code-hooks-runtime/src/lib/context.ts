@@ -143,7 +143,7 @@ function parseRelations(raw: unknown): CardRelation[] {
  * of the current card's repository.
  *
  * @param cardRepoPath - Root directory of the current card's repository.
- * @param relatedCardId - The ID of the related card.
+ * @param relatedCardId - Stable branch-prefixed identifier (e.g. `"main-99"`) used to locate the sibling directory.
  * @returns The related card's title, or `null` when unreadable.
  */
 function readRelatedCardTitle(cardRepoPath: string, relatedCardId: string): string | null {
