@@ -121,6 +121,18 @@ describe('buildCardBlock', () => {
     expect(result).not.toContain('WORKSPACE_BRANCH');
     expect(result).not.toContain('BASE_BRANCH');
   });
+
+  it('includes EFFORT env var when effort is set', () => {
+    const result = buildCardBlock(makeActionInput({ effort: 'high' }));
+
+    expect(result).toContain('EFFORT=high');
+  });
+
+  it('omits EFFORT env var when effort is undefined', () => {
+    const result = buildCardBlock(makeActionInput());
+
+    expect(result).not.toContain('EFFORT=');
+  });
 });
 
 describe('buildCardRepoBlock', () => {
