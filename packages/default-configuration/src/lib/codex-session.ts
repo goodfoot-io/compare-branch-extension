@@ -840,6 +840,27 @@ export async function mergeCodexAgentsInstructions(stagedCodexHome: string, mark
   await fs.writeFile(agentsPath, nextContent);
 }
 
+const STAGED_HOME_PREFIX = 'codex.tmp-';
+let stagingCounter = 0;
+
+async function cleanupStaleStagedHomes(stagingParent: string): Promise<void> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(stagingParent);
+  } catch {
+    return;
+  }
+
+  const currentPid = String(process.pid);
+  const removals = entries
+    .filter(
+      (entry) =>
+        entry.startsWith(STAGED_HOME_PREFIX) && entry.slice(STAGED_HOME_PREFIX.length).split('-')[0] !== currentPid
+    )
+    .map((entry) => fs.rm(path.join(stagingParent, entry), { recursive: true, force: true }));
+  await Promise.allSettled(removals);
+}
+
 /**
  * Prepares the staged Codex home under the Cards global config directory.
  *
@@ -854,24 +875,21 @@ export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
 }> {
   const { bundlePath, pluginPath } = await ensureCodexBundleAvailable(marketplacePath);
   const sourceCodexHome = resolveDefaultCodexHome();
-  const stagedCodexHome = resolveStagedCodexHome();
-  const stagingParent = path.dirname(stagedCodexHome);
-  const tempHome = path.join(stagingParent, `codex.tmp-${process.pid}-${Date.now()}`);
+  const stagingParent = path.dirname(resolveStagedCodexHome());
+  const stagedCodexHome = path.join(stagingParent, `codex.tmp-${process.pid}-${Date.now()}-${stagingCounter++}`);
 
   await fs.mkdir(stagingParent, { recursive: true });
-  await fs.rm(tempHome, { recursive: true, force: true });
+  await cleanupStaleStagedHomes(stagingParent);
 
   if (await resolveExistingDirectory(sourceCodexHome)) {
-    await fs.cp(sourceCodexHome, tempHome, { recursive: true });
+    await fs.cp(sourceCodexHome, stagedCodexHome, { recursive: true });
   } else {
-    await fs.mkdir(tempHome, { recursive: true });
+    await fs.mkdir(stagedCodexHome, { recursive: true });
   }
 
-  await copyDirectoryContents(bundlePath, tempHome);
-  await mergeCodexRuntimeConfig(tempHome);
-  await mergeCodexAgentsInstructions(tempHome, marketplacePath);
-  await fs.rm(stagedCodexHome, { recursive: true, force: true });
-  await fs.rename(tempHome, stagedCodexHome);
+  await copyDirectoryContents(bundlePath, stagedCodexHome);
+  await mergeCodexRuntimeConfig(stagedCodexHome);
+  await mergeCodexAgentsInstructions(stagedCodexHome, marketplacePath);
 
   return {
     bundlePath,

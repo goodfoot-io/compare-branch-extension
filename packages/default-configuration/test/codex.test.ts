@@ -374,14 +374,7 @@ describe('codex action', () => {
     );
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('# Commit Style'));
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('plugins = true'));
-    expect(fs.rm).toHaveBeenCalledWith('/home/node/.cards/codex', {
-      recursive: true,
-      force: true
-    });
-    expect(fs.rename).toHaveBeenCalledWith(
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/),
-      '/home/node/.cards/codex'
-    );
+    expect(fs.rename).not.toHaveBeenCalled();
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',
@@ -390,7 +383,7 @@ describe('codex action', () => {
         cwd: '/test/workspace/.worktrees/cards/card-123/1',
         stdio: 'inherit',
         env: expect.objectContaining({
-          CODEX_HOME: '/home/node/.cards/codex',
+          CODEX_HOME: expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/),
           WORKSPACE_PATH: '/test/workspace/.worktrees/cards/card-123/1',
           BASE_BRANCH: 'main',
           PARENT_BRANCH: 'main',
@@ -621,14 +614,20 @@ describe('codex action', () => {
     expect(spawn).not.toHaveBeenCalled();
   });
 
-  it('fails closed when staging replacement fails', async () => {
+  it('fails closed when staging directory creation fails', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
-    vi.mocked(fs.rename).mockRejectedValueOnce(new Error('rename failed'));
+    vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    vi.mocked(fs.mkdir).mockImplementation(async (dirPath: unknown) => {
+      if (/codex\.tmp-/.test(String(dirPath))) {
+        throw new Error('mkdir failed');
+      }
+      return undefined;
+    });
 
     const action = (await import('../src/actions/codex.js')).default;
 
-    await expect(action(baseInput(), createMockContext())).rejects.toThrow('rename failed');
+    await expect(action(baseInput(), createMockContext())).rejects.toThrow('mkdir failed');
     expect(spawn).not.toHaveBeenCalled();
   });
 
