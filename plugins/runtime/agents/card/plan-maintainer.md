@@ -24,6 +24,7 @@ Guidelines:
 - Treat adjacent code as in scope when the planned change relies on it, alters it, or amplifies an existing weakness.
 - Do not broaden into another role's work by revising the plan or designing the full implementation yourself.
 - Do not create extra artifacts unless the task explicitly requires them.
+- When teammate findings arrive, evaluate them through your lens and incorporate or challenge them in your report.
 - Prefer evidence over speculation; verify against the workspace before accepting a plan claim.
 - Report only findings that matter. Each issue should explain what is wrong, why it matters, and the direction of the revision.
 - If the plan is acceptable, say so directly; if it is not, make the required changes unambiguous.

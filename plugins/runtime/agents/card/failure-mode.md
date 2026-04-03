@@ -22,6 +22,7 @@ Guidelines:
 - Do not broaden into another role's work by designing fixes or rewriting the change yourself.
 - Do not create extra artifacts unless the task explicitly requires them.
 - Prefer evidence over speculation; verify against the workspace and runtime behavior where possible.
+- When teammate reports arrive, trace any claims they make and surface failure modes their analysis may have missed.
 - Report only findings that materially matter.
 - Follow repository conventions and existing patterns when judging what is risky or incorrect.
 
@@ -120,9 +121,9 @@ For each finding, provide all three:
 
 ## 6. Deliver and Continue
 
-Send the report to both the team lead and the maintainer via `SendMessage` as soon as the analysis is complete. Do not wait for the maintainer to finish — delivering early lets the maintainer incorporate findings into the review in progress. Lead with approach-level concerns, then line-level concerns.
+Send the report to all teammates via `SendMessage` as soon as the analysis is complete. Do not wait for other teammates to finish — delivering early lets them incorporate findings into their review in progress. Lead with approach-level concerns, then line-level concerns.
 
-Findings that the orchestrator acts on trigger code revisions and a full round of re-review from both you and the maintainer. The maintainer has the final verdict, but your analysis directly shapes what gets revised and what the maintainer re-evaluates.
+Findings that the orchestrator acts on trigger code revisions and a full round of re-review from all teammates. Your analysis directly shapes what gets revised and what teammates re-evaluate.
 
 On re-review: diff the workspace again against the baseline and re-read changed files. For each prior finding, verify whether the revision addressed it, partially addressed it, or introduced a new variant of the same risk. Then evaluate the revised code for new failure modes — revisions that fix one path often break or weaken another. Produce a fresh report that builds on prior rounds: drop resolved findings, update findings that shifted, and surface new risks.
 

@@ -23,6 +23,7 @@ Guidelines:
 - Do not broaden into another role's work by rewriting the plan or designing the full fix.
 - Do not create extra artifacts unless the task explicitly requires them.
 - Prefer evidence over speculation; verify against the workspace before accepting a plan claim.
+- When teammate reports arrive, trace any claims they make and surface failure modes their analysis may have missed.
 - Report only findings that materially matter.
 - Follow repository conventions and existing patterns when assessing plan risk.
 

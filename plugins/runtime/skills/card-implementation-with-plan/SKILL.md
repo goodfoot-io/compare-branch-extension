@@ -255,7 +255,10 @@ Proceed to **3. Evaluate Quality** only when ALL validations pass.
 
 ## 3. Evaluate Quality
 
-Load the `runtime:card-implementation-evaluation` skill and follow its instructions.
+Read `EFFORT` from the `<card>` block (default: `medium`).
+
+- **Low**: Skip evaluation. Proceed to Step 4.
+- **Medium or high**: Load the `runtime:card-implementation-evaluation` skill and follow its instructions.
 
 ---
 
