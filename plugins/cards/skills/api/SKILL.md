@@ -114,17 +114,6 @@ The CLI auto-detects the workspace from `pwd`. Cards are scoped to the branch yo
 
 Use `--workspace-path` only if the user explicitly requests creating a card in a different repository.
 
-**Attach a session** — Associate this Claude session with a card. Registers the workspace branch and flushes any pending commits:
-```
-$CARD_CLI attach <card-id>
-```
-Always call `attach` before your first code change on a card. This establishes commit attribution.
-
-**Detach a session** — Disassociate this Claude session from its card:
-```
-$CARD_CLI detach
-```
-
 **Execute an action** — Execute an action on a card via the server relay:
 ```
 $CARD_CLI <card-id> action <action-id>
