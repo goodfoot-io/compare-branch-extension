@@ -6,7 +6,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { WORKSPACE_BRANCHES_FILE, WORKSPACE_COMMITS_FILE } from '@cards/sdk/protocol';
+import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -528,17 +528,17 @@ describe('buildWorkspaceRepoLogBlocks', () => {
   });
 
   /**
-   * Creates a temp card repo dir with workspace-branches.json and workspace-commits.csv.
+   * Creates a temp card repo dir with branches.json and commits.csv.
    *
-   * @param branches - Branch map to write to workspace-branches.json.
-   * @param commits - Commit SHAs to write to workspace-commits.csv.
+   * @param branches - Branch map to write to branches.json.
+   * @param commits - Commit SHAs to write to commits.csv.
    * @returns Path to the created temporary directory.
    */
   function makeCardRepo(branches: Record<string, unknown>, commits: string[]): string {
     const dir = join(workspacePath, '..', `card-repo-ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, WORKSPACE_BRANCHES_FILE), JSON.stringify(branches, null, 2));
-    writeFileSync(join(dir, WORKSPACE_COMMITS_FILE), commits.map((c) => `${c}\n`).join(''));
+    writeFileSync(join(dir, BRANCHES_FILE), JSON.stringify(branches, null, 2));
+    writeFileSync(join(dir, COMMITS_FILE), commits.map((c) => `${c}\n`).join(''));
     return dir;
   }
 
@@ -555,10 +555,10 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     const dir = join(workspacePath, '..', `branches-only-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     mkdirSync(dir, { recursive: true });
     writeFileSync(
-      join(dir, WORKSPACE_BRANCHES_FILE),
+      join(dir, BRANCHES_FILE),
       JSON.stringify({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, null, 2)
     );
-    // No workspace-commits.csv — readWorkspaceData returns non-null (branches exist),
+    // No commits.csv — readWorkspaceData returns non-null (branches exist),
     // but no commits means no blocks to render. The critical behavior is that
     // readWorkspaceData does NOT return null — branches are recognized.
 
@@ -578,11 +578,11 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     mkdirSync(dir, { recursive: true });
     // Branches file exists first
     writeFileSync(
-      join(dir, WORKSPACE_BRANCHES_FILE),
+      join(dir, BRANCHES_FILE),
       JSON.stringify({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, null, 2)
     );
     // Then commits arrive
-    writeFileSync(join(dir, WORKSPACE_COMMITS_FILE), `${branch1CommitSha1}\n`);
+    writeFileSync(join(dir, COMMITS_FILE), `${branch1CommitSha1}\n`);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 

@@ -580,7 +580,7 @@ describe('Default Actions', () => {
 
         vi.mocked(readFile).mockImplementation((filePath: unknown) => {
           const p = String(filePath);
-          if (p.endsWith('workspace-branches.json')) {
+          if (p.endsWith('branches.json')) {
             return Promise.resolve(branchesJson);
           }
           return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
@@ -592,7 +592,7 @@ describe('Default Actions', () => {
           'git merge-base --is-ancestor cards/card-123/1 main': { stdout: '' },
           'git worktree remove': { stdout: '' },
           'git branch -d cards/card-123/1': { stdout: '' },
-          'git add workspace-branches.json': { stdout: '' },
+          'git add branches.json': { stdout: '' },
           'git commit': { stdout: '' }
         });
 

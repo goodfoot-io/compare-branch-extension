@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Reproduces a bug where `card attach` registers the base branch (e.g. `main`)
- * into `workspace-branches.json`, and `resolveOrCreateWorktree` Step 2 then
+ * into `branches.json`, and `resolveOrCreateWorktree` Step 2 then
  * attempts to create a worktree for that base branch — failing with
  * `fatal: 'main' is already checked out`.
  *

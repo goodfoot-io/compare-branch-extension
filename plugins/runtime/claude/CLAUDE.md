@@ -35,8 +35,8 @@ CARD.md.meta.json           # Document sidecar (title, summary)
 PLAN.md                     # Optional plan document
 PLAN.md.meta.json           # Document sidecar (title, summary)
 EVALUATION.md               # Optional evaluation rubric
-workspace-branches.json     # Branches associated with the card
-workspace-commits.csv       # Git commit SHAs associated with the card
+branches.json               # Branches associated with the card
+commits.csv                 # Git commit SHAs associated with the card
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
 attachment/                 # Created on first attachment
@@ -48,7 +48,7 @@ streams/                    # Append-only JSONL
     {filename}.meta.json
 ```
 
-`workspace-commits.csv` and `workspace-branches.json` are automatically updated by Cards infrastructure. Do not modify them directly.
+`commits.csv` and `branches.json` are automatically updated by Cards infrastructure. Do not modify them directly.
 
 ## CARD.meta.json
 

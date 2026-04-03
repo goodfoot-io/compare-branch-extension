@@ -206,7 +206,7 @@ describe('createServer', () => {
         diff: {
           changed: 2,
           files: [
-            { file: 'workspace-commits.csv', status: 'M', binary: false },
+            { file: 'commits.csv', status: 'M', binary: false },
             { file: 'streams/claude-code-session/abc.jsonl', status: 'A', binary: false }
           ]
         }
@@ -303,7 +303,7 @@ describe('createServer', () => {
         diff: {
           changed: 2,
           files: [
-            { file: 'workspace-commits.csv', status: 'M', binary: false },
+            { file: 'commits.csv', status: 'M', binary: false },
             { file: 'CARD.md', status: 'M', binary: false }
           ]
         }

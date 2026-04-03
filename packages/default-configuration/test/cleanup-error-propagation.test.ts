@@ -3,7 +3,7 @@
  *
  * When claude exits cleanly (code 0) in background mode, `spawnClaudeSession`
  * calls `cleanupMergedBranches` inline. If the card repo is inaccessible
- * (e.g. disk error reading workspace-branches.json), the error must not
+ * (e.g. disk error reading branches.json), the error must not
  * propagate — cleanup is triple-redundant and should not be fatal.
  *
  * This test asserts that `spawnClaudeSession` resolves successfully even when
@@ -83,7 +83,7 @@ beforeEach(async () => {
   const { readFile } = await import('node:fs/promises');
   vi.mocked(readFile).mockImplementation((filePath: unknown) => {
     const p = String(filePath);
-    if (p.endsWith('workspace-branches.json')) {
+    if (p.endsWith('branches.json')) {
       return Promise.reject(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
     }
     // Other reads (e.g. marketplace registration) return ENOENT
@@ -172,7 +172,7 @@ describe('spawnClaudeSession post-exit cleanup error propagation', () => {
     child.emit('close', 0);
 
     // spawnClaudeSession should resolve without error even though
-    // cleanupMergedBranches throws due to EACCES on workspace-branches.json.
+    // cleanupMergedBranches throws due to EACCES on branches.json.
     await expect(promise).resolves.toBeUndefined();
   });
 });

@@ -76,7 +76,7 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 function writeBranchesJson(
   branches: Record<string, { worktree?: string; parentBranch: string; addedAt: string }>
 ): void {
-  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'workspace-branches.json'), JSON.stringify(branches, null, 2));
+  fsSyncNs.writeFileSync(path.join(tempCardRepo, 'branches.json'), JSON.stringify(branches, null, 2));
 }
 
 describe('cleanupMergedBranches — self-referential parentBranch bug', () => {

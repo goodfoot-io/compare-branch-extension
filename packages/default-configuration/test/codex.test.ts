@@ -179,7 +179,7 @@ beforeEach(async () => {
         }
       });
     }
-    if (String(filePath) === '/test/repo/workspace-branches.json') {
+    if (String(filePath) === '/test/repo/branches.json') {
       return JSON.stringify({
         'cards/card-123/1': {
           parentBranch: 'main',
@@ -187,7 +187,7 @@ beforeEach(async () => {
         }
       });
     }
-    if (String(filePath) === '/test/repo/workspace-commits.csv') {
+    if (String(filePath) === '/test/repo/commits.csv') {
       return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
     }
     throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });

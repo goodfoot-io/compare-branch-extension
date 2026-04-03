@@ -286,8 +286,8 @@ describe('Stop Hook', () => {
           '--',
           '.',
           ':!streams/claude-code-session/',
-          ':!workspace-commits.csv',
-          ':!workspace-branches.json'
+          ':!commits.csv',
+          ':!branches.json'
         ],
         expect.objectContaining({ cwd: '/repo' })
       );

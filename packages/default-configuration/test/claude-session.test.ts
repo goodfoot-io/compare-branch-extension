@@ -480,7 +480,7 @@ describe('claude-session shared utilities', () => {
       const { readFile } = await import('node:fs/promises');
       vi.mocked(readFile).mockImplementation((filePath: unknown) => {
         const p = String(filePath);
-        if (p.endsWith('workspace-branches.json')) {
+        if (p.endsWith('branches.json')) {
           return Promise.resolve(JSON.stringify(branches, null, 2));
         }
         return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
@@ -536,7 +536,7 @@ describe('claude-session shared utilities', () => {
       );
       expect(branchDeleteCall).toBeDefined();
 
-      // Verify workspace-branches.json was written without the branch
+      // Verify branches.json was written without the branch
       expect(vi.mocked(writeFile)).toHaveBeenCalled();
     });
 

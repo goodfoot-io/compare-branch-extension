@@ -36,7 +36,7 @@ Obtain `gates.*`, `tags`, and `EFFORT` from the `<card>` block in your session c
 |--------|------------|
 | HAS_QUESTION | Latest user comment contains a genuine information-seeking question (not rhetorical, not "Can you fix X?", not "Could you implement Y?") |
 | IS_BLOCKED | `tags` contains "blocked" |
-| HAS_IMPLEMENTATION_FEEDBACK | `workspace-commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
+| HAS_IMPLEMENTATION_FEEDBACK | `commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
 | REVIEW_APPROVED | `gates.mergeApproved` in the `<card>` block |
 | IS_STALE | No activity for 30+ days |
 | PLAN_REQUIRED | `gates.planRequired` in the `<card>` block |

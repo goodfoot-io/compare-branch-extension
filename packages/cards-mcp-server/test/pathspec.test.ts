@@ -23,14 +23,12 @@ function makeCommit(files: CardCommit['diff']['files']): CardCommit {
 }
 
 describe('isBookkeepingCommit', () => {
-  it('returns true for workspace-commits.csv only', () => {
-    expect(isBookkeepingCommit(makeCommit([{ file: 'workspace-commits.csv', status: 'M', binary: false }]))).toBe(true);
+  it('returns true for commits.csv only', () => {
+    expect(isBookkeepingCommit(makeCommit([{ file: 'commits.csv', status: 'M', binary: false }]))).toBe(true);
   });
 
-  it('returns true for workspace-branches.json only', () => {
-    expect(isBookkeepingCommit(makeCommit([{ file: 'workspace-branches.json', status: 'M', binary: false }]))).toBe(
-      true
-    );
+  it('returns true for branches.json only', () => {
+    expect(isBookkeepingCommit(makeCommit([{ file: 'branches.json', status: 'M', binary: false }]))).toBe(true);
   });
 
   it('returns true for session stream files only', () => {
@@ -48,8 +46,8 @@ describe('isBookkeepingCommit', () => {
     expect(
       isBookkeepingCommit(
         makeCommit([
-          { file: 'workspace-commits.csv', status: 'M', binary: false },
-          { file: 'workspace-branches.json', status: 'M', binary: false },
+          { file: 'commits.csv', status: 'M', binary: false },
+          { file: 'branches.json', status: 'M', binary: false },
           { file: 'streams/claude-code-session/abc.jsonl', status: 'A', binary: false }
         ])
       )
@@ -60,7 +58,7 @@ describe('isBookkeepingCommit', () => {
     expect(
       isBookkeepingCommit(
         makeCommit([
-          { file: 'workspace-commits.csv', status: 'M', binary: false },
+          { file: 'commits.csv', status: 'M', binary: false },
           { file: 'CARD.md', status: 'M', binary: false }
         ])
       )
