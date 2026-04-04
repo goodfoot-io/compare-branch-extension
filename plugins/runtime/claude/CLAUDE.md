@@ -31,9 +31,9 @@ The session runs in one of two modes, surfaced as the `mode` attribute on the `<
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
-CARD.md.meta.json           # Document sidecar (title, summary)
+CARD.md.meta.json           # Document sidecar (title)
 PLAN.md                     # Optional plan document
-PLAN.md.meta.json           # Document sidecar (title, summary)
+PLAN.md.meta.json           # Document sidecar (title)
 EVALUATION.md               # Optional evaluation rubric
 branches.json               # Branches associated with the card
 commits.csv                 # Git commit SHAs associated with the card
@@ -124,12 +124,11 @@ Any `.md` file at the card repository root may have a `.md.meta.json` sidecar (e
 
 ```json
 {
-  "title": "4–10 word display title",
-  "summary": "[100–300 word markdown-formatted preview shown when the section is collapsed.]"
+  "title": "4–10 word display title"
 }
 ```
 
-The UI renders `title` as the section header (falling back to the filename when absent) and `summary` as markdown in the collapsed preview. Follow the `<markdown-guidelines>` for both the `.md` document and its `summary` field — use [fragment links](./path) for file references, **bold** for emphasis, and `backticks` for identifiers.
+The UI renders `title` as the section header (falling back to the filename when absent).
 
 ## Comments
 

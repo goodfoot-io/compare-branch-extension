@@ -65,7 +65,7 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 
 #### Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan:" (4–10 words naming the approach or solution) and a `summary` — a multi-paragraph markdown-formatted mini-plan (100–300 words). The first paragraph states what is changing and why — the intent and what is different when done. Subsequent paragraphs overview the approach: which areas of the codebase are touched, what the key moving parts are, and important constraints or boundaries. Write for a developer deciding whether to read the full plan — reduce cognitive load by referring to components by role rather than internal names.
+Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan: " (4–10 words naming the approach or solution).
 
 Commit to the card repository:
 
@@ -95,7 +95,7 @@ For each spike-eligible uncertainty, spawn a spike agent via the `Agent` tool:
 </invoke>
 ```
 
-Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch. Update `PLAN.md.meta.json` if the approach or intent changed.
+Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch. Update the `title` in `PLAN.md.meta.json` if the approach or intent changed.
 
 ```bash
 cd $CARD_REPO_PATH
@@ -152,7 +152,7 @@ For each finding:
 - **Viable**: Revise PLAN.md to address it.
 - **Not viable**: Note the reason (e.g., simpler approach doesn't satisfy a constraint, structural requirement doesn't apply given scope).
 
-Update `PLAN.md.meta.json` if the approach or intent changed. Commit the revised plan:
+Update the `title` in `PLAN.md.meta.json` if the approach or intent changed. Commit the revised plan:
 
 ```bash
 cd $CARD_REPO_PATH

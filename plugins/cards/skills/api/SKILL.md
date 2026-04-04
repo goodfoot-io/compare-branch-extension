@@ -71,7 +71,7 @@ cat <<'CARD_EOF' > "$REPO/CARD.md"
 Card description here (plain markdown, no frontmatter).
 CARD_EOF
 cat <<'META_EOF' > "$REPO/CARD.md.meta.json"
-{ "title": "Description", "summary": "[100–300 word markdown-formatted summary]" }
+{ "title": "Description" }
 META_EOF
 cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
@@ -83,7 +83,7 @@ cat <<'PLAN_EOF' > "$REPO/PLAN.md"
 Plan content here (plain markdown, no frontmatter).
 PLAN_EOF
 cat <<'META_EOF' > "$REPO/PLAN.md.meta.json"
-{ "title": "Plan: [approach title]", "summary": "[100–300 word markdown-formatted multi-paragraph mini-plan: intent and done-state, then approach overview with components touched and key constraints]" }
+{ "title": "Plan: [approach title]" }
 META_EOF
 cd "$REPO" && git add PLAN.md PLAN.md.meta.json && git commit -m "Added plan [single sentence summarizing the approach and key components]."
 ```
@@ -245,9 +245,9 @@ Error response (400):
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
-CARD.md.meta.json           # Document sidecar (title, summary)
+CARD.md.meta.json           # Document sidecar (title)
 PLAN.md                     # Optional plan document
-PLAN.md.meta.json           # Document sidecar (title, summary)
+PLAN.md.meta.json           # Document sidecar (title)
 EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
