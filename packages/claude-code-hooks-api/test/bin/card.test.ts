@@ -44,7 +44,8 @@ import {
   getWorktreeForBranch,
   isAncestorOfHead,
   listCards,
-  parseCardCreateInput
+  parseCardCreateInput,
+  searchCards
 } from '../../src/bin/card.js';
 
 const mockFindClaudePid = vi.mocked(findClaudePid);
@@ -114,6 +115,11 @@ describe('card binary', () => {
           results = results.filter(
             (c) => Array.isArray(c['tags']) && tags.every((t) => (c['tags'] as string[]).includes(t))
           );
+        }
+        const search = url.searchParams.get('search');
+        if (search) {
+          const term = search.toLowerCase();
+          results = results.filter((c) => typeof c['title'] === 'string' && c['title'].toLowerCase().includes(term));
         }
         const limit = url.searchParams.get('limit');
         if (limit) {
@@ -600,37 +606,6 @@ describe('card binary', () => {
       }
     });
 
-    it('filters by tag', async () => {
-      cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: ['feature'] });
-      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'todo', tags: ['bug'] });
-
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await listCards(['--workspace-path', '/tmp/workspace', '--tag', 'bug']);
-        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
-        expect(output).toHaveLength(1);
-        expect(output[0]!.id).toBe('card-2');
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
-    it('filters by multiple tags (all must match)', async () => {
-      cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: ['bug'] });
-      cards.set('card-2', { id: 'card-2', title: 'Second', status: 'todo', tags: ['bug', 'feature'] });
-      cards.set('card-3', { id: 'card-3', title: 'Third', status: 'todo', tags: ['feature'] });
-
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      try {
-        await listCards(['--workspace-path', '/tmp/workspace', '--tag', 'bug', '--tag', 'feature']);
-        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
-        expect(output).toHaveLength(1);
-        expect(output[0]!.id).toBe('card-2');
-      } finally {
-        logSpy.mockRestore();
-      }
-    });
-
     it('respects limit', async () => {
       cards.set('card-1', { id: 'card-1', title: 'First', status: 'todo', tags: [] });
       cards.set('card-2', { id: 'card-2', title: 'Second', status: 'todo', tags: [] });
@@ -666,6 +641,306 @@ describe('card binary', () => {
       await expect(listCards(['--workspace-path', '/tmp', '--offset', '-1'])).rejects.toThrow(
         '--offset must be a non-negative integer'
       );
+    });
+  });
+
+  describe('searchCards', () => {
+    it('passes text query to server as search parameter', async () => {
+      cards.set('card-1', {
+        id: 'card-1',
+        title: 'Login Bug',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+      cards.set('card-2', {
+        id: 'card-2',
+        title: 'Unrelated Feature',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await searchCards(['login bug', '--workspace-path', '/tmp/workspace']);
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        expect(output).toHaveLength(1);
+        expect(output[0]!.id).toBe('card-1');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('sends stored tags to server and filters results', async () => {
+      cards.set('card-1', {
+        id: 'card-1',
+        title: 'Bug Report',
+        status: 'todo',
+        tags: ['bug'],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+      cards.set('card-2', {
+        id: 'card-2',
+        title: 'Feature Request',
+        status: 'todo',
+        tags: ['feature'],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await searchCards(['#bug', '--workspace-path', '/tmp/workspace']);
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        expect(output).toHaveLength(1);
+        expect(output[0]!.id).toBe('card-1');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('applies derived tag filtering client-side', async () => {
+      cards.set('card-1', {
+        id: 'card-1',
+        title: 'Planning Card',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: true, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+      cards.set('card-2', {
+        id: 'card-2',
+        title: 'Normal Card',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        // 'planning' is a derived tag — not sent to server, filtered client-side
+        await searchCards(['#planning', '--workspace-path', '/tmp/workspace']);
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        expect(output).toHaveLength(1);
+        expect(output[0]!.id).toBe('card-1');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('applies @relation filtering client-side', async () => {
+      cards.set('card-1', {
+        id: 'card-1',
+        title: 'Related',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [{ type: 'related', cardId: 'card-2' }],
+        incomingRelations: []
+      });
+      cards.set('card-2', {
+        id: 'card-2',
+        title: 'Target',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: [{ type: 'related', cardId: 'card-1' }]
+      });
+      cards.set('card-3', {
+        id: 'card-3',
+        title: 'Unrelated',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await searchCards(['@card-2', '--workspace-path', '/tmp/workspace']);
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        const ids = output.map((c) => c.id).sort();
+        expect(ids).toEqual(['card-1', 'card-2']);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('passes --status and --limit flags through to server', async () => {
+      cards.set('card-1', {
+        id: 'card-1',
+        title: 'First',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+      cards.set('card-2', {
+        id: 'card-2',
+        title: 'Second',
+        status: 'active',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+      cards.set('card-3', {
+        id: 'card-3',
+        title: 'Third',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await searchCards(['--workspace-path', '/tmp/workspace', '--status', 'todo', '--limit', '1']);
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string; status: string }>;
+        expect(output).toHaveLength(1);
+        expect(output[0]!.status).toBe('todo');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('returns all cards when called with no query', async () => {
+      cards.set('card-1', {
+        id: 'card-1',
+        title: 'First',
+        status: 'todo',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+      cards.set('card-2', {
+        id: 'card-2',
+        title: 'Second',
+        status: 'active',
+        tags: [],
+        isPinned: false,
+        order: 0,
+        repositoryId: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
+        isMerged: null,
+        relations: [],
+        incomingRelations: []
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await searchCards(['--workspace-path', '/tmp/workspace']);
+        expect(logSpy).toHaveBeenCalledOnce();
+        const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Array<{ id: string }>;
+        expect(output).toHaveLength(2);
+        // Output is CardListSummary objects with flattened gate fields
+        const first = output[0] as Record<string, unknown>;
+        expect(first).toHaveProperty('planRequired');
+        expect(first).toHaveProperty('planApproved');
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 
