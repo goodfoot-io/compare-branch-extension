@@ -574,12 +574,18 @@ export async function detachCard(): Promise<{ pid: number }> {
   return { pid };
 }
 
-if (process.argv[1]?.endsWith('card.mjs')) {
+if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
   const command = process.argv[2];
 
-  if (!command || command === '-h' || command === '--help') {
+  if (!command || command === '-h' || command === '--help' || command === 'help') {
     console.log(HELP);
     process.exit(command ? 0 : 1);
+  }
+
+  const subArgs = process.argv.slice(3);
+  if (subArgs.includes('--help') || subArgs.includes('-h')) {
+    console.log(HELP);
+    process.exit(0);
   }
 
   let run: Promise<void>;

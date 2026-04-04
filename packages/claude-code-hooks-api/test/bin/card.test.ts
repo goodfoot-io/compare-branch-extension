@@ -8,6 +8,7 @@
  * @summary Tests for card CLI binary functions
  */
 
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -941,6 +942,40 @@ describe('card binary', () => {
       } finally {
         logSpy.mockRestore();
       }
+    });
+  });
+
+  describe('help mechanisms', () => {
+    const cardBinPath = new URL('../../src/bin/card.ts', import.meta.url).pathname;
+
+    function runCard(args: string[]): { stdout: string; exitCode: number } {
+      try {
+        const stdout = execFileSync('tsx', [cardBinPath, ...args], {
+          encoding: 'utf8'
+        });
+        return { stdout, exitCode: 0 };
+      } catch (error) {
+        const err = error as { stdout?: string; status?: number };
+        return { stdout: err.stdout ?? '', exitCode: err.status ?? 1 };
+      }
+    }
+
+    it('card help prints help text and exits 0', () => {
+      const result = runCard(['help']);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Usage: card.mjs');
+    });
+
+    it('card list --help prints help text and exits 0', () => {
+      const result = runCard(['list', '--help']);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Usage: card.mjs');
+    });
+
+    it('card search -h prints help text and exits 0', () => {
+      const result = runCard(['search', '-h']);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Usage: card.mjs');
     });
   });
 
