@@ -99,14 +99,25 @@ EOF
 **List cards** — List cards for the current workspace. Detects workspace path from git automatically:
 ```
 $CARD_CLI list
-$CARD_CLI list --status in_progress
-$CARD_CLI list --tag bug --tag feature
-$CARD_CLI list --search "auth" --status todo
+$CARD_CLI list --status active
+$CARD_CLI list --limit 10
 ```
 
 Each card in the response includes `parentBranch` when the card was created in a workspace with a resolvable branch.
 
-Options: `--workspace-path <path>`, `--status <status>`, `--tag <tag> (repeatable; tags are OR-combined)`, `--search <query>`, `--limit <n>`, `--offset <n>`
+Options: `--workspace-path <path>`, `--status <status>`, `--limit <n>`, `--offset <n>`
+
+**Search cards** — Search cards using a unified query syntax with `#tag`, `@relation`, and free text:
+```
+$CARD_CLI search "login bug"
+$CARD_CLI search "#auth @main-5 login" --status active
+$CARD_CLI search "#planning" --limit 20
+$CARD_CLI search "@main-42"
+```
+
+The query is parsed into free text, `#tag` tokens, and `@relation` tokens. Stored tags and text (3+ chars) are sent to the server. Derived tags (`planning`, `merge-requested`, `merged`, `unmerged`) and relation filters are applied client-side.
+
+Options: `--workspace-path <path>`, `--status <status>`, `--limit <n>`, `--offset <n>`
 
 #### Workspace Path
 
