@@ -5,7 +5,7 @@
  * dispatches to the requested subcommand. All output is JSON to stdout;
  * all errors go to stderr.
  *
- * @summary Card CLI for get, create, list, attach, detach, and action operations
+ * @summary Card CLI for get, create, list, search, attach, detach, and action operations
  */
 
 import { spawnSync } from 'node:child_process';
@@ -343,7 +343,6 @@ export async function listCards(args: string[]): Promise<void> {
  * @param args - CLI arguments after the `search` subcommand. First positional
  *   argument (if not starting with `--`) is the query string; remaining
  *   arguments are flags.
- * @throws When query is empty and no flags are provided.
  */
 export async function searchCards(args: string[]): Promise<void> {
   // Extract the query as the first positional arg (if present), then parse flags from the rest.

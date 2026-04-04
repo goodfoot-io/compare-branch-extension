@@ -117,6 +117,8 @@ $CARD_CLI search "@main-42"
 
 The query is parsed into free text, `#tag` tokens, and `@relation` tokens. Stored tags and text (3+ chars) are sent to the server. Derived tags (`planning`, `merge-requested`, `merged`, `unmerged`) and relation filters are applied client-side.
 
+The response uses a flattened `CardListSummary` schema (gates as top-level booleans, no commit fields) rather than the full `Card` schema returned by `list`.
+
 Options: `--workspace-path <path>`, `--status <status>`, `--limit <n>`, `--offset <n>`
 
 #### Workspace Path
