@@ -14,12 +14,14 @@ import type { AddBranchRequest, CardCreateData, ListCardsOptions } from '@cards/
 import { CardsClient } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { ActionResult } from '@cards/sdk/protocol';
+import { toCardListSummaries } from '@cards/web/types/cardSummary';
+import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/web/utils/searchUtils';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 const HELP = `Usage: card.mjs [options] <command>
 
-Read, create, list, attach, and detach card sessions via the Cards API.
+Read, create, list, search, attach, and detach card sessions via the Cards API.
 Locates the server through ~/.cards/cards-api.json, executes the command,
 and prints the resulting Card JSON to stdout.
 
@@ -30,6 +32,7 @@ Commands:
   <card-id>                      Fetch a card by its identifier
   create                         Create a card from JSON on stdin
   list [options]                 List cards with optional filters
+  search [query] [options]       Search cards using #tag @relation text syntax
   attach <card-id>               Associate this Claude session with a card
   detach                         Disassociate this Claude session from its card
   <card-id> action <action-id>  Execute an action on a card
@@ -64,16 +67,30 @@ List:
   Options:
     --workspace-path <path>  Workspace root (default: git rev-parse --show-toplevel)
     --status <status>        Filter by status (todo, active, needs_review, done, archived)
-    --tag <tag>              Filter by tag (repeatable: --tag bug --tag feature)
-    --search <query>         Full-text search in title and description
     --limit <n>              Maximum number of results
     --offset <n>             Pagination offset
 
   Examples:
     card.mjs list
     card.mjs list --status active
-    card.mjs list --tag bug --limit 10
-    card.mjs list --tag bug --tag feature
+    card.mjs list --limit 10
+
+Search:
+  Searches cards using a unified query syntax. Supports free text, #tag filters,
+  and @relation filters. Derived tags (planning, merge-requested, merged, unmerged)
+  are computed client-side.
+
+  Options:
+    --workspace-path <path>  Workspace root (default: git rev-parse --show-toplevel)
+    --status <status>        Filter by status
+    --limit <n>              Maximum number of results
+    --offset <n>             Pagination offset
+
+  Examples:
+    card.mjs search "login bug"
+    card.mjs search "#auth @main-5 login" --status active
+    card.mjs search "#planning" --limit 20
+    card.mjs search "@main-42"
 
 Attach:
   Associates the current Claude process with a card in the session registry.
@@ -284,7 +301,8 @@ function parseFlags(args: string[]): Record<string, string[]> {
  * Lists cards for a workspace and prints the result as JSON to stdout.
  *
  * Detects `workspacePath` from the current git repository root unless
- * overridden via the `--workspace-path` flag.
+ * overridden via the `--workspace-path` flag. For tag filtering and full-text
+ * search use the `search` subcommand instead.
  *
  * @param args - CLI arguments after the `list` subcommand.
  */
@@ -295,12 +313,6 @@ export async function listCards(args: string[]): Promise<void> {
   const options: ListCardsOptions = {};
   if (flags['status']) {
     options.status = flags['status'][0] as ListCardsOptions['status'];
-  }
-  if (flags['tag']) {
-    options.tags = flags['tag'];
-  }
-  if (flags['search']) {
-    options.search = flags['search'][0];
   }
   if (flags['limit']) {
     const n = parseInt(flags['limit'][0]!, 10);
@@ -315,6 +327,68 @@ export async function listCards(args: string[]): Promise<void> {
 
   const cards = await client.listCards(options);
   console.log(JSON.stringify(cards, null, 2));
+}
+
+/**
+ * Searches cards using a unified query syntax supporting free text, #tag filters,
+ * and @relation filters. Mirrors the web UI's useServerSearch pattern:
+ *
+ * 1. Parse query with `parseSearchQuery` to extract text, tags, and relations.
+ * 2. Split tags into stored (sent to server) and derived (filtered client-side).
+ * 3. Call `client.listCards` with text (≥3 chars), stored tags, and structural filters.
+ * 4. Convert results to `CardListSummary[]` via `toCardListSummaries`.
+ * 5. Apply `filterCardsByTags` client-side for derived tags and relation filters.
+ * 6. Print final results as JSON to stdout.
+ *
+ * @param args - CLI arguments after the `search` subcommand. First positional
+ *   argument (if not starting with `--`) is the query string; remaining
+ *   arguments are flags.
+ * @throws When query is empty and no flags are provided.
+ */
+export async function searchCards(args: string[]): Promise<void> {
+  // Extract the query as the first positional arg (if present), then parse flags from the rest.
+  let query = '';
+  let flagArgs = args;
+  if (args.length > 0 && !args[0]!.startsWith('--')) {
+    query = args[0]!;
+    flagArgs = args.slice(1);
+  }
+
+  const flags = parseFlags(flagArgs);
+  const client = await connectClient(flags['workspace-path']?.[0]);
+
+  const { text, tags, relatedTo } = parseSearchQuery(query);
+
+  // Split tags into stored (in card.tags) vs derived (computed from card properties).
+  const derivedTagSet = new Set<string>(DERIVED_TAGS);
+  const storedTags = tags.filter((t) => !derivedTagSet.has(t));
+  const derivedTags = tags.filter((t) => derivedTagSet.has(t));
+
+  const options: ListCardsOptions = {};
+  if (text.length >= 3) {
+    options.search = text;
+  }
+  if (storedTags.length > 0) {
+    options.tags = storedTags;
+  }
+  if (flags['status']) {
+    options.status = flags['status'][0] as ListCardsOptions['status'];
+  }
+  if (flags['limit']) {
+    const n = parseInt(flags['limit'][0]!, 10);
+    if (Number.isNaN(n) || n <= 0) throw new Error('--limit must be a positive integer');
+    options.limit = n;
+  }
+  if (flags['offset']) {
+    const n = parseInt(flags['offset'][0]!, 10);
+    if (Number.isNaN(n) || n < 0) throw new Error('--offset must be a non-negative integer');
+    options.offset = n;
+  }
+
+  const raw = await client.listCards(options);
+  const summaries = toCardListSummaries(raw);
+  const results = filterCardsByTags(summaries, derivedTags, relatedTo);
+  console.log(JSON.stringify(results, null, 2));
 }
 
 /**
@@ -516,6 +590,9 @@ if (process.argv[1]?.endsWith('card.mjs')) {
       break;
     case 'list':
       run = listCards(process.argv.slice(3));
+      break;
+    case 'search':
+      run = searchCards(process.argv.slice(3));
       break;
     case 'attach': {
       const cardId = process.argv[3];
