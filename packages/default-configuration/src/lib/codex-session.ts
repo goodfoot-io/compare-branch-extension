@@ -14,6 +14,7 @@ import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { resolveGlobalCardsConfigDir } from '@cards/sdk';
+import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
@@ -48,7 +49,6 @@ const CODEX_CONFIG_FILE_NAME = 'config.toml';
 const CODEX_AGENTS_FILE_NAME = 'AGENTS.md';
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
-const CARD_REPO_LOG_PATHSPEC_EXCLUSIONS = [':!streams/', `:!${COMMITS_FILE}`, `:!${BRANCHES_FILE}`] as const;
 
 interface CardMeta {
   id: string;

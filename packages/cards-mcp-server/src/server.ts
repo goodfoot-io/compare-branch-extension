@@ -11,7 +11,7 @@
  */
 
 import { appendCommitToSession } from '@cards/claude-code-sessions/card-repo';
-import { EventSubscriber } from '@cards/sdk/client';
+import { EventSubscriber, formatCommit, isBookkeepingCommit } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { CardCommitEvent } from '@cards/sdk/protocol';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -19,10 +19,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CardsServerConfig } from './config.js';
 import { isSessionCommit } from './filter.js';
-import { formatCommit } from './format.js';
 import type { Logger } from './logger.js';
 import { createFileLogger } from './logger.js';
-import { isBookkeepingCommit } from './pathspec.js';
 
 const CHANNEL_INSTRUCTIONS = `\
 You are connected to the Cards MCP server. Notifications arrive on the \

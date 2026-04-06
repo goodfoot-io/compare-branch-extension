@@ -6,9 +6,11 @@
 
 import { execFileSync } from 'node:child_process';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
+import { getCommitsSince } from '@cards/sdk/card-repo';
+import { getUnattributedCommits } from '@cards/sdk/client';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import hook, { CommitLogError, getCommitsSince, getUnattributedCommits } from '../src/stop.js';
+import hook from '../src/stop.js';
 
 vi.mock('node:child_process', () => ({
   execFileSync: vi.fn()
@@ -20,16 +22,29 @@ vi.mock('@cards/claude-code-sessions/card-repo', () => ({
   readSessionHeadSha: vi.fn()
 }));
 
+vi.mock('@cards/sdk/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/sdk/client')>();
+  return {
+    ...actual,
+    getUnattributedCommits: vi.fn()
+  };
+});
+
+vi.mock('@cards/sdk/card-repo', () => ({
+  getCommitsSince: vi.fn()
+}));
+
 const mockExecFileSync = vi.mocked(execFileSync);
 const mockGetSessionCommits = vi.mocked(getSessionCommits);
 const mockAppendCommitToSession = vi.mocked(appendCommitToSession);
 const mockReadSessionHeadSha = vi.mocked(readSessionHeadSha);
+const mockGetCommitsSince = vi.mocked(getCommitsSince);
+const mockGetUnattributedCommits = vi.mocked(getUnattributedCommits);
 
 const logger = new Logger();
 const START_SHA = 'a'.repeat(40);
 const SHA_1 = '1'.repeat(40);
 const SHA_2 = '2'.repeat(40);
-const SHA_3 = '3'.repeat(40);
 
 /** Minimal set of env vars required by extractActionInput. */
 const ACTION_ENV = {
@@ -68,6 +83,8 @@ describe('Stop Hook', () => {
       mockGetSessionCommits.mockReset();
       mockAppendCommitToSession.mockReset();
       mockReadSessionHeadSha.mockReset();
+      mockGetCommitsSince.mockReset();
+      mockGetUnattributedCommits.mockReset();
     });
 
     it('approves when no HEAD SHA stored for session', async () => {
@@ -85,7 +102,7 @@ describe('Stop Hook', () => {
 
     it('approves quietly when no commits since HEAD SHA', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockReturnValue('');
+      mockGetCommitsSince.mockReturnValue([]);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -99,8 +116,9 @@ describe('Stop Hook', () => {
 
     it('approves quietly when all commits are attributed to session', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockReturnValue(`${SHA_1}\n${SHA_2}\n`);
+      mockGetCommitsSince.mockReturnValue([SHA_1, SHA_2]);
       mockGetSessionCommits.mockReturnValue([SHA_1, SHA_2]);
+      mockGetUnattributedCommits.mockReturnValue([]);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -114,12 +132,10 @@ describe('Stop Hook', () => {
 
     it('blocks with stat content when unattributed commits exist', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'stat content here';
-        return '';
-      });
+      mockGetCommitsSince.mockReturnValue([SHA_2, SHA_1]);
       mockGetSessionCommits.mockReturnValue([SHA_1]);
+      mockGetUnattributedCommits.mockReturnValue([SHA_2]);
+      mockExecFileSync.mockReturnValue('stat content here');
 
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
@@ -134,12 +150,10 @@ describe('Stop Hook', () => {
 
     it('appends unattributed SHAs to CSV after blocking', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'stat content';
-        return '';
-      });
+      mockGetCommitsSince.mockReturnValue([SHA_2, SHA_1]);
       mockGetSessionCommits.mockReturnValue([SHA_1]);
+      mockGetUnattributedCommits.mockReturnValue([SHA_2]);
+      mockExecFileSync.mockReturnValue('stat content');
 
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
@@ -151,7 +165,7 @@ describe('Stop Hook', () => {
 
     it('approves with actionable error when git log fails', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockImplementation(() => {
+      mockGetCommitsSince.mockImplementation(() => {
         throw new Error('not a git repo');
       });
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -170,7 +184,7 @@ describe('Stop Hook', () => {
 
     it('approves with actionable error when CSV read fails', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockReturnValue(`${SHA_1}\n`);
+      mockGetCommitsSince.mockReturnValue([SHA_1]);
       mockGetSessionCommits.mockImplementation(() => {
         throw new Error('permission denied');
       });
@@ -189,12 +203,10 @@ describe('Stop Hook', () => {
 
     it('treats all commits as unattributed when CSV is missing (empty array from getSessionCommits)', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_1}\n${SHA_2}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'all changes stat';
-        return '';
-      });
+      mockGetCommitsSince.mockReturnValue([SHA_1, SHA_2]);
       mockGetSessionCommits.mockReturnValue([]);
+      mockGetUnattributedCommits.mockReturnValue([SHA_1, SHA_2]);
+      mockExecFileSync.mockReturnValue('all changes stat');
 
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
@@ -209,13 +221,12 @@ describe('Stop Hook', () => {
 
     it('includes warnings in block reason when stat generation fails', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s')
-          throw new Error('repository corrupted');
-        return '';
-      });
+      mockGetCommitsSince.mockReturnValue([SHA_2, SHA_1]);
       mockGetSessionCommits.mockReturnValue([SHA_1]);
+      mockGetUnattributedCommits.mockReturnValue([SHA_2]);
+      mockExecFileSync.mockImplementation(() => {
+        throw new Error('repository corrupted');
+      });
 
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
@@ -232,12 +243,10 @@ describe('Stop Hook', () => {
 
     it('includes warnings when recordUnattributedCommits fails', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
-      mockExecFileSync.mockImplementation((_file: string, args?: readonly string[]) => {
-        if (args?.[0] === 'log' && args?.[1] === '--format=%H') return `${SHA_2}\n${SHA_1}\n`;
-        if (args?.[0] === 'log' && args?.[2] === '--pretty=format:%h - %an: %s') return 'stat content';
-        return '';
-      });
+      mockGetCommitsSince.mockReturnValue([SHA_2, SHA_1]);
       mockGetSessionCommits.mockReturnValue([SHA_1]);
+      mockGetUnattributedCommits.mockReturnValue([SHA_2]);
+      mockExecFileSync.mockReturnValue('stat content');
       mockAppendCommitToSession.mockRejectedValue(new Error('disk full'));
 
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -264,71 +273,6 @@ describe('Stop Hook', () => {
       expect(result).toHaveProperty('_type', 'Stop');
       const stdout = result.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).toContain('not running inside an action subprocess');
-    });
-  });
-
-  describe('helper functions', () => {
-    afterEach(() => {
-      mockExecFileSync.mockReset();
-    });
-
-    it('getCommitsSince returns commit SHAs from git log output', () => {
-      mockExecFileSync.mockReturnValue(`${SHA_1}\n${SHA_2}\n`);
-      const result = getCommitsSince('/repo', START_SHA);
-
-      expect(result).toEqual([SHA_1, SHA_2]);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        'git',
-        [
-          'log',
-          '--format=%H',
-          `${START_SHA}..HEAD`,
-          '--',
-          '.',
-          ':!streams/claude-code-session/',
-          ':!commits.csv',
-          ':!branches.json'
-        ],
-        expect.objectContaining({ cwd: '/repo' })
-      );
-    });
-
-    it('getCommitsSince returns empty array when no commits', () => {
-      mockExecFileSync.mockReturnValue('');
-      const result = getCommitsSince('/repo', START_SHA);
-
-      expect(result).toEqual([]);
-    });
-
-    it('getCommitsSince throws for invalid baseline SHA', () => {
-      expect(() => getCommitsSince('/repo', 'not-a-sha')).toThrow('Invalid since SHA');
-      expect(mockExecFileSync).not.toHaveBeenCalled();
-    });
-
-    it('getUnattributedCommits filters out session commits', () => {
-      const all = [SHA_1, SHA_2, SHA_3];
-      const session = [SHA_1, SHA_3];
-
-      const result = getUnattributedCommits(all, session);
-
-      expect(result).toEqual([SHA_2]);
-    });
-
-    it('getCommitsSince throws CommitLogError when git log fails', () => {
-      mockExecFileSync.mockImplementation(() => {
-        throw new Error('not a git repo');
-      });
-
-      expect(() => getCommitsSince('/repo', START_SHA)).toThrow(CommitLogError);
-
-      try {
-        getCommitsSince('/repo', START_SHA);
-      } catch (error) {
-        expect(error).toBeInstanceOf(CommitLogError);
-        expect((error as CommitLogError).repoPath).toBe('/repo');
-        expect((error as CommitLogError).sinceSha).toBe(START_SHA);
-        expect((error as CommitLogError).message).toContain('not a git repo');
-      }
     });
   });
 });

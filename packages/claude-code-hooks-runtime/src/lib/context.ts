@@ -11,11 +11,11 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import { formatCommitLog } from './file-tree.js';
-import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from './gitPathspecs.js';
 
 /**
  * Error thrown when the card repository cannot be read.

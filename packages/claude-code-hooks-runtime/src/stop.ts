@@ -17,13 +17,12 @@
 
 import { execFileSync } from 'node:child_process';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
+import { getCommitsSince } from '@cards/sdk/card-repo';
+import { BOOKKEEPING_PATHSPEC_EXCLUSIONS, getUnattributedCommits } from '@cards/sdk/client';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 import { formatCommitLog } from './lib/file-tree.js';
-import { BOOKKEEPING_PATHSPEC_EXCLUSIONS } from './lib/gitPathspecs.js';
-
-const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 /**
  * Git pathspec exclusions for system-managed bookkeeping files.
@@ -68,55 +67,6 @@ export class CommitRecordError extends Error {
     super(`Failed to record commit ${sha} for session ${sessionId}: ${reason}`);
     this.cause = cause;
   }
-}
-
-function assertValidSha(sha: string, label: string): void {
-  if (!SHA_PATTERN.test(sha)) {
-    throw new Error(`Invalid ${label}: ${sha}`);
-  }
-}
-
-/**
- * Returns all commit SHAs between sinceSha and HEAD in the given repo,
- * excluding commits that only touch system-managed bookkeeping paths
- * (session streams, commits.csv, branches.json).
- *
- * @param repoPath - Card repository path where git commands should execute.
- * @param sinceSha - Baseline SHA captured at session start.
- * @returns Newer commit SHAs in reverse chronological order (newest first).
- * @throws {CommitLogError} When the git log command fails.
- */
-export function getCommitsSince(repoPath: string, sinceSha: string): string[] {
-  assertValidSha(sinceSha, 'since SHA');
-
-  try {
-    const output = execFileSync('git', ['log', '--format=%H', `${sinceSha}..HEAD`, '--', '.', ...PATHSPEC_EXCLUSIONS], {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      timeout: 10000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
-    if (!output) return [];
-    const shas = output.split('\n');
-    for (const sha of shas) {
-      assertValidSha(sha, 'commit SHA');
-    }
-    return shas;
-  } catch (error) {
-    throw new CommitLogError(repoPath, sinceSha, error);
-  }
-}
-
-/**
- * Returns commits from allCommits that are NOT in sessionCommits.
- *
- * @param allCommits - Full commit list detected since session start.
- * @param sessionCommits - Commits already attributed to the current session.
- * @returns SHAs that still need attribution review.
- */
-export function getUnattributedCommits(allCommits: string[], sessionCommits: string[]): string[] {
-  const sessionSet = new Set(sessionCommits);
-  return allCommits.filter((sha) => !sessionSet.has(sha));
 }
 
 /**
@@ -164,25 +114,23 @@ export default stopHook({}, async (input, { logger }) => {
   let allCommits: string[];
   try {
     allCommits = getCommitsSince(actionInput.cardRepoPath, headSha);
-  } catch (error) {
-    if (error instanceof CommitLogError) {
-      logger.error('Failed to list commits', { repoPath: error.repoPath, error: error.message });
-      return stopOutput({
-        decision: 'approve',
-        systemMessage: [
-          `Could not list commits since session start in '${error.repoPath}'.`,
-          '',
-          `Error: ${error.message}`,
-          '',
-          'Commit attribution could not be verified. To investigate:',
-          `1. Verify the card repository is a valid git repo at: ${error.repoPath}`,
-          '2. Check that git is available and the repository is not corrupted',
-          `3. Confirm the baseline SHA (${error.sinceSha}) exists in the repository`
-        ].join('\n'),
-        reason: `Commit log failed: ${error.message}`
-      });
-    }
-    throw error;
+  } catch (cause) {
+    const error = new CommitLogError(actionInput.cardRepoPath, headSha, cause);
+    logger.error('Failed to list commits', { repoPath: error.repoPath, error: error.message });
+    return stopOutput({
+      decision: 'approve',
+      systemMessage: [
+        `Could not list commits since session start in '${error.repoPath}'.`,
+        '',
+        `Error: ${error.message}`,
+        '',
+        'Commit attribution could not be verified. To investigate:',
+        `1. Verify the card repository is a valid git repo at: ${error.repoPath}`,
+        '2. Check that git is available and the repository is not corrupted',
+        `3. Confirm the baseline SHA (${error.sinceSha}) exists in the repository`
+      ].join('\n'),
+      reason: `Commit log failed: ${error.message}`
+    });
   }
 
   if (allCommits.length === 0) {

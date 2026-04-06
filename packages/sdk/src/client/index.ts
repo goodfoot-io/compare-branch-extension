@@ -16,6 +16,14 @@ export type {
   CompareRequest,
   CompareState
 } from '../protocol/index.js';
+// Card repo filters (browser-safe)
+export {
+  BOOKKEEPING_PATHSPEC_EXCLUSIONS,
+  CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
+  formatCommit,
+  getUnattributedCommits,
+  isBookkeepingCommit
+} from './cardRepoFilters.js';
 export { CardsClient } from './cardsClient.js';
 export { calculateBackoffMs, EventSubscriber } from './eventSubscriber.js';
 // Client types

@@ -21,7 +21,9 @@
     "./config/env": "./src/config/env.ts",
     "./marketplace": "./src/marketplace.ts",
     "./stream-store": "./src/stream-store/index.ts",
-    "./worktree": "./src/worktree.ts"
+    "./worktree": "./src/worktree.ts",
+    "./client/cardRepoFilters": "./src/client/cardRepoFilters.ts",
+    "./card-repo": "./src/cardRepo.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
