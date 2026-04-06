@@ -733,6 +733,10 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
         exhaustionTimer = null;
       }
     } else {
+      if (exhaustionTimer) {
+        clearTimeout(exhaustionTimer);
+        exhaustionTimer = null;
+      }
       disconnectedAt = Date.now();
       // Schedule exhaustion check after max backoff + margin
       const maxBackoffMs = calculateBackoffMs(10);
@@ -788,6 +792,8 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
   subscriber.on('card:commit', (event) => {
     onCommit(event).catch((err: unknown) => {
       console.error('card watch: error handling commit event:', err instanceof Error ? err.message : String(err));
+      subscriber.disconnect();
+      process.exit(1);
     });
   });
 

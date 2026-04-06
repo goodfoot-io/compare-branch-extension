@@ -33,8 +33,6 @@ import { formatCommitLog } from './lib/file-tree.js';
  * exclusion: commits that only touch these paths are not flagged as
  * unattributed.
  */
-const PATHSPEC_EXCLUSIONS = [...BOOKKEEPING_PATHSPEC_EXCLUSIONS];
-
 /**
  * Error thrown when `git log` fails to list commits since a baseline SHA.
  */
@@ -182,7 +180,7 @@ export default stopHook({}, async (input, { logger }) => {
         ...unattributed,
         '--',
         '.',
-        ...PATHSPEC_EXCLUSIONS
+        ...BOOKKEEPING_PATHSPEC_EXCLUSIONS
       ],
       {
         cwd: actionInput.cardRepoPath,
@@ -201,7 +199,7 @@ export default stopHook({}, async (input, { logger }) => {
       `Error: ${message}`,
       '',
       'To view manually:',
-      `  git -C ${actionInput.cardRepoPath} log --name-only ${unattributed.join(' ')} -- . ${PATHSPEC_EXCLUSIONS.map((p) => `'${p}'`).join(' ')}`
+      `  git -C ${actionInput.cardRepoPath} log --name-only ${unattributed.join(' ')} -- . ${BOOKKEEPING_PATHSPEC_EXCLUSIONS.map((p) => `'${p}'`).join(' ')}`
     ].join('\n');
     warnings.push(`File list generation failed: ${message}`);
   }
