@@ -31,7 +31,7 @@ No subagents needed. Proceed to Step 4.
 
 ### Tier 2
 
-Spawn the planner:
+Spawn the planner in background mode:
 
 ```xml
 <invoke name="Agent">
@@ -39,6 +39,7 @@ Spawn the planner:
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="name">planner</parameter>
+<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 Create an implementation plan for this card.
 
@@ -55,7 +56,7 @@ Read the card from the card repository. Create the plan and investigate uncertai
 
 ### Tier 3
 
-Spawn the planner first, wait for it to return, then spawn one `plan-failure-mode` subagent:
+Spawn the planner in background mode first, wait for it to return, then spawn one `plan-failure-mode` subagent:
 
 ```xml
 <invoke name="Agent">
@@ -63,6 +64,7 @@ Spawn the planner first, wait for it to return, then spawn one `plan-failure-mod
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="name">planner</parameter>
+<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 Create an implementation plan for this card.
 
@@ -100,7 +102,7 @@ Read PLAN.md from the card repository. Read every source file the plan reference
 
 ### Tier 4
 
-Spawn the planner first, wait for it to return, then spawn multiple `plan-failure-mode` subagents in parallel, each with a focused scope:
+Spawn the planner in background mode first, wait for it to return, then spawn multiple `plan-failure-mode` subagents in parallel, each with a focused scope:
 
 ```xml
 <invoke name="Agent">
@@ -108,6 +110,7 @@ Spawn the planner first, wait for it to return, then spawn multiple `plan-failur
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
 <parameter name="name">planner</parameter>
+<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 Create an implementation plan for this card.
 
@@ -140,7 +143,6 @@ Identify potential failure modes in this implementation plan. Focus on data-flow
 
 Read PLAN.md from the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
 </parameter>
-<parameter name="run_in_background">true</parameter>
 </invoke>
 <invoke name="Agent">
 <parameter name="description">Plan failure-mode analysis — error paths and async hazards</parameter>
