@@ -683,7 +683,6 @@ describe('buildWorkspaceRepoLogBlocks', () => {
 
     expect(blocks).toHaveLength(1);
     expect(blocks[0]).toContain('branch="cards/card-123/1"');
-    expect(blocks[0]).toContain('parentBranch="main"');
     expect(blocks[0]).toContain('count="1"');
   });
 
@@ -697,7 +696,6 @@ describe('buildWorkspaceRepoLogBlocks', () => {
 
     expect(blocks).toHaveLength(1);
     expect(blocks[0]).toContain('branch="cards/card-123/1"');
-    expect(blocks[0]).toContain('parentBranch="main"');
     expect(blocks[0]).toContain('count="2"');
     expect(blocks[0]).toContain('<workspace-repo-log');
     expect(blocks[0]).toContain('</workspace-repo-log>');

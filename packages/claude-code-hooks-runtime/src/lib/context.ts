@@ -623,7 +623,6 @@ function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[], me
  */
 interface CommitGroup {
   branchName: string;
-  parentBranch?: string;
   shas: string[];
   orphaned?: boolean;
 }
@@ -658,12 +657,12 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
   const reachableFromTracked = new Set<string>();
   const groups: CommitGroup[] = [];
 
-  for (const [name, meta] of sortedBranches) {
+  for (const [name] of sortedBranches) {
     const reachable = getReachableShas(workspacePath, name);
     const branchShas = workspace.commits.filter((sha) => reachable.has(sha));
     for (const sha of branchShas) reachableFromTracked.add(sha);
     if (branchShas.length > 0) {
-      groups.push({ branchName: name, parentBranch: meta.parentBranch, shas: branchShas });
+      groups.push({ branchName: name, shas: branchShas });
     }
   }
 
@@ -713,7 +712,6 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
       attrs.push('orphaned="true"');
     } else {
       attrs.push(`branch="${group.branchName}"`);
-      if (group.parentBranch) attrs.push(`parentBranch="${group.parentBranch}"`);
     }
     attrs.push(`count="${group.shas.length}"`);
 
