@@ -274,3 +274,23 @@ Tags mark rollback points during execution. Tags point to the most recent real c
 
 
 </instructions>
+
+<when-to-return-to-planning>
+
+At any point during implementation, stop and return to planning if any of the following conditions emerge:
+
+1. **A planned step is invalidated by a completed one** — steps that were each valid in isolation turn out to be mutually incompatible. The plan has an internal contradiction that only surfaces during execution.
+2. **The plan missed scope that changes the approach** — implementation reveals consumers or dependencies the plan didn't account for, and accommodating them requires a different strategy, not just additional steps.
+3. **A plan assumption proved false during implementation** — a spike verified something that implementation disproves. The approach the plan committed to no longer holds.
+4. **Implementation creates problems it then has to solve** — the approach introduces complexity (timing windows, error-handling machinery, interface mismatches) that wouldn't exist with a different approach. This is evidence the plan chose the wrong strategy.
+
+When any condition is met, **stop immediately** — do not continue implementing. Revert all changes to the baseline:
+
+```bash
+git reset --hard "implement/$CARD_ID/baseline"
+git clean -fd
+```
+
+Load the `runtime:card-plan` skill and follow its instructions. The planner will find the existing PLAN.md and revise it — the invalidated assumption, missed scope, or contradicting steps are live context that should drive the revision.
+
+</when-to-return-to-planning>
