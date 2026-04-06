@@ -167,32 +167,4 @@ Commits that fail validation are rejected.
 Claude Code session transcripts are append-only NDJSON streams in `streams/claude-code-session/`.
 Each session produces a `.jsonl` transcript and a `.meta.json` sidecar.
 
-```json
-{
-  "filename": "{sessionId}.jsonl",
-  "streamType": "claude-code-session",
-  "status": "completed",
-  "lineCount": 42,
-  "title": "Claude session for {cardId}",
-  "sessionId": "{sessionId}"
-}
-```
 
-| Field | Type | Constraints |
-|-------|------|-------------|
-| `filename` | string | Required |
-| `streamType` | string | Required, value: `"claude-code-session"` |
-| `lineCount` | number | Required |
-| `title` | string | Optional |
-| `sessionId` | string | Optional |
-
-Each line in the `.jsonl` file is a JSON object from the Claude Code SDK (`--output-format stream-json`):
-
-| `type`             | `subtype`  | Content                              |
-|--------------------|------------|--------------------------------------|
-| `system`           | `init`     | Model, tools, cwd                    |
-| `assistant`        |            | Response content blocks (text, tool_use, thinking) |
-| `tool_use_summary` |            | Tool output summary                  |
-| `tool_progress`    |            | Long-running tool status             |
-| `result`           | `success`  | Turns, duration, cost                |
-| `result`           | `error`    | Error details with stats             |
