@@ -45,7 +45,7 @@ All of the following are true:
 - No new files, no new interfaces, no behavioral changes beyond the immediate fix
 - Examples: typo, wrong variable name, missing import, off-by-one, incorrect string literal
 
-**→ Proceed to Step 3.**
+**→ Load the `runtime:card-implementation` skill and follow its instructions.**
 
 ### Needs a plan
 
@@ -58,43 +58,11 @@ Any of the following are true:
 - The correct fix requires choosing between alternatives
 - You are uncertain whether the change is trivial
 
-**→ Proceed to Step 4.**
+**→ Proceed to Step 3.**
 
 ---
 
-## 3. Apply Trivial Fix
-
-Load the `cards:markdown` and `runtime:workspace-commit-style` skills.
-
-Apply the fix directly. Commit:
-
-```bash
-git add -A
-git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>]
-COMMITMSG
-)"
-```
-
-Run validation in each package containing modified files (`yarn typecheck`, `yarn lint`, `yarn test`).
-
-- **Validation passes**: Write a comment summarizing the fix. Commit to the card repository. **STOP**.
-
-```bash
-cd $CARD_REPO_PATH
-cat <<'EOF' > comment/feedback-applied.md
-[what was changed and why, confirming the feedback was addressed]
-EOF
-git add comment/feedback-applied.md
-git commit -m "[single sentence summarizing the trivial fix applied]"  # <card-repo-commit-style>
-```
-
-- **Validation fails on your change**: Revert and treat as needing a plan (Step 4).
-- **Validation fails on code outside your change**: Add `blocked` to `tags` in `CARD.meta.json`. Write failure details to `comment/feedback-validation-failed.md`. Commit both files and **STOP**.
-
----
-
-## 4. Create Follow-On Plan
+## 3. Create Follow-On Plan
 
 Write a comment to the card repository explaining why the feedback requires a new plan rather than an inline fix. Be specific about what design decisions or scope expansion drove the assessment.
 
