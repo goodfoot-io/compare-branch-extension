@@ -14,6 +14,8 @@ Your scope is all code the plan interacts with, not just code the plan directly 
 
 A consumer the plan does not account for is a failure mode the planner doesn't know about.
 
+Follow the `<take-notes>` instructions — write a note to the card repository for each architectural discovery made during analysis.
+
 **Out-of-scope issues**: If you discover an issue in code the plan does not interact with, do not include it in your findings. Instead, load the `cards:api` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
 ## 2. Name the Plan's Bets

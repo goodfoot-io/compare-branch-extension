@@ -60,7 +60,10 @@ $CARD_CLI create <<'EOF'
 EOF
 ```
 
-The response includes `repositoryPath`. Load the `cards:markdown` skill before writing card content. After creation, write card content and document sidecars directly to the card repository and commit:
+The response includes `repositoryPath`. After creation:
+
+1. Load the `cards:markdown` skill before writing CARD.md.
+2. Write card content and commit:
 
 ```bash
 REPO=$($CARD_CLI create <<'EOF' | jq -r '.repositoryPath'
@@ -72,6 +75,8 @@ Card description here (plain markdown, no frontmatter).
 CARD_EOF
 cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
+
+3. Load the `cards:notes` skill and record any discoveries made during research as notes in the card repository.
 
 If the approach is clear, load the `cards:markdown` skill (if not already loaded) before writing PLAN.md:
 

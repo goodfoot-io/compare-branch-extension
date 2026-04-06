@@ -23,6 +23,12 @@ State findings with confidence — "I see a `deploy` script but no `rollback`. I
 
 ## 1. Enrich the Request
 
+### 1.1 Load Notes Skill
+
+Load the `cards:notes` skill before beginning research.
+
+### 1.2 Research and Enrich
+
 Decorate and enrich the user's request — do not implement it. Research the codebase, then write the best card title and description you can.
 - Modify only `CARD.meta.json` and `CARD.md` in the card repository.
 - Do not run scripts or modify infrastructure, even if the fix is obvious, trivial, or a single line.

@@ -24,6 +24,12 @@ Assume established patterns — "I assume we should use gRPC for this new endpoi
 
 ## 1. Enrich the Request
 
+### 1.1 Load Notes Skill
+
+Load the `cards:notes` skill before beginning research.
+
+### 1.2 Research and Enrich
+
 Decorate and enrich the user's request — do not implement it. Research the codebase, then write the best card title and description you can.
 - Modify only `CARD.meta.json` and `CARD.md` in the card repository.
 - Do not write features or scaffold code, even if the solution is obvious, trivial, or follows an existing pattern.

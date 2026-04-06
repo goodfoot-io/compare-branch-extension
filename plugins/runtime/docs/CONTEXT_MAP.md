@@ -39,7 +39,8 @@ interview.ts
                interview-bug-report  interview-enhancement  interview-investigation
                interview-maintenance interview-operations   interview-documentation
                           │
-                          └── produces: CARD.md + CARD.meta.json
+                          ├── loads: cards:notes (before research begins)
+                          └── produces: CARD.md + CARD.meta.json + notes/*
 ```
 
 ---
@@ -97,8 +98,8 @@ card-plan skill (orchestrator)
     │
     ├─── Agent: runtime:card:planner                    (tiers 2–4, named "planner")
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
-    │        Skills used: runtime:spike (for uncertainties)
-    │        Creates: PLAN.md, spike/* artifacts
+    │        Skills used: runtime:spike (for uncertainties), cards:notes (for architectural discoveries)
+    │        Creates: PLAN.md, spike/* artifacts, notes/*
     │        Returns: plan state (ready or blocked)
     │        │
     │        └─── Spawns spike subagents (parallel, as needed)
@@ -108,7 +109,9 @@ card-plan skill (orchestrator)
     │
     ├─── Agent: runtime:card:plan-failure-mode          (tiers 3–4, one or more)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
+    │        Skills used: cards:notes (for architectural discoveries)
     │        Analyzes: PLAN.md bets, workspace code, referenced files
+    │        Writes: notes/* (architectural discoveries during analysis)
     │        Returns: findings to orchestrator
     │        Tier 4: each instance scoped to a different area of concern
     │        Spawned after planner returns (sequential, not parallel)
@@ -203,6 +206,7 @@ The cards plugin is always loaded when the runtime plugin is loaded (but not vic
 cards plugin skills (available in all runtime sessions):
     ├─ cards:api       — CRUD ops on cards via $CARD_CLI, notifications
     ├─ cards:markdown  — CARD.md content guidelines per card type
+    ├─ cards:notes     — records architectural discoveries as notes in the card repository
     └─ cards:dev       — developer-facing card utilities
 ```
 

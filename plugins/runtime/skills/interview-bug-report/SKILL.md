@@ -25,6 +25,12 @@ State findings as declarations — "Commit abc123 changed the user model to opti
 
 ## 1. Enrich the Request
 
+### 1.1 Load Notes Skill
+
+Load the `cards:notes` skill before beginning research.
+
+### 1.2 Research and Enrich
+
 Decorate and enrich the user's request — do not implement it. Research the codebase, then write the best card title and description you can.
 - Modify only `CARD.meta.json` and `CARD.md` in the card repository.
 - Do not write fixes, even if the solution is obvious, trivial, or a single line.

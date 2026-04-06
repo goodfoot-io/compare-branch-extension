@@ -37,6 +37,8 @@ Distill from the card what the situation looks like when the work is done and wh
 
 Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
 
+Follow the `<take-notes>` instructions — write a note to the card repository for each architectural discovery made during research.
+
 #### Load Markdown Guidelines
 
 Load the `cards:markdown` skill before writing PLAN.md.
