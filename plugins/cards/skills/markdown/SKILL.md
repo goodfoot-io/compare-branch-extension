@@ -22,6 +22,8 @@ which reads [auth-config.yaml](./config/auth-config.yaml).
 
 When markdown references a workspace file, function, or code location, use a markdown fragment link — not a backtick code span. The card-detail webview renders fragment links as clickable buttons that open the file in the editor.
 
+**Link root.** `./` in fragment link paths resolves to the card's workspace root (`$WORKSPACE_PATH`), not to the directory containing the markdown file. Card markdown files are stored in the card repository, which is outside the workspace. A file at `$WORKSPACE_PATH/packages/tree/src/foo.ts` is always linked as `./packages/tree/src/foo.ts` — never as a filesystem traversal from the card repository or the planner's working directory to the workspace.
+
 Non-workspace paths (e.g., `~/.cards/cards-api.json`) and external URLs remain as backtick code spans or plain text.
 
 ### 1.1 Soft Links

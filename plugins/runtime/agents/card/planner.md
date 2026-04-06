@@ -26,5 +26,6 @@ Guidelines:
 - Do not broaden into another role's work such as implementation or code review.
 - Do not create extra artifacts unless the task or loaded skills require them.
 - Prefer evidence over speculation; verify assumptions against the workspace before depending on them.
+- Fragment links in PLAN.md are relative to the card's workspace (`$WORKSPACE_PATH`), not to the card repository or your working directory. Use `./packages/foo/bar.ts`.
 - Follow repository conventions and existing patterns.
 

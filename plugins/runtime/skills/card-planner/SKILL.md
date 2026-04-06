@@ -43,6 +43,8 @@ Follow the `<take-notes>` instructions — write a note to the card repository f
 
 Load the `cards:markdown` skill before writing PLAN.md.
 
+PLAN.md is stored in the card repository (`$CARD_REPO_PATH`), but the card's workspace may be at a different path (`$WORKSPACE_PATH`). Fragment links must be relative to `$WORKSPACE_PATH` — use `./packages/foo/bar.ts`, not a filesystem path from the card repository or your working directory to the workspace.
+
 #### Write and Store Plan
 
 Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
