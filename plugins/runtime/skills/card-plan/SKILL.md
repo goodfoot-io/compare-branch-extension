@@ -19,7 +19,9 @@ Read the card from the `<card>` block. Assess scope, type, number of files likel
 
 If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–4).
 
-If `PLAN.md` already exists in the card repository, the minimum tier is 3 — always dispatch at least one `plan-failure-mode` subagent to evaluate the existing plan.
+If `gates.planApproved` is true, skip to Step 4 — the plan is already approved, proceed to implementation.
+
+If `PLAN.md` already exists but is not approved, the minimum tier is 3 — always dispatch at least one `plan-failure-mode` subagent to evaluate the existing plan.
 
 ## 2. Dispatch Subagents
 
