@@ -6,7 +6,14 @@ description: Assess card complexity, select a planning tier, dispatch subagents,
 
 <instructions>
 
-## 1. Select Planning Tier
+## 1. Check for Existing Plan
+
+Check whether `PLAN.md` exists in the card repository.
+
+- **PLAN.md exists**: Spawn the planner alone (Step 2, Tier 2) to evaluate the existing plan. Act on what it returns in Step 3 — only dispatch failure-mode subagents if the planner signals the plan needs revision. Skip tier selection.
+- **No PLAN.md**: Proceed to tier selection below.
+
+## 1.1 Select Planning Tier
 
 Read the card from the `<card>` block. Assess scope, type, number of files likely affected, acceptance criteria complexity, and risk signals. Select the tier that matches the work:
 
