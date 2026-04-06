@@ -38,6 +38,7 @@ Spawn the planner:
 <parameter name="description">Plan creation</parameter>
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
+<parameter name="name">planner</parameter>
 <parameter name="prompt">
 Create an implementation plan for this card.
 
@@ -61,6 +62,7 @@ Spawn the planner first, wait for it to return, then spawn one `plan-failure-mod
 <parameter name="description">Plan creation</parameter>
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
+<parameter name="name">planner</parameter>
 <parameter name="prompt">
 Create an implementation plan for this card.
 
@@ -105,6 +107,7 @@ Spawn the planner first, wait for it to return, then spawn multiple `plan-failur
 <parameter name="description">Plan creation</parameter>
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
+<parameter name="name">planner</parameter>
 <parameter name="prompt">
 Create an implementation plan for this card.
 
@@ -164,7 +167,7 @@ After all subagents return, read their output.
 Based on the planner's outcome and any failure-mode findings:
 
 - **Planner blocked**: Document in comment, add `blocked` tag, commit. **STOP** — do not proceed to implementation.
-- **Findings require plan revision**: Re-spawn the planner with the findings incorporated into the prompt. Return to Step 2 to re-dispatch failure-mode subagents after the planner returns.
+- **Findings require plan revision**: Resume the planner via `SendMessage` and provide the failure-mode report. Wait for the planner to return, then return to Step 2 to re-dispatch failure-mode subagents.
 - **No blocking findings**: Proceed to Step 4.
 
 When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Style observations and minor nits do not.

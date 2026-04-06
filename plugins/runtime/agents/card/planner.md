@@ -105,4 +105,15 @@ Return to the caller with the plan outcome:
 
 Do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
 
+## 4. Incorporate Failure-Mode Findings (if resumed)
+
+If the orchestrator resumes you with a failure-mode report, engage with each finding before acting on it:
+
+- Understand the concern and whether the plan's approach addresses it.
+- Route empirically-testable uncertainties to spike investigation before revising.
+- For each finding, decide: revise the approach, add mitigations, or acknowledge an accepted risk with explicit justification.
+- Revise PLAN.md directly — explanations in messages do not help future readers of the plan.
+
+Update `PLAN.md.meta.json` if the approach or intent changed. Commit the revised plan, then return to Step 3.
+
 </instructions>
