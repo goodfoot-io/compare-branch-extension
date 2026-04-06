@@ -1,6 +1,6 @@
 ---
 name: card-implementation-evaluation
-description: Assess implementation complexity, select an evaluation tier, dispatch failure-mode subagents, and decide whether the implementation is ready.
+description: Dispatch failure-mode subagents and decide whether the implementation is ready to proceed.
 ---
 
 
@@ -24,25 +24,20 @@ Run validation per the plan's validation commands.
 
 **On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
 
-Only proceed to **3. Select Evaluation Tier** when ALL validations pass.
+Only proceed to **3. Dispatch Subagents** when ALL validations pass.
 
-## 3. Select Evaluation Tier
+## 3. Dispatch Subagents
 
-Assess the scope of the implementation: number of changed files, types of changes, runtime risk, and acceptance criteria complexity. Select the tier that matches:
+Diff the workspace against the baseline to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
 
-| Tier | What runs |
-|------|-----------|
-| 1 | No evaluation — proceed directly to finalize |
-| 2 | One `failure-mode` subagent |
-| 3 | Multiple `failure-mode` subagents, each scoped to a different area |
+| Depth | What runs |
+|-------|-----------|
+| Standard | One `failure-mode` subagent |
+| Deep | Multiple `failure-mode` subagents, each scoped to a different area |
 
-## 4. Dispatch Subagents
+Use deep when the implementation touches many files, introduces new API boundaries, modifies shared state, or adds significant async or error-path logic.
 
-### Tier 1
-
-No subagents needed. Proceed to Step 5.
-
-### Tier 2
+### Standard
 
 Spawn one failure-mode subagent:
 
@@ -68,7 +63,7 @@ Diff the workspace against the baseline to identify changed files. Read every ch
 </invoke>
 ```
 
-### Tier 3
+### Deep
 
 Spawn multiple failure-mode subagents in parallel, each with a focused scope:
 
@@ -142,7 +137,7 @@ COMMITMSG
 
 Run validation per the plan's validation commands. On failure, delegate fixes (same as Step 2), then stage and re-validate.
 
-Return to Step 3.
+Return to Step 3 to re-dispatch subagents.
 
 ## 6. Finalize
 

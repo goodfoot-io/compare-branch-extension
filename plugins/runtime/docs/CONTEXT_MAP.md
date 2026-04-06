@@ -114,10 +114,10 @@ card-plan skill (orchestrator)
 
 ## Implementation Team
 
-Dispatched by `card-implementation-with-plan`. The skill handles implementation, then loads `card-implementation-evaluation` to assess quality. The evaluation skill selects a tier, dispatches failure-mode subagents, and makes the APPROVED / CHANGES_REQUESTED decision itself.
+Dispatched by `card-implementation-with-plan` and `card-implementation`. After validation, each skill assesses the scope of changes and decides whether to load `card-implementation-evaluation`. The evaluation skill dispatches failure-mode subagents and makes the APPROVED / CHANGES_REQUESTED decision.
 
 ```
-card-implementation-with-plan skill (orchestrator)
+card-implementation-with-plan / card-implementation skill (orchestrator)
     │
     ├─ Creates baseline tag: implement/[CARD_ID]/baseline
     ├─ Analyzes plan coherence → routes parallel / coherent / sequential
@@ -131,25 +131,24 @@ card-implementation-with-plan skill (orchestrator)
     │        Works in: $CARD_REPO_PATH (card's worktree)
     │        Returns: status (COMPLETED / NEEDS_REVISION / BLOCKED)
     │
-    └── loads: card-implementation-evaluation skill
+    └── assesses scope → loads card-implementation-evaluation if needed
 ```
 
-**Evaluation tiers (inside `card-implementation-evaluation`):**
+**Evaluation depth (inside `card-implementation-evaluation`, when loaded):**
 
-| Tier | What runs |
-|------|-----------|
-| 1 | No evaluation — proceed directly to finalize |
-| 2 | One `failure-mode` subagent |
-| 3 | Multiple `failure-mode` subagents, each scoped to a different area |
+| Depth | What runs |
+|-------|-----------|
+| Standard | One `failure-mode` subagent |
+| Deep | Multiple `failure-mode` subagents, each scoped to a different area |
 
 ```
 card-implementation-evaluation skill (orchestrator)
     │
-    ├─── Agent: runtime:card:failure-mode              (tiers 2–3, one or more)
+    ├─── Agent: runtime:card:failure-mode              (one or more)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Analyzes: git diff, changed files, consumers, data flow
     │        Returns: findings to orchestrator
-    │        Tier 3: each instance scoped to a different area of concern
+    │        Deep: each instance scoped to a different area of concern
     │
     └── orchestrator reads findings → decides APPROVED or delegates fixes to developer
 ```
@@ -203,13 +202,12 @@ cards plugin skills (available in all runtime sessions):
 | 3 | `planner` + one `plan-failure-mode` |
 | 4 | `planner` + multiple `plan-failure-mode` (each scoped to a different area) |
 
-**Implementation evaluation tiers** (selected by `card-implementation-evaluation` based on implementation scope):
+**Implementation evaluation** (decided by the implementation skill based on scope; `card-implementation-evaluation` is loaded only when evaluation is needed):
 
-| Tier | Subagents |
-|------|-----------|
-| 1 | None — proceed directly to finalize |
-| 2 | One `failure-mode` |
-| 3 | Multiple `failure-mode` (each scoped to a different area) |
+| Depth | Subagents |
+|-------|-----------|
+| Standard | One `failure-mode` |
+| Deep | Multiple `failure-mode` (each scoped to a different area) |
 
 ---
 
@@ -250,6 +248,6 @@ cards plugin skills (available in all runtime sessions):
 | `card-developer` | Loaded by developer agent | No |
 | `spike` | Loaded by planner/developer | **Yes** — spike subagents |
 | `evaluation` | Loaded by developer | No |
-| `card-implementation-evaluation` | Loaded by card-implementation-with-plan | **Yes** — failure-mode subagents (tier-based) |
+| `card-implementation-evaluation` | Loaded by implementation skills when evaluation needed | **Yes** — failure-mode subagents (standard or deep) |
 | `refactoring` | Loaded by developer on refactoring cards | No |
 | `card-reopen-and-implement` | *(re-open flow)* | No |

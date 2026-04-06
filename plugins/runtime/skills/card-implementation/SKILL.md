@@ -55,9 +55,16 @@ Run validation per the workspace validation configuration.
 
 **When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
 
-Proceed to **3. Finalize** only when ALL validations pass.
+Proceed to **3. Evaluate Quality** only when ALL validations pass.
 
-## 3. Finalize
+## 3. Evaluate Quality
+
+Diff the workspace against the baseline to assess the scope of changes: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
+
+- **Simple** — few files changed, well-understood modification, no new logic or API boundaries: skip evaluation. Proceed to Step 4.
+- **Needs evaluation** — multiple files changed, new logic introduced, or runtime risk present: load the `runtime:card-implementation-evaluation` skill and follow its instructions.
+
+## 4. Finalize
 
 ### 3.1 Clean Up Tags
 
