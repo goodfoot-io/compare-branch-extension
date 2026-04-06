@@ -187,6 +187,41 @@ orchestrator decides: CHANGES_REQUESTED
 
 ---
 
+## Continuation Planning (Follow-On Plans)
+
+When a user provides feedback on a completed implementation that exceeds a trivial fix, `card-implementation-feedback` creates a follow-on plan rather than implementing inline. This triggers the normal planning cycle for the next phase of work.
+
+```
+card-implementation-with-plan completes
+    │
+    └── user provides feedback on implementation
+            │
+            └── card-routing: HAS_IMPLEMENTATION_FEEDBACK
+                    │
+                    └── card-implementation-feedback (triage)
+                            │
+                            ├── trivial fix ── apply inline, commit, STOP
+                            │
+                            └── needs plan ── write comment explaining why
+                                    │
+                                    └── loads: card-plan
+                                            │
+                                            └── planner reads prior plan(s) + implementation
+                                                as context, creates plan/phase-N.md
+                                                    │
+                                                    └── pre-commit hook resets planApproved=false
+                                                            │
+                                                            └── STOP — awaiting plan approval
+                                                                    │
+                                                                    └── next session: card-routing
+                                                                        → card-plan (validates)
+                                                                        → approval
+                                                                        → card-implementation-with-plan
+                                                                        (cycle repeats)
+```
+
+---
+
 ## Merge Path
 
 ```
@@ -267,7 +302,7 @@ cards plugin skills (available in all runtime sessions):
 | `card-implementation` | Tier 1 (no plan, via card-plan) | No (loads card-developer skill inline) |
 | `card-implementation-with-plan` | Has plan | **Yes** — developer subagents |
 | `workspace-commit-style` | Loaded by implementation skills before committing | No |
-| `card-implementation-feedback` | HAS_IMPL_FEEDBACK | No |
+| `card-implementation-feedback` | HAS_IMPL_FEEDBACK | No (triage: trivial fix inline or loads card-plan) |
 | `card-bug` | IS_TESTABLE_BUG | No |
 | `card-merge` | REVIEW_APPROVED | No |
 | `card-developer` | Loaded by developer agent | No |
@@ -275,4 +310,3 @@ cards plugin skills (available in all runtime sessions):
 | `evaluation` | Loaded by developer | No |
 | `card-implementation-evaluation` | Loaded by implementation skills when evaluation needed | **Yes** — failure-mode subagents (standard or deep) |
 | `refactoring` | Loaded by developer on refactoring cards | No |
-| `card-reopen-and-implement` | *(re-open flow)* | No |

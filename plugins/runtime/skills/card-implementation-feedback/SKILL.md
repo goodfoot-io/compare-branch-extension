@@ -1,12 +1,8 @@
 ---
 name: card-implementation-feedback
-description: Apply user feedback to completed implementations.
+description: Triage user feedback on completed implementations into inline fixes or follow-on plans.
 ---
 
-
-<placeholder-variables>
-[MODIFIED_FILES] — Files changed since the feedback baseline tag (determined in Step 5.3 via git diff; passed to maintainer as modified-file context)
-</placeholder-variables>
 
 <instructions>
 
@@ -14,8 +10,9 @@ description: Apply user feedback to completed implementations.
 
 Read:
 - The latest user comment in the card repository (the feedback)
-- Plan files from the `plan/` directory in the card repository if they exist (validation commands and context)
+- Plan files from the `plan/` directory in the card repository (prior approach and context)
 - `CARD.md` for the card's broader purpose
+- Recent workspace commits on the current branch (what was already delivered)
 
 Based on the latest user comment:
 - **Empty or does not indicate what changes are needed**: Write a comment requesting clarification, commit, and **STOP**
@@ -35,50 +32,41 @@ Then **STOP**.
 
 ---
 
-## 2. Acknowledge Feedback
+## 2. Triage Feedback
 
-Write a comment to the card repository acknowledging the feedback and describing the targeted changes you will make. Commit to the card repository:
+Assess the scope of the requested change. Apply the same judgment a senior engineer would when reading a code review comment: "Is this a comment-level fix, or does this need its own design?"
 
-```bash
-cd $CARD_REPO_PATH
-cat <<'EOF' > comment/feedback-acknowledged.md
-[acknowledgment of the user's feedback, confirmation of understanding, and what targeted changes will be made]
-EOF
-git add comment/feedback-acknowledged.md
-git commit -m "[single sentence summarizing the feedback and the targeted changes planned]"  # <card-repo-commit-style>
-```
+### Trivial fix
+
+All of the following are true:
+
+- Affects one or two lines of code
+- The correct change is obvious from the feedback (no design decisions)
+- No new files, no new interfaces, no behavioral changes beyond the immediate fix
+- Examples: typo, wrong variable name, missing import, off-by-one, incorrect string literal
+
+**→ Proceed to Step 3.**
+
+### Needs a plan
+
+Any of the following are true:
+
+- Feedback requests a different approach or architecture
+- Feedback adds scope the current implementation doesn't support
+- Feedback identifies a structural concern requiring design work
+- The change touches multiple files or introduces new interfaces
+- The correct fix requires choosing between alternatives
+- You are uncertain whether the change is trivial
+
+**→ Proceed to Step 4.**
 
 ---
 
-## 3. Prepare Environment
+## 3. Apply Trivial Fix
 
-Create a baseline tag if one does not already exist:
+Load the `cards:markdown` and `runtime:workspace-commit-style` skills.
 
-```bash
-if git rev-parse "feedback/$CARD_ID/baseline" >/dev/null 2>&1; then
-  echo "Baseline tag already exists — resuming from prior checkpoint."
-else
-  git tag "feedback/$CARD_ID/baseline" HEAD
-fi
-```
-
----
-
-## 4. Implement
-
-### 4.1 Load Skills
-
-Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
-
-### 4.2 Implement Changes
-
-Implement the targeted changes based on the user's feedback. Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
-
-Focus only on what the feedback requests — do not re-implement unrelated parts of the original implementation.
-
-1. Read the relevant files identified in the feedback
-2. Implement the change
-3. Commit logically grouped changes:
+Apply the fix directly. Commit:
 
 ```bash
 git add -A
@@ -88,250 +76,37 @@ COMMITMSG
 )"
 ```
 
-### 4.3 Validation Gate
+Run validation in each package containing modified files (`yarn typecheck`, `yarn lint`, `yarn test`).
 
-ALL validation commands must pass before proceeding.
+- **Validation passes**: Write a comment summarizing the fix. Commit to the card repository. **STOP**.
 
-**`plan/*.md` files exist:** Run validation per the plan's validation commands.
-**No plan files in `plan/`:** Run typecheck, lint, and test in each package containing modified files.
+```bash
+cd $CARD_REPO_PATH
+cat <<'EOF' > comment/feedback-applied.md
+[what was changed and why, confirming the feedback was addressed]
+EOF
+git add comment/feedback-applied.md
+git commit -m "[single sentence summarizing the trivial fix applied]"  # <card-repo-commit-style>
+```
 
-- **Error in code you can modify**: Fix it, re-run validation.
-- **Error outside your scope**: Block immediately.
-
-**When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/feedback-validation-failed.md`. Commit both files and **STOP**.
-
-Only proceed to **5. Evaluate Quality** when ALL validations pass.
+- **Validation fails on your change**: Revert and treat as needing a plan (Step 4).
+- **Validation fails on code outside your change**: Add `blocked` to `tags` in `CARD.meta.json`. Write failure details to `comment/feedback-validation-failed.md`. Commit both files and **STOP**.
 
 ---
 
-## 5. Evaluate Quality
+## 4. Create Follow-On Plan
 
-### 5.1 Stage Uncommitted Changes
-
-Ensure all feedback changes are committed before evaluation:
+Write a comment to the card repository explaining why the feedback requires a new plan rather than an inline fix. Be specific about what design decisions or scope expansion drove the assessment.
 
 ```bash
-git add -A
-git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style> — describe the uncommitted changes]
-COMMITMSG
-)"
+cd $CARD_REPO_PATH
+cat <<'EOF' > comment/feedback-needs-plan.md
+[explanation of why a plan is needed: what the feedback asks for, why it exceeds a trivial fix, and what the plan should address]
+EOF
+git add comment/feedback-needs-plan.md
+git commit -m "[single sentence explaining why feedback requires a follow-on plan]"  # <card-repo-commit-style>
 ```
 
-### 5.2 Pre-Evaluation Validation
-
-Run validation per the plan's validation commands (or `yarn typecheck`, `yarn lint`, `yarn test` in each package containing modified files if no plan files exist).
-
-**On any failure:** Fix all validation failures, then re-run validation. Only proceed to **Step 5.3** when ALL validations pass.
-
-### 5.3 Determine Modified Files
-
-Get the list of files modified since the feedback baseline:
-
-```bash
-git diff "feedback/$CARD_ID/baseline" --name-only
-```
-
-Use this as [MODIFIED_FILES] for the maintainer.
-
-### 5.4 Start Review
-
-Create the review team and spawn the maintainer and failure-mode analyst in parallel. The team stays alive across review iterations — both agents persist and retain context from prior reviews.
-
-```xml
-<invoke name="TeamCreate">
-<parameter name="team_name">review-feedback-[CARD_ID]</parameter>
-<parameter name="description">[CARD_ID]: feedback update review</parameter>
-</invoke>
-```
-
-```xml
-<invoke name="Agent">
-<parameter name="description">Failure mode analysis</parameter>
-<parameter name="subagent_type">runtime:card:failure-mode</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="team_name">review-feedback-[CARD_ID]</parameter>
-<parameter name="name">failure-mode</parameter>
-<parameter name="prompt">
-Identify potential failure modes in this feedback-driven update.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-## Baseline
-Changes are relative to git tag: `feedback/[CARD_ID]/baseline`
-
-Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. The failure modes live in the gap between the implementer's model and the system's actual behavior.
-</parameter>
-</invoke>
-```
-
-```xml
-<invoke name="Agent">
-<parameter name="description">Maintainer review</parameter>
-<parameter name="subagent_type">runtime:card:maintainer</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="team_name">review-feedback-[CARD_ID]</parameter>
-<parameter name="name">maintainer</parameter>
-<parameter name="prompt">
-Review this targeted update for production readiness. This is a feedback-driven change, not a full implementation.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Baseline
-Changes are relative to git tag: `feedback/[CARD_ID]/baseline`
-
-## Modified Files
-[MODIFIED_FILES]
-
-For every claim the code makes about the system — type contracts, error handling assumptions, consumer expectations — verify by running or tracing the code. Do not evaluate claims by reasoning about them. Send a review report per your instructions.
-</parameter>
-</invoke>
-```
-
-### 5.5 Wait for Review
-
-Wait for the maintainer to deliver the review report via SendMessage. The maintainer incorporates failure-mode findings at their judgment.
-
-**Failure-mode report not yet arrived when maintainer reports:** Proceed — findings will arrive and can inform revision in Step 5.8.
-
-### 5.6 Process Verdict
-
-The maintainer's verdict is final. Apply the first matching condition:
-
-1. **BLOCKED**: Shut down the team (Step 5.9). Document in comment, add `blocked` tag, commit, **STOP**.
-2. **CHANGES_REQUESTED**: Proceed to Step 5.7.
-3. **APPROVED**: Shut down the team (Step 5.9). Proceed to Step 6.
-
-### 5.7 Engage with Review
-
-Your goal is to submit work that definitely improves the overall code health of the system (Google's Code Review Standard). Engage with the review before acting on it.
-
-For each required change, formulate a question that:
-- Demonstrates you understand the finding
-- Surfaces what you need clarified — the reasoning, the intended scope, or whether an alternative would satisfy the concern
-
-**Finding you believe is incorrect:** Present your case with evidence: "I went with X because of [tradeoffs]. My understanding is that Y would be worse because [reasons]. Are you suggesting Y better serves the codebase, or something else?"
-
-Do not ask questions answerable by reading the code.
-
-```xml
-<invoke name="SendMessage">
-<parameter name="recipient">maintainer</parameter>
-<parameter name="content">
-Thank you for the review. Before I address these, I want to make sure I understand your findings:
-
-[For each finding that warrants discussion:]
-- **[Finding reference]**: [What you understand about the concern, and what you need clarified or want to propose as an alternative]
-
-[Any broader questions about approach or direction]
-</parameter>
-</invoke>
-```
-
-Wait for the maintainer's response. Use their answers to inform your fixes.
-
-### 5.8 Address Changes and Re-submit
-
-For each required change, assess viability and either fix directly or note why it cannot be done. Make unclear code self-explanatory — explanations in the re-submission message do not help future code readers.
-
-Re-run validation. **Validation fails on code outside your scope:** Shut down the team (Step 5.9) and block.
-
-Stage any uncommitted review fixes:
-
-```bash
-git add -A
-git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style> — describe the uncommitted changes]
-COMMITMSG
-)"
-```
-
-Review the failure-mode analyst's findings. Approach-level findings — runtime risks, silent failure paths, data flow gaps — deserve the most consideration. Decide what to do:
-- Fix the code
-- Add mitigations
-- Acknowledge an accepted risk
-- Determine the finding doesn't apply
-
-Not every finding requires a code change. No response to the failure-mode analyst is required.
-
-Message both the maintainer and failure-mode analyst to re-review. Explain what you changed, why, and where you made judgment calls:
-
-```xml
-<invoke name="SendMessage">
-<parameter name="recipient">maintainer</parameter>
-<parameter name="content">
-I've addressed your review findings. Here's what I changed and why:
-
-All validations pass.
-
-## Changes Applied
-[For each finding addressed:]
-- **[Finding reference]**: [What was changed and the reasoning behind the approach]
-
-## Feedback
-[For any requested change that was not made:]
-- **[Finding reference]**: [What was attempted, why it is not viable, and what alternative (if any) was used instead]
-</parameter>
-</invoke>
-```
-
-```xml
-<invoke name="SendMessage">
-<parameter name="recipient">failure-mode</parameter>
-<parameter name="content">
-The implementation has been revised. Diff the workspace against the baseline again and send updated findings to both the team lead and the maintainer.
-</parameter>
-</invoke>
-```
-
-Return to Step 5.5.
-
-### 5.9 Shut Down Team
-
-Send shutdown requests to both agents. Wait for acknowledgment before deleting the team:
-
-```xml
-<invoke name="SendMessage">
-<parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">maintainer</parameter>
-<parameter name="content">Review complete.</parameter>
-</invoke>
-```
-
-```xml
-<invoke name="SendMessage">
-<parameter name="type">shutdown_request</parameter>
-<parameter name="recipient">failure-mode</parameter>
-<parameter name="content">Review complete.</parameter>
-</invoke>
-```
-
-After both agents have shut down:
-
-```xml
-<invoke name="TeamDelete"/>
-```
-
----
-
-## 6. Finalize
-
-### 6.1 Complete or Await Review
-
-- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval.
-- **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
-
-### 6.2 Tag Cleanup
-
-Clean up the feedback baseline tag:
-
-```bash
-git tag -d "feedback/$CARD_ID/baseline" 2>/dev/null
-```
+Load the `runtime:card-plan` skill and follow its instructions. The planner will read the existing plan files and implementation context to create a follow-on plan.
 
 </instructions>

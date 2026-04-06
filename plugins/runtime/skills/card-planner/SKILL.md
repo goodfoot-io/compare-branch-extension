@@ -24,6 +24,9 @@ Check whether any plan files exist in `plan/` in the card repository:
 
 Read all plan files from the `plan/` directory. Compare the plan against the current card state — comments added after the plan was last modified may contain new requirements, feedback, or context.
 
+Determine whether prior plans have been implemented by checking for workspace commits on the current branch that correspond to plan tasks. Read recent comments for feedback context.
+
+- **Prior plan(s) implemented and new work requested** (follow-on): Go to Step 1.2 to create a new plan file. Treat prior plans and their implementation as established context — do not revise completed plans. Name the new plan file to reflect its purpose (e.g., `plan/phase-2.md`, `plan/error-handling.md`).
 - **Plan is current and no new information**: Go to Step 3.
 - **New information requires plan revision**: Incorporate changes into the appropriate plan file in `plan/`, commit, then go to Step 2.
 
