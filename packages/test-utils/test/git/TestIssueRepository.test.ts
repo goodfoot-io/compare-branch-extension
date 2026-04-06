@@ -58,7 +58,7 @@ describe('TestCardRepository', () => {
       const cardPath = repo.getCardPath(cardId);
 
       expect(await fs.pathExists(path.join(cardPath, 'CARD.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(cardPath, 'PLAN.md'))).toBe(false);
+      expect(await fs.pathExists(path.join(cardPath, 'plan', 'initial.md'))).toBe(false);
       expect(await fs.pathExists(path.join(cardPath, 'comment'))).toBe(false);
       expect(await fs.pathExists(path.join(cardPath, 'attachment'))).toBe(false);
       // workspace commits are managed via commits.csv

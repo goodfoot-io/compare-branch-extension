@@ -5,7 +5,7 @@
  * not a mocked filesystem, to validate behavior around commits and conflicts.
  *
  * Behavior: uses real `simple-git` and `fs-extra` operations to build card
- * repositories that match the Cards layout (CARD.meta.json, CARD.md, PLAN.md, tasks/, etc.).
+ * repositories that match the Cards layout (CARD.meta.json, CARD.md, plan/, etc.).
  *
  * Constraint: this utility performs actual filesystem and git operations.
  * Always call `destroy()` to clean up temporary directories.
@@ -160,7 +160,7 @@ export class TestCardRepository {
    * Creates a card repository with proper layout.
    *
    * Behavior: initializes a git repo under `<reposPath>/<cardId>` and writes
-   * the standard card scaffolding (CARD.meta.json, CARD.md, PLAN.md, subfolders, attribution).
+   * the standard card scaffolding (CARD.meta.json, CARD.md, subfolders, attribution).
    *
    * @param options Card creation options
    * @returns The card ID

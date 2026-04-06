@@ -259,16 +259,16 @@ describe('buildCardRepoBlock', () => {
 
   it('lists root files without timestamps', () => {
     const dir = join(tmpDir, 'files-test');
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(dir, 'plan'), { recursive: true });
     writeFileSync(join(dir, 'CARD.md'), '# Hello');
-    writeFileSync(join(dir, 'PLAN.md'), '# Plan');
+    writeFileSync(join(dir, 'plan', 'initial.md'), '# Plan');
 
     const result = buildCardRepoBlock(dir);
 
     expect(result).toMatch(/<card-repo>/);
     expect(result).toMatch(/<\/card-repo>/);
     expect(result).toContain('CARD.md');
-    expect(result).toContain('PLAN.md');
+    expect(result).toContain('plan/');
     expect(result).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
   });
 
@@ -342,30 +342,35 @@ describe('buildCardRepoBlock', () => {
     expect(result).toBe('<card-repo>\n\n</card-repo>');
   });
 
-  it('inlines sidecar summary below root .md file', () => {
+  it('inlines sidecar summary below plan/initial.md file', () => {
     const dir = join(tmpDir, 'root-summary-test');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'PLAN.md'), '# Plan');
+    mkdirSync(join(dir, 'plan'), { recursive: true });
+    writeFileSync(join(dir, 'plan', 'initial.md'), '# Plan');
     writeFileSync(
-      join(dir, 'PLAN.md.meta.json'),
+      join(dir, 'plan', 'initial.md.meta.json'),
       JSON.stringify({ title: 'Plan', summary: 'Migrate auth middleware.' })
     );
 
     const result = buildCardRepoBlock(dir);
 
-    expect(result).toContain('PLAN.md\n  Migrate auth middleware.');
-    expect(result).toContain('PLAN.md.meta.json');
+    expect(result).toContain('plan/');
+    expect(result).toContain('  initial.md\n    Migrate auth middleware.');
+    expect(result).toContain('  initial.md.meta.json');
   });
 
   it('inlines multiline sidecar summary with consistent indentation', () => {
     const dir = join(tmpDir, 'multiline-summary-test');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'PLAN.md'), '# Plan');
-    writeFileSync(join(dir, 'PLAN.md.meta.json'), JSON.stringify({ title: 'Plan', summary: 'Line one.\nLine two.' }));
+    mkdirSync(join(dir, 'plan'), { recursive: true });
+    writeFileSync(join(dir, 'plan', 'initial.md'), '# Plan');
+    writeFileSync(
+      join(dir, 'plan', 'initial.md.meta.json'),
+      JSON.stringify({ title: 'Plan', summary: 'Line one.\nLine two.' })
+    );
 
     const result = buildCardRepoBlock(dir);
 
-    expect(result).toContain('PLAN.md\n  Line one.\n  Line two.');
+    expect(result).toContain('plan/');
+    expect(result).toContain('  initial.md\n    Line one.\n    Line two.');
   });
 
   it('skips summary for .md file without sidecar', () => {
@@ -383,14 +388,15 @@ describe('buildCardRepoBlock', () => {
 
   it('skips summary when sidecar has no summary field', () => {
     const dir = join(tmpDir, 'empty-summary-test');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'PLAN.md'), '# Plan');
-    writeFileSync(join(dir, 'PLAN.md.meta.json'), JSON.stringify({ title: 'Plan' }));
+    mkdirSync(join(dir, 'plan'), { recursive: true });
+    writeFileSync(join(dir, 'plan', 'initial.md'), '# Plan');
+    writeFileSync(join(dir, 'plan', 'initial.md.meta.json'), JSON.stringify({ title: 'Plan' }));
 
     const result = buildCardRepoBlock(dir);
 
-    const planLine = result.split('\n').find((l) => l.trim() === 'PLAN.md');
-    expect(planLine).toBe('PLAN.md');
+    // No expanded summary — directory shown with compact count
+    expect(result).toMatch(/plan\/\s+2 files/);
+    expect(result).not.toContain('  initial.md\n');
   });
 
   it('expands directory with summarized .md files and counts remaining', () => {
@@ -469,7 +475,7 @@ describe('buildCardRepoLogBlock', () => {
 
     try {
       await chronoRepo.createAndCommitFile('CARD.md', '# First', 'First commit');
-      await chronoRepo.createAndCommitFile('PLAN.md', '# Second', 'Second commit');
+      await chronoRepo.createAndCommitFile('plan/initial.md', '# Second', 'Second commit');
 
       const result = buildCardRepoLogBlock(chronoPath);
 

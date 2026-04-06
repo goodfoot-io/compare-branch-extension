@@ -86,7 +86,7 @@ beforeEach(async () => {
     const key = `${command} ${normalizedArgs.join(' ')}`;
 
     if (cwd === '/test/repo' && key.startsWith('git log -5 --pretty=format:%x00%h - %an: %s --name-only -- .')) {
-      return '\u0000123abcd - Test User: Add card plan\nPLAN.md\nCARD.md';
+      return '\u0000123abcd - Test User: Add card plan\nplan/initial.md\nCARD.md';
     }
     if (cwd === '/test/repo' && key === 'git rev-list --count HEAD') {
       return '3';
@@ -123,9 +123,9 @@ beforeEach(async () => {
       isFile: () => true
     },
     {
-      name: 'PLAN.md',
-      isDirectory: () => false,
-      isFile: () => true
+      name: 'plan',
+      isDirectory: () => true,
+      isFile: () => false
     },
     {
       name: 'streams',
