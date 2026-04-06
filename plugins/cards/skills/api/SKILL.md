@@ -132,6 +132,14 @@ $CARD_CLI <card-id> action <action-id>
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
+**Watch for commits** — Block until the next unattributed commit on a card's repository:
+```
+$CARD_CLI <card-id> watch
+$CARD_CLI <card-id> watch "src/auth/**"
+$CARD_CLI <card-id> watch "src/auth/**" "tests/auth/**"
+```
+Blocks until the first eligible commit, outputs formatted commit details, attributes the commit to the current session, then exits 0. When unattributed commits already exist at invocation time, they are output immediately without subscribing. Optional glob patterns restrict output to commits where at least one changed file matches; multiple globs are OR-combined. Requires an active card session (`card attach` must have been called). Exits non-zero on connection failure or missing session.
+
 ### $NOTIFICATION_CLI — Send notifications
 
 Send a notification to the VSCode UI.
