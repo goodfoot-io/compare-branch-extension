@@ -1,7 +1,28 @@
 ---
 name: developer
-description: Implement scoped card work in the card's worktree and return the implementation result.
+description: |
+  Implement scoped card work in the card's worktree and return the implementation result.
+
+  <example>
+  Context: card-implementation-with-plan dispatches developer to implement a scoped phase of the plan.
+  user: "Implement Phase 1 of PLAN.md in the card's worktree. Return COMPLETED, NEEDS_REVISION, or BLOCKED when done."
+  assistant: "I'll read PLAN.md and CARD.md, implement the scoped changes in the worktree, run validation, and return the result."
+  <commentary>
+  Developer is dispatched for each scoped unit of work. The orchestrator reads the returned status to decide whether to proceed, request fixes, or escalate.
+  </commentary>
+  </example>
+
+  <example>
+  Context: card-implementation skill dispatches developer to implement directly from CARD.md without a plan.
+  user: "Implement this card directly from CARD.md. No plan exists — derive scope from the card's requirements and acceptance criteria."
+  assistant: "I'll read CARD.md, implement the required changes in the worktree, validate, and return the result."
+  <commentary>
+  Dispatched for Tier 1 cards simple enough to implement without a formal plan. The implementation skill handles orchestration; developer handles only the scoped work.
+  </commentary>
+  </example>
 tools: "*"
+model: inherit
+color: cyan
 skills:
   - runtime:card-developer
 ---
