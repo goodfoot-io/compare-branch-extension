@@ -92,11 +92,11 @@ A good bug title describes behavior: *"[Component] fails when [action]"* or *"[E
 - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
 - Do not expand scope beyond user intent
 
-If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Write or update `CARD.md.meta.json` with `title` set to `"Description"`. Commit to the card repository:
+If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-git add CARD.meta.json CARD.md CARD.md.meta.json
+git add CARD.meta.json CARD.md
 git commit -m "[single sentence summarizing what was corrected or enriched in the card]"  # <card-repo-commit-style>
 ```
 

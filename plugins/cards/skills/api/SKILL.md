@@ -70,10 +70,7 @@ EOF
 cat <<'CARD_EOF' > "$REPO/CARD.md"
 Card description here (plain markdown, no frontmatter).
 CARD_EOF
-cat <<'META_EOF' > "$REPO/CARD.md.meta.json"
-{ "title": "Description" }
-META_EOF
-cd "$REPO" && git add CARD.md CARD.md.meta.json && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
+cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
 If the approach is clear, write PLAN.md in the same flow:
@@ -82,10 +79,7 @@ If the approach is clear, write PLAN.md in the same flow:
 cat <<'PLAN_EOF' > "$REPO/PLAN.md"
 Plan content here (plain markdown, no frontmatter).
 PLAN_EOF
-cat <<'META_EOF' > "$REPO/PLAN.md.meta.json"
-{ "title": "Plan: [approach title]" }
-META_EOF
-cd "$REPO" && git add PLAN.md PLAN.md.meta.json && git commit -m "Added plan [single sentence summarizing the approach and key components]."
+cd "$REPO" && git add PLAN.md && git commit -m "Added plan [single sentence summarizing the approach and key components]."
 ```
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
@@ -258,9 +252,7 @@ Error response (400):
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
-CARD.md.meta.json           # Document sidecar (title)
 PLAN.md                     # Optional plan document
-PLAN.md.meta.json           # Document sidecar (title)
 EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown

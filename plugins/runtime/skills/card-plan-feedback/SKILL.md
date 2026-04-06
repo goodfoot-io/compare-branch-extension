@@ -47,11 +47,11 @@ Update the plan to address all feedback points:
 
 ### 2.3 Store Revised Plan
 
-Write the updated plan to `PLAN.md` in the card repository. Update the `title` in `PLAN.md.meta.json`, prefixed with "Plan: " (4–10 words naming the approach or solution). Commit to the card repository:
+Write the updated plan to `PLAN.md` in the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-git add PLAN.md PLAN.md.meta.json
+git add PLAN.md
 git commit -m "[single sentence summarizing what feedback was incorporated into the plan]"  # <card-repo-commit-style>
 ```
 

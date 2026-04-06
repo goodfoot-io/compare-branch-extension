@@ -41,10 +41,10 @@ Check whether `PLAN.md` exists in the card repository:
 
 ### 1.1 Evaluate Existing Plan
 
-Read `PLAN.md` and `PLAN.md.meta.json`. Compare the plan against the current card state — comments added after the plan was last modified may contain new requirements, feedback, or context.
+Read `PLAN.md`. Compare the plan against the current card state — comments added after the plan was last modified may contain new requirements, feedback, or context.
 
 - **Plan is current and no new information**: Go to Step 3.
-- **New information requires plan revision**: Incorporate changes into `PLAN.md`, update `PLAN.md.meta.json` if the approach or intent changed, commit, then go to Step 2.
+- **New information requires plan revision**: Incorporate changes into `PLAN.md`, commit, then go to Step 2.
 
 ### 1.2 Create Plan
 
@@ -58,13 +58,11 @@ Review all relevant resources: files, web searches, tools. Identify every consum
 
 #### Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository. Write `PLAN.md.meta.json` with a `title` prefixed with "Plan: " (4–10 words naming the approach or solution).
-
-Commit to the card repository:
+Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-git add PLAN.md PLAN.md.meta.json
+git add PLAN.md
 git commit -m "[single sentence summarizing the approach and key decisions]"
 ```
 
@@ -88,11 +86,11 @@ For each spike-eligible uncertainty, spawn a spike agent via the `Agent` tool:
 </invoke>
 ```
 
-Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch. Update the `title` in `PLAN.md.meta.json` if the approach or intent changed.
+Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
 
 ```bash
 cd $CARD_REPO_PATH
-git add PLAN.md PLAN.md.meta.json spike/
+git add PLAN.md spike/
 git commit -m "[single sentence summarizing what the spikes resolved]"
 ```
 
@@ -114,6 +112,6 @@ If the orchestrator resumes you with a failure-mode report, engage with each fin
 - For each finding, decide: revise the approach, add mitigations, or acknowledge an accepted risk with explicit justification.
 - Revise PLAN.md directly — explanations in messages do not help future readers of the plan.
 
-Update `PLAN.md.meta.json` if the approach or intent changed. Commit the revised plan, then return to Step 3.
+Commit the revised plan, then return to Step 3.
 
 </instructions>
