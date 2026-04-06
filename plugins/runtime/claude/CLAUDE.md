@@ -15,7 +15,6 @@ The following environment variables are available in all bash statements:
 | `$WORKSPACE_PATH` | Absolute path to the VS Code workspace root directory (may be a worktree). Equivalent to `$(pwd)`. |
 | `$BASE_BRANCH` | Git branch that the card's workspace branch will merge into. |
 | `$WORKSPACE_BRANCH` | Git branch name for the card's workspace implementation. |
-| `$EFFORT` | Effort level selected by the user: low, medium, or high. Defaults to medium. |
 
 ## Execution Mode
 

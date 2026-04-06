@@ -39,7 +39,7 @@ Read the action file and check for:
 - **`addDir` calls** — each path listed causes its `CLAUDE.md` to be loaded by all agents in that session; update the "Shared Context Injected at Launch" section
 - **Appended system prompts** — listed as `appendSystemPrompt` or similar; update the appended-prompt list
 - **First skill loaded** — look for the `--print` prompt or skill reference passed to Claude CLI; this is the entry skill in the "Entry Points" table
-- **Context variables passed** — look for env vars like `$CARD_ID`, `$EFFORT`; add new ones to the context table in the full exploration document
+- **Context variables passed** — look for env vars like `$CARD_ID`; add new ones to the context table in the full exploration document
 
 ### When an agent is added or changed (`agents/**/*.md`)
 
@@ -50,13 +50,11 @@ Read the agent file and check:
 - **`tools:`** — if restricted (e.g. read-only), note in the agent roster table
 - **Skills the agent loads** — search the agent file for skill names (e.g. `runtime:spike`); update the "Full Agent Roster" and relevant team diagram
 - **Messages the agent sends** — search for `SendMessage` patterns; update the message-flow section for that team
-- **Effort gating** — does the agent's spawning skill check `$EFFORT`? Update the effort table
 
 Add the agent to:
 1. The relevant team diagram (planning or implementation)
 2. The message-flow block for that team
 3. The "Full Agent Roster" table
-4. The effort-based composition table (if gated by effort)
 
 ### When a skill is added or changed (`skills/*/SKILL.md`)
 
@@ -71,13 +69,6 @@ Add the skill to:
 1. The "Full Skills Roster" table (with `Spawns Agents?` column)
 2. The relevant routing or team section
 3. If it forms a team, add a new "Team" section following the planning/implementation team format
-
-### When team composition changes
-
-The effort gating lives in the team-forming skill (e.g. `card-plan/SKILL.md`). Read that skill and find the conditional blocks that check `$EFFORT`. Update:
-
-1. The effort-based composition table
-2. The team diagram (which agents appear at which effort levels)
 
 ---
 
@@ -94,7 +85,7 @@ Spawned by the `[skill-name]` skill. Team name: `[team-name]-[CARD_ID]`.
     │
     ├─ TeamCreate: [team-name]-[CARD_ID]
     │
-    ├─── Agent: runtime:[agent-type]                    ([effort levels])
+    ├─── Agent: runtime:[agent-type]
     │        Loaded context: CLAUDE.md (add-dir), [other appended files]
     │        Skills used: [skill list]
     │        Sends: [messages and recipients]
@@ -126,7 +117,7 @@ To verify the map is up to date, spot-check these:
 2. **Count skills**: `ls public/plugins/runtime/skills/*/SKILL.md | wc -l` — should match the skills roster row count
 3. **Check routing count**: Count the conditions in `card-routing/SKILL.md` — should match the routing table row count
 4. **Check add-dir**: Search `launch.ts` for `addDir` — each path should appear in the "Shared Context" section
-5. **Check team membership**: For each team-forming skill, check the effort conditionals match the effort table
+5. **Check team membership**: For each team-forming skill, verify the team members match the roster table
 
 ---
 
