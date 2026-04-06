@@ -62,7 +62,7 @@ launch.ts
               ├─ HAS_IMPLEMENTATION_FEEDBACK ─► card-implementation-feedback
               ├─ REVIEW_APPROVED           ──► card-merge
               ├─ IS_STALE / !DOR_MET       ──► card-clarify-and-enrich
-              ├─ PLAN_REQUIRED + USER_RESPONDED ► card-plan-feedback
+              ├─ PLAN_REQUIRED + USER_RESPONDED_TO_PLAN ► card-plan-feedback
               ├─ PLAN_REQUIRED + !PLAN_APPROVED ► card-plan ──────────────┐
               ├─ HAS_PLAN / PLAN_APPROVED  ──► card-implementation-with-plan ─┐
               ├─ IS_TESTABLE_BUG           ──► card-bug                    │  │
@@ -78,7 +78,7 @@ launch.ts
 
 Dispatched by the `card-plan` skill. The skill selects a tier based on card complexity, dispatches subagents, and makes the APPROVED / CHANGES_REQUESTED decision itself.
 
-**Planning tiers:**
+**Planning tiers** (selected based on card complexity):
 
 | Tier | What runs |
 |------|-----------|
@@ -87,10 +87,15 @@ Dispatched by the `card-plan` skill. The skill selects a tier based on card comp
 | 3 | `planner` subagent + one `plan-failure-mode` subagent |
 | 4 | `planner` subagent + multiple `plan-failure-mode` subagents, each scoped to a different area |
 
+Tier selection rules:
+- `planApproved=true` → skip tier selection, proceed directly to implementation
+- `PLAN.md` exists but not approved → minimum tier 3
+- `planRequired=true` → minimum tier 2 (never tier 1)
+
 ```
 card-plan skill (orchestrator)
     │
-    ├─── Agent: runtime:card:planner                    (tiers 2–4)
+    ├─── Agent: runtime:card:planner                    (tiers 2–4, named "planner")
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Skills used: runtime:spike (for uncertainties)
     │        Creates: PLAN.md, spike/* artifacts
@@ -106,8 +111,9 @@ card-plan skill (orchestrator)
     │        Analyzes: PLAN.md bets, workspace code, referenced files
     │        Returns: findings to orchestrator
     │        Tier 4: each instance scoped to a different area of concern
+    │        Spawned after planner returns (sequential, not parallel)
     │
-    └── orchestrator reads findings → decides APPROVED or re-spawns planner with findings
+    └── orchestrator reads findings → decides APPROVED or resumes planner via SendMessage with findings
 ```
 
 ---
@@ -117,7 +123,7 @@ card-plan skill (orchestrator)
 Dispatched by `card-implementation-with-plan` and `card-implementation`. After validation, each skill assesses the scope of changes and decides whether to load `card-implementation-evaluation`. The evaluation skill dispatches failure-mode subagents and makes the APPROVED / CHANGES_REQUESTED decision.
 
 ```
-card-implementation-with-plan / card-implementation skill (orchestrator)
+card-implementation-with-plan skill (orchestrator)
     │
     ├─ Creates baseline tag: implement/[CARD_ID]/baseline
     ├─ Analyzes plan coherence → routes parallel / coherent / sequential
@@ -131,8 +137,17 @@ card-implementation-with-plan / card-implementation skill (orchestrator)
     │        Works in: $CARD_REPO_PATH (card's worktree)
     │        Returns: status (COMPLETED / NEEDS_REVISION / BLOCKED)
     │
-    └── assesses scope → loads card-implementation-evaluation if needed
+    └── assesses scope after validation → loads card-implementation-evaluation if needed
+
+card-implementation skill (orchestrator)
+    │
+    ├─ Creates baseline tag: implement/[CARD_ID]/baseline
+    ├─ Implements directly from CARD.md (no coherence analysis)
+    │
+    └── assesses scope after validation → loads card-implementation-evaluation if needed
 ```
+
+**Escape hatch — when-to-return-to-planning**: Both implementation skills may abort mid-implementation, revert to baseline, and load `card-plan` if unexpected complexity is discovered. Triggers: scope exceeded card's implied boundary, approach fork with non-trivial tradeoffs, load-bearing assumption proved false, implementation creates problems it then solves, or (for `card-implementation-with-plan` only) requirements changed since the plan was written.
 
 **Evaluation depth (inside `card-implementation-evaluation`, when loaded):**
 
@@ -157,8 +172,10 @@ card-implementation-evaluation skill (orchestrator)
 
 ```
 orchestrator decides: CHANGES_REQUESTED
-    └──► developer revises
-    └──► re-run evaluation (return to Step 3)
+    └──► create "[Review fix]" todos
+    └──► delegate fixes to developer agent (Steps 2.3–2.4 of card-implementation-with-plan)
+    └──► re-validate (all validation commands must pass)
+    └──► re-dispatch failure-mode subagents (return to Step 3)
     └──► loop until APPROVED or BLOCKED
 ```
 
@@ -238,9 +255,9 @@ cards plugin skills (available in all runtime sessions):
 | `card-question-response` | HAS_QUESTION | No |
 | `card-blocked` | IS_BLOCKED | No |
 | `card-clarify-and-enrich` | Stale / !DOR_MET | No |
-| `card-plan` | PLAN_REQUIRED | **Yes** — planner + plan-failure-mode subagents (tier-based) |
+| `card-plan` | PLAN_REQUIRED or default route | **Yes** — planner + plan-failure-mode subagents (tier-based) |
 | `card-plan-feedback` | Plan revision | No |
-| `card-implementation` | Tier 1 (no plan) | No (uses card-developer) |
+| `card-implementation` | Tier 1 (no plan, via card-plan) | No (loads card-developer skill inline) |
 | `card-implementation-with-plan` | Has plan | **Yes** — developer subagents |
 | `card-implementation-feedback` | HAS_IMPL_FEEDBACK | No |
 | `card-bug` | IS_TESTABLE_BUG | No |
