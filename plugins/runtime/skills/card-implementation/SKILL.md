@@ -76,7 +76,7 @@ git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 
 At any point during implementation, stop and return to planning if any of the following conditions emerge:
 
-1. **Scope exceeded the card's implied boundary** — the change must touch significantly more files or systems than the card described. The original estimate of limited impact was wrong.
+1. **Scope exceeded the card's implied boundary** — the *in-scope* work must touch significantly more files or systems than the card described. The original estimate of limited impact was wrong. Note: discovering issues in code the change does not interact with is not this condition — create a new card for those and continue.
 2. **Approach fork with non-trivial tradeoffs** — a decision point arises where multiple viable paths have meaningfully different implications (correctness, performance, future extensibility) that can't be resolved by reading the code alone.
 3. **Load-bearing assumption proved false** — the implementation depends on something about the codebase that turns out to be untrue or uncertain ("only one caller," "always returns X," "this field is optional"). The correct path forward now depends on what the truth implies.
 4. **Implementation creates problems it then has to solve** — the approach introduces complexity that wouldn't exist with a different approach: timing windows, error-handling machinery, interface mismatches caused by the approach itself. This signals the approach is wrong, not just incomplete.
