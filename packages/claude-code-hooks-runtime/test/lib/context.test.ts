@@ -257,7 +257,7 @@ describe('buildCardRepoBlock', () => {
     mkdirSync(tmpDir, { recursive: true });
   });
 
-  it('lists root files with timestamps', () => {
+  it('lists root files without timestamps', () => {
     const dir = join(tmpDir, 'files-test');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'CARD.md'), '# Hello');
@@ -267,8 +267,9 @@ describe('buildCardRepoBlock', () => {
 
     expect(result).toMatch(/<card-repo>/);
     expect(result).toMatch(/<\/card-repo>/);
-    expect(result).toMatch(/CARD\.md\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
-    expect(result).toMatch(/PLAN\.md\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
+    expect(result).toContain('CARD.md');
+    expect(result).toContain('PLAN.md');
+    expect(result).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
   });
 
   it('lists directories with child counts', () => {
@@ -279,10 +280,11 @@ describe('buildCardRepoBlock', () => {
 
     const result = buildCardRepoBlock(dir);
 
-    expect(result).toMatch(/attachment\/\s+2 files\s+latest \d{4}/);
+    expect(result).toMatch(/attachment\/\s+2 files/);
+    expect(result).not.toMatch(/latest/);
   });
 
-  it('expands comment/ to list individual files with timestamps', () => {
+  it('expands comment/ to list individual files without timestamps', () => {
     const dir = join(tmpDir, 'comment-expand-test');
     mkdirSync(join(dir, 'comment'), { recursive: true });
     writeFileSync(join(dir, 'comment', 'initial.md'), 'first');
@@ -291,8 +293,9 @@ describe('buildCardRepoBlock', () => {
     const result = buildCardRepoBlock(dir);
 
     expect(result).toContain('comment/');
-    expect(result).toMatch(/initial\.md\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
-    expect(result).toMatch(/followup\.md\s+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
+    expect(result).toContain('  initial.md');
+    expect(result).toContain('  followup.md');
+    expect(result).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/);
     // Should NOT show count summary like "2 files"
     expect(result).not.toMatch(/comment\/\s+2 files/);
   });
@@ -307,7 +310,8 @@ describe('buildCardRepoBlock', () => {
     const result = buildCardRepoBlock(dir);
 
     expect(result).toContain('streams/');
-    expect(result).toMatch(/claude-code-session\/\s+3 files\s+latest \d{4}/);
+    expect(result).toMatch(/claude-code-session\/\s+3 files/);
+    expect(result).not.toMatch(/latest/);
   });
 
   it('excludes .git directory', () => {
@@ -336,6 +340,83 @@ describe('buildCardRepoBlock', () => {
     const result = buildCardRepoBlock(dir);
 
     expect(result).toBe('<card-repo>\n\n</card-repo>');
+  });
+
+  it('inlines sidecar summary below root .md file', () => {
+    const dir = join(tmpDir, 'root-summary-test');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'PLAN.md'), '# Plan');
+    writeFileSync(
+      join(dir, 'PLAN.md.meta.json'),
+      JSON.stringify({ title: 'Plan', summary: 'Migrate auth middleware.' })
+    );
+
+    const result = buildCardRepoBlock(dir);
+
+    expect(result).toContain('PLAN.md\n  Migrate auth middleware.');
+    expect(result).toContain('PLAN.md.meta.json');
+  });
+
+  it('inlines multiline sidecar summary with consistent indentation', () => {
+    const dir = join(tmpDir, 'multiline-summary-test');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'PLAN.md'), '# Plan');
+    writeFileSync(join(dir, 'PLAN.md.meta.json'), JSON.stringify({ title: 'Plan', summary: 'Line one.\nLine two.' }));
+
+    const result = buildCardRepoBlock(dir);
+
+    expect(result).toContain('PLAN.md\n  Line one.\n  Line two.');
+  });
+
+  it('skips summary for .md file without sidecar', () => {
+    const dir = join(tmpDir, 'no-sidecar-test');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'CARD.md'), '# Hello');
+
+    const result = buildCardRepoBlock(dir);
+
+    expect(result).toContain('CARD.md');
+    // Only the filename line, no indented summary
+    const cardLine = result.split('\n').find((l) => l.includes('CARD.md'));
+    expect(cardLine).toBe('CARD.md');
+  });
+
+  it('skips summary when sidecar has no summary field', () => {
+    const dir = join(tmpDir, 'empty-summary-test');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'PLAN.md'), '# Plan');
+    writeFileSync(join(dir, 'PLAN.md.meta.json'), JSON.stringify({ title: 'Plan' }));
+
+    const result = buildCardRepoBlock(dir);
+
+    const planLine = result.split('\n').find((l) => l.trim() === 'PLAN.md');
+    expect(planLine).toBe('PLAN.md');
+  });
+
+  it('expands directory with summarized .md files and counts remaining', () => {
+    const dir = join(tmpDir, 'dir-expand-test');
+    mkdirSync(join(dir, 'notes'), { recursive: true });
+    writeFileSync(join(dir, 'notes', 'entry.md'), '# Entry');
+    writeFileSync(join(dir, 'notes', 'entry.md.meta.json'), JSON.stringify({ summary: 'Entry points overview.' }));
+    writeFileSync(join(dir, 'notes', 'other.txt'), 'plain text');
+
+    const result = buildCardRepoBlock(dir);
+
+    expect(result).toContain('notes/');
+    expect(result).toContain('  entry.md\n    Entry points overview.');
+    expect(result).toContain('  entry.md.meta.json');
+    expect(result).toContain('  + 1 file');
+  });
+
+  it('shows compact count for directory with no sidecar summaries', () => {
+    const dir = join(tmpDir, 'dir-compact-test');
+    mkdirSync(join(dir, 'data'), { recursive: true });
+    writeFileSync(join(dir, 'data', 'a.json'), '{}');
+    writeFileSync(join(dir, 'data', 'b.json'), '{}');
+
+    const result = buildCardRepoBlock(dir);
+
+    expect(result).toMatch(/data\/\s+2 files/);
   });
 });
 

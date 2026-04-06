@@ -218,49 +218,44 @@ export function buildCardBlock(actionInput: ActionInput): string {
 // ============================================================================
 
 /**
- * Formats an mtime as an ISO 8601 string truncated to minutes in UTC.
- *
- * @param mtimeMs - Modification time in milliseconds since epoch.
- * @returns ISO string like `2025-02-24T14:24Z`.
- */
-function formatTimestamp(mtimeMs: number): string {
-  const d = new Date(mtimeMs);
-  const iso = d.toISOString(); // 2025-02-24T14:24:21.000Z
-  // Truncate to minutes: "2025-02-24T14:24Z"
-  return `${iso.slice(0, 16)}Z`;
-}
-
-/**
- * Counts files (non-directories) in a directory and returns the latest mtime.
+ * Counts files (non-directories) in a directory.
  *
  * @param dirPath - Directory to scan.
- * @returns Tuple of `[fileCount, latestMtimeMs]`, or `[0, 0]` on error.
+ * @returns Number of files, or `0` on error.
  */
-function dirStats(dirPath: string): [count: number, latestMtimeMs: number] {
+function dirFileCount(dirPath: string): number {
   try {
-    const entries = readdirSync(dirPath, { withFileTypes: true });
-    let count = 0;
-    let latest = 0;
-    for (const entry of entries) {
-      if (entry.isFile()) {
-        count++;
-        try {
-          const mt = statSync(join(dirPath, entry.name)).mtimeMs;
-          if (mt > latest) latest = mt;
-        } catch (_statError: unknown) {
-          void _statError; // individual stat failure is non-fatal
-        }
-      }
-    }
-    return [count, latest];
+    return readdirSync(dirPath, { withFileTypes: true }).filter((e) => e.isFile()).length;
   } catch {
-    return [0, 0];
+    return 0;
   }
 }
 
 /**
- * Builds the `<card-repo>` block: root-level files with timestamps,
- * directories with child counts, and streams subdirectories.
+ * Reads the `summary` field from a `.md.meta.json` sidecar file.
+ *
+ * @param sidecarPath - Absolute path to the sidecar JSON file.
+ * @returns The summary string, or `null` when the file is missing, malformed, or has no summary.
+ */
+function readSidecarSummary(sidecarPath: string): string | null {
+  try {
+    const raw = readFileSync(sidecarPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const summary = parsed['summary'];
+    return typeof summary === 'string' && summary.length > 0 ? summary : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Builds the `<card-repo>` block: root-level files, directories with
+ * child counts, streams subdirectories, and inlined sidecar summaries.
+ *
+ * When a `.md` file has a `.md.meta.json` sidecar containing a `summary`
+ * field, the summary is indented below the file entry. Directories that
+ * contain at least one summarized file are expanded; directories with no
+ * summaries show a compact file count.
  *
  * @param rootPath - Root directory of the card repository.
  * @returns The `<card-repo>...</card-repo>` block string.
@@ -285,16 +280,15 @@ export function buildCardRepoBlock(rootPath: string): string {
 
     if (entry.isDir) {
       if (entry.name === 'streams') {
-        // Streams: show each subdirectory with child count + latest timestamp
+        // Streams: show each subdirectory with child count
         lines.push('streams/');
         try {
           const streamEntries = readdirSync(fullPath, { withFileTypes: true });
           for (const sub of streamEntries) {
             if (sub.isDirectory()) {
               const subName = sub.name.toString();
-              const [count, latest] = dirStats(join(fullPath, subName));
-              const ts = latest > 0 ? `   latest ${formatTimestamp(latest)}` : '';
-              lines.push(`${`  ${subName}/`.padEnd(24)}${count} files${ts}`);
+              const count = dirFileCount(join(fullPath, subName));
+              lines.push(`${`  ${subName}/`.padEnd(24)}${count} files`);
             }
           }
         } catch (_readdirError: unknown) {
@@ -305,39 +299,79 @@ export function buildCardRepoBlock(rootPath: string): string {
         lines.push('comment/');
         try {
           const commentEntries = readdirSync(fullPath, { withFileTypes: true });
-          const fileStats: { name: string; birthtime: number }[] = [];
+          const fileEntries: { name: string; birthtime: number }[] = [];
           for (const f of commentEntries) {
             if (f.isFile()) {
               try {
                 const stat = statSync(join(fullPath, f.name));
                 const birthtime = stat.birthtimeMs > 0 ? stat.birthtimeMs : stat.mtimeMs;
-                fileStats.push({ name: f.name, birthtime });
+                fileEntries.push({ name: f.name, birthtime });
               } catch {
-                fileStats.push({ name: f.name, birthtime: 0 });
+                fileEntries.push({ name: f.name, birthtime: 0 });
               }
             }
           }
-          fileStats.sort((a, b) => a.birthtime - b.birthtime);
-          for (const f of fileStats) {
-            const ts = f.birthtime > 0 ? formatTimestamp(f.birthtime) : '';
-            lines.push(`  ${f.name.padEnd(22)}${ts}`);
+          fileEntries.sort((a, b) => a.birthtime - b.birthtime);
+          for (const f of fileEntries) {
+            lines.push(`  ${f.name}`);
           }
         } catch (_readdirError: unknown) {
           void _readdirError; // comment dir unreadable — already listed the directory name
         }
       } else {
-        // Non-streams directory: show child count + latest timestamp
-        const [count, latest] = dirStats(fullPath);
-        const ts = latest > 0 ? `   latest ${formatTimestamp(latest)}` : '';
-        lines.push(`${`${entry.name}/`.padEnd(24)}${count} files${ts}`);
+        // Other directory: expand .md files that have sidecar summaries
+        try {
+          const dirEntries = readdirSync(fullPath, { withFileTypes: true });
+          const fileNames = dirEntries.filter((e) => e.isFile()).map((e) => e.name.toString());
+          const subDirCount = dirEntries.filter((e) => e.isDirectory()).length;
+
+          const summarized: { name: string; summary: string; sidecarName: string }[] = [];
+          for (const name of fileNames) {
+            if (name.endsWith('.md') && !name.endsWith('.meta.json')) {
+              const sidecarName = `${name}.meta.json`;
+              const summary = readSidecarSummary(join(fullPath, sidecarName));
+              if (summary) {
+                summarized.push({ name, summary, sidecarName });
+              }
+            }
+          }
+
+          if (summarized.length === 0) {
+            // No summaries — compact count on same line
+            const count = fileNames.length + subDirCount;
+            lines.push(`${`${entry.name}/`.padEnd(24)}${count} files`);
+          } else {
+            lines.push(`${entry.name}/`);
+            const listedNames = new Set<string>();
+            for (const { name, summary, sidecarName } of summarized) {
+              lines.push(`  ${name}`);
+              for (const summaryLine of summary.split('\n')) {
+                lines.push(`    ${summaryLine}`);
+              }
+              lines.push(`  ${sidecarName}`);
+              listedNames.add(name);
+              listedNames.add(sidecarName);
+            }
+            const remaining = fileNames.filter((n) => !listedNames.has(n)).length + subDirCount;
+            if (remaining > 0) {
+              lines.push(`  + ${remaining} files`);
+            }
+          }
+        } catch (_readdirError: unknown) {
+          // Directory unreadable — show name only
+          lines.push(`${entry.name}/`);
+        }
       }
     } else {
-      // Root-level file: show name + timestamp
-      try {
-        const mt = statSync(fullPath).mtimeMs;
-        lines.push(`${entry.name}`.padEnd(24) + formatTimestamp(mt));
-      } catch {
-        lines.push(entry.name);
+      // Root-level file
+      lines.push(entry.name);
+      if (entry.name.endsWith('.md') && !entry.name.endsWith('.meta.json')) {
+        const summary = readSidecarSummary(join(rootPath, `${entry.name}.meta.json`));
+        if (summary) {
+          for (const summaryLine of summary.split('\n')) {
+            lines.push(`  ${summaryLine}`);
+          }
+        }
       }
     }
   }
