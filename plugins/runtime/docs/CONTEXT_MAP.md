@@ -140,12 +140,15 @@ card-implementation-with-plan skill (orchestrator)
     │        Works in: $CARD_REPO_PATH (card's worktree)
     │        Returns: status (COMPLETED / NEEDS_REVISION / BLOCKED)
     │
+    ├── loads cards:markdown + runtime:workspace-commit-style → commits per convention
     └── assesses scope after validation → loads card-implementation-evaluation if needed
 
 card-implementation skill (orchestrator)
     │
     ├─ Creates baseline tag: implement/[CARD_ID]/baseline
+    ├─ Loads runtime:card-developer skill for implementation approach
     ├─ Implements directly from CARD.md (no coherence analysis)
+    ├─ Loads cards:markdown + runtime:workspace-commit-style → commits per convention
     │
     └── assesses scope after validation → loads card-implementation-evaluation if needed
 ```
@@ -263,6 +266,7 @@ cards plugin skills (available in all runtime sessions):
 | `card-plan-feedback` | Plan revision | No |
 | `card-implementation` | Tier 1 (no plan, via card-plan) | No (loads card-developer skill inline) |
 | `card-implementation-with-plan` | Has plan | **Yes** — developer subagents |
+| `workspace-commit-style` | Loaded by implementation skills before committing | No |
 | `card-implementation-feedback` | HAS_IMPL_FEEDBACK | No |
 | `card-bug` | IS_TESTABLE_BUG | No |
 | `card-merge` | REVIEW_APPROVED | No |

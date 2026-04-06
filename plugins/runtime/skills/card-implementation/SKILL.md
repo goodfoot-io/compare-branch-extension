@@ -37,14 +37,31 @@ Read CARD.md for goals and constraints. Card metadata (title, gates, tags) is av
 For each logical unit of work:
 1. Read relevant files
 2. Implement the change
-3. Commit logically grouped changes
+3. Commit per Step 2.1
 4. Tag the rollback point:
 
    ```bash
       git tag -f "implement/$CARD_ID/step-N" HEAD
    ```
 
-### 2.1 Validation Gate
+### 2.1 Load Skills and Commit
+
+Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
+
+Commit all workspace changes including new files:
+
+```bash
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>]
+COMMITMSG
+)"
+git tag -f "implement/$CARD_ID/baseline" HEAD
+```
+
+The baseline tag advances after each successful commit.
+
+### 2.2 Validation Gate
 
 **Requirement:** ALL validation commands must pass before proceeding.
 
@@ -66,16 +83,28 @@ Diff the workspace against the baseline to assess the scope of changes: number o
 
 ## 4. Finalize
 
-### 3.1 Clean Up Tags
+### 4.1 Stage Remaining Changes
+
+Stage any uncommitted implementation artifacts:
+
+```bash
+git add -A
+git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>]
+COMMITMSG
+)"
+```
+
+### 4.2 Complete or Await Review
+
+- **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
+- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval.
+
+### 4.3 Tag Cleanup
 
 ```bash
 git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 ```
-
-### 3.2 Complete
-
-- **gates.mergeRequestRequired is true**: Commit to the card repository. **STOP** — Merge occurs after user approval.
-- **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
 
 </instructions>
 
