@@ -425,7 +425,7 @@ describe('buildCardRepoLogBlock', () => {
     const result = buildCardRepoLogBlock(repoPath);
 
     expect(result).not.toBeNull();
-    expect(result).toMatch(/<card-repo-log count="\d+">/);
+    expect(result).toMatch(/<card-repo-log count="\d+" order="oldest-first">/);
     expect(result).toContain('</card-repo-log>');
     // TestGitWorkspace creates a "Repository initializes." commit
     expect(result).toContain('Repository initializes.');
@@ -449,15 +449,18 @@ describe('buildCardRepoLogBlock', () => {
     expect(result).toBeNull();
   });
 
-  it('shows commit lines with date and no file lists', () => {
+  it('shows commit lines without file lists and includes order attribute', () => {
     const result = buildCardRepoLogBlock(repoPath);
 
     expect(result).not.toBeNull();
-    // Each commit line includes a short date
-    expect(result).toMatch(/[0-9a-f]{7,} \d{4}-\d{2}-\d{2} /);
+    // Each commit line: short hash, author, subject
+    expect(result).toMatch(/[0-9a-f]{7,} .+: /);
+    // No dates in commit lines
+    expect(result).not.toMatch(/[0-9a-f]{7,} \d{4}-\d{2}-\d{2}/);
     // No file paths in the output
     expect(result).not.toContain('diff --git');
-    expect(result).not.toMatch(/\.\w+\n/); // no file extensions on their own lines
+    // Order attribute present
+    expect(result).toContain('order="oldest-first"');
   });
 
   it('lists commits in chronological order (oldest first)', async () => {

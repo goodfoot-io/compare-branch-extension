@@ -384,14 +384,15 @@ export function buildCardRepoBlock(rootPath: string): string {
 // ============================================================================
 
 /** Maximum number of qualifying commits shown in the card repo log. */
-const MAX_CARD_REPO_LOG_COMMITS = 5;
+const MAX_CARD_REPO_LOG_COMMITS = 10;
 
 /**
  * Builds the `<card-repo-log>` block with recent commits in chronological
  * (oldest-first) order.
  *
  * Excludes commits that exclusively touch `streams/` or bookkeeping files.
- * Each line shows the short hash, date, author, and subject — no file lists.
+ * Each line shows the short hash, author, and subject — no file lists.
+ * An `order="oldest-first"` attribute indicates chronological direction.
  *
  * Returns `null` when the repository has no qualifying commits or git is
  * unavailable, so the block can be omitted from the output.
@@ -407,7 +408,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         'log',
         `--max-count=${MAX_CARD_REPO_LOG_COMMITS}`,
         '--reverse',
-        '--pretty=format:%h %as %an: %s',
+        '--pretty=format:%h %an: %s',
         '--',
         '.',
         ...CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
@@ -438,7 +439,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     }
 
     const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
-    return `<card-repo-log${countAttr}>\n${log}\n</card-repo-log>`;
+    return `<card-repo-log${countAttr} order="oldest-first">\n${log}\n</card-repo-log>`;
   } catch {
     return null;
   }
