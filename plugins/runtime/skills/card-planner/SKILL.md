@@ -37,6 +37,10 @@ Distill from the card what the situation looks like when the work is done and wh
 
 Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
 
+#### Load Markdown Guidelines
+
+Load the `cards:markdown` skill before writing PLAN.md.
+
 #### Write and Store Plan
 
 Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
@@ -67,7 +71,7 @@ For each spike-eligible uncertainty, spawn a spike agent via the `Agent` tool:
 </invoke>
 ```
 
-Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
+Load the `cards:markdown` skill (if not already loaded) before revising PLAN.md. Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
 
 ```bash
 cd $CARD_REPO_PATH

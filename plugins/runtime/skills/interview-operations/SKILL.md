@@ -33,6 +33,12 @@ Decorate and enrich the user's request — do not implement it. Research the cod
 
 ## 2. Update Card
 
+### 2.1 Load Markdown Guidelines
+
+Load the `cards:markdown` skill before writing CARD.md.
+
+### 2.2 Write Card Content
+
 Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
 
 

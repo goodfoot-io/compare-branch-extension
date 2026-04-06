@@ -59,7 +59,7 @@ A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 - Description contains factual errors (wrong paths, incorrect component names)
 - Description lacks context needed to begin work
 
-**Enrich descriptions** with context discovered during exploration. Follow the `<markdown-guidelines>` for all file references, code locations, and diagrams:
+**Enrich descriptions** with context discovered during exploration. Follow the `<markdown-guidelines>` from the `cards:markdown` skill for all file references, code locations, and diagrams:
 - Relevant file paths and component names
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)
@@ -92,7 +92,7 @@ A good bug title describes behavior: *"[Component] fails when [action]"* or *"[E
 - Correct factual errors in the main text; append a footnote: `*Corrections: Changed X to Y (reason)*`
 - Do not expand scope beyond user intent
 
-If changes are needed, update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
+If changes are needed, load the `cards:markdown` skill before writing CARD.md. Update `CARD.meta.json` (for title) and/or `CARD.md` (for description) in the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
