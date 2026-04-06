@@ -58,23 +58,6 @@ Any of the following are true:
 - The correct fix requires choosing between alternatives
 - You are uncertain whether the change is trivial
 
-**→ Proceed to Step 3.**
-
----
-
-## 3. Create Follow-On Plan
-
-Write a comment to the card repository explaining why the feedback requires a new plan rather than an inline fix. Be specific about what design decisions or scope expansion drove the assessment.
-
-```bash
-cd $CARD_REPO_PATH
-cat <<'EOF' > comment/feedback-needs-plan.md
-[explanation of why a plan is needed: what the feedback asks for, why it exceeds a trivial fix, and what the plan should address]
-EOF
-git add comment/feedback-needs-plan.md
-git commit -m "[single sentence explaining why feedback requires a follow-on plan]"  # <card-repo-commit-style>
-```
-
 Load the `runtime:card-plan` skill and follow its instructions. The planner will read the existing plan files and implementation context to create a follow-on plan.
 
 </instructions>
