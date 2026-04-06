@@ -9,13 +9,13 @@ description: Triage user feedback on completed implementations into inline fixes
 ## 1. Read Feedback
 
 Read:
-- The latest user comment in the card repository (the feedback)
+- Recent user additions to the card repository — comments, attachments (screenshots, logs), and any updates to `CARD.md`
 - Plan files from the `plan/` directory in the card repository (prior approach and context)
 - `CARD.md` for the card's broader purpose
 - Recent workspace commits on the current branch (what was already delivered)
 
-Based on the latest user comment:
-- **Empty or does not indicate what changes are needed**: Write a comment requesting clarification, commit, and **STOP**
+Based on the user's feedback (comments, attachments, or direct messages):
+- **No actionable feedback found**: Write a comment requesting clarification, commit, and **STOP**
 
 ```bash
 cd $CARD_REPO_PATH
