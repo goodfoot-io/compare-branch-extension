@@ -1,6 +1,6 @@
 ---
 name: card-implementation-evaluation
-description: Evaluate implementation quality by requesting a maintainer review.
+description: Assess implementation complexity, select an evaluation tier, dispatch failure-mode subagents, and decide whether the implementation is ready.
 ---
 
 
@@ -24,59 +24,33 @@ Run validation per the plan's validation commands.
 
 **On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
 
-Only proceed to **3. Start Review** when ALL validations pass.
+Only proceed to **3. Select Evaluation Tier** when ALL validations pass.
 
-## 3. Start Review
+## 3. Select Evaluation Tier
 
-Create the review team. Read `EFFORT` from the `<card>` block (default: `medium`). Spawn agents based on effort level:
+Assess the scope of the implementation: number of changed files, types of changes, runtime risk, and acceptance criteria complexity. Select the tier that matches:
 
-- **Medium**: Maintainer only
-- **High**: Maintainer and failure-mode analyst
+| Tier | What runs |
+|------|-----------|
+| 1 | No evaluation — proceed directly to finalize |
+| 2 | One `failure-mode` subagent |
+| 3 | Multiple `failure-mode` subagents, each scoped to a different area |
 
-The team stays alive across review iterations — agents persist and retain context from prior reviews.
+## 4. Dispatch Subagents
 
-```xml
-<invoke name="TeamCreate">
-<parameter name="team_name">review-[CARD_ID]</parameter>
-<parameter name="description">[CARD_ID]: implementation review</parameter>
-</invoke>
-```
+### Tier 1
 
-### Maintainer (medium and high effort)
+No subagents needed. Proceed to Step 5.
 
-```xml
-<invoke name="Agent">
-<parameter name="description">Maintainer review</parameter>
-<parameter name="subagent_type">runtime:card:maintainer</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="team_name">review-[CARD_ID]</parameter>
-<parameter name="name">maintainer</parameter>
-<parameter name="prompt">
-Review this implementation for production readiness.
+### Tier 2
 
-## Card Repository
-[CARD_REPO_PATH]
-
-## Baseline
-Changes are relative to git tag: `implement/[CARD_ID]/baseline`
-
-## Modified Files
-[PLAN_FILES]
-
-For every claim the code makes about the system — type contracts, error handling assumptions, consumer expectations — verify by running or tracing the code. Do not evaluate claims by reasoning about them. Send a review report per your instructions.
-</parameter>
-</invoke>
-```
-
-### Failure-Mode Analyst (high effort only)
+Spawn one failure-mode subagent:
 
 ```xml
 <invoke name="Agent">
 <parameter name="description">Failure mode analysis</parameter>
 <parameter name="subagent_type">runtime:card:failure-mode</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">review-[CARD_ID]</parameter>
-<parameter name="name">failure-mode</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this implementation.
 
@@ -89,48 +63,68 @@ Identify potential failure modes in this implementation.
 ## Baseline
 Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
-Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. The failure modes live in the gap between the implementer's model and the system's actual behavior.
+Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. Return your findings.
 </parameter>
 </invoke>
 ```
 
-## 4. Review Loop
+### Tier 3
 
-This is an iterative review loop. Each iteration waits for teammates, processes their findings, and revises the code. The loop terminates only when:
+Spawn multiple failure-mode subagents in parallel, each with a focused scope:
 
-- **APPROVED**: A teammate's verdict is APPROVED and no unaddressed findings remain
-- **BLOCKED**: A teammate's verdict is BLOCKED
+```xml
+<invoke name="Agent">
+<parameter name="description">Failure mode analysis — data flow and multi-file impact</parameter>
+<parameter name="subagent_type">runtime:card:failure-mode</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="prompt">
+Identify potential failure modes in this implementation. Focus on data-flow gaps and multi-file impact.
 
-Every code revision requires a full round of re-review from all teammates before the loop can terminate.
+## Card Repository
+[CARD_REPO_PATH]
 
-### 4.1 Wait for Reports
+## Workspace
+[WORKSPACE_PATH]
 
-Wait for reports from all teammates. If some teammates report before others, proceed once at least one report with a verdict arrives — incorporate late-arriving findings when they arrive in Step 4.3.
+## Baseline
+Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
-### 4.2 Process Verdict
+Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. Return your findings.
+</parameter>
+<parameter name="run_in_background">true</parameter>
+</invoke>
+<invoke name="Agent">
+<parameter name="description">Failure mode analysis — error paths and async hazards</parameter>
+<parameter name="subagent_type">runtime:card:failure-mode</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="prompt">
+Identify potential failure modes in this implementation. Focus on error paths, silent error conversion, and async hazards.
 
-Apply the first matching condition:
+## Card Repository
+[CARD_REPO_PATH]
 
-- **BLOCKED**: Go to Step 5. Document in comment, add `blocked` tag, commit, **STOP**.
-- **CHANGES_REQUESTED or unaddressed findings**: Go to Step 4.3.
-- **APPROVED and no unaddressed findings**: Go to Step 5. Proceed to the next step in the implementation workflow. Do not modify gates in `CARD.meta.json`.
+## Workspace
+[WORKSPACE_PATH]
 
-### 4.3 Engage with Feedback
+## Baseline
+Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
-Your goal is to submit work that definitely improves the overall code health of the system. Engage with findings before acting on them.
+Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. Return your findings.
+</parameter>
+</invoke>
+```
 
-For each finding, formulate a question that demonstrates you understand it and surfaces what you need clarified — the reasoning, the intended scope, or whether an alternative would satisfy the concern. Do not ask questions answerable by reading the code.
+## 5. Read Findings and Decide
 
-Every finding must be addressed — "pre-existing" or "not introduced by this change" is not grounds for dismissal. For each finding, decide:
-- Fix the code
-- Add mitigations
-- Acknowledge an accepted risk with explicit justification
+After all subagents return, read their output. Decide:
 
-**Finding you believe is incorrect:** Present your case with evidence: "I went with X because of [tradeoffs]. My understanding is that Y would be worse because [reasons]. Are you suggesting Y better serves the codebase, or something else?"
+- **APPROVED**: No blocking findings — proceed to Step 6.
+- **CHANGES_REQUESTED**: Findings require fixes — go to Step 5.1.
+- **BLOCKED**: External constraints prevent completion — document in comment, add `blocked` tag, commit, **STOP**.
 
-**Out-of-scope issues**: If you or a teammate discover a latent issue in code the change does not interact with — visible only through code reading, not through validation output — do not treat it as a finding on this review. Instead, load the `cards:api` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Alert the team via `SendMessage`, then continue. Errors surfaced by validation (tests, lint, typecheck) are never out-of-scope — they must be fixed before proceeding.
+When deciding, apply the same bar a maintainer would: broken wiring, contract drift, unmet requirements, unsafe defaults, and missing behavioral coverage require fixes. Nits and style observations do not block.
 
-### 4.4 Address Changes and Re-submit
+### 5.1 Address Changes
 
 For each finding:
 - **Viable**: Create a todo with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate via Steps 2.3–2.4.
@@ -148,18 +142,10 @@ COMMITMSG
 
 Run validation per the plan's validation commands. On failure, delegate fixes (same as Step 2), then stage and re-validate.
 
-Make unclear code self-explanatory — explanations in re-submission messages do not help future code readers.
+Return to Step 3.
 
-Message all teammates to re-review. Include what changed and why, and feedback for any finding not addressed.
+## 6. Finalize
 
-Return to Step 4.1.
-
-## 5. Shut Down Team
-
-Send shutdown messages to all spawned agents. Wait for acknowledgment, then delete the team:
-
-```xml
-<invoke name="TeamDelete"/>
-```
+Proceed to the next step in the implementation workflow. Do not modify gates in `CARD.meta.json`.
 
 </instructions>

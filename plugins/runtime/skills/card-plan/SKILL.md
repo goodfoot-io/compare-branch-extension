@@ -1,41 +1,41 @@
 ---
 name: card-plan
-description: Spawn the planning team and wait for the planner to signal completion or failure.
+description: Assess card complexity, select a planning tier, dispatch subagents, and decide whether the plan is ready to proceed.
 ---
 
 
 <instructions>
 
-## 1. Create Team
+## 1. Select Planning Tier
 
-```xml
-<invoke name="TeamCreate">
-<parameter name="team_name">plan-[CARD_ID]</parameter>
-<parameter name="description">[CARD_ID]: planning and review</parameter>
-</invoke>
-```
+Read the card from the `<card>` block. Assess scope, type, number of files likely affected, acceptance criteria complexity, and risk signals. Select the tier that matches the work:
 
-## 2. Spawn Agents
+| Tier | What runs |
+|------|-----------|
+| 1 | No plan — proceed directly to implementation |
+| 2 | `planner` subagent only |
+| 3 | `planner` subagent + one `plan-failure-mode` subagent |
+| 4 | `planner` subagent + multiple `plan-failure-mode` subagents, each scoped to a different area of concern |
 
-Read `EFFORT` from the `<card>` block (default: `medium`). Spawn agents based on effort level:
+If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–4).
 
-- **Low**: Planner only
-- **Medium**: Planner and maintainer
-- **High**: Planner, maintainer, and failure-mode analyst
+## 2. Dispatch Subagents
 
-### Planner (all effort levels)
+### Tier 1
 
-Include teammate availability in the planner's prompt so it knows who to engage for review.
+No subagents needed. Proceed to Step 4.
+
+### Tier 2
+
+Spawn the planner:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">Plan creation and revision</parameter>
+<parameter name="description">Plan creation</parameter>
 <parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">plan-[CARD_ID]</parameter>
-<parameter name="name">planner</parameter>
 <parameter name="prompt">
-Create and refine an implementation plan for this card.
+Create an implementation plan for this card.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -43,25 +43,22 @@ Create and refine an implementation plan for this card.
 ## Workspace
 [WORKSPACE_PATH]
 
-## Teammates
-[TEAMMATE_NAMES or "None"]
-
-Read the card from the card repository. Create the plan, investigate uncertainties, submit for review, and revise until approved or blocked. Signal the outcome to the team lead when done.
+Read the card from the card repository. Create the plan and investigate uncertainties. Return the plan state and any blockers.
 </parameter>
 </invoke>
 ```
 
-### Maintainer (medium and high effort)
+### Tier 3
+
+Spawn the planner first, wait for it to return, then spawn one `plan-failure-mode` subagent:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">Plan maintainer review</parameter>
-<parameter name="subagent_type">runtime:card:plan-maintainer</parameter>
+<parameter name="description">Plan creation</parameter>
+<parameter name="subagent_type">runtime:card:planner</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">plan-[CARD_ID]</parameter>
-<parameter name="name">maintainer</parameter>
 <parameter name="prompt">
-Review this implementation plan for quality and completeness.
+Create an implementation plan for this card.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -69,20 +66,18 @@ Review this implementation plan for quality and completeness.
 ## Workspace
 [WORKSPACE_PATH]
 
-Wait for the planner to submit the plan for review. For every claim the plan makes about the codebase, search the workspace to confirm or refute it — do not evaluate claims by reasoning about them. Send a review report per your instructions.
+Read the card from the card repository. Create the plan and investigate uncertainties. Return the plan state and any blockers.
 </parameter>
 </invoke>
 ```
 
-### Failure-Mode Analyst (high effort only)
+After the planner returns, spawn the failure-mode subagent:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">Failure mode analysis</parameter>
+<parameter name="description">Plan failure-mode analysis</parameter>
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="team_name">plan-[CARD_ID]</parameter>
-<parameter name="name">plan-failure-mode</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this implementation plan.
 
@@ -92,34 +87,93 @@ Identify potential failure modes in this implementation plan.
 ## Workspace
 [WORKSPACE_PATH]
 
-Wait for the planner to submit the plan for review. Read the workspace source files the plan references — then search the workspace for consumers of every symbol, type, and file the plan modifies. The failure modes live in the gap between the plan's model and the system's actual behavior.
+Read PLAN.md from the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
 </parameter>
 </invoke>
 ```
 
-## 3. Wait for Completion
+### Tier 4
 
-Wait for the planner to signal completion or failure.
-
-Based on the planner's signal:
-- **Approved**: Proceed to Step 4.
-- **Blocked**: Document in comment, add `blocked` tag, commit, proceed to Step 4.
-
-## 4. Shut Down Team
-
-Send shutdown messages to all spawned agents. Wait for acknowledgment, then delete the team:
+Spawn the planner first, wait for it to return, then spawn multiple `plan-failure-mode` subagents in parallel, each with a focused scope:
 
 ```xml
-<invoke name="TeamDelete"/>
+<invoke name="Agent">
+<parameter name="description">Plan creation</parameter>
+<parameter name="subagent_type">runtime:card:planner</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="prompt">
+Create an implementation plan for this card.
+
+## Card Repository
+[CARD_REPO_PATH]
+
+## Workspace
+[WORKSPACE_PATH]
+
+Read the card from the card repository. Create the plan and investigate uncertainties. Return the plan state and any blockers.
+</parameter>
+</invoke>
 ```
 
-## 5. Next Step
+After the planner returns, spawn the failure-mode subagents in parallel:
+
+```xml
+<invoke name="Agent">
+<parameter name="description">Plan failure-mode analysis — data flow and multi-file impact</parameter>
+<parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="prompt">
+Identify potential failure modes in this implementation plan. Focus on data-flow completeness and multi-file impact.
+
+## Card Repository
+[CARD_REPO_PATH]
+
+## Workspace
+[WORKSPACE_PATH]
+
+Read PLAN.md from the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+</parameter>
+<parameter name="run_in_background">true</parameter>
+</invoke>
+<invoke name="Agent">
+<parameter name="description">Plan failure-mode analysis — error paths and async hazards</parameter>
+<parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
+<parameter name="model">opus</parameter>
+<parameter name="prompt">
+Identify potential failure modes in this implementation plan. Focus on error paths, async hazards, and partial-failure handling.
+
+## Card Repository
+[CARD_REPO_PATH]
+
+## Workspace
+[WORKSPACE_PATH]
+
+Read PLAN.md from the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+</parameter>
+</invoke>
+```
+
+## 3. Read Findings and Decide
+
+After all subagents return, read their output.
+
+Based on the planner's outcome and any failure-mode findings:
+
+- **Planner blocked**: Document in comment, add `blocked` tag, commit. **STOP** — do not proceed to implementation.
+- **Findings require plan revision**: Re-spawn the planner with the findings incorporated into the prompt. Return to Step 2 to re-dispatch failure-mode subagents after the planner returns.
+- **No blocking findings**: Proceed to Step 4.
+
+When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Style observations and minor nits do not.
+
+## 4. Next Step
 
 Read `gates.planRequired` from `CARD.meta.json`.
 
-Based on the planner's outcome and `planRequired`:
-- **Blocked**: **STOP** — Do not proceed to implementation.
-- **Approved and planRequired**: **STOP** — Plan submitted for approval. Do not modify gates in `CARD.meta.json`.
+Based on the outcome:
+
+- **Blocked**: **STOP** — do not proceed to implementation.
+- **Tier 1 (no plan)**: Load the `runtime:card-implementation-with-plan` skill and follow its instructions.
+- **Approved and planRequired**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
 - **Approved and not planRequired**: Load the `runtime:card-implementation-with-plan` skill and follow its instructions.
 
 </instructions>

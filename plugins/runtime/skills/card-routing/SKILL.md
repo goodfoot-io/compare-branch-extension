@@ -26,7 +26,7 @@ Routing runs without user interaction. Messages describing state and routing dec
 
 ### 1.1 Read Card State
 
-Obtain `gates.*`, `tags`, and `EFFORT` from the `<card>` block in your session context. Obtain the comment file listing from the `<card-repo>` block.
+Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obtain the comment file listing from the `<card-repo>` block.
 
 ### 1.2 Derive Routing Signals
 
@@ -45,7 +45,6 @@ Obtain `gates.*`, `tags`, and `EFFORT` from the `<card>` block in your session c
 | USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the plan-submission agent comment. Plan-submission comment: most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
-| EFFORT | `EFFORT` in the `<card>` block `env:` section: `low`, `medium`, or `high`. Default `medium` when unset. |
 
 ## 2. Route
 
@@ -61,8 +60,7 @@ Select the **first** matching condition:
 - **8. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
 - **9. HAS_PLAN OR PLAN_APPROVED**: `runtime:card-implementation-with-plan`
 - **10. IS_TESTABLE_BUG**: `runtime:card-bug`
-- **11. EFFORT = low**: `runtime:card-implementation`
-- **12. Otherwise**: `runtime:card-plan`
+- **11. Otherwise**: `runtime:card-plan`
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" and write down why. Articulating the ambiguity usually resolves it.
 

@@ -51,7 +51,7 @@ launch.ts
     │
     └─── spawns Claude ─── loads: card-routing skill
                                           │
-                       (evaluates 12 signals against card state)
+                       (evaluates 11 signals against card state)
                                           │
               ┌──────────────────────────────────────────────────────────┐
               │                   card-routing routes to:                │
@@ -66,7 +66,6 @@ launch.ts
               ├─ PLAN_REQUIRED + !PLAN_APPROVED ► card-plan ──────────────┐
               ├─ HAS_PLAN / PLAN_APPROVED  ──► card-implementation-with-plan ─┐
               ├─ IS_TESTABLE_BUG           ──► card-bug                    │  │
-              ├─ EFFORT = low              ──► card-implementation         │  │
               └─ (default)                 ──► card-plan ──────────────────┘  │
                                                                                │
                     ┌──────────────────────────────────────────────────────────┘
@@ -77,56 +76,48 @@ launch.ts
 
 ## Planning Team
 
-Spawned by the `card-plan` skill. Team name: `plan-[CARD_ID]`.
+Dispatched by the `card-plan` skill. The skill selects a tier based on card complexity, dispatches subagents, and makes the APPROVED / CHANGES_REQUESTED decision itself.
+
+**Planning tiers:**
+
+| Tier | What runs |
+|------|-----------|
+| 1 | No plan — proceed directly to implementation |
+| 2 | `planner` subagent only |
+| 3 | `planner` subagent + one `plan-failure-mode` subagent |
+| 4 | `planner` subagent + multiple `plan-failure-mode` subagents, each scoped to a different area |
 
 ```
-card-plan skill (team lead)
+card-plan skill (orchestrator)
     │
-    ├─ TeamCreate: plan-[CARD_ID]
-    │
-    ├─── Agent: runtime:card:planner                    (all effort levels)
+    ├─── Agent: runtime:card:planner                    (tiers 2–4)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Skills used: runtime:spike (for uncertainties)
     │        Creates: PLAN.md, spike/* artifacts
-    │        Sends: review submissions → plan-maintainer, plan-failure-mode
-    │        Sends: completion signal → team-lead (APPROVED or BLOCKED)
+    │        Returns: plan state (ready or blocked)
     │        │
     │        └─── Spawns spike subagents (parallel, as needed)
     │                 subagent_type: general-purpose
     │                 Writes: /spike/[name]/results.md
     │                 No team context (isolated, receives absolute paths)
     │
-    ├─── Agent: runtime:card:plan-maintainer            (medium + high effort)
-    │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
-    │        Reviews: PLAN.md (reads actual workspace code, not plan claims)
-    │        Sends: verdict (APPROVED / CHANGES_REQUESTED / BLOCKED) → team-lead
-    │
-    ├─── Agent: runtime:card:plan-failure-mode          (high effort only)
+    ├─── Agent: runtime:card:plan-failure-mode          (tiers 3–4, one or more)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Analyzes: PLAN.md bets, workspace code, referenced files
-    │        Sends: findings (non-blocking) → team-lead + plan-maintainer
+    │        Returns: findings to orchestrator
+    │        Tier 4: each instance scoped to a different area of concern
     │
-    └─ TeamDelete (after planner signals completion)
-```
-
-**Message flow inside the planning team:**
-
-```
-plan-failure-mode ──► team-lead (findings, async, non-blocking)
-plan-failure-mode ──► plan-maintainer (findings, async)
-plan-maintainer   ──► team-lead (verdict)
-planner           ──► plan-maintainer, plan-failure-mode (review request)
-planner           ──► team-lead (APPROVED or BLOCKED)
+    └── orchestrator reads findings → decides APPROVED or re-spawns planner with findings
 ```
 
 ---
 
 ## Implementation Team
 
-Spawned by `card-implementation-with-plan` (or `card-implementation` for low effort). Team name: `implement-[CARD_ID]`.
+Dispatched by `card-implementation-with-plan`. The skill handles implementation, then loads `card-implementation-evaluation` to assess quality. The evaluation skill selects a tier, dispatches failure-mode subagents, and makes the APPROVED / CHANGES_REQUESTED decision itself.
 
 ```
-card-implementation-with-plan skill (team lead)
+card-implementation-with-plan skill (orchestrator)
     │
     ├─ Creates baseline tag: implement/[CARD_ID]/baseline
     ├─ Analyzes plan coherence → routes parallel / coherent / sequential
@@ -138,36 +129,37 @@ card-implementation-with-plan skill (team lead)
     │            ├─ runtime:spike           (for uncertainties, if needed)
     │            └─ runtime:evaluation      (writes EVALUATION.md, if needed)
     │        Works in: $CARD_REPO_PATH (card's worktree)
-    │        Sends: status (COMPLETED / NEEDS_REVISION / BLOCKED) → team-lead
+    │        Returns: status (COMPLETED / NEEDS_REVISION / BLOCKED)
     │
-    ├─── Agent: runtime:card:maintainer
+    └── loads: card-implementation-evaluation skill
+```
+
+**Evaluation tiers (inside `card-implementation-evaluation`):**
+
+| Tier | What runs |
+|------|-----------|
+| 1 | No evaluation — proceed directly to finalize |
+| 2 | One `failure-mode` subagent |
+| 3 | Multiple `failure-mode` subagents, each scoped to a different area |
+
+```
+card-implementation-evaluation skill (orchestrator)
+    │
+    ├─── Agent: runtime:card:failure-mode              (tiers 2–3, one or more)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
-    │        Reviews: implementation against PLAN.md + validation commands
-    │        Checks: 8 known blind spots, end-to-end wiring (7 dimensions)
-    │        Sends: verdict (APPROVED / CHANGES_REQUESTED / BLOCKED) → team-lead
+    │        Analyzes: git diff, changed files, consumers, data flow
+    │        Returns: findings to orchestrator
+    │        Tier 3: each instance scoped to a different area of concern
     │
-    └─── Agent: runtime:card:failure-mode              (medium + high effort)
-             Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
-             Analyzes: git diff, changed files, consumers, data flow
-             Sends: findings (non-blocking) → all teammates
-```
-
-**Message flow inside the implementation team:**
-
-```
-failure-mode  ──► all teammates (findings, async, non-blocking)
-maintainer    ──► team-lead (verdict)
-developer     ──► team-lead (status)
-team-lead     ──► developer (revision request, if CHANGES_REQUESTED)
+    └── orchestrator reads findings → decides APPROVED or delegates fixes to developer
 ```
 
 **Revision loop:**
 
 ```
-maintainer verdict: CHANGES_REQUESTED
+orchestrator decides: CHANGES_REQUESTED
     └──► developer revises
-    └──► maintainer re-reviews  (full re-review, no shortcuts)
-    └──► failure-mode re-analyzes
+    └──► re-run evaluation (return to Step 3)
     └──► loop until APPROVED or BLOCKED
 ```
 
@@ -200,16 +192,24 @@ cards plugin skills (available in all runtime sessions):
 
 ---
 
-## Effort-Based Team Composition Summary
+## Agent-Driven Escalation Tiers
 
-| Agent | Low | Medium | High |
-|-------|-----|--------|------|
-| planner | ✓ | ✓ | ✓ |
-| plan-maintainer | — | ✓ | ✓ |
-| plan-failure-mode | — | — | ✓ |
-| developer | ✓ | ✓ | ✓ |
-| maintainer | ✓ | ✓ | ✓ |
-| failure-mode (code) | — | ✓ | ✓ |
+**Planning tiers** (selected by `card-plan` based on card complexity):
+
+| Tier | Subagents |
+|------|-----------|
+| 1 | None — proceed directly to implementation |
+| 2 | `planner` |
+| 3 | `planner` + one `plan-failure-mode` |
+| 4 | `planner` + multiple `plan-failure-mode` (each scoped to a different area) |
+
+**Implementation evaluation tiers** (selected by `card-implementation-evaluation` based on implementation scope):
+
+| Tier | Subagents |
+|------|-----------|
+| 1 | None — proceed directly to finalize |
+| 2 | One `failure-mode` |
+| 3 | Multiple `failure-mode` (each scoped to a different area) |
 
 ---
 
@@ -218,12 +218,10 @@ cards plugin skills (available in all runtime sessions):
 | Agent | File | subagent_type | Role |
 |-------|------|--------------|------|
 | chat | `agents/chat.md` | `runtime:chat` | Interactive card Q&A and focused changes |
-| planner | `agents/card/planner.md` | `runtime:card:planner` | Creates and refines PLAN.md |
+| planner | `agents/card/planner.md` | `runtime:card:planner` | Creates PLAN.md via spikes; returns plan state to orchestrator |
 | developer | `agents/card/developer.md` | `runtime:card:developer` | Implements scoped work in card worktree |
-| maintainer | `agents/card/maintainer.md` | `runtime:card:maintainer` | Reviews implementation; final verdict |
-| failure-mode | `agents/card/failure-mode.md` | `runtime:card:failure-mode` | Analyzes code changes for failure modes |
-| plan-failure-mode | `agents/card/plan-failure-mode.md` | `runtime:card:plan-failure-mode` | Analyzes plan for failure modes |
-| plan-maintainer | `agents/card/plan-maintainer.md` | `runtime:card:plan-maintainer` | Reviews plan; final verdict |
+| failure-mode | `agents/card/failure-mode.md` | `runtime:card:failure-mode` | Analyzes code changes for failure modes; returns findings to orchestrator |
+| plan-failure-mode | `agents/card/plan-failure-mode.md` | `runtime:card:plan-failure-mode` | Analyzes plan for failure modes; returns findings to orchestrator |
 
 ---
 
@@ -242,16 +240,16 @@ cards plugin skills (available in all runtime sessions):
 | `card-question-response` | HAS_QUESTION | No |
 | `card-blocked` | IS_BLOCKED | No |
 | `card-clarify-and-enrich` | Stale / !DOR_MET | No |
-| `card-plan` | PLAN_REQUIRED | **Yes** — planning team |
+| `card-plan` | PLAN_REQUIRED | **Yes** — planner + plan-failure-mode subagents (tier-based) |
 | `card-plan-feedback` | Plan revision | No |
-| `card-implementation` | Low effort | No (uses card-developer) |
-| `card-implementation-with-plan` | Has plan | **Yes** — implementation team |
+| `card-implementation` | Not routed by default | No (uses card-developer) |
+| `card-implementation-with-plan` | Has plan | **Yes** — developer subagents |
 | `card-implementation-feedback` | HAS_IMPL_FEEDBACK | No |
 | `card-bug` | IS_TESTABLE_BUG | No |
 | `card-merge` | REVIEW_APPROVED | No |
 | `card-developer` | Loaded by developer agent | No |
 | `spike` | Loaded by planner/developer | **Yes** — spike subagents |
 | `evaluation` | Loaded by developer | No |
-| `card-implementation-evaluation` | Loaded by developer | No |
+| `card-implementation-evaluation` | Loaded by card-implementation-with-plan | **Yes** — failure-mode subagents (tier-based) |
 | `refactoring` | Loaded by developer on refactoring cards | No |
 | `card-reopen-and-implement` | *(re-open flow)* | No |
