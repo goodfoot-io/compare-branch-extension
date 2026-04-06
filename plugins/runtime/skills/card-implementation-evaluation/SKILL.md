@@ -8,6 +8,8 @@ description: Dispatch failure-mode subagents and decide whether the implementati
 
 ## 1. Stage Uncommitted Changes
 
+Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
+
 Ensure all workspace changes are committed before evaluation:
 
 ```bash

@@ -183,6 +183,8 @@ This task owns: [absolute paths from plan]
   - **Attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue
 
+Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
+
 **COMPLETED:** Commit all workspace changes including new files:
 
 ```bash

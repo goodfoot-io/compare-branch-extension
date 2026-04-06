@@ -66,6 +66,8 @@ fi
 
 ## 4. Implement
 
+Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
+
 Implement the targeted changes based on the user's feedback. Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
 Focus only on what the feedback requests — do not re-implement unrelated parts of the original implementation.
