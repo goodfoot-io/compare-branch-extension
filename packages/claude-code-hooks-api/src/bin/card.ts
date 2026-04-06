@@ -8,14 +8,24 @@
  * @summary Card CLI for get, create, list, search, attach, detach, and action operations
  */
 
-import { spawnSync } from 'node:child_process';
-import { associatePidWithCard, findClaudePid, removePidEntry } from '@cards/claude-code-sessions';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { associatePidWithCard, findClaudePid, getSessionIdForPid, removePidEntry } from '@cards/claude-code-sessions';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
+import { getCommitsSince } from '@cards/sdk/card-repo';
 import type { AddBranchRequest, CardCreateData, ListCardsOptions } from '@cards/sdk/client';
-import { CardsClient } from '@cards/sdk/client';
+import {
+  CardsClient,
+  calculateBackoffMs,
+  EventSubscriber,
+  formatCommit,
+  getUnattributedCommits,
+  isBookkeepingCommit
+} from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import type { ActionResult } from '@cards/sdk/protocol';
+import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
 import { toCardListSummaries } from '@cards/web/types/cardSummary';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/web/utils/searchUtils';
+import { minimatch } from 'minimatch';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -36,6 +46,7 @@ Commands:
   attach <card-id>               Associate this Claude session with a card
   detach                         Disassociate this Claude session from its card
   <card-id> action <action-id>  Execute an action on a card
+  <card-id> watch [glob...]     Wait for next unattributed commit
 
 Get:
   Pass a card identifier as the sole argument. The full Card object is
@@ -112,9 +123,29 @@ Action:
   Examples:
     card.mjs <card-id> action launch
 
+Watch:
+  Waits for the next unattributed commit on a card's repository. If
+  unattributed commits already exist they are output immediately. Otherwise
+  the command subscribes to WebSocket events and blocks until a qualifying
+  commit arrives. Requires an active card session (run 'card attach' first).
+
+  Optional glob patterns restrict output to commits that touch at least one
+  matching file. Multiple globs are OR-combined.
+
+  The commit is attributed to the current session and printed to stdout,
+  then the command exits 0. Exits non-zero on connection failure or when
+  the session precondition is not met.
+
+  Examples:
+    card.mjs <card-id> watch
+    card.mjs <card-id> watch "src/auth/**"
+    card.mjs <card-id> watch "src/**" "tests/**"
+
 Exit codes:
   0  Success
-  1  Error (missing arguments, invalid input, discovery failure, API error)`;
+  1  Error (missing arguments, invalid input, discovery failure, API error)
+  130  Interrupted (SIGINT)
+  143  Terminated (SIGTERM)`;
 
 /**
  * Connects to the Cards API via discovery and returns a configured client.
@@ -539,6 +570,231 @@ export async function attachCard(
 }
 
 /**
+ * Builds a {@link CardCommit} from a commit SHA by querying git for metadata and file changes.
+ *
+ * @param sha - Full commit hash to resolve.
+ * @param repositoryPath - Card repository path where git commands execute.
+ * @returns Complete commit metadata with per-file diff.
+ * @throws {Error} When the git log output is malformed.
+ */
+function buildCardCommit(sha: string, repositoryPath: string): CardCommit {
+  // Get commit metadata
+  const metaOutput = execFileSync(
+    'git',
+    ['log', '--no-walk', '--format=%H%x00%an%x00%ae%x00%s%x00%b%x00%aI%x00%D', sha],
+    { cwd: repositoryPath, encoding: 'utf-8', timeout: 10000 }
+  );
+
+  const nulIdx = metaOutput.indexOf('\0');
+  if (nulIdx === -1) {
+    throw new Error(`Unexpected git log output for ${sha}`);
+  }
+
+  const parts = metaOutput.split('\0');
+  const hash = (parts[0] ?? '').trim();
+  const author_name = parts[1] ?? '';
+  const author_email = parts[2] ?? '';
+  const message = parts[3] ?? '';
+  const body = parts[4] ?? '';
+  const date = (parts[5] ?? '').trim();
+  const refs = (parts[6] ?? '').trim();
+
+  // Get file list with status
+  const diffOutput = execFileSync('git', ['diff-tree', '--no-commit-id', '-r', '--name-status', '-M', sha], {
+    cwd: repositoryPath,
+    encoding: 'utf-8',
+    timeout: 10000
+  });
+
+  const files: CardCommit['diff']['files'] = [];
+  for (const line of diffOutput.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const tabParts = trimmed.split('\t');
+    const status = tabParts[0] ?? '';
+    if (status.startsWith('R') && tabParts.length >= 3) {
+      files.push({ file: tabParts[2]!, status, from: tabParts[1]!, binary: false });
+    } else if (tabParts[1]) {
+      files.push({ file: tabParts[1], status, binary: false });
+    }
+  }
+
+  return { hash, date, message, refs, body, author_name, author_email, diff: { changed: files.length, files } };
+}
+
+/**
+ * Returns true when at least one file in the commit matches any of the provided globs.
+ *
+ * @param files - Changed file paths.
+ * @param globs - Glob patterns to test against.
+ * @returns `true` when at least one file matches at least one glob; `true` when globs is empty.
+ */
+function matchesGlobs(files: string[], globs: string[]): boolean {
+  if (globs.length === 0) return true;
+  return files.some((f) => globs.some((g) => minimatch(f, g)));
+}
+
+/**
+ * Returns the changed file paths for a commit SHA.
+ *
+ * @param sha - Commit hash.
+ * @param repositoryPath - Card repository path.
+ * @returns Array of changed file paths relative to the repository root.
+ */
+function getCommitFiles(sha: string, repositoryPath: string): string[] {
+  const output = execFileSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', sha], {
+    cwd: repositoryPath,
+    encoding: 'utf-8',
+    timeout: 10000
+  });
+  return output
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Waits for the next unattributed commit on a card's repository.
+ *
+ * Checks for existing unattributed commits first. If any exist, outputs them
+ * and exits. Otherwise subscribes to WebSocket events and blocks until the
+ * first qualifying commit arrives.
+ *
+ * Requires an active card session (`card attach` must have been called).
+ *
+ * @param cardId - The card identifier to watch.
+ * @param globs - Optional glob patterns to filter qualifying commits by changed files.
+ */
+export async function watchCard(cardId: string, globs: string[]): Promise<void> {
+  // 1. Resolve card
+  const client = await connectClient();
+  const card = await client.getCard(cardId);
+  const repositoryPath = card.repositoryPath;
+
+  // 2. Resolve session
+  const pid = findClaudePid();
+  if (!pid) {
+    throw new Error('Could not find Claude ancestor PID.');
+  }
+  const sessionId = await getSessionIdForPid(pid);
+  if (!sessionId) {
+    throw new Error(`No active card session for PID ${pid}. Run 'card attach' first.`);
+  }
+
+  // 3. Check for existing unattributed commits
+  const headSha = readSessionHeadSha(sessionId);
+  if (headSha) {
+    const allCommits = getCommitsSince(repositoryPath, headSha);
+    const sessionCommits = getSessionCommits(sessionId);
+    const unattributed = getUnattributedCommits(allCommits, sessionCommits);
+
+    const qualifying =
+      globs.length > 0
+        ? unattributed.filter((sha) => matchesGlobs(getCommitFiles(sha, repositoryPath), globs))
+        : unattributed;
+
+    if (qualifying.length > 0) {
+      // 4. Output existing unattributed commits and exit
+      for (const sha of qualifying) {
+        const commit = buildCardCommit(sha, repositoryPath);
+        await appendCommitToSession(sessionId, sha);
+        console.log(formatCommit(commit));
+      }
+      return;
+    }
+  }
+
+  // 5. Subscribe to WebSocket events and wait for a qualifying commit
+  const apiInfo = await discoverApiInfo();
+  if (!apiInfo) {
+    throw new Error('API discovery failed — is the cards server running?');
+  }
+
+  const wsUrl = `ws://${apiInfo.host}:${apiInfo.port}/events`;
+  const accessToken = apiInfo.accessToken;
+
+  const discover = async () => {
+    const info = await discoverApiInfo();
+    if (!info) return { error: 'cards-api.json not found or invalid' };
+    return { wsUrl: `ws://${info.host}:${info.port}/events`, accessToken: info.accessToken };
+  };
+
+  const subscriber = new EventSubscriber({ wsUrl, accessToken, discover, maxReconnectAttempts: 10 });
+
+  // Track disconnection for exhaustion detection
+  let disconnectedAt: number | null = null;
+  let exhaustionTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const unsubConnectionChange = subscriber.onConnectionChange((connected) => {
+    if (connected) {
+      disconnectedAt = null;
+      if (exhaustionTimer) {
+        clearTimeout(exhaustionTimer);
+        exhaustionTimer = null;
+      }
+    } else {
+      disconnectedAt = Date.now();
+      // Schedule exhaustion check after max backoff + margin
+      const maxBackoffMs = calculateBackoffMs(10);
+      exhaustionTimer = setTimeout(() => {
+        exhaustionTimer = null;
+        if (disconnectedAt !== null) {
+          subscriber.disconnect();
+          console.error('Lost connection to Cards server after maximum reconnection attempts.');
+          process.exit(1);
+        }
+      }, maxBackoffMs + 1000);
+    }
+  });
+
+  process.on('SIGINT', () => {
+    unsubConnectionChange();
+    subscriber.disconnect();
+    process.exit(130);
+  });
+
+  process.on('SIGTERM', () => {
+    unsubConnectionChange();
+    subscriber.disconnect();
+    process.exit(143);
+  });
+
+  const onCommit = async (event: CardCommitEvent): Promise<void> => {
+    if (event.cardId !== cardId) return;
+    if (isBookkeepingCommit(event.commit)) return;
+
+    const currentSessionCommits = getSessionCommits(sessionId);
+    if (currentSessionCommits.includes(event.commit.hash)) return;
+
+    if (globs.length > 0) {
+      const files = event.commit.diff.files.map((f) => f.file);
+      if (!matchesGlobs(files, globs)) return;
+    }
+
+    // Qualifying commit — record, format, output, exit
+    try {
+      await appendCommitToSession(sessionId, event.commit.hash);
+    } catch (error) {
+      console.error(
+        `card watch: failed to record commit ${event.commit.hash}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    console.log(formatCommit(event.commit));
+    unsubConnectionChange();
+    subscriber.disconnect();
+    process.exit(0);
+  };
+
+  subscriber.on('card:commit', (event) => {
+    onCommit(event).catch((err: unknown) => {
+      console.error('card watch: error handling commit event:', err instanceof Error ? err.message : String(err));
+    });
+  });
+
+  await subscriber.connect();
+}
+
+/**
  * Executes an action on a card and prints the result to stdout.
  *
  * @param cardId - The card identifier.
@@ -625,6 +881,9 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
           process.exit(1);
         }
         run = executeAction(command, actionId);
+      } else if (verb === 'watch') {
+        const watchGlobs = process.argv.slice(4);
+        run = watchCard(command, watchGlobs);
       } else if (verb) {
         console.error(`card: unknown verb "${verb}"`);
         process.exit(1);
