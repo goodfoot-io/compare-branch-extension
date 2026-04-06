@@ -5,6 +5,19 @@ description: Markdown guidelines for card content.
 
 <markdown-guidelines>
 
+**Every codebase concept named in prose — file, module, component, hook, utility, type, or configuration — must be a fragment link when a workspace file defines it.** Mentioning a concept without linking it forces the reader to search manually.
+
+This applies across all markdown surfaces: card descriptions, plans, comments, document sidecars, and commit message bodies.
+
+```markdown
+<!-- Bad: named concepts without links -->
+The TokenRefresher calls validateSession, which reads auth-config.yaml.
+
+<!-- Good: every named concept is linked -->
+The [TokenRefresher](./src/auth/refresher.ts) calls [validateSession()](./src/auth/session.ts#L15),
+which reads [auth-config.yaml](./config/auth-config.yaml).
+```
+
 ## 1. Fragment Links
 
 When markdown references a workspace file, function, or code location, use a markdown fragment link — not a backtick code span. The card-detail webview renders fragment links as clickable buttons that open the file in the editor.
@@ -34,21 +47,6 @@ Anchor a function or method name to its definition site.
 
 ```markdown
 [startCardsApi()](./packages/extension/src/lifecycle/cardsApiLifecycle.ts#L42)
-```
-
-### 1.4 Coverage
-
-Every codebase concept named in prose — file, module, component, hook, utility, type, or configuration — should be a fragment link when a workspace file defines it. Mentioning a concept without linking it forces the reader to search manually.
-
-This applies across all markdown surfaces: card descriptions, document sidecar summaries, plans, comments, and commit message bodies.
-
-```markdown
-<!-- Bad: named concepts without links -->
-The TokenRefresher calls validateSession, which reads auth-config.yaml.
-
-<!-- Good: every named concept is linked -->
-The [TokenRefresher](./src/auth/refresher.ts) calls [validateSession()](./src/auth/session.ts#L15),
-which reads [auth-config.yaml](./config/auth-config.yaml).
 ```
 
 ## 2. Mermaid Diagrams
