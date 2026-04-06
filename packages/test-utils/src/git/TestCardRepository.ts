@@ -80,7 +80,7 @@ export interface UpdateCardOptions {
  *
  * Behavior:
  * - Creates a "repos" directory, then a git repo per card ID under it.
- * - Writes CARD.meta.json/CARD.md/PLAN.md, common subdirectories, and attribution data.
+ * - Writes CARD.meta.json/CARD.md, common subdirectories, and attribution data.
  * - Commits each mutation so git-dependent code can inspect history.
  *
  * Constraint: the repo format is intentionally minimal and matches the layout
