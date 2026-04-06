@@ -1,25 +1,6 @@
 ---
 name: failure-mode
-description: |
-  Identify potential failure modes in implemented code.
-
-  <example>
-  Context: card-implementation-evaluation dispatches one failure-mode agent at standard depth after the developer agent completes.
-  user: "Analyze the implementation in the card's worktree for failure modes. Diff against implement/[CARD_ID]/baseline and report what you find."
-  assistant: "I'll diff the implementation against baseline, trace changed code paths out to their consumers, and report concrete failure modes."
-  <commentary>
-  Dispatched at standard depth when scope is contained. The orchestrator reads the findings and decides APPROVED or CHANGES_REQUESTED.
-  </commentary>
-  </example>
-
-  <example>
-  Context: card-implementation-evaluation dispatches multiple failure-mode agents at deep depth; this instance is scoped to data-flow concerns.
-  user: "Analyze the implementation for failure modes in the data-flow layer specifically. Focus on data transformations, serialization, and consumer contracts."
-  assistant: "I'll focus on data-flow paths in the implementation, tracing how data moves through the changed code and checking consumer contracts."
-  <commentary>
-  At deep evaluation depth each failure-mode instance is scoped to a different area so agents can analyze in parallel without duplicating work.
-  </commentary>
-  </example>
+description: Identify potential failure modes in implemented code.
 tools: "*"
 model: inherit
 color: yellow

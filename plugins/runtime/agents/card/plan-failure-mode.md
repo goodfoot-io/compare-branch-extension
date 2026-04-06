@@ -1,25 +1,6 @@
 ---
 name: plan-failure-mode
-description: |
-  Identify potential failure modes in implementation plans.
-
-  <example>
-  Context: card-plan dispatches plan-failure-mode at Tier 3 after the planner returns PLAN.md.
-  user: "Analyze PLAN.md for failure modes. Report concrete risks before any code is written."
-  assistant: "I'll read PLAN.md and CARD.md, trace the plan's bets against the real codebase, and report failure modes to the orchestrator."
-  <commentary>
-  Dispatched sequentially after planner returns at Tier 3. Runs once. The orchestrator reads the findings and decides whether to approve the plan or send it back to the planner with issues.
-  </commentary>
-  </example>
-
-  <example>
-  Context: card-plan dispatches multiple plan-failure-mode agents at Tier 4; this instance is scoped to error-handling coverage.
-  user: "Analyze PLAN.md for failure modes in error handling specifically. Focus on partial failures, rollback, and error propagation."
-  assistant: "I'll examine the plan's error-handling design against the real codebase, checking for missing rollback paths, silent swallowing, and unrecoverable states."
-  <commentary>
-  At Tier 4 each plan-failure-mode instance is scoped to a different area of concern so agents can run without duplicating analysis.
-  </commentary>
-  </example>
+description: Identify potential failure modes in implementation plans.
 tools: "*"
 model: inherit
 color: yellow

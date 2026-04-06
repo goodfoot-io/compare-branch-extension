@@ -1,25 +1,6 @@
 ---
 name: planner
-description: |
-  Create and refine implementation plans, investigate uncertainties, and return a ready-to-proceed plan or a blocking reason.
-
-  <example>
-  Context: card-plan skill dispatches planner at Tier 2 to create an implementation plan for a card.
-  user: "Create an implementation plan for this card. Spike any technical uncertainties before committing to an approach."
-  assistant: "I'll read CARD.md, analyze the affected code paths, spike any uncertainties, and produce PLAN.md with a concrete implementation approach."
-  <commentary>
-  Dispatched when planRequired=true and card complexity is moderate. Planner runs alone at Tier 2 without a subsequent plan-failure-mode pass.
-  </commentary>
-  </example>
-
-  <example>
-  Context: card-plan skill resumes planner via SendMessage after plan-failure-mode returns findings.
-  user: "The failure-mode analysis found these issues: [findings]. Revise PLAN.md to address them."
-  assistant: "I'll incorporate the findings into PLAN.md, verifying each identified risk against the workspace before updating the approach."
-  <commentary>
-  The planner receives failure-mode findings from the orchestrator and revises the plan directly rather than starting over.
-  </commentary>
-  </example>
+description: Create and refine implementation plans, investigate uncertainties, and return a ready-to-proceed plan or a blocking reason.
 tools: "*"
 model: inherit
 color: green
