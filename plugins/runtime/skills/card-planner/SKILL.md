@@ -16,16 +16,16 @@ description: Create or update card plans
 
 Read CARD.md for goals and constraints. Card metadata (title, gates, tags) is available in the `<card>` block; the comment file listing is in the `<card-repo>` block. Read the contents of the 5 most recent `comment/*.md` files for context.
 
-Check whether `PLAN.md` exists in the card repository:
-- **PLAN.md exists**: Go to Step 1.1.
-- **No PLAN.md**: Go to Step 1.2.
+Check whether any plan files exist in `plan/` in the card repository:
+- **`plan/` contains at least one `.md` file**: Go to Step 1.1.
+- **No plan files exist**: Go to Step 1.2.
 
 ### 1.1 Evaluate Existing Plan
 
-Read `PLAN.md`. Compare the plan against the current card state — comments added after the plan was last modified may contain new requirements, feedback, or context.
+Read all plan files from the `plan/` directory. Compare the plan against the current card state — comments added after the plan was last modified may contain new requirements, feedback, or context.
 
 - **Plan is current and no new information**: Go to Step 3.
-- **New information requires plan revision**: Incorporate changes into `PLAN.md`, commit, then go to Step 2.
+- **New information requires plan revision**: Incorporate changes into the appropriate plan file in `plan/`, commit, then go to Step 2.
 
 ### 1.2 Create Plan
 
@@ -41,17 +41,17 @@ Follow the `<take-notes>` instructions — write a note to the card repository f
 
 #### Load Markdown Guidelines
 
-Load the `cards:markdown` skill before writing PLAN.md.
+Load the `cards:markdown` skill before writing the plan file.
 
 PLAN.md is stored in the card repository (`$CARD_REPO_PATH`), but the card's workspace may be at a different path (`$WORKSPACE_PATH`). Fragment links must be relative to `$WORKSPACE_PATH` — use `./packages/foo/bar.ts`, not a filesystem path from the card repository or your working directory to the workspace.
 
 #### Write and Store Plan
 
-Write the plan to `PLAN.md` in the card repository. Commit to the card repository:
+Write the plan to `plan/[name].md` in the card repository, where `[name]` is a semantically descriptive slug (e.g., `plan/initial.md`, `plan/phase-2.md`). Create a sidecar at `plan/[name].md.meta.json` with a display title. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-git add PLAN.md
+git add plan/
 git commit -m "[single sentence summarizing the approach and key decisions]"
 ```
 
@@ -75,11 +75,11 @@ For each spike-eligible uncertainty, spawn a spike agent via the `Agent` tool:
 </invoke>
 ```
 
-Load the `cards:markdown` skill (if not already loaded) before revising PLAN.md. Revise PLAN.md to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
+Load the `cards:markdown` skill (if not already loaded) before revising the plan file. Revise the appropriate plan file in `plan/` to incorporate spike results. A spike that disproves the root cause or a load-bearing assumption invalidates the plan from intent through approach — rewrite, don't patch.
 
 ```bash
 cd $CARD_REPO_PATH
-git add PLAN.md spike/
+git add plan/ spike/
 git commit -m "[single sentence summarizing what the spikes resolved]"
 ```
 
@@ -99,7 +99,7 @@ If the orchestrator resumes you with a failure-mode report, engage with each fin
 - Understand the concern and whether the plan's approach addresses it.
 - Route empirically-testable uncertainties to spike investigation before revising.
 - For each finding, decide: revise the approach, add mitigations, or acknowledge an accepted risk with explicit justification.
-- Revise PLAN.md directly — explanations in messages do not help future readers of the plan.
+- Revise the plan file directly — explanations in messages do not help future readers of the plan.
 
 Commit the revised plan, then return to Step 3.
 

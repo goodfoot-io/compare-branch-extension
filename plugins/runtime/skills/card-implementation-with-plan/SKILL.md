@@ -58,9 +58,9 @@ Run tests in the worktree, then delete the worktree and branch.
 
 ### 2.1 Validate and Initialize
 
-Read `PLAN.md` from the card repository.
+Read the plan files from the `plan/` directory in the card repository.
 
-- **PLAN.md is empty or missing**: Write an error comment using the canonical comment pattern, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+- **No plan files exist in `plan/`**: Write an error comment using the canonical comment pattern, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
 
 Create todos from the plan content using TodoWrite.
 
@@ -127,7 +127,7 @@ Agent prompts must be self-contained — agents have no conversation context. Re
 [Description with testing requirements from plan]
 
 ## Plan
-@[CARD_REPO_PATH]/PLAN.md
+@[CARD_REPO_PATH]/plan/
 
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
@@ -154,7 +154,7 @@ This task owns: [absolute paths from plan]
 - Only make requested changes
 - Don't add unrequested features or abstractions
 - Keep implementation minimal and focused
-- When the task is ambiguous, the plan's intent (opening of PLAN.md) is the tiebreaker
+- When the task is ambiguous, the plan's intent (opening of the plan file) is the tiebreaker
 
 ## Success Criteria
 - [ ] Implementation complete
@@ -299,6 +299,6 @@ git reset --hard "implement/$CARD_ID/baseline"
 git clean -fd
 ```
 
-Load the `runtime:card-plan` skill and follow its instructions. The planner will find the existing PLAN.md and revise it — the invalidated assumption, missed scope, or contradicting steps are live context that should drive the revision.
+Load the `runtime:card-plan` skill and follow its instructions. The planner will find the existing plan files in `plan/` and revise them — the invalidated assumption, missed scope, or contradicting steps are live context that should drive the revision.
 
 </when-to-return-to-planning>

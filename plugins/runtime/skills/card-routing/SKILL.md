@@ -41,8 +41,8 @@ Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obt
 | IS_STALE | No activity for 30+ days |
 | PLAN_REQUIRED | `gates.planRequired` in the `<card>` block |
 | PLAN_APPROVED | `gates.planApproved` in the `<card>` block |
-| HAS_PLAN | PLAN.md exists in the card repository |
-| USER_RESPONDED_TO_PLAN | PLAN.md exists AND latest user comment is more recent than the plan-submission agent comment. Plan-submission comment: most recent agent-authored comment whose body contains 'PLAN.md' or was created at the same modification time as PLAN.md. Compare that comment's file modification time against the latest user comment's. |
+| HAS_PLAN | `plan/` directory in the card repository contains at least one `.md` file |
+| USER_RESPONDED_TO_PLAN | `plan/` directory contains at least one `.md` file AND latest user comment is more recent than the plan-submission agent comment. Plan-submission comment: most recent agent-authored comment whose body contains 'plan/' or was created at the same modification time as the most recent plan file. Compare that comment's file modification time against the latest user comment's. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
 

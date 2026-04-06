@@ -14,7 +14,7 @@ description: Incorporate user feedback into an existing plan and re-assess.
 cd $CARD_REPO_PATH
 ```
 
-Read `PLAN.md` and the most recent `comment/*.md` files in the card repository.
+Read the plan files from the `plan/` directory and the most recent `comment/*.md` files in the card repository.
 
 ### 1.2 Analyze User Feedback
 
@@ -33,7 +33,7 @@ If feedback requires additional investigation in the workspace repository:
 
 - Read relevant files in the workspace codebase — use fragment links per the `<markdown-guidelines>` from the `cards:markdown` skill when referencing code in the revised plan
 - Understand implications of requested changes
-  - **Feedback modifies Technical Approach** (changes data structures, shifts responsibility between components, replaces a component, simplifies a step): Re-verify the complete data-flow connections for the affected path — not only the changed sections. A design revision can disconnect wiring that was correct under the previous design. Verify that existing fragment links in PLAN.md still point to correct locations and use workspace-relative paths (`./` = `$WORKSPACE_PATH`), not filesystem paths from the card repository.
+  - **Feedback modifies Technical Approach** (changes data structures, shifts responsibility between components, replaces a component, simplifies a step): Re-verify the complete data-flow connections for the affected path — not only the changed sections. A design revision can disconnect wiring that was correct under the previous design. Verify that existing fragment links in plan files still point to correct locations and use workspace-relative paths (`./` = `$WORKSPACE_PATH`), not filesystem paths from the card repository.
 - Identify new dependencies or risks
 
 ### 2.2 Incorporate Feedback
@@ -47,15 +47,15 @@ Update the plan to address all feedback points:
 
 ### 2.3 Load Markdown Guidelines
 
-Load the `cards:markdown` skill before writing PLAN.md.
+Load the `cards:markdown` skill before writing the plan file.
 
 ### 2.4 Store Revised Plan
 
-Write the updated plan to `PLAN.md` in the card repository. Commit to the card repository:
+Write the updated plan to the appropriate file in the `plan/` directory in the card repository. Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
-git add PLAN.md
+git add plan/
 git commit -m "[single sentence summarizing what feedback was incorporated into the plan]"  # <card-repo-commit-style>
 ```
 
@@ -65,7 +65,7 @@ Load the `runtime:card-plan` skill and follow its instructions.
 
 ## 4. Submit for Re-Approval
 
-Post a process-oriented comment. The plan content is already in `PLAN.md` — do not summarize it.
+Post a process-oriented comment. The plan content is already in the plan files — do not summarize it.
 
 - Explain how you incorporated the feedback, especially where interpretation was required
 - Focus on what the reviewer cannot see: reasoning process, judgment calls, areas of lower certainty

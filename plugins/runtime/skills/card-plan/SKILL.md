@@ -21,7 +21,7 @@ If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–
 
 If `gates.planApproved` is true, skip to Step 4 — the plan is already approved, proceed to implementation.
 
-If `PLAN.md` already exists but is not approved, the minimum tier is 3 — always dispatch at least one `plan-failure-mode` subagent to evaluate the existing plan.
+If plan files already exist in `plan/` but are not approved, the minimum tier is 3 — always dispatch at least one `plan-failure-mode` subagent to evaluate the existing plan.
 
 ## 2. Dispatch Subagents
 
@@ -95,7 +95,7 @@ Identify potential failure modes in this implementation plan.
 ## Workspace
 [WORKSPACE_PATH]
 
-Read PLAN.md from the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+Read the plan files from the `plan/` directory in the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
 </parameter>
 </invoke>
 ```
@@ -141,7 +141,7 @@ Identify potential failure modes in this implementation plan. Focus on data-flow
 ## Workspace
 [WORKSPACE_PATH]
 
-Read PLAN.md from the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+Read the plan files from the `plan/` directory in the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
 </parameter>
 </invoke>
 <invoke name="Agent">
@@ -157,7 +157,7 @@ Identify potential failure modes in this implementation plan. Focus on error pat
 ## Workspace
 [WORKSPACE_PATH]
 
-Read PLAN.md from the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+Read the plan files from the `plan/` directory in the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
 </parameter>
 </invoke>
 ```

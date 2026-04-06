@@ -7,7 +7,7 @@ description: Identify potential failure modes in card implementations
 
 ## 1. Read the Code, Not the Plan's Description of It
 
-Read PLAN.md and CARD.md from the card repository for intent and constraints. Then diff the workspace against the implementation baseline tag to identify every changed file:
+Read the plan files from the `plan/` directory and `CARD.md` from the card repository for intent and constraints. Then diff the workspace against the implementation baseline tag to identify every changed file:
 
 ```bash
 git diff implement/$CARD_ID/baseline --name-only

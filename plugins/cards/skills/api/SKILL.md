@@ -26,9 +26,9 @@ Determine the card type using the first matching signal:
 
 Read the matched reference file, then follow its guidance to compose the card's CARD.md content.
 
-### Optional PLAN.md at Creation Time
+### Optional Plan at Creation Time
 
-If research during CARD.md writing reveals a clear approach, write PLAN.md alongside CARD.md rather than forcing a separate planning pass that duplicates the research. PLAN.md describes how the card's action will be performed and for what purpose (commander's intent). Write PLAN.md only when the approach is clear — if it isn't, write only CARD.md and let the planning step handle it.
+If research during CARD.md writing reveals a clear approach, write a plan file alongside CARD.md rather than forcing a separate planning pass that duplicates the research. The plan describes how the card's action will be performed and for what purpose (commander's intent). Write a plan file only when the approach is clear — if it isn't, write only CARD.md and let the planning step handle it.
 
 ## CLI Binaries
 
@@ -78,13 +78,14 @@ cd "$REPO" && git add CARD.md && git commit -m "Added description [single senten
 
 3. Load the `cards:notes` skill and record any discoveries made during research as notes in the card repository.
 
-If the approach is clear, load the `cards:markdown` skill (if not already loaded) before writing PLAN.md:
+If the approach is clear, load the `cards:markdown` skill (if not already loaded) before writing a plan file:
 
 ```bash
-cat <<'PLAN_EOF' > "$REPO/PLAN.md"
+mkdir -p "$REPO/plan"
+cat <<'PLAN_EOF' > "$REPO/plan/initial.md"
 Plan content here (plain markdown, no frontmatter).
 PLAN_EOF
-cd "$REPO" && git add PLAN.md && git commit -m "Added plan [single sentence summarizing the approach and key components]."
+cd "$REPO" && git add plan/ && git commit -m "Added plan [single sentence summarizing the approach and key components]."
 ```
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
@@ -211,7 +212,7 @@ Each commit's `diff.files` array contains `CardCommitFile` records:
 
 ### File Read/Write Endpoints
 
-`GET /cards/:id/fs/:path` returns the raw content of any file in the card repository, addressed by its relative path (e.g., `GET /cards/:id/fs/PLAN.md`). Supports an optional `?sha=<commitSha>` query parameter to read a specific version.
+`GET /cards/:id/fs/:path` returns the raw content of any file in the card repository, addressed by its relative path (e.g., `GET /cards/:id/fs/plan/initial.md`). Supports an optional `?sha=<commitSha>` query parameter to read a specific version.
 
 `PUT /cards/:id/fs/:path` writes content to a file in the card repository. Only `.md` and `.md.meta.json` paths are accepted; path traversal (`..`) is rejected. The body is a JSON-encoded string. The server stages and commits the change automatically.
 
@@ -265,7 +266,9 @@ Error response (400):
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
-PLAN.md                     # Optional plan document
+plan/                       # Plan documents (continuation-based)
+  [name].md                 # Semantically-named plan files
+  [name].md.meta.json       # Sidecar with display title
 EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown

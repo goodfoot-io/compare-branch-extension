@@ -47,7 +47,7 @@ Use the `Task()` tool to launch a subagent to perform a technical spike investig
 <subagent-context>
 Subagents have no context from this conversation. Provide absolute paths:
 - Spike directory: [CARD_REPO_PATH]/spike/[test-name]/
-- Card plan: [CARD_REPO_PATH]/PLAN.md (when the spike needs implementation context)
+- Card plan: [CARD_REPO_PATH]/plan/ (when the spike needs implementation context)
 - Codebase files: absolute workspace paths (e.g., `/workspace/packages/api/src/server.ts`)
 
 Structure [SUBAGENT_CONTEXT] and [SPIKE_CONTEXT] using semantic XML tags.

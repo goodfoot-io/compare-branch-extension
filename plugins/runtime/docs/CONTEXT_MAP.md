@@ -90,7 +90,7 @@ Dispatched by the `card-plan` skill. The skill selects a tier based on card comp
 
 Tier selection rules:
 - `planApproved=true` → skip tier selection, proceed directly to implementation
-- `PLAN.md` exists but not approved → minimum tier 3
+- `plan/` contains files but not approved → minimum tier 3
 - `planRequired=true` → minimum tier 2 (never tier 1)
 
 ```
@@ -99,7 +99,7 @@ card-plan skill (orchestrator)
     ├─── Agent: runtime:card:planner                    (tiers 2–4, named "planner")
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Skills used: runtime:spike (for uncertainties), cards:notes (for architectural discoveries)
-    │        Creates: PLAN.md, spike/* artifacts, notes/*
+    │        Creates: plan/*.md, spike/* artifacts, notes/*
     │        Returns: plan state (ready or blocked)
     │        │
     │        └─── Spawns spike subagents (parallel, as needed)
@@ -110,7 +110,7 @@ card-plan skill (orchestrator)
     ├─── Agent: runtime:card:plan-failure-mode          (tiers 3–4, one or more)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Skills used: cards:notes (for architectural discoveries)
-    │        Analyzes: PLAN.md bets, workspace code, referenced files
+    │        Analyzes: plan/*.md bets, workspace code, referenced files
     │        Writes: notes/* (architectural discoveries during analysis)
     │        Returns: findings to orchestrator
     │        Tier 4: each instance scoped to a different area of concern
@@ -240,7 +240,7 @@ cards plugin skills (available in all runtime sessions):
 | Agent | File | subagent_type | Role |
 |-------|------|--------------|------|
 | chat | `agents/chat.md` | `runtime:chat` | Interactive card Q&A and focused changes |
-| planner | `agents/card/planner.md` | `runtime:card:planner` | Creates PLAN.md via spikes; returns plan state to orchestrator |
+| planner | `agents/card/planner.md` | `runtime:card:planner` | Creates plan files in plan/ via spikes; returns plan state to orchestrator |
 | developer | `agents/card/developer.md` | `runtime:card:developer` | Implements scoped work in card worktree |
 | failure-mode | `agents/card/failure-mode.md` | `runtime:card:failure-mode` | Analyzes code changes for failure modes; returns findings to orchestrator |
 | plan-failure-mode | `agents/card/plan-failure-mode.md` | `runtime:card:plan-failure-mode` | Analyzes plan for failure modes; returns findings to orchestrator |

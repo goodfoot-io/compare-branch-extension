@@ -14,7 +14,7 @@ description: Apply user feedback to completed implementations.
 
 Read:
 - The latest user comment in the card repository (the feedback)
-- `PLAN.md` from the card repository if it exists (validation commands and context)
+- Plan files from the `plan/` directory in the card repository if they exist (validation commands and context)
 - `CARD.md` for the card's broader purpose
 
 Based on the latest user comment:
@@ -92,8 +92,8 @@ COMMITMSG
 
 ALL validation commands must pass before proceeding.
 
-**`PLAN.md` exists:** Run validation per its validation commands.
-**`PLAN.md` absent:** Run typecheck, lint, and test in each package containing modified files.
+**`plan/*.md` files exist:** Run validation per the plan's validation commands.
+**No plan files in `plan/`:** Run typecheck, lint, and test in each package containing modified files.
 
 - **Error in code you can modify**: Fix it, re-run validation.
 - **Error outside your scope**: Block immediately.
@@ -120,7 +120,7 @@ COMMITMSG
 
 ### 5.2 Pre-Evaluation Validation
 
-Run validation per the plan's validation commands (or `yarn typecheck`, `yarn lint`, `yarn test` in each package containing modified files if no plan exists).
+Run validation per the plan's validation commands (or `yarn typecheck`, `yarn lint`, `yarn test` in each package containing modified files if no plan files exist).
 
 **On any failure:** Fix all validation failures, then re-run validation. Only proceed to **Step 5.3** when ALL validations pass.
 

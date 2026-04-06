@@ -1,6 +1,6 @@
 <how-to-write-an-operations-request>
 
-Capture the operational goal, evidence, and verification while minimizing risk. Emphasize outcomes, constraints, and safety over implementation details. CARD.md describes the operational situation and urgency — approach details (how to resolve it) belong in PLAN.md.
+Capture the operational goal, evidence, and verification while minimizing risk. Emphasize outcomes, constraints, and safety over implementation details. CARD.md describes the operational situation and urgency — approach details (how to resolve it) belong in plan files (plan/).
 
 ## Request Structure
 

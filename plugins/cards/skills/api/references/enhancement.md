@@ -1,7 +1,7 @@
 
 <how-to-write-an-enhancement-request>
 
-Bridge understanding between what exists, what should exist, and why the gap matters. Enable a reader unfamiliar with the system's history to understand the full context. CARD.md describes the capability gap and desired outcome — approach details (how to build it) belong in PLAN.md.
+Bridge understanding between what exists, what should exist, and why the gap matters. Enable a reader unfamiliar with the system's history to understand the full context. CARD.md describes the capability gap and desired outcome — approach details (how to build it) belong in plan files (plan/).
 
 ## Document Structure
 

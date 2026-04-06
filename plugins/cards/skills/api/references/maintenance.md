@@ -1,6 +1,6 @@
 <how-to-write-a-maintenance-request>
 
-Explain **why the work matters** and **what success looks like** without prescribing implementation. Make the debt visible, bound the scope, and protect critical behavior. CARD.md describes the debt and its cost — approach details (how to clean it up) belong in PLAN.md.
+Explain **why the work matters** and **what success looks like** without prescribing implementation. Make the debt visible, bound the scope, and protect critical behavior. CARD.md describes the debt and its cost — approach details (how to clean it up) belong in plan files (plan/).
 
 ## Document Structure
 

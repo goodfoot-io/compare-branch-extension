@@ -8,7 +8,7 @@ description: Write evaluation rubrics for verifying card implementations
 | Document | Role | Author |
 |----------|------|--------|
 | `CARD.md` | The *description* — what's happening, what's needed, and why | Card creator |
-| `PLAN.md` | The *approach* — how the card's action will be performed and why | Implementing agent |
+| `plan/` | The *approach* — how the card's action will be performed and why | Implementing agent |
 | `EVALUATION.md` | The *verification rubric* — how to confirm it works | Implementing agent |
 
 ## Structure

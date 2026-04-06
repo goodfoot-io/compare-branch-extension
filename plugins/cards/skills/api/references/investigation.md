@@ -1,7 +1,7 @@
 
 <how-to-write-an-investigation-request>
 
-Make the intent and outcomes explicit: what needs to be learned, why it matters, and how to know when complete. Focus on evidence gathering and decision readiness, not solutions. CARD.md describes the unknown and why it matters — approach details (how to investigate) belong in PLAN.md.
+Make the intent and outcomes explicit: what needs to be learned, why it matters, and how to know when complete. Focus on evidence gathering and decision readiness, not solutions. CARD.md describes the unknown and why it matters — approach details (how to investigate) belong in plan files (plan/).
 
 ## Document Structure
 
