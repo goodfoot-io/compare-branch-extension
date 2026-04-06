@@ -387,11 +387,11 @@ export function buildCardRepoBlock(rootPath: string): string {
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 
 /**
- * Builds the `<card-repo-log>` block with recent commits and patch diffs.
+ * Builds the `<card-repo-log>` block with recent commits in chronological
+ * (oldest-first) order.
  *
- * Filters out commits that exclusively touch `streams/` files (high-frequency
- * transcript writes). Shows patch output instead of diffstat for remaining
- * content.
+ * Excludes commits that exclusively touch `streams/` or bookkeeping files.
+ * Each line shows the short hash, date, author, and subject — no file lists.
  *
  * Returns `null` when the repository has no qualifying commits or git is
  * unavailable, so the block can be omitted from the output.
@@ -405,9 +405,9 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
       'git',
       [
         'log',
-        `-${MAX_CARD_REPO_LOG_COMMITS}`,
-        '--pretty=format:%x00%h - %an: %s',
-        '--name-only',
+        `--max-count=${MAX_CARD_REPO_LOG_COMMITS}`,
+        '--reverse',
+        '--pretty=format:%h %as %an: %s',
         '--',
         '.',
         ...CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
@@ -422,9 +422,6 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     ).trim();
 
     if (!log) return null;
-
-    const formatted = formatCommitLog(log, 'nul');
-    if (!formatted) return null;
 
     let totalCount: number | null = null;
     try {
@@ -441,7 +438,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     }
 
     const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
-    return `<card-repo-log${countAttr}>\n${formatted}\n</card-repo-log>`;
+    return `<card-repo-log${countAttr}>\n${log}\n</card-repo-log>`;
   } catch {
     return null;
   }

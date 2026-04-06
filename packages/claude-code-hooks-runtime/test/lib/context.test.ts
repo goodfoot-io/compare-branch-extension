@@ -449,13 +449,34 @@ describe('buildCardRepoLogBlock', () => {
     expect(result).toBeNull();
   });
 
-  it('uses diffstat file paths without line counts', () => {
+  it('shows commit lines with date and no file lists', () => {
     const result = buildCardRepoLogBlock(repoPath);
 
     expect(result).not.toBeNull();
+    // Each commit line includes a short date
+    expect(result).toMatch(/[0-9a-f]{7,} \d{4}-\d{2}-\d{2} /);
+    // No file paths in the output
     expect(result).not.toContain('diff --git');
-    // File paths appear but without " | N +/-" line counts
-    expect(result).not.toMatch(/\|\s+\d+/);
+    expect(result).not.toMatch(/\.\w+\n/); // no file extensions on their own lines
+  });
+
+  it('lists commits in chronological order (oldest first)', async () => {
+    const chronoRepo = new TestGitWorkspace();
+    const chronoPath = await chronoRepo.create();
+
+    try {
+      await chronoRepo.createAndCommitFile('CARD.md', '# First', 'First commit');
+      await chronoRepo.createAndCommitFile('PLAN.md', '# Second', 'Second commit');
+
+      const result = buildCardRepoLogBlock(chronoPath);
+
+      expect(result).not.toBeNull();
+      const firstIdx = result!.indexOf('First commit');
+      const secondIdx = result!.indexOf('Second commit');
+      expect(firstIdx).toBeLessThan(secondIdx);
+    } finally {
+      chronoRepo.destroy();
+    }
   });
 
   describe('.gitignore filtering', () => {
@@ -484,7 +505,7 @@ describe('buildCardRepoLogBlock', () => {
       expect(result).not.toContain('Add gitignore');
     });
 
-    it('excludes .gitignore diffs from mixed commits', async () => {
+    it('includes mixed commits without file lists', async () => {
       const mixedRepo = new TestGitWorkspace();
       const mixedPath = await mixedRepo.create();
 
@@ -500,7 +521,8 @@ describe('buildCardRepoLogBlock', () => {
 
         expect(result).not.toBeNull();
         expect(result).toContain('Add gitignore and card');
-        expect(result).toContain('CARD.md');
+        // No file lists in the log output
+        expect(result).not.toContain('CARD.md');
         expect(result).not.toContain('.gitignore');
       } finally {
         mixedRepo.destroy();
@@ -541,13 +563,14 @@ describe('buildCardRepoLogBlock', () => {
       expect(result).not.toContain('Add session stream');
     });
 
-    it('includes mixed commits without streams file diffs', () => {
+    it('includes mixed commits without file lists', () => {
       const result = buildCardRepoLogBlock(streamsPath);
 
       expect(result).not.toBeNull();
       expect(result).toContain('Update card and stream');
+      // No file lists in the log output
       expect(result).not.toContain('streams/');
-      expect(result).toContain('CARD.md');
+      expect(result).not.toContain('CARD.md');
     });
   });
 });
