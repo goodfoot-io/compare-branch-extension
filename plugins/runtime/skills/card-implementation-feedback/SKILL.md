@@ -66,7 +66,11 @@ fi
 
 ## 4. Implement
 
+### 4.1 Load Skills
+
 Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
+
+### 4.2 Implement Changes
 
 Implement the targeted changes based on the user's feedback. Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
@@ -84,7 +88,7 @@ COMMITMSG
 )"
 ```
 
-### 4.1 Validation Gate
+### 4.3 Validation Gate
 
 ALL validation commands must pass before proceeding.
 

@@ -167,7 +167,7 @@ This task owns: [absolute paths from plan]
 
 ### 2.4 Process Result
 
-- **COMPLETED**: Mark todo completed, commit if changes exist, continue
+- **COMPLETED**: Mark todo completed, proceed to Step 2.5
 - **NEEDS_REVISION**: Update todo with attempt count, revert the agent's owned files to baseline:
   ```bash
   # [AGENT_FILES] is the list of absolute paths from the agent's File Ownership section.
@@ -183,9 +183,17 @@ This task owns: [absolute paths from plan]
   - **Attempts >= 3**: Mark todo blocked
 - **BLOCKED**: Document in card comment, mark todo blocked, continue
 
+**After all todos:**
+- **ALL blocked**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary comment to `comment/all-tasks-blocked.md` with per-task blocker details. Commit both files and **STOP**.
+
+- **SOME blocked**: Note in summary, proceed to Step 3
+- **NONE blocked**: Proceed to Step 3
+
+### 2.5 Load Skills and Commit
+
 Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
 
-**COMPLETED:** Commit all workspace changes including new files:
+Commit all workspace changes including new files:
 
 ```bash
 git add -A
@@ -198,13 +206,7 @@ git tag -f "implement/$CARD_ID/baseline" HEAD
 
 The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
 
-**After all todos:**
-- **ALL blocked**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary comment to `comment/all-tasks-blocked.md` with per-task blocker details. Commit both files and **STOP**.
-
-- **SOME blocked**: Note in summary, proceed to Step 3
-- **NONE blocked**: Proceed to Step 3
-
-### 2.5 Validation Gate
+### 2.6 Validation Gate
 
 Create post-implementation rollback point:
 
@@ -274,8 +276,8 @@ Tags mark rollback points during execution. Tags point to the most recent real c
 
 | Tag | Created At | Advances | Purpose |
 |-----|------------|----------|---------|
-| `implement/[CARD_ID]/baseline` | Step 1 | After each COMPLETED todo commit (Step 2.4) | Last known good state — NEEDS_REVISION reverts to this tag |
-| `implement/[CARD_ID]/post-implementation` | Step 2.5 | Never | After implementation, before validation |
+| `implement/[CARD_ID]/baseline` | Step 1 | After each COMPLETED todo commit (Step 2.5) | Last known good state — NEEDS_REVISION reverts to this tag |
+| `implement/[CARD_ID]/post-implementation` | Step 2.6 | Never | After implementation, before validation |
 
 
 </instructions>
