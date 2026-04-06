@@ -82,10 +82,19 @@ export class CardsClient {
    * @param httpClient - Optional HTTP client for dependency injection.
    */
   constructor(
-    private readonly options: CardsClientOptions,
+    private options: CardsClientOptions,
     httpClient?: HttpClient
   ) {
     this._httpClient = httpClient;
+  }
+
+  /**
+   * Replaces the access token used for subsequent API requests.
+   *
+   * @param token - The new access token to use for authentication.
+   */
+  updateAccessToken(token: string): void {
+    this.options = { ...this.options, accessToken: token };
   }
 
   /**
