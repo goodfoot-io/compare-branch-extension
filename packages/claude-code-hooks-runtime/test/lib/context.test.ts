@@ -160,18 +160,6 @@ describe('buildCardBlock', () => {
     expect(result).not.toContain('BASE_BRANCH');
   });
 
-  it('includes EFFORT env var when effort is set', () => {
-    const result = buildCardBlock(makeActionInput({ effort: 'high' }));
-
-    expect(result).toContain('EFFORT=high');
-  });
-
-  it('omits EFFORT env var when effort is undefined', () => {
-    const result = buildCardBlock(makeActionInput());
-
-    expect(result).not.toContain('EFFORT=');
-  });
-
   it('includes relations with title and path when present', () => {
     const tmpDir = join(repoPath, '..', `card-block-relations-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });

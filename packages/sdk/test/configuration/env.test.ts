@@ -57,8 +57,7 @@ describe('env', () => {
         PARENT_BRANCH: 'PARENT_BRANCH',
         WORKSPACE_BRANCH: 'WORKSPACE_BRANCH',
         EXTENSION_PATH: 'EXTENSION_PATH',
-        HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE',
-        EFFORT: 'EFFORT'
+        HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE'
       });
     });
   });
@@ -196,7 +195,6 @@ describe('env', () => {
         environment: 'production',
         executionMode: 'interactive',
         codingAgent: 'claude',
-        effort: 'medium',
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',
@@ -216,7 +214,6 @@ describe('env', () => {
         environment: 'production',
         executionMode: 'interactive',
         codingAgent: undefined,
-        effort: 'medium',
         switchToInteractiveData: undefined,
         repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',

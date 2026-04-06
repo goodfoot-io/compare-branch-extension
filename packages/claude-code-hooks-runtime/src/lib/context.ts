@@ -188,7 +188,6 @@ export function buildCardBlock(actionInput: ActionInput): string {
   if (workspacePath) envLines.push(`  WORKSPACE_PATH=${workspacePath}`);
   if (baseBranch) envLines.push(`  BASE_BRANCH=${baseBranch}`);
   if (workspaceBranch) envLines.push(`  WORKSPACE_BRANCH=${workspaceBranch}`);
-  if (actionInput.effort) envLines.push(`  EFFORT=${actionInput.effort}`);
 
   const bodyLines: string[] = [];
   if (title) bodyLines.push(`title: ${title}`);

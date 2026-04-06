@@ -14,7 +14,6 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { Effort } from '../protocol/types/effort.js';
 import type { ActionInput } from './inputs.js';
 
 // ============================================================================
@@ -183,14 +182,7 @@ export const CARDS_ENV_VARS = {
    *
    * Available in all actions and type hooks.
    */
-  HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE',
-
-  /**
-   * Effort level selected by the user in the Actions dropdown UI.
-   * Valid values: 'low' | 'medium' | 'high'.
-   * Optional — empty string when the action was dispatched without a UI effort selection.
-   */
-  EFFORT: 'EFFORT'
+  HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE'
 } as const;
 
 // ============================================================================
@@ -304,35 +296,6 @@ export function getCodingAgent(): string | undefined {
     return undefined;
   }
   return value;
-}
-
-/**
- * Reads the effort level from the environment.
- *
- * Optional value set by the Actions dropdown UI. When the action was dispatched
- * without a UI effort selection (e.g., via WebSocket or `runCardAction`), this
- * returns `undefined`. Non-empty values are validated against the {@link Effort}
- * enum and an error is thrown for unrecognized values.
- *
- * @returns The effort level, or undefined if not set or empty
- * @throws Error if the value is set but does not match a valid Effort enum value
- * @example
- * ```typescript
- * const effort = getEffort();
- * const level = effort ?? Effort.medium;
- * ```
- */
-export function getEffort(): Effort | undefined {
-  const value = process.env[CARDS_ENV_VARS.EFFORT];
-  if (value === undefined || value === '') {
-    return undefined;
-  }
-  if (!Object.values(Effort).includes(value as Effort)) {
-    throw new Error(
-      `Invalid ${CARDS_ENV_VARS.EFFORT}: expected one of ${Object.values(Effort).join(', ')}, got "${value}"`
-    );
-  }
-  return value as Effort;
 }
 
 /**
@@ -516,7 +479,6 @@ export function extractActionInput(): ActionInput {
     repoRoot: getRepoRoot(),
     cardRepoPath: getCardRepoPath(),
     configPath: getConfigPath(),
-    extensionPath: getExtensionPath(),
-    effort: getEffort()
+    extensionPath: getExtensionPath()
   };
 }
