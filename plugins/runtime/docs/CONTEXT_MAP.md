@@ -242,7 +242,7 @@ cards plugin skills (available in all runtime sessions):
 | `card-clarify-and-enrich` | Stale / !DOR_MET | No |
 | `card-plan` | PLAN_REQUIRED | **Yes** — planner + plan-failure-mode subagents (tier-based) |
 | `card-plan-feedback` | Plan revision | No |
-| `card-implementation` | Not routed by default | No (uses card-developer) |
+| `card-implementation` | Tier 1 (no plan) | No (uses card-developer) |
 | `card-implementation-with-plan` | Has plan | **Yes** — developer subagents |
 | `card-implementation-feedback` | HAS_IMPL_FEEDBACK | No |
 | `card-bug` | IS_TESTABLE_BUG | No |

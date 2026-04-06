@@ -172,7 +172,7 @@ Read `gates.planRequired` from `CARD.meta.json`.
 Based on the outcome:
 
 - **Blocked**: **STOP** — do not proceed to implementation.
-- **Tier 1 (no plan)**: Load the `runtime:card-implementation-with-plan` skill and follow its instructions.
+- **Tier 1 (no plan)**: Load the `runtime:card-implementation` skill and follow its instructions.
 - **Approved and planRequired**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
 - **Approved and not planRequired**: Load the `runtime:card-implementation-with-plan` skill and follow its instructions.
 
