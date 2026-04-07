@@ -6,6 +6,8 @@
  * @module ipc
  */
 
+import { execFileSync } from 'node:child_process';
+
 /**
  * Checks if a process is alive using `kill(pid, 0)`.
  *
@@ -20,6 +22,17 @@
  * @throws Rethrows unexpected `process.kill` failures so callers can fail closed.
  */
 export function isProcessAlive(pid: number): boolean {
+  if (process.platform === 'win32') {
+    try {
+      const output = execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], {
+        encoding: 'utf-8'
+      });
+      return output.includes(String(pid));
+    } catch {
+      return false;
+    }
+  }
+
   try {
     process.kill(pid, 0);
     return true;

@@ -10,6 +10,7 @@
  * @summary Detached transcript watcher for real-time transcript streaming
  */
 
+import { execFileSync } from 'node:child_process';
 import type { FileHandle } from 'node:fs/promises';
 import { access, open, unlink } from 'node:fs/promises';
 import * as net from 'node:net';
@@ -141,6 +142,17 @@ export function parseArgs(argv: string[]): TranscriptWatcherArgs {
  * @returns True if the process is alive, false otherwise.
  */
 export function isProcessAlive(pid: number): boolean {
+  if (process.platform === 'win32') {
+    try {
+      const output = execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], {
+        encoding: 'utf-8'
+      });
+      return output.includes(String(pid));
+    } catch {
+      return false;
+    }
+  }
+
   try {
     process.kill(pid, 0);
     return true;
