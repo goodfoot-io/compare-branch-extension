@@ -46,6 +46,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
 
   process.env['EXTENSION_PATH'] = '/test/extension';
+  process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
   process.env['API_TEST_MODE'] = '1';
 
   const fsPromises = await import('node:fs/promises');

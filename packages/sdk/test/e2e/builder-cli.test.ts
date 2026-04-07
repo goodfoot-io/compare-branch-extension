@@ -699,7 +699,8 @@ export default {
       REPO_ROOT: testDir,
       CARD_REPO_PATH: testDir,
       CONFIG_PATH: testDir,
-      EXTENSION_PATH: testDir
+      EXTENSION_PATH: testDir,
+      MARKETPLACE_PATH: testDir
     });
 
     expect(result.exitCode).toBe(0);
@@ -756,7 +757,8 @@ export default {
       REPO_ROOT: testDir,
       CARD_REPO_PATH: testDir,
       CONFIG_PATH: testDir,
-      EXTENSION_PATH: testDir
+      EXTENSION_PATH: testDir,
+      MARKETPLACE_PATH: testDir
     });
 
     expect(result.exitCode).toBe(0);

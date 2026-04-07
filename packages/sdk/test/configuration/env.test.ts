@@ -57,6 +57,7 @@ describe('env', () => {
         PARENT_BRANCH: 'PARENT_BRANCH',
         WORKSPACE_BRANCH: 'WORKSPACE_BRANCH',
         EXTENSION_PATH: 'EXTENSION_PATH',
+        MARKETPLACE_PATH: 'MARKETPLACE_PATH',
         HOOKS_LOG_FILE: 'CARDS_HOOKS_LOG_FILE'
       });
     });
@@ -181,6 +182,7 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/project/.cards/repo';
       process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/project/.cards/config';
       process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
+      process.env[CARDS_ENV_VARS.MARKETPLACE_PATH] = '/test/marketplace';
     }
 
     it('should extract all action input fields when all are set', () => {
@@ -199,7 +201,8 @@ describe('env', () => {
         repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
-        extensionPath: '/extension/path'
+        extensionPath: '/extension/path',
+        marketplacePath: '/test/marketplace'
       });
     });
 
@@ -218,7 +221,8 @@ describe('env', () => {
         repoRoot: '/workspace/project',
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
-        extensionPath: '/extension/path'
+        extensionPath: '/extension/path',
+        marketplacePath: '/test/marketplace'
       });
     });
 

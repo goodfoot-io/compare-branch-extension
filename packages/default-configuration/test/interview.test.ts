@@ -39,8 +39,10 @@ const originalFetch = globalThis.fetch;
 beforeEach(async () => {
   vi.clearAllMocks();
 
-  // Set EXTENSION_PATH so resolveMarketplacePath() succeeds
+  // Set EXTENSION_PATH for extensionPath in ActionInput
   process.env['EXTENSION_PATH'] = '/test/extension';
+  // Set MARKETPLACE_PATH so resolveMarketplacePath() succeeds
+  process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
 
   // Enable discovery test mode so createCardsClient() returns a client without
   // a real cards-api.json file on disk.

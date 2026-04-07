@@ -24,7 +24,8 @@ describe('defineAction', () => {
     repoRoot: '/workspace',
     cardRepoPath: '/workspace/.cards/card-123',
     configPath: '/config',
-    extensionPath: '/ext'
+    extensionPath: '/ext',
+    marketplacePath: '/test/marketplace'
   };
 
   const mockLogger: ILogger = {

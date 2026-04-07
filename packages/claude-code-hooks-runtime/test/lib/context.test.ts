@@ -44,6 +44,7 @@ describe('buildEnvBlock', () => {
     extensionPath: '/tmp/extension',
     switchToInteractiveData: undefined,
     codingAgent: undefined,
+    marketplacePath: '/test/marketplace',
     ...overrides
   });
 
@@ -684,6 +685,7 @@ describe('buildAdditionalContext', () => {
     extensionPath: '/tmp/extension',
     switchToInteractiveData: undefined,
     codingAgent: undefined,
+    marketplacePath: '/test/marketplace',
     ...overrides
   });
 

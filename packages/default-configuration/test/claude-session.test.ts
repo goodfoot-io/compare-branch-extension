@@ -675,24 +675,24 @@ describe('claude-session shared utilities', () => {
   });
 
   describe('resolveMarketplacePath', () => {
-    it('returns marketplace path from EXTENSION_PATH', async () => {
+    it('returns marketplace path from MARKETPLACE_PATH', async () => {
       const { resolveMarketplacePath } = await import('../src/lib/claude-session.js');
-      process.env['EXTENSION_PATH'] = '/home/user/.vscode/extensions/cards-1.0.0';
+      process.env['MARKETPLACE_PATH'] = '/test/marketplace';
       try {
-        expect(resolveMarketplacePath()).toBe('/home/user/.vscode/extensions/cards-1.0.0/dist/marketplace');
+        expect(resolveMarketplacePath()).toBe('/test/marketplace');
       } finally {
-        delete process.env['EXTENSION_PATH'];
+        delete process.env['MARKETPLACE_PATH'];
       }
     });
 
-    it('throws when EXTENSION_PATH is not set', async () => {
+    it('throws when MARKETPLACE_PATH is not set', async () => {
       const { resolveMarketplacePath } = await import('../src/lib/claude-session.js');
-      const saved = process.env['EXTENSION_PATH'];
-      delete process.env['EXTENSION_PATH'];
+      const saved = process.env['MARKETPLACE_PATH'];
+      delete process.env['MARKETPLACE_PATH'];
       try {
         expect(() => resolveMarketplacePath()).toThrow('Missing required environment variable');
       } finally {
-        if (saved !== undefined) process.env['EXTENSION_PATH'] = saved;
+        if (saved !== undefined) process.env['MARKETPLACE_PATH'] = saved;
       }
     });
   });
@@ -890,8 +890,10 @@ describe('claude-session shared utilities', () => {
       const { spawn } = await import('node:child_process');
       const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
-      // Set EXTENSION_PATH for resolveMarketplacePath
+      // Set EXTENSION_PATH for extensionPath in ActionInput
       process.env['EXTENSION_PATH'] = '/test/extension';
+      // Set MARKETPLACE_PATH for resolveMarketplacePath
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
 
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -918,7 +920,10 @@ describe('claude-session shared utilities', () => {
       const { spawn } = await import('node:child_process');
       const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
+      // Set EXTENSION_PATH for extensionPath in ActionInput
       process.env['EXTENSION_PATH'] = '/test/extension';
+      // Set MARKETPLACE_PATH for resolveMarketplacePath
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
 
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -945,7 +950,10 @@ describe('claude-session shared utilities', () => {
       const { spawn } = await import('node:child_process');
       const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
+      // Set EXTENSION_PATH for extensionPath in ActionInput
       process.env['EXTENSION_PATH'] = '/test/extension';
+      // Set MARKETPLACE_PATH for resolveMarketplacePath
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
 
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -973,7 +981,10 @@ describe('claude-session shared utilities', () => {
       const { spawn } = await import('node:child_process');
       const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
+      // Set EXTENSION_PATH for extensionPath in ActionInput
       process.env['EXTENSION_PATH'] = '/test/extension';
+      // Set MARKETPLACE_PATH for resolveMarketplacePath
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
 
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -997,7 +1008,10 @@ describe('claude-session shared utilities', () => {
       const { spawn } = await import('node:child_process');
       const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
+      // Set EXTENSION_PATH for extensionPath in ActionInput
       process.env['EXTENSION_PATH'] = '/test/extension';
+      // Set MARKETPLACE_PATH for resolveMarketplacePath
+      process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
 
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);

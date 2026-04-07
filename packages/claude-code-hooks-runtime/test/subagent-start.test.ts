@@ -91,7 +91,8 @@ describe('SubagentStart Hook', () => {
         configPath: '/tmp/config',
         extensionPath: '/tmp/extension',
         switchToInteractiveData: undefined,
-        codingAgent: undefined
+        codingAgent: undefined,
+        marketplacePath: '/test/marketplace'
       });
     });
 
@@ -137,7 +138,8 @@ describe('SubagentStart Hook', () => {
         configPath: '/tmp/config',
         extensionPath: '/tmp/extension',
         switchToInteractiveData: undefined,
-        codingAgent: undefined
+        codingAgent: undefined,
+        marketplacePath: '/test/marketplace'
       });
 
       const result = await hook(baseInput, context);

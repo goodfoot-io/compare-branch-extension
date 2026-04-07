@@ -55,7 +55,8 @@ const ACTION_ENV = {
   REPO_ROOT: '/workspace',
   CARD_REPO_PATH: '/workspace/.cards/repo',
   CONFIG_PATH: '/tmp/config',
-  EXTENSION_PATH: '/tmp/extension'
+  EXTENSION_PATH: '/tmp/extension',
+  MARKETPLACE_PATH: '/tmp/extension/dist/marketplace'
 } as const;
 
 describe('Stop Hook', () => {

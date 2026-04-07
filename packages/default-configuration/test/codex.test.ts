@@ -51,6 +51,7 @@ const originalFetch = globalThis.fetch;
 beforeEach(async () => {
   vi.clearAllMocks();
   process.env['EXTENSION_PATH'] = '/test/extension';
+  process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
   process.env['API_TEST_MODE'] = '1';
   delete process.env['CODEX_HOME'];
   delete process.env['CARDS_HOME'];

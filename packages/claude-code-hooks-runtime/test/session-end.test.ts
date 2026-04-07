@@ -51,7 +51,8 @@ const baseActionInput = {
   configPath: '/tmp/config',
   extensionPath: '/tmp/extension',
   switchToInteractiveData: undefined,
-  codingAgent: undefined
+  codingAgent: undefined,
+  marketplacePath: '/test/marketplace'
 };
 
 const baseInput = {

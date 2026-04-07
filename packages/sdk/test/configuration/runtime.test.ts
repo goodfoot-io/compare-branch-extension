@@ -49,6 +49,7 @@ describe('runtime', () => {
     process.env[CARDS_ENV_VARS.CARD_REPO_PATH] = '/workspace/cards';
     process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/.cards/config';
     process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
+    process.env[CARDS_ENV_VARS.MARKETPLACE_PATH] = '/test/marketplace';
   });
 
   afterEach(() => {

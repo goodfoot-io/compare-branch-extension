@@ -155,6 +155,7 @@ describe('spawnClaudeSession post-exit cleanup error propagation', () => {
     const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
 
     process.env['EXTENSION_PATH'] = '/test/extension';
+    process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
 
     const child = createMockChild();
     vi.mocked(spawn).mockReturnValue(child);
