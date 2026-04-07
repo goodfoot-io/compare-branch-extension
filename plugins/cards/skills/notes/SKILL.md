@@ -21,19 +21,19 @@ While working on this card, write a note whenever you encounter any of the follo
 
 ## Note Format
 
-Write two files per note. Load the `cards:markdown` skill if not already loaded — use fragment links for every named file, function, or type.
+Write two files per note. Load the `cards:markdown` skill if not already loaded — both the note content and its sidecar summary follow the `<markdown-guidelines>`.
+
+Use a kebab-case slug that matches the trigger category (e.g. `entry-points`, `key-types`).
 
 **`[CARD_REPO_PATH]/notes/[slug].md`** — full note content, factual and specific: file paths, function names, line numbers, call sequences. Omit general advice.
 
-**`[CARD_REPO_PATH]/notes/[slug].md.meta.json`** — summary:
+**`[CARD_REPO_PATH]/notes/[slug].md.meta.json`** — 1–2 sentences capturing the most important facts an agent needs before reading the full note:
 
 ```json
 {
-  "summary": "[1–2 sentences capturing the single most actionable fact an agent needs before reading the full note.]"
+  "summary": "[1–2 sentences with the most important facts, following <markdown-guidelines>]"
 }
 ```
-
-Use a kebab-case slug that matches the trigger category (e.g. `entry-points`, `key-types`).
 
 ## Committing Notes
 

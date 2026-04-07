@@ -50,7 +50,7 @@ PLAN.md is stored in the card repository (`$CARD_REPO_PATH`), but the card's wor
 
 #### Write and Store Plan
 
-Write the plan to `plan/[name].md` in the card repository, where `[name]` is a semantically descriptive slug (e.g., `plan/initial.md`, `plan/phase-2.md`). Create a sidecar at `plan/[name].md.meta.json` with a display title. Commit to the card repository:
+Write the plan to `plan/[name].md` in the card repository, where `[name]` is a semantically descriptive slug (e.g., `plan/initial.md`, `plan/phase-2.md`). Create a sidecar at `plan/[name].md.meta.json` with a `title` prefixed with "Plan: " (e.g., `"title": "Plan: Three-phase migration starting with schema"`). Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH

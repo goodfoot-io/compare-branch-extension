@@ -78,13 +78,16 @@ cd "$REPO" && git add CARD.md && git commit -m "Added description [single senten
 
 3. Load the `cards:notes` skill and record any discoveries made during research as notes in the card repository.
 
-If the approach is clear, load the `cards:markdown` skill (if not already loaded) before writing a plan file:
+If the approach is clear, load the `cards:markdown` skill (if not already loaded) before writing a plan file and its sidecar:
 
 ```bash
 mkdir -p "$REPO/plan"
 cat <<'PLAN_EOF' > "$REPO/plan/initial.md"
-Plan content here (plain markdown, no frontmatter).
+Plan content here (plain markdown, no frontmatter, following <markdown-guidelines>).
 PLAN_EOF
+cat <<'META_EOF' > "$REPO/plan/initial.md.meta.json"
+{ "title": "Plan: [short title describing the approach]" }
+META_EOF
 cd "$REPO" && git add plan/ && git commit -m "Added plan [single sentence summarizing the approach and key components]."
 ```
 
