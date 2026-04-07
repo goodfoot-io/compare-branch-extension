@@ -671,36 +671,40 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
   const card = await client.getCard(cardId);
   const repositoryPath = card.repositoryPath;
 
-  // 2. Resolve session
+  // 2. Resolve session (optional — watch works without a session, just without attribution)
   const pid = findClaudePid();
+  let sessionId: string | null = null;
   if (!pid) {
-    throw new Error('Could not find Claude ancestor PID.');
+    console.error('card watch: warning: Could not find Claude ancestor PID. Watching for any commit.');
+  } else {
+    sessionId = await getSessionIdForPid(pid);
+    if (!sessionId) {
+      console.error(`card watch: warning: No active card session for PID ${pid}. Watching for any commit.`);
+    }
   }
-  const sessionId = await getSessionIdForPid(pid);
-  if (!sessionId) {
-    throw new Error(`No active card session for PID ${pid}. Run 'card attach' first.`);
-  }
 
-  // 3. Check for existing unattributed commits
-  const headSha = readSessionHeadSha(sessionId);
-  if (headSha) {
-    const allCommits = getCommitsSince(repositoryPath, headSha);
-    const sessionCommits = getSessionCommits(sessionId);
-    const unattributed = getUnattributedCommits(allCommits, sessionCommits);
+  // 3. Check for existing unattributed commits (only when session is available)
+  if (sessionId) {
+    const headSha = readSessionHeadSha(sessionId);
+    if (headSha) {
+      const allCommits = getCommitsSince(repositoryPath, headSha);
+      const sessionCommits = getSessionCommits(sessionId);
+      const unattributed = getUnattributedCommits(allCommits, sessionCommits);
 
-    const qualifying =
-      globs.length > 0
-        ? unattributed.filter((sha) => matchesGlobs(getCommitFiles(sha, repositoryPath), globs))
-        : unattributed;
+      const qualifying =
+        globs.length > 0
+          ? unattributed.filter((sha) => matchesGlobs(getCommitFiles(sha, repositoryPath), globs))
+          : unattributed;
 
-    if (qualifying.length > 0) {
-      // 4. Output existing unattributed commits and exit
-      for (const sha of qualifying) {
-        const commit = buildCardCommit(sha, repositoryPath);
-        await appendCommitToSession(sessionId, sha);
-        console.log(formatCommit(commit));
+      if (qualifying.length > 0) {
+        // 4. Output existing unattributed commits and exit
+        for (const sha of qualifying) {
+          const commit = buildCardCommit(sha, repositoryPath);
+          await appendCommitToSession(sessionId, sha);
+          console.log(formatCommit(commit));
+        }
+        return;
       }
-      return;
     }
   }
 
@@ -767,8 +771,10 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
     if (event.cardId !== cardId) return;
     if (isBookkeepingCommit(event.commit)) return;
 
-    const currentSessionCommits = getSessionCommits(sessionId);
-    if (currentSessionCommits.includes(event.commit.hash)) return;
+    if (sessionId) {
+      const currentSessionCommits = getSessionCommits(sessionId);
+      if (currentSessionCommits.includes(event.commit.hash)) return;
+    }
 
     if (globs.length > 0) {
       const files = event.commit.diff.files.map((f) => f.file);
@@ -776,12 +782,14 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
     }
 
     // Qualifying commit — record, format, output, exit
-    try {
-      await appendCommitToSession(sessionId, event.commit.hash);
-    } catch (error) {
-      console.error(
-        `card watch: failed to record commit ${event.commit.hash}: ${error instanceof Error ? error.message : String(error)}`
-      );
+    if (sessionId) {
+      try {
+        await appendCommitToSession(sessionId, event.commit.hash);
+      } catch (error) {
+        console.error(
+          `card watch: failed to record commit ${event.commit.hash}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     }
     console.log(formatCommit(event.commit));
     unsubConnectionChange();
