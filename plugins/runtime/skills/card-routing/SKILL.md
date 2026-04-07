@@ -42,7 +42,7 @@ Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obt
 | PLAN_REQUIRED | `gates.planRequired` in the `<card>` block |
 | PLAN_APPROVED | `gates.planApproved` in the `<card>` block |
 | HAS_PLAN | `plan/` directory in the card repository contains at least one `.md` file |
-| USER_RESPONDED_TO_PLAN | `plan/` directory contains at least one `.md` file AND latest user comment is more recent than the plan-submission agent comment. Plan-submission comment: most recent agent-authored comment whose body contains 'plan/' or was created at the same modification time as the most recent plan file. Compare that comment's file modification time against the latest user comment's. |
+| USER_RESPONDED_TO_PLAN | `plan/` directory contains at least one `.md` file AND there exists a user-authored commit — more recent than the most recent `plan/*.md` file's commit — that adds or modifies non-metadata files. Metadata files (`CARD.meta.json`, `branches.json`, `commits.csv`, and their sidecars) are excluded; gate changes and status transitions do not constitute a plan response. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
 
