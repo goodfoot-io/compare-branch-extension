@@ -16,10 +16,23 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import markdownGuidelines from '../../../../plugins/cards/skills/markdown/SKILL.md';
 import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
+import workspaceCommitStyle from '../../../../plugins/runtime/skills/workspace-commit-style/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 
+/**
+ * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
+ * @param md - Markdown string potentially containing frontmatter.
+ * @returns The markdown content without frontmatter.
+ */
+function stripFrontmatter(md: string): string {
+  return md.replace(/^---\n[\s\S]*?\n---\n*/, '');
+}
+
 const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
+const WORKSPACE_COMMIT_STYLE: string = stripFrontmatter(workspaceCommitStyle).trim();
+const MARKDOWN_GUIDELINES: string = stripFrontmatter(markdownGuidelines).trim();
 
 /**
  * Chat action handler.
@@ -40,7 +53,7 @@ export default defineAction(
       sessionId: randomUUID(),
       resume: false,
       supportsSwitchToInteractive: false,
-      appendSystemPrompt: COMMIT_MESSAGE_STYLE
+      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${WORKSPACE_COMMIT_STYLE}\n\n${MARKDOWN_GUIDELINES}`
     });
   }
 );
