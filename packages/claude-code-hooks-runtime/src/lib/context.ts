@@ -100,13 +100,13 @@ export function buildEnvBlock(actionInput: ActionInput): string {
  * @throws {CardRepoAccessError} When CARD.meta.json cannot be read.
  */
 export function buildCardBlock(actionInput: ActionInput): string {
-  let raw: string;
+  let data: Record<string, unknown>;
   try {
-    raw = readFileSync(join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
+    const raw = readFileSync(join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
+    data = JSON.parse(raw) as Record<string, unknown>;
   } catch (error) {
     throw new CardRepoAccessError(actionInput.cardRepoPath, error);
   }
-  const data = JSON.parse(raw) as Record<string, unknown>;
   const yamlBody = yaml.dump(data, { flowLevel: -1, lineWidth: -1 }).trimEnd();
   return `<card type="yaml">\n${yamlBody}\n</card>`;
 }

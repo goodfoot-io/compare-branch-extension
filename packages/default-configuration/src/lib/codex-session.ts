@@ -117,14 +117,20 @@ export function buildEnvBlock(
  * Builds the `<card>` XML block with a YAML body from CARD.meta.json.
  *
  * Reads `CARD.meta.json` in full and serializes the entire parsed object
- * to YAML. Lets readFileSync/JSON.parse errors propagate (fail closed).
+ * to YAML. Wraps readFileSync/JSON.parse errors as CardRepoAccessError (fail closed).
  *
  * @param actionInput - Parsed action input for the current session.
  * @returns The `<card type="yaml">...</card>` block string.
+ * @throws {CardRepoAccessError} When CARD.meta.json cannot be read or parsed.
  */
 export function buildCardBlock(actionInput: ActionInput): string {
-  const raw = readFileSync(path.join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
-  const data = JSON.parse(raw) as Record<string, unknown>;
+  let data: Record<string, unknown>;
+  try {
+    const raw = readFileSync(path.join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
+    data = JSON.parse(raw) as Record<string, unknown>;
+  } catch (error) {
+    throw new CardRepoAccessError(actionInput.cardRepoPath, error);
+  }
   const yamlBody = yaml.dump(data, { flowLevel: -1, lineWidth: -1 }).trimEnd();
   return `<card type="yaml">\n${yamlBody}\n</card>`;
 }
