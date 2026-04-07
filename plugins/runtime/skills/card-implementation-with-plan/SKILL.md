@@ -198,7 +198,7 @@ Commit all workspace changes including new files:
 ```bash
 git add -A
 git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>]
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
 COMMITMSG
 )"
 git tag -f "implement/$CARD_ID/baseline" HEAD
@@ -213,7 +213,7 @@ Create post-implementation rollback point:
 ```bash
 git add -A
 git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style> — describe the uncommitted changes]
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines> — describe the uncommitted changes]
 COMMITMSG
 )"
 git tag -f "implement/$CARD_ID/post-implementation" HEAD
@@ -251,7 +251,7 @@ Stage any uncommitted implementation artifacts:
 ```bash
 git add -A
 git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>]
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
 COMMITMSG
 )"
 ```

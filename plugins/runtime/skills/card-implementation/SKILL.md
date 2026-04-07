@@ -53,7 +53,7 @@ Commit all workspace changes including new files:
 ```bash
 git add -A
 git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>]
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
 COMMITMSG
 )"
 git tag -f "implement/$CARD_ID/baseline" HEAD
@@ -90,7 +90,7 @@ Stage any uncommitted implementation artifacts:
 ```bash
 git add -A
 git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>]
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
 COMMITMSG
 )"
 ```

@@ -105,7 +105,10 @@ After all subagents complete, run each test file to confirm it fails. Discard an
 
 ```bash
 git add [test files]
-git commit -m "[single sentence summarizing the reproduction tests and what behavior they verify]"  # <workspace-commit-style>
+git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
+COMMITMSG
+)"
 ```
 
 Tag the state: `git tag -f "bug/$CARD_ID/reproduction" HEAD`
@@ -184,7 +187,10 @@ Verify independently using git — do not rely solely on the subagent status:
 - **BLOCKED or CANNOT_COMPLETE**: Write a comment with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP**.
 
 - **Test FAILS (expected)**:
-  - Commit: `git add "$TEST_FILE_PATH" && git commit -m "[one sentence summarizing what the reproduction test verifies]"`  # <workspace-commit-style>
+  - Commit: `git add "$TEST_FILE_PATH" && git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
+COMMITMSG
+)"
   - Tag: `git tag -f "bug/$CARD_ID/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment explaining the reproduction test and why it currently fails. Commit to the card repository.

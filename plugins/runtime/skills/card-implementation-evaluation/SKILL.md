@@ -19,7 +19,7 @@ Ensure all workspace changes are committed before evaluation:
 ```bash
 git add -A
 git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style> — describe the uncommitted changes]
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines> — describe the uncommitted changes]
 COMMITMSG
 )"
 ```
@@ -136,7 +136,7 @@ After all fixes are delegated and complete, stage and re-validate:
 ```bash
 git add -A
 git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style> — describe the uncommitted changes]
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines> — describe the uncommitted changes]
 COMMITMSG
 )"
 ```
