@@ -101,7 +101,8 @@ if (process.argv.includes('--branch-cleanup')) {
         switchToInteractiveData: undefined,
         cardRepoPath,
         configPath: '',
-        extensionPath: ''
+        extensionPath: '',
+        marketplacePath: ''
       };
 
       const client = await createCardsClient();

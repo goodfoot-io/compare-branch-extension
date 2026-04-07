@@ -38,18 +38,19 @@ export function errorMessage(error: unknown): string {
 }
 
 /**
- * Resolves the marketplace directory bundled with the installed extension.
- * Uses the EXTENSION_PATH environment variable injected by ActionDispatcher.
+ * Resolves the stable marketplace symlink path set by ActionDispatcher.
+ * Uses the MARKETPLACE_PATH environment variable which points to the
+ * global-storage symlink rather than the versioned extension install path.
  *
- * @returns Absolute path to the bundled marketplace directory.
- * @throws Error if EXTENSION_PATH is not set.
+ * @returns Absolute path to the marketplace directory.
+ * @throws Error if MARKETPLACE_PATH is not set.
  */
 export function resolveMarketplacePath(): string {
-  const extensionPath = process.env[CARDS_ENV_VARS.EXTENSION_PATH];
-  if (!extensionPath) {
-    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.EXTENSION_PATH}`);
+  const value = process.env[CARDS_ENV_VARS.MARKETPLACE_PATH];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.MARKETPLACE_PATH}`);
   }
-  return path.join(extensionPath, 'dist', 'marketplace');
+  return value;
 }
 
 /**

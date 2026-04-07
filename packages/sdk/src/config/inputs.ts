@@ -101,6 +101,15 @@ export interface ActionInput {
    * (`<extensionPath>/dist/plugins/runtime`).
    */
   extensionPath: string;
+
+  /**
+   * Stable symlink path to the marketplace directory inside global storage.
+   *
+   * This path does not change across extension upgrades, unlike the versioned
+   * extension installation path. Use this to register the marketplace source
+   * or locate marketplace assets.
+   */
+  marketplacePath: string;
 }
 
 /**

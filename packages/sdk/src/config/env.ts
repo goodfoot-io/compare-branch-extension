@@ -175,6 +175,17 @@ export const CARDS_ENV_VARS = {
   EXTENSION_PATH: 'EXTENSION_PATH',
 
   /**
+   * Stable symlink path to the marketplace directory inside global storage.
+   *
+   * Set by ActionDispatcher at runtime from the symlink created during extension
+   * activation. This path does not change across extension upgrades, unlike the
+   * versioned extension installation path.
+   *
+   * Available in actions only (not type hooks).
+   */
+  MARKETPLACE_PATH: 'MARKETPLACE_PATH',
+
+  /**
    * Absolute path to the Cards hooks log file.
    *
    * Set by ActionDispatcher at runtime. Read by the Logger singleton
@@ -432,6 +443,23 @@ export function getExtensionPath(): string {
 }
 
 /**
+ * Reads the stable marketplace symlink path from the environment.
+ *
+ * Set by ActionDispatcher from the symlink created during extension activation.
+ * This path is stable across extension upgrades.
+ *
+ * @returns Absolute path to the marketplace symlink.
+ * @throws Error if MARKETPLACE_PATH is missing or empty
+ */
+export function getMarketplacePath(): string {
+  const value = process.env[CARDS_ENV_VARS.MARKETPLACE_PATH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.MARKETPLACE_PATH}`);
+  }
+  return value;
+}
+
+/**
  * Reads and parses the switchToInteractive data file.
  *
  * When `SWITCH_TO_INTERACTIVE_DATA_PATH` is set, reads the file at that path
@@ -479,6 +507,7 @@ export function extractActionInput(): ActionInput {
     repoRoot: getRepoRoot(),
     cardRepoPath: getCardRepoPath(),
     configPath: getConfigPath(),
-    extensionPath: getExtensionPath()
+    extensionPath: getExtensionPath(),
+    marketplacePath: getMarketplacePath()
   };
 }
