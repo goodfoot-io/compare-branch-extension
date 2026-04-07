@@ -18,6 +18,7 @@ import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
+import yaml from 'js-yaml';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
@@ -50,18 +51,6 @@ const CODEX_AGENTS_FILE_NAME = 'AGENTS.md';
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
 
-interface CardMeta {
-  id: string;
-  title: string;
-  status: string;
-  gates: {
-    planRequired: boolean;
-    planApproved: boolean;
-    mergeRequestRequired: boolean;
-    mergeApproved: boolean;
-  };
-}
-
 interface WorkspaceData {
   branches: Record<string, { parentBranch?: string; addedAt: string }>;
   commits: string[];
@@ -72,11 +61,6 @@ interface CommitGroup {
   parentBranch?: string;
   shas: string[];
   orphaned?: boolean;
-}
-
-interface TrieNode {
-  children: Map<string, TrieNode>;
-  isFile: boolean;
 }
 
 export class CardRepoAccessError extends Error {
@@ -92,73 +76,69 @@ export class CardRepoAccessError extends Error {
   }
 }
 
-function readCardMeta(rootPath: string): CardMeta | null {
-  try {
-    const raw = readFileSync(path.join(rootPath, 'CARD.meta.json'), 'utf-8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const gates = parsed['gates'] as Record<string, boolean> | undefined;
-    return {
-      id: String(parsed['id'] ?? ''),
-      title: String(parsed['title'] ?? ''),
-      status: String(parsed['status'] ?? ''),
-      gates: {
-        planRequired: gates?.['planRequired'] === true,
-        planApproved: gates?.['planApproved'] === true,
-        mergeRequestRequired: gates?.['mergeRequestRequired'] === true,
-        mergeApproved: gates?.['mergeApproved'] === true
-      }
-    };
-  } catch {
-    return null;
-  }
-}
+// ============================================================================
+// Env block
+// ============================================================================
 
 /**
- * Builds the `<card>` XML block for Codex prompt context.
+ * Builds the fenced bash env block for Codex prompt context.
+ *
+ * Does not read process.env — all values come from explicit parameters.
  *
  * @param actionInput - Parsed action input for the current session.
  * @param workspacePath - Active worktree path used as the Codex workspace root.
  * @param baseBranch - Base branch associated with the worktree.
  * @param workspaceBranch - Branch checked out in the worktree.
- * @returns The `<card ...>...</card>` block string.
+ * @returns Fenced bash block string with env vars.
  */
-export function buildCardBlock(
+export function buildEnvBlock(
   actionInput: ActionInput,
   workspacePath: string,
   baseBranch: string,
   workspaceBranch: string
 ): string {
-  const meta = readCardMeta(actionInput.cardRepoPath);
-  const id = meta?.id || actionInput.cardId;
-  const title = meta?.title || '';
-  const status = meta?.status || '';
-  const gatesLine = meta
-    ? `gates: planRequired=${meta.gates.planRequired} planApproved=${meta.gates.planApproved} mergeRequestRequired=${meta.gates.mergeRequestRequired} mergeApproved=${meta.gates.mergeApproved}`
-    : '';
-
-  const envLines = [
-    `  CARD_REPO_PATH=${actionInput.cardRepoPath}`,
-    `  WORKSPACE_PATH=${workspacePath}`,
-    `  BASE_BRANCH=${baseBranch}`,
-    `  WORKSPACE_BRANCH=${workspaceBranch}`
+  const lines = [
+    `CARD_ID=${actionInput.cardId}`,
+    `CARD_REPO_PATH=${actionInput.cardRepoPath}`,
+    `WORKSPACE_PATH=${workspacePath}`,
+    `BASE_BRANCH=${baseBranch}`,
+    `WORKSPACE_BRANCH=${workspaceBranch}`,
+    `EXECUTION_MODE=${actionInput.executionMode}`
   ];
 
-  const bodyLines: string[] = [];
-  if (title) bodyLines.push(`title: ${title}`);
-  bodyLines.push('');
-  if (gatesLine) bodyLines.push(gatesLine);
-  bodyLines.push('env:');
-  bodyLines.push(...envLines);
-
-  const attrs = [`id="${id}"`, `status="${status}"`, `mode="${actionInput.executionMode}"`];
-  return `<card ${attrs.join(' ')}>\n${bodyLines.join('\n')}\n</card>`;
+  return `\`\`\`bash\n${lines.join('\n')}\n\`\`\``;
 }
 
-function formatTimestamp(mtimeMs: number): string {
-  const iso = new Date(mtimeMs).toISOString();
-  return `${iso.slice(0, 16)}Z`;
+// ============================================================================
+// Card block
+// ============================================================================
+
+/**
+ * Builds the `<card>` XML block with a YAML body from CARD.meta.json.
+ *
+ * Reads `CARD.meta.json` in full and serializes the entire parsed object
+ * to YAML. Lets readFileSync/JSON.parse errors propagate (fail closed).
+ *
+ * @param actionInput - Parsed action input for the current session.
+ * @returns The `<card type="yaml">...</card>` block string.
+ */
+export function buildCardBlock(actionInput: ActionInput): string {
+  const raw = readFileSync(path.join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
+  const data = JSON.parse(raw) as Record<string, unknown>;
+  const yamlBody = yaml.dump(data, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+  return `<card type="yaml">\n${yamlBody}\n</card>`;
 }
 
+// ============================================================================
+// Card repo listing
+// ============================================================================
+
+/**
+ * Counts files in a directory and returns count + latest mtime.
+ *
+ * @param dirPath - Directory to scan.
+ * @returns Tuple of [count, latestMtimeMs].
+ */
 function dirStats(dirPath: string): [count: number, latestMtimeMs: number] {
   try {
     const entries = readdirSync(dirPath, { withFileTypes: true });
@@ -182,16 +162,40 @@ function dirStats(dirPath: string): [count: number, latestMtimeMs: number] {
 }
 
 /**
- * Builds the `<card-repo>` block for Codex prompt context.
+ * Formats a timestamp as ISO-8601 to the minute.
+ *
+ * @param mtimeMs - Millisecond timestamp.
+ * @returns Formatted timestamp string.
+ */
+function formatTimestamp(mtimeMs: number): string {
+  const iso = new Date(mtimeMs).toISOString();
+  return `${iso.slice(0, 16)}Z`;
+}
+
+/**
+ * Represents a single entry in the Codex card-repo YAML listing.
+ */
+interface CodexCardRepoEntry {
+  name: string;
+  modified?: string;
+  entries?: CodexCardRepoEntry[];
+  count?: number;
+  latest?: string;
+}
+
+/**
+ * Builds the `<card-repo>` block for Codex prompt context with YAML body.
+ *
+ * Preserves timestamps (`modified` field). Does NOT add `summary` fields.
  *
  * @param rootPath - Root directory of the card repository.
- * @returns The `<card-repo>...</card-repo>` block string.
+ * @returns The `<card-repo type="yaml">...</card-repo>` block string.
  * @throws {CardRepoAccessError} When the card repository cannot be read.
  */
 export function buildCardRepoBlock(rootPath: string): string {
-  let entries: { name: string; isDir: boolean }[];
+  let dirEntries: { name: string; isDir: boolean }[];
   try {
-    entries = readdirSync(rootPath, { withFileTypes: true }).map((entry) => ({
+    dirEntries = readdirSync(rootPath, { withFileTypes: true }).map((entry) => ({
       name: entry.name.toString(),
       isDir: entry.isDirectory()
     }));
@@ -199,168 +203,64 @@ export function buildCardRepoBlock(rootPath: string): string {
     throw new CardRepoAccessError(rootPath, error);
   }
 
-  const lines: string[] = [];
-  for (const entry of entries) {
+  const items: CodexCardRepoEntry[] = [];
+  for (const entry of dirEntries) {
     if (entry.name === '.git') continue;
     const fullPath = path.join(rootPath, entry.name);
 
     if (entry.isDir) {
       if (entry.name === 'streams') {
-        lines.push('streams/');
+        const streamEntries: CodexCardRepoEntry[] = [];
         try {
-          const streamEntries = readdirSync(fullPath, { withFileTypes: true });
-          for (const streamEntry of streamEntries) {
-            if (streamEntry.isDirectory()) {
-              const streamPath = path.join(fullPath, streamEntry.name);
+          const subs = readdirSync(fullPath, { withFileTypes: true });
+          for (const sub of subs) {
+            if (sub.isDirectory()) {
+              const streamPath = path.join(fullPath, sub.name);
               const [count, latest] = dirStats(streamPath);
-              const latestSuffix = latest > 0 ? `   latest ${formatTimestamp(latest)}` : '';
-              lines.push(`${`  ${streamEntry.name}/`.padEnd(24)}${count} files${latestSuffix}`);
+              const streamEntry: CodexCardRepoEntry = { name: `${sub.name}/`, count };
+              if (latest > 0) {
+                streamEntry.latest = formatTimestamp(latest);
+              }
+              streamEntries.push(streamEntry);
             }
           }
         } catch (_readdirError: unknown) {
           void _readdirError;
         }
+        items.push({ name: 'streams/', entries: streamEntries });
       } else {
         const [count, latest] = dirStats(fullPath);
-        const latestSuffix = latest > 0 ? `   latest ${formatTimestamp(latest)}` : '';
-        lines.push(`${`${entry.name}/`.padEnd(24)}${count} files${latestSuffix}`);
+        const dirItem: CodexCardRepoEntry = { name: `${entry.name}/`, count };
+        if (latest > 0) {
+          dirItem.modified = formatTimestamp(latest);
+        }
+        items.push(dirItem);
       }
     } else {
+      const fileItem: CodexCardRepoEntry = { name: entry.name };
       try {
         const mtimeMs = statSync(fullPath).mtimeMs;
-        lines.push(`${entry.name}`.padEnd(24) + formatTimestamp(mtimeMs));
-      } catch {
-        lines.push(entry.name);
+        fileItem.modified = formatTimestamp(mtimeMs);
+      } catch (_statError: unknown) {
+        void _statError; // stat failed — omit modified field
       }
+      items.push(fileItem);
     }
   }
 
-  return `<card-repo>\n${lines.join('\n')}\n</card-repo>`;
+  const yamlBody = yaml.dump(items, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+  return `<card-repo type="yaml">\n${yamlBody}\n</card-repo>`;
 }
 
-function createNode(): TrieNode {
-  return { children: new Map(), isFile: false };
-}
-
-function insertPath(root: TrieNode, filePath: string): void {
-  let node = root;
-  for (const segment of filePath.split('/')) {
-    let child = node.children.get(segment);
-    if (!child) {
-      child = createNode();
-      node.children.set(segment, child);
-    }
-    node = child;
-  }
-  node.isFile = true;
-}
-
-function renderNode(node: TrieNode, indent: number): string {
-  const lines: string[] = [];
-  const prefix = ' '.repeat(indent);
-  const dirs: [string, TrieNode][] = [];
-  const files: [string, TrieNode][] = [];
-
-  for (const [name, child] of node.children) {
-    if (child.isFile && child.children.size === 0) {
-      files.push([name, child]);
-    } else if (child.isFile && child.children.size > 0) {
-      files.push([name, createNode()]);
-      dirs.push([name, child]);
-    } else {
-      dirs.push([name, child]);
-    }
-  }
-
-  dirs.sort(([left], [right]) => left.localeCompare(right));
-  files.sort(([left], [right]) => left.localeCompare(right));
-
-  for (const [name, child] of dirs) {
-    let collapsed = name;
-    let current = child;
-    while (current.children.size === 1 && !current.isFile) {
-      const [nextName, nextChild] = current.children.entries().next().value as [string, TrieNode];
-      collapsed += `/${nextName}`;
-      current = nextChild;
-    }
-
-    if (current.isFile && current.children.size === 0) {
-      lines.push(`${prefix}${collapsed}`);
-    } else {
-      lines.push(`${prefix}${collapsed}/`);
-      lines.push(renderNode(current, indent + 2));
-    }
-  }
-
-  for (const [name] of files) {
-    lines.push(`${prefix}${name}`);
-  }
-
-  return lines.filter(Boolean).join('\n');
-}
-
-function formatFileTree(paths: string[]): string {
-  if (paths.length === 0) return '';
-  const root = createNode();
-  for (const filePath of paths) {
-    if (filePath) insertPath(root, filePath);
-  }
-  return renderNode(root, 1);
-}
-
-function formatSingleCommit(block: string): string {
-  const lines = block.split('\n').filter((line) => line.trim());
-  if (lines.length === 0) return '';
-  const header = lines[0]!;
-  const files = lines.slice(1);
-  const tree = formatFileTree(files);
-  return tree ? `${header}\n${tree}` : header;
-}
-
-function isCommitHeader(line: string): boolean {
-  return /^[0-9a-f]{7,} - /.test(line);
-}
-
-function formatBlankLineDelimited(raw: string): string {
-  const lines = raw.split('\n');
-  const commitBlocks: string[][] = [];
-  let current: string[] = [];
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index]!;
-    if (line === '' && current.length > 0) {
-      const next = lines[index + 1];
-      if (next && isCommitHeader(next)) {
-        commitBlocks.push(current);
-        current = [];
-        continue;
-      }
-    }
-    current.push(line);
-  }
-
-  if (current.length > 0) commitBlocks.push(current);
-  return commitBlocks.map((block) => formatSingleCommit(block.join('\n').trim())).join('\n\n');
-}
-
-function formatCommitLog(rawLog: string, separator: 'nul' | 'blank-line'): string {
-  if (!rawLog.trim()) return '';
-  if (separator === 'nul') {
-    return rawLog
-      .split('\0')
-      .filter((block) => block.trim())
-      .map((block) => formatSingleCommit(block.trim()))
-      .join('\n\n');
-  }
-
-  return formatBlankLineDelimited(rawLog);
-}
+// ============================================================================
+// Card repo git log
+// ============================================================================
 
 /**
- * Builds the `<card-repo-log>` block for Codex prompt context.
+ * Builds the `<card-repo-log>` block for Codex prompt context with YAML body.
  *
  * @param rootPath - Root directory of the card repository.
- * @returns The `<card-repo-log ...>...</card-repo-log>` block string, or `null`.
+ * @returns The `<card-repo-log type="yaml" ...>...</card-repo-log>` block string, or `null`.
  */
 export function buildCardRepoLogBlock(rootPath: string): string | null {
   try {
@@ -369,8 +269,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
       [
         'log',
         `-${MAX_CARD_REPO_LOG_COMMITS}`,
-        '--pretty=format:%x00%h - %an: %s',
-        '--name-only',
+        '--reverse',
+        '--pretty=format:%h%x00%an%x00%s',
         '--',
         '.',
         ...CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
@@ -385,8 +285,11 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     ).trim();
 
     if (!log) return null;
-    const formatted = formatCommitLog(log, 'nul');
-    if (!formatted) return null;
+
+    const commits = log.split('\n').map((line) => {
+      const [sha, author, subject] = line.split('\0');
+      return { sha: sha!, author: author!, subject: subject! };
+    });
 
     let totalCount: number | null = null;
     try {
@@ -403,11 +306,16 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     }
 
     const countAttribute = totalCount !== null ? ` count="${totalCount}"` : '';
-    return `<card-repo-log${countAttribute}>\n${formatted}\n</card-repo-log>`;
+    const yamlBody = yaml.dump(commits, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+    return `<card-repo-log type="yaml"${countAttribute} order="oldest-first">\n${yamlBody}\n</card-repo-log>`;
   } catch {
     return null;
   }
 }
+
+// ============================================================================
+// Workspace repo log
+// ============================================================================
 
 function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   const branches: WorkspaceData['branches'] = {};
@@ -487,18 +395,22 @@ function filterResolvableShas(workspacePath: string, shas: string[]): string[] {
   }
 }
 
-function annotateMergedCommits(output: string, mergedShas: Set<string>): string {
-  return output.replace(/^([0-9a-f]{40}) ([0-9a-f]{7,} - .*)$/gm, (_, fullSha: string, rest: string) => {
-    return mergedShas.has(fullSha) ? `${rest} [merged]` : rest;
-  });
-}
-
-function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[], mergedShas?: Set<string>): string | null {
+/**
+ * Resolves commit details for specific SHAs as `{ sha, subject }` objects.
+ *
+ * @param workspacePath - Root directory of the workspace repository.
+ * @param shas - Full 40-char SHAs to resolve.
+ * @param mergedShas - SHAs reachable from the base branch (considered merged).
+ * @returns Array of commit objects, or `null` on failure.
+ */
+function resolveWorkspaceCommitDetails(
+  workspacePath: string,
+  shas: string[],
+  mergedShas?: Set<string>
+): Array<{ sha: string; subject: string; merged?: true }> | null {
   if (shas.length === 0) return null;
   try {
-    const useFullHash = mergedShas !== undefined && mergedShas.size > 0;
-    const format = useFullHash ? '%H %h - %s' : '%h - %s';
-    const output = execFileSync('git', ['log', '--no-walk', `--pretty=format:${format}`, '--name-only', ...shas], {
+    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%H%x00%h%x00%s', ...shas], {
       cwd: workspacePath,
       encoding: 'utf-8',
       timeout: 5000,
@@ -506,64 +418,32 @@ function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[], me
     }).trim();
 
     if (!output) return null;
-    const annotated = useFullHash ? annotateMergedCommits(output, mergedShas) : output;
-    return formatCommitLog(annotated, 'blank-line') || null;
+
+    const commits: Array<{ sha: string; subject: string; merged?: true }> = [];
+    for (const line of output.split('\n')) {
+      const [fullSha, shortSha, subject] = line.split('\0');
+      if (!shortSha || !subject) continue;
+      const commit: { sha: string; subject: string; merged?: true } = { sha: shortSha, subject };
+      if (mergedShas?.has(fullSha!)) {
+        commit.merged = true;
+      }
+      commits.push(commit);
+    }
+    return commits.length > 0 ? commits : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Builds the additional card context prepended to Codex prompts.
+ * Builds `<workspace-repo-log>` blocks for Codex prompt context with YAML body.
  *
- * Mirrors the Claude hook format closely enough for Codex sessions to receive
- * the same card/workspace metadata at prompt time.
- *
- * @param input - Parsed action input for the current session.
- * @param workspacePath - Active worktree path used as the Codex workspace root.
- * @param baseBranch - Base branch associated with the worktree.
- * @param workspaceBranch - Branch checked out in the worktree.
- * @returns XML-like context block string.
- */
-export function buildAdditionalContext(
-  input: ActionInput,
-  workspacePath: string,
-  baseBranch: string,
-  workspaceBranch: string
-): string {
-  const cardBlock = buildCardBlock(input, workspacePath, baseBranch, workspaceBranch);
-  const repoBlock = buildCardRepoBlock(input.cardRepoPath);
-  const logBlock = buildCardRepoLogBlock(input.cardRepoPath);
-  const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(input.repoRoot, input.cardRepoPath, baseBranch);
-
-  const parts = [cardBlock, repoBlock];
-  if (logBlock) parts.push(logBlock);
-  parts.push(...workspaceLogBlocks);
-  return parts.join('\n\n');
-}
-
-/**
- * Prepends additional card context to the user prompt for Codex sessions.
- *
- * @param prompt - Original prompt passed to Codex, if any.
- * @param additionalContext - XML-like card/workspace context block.
- * @returns Prompt with prepended context, or `undefined` when no prompt exists.
- */
-export function buildCodexPrompt(prompt: string | undefined, additionalContext: string): string | undefined {
-  if (prompt === undefined) {
-    return undefined;
-  }
-
-  return `${additionalContext}\n\n${prompt}`;
-}
-
-/**
- * Builds `<workspace-repo-log>` blocks for Codex prompt context.
+ * Preserves `parentBranch` attribute on branch blocks.
  *
  * @param workspacePath - Root directory of the workspace repository.
  * @param cardRepoPath - Root directory of the card repository.
  * @param baseBranch - Base branch associated with the workspace.
- * @returns Array of `<workspace-repo-log>` block strings, or empty array.
+ * @returns Array of `<workspace-repo-log type="yaml" ...>` block strings, or empty array.
  */
 export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath: string, baseBranch: string): string[] {
   const workspace = readWorkspaceData(cardRepoPath);
@@ -597,28 +477,18 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
     groups.push({ branchName: '', shas: resolvableShas, orphaned: true });
   }
 
-  const printedShas = new Set<string>();
   const blocks: string[] = [];
 
   for (const group of groups) {
-    const newShas = group.shas.filter((sha) => !printedShas.has(sha));
-    const duplicateShas = group.shas.filter((sha) => printedShas.has(sha));
-    const displayShas = newShas.slice(-MAX_WORKSPACE_COMMITS_PER_BRANCH);
+    const displayShas = group.shas.slice(-MAX_WORKSPACE_COMMITS_PER_BRANCH);
     const mergedShas = new Set(displayShas.filter((sha) => baseReachable.has(sha)));
-    const details = resolveWorkspaceCommitDetails(workspacePath, displayShas, mergedShas);
+    const commits = resolveWorkspaceCommitDetails(workspacePath, displayShas, mergedShas);
 
-    if (details) {
-      for (const sha of displayShas) printedShas.add(sha);
-    }
+    if (!commits) continue;
 
-    const bodyParts: string[] = [];
-    if (details) bodyParts.push(details);
-    if (duplicateShas.length > 0) {
-      bodyParts.push(duplicateShas.map((sha) => sha.slice(0, 7)).join('\n'));
-    }
-    if (bodyParts.length === 0) continue;
+    const yamlBody = yaml.dump(commits, { flowLevel: -1, lineWidth: -1 }).trimEnd();
 
-    const attrs: string[] = [];
+    const attrs: string[] = ['type="yaml"'];
     if (group.orphaned) {
       attrs.push('orphaned="true"');
     } else {
@@ -627,11 +497,61 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
     }
     attrs.push(`count="${group.shas.length}"`);
 
-    blocks.push(`<workspace-repo-log ${attrs.join(' ')}>\n${bodyParts.join('\n')}\n</workspace-repo-log>`);
+    blocks.push(`<workspace-repo-log ${attrs.join(' ')}>\n${yamlBody}\n</workspace-repo-log>`);
   }
 
   return blocks;
 }
+
+// ============================================================================
+// Combined context
+// ============================================================================
+
+/**
+ * Builds the additional card context prepended to Codex prompts.
+ *
+ * @param input - Parsed action input for the current session.
+ * @param workspacePath - Active worktree path used as the Codex workspace root.
+ * @param baseBranch - Base branch associated with the worktree.
+ * @param workspaceBranch - Branch checked out in the worktree.
+ * @returns Context block string with env block and YAML XML blocks.
+ */
+export function buildAdditionalContext(
+  input: ActionInput,
+  workspacePath: string,
+  baseBranch: string,
+  workspaceBranch: string
+): string {
+  const envBlock = buildEnvBlock(input, workspacePath, baseBranch, workspaceBranch);
+  const cardBlock = buildCardBlock(input);
+  const repoBlock = buildCardRepoBlock(input.cardRepoPath);
+  const logBlock = buildCardRepoLogBlock(input.cardRepoPath);
+  const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(input.repoRoot, input.cardRepoPath, baseBranch);
+
+  const parts = [envBlock, cardBlock, repoBlock];
+  if (logBlock) parts.push(logBlock);
+  parts.push(...workspaceLogBlocks);
+  return parts.join('\n\n');
+}
+
+/**
+ * Prepends additional card context to the user prompt for Codex sessions.
+ *
+ * @param prompt - Original prompt passed to Codex, if any.
+ * @param additionalContext - XML-like card/workspace context block.
+ * @returns Prompt with prepended context, or `undefined` when no prompt exists.
+ */
+export function buildCodexPrompt(prompt: string | undefined, additionalContext: string): string | undefined {
+  if (prompt === undefined) {
+    return undefined;
+  }
+
+  return `${additionalContext}\n\n${prompt}`;
+}
+
+// ============================================================================
+// Codex bundle + staging utilities
+// ============================================================================
 
 /**
  * Resolves the packaged Codex bundle directory bundled alongside the extension marketplace.

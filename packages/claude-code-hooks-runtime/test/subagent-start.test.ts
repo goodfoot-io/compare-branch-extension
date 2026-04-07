@@ -4,6 +4,8 @@
  * @summary Tests for the SubagentStart hook
  */
 
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/claude-code-hooks';
@@ -28,6 +30,15 @@ let repoPath: string;
 beforeAll(async () => {
   testRepo = new TestGitWorkspace();
   repoPath = await testRepo.create();
+  writeFileSync(
+    join(repoPath, 'CARD.meta.json'),
+    JSON.stringify({
+      id: 'card-123',
+      title: 'Test card',
+      status: 'active',
+      gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
+    })
+  );
 });
 
 afterAll(() => {
@@ -99,14 +110,16 @@ describe('SubagentStart Hook', () => {
 
       const stdout = result.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
 
-      // <card> block with identity and env vars
-      expect(stdout.systemMessage).toMatch(/^<card /);
-      expect(stdout.systemMessage).toContain('<card ');
-      expect(stdout.systemMessage).toContain('id="card-123"');
-      expect(stdout.systemMessage).toContain('mode="background"');
+      // Env block with EXECUTION_MODE
+      expect(stdout.systemMessage).toMatch(/^```bash\n/);
+      expect(stdout.systemMessage).toContain('EXECUTION_MODE=background');
 
-      // <card-repo> block
-      expect(stdout.systemMessage).toContain('<card-repo>');
+      // <card> block with type="yaml"
+      expect(stdout.systemMessage).toContain('<card type="yaml">');
+      expect(stdout.systemMessage).toContain('id: card-123');
+
+      // <card-repo> block with type="yaml"
+      expect(stdout.systemMessage).toContain('<card-repo type="yaml">');
       expect(stdout.systemMessage).toContain('</card-repo>');
 
       // additionalContext mirrors systemMessage

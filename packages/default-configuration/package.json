@@ -18,6 +18,7 @@
   "dependencies": {
     "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
+    "js-yaml": "^4.1.0",
     "marked": "^17.0.4",
     "smol-toml": "^1.6.0"
   },
@@ -29,6 +30,7 @@
     "@biomejs/biome": "^2.3.13",
     "@cards/test-utils": "workspace:*",
     "@types/fs-extra": "^11.0.4",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "24.x",
     "@typescript/native-preview": "^7.0.0-dev",
     "chokidar-cli": "^3.0.0",

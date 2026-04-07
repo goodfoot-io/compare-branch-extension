@@ -24,11 +24,19 @@ import {
   buildCardBlock,
   buildCardRepoBlock,
   buildCardRepoLogBlock,
+  buildEnvBlock,
   buildWorkspaceRepoLogBlocks,
   CardRepoAccessError
 } from './lib/context.js';
 
-export { buildCardBlock, buildCardRepoBlock, buildCardRepoLogBlock, buildWorkspaceRepoLogBlocks, CardRepoAccessError };
+export {
+  buildCardBlock,
+  buildCardRepoBlock,
+  buildCardRepoLogBlock,
+  buildEnvBlock,
+  buildWorkspaceRepoLogBlocks,
+  CardRepoAccessError
+};
 
 /**
  * Error thrown when PID-to-session registration fails.

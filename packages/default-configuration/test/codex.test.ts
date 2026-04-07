@@ -85,8 +85,8 @@ beforeEach(async () => {
         : '';
     const key = `${command} ${normalizedArgs.join(' ')}`;
 
-    if (cwd === '/test/repo' && key.startsWith('git log -5 --pretty=format:%x00%h - %an: %s --name-only -- .')) {
-      return '\u0000123abcd - Test User: Add card plan\nplan/initial.md\nCARD.md';
+    if (cwd === '/test/repo' && key.startsWith('git log -5 --reverse --pretty=format:%h%x00%an%x00%s -- .')) {
+      return '123abcd\0Test User\0Add card plan';
     }
     if (cwd === '/test/repo' && key === 'git rev-list --count HEAD') {
       return '3';
@@ -99,15 +99,15 @@ beforeEach(async () => {
     }
     if (
       cwd === '/test/workspace' &&
-      key === 'git log --no-walk --pretty=format:%H %h - %s --name-only aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+      key === 'git log --no-walk --pretty=format:%H%x00%h%x00%s aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
     ) {
-      return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa abcdef1 - Branch change', '', 'src/feature.ts'].join('\n');
+      return 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\0abcdef1\0Branch change';
     }
     if (
       cwd === '/test/workspace' &&
-      key === 'git log --no-walk --pretty=format:%H %h - %s --name-only bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+      key === 'git log --no-walk --pretty=format:%H%x00%h%x00%s bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     ) {
-      return ['bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb bcdefg2 - Merged fix', '', 'src/fix.ts'].join('\n');
+      return 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\0bcdefg2\0Merged fix';
     }
     if (cwd === '/test/workspace' && key === 'git cat-file --batch-check') {
       return '';
@@ -398,17 +398,20 @@ describe('codex action', () => {
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
     expect(args).not.toContain('--config');
-    expect(args[args.length - 1]).toContain('<card id="card-123" status="active" mode="interactive">');
-    expect(args[args.length - 1]).toContain('<card-repo>');
-    expect(args[args.length - 1]).toContain('<card-repo-log count="3">');
-    expect(args[args.length - 1]).toContain(
-      '<workspace-repo-log branch="cards/card-123/1" parentBranch="main" count="1">'
-    );
-    expect(args[args.length - 1]).toContain('<workspace-repo-log branch="main" count="1">');
+    expect(args[args.length - 1]).toContain('```bash');
+    expect(args[args.length - 1]).toContain('CARD_ID=card-123');
     expect(args[args.length - 1]).toContain('CARD_REPO_PATH=/test/repo');
     expect(args[args.length - 1]).toContain('WORKSPACE_PATH=/test/workspace/.worktrees/cards/card-123/1');
     expect(args[args.length - 1]).toContain('BASE_BRANCH=main');
     expect(args[args.length - 1]).toContain('WORKSPACE_BRANCH=cards/card-123/1');
+    expect(args[args.length - 1]).toContain('EXECUTION_MODE=interactive');
+    expect(args[args.length - 1]).toContain('<card type="yaml">');
+    expect(args[args.length - 1]).toContain('<card-repo type="yaml">');
+    expect(args[args.length - 1]).toContain('<card-repo-log type="yaml" count="3" order="oldest-first">');
+    expect(args[args.length - 1]).toContain(
+      '<workspace-repo-log type="yaml" branch="cards/card-123/1" parentBranch="main" count="1">'
+    );
+    expect(args[args.length - 1]).toContain('<workspace-repo-log type="yaml" branch="main" count="1">');
     expect(args[args.length - 1]).toContain('Continue work on the card.');
 
     child.emit('close', 0);
@@ -447,16 +450,21 @@ describe('codex action', () => {
       'cards/card-123/1'
     );
 
-    expect(additionalContext).toContain('<card id="card-123" status="active" mode="interactive">');
+    expect(additionalContext).toContain('```bash');
+    expect(additionalContext).toContain('EXECUTION_MODE=interactive');
+    expect(additionalContext).toContain('<card type="yaml">');
     expect(additionalContext).toContain('title: Test card');
-    expect(additionalContext).toContain('<card-repo>');
+    expect(additionalContext).toContain('<card-repo type="yaml">');
     expect(additionalContext).toContain('CARD.md');
-    expect(additionalContext).toContain('<card-repo-log count="3">');
-    expect(additionalContext).toContain('123abcd - Test User: Add card plan');
-    expect(additionalContext).toContain('<workspace-repo-log branch="cards/card-123/1" parentBranch="main" count="1">');
-    expect(additionalContext).toContain('abcdef1 - Branch change [merged]');
-    expect(additionalContext).toContain('<workspace-repo-log branch="main" count="1">');
-    expect(additionalContext).toContain('bcdefg2 - Merged fix');
+    expect(additionalContext).toContain('<card-repo-log type="yaml" count="3" order="oldest-first">');
+    expect(additionalContext).toContain('subject: Add card plan');
+    expect(additionalContext).toContain(
+      '<workspace-repo-log type="yaml" branch="cards/card-123/1" parentBranch="main" count="1">'
+    );
+    expect(additionalContext).toContain('subject: Branch change');
+    expect(additionalContext).toContain('merged: true');
+    expect(additionalContext).toContain('<workspace-repo-log type="yaml" branch="main" count="1">');
+    expect(additionalContext).toContain('subject: Merged fix');
 
     expect(buildCodexPrompt('Continue work on the card.', additionalContext)).toBe(
       `${additionalContext}\n\nContinue work on the card.`

@@ -18,7 +18,7 @@ The following environment variables are available in all bash statements:
 
 ## Execution Mode
 
-The session runs in one of two modes, surfaced as the `mode` attribute on the `<card>` block:
+The session runs in one of two modes, surfaced as the `EXECUTION_MODE` variable in the env block:
 
 | Mode | Meaning |
 |------|---------|

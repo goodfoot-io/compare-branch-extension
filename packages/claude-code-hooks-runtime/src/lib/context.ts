@@ -15,7 +15,7 @@ import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
-import { formatCommitLog } from './file-tree.js';
+import yaml from 'js-yaml';
 
 /**
  * Error thrown when the card repository cannot be read.
@@ -59,158 +59,56 @@ export class CardRepoAccessError extends Error {
 }
 
 // ============================================================================
-// Card metadata
+// Env block
 // ============================================================================
 
 /**
- * A relation entry parsed from `CARD.meta.json`.
- */
-interface CardRelation {
-  type: string;
-  cardId: string;
-}
-
-/**
- * Subset of CARD.meta.json fields surfaced in the `<card>` context block.
- */
-interface CardMeta {
-  id: string;
-  title: string;
-  status: string;
-  tags: string[];
-  gates: {
-    planRequired: boolean;
-    planApproved: boolean;
-    mergeRequestRequired: boolean;
-    mergeApproved: boolean;
-  };
-  relations: CardRelation[];
-}
-
-/**
- * Reads and parses CARD.meta.json from the card repository.
- *
- * Returns `null` when the file is missing or malformed so the caller
- * can fall back to values from {@link ActionInput}.
- *
- * @param rootPath - Root directory of the card repository.
- * @returns Parsed metadata, or `null` when unavailable.
- */
-function readCardMeta(rootPath: string): CardMeta | null {
-  try {
-    const raw = readFileSync(join(rootPath, 'CARD.meta.json'), 'utf-8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const gates = parsed['gates'] as Record<string, boolean> | undefined;
-    return {
-      id: String(parsed['id'] ?? ''),
-      title: String(parsed['title'] ?? ''),
-      status: String(parsed['status'] ?? ''),
-      tags: Array.isArray(parsed['tags']) ? (parsed['tags'] as string[]) : [],
-      gates: {
-        planRequired: gates?.['planRequired'] === true,
-        planApproved: gates?.['planApproved'] === true,
-        mergeRequestRequired: gates?.['mergeRequestRequired'] === true,
-        mergeApproved: gates?.['mergeApproved'] === true
-      },
-      relations: parseRelations(parsed['relations'])
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Parses the `relations` field from raw CARD.meta.json data.
- *
- * @param raw - The raw `relations` value from the parsed JSON.
- * @returns Array of validated relation entries, or empty array when invalid/absent.
- */
-function parseRelations(raw: unknown): CardRelation[] {
-  if (!Array.isArray(raw)) return [];
-  const result: CardRelation[] = [];
-  for (const entry of raw) {
-    if (entry && typeof entry === 'object' && typeof entry.type === 'string' && typeof entry.cardId === 'string') {
-      result.push({ type: entry.type, cardId: entry.cardId });
-    }
-  }
-  return result;
-}
-
-/**
- * Reads the title from a related card's CARD.meta.json.
- *
- * Resolves the related card's repository path as a sibling directory
- * of the current card's repository.
- *
- * @param cardRepoPath - Root directory of the current card's repository.
- * @param relatedCardId - Stable branch-prefixed identifier (e.g. `"main-99"`) used to locate the sibling directory.
- * @returns The related card's title, or `null` when unreadable.
- */
-function readRelatedCardTitle(cardRepoPath: string, relatedCardId: string): string | null {
-  try {
-    const parentDir = join(cardRepoPath, '..');
-    const relatedPath = join(parentDir, relatedCardId, 'CARD.meta.json');
-    const raw = readFileSync(relatedPath, 'utf-8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const title = parsed['title'];
-    return typeof title === 'string' ? title : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Builds the `<card>` XML block with card identity, gates, and env vars.
- *
- * Falls back to {@link ActionInput} fields when CARD.meta.json is unreadable.
+ * Builds the fenced bash env block with card environment variables.
  *
  * @param actionInput - Parsed action input from the environment.
- * @returns The `<card ...>...</card>` block string.
+ * @returns Fenced bash block string with env vars.
+ */
+export function buildEnvBlock(actionInput: ActionInput): string {
+  const workspacePath = process.env[CARDS_ENV_VARS.WORKSPACE_PATH] ?? '';
+  const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH] ?? '';
+  const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH] ?? '';
+
+  const lines = [
+    `CARD_ID=${actionInput.cardId}`,
+    `CARD_REPO_PATH=${actionInput.cardRepoPath}`,
+    `WORKSPACE_PATH=${workspacePath}`,
+    `BASE_BRANCH=${baseBranch}`,
+    `WORKSPACE_BRANCH=${workspaceBranch}`,
+    `EXECUTION_MODE=${actionInput.executionMode}`
+  ];
+
+  return `\`\`\`bash\n${lines.join('\n')}\n\`\`\``;
+}
+
+// ============================================================================
+// Card block
+// ============================================================================
+
+/**
+ * Builds the `<card>` XML block with a YAML body from CARD.meta.json.
+ *
+ * Reads `CARD.meta.json` in full and serializes the entire parsed object
+ * to YAML. Lets readFileSync/JSON.parse errors propagate (fail closed).
+ *
+ * @param actionInput - Parsed action input from the environment.
+ * @returns The `<card type="yaml">...</card>` block string.
+ * @throws {CardRepoAccessError} When CARD.meta.json cannot be read.
  */
 export function buildCardBlock(actionInput: ActionInput): string {
-  const meta = readCardMeta(actionInput.cardRepoPath);
-
-  const id = meta?.id || actionInput.cardId;
-  const title = meta?.title || '';
-  const status = meta?.status || '';
-
-  const tagsLine = meta && meta.tags.length > 0 ? `tags: ${meta.tags.join(', ')}` : '';
-
-  const gatesLine = meta
-    ? `gates: planRequired=${meta.gates.planRequired} planApproved=${meta.gates.planApproved} mergeRequestRequired=${meta.gates.mergeRequestRequired} mergeApproved=${meta.gates.mergeApproved}`
-    : '';
-
-  const workspaceBranch = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
-  const baseBranch = process.env[CARDS_ENV_VARS.BASE_BRANCH];
-
-  const workspacePath = process.env[CARDS_ENV_VARS.WORKSPACE_PATH];
-  const envLines = [`  CARD_REPO_PATH=${actionInput.cardRepoPath}`];
-  if (workspacePath) envLines.push(`  WORKSPACE_PATH=${workspacePath}`);
-  if (baseBranch) envLines.push(`  BASE_BRANCH=${baseBranch}`);
-  if (workspaceBranch) envLines.push(`  WORKSPACE_BRANCH=${workspaceBranch}`);
-
-  const bodyLines: string[] = [];
-  if (title) bodyLines.push(`title: ${title}`);
-  bodyLines.push('');
-  if (tagsLine) bodyLines.push(tagsLine);
-  if (gatesLine) bodyLines.push(gatesLine);
-  bodyLines.push('env:');
-  bodyLines.push(...envLines);
-
-  if (meta && meta.relations.length > 0) {
-    const relationLines = meta.relations.map((rel) => {
-      const relatedRepoPath = join(actionInput.cardRepoPath, '..', rel.cardId);
-      const relatedTitle = readRelatedCardTitle(actionInput.cardRepoPath, rel.cardId);
-      const titlePart = relatedTitle ? ` "${relatedTitle}"` : '';
-      return `  ${rel.type}: ${rel.cardId}${titlePart} (${relatedRepoPath})`;
-    });
-    bodyLines.push('relations:');
-    bodyLines.push(...relationLines);
+  let raw: string;
+  try {
+    raw = readFileSync(join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
+  } catch (error) {
+    throw new CardRepoAccessError(actionInput.cardRepoPath, error);
   }
-
-  const attrs = [`id="${id}"`, `status="${status}"`, `mode="${actionInput.executionMode}"`];
-
-  return `<card ${attrs.join(' ')}>\n${bodyLines.join('\n')}\n</card>`;
+  const data = JSON.parse(raw) as Record<string, unknown>;
+  const yamlBody = yaml.dump(data, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+  return `<card type="yaml">\n${yamlBody}\n</card>`;
 }
 
 // ============================================================================
@@ -249,22 +147,27 @@ function readSidecarSummary(sidecarPath: string): string | null {
 }
 
 /**
- * Builds the `<card-repo>` block: root-level files, directories with
- * child counts, streams subdirectories, and inlined sidecar summaries.
- *
- * When a `.md` file has a `.md.meta.json` sidecar containing a `summary`
- * field, the summary is indented below the file entry. Directories that
- * contain at least one summarized file are expanded; directories with no
- * summaries show a compact file count.
+ * Represents a single entry in the card-repo YAML listing.
+ */
+interface CardRepoEntry {
+  name: string;
+  summary?: string;
+  entries?: CardRepoEntry[];
+  remaining?: number;
+  count?: number;
+}
+
+/**
+ * Builds the `<card-repo>` block with a YAML body listing directory contents.
  *
  * @param rootPath - Root directory of the card repository.
- * @returns The `<card-repo>...</card-repo>` block string.
+ * @returns The `<card-repo type="yaml">...</card-repo>` block string.
  * @throws {CardRepoAccessError} When the root directory cannot be read.
  */
 export function buildCardRepoBlock(rootPath: string): string {
-  let entries: { name: string; isDir: boolean }[];
+  let dirEntries: { name: string; isDir: boolean }[];
   try {
-    entries = readdirSync(rootPath, { withFileTypes: true }).map((d) => ({
+    dirEntries = readdirSync(rootPath, { withFileTypes: true }).map((d) => ({
       name: d.name.toString(),
       isDir: d.isDirectory()
     }));
@@ -272,35 +175,34 @@ export function buildCardRepoBlock(rootPath: string): string {
     throw new CardRepoAccessError(rootPath, error);
   }
 
-  const lines: string[] = [];
+  const items: CardRepoEntry[] = [];
 
-  for (const entry of entries) {
+  for (const entry of dirEntries) {
     if (entry.name === '.git') continue;
     const fullPath = join(rootPath, entry.name);
 
     if (entry.isDir) {
       if (entry.name === 'streams') {
-        // Streams: show each subdirectory with child count
-        lines.push('streams/');
+        const streamEntries: CardRepoEntry[] = [];
         try {
-          const streamEntries = readdirSync(fullPath, { withFileTypes: true });
-          for (const sub of streamEntries) {
+          const subs = readdirSync(fullPath, { withFileTypes: true });
+          for (const sub of subs) {
             if (sub.isDirectory()) {
               const subName = sub.name.toString();
               const count = dirFileCount(join(fullPath, subName));
-              lines.push(`${`  ${subName}/`.padEnd(24)}${count} files`);
+              streamEntries.push({ name: `${subName}/`, count });
             }
           }
         } catch (_readdirError: unknown) {
-          void _readdirError; // streams dir unreadable — already listed the directory name
+          void _readdirError;
         }
+        items.push({ name: 'streams/', entries: streamEntries });
       } else if (entry.name === 'comment') {
-        // Comment: list individual files sorted by creation time
-        lines.push('comment/');
+        const commentEntries: CardRepoEntry[] = [];
         try {
-          const commentEntries = readdirSync(fullPath, { withFileTypes: true });
+          const subs = readdirSync(fullPath, { withFileTypes: true });
           const fileEntries: { name: string; birthtime: number }[] = [];
-          for (const f of commentEntries) {
+          for (const f of subs) {
             if (f.isFile()) {
               try {
                 const stat = statSync(join(fullPath, f.name));
@@ -313,17 +215,18 @@ export function buildCardRepoBlock(rootPath: string): string {
           }
           fileEntries.sort((a, b) => a.birthtime - b.birthtime);
           for (const f of fileEntries) {
-            lines.push(`  ${f.name}`);
+            commentEntries.push({ name: f.name });
           }
         } catch (_readdirError: unknown) {
-          void _readdirError; // comment dir unreadable — already listed the directory name
+          void _readdirError;
         }
+        items.push({ name: 'comment/', entries: commentEntries });
       } else {
         // Other directory: expand .md files that have sidecar summaries
         try {
-          const dirEntries = readdirSync(fullPath, { withFileTypes: true });
-          const fileNames = dirEntries.filter((e) => e.isFile()).map((e) => e.name.toString());
-          const subDirCount = dirEntries.filter((e) => e.isDirectory()).length;
+          const children = readdirSync(fullPath, { withFileTypes: true });
+          const fileNames = children.filter((e) => e.isFile()).map((e) => e.name.toString());
+          const subDirCount = children.filter((e) => e.isDirectory()).length;
 
           const summarized: { name: string; summary: string; sidecarName: string }[] = [];
           for (const name of fileNames) {
@@ -337,46 +240,44 @@ export function buildCardRepoBlock(rootPath: string): string {
           }
 
           if (summarized.length === 0) {
-            // No summaries — compact count on same line
             const count = fileNames.length + subDirCount;
-            lines.push(`${`${entry.name}/`.padEnd(24)}${count} files`);
+            items.push({ name: `${entry.name}/`, count });
           } else {
-            lines.push(`${entry.name}/`);
+            const dirItem: CardRepoEntry = { name: `${entry.name}/`, entries: [] };
             const listedNames = new Set<string>();
             for (const { name, summary, sidecarName } of summarized) {
-              lines.push(`  ${name}`);
-              for (const summaryLine of summary.split('\n')) {
-                lines.push(`    ${summaryLine}`);
-              }
-              lines.push(`  ${sidecarName}`);
+              dirItem.entries!.push({ name, summary });
+              dirItem.entries!.push({ name: sidecarName });
               listedNames.add(name);
               listedNames.add(sidecarName);
             }
             const remaining = fileNames.filter((n) => !listedNames.has(n)).length + subDirCount;
             if (remaining > 0) {
-              lines.push(`  + ${remaining} files`);
+              dirItem.remaining = remaining;
             }
+            items.push(dirItem);
           }
         } catch (_readdirError: unknown) {
-          // Directory unreadable — show name only
-          lines.push(`${entry.name}/`);
+          items.push({ name: `${entry.name}/` });
         }
       }
     } else {
       // Root-level file
-      lines.push(entry.name);
       if (entry.name.endsWith('.md') && !entry.name.endsWith('.meta.json')) {
         const summary = readSidecarSummary(join(rootPath, `${entry.name}.meta.json`));
         if (summary) {
-          for (const summaryLine of summary.split('\n')) {
-            lines.push(`  ${summaryLine}`);
-          }
+          items.push({ name: entry.name, summary });
+        } else {
+          items.push({ name: entry.name });
         }
+      } else {
+        items.push({ name: entry.name });
       }
     }
   }
 
-  return `<card-repo>\n${lines.join('\n')}\n</card-repo>`;
+  const yamlBody = yaml.dump(items, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+  return `<card-repo type="yaml">\n${yamlBody}\n</card-repo>`;
 }
 
 // ============================================================================
@@ -387,18 +288,13 @@ export function buildCardRepoBlock(rootPath: string): string {
 const MAX_CARD_REPO_LOG_COMMITS = 10;
 
 /**
- * Builds the `<card-repo-log>` block with recent commits in chronological
- * (oldest-first) order.
+ * Builds the `<card-repo-log>` block with recent commits in YAML format.
  *
- * Excludes commits that exclusively touch `streams/` or bookkeeping files.
- * Each line shows the short hash, author, and subject — no file lists.
- * An `order="oldest-first"` attribute indicates chronological direction.
- *
- * Returns `null` when the repository has no qualifying commits or git is
- * unavailable, so the block can be omitted from the output.
+ * Each commit is a `{ sha, author, subject }` object. Uses NUL-delimited
+ * fields for reliable parsing.
  *
  * @param rootPath - Root directory of the card repository.
- * @returns The `<card-repo-log ...>...</card-repo-log>` block string, or `null`.
+ * @returns The `<card-repo-log type="yaml" ...>...</card-repo-log>` block string, or `null`.
  */
 export function buildCardRepoLogBlock(rootPath: string): string | null {
   try {
@@ -408,7 +304,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         'log',
         `--max-count=${MAX_CARD_REPO_LOG_COMMITS}`,
         '--reverse',
-        '--pretty=format:%h %an: %s',
+        '--pretty=format:%h%x00%an%x00%s',
         '--',
         '.',
         ...CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
@@ -423,6 +319,11 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     ).trim();
 
     if (!log) return null;
+
+    const commits = log.split('\n').map((line) => {
+      const [sha, author, subject] = line.split('\0');
+      return { sha: sha!, author: author!, subject: subject! };
+    });
 
     let totalCount: number | null = null;
     try {
@@ -439,7 +340,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
     }
 
     const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
-    return `<card-repo-log${countAttr} order="oldest-first">\n${log}\n</card-repo-log>`;
+    const yamlBody = yaml.dump(commits, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+    return `<card-repo-log type="yaml"${countAttr} order="oldest-first">\n${yamlBody}\n</card-repo-log>`;
   } catch {
     return null;
   }
@@ -449,7 +351,7 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
 // Workspace repo log
 // ============================================================================
 
-/** Maximum number of commits shown with full detail per branch block. */
+/** Maximum number of commits shown per branch block. */
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
 
 /**
@@ -463,13 +365,6 @@ interface WorkspaceData {
 /**
  * Reads workspace data from separate files in the card repository.
  *
- * Reads branches from `branches.json` and commits from
- * `commits.csv`. Each file is read independently — ENOENT is
- * treated as an empty result, other errors cause `null` to be returned.
- *
- * Returns data whenever either file has content. Returns `null` only when
- * both files are absent or empty, or when a non-ENOENT error occurs.
- *
  * @param cardRepoPath - Root directory of the card repository.
  * @returns Parsed workspace data, or `null` when unavailable.
  */
@@ -477,7 +372,6 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
   const branches: WorkspaceData['branches'] = {};
   let commits: string[] = [];
 
-  // Read branches from branches.json
   try {
     const raw = readFileSync(join(cardRepoPath, BRANCHES_FILE), 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, { parentBranch?: string; addedAt?: string }>;
@@ -495,7 +389,6 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
     }
   }
 
-  // Read commits from commits.csv
   try {
     const raw = readFileSync(join(cardRepoPath, COMMITS_FILE), 'utf-8');
     commits = raw
@@ -508,7 +401,6 @@ function readWorkspaceData(cardRepoPath: string): WorkspaceData | null {
     }
   }
 
-  // Return data when either file has content
   if (Object.keys(branches).length === 0 && commits.length === 0) {
     return null;
   }
@@ -540,8 +432,6 @@ function getReachableShas(workspacePath: string, ref: string): Set<string> {
 /**
  * Filters SHAs to those that exist as objects in the workspace repo.
  *
- * Uses `git cat-file --batch-check` for a single-call batch existence test.
- *
  * @param workspacePath - Root directory of the workspace repository.
  * @param shas - Full 40-char SHAs to check.
  * @returns SHAs that exist in the repository.
@@ -571,39 +461,21 @@ function filterResolvableShas(workspacePath: string, shas: string[]): string[] {
 }
 
 /**
- * Annotates merged commits and strips full SHAs from git log output.
- *
- * Takes output produced with `--pretty=format:%H %h - %s` and replaces each
- * header line with `%h - %s [merged]` (when the full SHA is in `mergedShas`)
- * or plain `%h - %s` (when it is not).
- *
- * @param output - Raw git log output using `%H %h - %s` format.
- * @param mergedShas - Full 40-char SHAs considered merged.
- * @returns Output in standard `%h - %s` format with `[merged]` annotations.
- */
-function annotateMergedCommits(output: string, mergedShas: Set<string>): string {
-  return output.replace(/^([0-9a-f]{40}) ([0-9a-f]{7,} - .*)$/gm, (_, fullSha: string, rest: string) => {
-    return mergedShas.has(fullSha) ? `${rest} [merged]` : rest;
-  });
-}
-
-/**
- * Resolves commit details for specific SHAs using `git log --no-walk`.
- *
- * When `mergedShas` is provided, commits whose full SHA appears in the set
- * receive a `[merged]` suffix on their subject line.
+ * Resolves commit details for specific SHAs as `{ sha, subject }` objects.
  *
  * @param workspacePath - Root directory of the workspace repository.
  * @param shas - Full 40-char SHAs to resolve.
  * @param mergedShas - SHAs reachable from the base branch (considered merged).
- * @returns Formatted commit log with tree-rendered file lists, or `null` on failure.
+ * @returns Array of commit objects, or `null` on failure.
  */
-function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[], mergedShas?: Set<string>): string | null {
+function resolveWorkspaceCommitDetails(
+  workspacePath: string,
+  shas: string[],
+  mergedShas?: Set<string>
+): Array<{ sha: string; subject: string; merged?: true }> | null {
   if (shas.length === 0) return null;
   try {
-    const useFullHash = mergedShas !== undefined && mergedShas.size > 0;
-    const format = useFullHash ? '%H %h - %s' : '%h - %s';
-    const output = execFileSync('git', ['log', '--no-walk', `--pretty=format:${format}`, '--name-only', ...shas], {
+    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%H%x00%h%x00%s', ...shas], {
       cwd: workspacePath,
       encoding: 'utf-8',
       timeout: 5000,
@@ -611,8 +483,18 @@ function resolveWorkspaceCommitDetails(workspacePath: string, shas: string[], me
     }).trim();
 
     if (!output) return null;
-    const annotated = useFullHash ? annotateMergedCommits(output, mergedShas) : output;
-    return formatCommitLog(annotated, 'blank-line') || null;
+
+    const commits: Array<{ sha: string; subject: string; merged?: true }> = [];
+    for (const line of output.split('\n')) {
+      const [fullSha, shortSha, subject] = line.split('\0');
+      if (!shortSha || !subject) continue;
+      const commit: { sha: string; subject: string; merged?: true } = { sha: shortSha, subject };
+      if (mergedShas?.has(fullSha!)) {
+        commit.merged = true;
+      }
+      commits.push(commit);
+    }
+    return commits.length > 0 ? commits : null;
   } catch {
     return null;
   }
@@ -630,18 +512,12 @@ interface CommitGroup {
 /**
  * Builds `<workspace-repo-log>` blocks showing workspace commits grouped by branch.
  *
- * Reads branches from `branches.json` and commits from
- * `commits.csv`, partitions commits across branches using git
- * reachability, and renders per-branch XML blocks. Already-printed commits
- * appear as bare short hashes in subsequent blocks (dedup).
- *
- * Branch processing order: sorted by `addedAt` (oldest first) so the
- * foundational branch receives full commit output and later branches dedup
- * against it.
+ * Each commit is a `{ sha, subject }` object. Merged commits gain `merged: true`.
+ * No cross-branch dedup.
  *
  * @param workspacePath - Root directory of the workspace repository.
  * @param cardRepoPath - Root directory of the card repository.
- * @returns Array of `<workspace-repo-log>` block strings, or empty array.
+ * @returns Array of `<workspace-repo-log type="yaml" ...>` block strings, or empty array.
  */
 export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath: string): string[] {
   const workspace = readWorkspaceData(cardRepoPath);
@@ -652,8 +528,6 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
   // Sort branches by addedAt (oldest first)
   const sortedBranches = Object.entries(workspace.branches).sort(([, a], [, b]) => a.addedAt.localeCompare(b.addedAt));
 
-  // Partition: each branch includes ALL reachable workspace.commits (may overlap).
-  // Rendering dedup handles cross-branch overlap via bare short hashes.
   const reachableFromTracked = new Set<string>();
   const groups: CommitGroup[] = [];
 
@@ -680,34 +554,20 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
     groups.push({ branchName: '', shas: resolvable, orphaned: true });
   }
 
-  // Render blocks with cross-branch dedup
-  const printedShas = new Set<string>();
   const blocks: string[] = [];
 
   for (const group of groups) {
-    const newShas = group.shas.filter((sha) => !printedShas.has(sha));
-    const dupShas = group.shas.filter((sha) => printedShas.has(sha));
-
     // Show most recent N with full detail
-    const displayShas = newShas.slice(-MAX_WORKSPACE_COMMITS_PER_BRANCH);
+    const displayShas = group.shas.slice(-MAX_WORKSPACE_COMMITS_PER_BRANCH);
     const mergedShas = new Set(displayShas.filter((sha) => baseReachable.has(sha)));
-    const details = resolveWorkspaceCommitDetails(workspacePath, displayShas, mergedShas);
+    const commits = resolveWorkspaceCommitDetails(workspacePath, displayShas, mergedShas);
 
-    if (details) {
-      for (const sha of displayShas) printedShas.add(sha);
-    }
+    if (!commits) continue;
 
-    // Build body: full details first, then bare hashes for dedup
-    const bodyParts: string[] = [];
-    if (details) bodyParts.push(details);
-    if (dupShas.length > 0) {
-      bodyParts.push(dupShas.map((sha) => sha.slice(0, 7)).join('\n'));
-    }
-
-    if (bodyParts.length === 0) continue;
+    const yamlBody = yaml.dump(commits, { flowLevel: -1, lineWidth: -1 }).trimEnd();
 
     // Build XML tag
-    const attrs: string[] = [];
+    const attrs: string[] = ['type="yaml"'];
     if (group.orphaned) {
       attrs.push('orphaned="true"');
     } else {
@@ -715,7 +575,7 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
     }
     attrs.push(`count="${group.shas.length}"`);
 
-    blocks.push(`<workspace-repo-log ${attrs.join(' ')}>\n${bodyParts.join('\n')}\n</workspace-repo-log>`);
+    blocks.push(`<workspace-repo-log ${attrs.join(' ')}>\n${yamlBody}\n</workspace-repo-log>`);
   }
 
   return blocks;
@@ -728,23 +588,23 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
 /**
  * Builds the combined additional context string for session and subagent hooks.
  *
- * Produces XML blocks: `<card>` (identity + gates + env), `<card-repo>`
- * (directory summary), optionally `<card-repo-log>` (recent card repo commits),
- * and optionally `<workspace-repo-log>` blocks (workspace commits per branch).
+ * Produces: env block, `<card>`, `<card-repo>`, optionally `<card-repo-log>`,
+ * and optionally `<workspace-repo-log>` blocks.
  * Let {@link CardRepoAccessError} propagate to the caller for structured
  * error handling.
  *
  * @param actionInput - Parsed action input from the environment.
- * @returns Combined context string with XML blocks.
+ * @returns Combined context string with env block and XML blocks.
  * @throws {CardRepoAccessError} When the card repository cannot be read.
  */
 export function buildAdditionalContext(actionInput: ActionInput): string {
+  const envBlock = buildEnvBlock(actionInput);
   const cardBlock = buildCardBlock(actionInput);
   const repoBlock = buildCardRepoBlock(actionInput.cardRepoPath);
   const logBlock = buildCardRepoLogBlock(actionInput.cardRepoPath);
   const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.repoRoot, actionInput.cardRepoPath);
 
-  const parts = [cardBlock, repoBlock];
+  const parts = [envBlock, cardBlock, repoBlock];
   if (logBlock) parts.push(logBlock);
   parts.push(...workspaceLogBlocks);
   return parts.join('\n\n');

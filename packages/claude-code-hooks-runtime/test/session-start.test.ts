@@ -5,7 +5,7 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findClaudePid, registerSession } from '@cards/claude-code-sessions';
 import { writeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
@@ -40,6 +40,15 @@ let repoPath: string;
 beforeAll(async () => {
   testRepo = new TestGitWorkspace();
   repoPath = await testRepo.create();
+  writeFileSync(
+    join(repoPath, 'CARD.meta.json'),
+    JSON.stringify({
+      id: 'card-123',
+      title: 'Test card',
+      status: 'active',
+      gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
+    })
+  );
 });
 
 afterAll(() => {
@@ -130,16 +139,18 @@ describe('SessionStart Hook', () => {
 
       const stdout = result.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
 
-      // <card> block with identity and env vars
-      expect(stdout.systemMessage).toMatch(/^<card /);
-      expect(stdout.systemMessage).toContain('<card ');
-      expect(stdout.systemMessage).toContain('id="card-123"');
-      expect(stdout.systemMessage).toContain('mode="background"');
+      // Env block with EXECUTION_MODE
+      expect(stdout.systemMessage).toMatch(/^```bash\n/);
+      expect(stdout.systemMessage).toContain('EXECUTION_MODE=background');
       expect(stdout.systemMessage).toContain(`CARD_REPO_PATH=${repoPath}`);
+
+      // <card> block with type="yaml"
+      expect(stdout.systemMessage).toContain('<card type="yaml">');
+      expect(stdout.systemMessage).toContain('id: card-123');
       expect(stdout.systemMessage).toContain('</card>');
 
-      // <card-repo> block
-      expect(stdout.systemMessage).toContain('<card-repo>');
+      // <card-repo> block with type="yaml"
+      expect(stdout.systemMessage).toContain('<card-repo type="yaml">');
       expect(stdout.systemMessage).toContain('</card-repo>');
 
       // additionalContext mirrors systemMessage
@@ -164,6 +175,15 @@ describe('SessionStart Hook', () => {
       // Use a real directory that exists but is not a git repo
       const tmpDir = join(repoPath, '..', `no-git-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
+      writeFileSync(
+        join(tmpDir, 'CARD.meta.json'),
+        JSON.stringify({
+          id: 'card-123',
+          title: 'Test',
+          status: 'active',
+          gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
+        })
+      );
       process.env['CARD_REPO_PATH'] = tmpDir;
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
