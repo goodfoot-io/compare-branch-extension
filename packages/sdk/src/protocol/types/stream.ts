@@ -50,6 +50,9 @@ export interface AttachmentInfoFile {
 
   /** MIME type of the attachment. */
   mimeType: string;
+
+  /** Optional human-readable context about what the attachment contains or why it was added. */
+  description?: string;
 }
 
 /**

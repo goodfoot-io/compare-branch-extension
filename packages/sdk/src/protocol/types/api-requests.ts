@@ -354,6 +354,11 @@ export interface CreateAttachmentRequest {
    * The server decodes this and validates the content type.
    */
   data: string;
+
+  /**
+   * Optional human-readable context about what the attachment contains or why it was added.
+   */
+  description?: string;
 }
 
 /**
@@ -392,6 +397,11 @@ export interface AttachmentResponse {
    * Used for content-type headers when serving the file.
    */
   mimeType: string;
+
+  /**
+   * Optional human-readable context about what the attachment contains or why it was added.
+   */
+  description?: string;
 }
 
 // ============================================================================
