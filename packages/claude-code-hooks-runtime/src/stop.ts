@@ -22,50 +22,8 @@ import { BOOKKEEPING_PATHSPEC_EXCLUSIONS, getUnattributedCommits } from '@cards/
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
+import { CommitLogError, CommitRecordError } from './lib/errors.js';
 import { formatCommitLog } from './lib/file-tree.js';
-
-/**
- * Git pathspec exclusions for system-managed bookkeeping files.
- *
- * These files are modified by the HybridStore in response to workspace
- * post-commit hook API calls — they are not external changes. Excluding
- * them is consistent with the existing `streams/claude-code-session/`
- * exclusion: commits that only touch these paths are not flagged as
- * unattributed.
- */
-/**
- * Error thrown when `git log` fails to list commits since a baseline SHA.
- */
-export class CommitLogError extends Error {
-  override readonly name = 'CommitLogError';
-
-  constructor(
-    public readonly repoPath: string,
-    public readonly sinceSha: string,
-    cause: unknown
-  ) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`Failed to list commits since ${sinceSha} in ${repoPath}: ${reason}`);
-    this.cause = cause;
-  }
-}
-
-/**
- * Error thrown when recording an unattributed commit to the session CSV fails.
- */
-export class CommitRecordError extends Error {
-  override readonly name = 'CommitRecordError';
-
-  constructor(
-    public readonly sessionId: string,
-    public readonly sha: string,
-    cause: unknown
-  ) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`Failed to record commit ${sha} for session ${sessionId}: ${reason}`);
-    this.cause = cause;
-  }
-}
 
 /**
  * Records unattributed commits so they are treated as acknowledged on the next stop.
