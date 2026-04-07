@@ -270,6 +270,13 @@ async function compileHandlers(
     const finalOutputPath = path.join(binDir, filename);
 
     // Rename to final content-hashed filename
+    // D11: On Windows, fs.rename fails with EEXIST if destination exists.
+    // Unlink first; the brief non-atomic window is acceptable here.
+    try {
+      fs.unlinkSync(finalOutputPath);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
     fs.renameSync(tempOutputPath, finalOutputPath);
 
     // Make executable
@@ -598,6 +605,13 @@ export async function build(args: BuildArgs): Promise<BuildResult> {
     // 9. Write settings.json atomically (via temp file)
     const tempPath = `${settingsPath}.tmp`;
     fs.writeFileSync(tempPath, JSON.stringify(settingsWithMeta, null, 2), 'utf-8');
+    // D11: On Windows, fs.rename fails with EEXIST if destination exists.
+    // Unlink first; the brief non-atomic window is acceptable here.
+    try {
+      fs.unlinkSync(settingsPath);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
     fs.renameSync(tempPath, settingsPath);
 
     return {
