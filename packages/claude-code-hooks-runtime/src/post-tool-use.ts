@@ -61,12 +61,33 @@ export default postToolUseHook({}, async (input, { logger }) => {
   let actionInput: ActionInput;
   try {
     actionInput = extractActionInput();
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Not running inside an action subprocess', { error: message });
     return postToolUseOutput({});
   }
 
   // Step 2: Baseline SHA
-  const headSha = readSessionHeadSha(input.session_id);
+  let headSha: string | null;
+  try {
+    headSha = readSessionHeadSha(input.session_id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Failed to read session HEAD SHA', { error: message });
+    return postToolUseOutput({
+      hookSpecificOutput: {
+        additionalContext: [
+          `Could not read session HEAD SHA for session ${input.session_id}.`,
+          '',
+          `Error: ${message}`,
+          '',
+          'Commit attribution could not be verified. To investigate:',
+          '1. Check that the session .head file exists and is readable',
+          `2. Verify file permissions for session ${input.session_id}`
+        ].join('\n')
+      }
+    });
+  }
   if (!headSha) {
     return postToolUseOutput({});
   }

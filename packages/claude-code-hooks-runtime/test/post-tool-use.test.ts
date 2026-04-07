@@ -117,6 +117,23 @@ describe('PostToolUse Hook', () => {
       expect(stdout.hookSpecificOutput).toBeUndefined();
     });
 
+    it('returns additionalContext with diagnostic when readSessionHeadSha throws', async () => {
+      mockReadSessionHeadSha.mockImplementation(() => {
+        throw new Error('EACCES: permission denied');
+      });
+      const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      const result = await hook(mockInput, context);
+
+      expect(result).toHaveProperty('_type', 'PostToolUse');
+      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      expect(stdout.hookSpecificOutput?.additionalContext).toContain('Could not read session HEAD SHA');
+      expect(stdout.hookSpecificOutput?.additionalContext).toContain('sess-1');
+      expect(stdout.hookSpecificOutput?.additionalContext).toContain('EACCES: permission denied');
+      expect(stdout.hookSpecificOutput?.additionalContext).toContain('To investigate:');
+    });
+
     it('returns additionalContext with diagnostic when HEAD resolution fails', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockResolveHeadFromFiles.mockReturnValue(null);
