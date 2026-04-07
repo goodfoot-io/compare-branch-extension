@@ -31,7 +31,7 @@ Use a kebab-case slug that matches the trigger category (e.g. `entry-points`, `k
 
 ```json
 {
-  "summary": "[1–2 sentences with the most important facts, following <markdown-guidelines>]"
+  "summary": "[1–2 sentences with the most important facts; fragment-link every named file, function, and type per <markdown-guidelines>]"
 }
 ```
 
