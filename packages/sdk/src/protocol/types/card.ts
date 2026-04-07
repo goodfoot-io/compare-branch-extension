@@ -288,6 +288,17 @@ export interface Card extends CardMetadata {
   isMerged: boolean | null;
 
   /**
+   * Whether plan documents in the card repository have been updated more recently
+   * than the latest workspace commit attribution.
+   *
+   * This is a computed, workspace-relative field. It is not persisted in CARD.meta.json.
+   * The store defaults this to `true` (fail-closed); the Router overwrites it with the
+   * actual computed value before sending API responses. When `true`, the `merged`
+   * pseudotag is suppressed even if `isMerged === true`.
+   */
+  hasStaleMerge: boolean;
+
+  /**
    * Absolute filesystem path to the repository containing the card directory.
    * Used for resolving relative paths in actions.
    */
