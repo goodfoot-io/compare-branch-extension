@@ -68,7 +68,7 @@ Create:
 
   Examples:
     card.mjs create <<'EOF'
-    { "title": "Fix auth", "description": "Token refresh fails" }
+    { "title": "Fix auth", "tags": ["bug"] }
     EOF
 
 List:
@@ -225,6 +225,13 @@ export function parseCardCreateInput(raw: string): ParsedCardInput {
 
   if (typeof parsed['title'] !== 'string' || !parsed['title'].trim()) {
     throw new Error('missing required field "title"');
+  }
+
+  const validFields = new Set(['title', 'tags', 'environment', 'gates', 'relations']);
+  const unknownFields = Object.keys(parsed).filter((k) => !validFields.has(k));
+  if (unknownFields.length > 0) {
+    const listed = unknownFields.map((f) => `"${f}"`).join(', ');
+    throw new Error(`unknown fields: ${listed}. valid fields: ${[...validFields].join(', ')}`);
   }
 
   const inputKeys = new Set(Object.keys(parsed));

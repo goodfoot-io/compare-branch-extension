@@ -292,6 +292,32 @@ describe('card binary', () => {
     it('throws on empty title', () => {
       expect(() => parseCardCreateInput('{"title":"  "}')).toThrow('missing required field "title"');
     });
+
+    it('throws on a single unknown field listing it and valid fields', () => {
+      expect(() => parseCardCreateInput('{"title":"Test","description":"Token refresh fails"}')).toThrow(
+        'unknown fields: "description". valid fields: title, tags, environment, gates, relations'
+      );
+    });
+
+    it('throws on multiple unknown fields listing them and valid fields', () => {
+      expect(() => parseCardCreateInput('{"title":"Test","description":"desc","plan":"do it","extra":1}')).toThrow(
+        'unknown fields: "description", "plan", "extra". valid fields: title, tags, environment, gates, relations'
+      );
+    });
+
+    it('accepts all valid fields without throwing', () => {
+      expect(() =>
+        parseCardCreateInput(
+          JSON.stringify({
+            title: 'Test',
+            tags: ['bug'],
+            environment: 'staging',
+            gates: { planRequired: true, mergeRequestRequired: false },
+            relations: [{ type: 'related', cardId: 'main-001' }]
+          })
+        )
+      ).not.toThrow();
+    });
   });
 
   describe('getCard', () => {
