@@ -34,7 +34,7 @@ Active voice, present tense. Write paragraphs as continuous prose — do not bre
 
 #### File References
 
-Follow the `<markdown-guidelines>` from the `cards:markdown` skill for all file references in commit bodies.
+Fragment-link every named file, function, and type per `<markdown-guidelines>` in commit bodies.
 
 #### Truth Over Profundity
 

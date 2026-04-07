@@ -30,7 +30,7 @@ Bridge understanding between what exists, what should exist, and why the gap mat
 ## Key Principles
 
 - **Progressive understanding**: Each section builds on the previous. A reader can stop at any section and have coherent understanding.
-- **Evidence over assertion**: Point to code for current behavior, reference commits for history, make desired behavior specific enough to test. Follow the `<markdown-guidelines>` for all file references and code locations.
+- **Evidence over assertion**: Point to code for current behavior, reference commits for history, make desired behavior specific enough to test. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
 - **Separation of concerns**: Current Functionality describes what is; Desired Functionality what should be.
 - **Audience awareness**: Write for the implementer who lacks your context and the future reader who encounters this after implementation.
 - **Appropriate abstraction**: Match detail level to section purpose — narrative for history, specific file references for current behavior, testable requirements for desired behavior.

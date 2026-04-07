@@ -44,7 +44,7 @@ Follow the `<take-notes>` instructions — write a note to the card repository f
 
 #### Load Markdown Guidelines
 
-Load the `cards:markdown` skill before writing the plan file.
+Load the `cards:markdown` skill before writing the plan file. Fragment-link every named file, function, and type per `<markdown-guidelines>`. Use mermaid diagrams for multi-component interactions, state transitions, and data flows. Use fenced code blocks with language tags for configuration and code examples.
 
 PLAN.md is stored in the card repository (`$CARD_REPO_PATH`), but the card's workspace may be at a different path (`$WORKSPACE_PATH`). Fragment links must be relative to `$WORKSPACE_PATH` — use `./packages/foo/bar.ts`, not a filesystem path from the card repository or your working directory to the workspace.
 

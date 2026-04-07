@@ -59,7 +59,7 @@ A good title completes the sentence: *"To finish this card, I need to [TITLE]"*
 - Description contains factual errors (wrong paths, incorrect component names)
 - Description lacks context needed to begin work
 
-**Enrich descriptions** with context discovered during exploration. Follow the `<markdown-guidelines>` from the `cards:markdown` skill for all file references, code locations, and diagrams:
+**Enrich descriptions** with context discovered during exploration. Fragment-link every named file, function, and type per `<markdown-guidelines>`; use mermaid diagrams for multi-component interactions and data flows:
 - Relevant file paths and component names
 - Technical constraints or dependencies
 - Acceptance criteria (if inferable from user intent)

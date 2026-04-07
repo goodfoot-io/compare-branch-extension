@@ -83,7 +83,7 @@ If the approach is clear, load the `cards:markdown` skill (if not already loaded
 ```bash
 mkdir -p "$REPO/plan"
 cat <<'PLAN_EOF' > "$REPO/plan/initial.md"
-Plan content here (plain markdown, no frontmatter, following <markdown-guidelines>).
+Plan content here (plain markdown, no frontmatter; fragment-link every named file, function, and type per <markdown-guidelines>; use mermaid diagrams for multi-component interactions and data flows).
 PLAN_EOF
 cat <<'META_EOF' > "$REPO/plan/initial.md.meta.json"
 { "title": "Plan: [short title describing the approach]" }

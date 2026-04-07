@@ -31,7 +31,7 @@ From the latest user comment, identify:
 
 If feedback requires additional investigation in the workspace repository:
 
-- Read relevant files in the workspace codebase — use fragment links per the `<markdown-guidelines>` from the `cards:markdown` skill when referencing code in the revised plan
+- Read relevant files in the workspace codebase — fragment-link every named file, function, and type per `<markdown-guidelines>` in the revised plan
 - Understand implications of requested changes
   - **Feedback modifies Technical Approach** (changes data structures, shifts responsibility between components, replaces a component, simplifies a step): Re-verify the complete data-flow connections for the affected path — not only the changed sections. A design revision can disconnect wiring that was correct under the previous design. Verify that existing fragment links in plan files still point to correct locations and use workspace-relative paths (`./` = `$WORKSPACE_PATH`), not filesystem paths from the card repository.
 - Identify new dependencies or risks

@@ -14,7 +14,7 @@ Trace code and data flow paths in the workspace to find information relevant to 
 
 ## 2. Write Comment and Commit
 
-Load the `cards:markdown` skill. Write a comment to the card repository with the answer. Follow its `<markdown-guidelines>` for all file references and code locations.
+Load the `cards:markdown` skill. Write a comment to the card repository with the answer. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
 
 Commit to the card repository:
 
