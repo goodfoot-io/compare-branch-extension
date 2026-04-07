@@ -111,8 +111,8 @@ card-plan skill (orchestrator)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Skills used: cards:notes (for architectural discoveries)
     │        Analyzes: plan/*.md bets, workspace code, referenced files
-    │        Writes: notes/* (architectural discoveries during analysis)
-    │        Returns: findings to orchestrator
+    │        Writes: notes/* (architectural discoveries only — must match a <take-notes> category)
+    │        Returns: findings to orchestrator (response message, never written to files)
     │        Tier 4: each instance scoped to a different area of concern
     │        Spawned after planner returns (sequential, not parallel)
     │
@@ -168,7 +168,7 @@ card-implementation-evaluation skill (orchestrator)
     ├─── Agent: runtime:card:failure-mode              (one or more)
     │        Loaded context: CLAUDE.md (add-dir), COMMIT_MESSAGE_STYLE.md
     │        Analyzes: git diff, changed files, consumers, data flow
-    │        Returns: findings to orchestrator
+    │        Returns: findings to orchestrator (response message, never written to files)
     │        Deep: each instance scoped to a different area of concern
     │
     └── orchestrator reads findings → decides APPROVED or delegates fixes to developer

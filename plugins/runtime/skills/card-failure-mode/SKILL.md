@@ -93,7 +93,7 @@ For each finding, provide all three:
 
 ## 6. Return Findings
 
-Return the report to the caller as soon as the analysis is complete. Lead with approach-level concerns, then line-level concerns.
+Return findings as your response message to the caller. Lead with approach-level concerns, then line-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
 
 The caller reads the findings and decides whether the implementation is ready or needs revision.
 

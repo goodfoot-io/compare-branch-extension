@@ -1,6 +1,6 @@
 ---
 name: notes
-description: This skill should be used when an agent is setting up or planning a card and wants to record architectural context for future sessions, when the user asks to "add notes to a card", "create card notes", "populate card context", or "add architecture notes". Creates reusable reference notes in the card's notes/ directory that reduce repeated codebase lookups across agent sessions.
+description: Reusable notes in a card's notes/ directory.
 ---
 
 <placeholder-variables>
