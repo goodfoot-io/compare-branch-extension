@@ -88,6 +88,7 @@ describe('buildCardBlock', () => {
     cardRepoPath: repoPath,
     configPath: '/tmp/config',
     extensionPath: '/tmp/extension',
+    marketplacePath: '/test/marketplace',
     switchToInteractiveData: undefined,
     codingAgent: undefined,
     ...overrides
