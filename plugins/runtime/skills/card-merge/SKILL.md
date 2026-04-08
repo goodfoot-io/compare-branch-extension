@@ -69,9 +69,17 @@ cd "$BASE_WORKTREE"
 Check for uncommitted changes with `git status --porcelain`:
 
 - **Clean**: Merge with `git merge --ff-only "$WORKSPACE_BRANCH"`. **STOP** — Merge complete. Do not update card status, write comments, or take further action.
-- **Dirty**: Apply changes with `git diff "$BASE_BRANCH".."$WORKSPACE_BRANCH" | git apply --3way`:
-  - **Apply succeeds**: **STOP** — Apply complete. Do not update card status, write comments, or take further action.
-  - **Apply reports conflicts**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` — uncommitted changes in `$BASE_WORKTREE` conflict with incoming changes; user must resolve or commit before merge can proceed. Commit both files and **STOP**.
+- **Dirty**: Stash uncommitted changes, fast-forward merge, then restore:
+
+```bash
+git stash push --include-untracked -m "card-merge: stash before ff-merge" && git merge --ff-only "$WORKSPACE_BRANCH" && git stash pop
+```
+
+  The `&&` chain ensures the merge only runs if the stash succeeds, and the pop only runs if the merge succeeds — leaving the stash in place if the merge fails so it can be restored manually.
+
+  - **Succeeds**: **STOP** — Merge complete. Do not update card status, write comments, or take further action.
+  - **`git stash pop` reports conflicts**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` — stashed changes conflict with the merged branch; user must resolve the stash conflict manually. Commit both files and **STOP**.
+  - **`git merge --ff-only` fails**: Run `git stash pop` to restore uncommitted changes before stopping. Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` — branch is not a fast-forward of `$BASE_BRANCH`; include likely cause and resolution steps. Commit both files and **STOP**.
 - **Merge or apply fails for any other reason**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/merge-failed.md` — branch is not a fast-forward of `$BASE_BRANCH`; include likely cause and resolution steps. Commit both files and **STOP**.
 
 </instructions>
