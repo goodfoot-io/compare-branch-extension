@@ -17,8 +17,11 @@ import codex from './src/actions/codex.js';
 import codexChat from './src/actions/codex-chat.js';
 import interview from './src/actions/interview.js';
 import launch from './src/actions/launch.js';
+// Cards assistant handler
+import cardsAssistant from './src/cards-assistant.js';
 
 export default defineConfig({
+  cardsAssistant,
   environments: {
     default: {
       version: 1,
