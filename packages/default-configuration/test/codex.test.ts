@@ -7,6 +7,8 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { flushMicrotasks } from '@cards/test-utils';
@@ -314,6 +316,90 @@ function createMockChild(): ChildProcess {
   } as unknown as ChildProcess;
 }
 
+function createMockAppServerChild(): ChildProcess {
+  const child = new EventEmitter() as ChildProcess;
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const stdin = new PassThrough();
+  let initialized = false;
+
+  stdin.setEncoding('utf-8');
+  stdin.on('data', (chunk: string) => {
+    for (const line of chunk.split('\n').filter((entry) => entry.length > 0)) {
+      const message = JSON.parse(line) as {
+        id?: number;
+        method?: string;
+        params?: { pluginName?: string };
+      };
+
+      if (message.method === 'initialize') {
+        stdout.write(
+          `${JSON.stringify({
+            id: message.id,
+            result: {
+              userAgent: 'cards-test/0.1.0',
+              codexHome: '/home/node/.cards/codex.tmp-test',
+              platformFamily: 'unix',
+              platformOs: 'linux'
+            }
+          })}\n`
+        );
+        stdout.write(
+          `${JSON.stringify({
+            method: 'configWarning',
+            params: {
+              summary: 'warning',
+              details: null
+            }
+          })}\n`
+        );
+        continue;
+      }
+
+      if (message.method === 'initialized') {
+        initialized = true;
+        continue;
+      }
+
+      if (message.method === 'plugin/install') {
+        if (!initialized) {
+          stdout.write(
+            `${JSON.stringify({
+              id: message.id,
+              error: {
+                message: 'not initialized'
+              }
+            })}\n`
+          );
+          continue;
+        }
+
+        stdout.write(
+          `${JSON.stringify({
+            id: message.id,
+            result: {
+              authPolicy: 'ON_INSTALL',
+              appsNeedingAuth: []
+            }
+          })}\n`
+        );
+      }
+    }
+  });
+
+  child.pid = 23456;
+  child.stdin = stdin;
+  child.stdout = stdout;
+  child.stderr = stderr;
+  child.kill = vi.fn(() => {
+    child.emit('close', 0, null);
+    return true;
+  }) as ChildProcess['kill'];
+  child.on = child.addListener.bind(child) as ChildProcess['on'];
+
+  return child;
+}
+
 function baseInput(overrides?: Partial<ActionInput>): ActionInput {
   return {
     cardId: 'card-123',
@@ -344,8 +430,14 @@ describe('codex action', () => {
   it('stages codex home from the default source, overlays the bundled marketplace, and spawns codex with staged CODEX_HOME', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
+    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
 
     const action = (await import('../src/actions/codex.js')).default;
     const promise = action(baseInput(), createMockContext());
@@ -398,6 +490,17 @@ describe('codex action', () => {
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('# Commit Style'));
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('plugins = true'));
     expect(fs.rename).not.toHaveBeenCalled();
+    expect(spawn).toHaveBeenCalledWith(
+      'codex',
+      ['app-server'],
+      expect.objectContaining({
+        cwd: expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/),
+        env: expect.objectContaining({
+          CODEX_HOME: expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/)
+        }),
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+    );
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',
@@ -415,44 +518,36 @@ describe('codex action', () => {
       })
     );
 
-    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
     expect(args).toContain('--cd');
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
     expect(args).not.toContain('--config');
-    expect(args[args.length - 1]).toContain('```bash');
-    expect(args[args.length - 1]).toContain('CARD_ID=card-123');
-    expect(args[args.length - 1]).toContain('CARD_REPO_PATH=/test/repo');
-    expect(args[args.length - 1]).toContain('WORKSPACE_PATH=/test/workspace/.worktrees/cards/card-123/1');
-    expect(args[args.length - 1]).toContain('BASE_BRANCH=main');
-    expect(args[args.length - 1]).toContain('WORKSPACE_BRANCH=cards/card-123/1');
-    expect(args[args.length - 1]).toContain('EXECUTION_MODE=interactive');
-    expect(args[args.length - 1]).toContain('<card type="yaml">');
-    expect(args[args.length - 1]).toContain('<card-repo type="yaml">');
-    expect(args[args.length - 1]).toContain('<card-repo-log type="yaml" count="3" order="oldest-first">');
-    expect(args[args.length - 1]).toContain(
-      '<workspace-repo-log type="yaml" branch="cards/card-123/1" parentBranch="main" count="1">'
-    );
-    expect(args[args.length - 1]).toContain('<workspace-repo-log type="yaml" branch="main" count="1">');
     expect(args[args.length - 1]).toContain('Follow the routing `<instructions>`.');
-    expect(args[args.length - 1]).toContain('<card-repo-commit-style>');
     expect(args[args.length - 1]).toContain('<routing-constraints>');
+    expect(args[args.length - 1]).not.toContain('<card-repo-commit-style>');
 
     child.emit('close', 0);
     await promise;
   });
 
-  it('spawns codex chat with the guidance prompt', async () => {
+  it('spawns codex chat without a seeded guidance prompt', async () => {
     const { spawn } = await import('node:child_process');
+    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
 
     const action = (await import('../src/actions/codex-chat.js')).default;
     const promise = action(baseInput({ actionName: 'Codex Chat' }), createMockContext());
     await flushMicrotasks();
 
-    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
     expect(args).toEqual(
       expect.arrayContaining([
         '--dangerously-bypass-approvals-and-sandbox',
@@ -462,9 +557,7 @@ describe('codex action', () => {
         '/test/repo'
       ])
     );
-    expect(args[args.length - 1]).toContain('Start an interactive card session.');
-    expect(args[args.length - 1]).toContain('<card-repo-commit-style>');
-    expect(args[args.length - 1]).toContain('<markdown-guidelines>');
+    expect(args).toHaveLength(5);
 
     child.emit('close', 0);
     await promise;
@@ -506,8 +599,14 @@ describe('codex action', () => {
     process.env['CODEX_HOME'] = '/custom/codex-home';
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
+    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
     vi.mocked(fs.stat).mockImplementation(async (targetPath: string | URL) => {
       if (String(targetPath) === '/custom/codex-home') {
         return { isDirectory: () => true } as Awaited<ReturnType<typeof fs.stat>>;
@@ -530,8 +629,14 @@ describe('codex action', () => {
   it('creates the staged home from scratch when the source home does not exist', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
+    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
     vi.mocked(fs.stat).mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
     vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
       if (String(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
@@ -692,8 +797,14 @@ describe('codex action', () => {
 
   it('registers onCancel that kills the child process', async () => {
     const { spawn } = await import('node:child_process');
+    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
 
     const context = createMockContext();
     const action = (await import('../src/actions/codex.js')).default;
@@ -711,8 +822,14 @@ describe('codex action', () => {
 
   it('calls spawnBranchCleanupWatcher after session exits', async () => {
     const { spawn, execFile } = await import('node:child_process');
+    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
 
     const action = (await import('../src/actions/codex.js')).default;
     const promise = action(baseInput(), createMockContext());

@@ -11,21 +11,19 @@
 
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
 import cardRoutingSkill from '../../../../codex/runtime/skills/card-routing/SKILL.md';
-import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
 import { spawnCodexSession } from '../lib/codex-session.js';
 
 function stripFrontmatter(md: string): string {
   return md.replace(/^---\n[\s\S]*?\n---\n*/, '');
 }
 
-const COMMIT_MESSAGE_STYLE = commitMessageStyle.trim();
 const CARD_ROUTING_SKILL = stripFrontmatter(cardRoutingSkill).trim();
 
 /**
  * Codex action handler.
  *
  * Starts an interactive Codex session rooted at the card worktree with the
- * packaged cards/runtime plugins enabled for routing-driven card workflows.
+ * packaged cards/runtime plugins enabled and a routing prompt.
  */
 export default defineAction(
   {
@@ -36,7 +34,7 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     await spawnCodexSession(input, context, {
-      prompt: ['Follow the routing `<instructions>`.', COMMIT_MESSAGE_STYLE, CARD_ROUTING_SKILL].join('\n\n')
+      prompt: [CARD_ROUTING_SKILL, 'Follow the routing `<instructions>`.'].join('\n\n')
     });
   }
 );

@@ -13,6 +13,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
+import { createInterface } from 'node:readline';
 import { resolveGlobalCardsConfigDir } from '@cards/sdk';
 import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
@@ -40,6 +41,22 @@ interface CodexPluginManifest {
 
 interface CodexPluginMarketplaceManifest {
   name: string;
+}
+
+interface JsonRpcSuccessMessage {
+  id: number;
+  result: unknown;
+}
+
+interface JsonRpcErrorMessage {
+  id: number;
+  error: {
+    message?: string;
+  };
+}
+
+interface JsonRpcNotificationMessage {
+  method: string;
 }
 
 type TomlTable = Record<string, unknown>;
@@ -699,6 +716,18 @@ async function resolveExistingDirectory(directoryPath: string): Promise<boolean>
   }
 }
 
+function isJsonRpcSuccessMessage(value: unknown): value is JsonRpcSuccessMessage {
+  return !!value && typeof value === 'object' && 'id' in value && 'result' in value;
+}
+
+function isJsonRpcErrorMessage(value: unknown): value is JsonRpcErrorMessage {
+  return !!value && typeof value === 'object' && 'id' in value && 'error' in value;
+}
+
+function isJsonRpcNotificationMessage(value: unknown): value is JsonRpcNotificationMessage {
+  return !!value && typeof value === 'object' && 'method' in value;
+}
+
 function ensureTomlTable(value: unknown, fieldName: string): TomlTable {
   if (value === undefined) {
     return {};
@@ -776,6 +805,138 @@ export async function mergeCodexAgentsInstructions(stagedCodexHome: string, mark
   await fs.writeFile(agentsPath, nextContent);
 }
 
+async function installBundledCodexPlugins(stagedCodexHome: string): Promise<void> {
+  const marketplacePath = path.join(stagedCodexHome, '.agents', 'plugins', 'marketplace.json');
+  const child = spawn('codex', ['app-server'], {
+    cwd: stagedCodexHome,
+    env: {
+      ...process.env,
+      CODEX_HOME: stagedCodexHome
+    },
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+
+  if (!child.stdin || !child.stdout) {
+    child.kill('SIGTERM');
+    throw new Error('Codex app-server did not provide stdio pipes');
+  }
+
+  const stderrLines: string[] = [];
+  child.stderr?.on('data', (chunk: Buffer | string) => {
+    stderrLines.push(chunk.toString());
+  });
+
+  let closeCode: number | null = null;
+  let closeSignal: NodeJS.Signals | null = null;
+  let closeError: Error | null = null;
+  child.once('error', (error) => {
+    closeError = error;
+  });
+  child.once('close', (code, signal) => {
+    closeCode = code;
+    closeSignal = signal;
+  });
+
+  const reader = createInterface({ input: child.stdout });
+  const pendingLines: string[] = [];
+  const pendingResolvers: Array<(line: string) => void> = [];
+
+  reader.on('line', (line) => {
+    const nextResolver = pendingResolvers.shift();
+    if (nextResolver) {
+      nextResolver(line);
+      return;
+    }
+    pendingLines.push(line);
+  });
+
+  function readLine(): Promise<string> {
+    const nextLine = pendingLines.shift();
+    if (nextLine !== undefined) {
+      return Promise.resolve(nextLine);
+    }
+    return new Promise((resolve) => {
+      pendingResolvers.push(resolve);
+    });
+  }
+
+  async function sendJsonRpc(message: Record<string, unknown>): Promise<void> {
+    child.stdin!.write(`${JSON.stringify(message)}\n`);
+  }
+
+  async function readResponse(requestId: number): Promise<void> {
+    while (true) {
+      if (closeError) {
+        throw closeError;
+      }
+      if (closeCode !== null) {
+        throw new Error(
+          `Codex app-server exited before responding to request ${requestId} (code=${closeCode}, signal=${closeSignal ?? 'none'})`
+        );
+      }
+
+      const line = await readLine();
+      const message = JSON.parse(line) as unknown;
+      if (isJsonRpcNotificationMessage(message)) {
+        continue;
+      }
+      if (isJsonRpcSuccessMessage(message) && message.id === requestId) {
+        return;
+      }
+      if (isJsonRpcErrorMessage(message) && message.id === requestId) {
+        throw new Error(message.error.message ?? `Codex app-server request ${requestId} failed`);
+      }
+    }
+  }
+
+  try {
+    await sendJsonRpc({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        clientInfo: {
+          name: 'cards-codex-launcher',
+          version: '1.0.0'
+        },
+        capabilities: {
+          experimentalApi: true
+        }
+      }
+    });
+    await readResponse(1);
+
+    await sendJsonRpc({
+      jsonrpc: '2.0',
+      method: 'initialized'
+    });
+
+    let requestId = 2;
+    for (const pluginName of CODEX_PLUGIN_NAMES) {
+      await sendJsonRpc({
+        jsonrpc: '2.0',
+        id: requestId,
+        method: 'plugin/install',
+        params: {
+          marketplacePath,
+          pluginName,
+          forceRemoteSync: false
+        }
+      });
+      await readResponse(requestId);
+      requestId++;
+    }
+  } finally {
+    reader.close();
+    child.stdin.end();
+    child.kill('SIGTERM');
+  }
+
+  if (closeError) {
+    throw closeError;
+  }
+}
+
 const STAGED_HOME_PREFIX = 'codex.tmp-';
 let stagingCounter = 0;
 
@@ -826,6 +987,7 @@ export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
   await copyDirectoryContents(bundlePath, stagedCodexHome);
   await mergeCodexRuntimeConfig(stagedCodexHome);
   await mergeCodexAgentsInstructions(stagedCodexHome, marketplacePath);
+  await installBundledCodexPlugins(stagedCodexHome);
 
   return {
     bundlePath,

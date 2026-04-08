@@ -5,6 +5,9 @@
  * @summary Tests concurrent prepareStagedCodexHome collision
  */
 
+import type { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({
@@ -53,9 +56,89 @@ beforeEach(() => {
   delete process.env['XDG_CONFIG_HOME'];
 });
 
+function createMockAppServerChild(): ChildProcess {
+  const child = new EventEmitter() as ChildProcess;
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const stdin = new PassThrough();
+  let initialized = false;
+
+  stdin.setEncoding('utf-8');
+  stdin.on('data', (chunk: string) => {
+    for (const line of chunk.split('\n').filter((entry) => entry.length > 0)) {
+      const message = JSON.parse(line) as {
+        id?: number;
+        method?: string;
+      };
+
+      if (message.method === 'initialize') {
+        stdout.write(
+          `${JSON.stringify({
+            id: message.id,
+            result: {
+              userAgent: 'collision-test/0.1.0',
+              codexHome: '/mock/cards-config/codex.tmp-test',
+              platformFamily: 'unix',
+              platformOs: 'linux'
+            }
+          })}\n`
+        );
+        continue;
+      }
+
+      if (message.method === 'initialized') {
+        initialized = true;
+        continue;
+      }
+
+      if (message.method === 'plugin/install') {
+        stdout.write(
+          `${JSON.stringify(
+            initialized
+              ? {
+                  id: message.id,
+                  result: {
+                    authPolicy: 'ON_INSTALL',
+                    appsNeedingAuth: []
+                  }
+                }
+              : {
+                  id: message.id,
+                  error: {
+                    message: 'not initialized'
+                  }
+                }
+          )}\n`
+        );
+      }
+    }
+  });
+
+  child.pid = 45678;
+  child.stdin = stdin;
+  child.stdout = stdout;
+  child.stderr = stderr;
+  child.kill = vi.fn(() => {
+    child.emit('close', 0, null);
+    return true;
+  }) as ChildProcess['kill'];
+  child.on = child.addListener.bind(child) as ChildProcess['on'];
+  child.once = child.once.bind(child) as ChildProcess['once'];
+
+  return child;
+}
+
 describe('prepareStagedCodexHome concurrent collision', () => {
   it('concurrent calls should produce isolated staging directories', async () => {
     const fs = await import('node:fs/promises');
+    const { spawn } = await import('node:child_process');
+
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return createMockAppServerChild();
+      }
+      throw new Error(`mock: unexpected spawn ${command} ${(args ?? []).join(' ')}`);
+    });
 
     // Mock fs.access to succeed (bundle/plugin paths exist)
     vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -115,6 +198,14 @@ describe('prepareStagedCodexHome concurrent collision', () => {
 
   it('does not depend on fs.rename when concurrent calls stage isolated directories', async () => {
     const fs = await import('node:fs/promises');
+    const { spawn } = await import('node:child_process');
+
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return createMockAppServerChild();
+      }
+      throw new Error(`mock: unexpected spawn ${command} ${(args ?? []).join(' ')}`);
+    });
 
     vi.mocked(fs.access).mockResolvedValue(undefined);
 
