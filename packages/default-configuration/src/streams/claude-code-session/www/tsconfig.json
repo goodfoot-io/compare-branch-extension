@@ -1,14 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": true,
+    "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
@@ -17,10 +15,12 @@
     "noPropertyAccessFromIndexSignature": true,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
-    "types": ["node"],
-    "incremental": true,
-    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+    "jsx": "react-jsx",
+    "types": ["bun", "node"],
+    "paths": {
+      "@cards/sdk/stream-store": ["../../../../../../../../../public/packages/sdk/src/stream-store/index.ts"]
+    }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist", "test", "src/streams/claude-code-session/www"]
+  "include": ["./**/*.ts", "./**/*.tsx"],
+  "exclude": ["node_modules"]
 }

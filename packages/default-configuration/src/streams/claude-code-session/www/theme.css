@@ -1,0 +1,39 @@
+@import '@cards/web/styles';
+
+@layer components {
+  /* Accordion open/close transition */
+  .cc-accordion-body {
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+
+  .cc-accordion-body.open {
+    opacity: 1;
+  }
+
+  /* Chevron rotation on accordion toggle */
+  .cc-chevron {
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+
+  .cc-accordion.open .cc-chevron {
+    transform: rotate(90deg);
+  }
+
+  /* Gradient-fade clipping for long content */
+  .cc-fade-clip {
+    mask-image: linear-gradient(to bottom, black 110px, transparent 155px);
+    -webkit-mask-image: linear-gradient(to bottom, black 110px, transparent 155px);
+  }
+
+  .cc-tool-val-clip {
+    mask-image: linear-gradient(to bottom, black 40px, transparent 58px);
+    -webkit-mask-image: linear-gradient(to bottom, black 40px, transparent 58px);
+  }
+
+  .cc-result-clip {
+    mask-image: linear-gradient(to bottom, black 45px, transparent 78px);
+    -webkit-mask-image: linear-gradient(to bottom, black 45px, transparent 78px);
+  }
+}
