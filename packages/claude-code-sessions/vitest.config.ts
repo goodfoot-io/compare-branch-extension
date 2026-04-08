@@ -1,6 +1,6 @@
 /**
- * @file Vitest configuration for claude-code-sessions.
- * @summary Vitest configuration for claude-code-sessions.
+ * @file Vitest configuration for sessions.
+ * @summary Vitest configuration for sessions.
  */
 import { defineConfig } from 'vitest/config';
 

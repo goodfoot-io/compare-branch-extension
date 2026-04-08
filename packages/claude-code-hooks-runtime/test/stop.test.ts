@@ -5,9 +5,9 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { getUnattributedCommits } from '@cards/sdk/client';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/stop.js';
@@ -16,7 +16,7 @@ vi.mock('node:child_process', () => ({
   execFileSync: vi.fn()
 }));
 
-vi.mock('@cards/claude-code-sessions/card-repo', () => ({
+vi.mock('@cards/sessions/card-repo', () => ({
   getSessionCommits: vi.fn(),
   appendCommitToSession: vi.fn(),
   readSessionHeadSha: vi.fn()

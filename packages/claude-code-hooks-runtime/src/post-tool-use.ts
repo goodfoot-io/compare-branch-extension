@@ -19,11 +19,11 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { BOOKKEEPING_PATHSPEC_EXCLUSIONS, getUnattributedCommits } from '@cards/sdk/client';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 import { CommitLogError, CommitRecordError } from './lib/errors.js';
 import { formatCommitLog } from './lib/file-tree.js';

@@ -1,8 +1,8 @@
 /**
- * Tests for the claude-code-sessions PID registry, process tree
+ * Tests for the sessions PID registry, process tree
  * resolution, and card-repo commit buffering.
  *
- * @summary Test suite for claude-code-sessions
+ * @summary Test suite for sessions
  */
 
 export {};

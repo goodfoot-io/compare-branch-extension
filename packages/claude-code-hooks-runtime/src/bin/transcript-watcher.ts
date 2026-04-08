@@ -1,7 +1,7 @@
 /**
  * Detached transcript watcher process.
  *
- * Spawned by session-start to monitor a Claude PID and stream the transcript
+ * Spawned by session-start to monitor a agent PID and stream the transcript
  * to the Cards API in real-time. Tails the transcript JSONL file, streaming
  * lines as they appear with WebSocket-backed session lifecycle. Exits on
  * sentinel file detection (graceful shutdown), PID death (crash), or max
@@ -36,7 +36,7 @@ const READ_BUFFER_SIZE = 64 * 1024;
  * Arguments parsed from process.argv for the transcript watcher.
  */
 export interface TranscriptWatcherArgs {
-  /** PID of the Claude process to monitor. */
+  /** PID of the agent process to monitor. */
   pid: number;
   /** Session identifier for stream file naming. */
   sessionId: string;

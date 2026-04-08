@@ -1,11 +1,11 @@
 /**
- * Tracks associations between Claude process IDs and cards on disk, buffering
+ * Tracks associations between agent process IDs and cards on disk, buffering
  * pending commit SHAs until an association is established. The registry uses
  * atomic file writes, advisory file locking, and automatic stale-entry pruning
  * to remain correct under concurrent access.
  *
  * @summary PID-to-card session registry with commit buffering
- * @module claude-code-sessions
+ * @module sessions
  */
 
 import { readFile } from 'node:fs/promises';
@@ -13,7 +13,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { executeTransaction, hasErrnoCode, isProcessAlive, pruneStaleEntries } from './internal.js';
 
-export { findAllClaudePids, findClaudePid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
+export { findAgentPid, findAllAgentPids, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 
 function getCardsDir(): string {
   return join(homedir(), '.cards');
@@ -22,34 +22,34 @@ function getCardsDir(): string {
 /**
  * Returns the canonical on-disk location for the session registry JSON file.
  *
- * @returns Absolute path to `~/.cards/claude-sessions.json`.
+ * @returns Absolute path to `~/.cards/sessions.json`.
  */
 export function getRegistryPath(): string {
-  return join(getCardsDir(), 'claude-sessions.json');
+  return join(getCardsDir(), 'sessions.json');
 }
 
 /**
  * Returns the canonical on-disk location for the session lock file.
  *
- * @returns Absolute path to `~/.cards/claude-sessions.lock`.
+ * @returns Absolute path to `~/.cards/sessions.lock`.
  */
 export function getLockPath(): string {
-  return join(getCardsDir(), 'claude-sessions.lock');
+  return join(getCardsDir(), 'sessions.lock');
 }
 
 export const LOCK_TIMEOUT_MS = 2000;
 export const MAX_ENTRY_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /** Session data stored per PID in the registry file. */
-export interface ClaudeSessionEntry {
+export interface SessionEntry {
   cardId?: string;
   pendingCommits: string[];
   updatedAt: string;
 }
 
-/** JSON payload stored at `~/.cards/claude-sessions.json`. */
-export interface ClaudeSessionRegistry {
-  sessions: Record<string, ClaudeSessionEntry>;
+/** JSON payload stored at `~/.cards/sessions.json`. */
+export interface SessionRegistry {
+  sessions: Record<string, SessionEntry>;
 }
 
 /** Extended session entry that includes session ID. */
@@ -67,12 +67,12 @@ export interface PidSessionEntry {
  * (first-write-wins). Otherwise sets `cardId`, extracts and clears
  * `pendingCommits`, and returns the extracted commits.
  *
- * @param pid - Claude process ID to associate.
+ * @param pid - Agent process ID to associate.
  * @param cardId - Card identifier to bind to the PID.
  * @returns Pending SHAs captured before association, or `[]` on first-write conflict.
  */
 export async function associatePidWithCard(pid: number, cardId: string): Promise<string[]> {
-  return executeTransaction<ClaudeSessionRegistry, string[]>(
+  return executeTransaction<SessionRegistry, string[]>(
     getRegistryPath(),
     getLockPath(),
     (registry) => {
@@ -92,7 +92,7 @@ export async function associatePidWithCard(pid: number, cardId: string): Promise
       return pendingCommits;
     },
     (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
-    { sessions: {} } as ClaudeSessionRegistry,
+    { sessions: {} } as SessionRegistry,
     LOCK_TIMEOUT_MS
   );
 }
@@ -101,11 +101,11 @@ export async function associatePidWithCard(pid: number, cardId: string): Promise
  * Appends SHA to `pendingCommits` for PID (deduplicating). Creates the entry
  * if it does not exist.
  *
- * @param pid - Claude process ID that produced the commit.
+ * @param pid - Agent process ID that produced the commit.
  * @param sha - Commit SHA to record for later attribution.
  */
 export async function recordPendingCommit(pid: number, sha: string): Promise<void> {
-  await executeTransaction<ClaudeSessionRegistry, void>(
+  await executeTransaction<SessionRegistry, void>(
     getRegistryPath(),
     getLockPath(),
     (registry) => {
@@ -123,7 +123,7 @@ export async function recordPendingCommit(pid: number, sha: string): Promise<voi
       registry.sessions[pidStr] = entry;
     },
     (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
-    { sessions: {} } as ClaudeSessionRegistry,
+    { sessions: {} } as SessionRegistry,
     LOCK_TIMEOUT_MS
   );
 }
@@ -131,11 +131,11 @@ export async function recordPendingCommit(pid: number, sha: string): Promise<voi
 /**
  * Returns `cardId` for PID if it exists, null otherwise.
  *
- * @param pid - Claude process ID to resolve.
+ * @param pid - Agent process ID to resolve.
  * @returns Associated card ID, or `null` when unknown.
  */
 export async function getPidCardId(pid: number): Promise<string | null> {
-  return executeTransaction<ClaudeSessionRegistry, string | null>(
+  return executeTransaction<SessionRegistry, string | null>(
     getRegistryPath(),
     getLockPath(),
     (registry) => {
@@ -143,7 +143,7 @@ export async function getPidCardId(pid: number): Promise<string | null> {
       return registry.sessions[pidStr]?.cardId ?? null;
     },
     (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
-    { sessions: {} } as ClaudeSessionRegistry,
+    { sessions: {} } as SessionRegistry,
     LOCK_TIMEOUT_MS
   );
 }
@@ -151,11 +151,11 @@ export async function getPidCardId(pid: number): Promise<string | null> {
 /**
  * Removes and returns the PID's entry. Returns null if not found.
  *
- * @param pid - Claude process ID to remove.
+ * @param pid - Agent process ID to remove.
  * @returns Removed registry entry, or `null` when no entry existed.
  */
-export async function removePidEntry(pid: number): Promise<ClaudeSessionEntry | null> {
-  return executeTransaction<ClaudeSessionRegistry, ClaudeSessionEntry | null>(
+export async function removePidEntry(pid: number): Promise<SessionEntry | null> {
+  return executeTransaction<SessionRegistry, SessionEntry | null>(
     getRegistryPath(),
     getLockPath(),
     (registry) => {
@@ -170,7 +170,7 @@ export async function removePidEntry(pid: number): Promise<ClaudeSessionEntry | 
       return null;
     },
     (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
-    { sessions: {} } as ClaudeSessionRegistry,
+    { sessions: {} } as SessionRegistry,
     LOCK_TIMEOUT_MS
   );
 }
@@ -193,9 +193,9 @@ function getCardRepoPidsLockPath(): string {
 }
 
 /**
- * Registers a session for a Claude process ID in the card-repo PID registry.
+ * Registers a session for an agent process ID in the card-repo PID registry.
  *
- * @param pid - Claude process ID to register.
+ * @param pid - Agent process ID to register.
  * @param sessionId - Session identifier to associate with the PID.
  */
 export async function registerSession(pid: number, sessionId: string): Promise<void> {
@@ -217,7 +217,7 @@ export async function registerSession(pid: number, sessionId: string): Promise<v
 /**
  * Removes a PID entry from the card-repo PID registry.
  *
- * @param pid - Claude process ID to remove.
+ * @param pid - Agent process ID to remove.
  */
 export async function removeSessionPid(pid: number): Promise<void> {
   await executeTransaction<CardRepoPidRegistry, void>(
@@ -233,9 +233,9 @@ export async function removeSessionPid(pid: number): Promise<void> {
 }
 
 /**
- * Returns the session ID for a Claude process ID.
+ * Returns the session ID for an agent process ID.
  *
- * @param pid - Claude process ID to look up.
+ * @param pid - Agent process ID to look up.
  * @returns Session ID, or `null` when the entry is absent.
  */
 export async function getSessionIdForPid(pid: number): Promise<string | null> {

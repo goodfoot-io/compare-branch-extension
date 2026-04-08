@@ -1,7 +1,6 @@
 /**
  * Reproduces the CODEX_HOME collision bug where concurrent calls to
- * `prepareStagedCodexHome` race on a shared staging path, causing
- * ENOTEMPTY errors from `fs.rename`.
+ * `prepareStagedCodexHome` race on a shared staging path.
  *
  * @summary Tests concurrent prepareStagedCodexHome collision
  */
@@ -61,10 +60,13 @@ describe('prepareStagedCodexHome concurrent collision', () => {
     // Mock fs.access to succeed (bundle/plugin paths exist)
     vi.mocked(fs.access).mockResolvedValue(undefined);
 
-    // Mock fs.readFile to return valid manifests
+    // Mock fs.readFile to return valid manifests for both bundled plugins.
     vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
       const p = String(filePath);
-      if (p.endsWith('plugin.json')) {
+      if (p.endsWith('/cards/.codex-plugin/plugin.json')) {
+        return JSON.stringify({ name: 'cards' });
+      }
+      if (p.endsWith('/runtime/.codex-plugin/plugin.json')) {
         return JSON.stringify({ name: 'runtime' });
       }
       if (p.endsWith('marketplace.json')) {
@@ -91,11 +93,7 @@ describe('prepareStagedCodexHome concurrent collision', () => {
     // Mock fs.stat to make resolveExistingDirectory return false (no source home)
     vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
-    // Track all paths passed to fs.rename
-    const renameCalls: Array<{ from: string; to: string }> = [];
-    vi.mocked(fs.rename).mockImplementation(async (oldPath: unknown, newPath: unknown) => {
-      renameCalls.push({ from: String(oldPath), to: String(newPath) });
-    });
+    vi.mocked(fs.rename).mockResolvedValue(undefined);
 
     const { prepareStagedCodexHome } = await import('../src/lib/codex-session.js');
 
@@ -115,14 +113,17 @@ describe('prepareStagedCodexHome concurrent collision', () => {
     expect(result1.stagedCodexHome).not.toBe(result2.stagedCodexHome);
   });
 
-  it('fs.rename fails with ENOTEMPTY when another process occupies the staging path', async () => {
+  it('does not depend on fs.rename when concurrent calls stage isolated directories', async () => {
     const fs = await import('node:fs/promises');
 
     vi.mocked(fs.access).mockResolvedValue(undefined);
 
     vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
       const p = String(filePath);
-      if (p.endsWith('plugin.json')) {
+      if (p.endsWith('/cards/.codex-plugin/plugin.json')) {
+        return JSON.stringify({ name: 'cards' });
+      }
+      if (p.endsWith('/runtime/.codex-plugin/plugin.json')) {
         return JSON.stringify({ name: 'runtime' });
       }
       if (p.endsWith('marketplace.json')) {
@@ -141,30 +142,19 @@ describe('prepareStagedCodexHome concurrent collision', () => {
     vi.mocked(fs.writeFile).mockResolvedValue(undefined);
     vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
-    // Simulate the race: first rename succeeds, second fails with ENOTEMPTY
-    // because another concurrent call already placed a directory at the destination.
-    let renameCallCount = 0;
-    vi.mocked(fs.rename).mockImplementation(async () => {
-      renameCallCount++;
-      if (renameCallCount > 1) {
-        throw Object.assign(new Error('ENOTEMPTY: directory not empty, rmdir'), {
-          code: 'ENOTEMPTY'
-        });
-      }
-    });
+    vi.mocked(fs.rename).mockRejectedValue(
+      Object.assign(new Error('rename should not be used'), { code: 'ENOTEMPTY' })
+    );
 
     const { prepareStagedCodexHome } = await import('../src/lib/codex-session.js');
 
-    // Both calls should succeed — the function should handle the collision gracefully.
-    // Currently, the second call will throw ENOTEMPTY because the shared destination
-    // was already populated by the first call.
     const results = await Promise.allSettled([
       prepareStagedCodexHome('/test/marketplace'),
       prepareStagedCodexHome('/test/marketplace')
     ]);
 
-    // Assert both calls succeeded (this will fail because the second one throws)
     expect(results[0].status).toBe('fulfilled');
     expect(results[1].status).toBe('fulfilled');
+    expect(fs.rename).not.toHaveBeenCalled();
   });
 });

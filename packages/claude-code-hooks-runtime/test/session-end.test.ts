@@ -5,9 +5,9 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';
-import { findClaudePid, removeSessionPid } from '@cards/claude-code-sessions';
-import { removeSessionCsv, removeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import { extractActionInput } from '@cards/sdk/config';
+import { findAgentPid, removeSessionPid } from '@cards/sessions';
+import { removeSessionCsv, removeSessionHeadSha } from '@cards/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/session-end.js';
@@ -21,12 +21,12 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('@cards/claude-code-sessions', () => ({
-  findClaudePid: vi.fn(),
+vi.mock('@cards/sessions', () => ({
+  findAgentPid: vi.fn(),
   removeSessionPid: vi.fn()
 }));
 
-vi.mock('@cards/claude-code-sessions/card-repo', () => ({
+vi.mock('@cards/sessions/card-repo', () => ({
   removeSessionCsv: vi.fn(),
   removeSessionHeadSha: vi.fn()
 }));
@@ -34,7 +34,7 @@ vi.mock('@cards/claude-code-sessions/card-repo', () => ({
 const mockExtractActionInput = vi.mocked(extractActionInput);
 const mockMkdir = vi.mocked(mkdir);
 const mockWriteFile = vi.mocked(writeFile);
-const mockFindClaudePid = vi.mocked(findClaudePid);
+const mockFindClaudePid = vi.mocked(findAgentPid);
 const mockRemoveSessionPid = vi.mocked(removeSessionPid);
 const mockRemoveSessionCsv = vi.mocked(removeSessionCsv);
 const mockRemoveSessionHeadSha = vi.mocked(removeSessionHeadSha);
@@ -129,7 +129,7 @@ describe('SessionEnd Hook', () => {
     });
 
     describe('session artifact cleanup', () => {
-      it('calls removeSessionPid with resolved PID from findClaudePid', async () => {
+      it('calls removeSessionPid with resolved PID from findAgentPid', async () => {
         mockFindClaudePid.mockReturnValue(42);
 
         await hook(baseInput, context);
@@ -138,7 +138,7 @@ describe('SessionEnd Hook', () => {
         expect(mockRemoveSessionPid).toHaveBeenCalledWith(42);
       });
 
-      it('skips PID removal when findClaudePid returns null', async () => {
+      it('skips PID removal when findAgentPid returns null', async () => {
         mockFindClaudePid.mockReturnValue(null);
 
         await hook(baseInput, context);

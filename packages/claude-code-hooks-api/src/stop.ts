@@ -1,7 +1,7 @@
 /**
  * Stop hook that cleans up PID registry entries.
  *
- * Always approves: cleanup is best-effort and never blocks Claude from
+ * Always approves: cleanup is best-effort and never blocks the agent from
  * stopping, even when session registry IO fails.
  *
  *
@@ -9,7 +9,7 @@
  * @module stop
  */
 
-import { findClaudePid, removePidEntry } from '@cards/claude-code-sessions';
+import { findAgentPid, removePidEntry } from '@cards/sessions';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 
 export default stopHook({}, async (_input, { logger }) => {
@@ -19,9 +19,9 @@ export default stopHook({}, async (_input, { logger }) => {
   }
 
   try {
-    const claudePid = findClaudePid();
-    if (claudePid) {
-      await removePidEntry(claudePid);
+    const agentPid = findAgentPid();
+    if (agentPid) {
+      await removePidEntry(agentPid);
     }
   } catch (error) {
     // Fail-open: never block Claude from stopping

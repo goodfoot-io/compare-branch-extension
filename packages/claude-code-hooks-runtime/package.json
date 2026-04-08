@@ -12,8 +12,8 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
+    "@cards/sessions": "workspace:*",
     "@goodfoot/claude-code-hooks": "^1.2.9",
     "esbuild": "^0.25.0",
     "js-yaml": "^4.1.0",

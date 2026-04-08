@@ -21,20 +21,20 @@ vi.mock('node:os', () => {
 import { tmpdir as realTmpdir } from 'node:os';
 import {
   associatePidWithCard,
-  type ClaudeSessionRegistry,
   getLockPath,
   getPidCardId,
   getRegistryPath,
   MAX_ENTRY_AGE_MS,
   recordPendingCommit,
-  removePidEntry
-} from '@cards/claude-code-sessions';
+  removePidEntry,
+  type SessionRegistry
+} from '@cards/sessions';
 
 describe('claude-sessions', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(realTmpdir(), `claude-sessions-test-${Date.now()}-${Math.random()}`);
+    testDir = join(realTmpdir(), `sessions-test-${Date.now()}-${Math.random()}`);
     mkdirSync(testDir, { recursive: true });
     process.env['MOCK_HOMEDIR'] = testDir;
   });
@@ -68,7 +68,7 @@ describe('claude-sessions', () => {
       expect(cardId).toBe('card-123');
 
       const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const registry: ClaudeSessionRegistry = JSON.parse(registryContent);
+      const registry: SessionRegistry = JSON.parse(registryContent);
       expect(registry.sessions[String(testPid)]?.pendingCommits).toEqual([]);
     });
 
@@ -114,7 +114,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(testPid, 'sha1');
 
       const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const registry: ClaudeSessionRegistry = JSON.parse(registryContent);
+      const registry: SessionRegistry = JSON.parse(registryContent);
       expect(registry.sessions[String(testPid)]?.pendingCommits).toEqual(['sha1']);
     });
 
@@ -125,7 +125,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(testPid, 'sha1');
 
       const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const registry: ClaudeSessionRegistry = JSON.parse(registryContent);
+      const registry: SessionRegistry = JSON.parse(registryContent);
       expect(registry.sessions[String(testPid)]?.pendingCommits).toEqual(['sha1', 'sha2']);
     });
 
@@ -134,7 +134,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(testPid, 'sha1');
 
       const registryContent1 = readFileSync(getRegistryPath(), 'utf-8');
-      const registry1: ClaudeSessionRegistry = JSON.parse(registryContent1);
+      const registry1: SessionRegistry = JSON.parse(registryContent1);
       const timestamp1 = registry1.sessions[String(testPid)]?.updatedAt;
 
       await flushMicrotasks();
@@ -142,7 +142,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(testPid, 'sha2');
 
       const registryContent2 = readFileSync(getRegistryPath(), 'utf-8');
-      const registry2: ClaudeSessionRegistry = JSON.parse(registryContent2);
+      const registry2: SessionRegistry = JSON.parse(registryContent2);
       const timestamp2 = registry2.sessions[String(testPid)]?.updatedAt;
 
       expect(timestamp2).toBeDefined();
@@ -156,7 +156,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(testPid, 'sha1');
 
       const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const registry: ClaudeSessionRegistry = JSON.parse(registryContent);
+      const registry: SessionRegistry = JSON.parse(registryContent);
       expect(registry.sessions[String(testPid)]).toBeDefined();
       expect(registry.sessions[String(testPid)]?.cardId).toBeUndefined();
       expect(registry.sessions[String(testPid)]?.pendingCommits).toEqual(['sha1']);
@@ -231,7 +231,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(12345, 'sha2');
 
       const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const registry: ClaudeSessionRegistry = JSON.parse(registryContent);
+      const registry: SessionRegistry = JSON.parse(registryContent);
       expect(registry.sessions[String(deadPid)]).toBeUndefined();
       expect(registry.sessions['12345']).toBeDefined();
     });
@@ -241,7 +241,7 @@ describe('claude-sessions', () => {
       mkdirSync(cardsDir, { recursive: true });
 
       const oldTimestamp = new Date(Date.now() - MAX_ENTRY_AGE_MS - 1000).toISOString();
-      const registry: ClaudeSessionRegistry = {
+      const registry: SessionRegistry = {
         sessions: {
           '12345': {
             cardId: 'card-old',
@@ -255,7 +255,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(67890, 'sha1');
 
       const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const newRegistry: ClaudeSessionRegistry = JSON.parse(registryContent);
+      const newRegistry: SessionRegistry = JSON.parse(registryContent);
       expect(newRegistry.sessions['12345']).toBeUndefined();
       expect(newRegistry.sessions['67890']).toBeDefined();
     });
@@ -267,7 +267,7 @@ describe('claude-sessions', () => {
       await recordPendingCommit(12345, 'sha2');
 
       const registryContent = readFileSync(getRegistryPath(), 'utf-8');
-      const registry: ClaudeSessionRegistry = JSON.parse(registryContent);
+      const registry: SessionRegistry = JSON.parse(registryContent);
       expect(registry.sessions[String(alivePid)]).toBeDefined();
       expect(registry.sessions['12345']).toBeDefined();
     });

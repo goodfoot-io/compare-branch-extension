@@ -9,8 +9,8 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
+    "@cards/sessions": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.25.3"
   },
   "devDependencies": {

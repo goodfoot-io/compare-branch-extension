@@ -20,20 +20,20 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/claude-code-sessions', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/claude-code-sessions')>();
+vi.mock('@cards/sessions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/sessions')>();
   return {
     ...actual,
-    findClaudePid: vi.fn()
+    findAgentPid: vi.fn()
   };
 });
 
-import { findClaudePid } from '@cards/claude-code-sessions';
+import { findAgentPid } from '@cards/sessions';
 import hookFn from '../src/stop.js';
 
 describe('cards stop hook', () => {
   const originalEnv = process.env;
-  const mockFindClaudePid = vi.mocked(findClaudePid);
+  const mockFindAgentPid = vi.mocked(findAgentPid);
   const mockLogger = {
     debug: vi.fn(),
     warn: vi.fn(),
@@ -57,7 +57,7 @@ describe('cards stop hook', () => {
     testDir = join(realTmpdir(), `stop-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
     process.env['MOCK_HOMEDIR'] = testDir;
-    mockFindClaudePid.mockReset();
+    mockFindAgentPid.mockReset();
     mockLogger.debug.mockReset();
     mockLogger.warn.mockReset();
     mockLogger.info.mockReset();
@@ -82,7 +82,7 @@ describe('cards stop hook', () => {
     const cardsDir = join(testDir, '.cards');
     mkdirSync(cardsDir, { recursive: true });
     const registry = { sessions: { [String(pid)]: entry } };
-    writeFileSync(join(cardsDir, 'claude-sessions.json'), JSON.stringify(registry, null, 2));
+    writeFileSync(join(cardsDir, 'sessions.json'), JSON.stringify(registry, null, 2));
   }
 
   /**
@@ -92,7 +92,7 @@ describe('cards stop hook', () => {
    */
   function readRegistry(): { sessions: Record<string, unknown> } {
     try {
-      return JSON.parse(readFileSync(join(testDir, '.cards', 'claude-sessions.json'), 'utf-8'));
+      return JSON.parse(readFileSync(join(testDir, '.cards', 'sessions.json'), 'utf-8'));
     } catch {
       return { sessions: {} };
     }
@@ -109,12 +109,12 @@ describe('cards stop hook', () => {
       { logger: mockLogger as unknown as Logger }
     );
     expect(result.stdout.decision).toBe('approve');
-    expect(mockFindClaudePid).not.toHaveBeenCalled();
+    expect(mockFindAgentPid).not.toHaveBeenCalled();
   });
 
-  it('calls findClaudePid and removes registry entry when CARD_ID not set', async () => {
+  it('calls findAgentPid and removes registry entry when CARD_ID not set', async () => {
     process.env['CARD_ID'] = undefined;
-    mockFindClaudePid.mockReturnValue(testPid);
+    mockFindAgentPid.mockReturnValue(testPid);
 
     // Pre-populate registry with an entry for our PID
     writeRegistry(testPid, { cardId: 'card-456', pendingCommits: [], updatedAt: new Date().toISOString() });
@@ -124,16 +124,16 @@ describe('cards stop hook', () => {
       { logger: mockLogger as unknown as Logger }
     );
     expect(result.stdout.decision).toBe('approve');
-    expect(mockFindClaudePid).toHaveBeenCalled();
+    expect(mockFindAgentPid).toHaveBeenCalled();
 
     // Verify the entry was actually removed from the real registry
     const registry = readRegistry();
     expect(registry.sessions[String(testPid)]).toBeUndefined();
   });
 
-  it('approves when findClaudePid returns null', async () => {
+  it('approves when findAgentPid returns null', async () => {
     process.env['CARD_ID'] = undefined;
-    mockFindClaudePid.mockReturnValue(null);
+    mockFindAgentPid.mockReturnValue(null);
 
     const result = await hookFn(
       { ...baseInput, session_id: 'test-session' },
@@ -144,12 +144,12 @@ describe('cards stop hook', () => {
 
   it('approves even when removePidEntry encounters corrupt registry', async () => {
     process.env['CARD_ID'] = undefined;
-    mockFindClaudePid.mockReturnValue(testPid);
+    mockFindAgentPid.mockReturnValue(testPid);
 
     // Write corrupt registry file
     const cardsDir = join(testDir, '.cards');
     mkdirSync(cardsDir, { recursive: true });
-    writeFileSync(join(cardsDir, 'claude-sessions.json'), 'not valid json');
+    writeFileSync(join(cardsDir, 'sessions.json'), 'not valid json');
 
     const result = await hookFn(
       { ...baseInput, session_id: 'test-session' },
@@ -160,7 +160,7 @@ describe('cards stop hook', () => {
 
   it('always returns decision approve', async () => {
     process.env['CARD_ID'] = undefined;
-    mockFindClaudePid.mockImplementation(() => {
+    mockFindAgentPid.mockImplementation(() => {
       throw new Error('Process error');
     });
 

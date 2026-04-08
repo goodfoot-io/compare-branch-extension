@@ -11,10 +11,10 @@
  */
 
 import { join } from 'node:path';
-import { findClaudePid, getSessionIdForPid } from '@cards/claude-code-sessions';
 import type { DiscoverResult } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import { getCardId, getRepoRoot } from '@cards/sdk/config/env';
+import { findAgentPid, getSessionIdForPid } from '@cards/sessions';
 
 export interface CardsServerConfig {
   cardId: string;
@@ -42,20 +42,20 @@ function resolveLogPath(): string {
 /** Result of a session ID resolution attempt, with diagnostic context. */
 export interface SessionResolution {
   sessionId: string | null;
-  claudePid: number | null;
+  agentPid: number | null;
 }
 
 /**
  * Resolves the session ID by walking the process tree to find the parent
- * Claude PID, then looking up its session in the card-repo PID registry.
+ * agent PID, then looking up its session in the card-repo PID registry.
  *
- * @returns Session ID and Claude PID used for resolution.
+ * @returns Session ID and agent PID used for resolution.
  */
 async function resolveSessionIdFromPidRegistry(): Promise<SessionResolution> {
-  const claudePid = findClaudePid();
-  if (claudePid === null) return { sessionId: null, claudePid: null };
-  const sessionId = await getSessionIdForPid(claudePid);
-  return { sessionId, claudePid };
+  const agentPid = findAgentPid();
+  if (agentPid === null) return { sessionId: null, agentPid: null };
+  const sessionId = await getSessionIdForPid(agentPid);
+  return { sessionId, agentPid };
 }
 
 /**

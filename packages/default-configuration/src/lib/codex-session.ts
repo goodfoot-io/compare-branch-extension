@@ -44,7 +44,7 @@ interface CodexPluginMarketplaceManifest {
 
 type TomlTable = Record<string, unknown>;
 
-const CODEX_PLUGIN_NAME = 'runtime';
+const CODEX_PLUGIN_NAMES = ['cards', 'runtime'] as const;
 const CODEX_PLUGIN_MARKETPLACE = 'local';
 const CODEX_CONFIG_FILE_NAME = 'config.toml';
 const CODEX_AGENTS_FILE_NAME = 'AGENTS.md';
@@ -573,10 +573,14 @@ export function resolveCodexBundlePath(marketplacePath: string): string {
  * Resolves the packaged Codex plugin bundled in the extension installation.
  *
  * @param marketplacePath - Absolute path to the packaged marketplace directory.
+ * @param pluginName - Bundled Codex plugin name to resolve.
  * @returns Absolute path to the packaged Codex runtime plugin directory.
  */
-export function resolveCodexPluginPath(marketplacePath: string): string {
-  return path.join(resolveCodexBundlePath(marketplacePath), CODEX_PLUGIN_NAME);
+export function resolveCodexPluginPath(
+  marketplacePath: string,
+  pluginName: (typeof CODEX_PLUGIN_NAMES)[number]
+): string {
+  return path.join(resolveCodexBundlePath(marketplacePath), pluginName);
 }
 
 /**
@@ -611,14 +615,18 @@ export function resolveStagedCodexHome(): string {
  * Reads and validates the packaged Codex plugin manifest.
  *
  * @param pluginPath - Absolute path to the packaged Codex plugin directory.
+ * @param expectedName - Expected plugin name from the bundle manifest.
  * @returns Parsed plugin manifest.
  */
-export async function readCodexPluginManifest(pluginPath: string): Promise<CodexPluginManifest> {
+export async function readCodexPluginManifest(
+  pluginPath: string,
+  expectedName: (typeof CODEX_PLUGIN_NAMES)[number]
+): Promise<CodexPluginManifest> {
   const manifestPath = path.join(pluginPath, '.codex-plugin', 'plugin.json');
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as Partial<CodexPluginManifest>;
 
-  if (manifest.name !== CODEX_PLUGIN_NAME) {
-    throw new Error(`Invalid Codex plugin manifest name at ${manifestPath}: expected "${CODEX_PLUGIN_NAME}"`);
+  if (manifest.name !== expectedName) {
+    throw new Error(`Invalid Codex plugin manifest name at ${manifestPath}: expected "${expectedName}"`);
   }
 
   return {
@@ -643,19 +651,23 @@ async function readCodexMarketplaceManifest(bundlePath: string): Promise<CodexPl
 
 async function ensureCodexBundleAvailable(marketplacePath: string): Promise<{
   bundlePath: string;
-  pluginPath: string;
+  pluginPaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
 }> {
   const bundlePath = resolveCodexBundlePath(marketplacePath);
-  const pluginPath = resolveCodexPluginPath(marketplacePath);
+  const pluginPaths = Object.fromEntries(
+    CODEX_PLUGIN_NAMES.map((pluginName) => [pluginName, resolveCodexPluginPath(marketplacePath, pluginName)])
+  ) as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
   const marketplaceManifestPath = path.join(bundlePath, '.agents', 'plugins', 'marketplace.json');
 
   await fs.access(bundlePath);
-  await fs.access(pluginPath);
   await fs.access(marketplaceManifestPath);
   await readCodexMarketplaceManifest(bundlePath);
-  await readCodexPluginManifest(pluginPath);
+  for (const pluginName of CODEX_PLUGIN_NAMES) {
+    await fs.access(pluginPaths[pluginName]);
+    await readCodexPluginManifest(pluginPaths[pluginName], pluginName);
+  }
 
-  return { bundlePath, pluginPath };
+  return { bundlePath, pluginPaths };
 }
 
 async function readDirectoryEntries(directoryPath: string): Promise<string[]> {
@@ -700,7 +712,7 @@ function ensureTomlTable(value: unknown, fieldName: string): TomlTable {
 }
 
 /**
- * Merges the staged config with the runtime plugin settings required by the bundled marketplace.
+ * Merges the staged config with the plugin settings required by the bundled marketplace.
  *
  * @param stagedCodexHome - Absolute path to the staged Codex home.
  */
@@ -725,10 +737,12 @@ export async function mergeCodexRuntimeConfig(stagedCodexHome: string): Promise<
   config['features'] = features;
 
   const plugins = ensureTomlTable(config['plugins'], 'plugins');
-  const pluginKey = `${CODEX_PLUGIN_NAME}@${CODEX_PLUGIN_MARKETPLACE}`;
-  const pluginConfig = ensureTomlTable(plugins[pluginKey], `plugins.${pluginKey}`);
-  pluginConfig['enabled'] = true;
-  plugins[pluginKey] = pluginConfig;
+  for (const pluginName of CODEX_PLUGIN_NAMES) {
+    const pluginKey = `${pluginName}@${CODEX_PLUGIN_MARKETPLACE}`;
+    const pluginConfig = ensureTomlTable(plugins[pluginKey], `plugins.${pluginKey}`);
+    pluginConfig['enabled'] = true;
+    plugins[pluginKey] = pluginConfig;
+  }
   config['plugins'] = plugins;
 
   await fs.writeFile(configPath, `${stringifyToml(config)}\n`);
@@ -791,11 +805,11 @@ async function cleanupStaleStagedHomes(stagingParent: string): Promise<void> {
  */
 export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
   bundlePath: string;
-  pluginPath: string;
+  pluginPaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
   sourceCodexHome: string;
   stagedCodexHome: string;
 }> {
-  const { bundlePath, pluginPath } = await ensureCodexBundleAvailable(marketplacePath);
+  const { bundlePath, pluginPaths } = await ensureCodexBundleAvailable(marketplacePath);
   const sourceCodexHome = resolveDefaultCodexHome();
   const stagingParent = path.dirname(resolveStagedCodexHome());
   const stagedCodexHome = path.join(stagingParent, `codex.tmp-${process.pid}-${Date.now()}-${stagingCounter++}`);
@@ -815,7 +829,7 @@ export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
 
   return {
     bundlePath,
-    pluginPath,
+    pluginPaths,
     sourceCodexHome,
     stagedCodexHome
   };
@@ -874,10 +888,10 @@ export async function spawnCodexSession(
 
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-  const { bundlePath, pluginPath, sourceCodexHome, stagedCodexHome } = await prepareStagedCodexHome(marketplacePath);
+  const { bundlePath, pluginPaths, sourceCodexHome, stagedCodexHome } = await prepareStagedCodexHome(marketplacePath);
   context.logger.info('Prepared staged Codex home', {
     bundlePath,
-    pluginPath,
+    pluginPaths,
     sourceCodexHome,
     stagedCodexHome
   });

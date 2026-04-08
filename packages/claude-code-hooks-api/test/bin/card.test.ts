@@ -2,7 +2,7 @@
  * Tests for card.mjs CLI binary functions.
  *
  * Uses a real HTTP server for API calls, real session registry on disk,
- * and real git workspace for branch detection. Only homedir and findClaudePid
+ * and real git workspace for branch detection. Only homedir and findAgentPid
  * are mocked since tests have no Cards API discovery file or Claude ancestor.
  *
  * @summary Tests for card CLI binary functions
@@ -26,15 +26,15 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/claude-code-sessions', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/claude-code-sessions')>();
+vi.mock('@cards/sessions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/sessions')>();
   return {
     ...actual,
-    findClaudePid: vi.fn()
+    findAgentPid: vi.fn()
   };
 });
 
-import { findClaudePid } from '@cards/claude-code-sessions';
+import { findAgentPid } from '@cards/sessions';
 import {
   attachCard,
   connectClient,
@@ -49,7 +49,7 @@ import {
   searchCards
 } from '../../src/bin/card.js';
 
-const mockFindClaudePid = vi.mocked(findClaudePid);
+const mockFindAgentPid = vi.mocked(findAgentPid);
 
 /**
  * Collects the full request body as a string.
@@ -230,7 +230,7 @@ describe('card binary', () => {
       })
     );
 
-    mockFindClaudePid.mockReset();
+    mockFindAgentPid.mockReset();
   });
 
   afterEach(async () => {
@@ -429,7 +429,7 @@ describe('card binary', () => {
   describe('attachCard', () => {
     it('associates PID with card and returns result', async () => {
       cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
 
       const result = await attachCard('test-card');
       expect(result.pid).toBe(testPid);
@@ -437,9 +437,9 @@ describe('card binary', () => {
       expect(result.flushedCommits).toBe(0);
     });
 
-    it('throws when no Claude PID found', async () => {
-      mockFindClaudePid.mockReturnValue(null);
-      await expect(attachCard('test-card')).rejects.toThrow('could not find Claude ancestor PID');
+    it('throws when no agent PID found', async () => {
+      mockFindAgentPid.mockReturnValue(null);
+      await expect(attachCard('test-card')).rejects.toThrow('could not find agent ancestor PID');
     });
 
     it('registers workspace branch when on named branch', async () => {
@@ -447,7 +447,7 @@ describe('card binary', () => {
       await workspace.create();
 
       cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
 
       const origCwd = process.cwd();
       try {
@@ -466,7 +466,7 @@ describe('card binary', () => {
       await workspace.create();
 
       cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const origCwd = process.cwd();
@@ -491,7 +491,7 @@ describe('card binary', () => {
       await workspace.create();
 
       cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const origCwd = process.cwd();
@@ -517,10 +517,10 @@ describe('card binary', () => {
       const sha = (await workspace.getGit().log({ maxCount: 1 })).latest!.hash;
 
       cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
 
       // Pre-populate registry with a pending commit
-      const { recordPendingCommit } = await import('@cards/claude-code-sessions');
+      const { recordPendingCommit } = await import('@cards/sessions');
       await recordPendingCommit(testPid, sha);
 
       const origCwd = process.cwd();
@@ -542,9 +542,9 @@ describe('card binary', () => {
       const sha = (await workspace.getGit().log({ maxCount: 1 })).latest!.hash;
 
       cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
 
-      const { recordPendingCommit } = await import('@cards/claude-code-sessions');
+      const { recordPendingCommit } = await import('@cards/sessions');
       await recordPendingCommit(testPid, sha);
       await recordPendingCommit(testPid, sha);
 
@@ -563,10 +563,10 @@ describe('card binary', () => {
 
   describe('detachCard', () => {
     it('removes PID entry and returns result', async () => {
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
 
       // Pre-populate a session entry
-      const { associatePidWithCard: associate } = await import('@cards/claude-code-sessions');
+      const { associatePidWithCard: associate } = await import('@cards/sessions');
       await associate(testPid, 'test-card');
 
       const result = await detachCard();
@@ -574,14 +574,14 @@ describe('card binary', () => {
     });
 
     it('succeeds even when no entry exists', async () => {
-      mockFindClaudePid.mockReturnValue(testPid);
+      mockFindAgentPid.mockReturnValue(testPid);
       const result = await detachCard();
       expect(result.pid).toBe(testPid);
     });
 
-    it('throws when no Claude PID found', async () => {
-      mockFindClaudePid.mockReturnValue(null);
-      await expect(detachCard()).rejects.toThrow('could not find Claude ancestor PID');
+    it('throws when no agent PID found', async () => {
+      mockFindAgentPid.mockReturnValue(null);
+      await expect(detachCard()).rejects.toThrow('could not find agent ancestor PID');
     });
   });
 

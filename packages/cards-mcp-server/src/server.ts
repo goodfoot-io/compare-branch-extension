@@ -10,10 +10,10 @@
  * @module cards-mcp-server/server
  */
 
-import { appendCommitToSession } from '@cards/claude-code-sessions/card-repo';
 import { EventSubscriber, formatCommit, isBookkeepingCommit } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { CardCommitEvent } from '@cards/sdk/protocol';
+import { appendCommitToSession } from '@cards/sessions/card-repo';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -84,8 +84,8 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
 
     config
       .resolveSessionId()
-      .then(({ sessionId, claudePid }) => {
-        logger.info('Resolved session for commit', { sha: event.commit.hash, sessionId, claudePid });
+      .then(({ sessionId, agentPid }) => {
+        logger.info('Resolved session for commit', { sha: event.commit.hash, sessionId, agentPid });
 
         if (sessionId && isSessionCommit(sessionId, event.commit.hash)) {
           logger.info('Suppressed session-owned commit', { sha: event.commit.hash, sessionId });
@@ -104,7 +104,7 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
           sha: event.commit.hash,
           author: event.commit.author_name,
           sessionId,
-          claudePid
+          agentPid
         });
 
         mcp

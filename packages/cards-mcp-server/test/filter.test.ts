@@ -8,7 +8,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { isSessionCommit } from '../src/filter.js';
 
-vi.mock('@cards/claude-code-sessions/card-repo', () => ({
+vi.mock('@cards/sessions/card-repo', () => ({
   getSessionCommits: (sessionId: string): string[] => {
     if (sessionId === 'session-with-commits') {
       return ['abc1234', 'def5678'];

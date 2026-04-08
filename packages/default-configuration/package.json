@@ -16,8 +16,8 @@
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l"
   },
   "dependencies": {
-    "@cards/claude-code-sessions": "workspace:*",
     "@cards/sdk": "workspace:*",
+    "@cards/sessions": "workspace:*",
     "js-yaml": "^4.1.0",
     "marked": "^17.0.4",
     "smol-toml": "^1.6.0"

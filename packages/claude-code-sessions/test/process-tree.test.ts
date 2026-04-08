@@ -10,7 +10,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 import { execSync } from 'node:child_process';
-import { findAllClaudePids, findClaudePid, PROCESS_TREE_MAX_DEPTH } from '../src/process-tree.js';
+import { findAgentPid, findAllAgentPids, PROCESS_TREE_MAX_DEPTH } from '../src/process-tree.js';
 
 const mockExecSync = vi.mocked(execSync);
 
@@ -55,39 +55,48 @@ describe('process-tree', () => {
     });
   }
 
-  describe('findClaudePid', () => {
-    it('returns nearest Claude ancestor PID', () => {
+  describe('findAgentPid', () => {
+    it('returns nearest supported agent ancestor PID', () => {
       setupProcessTree({
         100: { comm: 'bash', ppid: 200 },
         200: { comm: 'claude', ppid: 300 },
         300: { comm: 'zsh', ppid: 1 }
       });
 
-      const result = findClaudePid(100);
+      const result = findAgentPid(100);
       expect(result).toBe(200);
     });
 
-    it('returns null when no Claude in ancestry', () => {
+    it('returns Codex ancestor PID', () => {
+      setupProcessTree({
+        100: { comm: 'bash', ppid: 200 },
+        200: { comm: 'codex', ppid: 1 }
+      });
+
+      expect(findAgentPid(100)).toBe(200);
+    });
+
+    it('returns null when no supported agent is in ancestry', () => {
       setupProcessTree({
         100: { comm: 'bash', ppid: 200 },
         200: { comm: 'zsh', ppid: 1 }
       });
 
-      const result = findClaudePid(100);
+      const result = findAgentPid(100);
       expect(result).toBeNull();
     });
   });
 
-  describe('findAllClaudePids', () => {
-    it('returns all Claude ancestors nearest-first', () => {
+  describe('findAllAgentPids', () => {
+    it('returns mixed Claude and Codex ancestors nearest-first', () => {
       setupProcessTree({
         100: { comm: 'bash', ppid: 200 },
-        200: { comm: 'claude', ppid: 300 },
+        200: { comm: 'codex', ppid: 300 },
         300: { comm: 'node', ppid: 400 },
         400: { comm: 'claude', ppid: 1 }
       });
 
-      const result = findAllClaudePids(100);
+      const result = findAllAgentPids(100);
       expect(result).toEqual([200, 400]);
     });
   });
@@ -98,12 +107,12 @@ describe('process-tree', () => {
         2: { comm: 'bash', ppid: 1 }
       });
 
-      const result = findClaudePid(2);
+      const result = findAgentPid(2);
       expect(result).toBeNull();
     });
 
     it('stops when starting at PID 1', () => {
-      const result = findClaudePid(1);
+      const result = findAgentPid(1);
       expect(result).toBeNull();
     });
   });
@@ -115,14 +124,14 @@ describe('process-tree', () => {
       for (let i = 100; i < 100 + PROCESS_TREE_MAX_DEPTH + 5; i++) {
         tree[i] = { comm: 'bash', ppid: i + 1 };
       }
-      // Put claude beyond max depth
-      const claudePid = 100 + PROCESS_TREE_MAX_DEPTH + 2;
-      tree[claudePid] = { comm: 'claude', ppid: claudePid + 1 };
-      tree[claudePid + 1] = { comm: 'init', ppid: 1 };
+      // Put an agent beyond max depth
+      const agentPid = 100 + PROCESS_TREE_MAX_DEPTH + 2;
+      tree[agentPid] = { comm: 'codex', ppid: agentPid + 1 };
+      tree[agentPid + 1] = { comm: 'init', ppid: 1 };
 
       setupProcessTree(tree);
 
-      const result = findClaudePid(100);
+      const result = findAgentPid(100);
       expect(result).toBeNull();
     });
   });
@@ -133,7 +142,7 @@ describe('process-tree', () => {
         100: { comm: 'Claude', ppid: 1 }
       });
 
-      const result = findClaudePid(100);
+      const result = findAgentPid(100);
       expect(result).toBe(100);
     });
 
@@ -142,7 +151,7 @@ describe('process-tree', () => {
         100: { comm: 'node', args: '/usr/local/bin/claude --help', ppid: 1 }
       });
 
-      const result = findClaudePid(100);
+      const result = findAgentPid(100);
       expect(result).toBe(100);
     });
 
@@ -151,7 +160,7 @@ describe('process-tree', () => {
         100: { comm: 'node', args: 'claude', ppid: 1 }
       });
 
-      expect(findClaudePid(100)).toBe(100);
+      expect(findAgentPid(100)).toBe(100);
     });
 
     it('matches "claude" preceded by whitespace in args', () => {
@@ -159,7 +168,7 @@ describe('process-tree', () => {
         100: { comm: 'node', args: 'node claude --arg', ppid: 1 }
       });
 
-      expect(findClaudePid(100)).toBe(100);
+      expect(findAgentPid(100)).toBe(100);
     });
 
     it('does NOT match .claude/ directory paths in args', () => {
@@ -173,7 +182,7 @@ describe('process-tree', () => {
       });
 
       // Should skip PID 100 (false positive on .claude/ path) and find 200
-      const result = findClaudePid(100);
+      const result = findAgentPid(100);
       expect(result).toBe(200);
     });
 
@@ -186,7 +195,7 @@ describe('process-tree', () => {
         }
       });
 
-      expect(findClaudePid(100)).toBeNull();
+      expect(findAgentPid(100)).toBeNull();
     });
 
     it('matches versioned Claude executable in args', () => {
@@ -198,7 +207,7 @@ describe('process-tree', () => {
         }
       });
 
-      expect(findClaudePid(100)).toBe(100);
+      expect(findAgentPid(100)).toBe(100);
     });
 
     it('matches versioned Claude executable with different version numbers', () => {
@@ -210,7 +219,7 @@ describe('process-tree', () => {
         }
       });
 
-      expect(findClaudePid(100)).toBe(100);
+      expect(findAgentPid(100)).toBe(100);
     });
 
     it('finds versioned Claude ancestor in process tree', () => {
@@ -224,7 +233,7 @@ describe('process-tree', () => {
         300: { comm: 'zsh', ppid: 1 }
       });
 
-      const result = findClaudePid(100);
+      const result = findAgentPid(100);
       expect(result).toBe(200);
     });
 
@@ -240,7 +249,7 @@ describe('process-tree', () => {
         400: { comm: 'claude', ppid: 1 }
       });
 
-      const result = findAllClaudePids(100);
+      const result = findAllAgentPids(100);
       expect(result).toEqual([200, 400]);
     });
   });

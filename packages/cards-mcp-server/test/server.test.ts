@@ -5,8 +5,8 @@
  * @module cards-mcp-server/test/server
  */
 
-import { appendCommitToSession } from '@cards/claude-code-sessions/card-repo';
 import type { CardCommitEvent } from '@cards/sdk/protocol';
+import { appendCommitToSession } from '@cards/sessions/card-repo';
 import { TestWebSocketServer } from '@cards/test-utils';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
@@ -14,7 +14,7 @@ import type { CardsServerConfig } from '../src/config.js';
 import type { Logger } from '../src/logger.js';
 import { createServer } from '../src/server.js';
 
-vi.mock('@cards/claude-code-sessions/card-repo', () => ({
+vi.mock('@cards/sessions/card-repo', () => ({
   getSessionCommits: (sessionId: string): string[] => {
     if (sessionId === 'test-session') {
       return ['session-owned-sha'];
@@ -27,7 +27,7 @@ vi.mock('@cards/claude-code-sessions/card-repo', () => ({
 function makeConfig(wsUrl: string): CardsServerConfig {
   return {
     cardId: 'test-card',
-    resolveSessionId: () => Promise.resolve({ sessionId: 'test-session', claudePid: 12345 }),
+    resolveSessionId: () => Promise.resolve({ sessionId: 'test-session', agentPid: 12345 }),
     apiAccessToken: 'test-token',
     wsUrl,
     logPath: '/tmp/cards-mcp-server-test.log',
@@ -138,7 +138,7 @@ describe('createServer', () => {
     const [serverTransport] = InMemoryTransport.createLinkedPair();
     const config = {
       ...makeConfig(wsServer.getUrl()),
-      resolveSessionId: () => Promise.resolve({ sessionId: null, claudePid: null })
+      resolveSessionId: () => Promise.resolve({ sessionId: null, agentPid: null })
     };
     const server = createServer(config, { transport: serverTransport, logger: nullLogger });
 

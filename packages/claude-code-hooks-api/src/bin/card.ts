@@ -9,8 +9,6 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { associatePidWithCard, findClaudePid, getSessionIdForPid, removePidEntry } from '@cards/claude-code-sessions';
-import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import type { AddBranchRequest, CardCreateData, ListCardsOptions } from '@cards/sdk/client';
 import {
@@ -23,6 +21,8 @@ import {
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
+import { associatePidWithCard, findAgentPid, getSessionIdForPid, removePidEntry } from '@cards/sessions';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { toCardListSummaries } from '@cards/web/types/cardSummary';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/web/utils/searchUtils';
 import { minimatch } from 'minimatch';
@@ -104,14 +104,14 @@ Search:
     card.mjs search "@main-42"
 
 Attach:
-  Associates the current Claude process with a card in the session registry.
+  Associates the current agent process with a card in the session registry.
   Optionally registers the workspace branch and flushes any pending commits.
 
   Examples:
     card.mjs attach main-0001
 
 Detach:
-  Removes the current Claude process from the session registry.
+  Removes the current agent process from the session registry.
 
   Examples:
     card.mjs detach
@@ -506,20 +506,20 @@ function resolveAttachGitContext(): GitAttachContext {
 /**
  * Associates the current Claude session with a card.
  *
- * Finds the Claude ancestor PID, associates it with the card in the session
+ * Finds the agent ancestor PID, associates it with the card in the session
  * registry, optionally registers the workspace branch, and flushes any
  * pending commits that were buffered before association.
  *
  * @param cardId - The card identifier to associate with.
  * @returns Result object with association details.
- * @throws When Claude PID cannot be found.
+ * @throws When agent PID cannot be found.
  */
 export async function attachCard(
   cardId: string
 ): Promise<{ pid: number; cardId: string; branch: string | null; flushedCommits: number }> {
-  const pid = findClaudePid();
+  const pid = findAgentPid();
   if (!pid) {
-    throw new Error('could not find Claude ancestor PID');
+    throw new Error('could not find agent ancestor PID');
   }
 
   const pendingCommits = await associatePidWithCard(pid, cardId);
@@ -679,10 +679,10 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
   const repositoryPath = card.repositoryPath;
 
   // 2. Resolve session (optional — watch works without a session, just without attribution)
-  const pid = findClaudePid();
+  const pid = findAgentPid();
   let sessionId: string | null = null;
   if (!pid) {
-    console.error('card watch: warning: Could not find Claude ancestor PID. Watching for any commit.');
+    console.error('card watch: warning: Could not find agent ancestor PID. Watching for any commit.');
   } else {
     sessionId = await getSessionIdForPid(pid);
     if (!sessionId) {
@@ -830,15 +830,15 @@ export async function executeAction(cardId: string, actionName: string): Promise
 /**
  * Disassociates the current Claude session from its card.
  *
- * Finds the Claude ancestor PID and removes its entry from the session registry.
+ * Finds the agent ancestor PID and removes its entry from the session registry.
  *
  * @returns Result object with disassociation details.
- * @throws When Claude PID cannot be found.
+ * @throws When agent PID cannot be found.
  */
 export async function detachCard(): Promise<{ pid: number }> {
-  const pid = findClaudePid();
+  const pid = findAgentPid();
   if (!pid) {
-    throw new Error('could not find Claude ancestor PID');
+    throw new Error('could not find agent ancestor PID');
   }
 
   const entry = await removePidEntry(pid);

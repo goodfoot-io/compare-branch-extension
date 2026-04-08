@@ -22,9 +22,9 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { findClaudePid, removeSessionPid } from '@cards/claude-code-sessions';
-import { removeSessionCsv, removeSessionHeadSha } from '@cards/claude-code-sessions/card-repo';
 import { extractActionInput } from '@cards/sdk/config';
+import { findAgentPid, removeSessionPid } from '@cards/sessions';
+import { removeSessionCsv, removeSessionHeadSha } from '@cards/sessions/card-repo';
 import { sessionEndHook, sessionEndOutput } from '@goodfoot/claude-code-hooks';
 
 /**
@@ -67,7 +67,7 @@ export async function cleanupSessionArtifacts(
   const errors: Error[] = [];
 
   try {
-    const resolvedPid = findClaudePid();
+    const resolvedPid = findAgentPid();
     if (resolvedPid) {
       await removeSessionPid(resolvedPid);
       logger.info('Cleaned up PID registration', { pid: resolvedPid });
