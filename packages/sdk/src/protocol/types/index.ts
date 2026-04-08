@@ -136,6 +136,7 @@ export type {
   Action,
   ActionResult,
   ActionState,
+  CardsAssistant,
   Command,
   Environment,
   ExecutionMode,

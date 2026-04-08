@@ -13,7 +13,7 @@
  * @module
  */
 
-import type { ActionContext, ActionInput } from './inputs.js';
+import type { ActionContext, ActionInput, CardsAssistantContext, CardsAssistantInput } from './inputs.js';
 
 // ============================================================================
 // Command Types
@@ -72,6 +72,48 @@ export interface ActionCommand<N extends string = string> {
 
   /** Timeout from config, if provided. */
   timeout?: number;
+
+  /**
+   * Path to the handler source file for CLI compilation.
+   *
+   * When provided, the CLI will compile this file into a standalone bundle
+   * and generate proper command paths in settings.json. If omitted, the
+   * CLI will generate placeholder command strings.
+   */
+  sourcePath?: string;
+}
+
+// ============================================================================
+// Cards Assistant Command
+// ============================================================================
+
+/**
+ * Callable command returned by the cards-assistant factory.
+ *
+ * Parallel to {@link ActionCommand} but for the workspace-scoped cards
+ * assistant. Has no action-specific metadata (no actionName, description,
+ * icon, etc.) since there is only one cards assistant per configuration.
+ *
+ * @example
+ * ```typescript
+ * // The command can be called directly (by the runtime)
+ * await command(input, context);
+ *
+ * // And inspected for metadata (by the CLI)
+ * console.log(command.factoryType); // 'cards-assistant'
+ * ```
+ */
+export interface CardsAssistantCommand {
+  /**
+   * Invokes the wrapped handler with the provided input and context.
+   * @param input - Cards assistant input payload from environment variables
+   * @param context - Runtime context with logger and cwd
+   * @returns Resolves when the handler completes
+   */
+  (input: CardsAssistantInput, context: CardsAssistantContext): Promise<void>;
+
+  /** Discriminant for the CLI's AST analyzer. */
+  factoryType: 'cards-assistant';
 
   /**
    * Path to the handler source file for CLI compilation.

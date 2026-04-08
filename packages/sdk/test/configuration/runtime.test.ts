@@ -9,7 +9,7 @@ import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ActionCommand } from '../../src/config/command-types.js';
+import type { ActionCommand, CardsAssistantCommand } from '../../src/config/command-types.js';
 import { CARDS_ENV_VARS } from '../../src/config/env.js';
 import { EXIT_CODES } from '../../src/config/exit-codes.js';
 import { logger } from '../../src/config/logger.js';
@@ -133,6 +133,95 @@ describe('runtime', () => {
           }),
           expect.any(Object)
         );
+      });
+    });
+
+    describe('cards-assistant commands', () => {
+      function makeCardsAssistantCommand(handler: ReturnType<typeof vi.fn>): CardsAssistantCommand {
+        return Object.assign(handler, {
+          factoryType: 'cards-assistant' as const
+        }) as unknown as CardsAssistantCommand;
+      }
+
+      it('should execute cards-assistant command without action env vars', async () => {
+        // Remove action-specific env vars that would cause extractActionInput to throw
+        delete process.env[CARDS_ENV_VARS.CARD_ID];
+        delete process.env[CARDS_ENV_VARS.ACTION_NAME];
+        delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
+        delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
+
+        const handler = vi.fn().mockResolvedValue(undefined);
+        const command = makeCardsAssistantCommand(handler);
+
+        await executeCommand(command);
+
+        // Should call handler with cards-assistant input (no cardId, no actionName)
+        expect(handler).toHaveBeenCalledWith(
+          expect.objectContaining({
+            marketplacePath: '/test/marketplace',
+            extensionPath: '/extension/path',
+            repoRoot: '/workspace'
+          }),
+          expect.objectContaining({
+            logger: expect.any(Object),
+            cwd: expect.any(String)
+          })
+        );
+
+        // Context should NOT have onCancel or onSwitchToInteractive
+        const context = handler.mock.calls[0]![1] as Record<string, unknown>;
+        expect(context['onCancel']).toBeUndefined();
+        expect(context['onSwitchToInteractive']).toBeUndefined();
+
+        // Should set logger context with cards-assistant type
+        expect(loggerSetContextSpy).toHaveBeenCalledWith('cards-assistant', {});
+
+        // Should exit successfully
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+      });
+
+      it('should handle handler errors in cards-assistant', async () => {
+        delete process.env[CARDS_ENV_VARS.CARD_ID];
+        delete process.env[CARDS_ENV_VARS.ACTION_NAME];
+        delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
+        delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
+
+        const error = new Error('Assistant handler failed');
+        const handler = vi.fn().mockRejectedValue(error);
+        const command = makeCardsAssistantCommand(handler);
+
+        await executeCommand(command);
+
+        // Should write error to stderr
+        expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Assistant handler failed'));
+
+        // Should exit with error
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
+      });
+
+      it('should handle missing env vars for cards-assistant', async () => {
+        // Remove all env vars including those needed by cards-assistant
+        delete process.env[CARDS_ENV_VARS.CARD_ID];
+        delete process.env[CARDS_ENV_VARS.ACTION_NAME];
+        delete process.env[CARDS_ENV_VARS.ENVIRONMENT];
+        delete process.env[CARDS_ENV_VARS.EXECUTION_MODE];
+        delete process.env[CARDS_ENV_VARS.MARKETPLACE_PATH];
+
+        const handler = vi.fn().mockResolvedValue(undefined);
+        const command = makeCardsAssistantCommand(handler);
+
+        await executeCommand(command);
+
+        // Should not call handler
+        expect(handler).not.toHaveBeenCalled();
+
+        // Should log extraction error
+        expect(loggerErrorSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to extract input from environment')
+        );
+
+        // Should exit with error
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
     });
 

@@ -183,6 +183,15 @@ function extractCommands(config: SettingsConfig): CommandInfo[] {
     // are copied to the output as static assets.
   }
 
+  // Extract cards-assistant command (workspace-scoped, outside environments)
+  if (config.cardsAssistant?.sourcePath) {
+    commands.push({
+      factoryType: 'cards-assistant',
+      name: 'cards-assistant',
+      sourcePath: config.cardsAssistant.sourcePath
+    });
+  }
+
   return commands;
 }
 
@@ -427,7 +436,22 @@ function generateSettings(
     }
   }
 
-  return { environments };
+  const result: Settings = { environments };
+
+  // Include cards-assistant handler when present in config
+  if (config.cardsAssistant?.sourcePath) {
+    const key = 'cards-assistant:cards-assistant';
+    const compiledHandler = compiledByKey.get(key);
+    result.cardsAssistant = {
+      command: generateCommand(
+        { factoryType: 'cards-assistant', sourcePath: config.cardsAssistant.sourcePath },
+        compiledHandler,
+        binDir
+      )
+    };
+  }
+
+  return result;
 }
 
 /**

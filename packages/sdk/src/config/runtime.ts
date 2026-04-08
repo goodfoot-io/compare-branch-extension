@@ -35,10 +35,10 @@
  * ```
  */
 
-import type { ActionCommand } from './command-types.js';
-import { CARDS_ENV_VARS, extractActionInput } from './env.js';
+import type { ActionCommand, CardsAssistantCommand } from './command-types.js';
+import { CARDS_ENV_VARS, extractActionInput, extractCardsAssistantInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
-import type { ActionContext, ActionInput } from './inputs.js';
+import type { ActionContext, ActionInput, CardsAssistantContext, CardsAssistantInput } from './inputs.js';
 import { logger } from './logger.js';
 import type { SocketCommand } from './socket-client.js';
 import { SocketClient } from './socket-client.js';
@@ -56,7 +56,7 @@ import { SocketClient } from './socket-client.js';
  *
  * @internal
  */
-type AnyCommand = ActionCommand;
+type AnyCommand = ActionCommand | CardsAssistantCommand;
 
 // ============================================================================
 // Helper Functions
@@ -188,72 +188,98 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
   process.on('SIGHUP', () => {});
 
   try {
-    let input: ActionInput;
+    // Dispatch on factoryType BEFORE env extraction. Cards-assistant commands
+    // run without CARD_ID, ACTION_NAME, etc., so extractActionInput() would
+    // throw if called unconditionally.
+    if (command.factoryType === 'cards-assistant') {
+      let input: CardsAssistantInput;
 
-    try {
-      input = extractActionInput();
-    } catch (error) {
-      return handleEnvExtractionError(error);
-    }
-
-    // Set logger context with command type
-    logger.setContext(command.factoryType, { ...input });
-
-    // Socket connection and ActionContext for action commands
-    let socketClient: SocketClient | undefined;
-    const socketPath = process.env[CARDS_ENV_VARS.SOCKET_PATH];
-    if (socketPath) {
       try {
-        socketClient = await SocketClient.connect(socketPath);
+        input = extractCardsAssistantInput();
       } catch (error) {
-        logger.warn(`Failed to connect to socket at ${socketPath}: ${getErrorMessage(error)}`);
-        // Fail-open: continue without socket
+        return handleEnvExtractionError(error);
       }
-    }
 
-    // Callback registration state
-    let cancelCallback: (() => void | Promise<void>) | undefined;
-    let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
-    let commandProcessed = false;
+      logger.setContext(command.factoryType, {});
 
-    // Build ActionContext with logger, cwd, and socket-backed callbacks
-    const context: ActionContext = {
-      logger,
-      cwd: process.cwd(),
-      onCancel: (callback) => {
-        cancelCallback = callback;
-      },
-      onSwitchToInteractive: (callback) => {
-        switchToInteractiveCallback = callback;
+      const context: CardsAssistantContext = { logger, cwd: process.cwd() };
+
+      try {
+        await command(input, context);
+      } catch (error) {
+        return handleHandlerError(error);
       }
-    };
 
-    // Wire socket command dispatch
-    if (socketClient) {
-      socketClient.onCommand((cmd: SocketCommand) => {
-        // First-wins semantics: ignore subsequent commands
-        if (commandProcessed) return;
-        commandProcessed = true;
+      cleanupAndExit(EXIT_CODES.SUCCESS);
+    } else {
+      // Existing action path
+      let input: ActionInput;
 
-        if (cmd.type === 'cancel') {
-          handleCancelCommand(cancelCallback, socketClient);
-        } else if (cmd.type === 'switchToInteractive') {
-          handleSwitchToInteractiveCommand(switchToInteractiveCallback, socketClient!);
+      try {
+        input = extractActionInput();
+      } catch (error) {
+        return handleEnvExtractionError(error);
+      }
+
+      // Set logger context with command type
+      logger.setContext(command.factoryType, { ...input });
+
+      // Socket connection and ActionContext for action commands
+      let socketClient: SocketClient | undefined;
+      const socketPath = process.env[CARDS_ENV_VARS.SOCKET_PATH];
+      if (socketPath) {
+        try {
+          socketClient = await SocketClient.connect(socketPath);
+        } catch (error) {
+          logger.warn(`Failed to connect to socket at ${socketPath}: ${getErrorMessage(error)}`);
+          // Fail-open: continue without socket
         }
-      });
-    }
+      }
 
-    // Execute the action command handler
-    try {
-      await command(input, context);
-    } catch (error) {
+      // Callback registration state
+      let cancelCallback: (() => void | Promise<void>) | undefined;
+      let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
+      let commandProcessed = false;
+
+      // Build ActionContext with logger, cwd, and socket-backed callbacks
+      const context: ActionContext = {
+        logger,
+        cwd: process.cwd(),
+        onCancel: (callback) => {
+          cancelCallback = callback;
+        },
+        onSwitchToInteractive: (callback) => {
+          switchToInteractiveCallback = callback;
+        }
+      };
+
+      // Wire socket command dispatch
+      if (socketClient) {
+        socketClient.onCommand((cmd: SocketCommand) => {
+          // First-wins semantics: ignore subsequent commands
+          if (commandProcessed) return;
+          commandProcessed = true;
+
+          if (cmd.type === 'cancel') {
+            handleCancelCommand(cancelCallback, socketClient);
+          } else if (cmd.type === 'switchToInteractive') {
+            handleSwitchToInteractiveCommand(switchToInteractiveCallback, socketClient!);
+          }
+        });
+      }
+
+      // Execute the action command handler
+      try {
+        await command(input, context);
+      } catch (error) {
+        socketClient?.close();
+        return handleHandlerError(error);
+      }
+
+      // Clean up socket and exit successfully
       socketClient?.close();
-      return handleHandlerError(error);
+      cleanupAndExit(EXIT_CODES.SUCCESS);
     }
-
-    // Clean up socket and exit successfully
-    socketClient?.close();
-    cleanupAndExit(EXIT_CODES.SUCCESS);
   } catch (error) {
     // Unexpected error - try to clean up and exit
     logger.error(`Unexpected runtime error: ${getErrorMessage(error)}`);

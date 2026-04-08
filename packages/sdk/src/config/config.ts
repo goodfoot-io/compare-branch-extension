@@ -26,7 +26,7 @@
  * ```
  */
 
-import type { ActionCommand } from './command-types.js';
+import type { ActionCommand, CardsAssistantCommand } from './command-types.js';
 
 // ============================================================================
 // Stream Configuration
@@ -170,4 +170,13 @@ export interface SettingsConfig {
    * (typically 'default') should be defined.
    */
   environments: Record<string, EnvironmentConfig>;
+
+  /**
+   * Optional cards assistant handler.
+   *
+   * When provided, the CLI compiles this handler into a standalone bundle
+   * and generates a `cardsAssistant` entry in settings.json. The extension
+   * uses this to launch the cards assistant in a VS Code terminal.
+   */
+  cardsAssistant?: CardsAssistantCommand;
 }

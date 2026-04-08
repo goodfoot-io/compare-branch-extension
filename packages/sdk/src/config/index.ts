@@ -17,6 +17,11 @@ export {
   type ActionHandler,
   defineAction
 } from './factories/action.js';
+export {
+  type CardsAssistantConfig,
+  type CardsAssistantHandler,
+  defineCardsAssistant
+} from './factories/cards-assistant.js';
 
 // ============================================================================
 // Configuration
@@ -35,6 +40,7 @@ export { defineConfig, serializeSettings } from './define-config.js';
 
 export type {
   Action,
+  CardsAssistant,
   Command,
   Environment,
   Settings,
@@ -47,14 +53,16 @@ export type {
 
 export type {
   ActionContext,
-  ActionInput
+  ActionInput,
+  CardsAssistantContext,
+  CardsAssistantInput
 } from './inputs.js';
 
 // ============================================================================
 // Command Types
 // ============================================================================
 
-export type { ActionCommand } from './command-types.js';
+export type { ActionCommand, CardsAssistantCommand } from './command-types.js';
 
 // ============================================================================
 // Type Utilities
@@ -69,6 +77,7 @@ export type { SameShape } from './type-utils.js';
 export {
   CARDS_ENV_VARS,
   extractActionInput,
+  extractCardsAssistantInput,
   getExecutionMode,
   readSwitchToInteractiveData
 } from './env.js';

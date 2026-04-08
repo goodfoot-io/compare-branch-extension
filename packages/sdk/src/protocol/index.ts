@@ -62,6 +62,7 @@ export type {
   CardSnapshot,
   CardStatus,
   CardsApiInfo,
+  CardsAssistant,
   CardsMetadataEvent,
   Command,
   Comment,

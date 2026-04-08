@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import type { ActionCommand } from '../../src/config/command-types.js';
+import type { ActionCommand, CardsAssistantCommand } from '../../src/config/command-types.js';
 import type { SettingsConfig } from '../../src/config/config.js';
 import { defineConfig, serializeSettings } from '../../src/config/define-config.js';
 
@@ -604,6 +604,44 @@ describe('serializeSettings', () => {
       const result = serializeSettings(config);
 
       expect(Object.keys(result.environments)).toContain('custom');
+    });
+  });
+
+  describe('cardsAssistant serialization', () => {
+    it('should include cardsAssistant placeholder when present in config', () => {
+      const assistantCommand = vi.fn() as unknown as CardsAssistantCommand;
+      assistantCommand.factoryType = 'cards-assistant';
+      assistantCommand.sourcePath = '/path/to/handler.ts';
+
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: []
+          }
+        },
+        cardsAssistant: assistantCommand
+      };
+
+      const result = serializeSettings(config);
+
+      expect(result.cardsAssistant).toBeDefined();
+      expect(result.cardsAssistant!.command.command).toBe('cards-assistant-placeholder.js');
+    });
+
+    it('should omit cardsAssistant when not present in config', () => {
+      const config: SettingsConfig = {
+        environments: {
+          default: {
+            version: 1,
+            actions: []
+          }
+        }
+      };
+
+      const result = serializeSettings(config);
+
+      expect(result.cardsAssistant).toBeUndefined();
     });
   });
 

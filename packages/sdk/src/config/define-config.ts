@@ -224,5 +224,15 @@ export function serializeSettings(config: SettingsConfig): Settings {
     environments[envName] = serializeEnvironment(envConfig);
   }
 
-  return { environments };
+  const result: Settings = { environments };
+
+  if (config.cardsAssistant) {
+    // Placeholder command — the CLI build (`generateSettings`) produces the
+    // real compiled path. `serializeSettings` is used in tests/preview only.
+    result.cardsAssistant = {
+      command: { command: 'cards-assistant-placeholder.js' }
+    };
+  }
+
+  return result;
 }

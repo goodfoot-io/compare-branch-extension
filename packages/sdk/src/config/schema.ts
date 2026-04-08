@@ -173,7 +173,33 @@ export interface Environment {
  * };
  * ```
  */
+// ============================================================================
+// CardsAssistant
+// ============================================================================
+
+/**
+ * Cards assistant handler configuration in settings.json.
+ *
+ * Defines the command used to launch the cards assistant, which operates
+ * outside the per-card action pipeline (no card context, no worktree,
+ * no socket, no ActionDispatcher).
+ *
+ * @example
+ * ```typescript
+ * const assistant: CardsAssistant = {
+ *   command: { command: '$VSCODE_NODE ./bin/cards-assistant.abc12345.mjs' }
+ * };
+ * ```
+ */
+export interface CardsAssistant {
+  /** Command to execute for the cards assistant handler */
+  command: Command;
+}
+
 export interface Settings {
   /** Record of environments keyed by environment name */
   environments: Record<string, Environment>;
+
+  /** Optional cards assistant handler configuration */
+  cardsAssistant?: CardsAssistant;
 }

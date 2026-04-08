@@ -14,7 +14,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import type { ActionInput } from './inputs.js';
+import type { ActionInput, CardsAssistantInput } from './inputs.js';
 
 // ============================================================================
 // Constants
@@ -509,5 +509,30 @@ export function extractActionInput(): ActionInput {
     configPath: getConfigPath(),
     extensionPath: getExtensionPath(),
     marketplacePath: getMarketplacePath()
+  };
+}
+
+/**
+ * Builds a typed cards-assistant input object from environment variables.
+ *
+ * Extracts the fields required for cards-assistant handlers. Unlike
+ * {@link extractActionInput}, this does not require card-specific env vars
+ * (CARD_ID, ACTION_NAME, etc.) since the cards assistant operates at
+ * workspace scope.
+ *
+ * @returns Typed CardsAssistantInput object
+ * @throws Error if required env vars are missing or invalid
+ * @example
+ * ```typescript
+ * const input = extractCardsAssistantInput();
+ * console.log(input.marketplacePath);
+ * ```
+ */
+export function extractCardsAssistantInput(): CardsAssistantInput {
+  return {
+    marketplacePath: getMarketplacePath(),
+    extensionPath: getExtensionPath(),
+    codingAgent: getCodingAgent(),
+    repoRoot: getRepoRoot()
   };
 }

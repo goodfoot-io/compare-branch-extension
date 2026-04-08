@@ -224,6 +224,20 @@ export interface Environment {
  * };
  * ```
  */
+// --- CardsAssistant ---
+
+/**
+ * Cards assistant handler configuration in settings.json.
+ *
+ * Defines the command used to launch the cards assistant, which operates
+ * outside the per-card action pipeline (no card context, no worktree,
+ * no socket, no ActionDispatcher).
+ */
+export interface CardsAssistant {
+  /** Command to execute for the cards assistant handler */
+  command: Command;
+}
+
 export interface Settings {
   /**
    * Named environments, each containing actions.
@@ -231,6 +245,9 @@ export interface Settings {
    * The `'default'` environment is used when no specific environment is set.
    */
   environments: Record<string, Environment>;
+
+  /** Optional cards assistant handler configuration */
+  cardsAssistant?: CardsAssistant;
 }
 
 // --- Runtime Types ---

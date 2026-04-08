@@ -1,12 +1,12 @@
 /**
- * Input types for action handlers.
+ * Input types for action and cards-assistant handlers.
  *
- * These types define the input payloads that handlers receive when actions are
- * triggered. The runtime extracts these values from environment variables and
- * passes them to handlers as typed objects.
+ * These types define the input payloads that handlers receive when actions or
+ * the cards assistant are triggered. The runtime extracts these values from
+ * environment variables and passes them to handlers as typed objects.
  *
  *
- * @summary Input types for action handlers
+ * @summary Input types for action and cards-assistant handlers
  * @module
  */
 
@@ -188,4 +188,81 @@ export interface ActionContext {
    * @param callback - Function that returns data to pass to the relaunched handler
    */
   onSwitchToInteractive(callback: () => unknown | Promise<unknown>): void;
+}
+
+// ============================================================================
+// Cards Assistant Types
+// ============================================================================
+
+/**
+ * Input payload for cards-assistant handlers.
+ *
+ * These values are injected as environment variables by the extension when
+ * launching the cards assistant. The runtime extracts them and passes them
+ * to the handler as a typed object.
+ *
+ * Unlike {@link ActionInput}, there is no card context (no cardId, no
+ * worktree, no socket). The cards assistant operates at workspace scope.
+ *
+ * @example
+ * ```typescript
+ * async (input: CardsAssistantInput, { logger }) => {
+ *   logger.info(`Marketplace at ${input.marketplacePath}`);
+ * }
+ * ```
+ */
+export interface CardsAssistantInput {
+  /**
+   * Stable symlink path to the marketplace directory inside global storage.
+   *
+   * This path does not change across extension upgrades, unlike the versioned
+   * extension installation path.
+   */
+  marketplacePath: string;
+
+  /**
+   * Absolute path to the VS Code extension installation directory.
+   *
+   * Use this to locate bundled assets such as the runtime plugin directory.
+   */
+  extensionPath: string;
+
+  /**
+   * Configured coding agent identifier from `cards.codingAgent` setting.
+   *
+   * Optional. When set, indicates which AI coding assistant the user prefers.
+   */
+  codingAgent?: string;
+
+  /**
+   * Absolute path to the main git repository root (NOT a worktree).
+   */
+  repoRoot: string;
+}
+
+/**
+ * Runtime context injected when the cards assistant executes.
+ *
+ * Simpler than {@link ActionContext} because the cards assistant has no
+ * socket connection, no cancel/switchToInteractive callbacks.
+ *
+ * @example
+ * ```typescript
+ * async (input, context: CardsAssistantContext) => {
+ *   context.logger.info('Cards assistant started', { cwd: context.cwd });
+ * }
+ * ```
+ */
+export interface CardsAssistantContext {
+  /**
+   * Logger for structured, context-aware logging.
+   *
+   * @see {@link ActionContext.logger}
+   */
+  logger: import('./logger.js').ILogger;
+
+  /**
+   * Current working directory for the cards assistant.
+   */
+  cwd: string;
 }

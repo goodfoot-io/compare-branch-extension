@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   CARDS_ENV_VARS,
   extractActionInput,
+  extractCardsAssistantInput,
   getActionName,
   getCardId,
   getCodingAgent,
@@ -274,6 +275,67 @@ describe('env', () => {
       expect(() => extractActionInput()).toThrow(
         "Invalid EXECUTION_MODE: expected 'interactive' or 'background', got \"invalid-mode\""
       );
+    });
+  });
+
+  describe('extractCardsAssistantInput', () => {
+    function setupCardsAssistantEnv() {
+      process.env[CARDS_ENV_VARS.MARKETPLACE_PATH] = '/test/marketplace';
+      process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
+      process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace/project';
+    }
+
+    it('should extract all required fields', () => {
+      setupCardsAssistantEnv();
+
+      const input = extractCardsAssistantInput();
+
+      expect(input).toEqual({
+        marketplacePath: '/test/marketplace',
+        extensionPath: '/extension/path',
+        codingAgent: undefined,
+        repoRoot: '/workspace/project'
+      });
+    });
+
+    it('should include codingAgent when set', () => {
+      setupCardsAssistantEnv();
+      process.env[CARDS_ENV_VARS.CODING_AGENT] = 'claude-code-cli';
+
+      const input = extractCardsAssistantInput();
+
+      expect(input.codingAgent).toBe('claude-code-cli');
+    });
+
+    it('should not require CARD_ID or ACTION_NAME', () => {
+      setupCardsAssistantEnv();
+      // Deliberately not setting CARD_ID, ACTION_NAME, ENVIRONMENT, EXECUTION_MODE
+
+      expect(() => extractCardsAssistantInput()).not.toThrow();
+    });
+
+    it('should throw when MARKETPLACE_PATH is missing', () => {
+      delete process.env[CARDS_ENV_VARS.MARKETPLACE_PATH];
+      process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
+      process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace/project';
+
+      expect(() => extractCardsAssistantInput()).toThrow('Missing required environment variable: MARKETPLACE_PATH');
+    });
+
+    it('should throw when EXTENSION_PATH is missing', () => {
+      process.env[CARDS_ENV_VARS.MARKETPLACE_PATH] = '/test/marketplace';
+      delete process.env[CARDS_ENV_VARS.EXTENSION_PATH];
+      process.env[CARDS_ENV_VARS.REPO_ROOT] = '/workspace/project';
+
+      expect(() => extractCardsAssistantInput()).toThrow('Missing required environment variable: EXTENSION_PATH');
+    });
+
+    it('should throw when REPO_ROOT is missing', () => {
+      process.env[CARDS_ENV_VARS.MARKETPLACE_PATH] = '/test/marketplace';
+      process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
+      delete process.env[CARDS_ENV_VARS.REPO_ROOT];
+
+      expect(() => extractCardsAssistantInput()).toThrow('Missing required environment variable: REPO_ROOT');
     });
   });
 });
