@@ -56,13 +56,10 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
 
   if (/^\s*</.test(raw)) {
     // XML coordination message — extract inner content per element
-    const elemRegex = /<[^/][^>]*>([\s\S]*?)<\/[^>]+>/g;
     const result: React.ReactElement[] = [];
-    let match: RegExpExecArray | null;
     let processedAny = false;
     let idx = 0;
-
-    while ((match = elemRegex.exec(raw)) !== null) {
+    for (const match of raw.matchAll(/<[^/][^>]*>([\s\S]*?)<\/[^>]+>/g)) {
       processedAny = true;
       const innerRaw = match[1];
       if (innerRaw === undefined) continue;

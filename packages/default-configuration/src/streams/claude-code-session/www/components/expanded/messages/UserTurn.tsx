@@ -10,7 +10,7 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../../../lib/markdown';
+import { renderMarkdownNodes } from '../../../lib/markdown';
 import { classifyCoordination, isCoordinationContent } from './CoordinationLine';
 
 interface UserTurnProps {
@@ -53,10 +53,9 @@ export function UserTurn({ textBlocks }: UserTurnProps): React.ReactElement {
               border: '1px solid color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 40%, transparent)'
             }}
           >
-            <div
-              className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(humanText) }}
-            />
+            <div className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full">
+              {renderMarkdownNodes(humanText, 'user-human')}
+            </div>
           </div>
         </div>
       )}

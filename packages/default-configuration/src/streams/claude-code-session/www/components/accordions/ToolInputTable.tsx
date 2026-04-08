@@ -9,7 +9,6 @@
  */
 
 import type React from 'react';
-import { formatInputValue } from '../../lib/markdown';
 
 /** Input keys skipped in the tool input table (shown elsewhere or redundant). */
 const SKIP_INPUT_KEYS = new Set([
@@ -46,8 +45,9 @@ export function ToolInputTable({ toolName, input }: ToolInputTableProps): React.
     <table className="border-collapse text-[0.85em] font-vscode-editor w-full" style={{ borderCollapse: 'collapse' }}>
       <tbody>
         {entries.map(([key, value]) => {
-          const valStr = typeof value === 'string' ? value : JSON.stringify(value);
+          const valStr = stringifyValue(value);
           const isShort = valStr.length < 120 && valStr.split('\n').length <= 2;
+          const valueNode = value === null || value === undefined ? <em>null</em> : truncateValue(valStr);
           return (
             <tr key={key}>
               <td
@@ -65,12 +65,23 @@ export function ToolInputTable({ toolName, input }: ToolInputTableProps): React.
                   maxHeight: isShort ? undefined : '60px',
                   overflow: isShort ? undefined : 'hidden'
                 }}
-                dangerouslySetInnerHTML={{ __html: formatInputValue(value) }}
-              />
+              >
+                {valueNode}
+              </td>
             </tr>
           );
         })}
       </tbody>
     </table>
   );
+}
+
+function stringifyValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value === null || value === undefined) return 'null';
+  return JSON.stringify(value) ?? 'null';
+}
+
+function truncateValue(value: string): string {
+  return value.length > 200 ? `${value.slice(0, 200)}…` : value;
 }

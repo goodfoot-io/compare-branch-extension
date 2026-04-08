@@ -76,10 +76,11 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
       case 'user': {
         const userMsg = msg as Extract<SessionMsg, { type: 'user' }>;
         const content = userMsg.message?.content;
+        const toolKeys = new Map<string, number>();
 
         // First pass: render tool results as ToolAccordions
         if (Array.isArray(content)) {
-          content.forEach((block, bi) => {
+          content.forEach((block) => {
             const b = block as ContentBlock;
             if (b.type !== 'tool_result' || !b.tool_use_id) return;
             const resultContent =
@@ -92,10 +93,14 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                       .join('\n')
                   : '';
             const pending = pendingToolUses.get(b.tool_use_id);
+            const toolKey = nextStableKey(
+              toolKeys,
+              pending ? `${pending.name}:${b.tool_use_id}` : `tool:${b.tool_use_id}:${resultContent}`
+            );
             if (pending) {
               nodes.push(
                 <ToolAccordion
-                  key={`${key}-tool-${bi}`}
+                  key={`${key}-${toolKey}`}
                   toolName={pending.name}
                   input={pending.input}
                   result={resultContent}
@@ -103,7 +108,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
               );
               pendingToolUses.delete(b.tool_use_id);
             } else {
-              nodes.push(<ToolAccordion key={`${key}-tool-${bi}`} toolName="tool" input={{}} result={resultContent} />);
+              nodes.push(<ToolAccordion key={`${key}-${toolKey}`} toolName="tool" input={{}} result={resultContent} />);
             }
           });
         }
@@ -217,4 +222,10 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
   });
 
   return <>{nodes}</>;
+}
+
+function nextStableKey(counts: Map<string, number>, base: string): string {
+  const next = (counts.get(base) ?? 0) + 1;
+  counts.set(base, next);
+  return `${base}:${next}`;
 }

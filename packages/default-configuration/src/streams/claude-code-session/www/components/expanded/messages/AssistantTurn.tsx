@@ -12,7 +12,7 @@
  */
 
 import type React from 'react';
-import { renderMarkdown } from '../../../lib/markdown';
+import { renderMarkdownNodes } from '../../../lib/markdown';
 import type { ContentBlock } from '../../../lib/parse-session';
 import { ThinkingAccordion } from '../../accordions/ThinkingAccordion';
 import { classifyCoordination, isCoordinationContent } from './CoordinationLine';
@@ -32,6 +32,7 @@ interface AssistantTurnProps {
 export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElement | null {
   const bubbleChildren: React.ReactElement[] = [];
   const coordinationNodes: React.ReactElement[] = [];
+  const keyCounts = new Map<string, number>();
 
   blocks.forEach((block, i) => {
     if (block.type === 'text' && block.text) {
@@ -39,16 +40,16 @@ export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElemen
         const nodes = classifyCoordination(block.text, `asst-coord-${i}`);
         coordinationNodes.push(...nodes);
       } else {
+        const key = nextStableKey(keyCounts, `text:${block.text}`);
         bubbleChildren.push(
-          <div
-            key={`text-${i}`}
-            className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(block.text) }}
-          />
+          <div key={key} className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full">
+            {renderMarkdownNodes(block.text, key)}
+          </div>
         );
       }
     } else if (block.type === 'thinking' && block.thinking) {
-      bubbleChildren.push(<ThinkingAccordion key={`think-${i}`} thinking={block.thinking} />);
+      const key = nextStableKey(keyCounts, `thinking:${block.thinking}`);
+      bubbleChildren.push(<ThinkingAccordion key={key} thinking={block.thinking} />);
     }
   });
 
@@ -64,4 +65,10 @@ export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElemen
       )}
     </>
   );
+}
+
+function nextStableKey(counts: Map<string, number>, base: string): string {
+  const next = (counts.get(base) ?? 0) + 1;
+  counts.set(base, next);
+  return `${base}:${next}`;
 }
