@@ -1,30 +1,45 @@
 /**
  * React entry point for the claude-code-session stream renderer.
  *
- * Mounts React roots for compact and expanded display modes, calls
- * `observeHeight()` for iframe auto-sizing, and subscribes to `streamStore`
- * for live updates. Phase 2 will implement full component rendering.
+ * Calls `observeHeight()` for iframe auto-sizing, then mounts `<App />` into
+ * the `#compact-root` element. The App component reads the stream store mode
+ * and renders `<CompactView />` or `<ExpandedView />` accordingly.
+ *
+ * Also applies the `mode-*` class on `<body>` whenever the mode changes so
+ * that any external CSS relying on that class continues to work.
  *
  * @summary React SPA entry point for claude-code-session stream rendering
  */
 
 import { observeHeight, streamStore } from '@cards/sdk/stream-store';
+import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { App } from './components/App';
 
 observeHeight();
 
-// Subscribe to store changes — Phase 2 will implement full rendering logic here
-streamStore.subscribe(() => {
-  // placeholder
-});
-
-const compactEl = document.getElementById('compact-root');
-const expandedEl = document.getElementById('expanded-root');
-
-if (compactEl) {
-  createRoot(compactEl).render(<div className="text-vscode-foreground" />);
+/**
+ * Applies the appropriate mode class to document.body.
+ * @param mode - The stream store mode string (e.g. 'compact', 'expanded', 'hidden').
+ */
+function applyBodyClass(mode: string): void {
+  document.body.className = `mode-${mode === 'hidden' ? 'compact' : mode}`;
 }
 
-if (expandedEl) {
-  createRoot(expandedEl).render(<div className="text-vscode-foreground" />);
+// Apply initial body mode class
+applyBodyClass(streamStore.getState().mode);
+
+// Keep body class in sync with store mode changes
+streamStore.subscribe((state) => {
+  applyBodyClass(state.mode);
+});
+
+// Mount the React SPA into #compact-root. App handles mode switching internally.
+const rootEl = document.getElementById('compact-root');
+if (rootEl) {
+  createRoot(rootEl).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 }
