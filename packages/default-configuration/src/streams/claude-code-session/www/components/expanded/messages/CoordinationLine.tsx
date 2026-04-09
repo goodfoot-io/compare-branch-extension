@@ -40,14 +40,22 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
       if (parsed['type'] !== undefined) parts.push(String(parsed['type']).replace(/_/g, ' '));
       const text = parts.length > 0 ? parts.join(': ') : `${raw.slice(0, 80)}…`;
       return [
-        <div key={keyPrefix} className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">
+        <div
+          key={keyPrefix}
+          className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
+          style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+        >
           {text}
         </div>
       ];
     } catch {
       const text = raw.slice(0, 120) + (raw.length > 120 ? '…' : '');
       return [
-        <div key={keyPrefix} className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">
+        <div
+          key={keyPrefix}
+          className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
+          style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+        >
           {text}
         </div>
       ];
@@ -78,14 +86,22 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
           if (parsed['type'] !== undefined) parts.push(String(parsed['type']).replace(/_/g, ' '));
           const text = parts.length > 0 ? parts.join(': ') : `${inner.slice(0, 80)}…`;
           result.push(
-            <div key={`${keyPrefix}-${idx}`} className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">
+            <div
+              key={`${keyPrefix}-${idx}`}
+              className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
+              style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+            >
               {text}
             </div>
           );
         } catch {
           const text = inner.length > 120 ? `${inner.slice(0, 120)}…` : inner;
           result.push(
-            <div key={`${keyPrefix}-${idx}`} className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">
+            <div
+              key={`${keyPrefix}-${idx}`}
+              className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
+              style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+            >
               {text}
             </div>
           );
@@ -93,7 +109,11 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
       } else {
         const text = inner.length > 120 ? `${inner.slice(0, 120)}…` : inner;
         result.push(
-          <div key={`${keyPrefix}-${idx}`} className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">
+          <div
+            key={`${keyPrefix}-${idx}`}
+            className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
+            style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+          >
             {text}
           </div>
         );
@@ -106,7 +126,11 @@ export function classifyCoordination(raw: string, keyPrefix: string): React.Reac
       if (stripped.length > 0) {
         const text = stripped.length > 120 ? `${stripped.slice(0, 120)}…` : stripped;
         return [
-          <div key={keyPrefix} className="text-[0.8em] text-vscode-descriptionForeground italic py-0.5">
+          <div
+            key={keyPrefix}
+            className="text-[11px] text-vscode-descriptionForeground py-0.5 pl-2"
+            style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-foreground, #cccccc) 15%, transparent)' }}
+          >
             {text}
           </div>
         ];

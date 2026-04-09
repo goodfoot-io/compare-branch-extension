@@ -43,20 +43,20 @@ export function SessionHeader({ model, cwd, status }: SessionHeaderProps): React
 
   return (
     <div
-      className="flex items-center gap-2 px-3.5 py-2 text-[0.82em] text-vscode-descriptionForeground shrink-0"
+      className="flex items-center gap-2 px-3.5 py-1.5 text-[0.78em] text-vscode-descriptionForeground shrink-0 opacity-70"
       style={{
-        borderBottom: '1px solid var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545))',
-        background: 'var(--vscode-editor-background, #1e1e1e)'
+        borderBottom:
+          '1px solid color-mix(in srgb, var(--vscode-inlineChatInput-border, var(--vscode-editorWidget-border, #454545)) 50%, transparent)'
       }}
     >
-      {model && <span className="font-vscode-editor text-vscode-foreground">{model}</span>}
-      {model && cwd && <span style={{ color: 'var(--vscode-panel-border, #3c3c3c)' }}>·</span>}
+      {model && <span className="font-vscode-editor">{model}</span>}
+      {model && cwd && <span className="opacity-30">·</span>}
       {cwd && (
         <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-vscode-editor" title={cwd}>
           {cwd}
         </span>
       )}
-      <span className="shrink-0 w-[7px] h-[7px] rounded-full ml-auto" style={{ background: STATUS_COLOR[status] }} />
+      <span className="shrink-0 w-[6px] h-[6px] rounded-full ml-auto" style={{ background: STATUS_COLOR[status] }} />
     </div>
   );
 }

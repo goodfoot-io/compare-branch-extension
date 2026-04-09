@@ -1,4 +1,29 @@
 @import '@cards/web/styles';
+@import '@cards/web/styles/transcript';
+
+/* Override transcript.css defaults for the stream renderer context */
+.cc-transcript p {
+  margin: 0 0 0.75em;
+}
+
+.cc-transcript h1,
+.cc-transcript h2,
+.cc-transcript h3,
+.cc-transcript h4,
+.cc-transcript h5,
+.cc-transcript h6 {
+  margin-top: 1.25em;
+}
+
+/* Extra breathing room before each user turn (exchange boundary) */
+.cc-transcript [data-turn="user"]:not(:first-child) {
+  margin-top: 1.25rem;
+}
+
+/* Thin divider between consecutive tool rows inside a ToolGroup */
+.cc-tool-group > .cc-tool-row + .cc-tool-row {
+  border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 30%, transparent);
+}
 
 @layer components {
   /* Accordion open/close transition */

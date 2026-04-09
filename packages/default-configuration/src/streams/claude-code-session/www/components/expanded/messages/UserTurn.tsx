@@ -1,17 +1,17 @@
 /**
  * User turn message bubble for the expanded transcript.
  *
- * Classifies each text block as coordination content (JSON/XML) or human
- * prose. Coordination blocks are rendered as dimmed system lines; prose
- * blocks are rendered in a focus-tinted bubble with markdown.
+ * Human prose is rendered right-justified in a tinted chat bubble. Coordination
+ * blocks (JSON/XML injections) are silently skipped — they are internal
+ * orchestration data with no value to the reader.
  *
- * @summary User message bubble with coordination classification
+ * @summary Right-justified user chat bubble with markdown
  * @module components/expanded/messages/UserTurn
  */
 
 import type React from 'react';
-import { renderMarkdownNodes } from '../../../lib/markdown';
-import { classifyCoordination, isCoordinationContent } from './CoordinationLine';
+import { renderMarkdown } from '../../../lib/markdown';
+import { isCoordinationContent } from './CoordinationLine';
 
 interface UserTurnProps {
   /** Text content blocks from the user message. */
@@ -19,46 +19,39 @@ interface UserTurnProps {
 }
 
 /**
- * Renders a user turn: coordination lines for JSON/XML blocks and a
- * focus-tinted bubble for human prose.
+ * Renders a user turn as a right-justified chat bubble.
+ * Coordination content is skipped.
  * @param root0 - The component props.
  * @param root0.textBlocks - Text content blocks from the user message.
- * @returns Rendered user turn fragment with coordination lines and prose bubble.
+ * @returns Rendered user turn bubble, or null when all blocks are empty.
  */
-export function UserTurn({ textBlocks }: UserTurnProps): React.ReactElement {
-  const coordinationNodes: React.ReactElement[] = [];
+export function UserTurn({ textBlocks }: UserTurnProps): React.ReactElement | null {
   const humanParts: string[] = [];
 
-  textBlocks.forEach((raw, i) => {
-    if (isCoordinationContent(raw)) {
-      const nodes = classifyCoordination(raw, `user-coord-${i}`);
-      coordinationNodes.push(...nodes);
-    } else {
+  for (const raw of textBlocks) {
+    if (!isCoordinationContent(raw)) {
       humanParts.push(raw);
     }
-  });
+  }
+
+  if (humanParts.length === 0) return null;
 
   const humanText = humanParts.join('\n\n');
-  const isLong = humanText.length > 500;
 
   return (
-    <>
-      {coordinationNodes}
-      {humanParts.length > 0 && (
-        <div className="flex flex-col items-start w-full max-w-full min-w-0 py-2 first:pt-0">
-          <div
-            className={`inline-block w-fit max-w-full rounded-md px-3.5 py-2 break-words overflow-wrap-anywhere${isLong ? ' cc-fade-clip block w-full max-h-40 overflow-hidden' : ''}`}
-            style={{
-              background: 'color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 18%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 40%, transparent)'
-            }}
-          >
-            <div className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full">
-              {renderMarkdownNodes(humanText, 'user-human')}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <div className="flex flex-col items-end w-full max-w-full min-w-0 py-2 first:pt-0" data-turn="user">
+      <div
+        className="max-w-[85%] break-words overflow-wrap-anywhere px-3 py-2"
+        style={{
+          background: 'color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 12%, transparent)',
+          borderRadius: '10px 10px 2px 10px'
+        }}
+      >
+        <div
+          className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(humanText) }}
+        />
+      </div>
+    </div>
   );
 }

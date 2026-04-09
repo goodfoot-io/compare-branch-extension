@@ -35,7 +35,7 @@ export function Transcript({ messages, onInit, onResult }: TranscriptProps): Rea
   }
 
   return (
-    <div className="px-5 pt-5 pb-10 flex flex-col gap-0 overflow-visible">
+    <div className="cc-transcript px-4 pt-4 pb-10 flex flex-col gap-2 overflow-visible" style={{ fontSize: '13px' }}>
       <MessageRouter messages={messages} onInit={onInit} onResult={onResult} />
     </div>
   );

@@ -15,6 +15,7 @@
 import type React from 'react';
 import type { ContentBlock, SessionMsg } from '../../../lib/parse-session';
 import { ToolAccordion } from '../../accordions/ToolAccordion';
+import { ToolGroup } from '../../accordions/ToolGroup';
 import { AssistantTurn } from './AssistantTurn';
 import { AuthStatus } from './AuthStatus';
 import { ResultBoundary } from './ResultBoundary';
@@ -51,6 +52,28 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
   // messages array, so state must be derived, not accumulated imperatively.
   const pendingToolUses = new Map<string, PendingToolUse>();
 
+  // Pre-pass: collect isMeta injection messages (e.g. skill content) keyed by sourceToolUseID.
+  // These are separate JSONL lines with isMeta=true that carry supplemental result content
+  // (like full skill instructions) that should render inside the matching tool accordion.
+  const supplementalResultMap = new Map<string, string>();
+  for (const msg of messages) {
+    const raw = msg as Record<string, unknown>;
+    if (raw['isMeta'] === true && raw['type'] === 'user' && raw['sourceToolUseID']) {
+      const toolUseId = String(raw['sourceToolUseID']);
+      const msgContent = (raw['message'] as { content?: unknown } | undefined)?.content;
+      const textParts: string[] = [];
+      if (typeof msgContent === 'string') {
+        textParts.push(msgContent);
+      } else if (Array.isArray(msgContent)) {
+        for (const block of msgContent) {
+          const b = block as ContentBlock;
+          if (b.type === 'text' && typeof b.text === 'string') textParts.push(b.text);
+        }
+      }
+      if (textParts.length > 0) supplementalResultMap.set(toolUseId, textParts.join('\n\n'));
+    }
+  }
+
   const nodes: React.ReactElement[] = [];
 
   messages.forEach((msg, idx) => {
@@ -59,6 +82,15 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     switch (msg.type) {
       case 'system': {
         const sysMsg = msg as Extract<SessionMsg, { type: 'system' }>;
+        // Skip hook lifecycle events — internal infrastructure noise that appears between
+        // every tool call and would fragment otherwise-consecutive ToolGroup runs.
+        if (
+          sysMsg.subtype === 'hook_started' ||
+          sysMsg.subtype === 'hook_progress' ||
+          sysMsg.subtype === 'hook_response'
+        ) {
+          break;
+        }
         nodes.push(
           <SystemRouter
             key={key}
@@ -74,13 +106,15 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
       }
 
       case 'user': {
+        // Skip isMeta injection messages — their content is merged into tool accordions via supplementalResultMap
+        if ((msg as Record<string, unknown>)['isMeta'] === true) break;
+
         const userMsg = msg as Extract<SessionMsg, { type: 'user' }>;
         const content = userMsg.message?.content;
-        const toolKeys = new Map<string, number>();
 
         // First pass: render tool results as ToolAccordions
         if (Array.isArray(content)) {
-          content.forEach((block) => {
+          content.forEach((block, bi) => {
             const b = block as ContentBlock;
             if (b.type !== 'tool_result' || !b.tool_use_id) return;
             const resultContent =
@@ -93,41 +127,53 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                       .join('\n')
                   : '';
             const pending = pendingToolUses.get(b.tool_use_id);
-            const toolKey = nextStableKey(
-              toolKeys,
-              pending ? `${pending.name}:${b.tool_use_id}` : `tool:${b.tool_use_id}:${resultContent}`
-            );
+            const supplemental = supplementalResultMap.get(b.tool_use_id) ?? null;
             if (pending) {
               nodes.push(
                 <ToolAccordion
-                  key={`${key}-${toolKey}`}
+                  key={`${key}-tool-${bi}`}
                   toolName={pending.name}
                   input={pending.input}
                   result={resultContent}
+                  supplementalResult={supplemental}
                 />
               );
               pendingToolUses.delete(b.tool_use_id);
             } else {
-              nodes.push(<ToolAccordion key={`${key}-${toolKey}`} toolName="tool" input={{}} result={resultContent} />);
+              nodes.push(
+                <ToolAccordion
+                  key={`${key}-tool-${bi}`}
+                  toolName="tool"
+                  input={{}}
+                  result={resultContent}
+                  supplementalResult={supplemental}
+                />
+              );
             }
           });
         }
 
-        // Second pass: collect text blocks for UserTurn
-        const textBlocks: string[] = [];
-        if (typeof content === 'string') {
-          textBlocks.push(content);
-        } else if (Array.isArray(content)) {
-          for (const block of content) {
-            const b = block as ContentBlock;
-            if (b.type === 'text' && typeof b.text === 'string') {
-              textBlocks.push(b.text);
+        // Second pass: collect text blocks for UserTurn.
+        // Skip if this message also contained tool_result blocks — those messages
+        // are system/hook injections, not human turns.
+        const hasToolResults =
+          Array.isArray(content) && content.some((b) => (b as ContentBlock).type === 'tool_result');
+        if (!hasToolResults) {
+          const textBlocks: string[] = [];
+          if (typeof content === 'string') {
+            textBlocks.push(content);
+          } else if (Array.isArray(content)) {
+            for (const block of content) {
+              const b = block as ContentBlock;
+              if (b.type === 'text' && typeof b.text === 'string') {
+                textBlocks.push(b.text);
+              }
             }
           }
-        }
 
-        if (textBlocks.length > 0) {
-          nodes.push(<UserTurn key={`${key}-user`} textBlocks={textBlocks} />);
+          if (textBlocks.length > 0) {
+            nodes.push(<UserTurn key={`${key}-user`} textBlocks={textBlocks} />);
+          }
         }
         break;
       }
@@ -221,11 +267,47 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     }
   });
 
-  return <>{nodes}</>;
-}
+  // Group consecutive ToolAccordion nodes into ToolGroup containers.
+  // Non-conversational system events (files_persisted, compact_boundary, etc.) are buffered
+  // while a tool run is in progress — they flush after the group closes, not inside it.
+  // Conversational boundaries (AssistantTurn, UserTurn) always close the current group first.
+  const grouped: React.ReactElement[] = [];
+  let toolRun: React.ReactElement[] = [];
+  let systemBuffer: React.ReactElement[] = [];
+  let toolRunKey = 0;
 
-function nextStableKey(counts: Map<string, number>, base: string): string {
-  const next = (counts.get(base) ?? 0) + 1;
-  counts.set(base, next);
-  return `${base}:${next}`;
+  const flushToolRun = () => {
+    if (toolRun.length === 0) {
+      grouped.push(...systemBuffer);
+      systemBuffer = [];
+      return;
+    }
+    grouped.push(<ToolGroup key={`tg-${toolRunKey++}`}>{toolRun}</ToolGroup>);
+    toolRun = [];
+    grouped.push(...systemBuffer);
+    systemBuffer = [];
+  };
+
+  for (const node of nodes) {
+    if (node.type === ToolAccordion) {
+      toolRun.push(node);
+    } else if (node.type === AssistantTurn || node.type === UserTurn) {
+      flushToolRun();
+      grouped.push(node);
+    } else {
+      // Non-conversational node: buffer it if a tool run is in progress so it
+      // doesn't break the group; otherwise emit immediately.
+      if (toolRun.length > 0) {
+        systemBuffer.push(node);
+      } else {
+        grouped.push(...systemBuffer);
+        systemBuffer = [];
+        grouped.push(node);
+      }
+    }
+  }
+  flushToolRun();
+  grouped.push(...systemBuffer);
+
+  return <>{grouped}</>;
 }
