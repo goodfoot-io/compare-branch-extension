@@ -1,10 +1,11 @@
 /**
  * Collapsible tool call accordion for the expanded transcript.
  *
- * Shows the tool name badge, a short input preview, and a chevron toggle.
- * Expands to reveal the full input table and result section.
+ * Renders as a timeline row (no box, no background fill) with a tool name,
+ * input preview, and chevron. Expands to reveal the full input table and
+ * result section.
  *
- * @summary Tool accordion: badge + preview + chevron, expands to input/result
+ * @summary Tool timeline row: name + preview + chevron, expands to input/result
  * @module components/accordions/ToolAccordion
  */
 
@@ -36,9 +37,9 @@ interface ToolAccordionProps {
  * @returns Rendered collapsible tool accordion element.
  */
 export function ToolAccordion({ toolName, input, result, supplementalResult }: ToolAccordionProps): React.ReactElement {
-  const displayResult = supplementalResult ?? result;
   const [open, setOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const displayResult = supplementalResult ?? result;
 
   // Build preview string from summarizeTool or first input value
   let previewStr = summarizeTool(toolName, input);
@@ -68,13 +69,7 @@ export function ToolAccordion({ toolName, input, result, supplementalResult }: T
   }, []);
 
   return (
-    <div
-      className="my-1 rounded-md overflow-hidden"
-      style={{
-        border: '0.5px solid var(--vscode-inlineChatInput-border, var(--vscode-panel-border, #3c3c3c))',
-        background: 'color-mix(in srgb, var(--vscode-foreground, #cccccc) 3%, var(--vscode-editor-background, #1e1e1e))'
-      }}
-    >
+    <div className="cc-tool-row overflow-hidden">
       <button
         type="button"
         aria-expanded={open}

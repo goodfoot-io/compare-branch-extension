@@ -1,9 +1,8 @@
 /**
  * Container that groups consecutive tool call accordions.
  *
- * Wraps a run of ToolAccordions in a subtly tinted zone with top/bottom
- * separators so tool activity reads as a discrete block, visually recessed
- * from the conversation flow.
+ * Wraps a run of ToolAccordions with top and bottom borders so the zone
+ * reads as a discrete block in the conversation flow.
  *
  * @summary Visual grouping container for consecutive tool calls
  * @module components/accordions/ToolGroup
@@ -17,7 +16,7 @@ interface ToolGroupProps {
 }
 
 /**
- * Wraps consecutive tool calls in a recessed activity zone.
+ * Wraps consecutive tool calls in a bordered zone.
  * @param root0 - The component props.
  * @param root0.children - ToolAccordion elements to group.
  * @returns Rendered tool activity zone container.
@@ -25,11 +24,10 @@ interface ToolGroupProps {
 export function ToolGroup({ children }: ToolGroupProps): React.ReactElement {
   return (
     <div
-      className="cc-tool-group my-1 rounded-sm"
+      className="cc-tool-group my-1"
       style={{
-        background: 'color-mix(in srgb, var(--vscode-foreground, #cccccc) 2%, transparent)',
-        borderTop: '1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 40%, transparent)',
-        borderBottom: '1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 40%, transparent)'
+        borderTop: '1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 50%, transparent)',
+        borderBottom: '1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 50%, transparent)'
       }}
     >
       {children}
