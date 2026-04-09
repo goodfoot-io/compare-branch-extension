@@ -82,6 +82,15 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     switch (msg.type) {
       case 'system': {
         const sysMsg = msg as Extract<SessionMsg, { type: 'system' }>;
+        // Skip hook lifecycle events — internal infrastructure noise that appears between
+        // every tool call and would fragment otherwise-consecutive ToolGroup runs.
+        if (
+          sysMsg.subtype === 'hook_started' ||
+          sysMsg.subtype === 'hook_progress' ||
+          sysMsg.subtype === 'hook_response'
+        ) {
+          break;
+        }
         nodes.push(
           <SystemRouter
             key={key}
@@ -258,26 +267,47 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     }
   });
 
-  // Group consecutive ToolAccordion nodes into ToolGroup containers
+  // Group consecutive ToolAccordion nodes into ToolGroup containers.
+  // Non-conversational system events (files_persisted, compact_boundary, etc.) are buffered
+  // while a tool run is in progress — they flush after the group closes, not inside it.
+  // Conversational boundaries (AssistantTurn, UserTurn) always close the current group first.
   const grouped: React.ReactElement[] = [];
   let toolRun: React.ReactElement[] = [];
+  let systemBuffer: React.ReactElement[] = [];
   let toolRunKey = 0;
 
   const flushToolRun = () => {
-    if (toolRun.length === 0) return;
+    if (toolRun.length === 0) {
+      grouped.push(...systemBuffer);
+      systemBuffer = [];
+      return;
+    }
     grouped.push(<ToolGroup key={`tg-${toolRunKey++}`}>{toolRun}</ToolGroup>);
     toolRun = [];
+    grouped.push(...systemBuffer);
+    systemBuffer = [];
   };
 
   for (const node of nodes) {
     if (node.type === ToolAccordion) {
       toolRun.push(node);
-    } else {
+    } else if (node.type === AssistantTurn || node.type === UserTurn) {
       flushToolRun();
       grouped.push(node);
+    } else {
+      // Non-conversational node: buffer it if a tool run is in progress so it
+      // doesn't break the group; otherwise emit immediately.
+      if (toolRun.length > 0) {
+        systemBuffer.push(node);
+      } else {
+        grouped.push(...systemBuffer);
+        systemBuffer = [];
+        grouped.push(node);
+      }
     }
   }
   flushToolRun();
+  grouped.push(...systemBuffer);
 
   return <>{grouped}</>;
 }
