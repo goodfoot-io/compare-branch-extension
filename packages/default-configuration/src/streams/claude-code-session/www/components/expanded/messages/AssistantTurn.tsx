@@ -59,7 +59,12 @@ export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElemen
       {coordinationNodes}
       {bubbleChildren.length > 0 && (
         <div className="flex flex-col items-start w-full max-w-full min-w-0 py-2 first:pt-0">
-          <div className="w-full break-words overflow-wrap-anywhere">{bubbleChildren}</div>
+          <div
+            className="w-full break-words overflow-wrap-anywhere pl-3"
+            style={{ borderLeft: '2px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 60%, transparent)' }}
+          >
+            {bubbleChildren}
+          </div>
         </div>
       )}
     </>

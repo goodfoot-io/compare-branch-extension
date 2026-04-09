@@ -39,18 +39,16 @@ export function UserTurn({ textBlocks }: UserTurnProps): React.ReactElement {
   });
 
   const humanText = humanParts.join('\n\n');
-  const isLong = humanText.length > 500;
 
   return (
     <>
       {coordinationNodes}
       {humanParts.length > 0 && (
-        <div className="flex flex-col items-start w-full max-w-full min-w-0 py-2 first:pt-0">
+        <div className="flex flex-col items-start w-full max-w-full min-w-0 py-2 first:pt-0" data-turn="user">
           <div
-            className={`inline-block w-fit max-w-full rounded-md px-3.5 py-2 break-words overflow-wrap-anywhere${isLong ? ' cc-fade-clip block w-full max-h-40 overflow-hidden' : ''}`}
+            className="w-full break-words overflow-wrap-anywhere px-3 py-2"
             style={{
-              background: 'color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 18%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 40%, transparent)'
+              borderLeft: '3px solid color-mix(in srgb, var(--vscode-focusBorder, #007fd4) 60%, transparent)'
             }}
           >
             <div

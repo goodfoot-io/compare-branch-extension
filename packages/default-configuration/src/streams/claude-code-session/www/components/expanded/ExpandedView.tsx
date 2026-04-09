@@ -12,6 +12,10 @@
 import { streamStore } from '@cards/sdk/stream-store';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+/** Distance from bottom (px) within which auto-scroll activates. */
+const SCROLL_THRESHOLD = 80;
+
 import type { SessionMsg } from '../../lib/parse-session';
 import { parseLines } from '../../lib/parse-session';
 import type { SessionStatus } from './SessionHeader';
@@ -46,6 +50,8 @@ export function ExpandedView(): React.ReactElement {
   });
 
   const lastLineCountRef = useRef<number>(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef<boolean>(true);
 
   useEffect(() => {
     const storeState = streamStore.getState();
@@ -85,10 +91,25 @@ export function ExpandedView(): React.ReactElement {
     return unsubscribe;
   }, []);
 
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD;
+  }, []);
+
+  // Scroll to bottom when new messages arrive, if already near bottom
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !isAtBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="flex flex-col min-h-0 overflow-hidden">
       <SessionHeader model={state.model} cwd={state.cwd} status={state.status} />
-      <Transcript messages={state.messages} onInit={handleInit} onResult={handleResult} />
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0" onScroll={handleScroll}>
+        <Transcript messages={state.messages} onInit={handleInit} onResult={handleResult} />
+      </div>
     </div>
   );
 }
