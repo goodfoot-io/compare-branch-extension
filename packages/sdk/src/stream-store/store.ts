@@ -10,6 +10,7 @@
 
 import { createStore } from 'zustand/vanilla';
 import type { HostToIframeMessage, StreamFile, StreamInitData, StreamStoreState } from './types.js';
+import { subscribe } from './actions.js';
 
 declare global {
   interface Window {
@@ -107,10 +108,19 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
           error: msg.error
         });
       } else {
+        const existing = state.files.get(msg.filename);
+        const existingLines = existing?.lines ?? [];
+        // Historical lines from the response are authoritative.
+        // If live events accumulated before the response arrived, they will
+        // be at indices >= msg.lines.length in the existing store.
+        const merged =
+          msg.lines.length >= existingLines.length
+            ? [...msg.lines]
+            : [...msg.lines, ...existingLines.slice(msg.lines.length)];
         updated.set(msg.filename, {
           filename: msg.filename,
           meta: msg.meta,
-          lines: [...msg.lines],
+          lines: merged,
           isSubscribed: true,
           isLoading: false,
           error: null
@@ -140,6 +150,14 @@ if (!init) {
 
 /** Vanilla Zustand store for stream renderer state. */
 export const streamStore = createStore<StreamStoreState>()(() => buildInitialState(init));
+
+// Auto-subscribe for empty primary file (all statuses: active, completed, error).
+// Timing is safe: the iframe is gated on listenerReady in StreamIframeHost so the
+// parent listener is always registered before this code runs.
+const primaryFile = streamStore.getState().files.get(init.primary);
+if (primaryFile && primaryFile.lines.length === 0) {
+  subscribe(init.primary);
+}
 
 /** Maps VS Code theme kind enum to the attribute value used in CSS selectors. */
 const THEME_KIND_MAP: Record<1 | 2 | 3, string> = {
