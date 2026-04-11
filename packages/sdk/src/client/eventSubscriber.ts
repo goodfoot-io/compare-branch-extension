@@ -55,6 +55,7 @@ export class EventSubscriber {
   private connectionChangeCallbacks: Set<(connected: boolean) => void> = new Set();
   private hasConnected: boolean = false;
   private readonly maxReconnectAttempts: number;
+  private rawHandlers: Array<(message: Record<string, unknown>) => void> = [];
 
   /**
    * Creates a new EventSubscriber instance.
@@ -297,6 +298,22 @@ export class EventSubscriber {
   }
 
   /**
+   * Registers a handler invoked for every successfully parsed incoming message,
+   * regardless of type. Fires after typed callbacks, and is not suppressed by
+   * errors thrown inside typed callbacks.
+   *
+   * @param handler - Function called with the raw parsed message object.
+   * @returns Unsubscribe function to remove this handler.
+   */
+  onRawMessage(handler: (message: Record<string, unknown>) => void): () => void {
+    this.rawHandlers.push(handler);
+    return () => {
+      const i = this.rawHandlers.indexOf(handler);
+      if (i !== -1) this.rawHandlers.splice(i, 1);
+    };
+  }
+
+  /**
    * Handles incoming WebSocket messages and dispatches to registered callbacks.
    *
    * Messages are expected to be JSON with a `type` field matching {@link EventMap}.
@@ -304,9 +321,10 @@ export class EventSubscriber {
    * @param event - Browser WebSocket message event containing the serialized payload.
    */
   private handleMessage(event: MessageEvent): void {
+    let message: { type: keyof EventMap; [key: string]: unknown } | undefined;
     try {
-      const message = JSON.parse(event.data as string) as { type: keyof EventMap; [key: string]: unknown };
-      const callbacks = this.callbacks.get(message.type);
+      message = JSON.parse(event.data as string);
+      const callbacks = this.callbacks.get(message!.type);
       if (callbacks) {
         for (const callback of callbacks) {
           (callback as (event: unknown) => void)(message);
@@ -314,6 +332,11 @@ export class EventSubscriber {
       }
     } catch (error) {
       console.warn('Failed to parse WebSocket message:', error);
+    }
+    if (message !== undefined) {
+      for (const handler of this.rawHandlers) {
+        handler(message as Record<string, unknown>);
+      }
     }
   }
 }
