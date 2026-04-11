@@ -28,10 +28,9 @@
  * // => { type: 'remote:action:executeAction'; actionName: string }
  * ```
  */
-export type DistributedRemote<T extends { type: string }> =
-  T extends { type: infer U extends string }
-    ? Omit<T, 'type'> & { type: `remote:${U}` }
-    : never;
+export type DistributedRemote<T extends { type: string }> = T extends { type: infer U extends string }
+  ? Omit<T, 'type'> & { type: `remote:${U}` }
+  : never;
 
 /**
  * Manually-defined union of remote messages dispatched to the detail webview.

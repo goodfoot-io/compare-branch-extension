@@ -18,6 +18,7 @@
 // --- Webview Messaging Types ---
 // --- Custom Types ---
 // --- API Request/Response Types ---
+// --- Remote Programmatic API Types ---
 export type {
   Action,
   ActionMessage,
@@ -86,6 +87,7 @@ export type {
   CreateAttachmentRequest,
   CreateCardRequest,
   CreateCommentRequest,
+  DistributedRemote,
   DomainEvent,
   Environment,
   EnvironmentInfo,
@@ -116,6 +118,9 @@ export type {
   NotificationSeverity,
   ProcessState,
   ReadFileCallback,
+  RemoteDetailMessage,
+  RemoteListMessage,
+  RemoteMessage,
   ServerChangedMessage,
   SessionBaseline,
   SessionStartedMessage,
@@ -159,8 +164,6 @@ export type {
   WrapperErrorResponse,
   WrapperResponse
 } from './types/index.js';
-// --- Remote Programmatic API Types ---
-export type { DistributedRemote, RemoteDetailMessage, RemoteListMessage, RemoteMessage } from './types/index.js';
 // --- Input Constraints ---
 // --- Card Gates ---
 export {
