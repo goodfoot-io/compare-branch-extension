@@ -97,4 +97,39 @@ Return findings as your response message to the caller. Lead with approach-level
 
 The caller reads the findings and decides whether the implementation is ready or needs revision.
 
+## When Resuming for a Fixed Implementation
+
+When the orchestrator sends a follow-up message asking you to review the updated implementation, this is a continuation of your analysis — you retain full context from every prior round.
+
+### 1. Identify New Commits
+
+Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to identify every commit made since the last round. These are your primary focus. The orchestrator's message maps which findings each fix addressed — use that mapping to orient your analysis, then verify by reading the commits directly.
+
+### 2. Triage Each Prior Finding
+
+For each concern you raised in the previous round, determine its current status using the orchestrator's mapping and the new commits:
+
+- **Addressed**: A fix commit targets this finding. Verify the fix resolves the root cause — run the affected code path if possible, don't only read the change. A fix that repairs the symptom while leaving the underlying condition is a new finding.
+- **Partially addressed**: The fix is incomplete or shifts the risk rather than resolving it. State what remains and why it still matters.
+- **Unaddressed**: The orchestrator flagged this as not viable or deferred it. Re-state it with the same weight, noting its status.
+
+### 3. Apply Full §3 Scrutiny to Fix Code
+
+Fix commits are new implementation. Apply every check from §3 to the fix code as if it were part of the original change — the same failure patterns that appear in first-pass implementations appear in fixes:
+
+- Does the fix introduce new consumers it doesn't account for?
+- Does error handling in the fix convert failures silently?
+- Does the fix use type assertions or `any` to make the build pass?
+- Does the fix interact with adjacent code in new ways not covered by existing tests?
+
+Follow consumers of the fix code one hop further than you did for the original implementation. Each round of fixes is new scope; don't exempt it from analysis because it was written in response to your findings.
+
+### 4. Run the Fixed Paths
+
+Where possible, execute the code paths the fix touches. Runtime behavior is the ground truth — reading a fix and reasoning about its correctness is insufficient when the environment can be exercised directly. Pay particular attention to async paths, error recovery branches, and state that persists across calls.
+
+### 5. Return Findings for This Round
+
+Use the same format as §6. Lead with unresolved prior concerns, then new findings the fix code introduced, then approach-level risks that survive the revision. Do not repeat findings that have been fully and correctly resolved — note them as closed and move on.
+
 </instructions>

@@ -15,7 +15,7 @@ Read the card from the `<card>` block. Assess scope, type, number of files likel
 | 1 | No plan — proceed directly to implementation |
 | 2 | `planner` subagent only |
 | 3 | `planner` subagent + one `plan-failure-mode` subagent |
-| 4 | `planner` subagent + multiple `plan-failure-mode` subagents, each scoped to a different area of concern |
+| 4 | `planner` subagent + one `plan-failure-mode` subagent + one `plan-design` subagent |
 
 If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–4).
 
@@ -98,6 +98,8 @@ Identify potential failure modes in this implementation plan.
 [WORKSPACE_PATH]
 
 Read the plan files from the `plan/` directory in the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+
+Also evaluate the plan's design from the user's perspective: would the plan, if executed correctly, deliver the outcomes the card requires? Look for intent drift between the card and the plan, design choices that would produce wrong user outcomes even when implemented faithfully, and user-facing scenarios the plan doesn't account for.
 </parameter>
 </invoke>
 ```
@@ -127,17 +129,19 @@ Read the card from the card repository. Create the plan and investigate uncertai
 </invoke>
 ```
 
-After the planner returns, spawn the failure-mode subagents in parallel in background mode:
+Before writing either prompt, read the plan and the card. Each prompt must reflect the specific nature of this plan and this card.
+
+After the planner returns, spawn both agents in parallel in background mode:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">Plan failure-mode analysis — data flow and multi-file impact</parameter>
+<parameter name="description">Plan failure-mode analysis</parameter>
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="name">plan-failure-mode-data-flow</parameter>
+<parameter name="name">plan-failure-mode</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Identify potential failure modes in this implementation plan. Focus on data-flow completeness and multi-file impact.
+Identify potential failure modes in this implementation plan.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -145,17 +149,20 @@ Identify potential failure modes in this implementation plan. Focus on data-flow
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the plan files from the `plan/` directory in the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+[Describe the specific technical failure risks this plan presents. Where does the plan make load-bearing assumptions about the codebase that should be verified? Which §3 failure patterns are most probable given the plan's approach — multi-file impact blindness, unverified claims, ordering hazards, silent error conversion? Write this from what you found in the plan, not as a generic description.]
 </parameter>
 </invoke>
+```
+
+```xml
 <invoke name="Agent">
-<parameter name="description">Plan failure-mode analysis — error paths and async hazards</parameter>
-<parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
+<parameter name="description">Plan design evaluation</parameter>
+<parameter name="subagent_type">runtime:card:plan-design</parameter>
 <parameter name="model">opus</parameter>
-<parameter name="name">plan-failure-mode-error-paths</parameter>
+<parameter name="name">plan-design</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Identify potential failure modes in this implementation plan. Focus on error paths, async hazards, and partial-failure handling.
+Evaluate whether this plan's design would deliver the user experience the card requires.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -163,7 +170,12 @@ Identify potential failure modes in this implementation plan. Focus on error pat
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the plan files from the `plan/` directory in the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+[Translate the card's requirements into the user outcomes this plan must deliver:
+- The specific acceptance criteria to verify coverage for
+- User-facing scenarios the plan must account for — including edge cases, error states, and adjacent behavior the user can see
+- Any places where the plan's interpretation of the card looks like it may have drifted from what the card actually requires
+
+Write this from what you found in the card, not as a generic description.]
 </parameter>
 </invoke>
 ```
@@ -175,16 +187,19 @@ After all subagents return, read their output.
 Based on the planner's outcome and any failure-mode findings:
 
 - **Planner blocked**: Document in comment, add `blocked` tag, commit. **STOP** — do not proceed to implementation.
-- **Findings require plan revision**: Resume the planner via `SendMessage` and provide the failure-mode report. Wait for the planner to return, then send each failure-mode agent a message in this form:
+- **Findings require plan revision**: Resume the planner via `SendMessage` and provide both agents' findings. Wait for the planner to return, then compose a message to each agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
 
-  > The planner has revised the plan in response to your findings.
-  >
-  > **Your findings from the previous round:**
-  > [paste the agent's prior findings verbatim]
-  >
-  > Review the updated plan files in `plan/`. For each prior finding, verify whether it was correctly resolved — read the referenced code in the workspace, not just the plan's description of the fix. For every section the planner changed, go one hop deeper than the previous round: follow consumers further, verify new assertions in the workspace, and trace error paths into adjacent code you have not yet read. Return your findings, leading with unresolved prior concerns, then new findings the revision introduced.
+  **plan-failure-mode**: Deliver the technical revision context:
+  - What the planner changed — which sections were added, removed, or restructured, and where to focus deeper
+  - How the planner responded to technical findings — which concerns were addressed, which deferred, and whether any fix addresses the symptom but not the root cause
+  - New interfaces, contracts, data flows, or dependencies the revision introduced that were not in scope in the prior round
 
-  Wait for all failure-mode agents to return, then read their findings and decide again.
+  **plan-design**: Deliver the design revision context:
+  - Which user-outcome concerns the planner addressed, described in terms of what the user would now experience — not what plan text changed, but what the user outcome is now
+  - Which acceptance criteria gaps or intent drift findings were not addressed and why
+  - New design decisions the revision introduced and what user outcome they would produce if executed
+
+  Wait for all agents to return, then read their findings and decide again.
 - **No blocking findings**: Proceed to Step 4.
 
 When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Style observations and minor nits do not.
