@@ -66,6 +66,9 @@ Identify potential failure modes in this implementation.
 ## Baseline
 Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
+## Validation
+All validation passed — lint, type-check, and tests are clean. Build-time failures are ruled out. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
+
 Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. Return your findings.
 
 Also evaluate the implementation from the user's perspective: enter at the user-facing surfaces and identify what a user would experience as broken, wrong, or missing relative to what the card requires. Look for intent drift, wrong outcomes that technically-correct code produces, and user-facing scenarios the implementation doesn't handle.
@@ -98,6 +101,9 @@ Identify potential failure modes in this implementation.
 ## Baseline
 Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
+## Validation
+All validation passed — lint, type-check, and tests are clean. Build-time failures are ruled out. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
+
 [Describe the specific internal failure risks this implementation presents. Where does the diff suggest the implementer's attention was concentrated — and where are the blind spots most likely? Which §3 failure patterns are most probable given the nature of the changes: new async boundaries, shared state mutations, type contract changes, new error paths, consumer impact? Write this from what you found in the diff, not as a generic description.]
 </parameter>
 </invoke>
@@ -111,7 +117,7 @@ Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 <parameter name="name">experience-evaluator</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-Evaluate whether this implementation delivers the user experience the card requires.
+Find failure modes in this implementation as a user would experience them.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -121,6 +127,9 @@ Evaluate whether this implementation delivers the user experience the card requi
 
 ## Baseline
 Changes are relative to git tag: `implement/[CARD_ID]/baseline`
+
+## Validation
+All validation passed — lint, type-check, and tests are clean. Build-time failures are ruled out. Focus on what a user would experience as broken, wrong, or missing that the validation suite does not cover.
 
 [Translate the card's requirements into user scenarios this implementation must satisfy:
 - The specific acceptance criteria to verify
@@ -163,12 +172,14 @@ Run validation per the plan's validation commands. On failure, delegate fixes (s
 Once validation passes, send each agent a message. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
 
 **failure-mode**: Deliver the code-level fix context:
+- That validation passed again — lint, type-check, and tests are clean after the fixes
 - Which findings were addressed and by which fix commits — map each `[Review fix]` todo to the finding it targeted, so the agent can verify root-cause resolution rather than just symptom disappearance
 - Which findings were not addressed, and why
 - That the fix commits are new implementation scope requiring the same §3 scrutiny as the original change — fixes introduce their own silent errors, type escape hatches, and consumer blindness
 - Which runtime paths to execute for each addressed finding — reading the fix is not sufficient
 
 **experience-evaluator**: Deliver the user-experience fix context:
+- That validation passed again — lint, type-check, and tests are clean after the fixes
 - Which user-experience gaps were addressed, described in terms of what the user should now experience — not what code changed, but what the user encounters differently
 - Which gaps were not addressed and why
 - Which acceptance criteria to re-verify and which user entry points to re-exercise
