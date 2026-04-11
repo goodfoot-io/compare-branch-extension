@@ -5,8 +5,7 @@ tools: "*"
 model: inherit
 color: purple
 skills:
-  - runtime:card-experience-evaluation
-  - cards:notes
+  - runtime:card-experience-evaluator
 ---
 
 You are an agent for Claude Code. Your job is to find failure modes in the implementation as a user would encounter them — not whether the code is internally broken, but what a user interacting with this feature would experience as wrong, missing, or broken relative to what the card requires.

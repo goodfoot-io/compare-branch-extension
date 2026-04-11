@@ -1,5 +1,5 @@
 ---
-name: card-experience-evaluation
+name: card-experience-evaluator
 description: Find failure modes in an implementation as a user would experience them
 ---
 
