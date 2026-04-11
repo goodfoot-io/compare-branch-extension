@@ -251,5 +251,57 @@ describe('stream store', () => {
       });
       expect(store.getState()).toBe(stateBefore);
     });
+
+    describe('subscribe:response merge', () => {
+      it('should use response lines directly when response has more lines than store', () => {
+        // Establish a known baseline: subscribe a fresh file with 2 lines
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'merge-test.jsonl',
+          lines: ['base1', 'base2'],
+          meta: { status: 'active', lineCount: 2 }
+        });
+        expect(store.getState().files.get('merge-test.jsonl')!.lines).toEqual(['base1', 'base2']);
+
+        // Now dispatch a subscribe:response with more lines — should replace entirely
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'merge-test.jsonl',
+          lines: ['r1', 'r2', 'r3', 'r4'],
+          meta: { status: 'active', lineCount: 4 }
+        });
+
+        const lines = store.getState().files.get('merge-test.jsonl')!.lines;
+        // Response had more lines than store — result is exactly the response lines
+        expect(lines).toEqual(['r1', 'r2', 'r3', 'r4']);
+      });
+
+      it('should append store tail when store has more lines than response (live-event accumulation)', () => {
+        // Start with a known 3-line state via subscribe:response
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'live-test.jsonl',
+          lines: ['hist1', 'hist2', 'hist3'],
+          meta: { status: 'active', lineCount: 3 }
+        });
+
+        // Simulate two live events arriving before the next subscribe:response
+        dispatchHostMessage({ type: 'stream:line', filename: 'live-test.jsonl', line: 'live4' });
+        dispatchHostMessage({ type: 'stream:line', filename: 'live-test.jsonl', line: 'live5' });
+        expect(store.getState().files.get('live-test.jsonl')!.lines).toHaveLength(5);
+
+        // subscribe:response arrives with only 3 lines (fetch completed before live events)
+        dispatchHostMessage({
+          type: 'subscribe:response',
+          filename: 'live-test.jsonl',
+          lines: ['hist1', 'hist2', 'hist3'],
+          meta: { status: 'active', lineCount: 3 }
+        });
+
+        const lines = store.getState().files.get('live-test.jsonl')!.lines;
+        // Response had fewer lines than store — historical lines plus live tail preserved
+        expect(lines).toEqual(['hist1', 'hist2', 'hist3', 'live4', 'live5']);
+      });
+    });
   });
 });
