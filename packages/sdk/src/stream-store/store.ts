@@ -9,8 +9,8 @@
  */
 
 import { createStore } from 'zustand/vanilla';
-import type { HostToIframeMessage, StreamFile, StreamInitData, StreamStoreState } from './types.js';
 import { subscribe } from './actions.js';
+import type { HostToIframeMessage, StreamFile, StreamInitData, StreamStoreState } from './types.js';
 
 declare global {
   interface Window {
