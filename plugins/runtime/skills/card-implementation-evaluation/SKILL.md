@@ -45,6 +45,8 @@ Use deep when the implementation touches many files, introduces new API boundari
 
 ### Standard
 
+Before writing the prompt, read the diff and the card.
+
 Spawn one failure-mode subagent in background mode:
 
 ```xml
@@ -67,11 +69,9 @@ Identify potential failure modes in this implementation.
 Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
 ## Validation
-All validation passed — lint, type-check, and tests are clean. Build-time failures are ruled out. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
+All has validation passed. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
 
-Diff the workspace against the baseline to identify changed files. Read every changed file, then search the workspace for consumers of every symbol, type, and file the implementation modifies. Return your findings.
-
-Also evaluate the implementation from the user's perspective: enter at the user-facing surfaces and identify what a user would experience as broken, wrong, or missing relative to what the card requires. Look for intent drift, wrong outcomes that technically-correct code produces, and user-facing scenarios the implementation doesn't handle.
+[Describe the specific failure risks this implementation presents — both technical and user-facing. Where does the diff suggest the implementer's attention was concentrated, and where are the blind spots most likely? Which runtime paths are unexercised by tests, which contracts may drift silently, and which consumer assumptions break? Then translate the card's requirements into user scenarios: what would a user experience as broken, wrong, or missing? Write this from what you found in the diff and the card, not as generic instructions.]
 </parameter>
 </invoke>
 ```
@@ -102,7 +102,7 @@ Identify potential failure modes in this implementation.
 Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
 ## Validation
-All validation passed — lint, type-check, and tests are clean. Build-time failures are ruled out. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
+All has validation passed. Focus on runtime behavior, semantic failures, and gaps the validation suite does not cover.
 
 [Describe the specific internal failure risks this implementation presents. Where does the diff suggest the implementer's attention was concentrated — and where are the blind spots most likely? Which §3 failure patterns are most probable given the nature of the changes: new async boundaries, shared state mutations, type contract changes, new error paths, consumer impact? Write this from what you found in the diff, not as a generic description.]
 </parameter>
@@ -129,7 +129,7 @@ Find failure modes in this implementation as a user would experience them.
 Changes are relative to git tag: `implement/[CARD_ID]/baseline`
 
 ## Validation
-All validation passed — lint, type-check, and tests are clean. Build-time failures are ruled out. Focus on what a user would experience as broken, wrong, or missing that the validation suite does not cover.
+All has validation passed. Focus on what a user would experience as broken, wrong, or missing that the validation suite does not cover.
 
 [Translate the card's requirements into user scenarios this implementation must satisfy:
 - The specific acceptance criteria to verify
@@ -151,13 +151,15 @@ After all subagents return, read their output. Decide:
 
 When deciding, apply the same bar a maintainer would: broken wiring, contract drift, unmet requirements, unsafe defaults, and missing behavioral coverage require fixes. Nits and style observations do not block.
 
-### 5.1 Address Changes
+### 5.1 Dispatch Fixes
 
 For each finding:
-- **Viable**: Create a todo with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate via Steps 2.3–2.4.
+- **Viable**: Create a task with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate via Steps 2.3–2.4.
 - **Not viable**: Note the reason (e.g., attempted but introduced a regression, rejected during planning, blocked by an external constraint).
 
-After all fixes are delegated and complete, stage and re-validate:
+Wait for the developer(s) to return, then go to Step 5.2.
+
+### 5.2 Stage, Commit, and Validate
 
 ```bash
 git add -A
@@ -167,25 +169,51 @@ COMMITMSG
 )"
 ```
 
-Run validation per the plan's validation commands. On failure, delegate fixes (same as Step 2), then stage and re-validate.
+Run validation per the plan's validation commands.
 
-Once validation passes, send each agent a message. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
+**On failure**: Create new `[Review fix]` tasks from all failures — go back to Step 5.1.
+
+Once validation passes, go to Step 5.3.
+
+### 5.3 Resume Evaluation Agents
+
+Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
 
 **failure-mode**: Deliver the code-level fix context:
-- That validation passed again — lint, type-check, and tests are clean after the fixes
+- That validation passed again after the fixes
 - Which findings were addressed and by which fix commits — map each `[Review fix]` todo to the finding it targeted, so the agent can verify root-cause resolution rather than just symptom disappearance
 - Which findings were not addressed, and why
 - That the fix commits are new implementation scope requiring the same §3 scrutiny as the original change — fixes introduce their own silent errors, type escape hatches, and consumer blindness
 - Which runtime paths to execute for each addressed finding — reading the fix is not sufficient
 
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">failure-mode</parameter>
+  <parameter name="summary">Fix context for re-evaluation</parameter>
+  <parameter name="message">
+[Compose from the fix commits and the agent's prior findings — trace the git log to map each addressed finding to the commit that fixed it, state which findings were not addressed and why, and identify which runtime paths to exercise for each fix. Do not describe what changed in code; describe what the agent must verify about behavior.]
+  </parameter>
+</invoke>
+```
+
 **experience-evaluator**: Deliver the user-experience fix context:
-- That validation passed again — lint, type-check, and tests are clean after the fixes
+- That validation passed again after the fixes
 - Which user-experience gaps were addressed, described in terms of what the user should now experience — not what code changed, but what the user encounters differently
 - Which gaps were not addressed and why
 - Which acceptance criteria to re-verify and which user entry points to re-exercise
 - Any new user-facing behavior the fix introduced that was not present in the original implementation
 
-Wait for all agents to return, then read their findings and decide again.
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">experience-evaluator</parameter>
+  <parameter name="summary">Fix context for re-evaluation</parameter>
+  <parameter name="message">
+[Compose from the card's acceptance criteria and the fix commits — for each addressed gap, describe what the user now experiences differently; for unaddressed gaps, state why; identify which acceptance criteria to re-verify and which entry points to re-exercise. Do not describe what changed in code; describe what the user encounters.]
+  </parameter>
+</invoke>
+```
+
+Wait for all agents to return, then go back to Step 5.
 
 ## 6. Finalize
 

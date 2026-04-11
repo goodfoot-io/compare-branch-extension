@@ -187,17 +187,49 @@ After all subagents return, read their output.
 Based on the planner's outcome and any failure-mode findings:
 
 - **Planner blocked**: Document in comment, add `blocked` tag, commit. **STOP** — do not proceed to implementation.
-- **Findings require plan revision**: Resume the planner via `SendMessage` and provide both agents' findings. Wait for the planner to return, then compose a message to each agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
+- **Findings require plan revision**: Resume the planner with both agents' findings:
+
+  ```xml
+  <invoke name="SendMessage">
+    <parameter name="to">planner</parameter>
+    <parameter name="summary">Plan revision findings</parameter>
+    <parameter name="message">
+  [Compose from both agents' findings — which concerns require revision, what to change, and what to preserve]
+    </parameter>
+  </invoke>
+  ```
+
+  Wait for the planner to return, then send a message to each evaluation agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
 
   **plan-failure-mode**: Deliver the technical revision context:
   - What the planner changed — which sections were added, removed, or restructured, and where to focus deeper
   - How the planner responded to technical findings — which concerns were addressed, which deferred, and whether any fix addresses the symptom but not the root cause
   - New interfaces, contracts, data flows, or dependencies the revision introduced that were not in scope in the prior round
 
+  ```xml
+  <invoke name="SendMessage">
+    <parameter name="to">plan-failure-mode</parameter>
+    <parameter name="summary">Plan revision — technical context</parameter>
+    <parameter name="message">
+  [Compose per the bullet points above]
+    </parameter>
+  </invoke>
+  ```
+
   **plan-design**: Deliver the design revision context:
   - Which user-outcome concerns the planner addressed, described in terms of what the user would now experience — not what plan text changed, but what the user outcome is now
   - Which acceptance criteria gaps or intent drift findings were not addressed and why
   - New design decisions the revision introduced and what user outcome they would produce if executed
+
+  ```xml
+  <invoke name="SendMessage">
+    <parameter name="to">plan-design</parameter>
+    <parameter name="summary">Plan revision — design context</parameter>
+    <parameter name="message">
+  [Compose per the bullet points above]
+    </parameter>
+  </invoke>
+  ```
 
   Wait for all agents to return, then read their findings and decide again.
 - **No blocking findings**: Proceed to Step 4.
