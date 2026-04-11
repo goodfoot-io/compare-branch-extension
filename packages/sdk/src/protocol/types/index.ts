@@ -198,3 +198,5 @@ export type {
   WrapperErrorResponse,
   WrapperResponse
 } from './wrapper-commands.js';
+// --- Remote Programmatic API Types ---
+export type { DistributedRemote, RemoteDetailMessage, RemoteListMessage, RemoteMessage } from './remote.js';

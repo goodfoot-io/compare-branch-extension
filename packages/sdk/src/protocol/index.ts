@@ -159,6 +159,8 @@ export type {
   WrapperErrorResponse,
   WrapperResponse
 } from './types/index.js';
+// --- Remote Programmatic API Types ---
+export type { DistributedRemote, RemoteDetailMessage, RemoteListMessage, RemoteMessage } from './types/index.js';
 // --- Input Constraints ---
 // --- Card Gates ---
 export {
