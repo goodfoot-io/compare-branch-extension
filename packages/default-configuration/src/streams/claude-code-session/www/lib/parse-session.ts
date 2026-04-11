@@ -196,6 +196,82 @@ export type SessionMsg =
 // Parsing functions
 // ============================================================================
 
+// ============================================================================
+// Message merging
+// ============================================================================
+
+/**
+ * Normalizes user message content to a `ContentBlock[]` for uniform merging.
+ * String content is wrapped in a text block.
+ * @param content - Raw user message content, either a plain string or an array of content blocks.
+ * @returns Normalized array of content blocks.
+ */
+function normalizeUserContent(content: string | ContentBlock[] | undefined): ContentBlock[] {
+  if (!content) return [];
+  if (typeof content === 'string') return [{ type: 'text', text: content }];
+  return content;
+}
+
+/**
+ * Merges consecutive same-author messages into single messages by concatenating
+ * their content arrays. This eliminates visual discontinuity when the same
+ * author produces multiple JSONL lines in a row.
+ *
+ * - Consecutive assistant messages (without errors) are merged.
+ * - Consecutive user messages (excluding `isMeta` messages) are merged.
+ * - Any other message type, an error assistant message, or an `isMeta` user
+ *   message breaks the run and starts a new entry.
+ *
+ * @param messages - Parsed session messages in order.
+ * @returns New array with consecutive same-author messages merged.
+ */
+export function mergeConsecutiveMessages(messages: SessionMsg[]): SessionMsg[] {
+  const result: SessionMsg[] = [];
+
+  for (const msg of messages) {
+    const last = result.length > 0 ? result[result.length - 1] : undefined;
+
+    if (msg.type === 'assistant') {
+      const aMsg = msg as AssistantMsg;
+      const lastA = last?.type === 'assistant' ? (last as AssistantMsg) : undefined;
+
+      if (lastA && !lastA.error && !aMsg.error) {
+        result[result.length - 1] = {
+          ...lastA,
+          message: {
+            ...lastA.message,
+            content: [...(lastA.message?.content ?? []), ...(aMsg.message?.content ?? [])]
+          }
+        };
+        continue;
+      }
+    } else if (msg.type === 'user') {
+      const raw = msg as Record<string, unknown>;
+      const lastRaw = last as Record<string, unknown> | undefined;
+
+      if (last?.type === 'user' && raw['isMeta'] !== true && lastRaw?.['isMeta'] !== true) {
+        const lastU = last as UserMsg;
+        const userMsg = msg as UserMsg;
+        result[result.length - 1] = {
+          ...lastU,
+          message: {
+            ...lastU.message,
+            content: [
+              ...normalizeUserContent(lastU.message?.content),
+              ...normalizeUserContent(userMsg.message?.content)
+            ]
+          }
+        };
+        continue;
+      }
+    }
+
+    result.push(msg);
+  }
+
+  return result;
+}
+
 /**
  * Parses a single JSONL line into zero or more compact events.
  * Returns an empty array for blank lines or parse errors.

@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const SCROLL_THRESHOLD = 80;
 
 import type { SessionMsg } from '../../lib/parse-session';
-import { parseLines } from '../../lib/parse-session';
+import { mergeConsecutiveMessages, parseLines } from '../../lib/parse-session';
 import type { SessionStatus } from './SessionHeader';
 import { SessionHeader } from './SessionHeader';
 import { Transcript } from './Transcript';
@@ -31,7 +31,7 @@ interface ExpandedState {
 
 function buildExpandedState(lines: string[]): ExpandedState {
   return {
-    messages: parseLines(lines),
+    messages: mergeConsecutiveMessages(parseLines(lines)),
     model: '',
     cwd: '',
     status: 'running'
@@ -79,7 +79,9 @@ export function ExpandedView(): React.ReactElement {
         const newMessages = parseLines(newLines);
         setState((prev) => ({
           ...prev,
-          messages: [...prev.messages, ...newMessages]
+          // Re-merge across the boundary: the last accumulated message may
+          // need to absorb the first new message if they share an author.
+          messages: mergeConsecutiveMessages([...prev.messages, ...newMessages])
         }));
       } else if (newLineCount < lastLineCountRef.current) {
         // File reset: rebuild from scratch

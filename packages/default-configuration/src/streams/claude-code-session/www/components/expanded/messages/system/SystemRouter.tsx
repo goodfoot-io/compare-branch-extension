@@ -10,6 +10,7 @@
 
 import type React from 'react';
 import type { SystemMsg } from '../../../../lib/parse-session';
+import { RawJsonFallback } from '../RawJsonFallback';
 import { CompactBoundaryLine } from './CompactBoundaryLine';
 import { FilesPersisted } from './FilesPersisted';
 import { HookLine } from './HookLine';
@@ -85,6 +86,6 @@ export function SystemRouter({ msg, onInit }: SystemRouterProps): React.ReactEle
       );
     }
     default:
-      return null;
+      return <RawJsonFallback data={msg} />;
   }
 }

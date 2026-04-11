@@ -18,6 +18,7 @@ import { ToolAccordion } from '../../accordions/ToolAccordion';
 import { ToolGroup } from '../../accordions/ToolGroup';
 import { AssistantTurn } from './AssistantTurn';
 import { AuthStatus } from './AuthStatus';
+import { RawJsonFallback } from './RawJsonFallback';
 import { ResultBoundary } from './ResultBoundary';
 import { SystemRouter } from './system/SystemRouter';
 import { UserTurn } from './UserTurn';
@@ -263,6 +264,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
       }
 
       default:
+        nodes.push(<RawJsonFallback key={key} data={msg} />);
         break;
     }
   });
