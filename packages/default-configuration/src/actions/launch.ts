@@ -53,7 +53,7 @@ export default defineAction(
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
     await spawnClaudeSession(input, context, {
-      prompt: 'Follow the routing `<instructions>`.',
+      prompt: 'Follow the `<routing-instructions>`.',
       sessionId,
       resume,
       supportsSwitchToInteractive: true,

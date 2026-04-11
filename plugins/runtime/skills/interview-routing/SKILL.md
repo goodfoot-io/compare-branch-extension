@@ -15,7 +15,11 @@ The routing phase evaluates and selects — it does NOT interview the user or mo
 **Never update card status directly** — hooks handle status transitions automatically.
 </routing-constraints>
 
-<instructions>
+<quiet>
+Routing runs without user interaction. Messages describing state and routing decisions are not required.
+</quiet>
+
+<routing-instructions>
 
 ## 1. Evaluate Routing Signals
 
@@ -59,4 +63,4 @@ Load the matched skill using the Skill tool:
 </invoke>
 ```
 
-</instructions>
+</routing-instructions>

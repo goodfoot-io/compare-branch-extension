@@ -20,7 +20,7 @@ The routing phase evaluates and selects — it does NOT implement, plan, or modi
 Routing runs without user interaction. Messages describing state and routing decisions are not required.
 </quiet>
 
-<instructions>
+<routing-instructions>
 
 ## 1. Evaluate Routing Signals
 
@@ -74,4 +74,4 @@ Load the matched skill using the Skill tool.
 </invoke>
 ```
 
-</instructions>
+</routing-instructions>

@@ -17,9 +17,11 @@
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
 import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
+import interviewRoutingSkill from '../../../../plugins/runtime/skills/interview-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 
 const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
+const INTERVIEW_ROUTING_SKILL: string = interviewRoutingSkill.replace(/^---\n[\s\S]*?\n---\n*/, '').trim();
 
 /**
  * Interview action handler.
@@ -37,11 +39,11 @@ export default defineAction(
   },
   async (input: ActionInput, context: ActionContext) => {
     await spawnClaudeSession(input, context, {
-      prompt: 'Load the `runtime:interview-routing` skill then follow the `<instructions>`.',
+      prompt: 'Follow the `<routing-instructions>`.',
       sessionId: randomUUID(),
       resume: false,
       supportsSwitchToInteractive: false,
-      appendSystemPrompt: COMMIT_MESSAGE_STYLE
+      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${INTERVIEW_ROUTING_SKILL}`
     });
   }
 );
