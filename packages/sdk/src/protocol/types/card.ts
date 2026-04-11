@@ -299,6 +299,15 @@ export interface Card extends CardMetadata {
   hasStaleMerge: boolean;
 
   /**
+   * Whether the card has unread activity since the user last viewed its timeline.
+   *
+   * This is a computed, read-state field. It is not persisted in CARD.meta.json.
+   * The store defaults this to `false`; the Router overwrites it with the actual
+   * computed value before sending API responses.
+   */
+  hasUnread: boolean;
+
+  /**
    * Absolute filesystem path to the repository containing the card directory.
    * Used for resolving relative paths in actions.
    */

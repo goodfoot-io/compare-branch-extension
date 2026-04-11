@@ -47,7 +47,8 @@ describe('Event Types', () => {
         isMerged: null,
         hasStaleMerge: true,
         relations: [],
-        incomingRelations: []
+        incomingRelations: [],
+        hasUnread: false
       };
       expect(event.cardId).toBe('card-123');
       expect(event.title).toBe('Test');
@@ -181,7 +182,8 @@ describe('Event Types', () => {
         isMerged: null,
         hasStaleMerge: true,
         relations: [],
-        incomingRelations: []
+        incomingRelations: [],
+        hasUnread: false
       });
 
       expect(receivedEvent).toBeDefined();

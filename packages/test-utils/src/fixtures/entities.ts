@@ -88,6 +88,7 @@ export function createCard(overrides: Partial<Card> = {}): Card {
     updatedAt: overrides.updatedAt ?? timestamp,
     isMerged: overrides.isMerged ?? null,
     hasStaleMerge: overrides.hasStaleMerge ?? true,
+    hasUnread: overrides.hasUnread ?? false,
     repositoryPath: overrides.repositoryPath ?? `/tmp/cards/${metadata.id}`
   };
 }

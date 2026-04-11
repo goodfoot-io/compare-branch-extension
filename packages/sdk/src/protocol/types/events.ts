@@ -373,6 +373,8 @@ export interface CardsMetadataEvent {
   relations: CardRelation[];
   /** Incoming relations targeting this card. */
   incomingRelations: CardRelation[];
+  /** Whether the card has unread activity since the user last viewed its timeline. */
+  hasUnread: boolean;
 }
 
 // --- Action Events ---
