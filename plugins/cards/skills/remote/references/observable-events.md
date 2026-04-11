@@ -1,33 +1,31 @@
-# Observable Events
+<instructions>
 
 Reference for all events emitted on `RemoteEventBus` and the subscription API.
 
 Defined in [`packages/extension/src/remote/RemoteEventBus.ts`](./packages/extension/src/remote/RemoteEventBus.ts).
 
----
-
-## `RemoteBusEvent` Union
+## 1. `RemoteBusEvent` Union
 
 ```typescript
 type RemoteBusEvent =
-  | { type: 'remote:error';            reason: string; originalMessage?: unknown; cardId?: string }
-  | { type: 'remote:capabilities';     target: 'detail' | 'list'; cardId?: string; actions: Record<string, { available: boolean; blockedReason?: string }> }
-  | { type: 'remote:command:result';   commandId: string; result: unknown }
-  | { type: 'detail:tagAdded';         cardId: string; tag: string }
-  | { type: 'detail:tagRemoved';       cardId: string; tag: string }
-  | { type: 'detail:relationAdded';    cardId: string; [key: string]: unknown }
-  | { type: 'detail:incomingRelationRemoved'; cardId: string; [key: string]: unknown }
-  | { type: 'detail:environmentChanged';      cardId: string; [key: string]: unknown }
-  | { type: 'state:update';            [key: string]: unknown };
+  | { type: 'remote:error';                    reason: string; originalMessage?: unknown; cardId?: string }
+  | { type: 'remote:capabilities';             target: 'detail' | 'list'; cardId?: string; actions: Record<string, { available: boolean; blockedReason?: string }> }
+  | { type: 'remote:command:result';           commandId: string; result: unknown }
+  | { type: 'detail:tagAdded';                 cardId: string; tag: string }
+  | { type: 'detail:tagRemoved';               cardId: string; tag: string }
+  | { type: 'detail:relationAdded';            cardId: string; [key: string]: unknown }
+  | { type: 'detail:incomingRelationRemoved';  cardId: string; [key: string]: unknown }
+  | { type: 'detail:environmentChanged';       cardId: string; [key: string]: unknown }
+  | { type: 'state:update';                    [key: string]: unknown };
 ```
 
 ---
 
-## Remote API Events
+## 2. Remote API Events
 
 These events are emitted by the extension in response to `remote:` actions or infrastructure conditions.
 
-### `remote:error`
+### 2.1 `remote:error`
 
 Emitted when a queued message cannot be delivered.
 
@@ -42,7 +40,7 @@ Common causes:
 - No panel exists for the given `cardId` when a detail message arrives.
 - An unknown `remote:` type was sent (the host adapter rejects it explicitly).
 
-### `remote:capabilities`
+### 2.2 `remote:capabilities`
 
 Emitted by the webview in response to `remote:query:capabilities`. The webview inspects its own React state and reports which actions are currently available.
 
@@ -52,7 +50,7 @@ Emitted by the webview in response to `remote:query:capabilities`. The webview i
 | `cardId` | `string?` | Present for detail responses |
 | `actions` | `Record<string, { available: boolean; blockedReason?: string }>` | Map of action names to availability |
 
-### `remote:command:result`
+### 2.3 `remote:command:result`
 
 Emitted when a VS Code command invoked via `vscode.commands.executeCommand` returns a meaningful result.
 
@@ -63,11 +61,11 @@ Emitted when a VS Code command invoked via `vscode.commands.executeCommand` retu
 
 ---
 
-## Observable Webview Events
+## 3. Observable Webview Events
 
-These events mirror outbound extension-to-webview messages. They are forwarded to the bus by providers via the `OBSERVABLE_MESSAGE_TYPES` allowlist. Subscribe to them to observe the consequence of a dispatched action.
+These events mirror outbound extension-to-webview messages forwarded to the bus via the `OBSERVABLE_MESSAGE_TYPES` allowlist. Subscribe to them to observe the consequence of a dispatched action.
 
-### `detail:tagAdded`
+### 3.1 `detail:tagAdded`
 
 Emitted after a tag has been added to a card via `action:requestTagsQuickPick`.
 
@@ -78,7 +76,7 @@ Emitted after a tag has been added to a card via `action:requestTagsQuickPick`.
 
 **Trigger:** `remote:action:requestTagsQuickPick` (on either detail or list target).
 
-### `detail:tagRemoved`
+### 3.2 `detail:tagRemoved`
 
 Emitted after a tag has been removed from a card.
 
@@ -87,7 +85,7 @@ Emitted after a tag has been removed from a card.
 | `cardId` | `string` | The card the tag was removed from |
 | `tag` | `string` | The tag that was removed |
 
-### `detail:relationAdded`
+### 3.3 `detail:relationAdded`
 
 Emitted after a relation has been added to a card via `action:requestRelationQuickPick`.
 
@@ -98,7 +96,7 @@ Emitted after a relation has been added to a card via `action:requestRelationQui
 
 **Trigger:** `remote:action:requestRelationQuickPick` (on either detail or list target).
 
-### `detail:incomingRelationRemoved`
+### 3.4 `detail:incomingRelationRemoved`
 
 Emitted after an incoming relation has been removed from a card.
 
@@ -107,7 +105,7 @@ Emitted after an incoming relation has been removed from a card.
 | `cardId` | `string` | The card whose incoming relation was removed |
 | _(other fields)_ | `unknown` | Additional relation data |
 
-### `detail:environmentChanged`
+### 3.5 `detail:environmentChanged`
 
 Emitted when the environment associated with a card changes.
 
@@ -116,19 +114,15 @@ Emitted when the environment associated with a card changes.
 | `cardId` | `string` | The card whose environment changed |
 | _(other fields)_ | `unknown` | Environment update data |
 
-### `state:update`
+### 3.6 `state:update`
 
-Emitted for incremental state updates (theme changes, card ID updates).
-
-| Field | Type | Description |
-|-------|------|-------------|
-| _(open-ended)_ | `unknown` | State update payload |
+Emitted for incremental state updates (theme changes, card ID updates). Fields are open-ended.
 
 ---
 
-## Allowlist Semantics
+## 4. Allowlist Semantics
 
-Only the message types in `OBSERVABLE_MESSAGE_TYPES` are forwarded from providers to the bus:
+Only the types in `OBSERVABLE_MESSAGE_TYPES` are forwarded from providers to the bus:
 
 ```typescript
 const OBSERVABLE_MESSAGE_TYPES: ReadonlySet<string> = new Set([
@@ -141,7 +135,7 @@ const OBSERVABLE_MESSAGE_TYPES: ReadonlySet<string> = new Set([
 ]);
 ```
 
-The following outbound messages are **intentionally excluded** to prevent credential leakage:
+Excluded to prevent credential leakage:
 
 | Message | Why excluded |
 |---------|-------------|
@@ -151,11 +145,11 @@ The following outbound messages are **intentionally excluded** to prevent creden
 
 ---
 
-## Subscription API
+## 5. Subscription API
 
-`RemoteEventBus` provides three subscription methods:
+`RemoteEventBus` provides three subscription methods.
 
-### `bus.on(type, callback)`
+### 5.1 `bus.on(type, callback)`
 
 Subscribe to a specific event type. Idempotent — registering the same callback twice for the same type has no effect.
 
@@ -165,7 +159,7 @@ bus.on('detail:tagAdded', (event) => {
 });
 ```
 
-### `bus.off(type, callback)`
+### 5.2 `bus.off(type, callback)`
 
 Unsubscribe a callback from a specific event type. No-op if the callback was not registered.
 
@@ -173,7 +167,7 @@ Unsubscribe a callback from a specific event type. No-op if the callback was not
 bus.off('detail:tagAdded', myCallback);
 ```
 
-### `bus.onAny(callback)`
+### 5.3 `bus.onAny(callback)`
 
 Subscribe to all events, regardless of type. Returns an unsubscribe function.
 
@@ -186,15 +180,13 @@ const unsubscribe = bus.onAny((event) => {
 unsubscribe();
 ```
 
-### Emission order
-
-`emit()` invokes type-specific callbacks in registration order, then `onAny` callbacks in registration order. All callbacks are invoked synchronously.
+Emission order: type-specific callbacks fire first (in registration order), then `onAny` callbacks (in registration order). All callbacks are invoked synchronously.
 
 ---
 
-## Emit-Expect Correlation Patterns
+## 6. Emit-Expect Correlation Patterns
 
-### Single action, single consequence
+### 6.1 Single Action, Single Consequence
 
 ```typescript
 const received = new Promise<string>((resolve) => {
@@ -211,14 +203,13 @@ injectRemoteMessage(providers, {
 const tag = await received;
 ```
 
-### Error guard
+### 6.2 Error Guard
 
 ```typescript
 const errorReceived = new Promise<string>((resolve) => {
   bus.on('remote:error', (event) => resolve(event.reason));
 });
 
-// Dispatch to a non-existent panel
 injectRemoteMessage(providers, {
   type: 'remote:action:executeAction',
   target: 'detail',
@@ -227,10 +218,9 @@ injectRemoteMessage(providers, {
 });
 
 const reason = await errorReceived;
-// reason describes why the message was dropped
 ```
 
-### Capabilities query
+### 6.3 Capabilities Query
 
 ```typescript
 const capabilities = new Promise<Record<string, { available: boolean; blockedReason?: string }>>((resolve) => {
@@ -247,3 +237,5 @@ injectRemoteMessage(providers, {
 
 const actions = await capabilities;
 ```
+
+</instructions>

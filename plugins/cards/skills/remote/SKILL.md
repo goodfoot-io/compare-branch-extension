@@ -3,23 +3,23 @@ name: remote
 description: This skill should be used when the user asks to "send a remote message", "dispatch a remote action", "programmatically trigger a card action", "drive the extension from a test", "observe extension events", "use the remote: API", "inject a remote message", "preload a dialog response", or "use the synthetic event harness". Also load when writing extension-host tests that need to trigger UI actions without a live webview.
 ---
 
-# Cards Remote API
+<instructions>
 
-The remote API provides programmatic control over Cards extension UI through a strictly asynchronous **emit-expect** model. External callers — agents, tests, and scripts — dispatch `remote:` messages and observe the consequences on an event stream. There are no synchronous request-response endpoints; callers own all correlation logic.
+The Cards remote API lets external callers — agents, tests, and scripts — drive the same UI actions a user performs. The model is strictly asynchronous: callers dispatch `remote:` messages and observe consequences on an event stream. There are no synchronous request-response endpoints; callers own all correlation logic.
 
-## Concepts and Ontology
+## 1. Ontology
 
-The API divides into three conceptual layers:
+Three conceptual layers organize the API:
 
-| Layer | What it contains |
-|-------|-----------------|
+| Layer | Contents |
+|-------|----------|
 | **Messages** | Inbound `remote:` actions dispatched into the extension from callers |
 | **Events** | Outbound events emitted by the extension and observable via `RemoteEventBus` |
 | **Infrastructure** | Buffering, routing, and interception machinery |
 
-### Messages
+### 1.1 Messages
 
-A `RemoteMessage` targets exactly one webview via its `target` field. Two targets exist:
+A `RemoteMessage` targets exactly one webview via its `target` field:
 
 - **`target: 'detail'`** — Dispatches into the detail panel for a specific card. All detail messages carry `cardId: string`.
 - **`target: 'list'`** — Dispatches into the list sidebar.
@@ -28,22 +28,20 @@ Messages travel: caller → provider `enqueueRemoteMessage()` → `RemoteMessage
 
 Full type catalog: **[`references/message-types.md`](./references/message-types.md)**
 
-### Events
+### 1.2 Events
 
-After dispatching a message, observe the consequence on the `RemoteEventBus`. Events are emitted synchronously during provider processing; subscribe before dispatching to avoid races.
-
-Three categories of observable event:
+After dispatching a message, observe the consequence on `RemoteEventBus`. Events are emitted synchronously during provider processing — subscribe **before** dispatching.
 
 | Category | Types |
 |----------|-------|
 | Remote API events | `remote:error`, `remote:capabilities`, `remote:command:result` |
 | Observable webview events | `detail:tagAdded`, `detail:tagRemoved`, `detail:relationAdded`, `detail:incomingRelationRemoved`, `detail:environmentChanged`, `state:update` |
 
-Credential-bearing messages (`extension:init`, `server:changed`, `discover:response`) are intentionally **excluded** from the bus.
+Credential-bearing messages (`extension:init`, `server:changed`, `discover:response`) are intentionally excluded from the bus.
 
 Full event reference: **[`references/observable-events.md`](./references/observable-events.md)**
 
-### Infrastructure
+### 1.3 Infrastructure
 
 | Class / Interface | Role |
 |-------------------|------|
@@ -55,7 +53,7 @@ Testing utilities and interceptors: **[`references/testing.md`](./references/tes
 
 ---
 
-## Emit-Expect Pattern
+## 2. Emit-Expect Pattern
 
 Every interaction follows the same structure:
 
@@ -69,9 +67,8 @@ Never invert steps 1 and 2 — subscribe first, then dispatch.
 
 ```typescript
 // 1. Subscribe before dispatching
-const disposable = bus.on('detail:tagAdded', (event) => {
+bus.on('detail:tagAdded', (event) => {
   console.log('Tag added:', event.tag);
-  disposable.dispose();
 });
 
 // 2. Dispatch
@@ -83,13 +80,13 @@ injectRemoteMessage(providers, {
 });
 ```
 
-For multi-step flows, always await the expected consequence event before dispatching the next action. This is caller discipline, not API enforcement.
+For multi-step flows, await the expected consequence event before dispatching the next action.
 
 ---
 
-## Dispatching Messages (Extension-Host Tests)
+## 3. Dispatching Messages
 
-Use `injectRemoteMessage()` from [testHarness.ts](./packages/extension/src/remote/testHarness.ts) to inject messages directly into providers, bypassing the WebSocket layer:
+Use `injectRemoteMessage()` from [`testHarness.ts`](./packages/extension/src/remote/testHarness.ts) to inject messages directly into providers, bypassing the WebSocket layer (extension-host tests only):
 
 ```typescript
 import { injectRemoteMessage } from '../../src/remote/testHarness.js';
@@ -106,9 +103,9 @@ The `providers` object requires both a `CardsDetailPanelProvider` (for `target: 
 
 ---
 
-## Observing Events (Extension-Host Tests)
+## 4. Observing Events
 
-Use `createRemoteObserver()` from [testHarness.ts](./packages/extension/src/remote/testHarness.ts) to subscribe to all events on the bus:
+Use `createRemoteObserver()` from [`testHarness.ts`](./packages/extension/src/remote/testHarness.ts) to subscribe to all events on the bus:
 
 ```typescript
 import { createRemoteObserver } from '../../src/remote/testHarness.js';
@@ -132,9 +129,9 @@ bus.on('remote:error', (event) => {
 
 ---
 
-## Capabilities Query
+## 5. Capabilities Query
 
-Each webview responds to `remote:query:capabilities` by returning which actions are currently available and which are blocked (with a reason). Subscribe to `remote:capabilities` before dispatching:
+Each webview responds to `remote:query:capabilities` by reporting which actions are available and which are blocked. Subscribe to `remote:capabilities` before dispatching:
 
 ```typescript
 bus.on('remote:capabilities', (event) => {
@@ -148,11 +145,11 @@ injectRemoteMessage(providers, {
 });
 ```
 
-The `actions` map has keys of action names and values of `{ available: boolean; blockedReason?: string }`.
+The `actions` map uses action names as keys with values of `{ available: boolean; blockedReason?: string }`.
 
 ---
 
-## Error Handling
+## 6. Error Handling
 
 When a message is dropped (e.g., the panel was disposed before the webview was ready), the bus emits `remote:error`:
 
@@ -164,11 +161,11 @@ bus.on('remote:error', (event) => {
 });
 ```
 
-The `remote:error` event is always emitted for undeliverable messages. Subscribe to `remote:error` to detect dispatch failures.
+Subscribe to `remote:error` to detect dispatch failures.
 
 ---
 
-## Message Routing at a Glance
+## 7. Message Routing
 
 ```
 Caller
@@ -200,10 +197,12 @@ RemoteEventBus.emit()           ← observable by caller
 
 ---
 
-## Additional Resources
+## 8. Reference Files
 
 | Reference | Contents |
 |-----------|----------|
 | **[`references/message-types.md`](./references/message-types.md)** | Full type catalog for `RemoteDetailMessage` and `RemoteListMessage` |
 | **[`references/observable-events.md`](./references/observable-events.md)** | `RemoteBusEvent` union, allowlist semantics, subscription API |
 | **[`references/testing.md`](./references/testing.md)** | `injectRemoteMessage`, `createRemoteObserver`, `KeyedDialogInterceptor` |
+
+</instructions>
