@@ -79,13 +79,15 @@ Read the card from the card repository. Create the plan and investigate uncertai
 </invoke>
 ```
 
-After the planner returns, spawn the failure-mode subagent:
+After the planner returns, spawn the failure-mode subagent in background mode:
 
 ```xml
 <invoke name="Agent">
 <parameter name="description">Plan failure-mode analysis</parameter>
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
+<parameter name="name">plan-failure-mode</parameter>
+<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this implementation plan.
 
@@ -125,13 +127,15 @@ Read the card from the card repository. Create the plan and investigate uncertai
 </invoke>
 ```
 
-After the planner returns, spawn the failure-mode subagents in parallel:
+After the planner returns, spawn the failure-mode subagents in parallel in background mode:
 
 ```xml
 <invoke name="Agent">
 <parameter name="description">Plan failure-mode analysis — data flow and multi-file impact</parameter>
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
+<parameter name="name">plan-failure-mode-data-flow</parameter>
+<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this implementation plan. Focus on data-flow completeness and multi-file impact.
 
@@ -148,6 +152,8 @@ Read the plan files from the `plan/` directory in the card repository. Read ever
 <parameter name="description">Plan failure-mode analysis — error paths and async hazards</parameter>
 <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
 <parameter name="model">opus</parameter>
+<parameter name="name">plan-failure-mode-error-paths</parameter>
+<parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
 Identify potential failure modes in this implementation plan. Focus on error paths, async hazards, and partial-failure handling.
 
@@ -169,7 +175,16 @@ After all subagents return, read their output.
 Based on the planner's outcome and any failure-mode findings:
 
 - **Planner blocked**: Document in comment, add `blocked` tag, commit. **STOP** — do not proceed to implementation.
-- **Findings require plan revision**: Resume the planner via `SendMessage` and provide the failure-mode report. Wait for the planner to return, then return to Step 2 to re-dispatch failure-mode subagents.
+- **Findings require plan revision**: Resume the planner via `SendMessage` and provide the failure-mode report. Wait for the planner to return, then send each failure-mode agent a message in this form:
+
+  > The planner has revised the plan in response to your findings.
+  >
+  > **Your findings from the previous round:**
+  > [paste the agent's prior findings verbatim]
+  >
+  > Review the updated plan files in `plan/`. For each prior finding, verify whether it was correctly resolved — read the referenced code in the workspace, not just the plan's description of the fix. For every section the planner changed, go one hop deeper than the previous round: follow consumers further, verify new assertions in the workspace, and trace error paths into adjacent code you have not yet read. Return your findings, leading with unresolved prior concerns, then new findings the revision introduced.
+
+  Wait for all failure-mode agents to return, then read their findings and decide again.
 - **No blocking findings**: Proceed to Step 4.
 
 When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Style observations and minor nits do not.

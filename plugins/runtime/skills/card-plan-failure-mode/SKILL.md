@@ -86,4 +86,39 @@ Return findings as your response message to the caller. Lead with approach-level
 
 The caller reads the findings and decides whether the plan is ready to proceed or needs revision.
 
+## When Resuming for a Revised Plan
+
+When the orchestrator sends a follow-up message asking you to review the updated plan, this is a continuation of your analysis — you retain full context from every prior round.
+
+### 1. Identify What Changed
+
+Read the current `plan/` files and compare them against what you analyzed in the previous round. Identify every section the planner added, removed, or restructured. The changed sections are your primary focus, but do not abandon prior concerns that remain open.
+
+### 2. Triage Each Prior Finding
+
+For each concern you raised in the previous round, determine its current status:
+
+- **Addressed**: The plan now accounts for it. Verify the fix is correct in the workspace — confirm it by reading the referenced code, not by accepting the plan's description of it. A planner correction that is incomplete or introduces a new risk becomes a new finding.
+- **Partially addressed**: The plan acknowledged the concern but the fix is incomplete or shifts the risk rather than resolving it. State what remains and why it still matters.
+- **Unaddressed**: The concern still applies to the revised plan. Re-state it with the same weight, noting it was not resolved.
+
+### 3. Deep-Dive the Changed Sections
+
+For every section the planner modified, apply the §3 empirical failure checks with greater depth than the previous round:
+
+- Follow consumers one hop further than before.
+- Trace error paths that branch from the changed area into adjacent code you did not read in prior rounds.
+- Verify every new assertion the planner added — treat each one as an unverified claim until confirmed in the workspace.
+- For any finding that was only partially resolved, pursue it to its conclusion: read every caller, verify every dependency, check every test.
+
+The goal of each successive round is to arrive at a conclusion rather than to re-raise the same surface-level signal.
+
+### 4. Connect Findings Across Rounds
+
+When a new finding in the revised plan relates to a prior concern — whether it compounds it, partially resolves it, shifts its location, or changes its severity — document the relationship explicitly. The orchestrator uses this to distinguish unresolved prior problems from newly introduced ones.
+
+### 5. Return Findings for This Round
+
+Use the same format as §5. Lead with unresolved prior concerns, then new findings the revision introduced, then approach-level risks that survive the revision. Do not repeat findings that have been fully and correctly resolved — note them as closed and move on.
+
 </instructions>
