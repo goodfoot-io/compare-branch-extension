@@ -69,7 +69,8 @@ export type RemoteListMessage =
   | { type: 'remote:write:approveGate'; target: 'list'; cardId: string; gate: 'plan' | 'mergeRequest' }
   | { type: 'remote:action:requestTagsQuickPick'; target: 'list'; cardId: string; currentTags: string[] }
   | { type: 'remote:action:requestRelationQuickPick'; target: 'list'; cardId: string }
-  | { type: 'remote:navigate'; target: 'list'; route: string };
+  | { type: 'remote:navigate'; target: 'list'; route: string }
+  | { type: 'remote:query:capabilities'; target: 'list' };
 
 /**
  * Union of all remote programmatic API messages.
