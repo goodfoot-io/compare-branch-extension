@@ -68,6 +68,7 @@ describe('DomainEvent discriminated union', () => {
       updatedAt: '2026-01-01T00:00:00Z',
       isMerged: null,
       hasStaleMerge: true,
+      hasUnread: false,
       relations: [],
       incomingRelations: []
     };
@@ -115,6 +116,7 @@ describe('DomainEvent discriminated union', () => {
         updatedAt: '',
         isMerged: null,
         hasStaleMerge: true,
+        hasUnread: false,
         relations: [],
         incomingRelations: []
       },
