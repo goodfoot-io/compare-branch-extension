@@ -66,6 +66,7 @@ export type RemoteDetailMessage =
   | { type: 'remote:action:requestClipboard'; target: 'detail'; cardId: string }
   | { type: 'remote:action:uploadAttachment'; target: 'detail'; cardId: string; files: unknown[] }
   | { type: 'remote:action:openAttachment'; target: 'detail'; cardId: string; attachmentName: string }
+  | { type: 'remote:action:deleteAttachment'; target: 'detail'; cardId: string; attachmentId: string; attachmentName: string }
   | {
       type: 'remote:action:openFragmentLink';
       target: 'detail';
