@@ -11,7 +11,7 @@
 
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
 
-const ROUTING_REMINDER ='**IMPORTANT: Immediately load skills based on the `<routing-instructions>`.**';
+const ROUTING_REMINDER = '**IMPORTANT: Immediately load skills based on the `<routing-instructions>`.**';
 
 export default sessionStartHook({ matcher: 'compact' }, (_input, { logger }) => {
   logger.info('Post-compaction session start: injecting routing reminder');
