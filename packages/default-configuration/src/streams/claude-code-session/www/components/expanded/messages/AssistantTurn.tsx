@@ -52,9 +52,7 @@ export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElemen
 
   return (
     <div className="flex flex-col items-start w-full max-w-full min-w-0 py-2 first:pt-0">
-      <div
-        className="max-w-[85%] break-words overflow-wrap-anywhere px-3 py-2 rounded rounded-bl-none border bg-blue-600/10 border-blue-600/40"
-      >
+      <div className="max-w-[85%] break-words overflow-wrap-anywhere px-3 py-2 rounded rounded-bl-none border bg-blue-600/10 border-blue-600/40">
         {bubbleChildren}
       </div>
     </div>

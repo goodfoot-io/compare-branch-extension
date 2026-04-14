@@ -40,9 +40,7 @@ export function UserTurn({ textBlocks }: UserTurnProps): React.ReactElement | nu
 
   return (
     <div className="flex flex-col items-end w-full max-w-full min-w-0 py-2 first:pt-0" data-turn="user">
-      <div
-        className="max-w-[85%] break-words overflow-wrap-anywhere px-3 py-2 rounded rounded-br-none border bg-green-600/10 border-green-600/40"
-      >
+      <div className="max-w-[85%] break-words overflow-wrap-anywhere px-3 py-2 rounded rounded-br-none border bg-green-600/10 border-green-600/40">
         <div
           className="cc-text break-words overflow-wrap-anywhere min-w-0 max-w-full"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(humanText) }}
