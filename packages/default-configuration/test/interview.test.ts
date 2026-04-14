@@ -176,7 +176,7 @@ describe('Default Actions', () => {
       await promise;
     });
 
-    it('prompt includes runtime:interview-routing', async () => {
+    it('appends interview-routing skill to system prompt', async () => {
       const { spawn } = await import('node:child_process');
       const child = createMockChild();
       vi.mocked(spawn).mockReturnValue(child);
@@ -186,8 +186,10 @@ describe('Default Actions', () => {
       await flushMicrotasks();
 
       const args = vi.mocked(spawn).mock.calls[0][1] as string[];
-      const prompt = args[0];
-      expect(prompt).toContain('runtime:interview-routing');
+      const appendIndex = args.indexOf('--append-system-prompt');
+      expect(appendIndex).toBeGreaterThanOrEqual(0);
+      const appendedPrompt = args[appendIndex + 1];
+      expect(appendedPrompt).toContain('routing-instructions');
 
       child.emit('close', 0);
       await promise;
