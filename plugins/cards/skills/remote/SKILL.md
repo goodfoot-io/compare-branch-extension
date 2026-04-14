@@ -34,10 +34,15 @@ After dispatching a message, observe the consequence on `RemoteEventBus`. Events
 
 | Category | Types |
 |----------|-------|
-| Remote API events | `remote:error`, `remote:capabilities`, `remote:command:result` |
-| Observable webview events | `detail:tagAdded`, `detail:tagRemoved`, `detail:relationAdded`, `detail:incomingRelationRemoved`, `detail:environmentChanged`, `state:update` |
+| Remote API events | `remote:error`, `remote:capabilities`, `remote:command:result`, `remote:command:error` |
+| Panel lifecycle events | `remote:panel:created`, `remote:panel:disposed` |
+| Detail webview events | `detail:tagAdded`, `detail:tagRemoved`, `detail:relationAdded`, `detail:incomingRelationRemoved`, `detail:environmentChanged`, `state:update` |
+| Editor webview events | `editor:saveResult`, `editor:error` |
+| Wizard webview events | `wizard:installSuccess`, `wizard:installError`, `wizard:existingConfig` |
+| Stream webview events | `stream:started`, `stream:ended`, `subscribe:response` |
+| Create card webview events | `createCard:tagAdded`, `createCard:attachmentAdded`, `createCard:relationAdded`, `createCard:error`, `createCard:environmentsLoaded` |
 
-Credential-bearing messages (`extension:init`, `server:changed`, `discover:response`) are intentionally excluded from the bus.
+Credential-bearing messages (`extension:init`, `server:changed`, `discover:response`, `createCard:credentialsUpdated`) are intentionally excluded from the bus.
 
 Full event reference: **[`references/observable-events.md`](./references/observable-events.md)**
 
