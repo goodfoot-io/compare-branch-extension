@@ -130,7 +130,7 @@ Agent prompts must be self-contained — agents have no conversation context. Re
 @[CARD_REPO_PATH]/plan/
 
 ## Scope
-[Coherent: Complete all todos in sequence, committing after each logical unit.]
+[Coherent: Complete all todos in sequence.]
 [Sequential: Complete phase [N] todos: [phase todo descriptions]. Stop at gate: [GATE_CONDITION].]
 [Parallel: Complete todos: [independent group todo descriptions]]
 
@@ -167,8 +167,8 @@ This task owns: [absolute paths from plan]
 
 ### 2.4 Process Result
 
-- **COMPLETED**: Mark todo completed, proceed to Step 2.5
-- **NEEDS_REVISION**: Update todo with attempt count, revert the agent's owned files to baseline:
+- **COMPLETED**: Mark all todos in this agent's scope as completed, proceed to Step 2.5
+- **NEEDS_REVISION**: Update attempt count on all todos in this agent's scope, revert the agent's owned files to baseline:
   ```bash
   # [AGENT_FILES] is the list of absolute paths from the agent's File Ownership section.
   # Revert only files this agent owns — do not touch other agents' work.
@@ -189,11 +189,16 @@ This task owns: [absolute paths from plan]
 - **SOME blocked**: Note in summary, proceed to Step 3
 - **NONE blocked**: Proceed to Step 3
 
-### 2.5 Load Skills and Commit
+### 2.5 Validate and Commit
 
-Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
+Load the `cards:markdown` and `runtime:workspace-commit-style` skills if not already loaded. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
 
-Commit all workspace changes including new files:
+Run typecheck, lint, and the tests relevant to the developer's changes.
+
+Based on the result:
+- **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill — per `<orchestrator-constraints>`): Fix inline and re-run validation.
+- **Error requiring implementation changes**: Treat as NEEDS_REVISION — revert agent files and re-delegate per Step 2.4.
+- **All validations pass**: Commit all workspace changes including new files:
 
 ```bash
 git add -A
@@ -206,16 +211,16 @@ git tag -f "implement/$CARD_ID/baseline" HEAD
 
 The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
 
+Based on routing mode and remaining work:
+- **Sequential, more phases remain**: Return to Step 2.3 to delegate the next phase.
+- **More agent results pending** (parallel, or sequential with concurrent agents): Return to Step 2.4 for the next result.
+- **All todos processed**: Evaluate the "After all todos" conditions in Step 2.4.
+
 ### 2.6 Validation Gate
 
-Create post-implementation rollback point:
+Mark the post-implementation rollback point:
 
 ```bash
-git add -A
-git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines> — describe the uncommitted changes]
-COMMITMSG
-)"
 git tag -f "implement/$CARD_ID/post-implementation" HEAD
 ```
 
@@ -277,7 +282,7 @@ Tags mark rollback points during execution. Tags point to the most recent real c
 | Tag | Created At | Advances | Purpose |
 |-----|------------|----------|---------|
 | `implement/[CARD_ID]/baseline` | Step 1 | After each COMPLETED todo commit (Step 2.5) | Last known good state — NEEDS_REVISION reverts to this tag |
-| `implement/[CARD_ID]/post-implementation` | Step 2.6 | Never | After implementation, before validation |
+| `implement/[CARD_ID]/post-implementation` | Step 2.6 | Never | After all per-todo validation and commits, before final validation |
 
 
 </instructions>

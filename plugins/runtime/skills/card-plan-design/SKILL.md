@@ -8,7 +8,7 @@ description: Find failure modes in a plan's design as a user would experience th
 
 ## 1. Establish the Failure Baseline
 
-Read `CARD.md` from the card repository and all plan files from `plan/`. The card defines what the user must experience — use it to establish the baseline against which you will identify failures in the plan's design. The plan describes the intended approach; read it to understand what a developer following it would actually build.
+Read `CARD.md` from the card repository and the primary plan file identified by the caller. Other files in `plan/` are available for context. The card defines what the user must experience — use it to establish the baseline against which you will identify failures in the plan's design. The plan describes the intended approach; read it to understand what a developer following it would actually build.
 
 The orchestrator's prompt will identify specific acceptance criteria and user scenarios relevant to this card. Start there.
 

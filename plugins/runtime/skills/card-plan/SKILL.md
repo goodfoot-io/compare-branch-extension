@@ -4,6 +4,10 @@ description: Assess card complexity, select a planning tier, dispatch subagents,
 ---
 
 
+<placeholder-variables>
+[PLAN_FILE] — The primary plan file path relative to the card repository root, identified from the most recent git commit to `plan/`
+</placeholder-variables>
+
 <instructions>
 
 ## 1. Select Planning Tier
@@ -79,7 +83,13 @@ Read the card from the card repository. Create the plan and investigate uncertai
 </invoke>
 ```
 
-After the planner returns, spawn the failure-mode subagent in background mode:
+After the planner returns, identify the primary plan file:
+
+```bash
+git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
+```
+
+Then spawn the failure-mode subagent in background mode:
 
 ```xml
 <invoke name="Agent">
@@ -97,7 +107,7 @@ Identify potential failure modes in this implementation plan.
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the plan files from the `plan/` directory in the card repository. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+The primary plan file is `[PLAN_FILE]`. Focus your analysis on it; read other files in `plan/` for context. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
 
 Also evaluate the plan's design from the user's perspective: would the plan, if executed correctly, deliver the outcomes the card requires? Look for intent drift between the card and the plan, design choices that would produce wrong user outcomes even when implemented faithfully, and user-facing scenarios the plan doesn't account for.
 </parameter>
@@ -129,7 +139,13 @@ Read the card from the card repository. Create the plan and investigate uncertai
 </invoke>
 ```
 
-Before writing either prompt, read the plan and the card. Each prompt must reflect the specific nature of this plan and this card.
+Before writing either prompt, identify the primary plan file and read the plan and the card:
+
+```bash
+git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
+```
+
+Each prompt must reflect the specific nature of this plan and this card.
 
 After the planner returns, spawn both agents in parallel in background mode:
 
@@ -148,6 +164,8 @@ Identify potential failure modes in this implementation plan.
 
 ## Workspace
 [WORKSPACE_PATH]
+
+The primary plan file is `[PLAN_FILE]`. Focus analysis on it; read other files in `plan/` for context.
 
 [Describe the specific technical failure risks this plan presents. Where does the plan make load-bearing assumptions about the codebase that should be verified? Which §3 failure patterns are most probable given the plan's approach — multi-file impact blindness, unverified claims, ordering hazards, silent error conversion? Write this from what you found in the plan, not as a generic description.]
 </parameter>
@@ -169,6 +187,8 @@ Evaluate whether this plan's design would deliver the user experience the card r
 
 ## Workspace
 [WORKSPACE_PATH]
+
+The primary plan file is `[PLAN_FILE]`. Focus analysis on it; read other files in `plan/` for context.
 
 [Translate the card's requirements into the user outcomes this plan must deliver:
 - The specific acceptance criteria to verify coverage for
@@ -199,9 +219,16 @@ Based on the planner's outcome and any failure-mode findings:
   </invoke>
   ```
 
-  Wait for the planner to return, then send a message to each evaluation agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
+  Wait for the planner to return, then re-identify the primary plan file:
+
+  ```bash
+  git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
+  ```
+
+  Then send a message to each evaluation agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
 
   **plan-failure-mode**: Deliver the technical revision context:
+  - The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
   - What the planner changed — which sections were added, removed, or restructured, and where to focus deeper
   - How the planner responded to technical findings — which concerns were addressed, which deferred, and whether any fix addresses the symptom but not the root cause
   - New interfaces, contracts, data flows, or dependencies the revision introduced that were not in scope in the prior round
@@ -217,6 +244,7 @@ Based on the planner's outcome and any failure-mode findings:
   ```
 
   **plan-design**: Deliver the design revision context:
+  - The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
   - Which user-outcome concerns the planner addressed, described in terms of what the user would now experience — not what plan text changed, but what the user outcome is now
   - Which acceptance criteria gaps or intent drift findings were not addressed and why
   - New design decisions the revision introduced and what user outcome they would produce if executed
