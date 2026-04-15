@@ -13,145 +13,13 @@
 import { streamStore } from '@cards/sdk/stream-store';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { parseLineEvents, stripMarkup } from '../../lib';
 import type { CompactEvent } from '../../lib/parse-session';
 import type { BadgeVariant } from './Badge';
 import { CompactFooter } from './CompactFooter';
 import { CompactHeader } from './CompactHeader';
+import type { CompactState } from './compact-state';
+import { buildState, processLine } from './compact-state';
 import { Tail } from './Tail';
-
-/** Subagent filename pattern: two UUID segments separated by a hyphen. */
-const SUBAGENT_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/;
-
-interface CompactState {
-  sessionStatus: string;
-  hasErrors: boolean;
-  isSubagent: boolean;
-  promptText: string;
-  durationS: number;
-  tail: [CompactEvent | null, CompactEvent | null];
-  turnCount: number;
-  outputTokensTotal: number;
-  totalDurationMs: number;
-  errorCount: number;
-}
-
-function makeInitialState(): CompactState {
-  return {
-    sessionStatus: 'running',
-    hasErrors: false,
-    isSubagent: false,
-    promptText: '',
-    durationS: 0,
-    tail: [null, null],
-    turnCount: 0,
-    outputTokensTotal: 0,
-    totalDurationMs: 0,
-    errorCount: 0
-  };
-}
-
-/**
- * Derives initial status from stream file meta.
- * @param metaStatus - The raw meta status string from the file, or undefined.
- * @returns Normalized session status string.
- */
-function deriveInitialStatus(metaStatus: string | undefined): string {
-  if (metaStatus === 'completed') return 'success';
-  if (metaStatus === 'error') return 'error';
-  return 'running';
-}
-
-/**
- * Processes a single JSONL line into the mutable compact state.
- * @param state - The mutable compact state to update in place.
- * @param line - Raw JSONL line string to process.
- */
-function processLine(state: CompactState, line: string): void {
-  if (!line || !line.trim()) return;
-  let msg: Record<string, unknown>;
-  try {
-    msg = JSON.parse(line) as Record<string, unknown>;
-  } catch {
-    return;
-  }
-
-  // Extract prompt text from user messages
-  if (msg['type'] === 'user' && !msg['tool_use_result']) {
-    const content = (msg['message'] as Record<string, unknown> | undefined)?.['content'];
-    let text = '';
-    if (typeof content === 'string') {
-      text = content;
-    } else if (Array.isArray(content)) {
-      for (const block of content) {
-        if ((block as Record<string, unknown>)?.['type'] === 'text') {
-          const blockText = (block as Record<string, unknown>)['text'];
-          if (typeof blockText === 'string') text += blockText;
-        }
-      }
-    }
-    const cleaned = stripMarkup(text);
-    if (cleaned && !/^\s*[{[<]/.test(cleaned)) {
-      state.promptText = cleaned;
-    }
-  }
-
-  const events = parseLineEvents(line);
-  for (const evt of events) {
-    switch (evt.kind) {
-      case 'tool-call':
-      case 'text':
-      case 'error':
-      case 'subagent-tool-call': {
-        if ((evt.kind === 'tool-call' || evt.kind === 'subagent-tool-call') && evt.isInfrastructure) {
-          const hasNonInfra = state.tail.some((t) => {
-            if (t === null) return false;
-            if (t.kind !== 'tool-call' && t.kind !== 'subagent-tool-call') return true;
-            return !t.isInfrastructure;
-          });
-          if (hasNonInfra) break;
-        }
-        state.tail[0] = state.tail[1];
-        state.tail[1] = evt;
-        if (evt.kind === 'error') {
-          state.errorCount++;
-          state.hasErrors = true;
-        }
-        break;
-      }
-      case 'turn-duration':
-        state.totalDurationMs += evt.durationMs;
-        state.turnCount++;
-        break;
-      case 'usage':
-        state.outputTokensTotal += evt.outputTokens;
-        break;
-      case 'result':
-        state.sessionStatus = evt.status;
-        state.turnCount = evt.turns;
-        state.durationS = evt.durationS;
-        break;
-    }
-  }
-}
-
-/**
- * Builds the full compact state from an array of JSONL lines.
- * @param lines - Array of raw JSONL lines to process.
- * @param primaryFilename - Primary stream filename used to detect subagent sessions.
- * @param metaStatus - Raw meta status string from the file, or undefined.
- * @returns Fully populated compact state derived from all lines.
- */
-function buildState(lines: string[], primaryFilename: string, metaStatus: string | undefined): CompactState {
-  const state = makeInitialState();
-  state.sessionStatus = deriveInitialStatus(metaStatus);
-  state.isSubagent = SUBAGENT_PATTERN.test(primaryFilename);
-  for (const line of lines) {
-    processLine(state, line);
-  }
-  return state;
-}
 
 /**
  * Formats output token count as a compact string.
@@ -268,6 +136,11 @@ export function CompactView(): React.ReactElement {
   return (
     <div className="px-2 pt-0.5 pb-1 font-vscode-editor text-[0.85em] overflow-hidden">
       <CompactHeader variant={variant} title={title} durationStr={durationStr} />
+      {s.awaySummary && (
+        <div className="text-[0.8em] text-vscode-descriptionForeground italic truncate mb-0.5 pl-[calc(theme(spacing.4)+theme(spacing.1.5))]">
+          {s.awaySummary}
+        </div>
+      )}
       <Tail prev={s.tail[0]} curr={s.tail[1]} highlight={highlight} />
       <CompactFooter
         turnCount={s.turnCount}

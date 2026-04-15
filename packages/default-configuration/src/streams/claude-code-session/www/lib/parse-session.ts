@@ -133,6 +133,13 @@ export interface SystemTaskNotificationMsg {
   summary?: string;
 }
 
+/** System away_summary message — written when Claude exits mid-session. */
+export interface SystemAwaySummaryMsg {
+  type: 'system';
+  subtype: 'away_summary';
+  content: string;
+}
+
 /** Union of system messages. */
 export type SystemMsg =
   | SystemInitMsg
@@ -143,6 +150,7 @@ export type SystemMsg =
   | SystemHookResponseMsg
   | SystemFilesPersistedMsg
   | SystemTaskNotificationMsg
+  | SystemAwaySummaryMsg
   | { type: 'system'; subtype: string };
 
 /** User turn message. */
