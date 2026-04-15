@@ -684,6 +684,7 @@ export async function spawnClaudeSession(
       CLAUDE_CODE_TASK_LIST_ID: `cards-extension-${input.cardId}`,
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
       CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
+      CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '1',
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,
       WORKSPACE_BRANCH: branchName
