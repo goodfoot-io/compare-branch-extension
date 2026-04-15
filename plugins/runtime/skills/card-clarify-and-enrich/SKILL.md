@@ -12,9 +12,9 @@ Read the card description and comments in the card repository to understand the 
 
 Based on comments and prior clarification requests:
 
-- **No existing "## Clarification Needed" comment**: Proceed to Step 2.
+- **No existing "## Clarification Needed" comment**: Proceed to Step 2: Research and Enrich.
 
-- **Existing clarification request AND later comment from non-agent author**: Write a comment acknowledging the new information and how it affects requirements analysis. Commit. Proceed to Step 4.
+- **Existing clarification request AND later comment from non-agent author**: Write a comment acknowledging the new information and how it affects requirements analysis. Commit. Proceed to Step 4: Re-route After Enrichment.
 
   ```bash
   cd $CARD_REPO_PATH
@@ -114,7 +114,7 @@ Mark as MISSING if not present or inferable from card description, comments, and
 - **Technical feasibility**: Enough detail to determine approach
 - **Unanswered questions**: All comment questions answered
 
-**All met (DOR satisfied)**: Proceed to Step 4.
+**All met (DOR satisfied)**: Proceed to Step 4: Re-route After Enrichment.
 
 ### 3.2 Research Context
 
@@ -123,7 +123,7 @@ Search the workspace codebase for keywords from the card description:
 2. Check tests for expected behavior
 3. Identify relevant file paths for code references
 
-- **Research resolves all gaps**: Write findings as a comment to the card repository and commit. Proceed to Step 4.
+- **Research resolves all gaps**: Write findings as a comment to the card repository and commit. Proceed to Step 4: Re-route After Enrichment.
 
   ```bash
   cd $CARD_REPO_PATH

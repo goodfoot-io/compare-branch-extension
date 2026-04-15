@@ -12,7 +12,7 @@ Count the commits on `$WORKSPACE_BRANCH` relative to `$BASE_BRANCH` (`git rev-li
 
 Based on commit count:
 - **COMMIT_COUNT = 0**: No changes to merge. **STOP**.
-- **COMMIT_COUNT >= 1**: Proceed to Step 2
+- **COMMIT_COUNT >= 1**: Proceed to Step 2: Rebase and Validate.
 
 ## 2. Rebase and Validate
 
@@ -52,7 +52,7 @@ After rebase completes, run linting, type checking, and tests.
 - **If blocked by an issue outside the validation toolchain** (e.g., missing credentials, network outage, unavailable service): Report by adding to existing open cards about the block, or create a new card with "backlog" status
 
 Based on validation result:
-- **All validation passes**: Proceed to Step 3
+- **All validation passes**: Proceed to Step 3: Fast-Forward Merge.
 - **Validation fails and attempts < 3**: Fix errors, re-run validation
 - **Validation fails and attempts >= 3**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write failure details to `comment/validation-failed.md` (what failed, what was attempted, what intervention is needed). Commit both files and **STOP** — Awaiting user intervention.
 

@@ -25,7 +25,7 @@ Two parts: a short narrative introduction followed by a sequence of checkpoints.
 </checkpoint>
 
 <checkpoint>
-[Next step.]
+[Description of the next distinct verification step — same pattern as above; one outcome per checkpoint.]
 </checkpoint>
 ```
 

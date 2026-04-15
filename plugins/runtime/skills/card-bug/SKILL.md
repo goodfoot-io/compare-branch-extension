@@ -194,7 +194,7 @@ COMMITMSG
   - Tag: `git tag -f "bug/$CARD_ID/reproduction" HEAD`
   - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
   - Write a progress comment explaining the reproduction test and why it currently fails. Commit to the card repository.
-  - Proceed to Step 3
+  - Proceed to Step 3: Resolve Bug.
 
 - **Test PASSES (unexpected), attempts < 3**:
   - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
@@ -309,7 +309,7 @@ Determine what changed since the reproduction tag:
 
 - **Test modified**: Go to Test Correction Flow (Step 3.5)
 
-- **Only source changed, test PASSES**: Proceed to Step 4
+- **Only source changed, test PASSES**: Proceed to Step 4: Validate Full Suite.
 
 - **Only source changed, test FAILS**:
   - Capture `PREVIOUS_FAILURE_OUTPUT=$TEST_OUTPUT`
@@ -359,7 +359,7 @@ There is no "probably fine" state.
 4. **STOP**
 </validation-gate>
 
-- **All validation passes**: Proceed to Step 5
+- **All validation passes**: Proceed to Step 5: Finalize.
 - **Validation fails**: Write comment listing failures, add `blocked` tag, commit, **STOP**.
 
 ## 5. Finalize

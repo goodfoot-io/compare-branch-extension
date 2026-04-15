@@ -31,7 +31,7 @@ If plan files already exist in `plan/` but are not approved, the minimum tier is
 
 ### Tier 1
 
-No subagents needed. Proceed to Step 4.
+No subagents needed. Proceed to Step 4: Route to Implementation.
 
 ### Tier 2
 
@@ -260,11 +260,11 @@ Based on the planner's outcome and any failure-mode findings:
   ```
 
   Wait for all agents to return, then read their findings and decide again.
-- **No blocking findings**: Proceed to Step 4.
+- **No blocking findings**: Proceed to Step 4: Route to Implementation.
 
 When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Style observations and minor nits do not.
 
-## 4. Next Step
+## 4. Route to Implementation
 
 Read `gates.planRequired` from `CARD.meta.json`.
 

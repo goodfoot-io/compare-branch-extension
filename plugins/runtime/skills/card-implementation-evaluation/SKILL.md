@@ -217,6 +217,6 @@ Wait for all agents to return, then go back to Step 5.
 
 ## 6. Finalize
 
-Proceed to the next step in the implementation workflow. Do not modify gates in `CARD.meta.json`.
+Return to the calling skill and proceed to Step 4: Finalize. Do not modify gates in `CARD.meta.json`.
 
 </instructions>

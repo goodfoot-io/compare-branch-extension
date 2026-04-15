@@ -28,7 +28,7 @@ git commit -m "[single sentence describing what clarification is needed about th
 
 Then **STOP**.
 
-- **Contains clear feedback on what needs to change**: Proceed to Step 2
+- **Contains clear feedback on what needs to change**: Proceed to Step 2: Triage Feedback.
 
 ---
 
