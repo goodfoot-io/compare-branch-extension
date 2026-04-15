@@ -28,7 +28,7 @@ COMMITMSG
 
 Run validation per the plan's validation commands.
 
-**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate the new todos to a developer agent via Steps 2.3–2.4. After fixes, return to Step 1.
+**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Assess the coherence of the fix todos, choose a model, and delegate to a developer agent. After all fixes complete, return to Step 1.
 
 Only proceed to **3. Dispatch Subagents** when ALL validations pass.
 
@@ -154,7 +154,7 @@ When deciding, apply the same bar a maintainer would: broken wiring, contract dr
 ### 5.1 Dispatch Fixes
 
 For each finding:
-- **Viable**: Create a task with "[Review fix]" prefix. **Delegate — do not implement directly.** Return to Step 2.2 of `runtime:card-implementation-with-plan` skill, then assess and delegate via Steps 2.3–2.4.
+- **Viable**: Create a task with "[Review fix]" prefix. **Delegate — do not implement directly.** Assess coherence of the fix todos, choose a model, and delegate to a developer agent.
 - **Not viable**: Note the reason (e.g., attempted but introduced a regression, rejected during planning, blocked by an external constraint).
 
 Wait for the developer(s) to return, then go to Step 5.2.
@@ -217,6 +217,6 @@ Wait for all agents to return, then go back to Step 5.
 
 ## 6. Finalize
 
-Return to the calling skill and proceed to Step 4: Finalize. Do not modify gates in `CARD.meta.json`.
+Proceed to Step 4: Finalize. Do not modify gates in `CARD.meta.json`.
 
 </instructions>

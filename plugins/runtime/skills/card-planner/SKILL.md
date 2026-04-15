@@ -86,9 +86,9 @@ git add plan/ spike/
 git commit -m "[single sentence summarizing what the spikes resolved]"
 ```
 
-## 3. Return Plan State
+## 3. Report Plan State
 
-Return to the caller with the plan outcome:
+Report the plan outcome to the user:
 
 - **Plan ready**: Summarize the plan's intent and key decisions. State that the plan is ready to proceed.
 - **Blocked**: State the blocking reason clearly. Do not continue revising against an unresolvable obstacle.
