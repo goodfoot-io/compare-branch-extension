@@ -21,6 +21,7 @@ import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import yaml from 'js-yaml';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
+import { applyCodexConfig } from './applyCodexConfig.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
 
@@ -761,20 +762,14 @@ export async function mergeCodexRuntimeConfig(stagedCodexHome: string): Promise<
     }
   }
 
-  const features = ensureTomlTable(config['features'], 'features');
-  features['plugins'] = true;
-  config['features'] = features;
+  const { result } = applyCodexConfig(config, {
+    enablePlugins: ['cards@local', 'runtime@local'],
+    featuresPlugins: true
+  });
 
-  const plugins = ensureTomlTable(config['plugins'], 'plugins');
-  for (const pluginName of CODEX_PLUGIN_NAMES) {
-    const pluginKey = `${pluginName}@${CODEX_PLUGIN_MARKETPLACE}`;
-    const pluginConfig = ensureTomlTable(plugins[pluginKey], `plugins.${pluginKey}`);
-    pluginConfig['enabled'] = true;
-    plugins[pluginKey] = pluginConfig;
-  }
-  config['plugins'] = plugins;
-
-  await fs.writeFile(configPath, `${stringifyToml(config)}\n`);
+  // Keep fs.writeFile (not atomic rename) — the staged CODEX_HOME may sit on
+  // tmpfs/overlay where rename fails.
+  await fs.writeFile(configPath, `${stringifyToml(result)}\n`);
 }
 
 /**
