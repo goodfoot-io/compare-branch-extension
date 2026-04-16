@@ -29,7 +29,7 @@ import { minimatch } from 'minimatch';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
-const HELP = `Usage: card.mjs [options] <command>
+const HELP = `Usage: card [options] <command>
 
 Read, create, list, search, attach, and detach card sessions via the Cards API.
 Locates the server through ~/.cards/cards-api.json, executes the command,
@@ -53,8 +53,8 @@ Get:
   returned, including repositoryPath for filesystem access.
 
   Examples:
-    card.mjs feat-42
-    card.mjs main-0001
+    card feat-42
+    card main-0001
 
 Create:
   Pipe a JSON object to stdin. Required fields: title (non-empty string).
@@ -67,7 +67,7 @@ Create:
   caller already provided are omitted.
 
   Examples:
-    card.mjs create <<'EOF'
+    card create <<'EOF'
     { "title": "Fix auth", "tags": ["bug"] }
     EOF
 
@@ -82,9 +82,9 @@ List:
     --offset <n>             Pagination offset
 
   Examples:
-    card.mjs list
-    card.mjs list --status active
-    card.mjs list --limit 10
+    card list
+    card list --status active
+    card list --limit 10
 
 Search:
   Searches cards using a unified query syntax. Supports free text, #tag filters,
@@ -98,30 +98,30 @@ Search:
     --offset <n>             Pagination offset
 
   Examples:
-    card.mjs search "login bug"
-    card.mjs search "#auth @main-5 login" --status active
-    card.mjs search "#planning" --limit 20
-    card.mjs search "@main-42"
+    card search "login bug"
+    card search "#auth @main-5 login" --status active
+    card search "#planning" --limit 20
+    card search "@main-42"
 
 Attach:
   Associates the current agent process with a card in the session registry.
   Optionally registers the workspace branch and flushes any pending commits.
 
   Examples:
-    card.mjs attach main-0001
+    card attach main-0001
 
 Detach:
   Removes the current agent process from the session registry.
 
   Examples:
-    card.mjs detach
+    card detach
 
 Action:
   Executes an action on a card via the server relay. The action ID is
   the lowercase identifier from the action definition (e.g., "launch").
 
   Examples:
-    card.mjs <card-id> action launch
+    card <card-id> action launch
 
 Watch:
   Waits for the next unattributed commit on a card's repository. If
@@ -137,9 +137,9 @@ Watch:
   the session precondition is not met.
 
   Examples:
-    card.mjs <card-id> watch
-    card.mjs <card-id> watch "src/auth/**"
-    card.mjs <card-id> watch "src/**" "tests/**"
+    card <card-id> watch
+    card <card-id> watch "src/auth/**"
+    card <card-id> watch "src/**" "tests/**"
 
 Exit codes:
   0  Success

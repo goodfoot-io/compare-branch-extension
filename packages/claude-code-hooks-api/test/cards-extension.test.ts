@@ -179,6 +179,41 @@ describe('runAttribution handler', () => {
     expect(calls).toContain('cards-extension attribution');
   });
 
+  it('attribution clear --help returns 0 and does not call clearCompare', async () => {
+    const code = await runAttribution(['clear', '--help']);
+    expect(code).toBe(0);
+    expect(mockClearCompare).not.toHaveBeenCalled();
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('cards-extension attribution');
+    expect(stdout).toContain('Clear');
+  });
+
+  it('attribution get --help returns 0 and does not call getCompare', async () => {
+    const code = await runAttribution(['get', '--help']);
+    expect(code).toBe(0);
+    expect(mockGetCompare).not.toHaveBeenCalled();
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('cards-extension attribution');
+  });
+
+  it('attribution set --help returns 0 without reading stdin and without calling setCompare', async () => {
+    // No stdin fixture provided. If the handler tried to read stdin it would hang indefinitely;
+    // awaiting here proves the help check short-circuits before the stdin read.
+    const code = await runAttribution(['set', '--help']);
+    expect(code).toBe(0);
+    expect(mockSetCompare).not.toHaveBeenCalled();
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('cards-extension attribution');
+  });
+
+  it('attribution set -h returns 0 without reading stdin and without calling setCompare', async () => {
+    const code = await runAttribution(['set', '-h']);
+    expect(code).toBe(0);
+    expect(mockSetCompare).not.toHaveBeenCalled();
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('cards-extension attribution');
+  });
+
   it('attribution set — branch range — passes parsed object to setCompare', async () => {
     const request = { baseRef: 'main', compareRef: 'feature/x' };
     const resultState = { id: 'compare-1', ...request };
@@ -298,6 +333,14 @@ describe('runNotify handler', () => {
   it('notify --help returns 0 and prints subcommand HELP to stdout', async () => {
     const code = await runNotify(['--help']);
     expect(code).toBe(0);
+    const stdout = collectOutput(stdoutSpy);
+    expect(stdout).toContain('cards-extension notify');
+  });
+
+  it('notify --help wins over provided flags — no fetch call, returns 0', async () => {
+    const code = await runNotify(['--help', '--type', 'info', '--title', 't', '--message', 'm', '--source', 's']);
+    expect(code).toBe(0);
+    expect(mockFetch).not.toHaveBeenCalled();
     const stdout = collectOutput(stdoutSpy);
     expect(stdout).toContain('cards-extension notify');
   });

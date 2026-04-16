@@ -115,15 +115,16 @@ async function clearAttribution(): Promise<number> {
  * @returns The intended process exit code. Never calls process.exit.
  */
 export async function runAttribution(args: string[]): Promise<number> {
+  if (args.includes('-h') || args.includes('--help')) {
+    console.log(ATTRIBUTION_HELP);
+    return 0;
+  }
+
   const [command] = args;
 
   if (!command) {
     console.error(ATTRIBUTION_HELP);
     return 1;
-  }
-  if (command === '-h' || command === '--help') {
-    console.log(ATTRIBUTION_HELP);
-    return 0;
   }
 
   try {

@@ -32,7 +32,7 @@ If research during CARD.md writing reveals a clear approach, write a plan file a
 
 ## CLI Binaries
 
-Codex skills invoke the bundled helper executables directly from this skill's `scripts/` directory (not `PATH`). Do not assume Claude-style executable environment variables exist.
+Codex skills invoke the bundled helper executables directly from this skill's `scripts/` directory (not `PATH`). They replace the prior `$CARD_CLI`, `$COMPARE_CLI`, `$CREATE_WORKTREE_CLI`, and `$NOTIFICATION_CLI` env-var indirection, which no longer exists. Do not assume Claude-style executable environment variables exist.
 
 | Executable | Purpose |
 |------------|---------|

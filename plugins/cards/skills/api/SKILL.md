@@ -32,7 +32,7 @@ If research during CARD.md writing reveals a clear approach, write a plan file a
 
 ## CLI Binaries
 
-The commands below are plugin-provided executables on `PATH`. Invoke them directly as bare commands.
+The commands below are plugin-provided executables on `PATH`. Invoke them directly as bare commands. They replace the prior `$CARD_CLI`, `$COMPARE_CLI`, `$CREATE_WORKTREE_CLI`, and `$NOTIFICATION_CLI` env-var indirection, which no longer exists.
 
 | Command | Purpose |
 |---------|---------|

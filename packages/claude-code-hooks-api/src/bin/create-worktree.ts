@@ -11,10 +11,17 @@
 
 import { createWorktree } from '@cards/sdk/worktree';
 
+const USAGE = 'Usage: create-worktree <branch|tag|sha>\n';
+
 const ref = process.argv[2];
 if (!ref) {
-  process.stderr.write('Usage: node create-worktree.mjs <branch|tag|sha>\n');
+  process.stderr.write(USAGE);
   process.exit(2);
+}
+
+if (ref === '-h' || ref === '--help') {
+  process.stdout.write(USAGE);
+  process.exit(0);
 }
 
 createWorktree(ref)

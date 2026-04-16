@@ -1,5 +1,5 @@
 /**
- * Tests for card.mjs CLI binary functions.
+ * Tests for card CLI binary functions.
  *
  * Uses a real HTTP server for API calls, real session registry on disk,
  * and real git workspace for branch detection. Only homedir and findAgentPid
@@ -989,19 +989,19 @@ describe('card binary', () => {
     it('card help prints help text and exits 0', () => {
       const result = runCard(['help']);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Usage: card.mjs');
+      expect(result.stdout).toContain('Usage: card');
     });
 
     it('card list --help prints help text and exits 0', () => {
       const result = runCard(['list', '--help']);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Usage: card.mjs');
+      expect(result.stdout).toContain('Usage: card');
     });
 
     it('card search -h prints help text and exits 0', () => {
       const result = runCard(['search', '-h']);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Usage: card.mjs');
+      expect(result.stdout).toContain('Usage: card');
     });
   });
 
