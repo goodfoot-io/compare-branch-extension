@@ -291,6 +291,16 @@ export interface ActionState {
    * Interactive mode opens a terminal; background mode runs silently.
    */
   mode: 'interactive' | 'background';
+
+  /**
+   * When present, indicates this is a synthetic terminal ActionState broadcast
+   * for an action that was rejected by the coding-agent gate before dispatch.
+   *
+   * The webview's `onActionStateChanged` subscription uses the absence of this
+   * action in the `states` array to clear the spinner — this field is additive
+   * context for future consumers (e.g. error messaging).
+   */
+  gateRejection?: 'gate-pending' | 'gate-aborted' | 'gate-error';
 }
 
 /**
