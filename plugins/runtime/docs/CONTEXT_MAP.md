@@ -242,7 +242,7 @@ The cards plugin is always loaded when the runtime plugin is loaded (but not vic
 
 ```
 cards plugin skills (available in all runtime sessions):
-    ├─ cards:api       — CRUD ops on cards via $CARD_CLI, notifications
+    ├─ cards:api       — CRUD ops on cards via the `card` command, plus `cards-extension notify`
     ├─ cards:markdown  — CARD.md content guidelines per card type
     ├─ cards:notes     — records architectural discoveries as notes in the card repository
     └─ cards:dev       — developer-facing card utilities

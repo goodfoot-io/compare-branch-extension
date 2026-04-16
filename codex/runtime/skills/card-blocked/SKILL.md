@@ -21,7 +21,7 @@ Based on blocker analysis:
 - **Blocker references another card**: Look up its metadata and check its status
 
   ```bash
-  ./scripts/card-cli [REFERENCED CARD ID]
+  ./scripts/card [REFERENCED CARD ID]
   ```
 
   The output is JSON containing the card's metadata (status, tags, gates) and `repositoryPath`.

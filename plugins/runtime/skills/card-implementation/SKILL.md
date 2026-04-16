@@ -8,7 +8,7 @@ description: Implement cards directly without a plan.
 
 ## 1. Prepare Environment
 
-`$CREATE_WORKTREE_CLI` is an absolute-path CLI handle, set automatically at session start like `$CARD_CLI`. Use it directly as a command when you need an isolated Git worktree.
+The `create-worktree` command is a plugin-provided executable on `PATH`. Use it directly when you need an isolated Git worktree.
 
 Create baseline tag if one does not already exist:
 
@@ -23,7 +23,7 @@ fi
 To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
-$CREATE_WORKTREE_CLI "implement/$CARD_ID/baseline"
+create-worktree "implement/$CARD_ID/baseline"
 ```
 
 Run tests in the worktree, then delete the worktree and branch.

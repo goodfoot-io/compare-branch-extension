@@ -1,25 +1,19 @@
 /**
- * Manage the Cards API compare state via CLI.
+ * Attribution subcommand of the `cards-extension` CLI.
  *
- * Locates the running Cards server through `~/.cards/cards-api.json`, then
- * dispatches to set, get, or clear. All output is JSON to stdout;
- * all errors go to stderr.
+ * Routes `set` / `get` / `clear` through the Cards API. All output is JSON to
+ * stdout; all errors go to stderr via the parent dispatcher.
  *
- * @summary Compare CLI for set, get, and clear operations
+ * @summary Attribution subcommand handlers for cards-extension
  */
 
 import { CardsClient } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { CompareRequest, CompareState } from '@cards/sdk/protocol';
 
-const HELP = `Usage: compare.mjs [options] <command>
+export const ATTRIBUTION_HELP = `Usage: cards-extension attribution <command>
 
-Manage the Cards API compare state.
-Locates the server through ~/.cards/cards-api.json, executes the command,
-and prints the resulting state to stdout.
-
-Options:
-  -h, --help       Show this help text
+Manage the Cards API attribution/comparison state.
 
 Commands:
   set              Set comparison from JSON on stdin
@@ -32,26 +26,11 @@ Set:
     Dynamic worktree:   { "baseRef": "main", "repositoryPath": "/path/to/repo" }
     Fixed attribution:  { "compareRef": "feature/x", "attributionShas": ["abc..."] }
 
-  Examples:
-    compare.mjs set <<'EOF'
-    { "baseRef": "main", "compareRef": "cards/main-1/1" }
-    EOF
-
 Get:
-  Prints the current compare state as JSON, or a message if none is active.
-
-  Examples:
-    compare.mjs get
+  Prints the current compare state as JSON, or "No active comparison" if none.
 
 Clear:
-  Removes the active comparison.
-
-  Examples:
-    compare.mjs clear
-
-Exit codes:
-  0  Success
-  1  Error (missing arguments, invalid input, discovery failure, API error)`;
+  Removes the active comparison.`;
 
 /**
  * Connects to the Cards API via discovery and returns a configured client.
@@ -59,7 +38,7 @@ Exit codes:
  * @returns A connected CardsClient instance.
  * @throws When API discovery fails.
  */
-export async function connectClient(): Promise<CardsClient> {
+async function connectClient(): Promise<CardsClient> {
   const info = await discoverApiInfo();
   if (!info) {
     throw new Error('API discovery failed — is the cards server running?');
@@ -102,68 +81,66 @@ export function parseCompareInput(raw: string): CompareRequest {
   }
 }
 
-/**
- * Sets the compare state from JSON on stdin and prints the result.
- */
-export async function setCompare(): Promise<void> {
+async function setAttribution(): Promise<number> {
   const raw = await readStdin();
   const request = parseCompareInput(raw);
   const client = await connectClient();
   const state = await client.setCompare(request);
   console.log(JSON.stringify(state, null, 2));
+  return 0;
 }
 
-/**
- * Gets the current compare state and prints it to stdout.
- *
- * @returns The current compare state, or null if no comparison is active.
- */
-export async function getCompare(): Promise<CompareState | null> {
+async function getAttribution(): Promise<number> {
   const client = await connectClient();
-  const state = await client.getCompare();
+  const state: CompareState | null = await client.getCompare();
   if (!state) {
     console.log('No active comparison');
-    return null;
+    return 0;
   }
   console.log(JSON.stringify(state, null, 2));
-  return state;
+  return 0;
 }
 
-/**
- * Clears the active compare state.
- */
-export async function clearCompare(): Promise<void> {
+async function clearAttribution(): Promise<number> {
   const client = await connectClient();
   await client.clearCompare();
   console.log(JSON.stringify({ success: true }));
+  return 0;
 }
 
-if (process.argv[1]?.endsWith('compare.mjs')) {
-  const command = process.argv[2];
+/**
+ * Dispatches an `attribution` subcommand (set/get/clear) and returns an exit code.
+ *
+ * @param args - Arguments following the `attribution` token.
+ * @returns The intended process exit code. Never calls process.exit.
+ */
+export async function runAttribution(args: string[]): Promise<number> {
+  const [command] = args;
 
-  if (!command || command === '-h' || command === '--help') {
-    console.log(HELP);
-    process.exit(command ? 0 : 1);
+  if (!command) {
+    console.error(ATTRIBUTION_HELP);
+    return 1;
+  }
+  if (command === '-h' || command === '--help') {
+    console.log(ATTRIBUTION_HELP);
+    return 0;
   }
 
-  let run: Promise<void>;
-  switch (command) {
-    case 'set':
-      run = setCompare();
-      break;
-    case 'get':
-      run = getCompare().then(() => {});
-      break;
-    case 'clear':
-      run = clearCompare();
-      break;
-    default:
-      console.error(`compare: unknown command "${command}"`);
-      process.exit(1);
+  try {
+    switch (command) {
+      case 'set':
+        return await setAttribution();
+      case 'get':
+        return await getAttribution();
+      case 'clear':
+        return await clearAttribution();
+      default:
+        console.error(`cards-extension attribution: unknown command "${command}"`);
+        console.error(ATTRIBUTION_HELP);
+        return 1;
+    }
+  } catch (error) {
+    console.error('cards-extension attribution:', error instanceof Error ? error.message : String(error));
+    return 1;
   }
-
-  run.catch((error: unknown) => {
-    console.error('compare:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
 }

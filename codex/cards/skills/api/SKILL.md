@@ -32,21 +32,21 @@ If research during CARD.md writing reveals a clear approach, write a plan file a
 
 ## CLI Binaries
 
-Codex skills should invoke the bundled helper executables directly from this skill's `scripts/` directory. Do not assume Claude-style executable environment variables exist.
+Codex skills invoke the bundled helper executables directly from this skill's `scripts/` directory (not `PATH`). Do not assume Claude-style executable environment variables exist.
 
 | Executable | Purpose |
 |------------|---------|
-| `./scripts/card-cli` | Card operations (get, create, list, attach, detach, action) |
-| `./scripts/notification-cli` | Send notifications to the VS Code UI |
-| `./scripts/compare-cli` | Manage the attribution tree comparison mode |
+| `./scripts/card` | Card operations (get, create, list, attach, detach, action) |
+| `./scripts/cards-extension notify` | Send notifications to the VS Code UI |
+| `./scripts/cards-extension attribution` | Manage the attribution tree comparison mode |
 
-### `./scripts/card-cli` — Card operations
+### `./scripts/card` — Card operations
 
 #### Commands
 
 **Get a card** — Fetch card details by ID. The response includes `repositoryPath` for filesystem access:
 ```
-./scripts/card-cli <card-id>
+./scripts/card <card-id>
 ```
 
 The response includes:
@@ -55,7 +55,7 @@ The response includes:
 
 **Create a card** — Pipe JSON to stdin with `title` (required). Optional: `tags`, `environment`, `gates`, `relations`:
 ```
-./scripts/card-cli create <<'EOF'
+./scripts/card create <<'EOF'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 ```
@@ -66,7 +66,7 @@ The response includes `repositoryPath`. After creation:
 2. Write card content and commit:
 
 ```bash
-REPO=$(./scripts/card-cli create <<'EOF' | jq -r '.repositoryPath'
+REPO=$(./scripts/card create <<'EOF' | jq -r '.repositoryPath'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 )
@@ -94,16 +94,16 @@ cd "$REPO" && git add plan/ && git commit -m "Added plan [single sentence summar
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
 ```
-./scripts/card-cli create <<'EOF'
+./scripts/card create <<'EOF'
 { "title": "Unify tag layout", "relations": [{ "type": "related", "cardId": "main-67" }] }
 EOF
 ```
 
 **List cards** — List cards for the current workspace. Detects workspace path from git automatically:
 ```
-./scripts/card-cli list
-./scripts/card-cli list --status active
-./scripts/card-cli list --limit 10
+./scripts/card list
+./scripts/card list --status active
+./scripts/card list --limit 10
 ```
 
 Each card in the response includes `parentBranch` when the card was created in a workspace with a resolvable branch.
@@ -112,10 +112,10 @@ Options: `--workspace-path <path>`, `--status <status>`, `--limit <n>`, `--offse
 
 **Search cards** — Search cards using a unified query syntax with `#tag`, `@relation`, and free text:
 ```
-./scripts/card-cli search "login bug"
-./scripts/card-cli search "#auth @main-5 login" --status active
-./scripts/card-cli search "#planning" --limit 20
-./scripts/card-cli search "@main-42"
+./scripts/card search "login bug"
+./scripts/card search "#auth @main-5 login" --status active
+./scripts/card search "#planning" --limit 20
+./scripts/card search "@main-42"
 ```
 
 The query is parsed into free text, `#tag` tokens, and `@relation` tokens. Stored tags and text (3+ chars) are sent to the server. Derived tags (`planning`, `merge-requested`, `merged`, `unmerged`) and relation filters are applied client-side.
@@ -132,31 +132,31 @@ Use `--workspace-path` only if the user explicitly requests creating a card in a
 
 **Execute an action** — Execute an action on a card via the server relay:
 ```
-./scripts/card-cli <card-id> action <action-id>
+./scripts/card <card-id> action <action-id>
 ```
 The action ID is the lowercase identifier from the action definition (e.g., `launch`). Requires a connected extension client.
 
 **Watch for commits** — Block until the next unattributed commit on a card's repository:
 ```
-./scripts/card-cli <card-id> watch
-./scripts/card-cli <card-id> watch "src/auth/**"
-./scripts/card-cli <card-id> watch "src/auth/**" "tests/auth/**"
+./scripts/card <card-id> watch
+./scripts/card <card-id> watch "src/auth/**"
+./scripts/card <card-id> watch "src/auth/**" "tests/auth/**"
 ```
 Blocks until the first eligible commit, outputs formatted commit details, attributes the commit to the current session, then exits 0. When unattributed commits already exist at invocation time, they are output immediately without subscribing. Optional glob patterns restrict output to commits where at least one changed file matches; multiple globs are OR-combined. Requires an active card session (`card attach` must have been called). Exits non-zero on connection failure or missing session.
 
-### `./scripts/notification-cli` — Send notifications
+### `./scripts/cards-extension notify` — Send notifications
 
 Send a notification to the VSCode UI.
 
 ```
-./scripts/notification-cli --type info --title "Build complete" --message "All tests pass" --source my-agent
-./scripts/notification-cli --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
-./scripts/notification-cli --type error --title "Deploy failed" --message "Exit code 1" --source ci
+./scripts/cards-extension notify --type info --title "Build complete" --message "All tests pass" --source my-agent
+./scripts/cards-extension notify --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
+./scripts/cards-extension notify --type error --title "Deploy failed" --message "Exit code 1" --source ci
 ```
 
 Required: `--type` (error|warning|info), `--title`, `--message`, `--source`
 
-### `./scripts/compare-cli` — Compare operations
+### `./scripts/cards-extension attribution` — Compare operations
 
 Manage the attribution tree comparison mode. One active comparison per server.
 
@@ -166,38 +166,38 @@ Manage the attribution tree comparison mode. One active comparison per server.
 
 Branch range — compare two arbitrary refs:
 ```
-./scripts/compare-cli set <<'EOF'
+./scripts/cards-extension attribution set <<'EOF'
 { "baseRef": "main", "compareRef": "feature-branch", "title": "My Comparison" }
 EOF
 ```
 
 Dynamic worktree — track a worktree's HEAD live:
 ```
-./scripts/compare-cli set <<'EOF'
+./scripts/cards-extension attribution set <<'EOF'
 { "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1", "title": "Card Changes" }
 EOF
 ```
 
 Fixed attribution — show pre-computed SHAs against a ref:
 ```
-./scripts/compare-cli set <<'EOF'
+./scripts/cards-extension attribution set <<'EOF'
 { "compareRef": "main", "attributionShas": ["abc123", "def456"], "title": "Squash Attribution" }
 EOF
 ```
 
 **Get current comparison**:
 ```
-./scripts/compare-cli get
+./scripts/cards-extension attribution get
 ```
 
 **Clear comparison**:
 ```
-./scripts/compare-cli clear
+./scripts/cards-extension attribution clear
 ```
 
 ## Card Repository
 
-Each card is an isolated Git repository. The `repositoryPath` field from `./scripts/card-cli <id>`
+Each card is an isolated Git repository. The `repositoryPath` field from `./scripts/card <id>`
 gives the absolute path to this repository.
 
 ### Commit History API
@@ -313,7 +313,7 @@ Authorship is determined by git commit ownership. List files in any card
 repository directory chronologically with author and commit message:
 
 ```bash
-REPO=$(./scripts/card-cli <card-id> | jq -r '.repositoryPath')
+REPO=$(./scripts/card <card-id> | jq -r '.repositoryPath')
 git -C "$REPO" log --reverse --diff-filter=A --format='%an: %s' --name-only -- comment/ \
   | awk 'NF{if(/^comment\//){print $0"  "prev}else{prev=$0}}'
 ```
@@ -326,7 +326,7 @@ Replace both occurrences of `comment/` with the target directory
 Comments are pure markdown files with descriptive slug filenames.
 
 ```bash
-REPO=$(./scripts/card-cli <card-id> | jq -r '.repositoryPath')
+REPO=$(./scripts/card <card-id> | jq -r '.repositoryPath')
 mkdir -p "$REPO/comment"
 cat <<'COMMENT_EOF' > "$REPO/comment/my-slug-name.md"
 Your comment content here (plain markdown, no frontmatter).
@@ -340,7 +340,7 @@ Attachments use UUID4 identifiers with a sanitized original filename, plus a
 `.meta.json` sidecar describing the file.
 
 ```bash
-REPO=$(./scripts/card-cli <card-id> | jq -r '.repositoryPath')
+REPO=$(./scripts/card <card-id> | jq -r '.repositoryPath')
 ATT_UUID=$(cat /proc/sys/kernel/random/uuid)  # UUID4
 ATT_NAME="att-${ATT_UUID}_screenshot.png"
 mkdir -p "$REPO/attachment"

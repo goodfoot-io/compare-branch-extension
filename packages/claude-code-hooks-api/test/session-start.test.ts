@@ -25,8 +25,8 @@ import { fileURLToPath } from 'node:url';
 
 const mockFileURLToPath = vi.mocked(fileURLToPath);
 
-const WRAPPER_FILES = ['card-cli', 'create-worktree-cli', 'notification-cli', 'compare-cli', 'cards-dev-cli'] as const;
-const ENV_VARS = ['CARD_CLI', 'CREATE_WORKTREE_CLI', 'NOTIFICATION_CLI', 'COMPARE_CLI', 'CARDS_DEV_CLI'] as const;
+const WRAPPER_FILES = ['cards-dev-cli'] as const;
+const ENV_VARS = ['CARDS_DEV_CLI'] as const;
 
 describe('session-start hook', () => {
   const mockPersistEnvVar = vi.fn();
@@ -101,7 +101,7 @@ describe('session-start hook', () => {
     for (let i = 0; i < WRAPPER_FILES.length; i++) {
       expect(mockPersistEnvVar).toHaveBeenCalledWith(ENV_VARS[i]!, join(binDir, WRAPPER_FILES[i]!));
     }
-    expect(mockPersistEnvVar).toHaveBeenCalledTimes(5);
+    expect(mockPersistEnvVar).toHaveBeenCalledTimes(1);
     expect(result.stdout).not.toHaveProperty('systemMessage');
   });
 
@@ -109,24 +109,7 @@ describe('session-start hook', () => {
     const result = await runHook();
 
     expect(mockPersistEnvVar).not.toHaveBeenCalled();
-    expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledTimes(5);
-    expect(result.stdout.systemMessage).toContain('card-cli');
+    expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledTimes(1);
     expect(result.stdout.systemMessage).toContain('cards-dev-cli');
-  });
-
-  it('persists available wrappers and warns about missing ones', async () => {
-    createWrappers(['card-cli', 'create-worktree-cli', 'compare-cli']);
-    const result = await runHook();
-
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('CARD_CLI', join(binDir, 'card-cli'));
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('CREATE_WORKTREE_CLI', join(binDir, 'create-worktree-cli'));
-    expect(mockPersistEnvVar).toHaveBeenCalledWith('COMPARE_CLI', join(binDir, 'compare-cli'));
-    expect(mockPersistEnvVar).toHaveBeenCalledTimes(3);
-    expect(vi.mocked(mockLogger.warn)).toHaveBeenCalledTimes(2);
-    expect(result.stdout.systemMessage).toContain('notification-cli');
-    expect(result.stdout.systemMessage).toContain('cards-dev-cli');
-    expect(result.stdout.systemMessage).not.toContain('card-cli');
-    expect(result.stdout.systemMessage).not.toContain('create-worktree-cli');
-    expect(result.stdout.systemMessage).not.toContain('compare-cli');
   });
 });

@@ -32,7 +32,7 @@ Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/Mu
 
 ## 1. Prepare Environment
 
-Use the bundled helper at `./scripts/create-worktree-cli` when you need an isolated Git worktree.
+Use the bundled helper at `./scripts/create-worktree` when you need an isolated Git worktree.
 
 Create baseline tag if one does not already exist:
 
@@ -47,7 +47,7 @@ fi
 To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
 
 ```bash
-./scripts/create-worktree-cli "implement/$CARD_ID/baseline"
+./scripts/create-worktree "implement/$CARD_ID/baseline"
 ```
 
 Run tests in the worktree, then delete the worktree and branch.

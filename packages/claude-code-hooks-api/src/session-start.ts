@@ -17,13 +17,7 @@ import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hook
 /**
  * CLI wrapper definitions: env var name and filename in `bin/`.
  */
-const CLI_WRAPPERS = [
-  { envVar: 'CARD_CLI', filename: 'card-cli' },
-  { envVar: 'CREATE_WORKTREE_CLI', filename: 'create-worktree-cli' },
-  { envVar: 'NOTIFICATION_CLI', filename: 'notification-cli' },
-  { envVar: 'COMPARE_CLI', filename: 'compare-cli' },
-  { envVar: 'CARDS_DEV_CLI', filename: 'cards-dev-cli' }
-] as const;
+const CLI_WRAPPERS = [{ envVar: 'CARDS_DEV_CLI', filename: 'cards-dev-cli' }] as const;
 
 /**
  * Resolves the absolute path to a CLI wrapper script in the plugin `bin/` directory.
@@ -32,7 +26,7 @@ const CLI_WRAPPERS = [
  * wrappers are at `plugins/cards/bin/<name>`, two directories up
  * from the compiled hook location.
  *
- * @param filename - Wrapper script filename (e.g. `card-cli`).
+ * @param filename - Wrapper script filename (e.g. `cards-dev-cli`).
  * @returns Absolute path to the wrapper.
  */
 export function resolveCliWrapper(filename: string): string {

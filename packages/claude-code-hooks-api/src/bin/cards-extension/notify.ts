@@ -1,11 +1,9 @@
 /**
- * Send notifications to the Cards VSCode extension UI.
+ * Notify subcommand of the `cards-extension` CLI.
  *
- * Locates the running Cards server through `~/.cards/cards-api.json`, then
- * sends a notification via `POST /api/notifications`. The notification
- * surfaces as a VSCode information/warning/error message.
+ * Sends a notification to the Cards VSCode extension via POST /api/notifications.
  *
- * @summary Notification CLI for the Cards API
+ * @summary Notify subcommand handler for cards-extension
  */
 
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
@@ -13,29 +11,15 @@ import type { NotificationSeverity } from '@cards/sdk/protocol';
 
 const VALID_TYPES: readonly NotificationSeverity[] = ['error', 'warning', 'info'];
 
-const HELP = `Usage: notification.mjs [options] --type <type> --title <title> --message <message> --source <source>
+export const NOTIFY_HELP = `Usage: cards-extension notify --type <type> --title <title> --message <message> --source <source>
 
 Send a notification to the Cards VSCode extension.
-Locates the server through ~/.cards/cards-api.json and sends a notification
-that surfaces as a VSCode message.
-
-Options:
-  -h, --help           Show this help text
 
 Required:
   --type <type>        Severity: error, warning, or info
   --title <title>      Short title shown in the notification
   --message <message>  Detailed notification body
-  --source <source>    Identifier for grouping/filtering (e.g. agent name)
-
-Examples:
-  notification.mjs --type info --title "Build complete" --message "All tests pass" --source my-agent
-  notification.mjs --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
-  notification.mjs --type error --title "Deploy failed" --message "Exit code 1" --source ci
-
-Exit codes:
-  0  Success
-  1  Error (missing arguments, discovery failure, API error)`;
+  --source <source>    Identifier for grouping/filtering (e.g. agent name)`;
 
 /**
  * Parses `--key value` pairs from a string array into a record.
@@ -59,12 +43,7 @@ function parseFlags(args: string[]): Record<string, string> {
   return flags;
 }
 
-/**
- * Sends a notification to the Cards API server.
- *
- * @param args - CLI arguments containing --type, --title, --message, and --source flags.
- */
-export async function sendNotification(args: string[]): Promise<void> {
+async function sendNotification(args: string[]): Promise<number> {
   const flags = parseFlags(args);
 
   const type = flags['type'];
@@ -103,18 +82,25 @@ export async function sendNotification(args: string[]): Promise<void> {
 
   const result = await response.json();
   console.log(JSON.stringify(result));
+  return 0;
 }
 
-if (process.argv[1]?.endsWith('notification.mjs')) {
-  const args = process.argv.slice(2);
-
+/**
+ * Parses notify flags and POSTs the notification payload to the Cards API.
+ *
+ * @param args - Arguments following the `notify` token.
+ * @returns The intended process exit code. Never calls process.exit.
+ */
+export async function runNotify(args: string[]): Promise<number> {
   if (args.includes('-h') || args.includes('--help')) {
-    console.log(HELP);
-    process.exit(0);
+    console.log(NOTIFY_HELP);
+    return 0;
   }
 
-  sendNotification(args).catch((error: unknown) => {
-    console.error('notification:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
+  try {
+    return await sendNotification(args);
+  } catch (error) {
+    console.error('cards-extension notify:', error instanceof Error ? error.message : String(error));
+    return 1;
+  }
 }

@@ -4,7 +4,7 @@ description: Reusable notes in a card's notes/ directory.
 ---
 
 <placeholder-variables>
-[CARD_REPO_PATH] — Absolute path to the card's git repository (the `repositoryPath` field from `./scripts/card-cli` output, or the `CARD_REPO_PATH` environment variable)
+[CARD_REPO_PATH] — Absolute path to the card's git repository (the `repositoryPath` field from `./scripts/card` output, or the `CARD_REPO_PATH` environment variable)
 </placeholder-variables>
 
 <take-notes>
