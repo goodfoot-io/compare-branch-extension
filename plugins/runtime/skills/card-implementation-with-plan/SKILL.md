@@ -27,7 +27,7 @@ The orchestrator coordinates — it does NOT implement code.
 Plan says "implement" -> delegate to developer agent.
 Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
 
-**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
+**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work.
 </orchestrator-constraints>
 
 <instructions>
@@ -75,9 +75,11 @@ WORKSPACE_HEAD_TS=$(cd $WORKSPACE_PATH && git log -1 --format=%ct $WORKSPACE_BRA
 PLAN_NEWEST_TS=$(cd $CARD_REPO_PATH && git log -1 --format=%ct -- 'plan/*.md')
 ```
 
-Based on timeline:
-- **PLAN_NEWEST_TS > WORKSPACE_HEAD_TS**: Set [PLAN_STATE] to `not-implemented`. The approved plan is newer than any workspace commit, so prior commits cannot implement it. Skip the identifier check.
-- **WORKSPACE_HEAD_TS >= PLAN_NEWEST_TS**: Run the identifier check below.
+A plan newer than workspace HEAD is the revise-then-extend pattern: the new plan layers on top of any prior commits, which remain on the branch and are overwritten or replaced by the plan's phases as specified.
+
+Based on the timeline comparison:
+- **Plan newer than workspace HEAD**: Set [PLAN_STATE] to `not-implemented`. Create todos for the full plan. Skip the identifier check.
+- **Workspace HEAD at or newer than plan**: Run the identifier check below.
 
 Identifier check — verify current state against [PLAN_FILES] and [PLAN_IDENTIFIERS]:
 - Files the plan creates must exist on disk.
@@ -90,9 +92,9 @@ Based on identifier check:
 - **No checks pass**: Set [PLAN_STATE] to `not-implemented`.
 
 Based on [PLAN_STATE]:
-- **fully-implemented**: Proceed to Step 2.6: Validation Gate, then Step 3: Evaluate Quality.
-- **partially-implemented**: Create todos for the unimplemented items via TodoWrite. Proceed to Step 2.2: Assess Coherence.
-- **not-implemented**: Create todos for the full plan via TodoWrite. Proceed to Step 2.2: Assess Coherence.
+- **fully-implemented**: Proceed to Step 2.6: Validation Gate
+- **partially-implemented**: Advance baseline to HEAD, create todos for the unimplemented items, proceed to Step 2.2: Assess Coherence
+- **not-implemented**: Create todos for the full plan, proceed to Step 2.2: Assess Coherence
 
 Commit subjects are not evidence. Phase labels like "Phase 1: …" prove only that *some* Phase 1 was committed, not that it implements the current plan.
 
@@ -320,7 +322,7 @@ Tags mark rollback points during execution. Tags point to the most recent real c
 
 <when-to-return-to-planning>
 
-At any point during implementation, stop and return to planning if any of the following conditions emerge:
+Return-to-planning triggers are plan-internal failures only. Scope, runtime, prior-commit volume, and overlap with shipped code are not triggers. Stop and return to planning only if one of the following emerges:
 
 1. **A planned step is invalidated by a completed one** — steps that were each valid in isolation turn out to be mutually incompatible. The plan has an internal contradiction that only surfaces during execution.
 2. **The plan missed scope that changes the approach** — implementation reveals consumers or dependencies the plan didn't account for, and accommodating them requires a different strategy, not just additional steps.
