@@ -200,71 +200,83 @@ Write this from what you found in the card, not as a generic description.]
 </invoke>
 ```
 
-## 3. Read Findings and Decide
+## 3. Read Verdicts and Decide
 
-After all subagents return, read their output.
+If the planner returned blocked, document in comment, add `blocked` tag, commit. **STOP** — do not proceed to implementation.
 
-Based on the planner's outcome and any failure-mode findings:
+After all evaluator subagents return, read the `VERDICT:` line from each. The decision is determined by their verdicts, not your own assessment of the findings:
 
-- **Planner blocked**: Document in comment, add `blocked` tag, commit. **STOP** — do not proceed to implementation.
-- **Findings require plan revision**: Resume the planner with both agents' findings:
+- **APPROVED**: Every dispatched evaluator returned `VERDICT: APPROVED` — proceed to **4. Route to Implementation**.
+- **CHANGES_REQUESTED**: Any evaluator returned `VERDICT: CHANGES_REQUESTED` — go to **3.1 Revise the Plan**. You may not override an evaluator's verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of revising the plan.
+- **BLOCKED**: An external constraint prevents addressing a `CHANGES_REQUESTED` finding — document the constraint and the specific finding in a comment, add `blocked` tag, commit, **STOP**.
 
-  ```xml
-  <invoke name="SendMessage">
-    <parameter name="to">planner</parameter>
-    <parameter name="summary">Plan revision findings</parameter>
-    <parameter name="message">
-  [Compose from both agents' findings — which concerns require revision, what to change, and what to preserve]
-    </parameter>
-  </invoke>
-  ```
+Approval is the evaluators' call. Your role is to route findings to the planner and re-dispatch, not to decide which findings count.
 
-  Wait for the planner to return, then re-identify the primary plan file:
+### 3.1 Revise the Plan
 
-  ```bash
-  git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
-  ```
+Resume the planner with both agents' findings:
 
-  Then send a message to each evaluation agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">planner</parameter>
+  <parameter name="summary">Plan revision findings</parameter>
+  <parameter name="message">
+[Compose from both agents' findings — which concerns require revision, what to change, and what to preserve]
+  </parameter>
+</invoke>
+```
 
-  **plan-failure-mode**: Deliver the technical revision context:
-  - The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
-  - What the planner changed — which sections were added, removed, or restructured, and where to focus deeper
-  - How the planner responded to technical findings — which concerns were addressed, which deferred, and whether any fix addresses the symptom but not the root cause
-  - New interfaces, contracts, data flows, or dependencies the revision introduced that were not in scope in the prior round
+A finding may only be left unaddressed if revising the plan to resolve it would invalidate the approach, or if an external constraint prevents revision. "Follow-up candidate," "known limitation," and "out of scope" are not valid reasons — if the evaluator raised it, the evaluator closes it at re-evaluation, or the run goes to **BLOCKED**.
 
-  ```xml
-  <invoke name="SendMessage">
-    <parameter name="to">plan-failure-mode</parameter>
-    <parameter name="summary">Plan revision — technical context</parameter>
-    <parameter name="message">
-  [Compose per the bullet points above]
-    </parameter>
-  </invoke>
-  ```
+Wait for the planner to return, then go to **3.2 Resume Evaluation Agents**.
 
-  **plan-design**: Deliver the design revision context:
-  - The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
-  - Which user-outcome concerns the planner addressed, described in terms of what the user would now experience — not what plan text changed, but what the user outcome is now
-  - Which acceptance criteria gaps or intent drift findings were not addressed and why
-  - New design decisions the revision introduced and what user outcome they would produce if executed
+### 3.2 Resume Evaluation Agents
 
-  ```xml
-  <invoke name="SendMessage">
-    <parameter name="to">plan-design</parameter>
-    <parameter name="summary">Plan revision — design context</parameter>
-    <parameter name="message">
-  [Compose per the bullet points above]
-    </parameter>
-  </invoke>
-  ```
+Re-identify the primary plan file:
 
-  Wait for all agents to return, then read their findings and decide again.
-- **No blocking findings**: Proceed to Step 4: Route to Implementation.
+```bash
+git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
+```
 
-When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Route any finding raised by an evaluator through the revision loop rather than reclassifying it as out of scope.
+Then send a message to each evaluation agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
+
+**plan-failure-mode**: Deliver the technical revision context:
+- The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
+- What the planner changed — which sections were added, removed, or restructured, and where to focus deeper
+- How the planner responded to technical findings — which concerns were addressed, which deferred, and whether any fix addresses the symptom but not the root cause
+- New interfaces, contracts, data flows, or dependencies the revision introduced that were not in scope in the prior round
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">plan-failure-mode</parameter>
+  <parameter name="summary">Plan revision — technical context</parameter>
+  <parameter name="message">
+[Compose per the bullet points above]
+  </parameter>
+</invoke>
+```
+
+**plan-design**: Deliver the design revision context:
+- The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
+- Which user-outcome concerns the planner addressed, described in terms of what the user would now experience — not what plan text changed, but what the user outcome is now
+- Which acceptance criteria gaps or intent drift findings were not addressed and why
+- New design decisions the revision introduced and what user outcome they would produce if executed
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">plan-design</parameter>
+  <parameter name="summary">Plan revision — design context</parameter>
+  <parameter name="message">
+[Compose per the bullet points above]
+  </parameter>
+</invoke>
+```
+
+Wait for all agents to return, then go back to **3. Read Verdicts and Decide**.
 
 ## 4. Route to Implementation
+
+Only enter this step when every evaluator returned `VERDICT: APPROVED` in **3. Read Verdicts and Decide** (or when no evaluators were dispatched in tier 1–2).
 
 Read `gates.planRequired` from `CARD.meta.json`.
 

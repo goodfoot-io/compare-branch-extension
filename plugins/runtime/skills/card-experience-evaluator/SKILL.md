@@ -48,7 +48,7 @@ For each finding, provide all three:
 - **Why it matters.** Wrong result vs. missing feature. Every user vs. specific trigger. Permanent failure vs. recoverable by reload.
 - **Whether it would be caught.** Would existing tests catch this? Would it only surface under specific user conditions in production? If no existing defense covers this failure, say so.
 
-Return findings as your response message to the caller. Lead with wrong-outcome and intent-drift failures, then missing-outcome failures, then implied scenario and adjacent failures. Do not write findings to the card repository. The orchestrator reads your response directly.
+Return findings as your response. Lead with wrong-outcome and intent-drift failures, then missing-outcome failures, then implied scenario and adjacent failures. Do not write findings to the card repository. The orchestrator reads your response directly.
 
 End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking user-facing failures to raise. The orchestrator routes fixes based on your verdict — it does not override it.
 

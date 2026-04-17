@@ -8,7 +8,7 @@ description: Identify potential failure modes in card plans
 
 ## 1. Read the System, Not the Plan's Description of It
 
-Read `CARD.md` and the primary plan file identified by the caller. Card metadata (title, gates, tags) is available in the `<card>` block. Other files in `plan/` are available for context. Then read every source file the plan references — the files themselves, not the plan's characterization of them. Trace the runtime paths the plan will modify: follow function calls, check error paths, read the tests that cover the affected code. Search the workspace for consumers of every symbol, type, and file the plan modifies. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count.
+Read `CARD.md` and the primary plan file identified in the prompt. Card metadata (title, gates, tags) is available in the `<card>` block. Other files in `plan/` are available for context. Then read every source file the plan references — the files themselves, not the plan's characterization of them. Trace the runtime paths the plan will modify: follow function calls, check error paths, read the tests that cover the affected code. Search the workspace for consumers of every symbol, type, and file the plan modifies. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count.
 
 Your scope is all code the plan interacts with, not just code the plan directly modifies. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced risks.
 
@@ -82,9 +82,9 @@ For each finding, provide all three:
 
 ## 5. Return Findings
 
-Return findings as your response message to the caller. Lead with approach-level concerns, then step-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
+Return findings as your response. Lead with approach-level concerns, then step-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
 
-The caller reads the findings and decides whether the plan is ready to proceed or needs revision.
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking findings to raise. The orchestrator routes revision based on your verdict — it does not override it.
 
 ## When Resuming for a Revised Plan
 
@@ -120,5 +120,7 @@ When a new finding in the revised plan relates to a prior concern — whether it
 ### 5. Return Findings for This Round
 
 Use the same format as §5. Lead with unresolved prior concerns, then new findings the revision introduced, then approach-level risks that survive the revision. Do not repeat findings that have been fully and correctly resolved — note them as closed and move on.
+
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior concern has been resolved at the root and the revised plan introduced no new blocking finding. A prior finding the orchestrator declined to fix — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
 
 </instructions>

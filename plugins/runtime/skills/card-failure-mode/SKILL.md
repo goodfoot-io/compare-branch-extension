@@ -93,7 +93,7 @@ For each finding, provide all three:
 
 ## 6. Return Findings
 
-Return findings as your response message to the caller. Lead with approach-level concerns, then line-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
+Return findings as your response. Lead with approach-level concerns, then line-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
 
 End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking findings to raise. The orchestrator routes fixes based on your verdict — it does not override it.
 

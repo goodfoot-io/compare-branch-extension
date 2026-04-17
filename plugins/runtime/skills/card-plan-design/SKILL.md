@@ -8,7 +8,7 @@ description: Find user-experienced failure modes in a plan's design.
 
 ## 1. Establish the Failure Baseline
 
-Read `CARD.md` from the card repository and the primary plan file identified by the caller. Other files in `plan/` are available for context. The card defines what the user must experience — use it to establish the baseline against which you will identify failures in the plan's design. The plan describes the intended approach; read it to understand what a developer following it would actually build.
+Read `CARD.md` from the card repository and the primary plan file identified in the prompt. Other files in `plan/` are available for context. The card defines what the user must experience — use it to establish the baseline against which you will identify failures in the plan's design. The plan describes the intended approach; read it to understand what a developer following it would actually build.
 
 The orchestrator's prompt will identify specific acceptance criteria and user scenarios relevant to this card. Start there.
 
@@ -47,7 +47,9 @@ For each finding, provide all three:
 - **Why it matters.** Wrong result vs. missing feature. Every user vs. specific trigger. Failure detectable by the user immediately vs. only under specific conditions.
 - **Whether it would be caught.** Would the plan's own validation steps catch this? Would it surface during implementation review? Or would it only become visible when a user exercises the specific scenario in production?
 
-Return findings as your response message to the caller. Lead with intent drift, then wrong-outcome-by-design failures, then missing user scenarios and adjacent regressions. Do not write findings to the card repository. The orchestrator reads your response directly.
+Return findings as your response. Lead with intent drift, then wrong-outcome-by-design failures, then missing user scenarios and adjacent regressions. Do not write findings to the card repository. The orchestrator reads your response directly.
+
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking user-facing failures to raise. The orchestrator routes revision based on your verdict — it does not override it.
 
 ## When Resuming for a Revised Plan
 
@@ -72,5 +74,7 @@ For every section the planner added or restructured, apply the §2 and §3 analy
 ### 4. Return Findings for This Round
 
 Lead with unresolved prior failures, then new failures the revision introduced. Note resolved findings explicitly. Use the same format as §4.
+
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior user-facing failure is resolved by the revised design and the revision introduced no new user-facing failure. A prior failure the orchestrator declined to address — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
 
 </instructions>
