@@ -33,7 +33,7 @@ For each user scenario the orchestrator identified, look for:
 - **Missing user scenarios**: The card requires the feature to handle situations the plan's design doesn't address — edge cases, error conditions, concurrent access, states the user will encounter. If the plan is silent on it and a user would hit it, name the failure.
 - **Intent drift**: The plan's interpretation of the card diverges from what the card actually requires. The plan is internally coherent but aimed at a subtly different problem. If the plan were executed perfectly, the user would get something other than what the card describes. This is the most dangerous failure mode at the plan stage — it cannot be caught at implementation.
   - **Reframing**: The plan solves a related but different problem than the card specifies.
-  - **Scope narrowing**: The plan addresses part of the card's requirements and doesn't acknowledge the rest.
+  - **Scope narrowing**: The plan addresses part of the card's requirements and doesn't acknowledge the rest. Before flagging a card requirement as unaddressed, verify in the workspace that it is not already satisfied by code outside the plan's scope — a requirement absent from the plan may be already-implemented-upstream rather than missing.
   - **Assumption substitution**: The plan replaces an explicit card requirement with an assumption about what the user "really" wants.
 - **Adjacent regressions by design**: The plan's approach changes user-visible behavior in adjacent features that the card does not intend to change. If a user relies on that adjacent behavior and the plan would break it, name the failure.
 

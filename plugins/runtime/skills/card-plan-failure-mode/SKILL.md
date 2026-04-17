@@ -12,7 +12,7 @@ Read `CARD.md` and the primary plan file identified in the prompt. Card metadata
 
 Your scope is all code the plan interacts with, not just code the plan directly modifies. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced risks.
 
-A consumer the plan does not account for is a failure mode the planner doesn't know about.
+A consumer the plan does not account for is a failure mode the planner doesn't know about. Apply this rule symmetrically: every finding that asserts what the workspace does or does not contain ("the plan is missing X," "feature Y is not shipped," "no caller handles Z") must be verified by reading or grepping the workspace, not inferred from the plan's silence about the topic.
 
 Follow the `<take-notes>` instructions — write a note to the card repository for each architectural discovery made during analysis.
 
@@ -42,7 +42,7 @@ These failure patterns appear at disproportionately high rates in Claude-generat
   - Missing rollback, cleanup, timeout, and partial-failure handling are failure modes, not style issues.
   - Check whether Step N assumes Step M was implemented a specific way without stating that dependency — steps that are each valid in isolation can be mutually incompatible.
 
-- **Confident unverified claims** — Search the workspace to confirm or refute every codebase assertion ("only used in X," "always returns Y," "no other callers"). Do not evaluate claims by reasoning about them.
+- **Confident unverified claims** — Search the workspace to confirm or refute every codebase assertion — the plan's ("only used in X," "always returns Y," "no other callers") and your own ("the plan doesn't cover Z," "the user would not find behavior Y"). Do not evaluate claims by reasoning about them. A feature the plan does not mention has three possible states — in-scope-but-undocumented, out-of-scope, or already-implemented-upstream — distinguish them by grepping the workspace before flagging any as a coverage gap.
 
 - **Silent error conversion** — Check whether the plan introduces catch blocks, default returns, or fallback values that convert visible failures into silent wrong results.
   - Broad try-catch wrapping an entire function and returning a generic error (destroying error differentiation)
