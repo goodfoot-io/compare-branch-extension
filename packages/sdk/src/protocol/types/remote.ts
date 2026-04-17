@@ -47,7 +47,13 @@ export type DistributedRemote<T extends { type: string }> = T extends { type: in
  * `packages/extension/src/remote/types.ts`.
  */
 export type RemoteDetailMessage =
-  | { type: 'remote:action:executeAction'; target: 'detail'; cardId: string; actionName: string }
+  | {
+      type: 'remote:action:executeAction';
+      target: 'detail';
+      cardId: string;
+      actionName: string;
+      mode: 'interactive' | 'background';
+    }
   | { type: 'remote:action:cancelAction'; target: 'detail'; cardId: string; actionName: string }
   | { type: 'remote:action:delete'; target: 'detail'; cardId: string }
   | { type: 'remote:action:copyId'; target: 'detail'; cardId: string }
