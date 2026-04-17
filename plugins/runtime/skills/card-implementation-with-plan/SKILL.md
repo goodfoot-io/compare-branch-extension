@@ -60,7 +60,7 @@ Run tests in the worktree, then delete the worktree and branch.
 
 ### 2.1 Validate, Initialize, and Verify Current State
 
-Read every plan file in the card repository's `plan/` directory. When multiple files exist, treat the newest as layering on top of older ones — never skip a plan file because another looks canonical.
+Review the plan files in the card repository's `plan/` directory. When multiple files exist, treat the newest as layering on top of older ones — never skip a plan file because another looks canonical.
 
 Based on plan presence:
 - **No plan files exist**: Write an error comment using the canonical pattern, add `blocked` to `CARD.meta.json` tags, commit, and **STOP** — no plan, no implementation.
@@ -147,7 +147,7 @@ Based on coherence assessment:
 
 **Coherent**: Single agent for all todos.
 
-Agent prompts must be self-contained — agents have no conversation context. Read all files to be modified before dispatching.
+Agent prompts must be self-contained — agents have no conversation context.
 
 ```xml
 <invoke name="Agent">
@@ -172,9 +172,6 @@ Agent prompts must be self-contained — agents have no conversation context. Re
 
 ## File Ownership
 This task owns: [absolute paths from plan]
-
-## Current File Content
-[Read and include current content of files to be modified]
 
 ## Constraints
 [From plan: patterns, interfaces, dependencies to respect]
