@@ -666,5 +666,43 @@ describe('Default Actions', () => {
         await expect(action(baseInput(), createMockContext())).rejects.toThrow('disk full');
       });
     });
+
+    describe('agent routing', () => {
+      it.each([
+        ['empty string', ''],
+        ['undefined', undefined],
+        ['claude-code-extension', 'claude-code-extension']
+      ])('resolves %s to Claude branch and spawns claude', async (_label, codingAgent) => {
+        const { spawn } = await import('node:child_process');
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const action = (await import('../src/actions/interview.js')).default;
+        const promise = action(baseInput({ codingAgent }), createMockContext());
+        await flushMicrotasks();
+
+        const spawnCmd = vi.mocked(spawn).mock.calls[0][0] as string;
+        expect(spawnCmd).toBe('claude');
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it.each([
+        ['codex (pre-rename sentinel)', 'codex'],
+        ['gemini (unknown agent)', 'gemini'],
+        ['claude (agent id not env value)', 'claude'],
+        ['CLAUDE-CODE-CLI (wrong case)', 'CLAUDE-CODE-CLI']
+      ])('rejects %s with a cards.defaultCodingAgent error and does not spawn', async (_label, codingAgent) => {
+        const { spawn } = await import('node:child_process');
+
+        const action = (await import('../src/actions/interview.js')).default;
+        await expect(action(baseInput({ codingAgent }), createMockContext())).rejects.toThrow(
+          /cards\.defaultCodingAgent.*is not a supported value/
+        );
+
+        expect(spawn).not.toHaveBeenCalled();
+      });
+    });
   });
 });

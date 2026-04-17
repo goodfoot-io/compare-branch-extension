@@ -6,14 +6,13 @@ A map of every agent, subagent, team member, and skill connection in the runtime
 
 ## Entry Points
 
-Three actions in `public/packages/default-configuration/src/actions/` start Claude sessions.
+Three actions in `public/packages/default-configuration/src/actions/` start sessions. Each handler branches on `cards.defaultCodingAgent` via `resolveCodingAgent()` to spawn either the Claude or Codex CLI.
 
-| Action | What it spawns | First skill / agent loaded |
-|--------|---------------|---------------------------|
-| `launch.ts` | Claude CLI (interactive or background) | `runtime:card-routing` skill |
-| `interview.ts` | Claude CLI (interactive only) | `runtime:interview-routing` skill |
-| `chat.ts` | Claude CLI as `runtime:chat` agent | `chat` agent |
-| `codex.ts` | Codex CLI | *(separate workflow)* |
+| Action | Claude branch | Codex branch | First skill loaded (Claude) |
+|--------|--------------|-------------|---------------------------|
+| `launch.ts` | Claude CLI (interactive or background) | Codex CLI (interactive only) | `runtime:card-routing` skill |
+| `interview.ts` | Claude CLI (interactive only) | Codex CLI (interactive only) | `runtime:interview-routing` skill |
+| `chat.ts` | Claude CLI as `runtime:chat` agent | Codex CLI (no seeded prompt) | `chat` agent |
 
 ### Shared Context Injected at Launch
 

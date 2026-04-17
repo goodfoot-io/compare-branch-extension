@@ -64,8 +64,8 @@ export default defineAction(
     if (agent === 'codex-cli') {
       if (input.executionMode === 'background') {
         throw new Error(
-          `cards.codingAgent='codex-cli' does not support background-mode launch. ` +
-            `Run the Launch action in interactive mode, or switch cards.codingAgent to 'claude-code-cli'.`
+          `cards.defaultCodingAgent='codex-cli' does not support background-mode launch. ` +
+            `Run the Launch action in interactive mode, or switch cards.defaultCodingAgent to 'claude-code-cli'.`
         );
       }
       await spawnCodexSession(input, context, {
