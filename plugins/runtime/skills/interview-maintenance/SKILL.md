@@ -5,57 +5,81 @@ description: Enrich maintenance cards with codebase context.
 
 Review ./maintenance.md
 
-<research-before-asking>
-## Research-Before-Asking Protocol
-
-Before asking the user about debt or refactoring, research the codebase to enrich the card — not to perform the maintenance. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
-
-1. Correlate complexity with churn — use git log and file size to find high-value targets
-2. Check for *missing* tests using Glob and Grep — a refactor without tests is dangerous
-3. Verify dependency status from lockfiles for deprecated versions
-
-State findings with confidence — "I see this module has 0 tests and high churn. I assume adding tests is the first requirement before any refactoring. Correct?"
-- Surface gaps explicitly — identify specifically *what* is untestable or brittle.
-- Only ask the user for business motivation and risk profile.
-</research-before-asking>
+<first-principles>
+1. Debt is only debt if it costs something observable — incidents, toil, risk, blocked work — not aesthetic.
+2. Invariants are the contract with the rest of the system. What must not change matters more than what will.
+3. A refactor without a safety net is a rewrite. Tests, observability, and rollback paths are preconditions.
+4. Partial migrations are a steady state to be designed, not an accident to be avoided.
+5. Consumers are part of the system. Any change to shared surfaces is a coordination problem.
+6. The end state must be describable without reference to the current state.
+7. Removal is the completion criterion — debt is not retired until the old path is gone.
+</first-principles>
 
 <instructions>
 
-## 1. Enrich the Request
+## 1. Dispatch Research Immediately
 
-### 1.1 Load Notes Skill
+Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:
+- Complexity-vs.-churn hotspots on the subject (git log frequency + file size/complexity)
+- Test coverage of the subject; flaky or missing cases
+- Dependency freshness and deprecation signals from lockfiles
+- Public surfaces and their consumers (imports, API callers, exported types)
+- TODO/FIXME/`deprecated` markers in-scope
 
-Load the `cards:notes` skill before beginning research.
+Do not block on research. Proceed to Section 2 while subagents run.
 
-### 1.2 Research and Enrich
+## 2. Load Card Skills
 
-Decorate and enrich the user's request — do not implement it. Research the codebase, then write the best card title and description you can.
-- Modify only `CARD.meta.json` and `CARD.md` in the card repository.
-- Do not refactor modules or install dependencies, even if the solution is obvious, trivial, or a single line.
-- Report failing tests, broken builds, or other issues in the card. Do not fix or remediate them — the interview phase surfaces problems; implementation is separate.
-- Make decisions about scope, characterization, and priority as the card author.
-- Do not include code snippets, fix suggestions, or step-by-step implementation instructions.
-- Ask questions only when research leaves genuine ambiguity about the user's intent.
+Load `cards:notes` and `cards:markdown` in parallel.
 
-## 2. Update Card
+## 3. Interview
 
-### 2.1 Load Markdown Guidelines
+Ask one question at a time via `AskUserQuestion`. Each question must:
+- Target motivation, invariants, rollout strategy, and completion criteria — never facts recoverable by research.
+- Include a recommendation and each option's trade-offs, including downsides.
+- Force the user to name what must *not* change; unstated invariants produce regressions.
 
-Load the `cards:markdown` skill before writing CARD.md.
+As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
 
-### 2.2 Write Card Content
+Prioritize question domains aligned with the first principles:
+- **Observable cost today** — incidents, toil, latency, $$, blocked work
+- **Forcing function** — EOL, upstream deprecation, compliance, security
+- **Invariants** — public APIs, data formats, SLAs, keybindings, UX contracts that must be preserved
+- **Safe-to-change** — behaviors explicitly free to shift
+- **Rollout strategy** — big-bang, strangler, dual-write, flagged
+- **Reversibility** — rollback plan, blast radius if rollout fails
+- **Partial-migration tolerance** — is a half-migrated steady state acceptable, for how long
+- **Consumer coordination** — who must be notified or updated
+- **Completion criterion** — what "done" looks like; is old code removed
+- **Performance/observability budget** — what may regress and by how much
 
-Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
+## 4. Update the Card Continually
 
+After each material exchange or research return, update in place. Do not batch to the end.
 
-## 3. Commit
+- `CARD.meta.json` — title and metadata
+- `CARD.md` — per `./maintenance.md` structure
+- `notes/` — research findings, consumer inventory, rejected approaches
+- `plan/` — decision logs and load-bearing assumptions only; do **not** write a migration plan
+
+Commit frequently so the card improves monotonically.
+
+## 5. Constraints
+
+- No refactoring. No dependency upgrades. No code changes of any kind.
+- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Report failing tests or broken builds in the card; do not remediate.
+
+## 6. Finalize
+
+When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 
 ```bash
 cd $CARD_REPO_PATH
-git add CARD.meta.json CARD.md
+git add -A
 git commit -m "[single sentence summarizing the maintenance approach and key decisions from the interview]"  # <card-repo-commit-style>
 ```
 
-**STOP** — Interview complete; card has been updated and committed. Do not proceed to implementation.
+**STOP** — Interview complete. Do not proceed to implementation.
 
 </instructions>

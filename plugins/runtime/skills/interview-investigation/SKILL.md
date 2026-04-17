@@ -5,58 +5,81 @@ description: Enrich investigation cards with codebase context.
 
 Review ./investigation.md
 
-<research-before-asking>
-## Research-Before-Asking Protocol
-
-Before asking the user what to investigate, research the codebase to enrich the card — not to conduct the investigation. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
-
-1. Assess observability — check what is currently logged and instrumented; review dev dependencies (package.json) for monitoring libraries
-2. Identify *missing* observability that should exist to answer the question
-3. Define system boundaries — determine what is a black box vs. white box using Glob, Grep, and Read
-4. Identify existing diagnostic tooling (scripts, profilers, dashboards) — note their existence as context but do not execute them
-
-State findings with confidence — "I see we don't have statsD metrics configured. I assume we need to rely on logs for this investigation, correct?"
-- Surface gaps explicitly — "We are missing visibility into the database connection pool. Should adding those metrics be the first step?"
-- Only ask the user for strategic impact or decision criteria.
-</research-before-asking>
+<first-principles>
+1. An investigation exists to unblock a decision. Without a decision, it is research, not investigation.
+2. Questions must be falsifiable — if no evidence could change the answer, the question is wrong.
+3. The null result is a valid outcome: "We cannot tell from available evidence" must be acceptable.
+4. Evidence has provenance — source, freshness, and trust level affect the conclusion.
+5. Investigation perturbs its subject. Probing production changes the system being studied.
+6. Confidence threshold is set before gathering evidence, not after.
+7. Prior art constrains scope — what has already been investigated bounds this work.
+</first-principles>
 
 <instructions>
 
-## 1. Enrich the Request
+## 1. Dispatch Research Immediately
 
-### 1.1 Load Notes Skill
+Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:
+- Current observability on the subject (logs, metrics, traces, events)
+- System boundaries — what is white-box vs. black-box
+- Existing diagnostic tooling (scripts, dashboards, profilers) — note but do not execute
+- Prior investigations or decision logs that touch the same question
+- Data sources that could supply evidence and their known trust level
 
-Load the `cards:notes` skill before beginning research.
+Do not block on research. Proceed to Section 2 while subagents run.
 
-### 1.2 Research and Enrich
+## 2. Load Card Skills
 
-Decorate and enrich the user's request — do not implement it. Research the codebase, then write the best card title and description you can.
-- Modify only `CARD.meta.json` and `CARD.md` in the card repository.
-- Do not run diagnostics or execute scripts, even if the tooling is readily available.
-- Report failing tests, broken builds, or other issues in the card. Do not fix or remediate them — the interview phase surfaces problems; implementation is separate.
-- Make decisions about scope, characterization, and priority as the card author.
-- Do not include code snippets, fix suggestions, or step-by-step execution instructions.
-- Ask questions only when research leaves genuine ambiguity about the user's intent.
+Load `cards:notes` and `cards:markdown` in parallel.
 
-## 2. Update Card
+## 3. Interview
 
-### 2.1 Load Markdown Guidelines
+Ask one question at a time via `AskUserQuestion`. Each question must:
+- Target the decision to unblock, hypotheses to test, confidence threshold, and acceptable deliverable — never facts recoverable by research.
+- Include a recommendation and each option's trade-offs, including downsides.
+- Force falsifiability: reject questions with no possible answer that would change behavior.
 
-Load the `cards:markdown` skill before writing CARD.md.
+As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
 
-### 2.2 Write Card Content
+Prioritize question domains aligned with the first principles:
+- **Decision to unblock** — what action depends on the outcome, and when
+- **Decision-maker** — who signs off; who else has standing
+- **Hypotheses** — explicit claims to confirm or falsify
+- **Confidence threshold** — directional vs. rigorous; what evidence is enough
+- **Deliverable format** — memo, benchmark, prototype, decision log
+- **Null-result contingency** — what happens if evidence is inconclusive
+- **Production-probing constraints** — what is safe to touch, blackout windows
+- **Access and approvals** — credentials, data agreements, stakeholder interviews
+- **Prior art** — existing investigations to extend or avoid redoing
+- **Risks of false positive / false negative** — asymmetry of being wrong
 
-Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
+## 4. Update the Card Continually
 
+After each material exchange or research return, update in place. Do not batch to the end.
 
-## 3. Commit
+- `CARD.meta.json` — title and metadata
+- `CARD.md` — per `./investigation.md` structure
+- `notes/` — research findings, evidence-source inventory, rejected framings
+- `plan/` — decision logs and load-bearing assumptions only; do **not** write an investigation plan
+
+Commit frequently so the card improves monotonically.
+
+## 5. Constraints
+
+- No investigation execution. No diagnostic scripts, no production probes, no prototype work.
+- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Report failing tests or broken builds in the card; do not remediate.
+
+## 6. Finalize
+
+When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 
 ```bash
 cd $CARD_REPO_PATH
-git add CARD.meta.json CARD.md
+git add -A
 git commit -m "[single sentence summarizing the investigation's focus and key decisions from the interview]"  # <card-repo-commit-style>
 ```
 
-**STOP** — Interview complete; card has been updated and committed. Do not proceed to implementation.
+**STOP** — Interview complete. Do not proceed to implementation.
 
 </instructions>

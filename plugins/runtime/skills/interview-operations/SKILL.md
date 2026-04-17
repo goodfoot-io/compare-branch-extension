@@ -5,57 +5,82 @@ description: Enrich operations cards with codebase context.
 
 Review ./operations.md
 
-<research-before-asking>
-## Research-Before-Asking Protocol
-
-Before asking the user about operational procedures, research the codebase to enrich the card — not to perform the operation. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
-
-1. Analyze safety and recovery — use Glob and Grep to look for rollback scripts, backup procedures
-2. Check for *missing* automation (e.g., `deploy` script exists but no `rollback`)
-3. Map the config surface — identify what can be changed via environment variables
-
-State findings with confidence — "I see a `deploy` script but no `rollback`. I assume this is a one-way migration and we need to snapshot the DB first. Correct?"
-- Surface gaps explicitly — flag missing safety tools in the card description.
-- Only ask the user about urgency, approvals, and external constraints.
-</research-before-asking>
+<first-principles>
+1. Fail closed by default — when uncertain, the safer action preserves current state.
+2. A change is defined by its blast radius and its reversibility.
+3. Verification precedes the declaration of success. Intent to change is not evidence of change.
+4. Every change has a rollback, even if the rollback is "escalate."
+5. Observability before action — if the signal that would detect failure doesn't exist, create it first.
+6. Change is a communication event, not only a technical one.
+7. Environment parity is a premise to verify, not assume.
+</first-principles>
 
 <instructions>
 
-## 1. Enrich the Request
+## 1. Dispatch Research Immediately
 
-### 1.1 Load Notes Skill
+Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:
+- Deploy, rollback, and safety scripts currently in the repo
+- Configuration surface (env vars, feature flags, secrets) touching the subject
+- Monitoring/alerting tied to the affected system
+- Recent changes to the target system via git log (recent volatility)
+- Existing runbooks or ops notes for adjacent procedures
 
-Load the `cards:notes` skill before beginning research.
+Do not block on research. Proceed to Section 2 while subagents run.
 
-### 1.2 Research and Enrich
+## 2. Load Card Skills
 
-Decorate and enrich the user's request — do not implement it. Research the codebase, then write the best card title and description you can.
-- Modify only `CARD.meta.json` and `CARD.md` in the card repository.
-- Do not run scripts or modify infrastructure, even if the fix is obvious, trivial, or a single line.
-- Report failing tests, broken builds, or other issues in the card. Do not fix or remediate them — the interview phase surfaces problems; implementation is separate.
-- Make decisions about scope, characterization, and priority as the card author.
-- Do not include code snippets, fix suggestions, or step-by-step implementation instructions.
-- Ask questions only when research leaves genuine ambiguity about the user's intent.
+Load `cards:notes` and `cards:markdown` in parallel.
 
-## 2. Update Card
+## 3. Interview
 
-### 2.1 Load Markdown Guidelines
+Ask one question at a time via `AskUserQuestion`. Each question must:
+- Target urgency, blast radius, reversibility, approvals, and verification — never facts recoverable by research.
+- Include a recommendation and each option's trade-offs, including downsides.
+- Force a rollback and verification plan. An operation without both is not ready to plan.
 
-Load the `cards:markdown` skill before writing CARD.md.
+As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
 
-### 2.2 Write Card Content
+Prioritize question domains aligned with the first principles:
+- **Urgency and change class** — standard / normal / emergency; justification
+- **Blast radius** — environments, users, adjacent systems affected
+- **Reversibility** — rollback path, time-to-rollback target, acceptable data loss
+- **Preconditions** — access, credentials, backups, feature-flag state, quorum
+- **Verification signal** — dashboard, metric, or query confirming success
+- **Canary / staged rollout** — expectation and graduation criteria
+- **Change window and approvals** — ITSM/ITIL class, freeze-period awareness
+- **Stakeholder communication** — pre, during, post; on-call and downstream owners
+- **Observability additions** — missing metrics/alerts to add before the change
+- **Failure modes and known risks** — what the user has seen go wrong before
+- **Cost and compliance implications** — spend, licensing, audit, data-handling
 
-Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
+## 4. Update the Card Continually
 
+After each material exchange or research return, update in place. Do not batch to the end.
 
-## 3. Commit
+- `CARD.meta.json` — title and metadata
+- `CARD.md` — per `./operations.md` structure
+- `notes/` — research findings, related incidents, rejected approaches
+- `plan/` — decision logs and load-bearing assumptions only; do **not** write a change plan
+
+Commit frequently so the card improves monotonically.
+
+## 5. Constraints
+
+- No operational execution. No scripts, no infra changes, no configuration edits.
+- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Report failing tests or broken builds in the card; do not remediate.
+
+## 6. Finalize
+
+When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 
 ```bash
 cd $CARD_REPO_PATH
-git add CARD.meta.json CARD.md
+git add -A
 git commit -m "[single sentence summarizing the operational scope, risk assessment, and key decisions from the interview]"  # <card-repo-commit-style>
 ```
 
-**STOP** — Interview complete; card has been updated and committed. Do not proceed to implementation.
+**STOP** — Interview complete. Do not proceed to implementation.
 
 </instructions>

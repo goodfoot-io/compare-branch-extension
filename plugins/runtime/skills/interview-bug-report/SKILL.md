@@ -5,59 +5,81 @@ description: Enrich bug report cards with codebase context.
 
 Review ./bug-report.md
 
-<research-before-asking>
-## Research-Before-Asking Protocol
-
-Before asking the user to clarify bug details, research the codebase to enrich the card — not to fix the bug. Use Glob, Grep, Read, and Bash directly; do not delegate research to subagents.
-
-1. Locate the error source
-2. Check recent changes for context (Chesterton's Fence)
-3. Look for missing test coverage or error handling
-4. Verify environment from config files
-
-State findings as declarations — "Commit abc123 changed the user model to optional 5 days ago, which aligns with when the bug was first reported" — rather than asking what you can infer.
-- Describe existing patterns or prior art as context only — do not frame them as precedents the fix should follow.
-- Surface gaps explicitly — "No tests exist for this feature. Should a reproduction test be part of this card?"
-- Only ask the user for information that cannot be inferred from the codebase.
-</research-before-asking>
+<first-principles>
+1. Reproducibility is the unit of truth — without it, everything else is speculation.
+2. Observation and interpretation must be kept separate.
+3. The environment is part of the bug: (code, state, inputs, environment) is the defect.
+4. Severity tracks impact, not loudness. Silent data corruption outranks visible crashes.
+5. Regression vs. latent defect changes the investigation entirely.
+6. Missing observability is a defect of its own.
+7. Workarounds are data — what makes the bug go away reveals its shape.
+</first-principles>
 
 <instructions>
 
-## 1. Enrich the Request
+## 1. Dispatch Research Immediately
 
-### 1.1 Load Notes Skill
+Spawn `Explore` subagents in parallel with `run_in_background: true` before engaging the user. Research targets:
+- The code path implicated by the error (symbol, file, caller/callee chain)
+- Recent changes to that path via git log/blame (regression candidates)
+- Test coverage of the path and known flaky history
+- Error/log instrumentation already in place
+- Adjacent failure modes the same code could exhibit
 
-Load the `cards:notes` skill before beginning research.
+Do not block on research. Proceed to Section 2 while subagents run.
 
-### 1.2 Research and Enrich
+## 2. Load Card Skills
 
-Decorate and enrich the user's request — do not implement it. Research the codebase, then write the best card title and description you can.
-- Modify only `CARD.meta.json` and `CARD.md` in the card repository.
-- Do not write fixes, even if the solution is obvious, trivial, or a single line.
-- Report failing tests, broken builds, or other issues in the card. Do not fix or remediate them — the interview phase surfaces problems; implementation is separate.
-- Make decisions about scope, characterization, and priority as the card author.
-- Do not include code snippets, fix suggestions, or step-by-step implementation instructions.
-- Ask questions only when research leaves genuine ambiguity about the user's intent.
+Load `cards:notes` and `cards:markdown` in parallel.
 
-## 2. Update Card
+## 3. Interview
 
-### 2.1 Load Markdown Guidelines
+Ask one question at a time via `AskUserQuestion`. Each question must:
+- Target what only the user can supply: reproduction specifics, environment, severity, workarounds, observed vs. expected, sensitivity of repro data.
+- Include a recommendation and each option's trade-offs, including downsides.
+- Separate observation from interpretation; do not let the user's hypothesis narrow the investigation prematurely.
 
-Load the `cards:markdown` skill before writing CARD.md.
+As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
 
-### 2.2 Write Card Content
+Prioritize question domains aligned with the first principles:
+- **Reproduction** — exact steps, starting state, prerequisites
+- **Reproducibility rate** — always / sometimes / once
+- **Environment** — OS, IDE variant, extension version, workspace shape, settings overrides
+- **Regression boundary** — first known good, first known bad, recent user-side changes
+- **Severity and impact** — blast radius, data loss vs. cosmetic, who is blocked
+- **Urgency** — user-facing deadline or incident coupling
+- **Workarounds** — what the user tried; what made it better or worse
+- **Data sensitivity** — can repros/logs be attached or must they be redacted?
+- **Observability gaps** — what log or metric *would* have made this obvious
+- **Acceptance of fix** — how the user will verify the fix beyond the original repro
 
-Update the `title` field in `CARD.meta.json` with the revised title. Replace the contents of `CARD.md` with the revised description.
+## 4. Update the Card Continually
 
+After each material exchange or research return, update in place. Do not batch to the end.
 
-## 3. Commit
+- `CARD.meta.json` — title and metadata
+- `CARD.md` — per `./bug-report.md` structure
+- `notes/` — research findings, log excerpts, rejected hypotheses
+- `plan/` — decision logs and load-bearing assumptions only; do **not** write a fix plan
+
+Commit frequently so the card improves monotonically.
+
+## 5. Constraints
+
+- No fixes. No code, no remediation, no test stubs.
+- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Report failing tests or broken builds in the card; do not remediate.
+
+## 6. Finalize
+
+When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 
 ```bash
 cd $CARD_REPO_PATH
-git add CARD.meta.json CARD.md
+git add -A
 git commit -m "[single sentence summarizing how the bug was characterized and key decisions from the interview]"  # <card-repo-commit-style>
 ```
 
-**STOP** — Interview complete; card has been updated and committed. Do not proceed to implementation.
+**STOP** — Interview complete. Do not proceed to implementation.
 
 </instructions>
