@@ -148,6 +148,7 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     cardRepoPath: '/test/repo',
     configPath: '/test/config',
     extensionPath: '/test/extension',
+    codingAgent: 'claude-code-cli',
     ...overrides
   };
 }

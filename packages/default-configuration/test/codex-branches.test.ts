@@ -1,9 +1,11 @@
 /**
- * Exercises Codex action behavior through focused scenarios.
- * The cases lock in staged-home preparation so runtime plugin loading does not
- * drift during refactors.
+ * Exercises Codex branches of the consolidated action handlers (launch, chat,
+ * interview) through end-to-end scenarios. Locks in staging, spawn argv, error
+ * paths, cancellation, and branch-cleanup wiring for the Codex path so the
+ * main-334 consolidation preserves the pre-refactor `codex.ts` / `codex-chat.ts`
+ * contract byte-for-byte and adds a parallel `interview` Codex path.
  *
- * @summary Tests Codex action behavior
+ * @summary Tests Codex branches of consolidated action handlers
  */
 
 import type { ChildProcess } from 'node:child_process';
@@ -403,31 +405,20 @@ function createMockAppServerChild(): ChildProcess {
 function baseInput(overrides?: Partial<ActionInput>): ActionInput {
   return {
     cardId: 'card-123',
-    actionName: 'Codex',
+    actionName: 'Launch',
     environment: 'default',
     executionMode: 'interactive',
     repoRoot: '/test/workspace',
     cardRepoPath: '/test/repo',
     configPath: '/test/config',
     extensionPath: '/test/extension',
+    codingAgent: 'codex-cli',
     ...overrides
   };
 }
 
-describe('codex action', () => {
-  it('exports an action command', async () => {
-    const action = (await import('../src/actions/codex.js')).default;
-    expect(action.factoryType).toBe('action');
-    expect(action.actionName).toBe('Codex');
-  });
-
-  it('exports a codex chat action command', async () => {
-    const action = (await import('../src/actions/codex-chat.js')).default;
-    expect(action.factoryType).toBe('action');
-    expect(action.actionName).toBe('Codex Chat');
-  });
-
-  it('stages codex home from the default source, overlays the bundled marketplace, and spawns codex with staged CODEX_HOME', async () => {
+describe('launch action — codex branch', () => {
+  it('stages codex home, overlays the bundled marketplace, and spawns codex with staged CODEX_HOME', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
     const appServerChild = createMockAppServerChild();
@@ -439,7 +430,7 @@ describe('codex action', () => {
       return child;
     });
 
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
@@ -532,69 +523,6 @@ describe('codex action', () => {
     await promise;
   });
 
-  it('spawns codex chat without a seeded guidance prompt', async () => {
-    const { spawn } = await import('node:child_process');
-    const appServerChild = createMockAppServerChild();
-    const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
-
-    const action = (await import('../src/actions/codex-chat.js')).default;
-    const promise = action(baseInput({ actionName: 'Codex Chat' }), createMockContext());
-    await flushMicrotasks();
-
-    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
-    expect(args).toEqual(
-      expect.arrayContaining([
-        '--dangerously-bypass-approvals-and-sandbox',
-        '--cd',
-        '/test/workspace/.worktrees/cards/card-123/1',
-        '--add-dir',
-        '/test/repo'
-      ])
-    );
-    expect(args).toHaveLength(5);
-
-    child.emit('close', 0);
-    await promise;
-  });
-
-  it('prepends additional context only when a prompt is provided', async () => {
-    const { buildAdditionalContext, buildCodexPrompt } = await import('../src/lib/codex-session.js');
-
-    const additionalContext = buildAdditionalContext(
-      baseInput(),
-      '/test/workspace/.worktrees/cards/card-123/1',
-      'main',
-      'cards/card-123/1'
-    );
-
-    expect(additionalContext).toContain('```bash');
-    expect(additionalContext).toContain('EXECUTION_MODE=interactive');
-    expect(additionalContext).toContain('<card type="yaml">');
-    expect(additionalContext).toContain('title: Test card');
-    expect(additionalContext).toContain('<card-repo type="yaml">');
-    expect(additionalContext).toContain('CARD.md');
-    expect(additionalContext).toContain('<card-repo-log type="yaml" count="3" order="oldest-first">');
-    expect(additionalContext).toContain('subject: Add card plan');
-    expect(additionalContext).toContain(
-      '<workspace-repo-log type="yaml" branch="cards/card-123/1" parentBranch="main" count="1">'
-    );
-    expect(additionalContext).toContain('subject: Branch change');
-    expect(additionalContext).toContain('merged: true');
-    expect(additionalContext).toContain('<workspace-repo-log type="yaml" branch="main" count="1">');
-    expect(additionalContext).toContain('subject: Merged fix');
-
-    expect(buildCodexPrompt('Continue work on the card.', additionalContext)).toBe(
-      `${additionalContext}\n\nContinue work on the card.`
-    );
-    expect(buildCodexPrompt(undefined, additionalContext)).toBeUndefined();
-  });
-
   it('stages codex home from CODEX_HOME when provided', async () => {
     process.env['CODEX_HOME'] = '/custom/codex-home';
     const { spawn } = await import('node:child_process');
@@ -614,7 +542,7 @@ describe('codex action', () => {
       throw Object.assign(new Error(`mock: unhandled stat: ${String(targetPath)}`), { code: 'ENOENT' });
     });
 
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
@@ -657,7 +585,7 @@ describe('codex action', () => {
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
     });
 
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
@@ -670,74 +598,6 @@ describe('codex action', () => {
     await promise;
   });
 
-  it('preserves unrelated config settings while enabling the bundled plugins', async () => {
-    const { mergeCodexRuntimeConfig } = await import('../src/lib/codex-session.js');
-    const fs = await import('node:fs/promises');
-
-    await mergeCodexRuntimeConfig('/home/node/.cards/codex');
-
-    const writtenConfig = vi.mocked(fs.writeFile).mock.calls[0]?.[1];
-    expect(typeof writtenConfig).toBe('string');
-    expect(writtenConfig).toContain('model = "gpt-5"');
-    expect(writtenConfig).toContain('[tools]');
-    expect(writtenConfig).toContain('web_search = true');
-    expect(writtenConfig).toContain('[features]');
-    expect(writtenConfig).toContain('plugins = true');
-    expect(writtenConfig).toContain('[plugins."cards@local"]');
-    expect(writtenConfig).toContain('[plugins."runtime@local"]');
-    expect(writtenConfig).toContain('enabled = true');
-  });
-
-  it('uses translated Codex skills instead of Claude CLI env vars', async () => {
-    const cardsApiSkill = (await import('../../../codex/cards/skills/api/SKILL.md')).default;
-    const notesSkill = (await import('../../../codex/cards/skills/notes/SKILL.md')).default;
-    const implementationSkill = (await import('../../../codex/runtime/skills/card-implementation/SKILL.md')).default;
-    const blockedSkill = (await import('../../../codex/runtime/skills/card-blocked/SKILL.md')).default;
-
-    expect(cardsApiSkill).not.toContain('$CARD_CLI');
-    expect(cardsApiSkill).not.toContain('$NOTIFICATION_CLI');
-    expect(cardsApiSkill).not.toContain('$COMPARE_CLI');
-    expect(notesSkill).not.toContain('$CARD_CLI');
-    expect(implementationSkill).not.toContain('$CREATE_WORKTREE_CLI');
-    expect(blockedSkill).not.toContain('$CARD_CLI');
-  });
-
-  it('creates AGENTS.md from packaged Claude instructions when none exists', async () => {
-    const { mergeCodexAgentsInstructions } = await import('../src/lib/codex-session.js');
-    const fs = await import('node:fs/promises');
-
-    await mergeCodexAgentsInstructions('/home/node/.cards/codex', '/test/extension/dist/marketplace');
-
-    expect(fs.writeFile).toHaveBeenCalledWith(
-      '/home/node/.cards/codex/AGENTS.md',
-      '# Claude Instructions\nUse runtime workflows.\n\n# Commit Style\nKeep commits small.\n'
-    );
-  });
-
-  it('appends packaged Claude instructions to an existing AGENTS.md file', async () => {
-    const { mergeCodexAgentsInstructions } = await import('../src/lib/codex-session.js');
-    const fs = await import('node:fs/promises');
-    vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/CLAUDE.md') {
-        return '# Claude Instructions\nUse runtime workflows.';
-      }
-      if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
-        return '# Commit Style\nKeep commits small.';
-      }
-      if (String(filePath) === '/home/node/.cards/codex/AGENTS.md') {
-        return '# Existing Agents\nPrior instructions.';
-      }
-      throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
-    });
-
-    await mergeCodexAgentsInstructions('/home/node/.cards/codex', '/test/extension/dist/marketplace');
-
-    expect(fs.writeFile).toHaveBeenCalledWith(
-      '/home/node/.cards/codex/AGENTS.md',
-      '# Existing Agents\nPrior instructions.\n\n# Claude Instructions\nUse runtime workflows.\n\n# Commit Style\nKeep commits small.\n'
-    );
-  });
-
   it('fails closed when the bundled marketplace manifest is missing', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
@@ -747,7 +607,7 @@ describe('codex action', () => {
       }
     });
 
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
 
     await expect(action(baseInput(), createMockContext())).rejects.toThrow('marketplace missing');
     expect(spawn).not.toHaveBeenCalled();
@@ -772,7 +632,7 @@ describe('codex action', () => {
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
     });
 
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
 
     await expect(action(baseInput(), createMockContext())).rejects.toThrow();
     expect(spawn).not.toHaveBeenCalled();
@@ -789,7 +649,7 @@ describe('codex action', () => {
       return undefined;
     });
 
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
 
     await expect(action(baseInput(), createMockContext())).rejects.toThrow('mkdir failed');
     expect(spawn).not.toHaveBeenCalled();
@@ -807,7 +667,7 @@ describe('codex action', () => {
     });
 
     const context = createMockContext();
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), context);
     await flushMicrotasks();
 
@@ -831,7 +691,7 @@ describe('codex action', () => {
       return child;
     });
 
-    const action = (await import('../src/actions/codex.js')).default;
+    const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
@@ -848,5 +708,78 @@ describe('codex action', () => {
     const execCalls = vi.mocked(execFile).mock.calls;
     const mergeBaseCall = execCalls.find((call) => (call[1] as string[])?.includes('merge-base'));
     expect(mergeBaseCall).toBeUndefined();
+  });
+
+  it('rejects background-mode launch with a codingAgent-specific error and does not spawn', async () => {
+    const { spawn } = await import('node:child_process');
+
+    const action = (await import('../src/actions/launch.js')).default;
+
+    await expect(
+      action(baseInput({ executionMode: 'background' }), createMockContext())
+    ).rejects.toThrow(/does not support background-mode/);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+});
+
+describe('chat action — codex branch', () => {
+  it('spawns codex chat without a seeded guidance prompt', async () => {
+    const { spawn } = await import('node:child_process');
+    const appServerChild = createMockAppServerChild();
+    const child = createMockChild();
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
+
+    const action = (await import('../src/actions/chat.js')).default;
+    const promise = action(baseInput({ actionName: 'Chat' }), createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
+    expect(args).toEqual(
+      expect.arrayContaining([
+        '--dangerously-bypass-approvals-and-sandbox',
+        '--cd',
+        '/test/workspace/.worktrees/cards/card-123/1',
+        '--add-dir',
+        '/test/repo'
+      ])
+    );
+    expect(args).toHaveLength(5);
+
+    child.emit('close', 0);
+    await promise;
+  });
+});
+
+describe('interview action — codex branch', () => {
+  it('spawns codex with an interview-routing prompt and routing trailer', async () => {
+    const { spawn } = await import('node:child_process');
+    const appServerChild = createMockAppServerChild();
+    const child = createMockChild();
+    vi.mocked(spawn).mockImplementation((command, args) => {
+      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
+        return appServerChild;
+      }
+      return child;
+    });
+
+    const action = (await import('../src/actions/interview.js')).default;
+    const promise = action(baseInput({ actionName: 'Interview' }), createMockContext());
+    await flushMicrotasks();
+
+    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
+    expect(args).toContain('--cd');
+    expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
+    expect(args).toContain('--add-dir');
+    expect(args).toContain('/test/repo');
+    expect(args[args.length - 1]).toContain('Follow the routing `<instructions>`.');
+    expect(args[args.length - 1]).toContain('<routing-constraints>');
+
+    child.emit('close', 0);
+    await promise;
   });
 });

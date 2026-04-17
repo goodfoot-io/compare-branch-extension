@@ -1,25 +1,30 @@
 /**
- * Launch action for Claude Code workflows.
+ * Launch action for Cards workflows.
  *
- * Spawns the `claude` CLI for the current card. In interactive mode, the
- * process inherits stdio so the user gets direct terminal control. In
- * background mode, Claude runs with `--print` so it executes non-interactively
- * (takes a prompt, runs, and exits). The watcher handles all transcript
- * streaming; launch.ts does not open any stream endpoint.
+ * Branches on `input.codingAgent` via {@link resolveCodingAgent}:
+ * - Claude: spawns the `claude` CLI. In interactive mode, the process inherits
+ *   stdio so the user gets direct terminal control. In background mode, Claude
+ *   runs with `--print` so it executes non-interactively (takes a prompt, runs,
+ *   and exits). The watcher handles all transcript streaming.
+ * - Codex: spawns the `codex` CLI interactively with the card-routing skill
+ *   seeded as the initial prompt. Background mode is rejected explicitly.
  *
  * The action awaits process exit before resolving, so the terminal closes
- * only after Claude finishes and cleanup is complete.
+ * only after the underlying CLI finishes and cleanup is complete.
  *
- * @summary Launch action for Claude Code workflows
+ * @summary Launch action for Cards workflows
  * @module
  * @see {@link defineAction} for factory behavior and metadata attachment
  */
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import claudeCardRoutingSkill from '../../../../plugins/runtime/skills/card-routing/SKILL.md';
 import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
-import cardRoutingSkill from '../../../../plugins/runtime/skills/card-routing/SKILL.md';
+import codexCardRoutingSkill from '../../../../codex/runtime/skills/card-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
+import { resolveCodingAgent } from '../lib/coding-agent.js';
+import { spawnCodexSession } from '../lib/codex-session.js';
 
 /**
  * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
@@ -31,24 +36,44 @@ function stripFrontmatter(md: string): string {
 }
 
 const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
-const CARD_ROUTING_SKILL: string = stripFrontmatter(cardRoutingSkill).trim();
+const CARD_ROUTING_SKILL_CLAUDE: string = stripFrontmatter(claudeCardRoutingSkill).trim();
+const CARD_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexCardRoutingSkill).trim();
 
 /**
  * Launch action handler.
  *
- * Spawns the `claude` CLI as a child process, providing the card ID and
- * repository path as prompt context. The process lifecycle is tied to the
- * action: cancellation sends SIGTERM, and switching to interactive mode
- * preserves the session ID for resumption.
+ * Spawns either the `claude` or `codex` CLI as a child process, selected by
+ * `input.codingAgent`. The process lifecycle is tied to the action:
+ * cancellation sends SIGTERM. In the Claude branch, switching to interactive
+ * mode preserves the session ID for resumption.
+ *
+ * Codex + background mode is rejected explicitly: background launch is a
+ * Claude-only capability until `spawnCodexSession` grows a background-mode
+ * implementation.
  */
 export default defineAction(
   {
     actionName: 'Launch',
-    description: 'Start a Claude session for the card',
+    description: 'Start a coding session for the card',
     supportsBackgroundMode: true,
     timeout: 3600000
   },
   async (input: ActionInput, context: ActionContext) => {
+    const agent = resolveCodingAgent(input);
+
+    if (agent === 'codex-cli') {
+      if (input.executionMode === 'background') {
+        throw new Error(
+          `cards.codingAgent='codex-cli' does not support background-mode launch. ` +
+            `Run the Launch action in interactive mode, or switch cards.codingAgent to 'claude-code-cli'.`
+        );
+      }
+      await spawnCodexSession(input, context, {
+        prompt: [CARD_ROUTING_SKILL_CODEX, 'Follow the routing `<instructions>`.'].join('\n\n')
+      });
+      return;
+    }
+
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
@@ -57,7 +82,7 @@ export default defineAction(
       sessionId,
       resume,
       supportsSwitchToInteractive: true,
-      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${CARD_ROUTING_SKILL}`
+      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${CARD_ROUTING_SKILL_CLAUDE}`
     });
   }
 );

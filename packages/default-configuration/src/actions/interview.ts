@@ -1,32 +1,51 @@
 /**
- * Interview action for Claude Code workflows.
+ * Interview action for Cards workflows.
  *
- * Spawns the `claude` CLI with the `runtime:interview-routing` skill for the
- * current card. The process always runs interactively — stdio is inherited so
- * the user gets direct terminal control. Background mode is not supported
- * because interviews require active user participation.
+ * Branches on `input.codingAgent` via {@link resolveCodingAgent}:
+ * - Claude: spawns the `claude` CLI with the `runtime:interview-routing` skill
+ *   for the current card.
+ * - Codex: spawns the `codex` CLI interactively with the interview-routing
+ *   skill seeded as the initial prompt.
+ *
+ * The process always runs interactively — stdio is inherited so the user gets
+ * direct terminal control. Background mode is not supported because interviews
+ * require active user participation.
  *
  * The action awaits process exit before resolving, so the terminal closes
- * only after Claude finishes and cleanup is complete.
+ * only after the underlying CLI finishes and cleanup is complete.
  *
- * @summary Interview action for Claude Code workflows
+ * @summary Interview action for Cards workflows
  * @module
  * @see {@link defineAction} for factory behavior and metadata attachment
  */
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
+import claudeInterviewRoutingSkill from '../../../../plugins/runtime/skills/interview-routing/SKILL.md';
 import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
-import interviewRoutingSkill from '../../../../plugins/runtime/skills/interview-routing/SKILL.md';
+import codexInterviewRoutingSkill from '../../../../codex/runtime/skills/interview-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
+import { resolveCodingAgent } from '../lib/coding-agent.js';
+import { spawnCodexSession } from '../lib/codex-session.js';
+
+/**
+ * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
+ * @param md - Markdown string potentially containing frontmatter.
+ * @returns The markdown content without frontmatter.
+ */
+function stripFrontmatter(md: string): string {
+  return md.replace(/^---\n[\s\S]*?\n---\n*/, '');
+}
 
 const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
-const INTERVIEW_ROUTING_SKILL: string = interviewRoutingSkill.replace(/^---\n[\s\S]*?\n---\n*/, '').trim();
+const INTERVIEW_ROUTING_SKILL_CLAUDE: string = stripFrontmatter(claudeInterviewRoutingSkill).trim();
+const INTERVIEW_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexInterviewRoutingSkill).trim();
 
 /**
  * Interview action handler.
  *
- * Spawns the `claude` CLI as a child process using the interview-routing skill.
+ * Spawns either the `claude` or `codex` CLI as a child process using the
+ * corresponding interview-routing skill, selected by `input.codingAgent`.
  * The process lifecycle is tied to the action: cancellation sends SIGTERM.
  * Session resume is not supported — each interview always starts fresh.
  */
@@ -38,12 +57,21 @@ export default defineAction(
     timeout: 3600000
   },
   async (input: ActionInput, context: ActionContext) => {
+    const agent = resolveCodingAgent(input);
+
+    if (agent === 'codex-cli') {
+      await spawnCodexSession(input, context, {
+        prompt: [INTERVIEW_ROUTING_SKILL_CODEX, 'Follow the routing `<instructions>`.'].join('\n\n')
+      });
+      return;
+    }
+
     await spawnClaudeSession(input, context, {
       prompt: 'Follow the `<routing-instructions>`.',
       sessionId: randomUUID(),
       resume: false,
       supportsSwitchToInteractive: false,
-      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${INTERVIEW_ROUTING_SKILL}`
+      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${INTERVIEW_ROUTING_SKILL_CLAUDE}`
     });
   }
 );
