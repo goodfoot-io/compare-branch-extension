@@ -715,9 +715,9 @@ describe('launch action — codex branch', () => {
 
     const action = (await import('../src/actions/launch.js')).default;
 
-    await expect(
-      action(baseInput({ executionMode: 'background' }), createMockContext())
-    ).rejects.toThrow(/does not support background-mode/);
+    await expect(action(baseInput({ executionMode: 'background' }), createMockContext())).rejects.toThrow(
+      /does not support background-mode/
+    );
     expect(spawn).not.toHaveBeenCalled();
   });
 });
