@@ -1,6 +1,6 @@
 ---
 name: interview-documentation
-description: Enrich documentation request cards with codebase context. Does not implement.
+description: Enrich documentation cards with codebase context.
 ---
 
 Review ./documentation.md

@@ -1,6 +1,6 @@
 ---
 name: card-implementation-feedback
-description: Triage user feedback on completed implementations into inline fixes or follow-on plans.
+description: Triage user feedback on completed implementations.
 ---
 
 

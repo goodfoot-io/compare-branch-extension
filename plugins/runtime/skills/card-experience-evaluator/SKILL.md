@@ -1,6 +1,6 @@
 ---
 name: card-experience-evaluator
-description: Find failure modes in an implementation as a user would experience them
+description: Find user-experienced failure modes in an implementation.
 ---
 
 
@@ -50,6 +50,8 @@ For each finding, provide all three:
 
 Return findings as your response message to the caller. Lead with wrong-outcome and intent-drift failures, then missing-outcome failures, then implied scenario and adjacent failures. Do not write findings to the card repository. The orchestrator reads your response directly.
 
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking user-facing failures to raise. The orchestrator routes fixes based on your verdict — it does not override it.
+
 ## When Resuming for a Fixed Implementation
 
 When the orchestrator sends a follow-up message describing which failures were addressed by fixes, this is a continuation of your analysis — you retain full context from every prior round.
@@ -69,5 +71,7 @@ Fix code may introduce new user-facing failures adjacent to the original. Re-exe
 ### 4. Return Findings for This Round
 
 Lead with unresolved prior failures, then new failures the fix introduced. Note closed findings explicitly. Use the same format as §5.
+
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior user-facing failure is gone at the user's entry point and the fix introduced no new user-facing failure. A prior failure the orchestrator declined to fix — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
 
 </instructions>

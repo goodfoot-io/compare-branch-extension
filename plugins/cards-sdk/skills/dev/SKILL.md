@@ -1,6 +1,6 @@
 ---
 name: dev
-description: This skill should be used when the user asks to "take a screenshot of VS Code", "interact with the webview", "click a button in VS Code", "rebuild the extension", "reload the window", "list elements in the webview", "type into a webview input", "scroll the webview", "read webview text", "wait for an element", or needs to automate the main VS Code window webview using the cards-dev CLI. Covers screenshots, element interaction, DOM reading, and waiting for conditions.
+description: Automate VS Code webview via cards-dev CLI.
 ---
 
 <instructions>

@@ -1,6 +1,6 @@
 ---
 name: card-implementation-evaluation
-description: Dispatch failure-mode subagents and decide whether the implementation is ready to proceed.
+description: Evaluate implementation via failure-mode subagents.
 ---
 
 
@@ -28,7 +28,7 @@ COMMITMSG
 
 Run validation per the plan's validation commands.
 
-**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Assess the coherence of the fix todos, choose a model, and delegate to a developer agent. After all fixes complete, return to Step 1.
+**On any failure:** Create todos with "[Pre-eval fix]" prefix from all validation failures. **Delegate them — do not implement directly.** Assess the coherence of the fix todos, choose a model, and delegate to a developer agent. After all fixes complete, return to **1. Stage Uncommitted Changes**.
 
 Only proceed to **3. Dispatch Subagents** when ALL validations pass.
 
@@ -141,23 +141,23 @@ Write this from what you found in the card, not as a generic description.]
 </invoke>
 ```
 
-## 5. Read Findings and Decide
+## 5. Read Verdicts and Decide
 
-After all subagents return, read their output. Decide:
+After all subagents return, read the `VERDICT:` line from each. The decision is determined by their verdicts, not your own assessment of the findings:
 
-- **APPROVED**: No blocking findings — proceed to Step 6.
-- **CHANGES_REQUESTED**: Findings require fixes — go to Step 5.1.
-- **BLOCKED**: External constraints prevent completion — document in comment, add `blocked` tag, commit, **STOP**.
+- **APPROVED**: Every dispatched reviewer returned `VERDICT: APPROVED` — proceed to **6. Finalize**.
+- **CHANGES_REQUESTED**: Any reviewer returned `VERDICT: CHANGES_REQUESTED` — go to **5.1 Dispatch Fixes**. You may not override a reviewer's verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
+- **BLOCKED**: An external constraint prevents fixing a `CHANGES_REQUESTED` finding — document the constraint and the specific finding in a comment, add `blocked` tag, commit, **STOP**.
 
-When deciding, apply the same bar a maintainer would: broken wiring, contract drift, unmet requirements, unsafe defaults, and missing behavioral coverage require fixes. Nits and style observations do not block.
+Approval is the reviewers' call. Your role is to route findings to fixes and re-dispatch, not to decide which findings count.
 
 ### 5.1 Dispatch Fixes
 
-For each finding:
-- **Viable**: Create a task with "[Review fix]" prefix. **Delegate — do not implement directly.** Assess coherence of the fix todos, choose a model, and delegate to a developer agent.
-- **Not viable**: Note the reason (e.g., attempted but introduced a regression, rejected during planning, blocked by an external constraint).
+For each finding, create a task with "[Review fix]" prefix. **Delegate — do not implement directly.** Assess coherence of the fix todos, choose a model, and delegate to a developer agent.
 
-Wait for the developer(s) to return, then go to Step 5.2.
+A finding may only be left unfixed if it was attempted and introduced a regression, or if an external constraint prevents the fix. "Follow-up candidate," "known limitation," and "out of scope" are not valid reasons — if the reviewer raised it, the reviewer closes it at re-evaluation, or the run goes to **BLOCKED**.
+
+Wait for the developer(s) to return, then go to **5.2 Stage, Commit, and Validate**.
 
 ### 5.2 Stage, Commit, and Validate
 
@@ -171,9 +171,9 @@ COMMITMSG
 
 Run validation per the plan's validation commands.
 
-**On failure**: Create new `[Review fix]` tasks from all failures — go back to Step 5.1.
+**On failure**: Create new `[Review fix]` tasks from all failures — go back to **5.1 Dispatch Fixes**.
 
-Once validation passes, go to Step 5.3.
+Once validation passes, go to **5.3 Resume Evaluation Agents**.
 
 ### 5.3 Resume Evaluation Agents
 
@@ -213,10 +213,10 @@ Each agent retains its prior findings and knows how to triage them — the messa
 </invoke>
 ```
 
-Wait for all agents to return, then go back to Step 5.
+Wait for all agents to return, then go back to **5. Read Verdicts and Decide**.
 
 ## 6. Finalize
 
-Proceed to Step 4: Finalize. Do not modify gates in `CARD.meta.json`.
+Only enter this step when every reviewer returned `VERDICT: APPROVED` in **5. Read Verdicts and Decide**. Proceed to Step 4: Finalize. Do not modify gates in `CARD.meta.json`.
 
 </instructions>

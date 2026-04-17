@@ -1,6 +1,6 @@
 ---
 name: remote
-description: This skill should be used when the user asks to "send a remote message", "dispatch a remote action", "programmatically trigger a card action", "drive the extension from a test", "observe extension events", "use the remote: API", "inject a remote message", "preload a dialog response", or "use the synthetic event harness". Also load when writing extension-host tests that need to trigger UI actions without a live webview.
+description: Drive the extension webview via remote messages.
 ---
 
 <instructions>

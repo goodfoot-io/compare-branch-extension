@@ -1,6 +1,6 @@
 ---
 name: card-plan
-description: Assess card complexity, select a planning tier, dispatch subagents, and decide whether the plan is ready to proceed.
+description: Plan a card via tiered dispatch and evaluation.
 ---
 
 
@@ -262,7 +262,7 @@ Based on the planner's outcome and any failure-mode findings:
   Wait for all agents to return, then read their findings and decide again.
 - **No blocking findings**: Proceed to Step 4: Route to Implementation.
 
-When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Style observations and minor nits do not.
+When deciding whether findings require revision, apply the same bar a maintainer would: wrong strategy, unvalidated assumption, design principle violation, or completeness gap requires revision. Route any finding raised by an evaluator through the revision loop rather than reclassifying it as out of scope.
 
 ## 4. Route to Implementation
 

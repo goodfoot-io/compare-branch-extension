@@ -1,6 +1,6 @@
 ---
 name: interview-maintenance
-description: Enrich maintenance request cards with codebase context. Does not implement.
+description: Enrich maintenance cards with codebase context.
 ---
 
 Review ./maintenance.md

@@ -95,7 +95,7 @@ For each finding, provide all three:
 
 Return findings as your response message to the caller. Lead with approach-level concerns, then line-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
 
-The caller reads the findings and decides whether the implementation is ready or needs revision.
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking findings to raise. The orchestrator routes fixes based on your verdict — it does not override it.
 
 ## When Resuming for a Fixed Implementation
 
@@ -131,5 +131,7 @@ Where possible, execute the code paths the fix touches. Runtime behavior is the 
 ### 5. Return Findings for This Round
 
 Use the same format as §6. Lead with unresolved prior concerns, then new findings the fix code introduced, then approach-level risks that survive the revision. Do not repeat findings that have been fully and correctly resolved — note them as closed and move on.
+
+End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior concern has been resolved at the root and the fix code introduced no new blocking finding. A prior finding the orchestrator declined to fix — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
 
 </instructions>

@@ -111,7 +111,7 @@ For every section the planner modified, apply the §3 empirical failure checks w
 - Verify every new assertion the planner added — treat each one as an unverified claim until confirmed in the workspace.
 - For any finding that was only partially resolved, pursue it to its conclusion: read every caller, verify every dependency, check every test.
 
-The goal of each successive round is to arrive at a conclusion rather than to re-raise the same surface-level signal.
+The goal of each successive round is to pursue each prior concern to a definite outcome — confirmed resolved, confirmed still open with the specific condition that keeps it open, or superseded by a new finding that replaces it.
 
 ### 4. Connect Findings Across Rounds
 

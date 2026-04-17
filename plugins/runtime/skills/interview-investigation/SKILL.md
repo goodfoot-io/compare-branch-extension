@@ -1,6 +1,6 @@
 ---
 name: interview-investigation
-description: Enrich investigation request cards with codebase context. Does not implement.
+description: Enrich investigation cards with codebase context.
 ---
 
 Review ./investigation.md

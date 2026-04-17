@@ -1,6 +1,6 @@
 ---
 name: interview-enhancement
-description: Enrich enhancement request cards with codebase context. Does not implement.
+description: Enrich enhancement cards with codebase context.
 ---
 
 Review ./enhancement.md

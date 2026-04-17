@@ -1,6 +1,6 @@
 ---
 name: Cards Configuration SDK
-description: This skill should be used when the user asks about "@cards/sdk/config", "cards extension settings", "defineAction", "settings.config.ts", "stream renderers", "wwwRoot", "iframe renderer", "JSONL streaming", or mentions building settings.json for Cards Extension.
+description: Build Cards Extension settings and stream renderers.
 version: 1.0.0
 ---
 

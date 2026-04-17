@@ -1,6 +1,6 @@
 ---
 name: api
-description: You must use this skill to "create a card" or "create a new card", "read card [CARD ID]", or interact with a "card". Card IDs are in the format "[slug]-[N]", for example "main-23". 
+description: Create, read, or interact with a card.
 ---
 
 # Cards API

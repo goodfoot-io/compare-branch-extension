@@ -1,6 +1,6 @@
 ---
 name: chat-routing
-description: Evaluate the user's conversational intent and load the appropriate skill or agent.
+description: Route conversational intent to the appropriate skill.
 ---
 
 <routing-constraints>

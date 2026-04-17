@@ -1,6 +1,6 @@
 ---
 name: card-plan-design
-description: Find failure modes in a plan's design as a user would experience them if the plan were executed
+description: Find user-experienced failure modes in a plan's design.
 ---
 
 

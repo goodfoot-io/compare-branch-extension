@@ -1,6 +1,6 @@
 ---
 name: interview-routing
-description: Evaluate card state and load the appropriate interview skill.
+description: Route interview cards to the appropriate skill.
 ---
 
 <routing-constraints>

@@ -1,6 +1,6 @@
 ---
 name: interview-operations
-description: Enrich operations request cards with codebase context. Does not implement.
+description: Enrich operations cards with codebase context.
 ---
 
 Review ./operations.md
