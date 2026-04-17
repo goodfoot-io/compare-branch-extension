@@ -125,13 +125,12 @@ Minimal renderer template:
 <body>
   <div id="root"></div>
   <script type="module">
-    import { streamStore, subscribe, setHeight } from '@cards/sdk/stream-store';
+    import { streamStore, subscribe } from '@cards/sdk/stream-store';
 
     const root = document.getElementById('root');
 
     function render(lines) {
       root.textContent = lines.join('\n');
-      setHeight(document.body.scrollHeight);
     }
 
     const state = streamStore.getState();

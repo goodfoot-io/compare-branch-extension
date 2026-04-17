@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { close, openFile, requestCollapse, setHeight, showDiff, subscribe } from '../../src/stream-store/actions.js';
+import { close, openFile, requestCollapse, showDiff, subscribe } from '../../src/stream-store/actions.js';
 
 describe('stream store actions', () => {
   let postMessageSpy: ReturnType<typeof vi.fn>;
@@ -47,14 +47,6 @@ describe('stream store actions', () => {
       close();
 
       expect(postMessageSpy).toHaveBeenCalledWith({ type: 'close' }, '*');
-    });
-  });
-
-  describe('setHeight', () => {
-    it('should post setHeight message with pixel value', () => {
-      setHeight(500);
-
-      expect(postMessageSpy).toHaveBeenCalledWith({ type: 'setHeight', height: 500 }, '*');
     });
   });
 

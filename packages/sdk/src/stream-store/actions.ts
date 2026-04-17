@@ -39,44 +39,6 @@ export function close(): void {
 }
 
 /**
- * Reports the iframe's content height to the host for auto-sizing.
- *
- * @param px - Content height in pixels.
- */
-export function setHeight(px: number): void {
-  postToHost({ type: 'setHeight', height: px });
-}
-
-/**
- * Observes the document body's height via ResizeObserver and reports
- * changes to the host automatically.
- *
- * In Electron srcdoc iframes, `document.body.scrollHeight` returns 0
- * when read synchronously because layout has not yet been computed.
- * This function defers height reporting until the browser has actually
- * laid out the content, and continues to report whenever the body's
- * dimensions change (e.g., new content appended).
- *
- * @returns A cleanup function that disconnects the observer.
- */
-export function observeHeight(): () => void {
-  let lastHeight = 0;
-
-  const report = (): void => {
-    const h = document.body.scrollHeight;
-    if (h !== lastHeight) {
-      lastHeight = h;
-      setHeight(h);
-    }
-  };
-
-  const observer = new ResizeObserver(report);
-  observer.observe(document.body);
-
-  return () => observer.disconnect();
-}
-
-/**
  * Requests the host to collapse this stream renderer from Expanded back to Compact.
  */
 export function requestCollapse(): void {

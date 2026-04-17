@@ -73,7 +73,7 @@ Import from `@cards/sdk/stream-store` inside the renderer's `<script type="modul
 
 ```html
 <script type="module">
-  import { streamStore, subscribe, setHeight, close, openFile, showDiff } from '@cards/sdk/stream-store';
+  import { streamStore, subscribe, close, openFile, showDiff } from '@cards/sdk/stream-store';
 </script>
 ```
 
@@ -134,7 +134,6 @@ streamStore.subscribe((newState) => {
 | Function | Description |
 |----------|-------------|
 | `subscribe(filename)` | Request the host to send updates for a file not yet in the store |
-| `setHeight(px)` | Report the iframe's content height for auto-sizing |
 | `close()` | Ask the host to close this renderer |
 | `openFile(path, line?)` | Ask the host to open a file in the editor |
 | `showDiff(sha, filePath?)` | Ask the host to show a diff view |
@@ -183,13 +182,12 @@ streamStore.subscribe((newState) => {
   <div id="root"></div>
 
   <script type="module">
-    import { streamStore, subscribe, setHeight } from '@cards/sdk/stream-store';
+    import { streamStore, subscribe } from '@cards/sdk/stream-store';
 
     const root = document.getElementById('root');
 
     function render(lines) {
       root.textContent = lines.join('\n');
-      setHeight(document.body.scrollHeight);
     }
 
     const state = streamStore.getState();
@@ -227,7 +225,6 @@ function renderLine(line) {
 
 function render(lines) {
   root.innerHTML = lines.map(renderLine).filter(Boolean).join('');
-  setHeight(document.body.scrollHeight);
 }
 ```
 
@@ -250,7 +247,7 @@ Renderers run inside the extension's webview and can use VS Code CSS custom prop
 
 - [ ] `wwwRoot` path in `settings.config.ts` points to a directory containing `index.html`
 - [ ] Renderer imports `@cards/sdk/stream-store` via `<script type="module">`
-- [ ] `setHeight(document.body.scrollHeight)` called after every render to size the iframe
+- [ ] Renderer layout works within the host-controlled iframe height for compact and expanded modes
 - [ ] `streamStore.subscribe(...)` wired up to re-render on store changes
 - [ ] Primary file bootstrapped from `streamStore.getState()` before subscribing
 - [ ] JSONL parse errors handled gracefully with try/catch

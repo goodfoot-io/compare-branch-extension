@@ -1,9 +1,9 @@
 /**
  * React entry point for the claude-code-session stream renderer.
  *
- * Calls `observeHeight()` for iframe auto-sizing, then mounts `<App />` into
- * the `#compact-root` element. The App component reads the stream store mode
- * and renders `<CompactView />` or `<ExpandedView />` accordingly.
+ * Mounts `<App />` into the `#compact-root` element. The App component reads
+ * the stream store mode and renders `<CompactView />` or `<ExpandedView />`
+ * accordingly.
  *
  * Also applies the `mode-*` class on `<body>` whenever the mode changes so
  * that any external CSS relying on that class continues to work.
@@ -11,19 +11,17 @@
  * @summary React SPA entry point for claude-code-session stream rendering
  */
 
-import { observeHeight, streamStore } from '@cards/sdk/stream-store';
+import { streamStore } from '@cards/sdk/stream-store';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './components/App';
 
-observeHeight();
-
 /**
  * Applies the appropriate mode class to document.body.
- * @param mode - The stream store mode string (e.g. 'compact', 'expanded', 'hidden').
+ * @param mode - The stream store mode string (`compact` or `expanded`).
  */
 function applyBodyClass(mode: string): void {
-  document.body.className = `mode-${mode === 'hidden' ? 'compact' : mode}`;
+  document.body.className = `mode-${mode}`;
 }
 
 // Apply initial body mode class

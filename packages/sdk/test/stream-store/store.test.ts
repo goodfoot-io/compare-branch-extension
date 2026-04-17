@@ -42,7 +42,7 @@ beforeAll(async () => {
       }
     },
     availableFiles: ['session.jsonl', 'other.jsonl'],
-    mode: 'hidden'
+    mode: 'compact'
   };
   const mod = await import('../../src/stream-store/store.js');
   store = mod.streamStore;
@@ -87,7 +87,7 @@ describe('stream store', () => {
     });
 
     it('should initialize mode from __STREAM_INIT__', () => {
-      expect(store.getState().mode).toBe('hidden');
+      expect(store.getState().mode).toBe('compact');
     });
   });
 
@@ -198,17 +198,6 @@ describe('stream store', () => {
       const stateBefore = store.getState();
       window.dispatchEvent(new MessageEvent('message', { data: { foo: 'bar' } }));
       expect(store.getState()).toBe(stateBefore);
-    });
-
-    it('should update mode on mode:change message', () => {
-      dispatchHostMessage({ type: 'mode:change', mode: 'compact' });
-      expect(store.getState().mode).toBe('compact');
-
-      dispatchHostMessage({ type: 'mode:change', mode: 'expanded' });
-      expect(store.getState().mode).toBe('expanded');
-
-      dispatchHostMessage({ type: 'mode:change', mode: 'hidden' });
-      expect(store.getState().mode).toBe('hidden');
     });
 
     it('should apply CSS variables and theme attribute on theme:change', () => {

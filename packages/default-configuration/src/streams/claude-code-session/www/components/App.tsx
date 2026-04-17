@@ -2,8 +2,7 @@
  * Root application component for the claude-code-session stream renderer.
  *
  * Reads the current display mode from the stream store and renders the
- * appropriate view (compact or expanded). Mode switching causes the relevant
- * view to unmount/remount so it rebuilds from the current store lines.
+ * appropriate view (compact or expanded).
  *
  * Also syncs the VS Code theme kind attribute on mount for theme-aware styling.
  *
@@ -19,19 +18,10 @@ import { ExpandedView } from './expanded/ExpandedView';
 /**
  * Root component that switches between compact and expanded views based on
  * the stream store mode.
- * @returns The active view component, or null when mode is 'closed'.
+ * @returns The active view component for the iframe context.
  */
-export function App(): React.ReactElement | null {
+export function App(): React.ReactElement {
   const mode = useStreamStore((s) => s.mode);
 
-  if (mode === 'compact' || mode === 'hidden') {
-    return <CompactView />;
-  }
-
-  if (mode === 'expanded') {
-    return <ExpandedView />;
-  }
-
-  // 'closed' — render nothing
-  return null;
+  return mode === 'compact' ? <CompactView /> : <ExpandedView />;
 }

@@ -129,10 +129,6 @@ function applyMessage(state: StreamStoreState, msg: HostToIframeMessage): Partia
       return { files: updated };
     }
 
-    case 'mode:change': {
-      return { mode: msg.mode };
-    }
-
     case 'theme:change':
       // Handled as a DOM side effect in the message listener — not store state.
       return null;

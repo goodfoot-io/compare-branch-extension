@@ -30,7 +30,7 @@ function buildInitData(primaryLines: string[]): StreamInitData {
       }
     },
     availableFiles: ['session.jsonl'],
-    mode: 'hidden'
+    mode: 'compact'
   };
 }
 

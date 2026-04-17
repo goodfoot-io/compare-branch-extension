@@ -30,8 +30,8 @@ export interface StreamMeta {
 // Display Mode
 // ============================================================================
 
-/** Host-controlled display mode for a stream iframe. */
-export type StreamDisplayMode = 'hidden' | 'compact' | 'expanded' | 'closed';
+/** Host-selected display mode for a stream iframe. */
+export type StreamDisplayMode = 'compact' | 'expanded';
 
 // ============================================================================
 // Store State
@@ -93,7 +93,6 @@ export type HostToIframeMessage =
   | { type: 'stream:started'; filename: string; meta: StreamMeta }
   | { type: 'stream:ended'; filename: string; meta: StreamMeta }
   | { type: 'availableFiles:update'; files: string[] }
-  | { type: 'mode:change'; mode: StreamDisplayMode }
   | { type: 'subscribe:response'; filename: string; lines: string[]; meta: StreamMeta; error?: string }
   | { type: 'theme:change'; themeKind: 1 | 2 | 3; cssVariables: Record<string, string> };
 
@@ -103,7 +102,6 @@ export type HostToIframeMessage =
 
 /** Messages sent from the iframe renderer to the host. */
 export type IframeToHostMessage =
-  | { type: 'setHeight'; height: number }
   | { type: 'close' }
   | { type: 'openFile'; path: string; line?: number }
   | { type: 'showDiff'; sha: string; filePath?: string }
