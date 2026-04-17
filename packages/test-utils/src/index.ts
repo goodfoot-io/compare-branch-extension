@@ -56,6 +56,8 @@ export {
   expectNoEventsRealTime,
   type SpyLike
 } from './negativeAssertions.js';
+// --- D1 Test Utilities ---
+export { TestD1Database, type TestD1DatabaseOptions } from './TestD1Database.js';
 // --- Time Control Utilities ---
 export { TestTimeController } from './testTimeController.js';
 // --- WebSocket Test Utilities ---
