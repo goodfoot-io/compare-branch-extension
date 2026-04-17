@@ -6,7 +6,9 @@ description: Implement approved plans.
 
 <placeholder-variables>
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
-[PLAN_FILES] — All files the plan intends to modify (set in Step 2.1; consumed in Step 4.3 cleanup annotation and passed to maintainer as modified-file context)
+[PLAN_FILES] — All files the plan creates, modifies, or deletes (set in Step 2.1; consumed in Step 4.3 cleanup annotation and passed to maintainer as modified-file context)
+[PLAN_IDENTIFIERS] — Named types, functions, messages, or CSS classes the plan introduces (set in Step 2.1; used in the Step 2.1 identifier check)
+[PLAN_STATE] — Result of the Step 2.1 state-vs-plan check: `fully-implemented`, `partially-implemented`, or `not-implemented`
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -38,7 +40,7 @@ Create baseline tag if one does not already exist:
 
 ```bash
 if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
-  echo "Baseline tag already exists — resuming from prior checkpoint."
+  echo "Baseline tag already exists — resuming from prior checkpoint. Step 2.1: Validate, Initialize, and Verify Current State decides whether prior commits implement the current plan."
 else
   git tag "implement/$CARD_ID/baseline" HEAD
 fi
@@ -56,15 +58,43 @@ Run tests in the worktree, then delete the worktree and branch.
 
 ## 2. Execute Implementation
 
-### 2.1 Validate and Initialize
+### 2.1 Validate, Initialize, and Verify Current State
 
-Read the plan files from the `plan/` directory in the card repository.
+Read every plan file in the card repository's `plan/` directory. When multiple files exist, treat the newest as layering on top of older ones — never skip a plan file because another looks canonical.
 
-- **No plan files exist in `plan/`**: Write an error comment using the canonical comment pattern, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+Based on plan presence:
+- **No plan files exist**: Write an error comment using the canonical pattern, add `blocked` to `CARD.meta.json` tags, commit, and **STOP** — no plan, no implementation.
+- **Plan files exist**: Continue below.
 
-Create todos from the plan content using TodoWrite.
+Extract [PLAN_FILES] and [PLAN_IDENTIFIERS] from the plan content.
 
-Extract [PLAN_FILES] — all files the plan intends to modify (from task file assignments).
+Run the timeline check first — it is cheap and decisive:
+
+```bash
+WORKSPACE_HEAD_TS=$(cd $WORKSPACE_PATH && git log -1 --format=%ct $WORKSPACE_BRANCH)
+PLAN_NEWEST_TS=$(cd $CARD_REPO_PATH && git log -1 --format=%ct -- 'plan/*.md')
+```
+
+Based on timeline:
+- **PLAN_NEWEST_TS > WORKSPACE_HEAD_TS**: Set [PLAN_STATE] to `not-implemented`. The approved plan is newer than any workspace commit, so prior commits cannot implement it. Skip the identifier check.
+- **WORKSPACE_HEAD_TS >= PLAN_NEWEST_TS**: Run the identifier check below.
+
+Identifier check — verify current state against [PLAN_FILES] and [PLAN_IDENTIFIERS]:
+- Files the plan creates must exist on disk.
+- Files the plan deletes must not exist on disk.
+- Files the plan modifies must contain [PLAN_IDENTIFIERS] (grep).
+
+Based on identifier check:
+- **Every check passes**: Set [PLAN_STATE] to `fully-implemented`.
+- **Some checks pass**: Set [PLAN_STATE] to `partially-implemented`. Advance the baseline tag to HEAD so rollback targets the partial state.
+- **No checks pass**: Set [PLAN_STATE] to `not-implemented`.
+
+Based on [PLAN_STATE]:
+- **fully-implemented**: Proceed to Step 2.6: Validation Gate, then Step 3: Evaluate Quality.
+- **partially-implemented**: Create todos for the unimplemented items via TodoWrite. Proceed to Step 2.2: Assess Coherence.
+- **not-implemented**: Create todos for the full plan via TodoWrite. Proceed to Step 2.2: Assess Coherence.
+
+Commit subjects are not evidence. Phase labels like "Phase 1: …" prove only that *some* Phase 1 was committed, not that it implements the current plan.
 
 ### 2.2 Assess Coherence
 
@@ -186,8 +216,8 @@ This task owns: [absolute paths from plan]
 **After all todos:**
 - **ALL blocked**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary comment to `comment/all-tasks-blocked.md` with per-task blocker details. Commit both files and **STOP**.
 
-- **SOME blocked**: Note in summary, proceed to Step 3
-- **NONE blocked**: Proceed to Step 3
+- **SOME blocked**: Note in summary, proceed to Step 3: Evaluate Quality.
+- **NONE blocked**: Proceed to Step 3: Evaluate Quality.
 
 ### 2.5 Validate and Commit
 
@@ -212,9 +242,9 @@ git tag -f "implement/$CARD_ID/baseline" HEAD
 The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
 
 Based on routing mode and remaining work:
-- **Sequential, more phases remain**: Return to Step 2.3 to delegate the next phase.
-- **More agent results pending** (parallel, or sequential with concurrent agents): Return to Step 2.4 for the next result.
-- **All todos processed**: Evaluate the "After all todos" conditions in Step 2.4.
+- **Sequential, more phases remain**: Return to Step 2.3: Delegate Implementation to delegate the next phase.
+- **More agent results pending** (parallel, or sequential with concurrent agents): Return to Step 2.4: Process Result for the next result.
+- **All todos processed**: Evaluate the "After all todos" conditions in Step 2.4: Process Result.
 
 ### 2.6 Validation Gate
 
@@ -234,7 +264,7 @@ Run validation per the plan's validation commands.
 
 **When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
 
-Proceed to **3. Evaluate Quality** only when ALL validations pass.
+Proceed to Step 3: Evaluate Quality only when ALL validations pass.
 
 ---
 
@@ -242,8 +272,9 @@ Proceed to **3. Evaluate Quality** only when ALL validations pass.
 
 Diff the workspace against the baseline to assess the scope of changes: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
 
-- **Simple** — few files changed, well-understood modification, no new logic or API boundaries: skip evaluation. Proceed to Step 4: Finalize.
-- **Needs evaluation** — multiple files changed, new logic introduced, or runtime risk present: load the `runtime:card-implementation-evaluation` skill and follow its instructions.
+Based on scope:
+- **Simple — few files changed, well-understood modification, no new logic or API boundaries**: Skip evaluation. Proceed to Step 4: Finalize.
+- **Needs evaluation — multiple files changed, new logic introduced, or runtime risk present**: Load the `runtime:card-implementation-evaluation` skill and follow its instructions.
 
 ---
 
