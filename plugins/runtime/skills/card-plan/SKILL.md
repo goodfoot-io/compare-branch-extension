@@ -206,7 +206,7 @@ If the planner returned blocked, document in comment, add `blocked` tag, commit.
 
 After all evaluator subagents return, read the `VERDICT:` line from each. The decision is determined by their verdicts, not your own assessment of the findings:
 
-- **APPROVED**: Every dispatched evaluator returned `VERDICT: APPROVED` — proceed to **4. Route to Implementation**.
+- **APPROVED**: Every dispatched evaluator returned `VERDICT: APPROVED` — proceed to **3.3 Seed Task Graph**.
 - **CHANGES_REQUESTED**: Any evaluator returned `VERDICT: CHANGES_REQUESTED` — go to **3.1 Revise the Plan**. You may not override an evaluator's verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of revising the plan.
 - **BLOCKED**: An external constraint prevents addressing a `CHANGES_REQUESTED` finding — document the constraint and the specific finding in a comment, add `blocked` tag, commit, **STOP**.
 
@@ -274,9 +274,25 @@ Then send a message to each evaluation agent. Each agent retains its prior findi
 
 Wait for all agents to return, then go back to **3. Read Verdicts and Decide**.
 
+### 3.3 Seed Task Graph
+
+Send a final message to the planner to seed the card's task graph from the approved plan:
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">planner</parameter>
+  <parameter name="summary">Seed task graph</parameter>
+  <parameter name="message">
+Load the `runtime:card-task-creator` skill and follow its `<instructions>` to create the card's task graph from the approved plan.
+  </parameter>
+</invoke>
+```
+
+Wait for the planner to return, then proceed to **4. Route to Implementation**.
+
 ## 4. Route to Implementation
 
-Only enter this step when every evaluator returned `VERDICT: APPROVED` in **3. Read Verdicts and Decide** (or when no evaluators were dispatched in tier 1–2).
+Only enter this step after seeding the task graph in **3.3 Seed Task Graph** (or when no evaluators were dispatched in tier 1–2).
 
 Read `gates.planRequired` from `CARD.meta.json`.
 

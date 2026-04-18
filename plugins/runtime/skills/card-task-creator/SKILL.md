@@ -4,9 +4,9 @@ description: Seed and reconcile the card's task graph from plan files and feedba
 ---
 
 <constraints>
-The task list is the primary artifact. Use `cards:notes` for observations that help a future run; do not post comments or write other files.
+The task list is the primary artifact. Follow the `<take-notes>` instructions for observations that help a future run; do not post comments or write other files.
 
-Idempotent — safe to run at every orchestrator entry. Match existing tasks by `subject` before creating new ones.
+Idempotent — safe to run at every card-plan re-entry. Match existing tasks by `subject` before creating new ones.
 
 Treat `completed` tasks as immutable except on reopen: a macro whose `blockedBy` gains a non-completed child must be transitioned back to `pending`, along with every downstream macro in the chain.
 
@@ -127,7 +127,7 @@ Extract identifiers from a plan layer by reading its markdown text and collectin
 - Read the workspace commit log. Capture the current workspace HEAD SHA as `[WORKSPACE_HEAD]`.
 - List feedback artifacts in the card repo that arrived after the most recent plan commit.
 - Call `TaskList` to collect existing task subjects, statuses, and IDs.
-- Read the task-creator note via `cards:notes` (key `task-creator-last-reconciled-head`) to retrieve `[LAST_RECONCILED_HEAD]`, if any.
+- Read `$CARD_REPO_PATH/notes/task-creator-last-reconciled-head.md` to retrieve `[LAST_RECONCILED_HEAD]`, if the file exists.
 
 ## 2. Classify Plan Layers
 
@@ -173,7 +173,7 @@ For each plan-derived sub-task whose status is not `completed`:
 
 Feedback-derived sub-tasks: leave status unchanged.
 
-After reconciliation, write `[WORKSPACE_HEAD]` to `cards:notes` key `task-creator-last-reconciled-head`. This note is a skip-optimization for the next run's identifier check — it is not a source of truth for implementation progress.
+After reconciliation, follow the `<take-notes>` instructions to write `[WORKSPACE_HEAD]` to a note with slug `task-creator-last-reconciled-head`. This note is a skip-optimization for the next run's identifier check — it is not a source of truth for implementation progress.
 
 ## 7. Prune Revised References
 
