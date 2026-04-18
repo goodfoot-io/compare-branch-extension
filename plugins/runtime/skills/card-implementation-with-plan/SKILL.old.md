@@ -1,11 +1,14 @@
 ---
 name: card-implementation-with-plan
-description: Implement approved plans via the seeded task graph.
+description: Implement approved plans.
 ---
 
 
 <placeholder-variables>
 [MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
+[PLAN_FILES] — All files the plan creates, modifies, or deletes (set in Step 2.1; consumed in Step 4.3 cleanup annotation and passed to maintainer as modified-file context)
+[PLAN_IDENTIFIERS] — Named types, functions, messages, or CSS classes the plan introduces (set in Step 2.1; used in the Step 2.1 identifier check)
+[PLAN_STATE] — Result of the Step 2.1 state-vs-plan check: `fully-implemented`, `partially-implemented`, or `not-implemented`
 </placeholder-variables>
 
 <orchestrator-constraints>
@@ -21,20 +24,15 @@ The orchestrator coordinates — it does NOT implement code.
 | | Library integrations |
 | | API changes |
 
-Plan says "implement" → delegate to developer agent. Use `TaskList`, `TaskGet`, `TaskUpdate`, and `Agent` tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
+Plan says "implement" -> delegate to developer agent.
+Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
 
 **Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work.
-
-**Do not create, delete, or re-wire tasks.** The task list is seeded upstream by `runtime:card-plan` before this skill is entered, and reconciled there on every re-entry (including after `runtime:card-plan-feedback`). This skill reads the list and updates task status; it never reshapes it.
 </orchestrator-constraints>
 
 <instructions>
 
 ## 1. Prepare Environment
-
-Call `TaskList`. The list you will see contains a chain of five phase tasks — `Implementation` → `Validation` → `Evaluation` → `Stage` → `Merge`, each appearing in the next one's `blockedBy` — plus a set of tasks that appear in `Implementation`'s `blockedBy`. The chain corresponds to the phases you drive in this skill; the tasks blocking `Implementation` are the concrete work.
-
-Record the ID of each phase task so later `TaskGet` and `TaskUpdate` calls can address them by ID. If any phase task is absent or the chain is broken, **STOP** — the task list was not seeded; this skill was entered incorrectly.
 
 The `create-worktree` command is a plugin-provided executable on `PATH`. Use it directly when you need an isolated Git worktree.
 
@@ -42,7 +40,7 @@ Create baseline tag if one does not already exist:
 
 ```bash
 if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
-  echo "Baseline tag already exists — resuming from prior checkpoint. Task statuses reflect prior progress."
+  echo "Baseline tag already exists — resuming from prior checkpoint. Step 2.1: Validate, Initialize, and Verify Current State decides whether prior commits implement the current plan."
 else
   git tag "implement/$CARD_ID/baseline" HEAD
 fi
@@ -60,36 +58,60 @@ Run tests in the worktree, then delete the worktree and branch.
 
 ## 2. Execute Implementation
 
-### 2.1 Enumerate Blocking Tasks
+### 2.1 Validate, Initialize, and Verify Current State
 
-`TaskGet` `Implementation`. Based on status:
+Review the plan files in the card repository's `plan/` directory. When multiple files exist, treat the newest as layering on top of older ones — never skip a plan file because another looks canonical.
 
-- **`completed`**: Proceed to Step 3: Validate.
-- **`pending` or `in_progress`**: Continue below.
+Based on plan presence:
+- **No plan files exist**: Write an error comment using the canonical pattern, add `blocked` to `CARD.meta.json` tags, commit, and **STOP** — no plan, no implementation.
+- **Plan files exist**: Continue below.
 
-`TaskGet` each task in `Implementation`'s `blockedBy` list. Collect those whose status is `pending` or `in_progress` — these are the concrete work for this step. Record `id` and `subject` for each.
+Extract [PLAN_FILES] and [PLAN_IDENTIFIERS] from the plan content.
 
-Subjects follow two patterns you will see in the data:
+Run the timeline check first — it is cheap and decisive:
 
-- `[PATH] § [HEADING]` — the task refers to a section of a plan file under `$CARD_REPO_PATH/plan/`. Read that section for scope.
-- `[PATH]` — the task refers to a feedback artifact under `$CARD_REPO_PATH/` (e.g., `comment/*.md`). Read that file for scope.
+```bash
+WORKSPACE_HEAD_TS=$(cd $WORKSPACE_PATH && git log -1 --format=%ct $WORKSPACE_BRANCH)
+PLAN_NEWEST_TS=$(cd $CARD_REPO_PATH && git log -1 --format=%ct -- 'plan/*.md')
+```
 
-`TaskUpdate` `Implementation` to `in_progress`.
+A plan newer than workspace HEAD is the revise-then-extend pattern: the new plan layers on top of any prior commits, which remain on the branch and are overwritten or replaced by the plan's phases as specified.
+
+Based on the timeline comparison:
+- **Plan newer than workspace HEAD**: Set [PLAN_STATE] to `not-implemented`. Create todos for the full plan. Skip the identifier check.
+- **Workspace HEAD at or newer than plan**: Run the identifier check below.
+
+Identifier check — verify current state against [PLAN_FILES] and [PLAN_IDENTIFIERS]:
+- Files the plan creates must exist on disk.
+- Files the plan deletes must not exist on disk.
+- Files the plan modifies must contain [PLAN_IDENTIFIERS] (grep).
+
+Based on identifier check:
+- **Every check passes**: Set [PLAN_STATE] to `fully-implemented`.
+- **Some checks pass**: Set [PLAN_STATE] to `partially-implemented`. Advance the baseline tag to HEAD so rollback targets the partial state.
+- **No checks pass**: Set [PLAN_STATE] to `not-implemented`.
+
+Based on [PLAN_STATE]:
+- **fully-implemented**: Proceed to Step 2.6: Validation Gate
+- **partially-implemented**: Advance baseline to HEAD, create todos for the unimplemented items, proceed to Step 2.2: Assess Coherence
+- **not-implemented**: Create todos for the full plan, proceed to Step 2.2: Assess Coherence
+
+Commit subjects are not evidence. Phase labels like "Phase 1: …" prove only that *some* Phase 1 was committed, not that it implements the current plan.
 
 ### 2.2 Assess Coherence
 
-Analyze the blocking tasks along three dimensions:
+Analyze tasks along three dimensions:
 
 | Dimension | Question |
 |-----------|----------|
-| **Dependency** | Do the tasks' files import/reference each other? |
+| **Dependency** | Do files import/reference each other? |
 | **Uniformity** | Same operation across files, or varied operations? |
 | **Size** | Substantial tasks with clear completion gates? |
 
 **Route**:
-- **Independent tasks OR uniform tasks**: Parallel (concurrent agents).
-- **Dependent + varied + small**: Coherent (single agent).
-- **Dependent + varied + substantial with clear gates**: Sequential (ordered agents, validate between).
+- **Independent files OR uniform tasks**: Parallel (concurrent agents)
+- **Dependent + varied + small**: Coherent (single agent)
+- **Dependent + varied + substantial with clear gates**: Sequential (ordered agents, validate between)
 
 When uncertain between Coherent and Sequential, choose **Sequential** — validation gates have low cost; missed validation opportunities have high cost.
 
@@ -101,8 +123,6 @@ Choose [MODEL] based on the tasks:
 - **Ambiguous requirements, multiple possible approaches, or uncertain starting point**: `opus`
 - **Clear goal with multiple steps, building features, or fixing bugs in unfamiliar code**: `sonnet`
 - **Single-step tasks, following established patterns, or well-understood changes**: `haiku`
-
-`TaskUpdate` each task in the agent's scope to `in_progress` before dispatch.
 
 Based on coherence assessment:
 
@@ -125,13 +145,13 @@ Based on coherence assessment:
 
 **Sequential**: Delegate to agent, validate at gate, then delegate next phase.
 
-**Coherent**: Single agent for all tasks in scope.
+**Coherent**: Single agent for all todos.
 
 Agent prompts must be self-contained — agents have no conversation context.
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">[Implement TITLE (all tasks) | Current phase/group]</parameter>
+<parameter name="description">[Implement TITLE (all todos) | Current phase/group]</parameter>
 <parameter name="subagent_type">runtime:card:developer</parameter>
 <parameter name="model">[MODEL]</parameter>
 <parameter name="prompt">
@@ -142,22 +162,16 @@ Agent prompts must be self-contained — agents have no conversation context.
 @[CARD_REPO_PATH]/plan/
 
 ## Scope
-Tasks in scope:
-- `[TASK_ID]`: [SUBJECT]
-- `[TASK_ID]`: [SUBJECT]
-
-[Coherent: Complete all tasks in sequence.]
-[Sequential: Complete phase [N] tasks. Stop at gate: [GATE_CONDITION].]
-[Parallel: Complete tasks in this group only.]
-
-`TaskGet` each ID to read the full description. A subject shaped as `[PATH] § [HEADING]` points to a section of a plan file; a bare `[PATH]` points to a feedback artifact. Read the referenced section or file for scope.
+[Coherent: Complete all todos in sequence.]
+[Sequential: Complete phase [N] todos: [phase todo descriptions]. Stop at gate: [GATE_CONDITION].]
+[Parallel: Complete todos: [independent group todo descriptions]]
 
 ## Context
-[Why this work exists — from plan rationale]
+[Why this task exists — from plan rationale]
 [Relevant context from exploration]
 
 ## File Ownership
-This task owns: [absolute paths from plan sections in scope]
+This task owns: [absolute paths from plan]
 
 ## Constraints
 [From plan: patterns, interfaces, dependencies to respect]
@@ -169,26 +183,21 @@ This task owns: [absolute paths from plan sections in scope]
 - Only make requested changes
 - Don't add unrequested features or abstractions
 - Keep implementation minimal and focused
-- When a task is ambiguous, the plan's intent (opening of the plan file) is the tiebreaker
+- When the task is ambiguous, the plan's intent (opening of the plan file) is the tiebreaker
 
 ## Success Criteria
-- [ ] Implementation complete for every task in scope
+- [ ] Implementation complete
 - [ ] Tests pass (if applicable)
 - [ ] Types correct
 - [ ] Follows existing patterns
-
-## Return
-Return `COMPLETED`, `NEEDS_REVISION`, or `BLOCKED`. Include the task IDs the result applies to.
 </parameter>
 </invoke>
 ```
 
 ### 2.4 Process Result
 
-For each task in the agent's returned scope:
-
-- **COMPLETED**: `TaskUpdate` the task to `completed`. Proceed to Step 2.5: Validate and Commit.
-- **NEEDS_REVISION**: Read the task's `metadata.attempts` via `TaskGet` (treat missing as `0`). Increment and persist via `TaskUpdate` with `metadata: {"attempts": [N]}`. Revert the agent's owned files to baseline:
+- **COMPLETED**: Mark all todos in this agent's scope as completed, proceed to Step 2.5
+- **NEEDS_REVISION**: Update attempt count on all todos in this agent's scope, revert the agent's owned files to baseline:
   ```bash
   # [AGENT_FILES] is the list of absolute paths from the agent's File Ownership section.
   # Revert only files this agent owns — do not touch other agents' work.
@@ -199,15 +208,15 @@ For each task in the agent's returned scope:
   git diff "implement/$CARD_ID/baseline" --name-only --diff-filter=A -- [AGENT_FILES] | \
     xargs -r git rm -f
   ```
-  - **Attempts < 3**: Re-delegate to agent.
-  - **Attempts ≥ 3**: Leave the task at `in_progress`, add its ID and blocker reason to a running blocked list, continue. Per `TaskUpdate` guidance, blocked work stays `in_progress` — the card comment and `blocked` tag carry the blocker state.
-- **BLOCKED**: Leave the task at `in_progress`, document the blocker in a card comment, add its ID to the blocked list, continue.
+  - **Attempts < 3**: Re-delegate to agent
+  - **Attempts >= 3**: Mark todo blocked
+- **BLOCKED**: Document in card comment, mark todo blocked, continue
 
-After every task in this step's scope has been processed:
+**After all todos:**
+- **ALL blocked**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary comment to `comment/all-tasks-blocked.md` with per-task blocker details. Commit both files and **STOP**.
 
-- **Every task in `Implementation`'s `blockedBy` is `completed`**: `TaskUpdate` `Implementation` to `completed`. Proceed to Step 2.6: Implementation Exit.
-- **Blocked list covers every remaining task**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary to `comment/all-tasks-blocked.md` with per-task blocker details (including task ID and subject). Commit both files and **STOP**.
-- **Some tasks blocked, others still pending**: Return to Step 2.1: Enumerate Blocking Tasks to pick up the remaining work.
+- **SOME blocked**: Note in summary, proceed to Step 3: Evaluate Quality.
+- **NONE blocked**: Proceed to Step 3: Evaluate Quality.
 
 ### 2.5 Validate and Commit
 
@@ -217,7 +226,7 @@ Run typecheck, lint, and the tests relevant to the developer's changes.
 
 Based on the result:
 - **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill — per `<orchestrator-constraints>`): Fix inline and re-run validation.
-- **Error requiring implementation changes**: Treat as NEEDS_REVISION — revert agent files and re-delegate per Step 2.4: Process Result.
+- **Error requiring implementation changes**: Treat as NEEDS_REVISION — revert agent files and re-delegate per Step 2.4.
 - **All validations pass**: Commit all workspace changes including new files:
 
 ```bash
@@ -229,14 +238,14 @@ COMMITMSG
 git tag -f "implement/$CARD_ID/baseline" HEAD
 ```
 
-The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful task, not to the original starting state.
+The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful todo, not to the original starting state.
 
 Based on routing mode and remaining work:
 - **Sequential, more phases remain**: Return to Step 2.3: Delegate Implementation to delegate the next phase.
 - **More agent results pending** (parallel, or sequential with concurrent agents): Return to Step 2.4: Process Result for the next result.
-- **All tasks in this step's scope processed**: Return to Step 2.4: Process Result to evaluate the exit conditions.
+- **All todos processed**: Evaluate the "After all todos" conditions in Step 2.4: Process Result.
 
-### 2.6 Implementation Exit
+### 2.6 Validation Gate
 
 Mark the post-implementation rollback point:
 
@@ -244,49 +253,33 @@ Mark the post-implementation rollback point:
 git tag -f "implement/$CARD_ID/post-implementation" HEAD
 ```
 
-Proceed to Step 3: Validate.
-
----
-
-## 3. Validate
-
-`TaskGet` `Validation`. Based on status:
-
-- **`completed`**: Proceed to Step 4: Evaluate.
-- **`pending` or `in_progress`**: `TaskUpdate` to `in_progress` and continue below.
-
 **Requirement:** ALL validation commands must pass before proceeding.
 
 Run validation per the plan's validation commands.
 
-Based on the result:
-- **All validations pass**: `TaskUpdate` `Validation` to `completed`. Proceed to Step 4: Evaluate.
-- **Error in code you can modify**: Delegate fix to implementer, re-run validation.
-- **Error outside your scope**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Leave `Validation` at `in_progress`. Commit both files and **STOP**.
+**On failure:**
+- **Error in code you can modify**: Delegate fix to implementer, re-run validation
+- **Error outside your scope**: Block immediately
+
+**When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
+
+Proceed to Step 3: Evaluate Quality only when ALL validations pass.
 
 ---
 
-## 4. Evaluate
-
-`TaskGet` `Evaluation`. Based on status:
-
-- **`completed`**: Proceed to Step 5: Stage.
-- **`pending` or `in_progress`**: `TaskUpdate` to `in_progress` and continue below.
+## 3. Evaluate Quality
 
 Diff the workspace against the baseline to assess the scope of changes: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
 
 Based on scope:
-- **Simple — few files changed, well-understood modification, no new logic or API boundaries**: Skip evaluation. `TaskUpdate` `Evaluation` to `completed`. Proceed to Step 5: Stage.
-- **Needs evaluation — multiple files changed, new logic introduced, or runtime risk present**: Load the `runtime:card-implementation-evaluation` skill and follow its instructions. On successful return, `TaskUpdate` `Evaluation` to `completed`. Proceed to Step 5: Stage.
+- **Simple — few files changed, well-understood modification, no new logic or API boundaries**: Skip evaluation. Proceed to Step 4: Finalize.
+- **Needs evaluation — multiple files changed, new logic introduced, or runtime risk present**: Load the `runtime:card-implementation-evaluation` skill and follow its instructions.
 
 ---
 
-## 5. Stage
+## 4. Finalize
 
-`TaskGet` `Stage`. Based on status:
-
-- **`completed`**: Proceed to Step 6: Merge.
-- **`pending` or `in_progress`**: `TaskUpdate` to `in_progress` and continue below.
+### 4.1 Stage Remaining Changes
 
 Stage any uncommitted implementation artifacts:
 
@@ -298,24 +291,12 @@ COMMITMSG
 )"
 ```
 
-`TaskUpdate` `Stage` to `completed`. Proceed to Step 6: Merge.
+### 4.2 Complete or Await Review
 
----
+- **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
+- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval.
 
-## 6. Merge
-
-`TaskGet` `Merge`. Based on status:
-
-- **`completed`**: Proceed to Step 7: Cleanup.
-- **`pending` or `in_progress`**: Continue below.
-
-Based on `gates.mergeRequestRequired`:
-- **false or unset**: `TaskUpdate` `Merge` to `in_progress`. Load the `runtime:card-merge` skill and follow its `<instructions>`. On successful return, `TaskUpdate` `Merge` to `completed`. Proceed to Step 7: Cleanup.
-- **true**: **STOP** — Merge occurs after user approval. Leave `Merge` at its current status; the post-approval run resumes here.
-
----
-
-## 7. Cleanup
+### 4.3 Tag Cleanup
 
 Clean up rollback tags:
 
@@ -330,8 +311,8 @@ Tags mark rollback points during execution. Tags point to the most recent real c
 
 | Tag | Created At | Advances | Purpose |
 |-----|------------|----------|---------|
-| `implement/[CARD_ID]/baseline` | Step 1 | After each successful commit (Step 2.5) | Last known good state — NEEDS_REVISION reverts to this tag |
-| `implement/[CARD_ID]/post-implementation` | Step 2.6 | Never | After all per-task validation and commits, before Step 3: Validate |
+| `implement/[CARD_ID]/baseline` | Step 1 | After each COMPLETED todo commit (Step 2.5) | Last known good state — NEEDS_REVISION reverts to this tag |
+| `implement/[CARD_ID]/post-implementation` | Step 2.6 | Never | After all per-todo validation and commits, before final validation |
 
 
 </instructions>
@@ -353,6 +334,6 @@ git reset --hard "implement/$CARD_ID/baseline"
 git clean -fd
 ```
 
-Load the `runtime:card-plan` skill and follow its instructions. The planner will find the existing plan files in `plan/` and revise them — the invalidated assumption, missed scope, or contradicting steps are live context that should drive the revision. On approval, `runtime:card-plan` reconciles the task list (reopening `Implementation` and the downstream chain if the revision introduces new blocking tasks), then re-loads this skill. Re-enter from Step 1: Prepare Environment — task statuses and the baseline tag drive where work resumes.
+Load the `runtime:card-plan` skill and follow its instructions. The planner will find the existing plan files in `plan/` and revise them — the invalidated assumption, missed scope, or contradicting steps are live context that should drive the revision.
 
 </when-to-return-to-planning>

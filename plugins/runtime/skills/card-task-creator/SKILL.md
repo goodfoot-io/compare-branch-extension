@@ -121,11 +121,17 @@ Extract identifiers from a plan layer by reading its markdown text and collectin
 
 ## 1. Read State
 
-- Enumerate plan files in `$CARD_REPO_PATH/plan/`. For each, capture its path and its last-modifying card-repo commit SHA and timestamp.
-- Order plan files by commit timestamp, oldest first.
-- Read the card-repo commit log and any `mergeRequestApproval` records.
+Gather the state:
+
+- For each plan file under `$CARD_REPO_PATH/plan/`, capture its last-modifying card-repo commit SHA and timestamp — layering orders by timestamp, oldest first:
+
+  ```bash
+  git -C "$CARD_REPO_PATH" log -1 --format="%H %ct" -- plan/[file].md
+  ```
+
+- Read any `mergeRequestApproval` records in the card repo — §2 classifies a layer as committed when a record references its plan.
 - Read the workspace commit log. Capture the current workspace HEAD SHA as `[WORKSPACE_HEAD]`.
-- List feedback artifacts in the card repo that arrived after the most recent plan commit.
+- List feedback artifacts in the card repo whose commit timestamp is later than the most recent plan commit — these are candidates for §5: Seed Feedback-Derived Sub-Tasks. Comments already in context from the planning run that predate the newest plan commit were incorporated into plan revisions and are not feedback-derived.
 - Call `TaskList` to collect existing task subjects, statuses, and IDs.
 - Read `$CARD_REPO_PATH/notes/task-creator-last-reconciled-head.md` to retrieve `[LAST_RECONCILED_HEAD]`, if the file exists.
 
