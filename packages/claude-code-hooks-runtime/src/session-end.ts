@@ -25,7 +25,7 @@ import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid, removeSessionPid } from '@cards/sessions';
 import { removeSessionCsv, removeSessionHeadSha } from '@cards/sessions/card-repo';
-import { sessionEndHook, sessionEndOutput } from '@goodfoot/claude-code-hooks';
+import { sessionEndHook } from '@goodfoot/claude-code-hooks';
 
 /**
  * Writes a sentinel file to signal the transcript watcher that the session
