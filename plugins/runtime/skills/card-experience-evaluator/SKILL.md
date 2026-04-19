@@ -48,30 +48,64 @@ For each finding, provide all three:
 - **Why it matters.** Wrong result vs. missing feature. Every user vs. specific trigger. Permanent failure vs. recoverable by reload.
 - **Whether it would be caught.** Would existing tests catch this? Would it only surface under specific user conditions in production? If no existing defense covers this failure, say so.
 
-Return findings as your response. Lead with wrong-outcome and intent-drift failures, then missing-outcome failures, then implied scenario and adjacent failures. Do not write findings to the card repository. The orchestrator reads your response directly.
+## 6. Broadcast Findings
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking user-facing failures to raise. The orchestrator routes fixes based on your verdict — it does not override it.
+As soon as a finding meets the Step 5 detail bar, broadcast it to the team. Do not wait for the rest of your analysis. Do not batch.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">*</parameter>
+  <parameter name="summary">User-facing failure: [short label]</parameter>
+  <parameter name="message">
+[The finding with all three Step 5 components, plus the user entry point and acceptance criterion it applies to. Describe the fix in user-experience terms — what the user must encounter differently — not in code-change terms.]
+
+FINDING: [short label]
+  </parameter>
+</invoke>
+```
+
+The orchestrator listens for `FINDING:` broadcasts and creates a `[Review fix]` task per broadcast, then routes it to a developer. Continue your analysis after each broadcast — if the workspace changes under you, re-exercise the affected entry point when you need to. Do not restart.
+
+## 7. Broadcast Verdict
+
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
+
+The orchestrator has every finding via your `FINDING:` broadcasts. Broadcast a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
+
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when you have no blocking user-facing failures to raise. The orchestrator routes fixes based on your verdict — it does not override it.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">*</parameter>
+  <parameter name="summary">Experience verdict: [APPROVED | CHANGES_REQUESTED]</parameter>
+  <parameter name="message">
+[Summary of key findings — wrong-outcome and intent-drift first, then missing-outcome, then implied scenarios and adjacent regressions. Any final thoughts not yet broadcast as a FINDING.]
+
+VERDICT: APPROVED | CHANGES_REQUESTED
+  </parameter>
+</invoke>
+```
 
 ## When Resuming for a Fixed Implementation
 
-When the orchestrator sends a follow-up message describing which failures were addressed by fixes, this is a continuation of your analysis — you retain full context from every prior round.
+When the orchestrator sends a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Broadcast new findings per Step 6: Broadcast Findings during each resume round.
 
-### 1. Review the Fix Mapping
+### 1. Review the Orchestrator's Mapping
 
-The orchestrator's message describes which user-facing failures were addressed and what changed in the user-visible behavior. Use that mapping to identify which user entry points to re-exercise.
+The orchestrator's re-evaluation trigger includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. It maps each addressed user-facing failure to its fix commit and names any failure left unaddressed. Use that mapping to identify which user entry points to re-exercise.
 
 ### 2. Re-Enter at the User's Entry Points
 
-For each failure the orchestrator says was addressed: re-enter at the relevant user entry point and verify the failure is gone. Run it where possible. A code fix that resolves the internal issue may still produce a wrong user outcome — do not accept the fix at face value.
+For each failure the orchestrator's mapping says was addressed: re-enter at the relevant user entry point and verify the failure is gone. Run it where possible. A code fix that resolves the internal issue may still produce a wrong user outcome — do not accept the fix at face value.
 
 ### 3. Check for New Failures
 
 Fix code may introduce new user-facing failures adjacent to the original. Re-exercise any user paths the fix touches, not only the paths directly targeted.
 
-### 4. Return Findings for This Round
+### 4. Broadcast Verdict for This Round
 
-Lead with unresolved prior failures, then new failures the fix introduced. Note closed findings explicitly. Use the same format as §5.
+Use the SendMessage format from Step 7: Broadcast Verdict. Lead with unresolved prior failures, then new failures the fix introduced. Note closed findings explicitly — do not repeat them. Keep the broadcast concise; new findings should already be on the team channel as `FINDING:` broadcasts.
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior user-facing failure is gone at the user's entry point and the fix introduced no new user-facing failure. A prior failure the orchestrator declined to fix — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every prior user-facing failure is gone at the user's entry point and the fix introduced no new user-facing failure. A prior failure left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
 
 </instructions>

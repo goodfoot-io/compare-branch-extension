@@ -14,6 +14,8 @@ The orchestrator's prompt will identify specific acceptance criteria and user sc
 
 For each acceptance criterion, state concretely what a user should experience when the criterion is met. This is the standard a design failure deviates from.
 
+Follow the `<take-notes>` instructions — write a note to the card repository for each design or UX discovery made during analysis.
+
 ## 2. Map the Plan's Design to User Outcomes
 
 For each significant design decision in the plan, reason about what a user would experience if a developer followed it correctly. This is the core question: not "is this step implementable" but "if this step is executed faithfully, what does the user get?"
@@ -47,17 +49,49 @@ For each finding, provide all three:
 - **Why it matters.** Wrong result vs. missing feature. Every user vs. specific trigger. Failure detectable by the user immediately vs. only under specific conditions.
 - **Whether it would be caught.** Would the plan's own validation steps catch this? Would it surface during implementation review? Or would it only become visible when a user exercises the specific scenario in production?
 
-Return findings as your response. Lead with intent drift, then wrong-outcome-by-design failures, then missing user scenarios and adjacent regressions. Do not write findings to the card repository. The orchestrator reads your response directly.
+## 5. Stream Findings to the Planner
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking user-facing failures to raise. The orchestrator routes revision based on your verdict — it does not override it.
+As soon as a finding meets the Step 4 detail bar, DM the planner with it. Do not wait for the rest of your analysis. Do not batch.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">planner</parameter>
+  <parameter name="summary">Design failure: [short label]</parameter>
+  <parameter name="message">
+[The finding with all three Step 4 components, plus the acceptance criterion or user scenario it applies to]
+  </parameter>
+</invoke>
+```
+
+The planner acts on each finding as it arrives and may revise the plan under you. Continue your analysis after each message — if the plan changes, read what's current when you need it. Do not restart.
+
+## 6. Broadcast Verdict
+
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
+
+The planner has the full findings via streaming. Broadcast a concise summary plus any final thoughts that emerged after the last streamed message — not a repeat of every finding.
+
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when you have no blocking user-facing failures to raise. The orchestrator routes revision based on your verdict — it does not override it.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">*</parameter>
+  <parameter name="summary">Design verdict: [APPROVED | CHANGES_REQUESTED]</parameter>
+  <parameter name="message">
+[Summary of key findings — intent drift first, then wrong-outcome-by-design, then missing scenarios. Any final thoughts not yet streamed to the planner.]
+
+VERDICT: APPROVED | CHANGES_REQUESTED
+  </parameter>
+</invoke>
+```
 
 ## When Resuming for a Revised Plan
 
-When the orchestrator sends a follow-up message describing which design failures the planner addressed, this is a continuation of your analysis — you retain full context from every prior round.
+When the orchestrator sends a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Stream findings to the planner per Step 5: Stream Findings to the Planner during each resume round.
 
 ### 1. Review What the Planner Changed
 
-The orchestrator's message describes which design failures were addressed and what the revised approach produces for the user. Use that as your starting orientation, then read the updated plan files to evaluate the revised design directly.
+Read the planner's most recent `PLAN: READY` broadcast and the updated plan files to evaluate the revised design directly.
 
 ### 2. Triage Each Prior Finding
 
@@ -71,10 +105,10 @@ For each failure you raised in the previous round:
 
 For every section the planner added or restructured, apply the §2 and §3 analysis. A revision that resolves one design failure may introduce another — particularly if the planner added steps to cover a missing scenario without adjusting adjacent steps for consistency.
 
-### 4. Return Findings for This Round
+### 4. Broadcast Verdict for This Round
 
-Lead with unresolved prior failures, then new failures the revision introduced. Note resolved findings explicitly. Use the same format as §4.
+Use the SendMessage format from Step 6: Broadcast Verdict. Lead with unresolved prior failures, then new failures from this revision. Note resolved findings as closed — do not repeat them. Keep the broadcast concise; the planner has the full detail via streaming.
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior user-facing failure is resolved by the revised design and the revision introduced no new user-facing failure. A prior failure the orchestrator declined to address — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every prior user-facing failure is resolved by the revised design and the revision introduced no new user-facing failure. A prior failure left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
 
 </instructions>

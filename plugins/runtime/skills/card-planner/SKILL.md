@@ -86,24 +86,55 @@ git add plan/ spike/
 git commit -m "[single sentence summarizing what the spikes resolved]"
 ```
 
-## 3. Report Plan State
+## 3. Broadcast Plan State
 
-Report the plan outcome to the user:
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
 
-- **Plan ready**: Summarize the plan's intent and key decisions. State that the plan is ready to proceed.
+Broadcast the plan outcome to the team:
+
+- **Plan ready**: Summarize the plan's intent and key decisions.
 - **Blocked**: State the blocking reason clearly. Do not continue revising against an unresolvable obstacle.
+
+End the message with a single line: `PLAN: READY` or `PLAN: BLOCKED`.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">*</parameter>
+  <parameter name="summary">Plan state: [READY | BLOCKED]</parameter>
+  <parameter name="message">
+[Summary of plan and key decisions, or the blocking reason]
+
+PLAN: READY | BLOCKED
+  </parameter>
+</invoke>
+```
 
 Do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
 
-## 4. Incorporate Failure-Mode Findings (if resumed)
+## 4. Handle Incoming Messages
 
-If the orchestrator resumes you with a failure-mode report, engage with each finding before acting on it:
+After Step 3, you may be resumed via SendMessage. Route by message type — do not treat every resume as a revision.
+
+### 4.1 Streamed Finding from an Evaluator
+
+Evaluation agents DM findings as they discover them, before any orchestrator trigger. Act on each finding immediately — do not wait for the verdict broadcast:
 
 - Understand the concern and whether the plan's approach addresses it.
 - Route empirically-testable uncertainties to spike investigation before revising.
 - For each finding, decide: revise the approach, add mitigations, or acknowledge an accepted risk with explicit justification.
 - Revise the plan file directly — explanations in messages do not help future readers of the plan.
+- Commit the revision as soon as it is coherent.
 
-Commit the revised plan, then return to Step 3.
+Do not re-broadcast `PLAN: READY` after each streamed revision. The broadcast is reserved for Step 4.2, so evaluators re-evaluate against the finalized plan rather than an in-flight state. If the evaluator finishes analyzing and finds every concern already addressed, it will broadcast `VERDICT: APPROVED` directly and Step 4.2 never fires.
+
+### 4.2 Revision Trigger from the Orchestrator
+
+When the orchestrator sends a revision trigger (team broadcast of `VERDICT: CHANGES_REQUESTED` followed by a DM asking you to finalize), any finding not already addressed under Step 4.1 is now in scope. Work through the remaining findings using the same decision rubric as Step 4.1, commit any additional revisions, then return to Step 3: Broadcast Plan State to broadcast `PLAN: READY`.
+
+If every streamed finding was already addressed under Step 4.1, the only remaining work is the broadcast itself — return to Step 3 directly.
+
+### 4.3 Task Graph Seed Trigger from the Orchestrator
+
+When the orchestrator sends a message instructing you to load `runtime:card-task-creator`, load that skill and follow its `<instructions>` to seed the task graph from the approved plan. Do not revise the plan and do not re-broadcast `PLAN: READY`.
 
 </instructions>

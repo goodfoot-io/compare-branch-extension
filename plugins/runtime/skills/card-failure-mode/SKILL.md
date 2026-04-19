@@ -91,19 +91,51 @@ For each finding, provide all three:
 - **Why it matters.** Data corruption vs. stale UI. Every user vs. unusual trigger. Silent wrong results vs. visible error.
 - **Whether it would be caught.** Would the type system prevent it? Would an existing test catch it? Would it only surface in production under specific conditions? If no existing defense covers this failure, say so.
 
-## 6. Return Findings
+## 6. Broadcast Findings
 
-Return findings as your response. Lead with approach-level concerns, then line-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
+As soon as a finding meets the Step 5 detail bar, broadcast it to the team. Do not wait for the rest of your analysis. Do not batch.
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking findings to raise. The orchestrator routes fixes based on your verdict — it does not override it.
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">*</parameter>
+  <parameter name="summary">Failure mode: [short label]</parameter>
+  <parameter name="message">
+[The finding with all three Step 5 components, plus the file or runtime path it applies to]
+
+FINDING: [short label]
+  </parameter>
+</invoke>
+```
+
+The orchestrator listens for `FINDING:` broadcasts and creates a `[Review fix]` task per broadcast, then routes it to a developer. Continue your analysis after each broadcast — if the workspace changes under you, read what's current when you need to. Do not restart.
+
+## 7. Broadcast Verdict
+
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
+
+The orchestrator has every finding via your `FINDING:` broadcasts. Broadcast a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
+
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when you have no blocking findings to raise. The orchestrator routes fixes based on your verdict — it does not override it.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">*</parameter>
+  <parameter name="summary">Failure-mode verdict: [APPROVED | CHANGES_REQUESTED]</parameter>
+  <parameter name="message">
+[Summary of key findings — approach-level concerns first, then line-level. Any final thoughts not yet broadcast as a FINDING.]
+
+VERDICT: APPROVED | CHANGES_REQUESTED
+  </parameter>
+</invoke>
+```
 
 ## When Resuming for a Fixed Implementation
 
-When the orchestrator sends a follow-up message asking you to review the updated implementation, this is a continuation of your analysis — you retain full context from every prior round.
+When the orchestrator sends a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Broadcast new findings per Step 6: Broadcast Findings during each resume round.
 
 ### 1. Identify New Commits
 
-Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to identify every commit made since the last round. These are your primary focus. The orchestrator's message maps which findings each fix addressed — use that mapping to orient your analysis, then verify by reading the commits directly.
+The orchestrator's re-evaluation trigger includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to confirm the commits, then verify each fix by reading the commit directly.
 
 ### 2. Triage Each Prior Finding
 
@@ -111,7 +143,7 @@ For each concern you raised in the previous round, determine its current status 
 
 - **Addressed**: A fix commit targets this finding. Verify the fix resolves the root cause — run the affected code path if possible, don't only read the change. A fix that repairs the symptom while leaving the underlying condition is a new finding.
 - **Partially addressed**: The fix is incomplete or shifts the risk rather than resolving it. State what remains and why it still matters.
-- **Unaddressed**: The orchestrator flagged this as not viable or deferred it. Re-state it with the same weight, noting its status.
+- **Unaddressed**: The mapping flagged this as not viable or deferred. Re-state it with the same weight, noting its status.
 
 ### 3. Apply Full §3 Scrutiny to Fix Code
 
@@ -128,10 +160,10 @@ Follow consumers of the fix code one hop further than you did for the original i
 
 Where possible, execute the code paths the fix touches. Runtime behavior is the ground truth — reading a fix and reasoning about its correctness is insufficient when the environment can be exercised directly. Pay particular attention to async paths, error recovery branches, and state that persists across calls.
 
-### 5. Return Findings for This Round
+### 5. Broadcast Verdict for This Round
 
-Use the same format as §6. Lead with unresolved prior concerns, then new findings the fix code introduced, then approach-level risks that survive the revision. Do not repeat findings that have been fully and correctly resolved — note them as closed and move on.
+Use the SendMessage format from Step 7: Broadcast Verdict. Lead with unresolved prior concerns, then new findings the fix code introduced, then approach-level risks that survive the revision. Note resolved findings as closed — do not repeat them. Keep the broadcast concise; new findings should already be on the team channel as `FINDING:` broadcasts.
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior concern has been resolved at the root and the fix code introduced no new blocking finding. A prior finding the orchestrator declined to fix — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every prior concern has been resolved at the root and the fix code introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
 
 </instructions>

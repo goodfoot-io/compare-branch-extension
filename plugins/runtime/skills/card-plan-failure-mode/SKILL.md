@@ -80,15 +80,45 @@ For each finding, provide all three:
 - **Why it matters.** Data corruption vs. stale UI. Every user vs. unusual trigger. Silent wrong results vs. visible error.
 - **Whether it compounds.** When two findings interact — failure A raises the probability or severity of failure B — document the dependency. Compound failures are higher severity than their components suggest.
 
-## 5. Return Findings
+## 5. Stream Findings to the Planner
 
-Return findings as your response. Lead with approach-level concerns, then step-level concerns. Do not write findings to the card repository — notes, comments, or any other file. The orchestrator reads your response directly; files in the card repo are not part of this output channel.
+As soon as a finding meets the Step 4 detail bar, DM the planner with it. Do not wait for the rest of your analysis. Do not batch.
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. The findings above are the reason; do not restate them on the verdict line. Return `APPROVED` only when you have no blocking findings to raise. The orchestrator routes revision based on your verdict — it does not override it.
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">planner</parameter>
+  <parameter name="summary">Failure mode: [short label]</parameter>
+  <parameter name="message">
+[The finding with all three Step 4 components, plus the plan section or file it applies to]
+  </parameter>
+</invoke>
+```
+
+The planner acts on each finding as it arrives and may revise the plan under you. Continue your analysis after each message — if the plan changes, read what's current when you need it. Do not restart.
+
+## 6. Broadcast Verdict
+
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
+
+The planner has the full findings via streaming. Broadcast a concise summary plus any final thoughts that emerged after the last streamed message — not a repeat of every finding.
+
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when you have no blocking findings to raise. The orchestrator routes revision based on your verdict — it does not override it.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">*</parameter>
+  <parameter name="summary">Failure-mode verdict: [APPROVED | CHANGES_REQUESTED]</parameter>
+  <parameter name="message">
+[Summary of key findings — approach-level concerns first, then step-level. Any final thoughts not yet streamed to the planner.]
+
+VERDICT: APPROVED | CHANGES_REQUESTED
+  </parameter>
+</invoke>
+```
 
 ## When Resuming for a Revised Plan
 
-When the orchestrator sends a follow-up message asking you to review the updated plan, this is a continuation of your analysis — you retain full context from every prior round.
+When the orchestrator sends a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Read the planner's most recent `PLAN: READY` broadcast and the current plan files to identify what was revised. Stream findings to the planner per Step 5: Stream Findings to the Planner during each resume round.
 
 ### 1. Identify What Changed
 
@@ -115,12 +145,12 @@ The goal of each successive round is to pursue each prior concern to a definite 
 
 ### 4. Connect Findings Across Rounds
 
-When a new finding in the revised plan relates to a prior concern — whether it compounds it, partially resolves it, shifts its location, or changes its severity — document the relationship explicitly. The orchestrator uses this to distinguish unresolved prior problems from newly introduced ones.
+When a new finding in the revised plan relates to a prior concern — whether it compounds it, partially resolves it, shifts its location, or changes its severity — document the relationship explicitly.
 
-### 5. Return Findings for This Round
+### 5. Broadcast Verdict for This Round
 
-Use the same format as §5. Lead with unresolved prior concerns, then new findings the revision introduced, then approach-level risks that survive the revision. Do not repeat findings that have been fully and correctly resolved — note them as closed and move on.
+Use the SendMessage format from Step 6: Broadcast Verdict. Lead with unresolved prior concerns, then new findings from this revision, then any approach-level risks that survive. Note resolved findings as closed — do not repeat them. Keep the broadcast concise; the planner has the full detail via streaming.
 
-End your response with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Return `APPROVED` only when every prior concern has been resolved at the root and the revised plan introduced no new blocking finding. A prior finding the orchestrator declined to fix — marked "not viable," "limitation," or "follow-up" — is not resolved; return `CHANGES_REQUESTED` and restate it.
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every prior concern has been resolved at the root and the revised plan introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
 
 </instructions>

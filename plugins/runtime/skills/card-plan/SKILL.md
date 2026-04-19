@@ -45,7 +45,7 @@ Before dispatching any subagent, create a team to hold the planning subagents:
 </invoke>
 ```
 
-Every subagent spawned in this step joins the team by passing `team_name=card-plan-[CARD_ID]`. The team is torn down on every exit path in Step 4: Tear Down Team.
+Every subagent spawned in this step joins the team by passing `team_name=card-plan-[CARD_ID]`.
 
 ### Tier 2
 
@@ -68,10 +68,12 @@ Create an implementation plan for this card.
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the card from the card repository. Create the plan and investigate uncertainties. Return the plan state and any blockers.
+Read the card from the card repository. Create the plan and investigate uncertainties.
 </parameter>
 </invoke>
 ```
+
+Proceed to Step 3: Read Verdicts and Decide.
 
 ### Tier 3
 
@@ -94,46 +96,50 @@ Create an implementation plan for this card.
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the card from the card repository. Create the plan and investigate uncertainties. Return the plan state and any blockers.
+Read the card from the card repository. Create the plan and investigate uncertainties.
 </parameter>
 </invoke>
 ```
 
-After the planner returns, identify the primary plan file:
+After the planner returns, check the planner's broadcast:
+- **PLAN: BLOCKED**: Proceed to Step 3: Read Verdicts and Decide.
+- **PLAN: READY**: Identify the primary plan file:
 
-```bash
-git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
-```
+  ```bash
+  git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
+  ```
 
-Then spawn the failure-mode subagent in background mode:
+  Then spawn the failure-mode subagent in background mode:
 
-```xml
-<invoke name="Agent">
-<parameter name="description">Plan failure-mode analysis</parameter>
-<parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="name">plan-failure-mode</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">
-Identify potential failure modes in this implementation plan.
+  ```xml
+  <invoke name="Agent">
+  <parameter name="description">Plan failure-mode analysis</parameter>
+  <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
+  <parameter name="model">opus</parameter>
+  <parameter name="name">plan-failure-mode</parameter>
+  <parameter name="team_name">card-plan-[CARD_ID]</parameter>
+  <parameter name="run_in_background">true</parameter>
+  <parameter name="prompt">
+  Identify potential failure modes in this implementation plan.
 
-## Card Repository
-[CARD_REPO_PATH]
+  ## Card Repository
+  [CARD_REPO_PATH]
 
-## Workspace
-[WORKSPACE_PATH]
+  ## Workspace
+  [WORKSPACE_PATH]
 
-The primary plan file is `[PLAN_FILE]`. Focus your analysis on it; read other files in `plan/` for context. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies. Return your findings.
+  The primary plan file is `[PLAN_FILE]`. Focus your analysis on it; read other files in `plan/` for context. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies.
 
-Also evaluate the plan's design from the user's perspective: would the plan, if executed correctly, deliver the outcomes the card requires? Look for intent drift between the card and the plan, design choices that would produce wrong user outcomes even when implemented faithfully, and user-facing scenarios the plan doesn't account for.
-</parameter>
-</invoke>
-```
+  Also evaluate the plan's design from the user's perspective: would the plan, if executed correctly, deliver the outcomes the card requires? Look for intent drift between the card and the plan, design choices that would produce wrong user outcomes even when implemented faithfully, and user-facing scenarios the plan doesn't account for.
+  </parameter>
+  </invoke>
+  ```
+
+Proceed to Step 3: Read Verdicts and Decide.
 
 ### Tier 4
 
-Spawn the planner in background mode first, wait for it to return, then spawn multiple `plan-failure-mode` subagents in parallel, each with a focused scope:
+Spawn the planner in background mode first, wait for it to return, then spawn `plan-failure-mode` and `plan-design` subagents in parallel:
 
 ```xml
 <invoke name="Agent">
@@ -152,20 +158,20 @@ Create an implementation plan for this card.
 ## Workspace
 [WORKSPACE_PATH]
 
-Read the card from the card repository. Create the plan and investigate uncertainties. Return the plan state and any blockers.
+Read the card from the card repository. Create the plan and investigate uncertainties.
 </parameter>
 </invoke>
 ```
 
-Before writing either prompt, identify the primary plan file and read the plan and the card:
+After the planner returns, check the planner's broadcast:
+- **PLAN: BLOCKED**: Proceed to Step 3: Read Verdicts and Decide.
+- **PLAN: READY**: Identify the primary plan file and read the plan and card before composing the evaluator prompts:
 
-```bash
-git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
-```
+  ```bash
+  git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
+  ```
 
-Each prompt must reflect the specific nature of this plan and this card.
-
-After the planner returns, spawn both agents in parallel in background mode:
+  Each prompt must reflect the specific nature of this plan and this card. Spawn both agents in parallel in background mode:
 
 ```xml
 <invoke name="Agent">
@@ -220,82 +226,55 @@ Write this from what you found in the card, not as a generic description.]
 </invoke>
 ```
 
+Proceed to Step 3: Read Verdicts and Decide.
+
 ## 3. Read Verdicts and Decide
 
-Based on planner state:
-- **Planner returned blocked**: Document in comment, add `blocked` tag, commit. Complete Step 4: Tear Down Team, then **STOP** — do not proceed to implementation.
+Based on planner broadcast:
+- **PLAN: BLOCKED**: Document in comment, add `blocked` tag, commit. Complete Step 4: Tear Down Team, then **STOP** — do not proceed to implementation.
+- **PLAN: READY and no evaluators dispatched (tier 2)**: Proceed to Step 3.1: Seed Task Graph.
+- **PLAN: READY and evaluators dispatched (tier 3–4)**: Continue to evaluator verdict evaluation below.
 
-After all evaluator subagents return, read the `VERDICT:` line from each. The decision is determined by their verdicts, not your own assessment of the findings:
+After all evaluators broadcast verdicts, read the `VERDICT:` line from each broadcast. The decision is determined by their verdicts, not your own assessment of the findings:
 
-- **APPROVED**: Every dispatched evaluator returned `VERDICT: APPROVED` — proceed to Step 3.3: Seed Task Graph.
-- **CHANGES_REQUESTED**: Any evaluator returned `VERDICT: CHANGES_REQUESTED` — go to Step 3.1: Revise the Plan. You may not override an evaluator's verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of revising the plan.
-- **BLOCKED**: An external constraint prevents addressing a `CHANGES_REQUESTED` finding — document the constraint and the specific finding in a comment, add `blocked` tag, commit. Complete Step 4: Tear Down Team, then **STOP**.
+- **All APPROVED**: Proceed to Step 3.1: Seed Task Graph.
+- **Any CHANGES_REQUESTED**: Send a revision trigger to the planner:
 
-Approval is the evaluators' call. Your role is to route findings to the planner and re-dispatch, not to decide which findings count.
+  ```xml
+  <invoke name="SendMessage">
+    <parameter name="to">planner</parameter>
+    <parameter name="summary">Revision requested</parameter>
+    <parameter name="message">
+  Evaluators have broadcast `VERDICT: CHANGES_REQUESTED`. Finalize any outstanding revisions from the streamed findings, then broadcast `PLAN: READY`.
+    </parameter>
+  </invoke>
+  ```
 
-### 3.1 Revise the Plan
+  Wait for the planner to broadcast `PLAN: READY`, then send a re-evaluation trigger to each evaluator dispatched in Step 2:
 
-Resume the planner with both agents' findings:
+  ```xml
+  <invoke name="SendMessage">
+    <parameter name="to">plan-failure-mode</parameter>
+    <parameter name="summary">Plan revised — re-evaluate</parameter>
+    <parameter name="message">The planner has revised the plan. Re-evaluate based on your prior findings.</parameter>
+  </invoke>
+  ```
 
-```xml
-<invoke name="SendMessage">
-  <parameter name="to">planner</parameter>
-  <parameter name="summary">Plan revision findings</parameter>
-  <parameter name="message">
-[Compose from both agents' findings — which concerns require revision, what to change, and what to preserve]
-  </parameter>
-</invoke>
-```
+  ```xml
+  <invoke name="SendMessage">
+    <parameter name="to">plan-design</parameter>
+    <parameter name="summary">Plan revised — re-evaluate</parameter>
+    <parameter name="message">The planner has revised the plan. Re-evaluate based on your prior findings.</parameter>
+  </invoke>
+  ```
 
-A finding may only be left unaddressed if revising the plan to resolve it would invalidate the approach, or if an external constraint prevents revision. "Follow-up candidate," "known limitation," and "out of scope" are not valid reasons — if the evaluator raised it, the evaluator closes it at re-evaluation, or the run goes to **BLOCKED**.
+  Wait for all evaluators to re-broadcast verdicts, then return to Step 3: Read Verdicts and Decide.
 
-Wait for the planner to return, then go to Step 3.2: Resume Evaluation Agents.
+- **BLOCKED** (external constraint prevents addressing a `CHANGES_REQUESTED` finding): Document the constraint and the specific finding in a comment, add `blocked` tag, commit. Complete Step 4: Tear Down Team, then **STOP**.
 
-### 3.2 Resume Evaluation Agents
+Do not override an evaluator's verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of revising the plan.
 
-Re-identify the primary plan file:
-
-```bash
-git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
-```
-
-Then send a message to each evaluation agent. Each agent retains its prior findings and knows how to triage them — the message should deliver what only the orchestrator knows. Compose each message separately; do not route one agent's findings through the other.
-
-**plan-failure-mode**: Deliver the technical revision context:
-- The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
-- What the planner changed — which sections were added, removed, or restructured, and where to focus deeper
-- How the planner responded to technical findings — which concerns were addressed, which deferred, and whether any fix addresses the symptom but not the root cause
-- New interfaces, contracts, data flows, or dependencies the revision introduced that were not in scope in the prior round
-
-```xml
-<invoke name="SendMessage">
-  <parameter name="to">plan-failure-mode</parameter>
-  <parameter name="summary">Plan revision — technical context</parameter>
-  <parameter name="message">
-[Compose per the bullet points above]
-  </parameter>
-</invoke>
-```
-
-**plan-design**: Deliver the design revision context:
-- The current primary plan file (`[PLAN_FILE]`), and whether it differs from the prior round
-- Which user-outcome concerns the planner addressed, described in terms of what the user would now experience — not what plan text changed, but what the user outcome is now
-- Which acceptance criteria gaps or intent drift findings were not addressed and why
-- New design decisions the revision introduced and what user outcome they would produce if executed
-
-```xml
-<invoke name="SendMessage">
-  <parameter name="to">plan-design</parameter>
-  <parameter name="summary">Plan revision — design context</parameter>
-  <parameter name="message">
-[Compose per the bullet points above]
-  </parameter>
-</invoke>
-```
-
-Wait for all agents to return, then return to Step 3: Read Verdicts and Decide.
-
-### 3.3 Seed Task Graph
+### 3.1 Seed Task Graph
 
 Send a final message to the planner to seed the card's task graph from the approved plan:
 
@@ -323,7 +302,7 @@ Delete the team:
 
 Based on Step 3 outcome:
 - **Planner-blocked or BLOCKED verdict**: **STOP** — do not proceed to implementation.
-- **Approved (from Step 3.3)**: Proceed to Step 5: Route to Implementation.
+- **Approved (from Step 3.1)**: Proceed to Step 5: Route to Implementation.
 
 ## 5. Route to Implementation
 

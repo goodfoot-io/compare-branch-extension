@@ -26,6 +26,8 @@ Plan says "implement" → delegate to developer agent. Use `TaskList`, `TaskGet`
 **Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work.
 
 **Do not create, delete, or re-wire tasks.** The task list is seeded upstream by `runtime:card-plan` before this skill is entered, and reconciled there on every re-entry (including after `runtime:card-plan-feedback`). This skill reads the list and updates task status; it never reshapes it.
+
+**Respect `blockedBy` edges.** Do not dispatch a task whose prerequisites are not `completed`.
 </orchestrator-constraints>
 
 <instructions>
@@ -60,40 +62,33 @@ Run tests in the worktree, then delete the worktree and branch.
 
 ## 2. Execute Implementation
 
-### 2.1 Enumerate Blocking Tasks
+### 2.1 Enumerate Eligible Tasks
 
 `TaskGet` `Implementation`. Based on status:
 
 - **`completed`**: Proceed to Step 3: Validate.
+- **Every task in `Implementation`'s `blockedBy` is `completed`**: `TaskUpdate` `Implementation` to `completed`. Proceed to Step 2.6: Implementation Exit.
 - **`pending` or `in_progress`**: Continue below.
 
-`TaskGet` each task in `Implementation`'s `blockedBy` list. Collect those whose status is `pending` or `in_progress` — these are the concrete work for this step. Record `id` and `subject` for each.
+`TaskGet` each task in `Implementation`'s `blockedBy` list. A task is **eligible** when its own status is `pending` or `in_progress` AND its own `blockedBy` list is empty or every entry resolves to a `completed` task. Collect the eligible set — these are the concrete work for this wave. Record `id` and `subject` for each.
+
+If the eligible set is empty but non-completed tasks remain, the graph is deadlocked — a non-completed task references a prerequisite that is itself blocked. **STOP** and write a card comment naming the offending task and its unresolved prerequisite chain.
 
 Subjects follow two patterns you will see in the data:
 
-- `[PATH] § [HEADING]` — the task refers to a section of a plan file under `$CARD_REPO_PATH/plan/`. Read that section for scope.
-- `[PATH]` — the task refers to a feedback artifact under `$CARD_REPO_PATH/` (e.g., `comment/*.md`). Read that file for scope.
+- `[STEM] § [SLUG]` — a plan-derived sub-task referring to `$CARD_REPO_PATH/plan/[STEM].md`. `TaskGet` the task and follow the section references in its description to locate scope in that plan file.
+- `[PATH]` — a feedback artifact under `$CARD_REPO_PATH/` (e.g., `comment/*.md`). Read that file for scope.
 
 `TaskUpdate` `Implementation` to `in_progress`.
 
 ### 2.2 Assess Coherence
 
-Analyze the blocking tasks along three dimensions:
+Ordering across waves is pre-encoded in sub-task `blockedBy` edges; Step 2.1 surfaces only eligible peers. Routing over the current wave:
 
-| Dimension | Question |
-|-----------|----------|
-| **Dependency** | Do the tasks' files import/reference each other? |
-| **Uniformity** | Same operation across files, or varied operations? |
-| **Size** | Substantial tasks with clear completion gates? |
+- **Eligible tasks form a single tightly coupled unit of work** (one type rename and its callers, one logical refactor): Coherent — dispatch to a single agent.
+- **Eligible tasks are independent** (no shared files, no data-flow dependency): Parallel — dispatch concurrent agents, one per task or cluster.
 
-**Route**:
-- **Independent tasks OR uniform tasks**: Parallel (concurrent agents).
-- **Dependent + varied + small**: Coherent (single agent).
-- **Dependent + varied + substantial with clear gates**: Sequential (ordered agents, validate between).
-
-When uncertain between Coherent and Sequential, choose **Sequential** — validation gates have low cost; missed validation opportunities have high cost.
-
-Clear gates: type-check passes, tests pass, API functional, UI renders.
+Sequential multi-phase ordering is not a runtime choice here — if the plan required phased execution, the planner wired it into the sub-task graph, and Step 2.1 exposes phases as successive eligible waves.
 
 ### 2.3 Delegate Implementation
 
@@ -123,8 +118,6 @@ Based on coherence assessment:
 </invoke>
 ```
 
-**Sequential**: Delegate to agent, validate at gate, then delegate next phase.
-
 **Coherent**: Single agent for all tasks in scope.
 
 Agent prompts must be self-contained — agents have no conversation context.
@@ -147,17 +140,16 @@ Tasks in scope:
 - `[TASK_ID]`: [SUBJECT]
 
 [Coherent: Complete all tasks in sequence.]
-[Sequential: Complete phase [N] tasks. Stop at gate: [GATE_CONDITION].]
 [Parallel: Complete tasks in this group only.]
 
-`TaskGet` each ID to read the full description. A subject shaped as `[PATH] § [HEADING]` points to a section of a plan file; a bare `[PATH]` points to a feedback artifact. Read the referenced section or file for scope.
+`TaskGet` each ID to read the full description. A subject shaped as `[STEM] § [SLUG]` is a plan-derived sub-task at `$CARD_REPO_PATH/plan/[STEM].md`; its description lists the plan sections this sub-task covers — read each listed section for scope. A bare `[PATH]` points to a feedback artifact; read that file for scope.
 
 ## Context
 [Why this work exists — from plan rationale]
 [Relevant context from exploration]
 
 ## File Ownership
-This task owns: [absolute paths from plan sections in scope]
+This task owns: [absolute paths referenced in the covered plan sections]
 
 ## Constraints
 [From plan: patterns, interfaces, dependencies to respect]
@@ -187,7 +179,7 @@ Return `COMPLETED`, `NEEDS_REVISION`, or `BLOCKED`. Include the task IDs the res
 
 For each task in the agent's returned scope:
 
-- **COMPLETED**: `TaskUpdate` the task to `completed`. Proceed to Step 2.5: Validate and Commit.
+- **COMPLETED**: `TaskUpdate` the task to `completed`. Proceed to Step 2.5: Validate and Commit, then return to Step 2.1: Enumerate Eligible Tasks — a newly-completed task may unblock downstream sub-tasks.
 - **NEEDS_REVISION**: Read the task's `metadata.attempts` via `TaskGet` (treat missing as `0`). Increment and persist via `TaskUpdate` with `metadata: {"attempts": [N]}`. Revert the agent's owned files to baseline:
   ```bash
   # [AGENT_FILES] is the list of absolute paths from the agent's File Ownership section.
@@ -203,11 +195,10 @@ For each task in the agent's returned scope:
   - **Attempts ≥ 3**: Leave the task at `in_progress`, add its ID and blocker reason to a running blocked list, continue. Per `TaskUpdate` guidance, blocked work stays `in_progress` — the card comment and `blocked` tag carry the blocker state.
 - **BLOCKED**: Leave the task at `in_progress`, document the blocker in a card comment, add its ID to the blocked list, continue.
 
-After every task in this step's scope has been processed:
+After every task in this wave's scope has been processed:
 
-- **Every task in `Implementation`'s `blockedBy` is `completed`**: `TaskUpdate` `Implementation` to `completed`. Proceed to Step 2.6: Implementation Exit.
-- **Blocked list covers every remaining task**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary to `comment/all-tasks-blocked.md` with per-task blocker details (including task ID and subject). Commit both files and **STOP**.
-- **Some tasks blocked, others still pending**: Return to Step 2.1: Enumerate Blocking Tasks to pick up the remaining work.
+- **Blocked list covers every remaining non-completed task**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write a summary to `comment/all-tasks-blocked.md` with per-task blocker details (including task ID and subject). Commit both files and **STOP**.
+- **Otherwise**: Return to Step 2.1: Enumerate Eligible Tasks — Step 2.1 handles the exit check when `Implementation`'s `blockedBy` is fully `completed`.
 
 ### 2.5 Validate and Commit
 
@@ -231,10 +222,9 @@ git tag -f "implement/$CARD_ID/baseline" HEAD
 
 The baseline tag advances after each successful commit. NEEDS_REVISION rollback reverts only to the last successful task, not to the original starting state.
 
-Based on routing mode and remaining work:
-- **Sequential, more phases remain**: Return to Step 2.3: Delegate Implementation to delegate the next phase.
-- **More agent results pending** (parallel, or sequential with concurrent agents): Return to Step 2.4: Process Result for the next result.
-- **All tasks in this step's scope processed**: Return to Step 2.4: Process Result to evaluate the exit conditions.
+Based on remaining work:
+- **More agent results pending**: Return to Step 2.4: Process Result for the next result.
+- **All tasks in this wave processed**: Return to Step 2.1: Enumerate Eligible Tasks for the next wave, or exit to Step 2.6 when `Implementation`'s `blockedBy` is fully `completed`.
 
 ### 2.6 Implementation Exit
 

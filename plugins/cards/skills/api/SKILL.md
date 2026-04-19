@@ -13,18 +13,23 @@ The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before writing a card's description (CARD.md), load the `cards:markdown` skill and the reference that matches the user's request.
+Before creating a card, load the `cards:markdown` skill and both references for the matched card type. Two references load together:
+- An **interview** guide describing how to reach enough signal for the card.
+- A **writing** guide describing the target CARD.md structure.
 
 Determine the card type using the first matching signal:
-- **Bug, error, crash, regression, broken behavior**: `./references/bug-report.md`
-- **Feature, improvement, new capability**: `./references/enhancement.md`
-- **Research, spike, unknown root cause, feasibility**: `./references/investigation.md`
-- **Documentation, guides, runbooks, API reference**: `./references/documentation.md`
-- **Refactor, cleanup, tech debt, upgrade, migration**: `./references/maintenance.md`
-- **Infrastructure, CI/CD, deploy, monitoring, scaling**: `./references/operations.md`
-- **Otherwise**: `./references/enhancement.md`
 
-Read the matched reference file, then follow its guidance to compose the card's CARD.md content.
+| Card type | Interview (process) | Writing (target) |
+|-----------|---------------------|------------------|
+| Bug, error, crash, regression, broken behavior | `./references/interview-bug-report.md` | `./references/bug-report.md` |
+| Feature, improvement, new capability | `./references/interview-enhancement.md` | `./references/enhancement.md` |
+| Research, spike, unknown root cause, feasibility | `./references/interview-investigation.md` | `./references/investigation.md` |
+| Documentation, guides, runbooks, API reference | `./references/interview-documentation.md` | `./references/documentation.md` |
+| Refactor, cleanup, tech debt, upgrade, migration | `./references/interview-maintenance.md` | `./references/maintenance.md` |
+| Infrastructure, CI/CD, deploy, monitoring, scaling | `./references/interview-operations.md` | `./references/operations.md` |
+| Otherwise | `./references/interview-enhancement.md` | `./references/enhancement.md` |
+
+Run the interview first. When enough signal has been gathered, invoke the `card create` flow below and compose CARD.md against the writing guide in the same initial commit. The interview is not optional — every card created through this skill goes through it.
 
 ### Optional Plan at Creation Time
 
