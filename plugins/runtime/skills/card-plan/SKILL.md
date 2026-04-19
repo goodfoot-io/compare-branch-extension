@@ -244,12 +244,12 @@ Proceed to Step 3: Read Verdicts and Decide.
 
 Based on planner broadcast:
 - **PLAN: BLOCKED**: Document in comment, add `blocked` tag, commit. Complete Step 4: Tear Down Team, then **STOP** — do not proceed to implementation.
-- **PLAN: READY and no evaluators dispatched (tier 2)**: Proceed to Step 3.1: Seed Task Graph.
+- **PLAN: READY and no evaluators dispatched (tier 2)**: Proceed to Step 4: Tear Down Team.
 - **PLAN: READY and evaluators dispatched (tier 3–4)**: Continue to evaluator verdict evaluation below.
 
 After all evaluators broadcast verdicts, read the `VERDICT:` line from each broadcast. The decision is determined by their verdicts, not your own assessment of the findings:
 
-- **All APPROVED**: Proceed to Step 3.1: Seed Task Graph.
+- **All APPROVED**: Proceed to Step 4: Tear Down Team.
 - **Any CHANGES_REQUESTED**: Send a revision trigger to the planner:
 
   ```xml
@@ -286,22 +286,6 @@ After all evaluators broadcast verdicts, read the `VERDICT:` line from each broa
 
 Do not override an evaluator's verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of revising the plan.
 
-### 3.1 Seed Task Graph
-
-Send a final message to the planner to seed the card's task graph from the approved plan:
-
-```xml
-<invoke name="SendMessage">
-  <parameter name="to">planner</parameter>
-  <parameter name="summary">Seed task graph</parameter>
-  <parameter name="message">
-Load the `runtime:card-task-creator` skill and follow its `<instructions>` to create the card's task graph from the approved plan.
-  </parameter>
-</invoke>
-```
-
-Wait for the planner to return, then proceed to Step 4: Tear Down Team.
-
 ## 4. Tear Down Team
 
 This step runs on every exit path from Step 3 (success, BLOCKED verdict, planner-blocked). Tier 1 runs never reach this step — they skip directly to Step 5: Route to Implementation.
@@ -314,7 +298,7 @@ Delete the team:
 
 Based on Step 3 outcome:
 - **Planner-blocked or BLOCKED verdict**: **STOP** — do not proceed to implementation.
-- **Approved (from Step 3.1)**: Proceed to Step 5: Route to Implementation.
+- **Approved**: Proceed to Step 5: Route to Implementation.
 
 ## 5. Route to Implementation
 
