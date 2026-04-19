@@ -101,7 +101,7 @@ describe('Stop Hook', () => {
       expect(stdout.systemMessage).toContain('no HEAD SHA');
     });
 
-    it('returns null when no commits since HEAD SHA', async () => {
+    it('approves quietly when no commits since HEAD SHA', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockGetCommitsSince.mockReturnValue([]);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -109,10 +109,13 @@ describe('Stop Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toBeNull();
+      expect(result).toHaveProperty('_type', 'Stop');
+      const stdout = result!.stdout as { decision?: string; systemMessage?: string };
+      expect(stdout.decision).toBe('approve');
+      expect(stdout.systemMessage).toBeUndefined();
     });
 
-    it('returns null when all commits are attributed to session', async () => {
+    it('approves quietly when all commits are attributed to session', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockGetCommitsSince.mockReturnValue([SHA_1, SHA_2]);
       mockGetSessionCommits.mockReturnValue([SHA_1, SHA_2]);
@@ -122,7 +125,10 @@ describe('Stop Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toBeNull();
+      expect(result).toHaveProperty('_type', 'Stop');
+      const stdout = result!.stdout as { decision?: string; systemMessage?: string };
+      expect(stdout.decision).toBe('approve');
+      expect(stdout.systemMessage).toBeUndefined();
     });
 
     it('blocks with stat content when unattributed commits exist', async () => {

@@ -74,13 +74,15 @@ describe('PostToolUse Hook', () => {
   });
 
   describe('outside an action subprocess', () => {
-    it('returns null when action env vars are missing', async () => {
+    it('returns empty output when action env vars are missing', async () => {
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
 
       const result = await hook(mockInput, context);
 
-      expect(result).toBeNull();
+      expect(result).toHaveProperty('_type', 'PostToolUse');
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      expect(stdout.hookSpecificOutput).toBeUndefined();
     });
   });
 
@@ -104,14 +106,16 @@ describe('PostToolUse Hook', () => {
       mockResolveHeadFromFiles.mockReset();
     });
 
-    it('returns null when no HEAD SHA stored for session', async () => {
+    it('returns empty output when no HEAD SHA stored for session', async () => {
       mockReadSessionHeadSha.mockReturnValue(null);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
 
       const result = await hook(mockInput, context);
 
-      expect(result).toBeNull();
+      expect(result).toHaveProperty('_type', 'PostToolUse');
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      expect(stdout.hookSpecificOutput).toBeUndefined();
     });
 
     it('returns additionalContext with diagnostic when readSessionHeadSha throws', async () => {
@@ -154,12 +158,14 @@ describe('PostToolUse Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toBeNull();
+      expect(result).toHaveProperty('_type', 'PostToolUse');
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      expect(stdout.hookSpecificOutput).toBeUndefined();
       // Verify no subprocess was spawned
       expect(mockGetCommitsSince).not.toHaveBeenCalled();
     });
 
-    it('returns null when HEAD advanced but all commits attributed', async () => {
+    it('returns empty output when HEAD advanced but all commits attributed', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockResolveHeadFromFiles.mockReturnValue(SHA_1);
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -170,7 +176,9 @@ describe('PostToolUse Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toBeNull();
+      expect(result).toHaveProperty('_type', 'PostToolUse');
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      expect(stdout.hookSpecificOutput).toBeUndefined();
     });
 
     it('returns additionalContext when unattributed commits found', async () => {
