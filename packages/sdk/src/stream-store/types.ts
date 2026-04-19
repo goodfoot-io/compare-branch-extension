@@ -14,8 +14,6 @@
 
 /** Per-file metadata from the host. */
 export interface StreamMeta {
-  /** Current lifecycle status of the stream. */
-  status: string;
   /** Number of lines appended so far. */
   lineCount: number;
   /** Opaque session identifier for grouping related streams. */
