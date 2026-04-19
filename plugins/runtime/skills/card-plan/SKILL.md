@@ -90,6 +90,8 @@ Spawn the planner in background mode first, wait for it to return, then spawn on
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-planner`, `cards:markdown`, and `cards:notes` skills immediately.**
+
 Create an implementation plan for this card.
 
 ## Card Repository
@@ -154,6 +156,8 @@ Spawn the planner in background mode first, wait for it to return, then spawn `p
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-planner`, `cards:markdown`, and `cards:notes` skills immediately.**
+
 Create an implementation plan for this card.
 
 ## Card Repository
