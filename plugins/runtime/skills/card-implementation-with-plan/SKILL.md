@@ -91,6 +91,8 @@ Based on identifier check:
 - **Some checks pass**: Set [PLAN_STATE] to `partially-implemented`. Advance the baseline tag to HEAD so rollback targets the partial state.
 - **No checks pass**: Set [PLAN_STATE] to `not-implemented`.
 
+Create phase tasks for execution tracking — `TaskCreate` `[Phase] Implementation`, `[Phase] Validation Gate`, `[Phase] Evaluate Quality`, and `[Phase] Finalize`. Set `[Phase] Implementation` to `in_progress`. If [PLAN_STATE] is `fully-implemented`, immediately `TaskUpdate` it to `completed` and set `[Phase] Validation Gate` to `in_progress`.
+
 Based on [PLAN_STATE]:
 - **fully-implemented**: Proceed to Step 2.6: Validation Gate
 - **partially-implemented**: Advance baseline to HEAD, create todos for the unimplemented items, proceed to Step 2.2: Assess Coherence
@@ -247,6 +249,8 @@ Based on routing mode and remaining work:
 
 ### 2.6 Validation Gate
 
+`TaskUpdate` `[Phase] Implementation` to `completed`. `TaskUpdate` `[Phase] Validation Gate` to `in_progress`.
+
 Mark the post-implementation rollback point:
 
 ```bash
@@ -269,6 +273,8 @@ Proceed to Step 3: Evaluate Quality only when ALL validations pass.
 
 ## 3. Evaluate Quality
 
+`TaskUpdate` `[Phase] Validation Gate` to `completed`. `TaskUpdate` `[Phase] Evaluate Quality` to `in_progress`.
+
 Diff the workspace against the baseline to assess the scope of changes: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
 
 Based on scope:
@@ -278,6 +284,8 @@ Based on scope:
 ---
 
 ## 4. Finalize
+
+`TaskUpdate` `[Phase] Evaluate Quality` to `completed`. `TaskUpdate` `[Phase] Finalize` to `in_progress`.
 
 ### 4.1 Stage Remaining Changes
 
@@ -304,6 +312,8 @@ Clean up rollback tags:
 git tag -d "implement/$CARD_ID/baseline" \
          "implement/$CARD_ID/post-implementation" 2>/dev/null
 ```
+
+`TaskUpdate` `[Phase] Finalize` to `completed`.
 
 ### Rollback Points
 
