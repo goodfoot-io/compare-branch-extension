@@ -10,6 +10,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { getCommitsSince } from '@cards/sdk/card-repo';
+import { toCardListSummaries } from '@cards/sdk/card-summary';
 import type { AddBranchRequest, CardCreateData, ListCardsOptions } from '@cards/sdk/client';
 import {
   CardsClient,
@@ -21,10 +22,9 @@ import {
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
+import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
 import { associatePidWithCard, findAgentPid, getSessionIdForPid, removePidEntry } from '@cards/sessions';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
-import { toCardListSummaries } from '@cards/web/types/cardSummary';
-import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/web/utils/searchUtils';
 import { minimatch } from 'minimatch';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
