@@ -13,7 +13,6 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     globals: false,
     reporters: ['dot'],
-    setupFiles: ['./test/setup.ts'],
     env: {
       CARDS_HOOKS_LOG_FILE: '/dev/null'
     }

@@ -23,7 +23,9 @@
     "./stream-store": "./src/stream-store/index.ts",
     "./worktree": "./src/worktree.ts",
     "./client/cardRepoFilters": "./src/client/cardRepoFilters.ts",
-    "./card-repo": "./src/cardRepo.ts"
+    "./card-repo": "./src/cardRepo.ts",
+    "./card-summary": "./src/cardSummary.ts",
+    "./search-utils": "./src/searchUtils.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
