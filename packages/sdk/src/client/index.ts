@@ -35,15 +35,13 @@ export type {
   CardCreateData,
   CardsClientOptions,
   CardUpdateData,
-  IngestWsFactory,
   ListCardsOptions,
   StreamResult,
   StreamWriter,
   StreamWriterOptions,
   TimelineOptions,
   TypeSchemaInfo,
-  TypeSchemasResponse,
-  WsStreamSession
+  TypeSchemasResponse
 } from './types/client.js';
 // Error classes
 export { ApiError, NetworkError } from './types/errors.js';

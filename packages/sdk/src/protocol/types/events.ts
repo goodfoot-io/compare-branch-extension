@@ -15,7 +15,7 @@ import type { CompareState } from './compare.js';
 import type { CardCommit } from './fs.js';
 import type { ActionResult, ExecutionMode } from './settings.js';
 import type { CardStatus } from './status.js';
-import type { StreamMeta, StreamStatus } from './stream.js';
+import type { StreamMeta } from './stream.js';
 import type { CommentTimelineItem, CommitDetails, CommitTimelineItem } from './timeline.js';
 
 // --- Card Events ---
@@ -187,19 +187,17 @@ export interface StreamStartedEvent {
 /**
  * Broadcast when a terminated stream is reopened and ready to receive new lines.
  *
- * Fired immediately after the stream transitions from a terminal status back to
- * `'active'`. Subscribers can use this to re-enable stream viewer widgets and
- * reattach listeners that were released when the stream ended.
+ * Fired immediately after the stream's `closedAt` is cleared and it is ready
+ * to receive appends again. Subscribers can use this to re-enable stream viewer
+ * widgets and reattach listeners that were released when the stream ended.
  */
 export interface StreamResumedEvent {
   /** Event type discriminator. */
   type: 'stream:resumed';
   /** ID of the parent card. */
   cardId: string;
-  /** Full stream metadata snapshot after resume (status will be 'active'). */
+  /** Full stream metadata snapshot after resume (`closedAt` will be absent). */
   meta: StreamMeta;
-  /** Status the stream had before resume. */
-  previousStatus: StreamStatus;
   /** Number of lines the stream had before resume. */
   previousLineCount: number;
 }
@@ -228,12 +226,10 @@ export interface StreamLineEvent {
 }
 
 /**
- * Broadcast when a stream reaches a terminal status.
+ * Broadcast when a stream is closed.
  *
  * After this event, no further `stream:line` events will be emitted for this
- * stream. The `status` field indicates the reason for closure.
- *
- * @see StreamStatus for possible terminal values.
+ * stream. The stream's `closedAt` timestamp will be set in its metadata.
  */
 export interface StreamEndedEvent {
   /** Event type discriminator. */
@@ -242,8 +238,6 @@ export interface StreamEndedEvent {
   cardId: string;
   /** Stream filename within the card's `streams/` directory. */
   filename: string;
-  /** Terminal status describing how the stream ended. */
-  status: StreamStatus;
   /** Total number of lines received before closure. */
   lineCount: number;
 }

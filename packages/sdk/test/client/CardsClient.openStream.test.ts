@@ -153,7 +153,6 @@ describe('CardsClient.openStream()', () => {
       expect(result.filename).toBe('session.jsonl');
       expect(result.streamType).toBe('test-type');
       expect(result.lineCount).toBe(2);
-      expect(result.status).toBe('completed');
     },
     TEST_TIMEOUT
   );

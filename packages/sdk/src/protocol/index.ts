@@ -140,7 +140,6 @@ export type {
   StreamMetaFile,
   StreamResumedEvent,
   StreamStartedEvent,
-  StreamStatus,
   SwitchToInteractiveCommand,
   TagsResponse,
   ThemeUpdateMessage,

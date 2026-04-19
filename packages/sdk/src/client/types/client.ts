@@ -251,8 +251,6 @@ export interface StreamResult {
   streamType: string;
   /** Total number of lines ingested. */
   lineCount: number;
-  /** Final stream status. */
-  status: string;
 }
 
 /**
@@ -269,27 +267,3 @@ export interface StreamWriter {
   close(): Promise<StreamResult>;
 }
 
-/**
- * Factory function that creates a WebSocket connection for stream ingestion.
- *
- * Used by {@link CardsClient.openStreamWebSocket} for dependency injection.
- * The default factory uses Node's `ws` package directly; browser callers
- * must inject their own factory since the native browser `WebSocket`
- * does not support arbitrary upgrade headers.
- */
-export type IngestWsFactory = (url: string, options: { headers: Record<string, string> }) => WebSocket;
-
-/**
- * A WebSocket-backed session for streaming JSONL lines to the server.
- *
- * Returned by {@link CardsClient.openStreamWebSocket}. Unlike {@link StreamWriter}
- * (HTTP chunked), this session keeps a persistent WS connection for the
- * session lifetime. The server sends a `ready` message with `resumeFrom`
- * before the caller writes any lines.
- */
-export interface WsStreamSession extends StreamWriter {
-  /** How many lines the server already had when this session opened. */
-  readonly resumeFrom: number;
-  /** Total lines sent to server in this session (equals resumeFrom + lines written). */
-  readonly linesSent: number;
-}

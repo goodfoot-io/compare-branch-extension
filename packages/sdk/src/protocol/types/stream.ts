@@ -56,22 +56,6 @@ export interface AttachmentInfoFile {
 }
 
 /**
- * Lifecycle status of a stream.
- *
- * Status is a runtime database concern only — it is not persisted to the
- * filesystem or git. Pre-existing streams default to `'completed'` on startup.
- * A stream becomes `'active'` only when explicitly opened via `createStream()`
- * or `resumeStream()`.
- *
- * - `'active'`      -- Receiving data; the only status that permits appends.
- * - `'completed'`   -- Sender closed the connection normally (HTTP body ended).
- * - `'error'`       -- Closed due to a stream-level error (e.g., transport).
- * - `'interrupted'`  -- Client disconnected mid-stream.
- * - `'size_limit'`  -- Cumulative size exceeded {@link StreamDefinition.maxStreamSize}.
- */
-export type StreamStatus = 'active' | 'completed' | 'error' | 'interrupted' | 'size_limit';
-
-/**
  * File-persisted metadata for a single stream.
  *
  * Stored as `streams/{streamType}/{filename}.meta.json` inside the card directory.
@@ -123,25 +107,26 @@ export interface StreamMetaFile {
 }
 
 /**
- * Persisted metadata for a single stream with lifecycle status and timestamps.
+ * Persisted metadata for a single stream with lifecycle timestamps.
  *
  * This is the API shape used throughout the application. It extends
- * {@link StreamMetaFile} with lifecycle status and timestamps. The `status` and
- * `closedAt` fields are sourced from SQLite (write-through cache), while
- * `createdAt` is derived from Git history. `lineCount` is kept in sync by
- * each append and reflects the authoritative count from SQLite.
+ * {@link StreamMetaFile} with timestamps. `closedAt` is sourced from SQLite
+ * (write-through cache), while `createdAt` is derived from Git history.
+ * `lineCount` is kept in sync by each append and reflects the authoritative
+ * count from SQLite.
+ *
+ * A stream is considered active when `closedAt` is absent, and closed when
+ * `closedAt` is present. Consumers should derive `isActive` as
+ * `meta.closedAt === undefined`.
  *
  * @see StreamDefinition for the environment-level configuration that governs
  *   rendering for a given `streamType`.
  */
 export interface StreamMeta extends StreamMetaFile {
-  /** Current lifecycle status from SQLite. Only `'active'` streams accept appends. */
-  status: StreamStatus;
-
   /** ISO-8601 timestamp when the stream was created. Derived from Git history. */
   createdAt: string;
 
-  /** ISO-8601 timestamp when the stream was closed. From SQLite `closed_at` (seeded from git commit timestamp at close). Absent while `status` is `'active'`. */
+  /** ISO-8601 timestamp when the stream was closed. From SQLite `closed_at` (seeded from git commit timestamp at close). Absent while the stream is active. */
   closedAt?: string;
 }
 
