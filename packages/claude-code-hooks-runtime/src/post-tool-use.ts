@@ -64,7 +64,7 @@ export default postToolUseHook({}, async (input, { logger }) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('Not running inside an action subprocess', { error: message });
-    return null;
+    return postToolUseOutput({});
   }
 
   // Step 2: Baseline SHA
@@ -89,7 +89,7 @@ export default postToolUseHook({}, async (input, { logger }) => {
     });
   }
   if (!headSha) {
-    return null;
+    return postToolUseOutput({});
   }
 
   const sessionId = input.session_id;
@@ -112,7 +112,7 @@ export default postToolUseHook({}, async (input, { logger }) => {
 
   // Step 4: Fast-path exit
   if (currentHead === headSha) {
-    return null;
+    return postToolUseOutput({});
   }
 
   // Step 5: Session CSV
@@ -163,7 +163,7 @@ export default postToolUseHook({}, async (input, { logger }) => {
   // Step 7: Diff against session CSV
   const unattributed = getUnattributedCommits(allCommits, sessionCommits);
   if (unattributed.length === 0) {
-    return null;
+    return postToolUseOutput({});
   }
 
   // Step 8: Format

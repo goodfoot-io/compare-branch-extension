@@ -266,4 +266,3 @@ export interface StreamWriter {
   /** Close the stream and await the server response. */
   close(): Promise<StreamResult>;
 }
-
