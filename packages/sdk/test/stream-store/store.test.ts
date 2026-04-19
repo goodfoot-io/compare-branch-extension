@@ -33,11 +33,11 @@ beforeAll(async () => {
     primary: 'session.jsonl',
     files: {
       'session.jsonl': {
-        meta: { status: 'active', lineCount: 2, sessionId: 's1' },
+        meta: { lineCount: 2, sessionId: 's1' },
         lines: ['line1', 'line2']
       },
       'other.jsonl': {
-        meta: { status: 'completed', lineCount: 5 },
+        meta: { lineCount: 5, closedAt: '2025-01-01T00:00:00Z' },
         lines: ['a', 'b', 'c', 'd', 'e']
       }
     },
@@ -66,7 +66,7 @@ describe('stream store', () => {
       const file = store.getState().files.get('session.jsonl');
       expect(file).toBeDefined();
       expect(file!.filename).toBe('session.jsonl');
-      expect(file!.meta.status).toBe('active');
+      expect(file!.meta.closedAt).toBeUndefined();
       expect(file!.meta.lineCount).toBe(2);
       expect(file!.meta.sessionId).toBe('s1');
       expect(file!.lines).toEqual(['line1', 'line2']);
@@ -124,11 +124,11 @@ describe('stream store', () => {
       dispatchHostMessage({
         type: 'stream:started',
         filename: 'new-stream.jsonl',
-        meta: { status: 'active', lineCount: 0, title: 'New Stream' }
+        meta: { lineCount: 0, title: 'New Stream' }
       });
 
       const file = store.getState().files.get('new-stream.jsonl')!;
-      expect(file.meta.status).toBe('active');
+      expect(file.meta.closedAt).toBeUndefined();
       expect(file.meta.title).toBe('New Stream');
       expect(file.lines).toEqual([]);
     });
@@ -137,11 +137,10 @@ describe('stream store', () => {
       dispatchHostMessage({
         type: 'stream:ended',
         filename: 'session.jsonl',
-        meta: { status: 'completed', lineCount: 99, closedAt: '2026-01-01T00:00:00Z' }
+        meta: { lineCount: 99, closedAt: '2026-01-01T00:00:00Z' }
       });
 
       const file = store.getState().files.get('session.jsonl')!;
-      expect(file.meta.status).toBe('completed');
       expect(file.meta.closedAt).toBe('2026-01-01T00:00:00Z');
       expect(file.lines.length).toBeGreaterThan(0);
     });
@@ -160,7 +159,7 @@ describe('stream store', () => {
         type: 'subscribe:response',
         filename: 'subscribed.jsonl',
         lines: ['sub1', 'sub2'],
-        meta: { status: 'completed', lineCount: 2 }
+        meta: { lineCount: 2, closedAt: '2025-01-01T00:00:00Z' }
       });
 
       const file = store.getState().files.get('subscribed.jsonl')!;
@@ -176,7 +175,7 @@ describe('stream store', () => {
         type: 'subscribe:response',
         filename: 'error-file.jsonl',
         lines: [],
-        meta: { status: 'error', lineCount: 0 },
+        meta: { lineCount: 0 },
         error: 'File not found'
       });
 
@@ -248,7 +247,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'merge-test.jsonl',
           lines: ['base1', 'base2'],
-          meta: { status: 'active', lineCount: 2 }
+          meta: { lineCount: 2 }
         });
         expect(store.getState().files.get('merge-test.jsonl')!.lines).toEqual(['base1', 'base2']);
 
@@ -257,7 +256,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'merge-test.jsonl',
           lines: ['r1', 'r2', 'r3', 'r4'],
-          meta: { status: 'active', lineCount: 4 }
+          meta: { lineCount: 4 }
         });
 
         const lines = store.getState().files.get('merge-test.jsonl')!.lines;
@@ -271,7 +270,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'live-test.jsonl',
           lines: ['hist1', 'hist2', 'hist3'],
-          meta: { status: 'active', lineCount: 3 }
+          meta: { lineCount: 3 }
         });
 
         // Simulate two live events arriving before the next subscribe:response
@@ -284,7 +283,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'live-test.jsonl',
           lines: ['hist1', 'hist2', 'hist3'],
-          meta: { status: 'active', lineCount: 3 }
+          meta: { lineCount: 3 }
         });
 
         const lines = store.getState().files.get('live-test.jsonl')!.lines;
