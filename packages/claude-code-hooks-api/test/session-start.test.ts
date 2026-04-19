@@ -102,7 +102,7 @@ describe('session-start hook', () => {
       expect(mockPersistEnvVar).toHaveBeenCalledWith(ENV_VARS[i]!, join(binDir, WRAPPER_FILES[i]!));
     }
     expect(mockPersistEnvVar).toHaveBeenCalledTimes(1);
-    expect(result!.stdout).not.toHaveProperty('systemMessage');
+    expect(result).toBeNull();
   });
 
   it('warns and returns systemMessage when all wrappers are missing', async () => {

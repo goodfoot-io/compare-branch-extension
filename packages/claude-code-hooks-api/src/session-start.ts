@@ -55,5 +55,5 @@ export default sessionStartHook({}, (_input, { logger, persistEnvVar }) => {
     });
   }
 
-  return sessionStartOutput({});
+  return null;
 });
