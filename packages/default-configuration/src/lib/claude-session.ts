@@ -121,6 +121,8 @@ export function buildArgs(
   }
   args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
+  args.push('--effort', 'low');
+  args.push('--model', 'opus');
   args.push('--add-dir', claudeDirPath);
   args.push('--teammate-mode', 'in-process');
   // Temporarily disable as this creates an interactive warning dialog
