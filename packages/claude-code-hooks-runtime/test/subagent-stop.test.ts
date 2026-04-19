@@ -125,28 +125,24 @@ describe('SubagentStop Hook', () => {
       expect(streamWriter.close).toHaveBeenCalledOnce();
     });
 
-    it('approves unconditionally on upload success', async () => {
+    it('returns null (approve) on upload success', async () => {
       setupTranscriptUpload('{"event":"start"}\n');
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
     });
 
-    it('approves unconditionally when upload fails (logs warning)', async () => {
+    it('returns null (approve) when upload fails (logs warning)', async () => {
       const { streamWriter } = setupTranscriptUpload('{"event":"start"}\n');
       streamWriter.close.mockRejectedValue(new Error('network error'));
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
     });
 
-    it('approves when transcript file does not exist (logs warning)', async () => {
+    it('returns null (approve) when transcript file does not exist (logs warning)', async () => {
       const mockClient = { openStream: vi.fn() };
       mockCreateCardsClient.mockResolvedValue(mockClient as never);
       const enoentError = Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' });
@@ -154,19 +150,15 @@ describe('SubagentStop Hook', () => {
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
     });
 
-    it('approves when createCardsClient returns null (API unavailable, no upload attempted)', async () => {
+    it('returns null (approve) when createCardsClient returns null (API unavailable, no upload attempted)', async () => {
       mockCreateCardsClient.mockResolvedValue(null);
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
       expect(mockReadFile).not.toHaveBeenCalled();
     });
 
@@ -188,13 +180,11 @@ describe('SubagentStop Hook', () => {
       });
     });
 
-    it('approves unconditionally when not in action subprocess (no upload attempted)', async () => {
+    it('returns null (approve) when not in action subprocess (no upload attempted)', async () => {
       const errorSpy = vi.spyOn(logger, 'error');
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
       expect(errorSpy).toHaveBeenCalledWith('Not running inside an action subprocess', {
         error: 'Not in action subprocess'
       });

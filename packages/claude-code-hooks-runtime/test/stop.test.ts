@@ -96,12 +96,12 @@ describe('Stop Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result.stdout as { decision?: string; systemMessage?: string };
+      const stdout = result!.stdout as { decision?: string; systemMessage?: string };
       expect(stdout.decision).toBe('approve');
       expect(stdout.systemMessage).toContain('no HEAD SHA');
     });
 
-    it('approves quietly when no commits since HEAD SHA', async () => {
+    it('returns null when no commits since HEAD SHA', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockGetCommitsSince.mockReturnValue([]);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -109,13 +109,10 @@ describe('Stop Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result.stdout as { decision?: string; systemMessage?: string };
-      expect(stdout.decision).toBe('approve');
-      expect(stdout.systemMessage).toBeUndefined();
+      expect(result).toBeNull();
     });
 
-    it('approves quietly when all commits are attributed to session', async () => {
+    it('returns null when all commits are attributed to session', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockGetCommitsSince.mockReturnValue([SHA_1, SHA_2]);
       mockGetSessionCommits.mockReturnValue([SHA_1, SHA_2]);
@@ -125,10 +122,7 @@ describe('Stop Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result.stdout as { decision?: string; systemMessage?: string };
-      expect(stdout.decision).toBe('approve');
-      expect(stdout.systemMessage).toBeUndefined();
+      expect(result).toBeNull();
     });
 
     it('blocks with stat content when unattributed commits exist', async () => {
@@ -143,7 +137,7 @@ describe('Stop Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result.stdout as { decision?: string; reason?: string };
+      const stdout = result!.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('stat content here');
       expect(stdout.reason).toContain('1 unattributed commit');
@@ -175,7 +169,7 @@ describe('Stop Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result.stdout as { decision?: string; systemMessage?: string; reason?: string };
+      const stdout = result!.stdout as { decision?: string; systemMessage?: string; reason?: string };
       expect(stdout.decision).toBe('approve');
       expect(stdout.systemMessage).toContain('Could not list commits');
       expect(stdout.systemMessage).toContain('To investigate:');
@@ -195,7 +189,7 @@ describe('Stop Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result.stdout as { decision?: string; systemMessage?: string; reason?: string };
+      const stdout = result!.stdout as { decision?: string; systemMessage?: string; reason?: string };
       expect(stdout.decision).toBe('approve');
       expect(stdout.systemMessage).toContain('Could not read session commit records');
       expect(stdout.systemMessage).toContain('To investigate:');
@@ -213,7 +207,7 @@ describe('Stop Hook', () => {
       const context = { logger };
       const result = await hook(mockInput, context);
 
-      const stdout = result.stdout as { decision?: string; reason?: string };
+      const stdout = result!.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('2 unattributed commits');
       expect(mockAppendCommitToSession).toHaveBeenCalledWith('sess-1', SHA_1);
@@ -233,7 +227,7 @@ describe('Stop Hook', () => {
       const context = { logger };
       const result = await hook(mockInput, context);
 
-      const stdout = result.stdout as { decision?: string; reason?: string };
+      const stdout = result!.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('1 unattributed commit');
       expect(stdout.reason).toContain('Could not generate log --name-only');
@@ -254,7 +248,7 @@ describe('Stop Hook', () => {
       const context = { logger };
       const result = await hook(mockInput, context);
 
-      const stdout = result.stdout as { decision?: string; reason?: string };
+      const stdout = result!.stdout as { decision?: string; reason?: string };
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('stat content');
       expect(stdout.reason).toContain('Warnings:');
@@ -272,7 +266,7 @@ describe('Stop Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result.stdout as { systemMessage?: string };
+      const stdout = result!.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).toContain('not running inside an action subprocess');
     });
   });

@@ -74,15 +74,13 @@ describe('PostToolUse Hook', () => {
   });
 
   describe('outside an action subprocess', () => {
-    it('returns empty output when action env vars are missing', async () => {
+    it('returns null when action env vars are missing', async () => {
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
-      expect(stdout.hookSpecificOutput).toBeUndefined();
+      expect(result).toBeNull();
     });
   });
 
@@ -106,16 +104,14 @@ describe('PostToolUse Hook', () => {
       mockResolveHeadFromFiles.mockReset();
     });
 
-    it('returns empty output when no HEAD SHA stored for session', async () => {
+    it('returns null when no HEAD SHA stored for session', async () => {
       mockReadSessionHeadSha.mockReturnValue(null);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
       const context = { logger };
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
-      expect(stdout.hookSpecificOutput).toBeUndefined();
+      expect(result).toBeNull();
     });
 
     it('returns additionalContext with diagnostic when readSessionHeadSha throws', async () => {
@@ -128,7 +124,7 @@ describe('PostToolUse Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('Could not read session HEAD SHA');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('sess-1');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('EACCES: permission denied');
@@ -144,7 +140,7 @@ describe('PostToolUse Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('Could not resolve HEAD');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain(ACTION_ENV.CARD_REPO_PATH);
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('To investigate:');
@@ -158,14 +154,12 @@ describe('PostToolUse Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
-      expect(stdout.hookSpecificOutput).toBeUndefined();
+      expect(result).toBeNull();
       // Verify no subprocess was spawned
       expect(mockGetCommitsSince).not.toHaveBeenCalled();
     });
 
-    it('returns empty output when HEAD advanced but all commits attributed', async () => {
+    it('returns null when HEAD advanced but all commits attributed', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockResolveHeadFromFiles.mockReturnValue(SHA_1);
       mockGetSessionCommits.mockReturnValue([SHA_1]);
@@ -176,9 +170,7 @@ describe('PostToolUse Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
-      expect(stdout.hookSpecificOutput).toBeUndefined();
+      expect(result).toBeNull();
     });
 
     it('returns additionalContext when unattributed commits found', async () => {
@@ -194,7 +186,7 @@ describe('PostToolUse Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('1 unattributed commit');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('External changes detected');
     });
@@ -213,7 +205,7 @@ describe('PostToolUse Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('1 unattributed commit');
       // Verify full diff was used (getCommitsSince called, not just HEAD check)
       expect(mockGetCommitsSince).toHaveBeenCalledWith(ACTION_ENV.CARD_REPO_PATH, START_SHA);
@@ -248,7 +240,7 @@ describe('PostToolUse Hook', () => {
       const context = { logger };
       const result = await hook(mockInput, context);
 
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('External changes detected');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('Warnings:');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('Commit recording failed');
@@ -267,7 +259,7 @@ describe('PostToolUse Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('Could not read session commit records');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('To investigate:');
     });
@@ -285,7 +277,7 @@ describe('PostToolUse Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'PostToolUse');
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('Could not list commits');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('To investigate:');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain(START_SHA);
@@ -305,7 +297,7 @@ describe('PostToolUse Hook', () => {
       const context = { logger };
       const result = await hook(mockInput, context);
 
-      const stdout = result.stdout as { hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { hookSpecificOutput?: { additionalContext?: string } };
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('External changes detected');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('Could not generate log --name-only');
       expect(stdout.hookSpecificOutput?.additionalContext).toContain('To view manually');

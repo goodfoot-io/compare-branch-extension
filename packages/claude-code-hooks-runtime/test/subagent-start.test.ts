@@ -109,7 +109,7 @@ describe('SubagentStart Hook', () => {
       expect(result).toHaveProperty('_type', 'SubagentStart');
       expect(result).toHaveProperty('stdout');
 
-      const stdout = result.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
 
       // Env block with EXECUTION_MODE
       expect(stdout.systemMessage).toMatch(/^```bash\n/);
@@ -144,7 +144,7 @@ describe('SubagentStart Hook', () => {
 
       const result = await hook(baseInput, context);
 
-      const stdout = result.stdout as {
+      const stdout = result!.stdout as {
         continue?: boolean;
         systemMessage?: string;
         stopReason?: string;
@@ -173,7 +173,7 @@ describe('SubagentStart Hook', () => {
       const result = await hook(baseInput, context);
 
       expect(result).toHaveProperty('_type', 'SubagentStart');
-      const stdout = result.stdout as { systemMessage?: string };
+      const stdout = result!.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).toContain('not running inside an action subprocess');
     });
   });

@@ -87,9 +87,8 @@ describe('SessionEnd Hook', () => {
     });
 
     it('writes empty sentinel file at {cardRepoPath}/streams/claude-code-session/{sessionId}.flush', async () => {
-      const result = await hook(baseInput, context);
+      await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
       expect(mockWriteFile).toHaveBeenCalledWith(
         '/tmp/card-repos/card-123/streams/claude-code-session/sess-abc.flush',
         ''
@@ -104,18 +103,18 @@ describe('SessionEnd Hook', () => {
       });
     });
 
-    it('returns sessionEndOutput on success', async () => {
+    it('returns null on success', async () => {
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
     });
 
-    it('handles write failure gracefully — logs warning, still returns sessionEndOutput', async () => {
+    it('handles write failure gracefully — logs warning, still returns null', async () => {
       mockWriteFile.mockRejectedValue(new Error('disk full'));
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
     });
 
     it('does not call createCardsClient or openStream', async () => {
@@ -123,7 +122,7 @@ describe('SessionEnd Hook', () => {
       // The mock for api-discovery is not set up — if it were called, it would throw
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
       // writeFile and mkdir are the only fs operations
       expect(mockWriteFile).toHaveBeenCalledTimes(1);
     });
@@ -159,14 +158,14 @@ describe('SessionEnd Hook', () => {
         expect(mockRemoveSessionCsv).toHaveBeenCalledWith('sess-abc');
       });
 
-      it('handles cleanup failure gracefully — still returns sessionEndOutput', async () => {
+      it('handles cleanup failure gracefully — still returns null', async () => {
         mockRemoveSessionCsv.mockImplementation(() => {
           throw new Error('unlink failed');
         });
 
         const result = await hook(baseInput, context);
 
-        expect(result).toHaveProperty('_type', 'SessionEnd');
+        expect(result).toBeNull();
       });
 
       it('handles removeSessionPid failure gracefully', async () => {
@@ -175,7 +174,7 @@ describe('SessionEnd Hook', () => {
 
         const result = await hook(baseInput, context);
 
-        expect(result).toHaveProperty('_type', 'SessionEnd');
+        expect(result).toBeNull();
       });
 
       it('runs cleanup even when sentinel write fails', async () => {
@@ -196,10 +195,10 @@ describe('SessionEnd Hook', () => {
       });
     });
 
-    it('returns empty sessionEndOutput when not in action subprocess', async () => {
+    it('returns null when not in action subprocess', async () => {
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
       expect(mockMkdir).not.toHaveBeenCalled();
       expect(mockWriteFile).not.toHaveBeenCalled();
     });

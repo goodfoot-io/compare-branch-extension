@@ -10,7 +10,7 @@
  */
 
 import { findAgentPid, removePidEntry } from '@cards/sessions';
-import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
+import { stopHook } from '@goodfoot/claude-code-hooks';
 
 export default stopHook({}, async (_input, { logger }) => {
   // If CARD_ID is set, the execution wrapper manages lifecycle

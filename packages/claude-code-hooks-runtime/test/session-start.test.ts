@@ -138,7 +138,7 @@ describe('SessionStart Hook', () => {
       expect(result).toHaveProperty('_type', 'SessionStart');
       expect(result).toHaveProperty('stdout');
 
-      const stdout = result.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
+      const stdout = result!.stdout as { systemMessage?: string; hookSpecificOutput?: { additionalContext?: string } };
 
       // Env block with EXECUTION_MODE
       expect(stdout.systemMessage).toMatch(/^```bash\n/);
@@ -192,7 +192,7 @@ describe('SessionStart Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(mockWriteSessionHeadSha).not.toHaveBeenCalled();
-      const stdout = result.stdout as { systemMessage?: string };
+      const stdout = result!.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).not.toContain('HEAD:');
     });
 
@@ -237,7 +237,7 @@ describe('SessionStart Hook', () => {
       expect(mockFindClaudePid).toHaveBeenCalled();
       expect(mockRegisterSession).not.toHaveBeenCalled();
 
-      const stdout = result.stdout as {
+      const stdout = result!.stdout as {
         continue?: boolean;
         systemMessage?: string;
         stopReason?: string;
@@ -262,7 +262,7 @@ describe('SessionStart Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'SessionStart');
-      const stdout = result.stdout as {
+      const stdout = result!.stdout as {
         continue?: boolean;
         systemMessage?: string;
         stopReason?: string;
@@ -318,7 +318,7 @@ describe('SessionStart Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'SessionStart');
-      const stdout = result.stdout as {
+      const stdout = result!.stdout as {
         continue?: boolean;
         systemMessage?: string;
         stopReason?: string;
@@ -345,7 +345,7 @@ describe('SessionStart Hook', () => {
       const result = await hook(mockInput, context);
 
       expect(result).toHaveProperty('_type', 'SessionStart');
-      const stdout = result.stdout as { systemMessage?: string };
+      const stdout = result!.stdout as { systemMessage?: string };
       expect(stdout.systemMessage).toContain('not running inside an action subprocess');
     });
 

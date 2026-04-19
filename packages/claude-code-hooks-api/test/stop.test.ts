@@ -102,13 +102,13 @@ describe('cards stop hook', () => {
     expect(hookFn.hookEventName).toBe('Stop');
   });
 
-  it('approves when CARD_ID is set', async () => {
+  it('returns null when CARD_ID is set', async () => {
     process.env['CARD_ID'] = 'card-123';
     const result = await hookFn(
       { ...baseInput, session_id: 'test-session' },
       { logger: mockLogger as unknown as Logger }
     );
-    expect(result.stdout.decision).toBe('approve');
+    expect(result).toBeNull();
     expect(mockFindAgentPid).not.toHaveBeenCalled();
   });
 
@@ -123,7 +123,7 @@ describe('cards stop hook', () => {
       { ...baseInput, session_id: 'test-session' },
       { logger: mockLogger as unknown as Logger }
     );
-    expect(result.stdout.decision).toBe('approve');
+    expect(result).toBeNull();
     expect(mockFindAgentPid).toHaveBeenCalled();
 
     // Verify the entry was actually removed from the real registry
@@ -131,7 +131,7 @@ describe('cards stop hook', () => {
     expect(registry.sessions[String(testPid)]).toBeUndefined();
   });
 
-  it('approves when findAgentPid returns null', async () => {
+  it('returns null when findAgentPid returns null', async () => {
     process.env['CARD_ID'] = undefined;
     mockFindAgentPid.mockReturnValue(null);
 
@@ -139,10 +139,10 @@ describe('cards stop hook', () => {
       { ...baseInput, session_id: 'test-session' },
       { logger: mockLogger as unknown as Logger }
     );
-    expect(result.stdout.decision).toBe('approve');
+    expect(result).toBeNull();
   });
 
-  it('approves even when removePidEntry encounters corrupt registry', async () => {
+  it('returns null even when removePidEntry encounters corrupt registry', async () => {
     process.env['CARD_ID'] = undefined;
     mockFindAgentPid.mockReturnValue(testPid);
 
@@ -155,10 +155,10 @@ describe('cards stop hook', () => {
       { ...baseInput, session_id: 'test-session' },
       { logger: mockLogger as unknown as Logger }
     );
-    expect(result.stdout.decision).toBe('approve');
+    expect(result).toBeNull();
   });
 
-  it('always returns decision approve', async () => {
+  it('always returns null', async () => {
     process.env['CARD_ID'] = undefined;
     mockFindAgentPid.mockImplementation(() => {
       throw new Error('Process error');
@@ -168,6 +168,6 @@ describe('cards stop hook', () => {
       { ...baseInput, session_id: 'test-session' },
       { logger: mockLogger as unknown as Logger }
     );
-    expect(result.stdout.decision).toBe('approve');
+    expect(result).toBeNull();
   });
 });
