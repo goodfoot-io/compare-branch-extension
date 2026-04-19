@@ -90,7 +90,7 @@ export default stopHook({}, async (input, { logger }) => {
   }
 
   if (allCommits.length === 0) {
-    return stopOutput({ decision: 'approve' });
+    return null;
   }
 
   // Get session's attributed commits
@@ -118,7 +118,7 @@ export default stopHook({}, async (input, { logger }) => {
   const unattributed = getUnattributedCommits(allCommits, sessionCommits);
 
   if (unattributed.length === 0) {
-    return stopOutput({ decision: 'approve' });
+    return null;
   }
 
   // Unattributed commits found — gather stat, record, then block.

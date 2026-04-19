@@ -14,7 +14,7 @@
 import { readFile } from 'node:fs/promises';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { extractActionInput } from '@cards/sdk/config';
-import { subagentStopHook, subagentStopOutput } from '@goodfoot/claude-code-hooks';
+import { subagentStopHook } from '@goodfoot/claude-code-hooks';
 
 /**
  * Uploads the completed subagent transcript to the Cards API via streaming.
@@ -59,7 +59,7 @@ export default subagentStopHook({}, async (input, { logger }) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('Not running inside an action subprocess', { error: message });
-    return subagentStopOutput({ decision: 'approve' });
+    return null;
   }
 
   try {
@@ -77,5 +77,5 @@ export default subagentStopHook({}, async (input, { logger }) => {
     });
   }
 
-  return subagentStopOutput({ decision: 'approve' });
+  return null;
 });

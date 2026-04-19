@@ -130,9 +130,7 @@ describe('SubagentStop Hook', () => {
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result!.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
     });
 
     it('approves unconditionally when upload fails (logs warning)', async () => {
@@ -141,9 +139,7 @@ describe('SubagentStop Hook', () => {
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result!.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
     });
 
     it('approves when transcript file does not exist (logs warning)', async () => {
@@ -154,9 +150,7 @@ describe('SubagentStop Hook', () => {
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result!.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
     });
 
     it('approves when createCardsClient returns null (API unavailable, no upload attempted)', async () => {
@@ -164,9 +158,7 @@ describe('SubagentStop Hook', () => {
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result!.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
       expect(mockReadFile).not.toHaveBeenCalled();
     });
 
@@ -192,9 +184,7 @@ describe('SubagentStop Hook', () => {
       const errorSpy = vi.spyOn(logger, 'error');
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SubagentStop');
-      const stdout = result!.stdout as { decision?: string };
-      expect(stdout.decision).toBe('approve');
+      expect(result).toBeNull();
       expect(errorSpy).toHaveBeenCalledWith('Not running inside an action subprocess', {
         error: 'Not in action subprocess'
       });

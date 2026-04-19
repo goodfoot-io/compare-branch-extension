@@ -106,7 +106,7 @@ describe('SessionEnd Hook', () => {
     it('returns null on success', async () => {
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
     });
 
     it('handles write failure gracefully — logs warning, still returns null', async () => {
@@ -114,7 +114,7 @@ describe('SessionEnd Hook', () => {
 
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
     });
 
     it('does not call createCardsClient or openStream', async () => {
@@ -122,7 +122,7 @@ describe('SessionEnd Hook', () => {
       // The mock for api-discovery is not set up — if it were called, it would throw
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
       // writeFile and mkdir are the only fs operations
       expect(mockWriteFile).toHaveBeenCalledTimes(1);
     });
@@ -165,7 +165,7 @@ describe('SessionEnd Hook', () => {
 
         const result = await hook(baseInput, context);
 
-        expect(result).toHaveProperty('_type', 'SessionEnd');
+        expect(result).toBeNull();
       });
 
       it('handles removeSessionPid failure gracefully', async () => {
@@ -174,7 +174,7 @@ describe('SessionEnd Hook', () => {
 
         const result = await hook(baseInput, context);
 
-        expect(result).toHaveProperty('_type', 'SessionEnd');
+        expect(result).toBeNull();
       });
 
       it('runs cleanup even when sentinel write fails', async () => {
@@ -198,7 +198,7 @@ describe('SessionEnd Hook', () => {
     it('returns null when not in action subprocess', async () => {
       const result = await hook(baseInput, context);
 
-      expect(result).toHaveProperty('_type', 'SessionEnd');
+      expect(result).toBeNull();
       expect(mockMkdir).not.toHaveBeenCalled();
       expect(mockWriteFile).not.toHaveBeenCalled();
     });

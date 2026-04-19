@@ -109,10 +109,7 @@ describe('Stop Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result!.stdout as { decision?: string; systemMessage?: string };
-      expect(stdout.decision).toBe('approve');
-      expect(stdout.systemMessage).toBeUndefined();
+      expect(result).toBeNull();
     });
 
     it('approves quietly when all commits are attributed to session', async () => {
@@ -125,10 +122,7 @@ describe('Stop Hook', () => {
 
       const result = await hook(mockInput, context);
 
-      expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result!.stdout as { decision?: string; systemMessage?: string };
-      expect(stdout.decision).toBe('approve');
-      expect(stdout.systemMessage).toBeUndefined();
+      expect(result).toBeNull();
     });
 
     it('blocks with stat content when unattributed commits exist', async () => {
