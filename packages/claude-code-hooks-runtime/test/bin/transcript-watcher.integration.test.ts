@@ -1,506 +1,219 @@
 /**
- * Integration tests for the detached transcript watcher streaming loop.
+ * Integration tests for the transcript watcher filesystem-sync loop.
  *
- * Verifies the full streaming lifecycle using real filesystem operations
- * and the actual `runStreamingLoop` function, with only the Cards API
- * client mocked.
+ * Uses a real temporary git repository as the card repo. Appends lines to the
+ * source directory, touches the sentinel file, and asserts the committed HEAD
+ * contains the expected files under `streams/claude-code-session/`.
  *
- * @summary Integration tests for transcript-watcher streaming loop
+ * git operations run for real — no mocks. The emitter pattern is used to
+ * synchronize with the watcher loop without arbitrary timing delays.
+ *
+ * @summary End-to-end integration tests for transcript-watcher filesystem sync
  */
 
+import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { appendFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runSyncLoop, sentinelFileExists, type TranscriptWatcherArgs } from '../../src/bin/transcript-watcher.js';
 
-vi.mock('@cards/sdk/client/discovery', () => ({
-  createCardsClient: vi.fn()
-}));
+const execFileAsync = promisify(execFile);
 
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import {
-  POLL_INTERVAL_MS,
-  runStreamingLoop,
-  sentinelFileExists,
-  type TranscriptWatcherArgs
-} from '../../src/bin/transcript-watcher.js';
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-const mockCreateCardsClient = vi.mocked(createCardsClient);
+/**
+ * Initialises a bare git repo at the given path with an empty initial commit.
+ *
+ * @param repoPath - Absolute path to the directory to initialise as a git repo.
+ */
+async function initGitRepo(repoPath: string): Promise<void> {
+  await execFileAsync('git', ['init', '-b', 'main', repoPath]);
+  await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: repoPath });
+  await execFileAsync('git', ['config', 'user.name', 'Test'], { cwd: repoPath });
+  await execFileAsync('git', ['config', 'commit.gpgsign', 'false'], { cwd: repoPath });
+  // Create an empty initial commit so HEAD exists
+  await execFileAsync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: repoPath });
+}
+
+/**
+ * Returns the list of files present in the committed HEAD tree of the repo.
+ *
+ * @param repoPath - Absolute path to the git repository.
+ * @returns Array of relative file paths tracked in the current HEAD commit.
+ */
+async function listHeadFiles(repoPath: string): Promise<string[]> {
+  const { stdout } = await execFileAsync('git', ['ls-tree', '-r', '--name-only', 'HEAD'], { cwd: repoPath });
+  return stdout
+    .trim()
+    .split('\n')
+    .filter((line) => line.length > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Test suite
+// ---------------------------------------------------------------------------
 
 describe('transcript-watcher integration', () => {
-  let testDir: string;
-  let transcriptPath: string;
+  let cardRepoPath: string;
+  let sourceDir: string;
   let sessionId: string;
-
-  let mockWrite: ReturnType<typeof vi.fn>;
-  let mockClose: ReturnType<typeof vi.fn>;
-  let mockOpenStreamWebSocket: ReturnType<typeof vi.fn>;
-
   let emitter: EventEmitter;
-  let loopDone: boolean;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     sessionId = `sess-integ-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    testDir = join(tmpdir(), `watcher-integration-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(testDir, { recursive: true });
-    transcriptPath = join(testDir, 'transcript.jsonl');
+    const base = join(tmpdir(), `tw-integ-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    cardRepoPath = join(base, 'card-repo');
+    sourceDir = join(base, 'source');
 
-    mockWrite = vi.fn();
-    mockClose = vi.fn().mockResolvedValue({
-      filename: `${sessionId}.jsonl`,
-      streamType: 'claude-code-session',
-      lineCount: 0,
-      status: 'complete'
-    });
-    mockOpenStreamWebSocket = vi
-      .fn()
-      .mockResolvedValue({ write: mockWrite, close: mockClose, resumeFrom: 0, linesSent: 0 });
-    const mockClient = { openStreamWebSocket: mockOpenStreamWebSocket };
-    mockCreateCardsClient.mockResolvedValue(mockClient as never);
+    mkdirSync(cardRepoPath, { recursive: true });
+    mkdirSync(sourceDir, { recursive: true });
+
+    await initGitRepo(cardRepoPath);
 
     emitter = new EventEmitter();
-    loopDone = false;
-    emitter.on('done', () => {
-      loopDone = true;
-    });
 
     vi.useFakeTimers();
-
-    // Default: PID alive
     vi.spyOn(process, 'kill').mockReturnValue(true);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
-    vi.clearAllMocks();
-    rmSync(testDir, { recursive: true, force: true });
+    const base = join(cardRepoPath, '..');
+    rmSync(base, { recursive: true, force: true });
   });
 
-  function makeArgs(): TranscriptWatcherArgs {
+  function makeArgs(overrides?: Partial<TranscriptWatcherArgs>): TranscriptWatcherArgs {
     return {
-      pid: 12345,
+      pid: process.pid,
       sessionId,
-      transcriptPath,
+      transcriptPath: join(sourceDir, `${sessionId}.jsonl`),
       cardId: 'card-integ',
-      cardRepoPath: testDir,
-      emitter
+      cardRepoPath,
+      emitter,
+      ...overrides
     };
   }
 
-  /**
-   * Waits for the streaming loop to finish its current iteration.
-   *
-   * Listens for the loop's 'iterationEnd' event (emitted after all I/O in an
-   * iteration completes, before the sleep timer) or 'done' (emitted after
-   * post-loop cleanup). Returns immediately if the loop has already exited.
-   *
-   * @returns A promise that resolves when the current iteration completes.
-   */
-  function waitForLoopIdle(): Promise<void> {
-    if (loopDone) return Promise.resolve();
-    return new Promise((resolve) => {
-      const handler = () => {
-        emitter.off('iterationEnd', handler);
-        emitter.off('done', handler);
-        resolve();
-      };
-      emitter.on('iterationEnd', handler);
-      emitter.on('done', handler);
-    });
-  }
-
-  /**
-   * Advances fake timers by the given duration in POLL_INTERVAL_MS steps,
-   * waiting for the loop to complete each iteration before advancing further.
-   *
-   * @param totalMs - Total milliseconds to advance.
-   */
-  async function advanceTimeInSteps(totalMs: number): Promise<void> {
-    const steps = Math.ceil(totalMs / POLL_INTERVAL_MS);
-    for (let i = 0; i < steps; i++) {
-      if (loopDone) return;
-      const idle = waitForLoopIdle();
-      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-      await idle;
-    }
-  }
-
-  /**
-   * Writes the sentinel flush file for the current session.
-   */
   function writeSentinelNow(): void {
-    const sentinelDir = join(testDir, 'streams', 'claude-code-session');
+    const sentinelDir = join(cardRepoPath, 'streams', 'claude-code-session');
     mkdirSync(sentinelDir, { recursive: true });
     writeFileSync(join(sentinelDir, `${sessionId}.flush`), '');
   }
 
   /**
-   * Writes the sentinel file after a fake-timer delay.
+   * Starts runSyncLoop and waits for the 'ready' event before returning.
+   * 'ready' fires after all startup I/O completes and just before setInterval
+   * is registered — so fake-timer advancement is safe after this call.
    *
-   * @param delayMs - Fake-timer delay before writing the sentinel.
+   * Returns { loop } where loop is the runSyncLoop promise. Using a wrapper
+   * object prevents Promise.resolve() from unwrapping the inner promise.
+   *
+   * @param args - Watcher arguments passed to runSyncLoop.
+   * @returns Promise resolving to an object with the loop promise once ready.
    */
-  function writeSentinelAfter(delayMs: number): void {
-    setTimeout(() => {
-      writeSentinelNow();
-    }, delayMs);
+  function startLoop(args: TranscriptWatcherArgs): Promise<{ loop: Promise<void> }> {
+    const readyPromise = new Promise<void>((resolve) => {
+      args.emitter!.once('ready', resolve);
+    });
+    const loop = runSyncLoop(args);
+    return readyPromise.then(() => ({ loop }));
   }
 
-  /**
-   * Makes the mocked PID report as dead after a fake-timer delay.
-   *
-   * @param delayMs - Fake-timer delay before simulating PID death.
-   */
-  function killPidAfter(delayMs: number): void {
-    const originalKill = process.kill as ReturnType<typeof vi.fn>;
+  // -------------------------------------------------------------------------
+  // Full lifecycle: write lines, touch sentinel, assert committed HEAD
+  // -------------------------------------------------------------------------
+  it('appends lines to source, touches sentinel, asserts committed HEAD contains session files', async () => {
+    const srcPath = join(sourceDir, `${sessionId}.jsonl`);
+    writeFileSync(srcPath, '{"type":"init"}\n{"type":"message","content":"hello"}\n');
+
+    const args = makeArgs();
+    const { loop: loopPromise } = await startLoop(args);
+
+    // Advance past first periodic check to trigger sentinel detection
+    writeSentinelNow();
+    await vi.advanceTimersByTimeAsync(6_000);
+
+    await loopPromise;
+
+    // Sentinel must be gone
+    expect(await sentinelFileExists(cardRepoPath, sessionId)).toBe(false);
+
+    // Assert HEAD contains the session JSONL and its sidecar
+    const headFiles = await listHeadFiles(cardRepoPath);
+    expect(headFiles).toContain(`streams/claude-code-session/${sessionId}.jsonl`);
+    expect(headFiles).toContain(`streams/claude-code-session/${sessionId}.jsonl.meta.json`);
+
+    // Sentinel flush file must NOT be committed
+    const flushFiles = headFiles.filter((f) => f.endsWith('.flush'));
+    expect(flushFiles).toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Subagent transcript lands flat in committed HEAD
+  // -------------------------------------------------------------------------
+  it('subagent transcript lands flat as {uuid}-agent-{hash}.jsonl in committed HEAD', async () => {
+    const subagentDir = join(sourceDir, sessionId, 'subagents');
+    mkdirSync(subagentDir, { recursive: true });
+    writeFileSync(join(subagentDir, 'agent-cafebabe.jsonl'), '{"type":"sub-init"}\n');
+
+    const args = makeArgs();
+    const { loop: loopPromise } = await startLoop(args);
+
+    writeSentinelNow();
+    await vi.advanceTimersByTimeAsync(6_000);
+
+    await loopPromise;
+
+    const headFiles = await listHeadFiles(cardRepoPath);
+    expect(headFiles).toContain(`streams/claude-code-session/${sessionId}-agent-cafebabe.jsonl`);
+  });
+
+  // -------------------------------------------------------------------------
+  // PID death triggers commit
+  // -------------------------------------------------------------------------
+  it('PID death triggers final copy and commit to HEAD', async () => {
+    const srcPath = join(sourceDir, `${sessionId}.jsonl`);
+    writeFileSync(srcPath, '{"type":"before-death"}\n');
+
+    // Kill PID to trigger exit
     setTimeout(() => {
-      originalKill.mockImplementation(() => {
+      vi.spyOn(process, 'kill').mockImplementation(() => {
         const err = new Error('kill ESRCH') as NodeJS.ErrnoException;
         err.code = 'ESRCH';
         throw err;
       });
-    }, delayMs);
-  }
+    }, 100);
 
-  // -----------------------------------------------------------------------
-  // Test 1: Full lifecycle -- write, stream, sentinel, exit
-  // -----------------------------------------------------------------------
-  it('full lifecycle: writes are streamed, sentinel triggers flush and exit, sentinel file removed', async () => {
-    // Start with an empty transcript file
-    writeFileSync(transcriptPath, '');
+    const args = makeArgs();
+    const { loop: loopPromise } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loopPromise;
 
-    const promise = runStreamingLoop(makeArgs());
-
-    // Advance one poll -- no data yet
-    const idle1 = waitForLoopIdle();
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-    await idle1;
-
-    expect(mockOpenStreamWebSocket).not.toHaveBeenCalled();
-
-    // Simulate Claude writing lines incrementally
-    appendFileSync(transcriptPath, '{"type":"init","ts":1}\n');
-
-    const idle2 = waitForLoopIdle();
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-    await idle2;
-
-    // Session should now be open and the line written
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"init","ts":1}');
-
-    // Write more lines
-    appendFileSync(transcriptPath, '{"type":"message","content":"hello"}\n{"type":"message","content":"world"}\n');
-
-    const idle3 = waitForLoopIdle();
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-    await idle3;
-
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"message","content":"hello"}');
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"message","content":"world"}');
-
-    // Write sentinel to trigger graceful exit
-    writeSentinelAfter(POLL_INTERVAL_MS + 50);
-
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 3);
-
-    await promise;
-
-    // Session was closed
-    expect(mockClose).toHaveBeenCalledTimes(1);
-    // Sentinel file was removed
-    expect(await sentinelFileExists(testDir, sessionId)).toBe(false);
-    const sentinelPath = join(testDir, 'streams', 'claude-code-session', `${sessionId}.flush`);
-    expect(existsSync(sentinelPath)).toBe(false);
+    const headFiles = await listHeadFiles(cardRepoPath);
+    expect(headFiles).toContain(`streams/claude-code-session/${sessionId}.jsonl`);
   });
 
-  // -----------------------------------------------------------------------
-  // Test 2: Session stays open during idle (no idle timeout)
-  // -----------------------------------------------------------------------
-  it('session stays open during idle, new data is picked up without reopening', async () => {
-    writeFileSync(transcriptPath, '{"type":"first-batch"}\n');
+  // -------------------------------------------------------------------------
+  // Sentinel flush file is not in .gitignore-exempt committed tree
+  // -------------------------------------------------------------------------
+  it('.gitignore contains streams/**/*.flush after watcher initialises', async () => {
+    // Touch sentinel immediately so the loop exits quickly
+    writeSentinelNow();
 
-    // Kill PID after several idle poll cycles
-    const exitTime = POLL_INTERVAL_MS * 15;
-    killPidAfter(exitTime);
+    const args = makeArgs();
+    const { loop: loopPromise } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loopPromise;
 
-    const promise = runStreamingLoop(makeArgs());
-
-    // Advance past first poll to pick up data and open session
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 2);
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"first-batch"}');
-
-    // Advance several more idle polls — session should stay open
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 5);
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1); // still just one open
-    expect(mockClose).not.toHaveBeenCalled(); // not closed during idle
-
-    // Write new data — same session picks it up
-    appendFileSync(transcriptPath, '{"type":"second-batch"}\n');
-
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 3);
-
-    // No new session opened — same session handles new data
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"second-batch"}');
-
-    // Let the loop exit via PID death
-    await advanceTimeInSteps(exitTime);
-    await promise;
-
-    // Session closed once at exit
-    expect(mockClose).toHaveBeenCalledTimes(1);
-  });
-
-  // -----------------------------------------------------------------------
-  // Test 3: PID death triggers flush and exit
-  // -----------------------------------------------------------------------
-  it('PID death triggers final flush of remaining lines and session close', async () => {
-    writeFileSync(transcriptPath, '{"type":"before-death"}\n');
-
-    // Schedule more data to appear, then kill PID
-    setTimeout(() => {
-      appendFileSync(transcriptPath, '{"type":"just-before-death"}\npartial-no-newline');
-    }, POLL_INTERVAL_MS - 50);
-
-    killPidAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // The initial line should have been written
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"before-death"}');
-    // Session was closed (final flush + cleanup)
-    expect(mockClose).toHaveBeenCalledTimes(1);
-    // The session was opened since there was data
-    expect(mockOpenStreamWebSocket).toHaveBeenCalled();
-  });
-
-  // -----------------------------------------------------------------------
-  // Test 4: Zero-line session -- no session opened
-  // -----------------------------------------------------------------------
-  it('zero-line session: no session is opened when transcript has no data', async () => {
-    // Do NOT create the transcript file at all -- simulating no data
-    killPidAfter(POLL_INTERVAL_MS * 2 + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // openStreamWebSocket should never have been called
-    expect(mockOpenStreamWebSocket).not.toHaveBeenCalled();
-    expect(mockWrite).not.toHaveBeenCalled();
-    expect(mockClose).not.toHaveBeenCalled();
-  });
-
-  // -----------------------------------------------------------------------
-  // Test A: Watcher recovers after transient session failure
-  // -----------------------------------------------------------------------
-  it('watcher recovers after transient session failure', async () => {
-    writeFileSync(transcriptPath, '{"type":"recover-test"}\n');
-
-    // Set up two session objects: first write throws, second succeeds
-    const mockWrite1 = vi.fn().mockImplementationOnce(() => {
-      throw new Error('Simulated write failure');
-    });
-    const mockWrite2 = vi.fn();
-    const mockClose1 = vi.fn().mockResolvedValue({
-      filename: `${sessionId}.jsonl`,
-      streamType: 'claude-code-session',
-      lineCount: 0,
-      status: 'complete'
-    });
-    const mockClose2 = vi.fn().mockResolvedValue({
-      filename: `${sessionId}.jsonl`,
-      streamType: 'claude-code-session',
-      lineCount: 1,
-      status: 'complete'
-    });
-
-    let openCount = 0;
-    mockOpenStreamWebSocket.mockImplementation(async () => {
-      openCount++;
-      if (openCount === 1) return { write: mockWrite1, close: mockClose1, resumeFrom: 0, linesSent: 0 };
-      return { write: mockWrite2, close: mockClose2, resumeFrom: 1, linesSent: 0 };
-    });
-
-    killPidAfter(POLL_INTERVAL_MS * 5 + 50);
-    const promise = runStreamingLoop(makeArgs());
-
-    // Poll 1 fires immediately (no timer advance needed) — session opens, write throws,
-    // session is nulled, bytesRead is NOT advanced.
-    await waitForLoopIdle();
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite1).toHaveBeenCalledTimes(1);
-    // After write failure, session should be null — second open has not happened yet
-    expect(mockWrite2).not.toHaveBeenCalled();
-
-    // Advance one poll interval: loop sleep fires, poll 2 re-reads same line
-    // (bytesRead rolled back), opens new session, write succeeds
-    await advanceTimeInSteps(POLL_INTERVAL_MS);
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(2);
-    expect(mockWrite2).toHaveBeenCalledWith('{"type":"recover-test"}');
-
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 5);
-    await promise;
-  });
-
-  // -----------------------------------------------------------------------
-  // Test B: Watcher retries after connection error on open
-  // -----------------------------------------------------------------------
-  it('watcher retries after connection error on open', async () => {
-    writeFileSync(transcriptPath, '{"type":"conflict-test"}\n');
-
-    // First call to createCardsClient throws (simulating connection error)
-    let clientCallCount = 0;
-    const mockClient = { openStreamWebSocket: mockOpenStreamWebSocket };
-    mockCreateCardsClient.mockImplementation(async () => {
-      clientCallCount++;
-      if (clientCallCount === 1) {
-        throw new Error('ApiError: Conflict');
-      }
-      return mockClient as never;
-    });
-
-    killPidAfter(POLL_INTERVAL_MS * 8 + 50);
-    const promise = runStreamingLoop(makeArgs());
-
-    // Poll 1 fires immediately — createCardsClient throws, tryOpenSession returns null, no write
-    await waitForLoopIdle();
-
-    expect(mockOpenStreamWebSocket).not.toHaveBeenCalled();
-    expect(mockWrite).not.toHaveBeenCalled();
-
-    // Advance one poll interval: loop sleep fires, poll 2 — createCardsClient succeeds,
-    // session opens, line is written
-    await advanceTimeInSteps(POLL_INTERVAL_MS);
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"conflict-test"}');
-
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
-    await promise;
-  });
-
-  // -----------------------------------------------------------------------
-  // Test C: Watcher continues after close failure during exit
-  // -----------------------------------------------------------------------
-  it('watcher continues after close failure during exit cleanup', async () => {
-    writeFileSync(transcriptPath, '{"type":"close-fail-test"}\n');
-
-    // close() throws
-    mockClose.mockRejectedValueOnce(new Error('Simulated close failure'));
-
-    killPidAfter(POLL_INTERVAL_MS * 3 + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-
-    // Advance past first poll to write the initial line
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 2);
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"close-fail-test"}');
-
-    // Let the loop exit via PID death — close() will throw but should not propagate
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 5);
-    await expect(promise).resolves.toBeUndefined();
-
-    expect(mockClose).toHaveBeenCalledTimes(1);
-  });
-
-  // -----------------------------------------------------------------------
-  // Test D: bytesRead rolls back on write failure
-  // -----------------------------------------------------------------------
-  it('bytesRead rolls back on write failure', async () => {
-    writeFileSync(transcriptPath, '{"type":"line1"}\n{"type":"line2"}\n');
-
-    // First write call throws; subsequent calls succeed
-    mockWrite.mockImplementationOnce(() => {
-      throw new Error('Simulated write failure on first batch');
-    });
-
-    // Use two distinct session objects so we can verify the re-read content
-    const mockWrite2 = vi.fn();
-    const mockClose2 = vi.fn().mockResolvedValue({
-      filename: `${sessionId}.jsonl`,
-      streamType: 'claude-code-session',
-      lineCount: 2,
-      status: 'complete'
-    });
-    let openCount = 0;
-    mockOpenStreamWebSocket.mockImplementation(async () => {
-      openCount++;
-      if (openCount === 1) return { write: mockWrite, close: mockClose, resumeFrom: 0, linesSent: 0 };
-      return { write: mockWrite2, close: mockClose2, resumeFrom: 0, linesSent: 0 };
-    });
-
-    killPidAfter(POLL_INTERVAL_MS * 8 + 50);
-    const promise = runStreamingLoop(makeArgs());
-
-    // Poll 1 fires immediately — session opens, first write throws, session nulled,
-    // bytesRead NOT advanced.
-    await waitForLoopIdle();
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"line1"}');
-    // Second session not yet opened
-    expect(mockWrite2).not.toHaveBeenCalled();
-
-    // Advance one poll interval: loop sleep fires, poll 2 — bytesRead rolled back,
-    // re-reads from beginning, opens new session, both lines written
-    await advanceTimeInSteps(POLL_INTERVAL_MS);
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(2);
-    // Both lines re-read and written to second session
-    expect(mockWrite2).toHaveBeenCalledWith('{"type":"line1"}');
-    expect(mockWrite2).toHaveBeenCalledWith('{"type":"line2"}');
-
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
-    await promise;
-  });
-
-  // -----------------------------------------------------------------------
-  // Test E: Watcher recovers when first open fails (API unavailable)
-  // -----------------------------------------------------------------------
-  it('watcher recovers when first open fails', async () => {
-    writeFileSync(transcriptPath, '{"type":"api-unavailable-test"}\n');
-
-    // createCardsClient returns null on first call (API unavailable), then succeeds
-    let clientCallCount = 0;
-    const mockClient = { openStreamWebSocket: mockOpenStreamWebSocket };
-    mockCreateCardsClient.mockImplementation(async () => {
-      clientCallCount++;
-      if (clientCallCount === 1) {
-        return null as never;
-      }
-      return mockClient as never;
-    });
-
-    killPidAfter(POLL_INTERVAL_MS * 8 + 50);
-    const promise = runStreamingLoop(makeArgs());
-
-    // Poll 1 fires immediately — createCardsClient returns null, API unavailable, no session opened
-    await waitForLoopIdle();
-
-    expect(mockOpenStreamWebSocket).not.toHaveBeenCalled();
-    expect(mockWrite).not.toHaveBeenCalled();
-
-    // Advance one poll interval: loop sleep fires, poll 2 — createCardsClient succeeds,
-    // session opens, line is written
-    await advanceTimeInSteps(POLL_INTERVAL_MS);
-
-    expect(mockOpenStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith('{"type":"api-unavailable-test"}');
-
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
-    await promise;
+    // .gitignore is written to disk by ensureGitignoreEntry; check disk directly
+    const { readFileSync } = await import('node:fs');
+    const gitignoreContent = readFileSync(join(cardRepoPath, '.gitignore'), 'utf-8');
+    expect(gitignoreContent).toContain('streams/**/*.flush');
   });
 });

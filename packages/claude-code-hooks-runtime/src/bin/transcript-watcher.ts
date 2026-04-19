@@ -1,72 +1,31 @@
 /**
  * Detached transcript watcher process.
  *
- * Spawned by session-start to monitor a agent PID and stream the transcript
- * to the Cards API in real-time. Tails the transcript JSONL file, streaming
- * lines as they appear with WebSocket-backed session lifecycle. Exits on
+ * Spawned by session-start to monitor an agent PID and sync transcript files
+ * from the Claude Code session directory directly into the card repository.
+ * Uses fs.watch (recursive) on the source directory; on session close (sentinel
+ * detection or PID death) performs a final copy pass and commits. Exits on
  * sentinel file detection (graceful shutdown), PID death (crash), or max
  * lifetime timeout.
  *
- * @summary Detached transcript watcher for real-time transcript streaming
+ * @summary Detached transcript watcher — filesystem-event-driven directory syncer
  */
 
-import { execFileSync } from 'node:child_process';
-import type { FileHandle } from 'node:fs/promises';
-import { access, open, unlink } from 'node:fs/promises';
+import { execFile, execFileSync } from 'node:child_process';
+import type { FSWatcher } from 'node:fs';
+import { watch } from 'node:fs';
+import { access, appendFile, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import * as net from 'node:net';
-import { join } from 'node:path';
-import type { IngestWsFactory, WsStreamSession } from '@cards/sdk/client';
-import { createCardsClient } from '@cards/sdk/client/discovery';
-import { WebSocket as WS } from 'ws';
+import { dirname, join } from 'node:path';
+import { promisify } from 'node:util';
 
-const wsFactory: IngestWsFactory = (url, options) => {
-  return new WS(url, { headers: options.headers }) as unknown as WebSocket;
-};
-
-/** Polling interval for transcript tailing and PID liveness checks (1 second). */
-export const POLL_INTERVAL_MS = 1_000;
+const execFileAsync = promisify(execFile);
 
 /** Maximum watcher lifetime before forced exit (24 hours). */
 export const MAX_LIFETIME_MS = 24 * 60 * 60 * 1_000;
 
-/** Buffer size for positional reads from the transcript file. */
-const READ_BUFFER_SIZE = 64 * 1024;
-
-/**
- * Arguments parsed from process.argv for the transcript watcher.
- */
-export interface TranscriptWatcherArgs {
-  /** PID of the agent process to monitor. */
-  pid: number;
-  /** Session identifier for stream file naming. */
-  sessionId: string;
-  /** Filesystem path to the transcript JSONL file. */
-  transcriptPath: string;
-  /** Card identifier for the openStream API call. */
-  cardId: string;
-  /** Filesystem path to the card repository. */
-  cardRepoPath: string;
-  /**
-   * Optional emitter for loop lifecycle events ('iterationEnd', 'done').
-   * Used by integration tests to synchronize with the streaming loop
-   * without arbitrary timing delays.
-   */
-  emitter?: { emit(event: string): boolean };
-}
-
-/**
- * Result from reading new lines from the transcript file.
- */
-export interface ReadNewLinesResult {
-  /** The file handle (opened on first successful read, or null if file not yet created). */
-  fileHandle: FileHandle | null;
-  /** Number of bytes read so far from the file. */
-  bytesRead: number;
-  /** Incomplete line fragment carried over to the next read. */
-  lineBuffer: string;
-  /** Complete lines read in this call. */
-  lines: string[];
-}
+/** Interval for periodic sentinel/PID liveness checks (5 seconds). */
+export const PERIODIC_CHECK_INTERVAL_MS = 5_000;
 
 let logSocket: net.Socket | null = null;
 
@@ -106,11 +65,31 @@ export function logViaSocket(level: string, message: string): void {
   try {
     const entry = { type: 'log', level, message };
     logSocket.write(`${JSON.stringify(entry)}\n`);
-  } catch (_) {
-    // Intentionally suppressed: this IS the logging function, so there is
-    // no higher-level logger to report to. The watcher must not crash
-    // because a log write failed.
+  } catch {
+    logSocket = null; // Reset so future writes don't attempt a broken socket
   }
+}
+
+/**
+ * Arguments parsed from process.argv for the transcript watcher.
+ */
+export interface TranscriptWatcherArgs {
+  /** PID of the agent process to monitor. */
+  pid: number;
+  /** Session identifier for stream file naming. */
+  sessionId: string;
+  /** Filesystem path to the transcript JSONL file. */
+  transcriptPath: string;
+  /** Card identifier for sidecar metadata. */
+  cardId: string;
+  /** Filesystem path to the card repository. */
+  cardRepoPath: string;
+  /**
+   * Optional emitter for loop lifecycle events ('ready', 'iterationEnd', 'done').
+   * Used by tests to synchronize with the watcher loop without arbitrary timing delays.
+   * 'ready' fires after startup I/O completes and just before the periodic interval starts.
+   */
+  emitter?: { emit(event: string): boolean; once(event: string, listener: () => void): unknown };
 }
 
 /**
@@ -166,69 +145,10 @@ export function isProcessAlive(pid: number): boolean {
 }
 
 /**
- * Reads new bytes from the transcript file using positional reads.
- *
- * Opens the file handle on first successful access. Uses a persistent file
- * handle and byte offset to efficiently tail the file. Handles multi-byte
- * UTF-8 characters split across read boundaries via TextDecoder streaming mode.
- *
- * @param fileHandle - Existing file handle, or null if not yet opened.
- * @param bytesRead - Number of bytes already read from the file.
- * @param lineBuffer - Incomplete line fragment from the previous read.
- * @param transcriptPath - Path to the transcript JSONL file.
- * @returns Updated state and any complete lines read.
- */
-export async function readNewLines(
-  fileHandle: FileHandle | null,
-  bytesRead: number,
-  lineBuffer: string,
-  transcriptPath: string
-): Promise<ReadNewLinesResult> {
-  // Open file handle if not yet opened
-  if (!fileHandle) {
-    try {
-      fileHandle = await open(transcriptPath, 'r');
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return { fileHandle: null, bytesRead, lineBuffer, lines: [] };
-      }
-      throw error;
-    }
-  }
-
-  const decoder = new TextDecoder('utf-8', { fatal: false });
-  let currentOffset = bytesRead;
-  let accumulated = lineBuffer;
-
-  for (;;) {
-    const buffer = Buffer.alloc(READ_BUFFER_SIZE);
-    const { bytesRead: chunkSize } = await fileHandle.read(buffer, 0, READ_BUFFER_SIZE, currentOffset);
-    if (chunkSize === 0) break;
-
-    accumulated += decoder.decode(buffer.subarray(0, chunkSize), { stream: true });
-    currentOffset += chunkSize;
-  }
-
-  // Flush any remaining bytes from the decoder
-  accumulated += decoder.decode(new Uint8Array(0), { stream: false });
-
-  // Split on newlines, keeping the last fragment as lineBuffer
-  const parts = accumulated.split('\n');
-  const newLineBuffer = parts.pop()!;
-
-  return {
-    fileHandle,
-    bytesRead: currentOffset,
-    lineBuffer: newLineBuffer,
-    lines: parts
-  };
-}
-
-/**
  * Checks whether the sentinel flush file exists for this session.
  *
  * The sentinel file is written by the session-end hook to signal the watcher
- * to flush remaining lines and close the stream gracefully.
+ * to flush remaining files and close the stream gracefully.
  *
  * @param cardRepoPath - Path to the card repository.
  * @param sessionId - Session ID used to construct the sentinel path.
@@ -264,422 +184,537 @@ export async function removeSentinelFile(cardRepoPath: string, sessionId: string
 }
 
 /**
- * Reads the transcript file from byte 0, counting newlines until `lineCount` lines
- * have been passed. Returns the byte offset immediately after the Nth newline.
+ * Translates a source-relative path (under the session UUID root) to a flat
+ * destination filename. Returns null for paths that should be skipped.
  *
- * Used on reconnect when the server is behind the watcher's current file position.
+ * Translation table:
+ * - `{session-uuid}.jsonl`                            → `{session-uuid}.jsonl`
+ * - `{session-uuid}/subagents/agent-{hash}.jsonl`     → `{session-uuid}-agent-{hash}.jsonl`
+ * - `{session-uuid}/subagents/agent-{hash}.meta.json` → `{session-uuid}-agent-{hash}.meta.json`
+ * - `{session-uuid}/subagents/agent-acompact-{hash}.jsonl` → `{session-uuid}-agent-acompact-{hash}.jsonl`
+ * - `{session-uuid}/tool-results/**`                  → null (skipped)
+ * - anything else under `{session-uuid}/`             → null (skipped)
  *
- * @param transcriptPath - Path to the transcript JSONL file.
- * @param lineCount - Number of complete lines to skip.
- * @returns Byte offset after the Nth newline in the file.
+ * @param relPath - Relative path from source directory root.
+ * @param sessionId - Session UUID prefix to filter on.
+ * @returns Flat destination filename, or null to skip.
  */
-export async function seekToLine(transcriptPath: string, lineCount: number): Promise<{ bytesRead: number }> {
-  if (lineCount === 0) return { bytesRead: 0 };
+export function translatePath(relPath: string, sessionId: string): string | null {
+  // Normalize separators to forward slash for consistent matching
+  const normalized = relPath.replace(/\\/g, '/');
 
-  const handle = await open(transcriptPath, 'r');
-  try {
-    let offset = 0;
-    let linesFound = 0;
-    const buffer = Buffer.alloc(READ_BUFFER_SIZE);
-    for (;;) {
-      const { bytesRead: chunkSize } = await handle.read(buffer, 0, READ_BUFFER_SIZE, offset);
-      if (chunkSize === 0) break;
-
-      for (let i = 0; i < chunkSize; i++) {
-        if (buffer[i] === 0x0a) {
-          // newline byte
-          linesFound++;
-          if (linesFound >= lineCount) {
-            return { bytesRead: offset + i + 1 };
-          }
-        }
-      }
-      offset += chunkSize;
-    }
-    return { bytesRead: offset };
-  } finally {
-    await handle.close();
-  }
-}
-
-/**
- * Opens a WebSocket stream session for the given session.
- *
- * Creates a Cards API client and opens a WebSocket stream session. The session
- * already knows the server's current line count (resumeFrom) when returned.
- *
- * @param args - Watcher arguments containing card ID and session info.
- * @returns A WsStreamSession, or null if API discovery or client creation fails.
- */
-export async function openOrResumeWebSocketSession(args: TranscriptWatcherArgs): Promise<WsStreamSession | null> {
-  const client = await createCardsClient();
-  if (!client) {
-    return null;
+  // Root session file: {session-uuid}.jsonl
+  if (normalized === `${sessionId}.jsonl`) {
+    return `${sessionId}.jsonl`;
   }
 
-  return client.openStreamWebSocket(
-    args.cardId,
-    'claude-code-session',
-    `${args.sessionId}.jsonl`,
-    {
-      title: `Claude session for ${args.cardId}`,
-      sessionId: args.sessionId
-    },
-    wsFactory
-  );
-}
-
-/**
- * Mutable state for the streaming loop, threaded through helper functions.
- */
-interface StreamingState {
-  wsSession: WsStreamSession | null;
-  localLineCount: number; // lines counted so far in this watcher instance
-  fileHandle: FileHandle | null;
-  bytesRead: number;
-  lineBuffer: string;
-  consecutiveFailures: number;
-  sentinelDetected: boolean;
-}
-
-/**
- * Result returned by `pollTranscript` — new read position without mutating state.
- * The caller advances state only after a successful write.
- */
-interface PollResult {
-  lines: string[];
-  newBytesRead: number;
-  newLineBuffer: string;
-}
-
-/** After this many consecutive failures, log only every Nth failure to avoid flooding. */
-const LOG_SUPPRESSION_THRESHOLD = 10;
-
-/**
- * Returns true if this failure should be logged (below threshold or every Nth above it).
- *
- * @param state - Mutable streaming state.
- * @returns True when the failure should be logged; false when suppressed.
- */
-function shouldLogFailure(state: StreamingState): boolean {
-  return (
-    state.consecutiveFailures < LOG_SUPPRESSION_THRESHOLD || state.consecutiveFailures % LOG_SUPPRESSION_THRESHOLD === 0
-  );
-}
-
-/**
- * Filters lines to non-empty content suitable for streaming.
- *
- * @param lines - Raw lines from the transcript file.
- * @returns Lines with non-empty trimmed content.
- */
-function filterNonEmptyLines(lines: string[]): string[] {
-  return lines.filter((line) => line.trim() !== '');
-}
-
-/**
- * Opens or resumes a WebSocket session, adjusting read position based on server's resumeFrom.
- *
- * Returns the opened session, or null if the open failed. On failure,
- * increments `state.consecutiveFailures` so the watcher can track and log
- * persistent outages without giving up permanently.
- *
- * @param state - Mutable streaming state.
- * @param args - Watcher arguments for API client creation.
- * @param context - Human-readable context for log messages (e.g. "for final flush").
- * @returns The opened WsStreamSession, or null on failure.
- */
-async function tryOpenSession(
-  state: StreamingState,
-  args: TranscriptWatcherArgs,
-  context: string
-): Promise<WsStreamSession | null> {
-  try {
-    const session = await openOrResumeWebSocketSession(args);
-    if (!session) {
-      state.consecutiveFailures++;
-      if (shouldLogFailure(state)) {
-        logViaSocket('warn', `Failed to open WS session ${context}(API unavailable)`);
-      }
+  // Subagents directory: {session-uuid}/subagents/{name}
+  const subagentsPrefix = `${sessionId}/subagents/`;
+  if (normalized.startsWith(subagentsPrefix)) {
+    const name = normalized.slice(subagentsPrefix.length);
+    // Only allow bare filenames (no further subdirectories)
+    if (name.includes('/')) {
       return null;
     }
-
-    // Adjust read position based on server's resumeFrom
-    const resumeFrom = session.resumeFrom;
-    if (resumeFrom >= state.localLineCount) {
-      // Server is caught up or ahead — continue from current bytesRead
-      state.localLineCount = resumeFrom;
-    } else {
-      // Server is behind — seek to resumeFrom position in transcript file
-      try {
-        const { bytesRead: newOffset } = await seekToLine(args.transcriptPath, resumeFrom);
-        state.bytesRead = newOffset;
-        state.lineBuffer = '';
-        state.localLineCount = resumeFrom;
-      } catch (error) {
-        logViaSocket('warn', `seekToLine failed for line ${String(resumeFrom)}: ${String(error)}`);
-        // Continue anyway — server-side deduplication handles any duplicates
-      }
-    }
-
-    return session;
-  } catch (error) {
-    state.consecutiveFailures++;
-    if (shouldLogFailure(state)) {
-      const detail = error instanceof Error && error.stack ? error.stack : String(error);
-      logViaSocket('warn', `Failed to open WS session ${context}: ${detail}`);
-    }
-    return null;
+    return `${sessionId}-${name}`;
   }
+
+  // tool-results and anything else under session dir: skip
+  return null;
 }
 
 /**
- * Writes lines to an open WebSocket session. On the first write failure, increments
- * `state.consecutiveFailures`, nulls the session, and stops writing further lines.
- *
- * @param session - The WebSocket session to write to.
- * @param lines - Non-empty lines to write.
- * @param state - Mutable streaming state.
- * @param context - Human-readable context for log messages.
+ * Sidecar metadata for a stream file.
  */
-function writeLinesToStream(session: WsStreamSession, lines: string[], state: StreamingState, context: string): void {
-  for (const line of lines) {
-    try {
-      session.write(line);
-      state.localLineCount++;
-    } catch (error) {
-      state.consecutiveFailures++;
-      if (shouldLogFailure(state)) {
-        logViaSocket('error', `Stream write failed ${context}: ${String(error)}`);
-      }
-      state.wsSession = null;
-      break;
-    }
-  }
+interface SidecarMeta {
+  filename: string;
+  streamType: string;
+  title: string;
+  sessionId: string;
+  agentId?: string;
 }
 
 /**
- * Ensures a WebSocket session is open (opening lazily if needed) and writes lines to it.
+ * Builds the sidecar metadata object for a given flat destination filename.
  *
- * Handles the full open-then-write sequence: if no session exists, opens one;
- * if the open fails, increments consecutiveFailures. Then writes all lines if
- * a session is available. Resets consecutiveFailures to 0 after a successful
- * write batch (confirmed by state.wsSession still being non-null after the write).
- *
- * @param state - Mutable streaming state.
- * @param args - Watcher arguments for session opening.
- * @param lines - Non-empty lines to write.
- * @param context - Human-readable context for log messages.
+ * @param destFilename - Flat destination filename (e.g. `{uuid}.jsonl`).
+ * @param sessionId - Session UUID.
+ * @param cardId - Card identifier.
+ * @returns Sidecar metadata object.
  */
-async function ensureStreamAndWriteLines(
-  state: StreamingState,
-  args: TranscriptWatcherArgs,
-  lines: string[],
-  context: string
-): Promise<void> {
-  if (!state.wsSession) {
-    state.wsSession = await tryOpenSession(state, args, context);
-  }
-  if (state.wsSession) {
-    const sessionBeforeWrite = state.wsSession;
-    writeLinesToStream(state.wsSession, lines, state, context);
-    if (state.wsSession) {
-      // Write batch succeeded — confirmed end-to-end health
-      state.consecutiveFailures = 0;
-    } else {
-      // Write failed — session was nulled; attempt best-effort close
-      try {
-        await sessionBeforeWrite.close();
-      } catch (_) {
-        // Intentionally suppressed: the session is already broken; close is best-effort
-      }
-    }
-  }
-}
+export function buildSidecarMeta(destFilename: string, sessionId: string, cardId: string): SidecarMeta {
+  // Determine whether this is a subagent file by checking for the agent suffix
+  const isSubagent = destFilename.startsWith(`${sessionId}-`);
 
-/**
- * Reads new transcript lines without mutating bytesRead or lineBuffer on state.
- *
- * Returns a PollResult so the caller can advance state only after a successful
- * write — enabling bytesRead rollback on write failure. state.fileHandle IS
- * mutated because the handle is opened on first access and stays open.
- *
- * On read failure, logs the error and returns an empty result preserving the
- * current read position so the next poll retries from the same offset.
- *
- * @param state - Mutable streaming state (fileHandle updated in place; bytesRead/lineBuffer are NOT mutated).
- * @param transcriptPath - Path to the transcript JSONL file.
- * @returns PollResult with filtered lines and new read position.
- */
-async function pollTranscript(state: StreamingState, transcriptPath: string): Promise<PollResult> {
-  try {
-    const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, transcriptPath);
-    state.fileHandle = result.fileHandle;
+  if (isSubagent) {
+    // Extract agentId: everything between "{sessionId}-" and the extension
+    // e.g. "{uuid}-agent-{hash}.jsonl" → agentId = "agent-{hash}"
+    const withoutUuidPrefix = destFilename.slice(sessionId.length + 1); // strip "{uuid}-"
+    const dotIdx = withoutUuidPrefix.lastIndexOf('.');
+    const agentId = dotIdx >= 0 ? withoutUuidPrefix.slice(0, dotIdx) : withoutUuidPrefix;
+
     return {
-      lines: filterNonEmptyLines(result.lines),
-      newBytesRead: result.bytesRead,
-      newLineBuffer: result.lineBuffer
-    };
-  } catch (error) {
-    logViaSocket('error', `Failed to read transcript: ${String(error)}`);
-    return {
-      lines: [],
-      newBytesRead: state.bytesRead,
-      newLineBuffer: state.lineBuffer
+      filename: destFilename,
+      streamType: 'claude-code-session',
+      title: `Subagent transcript for ${cardId}`,
+      sessionId,
+      agentId
     };
   }
-}
 
-/**
- * Reads remaining transcript data and flushes it to the stream.
- *
- * Performs a final read from the transcript file, collects any remaining
- * complete lines plus the lineBuffer contents, and writes them to the stream.
- *
- * @param state - Mutable streaming state.
- * @param args - Watcher arguments.
- */
-async function flushRemainingLines(state: StreamingState, args: TranscriptWatcherArgs): Promise<void> {
-  if (!state.fileHandle) return;
-
-  try {
-    const result = await readNewLines(state.fileHandle, state.bytesRead, state.lineBuffer, args.transcriptPath);
-    state.bytesRead = result.bytesRead;
-    state.lineBuffer = result.lineBuffer;
-    const allRemainingLines = [...result.lines];
-    if (result.lineBuffer.trim() !== '') {
-      allRemainingLines.push(result.lineBuffer);
-    }
-
-    const nonEmptyFinalLines = filterNonEmptyLines(allRemainingLines);
-    if (nonEmptyFinalLines.length > 0) {
-      await ensureStreamAndWriteLines(state, args, nonEmptyFinalLines, 'for final flush ');
-    }
-  } catch (error) {
-    logViaSocket('error', `Failed to read transcript during final flush: ${String(error)}`);
-  }
-}
-
-/**
- * Closes open resources after the streaming loop exits.
- *
- * Closes the WebSocket session, removes the sentinel file if it was detected,
- * and closes the transcript file handle. Each step is independent and
- * logs on failure without propagating.
- *
- * @param state - Mutable streaming state.
- * @param args - Watcher arguments for sentinel file path.
- */
-async function cleanupResources(state: StreamingState, args: TranscriptWatcherArgs): Promise<void> {
-  if (state.wsSession) {
-    try {
-      await state.wsSession.close();
-    } catch (error) {
-      logViaSocket('error', `Stream close failed during exit: ${String(error)}`);
-    }
-  }
-
-  if (state.sentinelDetected) {
-    try {
-      await removeSentinelFile(args.cardRepoPath, args.sessionId);
-    } catch (error) {
-      logViaSocket('error', `Failed to remove sentinel file: ${String(error)}`);
-    }
-  }
-
-  if (state.fileHandle) {
-    try {
-      await state.fileHandle.close();
-    } catch (error) {
-      logViaSocket('error', `Failed to close file handle: ${String(error)}`);
-    }
-  }
-}
-
-/**
- * Runs the main streaming loop that tails the transcript file and streams
- * lines to the Cards API via WebSocket in real-time.
- *
- * The loop:
- * 1. Reads new lines from the transcript file
- * 2. Opens a WebSocket session lazily on first data and writes lines
- * 3. Server ping/pong handles connection keepalive
- * 4. Reconnects on write failure via lazy session re-open
- * 5. Exits on sentinel file, PID death, or max lifetime
- *
- * @param args - Watcher arguments.
- */
-export async function runStreamingLoop(args: TranscriptWatcherArgs): Promise<void> {
-  const state: StreamingState = {
-    wsSession: null,
-    localLineCount: 0,
-    fileHandle: null,
-    bytesRead: 0,
-    lineBuffer: '',
-    consecutiveFailures: 0,
-    sentinelDetected: false
+  return {
+    filename: destFilename,
+    streamType: 'claude-code-session',
+    title: `Claude session for ${cardId}`,
+    sessionId
   };
+}
 
+/**
+ * Writes a sidecar meta.json file for a destination file, if it does not
+ * already exist. Written once on first copy; never updated on subsequent events.
+ *
+ * @param destDir - Destination directory path.
+ * @param destFilename - Flat destination filename.
+ * @param sessionId - Session UUID.
+ * @param cardId - Card identifier.
+ */
+async function writeSidecarIfAbsent(
+  destDir: string,
+  destFilename: string,
+  sessionId: string,
+  cardId: string
+): Promise<void> {
+  const sidecarPath = join(destDir, `${destFilename}.meta.json`);
+  try {
+    await access(sidecarPath);
+    // Already exists — do not overwrite
+    return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  const meta = buildSidecarMeta(destFilename, sessionId, cardId);
+  await writeFile(sidecarPath, JSON.stringify(meta, null, 2));
+}
+
+/**
+ * Per-source-file state for append-based JSONL sync.
+ *
+ * Tracks the last byte offset that has been successfully appended to the
+ * destination, and any partial line fragment deferred to the next event.
+ */
+interface FileState {
+  /** Number of bytes from the source file that have been appended to dest. */
+  bytesWritten: number;
+  /** Incomplete line fragment from the last read, deferred to next event. */
+  pendingFragment: string;
+}
+
+/**
+ * Syncs new content from a JSONL source file to a flat destination file using
+ * append-based sync. Reads from the last-written byte offset, truncates at
+ * the last complete newline, and appends via fs.appendFile with O_APPEND.
+ *
+ * Partial lines (no trailing newline) are deferred to the next event.
+ * The in-memory offset advances only after the appendFile call resolves.
+ *
+ * @param srcPath - Absolute source file path.
+ * @param destPath - Absolute destination file path.
+ * @param state - Mutable per-file state (mutated in place on success).
+ */
+async function appendSyncJsonl(srcPath: string, destPath: string, state: FileState): Promise<void> {
+  let srcContent: Buffer;
+  try {
+    srcContent = await readFile(srcPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return; // Source not yet written; defer to next event
+    }
+    throw error;
+  }
+
+  const totalSrcBytes = srcContent.length;
+  if (totalSrcBytes <= state.bytesWritten) {
+    return; // No new bytes
+  }
+
+  const newBytes = srcContent.subarray(state.bytesWritten);
+  const text = state.pendingFragment + newBytes.toString('utf-8');
+
+  // Truncate at last complete newline
+  const lastNl = text.lastIndexOf('\n');
+  if (lastNl < 0) {
+    // No complete line yet — accumulate fragment
+    state.pendingFragment = text;
+    return;
+  }
+
+  const completeLines = text.slice(0, lastNl + 1); // includes trailing \n
+  const newFragment = text.slice(lastNl + 1);
+
+  await appendFile(destPath, completeLines, { flag: 'a' });
+
+  // Advance offset only after successful write.
+  // completeLines = pendingFragment + consumed_new_bytes, so:
+  // consumed_new_bytes (bytes) = byteLength(completeLines) - byteLength(pendingFragment)
+  const consumed = Buffer.byteLength(completeLines, 'utf-8') - Buffer.byteLength(state.pendingFragment, 'utf-8');
+  state.bytesWritten = state.bytesWritten + consumed;
+  state.pendingFragment = newFragment;
+}
+
+/**
+ * Ensures the `streams/**\/*.flush` pattern is in the card repo's .gitignore.
+ * Appends the entry if not already present.
+ *
+ * @param cardRepoPath - Absolute path to the card repository root.
+ */
+export async function ensureGitignoreEntry(cardRepoPath: string): Promise<void> {
+  const gitignorePath = join(cardRepoPath, '.gitignore');
+  const entry = 'streams/**/*.flush';
+
+  let existing = '';
+  try {
+    existing = (await readFile(gitignorePath, 'utf-8')) as string;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+    // File does not exist — will be created
+  }
+
+  const lines = existing.split('\n');
+  if (lines.some((line) => line.trim() === entry)) {
+    return; // Already present
+  }
+
+  const newContent = existing.endsWith('\n') || existing === '' ? `${existing}${entry}\n` : `${existing}\n${entry}\n`;
+
+  await writeFile(gitignorePath, newContent);
+}
+
+/**
+ * Walks the source directory to find all files under the session UUID prefix,
+ * returning their relative paths.
+ *
+ * @param sourceDir - Absolute path to the source directory.
+ * @param sessionId - Session UUID prefix to enumerate.
+ * @returns Array of relative source paths under the session prefix.
+ */
+async function enumerateSessionFiles(sourceDir: string, sessionId: string): Promise<string[]> {
+  const result: string[] = [];
+
+  // Check for root session file
+  const rootFile = `${sessionId}.jsonl`;
+  try {
+    await access(join(sourceDir, rootFile));
+    result.push(rootFile);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+    // ENOENT: root session file not yet created; skip silently
+  }
+
+  // Walk session subdirectory
+  const sessionDir = join(sourceDir, sessionId);
+  try {
+    await walkDir(sessionDir, sessionId, result);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+    // Session subdirectory not yet created
+  }
+
+  return result;
+}
+
+/**
+ * Recursively walks a directory, collecting relative paths from the source root.
+ *
+ * @param dir - Absolute path to the current directory being walked.
+ * @param relPrefix - Relative prefix from the source root to this directory.
+ * @param result - Array to append results to.
+ */
+async function walkDir(dir: string, relPrefix: string, result: string[]): Promise<void> {
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  for (const entry of entries) {
+    const absPath = join(dir, entry);
+    const relPath = `${relPrefix}/${entry}`;
+
+    let isDir: boolean;
+    try {
+      const s = await stat(absPath);
+      isDir = s.isDirectory();
+    } catch {
+      continue;
+    }
+
+    if (isDir) {
+      await walkDir(absPath, relPath, result);
+    } else {
+      result.push(relPath);
+    }
+  }
+}
+
+/**
+ * Performs a single file copy/sync operation for a source-relative path.
+ *
+ * - JSONL files: append-based sync using fileStates.
+ * - Non-JSONL files (e.g. .meta.json sidecars from Claude Code): full copyFile.
+ * - For each JSONL file copied, writes a `.jsonl.meta.json` sidecar if absent.
+ * - Skips tool-results paths and paths outside the session UUID prefix.
+ *
+ * @param relPath - Source-relative path from the source directory root.
+ * @param sourceDir - Absolute source directory path.
+ * @param destDir - Absolute destination directory path.
+ * @param sessionId - Session UUID prefix.
+ * @param cardId - Card identifier.
+ * @param fileStates - Per-source-file state map (mutated in place).
+ */
+async function syncFile(
+  relPath: string,
+  sourceDir: string,
+  destDir: string,
+  sessionId: string,
+  cardId: string,
+  fileStates: Map<string, FileState>
+): Promise<void> {
+  const destFilename = translatePath(relPath, sessionId);
+  if (destFilename === null) {
+    return; // Skip
+  }
+
+  const srcPath = join(sourceDir, relPath.replace(/\//g, '/'));
+  const destPath = join(destDir, destFilename);
+
+  if (destFilename.endsWith('.jsonl')) {
+    // Append-based sync
+    let state = fileStates.get(relPath);
+    if (!state) {
+      state = { bytesWritten: 0, pendingFragment: '' };
+      fileStates.set(relPath, state);
+    }
+
+    await appendSyncJsonl(srcPath, destPath, state);
+
+    // Write sidecar once on first copy
+    await writeSidecarIfAbsent(destDir, destFilename, sessionId, cardId);
+  } else {
+    // Non-JSONL files (Claude Code-authored sidecars like agent-*.meta.json):
+    // copy as-is; overwrite is safe since Claude Code writes these atomically.
+    try {
+      await copyFile(srcPath, destPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return; // Source gone before we could copy it
+      }
+      throw error;
+    }
+  }
+}
+
+/**
+ * Performs a full copy pass for all files currently present under the session
+ * UUID prefix in the source directory.
+ *
+ * @param sourceDir - Absolute source directory path.
+ * @param destDir - Absolute destination directory path.
+ * @param sessionId - Session UUID.
+ * @param cardId - Card identifier.
+ * @param fileStates - Per-source-file state map (mutated in place).
+ */
+async function fullCopyPass(
+  sourceDir: string,
+  destDir: string,
+  sessionId: string,
+  cardId: string,
+  fileStates: Map<string, FileState>
+): Promise<void> {
+  const relPaths = await enumerateSessionFiles(sourceDir, sessionId);
+  for (const relPath of relPaths) {
+    try {
+      await syncFile(relPath, sourceDir, destDir, sessionId, cardId, fileStates);
+    } catch (error) {
+      logViaSocket('warn', `fullCopyPass: error syncing ${relPath}: ${String(error)}`);
+    }
+  }
+}
+
+/**
+ * Runs git add + git commit in the card repository to close the session.
+ *
+ * Calls removeSentinelFile() before staging to ensure the sentinel is never
+ * committed. Uses execFile (async, non-blocking) per codebase patterns.
+ *
+ * @param cardRepoPath - Absolute path to the card repository.
+ * @param sessionId - Session UUID used in the commit message.
+ */
+async function commitSessionClose(cardRepoPath: string, sessionId: string): Promise<void> {
+  try {
+    await removeSentinelFile(cardRepoPath, sessionId);
+  } catch (error) {
+    logViaSocket('warn', `removeSentinelFile failed: ${String(error)}`);
+  }
+
+  try {
+    await execFileAsync('git', ['add', 'streams/claude-code-session/'], { cwd: cardRepoPath });
+    await execFileAsync('git', ['commit', '--no-gpg-sign', '-m', `Close session ${sessionId}.`], {
+      cwd: cardRepoPath
+    });
+  } catch (error) {
+    logViaSocket('error', `git commit failed for session ${sessionId}: ${String(error)}`);
+  }
+}
+
+/**
+ * Runs the main filesystem-event-driven sync loop.
+ *
+ * Sets up fs.watch on the source directory, performs an initial full copy,
+ * then processes events filtered to the session UUID prefix. A periodic timer
+ * checks sentinel file existence and PID liveness every PERIODIC_CHECK_INTERVAL_MS.
+ * On exit condition (sentinel, PID death, or max lifetime), closes the watcher,
+ * performs a final full copy pass, and commits.
+ *
+ * @param args - Watcher arguments.
+ */
+export async function runSyncLoop(args: TranscriptWatcherArgs): Promise<void> {
+  const { sessionId, cardId, cardRepoPath, transcriptPath } = args;
+  const sourceDir = dirname(transcriptPath);
+  const destDir = join(cardRepoPath, 'streams', 'claude-code-session');
+
+  // Ensure destination directory and .gitignore entry exist
+  await mkdir(destDir, { recursive: true });
+  await ensureGitignoreEntry(cardRepoPath);
+
+  const fileStates = new Map<string, FileState>();
   const startTime = Date.now();
 
-  for (;;) {
-    const poll = await pollTranscript(state, args.transcriptPath);
+  // Initial full copy pass
+  await fullCopyPass(sourceDir, destDir, sessionId, cardId, fileStates);
 
-    if (poll.lines.length > 0) {
-      await ensureStreamAndWriteLines(state, args, poll.lines, '');
-      if (state.wsSession) {
-        // Write succeeded — commit the read position
-        state.bytesRead = poll.newBytesRead;
-        state.lineBuffer = poll.newLineBuffer;
+  // Set up fs.watch on the source directory
+  let fsWatcher: FSWatcher | null = null;
+  let exitSignaled = false;
+
+  // Queue of pending sync operations to serialize event handling
+  let syncChain: Promise<void> = Promise.resolve();
+
+  const scheduleSync = (relPath: string): void => {
+    syncChain = syncChain.then(async () => {
+      try {
+        await syncFile(relPath, sourceDir, destDir, sessionId, cardId, fileStates);
+      } catch (error) {
+        logViaSocket('warn', `syncFile error for ${relPath}: ${String(error)}`);
       }
-      // else: write failed, read position stays at pre-read value for retry
-    } else {
-      // No complete lines to write — always safe to advance position
-      state.bytesRead = poll.newBytesRead;
-      state.lineBuffer = poll.newLineBuffer;
-      // Note: idle timeout removed — server ping/pong handles connection keepalive
-    }
+    });
+  };
 
-    // Register the sleep timer BEFORE emitting 'iterationEnd' so that
-    // integration tests (which use fake timers) can safely advance time
-    // as soon as they receive the event — the timer is already queued.
-    const sleepPromise = new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    args.emitter?.emit('iterationEnd');
-
-    if (await sentinelFileExists(args.cardRepoPath, args.sessionId)) {
-      state.sentinelDetected = true;
-      break;
-    }
-    if (!isProcessAlive(args.pid)) break;
-    if (Date.now() - startTime >= MAX_LIFETIME_MS) {
-      logViaSocket('warn', `Watcher exceeded maximum lifetime (${MAX_LIFETIME_MS}ms), exiting`);
-      break;
-    }
-
-    await sleepPromise;
+  try {
+    fsWatcher = watch(sourceDir, { recursive: true }, (_eventType, filename) => {
+      if (exitSignaled || !filename) return;
+      const relPath = (filename as string).replace(/\\/g, '/');
+      // Only process events for the current session
+      if (!relPath.startsWith(sessionId)) return;
+      scheduleSync(relPath);
+    });
+    fsWatcher.on('error', (error) => {
+      if (!exitSignaled) {
+        logViaSocket('warn', `fs.watch error: ${String(error)}`);
+      }
+    });
+  } catch (error) {
+    logViaSocket('warn', `Failed to start fs.watch: ${String(error)}`);
   }
 
-  // Post-loop: flush remaining data and clean up
-  await flushRemainingLines(state, args);
-  await cleanupResources(state, args);
+  // Signal that startup I/O is complete and the interval loop is about to begin.
+  // Tests use this to synchronize fake-timer advancement with the real async startup.
+  args.emitter?.emit('ready');
+
+  // Periodic sentinel/PID check
+  const checkExit = async (): Promise<boolean> => {
+    if (await sentinelFileExists(cardRepoPath, sessionId)) {
+      return true;
+    }
+    if (!isProcessAlive(args.pid)) {
+      return true;
+    }
+    if (Date.now() - startTime >= MAX_LIFETIME_MS) {
+      logViaSocket('warn', `Watcher exceeded maximum lifetime (${MAX_LIFETIME_MS}ms), exiting`);
+      return true;
+    }
+    return false;
+  };
+
+  // Wait for exit condition via periodic polling
+  await new Promise<void>((resolve) => {
+    const interval = setInterval(async () => {
+      try {
+        const shouldExit = await checkExit();
+        if (shouldExit) {
+          clearInterval(interval);
+          resolve();
+        } else {
+          args.emitter?.emit('iterationEnd');
+        }
+      } catch (error) {
+        logViaSocket('warn', `Periodic check error: ${String(error)}`);
+      }
+    }, PERIODIC_CHECK_INTERVAL_MS);
+  });
+
+  exitSignaled = true;
+
+  // Stop the fs.watch watcher
+  if (fsWatcher) {
+    try {
+      fsWatcher.close();
+    } catch (error) {
+      logViaSocket('warn', `fsWatcher.close() error: ${String(error)}`);
+    }
+  }
+
+  // Wait for any in-flight syncs to complete
+  await syncChain;
+
+  // Final full copy pass to catch any missed events
+  await fullCopyPass(sourceDir, destDir, sessionId, cardId, fileStates);
+
+  // Commit the session
+  await commitSessionClose(cardRepoPath, sessionId);
+
   args.emitter?.emit('done');
 }
 
 /**
  * Main entry point for the detached watcher process.
  *
- * Connects to the log socket, parses arguments, and enters the streaming
- * loop that tails the transcript and streams lines to the Cards API.
+ * Connects to the log socket, parses arguments, and enters the sync loop
+ * that watches the source directory and copies files to the card repository.
  */
 export async function main(): Promise<void> {
   const socketPath = process.env['SOCKET_PATH'];
   if (socketPath) {
     try {
       await connectLogSocket(socketPath);
-    } catch (_) {
-      // Intentionally suppressed: the socket is provided by the wrapper
-      // ancestor process and may have already closed. The watcher operates
-      // correctly without logging.
+    } catch (error) {
+      // Log socket is optional — watcher operates correctly without it.
+      // The socket may have already closed before we connect. Write to stderr
+      // so the failure is visible if the process has a controlling terminal.
+      process.stderr.write(`transcript-watcher: log socket unavailable: ${String(error)}\n`);
     }
   }
 
@@ -689,7 +724,7 @@ export async function main(): Promise<void> {
     `Watcher started: pid=${String(args.pid)} session=${args.sessionId} node=${process.version} watcherPid=${String(process.pid)} transcriptPath=${args.transcriptPath} cardId=${args.cardId}`
   );
 
-  await runStreamingLoop(args);
+  await runSyncLoop(args);
   logViaSocket('info', `Watcher completed for session ${args.sessionId}`);
 }
 

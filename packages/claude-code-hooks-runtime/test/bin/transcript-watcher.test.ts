@@ -1,37 +1,62 @@
 /**
  * Tests for the detached transcript watcher process.
  *
- * @summary Tests for transcript-watcher
+ * Covers the filesystem-sync implementation: path translation, append-based
+ * JSONL sync, sidecar writes, sentinel detection, PID-death exit, and git commit.
+ *
+ * @summary Tests for transcript-watcher filesystem-sync implementation
  */
 
-import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@cards/sdk/client/discovery', () => ({
-  createCardsClient: vi.fn()
-}));
+// ---------------------------------------------------------------------------
+// Mock node:child_process at module scope so the watcher's execFile calls are
+// intercepted without spawning real git processes.
+// ---------------------------------------------------------------------------
 
-import { createCardsClient } from '@cards/sdk/client/discovery';
+const execFileCalls: Array<{ cmd: string; args: string[]; cwd: string }> = [];
+
+vi.mock('node:child_process', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...original,
+    execFile: (
+      cmd: string,
+      args: string[],
+      opts: { cwd?: string },
+      callback: (err: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      execFileCalls.push({ cmd, args: Array.isArray(args) ? args : [], cwd: (opts as { cwd?: string })?.cwd ?? '' });
+      // Use Promise microtask instead of setImmediate so the callback fires
+      // naturally during `await loop` without requiring fake-timer advancement.
+      Promise.resolve().then(() => callback(null, '', ''));
+      return { unref: () => undefined };
+    }
+  };
+});
+
 import {
+  buildSidecarMeta,
   connectLogSocket,
+  ensureGitignoreEntry,
   isProcessAlive,
   logViaSocket,
-  MAX_LIFETIME_MS,
-  openOrResumeWebSocketSession,
-  POLL_INTERVAL_MS,
   parseArgs,
-  readNewLines,
   removeSentinelFile,
-  runStreamingLoop,
-  seekToLine,
+  runSyncLoop,
   sentinelFileExists,
-  type TranscriptWatcherArgs
+  type TranscriptWatcherArgs,
+  translatePath
 } from '../../src/bin/transcript-watcher.js';
 
-const mockCreateCardsClient = vi.mocked(createCardsClient);
+// ---------------------------------------------------------------------------
+// parseArgs
+// ---------------------------------------------------------------------------
 
 describe('parseArgs', () => {
   it('extracts correct values from process.argv', () => {
@@ -56,12 +81,16 @@ describe('parseArgs', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// isProcessAlive
+// ---------------------------------------------------------------------------
+
 describe('isProcessAlive', () => {
-  it('returns true for living PID', () => {
+  it('returns true for the current process PID', () => {
     expect(isProcessAlive(process.pid)).toBe(true);
   });
 
-  it('returns false for dead PID', () => {
+  it('returns false when kill throws ESRCH', () => {
     vi.spyOn(process, 'kill').mockImplementation(() => {
       const err = new Error('kill ESRCH') as NodeJS.ErrnoException;
       err.code = 'ESRCH';
@@ -86,138 +115,85 @@ describe('isProcessAlive', () => {
   });
 });
 
-describe('readNewLines', () => {
-  let testDir: string;
-  let transcriptPath: string;
+// ---------------------------------------------------------------------------
+// translatePath
+// ---------------------------------------------------------------------------
 
-  beforeEach(() => {
-    testDir = join(tmpdir(), `watcher-read-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(testDir, { recursive: true });
-    transcriptPath = join(testDir, 'transcript.jsonl');
+describe('translatePath', () => {
+  const sessionId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+  it('(a) root session JSONL maps to flat destination', () => {
+    const result = translatePath(`${sessionId}.jsonl`, sessionId);
+    expect(result).toBe(`${sessionId}.jsonl`);
   });
 
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
+  it('(b) subagents/agent-{hash}.jsonl maps flat as {uuid}-agent-{hash}.jsonl', () => {
+    const result = translatePath(`${sessionId}/subagents/agent-deadbeef.jsonl`, sessionId);
+    expect(result).toBe(`${sessionId}-agent-deadbeef.jsonl`);
   });
 
-  it('reads new bytes from transcript using positional read on persistent file handle', async () => {
-    writeFileSync(transcriptPath, 'line1\nline2\n');
-
-    const result = await readNewLines(null, 0, '', transcriptPath);
-
-    expect(result.lines).toEqual(['line1', 'line2']);
-    expect(result.lineBuffer).toBe('');
-    expect(result.bytesRead).toBe(12); // 'line1\nline2\n' = 12 bytes
-    expect(result.fileHandle).not.toBeNull();
-
-    // Subsequent read with same handle picks up new data
-    appendFileSync(transcriptPath, 'line3\n');
-    const result2 = await readNewLines(result.fileHandle, result.bytesRead, result.lineBuffer, transcriptPath);
-
-    expect(result2.lines).toEqual(['line3']);
-    expect(result2.fileHandle).toBe(result.fileHandle); // same handle reused
-
-    await result2.fileHandle!.close();
+  it('(b) subagents/agent-acompact-{hash}.jsonl maps flat', () => {
+    const result = translatePath(`${sessionId}/subagents/agent-acompact-cafebabe.jsonl`, sessionId);
+    expect(result).toBe(`${sessionId}-agent-acompact-cafebabe.jsonl`);
   });
 
-  it('handles file not yet existing (ENOENT) and picks up file when it eventually appears', async () => {
-    const missingPath = join(testDir, 'not-yet.jsonl');
-
-    // File does not exist yet
-    const result = await readNewLines(null, 0, '', missingPath);
-    expect(result.fileHandle).toBeNull();
-    expect(result.lines).toEqual([]);
-
-    // File appears
-    writeFileSync(missingPath, 'hello\n');
-    const result2 = await readNewLines(null, 0, '', missingPath);
-    expect(result2.fileHandle).not.toBeNull();
-    expect(result2.lines).toEqual(['hello']);
-
-    await result2.fileHandle!.close();
+  it('(b) subagents/agent-{hash}.meta.json maps flat', () => {
+    const result = translatePath(`${sessionId}/subagents/agent-deadbeef.meta.json`, sessionId);
+    expect(result).toBe(`${sessionId}-agent-deadbeef.meta.json`);
   });
 
-  it('accumulates partial lines in buffer across reads', async () => {
-    writeFileSync(transcriptPath, 'complete\npartial');
-
-    const result = await readNewLines(null, 0, '', transcriptPath);
-    expect(result.lines).toEqual(['complete']);
-    expect(result.lineBuffer).toBe('partial');
-
-    // Append remainder of partial line
-    appendFileSync(transcriptPath, ' end\n');
-    const result2 = await readNewLines(result.fileHandle, result.bytesRead, result.lineBuffer, transcriptPath);
-    expect(result2.lines).toEqual(['partial end']);
-    expect(result2.lineBuffer).toBe('');
-
-    await result2.fileHandle!.close();
+  it('(c) sibling session UUID prefix is ignored (prefix filter)', () => {
+    const otherSession = 'ffffffff-0000-0000-0000-000000000001';
+    expect(translatePath(`${otherSession}.jsonl`, sessionId)).toBeNull();
+    expect(translatePath(`${otherSession}/subagents/agent-abc.jsonl`, sessionId)).toBeNull();
   });
 
-  it('flushes partial lineBuffer content on exit (sentinel or PID death)', async () => {
-    writeFileSync(transcriptPath, 'full\npartial-no-newline');
-
-    const result = await readNewLines(null, 0, '', transcriptPath);
-    expect(result.lines).toEqual(['full']);
-    expect(result.lineBuffer).toBe('partial-no-newline');
-
-    // The caller (runStreamingLoop post-loop) is responsible for flushing lineBuffer
-    // This test verifies that the lineBuffer content is correctly preserved
-    expect(result.lineBuffer.trim()).not.toBe('');
-
-    await result.fileHandle!.close();
+  it('(f) tool-results paths return null (not copied)', () => {
+    expect(translatePath(`${sessionId}/tool-results/call-abc.txt`, sessionId)).toBeNull();
   });
 
-  it('handles multi-byte UTF-8 characters split across read boundaries', async () => {
-    // Write a string with multi-byte characters
-    // The emoji (4 bytes) is in the middle of a line
-    const content = 'hello \u{1F600} world\n';
-    writeFileSync(transcriptPath, content);
+  it('paths with nested subdirectories inside subagents return null', () => {
+    expect(translatePath(`${sessionId}/subagents/nested/file.jsonl`, sessionId)).toBeNull();
+  });
 
-    const result = await readNewLines(null, 0, '', transcriptPath);
-    expect(result.lines).toEqual(['hello \u{1F600} world']);
-
-    await result.fileHandle!.close();
+  it('unknown session subdirectory returns null', () => {
+    expect(translatePath(`${sessionId}/unknown-dir/file.txt`, sessionId)).toBeNull();
   });
 });
 
-describe('seekToLine', () => {
-  let testDir: string;
-  let transcriptPath: string;
+// ---------------------------------------------------------------------------
+// buildSidecarMeta
+// ---------------------------------------------------------------------------
 
-  beforeEach(() => {
-    testDir = join(tmpdir(), `watcher-seekline-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(testDir, { recursive: true });
-    transcriptPath = join(testDir, 'transcript.jsonl');
+describe('buildSidecarMeta', () => {
+  const sessionId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+  it('returns correct metadata for root session file', () => {
+    const meta = buildSidecarMeta(`${sessionId}.jsonl`, sessionId, 'card-42');
+    expect(meta).toEqual({
+      filename: `${sessionId}.jsonl`,
+      streamType: 'claude-code-session',
+      title: 'Claude session for card-42',
+      sessionId
+    });
   });
 
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
-  });
-
-  it('returns bytesRead: 0 for lineCount 0', async () => {
-    writeFileSync(transcriptPath, 'line1\nline2\n');
-    const result = await seekToLine(transcriptPath, 0);
-    expect(result.bytesRead).toBe(0);
-  });
-
-  it('returns byte offset after Nth newline', async () => {
-    writeFileSync(transcriptPath, 'line1\nline2\nline3\n');
-    // 'line1\n' = 6 bytes, so after 1 line offset is 6
-    const result1 = await seekToLine(transcriptPath, 1);
-    expect(result1.bytesRead).toBe(6);
-
-    // 'line1\nline2\n' = 12 bytes, so after 2 lines offset is 12
-    const result2 = await seekToLine(transcriptPath, 2);
-    expect(result2.bytesRead).toBe(12);
-  });
-
-  it('returns end of file when lineCount exceeds actual lines', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-    const result = await seekToLine(transcriptPath, 100);
-    // Should return end of file (6 bytes for 'line1\n')
-    expect(result.bytesRead).toBe(6);
+  it('returns correct metadata for subagent file including agentId', () => {
+    const destFilename = `${sessionId}-agent-deadbeef.jsonl`;
+    const meta = buildSidecarMeta(destFilename, sessionId, 'card-42');
+    expect(meta).toEqual({
+      filename: destFilename,
+      streamType: 'claude-code-session',
+      title: 'Subagent transcript for card-42',
+      sessionId,
+      agentId: 'agent-deadbeef'
+    });
   });
 });
+
+// ---------------------------------------------------------------------------
+// sentinelFileExists
+// ---------------------------------------------------------------------------
 
 describe('sentinelFileExists', () => {
   let testDir: string;
@@ -239,10 +215,14 @@ describe('sentinelFileExists', () => {
     expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(true);
   });
 
-  it('returns false when sentinel absent', async () => {
+  it('returns false when sentinel file is absent', async () => {
     expect(await sentinelFileExists(testDir, 'sess-missing')).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// removeSentinelFile
+// ---------------------------------------------------------------------------
 
 describe('removeSentinelFile', () => {
   let testDir: string;
@@ -267,470 +247,55 @@ describe('removeSentinelFile', () => {
   });
 
   it('sentinel removal is idempotent (handles ENOENT on unlink)', async () => {
-    // File does not exist — should not throw
     await expect(removeSentinelFile(testDir, 'nonexistent')).resolves.toBeUndefined();
   });
 });
 
-describe('openOrResumeWebSocketSession', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+// ---------------------------------------------------------------------------
+// ensureGitignoreEntry
+// ---------------------------------------------------------------------------
 
-  const args: TranscriptWatcherArgs = {
-    pid: 12345,
-    sessionId: 'sess-abc',
-    transcriptPath: '/tmp/transcript.jsonl',
-    cardId: 'card-42',
-    cardRepoPath: '/tmp/card-repo'
-  };
-
-  it('opens WS session with correct args', async () => {
-    const mockSession = {
-      write: vi.fn(),
-      close: vi.fn().mockResolvedValue({}),
-      resumeFrom: 0,
-      linesSent: 0
-    };
-    const mockClient = { openStreamWebSocket: vi.fn().mockResolvedValue(mockSession) };
-    mockCreateCardsClient.mockResolvedValue(mockClient as never);
-
-    const result = await openOrResumeWebSocketSession(args);
-
-    expect(result).toBe(mockSession);
-    expect(mockClient.openStreamWebSocket).toHaveBeenCalledWith(
-      'card-42',
-      'claude-code-session',
-      'sess-abc.jsonl',
-      {
-        title: 'Claude session for card-42',
-        sessionId: 'sess-abc'
-      },
-      expect.any(Function)
-    );
-  });
-
-  it('returns null when API discovery fails', async () => {
-    mockCreateCardsClient.mockResolvedValue(null);
-
-    const result = await openOrResumeWebSocketSession(args);
-
-    expect(result).toBeNull();
-  });
-});
-
-describe('runStreamingLoop', () => {
+describe('ensureGitignoreEntry', () => {
   let testDir: string;
-  let transcriptPath: string;
-
-  const makeArgs = (): TranscriptWatcherArgs => ({
-    pid: 12345,
-    sessionId: 'sess-abc',
-    transcriptPath,
-    cardId: 'card-42',
-    cardRepoPath: testDir
-  });
-
-  let mockWriter: {
-    write: ReturnType<typeof vi.fn>;
-    close: ReturnType<typeof vi.fn>;
-    resumeFrom: number;
-    linesSent: number;
-  };
-  let mockClient: { openStreamWebSocket: ReturnType<typeof vi.fn> };
-
-  // Save a reference to the real setTimeout before fake timers are installed.
-  // This is used by advanceTimeInSteps to yield to the real event loop between
-  // timer advances, allowing libuv I/O callbacks to complete.
-  const realSetTimeout = globalThis.setTimeout;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `watcher-loop-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = join(tmpdir(), `watcher-gitignore-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
-    transcriptPath = join(testDir, 'transcript.jsonl');
-
-    mockWriter = {
-      write: vi.fn(),
-      close: vi.fn().mockResolvedValue({
-        filename: 'sess-abc.jsonl',
-        streamType: 'claude-code-session',
-        lineCount: 0,
-        status: 'complete'
-      }),
-      resumeFrom: 0,
-      linesSent: 0
-    };
-    mockClient = {
-      openStreamWebSocket: vi.fn().mockResolvedValue(mockWriter)
-    };
-    mockCreateCardsClient.mockResolvedValue(mockClient as never);
-
-    vi.useFakeTimers();
-
-    // Default: PID alive, no sentinel
-    vi.spyOn(process, 'kill').mockReturnValue(true);
   });
 
   afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-    vi.clearAllMocks();
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  /**
-   * Helper: kills the mocked PID after a delay.
-   *
-   * @param delayMs - Delay in milliseconds before killing the PID.
-   */
-  function killPidAfter(delayMs: number): void {
-    const originalKill = process.kill as ReturnType<typeof vi.fn>;
-    setTimeout(() => {
-      originalKill.mockImplementation(() => {
-        const err = new Error('kill ESRCH') as NodeJS.ErrnoException;
-        err.code = 'ESRCH';
-        throw err;
-      });
-    }, delayMs);
-  }
-
-  /**
-   * Helper: advances fake timers by the given duration in POLL_INTERVAL_MS steps,
-   * yielding to the real event loop between each step. This ensures that the
-   * streaming loop's async I/O (file reads, access checks) completes between
-   * timer fires, allowing the loop to actually iterate.
-   *
-   * Uses the real setTimeout (saved before fake timers are installed) to yield
-   * to the libuv event loop, which processes file I/O callbacks.
-   *
-   * @param totalMs - Total virtual time to advance in milliseconds.
-   */
-  async function advanceTimeInSteps(totalMs: number): Promise<void> {
-    const steps = Math.ceil(totalMs / POLL_INTERVAL_MS);
-    for (let i = 0; i < steps; i++) {
-      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-      // Yield to the real event loop to allow libuv I/O callbacks to complete.
-      // Uses the real setTimeout saved before fake timers were installed.
-      await new Promise<void>((resolve) => {
-        realSetTimeout(resolve, 0);
-      });
-    }
-  }
-
-  /**
-   * Helper: writes sentinel file after a delay.
-   *
-   * @param delayMs - Delay in milliseconds before writing the sentinel file.
-   */
-  function writeSentinelAfter(delayMs: number): void {
-    setTimeout(() => {
-      const sentinelDir = join(testDir, 'streams', 'claude-code-session');
-      mkdirSync(sentinelDir, { recursive: true });
-      writeFileSync(join(sentinelDir, 'sess-abc.flush'), '');
-    }, delayMs);
-  }
-
-  // --- Stream lifecycle tests ---
-
-  it('opens session lazily on first transcript data (not at startup)', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // PID dies after first poll to end the loop
-    killPidAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
-    await promise;
-
-    // Session was opened because data existed
-    expect(mockClient.openStreamWebSocket).toHaveBeenCalled();
-    expect(mockWriter.write).toHaveBeenCalledWith('line1');
+  it('(i) creates .gitignore with streams/**/*.flush when file is absent', async () => {
+    await ensureGitignoreEntry(testDir);
+    const content = readFileSync(join(testDir, '.gitignore'), 'utf-8');
+    expect(content).toContain('streams/**/*.flush');
   });
 
-  it('does not create a session if transcript never has data (zero-line session)', async () => {
-    // No transcript file created — PID dies quickly
-    killPidAfter(POLL_INTERVAL_MS * 2 + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 4);
-    await promise;
-
-    expect(mockClient.openStreamWebSocket).not.toHaveBeenCalled();
-    expect(mockWriter.write).not.toHaveBeenCalled();
-    expect(mockWriter.close).not.toHaveBeenCalled();
+  it('appends entry to existing .gitignore that does not have it', async () => {
+    writeFileSync(join(testDir, '.gitignore'), '*.log\n');
+    await ensureGitignoreEntry(testDir);
+    const content = readFileSync(join(testDir, '.gitignore'), 'utf-8');
+    expect(content).toContain('*.log');
+    expect(content).toContain('streams/**/*.flush');
   });
 
-  it('writes non-empty lines to session during loop', async () => {
-    writeFileSync(transcriptPath, 'line1\nline2\n\nline3\n');
-
-    killPidAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
-    await promise;
-
-    expect(mockWriter.write).toHaveBeenCalledWith('line1');
-    expect(mockWriter.write).toHaveBeenCalledWith('line2');
-    expect(mockWriter.write).toHaveBeenCalledWith('line3');
-    // Empty line should not be written
-    expect(mockWriter.write).toHaveBeenCalledTimes(3);
-  });
-
-  it('closes session on exit (sentinel or PID death)', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    killPidAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 4);
-    await promise;
-
-    expect(mockWriter.close).toHaveBeenCalled();
-  });
-
-  it('session stays open during idle periods (server ping/pong handles keepalive)', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // PID alive for many poll intervals with no new data
-    killPidAfter(POLL_INTERVAL_MS * 10 + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 12);
-    await promise;
-
-    // Session was opened once and closed once (at exit), never closed due to idle
-    expect(mockClient.openStreamWebSocket).toHaveBeenCalledTimes(1);
-    expect(mockWriter.close).toHaveBeenCalledTimes(1);
-    expect(mockWriter.write).toHaveBeenCalledWith('line1');
-  });
-
-  it('re-opens session on write failure when new data arrives', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // First write throws — session gets nulled
-    mockWriter.write.mockImplementationOnce(() => {
-      throw new Error('write failed');
-    });
-
-    const mockWriter2 = {
-      write: vi.fn(),
-      close: vi.fn().mockResolvedValue({
-        filename: 'sess-abc.jsonl',
-        streamType: 'claude-code-session',
-        lineCount: 1,
-        status: 'complete'
-      }),
-      resumeFrom: 1,
-      linesSent: 0
-    };
-    let openCount = 0;
-    mockClient.openStreamWebSocket.mockImplementation(async () => {
-      openCount++;
-      if (openCount === 1) return mockWriter;
-      return mockWriter2;
-    });
-
-    // Append more data after first write failure
-    setTimeout(() => {
-      appendFileSync(transcriptPath, 'line2\n');
-    }, POLL_INTERVAL_MS * 2);
-
-    killPidAfter(POLL_INTERVAL_MS * 6 + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await advanceTimeInSteps(POLL_INTERVAL_MS * 8);
-    await promise;
-
-    // Should have opened session twice (initial + re-open after failure)
-    expect(mockClient.openStreamWebSocket).toHaveBeenCalledTimes(2);
-    // Second session wrote line2
-    expect(mockWriter2.write).toHaveBeenCalledWith('line2');
-  });
-
-  // --- Error handling tests ---
-
-  it('handles session open failure gracefully (API unavailable — logs, continues polling)', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-    mockCreateCardsClient.mockResolvedValue(null);
-
-    killPidAfter(POLL_INTERVAL_MS * 3 + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // Should not throw, should not write
-    expect(mockWriter.write).not.toHaveBeenCalled();
-  });
-
-  it('on session.write() failure, stops writing (sets flag), continues polling for clean exit', async () => {
-    writeFileSync(transcriptPath, 'line1\nline2\n');
-
-    mockWriter.write.mockImplementation(() => {
-      throw new Error('write failed');
-    });
-
-    killPidAfter(POLL_INTERVAL_MS * 3 + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // write was attempted but failed
-    expect(mockWriter.write).toHaveBeenCalled();
-    // Session should still be closed despite the write failure
-    expect(mockWriter.close).toHaveBeenCalled();
-  });
-
-  it('handles session.close() failure gracefully (logs error)', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-    mockWriter.close.mockRejectedValue(new Error('close failed'));
-
-    killPidAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 4);
-
-    // Should not throw
-    await expect(promise).resolves.toBeUndefined();
-  });
-
-  // --- Exit condition tests ---
-
-  it('flushes remaining lines on sentinel detection', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // Write more data just before sentinel
-    setTimeout(() => {
-      appendFileSync(transcriptPath, 'line2\n');
-    }, POLL_INTERVAL_MS - 50);
-
-    writeSentinelAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // Both lines should have been written
-    expect(mockWriter.write).toHaveBeenCalledWith('line1');
-    expect(mockWriter.close).toHaveBeenCalled();
-  });
-
-  it('removes sentinel file after detection', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    writeSentinelAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // Sentinel file should have been removed
-    expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(false);
-  });
-
-  it('flushes remaining lines on PID death', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // Add more data, then kill PID
-    setTimeout(() => {
-      appendFileSync(transcriptPath, 'line2\npartial');
-    }, POLL_INTERVAL_MS - 50);
-
-    killPidAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    expect(mockWriter.write).toHaveBeenCalledWith('line1');
-    // The final flush should pick up line2 and the partial line
-    expect(mockWriter.close).toHaveBeenCalled();
-  });
-
-  it('handles concurrent sentinel + PID death in same poll cycle (exactly one final flush)', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // Both happen at the same time
-    const bothTime = POLL_INTERVAL_MS + 50;
-    writeSentinelAfter(bothTime);
-    killPidAfter(bothTime);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 5);
-    await promise;
-
-    // Session should have been closed exactly once
-    expect(mockWriter.close).toHaveBeenCalledTimes(1);
-    // Sentinel should have been cleaned up
-    expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(false);
-  });
-
-  it('sentinel detected on first poll iteration (very short session) still flushes correctly', async () => {
-    writeFileSync(transcriptPath, 'quick-line\n');
-
-    // Sentinel exists before first poll
-    const sentinelDir = join(testDir, 'streams', 'claude-code-session');
-    mkdirSync(sentinelDir, { recursive: true });
-    writeFileSync(join(sentinelDir, 'sess-abc.flush'), '');
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
-    await promise;
-
-    // Data should still have been written even though sentinel was immediate
-    expect(mockWriter.write).toHaveBeenCalledWith('quick-line');
-    expect(mockWriter.close).toHaveBeenCalled();
-    // Sentinel cleaned up
-    expect(await sentinelFileExists(testDir, 'sess-abc')).toBe(false);
-  });
-
-  it('respects MAX_LIFETIME_MS timeout (closes session cleanly)', async () => {
-    writeFileSync(transcriptPath, 'line1\n');
-
-    // PID stays alive forever — only MAX_LIFETIME_MS should end the loop
-    const promise = runStreamingLoop(makeArgs());
-
-    // Advance past MAX_LIFETIME_MS
-    await vi.advanceTimersByTimeAsync(MAX_LIFETIME_MS + POLL_INTERVAL_MS * 2);
-    await promise;
-
-    expect(mockWriter.close).toHaveBeenCalled();
-  });
-
-  // --- resumeFrom adjustment tests ---
-
-  it('adjusts localLineCount when session.resumeFrom is ahead of local count', async () => {
-    writeFileSync(transcriptPath, 'line1\nline2\n');
-
-    // Server says it already has 2 lines — session opens with resumeFrom=2
-    const sessionWithResume = {
-      write: vi.fn(),
-      close: vi.fn().mockResolvedValue({
-        filename: 'sess-abc.jsonl',
-        streamType: 'claude-code-session',
-        lineCount: 2,
-        status: 'complete'
-      }),
-      resumeFrom: 2,
-      linesSent: 0
-    };
-    mockClient.openStreamWebSocket.mockResolvedValue(sessionWithResume);
-
-    killPidAfter(POLL_INTERVAL_MS + 50);
-
-    const promise = runStreamingLoop(makeArgs());
-    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
-    await promise;
-
-    // Session opened, but since localLineCount was 0 and resumeFrom=2,
-    // localLineCount is set to 2 and no writes happen (server already has them)
-    expect(mockClient.openStreamWebSocket).toHaveBeenCalled();
+  it('does not duplicate the entry if already present', async () => {
+    writeFileSync(join(testDir, '.gitignore'), 'streams/**/*.flush\n');
+    await ensureGitignoreEntry(testDir);
+    const content = readFileSync(join(testDir, '.gitignore'), 'utf-8');
+    const occurrences = (content.match(/streams\/\*\*\/\*\.flush/g) ?? []).length;
+    expect(occurrences).toBe(1);
   });
 });
 
+// ---------------------------------------------------------------------------
+// connectLogSocket / logViaSocket
+// ---------------------------------------------------------------------------
+
 describe('connectLogSocket', () => {
-  it('connects to log socket via SOCKET_PATH and logs watcher lifecycle events', async () => {
+  it('connects to log socket and logViaSocket sends structured entries', async () => {
     const socketDir = join(tmpdir(), `watcher-socket-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(socketDir, { recursive: true });
     const socketPath = join(socketDir, 'test.sock');
@@ -754,7 +319,7 @@ describe('connectLogSocket', () => {
       await vi.waitFor(() => {
         expect(receivedMessages.length).toBeGreaterThan(0);
       });
-      const parsed = JSON.parse(receivedMessages[0]!.trim());
+      const parsed = JSON.parse(receivedMessages[0]!.trim()) as unknown;
       expect(parsed).toEqual({
         type: 'log',
         level: 'info',
@@ -764,5 +329,245 @@ describe('connectLogSocket', () => {
       server.close();
       rmSync(socketDir, { recursive: true, force: true });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runSyncLoop — unit tests with mocked execFile (intercepted at module scope above)
+// ---------------------------------------------------------------------------
+
+describe('runSyncLoop', () => {
+  let testDir: string;
+  let sourceDir: string;
+  let sessionId: string;
+
+  beforeEach(() => {
+    sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    testDir = join(tmpdir(), `watcher-sync-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    sourceDir = join(testDir, 'source');
+    mkdirSync(sourceDir, { recursive: true });
+
+    // Clear captured calls before each test
+    execFileCalls.splice(0);
+
+    vi.useFakeTimers();
+    vi.spyOn(process, 'kill').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  function makeArgs(overrides?: Partial<TranscriptWatcherArgs>): TranscriptWatcherArgs {
+    return {
+      pid: process.pid,
+      sessionId,
+      transcriptPath: join(sourceDir, `${sessionId}.jsonl`),
+      cardId: 'card-42',
+      cardRepoPath: testDir,
+      emitter: new EventEmitter(),
+      ...overrides
+    };
+  }
+
+  /**
+   * Starts runSyncLoop and waits for the 'ready' event before returning.
+   * 'ready' fires after all startup I/O completes and just before setInterval
+   * is registered — so fake-timer advancement is safe after this call.
+   *
+   * Returns { loop } where loop is the runSyncLoop promise. Using a wrapper
+   * object prevents Promise.resolve() from unwrapping the inner promise.
+   *
+   * @param args - Watcher arguments passed to runSyncLoop.
+   * @returns Promise resolving to an object with the loop promise once ready.
+   */
+  function startLoop(args: TranscriptWatcherArgs): Promise<{ loop: Promise<void> }> {
+    const readyPromise = new Promise<void>((resolve) => {
+      args.emitter!.once('ready', resolve);
+    });
+    const loop = runSyncLoop(args);
+    return readyPromise.then(() => ({ loop }));
+  }
+
+  function killPidNow(): void {
+    vi.spyOn(process, 'kill').mockImplementation(() => {
+      const err = new Error('kill ESRCH') as NodeJS.ErrnoException;
+      err.code = 'ESRCH';
+      throw err;
+    });
+  }
+
+  function writeSentinelNow(): void {
+    const sentinelDir = join(testDir, 'streams', 'claude-code-session');
+    mkdirSync(sentinelDir, { recursive: true });
+    writeFileSync(join(sentinelDir, `${sessionId}.flush`), '');
+  }
+
+  // (a) root session JSONL write produces matching destination file
+  it('(a) source root {uuid}.jsonl → matching flat destination file', async () => {
+    writeFileSync(join(sourceDir, `${sessionId}.jsonl`), 'line1\nline2\n');
+
+    const args = makeArgs();
+    // Kill PID so the loop exits on first periodic check
+    setTimeout(() => killPidNow(), 100);
+
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    const destDir = join(testDir, 'streams', 'claude-code-session');
+    const content = readFileSync(join(destDir, `${sessionId}.jsonl`), 'utf-8');
+    expect(content).toBe('line1\nline2\n');
+  });
+
+  // (b) subagent JSONL file lands flat as {uuid}-agent-{hash}.jsonl
+  it('(b) {uuid}/subagents/agent-{hash}.jsonl → lands flat as {uuid}-agent-{hash}.jsonl', async () => {
+    const subagentDir = join(sourceDir, sessionId, 'subagents');
+    mkdirSync(subagentDir, { recursive: true });
+    writeFileSync(join(subagentDir, 'agent-deadbeef.jsonl'), '{"type":"sub"}\n');
+
+    const args = makeArgs();
+    setTimeout(() => killPidNow(), 100);
+
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    const destDir = join(testDir, 'streams', 'claude-code-session');
+    const content = readFileSync(join(destDir, `${sessionId}-agent-deadbeef.jsonl`), 'utf-8');
+    expect(content).toBe('{"type":"sub"}\n');
+  });
+
+  // (c) sibling session under another UUID → ignored
+  it('(c) sibling-session write under another UUID is ignored', async () => {
+    const otherSession = 'ffffffff-0000-0000-0000-000000000001';
+    writeFileSync(join(sourceDir, `${otherSession}.jsonl`), 'other-session-line\n');
+    writeFileSync(join(sourceDir, `${sessionId}.jsonl`), 'my-line\n');
+
+    const args = makeArgs();
+    setTimeout(() => killPidNow(), 100);
+
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    const destDir = join(testDir, 'streams', 'claude-code-session');
+    // Other session file must not appear in destination
+    const entries = readdirSync(destDir);
+    const otherFiles = entries.filter((f) => f.startsWith(otherSession));
+    expect(otherFiles).toHaveLength(0);
+    // Our session file must be present
+    const ownContent = readFileSync(join(destDir, `${sessionId}.jsonl`), 'utf-8');
+    expect(ownContent).toBe('my-line\n');
+  });
+
+  // (f) tool-results paths are NOT copied
+  it('(f) {uuid}/tool-results/{id}.txt is NOT copied', async () => {
+    const toolResultsDir = join(sourceDir, sessionId, 'tool-results');
+    mkdirSync(toolResultsDir, { recursive: true });
+    writeFileSync(join(toolResultsDir, 'call-abc.txt'), 'tool output');
+
+    const args = makeArgs();
+    setTimeout(() => killPidNow(), 100);
+
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    const destDir = join(testDir, 'streams', 'claude-code-session');
+    const entries = readdirSync(destDir);
+    const toolResultFiles = entries.filter((f) => f.includes('tool-results') || f.endsWith('.txt'));
+    expect(toolResultFiles).toHaveLength(0);
+  });
+
+  // (g) partial line (no trailing \n) is not appended until newline arrives
+  it('(g) partial line without trailing \\n is not copied; destination is line-complete', async () => {
+    const srcPath = join(sourceDir, `${sessionId}.jsonl`);
+    // Write a complete line followed by a partial line (no newline at end)
+    writeFileSync(srcPath, 'complete-line\npartial-no-newline');
+
+    const args = makeArgs();
+    setTimeout(() => killPidNow(), 100);
+
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    const destDir = join(testDir, 'streams', 'claude-code-session');
+    const content = readFileSync(join(destDir, `${sessionId}.jsonl`), 'utf-8');
+    // Destination must only contain the complete line
+    expect(content).toBe('complete-line\n');
+    expect(content).not.toContain('partial-no-newline');
+  });
+
+  // (d) sentinel flush → final copy pass + git commit with correct message
+  it('(d) sentinel flush → final copy pass + git commit "Close session {sessionId}."', async () => {
+    writeFileSync(join(sourceDir, `${sessionId}.jsonl`), 'sentinel-line\n');
+    writeSentinelNow();
+
+    const args = makeArgs();
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    const gitCommands = execFileCalls.filter((c) => c.cmd === 'git');
+    expect(gitCommands.length).toBeGreaterThanOrEqual(2);
+
+    const addCall = gitCommands.find((c) => c.args[0] === 'add');
+    expect(addCall).toBeDefined();
+    expect(addCall?.args).toContain('streams/claude-code-session/');
+
+    const commitCall = gitCommands.find((c) => c.args[0] === 'commit');
+    expect(commitCall).toBeDefined();
+    expect(commitCall?.args).toContain(`Close session ${sessionId}.`);
+    expect(commitCall?.cwd).toBe(testDir);
+
+    // Verify content was copied in final pass
+    const destDir = join(testDir, 'streams', 'claude-code-session');
+    const content = readFileSync(join(destDir, `${sessionId}.jsonl`), 'utf-8');
+    expect(content).toBe('sentinel-line\n');
+  });
+
+  // (e) PID death → same behavior as sentinel (final copy + commit)
+  it('(e) PID death → final copy pass + git commit', async () => {
+    writeFileSync(join(sourceDir, `${sessionId}.jsonl`), 'pid-death-line\n');
+
+    const args = makeArgs();
+    setTimeout(() => killPidNow(), 100);
+
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    const gitCommands = execFileCalls.filter((c) => c.cmd === 'git');
+    expect(gitCommands.length).toBeGreaterThanOrEqual(2);
+
+    const commitCall = gitCommands.find((c) => c.args[0] === 'commit');
+    expect(commitCall).toBeDefined();
+    expect(commitCall?.args).toContain(`Close session ${sessionId}.`);
+
+    const destDir = join(testDir, 'streams', 'claude-code-session');
+    const content = readFileSync(join(destDir, `${sessionId}.jsonl`), 'utf-8');
+    expect(content).toBe('pid-death-line\n');
+  });
+
+  // (h) sentinel file is removed before git commit (not staged into repo)
+  it('(h) sentinel file is removed before git commit', async () => {
+    writeFileSync(join(sourceDir, `${sessionId}.jsonl`), 'h-line\n');
+    writeSentinelNow();
+
+    const args = makeArgs();
+    const { loop } = await startLoop(args);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await loop;
+
+    // Sentinel must be gone from disk after the loop completes
+    expect(await sentinelFileExists(testDir, sessionId)).toBe(false);
+
+    // git add must have been called (loop committed)
+    const addCall = execFileCalls.find((c) => c.cmd === 'git' && c.args[0] === 'add');
+    expect(addCall).toBeDefined();
   });
 });
