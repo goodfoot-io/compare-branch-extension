@@ -58,7 +58,7 @@ Select the **first** matching condition:
 - **6. PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN**: `runtime:card-plan-feedback`
 - **7. PLAN_REQUIRED AND NOT PLAN_APPROVED**: `runtime:card-plan`
 - **8. NOT DOR_MET**: `runtime:card-clarify-and-enrich`
-- **9. HAS_PLAN OR PLAN_APPROVED**: `runtime:card-implementation-with-plan`
+- **9. PLAN_REQUIRED AND PLAN_APPROVED**: `runtime:card-implementation-with-plan`
 - **10. IS_TESTABLE_BUG**: `runtime:card-bug`
 - **11. Otherwise**: `runtime:card-plan`
 
