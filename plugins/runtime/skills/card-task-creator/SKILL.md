@@ -84,7 +84,7 @@ blocks: ["1"]
 
 `subject` is the identity key — `[PLAN_STEM] § [TASK_SLUG]`. `[PLAN_STEM]` is the plan file's basename without extension (e.g. `plan/initial.md` → `initial`). `[TASK_SLUG]` is a stable, semantic slug chosen for this unit of work (e.g., `flip-agentid-type`, `literal-replacements`, `test-updates`). Re-use the slug across plan revisions when the same unit of work persists — the slug is the matching key, not the heading text. A sub-task may cover any number of plan sections; list each covered section as a bullet in the description.
 
-`blockedBy` lists other sub-task IDs that must complete before this one (e.g., tests after source, ancillary after the surface it documents). Peer sub-tasks that share no `blockedBy` edge are parallelizable at dispatch time; encode parallelism only through the absence of dependency edges, not through any other field.
+`blockedBy` lists other sub-task IDs that must complete before this one. Peer sub-tasks that share no `blockedBy` edge are parallelizable at dispatch time; encode parallelism only through the absence of dependency edges, not through any other field.
 
 The plan commit records the card-repo commit that last modified the plan file. Layer is the layering index (`0` is the oldest plan file). Layer state is `committed` when workspace commits or a `mergeRequestApproval` record already represent this layer's work, or `active` when this layer is the current implementation target.
 
@@ -163,7 +163,7 @@ For each plan file in layering order, decompose the plan into a complete set of 
 
 **Group by operation, not by plan structure.** Mechanical literal replacements spanning several plan sections are one sub-task. A type rename and its direct callers are one sub-task. Test updates that follow source changes are a separate sub-task from those source changes. Ancillary documentation is a separate sub-task from the surface it documents.
 
-**Frame ordering with `blockedBy`.** When one sub-task must complete before another (tests after source, ancillary after the surface it documents), record the prerequisite's ID in `blockedBy`. Peer sub-tasks that share no `blockedBy` edge are parallelizable — do not encode parallelism anywhere else.
+**Frame ordering with `blockedBy`.** When one sub-task must complete before another, record the prerequisite's ID in `blockedBy`. Peer sub-tasks that share no `blockedBy` edge are parallelizable — do not encode parallelism anywhere else.
 
 **Pick stable semantic slugs.** The slug is the identity that persists across plan revisions. Re-use a prior round's slug when the same unit of work survives the revision; mint a new slug only when the unit is genuinely new. A lazy rename across rounds creates an orphan in Step 7: Prune Revised References.
 

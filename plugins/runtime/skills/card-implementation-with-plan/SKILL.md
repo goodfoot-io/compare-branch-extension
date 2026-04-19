@@ -24,10 +24,6 @@ The orchestrator coordinates — it does NOT implement code.
 Plan says "implement" → delegate to developer agent. Use `TaskList`, `TaskGet`, `TaskUpdate`, and `Agent` tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
 
 **Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work.
-
-**Do not create, delete, or re-wire tasks.** The task list is seeded upstream by `runtime:card-plan` before this skill is entered, and reconciled there on every re-entry (including after `runtime:card-plan-feedback`). This skill reads the list and updates task status; it never reshapes it.
-
-**Respect `blockedBy` edges.** Do not dispatch a task whose prerequisites are not `completed`.
 </orchestrator-constraints>
 
 <instructions>
@@ -73,13 +69,6 @@ Run tests in the worktree, then delete the worktree and branch.
 `TaskGet` each task in `Implementation`'s `blockedBy` list. A task is **eligible** when its own status is `pending` or `in_progress` AND its own `blockedBy` list is empty or every entry resolves to a `completed` task. Collect the eligible set — these are the concrete work for this wave. Record `id` and `subject` for each.
 
 If the eligible set is empty but non-completed tasks remain, the graph is deadlocked — a non-completed task references a prerequisite that is itself blocked. **STOP** and write a card comment naming the offending task and its unresolved prerequisite chain.
-
-Subjects follow two patterns you will see in the data:
-
-- `[STEM] § [SLUG]` — a plan-derived sub-task referring to `$CARD_REPO_PATH/plan/[STEM].md`. `TaskGet` the task and follow the section references in its description to locate scope in that plan file.
-- `[PATH]` — a feedback artifact under `$CARD_REPO_PATH/` (e.g., `comment/*.md`). Read that file for scope.
-
-`TaskUpdate` `Implementation` to `in_progress`.
 
 ### 2.2 Assess Coherence
 
@@ -165,7 +154,7 @@ This task owns: [absolute paths referenced in the covered plan sections]
 
 ## Success Criteria
 - [ ] Implementation complete for every task in scope
-- [ ] Tests pass (if applicable)
+- [ ] Tests pass
 - [ ] Types correct
 - [ ] Follows existing patterns
 
@@ -180,7 +169,7 @@ Return `COMPLETED`, `NEEDS_REVISION`, or `BLOCKED`. Include the task IDs the res
 For each task in the agent's returned scope:
 
 - **COMPLETED**: `TaskUpdate` the task to `completed`. Proceed to Step 2.5: Validate and Commit, then return to Step 2.1: Enumerate Eligible Tasks — a newly-completed task may unblock downstream sub-tasks.
-- **NEEDS_REVISION**: Read the task's `metadata.attempts` via `TaskGet` (treat missing as `0`). Increment and persist via `TaskUpdate` with `metadata: {"attempts": [N]}`. Revert the agent's owned files to baseline:
+- **NEEDS_REVISION**: Revert the agent's owned files to baseline:
   ```bash
   # [AGENT_FILES] is the list of absolute paths from the agent's File Ownership section.
   # Revert only files this agent owns — do not touch other agents' work.
