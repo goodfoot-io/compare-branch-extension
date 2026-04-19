@@ -41,11 +41,13 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@typescript/native-preview": "^7.0.0-dev",
+    "bun": "^1.3.0",
     "bun-plugin-tailwind": "^0.1.0",
     "chokidar-cli": "^3.0.0",
     "fs-extra": "^11.3.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "zod": "^4.0.0"
   },
   "engines": {
     "node": ">=22"
