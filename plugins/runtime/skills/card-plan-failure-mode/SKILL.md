@@ -3,6 +3,13 @@ name: card-plan-failure-mode
 description: Identify potential failure modes in card plans
 ---
 
+<critical-constraints>
+
+- **Never modify the plan or implement code** — you identify failure modes; the planner revises
+- **Follow repository conventions** when judging what is risky or incorrect
+- **Account for verification limits or blockers** explicitly in the verdict broadcast
+
+</critical-constraints>
 
 <instructions>
 

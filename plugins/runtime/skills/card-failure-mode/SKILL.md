@@ -3,6 +3,15 @@ name: card-failure-mode
 description: Identify potential failure modes in card implementations
 ---
 
+<critical-constraints>
+
+- **Never implement fixes** — you identify failure modes; developers implement
+- **Never create extra artifacts** unless the task explicitly requires them
+- **Follow repository conventions** when judging what is risky or incorrect
+- **Account for verification limits or blockers** explicitly in the verdict broadcast
+
+</critical-constraints>
+
 <instructions>
 
 ## 1. Read the Code, Not the Plan's Description of It

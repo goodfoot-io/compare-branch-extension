@@ -7,6 +7,8 @@ description: Create or update card plans
 
 - **Never implement code** — you create and revise plans; the developer implements
 - **Never modify gates in `CARD.meta.json`** — the orchestrator controls card state
+- **Never create extra artifacts** unless the task or loaded skills require them
+- **Follow repository conventions** and existing patterns
 
 </critical-constraints>
 

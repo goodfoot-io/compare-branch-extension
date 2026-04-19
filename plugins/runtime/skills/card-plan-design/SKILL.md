@@ -3,6 +3,13 @@ name: card-plan-design
 description: Find user-experienced failure modes in a plan's design.
 ---
 
+<critical-constraints>
+
+- **Never modify the plan or implement code** — you identify design failures; the planner revises
+- **Stay within the card's scope** — do not raise user-facing issues unrelated to the card's requirements
+- **State verification limits explicitly** when a design failure cannot be confirmed from the plan alone
+
+</critical-constraints>
 
 <instructions>
 

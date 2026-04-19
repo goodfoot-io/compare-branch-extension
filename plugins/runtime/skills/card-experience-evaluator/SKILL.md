@@ -3,6 +3,12 @@ name: card-experience-evaluator
 description: Find user-experienced failure modes in an implementation.
 ---
 
+<critical-constraints>
+
+- **Never implement fixes** — you identify user-facing failures; developers implement
+- **Stay within the card's scope** — do not raise user-facing issues unrelated to the card's requirements
+
+</critical-constraints>
 
 <instructions>
 

@@ -60,6 +60,8 @@ Spawn the planner in background mode:
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-planner`, `cards:markdown`, and `cards:notes` skills immediately.**
+
 Create an implementation plan for this card.
 
 ## Card Repository
@@ -120,6 +122,8 @@ After the planner returns, check the planner's broadcast:
   <parameter name="team_name">card-plan-[CARD_ID]</parameter>
   <parameter name="run_in_background">true</parameter>
   <parameter name="prompt">
+  **IMPORTANT: Load the `runtime:card-plan-failure-mode` and `cards:notes` skills immediately.**
+
   Identify potential failure modes in this implementation plan.
 
   ## Card Repository
@@ -182,6 +186,8 @@ After the planner returns, check the planner's broadcast:
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-plan-failure-mode` and `cards:notes` skills immediately.**
+
 Identify potential failure modes in this implementation plan.
 
 ## Card Repository
@@ -206,6 +212,8 @@ The primary plan file is `[PLAN_FILE]`. Focus analysis on it; read other files i
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-plan-design` and `cards:notes` skills immediately.**
+
 Evaluate whether this plan's design would deliver the user experience the card requires.
 
 ## Card Repository

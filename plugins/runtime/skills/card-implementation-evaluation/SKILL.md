@@ -34,9 +34,9 @@ Run validation per the plan's validation commands.
 
 **On any failure:** `TaskCreate` a `[Pre-eval fix]` task per failure with the failure output in the description — for orchestrator tracking only. **Delegate fixes — do not implement directly.** Assess coherence of the failures, choose a model, and dispatch a developer agent with each failure's full content inlined in its prompt (developers cannot read tasks). When the developer returns, `TaskUpdate` each `[Pre-eval fix]` task to `completed` yourself. After all fixes complete, return to **1. Stage Uncommitted Changes**.
 
-Only proceed to **3. Dispatch Subagents** when ALL validations pass.
+Only proceed to **3. Evaluate with Team** when ALL validations pass.
 
-## 3. Dispatch Subagents
+## 3. Evaluate with Team
 
 Diff the workspace against the baseline to see the full scope of changes. Select depth based on the number of changed files, types of changes, and runtime risk signals:
 
@@ -77,6 +77,8 @@ Spawn one failure-mode subagent in background mode, in the team:
 <parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-failure-mode` skill immediately.**
+
 Identify potential failure modes in this implementation.
 
 ## Card Repository
@@ -109,6 +111,8 @@ Spawn both evaluators in parallel in background mode, in the team:
 <parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-failure-mode` skill immediately.**
+
 Identify potential failure modes in this implementation.
 
 ## Card Repository
@@ -137,6 +141,8 @@ All validation has passed. Focus on runtime behavior, semantic failures, and gap
 <parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
+**IMPORTANT: Load the `runtime:card-experience-evaluator` skill immediately.**
+
 Find failure modes in this implementation as a user would experience them.
 
 ## Card Repository
