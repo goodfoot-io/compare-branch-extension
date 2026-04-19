@@ -59,7 +59,7 @@ export default subagentStopHook({}, async (input, { logger }) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error('Not running inside an action subprocess', { error: message });
-    return subagentStopOutput({ decision: 'approve' });
+    return null;
   }
 
   try {
@@ -77,5 +77,5 @@ export default subagentStopHook({}, async (input, { logger }) => {
     });
   }
 
-  return subagentStopOutput({ decision: 'approve' });
+  return null;
 });

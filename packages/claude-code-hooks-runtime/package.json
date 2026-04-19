@@ -14,7 +14,7 @@
   "dependencies": {
     "@cards/sdk": "workspace:*",
     "@cards/sessions": "workspace:*",
-    "@goodfoot/claude-code-hooks": "^1.2.9",
+    "@goodfoot/claude-code-hooks": "^1.3.1",
     "esbuild": "^0.25.0",
     "js-yaml": "^4.1.0",
     "ws": "^8.19.0"

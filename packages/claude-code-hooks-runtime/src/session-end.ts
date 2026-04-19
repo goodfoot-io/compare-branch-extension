@@ -107,7 +107,7 @@ export default sessionEndHook({}, async (input, { logger }) => {
   try {
     actionInput = extractActionInput();
   } catch {
-    return sessionEndOutput({});
+    return null;
   }
 
   // 2. Write sentinel file to signal the watcher (wrapped in try/catch — non-fatal)
@@ -131,5 +131,5 @@ export default sessionEndHook({}, async (input, { logger }) => {
     });
   }
 
-  return sessionEndOutput({});
+  return null;
 });
