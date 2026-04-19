@@ -101,7 +101,7 @@ describe('Stop Hook', () => {
       expect(stdout.systemMessage).toContain('no HEAD SHA');
     });
 
-    it('approves quietly when no commits since HEAD SHA', async () => {
+    it('returns null when no commits since HEAD SHA', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockGetCommitsSince.mockReturnValue([]);
       const mockInput = { session_id: 'sess-1' } as Parameters<typeof hook>[0];
@@ -112,7 +112,7 @@ describe('Stop Hook', () => {
       expect(result).toBeNull();
     });
 
-    it('approves quietly when all commits are attributed to session', async () => {
+    it('returns null when all commits are attributed to session', async () => {
       mockReadSessionHeadSha.mockReturnValue(START_SHA);
       mockGetCommitsSince.mockReturnValue([SHA_1, SHA_2]);
       mockGetSessionCommits.mockReturnValue([SHA_1, SHA_2]);
