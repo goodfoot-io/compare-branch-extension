@@ -11,6 +11,12 @@ description: Handle blocked cards by reporting blockers.
 
 Do not attempt implementation until the blocker is resolved.
 
+## Preflight Check
+
+```bash
+command -v card >/dev/null 2>&1 || { echo 'Error: card CLI not found on PATH. Open VS Code with the Cards extension installed and run from an integrated terminal.' >&2; exit 1; }
+```
+
 ## 1. Analyze Blocker
 
 Read `CARD.meta.json` for `relations` entries that reference other cards. Read the card description and comments for context on what is blocking progress. Identify all blocker reasons and referenced card IDs.

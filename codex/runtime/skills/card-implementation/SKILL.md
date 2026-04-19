@@ -6,6 +6,12 @@ description: Implement cards directly without a plan.
 
 <instructions>
 
+## Preflight Check
+
+```bash
+command -v create-worktree >/dev/null 2>&1 || { echo 'Error: create-worktree CLI not found on PATH. Open VS Code with the Cards extension installed and run from an integrated terminal.' >&2; exit 1; }
+```
+
 ## 1. Prepare Environment
 
 Use the bundled helper at `create-worktree` when you need an isolated Git worktree.

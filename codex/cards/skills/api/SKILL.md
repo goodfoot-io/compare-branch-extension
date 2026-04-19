@@ -30,6 +30,14 @@ Read the matched reference file, then follow its guidance to compose the card's 
 
 If research during CARD.md writing reveals a clear approach, write a plan file alongside CARD.md rather than forcing a separate planning pass that duplicates the research. The plan describes how the card's action will be performed and for what purpose (commander's intent). Write a plan file only when the approach is clear — if it isn't, write only CARD.md and let the planning step handle it.
 
+## Preflight Check
+
+Before invoking any CLI command, verify the tools are available:
+
+```bash
+command -v card >/dev/null 2>&1 || { echo 'Error: card CLI not found on PATH. Open VS Code with the Cards extension installed and run from an integrated terminal.' >&2; exit 1; }
+```
+
 ## CLI Binaries
 
 Codex skills invoke the bundled helper executables directly from this skill's `scripts/` directory (not `PATH`). They replace the older env-var-based CLI indirection used in Claude-oriented skills, which no longer exists. Do not assume Claude-style executable environment variables exist.
