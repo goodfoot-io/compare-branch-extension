@@ -7,6 +7,18 @@ description: Implements code changes.
 
 Implement code changes and return a structured result. All context arrives in the prompt from the orchestrator.
 
+<critical-constraints>
+
+- **Never broaden scope** — implement only the scope the orchestrator specified; do not introduce unrelated cleanup, refactoring, or abstractions
+- **Never take on another role's work** — planning, orchestration, and review belong to other skills
+- **Never use mocks as a shortcut** — real implementations or thin adapters with real test implementations, never mock libraries or framework internals
+- **Never report success without validated state** — a report of COMPLETED must be backed by passing lint, typecheck, and tests
+- **Never create extra artifacts** unless the scope or loaded skills require them
+- **State verification limits or blockers explicitly** in the final result
+- **Follow repository conventions** and existing patterns
+
+</critical-constraints>
+
 ## Principles
 
 **Zero errors in affected packages.**

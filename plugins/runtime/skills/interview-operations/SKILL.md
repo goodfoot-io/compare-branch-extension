@@ -15,6 +15,14 @@ Review ./operations.md
 7. Environment parity is a premise to verify, not assume.
 </first-principles>
 
+<critical-constraints>
+
+- No operational execution. No scripts, no infra changes, no configuration edits.
+- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Report failing tests or broken builds in the card; do not remediate.
+
+</critical-constraints>
+
 <instructions>
 
 ## 1. Dispatch Research Immediately
@@ -65,13 +73,7 @@ After each material exchange or research return, update in place. Do not batch t
 
 Commit frequently so the card improves monotonically.
 
-## 5. Constraints
-
-- No operational execution. No scripts, no infra changes, no configuration edits.
-- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
-- Report failing tests or broken builds in the card; do not remediate.
-
-## 6. Finalize
+## 5. Finalize
 
 When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 

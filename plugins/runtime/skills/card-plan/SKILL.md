@@ -1,313 +1,70 @@
 ---
 name: card-plan
-description: Plan a card via tiered dispatch and evaluation.
+description: Plan a card via tiered dispatch and a race between parallel planners.
 ---
 
 
 <placeholder-variables>
 [CARD_ID] — The card identifier, used to scope the planning team's name
-[PLAN_FILE] — The primary plan file path relative to the card repository root, identified from the most recent git commit to `plan/`
+[N_PLANNERS] — Number of parallel planners for the selected tier (2 for tier 3, 4 for tier 4)
 </placeholder-variables>
 
 <instructions>
 
 ## 1. Select Planning Tier
 
-Read the card from the `<card>` block. Assess scope, type, number of files likely affected, acceptance criteria complexity, and risk signals. Select the tier that matches the work:
+Tier selection is driven by **unknowns**, not work volume. Parallel planners exist to explore the *solution space* — the value of running more planners grows with the number of viable approaches, not with the number of files or lines of code. A large, mechanical change with one obvious approach is tier 2 even if it touches many files. A small change with several plausible mechanisms, contested trade-offs, or ambiguous acceptance criteria is tier 3 or 4 even if it touches one file.
 
-| Tier | What runs |
-|------|-----------|
-| 1 | No plan — proceed directly to implementation |
-| 2 | `planner` subagent only |
-| 3 | `planner` subagent + one `plan-failure-mode` subagent |
-| 4 | `planner` subagent + one `plan-failure-mode` subagent + one `plan-design` subagent |
+Read the card from the `<card>` block and assess the unknowns:
+
+- **How many reasonable approaches could a planner take?** One → tier 2. Two or three → tier 3. Four or more → tier 4.
+- **How contested are the trade-offs?** If competing approaches each optimize for a different axis (performance vs. simplicity, correctness vs. migration effort, consistency vs. incremental rollout), the space is worth exploring.
+- **How ambiguous is the card?** Acceptance criteria open to multiple user-experience interpretations favor more planners.
+- **How much unverified domain knowledge does planning require?** Unfamiliar libraries, concurrency primitives, external APIs, or legacy subsystems raise the unknowns count.
+
+Volume-only cards — many files but one mechanism — do **not** warrant tier 3 or 4. If the only question is execution effort, tier 2 is correct.
+
+| Tier | When |
+|------|------|
+| 1 | No plan — one obvious mechanism, minimal risk, planning adds no value |
+| 2 | Orchestrator self-plans inline — one approach dominates; work may be large but direction is clear |
+| 3 | 2 `planner` subagents + 1 `plan-failure-mode` — 2–3 plausible approaches with real trade-offs |
+| 4 | 4 `planner` subagents + 1 `plan-failure-mode` — 4+ plausible approaches or deep unknowns that benefit from diverse exploration |
 
 If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–4).
 
-If `gates.planApproved` is true, skip to Step 5: Route to Implementation — the plan is already approved, proceed to implementation.
+If `gates.planApproved` is true, skip to Step 3: Route to Implementation — the plan is already approved, proceed to implementation.
 
 If plan files already exist in `plan/` but are not approved, the minimum tier is 3 — always dispatch at least one `plan-failure-mode` subagent to evaluate the existing plan.
 
-## 2. Dispatch Subagents
+## 2. Dispatch
 
 ### Tier 1
 
-No subagents needed. Skip team creation and proceed to Step 5: Route to Implementation.
+No plan needed. Skip to Step 3: Route to Implementation.
 
-### Create Planning Team (Tier 2–4)
+### Tier 2 — Orchestrator Self-Plans
 
-Before dispatching any subagent, create a team to hold the planning subagents:
+Load `references/planning.md` from this skill and follow its instructions. Set `[PLAN_FILE]` to `plan/initial.md` (or a semantically descriptive slug if the card's nature suggests one, e.g., `plan/phase-2.md` for follow-on work). Do not create a team; do not dispatch subagents.
 
-```xml
-<invoke name="TeamCreate">
-  <parameter name="team_name">card-plan-[CARD_ID]</parameter>
-  <parameter name="description">Planning team for card [CARD_ID]</parameter>
-</invoke>
-```
+After the plan is written, spiked, and committed, proceed to Step 3: Route to Implementation.
 
-Every subagent spawned in this step joins the team by passing `team_name=card-plan-[CARD_ID]`.
+### Tier 3–4 — Race Parallel Planners
 
-### Tier 2
+Set `[N_PLANNERS]` to `2` for tier 3 or `4` for tier 4. Load `references/racing.md` from this skill and follow its instructions.
 
-Spawn the planner in background mode:
+On return:
+- **`APPROVED`**: Proceed to Step 3: Route to Implementation.
+- **`BLOCKED`**: **STOP** — do not route to implementation.
 
-```xml
-<invoke name="Agent">
-<parameter name="description">Plan creation</parameter>
-<parameter name="subagent_type">runtime:card:planner</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="name">planner</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-planner`, `cards:markdown`, and `cards:notes` skills immediately.**
-
-Create an implementation plan for this card.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-Read the card from the card repository. Create the plan and investigate uncertainties.
-</parameter>
-</invoke>
-```
-
-Proceed to Step 3: Read Verdicts and Decide.
-
-### Tier 3
-
-Spawn the planner in background mode first, wait for it to return, then spawn one `plan-failure-mode` subagent:
-
-```xml
-<invoke name="Agent">
-<parameter name="description">Plan creation</parameter>
-<parameter name="subagent_type">runtime:card:planner</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="name">planner</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-planner`, `cards:markdown`, and `cards:notes` skills immediately.**
-
-Create an implementation plan for this card.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-Read the card from the card repository. Create the plan and investigate uncertainties.
-</parameter>
-</invoke>
-```
-
-After the planner returns, check the planner's broadcast:
-- **PLAN: BLOCKED**: Proceed to Step 3: Read Verdicts and Decide.
-- **PLAN: READY**: Identify the primary plan file:
-
-  ```bash
-  git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
-  ```
-
-  Then spawn the failure-mode subagent in background mode:
-
-  ```xml
-  <invoke name="Agent">
-  <parameter name="description">Plan failure-mode analysis</parameter>
-  <parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
-  <parameter name="model">opus</parameter>
-  <parameter name="name">plan-failure-mode</parameter>
-  <parameter name="team_name">card-plan-[CARD_ID]</parameter>
-  <parameter name="run_in_background">true</parameter>
-  <parameter name="prompt">
-  **IMPORTANT: Load the `runtime:card-plan-failure-mode` and `cards:notes` skills immediately.**
-
-  Identify potential failure modes in this implementation plan.
-
-  ## Card Repository
-  [CARD_REPO_PATH]
-
-  ## Workspace
-  [WORKSPACE_PATH]
-
-  The primary plan file is `[PLAN_FILE]`. Focus your analysis on it; read other files in `plan/` for context. Read every source file the plan references, then search the workspace for consumers of every symbol, type, and file the plan modifies.
-
-  Also evaluate the plan's design from the user's perspective: would the plan, if executed correctly, deliver the outcomes the card requires? Look for intent drift between the card and the plan, design choices that would produce wrong user outcomes even when implemented faithfully, and user-facing scenarios the plan doesn't account for.
-  </parameter>
-  </invoke>
-  ```
-
-Proceed to Step 3: Read Verdicts and Decide.
-
-### Tier 4
-
-Spawn the planner in background mode first, wait for it to return, then spawn `plan-failure-mode` and `plan-design` subagents in parallel:
-
-```xml
-<invoke name="Agent">
-<parameter name="description">Plan creation</parameter>
-<parameter name="subagent_type">runtime:card:planner</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="name">planner</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-planner`, `cards:markdown`, and `cards:notes` skills immediately.**
-
-Create an implementation plan for this card.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-Read the card from the card repository. Create the plan and investigate uncertainties.
-</parameter>
-</invoke>
-```
-
-After the planner returns, check the planner's broadcast:
-- **PLAN: BLOCKED**: Proceed to Step 3: Read Verdicts and Decide.
-- **PLAN: READY**: Identify the primary plan file and read the plan and card before composing the evaluator prompts:
-
-  ```bash
-  git -C [CARD_REPO_PATH] log --format="" --name-only -- plan/ | grep '\.md$' | head -1
-  ```
-
-  Each prompt must reflect the specific nature of this plan and this card. Spawn both agents in parallel in background mode:
-
-```xml
-<invoke name="Agent">
-<parameter name="description">Plan failure-mode analysis</parameter>
-<parameter name="subagent_type">runtime:card:plan-failure-mode</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="name">plan-failure-mode</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-plan-failure-mode` and `cards:notes` skills immediately.**
-
-Identify potential failure modes in this implementation plan.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-The primary plan file is `[PLAN_FILE]`. Focus analysis on it; read other files in `plan/` for context.
-
-[Describe the specific technical failure risks this plan presents. Where does the plan make load-bearing assumptions about the codebase that should be verified? Which §3 failure patterns are most probable given the plan's approach — multi-file impact blindness, unverified claims, ordering hazards, silent error conversion? Write this from what you found in the plan, not as a generic description.]
-</parameter>
-</invoke>
-```
-
-```xml
-<invoke name="Agent">
-<parameter name="description">Plan design evaluation</parameter>
-<parameter name="subagent_type">runtime:card:plan-design</parameter>
-<parameter name="model">opus</parameter>
-<parameter name="name">plan-design</parameter>
-<parameter name="team_name">card-plan-[CARD_ID]</parameter>
-<parameter name="run_in_background">true</parameter>
-<parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-plan-design` and `cards:notes` skills immediately.**
-
-Evaluate whether this plan's design would deliver the user experience the card requires.
-
-## Card Repository
-[CARD_REPO_PATH]
-
-## Workspace
-[WORKSPACE_PATH]
-
-The primary plan file is `[PLAN_FILE]`. Focus analysis on it; read other files in `plan/` for context.
-
-[Translate the card's requirements into the user outcomes this plan must deliver:
-- The specific acceptance criteria to verify coverage for
-- User-facing scenarios the plan must account for — including edge cases, error states, and adjacent behavior the user can see
-- Any places where the plan's interpretation of the card looks like it may have drifted from what the card actually requires
-
-Write this from what you found in the card, not as a generic description.]
-</parameter>
-</invoke>
-```
-
-Proceed to Step 3: Read Verdicts and Decide.
-
-## 3. Read Verdicts and Decide
-
-Based on planner broadcast:
-- **PLAN: BLOCKED**: Document in comment, add `blocked` tag, commit. Complete Step 4: Tear Down Team, then **STOP** — do not proceed to implementation.
-- **PLAN: READY and no evaluators dispatched (tier 2)**: Proceed to Step 4: Tear Down Team.
-- **PLAN: READY and evaluators dispatched (tier 3–4)**: Continue to evaluator verdict evaluation below.
-
-After all evaluators broadcast verdicts, read the `VERDICT:` line from each broadcast. The decision is determined by their verdicts, not your own assessment of the findings:
-
-- **All APPROVED**: Proceed to Step 4: Tear Down Team.
-- **Any CHANGES_REQUESTED**: Send a revision trigger to the planner:
-
-  ```xml
-  <invoke name="SendMessage">
-    <parameter name="to">planner</parameter>
-    <parameter name="summary">Revision requested</parameter>
-    <parameter name="message">
-  Evaluators have broadcast `VERDICT: CHANGES_REQUESTED`. Finalize any outstanding revisions from the streamed findings, then broadcast `PLAN: READY`.
-    </parameter>
-  </invoke>
-  ```
-
-  Wait for the planner to broadcast `PLAN: READY`, then send a re-evaluation trigger to each evaluator dispatched in Step 2:
-
-  ```xml
-  <invoke name="SendMessage">
-    <parameter name="to">plan-failure-mode</parameter>
-    <parameter name="summary">Plan revised — re-evaluate</parameter>
-    <parameter name="message">The planner has revised the plan. Re-evaluate based on your prior findings.</parameter>
-  </invoke>
-  ```
-
-  ```xml
-  <invoke name="SendMessage">
-    <parameter name="to">plan-design</parameter>
-    <parameter name="summary">Plan revised — re-evaluate</parameter>
-    <parameter name="message">The planner has revised the plan. Re-evaluate based on your prior findings.</parameter>
-  </invoke>
-  ```
-
-  Wait for all evaluators to re-broadcast verdicts, then return to Step 3: Read Verdicts and Decide.
-
-- **BLOCKED** (external constraint prevents addressing a `CHANGES_REQUESTED` finding): Document the constraint and the specific finding in a comment, add `blocked` tag, commit. Complete Step 4: Tear Down Team, then **STOP**.
-
-Do not override an evaluator's verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of revising the plan.
-
-## 4. Tear Down Team
-
-This step runs on every exit path from Step 3 (success, BLOCKED verdict, planner-blocked). Tier 1 runs never reach this step — they skip directly to Step 5: Route to Implementation.
-
-Delete the team:
-
-```xml
-<invoke name="TeamDelete" />
-```
-
-Based on Step 3 outcome:
-- **Planner-blocked or BLOCKED verdict**: **STOP** — do not proceed to implementation.
-- **Approved**: Proceed to Step 5: Route to Implementation.
-
-## 5. Route to Implementation
+## 3. Route to Implementation
 
 Read `gates.planRequired` from `CARD.meta.json`.
 
 Based on the outcome:
 
 - **Tier 1 (no plan)**: Load the `runtime:card-implementation` skill and follow its instructions.
-- **Approved and planRequired**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
-- **Approved and not planRequired**: Load the `runtime:card-implementation-with-plan` skill and follow its instructions.
+- **Plan approved and `planRequired` is true**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
+- **Plan approved and `planRequired` is false**: Load the `runtime:card-implementation-with-plan` skill and follow its instructions.
 
 </instructions>

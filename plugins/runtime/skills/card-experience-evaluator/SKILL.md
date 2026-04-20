@@ -7,6 +7,8 @@ description: Find user-experienced failure modes in an implementation.
 
 - **Never implement fixes** — you identify user-facing failures; developers implement
 - **Stay within the card's scope** — do not raise user-facing issues unrelated to the card's requirements
+- **Never raise internal code quality findings** — broken wiring, type escape hatches, and async hazards belong to the `failure-mode` agent; your findings are failures the user encounters
+- **State verification limits explicitly** when you cannot exercise a user entry point, and account for them in the verdict broadcast
 
 </critical-constraints>
 
