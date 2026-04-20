@@ -1112,6 +1112,10 @@ describe('createWorktree end-to-end', () => {
     workspace = new TestGitWorkspace();
     await workspace.create();
     repoPath = workspace.getPath();
+
+    // Keep worktrees inside the test workspace
+    process.env['CARDS_WORKTREES_ROOT_OVERRIDE'] = path.join(repoPath, '.worktrees');
+
     const git = workspace.getGit();
 
     // Set up .gitignore
@@ -1157,6 +1161,7 @@ describe('createWorktree end-to-end', () => {
   afterAll(async () => {
     // Restore original cwd
     process.chdir(originalCwd);
+    delete process.env['CARDS_WORKTREES_ROOT_OVERRIDE'];
 
     if (workspace) {
       const git = workspace.getGit();
@@ -1389,6 +1394,10 @@ describe('createWorktree with tag (detached)', () => {
     workspace = new TestGitWorkspace();
     await workspace.create();
     repoPath = workspace.getPath();
+
+    // Keep worktrees inside the test workspace
+    process.env['CARDS_WORKTREES_ROOT_OVERRIDE'] = path.join(repoPath, '.worktrees');
+
     const git = workspace.getGit();
 
     await fs.writeFile(path.join(repoPath, '.gitignore'), 'node_modules/\n');

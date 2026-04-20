@@ -24,9 +24,11 @@ describe('stale worktree directory repair', () => {
   beforeAll(async () => {
     workspace = new TestGitWorkspace();
     await workspace.create();
+    process.env['CARDS_WORKTREES_ROOT_OVERRIDE'] = path.join(workspace.getPath(), '.worktrees');
   });
 
   afterAll(() => {
+    delete process.env['CARDS_WORKTREES_ROOT_OVERRIDE'];
     if (workspace) {
       workspace.destroy();
     }

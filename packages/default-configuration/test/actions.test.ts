@@ -31,9 +31,24 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
-vi.mock('node:crypto', () => ({
-  randomUUID: vi.fn(() => 'test-uuid-1234')
-}));
+vi.mock('node:crypto', async () => {
+  const actual = await vi.importActual('node:crypto');
+  return {
+    ...actual,
+    randomUUID: vi.fn(() => 'test-uuid-1234')
+  };
+});
+
+vi.mock('@cards/sdk', async () => {
+  const actual = await vi.importActual('@cards/sdk');
+  const path = await import('node:path');
+  return {
+    ...actual,
+    resolveWorktreeDir: vi.fn((repoRoot: string, ref: string) => {
+      return path.join(repoRoot, '.worktrees', ref);
+    })
+  };
+});
 
 vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
   spawnBranchCleanupWatcher: vi.fn()
