@@ -7,7 +7,13 @@
  * @module
  */
 
-export { CARDS_DIR_NAME, resolveGlobalCardsConfigDir, resolveWorktreeDir } from './cards-config.js';
+export {
+  CARDS_DIR_NAME,
+  generateRepoId,
+  resolveGlobalCardsConfigDir,
+  resolveWorktreeDir,
+  resolveWorktreesRoot
+} from './cards-config.js';
 // Re-export all protocol types at the top level for convenience
 export * from './protocol/index.js';
 

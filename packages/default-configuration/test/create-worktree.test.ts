@@ -9,6 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { resolveWorktreeDir } from '@cards/sdk';
 import { TestGitWorkspace } from '@cards/test-utils';
 import * as fsExtra from 'fs-extra';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -478,6 +479,25 @@ describe('discoverIgnoredPaths', () => {
     expect(hasWorktrees).toBe(false);
   });
 
+  it('does not include CARDS_WORKTREES_DIR entries when the override root is nested inside the repo', async () => {
+    const repoPath = workspace.getPath();
+    const originalOverride = process.env['CARDS_WORKTREES_DIR'];
+    process.env['CARDS_WORKTREES_DIR'] = path.join(repoPath, 'nested-worktrees');
+    await fsExtra.ensureDir(path.join(repoPath, 'nested-worktrees', 'test'));
+
+    try {
+      const ignored = await discoverIgnoredPaths(repoPath);
+      const hasNestedWorktrees = ignored.directories.some((d) => d.startsWith('nested-worktrees'));
+      expect(hasNestedWorktrees).toBe(false);
+    } finally {
+      if (originalOverride === undefined) {
+        delete process.env['CARDS_WORKTREES_DIR'];
+      } else {
+        process.env['CARDS_WORKTREES_DIR'] = originalOverride;
+      }
+    }
+  });
+
   it('does not include tracked files', async () => {
     const repoPath = workspace.getPath();
     const ignored = await discoverIgnoredPaths(repoPath);
@@ -651,6 +671,33 @@ describe('copyExistingSymlinks', () => {
     await fsExtra.remove(tempSourceDir);
     await fsExtra.remove(tempWorktreeDir);
     await fsExtra.remove(targetDir);
+  });
+
+  it('does not copy a root-level symlink that matches a nested CARDS_WORKTREES_DIR override', async () => {
+    const tempSourceDir = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'temp-source-'));
+    const tempWorktreeDir = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'temp-worktree-'));
+    const targetDir = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'link-target-'));
+    const originalOverride = process.env['CARDS_WORKTREES_DIR'];
+
+    process.env['CARDS_WORKTREES_DIR'] = path.join(tempSourceDir, 'nested-worktrees', 'cache');
+    await fsExtra.symlink(targetDir, path.join(tempSourceDir, 'nested-worktrees'));
+
+    try {
+      await copyExistingSymlinks(tempSourceDir, tempWorktreeDir);
+
+      const nestedWorktreesLinkExists = await fsExtra.pathExists(path.join(tempWorktreeDir, 'nested-worktrees'));
+      expect(nestedWorktreesLinkExists).toBe(false);
+    } finally {
+      if (originalOverride === undefined) {
+        delete process.env['CARDS_WORKTREES_DIR'];
+      } else {
+        process.env['CARDS_WORKTREES_DIR'] = originalOverride;
+      }
+
+      await fsExtra.remove(tempSourceDir);
+      await fsExtra.remove(tempWorktreeDir);
+      await fsExtra.remove(targetDir);
+    }
   });
 
   it('skips symlinks that already exist in the worktree', async () => {
@@ -1114,7 +1161,7 @@ describe('createWorktree end-to-end', () => {
     repoPath = workspace.getPath();
 
     // Keep worktrees inside the test workspace
-    process.env['CARDS_WORKTREES_ROOT_OVERRIDE'] = path.join(repoPath, '.worktrees');
+    process.env['CARDS_WORKTREES_DIR'] = path.join(repoPath, '.worktrees');
 
     const git = workspace.getGit();
 
@@ -1161,12 +1208,12 @@ describe('createWorktree end-to-end', () => {
   afterAll(async () => {
     // Restore original cwd
     process.chdir(originalCwd);
-    delete process.env['CARDS_WORKTREES_ROOT_OVERRIDE'];
+    delete process.env['CARDS_WORKTREES_DIR'];
 
     if (workspace) {
       const git = workspace.getGit();
       // Clean up any worktrees we created
-      const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+      const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
       try {
         await git.raw(['worktree', 'remove', worktreeDir, '--force']);
       } catch {
@@ -1179,16 +1226,16 @@ describe('createWorktree end-to-end', () => {
   it('resolves with correct branch, worktree path, 40-char baseSha, and reroutedSymlinks > 0', async () => {
     const result = await createWorktree('e2e-test-branch');
 
-    expect(result.path).toBe(path.join(repoPath, '.worktrees', 'e2e-test-branch'));
+    expect(result.path).toBe(resolveWorktreeDir(repoPath, 'e2e-test-branch'));
     const settled = await result.settle;
     expect(settled.branch).toBe('e2e-test-branch');
-    expect(settled.worktree).toBe(path.join(repoPath, '.worktrees', 'e2e-test-branch'));
+    expect(settled.worktree).toBe(resolveWorktreeDir(repoPath, 'e2e-test-branch'));
     expect(settled.baseSha).toMatch(/^[0-9a-f]{40}$/);
     expect(settled.reroutedSymlinks).toBeGreaterThan(0);
   });
 
   it('the worktree directory exists on disk with .git as a file', async () => {
-    const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+    const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
     const stats = await fs.stat(worktreeDir);
     expect(stats.isDirectory()).toBe(true);
 
@@ -1197,7 +1244,7 @@ describe('createWorktree end-to-end', () => {
   });
 
   it('ignored dirs (dist) are symlinks pointing to source', async () => {
-    const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+    const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
 
     const distStats = await fs.lstat(path.join(worktreeDir, 'dist'));
     expect(distStats.isSymbolicLink()).toBe(true);
@@ -1207,7 +1254,7 @@ describe('createWorktree end-to-end', () => {
   });
 
   it('.env is a symlink pointing to source', async () => {
-    const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+    const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
 
     const envStats = await fs.lstat(path.join(worktreeDir, '.env'));
     expect(envStats.isSymbolicLink()).toBe(true);
@@ -1217,7 +1264,7 @@ describe('createWorktree end-to-end', () => {
   });
 
   it('existing top-level symlinks are copied', async () => {
-    const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+    const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
 
     const linkStats = await fs.lstat(path.join(worktreeDir, 'existing-link'));
     expect(linkStats.isSymbolicLink()).toBe(true);
@@ -1227,7 +1274,7 @@ describe('createWorktree end-to-end', () => {
   });
 
   it('node_modules/ in worktree is a real directory (rerouted, not a symlink)', async () => {
-    const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+    const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
 
     const nmStats = await fs.lstat(path.join(worktreeDir, 'node_modules'));
     expect(nmStats.isSymbolicLink()).toBe(false);
@@ -1235,14 +1282,14 @@ describe('createWorktree end-to-end', () => {
   });
 
   it('internal workspace symlinks inside rerouted node_modules preserve relative targets', async () => {
-    const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+    const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
 
     const internalTarget = await fs.readlink(path.join(worktreeDir, 'node_modules', '@scope', 'internal-pkg'));
     expect(internalTarget).toBe('../../packages/internal-pkg');
   });
 
   it('git exclude file exists with symlinked paths', async () => {
-    const worktreeDir = path.join(repoPath, '.worktrees', 'e2e-test-branch');
+    const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
     const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreeDir, 'rev-parse', '--git-dir'], {
       timeout: 5000
     });
@@ -1277,10 +1324,10 @@ describe('createWorktree end-to-end', () => {
     // So this proves cwd option is used instead of process.cwd()
     const result = await createWorktree('cwd-test-branch', { cwd: repoPath2 });
 
-    expect(result.path).toBe(path.join(repoPath2, '.worktrees', 'cwd-test-branch'));
+    expect(result.path).toBe(resolveWorktreeDir(repoPath2, 'cwd-test-branch'));
     const settled = await result.settle;
     expect(settled.branch).toBe('cwd-test-branch');
-    expect(settled.worktree).toBe(path.join(repoPath2, '.worktrees', 'cwd-test-branch'));
+    expect(settled.worktree).toBe(resolveWorktreeDir(repoPath2, 'cwd-test-branch'));
     expect(settled.baseSha).toMatch(/^[0-9a-f]{40}$/);
 
     // Cleanup
@@ -1396,7 +1443,7 @@ describe('createWorktree with tag (detached)', () => {
     repoPath = workspace.getPath();
 
     // Keep worktrees inside the test workspace
-    process.env['CARDS_WORKTREES_ROOT_OVERRIDE'] = path.join(repoPath, '.worktrees');
+    process.env['CARDS_WORKTREES_DIR'] = path.join(repoPath, '.worktrees');
 
     const git = workspace.getGit();
 
@@ -1410,10 +1457,11 @@ describe('createWorktree with tag (detached)', () => {
 
   afterAll(async () => {
     process.chdir(originalCwd);
+    delete process.env['CARDS_WORKTREES_DIR'];
 
     if (workspace) {
       const git = workspace.getGit();
-      const worktreeDir = path.join(repoPath, '.worktrees', 'implement/test-card/baseline');
+      const worktreeDir = resolveWorktreeDir(repoPath, 'implement/test-card/baseline');
       try {
         await git.raw(['worktree', 'remove', worktreeDir, '--force']);
       } catch {
@@ -1426,10 +1474,10 @@ describe('createWorktree with tag (detached)', () => {
   it('creates a detached worktree for a tag ref', async () => {
     const result = await createWorktree('implement/test-card/baseline');
 
-    expect(result.path).toBe(path.join(repoPath, '.worktrees', 'implement/test-card/baseline'));
+    expect(result.path).toBe(resolveWorktreeDir(repoPath, 'implement/test-card/baseline'));
     const settled = await result.settle;
     expect(settled.branch).toBe('implement/test-card/baseline');
-    expect(settled.worktree).toBe(path.join(repoPath, '.worktrees', 'implement/test-card/baseline'));
+    expect(settled.worktree).toBe(resolveWorktreeDir(repoPath, 'implement/test-card/baseline'));
     expect(settled.baseSha).toMatch(/^[0-9a-f]{40}$/);
   });
 });

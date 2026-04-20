@@ -16,7 +16,7 @@ import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { resolveWorktreeDir } from './cards-config.js';
+import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -387,7 +387,8 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
     { cwd: sourceRoot, timeout: 30_000 }
   );
 
-  const lines = stdout.split('\n').filter((line) => line.length > 0 && !line.startsWith('.worktrees'));
+  const ignoredPrefixes = getIgnoredWorktreePrefixes(sourceRoot);
+  const lines = stdout.split('\n').filter((line) => line.length > 0 && !isIgnoredWorktreePath(line, ignoredPrefixes));
   const directories = lines.filter((l) => l.endsWith('/')).map((l) => l.slice(0, -1));
   const files = lines.filter((l) => !l.endsWith('/'));
 
@@ -526,7 +527,10 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
  */
 export async function copyExistingSymlinks(sourceRoot: string, worktreeDir: string): Promise<number> {
   const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
-  const symlinks = entries.filter((e) => e.isSymbolicLink() && e.name !== '.git' && e.name !== '.worktrees');
+  const ignoredRootEntries = getIgnoredWorktreeRootEntries(sourceRoot);
+  const symlinks = entries.filter(
+    (entry) => entry.isSymbolicLink() && entry.name !== '.git' && !ignoredRootEntries.has(entry.name)
+  );
 
   const copySymlink = async (name: string): Promise<boolean> => {
     const destPath = path.join(worktreeDir, name);
@@ -553,6 +557,48 @@ export async function copyExistingSymlinks(sourceRoot: string, worktreeDir: stri
 
   const results = await Promise.all(symlinks.map((e) => copySymlink(e.name)));
   return results.filter((r) => r).length;
+}
+
+function getIgnoredWorktreePrefixes(sourceRoot: string): string[] {
+  const prefixes = new Set<string>(['.worktrees']);
+  const worktreesRoot = path.resolve(resolveWorktreesRoot());
+  const relativeRoot = path.relative(sourceRoot, worktreesRoot);
+
+  if (!relativeRoot.startsWith('..') && !path.isAbsolute(relativeRoot)) {
+    const normalized = normalizeRelativePath(relativeRoot);
+    if (normalized.length > 0) {
+      prefixes.add(normalized);
+    }
+  }
+
+  return [...prefixes];
+}
+
+function getIgnoredWorktreeRootEntries(sourceRoot: string): Set<string> {
+  const entries = new Set<string>(['.worktrees']);
+
+  for (const prefix of getIgnoredWorktreePrefixes(sourceRoot)) {
+    const [rootEntry] = prefix.split('/');
+    if (rootEntry) {
+      entries.add(rootEntry);
+    }
+  }
+
+  return entries;
+}
+
+function normalizeRelativePath(relativePath: string): string {
+  return relativePath
+    .split(path.sep)
+    .filter((segment) => segment.length > 0 && segment !== '.')
+    .join('/');
+}
+
+function isIgnoredWorktreePath(candidate: string, ignoredPrefixes: string[]): boolean {
+  const normalizedCandidate = candidate.replace(/\/$/, '');
+  return ignoredPrefixes.some(
+    (prefix) => normalizedCandidate === prefix || normalizedCandidate.startsWith(`${prefix}/`)
+  );
 }
 
 interface RerouteNodeModulesOptions {

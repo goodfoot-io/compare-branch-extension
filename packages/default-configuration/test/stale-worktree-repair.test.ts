@@ -14,6 +14,7 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { generateRepoId } from '@cards/sdk';
 import { createWorktree } from '@cards/sdk/worktree';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -24,11 +25,11 @@ describe('stale worktree directory repair', () => {
   beforeAll(async () => {
     workspace = new TestGitWorkspace();
     await workspace.create();
-    process.env['CARDS_WORKTREES_ROOT_OVERRIDE'] = path.join(workspace.getPath(), '.worktrees');
+    process.env['CARDS_WORKTREES_DIR'] = path.join(workspace.getPath(), '.worktrees');
   });
 
   afterAll(() => {
-    delete process.env['CARDS_WORKTREES_ROOT_OVERRIDE'];
+    delete process.env['CARDS_WORKTREES_DIR'];
     if (workspace) {
       workspace.destroy();
     }
@@ -37,7 +38,7 @@ describe('stale worktree directory repair', () => {
   it('succeeds when a stale directory with a .keep file exists at the worktree path', async () => {
     const repoRoot = workspace.getPath();
     const branchName = 'cards/test-card/1';
-    const staleDir = path.join(repoRoot, '.worktrees', branchName);
+    const staleDir = path.join(repoRoot, '.worktrees', generateRepoId(repoRoot), branchName);
 
     // Simulate a crashed previous session that left a stale directory
     await fs.mkdir(staleDir, { recursive: true });

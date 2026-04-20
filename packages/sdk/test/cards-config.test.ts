@@ -10,10 +10,12 @@ import {
   CARDS_DIR_NAME,
   generateRepoId,
   resolveGlobalCardsConfigDir,
-  resolveWorktreeDir
+  resolveWorktreeDir,
+  resolveWorktreesRoot
 } from '../src/cards-config.js';
 
 const originalCardsHome = process.env['CARDS_HOME'];
+const originalCardsWorktreesDir = process.env['CARDS_WORKTREES_DIR'];
 const originalXdgDataHome = process.env['XDG_DATA_HOME'];
 const originalXdgConfigHome = process.env['XDG_CONFIG_HOME'];
 
@@ -28,6 +30,12 @@ function restoreEnv(): void {
     delete process.env['XDG_DATA_HOME'];
   } else {
     process.env['XDG_DATA_HOME'] = originalXdgDataHome;
+  }
+
+  if (originalCardsWorktreesDir === undefined) {
+    delete process.env['CARDS_WORKTREES_DIR'];
+  } else {
+    process.env['CARDS_WORKTREES_DIR'] = originalCardsWorktreesDir;
   }
 
   if (originalXdgConfigHome === undefined) {
@@ -115,5 +123,14 @@ describe('resolveWorktreeDir', () => {
     const repoId = generateRepoId(repoRoot);
 
     expect(worktreeDir).toBe(path.join('/custom/cards-home', 'worktrees', repoId, ref));
+  });
+
+  it('uses CARDS_WORKTREES_DIR as the only supported worktree root override', () => {
+    process.env['CARDS_WORKTREES_DIR'] = '/tmp/cards-worktrees';
+    const repoRoot = '/workspace';
+    const ref = 'cards/main-123/1';
+
+    expect(resolveWorktreesRoot()).toBe('/tmp/cards-worktrees');
+    expect(resolveWorktreeDir(repoRoot, ref)).toBe(path.join('/tmp/cards-worktrees', generateRepoId(repoRoot), ref));
   });
 });

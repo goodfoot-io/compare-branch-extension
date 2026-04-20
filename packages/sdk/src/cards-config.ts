@@ -58,6 +58,20 @@ export function generateRepoId(repoRoot: string): string {
 }
 
 /**
+ * Resolves the shared root that stores Cards-managed worktrees.
+ *
+ * @returns Absolute path to the worktree root directory.
+ */
+export function resolveWorktreesRoot(): string {
+  const overrideRoot = process.env['CARDS_WORKTREES_DIR'];
+  if (overrideRoot) {
+    return overrideRoot;
+  }
+
+  return path.join(resolveGlobalCardsConfigDir(), 'worktrees');
+}
+
+/**
  * Resolves the centralized worktree directory for a given repository and ref.
  *
  * Path pattern: `$CARDS_HOME/worktrees/<repo-id>/<ref>`
@@ -67,13 +81,6 @@ export function generateRepoId(repoRoot: string): string {
  * @returns Absolute path to the worktree directory.
  */
 export function resolveWorktreeDir(repoRoot: string, ref: string): string {
-  // Tests can override the root to keep worktrees inside their temp workspace
-  const overrideRoot = process.env['CARDS_WORKTREES_ROOT_OVERRIDE'];
-  if (overrideRoot) {
-    return path.join(overrideRoot, ref);
-  }
-
-  const globalDir = resolveGlobalCardsConfigDir();
   const repoId = generateRepoId(repoRoot);
-  return path.join(globalDir, 'worktrees', repoId, ref);
+  return path.join(resolveWorktreesRoot(), repoId, ref);
 }

@@ -30,9 +30,13 @@ vi.mock('@cards/sdk/worktree', () => ({
   findGitRoots: vi.fn()
 }));
 
-vi.mock('node:crypto', () => ({
-  randomUUID: vi.fn(() => 'test-uuid-1234')
-}));
+vi.mock('node:crypto', async () => {
+  const actual = await vi.importActual('node:crypto');
+  return {
+    ...actual,
+    randomUUID: vi.fn(() => 'test-uuid-1234')
+  };
+});
 
 const originalFetch = globalThis.fetch;
 
