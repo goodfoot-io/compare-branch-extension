@@ -8,6 +8,7 @@
  * @module
  */
 
+import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 
@@ -42,4 +43,37 @@ export function resolveGlobalCardsConfigDir(): string {
   }
 
   return path.join(homedir(), CARDS_DIR_NAME);
+}
+
+/**
+ * Generates a stable, unique identifier for a repository root path.
+ *
+ * @param repoRoot - Absolute path to the repository root.
+ * @returns A short stable hash (8 chars) prefixed with the directory name.
+ */
+export function generateRepoId(repoRoot: string): string {
+  const dirName = path.basename(repoRoot);
+  const hash = createHash('sha256').update(repoRoot).digest('hex').slice(0, 8);
+  return `${dirName}-${hash}`;
+}
+
+/**
+ * Resolves the centralized worktree directory for a given repository and ref.
+ *
+ * Path pattern: `$CARDS_HOME/worktrees/<repo-id>/<ref>`
+ *
+ * @param repoRoot - Absolute path to the repository root.
+ * @param ref - Git reference (branch, tag, or SHA).
+ * @returns Absolute path to the worktree directory.
+ */
+export function resolveWorktreeDir(repoRoot: string, ref: string): string {
+  // Tests can override the root to keep worktrees inside their temp workspace
+  const overrideRoot = process.env['CARDS_WORKTREES_ROOT_OVERRIDE'];
+  if (overrideRoot) {
+    return path.join(overrideRoot, ref);
+  }
+
+  const globalDir = resolveGlobalCardsConfigDir();
+  const repoId = generateRepoId(repoRoot);
+  return path.join(globalDir, 'worktrees', repoId, ref);
 }

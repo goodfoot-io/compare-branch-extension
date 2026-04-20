@@ -6,7 +6,12 @@
 
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { CARDS_DIR_NAME, resolveGlobalCardsConfigDir } from '../src/cards-config.js';
+import {
+  CARDS_DIR_NAME,
+  generateRepoId,
+  resolveGlobalCardsConfigDir,
+  resolveWorktreeDir
+} from '../src/cards-config.js';
 
 const originalCardsHome = process.env['CARDS_HOME'];
 const originalXdgDataHome = process.env['XDG_DATA_HOME'];
@@ -79,5 +84,36 @@ describe('resolveGlobalCardsConfigDir', () => {
 
     delete process.env['CARDS_HOME'];
     expect(resolveGlobalCardsConfigDir()).toBe(path.join('/xdg-data', CARDS_DIR_NAME));
+  });
+});
+
+describe('generateRepoId', () => {
+  it('generates a stable ID based on repo root', () => {
+    const root = '/workspace';
+    const id1 = generateRepoId(root);
+    const id2 = generateRepoId(root);
+
+    expect(id1).toBe(id2);
+    expect(id1).toMatch(/^workspace-[0-9a-f]{8}$/);
+  });
+
+  it('generates different IDs for different roots', () => {
+    const id1 = generateRepoId('/workspace/a');
+    const id2 = generateRepoId('/workspace/b');
+
+    expect(id1).not.toBe(id2);
+  });
+});
+
+describe('resolveWorktreeDir', () => {
+  it('resolves the centralized worktree path', () => {
+    process.env['CARDS_HOME'] = '/custom/cards-home';
+    const repoRoot = '/workspace';
+    const ref = 'main-123';
+
+    const worktreeDir = resolveWorktreeDir(repoRoot, ref);
+    const repoId = generateRepoId(repoRoot);
+
+    expect(worktreeDir).toBe(path.join('/custom/cards-home', 'worktrees', repoId, ref));
   });
 });

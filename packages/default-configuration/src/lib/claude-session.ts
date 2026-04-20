@@ -15,9 +15,9 @@ import * as fsSyncNs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { type ActionContext, type ActionInput, CARDS_ENV_VARS, resolveWorktreeDir } from '@cards/sdk';
 import type { CardsClient } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
-import { type ActionContext, type ActionInput, CARDS_ENV_VARS } from '@cards/sdk/config';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
 import { BRANCHES_FILE } from '@cards/sdk/protocol';
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
@@ -290,7 +290,7 @@ export async function resolveOrCreateWorktree(
   let nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 
   const { repoRoot } = await findGitRoots(input.repoRoot);
-  while (await checkWorktreeExists(repoRoot, path.join(repoRoot, '.worktrees', `${prefix}${nextNumber}`))) {
+  while (await checkWorktreeExists(repoRoot, resolveWorktreeDir(repoRoot, `${prefix}${nextNumber}`))) {
     logger.warn('Worktree already exists in git but not in API, skipping', {
       branch: `${prefix}${nextNumber}`
     });

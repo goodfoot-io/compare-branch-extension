@@ -16,6 +16,7 @@ import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { resolveWorktreeDir } from './cards-config.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -123,7 +124,7 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
     validateBranchName(ref);
   }
 
-  const worktreeDir = path.join(repoRoot, '.worktrees', ref);
+  const worktreeDir = resolveWorktreeDir(repoRoot, ref);
 
   const worktreeExists = await checkWorktreeExists(repoRoot, worktreeDir);
   if (worktreeExists) {
