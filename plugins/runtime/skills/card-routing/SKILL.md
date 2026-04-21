@@ -44,7 +44,7 @@ Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obt
 | HAS_PLAN | `plan/` directory in the card repository contains at least one `.md` file |
 | USER_RESPONDED_TO_PLAN | `plan/` directory contains at least one `.md` file AND there exists a user-authored commit — more recent than the most recent `plan/*.md` file's commit — that adds or modifies non-metadata files. Metadata files (`CARD.meta.json`, `branches.json`, `commits.csv`, and their sidecars) are excluded; gate changes and status transitions do not constitute a plan response. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
-| IS_TESTABLE_BUG | Card description has error evidence (stack traces, error messages) AND bug is programmatically verifiable |
+| IS_TESTABLE_BUG | Card describes an expected-vs-actual behavior gap on a named surface (file, component, command, or user action). Stack traces and error messages count; so does an observable wrong behavior. "Sometimes" and "intermittent" do not disqualify — they describe the race the test must force. |
 
 ## 2. Route
 
