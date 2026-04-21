@@ -349,8 +349,8 @@ Run linting, type checking, and tests.
 
 There is no "probably fine" state.
 
-- **Error in modifiable code**: Fix it, re-run
-- **Error you are unable to resolve**: Block immediately — do not retry hoping it resolves itself
+- **Resolvable error**: Fix it, re-run
+- **Unresolvable error**: Block immediately — do not retry hoping it resolves itself
 
 **When blocked:**
 1. Write error comment with exact failure output to the card

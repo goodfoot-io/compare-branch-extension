@@ -230,8 +230,8 @@ git tag -f "implement/$CARD_ID/post-implementation" HEAD
 Run validation per the plan's validation commands.
 
 **On failure:**
-- **Error in code you can modify**: Delegate fix to implementer, re-run validation
-- **Error you are unable to resolve**: Block immediately
+- **Resolvable error**: Delegate fix to implementer, re-run validation
+- **Unresolvable error**: Block immediately
 
 **When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
 

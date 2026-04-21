@@ -67,8 +67,8 @@ The baseline tag advances after each successful commit.
 
 Run validation per the workspace validation configuration.
 
-- **Error in code you can modify**: Fix it, re-run validation
-- **Error you are unable to resolve**: Block immediately
+- **Resolvable error**: Fix it, re-run validation
+- **Unresolvable error**: Block immediately
 
 **When blocked:** Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
 
