@@ -163,11 +163,18 @@ VERDICT: APPROVED for:[PLANNER] | CHANGES_REQUESTED for:[PLANNER]
 
 ## When Re-Reviewing a Revised Plan
 
-When a planner rebroadcasts `PLAN: READY` after a `CHANGES_REQUESTED` verdict, re-open the task you created for that plan and resume analysis — you retain full context from every prior round. Read the planner's most recent `PLAN: READY` broadcast and the current `plan/[PLANNER].md` to identify what was revised. Stream findings to the planner per Step 4: Stream Findings to the Originating Planner during each resume round.
+When a planner rebroadcasts `PLAN: READY` after a `CHANGES_REQUESTED` verdict, re-open the task you created for that plan and resume analysis — you retain full context from every prior round. Stream findings to the planner per Step 4: Stream Findings to the Originating Planner during each resume round.
 
 ### 1. Identify What Changed
 
-Read the current `plan/` files and compare them against what you analyzed in the previous round. Identify every section the planner added, removed, or restructured. The changed sections are your primary focus, but do not abandon prior concerns that remain open.
+Run `git log` on the plan file to see its full revision history. Use them to identify what was addressed since the previous round, then `git show <sha>` any commit of interest for the full diff:
+
+```bash
+cd $CARD_REPO_PATH
+git log plan/[PLANNER].md
+```
+
+Changed sections are your primary focus, but do not abandon prior concerns that remain open.
 
 ### 2. Triage Each Prior Finding
 

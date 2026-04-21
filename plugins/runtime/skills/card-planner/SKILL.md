@@ -24,7 +24,7 @@ You are one of several planners competing for the reviewer's approval. Only one 
 
 - **Every research finding is broadcast to `*` as soon as you have it** (Step 2).
 - **Every critique of a peer plan is broadcast to `*`** (§4.3). The reviewer picks up critiques from the public stream; it does not accept DMs about plan changes.
-- **Revisions to your own plan go in your plan file**, with commit messages per the axis rubric (§4.1). The reviewer reads your commits.
+- **Revisions to your own plan go in your plan file**, committed with a single sentence summarizing the change (§4.1). The reviewer reads your commits.
 
 Peer plans are public. You may read them, steal good ideas into your own plan, and broadcast critiques of bad ones — all within the rules above.
 
@@ -99,7 +99,7 @@ The `plan-failure-mode` reviewer DMs findings as it discovers them, before any v
 - Understand the concern and whether the plan's approach addresses it. Each finding arrives tagged on three axes: severity (harm when it fires), occurrence (conditions under which it fires), and detection (how likely it slips past tests and review).
 - Route empirically-testable uncertainties through the `runtime:spike` skill before revising.
 - For each finding, decide which axis to attack: reduce **occurrence** (change the mechanism so the bet is no longer fragile), narrow **severity** (shrink the blast radius), or add **detection** (a test, assertion, or runtime check that surfaces the failure).
-- Revise `[PLAN_FILE]` directly and commit. The commit message names the finding and the axis: `occurrence: [mechanism change]`, `severity: [narrowed scope]`, `detection: [check added]`, or `accepted: [justification]`. The reviewer reads commits when re-reviewing — the commit message is the record of how the finding was addressed. Do not narrate the revision in a reply.
+- Revise `[PLAN_FILE]` directly and commit. Write the commit message as a single sentence per `<card-repo-commit-style>` that summarizes the change. The reviewer reads commits when re-reviewing — the commit message is the record of how the finding was addressed. Do not narrate the revision in a reply.
 
 Do not re-broadcast `PLAN: READY` after each streamed revision. The broadcast is reserved for Step 4.2, so the reviewer re-evaluates against the finalized plan rather than an in-flight state. If the reviewer finishes analyzing and finds every concern already addressed, it will broadcast `VERDICT: APPROVED for:[AGENT_NAME]` directly and Step 4.2 never fires.
 
