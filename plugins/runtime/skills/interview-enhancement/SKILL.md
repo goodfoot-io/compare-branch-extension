@@ -3,7 +3,7 @@ name: interview-enhancement
 description: Enrich enhancement cards with codebase context.
 ---
 
-Review ./enhancement.md
+Review ./enhancement.md and ./commanders-intent.md
 
 <first-principles>
 1. The stated solution is a hypothesis — recover the underlying job.
@@ -63,7 +63,7 @@ Prioritize question domains aligned with the first principles:
 
 ## 4. Update the Card Continually
 
-Open `CARD.md` per `./commanders-intent.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. If the user's first description named a mechanism, recover the underlying job before drafting.
+Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. If the user's first description named a mechanism, recover the underlying job before drafting.
 
 After each material exchange or research return, update in place. Do not batch to the end.
 

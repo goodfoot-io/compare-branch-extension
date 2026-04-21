@@ -13,7 +13,7 @@ The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before creating a card, load the `cards:markdown` skill and both references for the matched card type. Two references load together:
+Before creating a card, load the `cards:markdown` skill, `./references/commanders-intent.md`, and both references for the matched card type. Two references load together:
 - An **interview** guide describing how to reach enough signal for the card.
 - A **writing** guide describing the target CARD.md structure.
 

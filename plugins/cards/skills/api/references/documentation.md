@@ -8,7 +8,7 @@ Capture intent, audience, and outcomes without prescribing the solution. Leave r
 | Section | Content |
 |---------|---------|
 | Title | One sentence describing the documentation need, audience, and task |
-| Commander's Intent (no header in CARD.md) | Opening paragraph(s) per `./commanders-intent.md` — what the reader can do after reading |
+| Commander's Intent (no header in CARD.md) | Opening paragraph(s) — what the reader can do after reading |
 | Problem | What is missing or confusing today and who it affects |
 | Desired Outcome | What the reader should be able to do or understand |
 | Scope | In-scope topics and explicit exclusions |
@@ -18,7 +18,7 @@ Capture intent, audience, and outcomes without prescribing the solution. Leave r
 
 ## Writing Principles
 
-- **Open with Commander's Intent** per `./commanders-intent.md` (no heading in CARD.md — the card opens with this paragraph after the title). The destination is a changed reader behavior, not an artifact that exists; acceptance is an observable indicator the doc works (support-question drop, onboarding-time metric, link usage). Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
+- **Open with Commander's Intent** (no heading in CARD.md — the card opens with this paragraph after the title). The destination is a changed reader behavior, not an artifact that exists; acceptance is an observable indicator the doc works (support-question drop, onboarding-time metric, link usage). Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
 - **Anchor in user need**: Who is the audience, what job are they doing, what is the current pain.
 - **Classify doc type**: Tutorial, how-to, reference, explanation (Diataxis), runbook/playbook, knowledge-base article, or examples.
 - **Outcomes over implementation**: State what the reader should be able to do, not the exact file or format.

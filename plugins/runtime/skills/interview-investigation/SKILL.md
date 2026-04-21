@@ -3,7 +3,7 @@ name: interview-investigation
 description: Enrich investigation cards with codebase context.
 ---
 
-Review ./investigation.md
+Review ./investigation.md and ./commanders-intent.md
 
 <first-principles>
 1. An investigation exists to unblock a decision. Without a decision, it is research, not investigation.
@@ -63,7 +63,7 @@ Prioritize question domains aligned with the first principles:
 
 ## 4. Update the Card Continually
 
-Open `CARD.md` per `./commanders-intent.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. The null result is an acceptable form of arrival.
+Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. The null result is an acceptable form of arrival.
 
 After each material exchange or research return, update in place. Do not batch to the end.
 

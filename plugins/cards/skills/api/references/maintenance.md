@@ -6,7 +6,7 @@ Explain **why the work matters** and **what success looks like** without prescri
 
 | Section | Purpose | Question Answered |
 |---------|---------|-------------------|
-| Commander's Intent (no header in CARD.md) | Opening paragraph(s) per `./commanders-intent.md` — end state visible after the debt is retired | "What does the world look like when this debt is gone?" |
+| Commander's Intent (no header in CARD.md) | Opening paragraph(s) — end state visible after the debt is retired | "What does the world look like when this debt is gone?" |
 | Motivation & Impact | Explain why the work matters | "Why now?" |
 | Current State | Describe the maintenance burden | "What is costly or risky today?" |
 | Desired Outcomes | Define success without prescribing implementation | "What should improve?" |
@@ -16,7 +16,7 @@ Explain **why the work matters** and **what success looks like** without prescri
 
 ## Section Notes
 
-- **Commander's Intent** per `./commanders-intent.md` (no heading in CARD.md — the card opens with this paragraph). The destination must be describable without reference to the current mechanism; "table X removed" is a scope item, not an acceptance signal. Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
+- **Commander's Intent** (no heading in CARD.md — the card opens with this paragraph). The destination must be describable without reference to the current mechanism; "table X removed" is a scope item, not an acceptance signal. Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
 - **Motivation & Impact**: Anchor in measurable impact — operational risk, developer time, reliability, cost, deprecations.
   - Include evidence: incidents, metrics, toil.
   - Call out "interest" (ongoing cost) and "principal" (cleanup work).

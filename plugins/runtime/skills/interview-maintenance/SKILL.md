@@ -3,7 +3,7 @@ name: interview-maintenance
 description: Enrich maintenance cards with codebase context.
 ---
 
-Review ./maintenance.md
+Review ./maintenance.md and ./commanders-intent.md
 
 <first-principles>
 1. Debt is only debt if it costs something observable — incidents, toil, risk, blocked work — not aesthetic.
@@ -63,7 +63,7 @@ Prioritize question domains aligned with the first principles:
 
 ## 4. Update the Card Continually
 
-Open `CARD.md` per `./commanders-intent.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. The destination must be describable without reference to the current mechanism.
+Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. The destination must be describable without reference to the current mechanism.
 
 After each material exchange or research return, update in place. Do not batch to the end.
 

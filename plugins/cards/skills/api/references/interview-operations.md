@@ -27,7 +27,7 @@ Do not block on research. Proceed to Step 2: Load Writing Skills while subagents
 
 ## 2. Load Writing Skills
 
-Load `cards:markdown` and the writing guide `./operations.md`. The writing guide defines the CARD.md structure this interview is driving toward.
+Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./operations.md`. The writing guide defines the CARD.md structure this interview is driving toward.
 
 ## 3. Interview
 
@@ -53,7 +53,7 @@ Prioritize question domains aligned with the first principles:
 
 ## 4. Author and Confirm Commander's Intent
 
-No card exists yet. Before shaping any structured section, draft the opening paragraph(s) per `./commanders-intent.md` — the target system state after the change — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
+No card exists yet. Before shaping any structured section, draft the opening paragraph(s) — the target system state after the change — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
 
 Hold remaining findings, related incidents, and rejected approaches in conversation state, shaped against the section structure in `./operations.md`.
 

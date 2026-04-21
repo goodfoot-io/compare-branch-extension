@@ -3,7 +3,7 @@ name: interview-documentation
 description: Enrich documentation cards with codebase context.
 ---
 
-Review ./documentation.md
+Review ./documentation.md and ./commanders-intent.md
 
 <first-principles>
 1. Docs exist to change reader behavior — if no action or understanding changes, the doc has no purpose.
@@ -65,7 +65,7 @@ Prioritize question domains aligned with the first principles:
 
 ## 4. Update the Card Continually
 
-Open `CARD.md` per `./commanders-intent.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`.
+Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`.
 
 After each material exchange or research return, update in place. Do not batch to the end.
 
