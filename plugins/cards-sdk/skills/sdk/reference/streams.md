@@ -105,11 +105,17 @@ interface StreamFile {
 }
 
 interface StreamMeta {
-  status: string;
+  filename: string;
+  streamType: string;
   lineCount: number;
+  /** true while the stream is live (not yet committed to git); false once committed. */
+  isActive: boolean;
   sessionId?: string;
   title?: string;
-  closedAt?: string;
+  agentId?: string;
+  taskContent?: string;
+  slug?: string;
+  createdAt: string;
 }
 ```
 
