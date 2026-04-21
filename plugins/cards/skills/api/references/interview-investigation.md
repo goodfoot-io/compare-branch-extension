@@ -56,7 +56,7 @@ No card exists yet. Hold research findings, the evidence-source inventory, and r
 
 ## 5. Create the Card
 
-When the user confirms enough signal has been gathered, create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./investigation.md`. Write plan files only if an approach has emerged clearly from research — otherwise omit. Include evidence-source inventory and prior-art references in `notes/` in the initial commit.
+When the user confirms enough signal has been gathered, create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./investigation.md`. Include evidence-source inventory, prior-art references, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
 
 ## 6. Constraints
 
@@ -66,7 +66,7 @@ When the user confirms enough signal has been gathered, create the card via the 
 
 ## 7. Finalize
 
-After `card create` succeeds and CARD.md (plus any notes/plan) is committed, report the new card ID to the user.
+After `card create` succeeds and CARD.md (plus any notes) is committed, report the new card ID to the user.
 
 **STOP** — Interview complete. Do not proceed to implementation.
 

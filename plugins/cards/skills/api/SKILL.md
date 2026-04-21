@@ -31,10 +31,6 @@ Determine the card type using the first matching signal:
 
 Run the interview first. When enough signal has been gathered, invoke the `card create` flow below and compose CARD.md against the writing guide in the same initial commit. The interview is not optional — every card created through this skill goes through it.
 
-### Optional Plan at Creation Time
-
-If research during CARD.md writing reveals a clear approach, write a plan file alongside CARD.md rather than forcing a separate planning pass that duplicates the research. The plan describes how the card's action will be performed and for what purpose (commander's intent). Write a plan file only when the approach is clear — if it isn't, write only CARD.md and let the planning step handle it.
-
 ## CLI Binaries
 
 The commands below are plugin-provided executables on `PATH`. Invoke them directly as bare commands. They replace the older env-var-based CLI indirection used in Claude-oriented skills, which no longer exists.
@@ -81,20 +77,7 @@ CARD_EOF
 cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
-3. Load the `cards:notes` skill and record any discoveries made during research as notes in the card repository.
-
-If the approach is clear, load the `cards:markdown` skill (if not already loaded) before writing a plan file and its sidecar:
-
-```bash
-mkdir -p "$REPO/plan"
-cat <<'PLAN_EOF' > "$REPO/plan/initial.md"
-Plan content here (plain markdown, no frontmatter; fragment-link every named file, function, and type per <markdown-guidelines>; use mermaid diagrams for multi-component interactions and data flows).
-PLAN_EOF
-cat <<'META_EOF' > "$REPO/plan/initial.md.meta.json"
-{ "title": "Plan: [short title describing the approach]" }
-META_EOF
-cd "$REPO" && git add plan/ && git commit -m "Added plan [single sentence summarizing the approach and key components]."
-```
+3. Load the `cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plan/` files at creation time.
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
