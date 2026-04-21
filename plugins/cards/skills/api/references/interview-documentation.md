@@ -29,46 +29,29 @@ Do not block on research. Proceed to Step 2: Load Writing Skills while subagents
 
 Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./documentation.md`. The writing guide defines the CARD.md structure this interview is driving toward.
 
-## 3. Interview
+## 3. Interview and Accumulate Findings
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
+Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
+
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
 - Target intent, audience, ownership, and trade-offs — never facts recoverable by research.
-- Include a recommendation and each option's trade-offs, including downsides.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force clarity on audience and task; ambiguity here produces unusable docs.
 
-As research subagents return, fold findings into the accumulating draft (Step 4: Accumulate Findings) and let them sharpen the next question.
+As research subagents return and as the conversation settles pieces of the destination, hold findings, candidate sources, and rejected framings in conversation state, shaped against the section structure in `./documentation.md`.
 
-Prioritize question domains aligned with the first principles:
-- **Audience persona** — role, prior knowledge, what they know vs. what they need
-- **Task / job-to-be-done** — what the reader is trying to accomplish when they arrive
-- **Diataxis type** — tutorial / how-to / reference / explanation / runbook
-- **Discoverability** — entry point (search, in-product link, onboarding, index)
-- **Owner** — who maintains it and how drift will be detected
-- **Source of truth** — authoritative artifact; accuracy boundaries; update cadence
-- **Versioning** — tracks a release, a branch, or "current"
-- **Confidentiality tier** — public / internal / restricted
-- **Examples** — required, whether they must be executable/tested
-- **Non-audience and non-topics** — explicit exclusions
-- **Deprecation** — which existing docs are replaced or retired
-- **Success signals** — observable indicators the docs work
+## 4. Create the Card
 
-## 4. Author and Confirm Commander's Intent
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./documentation.md`. Include candidate-source inventory, freshness findings, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
 
-No card exists yet. Before shaping any structured section, draft the opening paragraph(s) — the changed reader behavior after the doc exists — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
-
-Hold remaining findings, candidate sources, and rejected framings in conversation state, shaped against the section structure in `./documentation.md`.
-
-## 5. Create the Card
-
-When the user confirms enough signal has been gathered, create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./documentation.md`. Include candidate-source inventory, freshness findings, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
-
-## 6. Constraints
+## 5. Constraints
 
 - No documentation drafting. The card describes the need; writing happens in a later phase.
 - Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
 - Report failing tests or broken builds you encounter during research in the card; do not remediate.
 
-## 7. Finalize
+## 6. Finalize
 
 After `card create` succeeds and CARD.md (plus any notes) is committed, report the new card ID to the user.
 

@@ -29,45 +29,29 @@ Do not block on research. Proceed to Step 2: Load Writing Skills while subagents
 
 Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./operations.md`. The writing guide defines the CARD.md structure this interview is driving toward.
 
-## 3. Interview
+## 3. Interview and Accumulate Findings
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
+Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
+
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
 - Target urgency, blast radius, reversibility, approvals, and verification — never facts recoverable by research.
-- Include a recommendation and each option's trade-offs, including downsides.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force a rollback and verification plan. An operation without both is not ready to plan.
 
-As research subagents return, fold findings into the accumulating draft (Step 4: Accumulate Findings) and let them sharpen the next question.
+As research subagents return and as the conversation settles pieces of the destination, hold findings, related incidents, and rejected approaches in conversation state, shaped against the section structure in `./operations.md`.
 
-Prioritize question domains aligned with the first principles:
-- **Urgency and change class** — standard / normal / emergency; justification
-- **Blast radius** — environments, users, adjacent systems affected
-- **Reversibility** — rollback path, time-to-rollback target, acceptable data loss
-- **Preconditions** — access, credentials, backups, feature-flag state, quorum
-- **Verification signal** — dashboard, metric, or query confirming success
-- **Canary / staged rollout** — expectation and graduation criteria
-- **Change window and approvals** — ITSM/ITIL class, freeze-period awareness
-- **Stakeholder communication** — pre, during, post; on-call and downstream owners
-- **Observability additions** — missing metrics/alerts to add before the change
-- **Failure modes and known risks** — what the user has seen go wrong before
-- **Cost and compliance implications** — spend, licensing, audit, data-handling
+## 4. Create the Card
 
-## 4. Author and Confirm Commander's Intent
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./operations.md`. Include related incidents, rejected approaches, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
 
-No card exists yet. Before shaping any structured section, draft the opening paragraph(s) — the target system state after the change — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
-
-Hold remaining findings, related incidents, and rejected approaches in conversation state, shaped against the section structure in `./operations.md`.
-
-## 5. Create the Card
-
-When the user confirms enough signal has been gathered, create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./operations.md`. Include related incidents, rejected approaches, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
-
-## 6. Constraints
+## 5. Constraints
 
 - No operational execution. No scripts, no infra changes, no configuration edits.
 - Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
 - Report failing tests or broken builds you encounter during research in the card; do not remediate.
 
-## 7. Finalize
+## 6. Finalize
 
 After `card create` succeeds and CARD.md (plus any notes) is committed, report the new card ID to the user.
 

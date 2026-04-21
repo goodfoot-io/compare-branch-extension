@@ -29,44 +29,29 @@ Do not block on research. Proceed to Step 2: Load Writing Skills while subagents
 
 Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./enhancement.md`. The writing guide defines the CARD.md structure this interview is driving toward.
 
-## 3. Interview
+## 3. Interview and Accumulate Findings
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
-- Target intent, priorities, trade-offs, disambiguation, or confirmation of load-bearing assumptions — never facts recoverable by research.
-- Include a recommendation and each option's trade-offs, including downsides.
-- Surface failure modes, edge cases, and invariants the user may not have considered. Do not shrink from hard questions; choices made here are cheaper than choices made in planning.
+Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
 
-As research subagents return, fold findings into the accumulating draft (Step 4: Accumulate Findings) and let them sharpen the next question.
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
+- Target intent, priorities, trade-offs, and load-bearing assumptions — never facts recoverable by research.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
+- Surface failure modes, edge cases, and invariants they may not have considered. Choices here are cheaper than choices made in planning.
 
-Prioritize question domains aligned with the first principles:
-- **Job-to-be-done vs. stated mechanism** — is the described solution the only acceptable shape?
-- **Contract** — required vs. optional inputs, output stability, idempotency, concurrency
-- **Boundary behavior** — empty, null, oversized, unauthorized, offline, timeout, rate-limited
-- **Failure posture** — fail-open vs. fail-closed, retry semantics, user-visible messaging
-- **Compatibility** — existing data, URLs, APIs, keybindings, adjacent features at risk of regression
-- **Rollout** — feature flag, staged, all-at-once; migration of existing state
-- **Observability** — metrics/logs/traces required to know the feature is working
-- **Accessibility, i18n, privacy** — scope and must-haves when applicable
-- **Acceptance** — what a demo looks like; who signs off
-- **Non-goals** — explicitly out-of-scope
+As research subagents return and as the conversation settles pieces of the destination, hold findings, user answers, rejected alternatives, and open questions in conversation state, shaped against the section structure in `./enhancement.md`. If the user's first description named a mechanism, climb to the underlying job before the destination is articulated.
 
-## 4. Author and Confirm Commander's Intent
+## 4. Create the Card
 
-No card exists yet. Before shaping any structured section, draft the opening paragraph(s) — the user-observable end state — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. If the user's first description named a mechanism, recover the underlying job before drafting. Only accumulate further findings once the user accepts.
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./enhancement.md`. Include research excerpts, rejected alternatives, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
 
-Hold remaining findings, user answers, rejected alternatives, and open questions in conversation state, shaped against the section structure in `./enhancement.md`.
-
-## 5. Create the Card
-
-When the user confirms enough signal has been gathered, create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./enhancement.md`. Include research excerpts, rejected alternatives, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
-
-## 6. Constraints
+## 5. Constraints
 
 - No implementation. No code, no scaffolding, no script execution.
 - Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
 - Report failing tests or broken builds you encounter during research in the card; do not remediate.
 
-## 7. Finalize
+## 6. Finalize
 
 After `card create` succeeds and CARD.md (plus any notes) is committed, report the new card ID to the user.
 

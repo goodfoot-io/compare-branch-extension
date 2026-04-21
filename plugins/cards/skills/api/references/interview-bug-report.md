@@ -29,44 +29,29 @@ Do not block on research. Proceed to Step 2: Load Writing Skills while subagents
 
 Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./bug-report.md`. The writing guide defines the CARD.md structure this interview is driving toward.
 
-## 3. Interview
+## 3. Interview and Accumulate Findings
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
+Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
+
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the report. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
 - Target what only the user can supply: reproduction specifics, environment, severity, workarounds, observed vs. expected, sensitivity of repro data.
-- Include a recommendation and each option's trade-offs, including downsides.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Separate observation from interpretation; do not let the user's hypothesis narrow the investigation prematurely.
 
-As research subagents return, fold findings into the accumulating draft (Step 4: Accumulate Findings) and let them sharpen the next question.
+As research subagents return and as the conversation settles pieces of the destination, hold findings, user answers, and rejected hypotheses in conversation state, shaped against the section structure in `./bug-report.md`. Separate observation from speculation as you go.
 
-Prioritize question domains aligned with the first principles:
-- **Reproduction** — exact steps, starting state, prerequisites
-- **Reproducibility rate** — always / sometimes / once
-- **Environment** — OS, IDE variant, extension version, workspace shape, settings overrides
-- **Regression boundary** — first known good, first known bad, recent user-side changes
-- **Severity and impact** — blast radius, data loss vs. cosmetic, who is blocked
-- **Urgency** — user-facing deadline or incident coupling
-- **Workarounds** — what the user tried; what made it better or worse
-- **Data sensitivity** — can repros/logs be attached or must they be redacted?
-- **Observability gaps** — what log or metric *would* have made this obvious
-- **Acceptance of fix** — how the user will verify the fix beyond the original repro
+## 4. Create the Card
 
-## 4. Author and Confirm Commander's Intent
+When the destination is clear, write the opening paragraph as a summary of what the conversation has settled and check it with the user inline. Then create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./bug-report.md`. Include research excerpts, rejected hypotheses, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
 
-No card exists yet. Before shaping any structured section, draft the opening paragraph(s) — the fixed-state world — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
-
-Hold remaining findings, user answers, and rejected hypotheses in conversation state, shaped against the section structure in `./bug-report.md`. Separate observation from speculation as you go.
-
-## 5. Create the Card
-
-When the user confirms enough signal has been gathered, create the card via the `card create` flow in the parent `cards:api` skill. Compose CARD.md against `./bug-report.md`. Include research excerpts, rejected hypotheses, and any approach that emerged from research in `notes/` in the initial commit. Do not write `plan/` files — planning happens in a later step.
-
-## 6. Constraints
+## 5. Constraints
 
 - No fixes. No code, no remediation, no test stubs.
 - Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
 - Report failing tests or broken builds you encounter during research in the card; do not remediate.
 
-## 7. Finalize
+## 6. Finalize
 
 After `card create` succeeds and CARD.md (plus any notes) is committed, report the new card ID to the user.
 

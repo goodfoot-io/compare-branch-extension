@@ -40,41 +40,26 @@ Do not block on research. Proceed to Section 2 while subagents run.
 
 Load `cards:notes` and `cards:markdown` in parallel.
 
-## 3. Interview
+## 3. Interview and Shape the Card
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
-- Target intent, priorities, trade-offs, disambiguation, or confirmation of load-bearing assumptions — never facts recoverable by research.
-- Include a recommendation and each option's trade-offs, including downsides.
-- Surface failure modes, edge cases, and invariants the user may not have considered. Do not shrink from hard questions; choices made here are cheaper than choices made in planning.
+The card already exists. Read `CARD.md` and use the conversation to close gaps, sharpen ambiguities, and surface assumptions the author left implicit — refining the commander's intent where the interview reveals it needs refining, rather than rebuilding it from scratch.
 
-As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
+- Target intent, priorities, trade-offs, and load-bearing assumptions — never facts recoverable by research.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
+- Surface failure modes, edge cases, and invariants they may not have considered. Choices here are cheaper than choices made in planning.
 
-Prioritize question domains aligned with the first principles:
-- **Job-to-be-done vs. stated mechanism** — is the described solution the only acceptable shape?
-- **Contract** — required vs. optional inputs, output stability, idempotency, concurrency
-- **Boundary behavior** — empty, null, oversized, unauthorized, offline, timeout, rate-limited
-- **Failure posture** — fail-open vs. fail-closed, retry semantics, user-visible messaging
-- **Compatibility** — existing data, URLs, APIs, keybindings, adjacent features at risk of regression
-- **Rollout** — feature flag, staged, all-at-once; migration of existing state
-- **Observability** — metrics/logs/traces required to know the feature is working
-- **Accessibility, i18n, privacy** — scope and must-haves when applicable
-- **Acceptance** — what a demo looks like; who signs off
-- **Non-goals** — explicitly out-of-scope
-
-## 4. Update the Card Continually
-
-Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. If the user's first description named a mechanism, recover the underlying job before drafting.
-
-After each material exchange or research return, update in place. Do not batch to the end.
+As research subagents return and as the conversation settles pieces of the destination, fold them into the card in place — do not batch to the end:
 
 - `CARD.meta.json` — title and metadata
-- `CARD.md` — Commander's Intent paragraph first, then the section structure in `./enhancement.md`
+- `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./enhancement.md`
 - `notes/` — research findings, rejected alternatives, open questions
 - `plan/` — decision logs and load-bearing assumptions only; do **not** write an implementation plan
 
-Commit frequently so the card improves monotonically.
+Commit frequently so the card improves monotonically. If an earlier version of the intent named a mechanism, climb to the underlying job as you revise.
 
-## 5. Finalize
+## 4. Finalize
 
 When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 

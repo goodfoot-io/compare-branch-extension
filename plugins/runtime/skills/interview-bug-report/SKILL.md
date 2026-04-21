@@ -40,41 +40,26 @@ Do not block on research. Proceed to Section 2 while subagents run.
 
 Load `cards:notes` and `cards:markdown` in parallel.
 
-## 3. Interview
+## 3. Interview and Shape the Card
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
+The card already exists. Read `CARD.md` and use the conversation to close gaps, sharpen ambiguities, and surface assumptions the author left implicit — refining the commander's intent where the interview reveals it needs refining, rather than rebuilding it from scratch.
+
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the report. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
 - Target what only the user can supply: reproduction specifics, environment, severity, workarounds, observed vs. expected, sensitivity of repro data.
-- Include a recommendation and each option's trade-offs, including downsides.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Separate observation from interpretation; do not let the user's hypothesis narrow the investigation prematurely.
 
-As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
-
-Prioritize question domains aligned with the first principles:
-- **Reproduction** — exact steps, starting state, prerequisites
-- **Reproducibility rate** — always / sometimes / once
-- **Environment** — OS, IDE variant, extension version, workspace shape, settings overrides
-- **Regression boundary** — first known good, first known bad, recent user-side changes
-- **Severity and impact** — blast radius, data loss vs. cosmetic, who is blocked
-- **Urgency** — user-facing deadline or incident coupling
-- **Workarounds** — what the user tried; what made it better or worse
-- **Data sensitivity** — can repros/logs be attached or must they be redacted?
-- **Observability gaps** — what log or metric *would* have made this obvious
-- **Acceptance of fix** — how the user will verify the fix beyond the original repro
-
-## 4. Update the Card Continually
-
-Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`.
-
-After each material exchange or research return, update in place. Do not batch to the end.
+As research subagents return and as the conversation settles pieces of the destination, fold them into the card in place — do not batch to the end:
 
 - `CARD.meta.json` — title and metadata
-- `CARD.md` — Commander's Intent paragraph first, then the section structure in `./bug-report.md`
+- `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./bug-report.md`
 - `notes/` — research findings, log excerpts, rejected hypotheses
 - `plan/` — decision logs and load-bearing assumptions only; do **not** write a fix plan
 
 Commit frequently so the card improves monotonically.
 
-## 5. Finalize
+## 4. Finalize
 
 When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 

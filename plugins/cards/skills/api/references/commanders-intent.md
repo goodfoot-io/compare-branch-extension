@@ -25,4 +25,6 @@ The opening of `CARD.md` — no heading, no label — is the commander's intent:
 - No fragment links in the opening; link from downstream sections instead.
 - Length follows substance. One tight paragraph for a small card; up to three when destination, constraints, and non-goals each need their own breath. Stop when removing another sentence would lose something load-bearing.
 
+These tests apply to any text the user reads about the intent — the opening paragraph itself, and every question asked to shape it. Vocabulary from this guide does not belong in questions posed to the user.
+
 </how-to-write-a-commanders-intent>

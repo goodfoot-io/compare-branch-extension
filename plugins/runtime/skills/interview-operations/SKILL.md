@@ -40,42 +40,26 @@ Do not block on research. Proceed to Section 2 while subagents run.
 
 Load `cards:notes` and `cards:markdown` in parallel.
 
-## 3. Interview
+## 3. Interview and Shape the Card
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
+The card already exists. Read `CARD.md` and use the conversation to close gaps, sharpen ambiguities, and surface assumptions the author left implicit — refining the commander's intent where the interview reveals it needs refining, rather than rebuilding it from scratch.
+
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
 - Target urgency, blast radius, reversibility, approvals, and verification — never facts recoverable by research.
-- Include a recommendation and each option's trade-offs, including downsides.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force a rollback and verification plan. An operation without both is not ready to plan.
 
-As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
-
-Prioritize question domains aligned with the first principles:
-- **Urgency and change class** — standard / normal / emergency; justification
-- **Blast radius** — environments, users, adjacent systems affected
-- **Reversibility** — rollback path, time-to-rollback target, acceptable data loss
-- **Preconditions** — access, credentials, backups, feature-flag state, quorum
-- **Verification signal** — dashboard, metric, or query confirming success
-- **Canary / staged rollout** — expectation and graduation criteria
-- **Change window and approvals** — ITSM/ITIL class, freeze-period awareness
-- **Stakeholder communication** — pre, during, post; on-call and downstream owners
-- **Observability additions** — missing metrics/alerts to add before the change
-- **Failure modes and known risks** — what the user has seen go wrong before
-- **Cost and compliance implications** — spend, licensing, audit, data-handling
-
-## 4. Update the Card Continually
-
-Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`.
-
-After each material exchange or research return, update in place. Do not batch to the end.
+As research subagents return and as the conversation settles pieces of the destination, fold them into the card in place — do not batch to the end:
 
 - `CARD.meta.json` — title and metadata
-- `CARD.md` — Commander's Intent paragraph first, then the section structure in `./operations.md`
+- `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./operations.md`
 - `notes/` — research findings, related incidents, rejected approaches
 - `plan/` — decision logs and load-bearing assumptions only; do **not** write a change plan
 
 Commit frequently so the card improves monotonically.
 
-## 5. Finalize
+## 4. Finalize
 
 When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 

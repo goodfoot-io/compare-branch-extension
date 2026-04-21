@@ -40,43 +40,26 @@ Do not block on research. Proceed to Section 2 while subagents run.
 
 Load `cards:notes` and `cards:markdown` in parallel.
 
-## 3. Interview
+## 3. Interview and Shape the Card
 
-Ask one question at a time via `AskUserQuestion`. Each question must:
+The card already exists. Read `CARD.md` and use the conversation to close gaps, sharpen ambiguities, and surface assumptions the author left implicit — refining the commander's intent where the interview reveals it needs refining, rather than rebuilding it from scratch.
+
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
 - Target intent, audience, ownership, and trade-offs — never facts recoverable by research.
-- Include a recommendation and each option's trade-offs, including downsides.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force clarity on audience and task; ambiguity here produces unusable docs.
 
-As research subagents return, fold findings into the card (Section 4) and let them sharpen the next question.
-
-Prioritize question domains aligned with the first principles:
-- **Audience persona** — role, prior knowledge, what they know vs. what they need
-- **Task / job-to-be-done** — what the reader is trying to accomplish when they arrive
-- **Diataxis type** — tutorial / how-to / reference / explanation / runbook
-- **Discoverability** — entry point (search, in-product link, onboarding, index)
-- **Owner** — who maintains it and how drift will be detected
-- **Source of truth** — authoritative artifact; accuracy boundaries; update cadence
-- **Versioning** — tracks a release, a branch, or "current"
-- **Confidentiality tier** — public / internal / restricted
-- **Examples** — required, whether they must be executable/tested
-- **Non-audience and non-topics** — explicit exclusions
-- **Deprecation** — which existing docs are replaced or retired
-- **Success signals** — observable indicators the docs work
-
-## 4. Update the Card Continually
-
-Open `CARD.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`.
-
-After each material exchange or research return, update in place. Do not batch to the end.
+As research subagents return and as the conversation settles pieces of the destination, fold them into the card in place — do not batch to the end:
 
 - `CARD.meta.json` — title and metadata
-- `CARD.md` — Commander's Intent paragraph first, then the section structure in `./documentation.md`
+- `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./documentation.md`
 - `notes/` — research findings, candidate sources, rejected framings
 - `plan/` — decision logs and load-bearing assumptions only; do **not** draft the documentation itself
 
 Commit frequently so the card improves monotonically.
 
-## 5. Finalize
+## 4. Finalize
 
 When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
 
