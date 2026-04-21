@@ -7,12 +7,14 @@ Bridge understanding between what exists, what should exist, and why the gap mat
 
 | Section | Purpose | Question Answered |
 |---------|---------|-------------------|
+| Commander's Intent (no header in CARD.md) | Opening paragraph(s) per `./commanders-intent.md` | "What does success look like from the user's seat?" |
 | Historical Context | Explain how the system reached its current state | "How did we get here?" |
 | Current Functionality | Document actual behavior with evidence | "What does it do now?" |
 | Desired Functionality | State requirements clearly | "What should it do?" |
 
 ## Section Notes
 
+- **Commander's Intent** per `./commanders-intent.md` (no heading in CARD.md — the card opens with this paragraph). Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
 - **Historical Context** (omit header in output): Organize chronologically or by conceptual phases.
   - Each phase explains what changed, why, and its effect.
   - Write for a reader with no prior context.

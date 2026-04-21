@@ -7,7 +7,7 @@ Make the intent and outcomes explicit: what needs to be learned, why it matters,
 
 | Section | Purpose | Question Answered |
 |---------|---------|-------------------|
-| Summary | Concise statement of the unknown and why it matters | "What are we trying to learn and why now?" |
+| Commander's Intent (no header in CARD.md) | Opening paragraph(s) per `./commanders-intent.md` — the decision the investigation unblocks | "What do we need to decide, and when have we earned the right to decide it?" |
 | Background | Context that frames the investigation | "What is the current situation?" |
 | Key Questions / Hypotheses | The unknowns to resolve | "What do we need to validate or falsify?" |
 | Scope & Constraints | Boundaries for the investigation | "What is in/out, and what limits apply?" |
@@ -18,7 +18,7 @@ Make the intent and outcomes explicit: what needs to be learned, why it matters,
 
 ## Section Notes
 
-- **Summary** (omit header in output): Write as a question or uncertainty paired with impact.
+- **Commander's Intent** per `./commanders-intent.md` (no heading in CARD.md — the card opens with this paragraph). The destination is the downstream decision that becomes possible; the null result is an acceptable form of arrival. Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
 - **Background** (omit header in output): Only context required to understand why the investigation is needed now. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
 - **Key Questions / Hypotheses**: Phrase questions so they can be answered with data.
 - **Scope & Constraints**: Narrow enough to complete, broad enough to answer the key questions.

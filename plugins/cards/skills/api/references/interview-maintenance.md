@@ -50,9 +50,11 @@ Prioritize question domains aligned with the first principles:
 - **Completion criterion** — what "done" looks like; is old code removed
 - **Performance/observability budget** — what may regress and by how much
 
-## 4. Accumulate Findings
+## 4. Author and Confirm Commander's Intent
 
-No card exists yet. Hold research findings, consumer inventory, and rejected approaches in conversation state, shaped against the section structure in `./maintenance.md`.
+No card exists yet. Before shaping any structured section, draft the opening paragraph(s) per `./commanders-intent.md` — the end state describable without reference to the current mechanism — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
+
+Hold remaining findings, consumer inventory, and rejected approaches in conversation state, shaped against the section structure in `./maintenance.md`.
 
 ## 5. Create the Card
 

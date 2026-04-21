@@ -50,9 +50,11 @@ Prioritize question domains aligned with the first principles:
 - **Prior art** — existing investigations to extend or avoid redoing
 - **Risks of false positive / false negative** — asymmetry of being wrong
 
-## 4. Accumulate Findings
+## 4. Author and Confirm Commander's Intent
 
-No card exists yet. Hold research findings, the evidence-source inventory, and rejected framings in conversation state, shaped against the section structure in `./investigation.md`.
+No card exists yet. Before shaping any structured section, draft the opening paragraph(s) per `./commanders-intent.md` — the decision the investigation unblocks, with the null result as an acceptable form of arrival — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
+
+Hold remaining findings, the evidence-source inventory, and rejected framings in conversation state, shaped against the section structure in `./investigation.md`.
 
 ## 5. Create the Card
 

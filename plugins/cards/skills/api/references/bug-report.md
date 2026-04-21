@@ -7,7 +7,7 @@ Capture what happened with enough precision that someone else can reproduce it. 
 
 | Section | Content |
 |---------|---------|
-| Summary | One sentence describing the unexpected behavior |
+| Commander's Intent (no header in CARD.md) | Opening paragraph(s) per `./commanders-intent.md` — the system after the defect is gone |
 | Environment | Branch, versions, relevant configuration |
 | Steps to reproduce | Numbered sequence of actions |
 | Expected behavior | What should have happened |
@@ -17,6 +17,7 @@ Capture what happened with enough precision that someone else can reproduce it. 
 
 ## Writing Principles
 
+- **Open with Commander's Intent** per `./commanders-intent.md` (no heading in CARD.md). The destination is the fixed-state world, not "the bug is fixed"; every downstream section serves the intent, and anything that does not moves to `notes/` or the intent is wrong.
 - **Document observable facts**: Exact error messages (copy-paste), file paths, line numbers, git state, environment details. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
 - **Reproduction steps**: Numbered, specific, noting prerequisites and consistency (reproducible vs intermittent).
 - **Separate observation from speculation**: Frame hypotheses as exploration — "This suggests..." not "The bug is caused by..."

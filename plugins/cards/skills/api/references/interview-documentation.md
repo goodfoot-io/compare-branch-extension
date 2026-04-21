@@ -52,9 +52,11 @@ Prioritize question domains aligned with the first principles:
 - **Deprecation** — which existing docs are replaced or retired
 - **Success signals** — observable indicators the docs work
 
-## 4. Accumulate Findings
+## 4. Author and Confirm Commander's Intent
 
-No card exists yet. Hold research findings, candidate sources, and rejected framings in conversation state, shaped against the section structure in `./documentation.md`.
+No card exists yet. Before shaping any structured section, draft the opening paragraph(s) per `./commanders-intent.md` — the changed reader behavior after the doc exists — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
+
+Hold remaining findings, candidate sources, and rejected framings in conversation state, shaped against the section structure in `./documentation.md`.
 
 ## 5. Create the Card
 

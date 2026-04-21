@@ -7,6 +7,7 @@ Capture the operational goal, evidence, and verification while minimizing risk. 
 | Section | Content |
 |---------|---------|
 | Title | One sentence naming the system, operational goal, and impact |
+| Commander's Intent (no header in CARD.md) | Opening paragraph(s) per `./commanders-intent.md` — target system state after the change |
 | Context | What is failing or degrading today, with evidence |
 | Desired Outcome | Measurable target state and how to verify it |
 | Impact/Risk | User impact, urgency, and risk level |
@@ -18,6 +19,7 @@ Capture the operational goal, evidence, and verification while minimizing risk. 
 
 ## Writing Principles
 
+- **Open with Commander's Intent** per `./commanders-intent.md` (no heading in CARD.md — the card opens with this paragraph after the title). The destination is observed system behavior after the change, not "run the script"; acceptance is a dashboard, metric, or query a reviewer can check. Every downstream section serves the intent; anything that does not moves to `notes/` or the intent is wrong.
 - **Objective and urgency**: What needs to be true after the work, what impact is at risk (SLA/SLO, error budget), how urgent and why.
 - **Evidence-grounded**: Symptoms, metrics, logs, dashboards, incident links; baselines (build time, failure rate, latency, cost). Fragment-link every named file, function, and type per `<markdown-guidelines>`.
 - **Measurable outcomes**: Success targets, verification steps (dashboard checks, canary signals), must-have vs nice-to-have.

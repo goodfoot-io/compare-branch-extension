@@ -50,9 +50,11 @@ Prioritize question domains aligned with the first principles:
 - **Observability gaps** — what log or metric *would* have made this obvious
 - **Acceptance of fix** — how the user will verify the fix beyond the original repro
 
-## 4. Accumulate Findings
+## 4. Author and Confirm Commander's Intent
 
-No card exists yet. Hold research findings, user answers, and rejected hypotheses in conversation state, shaped against the section structure in `./bug-report.md`. Separate observation from speculation as you go.
+No card exists yet. Before shaping any structured section, draft the opening paragraph(s) per `./commanders-intent.md` — the fixed-state world — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
+
+Hold remaining findings, user answers, and rejected hypotheses in conversation state, shaped against the section structure in `./bug-report.md`. Separate observation from speculation as you go.
 
 ## 5. Create the Card
 

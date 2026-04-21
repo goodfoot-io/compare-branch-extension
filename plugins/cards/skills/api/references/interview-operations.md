@@ -51,9 +51,11 @@ Prioritize question domains aligned with the first principles:
 - **Failure modes and known risks** — what the user has seen go wrong before
 - **Cost and compliance implications** — spend, licensing, audit, data-handling
 
-## 4. Accumulate Findings
+## 4. Author and Confirm Commander's Intent
 
-No card exists yet. Hold research findings, related incidents, and rejected approaches in conversation state, shaped against the section structure in `./operations.md`.
+No card exists yet. Before shaping any structured section, draft the opening paragraph(s) per `./commanders-intent.md` — the target system state after the change — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. Only accumulate further findings once the user accepts.
+
+Hold remaining findings, related incidents, and rejected approaches in conversation state, shaped against the section structure in `./operations.md`.
 
 ## 5. Create the Card
 

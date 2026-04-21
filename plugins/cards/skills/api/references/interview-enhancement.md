@@ -50,9 +50,11 @@ Prioritize question domains aligned with the first principles:
 - **Acceptance** — what a demo looks like; who signs off
 - **Non-goals** — explicitly out-of-scope
 
-## 4. Accumulate Findings
+## 4. Author and Confirm Commander's Intent
 
-No card exists yet. Hold research findings, user answers, rejected alternatives, and open questions in conversation state, shaped against the section structure in `./enhancement.md`.
+No card exists yet. Before shaping any structured section, draft the opening paragraph(s) per `./commanders-intent.md` — the user-observable end state — and confirm with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. If the user's first description named a mechanism, recover the underlying job before drafting. Only accumulate further findings once the user accepts.
+
+Hold remaining findings, user answers, rejected alternatives, and open questions in conversation state, shaped against the section structure in `./enhancement.md`.
 
 ## 5. Create the Card
 

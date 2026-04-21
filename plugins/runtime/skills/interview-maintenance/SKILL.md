@@ -63,10 +63,12 @@ Prioritize question domains aligned with the first principles:
 
 ## 4. Update the Card Continually
 
+Open `CARD.md` per `./commanders-intent.md` before drafting any structured section, then confirm the opening with the user via `AskUserQuestion` with options `accept`, `refine`, `reject`. The destination must be describable without reference to the current mechanism.
+
 After each material exchange or research return, update in place. Do not batch to the end.
 
 - `CARD.meta.json` — title and metadata
-- `CARD.md` — per `./maintenance.md` structure
+- `CARD.md` — Commander's Intent paragraph first, then the section structure in `./maintenance.md`
 - `notes/` — research findings, consumer inventory, rejected approaches
 - `plan/` — decision logs and load-bearing assumptions only; do **not** write a migration plan
 
