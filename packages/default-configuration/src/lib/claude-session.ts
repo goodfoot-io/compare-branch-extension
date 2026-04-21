@@ -123,6 +123,10 @@ export function buildArgs(
   args.push('--add-dir', cardRepoPath);
   args.push('--effort', 'low');
   args.push('--model', 'opus');
+  args.push(
+    '--disallowed-tools',
+    'AskUserQuestion, CronCreate, CronDelete, CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite'
+  );
   args.push('--add-dir', claudeDirPath);
   args.push('--teammate-mode', 'in-process');
   // Temporarily disable as this creates an interactive warning dialog

@@ -1,7 +1,7 @@
 ---
 name: failure-mode
 description: Identify potential failure modes in implemented code.
-tools: "*"
+disallowedTools: AskUserQuestion, CronCreate, CronDelete, CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite
 model: inherit
 color: yellow
 skills:

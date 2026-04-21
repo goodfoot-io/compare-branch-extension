@@ -1,7 +1,7 @@
 ---
 name: experience-evaluator
 description: Find user-experienced failure modes in an implementation.
-tools: "*"
+disallowedTools: AskUserQuestion, CronCreate, CronDelete, CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite
 model: inherit
 color: purple
 skills:

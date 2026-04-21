@@ -1,7 +1,7 @@
 ---
 name: developer
 description: Implement scoped card work in the worktree.
-tools: "*"
+disallowedTools: AskUserQuestion, CronCreate, CronDelete, CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite
 model: inherit
 color: cyan
 skills:
