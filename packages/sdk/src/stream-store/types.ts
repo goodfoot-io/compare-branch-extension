@@ -20,8 +20,8 @@ export interface StreamMeta {
   sessionId?: string;
   /** Human-readable title for UI display. */
   title?: string;
-  /** ISO-8601 timestamp when the stream was closed. */
-  closedAt?: string;
+  /** `true` when the stream has not yet been committed to git (live append mode). */
+  isActive: boolean;
 }
 
 // ============================================================================

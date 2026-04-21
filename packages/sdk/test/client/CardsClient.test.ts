@@ -446,7 +446,7 @@ describe('CardsClient', () => {
           filename: 'session.log',
           streamType: 'claude-session',
           createdAt: '2024-01-01T00:00:00Z',
-          closedAt: '2024-01-01T01:00:00Z',
+          isActive: false,
           lineCount: 100
         }
       ];

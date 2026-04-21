@@ -187,7 +187,7 @@ export interface StreamStartedEvent {
 /**
  * Broadcast when a terminated stream is reopened and ready to receive new lines.
  *
- * Fired immediately after the stream's `closedAt` is cleared and it is ready
+ * Fired immediately after the stream's `isActive` flag is set back to true and it is ready
  * to receive appends again. Subscribers can use this to re-enable stream viewer
  * widgets and reattach listeners that were released when the stream ended.
  */
@@ -196,7 +196,7 @@ export interface StreamResumedEvent {
   type: 'stream:resumed';
   /** ID of the parent card. */
   cardId: string;
-  /** Full stream metadata snapshot after resume (`closedAt` will be absent). */
+  /** Full stream metadata snapshot after resume (`isActive` will be true). */
   meta: StreamMeta;
   /** Number of lines the stream had before resume. */
   previousLineCount: number;
@@ -229,7 +229,7 @@ export interface StreamLineEvent {
  * Broadcast when a stream is closed.
  *
  * After this event, no further `stream:line` events will be emitted for this
- * stream. The stream's `closedAt` timestamp will be set in its metadata.
+ * stream. The stream's `isActive` flag will be set to false in its metadata.
  */
 export interface StreamEndedEvent {
   /** Event type discriminator. */

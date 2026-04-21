@@ -54,7 +54,7 @@ export function CompactView(): React.ReactElement {
   const [compactState, setCompactState] = useState<CompactState>(() => {
     const storeState = streamStore.getState();
     const file = storeState.files.get(storeState.primary);
-    return buildState(file ? file.lines : [], storeState.primary, file?.meta.closedAt);
+    return buildState(file ? file.lines : [], storeState.primary, file?.meta.isActive ?? false);
   });
 
   const [metaTitle, setMetaTitle] = useState<string>(() => {
@@ -109,7 +109,7 @@ export function CompactView(): React.ReactElement {
       } else if (newLineCount < lastLineCountRef.current) {
         // File reset: rebuild from scratch
         lastLineCountRef.current = newLineCount;
-        setCompactState(buildState(lines, newState.primary, file?.meta.closedAt));
+        setCompactState(buildState(lines, newState.primary, file?.meta.isActive ?? false));
         setMetaTitle(file?.meta.title ?? '');
       }
     });

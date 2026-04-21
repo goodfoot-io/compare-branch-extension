@@ -51,13 +51,12 @@ export function makeInitialState(): CompactState {
 
 /**
  * Derives initial status from stream file meta.
- * @param closedAt - ISO-8601 timestamp when the stream was closed, or undefined if active.
+ * @param isActive - Whether the stream is live (not yet committed).
  * @returns Normalized session status string.
  */
-export function deriveInitialStatus(closedAt: string | undefined): string {
-  // Active streams (closedAt undefined) are running
-  if (closedAt === undefined) return 'running';
-  // Closed streams: treat as success by default; error status requires a result event
+export function deriveInitialStatus(isActive: boolean): string {
+  if (isActive) return 'running';
+  // Committed streams: treat as success by default; error status requires a result event
   return 'success';
 }
 
@@ -146,12 +145,12 @@ export function processLine(state: CompactState, line: string): void {
  * Builds the full compact state from an array of JSONL lines.
  * @param lines - Array of raw JSONL lines to process.
  * @param primaryFilename - Primary stream filename used to detect subagent sessions.
- * @param closedAt - ISO-8601 timestamp when the stream was closed, or undefined if active.
+ * @param isActive - Whether the stream is live (not yet committed).
  * @returns Fully populated compact state derived from all lines.
  */
-export function buildState(lines: string[], primaryFilename: string, closedAt: string | undefined): CompactState {
+export function buildState(lines: string[], primaryFilename: string, isActive: boolean): CompactState {
   const state = makeInitialState();
-  state.sessionStatus = deriveInitialStatus(closedAt);
+  state.sessionStatus = deriveInitialStatus(isActive);
   state.isSubagent = SUBAGENT_PATTERN.test(primaryFilename);
   for (const line of lines) {
     processLine(state, line);

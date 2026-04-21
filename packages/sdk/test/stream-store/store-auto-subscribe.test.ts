@@ -25,7 +25,7 @@ function buildInitData(primaryLines: string[]): StreamInitData {
     primary: 'session.jsonl',
     files: {
       'session.jsonl': {
-        meta: { lineCount: primaryLines.length },
+        meta: { lineCount: primaryLines.length, isActive: true },
         lines: primaryLines
       }
     },

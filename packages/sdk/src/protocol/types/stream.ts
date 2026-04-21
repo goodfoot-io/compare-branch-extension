@@ -59,13 +59,13 @@ export interface AttachmentInfoFile {
  * File-persisted metadata for a single stream.
  *
  * Stored as `streams/{streamType}/{filename}.meta.json` inside the card directory.
- * This represents the static file fields only. Lifecycle status and close timestamp
- * are NOT persisted in the JSON file — they live in SQLite and are populated into
- * {@link StreamMeta} at read time.
+ * This represents the static file fields only. Active/committed state is derived
+ * at read time from whether the sidecar is present in git HEAD versus arriving via
+ * a live `stream:started` event.
  *
  * @see StreamDefinition for the environment-level configuration that governs
  *   rendering for a given `streamType`.
- * @see StreamMeta for the API shape that includes lifecycle status and timestamps from SQLite.
+ * @see StreamMeta for the API shape that includes lifecycle status and timestamps.
  */
 export interface StreamMetaFile {
   /** User-specified filename (e.g., `"session.log"`). Unique within a card's `streams/` directory. */
@@ -110,14 +110,14 @@ export interface StreamMetaFile {
  * Persisted metadata for a single stream with lifecycle timestamps.
  *
  * This is the API shape used throughout the application. It extends
- * {@link StreamMetaFile} with timestamps. `closedAt` is sourced from SQLite
- * (write-through cache), while `createdAt` is derived from Git history.
- * `lineCount` is kept in sync by each append and reflects the authoritative
- * count from SQLite.
+ * {@link StreamMetaFile} with `createdAt` (derived from git history) and
+ * `isActive` — the boolean source of truth for live vs. historical mode.
  *
- * A stream is considered active when `closedAt` is absent, and closed when
- * `closedAt` is present. Consumers should derive `isActive` as
- * `meta.closedAt === undefined`.
+ * `isActive` is `true` only when the stream has not yet been committed to git
+ * (i.e. the panel learned about it from a live `stream:started` event). Once
+ * the sidecar is committed and loaded from disk via the snapshot builder,
+ * `isActive` is `false`. No timestamp equivalent of "closed at" is stored —
+ * the previous `closedAt` field was never meaningful outside of display.
  *
  * @see StreamDefinition for the environment-level configuration that governs
  *   rendering for a given `streamType`.
@@ -126,8 +126,11 @@ export interface StreamMeta extends StreamMetaFile {
   /** ISO-8601 timestamp when the stream was created. Derived from Git history. */
   createdAt: string;
 
-  /** ISO-8601 timestamp when the stream was closed. From SQLite `closed_at` (seeded from git commit timestamp at close). Absent while the stream is active. */
-  closedAt?: string;
+  /**
+   * `true` when the stream has not yet been committed to git (live append mode);
+   * `false` when loaded from a committed `.meta.json` sidecar (historical mode).
+   */
+  isActive: boolean;
 }
 
 /**

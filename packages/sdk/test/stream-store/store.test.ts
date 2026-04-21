@@ -33,11 +33,11 @@ beforeAll(async () => {
     primary: 'session.jsonl',
     files: {
       'session.jsonl': {
-        meta: { lineCount: 2, sessionId: 's1' },
+        meta: { lineCount: 2, sessionId: 's1', isActive: true },
         lines: ['line1', 'line2']
       },
       'other.jsonl': {
-        meta: { lineCount: 5, closedAt: '2025-01-01T00:00:00Z' },
+        meta: { lineCount: 5, isActive: false },
         lines: ['a', 'b', 'c', 'd', 'e']
       }
     },
@@ -66,7 +66,7 @@ describe('stream store', () => {
       const file = store.getState().files.get('session.jsonl');
       expect(file).toBeDefined();
       expect(file!.filename).toBe('session.jsonl');
-      expect(file!.meta.closedAt).toBeUndefined();
+      expect(file!.meta.isActive).toBe(true);
       expect(file!.meta.lineCount).toBe(2);
       expect(file!.meta.sessionId).toBe('s1');
       expect(file!.lines).toEqual(['line1', 'line2']);
@@ -124,11 +124,11 @@ describe('stream store', () => {
       dispatchHostMessage({
         type: 'stream:started',
         filename: 'new-stream.jsonl',
-        meta: { lineCount: 0, title: 'New Stream' }
+        meta: { lineCount: 0, title: 'New Stream', isActive: true }
       });
 
       const file = store.getState().files.get('new-stream.jsonl')!;
-      expect(file.meta.closedAt).toBeUndefined();
+      expect(file.meta.isActive).toBe(true);
       expect(file.meta.title).toBe('New Stream');
       expect(file.lines).toEqual([]);
     });
@@ -137,11 +137,11 @@ describe('stream store', () => {
       dispatchHostMessage({
         type: 'stream:ended',
         filename: 'session.jsonl',
-        meta: { lineCount: 99, closedAt: '2026-01-01T00:00:00Z' }
+        meta: { lineCount: 99, isActive: false }
       });
 
       const file = store.getState().files.get('session.jsonl')!;
-      expect(file.meta.closedAt).toBe('2026-01-01T00:00:00Z');
+      expect(file.meta.isActive).toBe(false);
       expect(file.lines.length).toBeGreaterThan(0);
     });
 
@@ -159,7 +159,7 @@ describe('stream store', () => {
         type: 'subscribe:response',
         filename: 'subscribed.jsonl',
         lines: ['sub1', 'sub2'],
-        meta: { lineCount: 2, closedAt: '2025-01-01T00:00:00Z' }
+        meta: { lineCount: 2, isActive: false }
       });
 
       const file = store.getState().files.get('subscribed.jsonl')!;
@@ -175,7 +175,7 @@ describe('stream store', () => {
         type: 'subscribe:response',
         filename: 'error-file.jsonl',
         lines: [],
-        meta: { lineCount: 0 },
+        meta: { lineCount: 0, isActive: true },
         error: 'File not found'
       });
 
@@ -247,7 +247,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'merge-test.jsonl',
           lines: ['base1', 'base2'],
-          meta: { lineCount: 2 }
+          meta: { lineCount: 2, isActive: true }
         });
         expect(store.getState().files.get('merge-test.jsonl')!.lines).toEqual(['base1', 'base2']);
 
@@ -256,7 +256,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'merge-test.jsonl',
           lines: ['r1', 'r2', 'r3', 'r4'],
-          meta: { lineCount: 4 }
+          meta: { lineCount: 4, isActive: true }
         });
 
         const lines = store.getState().files.get('merge-test.jsonl')!.lines;
@@ -270,7 +270,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'live-test.jsonl',
           lines: ['hist1', 'hist2', 'hist3'],
-          meta: { lineCount: 3 }
+          meta: { lineCount: 3, isActive: true }
         });
 
         // Simulate two live events arriving before the next subscribe:response
@@ -283,7 +283,7 @@ describe('stream store', () => {
           type: 'subscribe:response',
           filename: 'live-test.jsonl',
           lines: ['hist1', 'hist2', 'hist3'],
-          meta: { lineCount: 3 }
+          meta: { lineCount: 3, isActive: true }
         });
 
         const lines = store.getState().files.get('live-test.jsonl')!.lines;

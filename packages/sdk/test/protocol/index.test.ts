@@ -124,7 +124,7 @@ describe('DomainEvent discriminated union', () => {
       {
         type: 'stream:resumed',
         cardId: 'id',
-        meta: { filename: 'f', streamType: 'jsonl', lineCount: 0, createdAt: '2024-01-01' },
+        meta: { filename: 'f', streamType: 'jsonl', lineCount: 0, createdAt: '2024-01-01', isActive: false },
         previousLineCount: 5
       }
     ];
