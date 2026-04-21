@@ -52,6 +52,7 @@
     "@typescript/native-preview": "^7.0.0-dev",
     "esbuild": "^0.25.0",
     "glob": "^11.0.0",
+    "jsonpath-plus": "^10.4.0",
     "minimatch": "^10.0.0",
     "puppeteer-core": "^24.36.1",
     "typescript": "^5.9.3",

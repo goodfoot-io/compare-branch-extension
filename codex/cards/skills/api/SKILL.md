@@ -74,7 +74,7 @@ The response includes `repositoryPath`. After creation:
 2. Write card content and commit:
 
 ```bash
-REPO=$(card create <<'EOF' | jq -r '.repositoryPath'
+REPO=$(card create --jsonpath '$.repositoryPath' <<'EOF'
 { "title": "Fix auth", "tags": ["bug"] }
 EOF
 )
@@ -320,7 +320,7 @@ Authorship is determined by git commit ownership. List files in any card
 repository directory chronologically with author and commit message:
 
 ```bash
-REPO=$(card <card-id> | jq -r '.repositoryPath')
+REPO=$(card <card-id> --jsonpath '$.repositoryPath')
 git -C "$REPO" log --reverse --diff-filter=A --format='%an: %s' --name-only -- comment/ \
   | awk 'NF{if(/^comment\//){print $0"  "prev}else{prev=$0}}'
 ```
@@ -333,7 +333,7 @@ Replace both occurrences of `comment/` with the target directory
 Comments are pure markdown files with descriptive slug filenames.
 
 ```bash
-REPO=$(card <card-id> | jq -r '.repositoryPath')
+REPO=$(card <card-id> --jsonpath '$.repositoryPath')
 mkdir -p "$REPO/comment"
 cat <<'COMMENT_EOF' > "$REPO/comment/my-slug-name.md"
 Your comment content here (plain markdown, no frontmatter).
@@ -347,7 +347,7 @@ Attachments use UUID4 identifiers with a sanitized original filename, plus a
 `.meta.json` sidecar describing the file.
 
 ```bash
-REPO=$(card <card-id> | jq -r '.repositoryPath')
+REPO=$(card <card-id> --jsonpath '$.repositoryPath')
 ATT_UUID=$(cat /proc/sys/kernel/random/uuid)  # UUID4
 ATT_NAME="att-${ATT_UUID}_screenshot.png"
 mkdir -p "$REPO/attachment"

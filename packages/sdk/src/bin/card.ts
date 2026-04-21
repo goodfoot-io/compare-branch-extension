@@ -25,6 +25,7 @@ import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/proto
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
 import { associatePidWithCard, findAgentPid, getSessionIdForPid, removePidEntry } from '@cards/sessions';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
+import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
@@ -36,7 +37,13 @@ Locates the server through ~/.cards/cards-api.json, executes the command,
 and prints the resulting Card JSON to stdout.
 
 Options:
-  -h, --help        Show this help text
+  -h, --help              Show this help text
+  --jsonpath <expr>       Filter JSON output with a JSONPath expression.
+                          Single primitive results are printed raw (no quotes);
+                          object/array results and multi-match results are
+                          printed as JSON. Supported on get, create, list,
+                          search, and action subcommands.
+                          Example: --jsonpath '$.repositoryPath'
 
 Commands:
   <card-id>                      Fetch a card by its identifier
@@ -171,14 +178,51 @@ export async function connectClient(workspacePath?: string): Promise<CardsClient
 }
 
 /**
+ * Evaluates a JSONPath expression against a value and returns the formatted
+ * output string.
+ *
+ * A single primitive result (string, number, boolean) is printed raw without
+ * quoting — mirroring the behavior of `jq -r`. A single object or array
+ * result is pretty-printed as JSON. When the expression matches multiple
+ * values, all results are pretty-printed as a JSON array.
+ *
+ * @param value - The JSON-compatible value to query.
+ * @param expression - A JSONPath expression (e.g. `$.repositoryPath`).
+ * @returns The formatted string to print to stdout.
+ */
+export function applyJsonPath(value: unknown, expression: string): string {
+  const results = JSONPath({ path: expression, json: value as object, wrap: true }) as unknown[];
+  if (results.length === 1) {
+    const only = results[0];
+    if (typeof only === 'string') return only;
+    if (typeof only === 'number' || typeof only === 'boolean' || only === null) return String(only);
+    return JSON.stringify(only, null, 2);
+  }
+  return JSON.stringify(results, null, 2);
+}
+
+/**
+ * Formats a value for stdout, applying a JSONPath filter when provided.
+ *
+ * @param value - The value to print.
+ * @param jsonPath - Optional JSONPath expression to filter with.
+ * @returns The formatted string.
+ */
+export function formatOutput(value: unknown, jsonPath?: string): string {
+  if (jsonPath) return applyJsonPath(value, jsonPath);
+  return JSON.stringify(value, null, 2);
+}
+
+/**
  * Fetches a card by ID and prints its metadata as JSON to stdout.
  *
  * @param cardId - The card identifier to look up.
+ * @param jsonPath - Optional JSONPath expression to filter the output.
  */
-export async function getCard(cardId: string): Promise<void> {
+export async function getCard(cardId: string, jsonPath?: string): Promise<void> {
   const client = await connectClient();
   const card = await client.getCard(cardId);
-  console.log(JSON.stringify(card, null, 2));
+  console.log(formatOutput(card, jsonPath));
 }
 
 /**
@@ -287,7 +331,7 @@ export async function createCard(args: string[]): Promise<void> {
       filtered[key] = value;
     }
   }
-  console.log(JSON.stringify(filtered, null, 2));
+  console.log(formatOutput(filtered, flags['jsonpath']?.[0]));
 }
 
 /**
@@ -364,7 +408,7 @@ export async function listCards(args: string[]): Promise<void> {
   }
 
   const cards = await client.listCards(options);
-  console.log(JSON.stringify(cards, null, 2));
+  console.log(formatOutput(cards, flags['jsonpath']?.[0]));
 }
 
 /**
@@ -425,7 +469,7 @@ export async function searchCards(args: string[]): Promise<void> {
   const raw = await client.listCards(options);
   const summaries = toCardListSummaries(raw);
   const results = filterCardsByTags(summaries, derivedTags, relatedTo);
-  console.log(JSON.stringify(results, null, 2));
+  console.log(formatOutput(results, flags['jsonpath']?.[0]));
 }
 
 /**
@@ -820,11 +864,12 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
  *
  * @param cardId - The card identifier.
  * @param actionName - The action identifier to execute.
+ * @param jsonPath - Optional JSONPath expression to filter the output.
  */
-export async function executeAction(cardId: string, actionName: string): Promise<void> {
+export async function executeAction(cardId: string, actionName: string, jsonPath?: string): Promise<void> {
   const client = await connectClient();
   const result: ActionResult = await client.executeAction(cardId, actionName);
-  console.log(JSON.stringify(result, null, 2));
+  console.log(formatOutput(result, jsonPath));
 }
 
 /**
@@ -901,10 +946,14 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
           console.error('card action: missing action ID argument');
           process.exit(1);
         }
-        run = executeAction(command, actionId);
+        const actionFlags = parseFlags(process.argv.slice(5));
+        run = executeAction(command, actionId, actionFlags['jsonpath']?.[0]);
       } else if (verb === 'watch') {
         const watchGlobs = process.argv.slice(4);
         run = watchCard(command, watchGlobs);
+      } else if (verb?.startsWith('--')) {
+        const getFlags = parseFlags(process.argv.slice(3));
+        run = getCard(command, getFlags['jsonpath']?.[0]);
       } else if (verb) {
         console.error(`card: unknown verb "${verb}"`);
         process.exit(1);

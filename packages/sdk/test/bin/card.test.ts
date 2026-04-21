@@ -36,6 +36,7 @@ vi.mock('@cards/sessions', async (importOriginal) => {
 
 import { findAgentPid } from '@cards/sessions';
 import {
+  applyJsonPath,
   attachCard,
   connectClient,
   createCard,
@@ -333,6 +334,42 @@ describe('card binary', () => {
       } finally {
         logSpy.mockRestore();
       }
+    });
+
+    it('applies JSONPath expression and prints scalar raw', async () => {
+      const card = { id: 'card-2', title: 'Test', repositoryPath: '/repos/card-2' };
+      cards.set('card-2', card);
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const { getCard: getCardFn } = await import('../../src/bin/card.js');
+        await getCardFn('card-2', '$.repositoryPath');
+        expect(logSpy).toHaveBeenCalledWith('/repos/card-2');
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+  });
+
+  describe('applyJsonPath', () => {
+    it('returns scalar string raw for single match', () => {
+      expect(applyJsonPath({ repositoryPath: '/x' }, '$.repositoryPath')).toBe('/x');
+    });
+
+    it('serializes object results as pretty JSON', () => {
+      expect(applyJsonPath({ gates: { planRequired: true } }, '$.gates')).toBe(
+        JSON.stringify({ planRequired: true }, null, 2)
+      );
+    });
+
+    it('returns array of matches for multi-match expressions', () => {
+      const result = applyJsonPath({ items: [{ n: 1 }, { n: 2 }] }, '$.items[*].n');
+      expect(result).toBe(JSON.stringify([1, 2], null, 2));
+    });
+
+    it('stringifies numeric and boolean scalars', () => {
+      expect(applyJsonPath({ n: 42 }, '$.n')).toBe('42');
+      expect(applyJsonPath({ b: true }, '$.b')).toBe('true');
     });
   });
 
