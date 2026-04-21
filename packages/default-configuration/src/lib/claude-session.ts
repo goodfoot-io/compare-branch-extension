@@ -122,7 +122,7 @@ export function buildArgs(
   args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
   args.push('--effort', 'low');
-  args.push('--model', 'opus');
+  args.push('--model', 'default');
   args.push(
     '--disallowed-tools',
     'AskUserQuestion, CronCreate, CronDelete, CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite'
