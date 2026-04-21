@@ -87,16 +87,7 @@ card create <<'EOF'
 EOF
 ```
 
-**List cards** — List cards for the current workspace. Detects workspace path from git automatically:
-```
-card list
-card list --status active
-card list --limit 10
-```
 
-Each card in the response includes `parentBranch` when the card was created in a workspace with a resolvable branch.
-
-Options: `--workspace-path <path>`, `--status <status>`, `--limit <n>`, `--offset <n>`
 
 **Search cards** — Search cards using a unified query syntax with `#tag`, `@relation`, and free text:
 ```
@@ -188,70 +179,6 @@ cards-extension attribution clear
 Each card is an isolated Git repository. The `repositoryPath` field from `card <id>`
 gives the absolute path to this repository.
 
-### Commit History API
-
-`GET /cards/:id/git/log` returns an array of commit objects representing the card repository's full commit history. `GET /cards/:id/snapshot` returns the same commit array alongside current file contents.
-
-Each commit's `diff.files` array contains `CardCommitFile` records:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `file` | `string` | Relative path within the card repository |
-| `status` | `string` | Git status: `A` (added), `M` (modified), `D` (deleted), `R` (renamed), `C` (copied) |
-| `from` | `string?` | Source path for renames (present when status starts with `R`) |
-| `binary` | `boolean` | `true` for binary files (no text diff available) |
-
-### File Read/Write Endpoints
-
-`GET /cards/:id/fs/:path` returns the raw content of any file in the card repository, addressed by its relative path (e.g., `GET /cards/:id/fs/plan/initial.md`). Supports an optional `?sha=<commitSha>` query parameter to read a specific version.
-
-`PUT /cards/:id/fs/:path` writes content to a file in the card repository. Only `.md` and `.md.meta.json` paths are accepted; path traversal (`..`) is rejected. The body is a JSON-encoded string. The server stages and commits the change automatically.
-
-### Workspace-Scoped Endpoints
-
-When the server manages multiple workspace folders, several endpoints accept an optional `workspacePath` query parameter to resolve per-workspace settings (environments). If `workspacePath` is provided but the workspace is not registered, the endpoint returns `400` (fail-closed).
-
-| Endpoint | Resolution |
-|----------|------------|
-| `GET /environments` | Settings loader (environment definitions) |
-| `GET /cards/:id/schema` | Settings loader (environment schema) |
-| `POST /cards/:cardId/streams/:streamType/:filename` | Settings loader (stream transforms) |
-
-Usage: append `?workspacePath=/absolute/path/to/workspace` to any of the above.
-
-### Internal Endpoints
-
-`POST /internal/register-workspace` registers an additional workspace folder for per-workspace settings resolution. Called by the extension lifecycle when VS Code opens multiple workspace folders.
-
-Request body:
-```json
-{ "workspacePath": "/absolute/path/to/workspace" }
-```
-
-Returns `{ "success": true, "workspacePath": "..." }` on success. Returns `400` if `workspacePath` is missing, empty, or not an absolute path.
-
-`POST /internal/validate-markdown` validates embedded content (e.g., mermaid diagrams) in markdown text. Returns structured validation errors for invalid syntax.
-
-Request body:
-```json
-{ "content": "# Title\n\n```mermaid\nflowchart TD\n  A --> B\n```" }
-```
-
-Success response:
-```json
-{ "valid": true, "errors": [] }
-```
-
-Error response (400):
-```json
-{
-  "error": "Markdown contains invalid embedded syntax",
-  "code": "VALIDATION_ERROR",
-  "requestId": "...",
-  "fields": [{ "field": "mermaid:L3", "message": "mermaid syntax error: ..." }]
-}
-```
-
 ### Directory Layout
 
 ```
@@ -260,7 +187,6 @@ CARD.md                     # Description (pure markdown, NO frontmatter)
 plan/                       # Plan documents (continuation-based)
   [name].md                 # Semantically-named plan files
   [name].md.meta.json       # Sidecar with display title
-EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
 attachment/                 # Created on first attachment
@@ -295,23 +221,9 @@ attachment/                 # Created on first attachment
 
 `relations` is optional — omitted when the card has no outgoing relations. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card.
 
-### Listing Repository Files
-
-Authorship is determined by git commit ownership. List files in any card
-repository directory chronologically with author and commit message:
-
-```bash
-REPO=$(card <card-id> | jq -r '.repositoryPath')
-git -C "$REPO" log --reverse --diff-filter=A --format='%an: %s' --name-only -- comment/ \
-  | awk 'NF{if(/^comment\//){print $0"  "prev}else{prev=$0}}'
-```
-
-Replace both occurrences of `comment/` with the target directory
-(e.g., `attachment/`).
-
 ### Adding a Comment
 
-Comments are pure markdown files with descriptive slug filenames.
+Comments are pure markdown files with descriptive slug filenames. Authorship is determined by git commit ownership.
 
 ```bash
 REPO=$(card <card-id> | jq -r '.repositoryPath')

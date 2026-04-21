@@ -16,14 +16,6 @@ The following environment variables are available in all bash statements:
 | `$BASE_BRANCH` | Git branch that the card's workspace branch will merge into. |
 | `$WORKSPACE_BRANCH` | Git branch name for the card's workspace implementation. |
 
-## Execution Mode
-
-The session runs in one of two modes, surfaced as the `EXECUTION_MODE` variable in the env block:
-
-| Mode | Meaning |
-|------|---------|
-| `interactive` | User is present; UI is visible. Prompts and clarifying questions are appropriate. |
-| `background` | Action runs without user attention. Minimize prompts; prefer autonomous decisions and comments over blocking questions. |
 
 ## Directory Layout
 
@@ -33,7 +25,6 @@ CARD.md                     # Description (pure markdown, NO frontmatter)
 plan/                       # Plan documents (continuation-based)
   [name].md                 # Semantically-named plan files
   [name].md.meta.json       # Sidecar with display title
-EVALUATION.md               # Optional evaluation rubric
 branches.json               # Branches associated with the card
 commits.csv                 # Git commit SHAs associated with the card
 comment/                    # Created on first comment
@@ -100,7 +91,7 @@ enforce gate satisfaction. Instead:
 (e.g. `github.com/org/repo`). Each card targets exactly one repository. Cards for
 different repositories use different board prefixes (e.g. `main-` vs `api-`).
 
-## CARD.md, plan/, and EVALUATION.md
+## CARD.md and plan/
 
 - **`CARD.md`** is the *description*: what's happening, what's needed, and why it matters.
   Content varies by card type — a bug report describes the defect, an enhancement describes
@@ -112,11 +103,8 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
   Adding a new plan file resets `planApproved` to false. Written by the implementing agent
   or alongside CARD.md when the approach is clear at creation time. Subject to revision and
   approval via the `planRequired`/`planApproved` gates.
-- **`EVALUATION.md`** is the *verification rubric*: how to confirm the implementation
-  works from an end-user perspective. Written by the implementing agent following the
-  `runtime:evaluation` skill structure. Optional — cards function identically without it.
 
-All three are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
+Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
 
 
 ## Comments

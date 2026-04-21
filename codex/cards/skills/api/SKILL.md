@@ -280,7 +280,6 @@ CARD.md                     # Description (pure markdown, NO frontmatter)
 plan/                       # Plan documents (continuation-based)
   [name].md                 # Semantically-named plan files
   [name].md.meta.json       # Sidecar with display title
-EVALUATION.md               # Optional evaluation rubric
 comment/                    # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
 attachment/                 # Created on first attachment
