@@ -63,7 +63,7 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 
 [N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plan/planner-N.md` and broadcasts `PLAN: READY` when ready.
 
-Before the first plan arrives, build a pre-plan risk inventory framed as questions a plan for this card must answer. Pull from `CARD.md`, prior knowledge of the domain, adjacent cards and notes, similar code in the workspace, web searches for known pitfalls when the domain calls for it, and — when relevant — an `Explore` subagent searching prior Claude transcripts in `~/.claude/**/*.jsonl` for how past work in this space failed. Then, as each `PLAN: READY` arrives, review the plan against that inventory and look for additional failure modes the plan introduces. Use internal `TaskCreate` to track per-plan state. Stream findings to the originating planner, then broadcast `VERDICT: APPROVED for:planner-N` or `VERDICT: CHANGES_REQUESTED for:planner-N`. The first `APPROVED` verdict concludes review; the orchestrator will then stop remaining work.
+Follow the skill from the top. Review each plan as its `PLAN: READY` broadcast arrives, stream findings to the originating planner, and broadcast `VERDICT: APPROVED for:planner-N` or `VERDICT: CHANGES_REQUESTED for:planner-N` per plan. The first `APPROVED` verdict concludes review; the orchestrator will then stop remaining work.
 
 ## Card Repository
 [CARD_REPO_PATH]
