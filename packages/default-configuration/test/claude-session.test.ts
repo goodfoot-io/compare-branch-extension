@@ -258,7 +258,7 @@ describe('claude-session shared utilities', () => {
       expect(args).toContain('/card/repo');
       expect(args).toContain('/ext/claude');
       expect(args).toContain('--teammate-mode');
-      expect(args).toContain('in-process');
+      expect(args).toContain('tmux');
     });
   });
 
