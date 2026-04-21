@@ -128,7 +128,7 @@ export function buildArgs(
     'AskUserQuestion, CronCreate, CronDelete, CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite'
   );
   args.push('--add-dir', claudeDirPath);
-  args.push('--teammate-mode', 'in-process');
+  args.push('--teammate-mode', 'tmux');
   // Temporarily disable as this creates an interactive warning dialog
   // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
   if (mode === 'background') {
