@@ -10,6 +10,30 @@ import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import { TestGitWorkspace } from '@cards/test-utils';
 import yaml from 'js-yaml';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+
+/**
+ * Parses the plain-text log body shared by card-repo-log and workspace-repo-log blocks.
+ * Each entry is `{sha} • {author}\n{subject}` (or `{sha} [merged] • {author}\n{subject}`),
+ * separated by blank lines.
+ *
+ * @param body - Raw text content between the log XML tags.
+ * @returns Array of parsed commit entries.
+ */
+function parseLogEntries(body: string): Array<{ sha: string; author: string; subject: string; merged?: true }> {
+  if (!body.trim()) return [];
+  return body.split('\n\n').map((entry) => {
+    const newlineIdx = entry.indexOf('\n');
+    const shaLine = entry.slice(0, newlineIdx);
+    const subject = entry.slice(newlineIdx + 1);
+    const mergedMatch = /^(\S+) \[merged\] • (.+)$/.exec(shaLine);
+    if (mergedMatch) {
+      return { sha: mergedMatch[1]!, author: mergedMatch[2]!, subject, merged: true };
+    }
+    const match = /^(\S+) • (.+)$/.exec(shaLine);
+    return { sha: match![1]!, author: match![2]!, subject };
+  });
+}
+
 import {
   buildAdditionalContext,
   buildCardBlock,
@@ -94,7 +118,7 @@ describe('buildCardBlock', () => {
     ...overrides
   });
 
-  it('produces a YAML card block with type="yaml" attribute', () => {
+  it('produces a <card> block with title, tags, and gates only', () => {
     const tmpDir = join(repoPath, '..', `card-block-yaml-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
     writeFileSync(
@@ -115,15 +139,12 @@ describe('buildCardBlock', () => {
 
     const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
 
-    expect(result).toMatch(/^<card type="yaml">/);
+    expect(result).toMatch(/^<card>/);
     expect(result).toContain('</card>');
 
-    // Parse the YAML body
-    const yamlContent = result.replace(/^<card type="yaml">\n/, '').replace(/\n<\/card>$/, '');
+    const yamlContent = result.replace(/^<card>\n/, '').replace(/\n<\/card>$/, '');
     const parsed = yaml.load(yamlContent) as Record<string, unknown>;
-    expect(parsed['id']).toBe('test-1');
     expect(parsed['title']).toBe('Test card title');
-    expect(parsed['status']).toBe('active');
     expect(parsed['tags']).toEqual(['feature', 'security']);
     expect(parsed['gates']).toEqual({
       planRequired: true,
@@ -131,9 +152,11 @@ describe('buildCardBlock', () => {
       mergeRequestRequired: true,
       mergeApproved: false
     });
+    expect(parsed).not.toHaveProperty('id');
+    expect(parsed).not.toHaveProperty('status');
   });
 
-  it('dumps CARD.meta.json verbatim including relations', () => {
+  it('omits fields beyond title, tags, and gates', () => {
     const tmpDir = join(repoPath, '..', `card-block-rel-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
     writeFileSync(
@@ -149,10 +172,12 @@ describe('buildCardBlock', () => {
     );
 
     const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
-    const yamlContent = result.replace(/^<card type="yaml">\n/, '').replace(/\n<\/card>$/, '');
+    const yamlContent = result.replace(/^<card>\n/, '').replace(/\n<\/card>$/, '');
     const parsed = yaml.load(yamlContent) as Record<string, unknown>;
 
-    expect(parsed['relations']).toEqual([{ type: 'related', cardId: 'main-99' }]);
+    expect(parsed).not.toHaveProperty('relations');
+    expect(parsed).not.toHaveProperty('id');
+    expect(parsed).not.toHaveProperty('status');
   });
 
   it('throws when CARD.meta.json is missing (fail closed)', () => {
@@ -333,37 +358,31 @@ describe('buildCardRepoBlock', () => {
 });
 
 describe('buildCardRepoLogBlock', () => {
-  it('returns YAML log block with type="yaml" attribute', () => {
+  it('returns plain-text log block with order="oldest-first" attribute', () => {
     const result = buildCardRepoLogBlock(repoPath);
 
     expect(result).not.toBeNull();
-    expect(result).toMatch(/<card-repo-log type="yaml" count="\d+" order="oldest-first">/);
+    expect(result).toMatch(/<card-repo-log order="oldest-first">/);
     expect(result).toContain('</card-repo-log>');
+    expect(result).not.toContain('type="yaml"');
+    expect(result).not.toMatch(/count="\d+"/);
   });
 
-  it('produces YAML array with sha, author, subject fields', () => {
+  it('produces plain-text entries with sha, author, subject fields', () => {
     const result = buildCardRepoLogBlock(repoPath);
 
     expect(result).not.toBeNull();
-    const yamlContent = result!.replace(/^<card-repo-log[^>]*>\n/, '').replace(/\n<\/card-repo-log>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, string>>;
+    const body = result!.replace(/^<card-repo-log[^>]*>\n/, '').replace(/\n<\/card-repo-log>$/, '');
+    const entries = parseLogEntries(body);
 
-    expect(Array.isArray(parsed)).toBe(true);
-    expect(parsed.length).toBeGreaterThan(0);
-    expect(parsed[0]).toHaveProperty('sha');
-    expect(parsed[0]).toHaveProperty('author');
-    expect(parsed[0]).toHaveProperty('subject');
+    expect(entries.length).toBeGreaterThan(0);
+    for (const entry of entries) {
+      expect(entry.sha).toBeTruthy();
+      expect(entry.author).toBeTruthy();
+      expect(entry.subject).toBeTruthy();
+    }
     // TestGitWorkspace creates a "Repository initializes." commit
-    expect(parsed.some((c) => c['subject'] === 'Repository initializes.')).toBe(true);
-  });
-
-  it('includes total commit count attribute', () => {
-    const result = buildCardRepoLogBlock(repoPath);
-
-    expect(result).not.toBeNull();
-    const match = result!.match(/count="(\d+)"/);
-    expect(match).not.toBeNull();
-    expect(parseInt(match![1]!, 10)).toBeGreaterThanOrEqual(1);
+    expect(entries.some((c) => c.subject === 'Repository initializes.')).toBe(true);
   });
 
   it('returns null for non-git directory', () => {
@@ -386,10 +405,10 @@ describe('buildCardRepoLogBlock', () => {
       const result = buildCardRepoLogBlock(chronoPath);
 
       expect(result).not.toBeNull();
-      const yamlContent = result!.replace(/^<card-repo-log[^>]*>\n/, '').replace(/\n<\/card-repo-log>$/, '');
-      const parsed = yaml.load(yamlContent) as Array<Record<string, string>>;
-      const firstIdx = parsed.findIndex((c) => c['subject'] === 'First commit');
-      const secondIdx = parsed.findIndex((c) => c['subject'] === 'Second commit');
+      const body = result!.replace(/^<card-repo-log[^>]*>\n/, '').replace(/\n<\/card-repo-log>$/, '');
+      const entries = parseLogEntries(body);
+      const firstIdx = entries.findIndex((c) => c.subject === 'First commit');
+      const secondIdx = entries.findIndex((c) => c.subject === 'Second commit');
       expect(firstIdx).toBeLessThan(secondIdx);
     } finally {
       chronoRepo.destroy();
@@ -513,7 +532,7 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     expect(blocks).toEqual([]);
   });
 
-  it('renders YAML blocks with type="yaml" attribute', () => {
+  it('renders plain-text blocks with branch and count attributes', () => {
     const dir = makeCardRepo({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
       branch1CommitSha1,
       branch1CommitSha2
@@ -522,29 +541,28 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
     expect(blocks).toHaveLength(1);
-    expect(blocks[0]).toMatch(/<workspace-repo-log type="yaml"/);
+    expect(blocks[0]).not.toContain('type="yaml"');
     expect(blocks[0]).toContain('branch="cards/card-123/1"');
     expect(blocks[0]).toContain('count="2"');
     expect(blocks[0]).toContain('</workspace-repo-log>');
   });
 
-  it('produces YAML array with sha and subject fields', () => {
+  it('produces plain-text entries with sha, author, and subject fields', () => {
     const dir = makeCardRepo({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
       branch1CommitSha1,
       branch1CommitSha2
     ]);
 
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
-    const yamlContent = blocks[0]!.replace(/^<workspace-repo-log[^>]*>\n/, '').replace(/\n<\/workspace-repo-log>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
+    const body = blocks[0]!.replace(/^<workspace-repo-log[^>]*>\n/, '').replace(/\n<\/workspace-repo-log>$/, '');
+    const entries = parseLogEntries(body);
 
-    expect(Array.isArray(parsed)).toBe(true);
-    expect(parsed.some((c) => c['subject'] === 'feat: implement auth')).toBe(true);
-    expect(parsed.some((c) => c['subject'] === 'test: auth tests')).toBe(true);
-    // Each commit has sha and subject
-    for (const commit of parsed) {
-      expect(commit).toHaveProperty('sha');
-      expect(commit).toHaveProperty('subject');
+    expect(entries.some((c) => c.subject === 'feat: implement auth')).toBe(true);
+    expect(entries.some((c) => c.subject === 'test: auth tests')).toBe(true);
+    for (const entry of entries) {
+      expect(entry.sha).toBeTruthy();
+      expect(entry.author).toBeTruthy();
+      expect(entry.subject).toBeTruthy();
     }
   });
 
@@ -594,7 +612,7 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     expect(blocks).toEqual([]);
   });
 
-  it('shows merged: true for commits reachable from the base branch', () => {
+  it('annotates merged commits with [merged] in the sha line', () => {
     process.env['BASE_BRANCH'] = 'main';
 
     const dir = makeCardRepo({ 'cards/card-123/1': { parentBranch: 'main', addedAt: '2025-01-15T10:30:00Z' } }, [
@@ -605,16 +623,16 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     const blocks = buildWorkspaceRepoLogBlocks(workspacePath, dir);
 
     expect(blocks).toHaveLength(1);
-    const yamlContent = blocks[0]!.replace(/^<workspace-repo-log[^>]*>\n/, '').replace(/\n<\/workspace-repo-log>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
+    const body = blocks[0]!.replace(/^<workspace-repo-log[^>]*>\n/, '').replace(/\n<\/workspace-repo-log>$/, '');
+    const entries = parseLogEntries(body);
 
-    const mainCommit = parsed.find((c) => c['subject'] === 'feat: main work');
+    const mainCommit = entries.find((c) => c.subject === 'feat: main work');
     expect(mainCommit).toBeDefined();
-    expect(mainCommit!['merged']).toBe(true);
+    expect(mainCommit!.merged).toBe(true);
 
-    const authCommit = parsed.find((c) => c['subject'] === 'feat: implement auth');
+    const authCommit = entries.find((c) => c.subject === 'feat: implement auth');
     expect(authCommit).toBeDefined();
-    expect(authCommit!['merged']).toBeUndefined();
+    expect(authCommit!.merged).toBeUndefined();
   });
 
   it('does not show merged for orphaned commits', () => {
@@ -629,7 +647,7 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     expect(blocks[0]).not.toContain('merged');
   });
 
-  it('shows merged: true for commits after merge to main', async () => {
+  it('annotates [merged] for commits after merge to main', async () => {
     const mergeWorkspace = new TestGitWorkspace();
     const mergePath = await mergeWorkspace.create();
     const git = mergeWorkspace.getGit();
@@ -650,11 +668,11 @@ describe('buildWorkspaceRepoLogBlocks', () => {
     const blocks = buildWorkspaceRepoLogBlocks(mergePath, dir);
 
     expect(blocks).toHaveLength(1);
-    const yamlContent = blocks[0]!.replace(/^<workspace-repo-log[^>]*>\n/, '').replace(/\n<\/workspace-repo-log>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
-    const featureCommit = parsed.find((c) => c['subject'] === 'feat: new feature');
+    const body = blocks[0]!.replace(/^<workspace-repo-log[^>]*>\n/, '').replace(/\n<\/workspace-repo-log>$/, '');
+    const entries = parseLogEntries(body);
+    const featureCommit = entries.find((c) => c.subject === 'feat: new feature');
     expect(featureCommit).toBeDefined();
-    expect(featureCommit!['merged']).toBe(true);
+    expect(featureCommit!.merged).toBe(true);
 
     mergeWorkspace.destroy();
   });
@@ -720,7 +738,7 @@ describe('buildAdditionalContext', () => {
 
     expect(result).toContain('```bash');
     expect(result).toContain('EXECUTION_MODE=interactive');
-    expect(result).toMatch(/<card type="yaml">/);
+    expect(result).toMatch(/<card>/);
     expect(result).toContain('</card>');
     expect(result).toMatch(/<card-repo type="yaml">/);
     expect(result).toContain('</card-repo>');

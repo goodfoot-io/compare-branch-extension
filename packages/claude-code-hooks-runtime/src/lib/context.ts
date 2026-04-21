@@ -89,14 +89,16 @@ export function buildEnvBlock(actionInput: ActionInput): string {
 // Card block
 // ============================================================================
 
+const CARD_BLOCK_KEYS = ['title', 'tags', 'gates'] as const;
+
 /**
- * Builds the `<card>` XML block with a YAML body from CARD.meta.json.
+ * Builds the `<card>` XML block with a filtered YAML body from CARD.meta.json.
  *
- * Reads `CARD.meta.json` in full and serializes the entire parsed object
- * to YAML. Lets readFileSync/JSON.parse errors propagate (fail closed).
+ * Only includes `title`, `tags`, and `gates` fields. Lets readFileSync/JSON.parse
+ * errors propagate (fail closed).
  *
  * @param actionInput - Parsed action input from the environment.
- * @returns The `<card type="yaml">...</card>` block string.
+ * @returns The `<card>...</card>` block string.
  * @throws {CardRepoAccessError} When CARD.meta.json cannot be read.
  */
 export function buildCardBlock(actionInput: ActionInput): string {
@@ -107,8 +109,12 @@ export function buildCardBlock(actionInput: ActionInput): string {
   } catch (error) {
     throw new CardRepoAccessError(actionInput.cardRepoPath, error);
   }
-  const yamlBody = yaml.dump(data, { flowLevel: -1, lineWidth: -1 }).trimEnd();
-  return `<card type="yaml">\n${yamlBody}\n</card>`;
+  const filtered: Record<string, unknown> = {};
+  for (const key of CARD_BLOCK_KEYS) {
+    if (key in data) filtered[key] = data[key];
+  }
+  const yamlBody = yaml.dump(filtered, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+  return `<card>\n${yamlBody}\n</card>`;
 }
 
 // ============================================================================
@@ -325,23 +331,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
       return { sha: sha!, author: author!, subject: subject! };
     });
 
-    let totalCount: number | null = null;
-    try {
-      const countStr = execFileSync('git', ['rev-list', '--count', 'HEAD'], {
-        cwd: rootPath,
-        encoding: 'utf-8',
-        timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      }).trim();
-      totalCount = parseInt(countStr, 10);
-      if (Number.isNaN(totalCount)) totalCount = null;
-    } catch (_countError: unknown) {
-      void _countError; // count is optional
-    }
-
-    const countAttr = totalCount !== null ? ` count="${totalCount}"` : '';
-    const yamlBody = yaml.dump(commits, { flowLevel: -1, lineWidth: -1 }).trimEnd();
-    return `<card-repo-log type="yaml"${countAttr} order="oldest-first">\n${yamlBody}\n</card-repo-log>`;
+    const body = commits.map(({ sha, author, subject }) => `${sha} • ${author}\n${subject}`).join('\n\n');
+    return `<card-repo-log order="oldest-first">\n${body}\n</card-repo-log>`;
   } catch {
     return null;
   }
@@ -472,10 +463,10 @@ function resolveWorkspaceCommitDetails(
   workspacePath: string,
   shas: string[],
   mergedShas?: Set<string>
-): Array<{ sha: string; subject: string; merged?: true }> | null {
+): Array<{ sha: string; author: string; subject: string; merged?: true }> | null {
   if (shas.length === 0) return null;
   try {
-    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%H%x00%h%x00%s', ...shas], {
+    const output = execFileSync('git', ['log', '--no-walk', '--pretty=format:%H%x00%h%x00%an%x00%s', ...shas], {
       cwd: workspacePath,
       encoding: 'utf-8',
       timeout: 5000,
@@ -484,11 +475,15 @@ function resolveWorkspaceCommitDetails(
 
     if (!output) return null;
 
-    const commits: Array<{ sha: string; subject: string; merged?: true }> = [];
+    const commits: Array<{ sha: string; author: string; subject: string; merged?: true }> = [];
     for (const line of output.split('\n')) {
-      const [fullSha, shortSha, subject] = line.split('\0');
+      const [fullSha, shortSha, author, subject] = line.split('\0');
       if (!shortSha || !subject) continue;
-      const commit: { sha: string; subject: string; merged?: true } = { sha: shortSha, subject };
+      const commit: { sha: string; author: string; subject: string; merged?: true } = {
+        sha: shortSha,
+        author: author ?? '',
+        subject
+      };
       if (mergedShas?.has(fullSha!)) {
         commit.merged = true;
       }
@@ -564,10 +559,14 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
 
     if (!commits) continue;
 
-    const yamlBody = yaml.dump(commits, { flowLevel: -1, lineWidth: -1 }).trimEnd();
+    const body = commits
+      .map(({ sha, author, subject, merged }) => {
+        const shaLine = merged ? `${sha} [merged] • ${author}` : `${sha} • ${author}`;
+        return `${shaLine}\n${subject}`;
+      })
+      .join('\n\n');
 
-    // Build XML tag
-    const attrs: string[] = ['type="yaml"'];
+    const attrs: string[] = [];
     if (group.orphaned) {
       attrs.push('orphaned="true"');
     } else {
@@ -575,7 +574,7 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
     }
     attrs.push(`count="${group.shas.length}"`);
 
-    blocks.push(`<workspace-repo-log ${attrs.join(' ')}>\n${yamlBody}\n</workspace-repo-log>`);
+    blocks.push(`<workspace-repo-log ${attrs.join(' ')}>\n${body}\n</workspace-repo-log>`);
   }
 
   return blocks;

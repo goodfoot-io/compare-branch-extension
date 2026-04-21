@@ -115,9 +115,9 @@ describe('SubagentStart Hook', () => {
       expect(stdout.systemMessage).toMatch(/^```bash\n/);
       expect(stdout.systemMessage).toContain('EXECUTION_MODE=background');
 
-      // <card> block with type="yaml"
-      expect(stdout.systemMessage).toContain('<card type="yaml">');
-      expect(stdout.systemMessage).toContain('id: card-123');
+      // <card> block with title and gates only
+      expect(stdout.systemMessage).toContain('<card>');
+      expect(stdout.systemMessage).toContain('title: Test card');
 
       // <card-repo> block with type="yaml"
       expect(stdout.systemMessage).toContain('<card-repo type="yaml">');

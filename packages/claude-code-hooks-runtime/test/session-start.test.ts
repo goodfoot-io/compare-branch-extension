@@ -145,9 +145,9 @@ describe('SessionStart Hook', () => {
       expect(stdout.systemMessage).toContain('EXECUTION_MODE=background');
       expect(stdout.systemMessage).toContain(`CARD_REPO_PATH=${repoPath}`);
 
-      // <card> block with type="yaml"
-      expect(stdout.systemMessage).toContain('<card type="yaml">');
-      expect(stdout.systemMessage).toContain('id: card-123');
+      // <card> block with title and gates only
+      expect(stdout.systemMessage).toContain('<card>');
+      expect(stdout.systemMessage).toContain('title: Test card');
       expect(stdout.systemMessage).toContain('</card>');
 
       // <card-repo> block with type="yaml"
