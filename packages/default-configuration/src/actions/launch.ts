@@ -76,7 +76,7 @@ export default defineAction(
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
     await spawnClaudeSession(input, context, {
-      prompt: 'Load the `runtime:chat` skill and follow the `<routing-instructions>`.',
+      prompt: 'Load the `runtime:card` skill and follow the `<routing-instructions>`.',
       sessionId,
       resume,
       supportsSwitchToInteractive: true,
