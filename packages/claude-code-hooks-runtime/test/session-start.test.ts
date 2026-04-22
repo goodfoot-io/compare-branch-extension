@@ -288,6 +288,23 @@ describe('SessionStart Hook', () => {
       );
     });
 
+    it('spawns watcher binary by name so PATH resolution locates it', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
+
+      await hook(mockInput, context);
+
+      expect(vi.mocked(spawn)).toHaveBeenCalledWith(
+        'transcript-watcher',
+        ['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath],
+        expect.objectContaining({ detached: true, stdio: 'ignore' })
+      );
+    });
+
     it('continues when watcher spawn fails', async () => {
       vi.mocked(spawn).mockImplementation(() => {
         throw new Error('spawn failed');
