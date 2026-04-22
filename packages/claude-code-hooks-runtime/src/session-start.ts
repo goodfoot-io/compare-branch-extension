@@ -10,10 +10,6 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid, registerSession } from '@cards/sessions';
@@ -92,23 +88,15 @@ export function spawnTranscriptWatcher(
   cardId: string,
   cardRepoPath: string
 ): void {
-  // Resolves the SDK-built artifact at public/plugins/cards/bin/transcript-watcher.mjs
-  // relative to the built hooks.json location at public/plugins/runtime/hooks/.
-  const watcherPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../cards/bin/transcript-watcher.mjs');
+  // `transcript-watcher` is a shell wrapper published on PATH by the SDK plugin tree
+  // (public/plugins/cards/bin/transcript-watcher). It exec's the .mjs via VSCODE_NODE,
+  // so this hook does not need to know either location.
+  const spawnArgs = [String(pid), sessionId, transcriptPath, cardId, cardRepoPath];
 
-  // Resolve node executable: prefer VSCODE_NODE env var, fallback to file, then 'node'
-  let nodeBin: string;
-  try {
-    nodeBin = process.env['VSCODE_NODE'] ?? readFileSync(join(homedir(), '.cards', 'VSCODE_NODE'), 'utf-8').trim();
-  } catch {
-    nodeBin = 'node';
-  }
-
-  const spawnArgs = [watcherPath, String(pid), sessionId, transcriptPath, cardId, cardRepoPath];
-
-  const child = spawn(nodeBin, spawnArgs, {
+  const child = spawn('transcript-watcher', spawnArgs, {
     detached: true,
-    stdio: 'ignore'
+    stdio: 'ignore',
+    env: { ...process.env }
   });
   child.unref();
 }
