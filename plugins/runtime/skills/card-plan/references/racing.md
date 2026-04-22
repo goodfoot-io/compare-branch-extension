@@ -88,13 +88,16 @@ The orchestrator does not adjudicate findings. It routes on the reviewer's verdi
 
 This step runs on every exit path from Step 4 (winner, all-blocked, any BLOCKED verdict).
 
-Stop every still-running subagent in the team:
+Send a shutdown request to every still-running subagent in the team:
 
 ```xml
-<invoke name="TaskStop">
-  <parameter name="taskId">[each live planner-N and plan-failure-mode task]</parameter>
+<invoke name="SendMessage">
+  <parameter name="to">[each live planner-N and plan-failure-mode]</parameter>
+  <parameter name="message">{"type": "shutdown_request"}</parameter>
 </invoke>
 ```
+
+Wait for all teammates to shut down before proceeding.
 
 If there is a winner, promote the winning plan and delete the losers. Choose `[WINNING_SLUG]` from the winner's `PLAN: READY` broadcast summary — use a semantically descriptive slug (e.g., `initial`, `phase-2`, `schema-first`). Then:
 
