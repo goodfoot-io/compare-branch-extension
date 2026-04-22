@@ -38,7 +38,7 @@ Load `cards:notes` and `cards:markdown` in parallel.
 The card already exists. Read `CARD.md` and use the conversation to close gaps, sharpen ambiguities, and surface assumptions the author left implicit — refining the commander's intent where the interview reveals it needs refining, rather than rebuilding it from scratch.
 
 - Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
-- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
+- Use the `AskUserQuestion` tool for discrete parameters the user is best placed to set — confidence threshold, deliverable shape, what the outcome unblocks, evidence-staleness tolerance, subject boundary. Stay in chat for the decision being unblocked, hypothesis generation, and falsifiability checks.
 - Target the decision to unblock, hypotheses to test, confidence threshold, and acceptable deliverable — never facts recoverable by research.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force falsifiability: reject questions with no possible answer that would change behavior.
