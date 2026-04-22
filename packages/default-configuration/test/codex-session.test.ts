@@ -251,8 +251,9 @@ describe('codex-session library', () => {
   it('uses translated Codex skills instead of Claude CLI env vars', async () => {
     const cardsApiSkill = (await import('../../../codex/cards/skills/api/SKILL.md')).default;
     const notesSkill = (await import('../../../codex/cards/skills/notes/SKILL.md')).default;
-    const implementationSkill = (await import('../../../codex/runtime/skills/card-implementation/SKILL.md')).default;
-    const blockedSkill = (await import('../../../codex/runtime/skills/card-blocked/SKILL.md')).default;
+    const implementationSkill = (await import('../../../codex/runtime/skills/card/references/implementation.md'))
+      .default;
+    const blockedSkill = (await import('../../../codex/runtime/skills/card/references/blocked.md')).default;
 
     expect(cardsApiSkill).not.toContain('$CARD_CLI');
     expect(cardsApiSkill).not.toContain('$NOTIFICATION_CLI');
