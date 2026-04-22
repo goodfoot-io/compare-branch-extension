@@ -8,7 +8,6 @@ This package provides consolidated test infrastructure:
 
 - `TestIssueRepository` - Real Git repositories with issue layout for integration testing
 - `TestWebSocketServer` - Real WebSocket server for testing event subscriptions
-- `TestIpcServer` - Real Unix socket server for IPC testing
 - Fixture factories for domain entities
 
 ## Usage Guidelines
@@ -34,18 +33,6 @@ const server = new TestWebSocketServer();
 const port = await server.start();
 // Connect clients to ws://localhost:${port}
 await server.broadcast({ type: 'test', data: {} });
-await server.stop();
-```
-
-### TestIpcServer
-
-Creates a real Unix socket server for IPC testing.
-
-```typescript
-const server = new TestIpcServer();
-const socketPath = await server.start();
-// Connect IPC client to socketPath
-const message = await server.awaitMessage();
 await server.stop();
 ```
 

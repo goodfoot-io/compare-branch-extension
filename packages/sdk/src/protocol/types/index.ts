@@ -1,7 +1,7 @@
 /**
  * Individual protocol type definitions organized by domain: card structures,
  * lifecycle statuses, REST request/response shapes, WebSocket events, settings
- * schemas, IPC and webview messaging contracts, and input constraint constants.
+ * schemas, webview messaging contracts, and input constraint constants.
  *
  * @summary Domain-organized protocol types, events, and constraint constants
  * @module types
@@ -53,8 +53,6 @@ export {
   COMMITS_FILE,
   EMPTY_TREE_SHA
 } from './branch.js';
-// --- Callback Types ---
-export type { IpcMessageCallback } from './callbacks.js';
 // --- Card Types ---
 export type { Card, CardGates, CardMetadata, CardRelation, CardRelationType } from './card.js';
 export { CARD_RELATION_TYPES, DEFAULT_CARD_GATES } from './card.js';
@@ -121,12 +119,6 @@ export type {
 export type { HookConfig, HookEvent, HookScript } from './hooks.js';
 // --- HTTP Client Types ---
 export type { HttpClient } from './http.js';
-// --- IPC Message Types ---
-export type {
-  IpcMessage,
-  IpcMessageBase,
-  SessionStartedMessage
-} from './ipc.js';
 // --- Notification Types ---
 export type { NotificationCreateRequest, NotificationSeverity } from './notifications.js';
 // --- Remote Programmatic API Types ---

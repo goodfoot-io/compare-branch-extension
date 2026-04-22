@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DomainEvent, IpcMessage, ValidationErrorCode } from '../../src/protocol/index.js';
+import type { DomainEvent, ValidationErrorCode } from '../../src/protocol/index.js';
 import { ATTACHMENT_ID_PATTERN, TAG_PATTERN } from '../../src/protocol/index.js';
 
 /**
@@ -129,30 +129,6 @@ describe('DomainEvent discriminated union', () => {
       }
     ];
     expect(events).toHaveLength(3);
-  });
-});
-
-describe('IpcMessage discriminated union', () => {
-  it('should narrow types correctly in switch/case for SessionStartedMessage', () => {
-    const message: IpcMessage = {
-      type: 'session_started',
-      nonce: 'nonce-1',
-      sessionId: 'session-123'
-    };
-
-    switch (message.type) {
-      case 'session_started':
-        expect(message.sessionId).toBe('session-123');
-        expect(message.nonce).toBe('nonce-1');
-        break;
-      default:
-        throw new Error('Unexpected message type');
-    }
-  });
-
-  it('should have only 1 message type in the union', () => {
-    const messages: IpcMessage[] = [{ type: 'session_started', nonce: 'n1', sessionId: 'sid' }];
-    expect(messages).toHaveLength(1);
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * Canonical wire-level type definitions and constraint constants shared across
  * the Cards V2 ecosystem. Defines the JSON-serializable shapes for cards,
- * REST API requests and responses, WebSocket domain events, IPC messages,
+ * REST API requests and responses, WebSocket domain events,
  * webview communication, settings, and validation boundaries. Contains no
  * runtime behavior.
  *
@@ -14,7 +14,6 @@
 // --- API Discovery Types ---
 // --- Response Envelope Types ---
 // --- WebSocket Event Types ---
-// --- IPC Message Types ---
 // --- Webview Messaging Types ---
 // --- Custom Types ---
 // --- API Request/Response Types ---
@@ -106,9 +105,6 @@ export type {
   HookEvent,
   HookScript,
   HttpClient,
-  IpcMessage,
-  IpcMessageBase,
-  IpcMessageCallback,
   LaunchClaudeAction,
   ListCardsRequest,
   ListFilesCallback,
@@ -128,7 +124,6 @@ export type {
   RemoteWizardMessage,
   ServerChangedMessage,
   SessionBaseline,
-  SessionStartedMessage,
   SessionType,
   Settings,
   StateUpdateMessage,

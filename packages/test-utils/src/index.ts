@@ -1,6 +1,6 @@
 /**
  * Shared test infrastructure for Cards packages including real Git repositories,
- * WebSocket and IPC servers, HTTP clients, stream transform harnesses, and
+ * WebSocket servers, HTTP clients, stream transform harnesses, and
  * deterministic fixture factories. Helpers here interact with filesystems,
  * sockets, and timers, making them best suited to integration-style tests.
  *
@@ -48,8 +48,6 @@ export {
 export { TestGitWorkspace } from './git/TestGitWorkspace.js';
 // --- HTTP Test Utilities ---
 export { type RecordedRequest, TestHttpClient } from './http/TestHttpClient.js';
-// --- IPC Test Utilities ---
-export { TestIpcServer } from './ipc/TestIpcServer.js';
 // --- Negative Assertion Utilities ---
 export {
   type ExpectNoEventsOptions,
