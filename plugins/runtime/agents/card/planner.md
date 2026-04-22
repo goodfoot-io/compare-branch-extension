@@ -6,6 +6,7 @@ model: sonnet
 color: green
 skills:
   - runtime:card-planner
+  - runtime:tdd-bootstrap
   - cards:markdown
   - cards:notes
 ---

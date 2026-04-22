@@ -47,6 +47,10 @@ Load the `cards:markdown` skill before writing the plan file. Fragment-link ever
 
 The plan file is stored in the card repository (`$CARD_REPO_PATH`), but the card's workspace may be at a different path (`$WORKSPACE_PATH`). Fragment links must be relative to `$WORKSPACE_PATH` — use `./packages/foo/bar.ts`, not a filesystem path from the card repository or your working directory to the workspace.
 
+#### Consider Bootstrap Sequencing
+
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `runtime:tdd-bootstrap` skill and structure the plan's implementation steps along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+
 #### Write and Store Plan
 
 Write the plan to `[PLAN_FILE]` in the card repository. Create a sidecar at `[PLAN_FILE].meta.json` with a `title` prefixed with `"Plan: "` (e.g., `"title": "Plan: Three-phase migration starting with schema"`). Commit to the card repository:
