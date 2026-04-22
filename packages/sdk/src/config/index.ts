@@ -115,3 +115,27 @@ export {
 // ============================================================================
 
 export { executeCommand } from './runtime.js';
+
+// ============================================================================
+// Watcher
+// ============================================================================
+
+export type {
+  ServerControlMessage,
+  ServerHelloAckMessage,
+  ServerToWatcherMessage,
+  WatcherContext,
+  WatcherEventMessage,
+  WatcherHelloMessage,
+  WatcherLogMessage,
+  WatcherStopAckMessage,
+  WatcherToServerMessage
+} from './watcher/index.js';
+export {
+  createWatcher,
+  type WatcherHandle,
+  type WatcherHandler,
+  WatcherHandshakeError,
+  type WatcherRegistration,
+  WatcherRegistrationError
+} from './watcher/index.js';
