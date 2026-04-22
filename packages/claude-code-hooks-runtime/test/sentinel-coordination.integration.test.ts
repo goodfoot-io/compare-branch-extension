@@ -13,11 +13,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Satisfy the import graph for transcript-watcher.ts without mocking fs.
-vi.mock('@cards/sdk/client/discovery', () => ({
-  createCardsClient: vi.fn()
-}));
-
 // Satisfy the import graph for session-end.ts without mocking fs.
 vi.mock('@cards/sdk/config', () => ({
   extractActionInput: vi.fn()
@@ -28,7 +23,7 @@ vi.mock('@goodfoot/claude-code-hooks', () => ({
   sessionEndOutput: vi.fn()
 }));
 
-import { removeSentinelFile, sentinelFileExists } from '../src/bin/transcript-watcher.js';
+import { removeSentinelFile, sentinelFileExists } from '../../sdk/src/bin/transcript-watcher.js';
 import { writeSentinelFile } from '../src/session-end.js';
 
 const SESSION_ID = 'test-session-abc123';

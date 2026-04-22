@@ -92,7 +92,9 @@ export function spawnTranscriptWatcher(
   cardId: string,
   cardRepoPath: string
 ): void {
-  const watcherPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../bin/transcript-watcher.mjs');
+  // Resolves the SDK-built artifact at public/plugins/cards/bin/transcript-watcher.mjs
+  // relative to the built hooks.json location at public/plugins/runtime/hooks/.
+  const watcherPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../cards/bin/transcript-watcher.mjs');
 
   // Resolve node executable: prefer VSCODE_NODE env var, fallback to file, then 'node'
   let nodeBin: string;
