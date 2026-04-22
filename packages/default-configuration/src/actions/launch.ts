@@ -6,7 +6,7 @@
  *   stdio so the user gets direct terminal control. In background mode, Claude
  *   runs with `--print` so it executes non-interactively (takes a prompt, runs,
  *   and exits). The watcher handles all transcript streaming.
- * - Codex: spawns the `codex` CLI interactively with the card-routing skill
+ * - Codex: spawns the `codex` CLI interactively with the card skill
  *   seeded as the initial prompt. Background mode is rejected explicitly.
  *
  * The action awaits process exit before resolving, so the terminal closes
@@ -19,9 +19,9 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import codexCardRoutingSkill from '../../../../codex/runtime/skills/card-routing/SKILL.md';
+import codexCardSkill from '../../../../codex/runtime/skills/card/SKILL.md';
 import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
-import claudeCardRoutingSkill from '../../../../plugins/runtime/skills/card-routing/SKILL.md';
+import claudeCardSkill from '../../../../plugins/runtime/skills/card/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
@@ -36,8 +36,8 @@ function stripFrontmatter(md: string): string {
 }
 
 const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
-const CARD_ROUTING_SKILL_CLAUDE: string = stripFrontmatter(claudeCardRoutingSkill).trim();
-const CARD_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexCardRoutingSkill).trim();
+const CARD_SKILL_CLAUDE: string = stripFrontmatter(claudeCardSkill).trim();
+const CARD_SKILL_CODEX: string = stripFrontmatter(codexCardSkill).trim();
 
 /**
  * Launch action handler.
@@ -69,7 +69,7 @@ export default defineAction(
         );
       }
       await spawnCodexSession(input, context, {
-        prompt: [CARD_ROUTING_SKILL_CODEX, 'Follow the routing `<instructions>`.'].join('\n\n')
+        prompt: [CARD_SKILL_CODEX, 'Follow the routing `<instructions>`.'].join('\n\n')
       });
       return;
     }
@@ -82,7 +82,7 @@ export default defineAction(
       sessionId,
       resume,
       supportsSwitchToInteractive: true,
-      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${CARD_ROUTING_SKILL_CLAUDE}`
+      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${CARD_SKILL_CLAUDE}`
     });
   }
 );

@@ -34,7 +34,7 @@ Read the user's conversational message(s) to classify intent.
 Select the **first** matching condition:
 
 - **1. REQUESTING_INTERVIEW**: `runtime:interview`
-- **2. REQUESTING_DEVELOPMENT**: `runtime:card-routing`
+- **2. REQUESTING_DEVELOPMENT**: `runtime:card`
 - **3. Otherwise**: non-routed — agent handles directly
 
 **Fallback**: When conditions conflict, default to non-routed. Do not force a structured flow the user did not request.

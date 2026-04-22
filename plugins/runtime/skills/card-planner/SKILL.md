@@ -34,7 +34,7 @@ Peer plans are public. You may read them, steal good ideas into your own plan, a
 
 ## 1. Create and Spike Your Plan
 
-Load `runtime:card-plan/references/planning.md` and follow its instructions with `[PLAN_FILE] = plan/[AGENT_NAME].md`. That procedure covers the starting-state check, research, plan authoring, commit, and spike investigations.
+Load `runtime:card/references/planning.md` and follow its instructions with `[PLAN_FILE] = plan/[AGENT_NAME].md`. That procedure covers the starting-state check, research, plan authoring, commit, and spike investigations.
 
 While following the planning procedure, broadcast research findings as required by Step 2. Peer findings arrive on the bus the same way — read them and use them.
 
