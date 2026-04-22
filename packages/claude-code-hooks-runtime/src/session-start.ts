@@ -9,7 +9,7 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid, registerSession } from '@cards/sessions';
@@ -80,23 +80,42 @@ export function resolveHeadSha(repoPath: string): string | null {
  * @param transcriptPath - Path to the transcript file.
  * @param cardId - Card identifier for the upload target.
  * @param cardRepoPath - Path to the card repository.
+ * @param logger - Logger for structured error output when the watcher cannot be launched.
  */
 export function spawnTranscriptWatcher(
   pid: number,
   sessionId: string,
   transcriptPath: string,
   cardId: string,
-  cardRepoPath: string
+  cardRepoPath: string,
+  logger: Parameters<Parameters<typeof sessionStartHook>[1]>[1]['logger']
 ): void {
   // `transcript-watcher` is a shell wrapper published on PATH by the SDK plugin tree
   // (public/plugins/cards/bin/transcript-watcher). It exec's the .mjs via VSCODE_NODE,
   // so this hook does not need to know either location.
+  const readiness = spawnSync('sh', ['-c', 'command -v transcript-watcher'], { stdio: 'ignore' });
+  if (readiness.error || readiness.status !== 0) {
+    logger.error('transcript-watcher not resolvable on PATH — skipping spawn', {
+      status: readiness.status,
+      error: readiness.error instanceof Error ? readiness.error.message : undefined,
+      pid,
+      sessionId
+    });
+    return;
+  }
+
   const spawnArgs = [String(pid), sessionId, transcriptPath, cardId, cardRepoPath];
 
   const child = spawn('transcript-watcher', spawnArgs, {
     detached: true,
     stdio: 'ignore',
     env: { ...process.env }
+  });
+  child.on('error', (err) => {
+    logger.error('transcript-watcher spawn failed', {
+      error: err instanceof Error ? err.message : String(err),
+      spawnArgs
+    });
   });
   child.unref();
 }
@@ -144,7 +163,7 @@ async function registerPidAndSpawnWatcher(
   }
 
   try {
-    spawnTranscriptWatcher(agentPid, sessionId, transcriptPath, actionInput.cardId, actionInput.cardRepoPath);
+    spawnTranscriptWatcher(agentPid, sessionId, transcriptPath, actionInput.cardId, actionInput.cardRepoPath, logger);
     logger.info('Spawned transcript watcher', { pid: agentPid, sessionId });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

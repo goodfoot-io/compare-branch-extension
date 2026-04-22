@@ -4,7 +4,8 @@
  * @summary Tests for the SessionStart hook
  */
 
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findAgentPid, registerSession } from '@cards/sessions';
@@ -20,7 +21,8 @@ const mockWriteSessionHeadSha = vi.mocked(writeSessionHeadSha);
 
 vi.mock('node:child_process', () => ({
   execFileSync: vi.fn(),
-  spawn: vi.fn(() => ({ unref: vi.fn() }))
+  spawn: vi.fn(() => ({ unref: vi.fn(), on: vi.fn() })),
+  spawnSync: vi.fn(() => ({ status: 0 }))
 }));
 
 vi.mock('@cards/sessions', () => ({
@@ -303,6 +305,58 @@ describe('SessionStart Hook', () => {
         ['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath],
         expect.objectContaining({ detached: true, stdio: 'ignore' })
       );
+    });
+
+    it('logs structured error when spawn emits error event asynchronously', async () => {
+      const emitter = new EventEmitter() as EventEmitter & { unref: () => void };
+      emitter.unref = vi.fn();
+      vi.mocked(spawn).mockReturnValue(emitter as unknown as ReturnType<typeof spawn>);
+      const errorSpy = vi.spyOn(logger, 'error');
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-err', transcript_path: '/tmp/t.jsonl' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
+
+      await hook(mockInput, context);
+      emitter.emit('error', new Error('ENOENT: watcher missing'));
+      await new Promise((r) => setImmediate(r));
+
+      const match = errorSpy.mock.calls.find(
+        ([msg, meta]) =>
+          typeof msg === 'string' &&
+          /watcher/i.test(msg) &&
+          meta !== undefined &&
+          JSON.stringify(meta).includes('ENOENT')
+      );
+      expect(
+        match,
+        `expected a transcript-watcher spawn error log; got: ${JSON.stringify(errorSpy.mock.calls)}`
+      ).toBeDefined();
+      errorSpy.mockRestore();
+    });
+
+    it('logs readiness failure and does not spawn when transcript-watcher is not on PATH', async () => {
+      vi.mocked(spawn).mockClear();
+      vi.mocked(spawnSync).mockReturnValue({ status: 1 } as unknown as ReturnType<typeof spawnSync>);
+      const errorSpy = vi.spyOn(logger, 'error');
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-r', transcript_path: '/tmp/t.jsonl' } as Parameters<typeof hook>[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
+
+      await hook(mockInput, context);
+
+      const match = errorSpy.mock.calls.find(
+        ([msg, meta]) =>
+          typeof msg === 'string' &&
+          /transcript-watcher/i.test(msg) &&
+          meta !== undefined &&
+          /PATH|status/.test(JSON.stringify(meta))
+      );
+      expect(match, `expected a readiness error log; got: ${JSON.stringify(errorSpy.mock.calls)}`).toBeDefined();
+      expect(vi.mocked(spawn)).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
     });
 
     it('continues when watcher spawn fails', async () => {
