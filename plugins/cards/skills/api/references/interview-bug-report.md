@@ -34,7 +34,7 @@ Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./bug-re
 Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
 
 - Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the report. Match the user's register — their vocabulary, level of formality, and concreteness.
-- Reach for `AskUserQuestion` only when there is a genuine fork with discrete options the user must pick between.
+- Use the `AskUserQuestion` tool for discrete classifications the user is best placed to pick — regression vs. latent, reproducibility class, repro surface, source of expected behavior, repro-data shape. Stay in chat for the reproduction narrative, observed-vs.-expected framing, and anything that risks freezing the user's hypothesis.
 - Target what only the user can supply: reproduction specifics, environment, severity, workarounds, observed vs. expected, sensitivity of repro data.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Separate observation from interpretation; do not let the user's hypothesis narrow the investigation prematurely.
