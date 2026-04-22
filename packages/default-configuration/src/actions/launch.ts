@@ -21,7 +21,6 @@ import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
 import codexCardSkill from '../../../../codex/runtime/skills/card/SKILL.md';
 import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
-import claudeCardSkill from '../../../../plugins/runtime/skills/card/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
@@ -36,7 +35,6 @@ function stripFrontmatter(md: string): string {
 }
 
 const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
-const CARD_SKILL_CLAUDE: string = stripFrontmatter(claudeCardSkill).trim();
 const CARD_SKILL_CODEX: string = stripFrontmatter(codexCardSkill).trim();
 
 /**
@@ -78,11 +76,11 @@ export default defineAction(
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
 
     await spawnClaudeSession(input, context, {
-      prompt: 'Follow the `<routing-instructions>`.',
+      prompt: 'Load the `runtime:chat` skill and follow the `<routing-instructions>`.',
       sessionId,
       resume,
       supportsSwitchToInteractive: true,
-      appendSystemPrompt: `${COMMIT_MESSAGE_STYLE}\n\n${CARD_SKILL_CLAUDE}`
+      appendSystemPrompt: COMMIT_MESSAGE_STYLE
     });
   }
 );
