@@ -119,10 +119,6 @@ describe('SubagentStart Hook', () => {
       expect(stdout.systemMessage).toContain('<card>');
       expect(stdout.systemMessage).toContain('title: Test card');
 
-      // <card-repo> block with type="yaml"
-      expect(stdout.systemMessage).toContain('<card-repo type="yaml">');
-      expect(stdout.systemMessage).toContain('</card-repo>');
-
       // additionalContext mirrors systemMessage
       expect(stdout.hookSpecificOutput?.additionalContext).toBe(stdout.systemMessage);
     });

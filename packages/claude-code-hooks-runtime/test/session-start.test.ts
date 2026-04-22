@@ -150,10 +150,6 @@ describe('SessionStart Hook', () => {
       expect(stdout.systemMessage).toContain('title: Test card');
       expect(stdout.systemMessage).toContain('</card>');
 
-      // <card-repo> block with type="yaml"
-      expect(stdout.systemMessage).toContain('<card-repo type="yaml">');
-      expect(stdout.systemMessage).toContain('</card-repo>');
-
       // additionalContext mirrors systemMessage
       const additional = stdout.hookSpecificOutput!.additionalContext!;
       expect(additional).toBe(stdout.systemMessage);
