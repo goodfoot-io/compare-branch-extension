@@ -125,7 +125,7 @@ export function buildArgs(
   args.push('--model', 'default');
   args.push(
     '--disallowed-tools',
-    'AskUserQuestion, CronCreate, CronDelete, CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite'
+    'CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite'
   );
   args.push('--add-dir', claudeDirPath);
   args.push('--teammate-mode', 'tmux');
