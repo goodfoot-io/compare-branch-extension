@@ -1,16 +1,16 @@
 ---
-name: interview-routing
+name: interview
 description: Route interview cards to the appropriate skill.
 ---
 
 <routing-constraints>
-The routing phase evaluates and selects — it does NOT interview the user or modify card content. After routing, the matched skill is loaded and its instructions take over.
+The routing phase evaluates and selects — it does NOT interview the user or modify card content. After routing, the matched references are loaded and their instructions take over.
 
-| Routing phase | Loaded skill handles |
+| Routing phase | Loaded references handle |
 |------------------------|--------------------------------|
 | Evaluating routing conditions | Conducting the interview |
-| Selecting the appropriate skill | Gathering requirements |
-| Loading the matched skill | Producing the card |
+| Selecting the appropriate type | Gathering requirements |
+| Loading the matched references | Producing the card |
 
 **Never update card status directly** — hooks handle status transitions automatically.
 </routing-constraints>
@@ -41,26 +41,28 @@ Obtain `title`, `status`, and `tags` from the `<card>` block in your session con
 
 ## 2. Route
 
-Select the **first** matching condition:
+Select the **first** matching condition and note the card type:
 
-- **IS_BUG_REPORT OR HAS_ERROR_EVIDENCE**: `runtime:interview-bug-report`
-- **IS_OPERATIONS_REQUEST**: `runtime:interview-operations`
-- **IS_DOCUMENTATION_REQUEST**: `runtime:interview-documentation`
-- **IS_INVESTIGATION_REQUEST**: `runtime:interview-investigation`
-- **IS_MAINTENANCE_REQUEST**: `runtime:interview-maintenance`
-- **IS_ENHANCEMENT_REQUEST**: `runtime:interview-enhancement`
-- **Otherwise**: `runtime:interview-enhancement`
+| Condition | Card type |
+|-----------|-----------|
+| IS_BUG_REPORT OR HAS_ERROR_EVIDENCE | `bug-report` |
+| IS_OPERATIONS_REQUEST | `operations` |
+| IS_DOCUMENTATION_REQUEST | `documentation` |
+| IS_INVESTIGATION_REQUEST | `investigation` |
+| IS_MAINTENANCE_REQUEST | `maintenance` |
+| IS_ENHANCEMENT_REQUEST | `enhancement` |
+| Otherwise | `enhancement` |
 
 **Conflicting conditions**: Ask "What would a human team member do?" and write down why you're asking. Articulating the ambiguity usually resolves it.
 
-## 3. Load Routed Skill
+## 3. Load Interview References
 
-Load the matched skill using the Skill tool:
+Read the following three files in parallel, substituting `[type]` with the card type from Step 2:
 
-```xml
-<invoke name="Skill">
-<parameter name="skill">[MATCHED_SKILL]</parameter>
-</invoke>
-```
+- `./references/commanders-intent.md`
+- `./references/[type].md`
+- `./references/interview-[type].md`
+
+Follow the instructions in `./references/interview-[type].md`.
 
 </routing-instructions>

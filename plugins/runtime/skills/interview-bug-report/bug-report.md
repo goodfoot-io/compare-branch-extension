@@ -1,1 +1,0 @@
-../../../cards/skills/api/references/bug-report.md

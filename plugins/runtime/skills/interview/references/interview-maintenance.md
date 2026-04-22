@@ -1,10 +1,3 @@
----
-name: interview-maintenance
-description: Enrich maintenance cards with codebase context.
----
-
-Review ./maintenance.md and ./commanders-intent.md
-
 <first-principles>
 1. Debt is only debt if it costs something observable — incidents, toil, risk, blocked work — not aesthetic.
 2. Invariants are the contract with the rest of the system. What must not change matters more than what will.

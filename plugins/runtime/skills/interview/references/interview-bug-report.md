@@ -1,10 +1,3 @@
----
-name: interview-bug-report
-description: Enrich bug report cards with codebase context.
----
-
-Review ./bug-report.md and ./commanders-intent.md
-
 <first-principles>
 1. Reproducibility is the unit of truth — without it, everything else is speculation.
 2. Observation and interpretation must be kept separate.

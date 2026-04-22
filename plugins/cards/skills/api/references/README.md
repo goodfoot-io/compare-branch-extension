@@ -14,16 +14,16 @@ Plus one shared reference used by every card type:
 
 ## Symlinks
 
-Each interview skill directory contains a symlink back to this directory:
+The `runtime:interview` skill's `references/` directory symlinks back to this directory:
 
 ```
-runtime/skills/interview-bug-report/bug-report.md       -> ../../../cards/skills/api/references/bug-report.md
-runtime/skills/interview-enhancement/enhancement.md      -> ../../../cards/skills/api/references/enhancement.md
-runtime/skills/interview-investigation/investigation.md  -> ../../../cards/skills/api/references/investigation.md
-runtime/skills/interview-documentation/documentation.md  -> ../../../cards/skills/api/references/documentation.md
-runtime/skills/interview-maintenance/maintenance.md      -> ../../../cards/skills/api/references/maintenance.md
-runtime/skills/interview-operations/operations.md        -> ../../../cards/skills/api/references/operations.md
-runtime/skills/interview-*/commanders-intent.md          -> ../../../cards/skills/api/references/commanders-intent.md
+runtime/skills/interview/references/bug-report.md        -> ../../../../cards/skills/api/references/bug-report.md
+runtime/skills/interview/references/enhancement.md       -> ../../../../cards/skills/api/references/enhancement.md
+runtime/skills/interview/references/investigation.md     -> ../../../../cards/skills/api/references/investigation.md
+runtime/skills/interview/references/documentation.md     -> ../../../../cards/skills/api/references/documentation.md
+runtime/skills/interview/references/maintenance.md       -> ../../../../cards/skills/api/references/maintenance.md
+runtime/skills/interview/references/operations.md        -> ../../../../cards/skills/api/references/operations.md
+runtime/skills/interview/references/commanders-intent.md -> ../../../../cards/skills/api/references/commanders-intent.md
 ```
 
 Edit the files here; the symlinks ensure both consumers see the same content.

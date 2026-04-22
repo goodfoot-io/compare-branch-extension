@@ -1,10 +1,3 @@
----
-name: interview-enhancement
-description: Enrich enhancement cards with codebase context.
----
-
-Review ./enhancement.md and ./commanders-intent.md
-
 <first-principles>
 1. The stated solution is a hypothesis — recover the underlying job.
 2. A feature is defined by its contract (inputs, outputs, invariants, error behavior), not its code.

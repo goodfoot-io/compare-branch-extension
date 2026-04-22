@@ -1,0 +1,1 @@
+../../../../cards/skills/api/references/commanders-intent.md

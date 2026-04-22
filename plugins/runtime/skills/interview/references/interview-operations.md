@@ -1,10 +1,3 @@
----
-name: interview-operations
-description: Enrich operations cards with codebase context.
----
-
-Review ./operations.md and ./commanders-intent.md
-
 <first-principles>
 1. Fail closed by default — when uncertain, the safer action preserves current state.
 2. A change is defined by its blast radius and its reversibility.

@@ -1,10 +1,3 @@
----
-name: interview-documentation
-description: Enrich documentation cards with codebase context.
----
-
-Review ./documentation.md and ./commanders-intent.md
-
 <first-principles>
 1. Docs exist to change reader behavior — if no action or understanding changes, the doc has no purpose.
 2. Audience and task define the document; format follows.
