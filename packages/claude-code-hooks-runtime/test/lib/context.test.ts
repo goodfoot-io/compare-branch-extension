@@ -37,11 +37,9 @@ function parseLogEntries(body: string): Array<{ sha: string; author: string; sub
 import {
   buildAdditionalContext,
   buildCardBlock,
-  buildCardRepoBlock,
   buildCardRepoLogBlock,
   buildEnvBlock,
-  buildWorkspaceRepoLogBlocks,
-  CardRepoAccessError
+  buildWorkspaceRepoLogBlocks
 } from '../../src/lib/context.js';
 
 let testRepo: TestGitWorkspace;
@@ -205,155 +203,6 @@ describe('buildCardBlock', () => {
     expect(result).not.toContain('id="');
     expect(result).not.toContain('status="');
     expect(result).not.toContain('mode="');
-  });
-});
-
-describe('buildCardRepoBlock', () => {
-  let tmpDir: string;
-
-  beforeAll(() => {
-    tmpDir = join(repoPath, '..', `repo-block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-    mkdirSync(tmpDir, { recursive: true });
-  });
-
-  it('produces YAML output with type="yaml" attribute', () => {
-    const dir = join(tmpDir, 'yaml-test');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'CARD.md'), '# Hello');
-
-    const result = buildCardRepoBlock(dir);
-
-    expect(result).toMatch(/^<card-repo type="yaml">/);
-    expect(result).toContain('</card-repo>');
-
-    const yamlContent = result.replace(/^<card-repo type="yaml">\n/, '').replace(/\n<\/card-repo>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<{ name: string }>;
-    expect(parsed.some((e) => e.name === 'CARD.md')).toBe(true);
-  });
-
-  it('lists root files and directories in YAML format', () => {
-    const dir = join(tmpDir, 'files-test');
-    mkdirSync(join(dir, 'plan'), { recursive: true });
-    writeFileSync(join(dir, 'CARD.md'), '# Hello');
-    writeFileSync(join(dir, 'plan', 'initial.md'), '# Plan');
-
-    const result = buildCardRepoBlock(dir);
-    const yamlContent = result.replace(/^<card-repo type="yaml">\n/, '').replace(/\n<\/card-repo>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
-
-    const cardMd = parsed.find((e) => e['name'] === 'CARD.md');
-    expect(cardMd).toBeDefined();
-    const planDir = parsed.find((e) => e['name'] === 'plan/');
-    expect(planDir).toBeDefined();
-  });
-
-  it('lists streams subdirectories with count field', () => {
-    const dir = join(tmpDir, 'streams-test');
-    mkdirSync(join(dir, 'streams', 'claude-code-session'), { recursive: true });
-    writeFileSync(join(dir, 'streams', 'claude-code-session', 'a.jsonl'), '{}');
-    writeFileSync(join(dir, 'streams', 'claude-code-session', 'b.jsonl'), '{}');
-    writeFileSync(join(dir, 'streams', 'claude-code-session', 'c.jsonl'), '{}');
-
-    const result = buildCardRepoBlock(dir);
-    const yamlContent = result.replace(/^<card-repo type="yaml">\n/, '').replace(/\n<\/card-repo>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
-
-    const streams = parsed.find((e) => e['name'] === 'streams/');
-    expect(streams).toBeDefined();
-    const entries = streams!['entries'] as Array<Record<string, unknown>>;
-    const session = entries.find((e) => e['name'] === 'claude-code-session/');
-    expect(session).toBeDefined();
-    expect(session!['count']).toBe(3);
-  });
-
-  it('lists comment files in entries array', () => {
-    const dir = join(tmpDir, 'comment-expand-test');
-    mkdirSync(join(dir, 'comment'), { recursive: true });
-    writeFileSync(join(dir, 'comment', 'initial.md'), 'first');
-    writeFileSync(join(dir, 'comment', 'followup.md'), 'second');
-
-    const result = buildCardRepoBlock(dir);
-    const yamlContent = result.replace(/^<card-repo type="yaml">\n/, '').replace(/\n<\/card-repo>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
-
-    const comment = parsed.find((e) => e['name'] === 'comment/');
-    expect(comment).toBeDefined();
-    const entries = comment!['entries'] as Array<Record<string, unknown>>;
-    expect(entries.some((e) => e['name'] === 'initial.md')).toBe(true);
-    expect(entries.some((e) => e['name'] === 'followup.md')).toBe(true);
-  });
-
-  it('excludes .git directory', () => {
-    const dir = join(tmpDir, 'git-exclude-test');
-    mkdirSync(join(dir, '.git', 'objects'), { recursive: true });
-    writeFileSync(join(dir, '.git', 'HEAD'), 'ref: refs/heads/main');
-    writeFileSync(join(dir, 'CARD.md'), '# Hello');
-
-    const result = buildCardRepoBlock(dir);
-
-    expect(result).toContain('CARD.md');
-    expect(result).not.toContain('.git');
-  });
-
-  it('throws CardRepoAccessError for non-existent path', () => {
-    const badPath = '/tmp/does-not-exist-xyz-123';
-
-    expect(() => buildCardRepoBlock(badPath)).toThrow(CardRepoAccessError);
-    expect(() => buildCardRepoBlock(badPath)).toThrow(/Cannot read card repository/);
-  });
-
-  it('inlines sidecar summary in YAML entries', () => {
-    const dir = join(tmpDir, 'root-summary-test');
-    mkdirSync(join(dir, 'plan'), { recursive: true });
-    writeFileSync(join(dir, 'plan', 'initial.md'), '# Plan');
-    writeFileSync(
-      join(dir, 'plan', 'initial.md.meta.json'),
-      JSON.stringify({ title: 'Plan', summary: 'Migrate auth middleware.' })
-    );
-
-    const result = buildCardRepoBlock(dir);
-    const yamlContent = result.replace(/^<card-repo type="yaml">\n/, '').replace(/\n<\/card-repo>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
-
-    const planDir = parsed.find((e) => e['name'] === 'plan/');
-    expect(planDir).toBeDefined();
-    const entries = planDir!['entries'] as Array<Record<string, unknown>>;
-    const mdEntry = entries.find((e) => e['name'] === 'initial.md');
-    expect(mdEntry).toBeDefined();
-    expect(mdEntry!['summary']).toBe('Migrate auth middleware.');
-    // Sidecar is listed too
-    expect(entries.some((e) => e['name'] === 'initial.md.meta.json')).toBe(true);
-  });
-
-  it('shows remaining count for directory with summarized and unsummarized files', () => {
-    const dir = join(tmpDir, 'dir-expand-test');
-    mkdirSync(join(dir, 'notes'), { recursive: true });
-    writeFileSync(join(dir, 'notes', 'entry.md'), '# Entry');
-    writeFileSync(join(dir, 'notes', 'entry.md.meta.json'), JSON.stringify({ summary: 'Entry points overview.' }));
-    writeFileSync(join(dir, 'notes', 'other.txt'), 'plain text');
-
-    const result = buildCardRepoBlock(dir);
-    const yamlContent = result.replace(/^<card-repo type="yaml">\n/, '').replace(/\n<\/card-repo>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
-
-    const notesDir = parsed.find((e) => e['name'] === 'notes/');
-    expect(notesDir).toBeDefined();
-    expect(notesDir!['remaining']).toBe(1);
-  });
-
-  it('shows compact count for directory with no sidecar summaries', () => {
-    const dir = join(tmpDir, 'dir-compact-test');
-    mkdirSync(join(dir, 'data'), { recursive: true });
-    writeFileSync(join(dir, 'data', 'a.json'), '{}');
-    writeFileSync(join(dir, 'data', 'b.json'), '{}');
-
-    const result = buildCardRepoBlock(dir);
-    const yamlContent = result.replace(/^<card-repo type="yaml">\n/, '').replace(/\n<\/card-repo>$/, '');
-    const parsed = yaml.load(yamlContent) as Array<Record<string, unknown>>;
-
-    const dataDir = parsed.find((e) => e['name'] === 'data/');
-    expect(dataDir).toBeDefined();
-    expect(dataDir!['count']).toBe(2);
   });
 });
 
@@ -740,8 +589,6 @@ describe('buildAdditionalContext', () => {
     expect(result).toContain('EXECUTION_MODE=interactive');
     expect(result).toMatch(/<card>/);
     expect(result).toContain('</card>');
-    expect(result).toMatch(/<card-repo type="yaml">/);
-    expect(result).toContain('</card-repo>');
   });
 
   it('throws CardRepoAccessError when repo is inaccessible', () => {

@@ -9,7 +9,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import type { ActionInput } from '@cards/sdk/config';
@@ -115,175 +115,6 @@ export function buildCardBlock(actionInput: ActionInput): string {
   }
   const yamlBody = yaml.dump(filtered, { flowLevel: -1, lineWidth: -1 }).trimEnd();
   return `<card>\n${yamlBody}\n</card>`;
-}
-
-// ============================================================================
-// Card repo listing
-// ============================================================================
-
-/**
- * Counts files (non-directories) in a directory.
- *
- * @param dirPath - Directory to scan.
- * @returns Number of files, or `0` on error.
- */
-function dirFileCount(dirPath: string): number {
-  try {
-    return readdirSync(dirPath, { withFileTypes: true }).filter((e) => e.isFile()).length;
-  } catch {
-    return 0;
-  }
-}
-
-/**
- * Reads the `summary` field from a `.md.meta.json` sidecar file.
- *
- * @param sidecarPath - Absolute path to the sidecar JSON file.
- * @returns The summary string, or `null` when the file is missing, malformed, or has no summary.
- */
-function readSidecarSummary(sidecarPath: string): string | null {
-  try {
-    const raw = readFileSync(sidecarPath, 'utf-8');
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const summary = parsed['summary'];
-    return typeof summary === 'string' && summary.length > 0 ? summary : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Represents a single entry in the card-repo YAML listing.
- */
-interface CardRepoEntry {
-  name: string;
-  summary?: string;
-  entries?: CardRepoEntry[];
-  remaining?: number;
-  count?: number;
-}
-
-/**
- * Builds the `<card-repo>` block with a YAML body listing directory contents.
- *
- * @param rootPath - Root directory of the card repository.
- * @returns The `<card-repo type="yaml">...</card-repo>` block string.
- * @throws {CardRepoAccessError} When the root directory cannot be read.
- */
-export function buildCardRepoBlock(rootPath: string): string {
-  let dirEntries: { name: string; isDir: boolean }[];
-  try {
-    dirEntries = readdirSync(rootPath, { withFileTypes: true }).map((d) => ({
-      name: d.name.toString(),
-      isDir: d.isDirectory()
-    }));
-  } catch (error) {
-    throw new CardRepoAccessError(rootPath, error);
-  }
-
-  const items: CardRepoEntry[] = [];
-
-  for (const entry of dirEntries) {
-    if (entry.name === '.git') continue;
-    const fullPath = join(rootPath, entry.name);
-
-    if (entry.isDir) {
-      if (entry.name === 'streams') {
-        const streamEntries: CardRepoEntry[] = [];
-        try {
-          const subs = readdirSync(fullPath, { withFileTypes: true });
-          for (const sub of subs) {
-            if (sub.isDirectory()) {
-              const subName = sub.name.toString();
-              const count = dirFileCount(join(fullPath, subName));
-              streamEntries.push({ name: `${subName}/`, count });
-            }
-          }
-        } catch (_readdirError: unknown) {
-          void _readdirError;
-        }
-        items.push({ name: 'streams/', entries: streamEntries });
-      } else if (entry.name === 'comment') {
-        const commentEntries: CardRepoEntry[] = [];
-        try {
-          const subs = readdirSync(fullPath, { withFileTypes: true });
-          const fileEntries: { name: string; birthtime: number }[] = [];
-          for (const f of subs) {
-            if (f.isFile()) {
-              try {
-                const stat = statSync(join(fullPath, f.name));
-                const birthtime = stat.birthtimeMs > 0 ? stat.birthtimeMs : stat.mtimeMs;
-                fileEntries.push({ name: f.name, birthtime });
-              } catch {
-                fileEntries.push({ name: f.name, birthtime: 0 });
-              }
-            }
-          }
-          fileEntries.sort((a, b) => a.birthtime - b.birthtime);
-          for (const f of fileEntries) {
-            commentEntries.push({ name: f.name });
-          }
-        } catch (_readdirError: unknown) {
-          void _readdirError;
-        }
-        items.push({ name: 'comment/', entries: commentEntries });
-      } else {
-        // Other directory: expand .md files that have sidecar summaries
-        try {
-          const children = readdirSync(fullPath, { withFileTypes: true });
-          const fileNames = children.filter((e) => e.isFile()).map((e) => e.name.toString());
-          const subDirCount = children.filter((e) => e.isDirectory()).length;
-
-          const summarized: { name: string; summary: string; sidecarName: string }[] = [];
-          for (const name of fileNames) {
-            if (name.endsWith('.md') && !name.endsWith('.meta.json')) {
-              const sidecarName = `${name}.meta.json`;
-              const summary = readSidecarSummary(join(fullPath, sidecarName));
-              if (summary) {
-                summarized.push({ name, summary, sidecarName });
-              }
-            }
-          }
-
-          if (summarized.length === 0) {
-            const count = fileNames.length + subDirCount;
-            items.push({ name: `${entry.name}/`, count });
-          } else {
-            const dirItem: CardRepoEntry = { name: `${entry.name}/`, entries: [] };
-            const listedNames = new Set<string>();
-            for (const { name, summary, sidecarName } of summarized) {
-              dirItem.entries!.push({ name, summary });
-              dirItem.entries!.push({ name: sidecarName });
-              listedNames.add(name);
-              listedNames.add(sidecarName);
-            }
-            const remaining = fileNames.filter((n) => !listedNames.has(n)).length + subDirCount;
-            if (remaining > 0) {
-              dirItem.remaining = remaining;
-            }
-            items.push(dirItem);
-          }
-        } catch (_readdirError: unknown) {
-          items.push({ name: `${entry.name}/` });
-        }
-      }
-    } else {
-      // Root-level file
-      if (entry.name.endsWith('.md') && !entry.name.endsWith('.meta.json')) {
-        const summary = readSidecarSummary(join(rootPath, `${entry.name}.meta.json`));
-        if (summary) {
-          items.push({ name: entry.name, summary });
-        } else {
-          items.push({ name: entry.name });
-        }
-      } else {
-        items.push({ name: entry.name });
-      }
-    }
-  }
-
-  const yamlBody = yaml.dump(items, { flowLevel: -1, lineWidth: -1 }).trimEnd();
-  return `<card-repo type="yaml">\n${yamlBody}\n</card-repo>`;
 }
 
 // ============================================================================
@@ -587,7 +418,7 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
 /**
  * Builds the combined additional context string for session and subagent hooks.
  *
- * Produces: env block, `<card>`, `<card-repo>`, optionally `<card-repo-log>`,
+ * Produces: env block, `<card>`, optionally `<card-repo-log>`,
  * and optionally `<workspace-repo-log>` blocks.
  * Let {@link CardRepoAccessError} propagate to the caller for structured
  * error handling.
@@ -599,11 +430,10 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
 export function buildAdditionalContext(actionInput: ActionInput): string {
   const envBlock = buildEnvBlock(actionInput);
   const cardBlock = buildCardBlock(actionInput);
-  const repoBlock = buildCardRepoBlock(actionInput.cardRepoPath);
   const logBlock = buildCardRepoLogBlock(actionInput.cardRepoPath);
   const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.repoRoot, actionInput.cardRepoPath);
 
-  const parts = [envBlock, cardBlock, repoBlock];
+  const parts = [envBlock, cardBlock];
   if (logBlock) parts.push(logBlock);
   parts.push(...workspaceLogBlocks);
   return parts.join('\n\n');
