@@ -3,35 +3,28 @@ name: card-bug
 description: Fix testable bugs using test-first methodology.
 ---
 
-
 <placeholder-variables>
-[BUG_DESCRIPTION] — One-sentence summary: "[Expected behavior] but [actual behavior]" (extracted in Step 1)
-[SCOPE_HINT] — Files, packages, or functions mentioned in card (extracted in Step 1)
-[TEST_FILE_PATH] — Absolute path to reproduction test
-[TEST_FAILURE_OUTPUT] — Captured test output when test fails
-[TEST_PASS_ANALYSIS] — Synthesized explanation when test unexpectedly passes
-[PREVIOUS_FAILURE_OUTPUT] — Captured output from failed fix attempt
-[RESOLVER_REASONING] — Fix explanation from resolver subagent
-[DATA_FLOW_SOURCE] — Where the bad data originates (file:line or component)
-[DATA_FLOW_SYMPTOM] — Where the bad data causes the bug (file:line or component)
-[DATA_FLOW_PATH] — Chain from source to symptom: `SOURCE -> [intermediates] -> SYMPTOM`
+[BUG_DESCRIPTION] — One-sentence summary extracted in Step 1.2: "[Expected behavior] but [actual behavior]"
+[SCOPE_HINT] — Files, packages, or functions mentioned in the card, extracted in Step 1.2
+[SHORT_LABEL] — Short identifier for a single root-cause hypothesis (one per parallel subagent in Step 1.4)
+[TEST_FAILURE_OUTPUT] — Combined failure output from the reproduction tests, captured in Step 1.5
 </placeholder-variables>
 
 <test-first-invariant>
-1. Reproduction test MUST fail before fix
-2. Any test modification during resolution requires re-validation
-3. Test MUST pass after fix
+1. Every reproduction test MUST fail before the fix.
+2. Any test modification during resolution requires re-validation.
+3. Every reproduction test MUST pass after the fix.
 </test-first-invariant>
 
 <instructions>
 
-## 1. Research Workspace based on Card Content
+## 1. Prepare and Reproduce
 
 ### 1.1 Validate Workspace State
 
-Verify a clean working tree (`git status --porcelain` in `$WORKSPACE_PATH`). If dirty, write a comment explaining the dirty state prevents safe operation, add `blocked` tag to `CARD.meta.json`, commit, and **STOP**.
+Verify a clean working tree (`git status --porcelain` in `$WORKSPACE_PATH`). If dirty, write a comment explaining the dirty state prevents safe operation, add `blocked` to `tags` in `CARD.meta.json`, commit, and **STOP**.
 
-Create baseline tag if one does not already exist:
+Create the baseline tag if one does not already exist. The baseline is pinned — it does not advance during bug resolution.
 
 ```bash
 if git rev-parse "bug/$CARD_ID/baseline" >/dev/null 2>&1; then
@@ -43,46 +36,50 @@ fi
 
 ### 1.2 Read Card and Extract Context
 
-Read `CARD.md` from the card repository. Card metadata (title, gates, tags) is available in the `<card>` block. Extract:
+Read `CARD.md` from the card repository. Card metadata (title, gates, tags) is available in the `<card>` block. Extract `[BUG_DESCRIPTION]`, `[SCOPE_HINT]`, and any verbatim error messages or stack traces.
 
-- BUG_DESCRIPTION — One-sentence summary: "[Expected behavior] but [actual behavior]"
-- SCOPE_HINT — Files, packages, or functions mentioned
-- Error messages / stack traces (verbatim)
+Based on the card's shape:
+- **Describes a capability gap** (language like "add", "implement", "support", or an inability to fill in "[Expected] but [Actual]" because no actual behavior exists): This is a feature request, not a bug. Write a comment explaining the triage, commit, and load the `runtime:card-plan` skill.
+- **Describes an observed-vs-expected mismatch**: Proceed to Step 1.3: Identify Root Cause Hypotheses.
 
 ### 1.3 Identify Root Cause Hypotheses
 
 Enumerate all plausible root causes based on card content, error messages, and stack traces. For each hypothesis, state:
-- What could cause this behavior
-- Which code paths or data flow segments are implicated
-- What evidence supports or contradicts it
+- What could cause this behavior.
+- Which code paths or data-flow segments are implicated.
+- What evidence supports or contradicts it.
 
-### 1.4 Write Reproduction Tests for All Viable Pathways
+If every hypothesis reduces to "the described behavior is not implemented anywhere," the card is a missing-feature request rather than a bug. Write a comment explaining the finding, commit, and load the `runtime:card-plan` skill.
 
-For each hypothesis, launch a parallel general-purpose subagent to explore the code and, if viable, write a minimal reproduction test:
+### 1.4 Write Reproduction Tests in Parallel
+
+For each viable hypothesis, dispatch one foreground subagent in a single message so they run concurrently:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">test-pathway-[a]</parameter>
+<parameter name="description">Reproduce hypothesis: [SHORT_LABEL]</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
-<parameter name="prompt"># Task: Write Reproduction Test for Root Cause Hypothesis
+<parameter name="run_in_background">false</parameter>
+<parameter name="prompt">
+## Task
+Write a minimal reproduction test for a single root-cause hypothesis.
 
 ## Bug
-${BUG_DESCRIPTION}
+[BUG_DESCRIPTION]
 
 ## Scope
-${SCOPE_HINT}
+[SCOPE_HINT]
 
 ## Hypothesis
 [Specific root cause being tested, with implicated code paths]
 
 ## Requirements
-- Trace code and data flow paths in the workspace to assess whether this hypothesis is viable
-- If viable: create a NEW test file that MUST FAIL against the current (unfixed) code
-- If not viable: explain why and return status NOT_VIABLE
-- Do not modify existing tests
-- The test should be minimal and directly target this hypothesis
-- Follow existing test patterns
-- Do NOT fix the bug
+- Trace code and data-flow paths in the workspace to assess whether this hypothesis is viable.
+- If viable: create a new test file that MUST FAIL against the current unfixed code.
+- If not viable: return status NOT_VIABLE and explain why.
+- Do not modify existing tests.
+- Follow existing test patterns.
+- Do NOT fix the bug.
 
 ## Response Format
 ## Status
@@ -92,16 +89,21 @@ ${SCOPE_HINT}
 [Absolute file path, or "None"]
 
 ## Reasoning
-[How the test reproduces this specific pathway, why the hypothesis was ruled out, or why blocked]
+[How the test reproduces this pathway, why the hypothesis was ruled out, or why blocked]
 </parameter>
 </invoke>
 ```
 
-### 1.5 Load Skills and Commit Failing Tests
+After every subagent returns, run each new test file and discard any that passes — only tests that actually fail are kept.
 
-Load the `cards:markdown` and `runtime:workspace-commit-style` skills. The `<workspace-commit-style>` convention used in workspace commit messages throughout these instructions is defined in `runtime:workspace-commit-style` — it must be loaded before any commits are made.
+### 1.5 Commit Reproduction
 
-After all subagents complete, run each test file to confirm it fails. Discard any test that passes. Commit all failing tests together:
+Load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.
+
+Based on the reproduction results:
+- **One or more tests fail**: Commit all failing tests in one commit, tag the state, capture `[TEST_FAILURE_OUTPUT]`, write a progress comment to the card repository listing each viable pathway and its test, commit the card repository, and proceed to Step 2: Resolve Bug.
+- **No tests fail, new evidence expanded the hypothesis set** (max 3 rounds total across Step 1.3–1.5): Return to Step 1.3: Identify Root Cause Hypotheses.
+- **No tests fail, hypotheses exhausted**: Write a comment explaining what was tried and why reproduction failed, and **STOP** — awaiting user direction.
 
 ```bash
 git add [test files]
@@ -109,182 +111,74 @@ git commit -m "$(cat <<'COMMITMSG'
 [commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
 COMMITMSG
 )"
+git tag -f "bug/$CARD_ID/reproduction" HEAD
 ```
 
-Tag the state: `git tag -f "bug/$CARD_ID/reproduction" HEAD`
+## 2. Resolve Bug
 
-Capture the combined `TEST_FAILURE_OUTPUT` from all failing tests. Write a progress comment to the card repository listing each viable pathway and its corresponding test. Commit to the card repository.
+Resolve is a retry loop, bounded at 3 attempts. Each attempt runs Step 2.1: Trace Data Flow, Step 2.2: Delegate to Resolver, and Step 2.3: Validate and Commit.
 
-- **No tests fail**: Write a comment explaining what was tried and why reproduction failed, then **STOP** — awaiting user direction.
-
-## 2. Create Reproduction Test
-
-Initialize: REPRODUCTION_ATTEMPT = 0 (max 3)
-
-### 2.1 Delegate to Subagent
-
-Review reproduction test outputs and failure analysis from Step 1.4. If new information has emerged — unexpected code paths, unfamiliar dependencies, or uncovered failure modes — enumerate additional root cause hypotheses and reassess viable pathways.
-
-Increment REPRODUCTION_ATTEMPT, then invoke:
-
-```xml
-<invoke name="Agent">
-<parameter name="description">create-reproduction-test</parameter>
-<parameter name="subagent_type">general-purpose</parameter>
-<parameter name="prompt"># Task: Create Minimal Reproduction Test
-
-## Bug
-${BUG_DESCRIPTION}
-
-## Scope
-${SCOPE_HINT}
-
-[If REPRODUCTION_ATTEMPT > 1:]
-## Previous Attempt Failed
-Test PASSED when it should have FAILED:
-${TEST_PASS_ANALYSIS}
-[End if]
-
-## Requirements
-- Create NEW test file (do not modify existing tests)
-- Test must be minimal and MUST FAIL
-- Follow existing test patterns
-- Do NOT fix the bug
-
-## Response Format
-## Status
-[SUCCESS | BLOCKED | CANNOT_COMPLETE]
-
-## Result
-[Absolute file path, or "None"]
-
-## Reasoning
-[How test reproduces bug, or why blocked]
-</parameter>
-</invoke>
-```
-
-### 2.2 Capture and Validate
-
-Parse the subagent response to extract SUBAGENT_STATUS, TEST_FILE_PATH, and SUBAGENT_REASONING.
-
-Verify independently using git — do not rely solely on the subagent status:
-
-1. **Verify file exists.** If TEST_FILE_PATH does not exist and attempts remain (< 3), return to Step 2.1. If no attempts remain, write a failure comment and **STOP**.
-
-2. **Check for unexpected modifications.** Compare against the baseline tag (`git diff "bug/$CARD_ID/baseline" --name-only --diff-filter=M`). If existing files were modified, write a comment asking whether to proceed or revert, and **STOP**.
-
-3. **Run the test.** Stage and run:
-
-   ```bash
-      git add "$TEST_FILE_PATH"
-   ```
-
-   Run the test file using the project's test command. Capture full output and exit code.
-
-### 2.3 Outcomes
-
-- **BLOCKED or CANNOT_COMPLETE**: Write a comment with SUBAGENT_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP**.
-
-- **Test FAILS (expected)**:
-  - Commit: `git add "$TEST_FILE_PATH" && git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
-COMMITMSG
-)"
-  - Tag: `git tag -f "bug/$CARD_ID/reproduction" HEAD`
-  - Capture: `TEST_FAILURE_OUTPUT=$TEST_OUTPUT`
-  - Write a progress comment explaining the reproduction test and why it currently fails. Commit to the card repository.
-  - Proceed to Step 3: Resolve Bug.
-
-- **Test PASSES (unexpected), attempts < 3**:
-  - Synthesize TEST_PASS_ANALYSIS: "[Test name] passed because [reason]. Expected failure due to [bug behavior]."
-  - Revert all workspace changes to baseline:
-
-    ```bash
-        git diff "bug/$CARD_ID/baseline" --name-only --diff-filter=MD | \
-      xargs -r git checkout "bug/$CARD_ID/baseline" --
-    git diff "bug/$CARD_ID/baseline" --name-only --diff-filter=A | \
-      xargs -r git rm -f
-    ```
-  - Return to Step 2.1
-
-- **Test PASSES (unexpected), attempts >= 3**:
-  Write a comment reporting inability to create a reproducing test. Summarize each attempt and hypothesize why reproduction failed. Commit to the card repository.
-  **STOP** — Reproduction failed after maximum attempts.
-
-## 3. Resolve Bug
-
-Initialize: RESOLVE_ATTEMPT = 0 (max 3), TEST_CORRECTION_COUNT = 0 (max 1)
-
-### 3.1 Trace Data Flow
+### 2.1 Trace Data Flow
 
 <scope-rules>
-**Non-deterministic bugs**: If [TEST_FAILURE_OUTPUT] lacks file:line location information (e.g., timeout, race condition), data flow tracing may not be possible. Document what is known and pass available context to the resolver. The data flow path becomes a hypothesis rather than a trace.
+**Non-deterministic bugs**: If `[TEST_FAILURE_OUTPUT]` lacks `file:line` location information (for example, timeout or race condition), data-flow tracing may not be possible. Document what is known and pass available context to the resolver. The data-flow path becomes a hypothesis rather than a trace.
 </scope-rules>
 
-Before proposing a fix, map how bad data flows from origin to symptom:
+For each failing reproduction test, map how bad data flows from origin to symptom:
 
-1. **Find [DATA_FLOW_SYMPTOM]** — Where does the bug manifest? (from [TEST_FAILURE_OUTPUT])
-2. **Find [DATA_FLOW_SOURCE]** — Trace backward: what data/state causes it? Where is that set?
-3. **Map [DATA_FLOW_PATH]** — Document the chain: `[DATA_FLOW_SOURCE] -> [...] -> [DATA_FLOW_SYMPTOM]`
+1. **Symptom** — where the bug manifests, taken from `[TEST_FAILURE_OUTPUT]`.
+2. **Source** — trace backward: what data or state causes the symptom, and where is that set.
+3. **Path** — the chain `source → [intermediates] → symptom`.
 
-Record these three values for the resolver subagent in Step 3.2.
-
-**Verification rule:** Any fix must modify [DATA_FLOW_PATH] such that correct data flows from source to symptom.
-- **Fix adds new read**: Verify something writes the data
-- **Fix adds new write**: Verify something reads the data
-- **Fix adds new parameter**: Verify callers pass it
-- **Fix adds new branch**: Verify production code triggers it
+**Verification rule:** Any fix must modify the data-flow path such that correct data flows from source to symptom.
+- **Fix adds a new read**: verify something writes the data.
+- **Fix adds a new write**: verify something reads the data.
+- **Fix adds a new parameter**: verify callers pass it.
+- **Fix adds a new branch**: verify production code triggers it.
 
 Fixes that fail this check create dead code — new capabilities never exercised.
 
-### 3.2 Delegate to Subagent
+### 2.2 Delegate to Resolver
 
-Increment RESOLVE_ATTEMPT, then invoke:
+Dispatch the resolver with every failing test and its output inlined:
 
 ```xml
 <invoke name="Agent">
-<parameter name="description">resolve-bug</parameter>
+<parameter name="description">Resolve bug</parameter>
 <parameter name="subagent_type">general-purpose</parameter>
-<parameter name="prompt"># Task: Fix Bug to Make Test Pass
+<parameter name="run_in_background">false</parameter>
+<parameter name="prompt">
+## Task
+Fix source code so every failing reproduction test passes.
 
 ## Bug
-${BUG_DESCRIPTION}
+[BUG_DESCRIPTION]
 
-## Failing Test
-File: ${TEST_FILE_PATH}
-```
-${TEST_FAILURE_OUTPUT}
-```
+## Failing Tests
+[For each test: absolute file path, followed by a fenced code block containing its failure output.]
 
-[If RESOLVE_ATTEMPT > 1:]
-## Previous Attempt Failed
-${PREVIOUS_FAILURE_OUTPUT}
-[End if]
+[If a prior resolve attempt failed, include its output under a `## Previous Attempt` heading.]
 
 ## Data Flow
-Source: [DATA_FLOW_SOURCE]
-Symptom: [DATA_FLOW_SYMPTOM]
-Path: [DATA_FLOW_PATH]
+[Source, Symptom, and Path from Step 2.1 — per test if they differ.]
 
 ## Requirements
-- Fix source code to make test pass
-- Fix must modify the data flow path so correct data reaches the symptom
-- If adding new parameter: confirm callers will pass it
-- If adding new read: confirm something writes the data
-- Do not break existing functionality
-- Run linting after changes
+- Fix source code so every failing test passes.
+- The fix must modify the data-flow path so correct data reaches every symptom.
+- If adding a new parameter, confirm callers will pass it.
+- If adding a new read, confirm something writes the data.
+- Do not break existing functionality.
+- Do not run workspace-wide validation — the orchestrator validates after you return.
 
-## If Test Needs Correction
-Modify ONLY the test, return status TEST_MODIFIED.
-Orchestrator will verify corrected test still fails, then re-invoke.
+## If a Test Needs Correction
+Modify only the test and return status TEST_MODIFIED. The orchestrator will verify the corrected test still fails, then re-invoke.
 
 ## Response Format
 ## Status
 [SUCCESS | TEST_MODIFIED | BLOCKED | CANNOT_COMPLETE]
 
 ## Result
-[File paths modified, or "None"]
+[Files modified, or "None"]
 
 ## Reasoning
 [Fix explanation, or why blocked]
@@ -292,43 +186,54 @@ Orchestrator will verify corrected test still fails, then re-invoke.
 </invoke>
 ```
 
-Capture RESOLVER_REASONING from response.
+### 2.3 Validate and Commit
 
-### 3.3 Validate
+Based on the resolver's status:
+- **BLOCKED or CANNOT_COMPLETE**: Write a comment with the resolver's reasoning, add `blocked` to `tags` in `CARD.meta.json`, commit, and **STOP**.
+- **TEST_MODIFIED**: Proceed to Step 2.4: Test Correction Flow.
+- **SUCCESS**: Continue below.
 
-Determine what changed since the reproduction tag:
+Run every reproduction test. Then run the repository's workspace-level type-check and lint commands from the workspace root. Then run tests scoped to what the resolver changed:
+- **Changes isolated to a single package**: Run that package's test suite.
+- **Changes span multiple packages, or the package boundary is unclear**: Run the workspace's full validation suite.
 
-1. List all files changed since `bug/$CARD_ID/reproduction` (`git diff "bug/$CARD_ID/reproduction" --name-only`).
-2. Check whether the test file was modified (`git diff --quiet "bug/$CARD_ID/reproduction" -- "$TEST_FILE_PATH"`).
-3. Identify source-only changes by excluding the test file from the change list.
-4. Run the reproduction test and capture the output.
+Based on the combined result:
+- **All reproduction tests pass and all validations pass**: Commit the fix and proceed to Step 3: Validate Full Suite.
+- **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
+- **Reproduction test still fails, or validation fails on implementation grounds**: Treat as NEEDS_REVISION. Discard the resolver's uncommitted work and retry per Step 2. If retries are exhausted (3 attempts), write a comment explaining attempts and the specific technical obstacle, commit, and **STOP**.
 
-### 3.4 Outcomes
+Commit on success:
 
-- **BLOCKED or CANNOT_COMPLETE**: Write a comment with RESOLVER_REASONING, add `blocked` tag to `CARD.meta.json`, commit. **STOP**.
+```bash
+git add -A
+git commit -m "$(cat <<'COMMITMSG'
+[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
+COMMITMSG
+)"
+```
 
-- **Test modified**: Go to Test Correction Flow (Step 3.5)
+NEEDS_REVISION rollback:
 
-- **Only source changed, test PASSES**: Proceed to Step 4: Validate Full Suite.
+```bash
+git restore .
+git clean -fd
+```
 
-- **Only source changed, test FAILS**:
-  - Capture `PREVIOUS_FAILURE_OUTPUT=$TEST_OUTPUT`
-  - **Attempts < 3**: Return to Step 3.2
-  - **Attempts >= 3**: Write a comment explaining attempts and the specific technical obstacle. Commit to the card repository. **STOP**.
+### 2.4 Test Correction Flow
 
-### 3.5 Test Correction Flow
+The resolver has modified a reproduction test. Validate the correction before accepting it. This flow is bounded at 2 corrections across the whole resolve loop.
 
-1. Increment TEST_CORRECTION_COUNT
-2. **Count > 2**: Write a comment reporting the reproduction test became unreliable during the fix process. Describe what went wrong and why it cannot be trusted to verify the fix. Commit. **STOP**.
-3. Revert source changes: `git checkout "bug/$CARD_ID/reproduction" -- $SOURCE_CHANGES`
-4. Run test to verify it still fails
-5. Based on corrected test result:
-   - **FAILS (valid)**: Commit correction, update tag: `git tag -f "bug/$CARD_ID/reproduction" HEAD`, capture new TEST_FAILURE_OUTPUT, reset RESOLVE_ATTEMPT = 0, return to Step 3.2
-   - **PASSES (invalid)**: Revert test. If < 3 attempts, return to Step 3.2. Else write comment explaining test validation failure. **STOP**.
+1. Revert any non-test source changes the resolver made since `bug/$CARD_ID/reproduction`.
+2. Run the corrected test.
 
-## 4. Validate Full Suite
+Based on the corrected test's result:
+- **Fails (valid correction)**: Commit the corrected test, update the tag (`git tag -f "bug/$CARD_ID/reproduction" HEAD`), capture new `[TEST_FAILURE_OUTPUT]`, and return to Step 2.2: Delegate to Resolver.
+- **Passes (invalid correction)**: Revert the test. If resolve attempts remain, return to Step 2.2: Delegate to Resolver. Otherwise write a comment explaining test-validation failure and **STOP**.
+- **Corrections exhausted (2 already applied)**: Write a comment reporting that the reproduction test became unreliable during the fix process, describing what went wrong and why it cannot be trusted to verify the fix, commit, and **STOP**.
 
-Run linting, type checking, and tests.
+## 3. Validate Full Suite
+
+Run the repository's full validation suite: lint, type check, tests.
 
 <validation-gate>
 **Gate requirement:** ALL validation commands must pass.
@@ -343,36 +248,42 @@ Run linting, type checking, and tests.
 | "Tests are flaky" | Flaky = race condition = production bug |
 | "Works in other environments" | Must work HERE |
 
-**Validation is binary:**
-- ALL pass -> proceed
-- ANY fail -> block and report
-
-There is no "probably fine" state.
-
-- **Resolvable error**: Fix it, re-run
-- **Unresolvable error**: Block immediately — do not retry hoping it resolves itself
-
-**When blocked:**
-1. Write error comment with exact failure output to the card
-2. Add `blocked` tag to `CARD.meta.json`
-3. Commit changes
-4. **STOP**
+Validation is binary — there is no "probably fine" state.
 </validation-gate>
 
-- **All validation passes**: Proceed to Step 5: Finalize.
-- **Validation fails**: Write comment listing failures, add `blocked` tag, commit, **STOP**.
+Based on the result:
+- **All validations pass**: Proceed to Step 4: Finalize.
+- **Resolvable error**: Fix it and re-run validation.
+- **Unresolvable error**: Write a comment with the exact failure output, add `blocked` to `tags` in `CARD.meta.json`, commit, and **STOP** — do not retry hoping it resolves itself.
 
-## 5. Finalize
+## 4. Finalize
 
-### 5.1 Clean Up Tags
+### 4.1 Tag Cleanup
+
+Remove the baseline and reproduction tags — the rollback window is closed once the fix is finalized.
 
 ```bash
 git tag -d "bug/$CARD_ID/baseline" "bug/$CARD_ID/reproduction" 2>/dev/null
 ```
 
-### 5.2 Complete
+### 4.2 Complete or Await Review
 
-- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval.
-- **gates.mergeRequestRequired is false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
+Based on `gates.mergeRequestRequired`:
+- **false or unset**: Load the `runtime:card-merge` skill and follow its `<instructions>`.
+- **true**: **STOP** — Merge occurs after user approval.
 
 </instructions>
+
+<baseline-worktree-testing>
+
+The `create-worktree` command is a plugin-provided executable on `PATH`. Use it directly when you need an isolated Git worktree.
+
+To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
+
+```bash
+create-worktree "bug/$CARD_ID/baseline"
+```
+
+Run tests in the worktree, then delete the worktree and branch.
+
+</baseline-worktree-testing>
