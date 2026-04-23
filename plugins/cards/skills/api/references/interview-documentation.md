@@ -34,7 +34,11 @@ Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./docume
 Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
 
 - Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
-- Use the `AskUserQuestion` tool for discrete classifications the user is best placed to pick — home location, format, which existing doc is superseded, example source, freshness-linkage strategy. Stay in chat for audience definition, task articulation, and intent recovery.
+- Use the `AskUserQuestion` tool for discrete classifications the user is best placed to pick:
+  - Ask one question per turn. Batch only when a single scenario illustrates the whole cluster.
+  - Attach several short "good" and "bad" scenarios to each option — concrete, one-line each — when picking exposes non-obvious downstream consequences (e.g., superseding an existing doc — redirects, broken bookmarks, and stale references in adjacent docs the user hasn't audited). Skip scenarios when the trade-off is implicit in the question itself (e.g., heading capitalization or format preference, where the cost is stylistic).
+  - Topic axes: home location, format, which existing doc is superseded, example source, freshness-linkage strategy.
+  - Stay in chat for audience definition, task articulation, and intent recovery.
 - Target intent, audience, ownership, and trade-offs — never facts recoverable by research.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force clarity on audience and task; ambiguity here produces unusable docs.

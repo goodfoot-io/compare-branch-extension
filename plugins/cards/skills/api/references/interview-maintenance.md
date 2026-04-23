@@ -34,7 +34,11 @@ Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./mainte
 Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
 
 - Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
-- Use the `AskUserQuestion` tool for discrete parameters the user is best placed to set — scope, per-consumer disposition, completion criterion, invariant surface, whether test fixtures may change. Stay in chat for motivation, invariant naming, and trade-off discussion.
+- Use the `AskUserQuestion` tool for discrete parameters the user is best placed to set:
+  - Ask one question per turn. Batch only when a single scenario illustrates the whole cluster.
+  - Attach several short "good" and "bad" scenarios to each option — concrete, one-line each — when picking exposes non-obvious downstream consequences (e.g., scope — narrowing to one consumer leaves invariants unproven elsewhere; widening pulls in migrations the user didn't price in). Skip scenarios when the trade-off is implicit in the question itself (e.g., renaming a helper, where the cost is cosmetic).
+  - Topic axes: scope, per-consumer disposition, completion criterion, invariant surface, whether test fixtures may change.
+  - Stay in chat for motivation, invariant naming, and trade-off discussion.
 - Target motivation, invariants, rollout strategy, and completion criteria — never facts recoverable by research.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force the user to name what must *not* change; unstated invariants produce regressions.

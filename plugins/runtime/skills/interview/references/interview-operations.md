@@ -38,7 +38,11 @@ Load `cards:notes` and `cards:markdown` in parallel.
 The card already exists. Read `CARD.md` and use the conversation to close gaps, sharpen ambiguities, and surface assumptions the author left implicit — refining the commander's intent where the interview reveals it needs refining, rather than rebuilding it from scratch.
 
 - Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
-- Use the `AskUserQuestion` tool for discrete classifications the user is best placed to pick — target pipeline, trigger scope, new-step failure posture, secrets scope, caching impact. Stay in chat for the reason the change is needed, verification steps, and rollback narrative.
+- Use the `AskUserQuestion` tool for discrete classifications the user is best placed to pick:
+  - Ask one question per turn. Batch only when a single scenario illustrates the whole cluster.
+  - Attach several short "good" and "bad" scenarios to each option — concrete, one-line each — when picking exposes non-obvious downstream consequences (e.g., new-step failure posture — "block vs. warn" can halt unrelated pipelines the user hasn't traced, or let real failures drift unnoticed). Skip scenarios when the trade-off is implicit in the question itself (e.g., log-retention window, where the disk-vs-context trade is self-evident).
+  - Topic axes: target pipeline, trigger scope, new-step failure posture, secrets scope, caching impact.
+  - Stay in chat for the reason the change is needed, verification steps, and rollback narrative.
 - Target urgency, blast radius, reversibility, approvals, and verification — never facts recoverable by research.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force a rollback and verification plan. An operation without both is not ready to plan.

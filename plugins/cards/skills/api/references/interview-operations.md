@@ -34,7 +34,11 @@ Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./operat
 Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
 
 - Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
-- Use the `AskUserQuestion` tool for discrete classifications the user is best placed to pick — target pipeline, trigger scope, new-step failure posture, secrets scope, caching impact. Stay in chat for the reason the change is needed, verification steps, and rollback narrative.
+- Use the `AskUserQuestion` tool for discrete classifications the user is best placed to pick:
+  - Ask one question per turn. Batch only when a single scenario illustrates the whole cluster.
+  - Attach several short "good" and "bad" scenarios to each option — concrete, one-line each — when picking exposes non-obvious downstream consequences (e.g., new-step failure posture — "block vs. warn" can halt unrelated pipelines the user hasn't traced, or let real failures drift unnoticed). Skip scenarios when the trade-off is implicit in the question itself (e.g., log-retention window, where the disk-vs-context trade is self-evident).
+  - Topic axes: target pipeline, trigger scope, new-step failure posture, secrets scope, caching impact.
+  - Stay in chat for the reason the change is needed, verification steps, and rollback narrative.
 - Target urgency, blast radius, reversibility, approvals, and verification — never facts recoverable by research.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force a rollback and verification plan. An operation without both is not ready to plan.

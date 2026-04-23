@@ -34,7 +34,11 @@ Load `cards:markdown`, `./commanders-intent.md`, and the writing guide `./invest
 Interview the user conversationally. The commander's intent is built through the conversation, not drafted and approved as a document.
 
 - Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
-- Use the `AskUserQuestion` tool for discrete parameters the user is best placed to set — confidence threshold, deliverable shape, what the outcome unblocks, evidence-staleness tolerance, subject boundary. Stay in chat for the decision being unblocked, hypothesis generation, and falsifiability checks.
+- Use the `AskUserQuestion` tool for discrete parameters the user is best placed to set:
+  - Ask one question per turn. Batch only when a single scenario illustrates the whole cluster.
+  - Attach several short "good" and "bad" scenarios to each option — concrete, one-line each — when picking exposes non-obvious downstream consequences (e.g., a confidence threshold of "80% vs. 95%" changes which evidence sources become load-bearing and how long the investigation runs). Skip scenarios when the trade-off is implicit in the question itself (e.g., deliverable format, where the cost is obvious from the format itself).
+  - Topic axes: confidence threshold, deliverable shape, what the outcome unblocks, evidence-staleness tolerance, subject boundary.
+  - Stay in chat for the decision being unblocked, hypothesis generation, and falsifiability checks.
 - Target the decision to unblock, hypotheses to test, confidence threshold, and acceptable deliverable — never facts recoverable by research.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Force falsifiability: reject questions with no possible answer that would change behavior.
