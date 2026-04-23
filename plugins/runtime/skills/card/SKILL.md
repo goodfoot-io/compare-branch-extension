@@ -38,7 +38,6 @@ Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obt
 | IS_BLOCKED | `tags` contains "blocked" |
 | HAS_IMPLEMENTATION_FEEDBACK | `commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
 | REVIEW_APPROVED | `gates.mergeApproved` in the `<card>` block |
-| IS_STALE | No activity for 30+ days |
 | PLAN_REQUIRED | `gates.planRequired` in the `<card>` block |
 | PLAN_APPROVED | `gates.planApproved` in the `<card>` block |
 | HAS_PLAN | `plan/` directory in the card repository contains at least one `.md` file |
@@ -56,7 +55,6 @@ Select the **first** matching condition and note the matched reference:
 | IS_BLOCKED | `blocked` |
 | HAS_IMPLEMENTATION_FEEDBACK | `implementation-feedback` |
 | REVIEW_APPROVED | `merge` |
-| IS_STALE | `clarify-and-enrich` |
 | PLAN_REQUIRED AND NOT PLAN_APPROVED AND USER_RESPONDED_TO_PLAN | `plan-feedback` |
 | PLAN_REQUIRED AND NOT PLAN_APPROVED | `plan` |
 | NOT DOR_MET | `clarify-and-enrich` |
