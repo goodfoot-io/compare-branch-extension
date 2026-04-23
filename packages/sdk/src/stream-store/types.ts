@@ -104,5 +104,4 @@ export type IframeToHostMessage =
   | { type: 'openFile'; path: string; line?: number }
   | { type: 'showDiff'; sha: string; filePath?: string }
   | { type: 'claim'; filenames: string[] }
-  | { type: 'subscribe'; filename: string }
-  | { type: 'requestCollapse' };
+  | { type: 'subscribe'; filename: string };
