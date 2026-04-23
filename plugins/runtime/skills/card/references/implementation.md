@@ -34,7 +34,7 @@ git tag -f "implement/$CARD_ID/step-N" HEAD
 
 ### 2.1 Validate and Commit
 
-Load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.
+**You must load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.**
 
 Run the repository's workspace-level type-check and lint commands from the workspace root.
 

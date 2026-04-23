@@ -23,6 +23,7 @@ Card repository commit messages summarize the content of the commit itself. An a
 | Reopen | `Additional error handling needed for network timeouts during token refresh` |
 | Error recovery | `Merge failed due to conflicting changes in session.ts — needs manual resolution` |
 | No-action | `User provided context on deployment constraints, no code changes needed` |
-</card-repo-commit-style>
 
+**Important:** Commits to the workspace should follow the distinct `<workspace-commit-style>`. 
+</card-repo-commit-style>
 

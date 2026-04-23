@@ -108,9 +108,9 @@ This work owns: [absolute paths from plan]
 
 ### 2.4 Validate and Commit
 
-Wait for every agent in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
+**You must load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.**
 
-Load the `cards:markdown` and `runtime:workspace-commit-style` skills and review `<workspace-commit-style>`.
+Wait for every agent in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
 
 Run the repository's workspace-level type-check and lint commands from the workspace root.
 

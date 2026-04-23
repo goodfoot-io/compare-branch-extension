@@ -94,7 +94,7 @@ After every subagent returns, run each new test file and discard any that passes
 
 ### 1.5 Commit Reproduction
 
-Load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.
+**You must load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.**
 
 Based on the reproduction results:
 - **One or more tests fail**: Commit all failing tests in one commit, tag the state, capture `[TEST_FAILURE_OUTPUT]`, write a progress comment to the card repository listing each viable pathway and its test, commit the card repository, and proceed to Step 2: Resolve Bug.
