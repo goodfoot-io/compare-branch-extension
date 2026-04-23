@@ -98,7 +98,8 @@ export function processLine(state: CompactState, line: string): void {
     }
     const cleaned = stripMarkup(text);
     if (cleaned && !/^\s*[{[<]/.test(cleaned)) {
-      state.promptText = cleaned;
+      // Preserve original markdown so the renderer can format it.
+      state.promptText = text.trim();
     }
   }
 

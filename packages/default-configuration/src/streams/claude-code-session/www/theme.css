@@ -1,6 +1,49 @@
 @import '@cards/web/styles';
 @import '@cards/web/styles/transcript';
 
+/* Compact mode renders inside the cards-detail StreamIframeHost iframe.
+   Keep the body transparent so the rounded corners on the inner
+   container are visible (a painted <body> background propagates to the
+   viewport canvas and ignores border-radius). */
+body.mode-compact {
+  background: transparent;
+  margin: 0;
+}
+
+/* The compact container paints the code-block background, matches
+   CommentEntry's radius, and provides the 12px card-detail padding.
+   Fill the iframe so the rounded background is always visible. */
+html,
+body.mode-compact {
+  height: 100%;
+}
+.compact-container {
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 4px;
+  padding: 12px;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+/* Clamp markdown content to the iframe's visible area. */
+.compact-content {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.compact-content > :first-child {
+  margin-top: 0;
+}
+.compact-content > :last-child {
+  margin-bottom: 0;
+}
+
+/* Match DocumentEntry markdown text colour. */
+body {
+  color: var(--vscode-editor-foreground);
+}
+
 /* Override transcript.css defaults for the stream renderer context */
 .cc-transcript p {
   margin: 0 0 0.75em;
