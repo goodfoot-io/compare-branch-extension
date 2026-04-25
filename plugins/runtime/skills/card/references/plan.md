@@ -55,12 +55,12 @@ On return:
 
 ## 3. Route to Implementation
 
-Read `gates.planRequired` from `CARD.meta.json`.
+The gates consulted in Step 1 determine the route. Do not re-prompt the user for confirmation — `gates.planApproved` and `gates.planRequired` are the authorization. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
 
-Based on the outcome:
+Based on tier and gates:
 
-- **Tier 1 (no plan)**: Read `./implementation.md` and follow its instructions.
-- **Plan approved and `planRequired` is true**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
-- **Plan approved and `planRequired` is false**: Read `./implementation-with-plan.md` and follow its instructions.
+- **Tier 1**: Read `./implementation.md` and follow its instructions.
+- **`planRequired` is true**: **STOP** — plan submitted for approval. Do not modify gates in `CARD.meta.json`.
+- **`planRequired` is false**: Read `./implementation-with-plan.md` and follow its instructions.
 
 </instructions>

@@ -29,20 +29,15 @@ Based on plan completion:
 
 ### 2.2 Assess Coherence
 
-Analyze the remaining implementation steps along three dimensions:
+**Compilability invariant.** The steps assigned to a single agent must be reachable to a validation-passing state without depending on work assigned to another agent or a later dispatch. If the plan contains any step that breaks the build, types, or tests until a later step lands, the unit of assignment is the smallest set of steps that restores green — never larger. Evaluate this before dependency or uniformity; it overrides them.
 
-| Dimension | Question |
-|-----------|----------|
-| **Dependency** | Do files import/reference each other? |
-| **Uniformity** | Same operation across files, or varied operations? |
-| **Size** | Substantial work with clear completion gates? |
+Route based on the first matching condition:
 
-Based on the assessment, route to a delegation mode:
-- **Independent files OR uniform steps**: Parallel — concurrent agents, one commit after the group returns.
-- **Dependent + varied + small**: Coherent — single agent covering all steps, one commit.
-- **Dependent + varied + substantial with clear gates**: Sequential — ordered agents with validation between phases, one commit per phase.
+- **Parallel** — Independent files, OR uniform steps across files. Concurrent agents over independent groups, one commit after the group returns.
+- **Sequential** — Multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Ordered dispatches with a validation gate per phase, one commit per phase.
+- **Coherent** — Dependent and varied steps, AND the plan has a single phase, AND a single end-of-scope validation gate. Single dispatch covering all steps, one commit.
 
-When uncertain between Coherent and Sequential, choose **Sequential** — validation gates have low cost; missed validation opportunities have high cost.
+The Sequential tiebreaker is one-way. Route **Coherent** only when every clause of its condition holds. "Phases share context" and "validation is cleaner at the end" are not valid reasons. When uncertain, route **Sequential**.
 
 Clear gates: type-check passes, tests pass, API functional, UI renders.
 
@@ -242,6 +237,8 @@ The orchestrator coordinates — it does NOT implement code.
 Plan says "implement" → delegate to developer agent. Never use Read/Write/Edit/MultiEdit for implementation.
 
 **Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work.
+
+**Never dispatch a scope that cannot reach a validation gate on its own.** Each dispatched scope must be reachable to a validation-passing state without depending on a later dispatch. A scope that cannot is too large — return to Step 2.2: Assess Coherence and split. The constraint is on validation reachability within the scope, not on commit timing — commits are produced in Step 2.4: Validate and Commit after the group returns.
 </orchestrator-constraints>
 
 <baseline-worktree-testing>
