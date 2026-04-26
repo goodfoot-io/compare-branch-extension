@@ -18,7 +18,18 @@
 
 ### 1.1 Validate Workspace State
 
-Verify a clean working tree (`git status --porcelain` in `$WORKSPACE_PATH`). If dirty, write a comment explaining the dirty state prevents safe operation, add `blocked` to `tags` in `CARD.meta.json`, commit, and **STOP**.
+Run `git status --porcelain`. A clean tree is the happy path — proceed.
+
+If dirty, the worktree is dedicated to this card, so the changes are almost certainly partial work from a prior attempt that did not finish (e.g., a crashed session). Triage before blocking:
+
+1. **Inspect the changes** with `git diff` and `git diff --cached`. Compare against the card's branch baseline (`bug/$CARD_ID/baseline` if it exists, otherwise `$BASE_BRANCH`).
+2. **Classify the dirt** into one of:
+   - **On-card and coherent** — the changes are recognizable progress toward this card's goal (e.g., a partial fix, a reproducer test, scaffolding named in the plan). Treat as recoverable: commit it on the current branch with a message like `wip: recovered from prior attempt — <one-line summary>`, note the recovery in a card comment, and continue with the bug flow. The next steps will build on or supersede it.
+   - **On-card but incoherent** — touches files in the card's scope but the changes don't form a meaningful step (random edits, half-applied refactor, conflicting hunks). Stash with `git stash push -m "card/$CARD_ID/pre-bug-triage"`, write a comment recording the stash ref and a short description of what was discarded, and proceed with a clean tree.
+   - **Off-card** — touches files unrelated to this card. This should not happen in a card-dedicated worktree; it indicates worktree contamination. Add `blocked` to `tags` in `CARD.meta.json`, write a comment with the offending paths, commit, and **STOP**.
+3. Only the **off-card** branch blocks. The other two recover and continue.
+
+If classification is genuinely ambiguous after inspection, prefer the **incoherent** path (stash + comment + proceed) over asking the user — the stash preserves the work, and the next implementation attempt is the right place to decide whether to restore it.
 
 Create the baseline tag if one does not already exist. The baseline is pinned — it does not advance during bug resolution.
 

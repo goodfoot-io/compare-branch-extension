@@ -107,8 +107,7 @@ Read the full diff against the prior commit. Check:
 Run validation from the package directory containing the changed files, using that package's scripts:
 
 ```bash
-cd "$WORKSPACE_PATH/[PACKAGE_DIR]"
-yarn lint && yarn typecheck && yarn test
+(cd "./[PACKAGE_DIR]" && yarn lint && yarn typecheck && yarn test)
 ```
 
 If the slice spans more than one package, run `yarn validate` from the workspace root.

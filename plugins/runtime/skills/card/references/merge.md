@@ -4,7 +4,7 @@
 
 ## 1. Check for Changes
 
-Count the commits on `$WORKSPACE_BRANCH` relative to `$BASE_BRANCH` (`git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH` in `$WORKSPACE_PATH`).
+Count the commits on `$WORKSPACE_BRANCH` relative to `$BASE_BRANCH` (`git rev-list --count $BASE_BRANCH..$WORKSPACE_BRANCH`).
 
 Based on commit count:
 - **COMMIT_COUNT = 0**: No changes to merge. **STOP**.

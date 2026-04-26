@@ -260,8 +260,10 @@ COMMITMSG
 
 ### 4.2 Complete or Await Review
 
-- **gates.mergeRequestRequired is false or unset**: Read `./merge.md` and follow its `<instructions>`.
-- **gates.mergeRequestRequired is true**: **STOP** — Merge occurs after user approval.
+`gates.mergeRequestRequired` is the durable, pre-authorized gate for the merge step — it is the authorization the global "authorized in advance in durable instructions" rule asks for. Do not re-derive safety from context; read the gate and act:
+
+- **false or unset**: The card author has pre-authorized a local-only merge. Read `./merge.md` and follow its `<instructions>` without further confirmation.
+- **true**: **STOP** — the gate withholds authorization. Merge occurs only after user approval.
 
 ### 4.3 Tag Cleanup
 
