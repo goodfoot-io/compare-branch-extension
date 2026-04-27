@@ -58,7 +58,7 @@ async function initGitRepo(dir: string): Promise<void> {
   exec('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
 }
 
-describe.skip('create-worktree CLI', () => {
+describe('create-worktree CLI', () => {
   let tmpBase = '';
 
   afterEach(async () => {

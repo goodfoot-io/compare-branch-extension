@@ -77,7 +77,7 @@ export interface CreateWorktreeResult {
   worktree: string;
   baseSha: string;
   copiedFromInclude: number;
-  reroutedSymlinks?: number;
+  reroutedSymlinks: number;
 }
 
 /**
@@ -170,12 +170,9 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
       branch: ref,
       worktree: worktreeDir,
       baseSha,
-      copiedFromInclude
+      copiedFromInclude,
+      reroutedSymlinks: reroutedCount
     };
-
-    if (reroutedCount > 0) {
-      result.reroutedSymlinks = reroutedCount;
-    }
 
     return result;
   })();

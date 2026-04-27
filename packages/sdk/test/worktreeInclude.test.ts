@@ -62,7 +62,7 @@ async function initGitRepo(
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
 }
 
-describe.skip('applyWorktreeInclude', () => {
+describe('applyWorktreeInclude', () => {
   let sourceRoot = '';
   let worktreeDir = '';
 
