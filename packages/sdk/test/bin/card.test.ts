@@ -611,6 +611,10 @@ describe('card binary', () => {
       });
 
       await expect(attachCard('test-card-f3')).rejects.toThrow('already has an active watcher');
+
+      // Regression: collision throw must NOT have written sessions.json
+      const { getPidCardAssociation } = await import('@cards/sessions');
+      expect(await getPidCardAssociation(testPid)).toBeNull();
     });
 
     // F3: no collision — 404 from GET means no existing watcher, proceed normally

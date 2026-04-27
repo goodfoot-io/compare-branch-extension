@@ -595,21 +595,27 @@ export async function attachCard(
   const card = await client.getCard(cardId);
   const cardRepoPath = card.repositoryPath;
 
-  await associatePidWithCard(pid, cardId, { mode: 'attach', workspacePath });
-  console.error(`card attach: PID ${pid} associated with card ${cardId} (workspacePath=${workspacePath})`);
-
-  // Check for existing launch-mode watcher collision before spawning.
+  // Check for existing launch-mode watcher collision BEFORE writing to sessions.json.
   // If a watcher is already active under this sessionId, it was started via
   // launch; attaching on top of it silently displaces launch-mode attribution.
+  // Network failure on this lookup is treated as "no collision detected" so a
+  // transient extension API hiccup cannot leave a poisoned registry entry behind.
   const attachApiInfo = await discoverApiInfo();
   if (attachApiInfo) {
     const { host, port, accessToken } = attachApiInfo;
     const watcherUrl = `http://${host}:${port}/internal/watchers/${encodeURIComponent(sessionId)}`;
-    const watcherRes = await fetch(watcherUrl, {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-      signal: AbortSignal.timeout(4000)
-    });
-    if (watcherRes.ok) {
+    let watcherRes: Response | undefined;
+    try {
+      watcherRes = await fetch(watcherUrl, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        signal: AbortSignal.timeout(4000)
+      });
+    } catch (error) {
+      console.error(
+        `card attach: watcher collision check skipped (${error instanceof Error ? error.message : String(error)})`
+      );
+    }
+    if (watcherRes?.ok) {
       throw new Error(
         `card attach: session ${sessionId} already has an active watcher (started via launch?); launch+attach is not supported`
       );
@@ -617,6 +623,9 @@ export async function attachCard(
     // 404 means no existing watcher — safe to proceed.
     // 503 means registry not configured — also safe to proceed (no active watcher).
   }
+
+  await associatePidWithCard(pid, cardId, { mode: 'attach', workspacePath });
+  console.error(`card attach: PID ${pid} associated with card ${cardId} (workspacePath=${workspacePath})`);
 
   // Spawn transcript watcher. Failure is non-fatal and logged to stderr.
   let watcherSpawned = false;
