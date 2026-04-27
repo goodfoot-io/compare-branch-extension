@@ -1,6 +1,6 @@
 ---
 name: extension
-description: Control VS Code via the cards-extension CLI. Use when opening files, navigating to lines, selecting text, running VS Code commands, sending notifications, managing panels, controlling the debugger, checking editor state, listing workspaces, or using execute-command, editor open, editor select, editor info, workspace list, panel show, debug start, debug stop, debug state, notify, attribution.
+description: Control VS Code and the Cards extension - vscode.commands.executeCommand, vscode.window.showTextDocument, vscode.debug.*, vscode.Range, vscode.Selection, vscode.window.showInformationMessage, and compare branches.
 ---
 
 # Cards Extension CLI

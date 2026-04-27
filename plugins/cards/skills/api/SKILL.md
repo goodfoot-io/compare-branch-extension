@@ -1,9 +1,9 @@
 ---
-name: api
-description: Create, read, or interact with a card.
+name: management
+description: Look up, create, search, comment on, or run actions against a card by ID (e.g. main-123) via the card CLI; resolves a card ID to its repository path (CARD.md, plan/, comment/, attachments). Trigger whenever the user references a card by ID or asks to read/modify its contents.
 ---
 
-# Cards API
+# Cards
 
 Use the CLI binary below to manage cards. For direct card content operations
 (comments, attachments, plans), use the card's filesystem repository — see

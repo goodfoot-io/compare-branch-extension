@@ -2,10 +2,10 @@
 
 Per-type reference files for the `runtime:interview` skill. Two files per card type:
 - `interview-<type>.md` — **interview guide**: how to conduct the post-creation interview and shape the card.
-- `<type>.md` — **writing guide**: target CARD.md structure (symlinks to `cards:api` references — edit there).
+- `<type>.md` — **writing guide**: target CARD.md structure (symlinks to `cards:management` references — edit there).
 
 Plus one shared reference:
-- `commanders-intent.md` — first-principles for the opening paragraph of CARD.md (symlink to `cards:api` references).
+- `commanders-intent.md` — first-principles for the opening paragraph of CARD.md (symlink to `cards:management` references).
 
 ## Consumer
 
@@ -24,7 +24,7 @@ Plus one shared reference:
 
 ## Symlinks
 
-Writing guides and `commanders-intent.md` are symlinked from `cards:api` references — edit those files there; the symlinks ensure both skills see the same content.
+Writing guides and `commanders-intent.md` are symlinked from `cards:management` references — edit those files there; the symlinks ensure both skills see the same content.
 
 ```
 interview/references/bug-report.md        -> ../../../../cards/skills/api/references/bug-report.md

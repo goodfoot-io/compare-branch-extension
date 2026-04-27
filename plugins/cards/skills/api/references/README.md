@@ -9,7 +9,7 @@ Plus one shared reference used by every card type:
 
 ## Consumers
 
-1. **Card creation** (`cards:api` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `card create` time.
+1. **Card creation** (`cards:management` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `card create` time.
 2. **Interview skills** (`runtime:interview-*`) — symlink the **writing guide** (`<type>.md`) into their skill directory and load it via `./<type>.md` during the post-creation interview. The `interview-<type>.md` files are pre-creation only and are **not** symlinked into `runtime:interview-*`.
 
 ## Symlinks

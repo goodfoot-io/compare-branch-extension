@@ -2,7 +2,7 @@
  * Default cards assistant handler for the Cards extension.
  *
  * Spawns the `claude` CLI in the workspace root with the `cards@cards.management`
- * plugin enabled, giving Claude access to the `cards:api` skill. Unlike action
+ * plugin enabled, giving Claude access to the `cards:management` skill. Unlike action
  * handlers, this handler has no card context, no worktree, and no socket.
  *
  * The handler replicates the behavior of the legacy `cards.startCardsAgent`
@@ -33,7 +33,7 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
 
   const shellArgs = [
     '--append-system-prompt',
-    '<instructions>Load the `cards:api` skill and assist the user. Do not implement a card unless instructed to do so by the user.</instructions>',
+    '<instructions>Load the `cards:management` skill and assist the user. Do not implement a card unless instructed to do so by the user.</instructions>',
     '--append-system-prompt',
     commitMessageStyle.trim(),
     '--add-dir',

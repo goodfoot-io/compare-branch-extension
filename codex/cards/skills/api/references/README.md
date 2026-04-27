@@ -4,7 +4,7 @@ Single source of truth for card-type writing guidance. Each file teaches how to 
 
 ## Consumers
 
-1. **Card creation** (`cards:api` skill) — reads a reference file to guide CARD.md composition when creating a new card.
+1. **Card creation** (`cards:management` skill) — reads a reference file to guide CARD.md composition when creating a new card.
 2. **Interview skills** (`runtime:interview-*`) — symlink each reference into their skill directory and load it via `./<type>.md` during the interview.
 
 ## Symlinks

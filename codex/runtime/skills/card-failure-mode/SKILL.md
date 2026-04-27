@@ -17,7 +17,7 @@ Read every changed file in full. Then trace outward: for every exported symbol, 
 
 Your scope is all code the change interacts with, not just code the change introduced. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced defects.
 
-**Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings. Instead, load the `cards:api` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
+**Out-of-scope issues**: If you discover an issue in code the change does not interact with, do not include it in your findings. Instead, load the `cards:management` skill and create a new card about the issue with a `related` relation to the current card. Add the reciprocal relation to the current card's `CARD.meta.json`. Then continue your analysis.
 
 Run the code where possible — exercising runtime paths reveals failures that static analysis misses, especially against shared blind spots with the author.
 
