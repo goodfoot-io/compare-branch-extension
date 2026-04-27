@@ -269,7 +269,10 @@ export async function resolveOrCreateWorktree(
     if (!branch.name.startsWith(`cards/${input.cardId}/`)) continue;
 
     logger.info('Reattaching worktree for existing branch', { branch: branch.name });
-    const { path: worktreePath, settle } = await createWorktree(branch.name, { cwd: input.repoRoot });
+    const { path: worktreePath, settle } = await createWorktree(branch.name, {
+      cwd: input.repoRoot,
+      cardId: input.cardId
+    });
 
     // Update the API record with the new worktree path
     await client.addBranch(
@@ -302,7 +305,10 @@ export async function resolveOrCreateWorktree(
   }
 
   const branchName = `${prefix}${nextNumber}`;
-  const { path: worktreePath, settle } = await createWorktree(branchName, { cwd: input.repoRoot });
+  const { path: worktreePath, settle } = await createWorktree(branchName, {
+    cwd: input.repoRoot,
+    cardId: input.cardId
+  });
   await client.addBranch(
     input.cardId,
     { name: branchName, worktree: worktreePath, parentBranch: baseBranch },

@@ -106,9 +106,16 @@ export interface EarlyWorktreeResult {
  * @param ref - Branch name, tag name, or commit SHA.
  * @param options - Optional configuration.
  * @param options.cwd - Working directory to use when locating git roots. Defaults to `process.cwd()`.
+ * @param options.cardId - When provided, makes the worktree card-bound: writes `<worktree>/.cards/CARD_ID`
+ *   so workspace git hooks can attribute commits without an inherited env var, and excludes the file
+ *   from `git status` via the per-worktree `info/exclude`. Omitting this option leaves the worktree
+ *   unbound — hooks fall back to PID-based resolution.
  * @returns Early result with `path` available immediately and `settle` resolving when setup completes.
  */
-export async function createWorktree(ref: string, options?: { cwd?: string }): Promise<EarlyWorktreeResult> {
+export async function createWorktree(
+  ref: string,
+  options?: { cwd?: string; cardId?: string }
+): Promise<EarlyWorktreeResult> {
   const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
 
   // Determine whether this is an existing ref or a new branch name.
@@ -158,11 +165,22 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
     await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
     await copyCardsDirectory(sourceRoot, worktreeDir);
 
+    if (options?.cardId !== undefined) {
+      await writeCardBoundFile(worktreeDir, options.cardId);
+    }
+
     const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
     const copiedFromInclude = await applyWorktreeInclude({ sourceRoot, worktreeDir });
 
+    const additionalExcludes = options?.cardId !== undefined ? ['.cards/CARD_ID'] : [];
     const [, baseSha] = await Promise.all([
-      updateGitExclude({ worktreeDir, repoRoot, directories: ignored.directories, files: ignored.files }),
+      updateGitExclude({
+        worktreeDir,
+        repoRoot,
+        directories: ignored.directories,
+        files: ignored.files,
+        additionalExcludes
+      }),
       resolveHead(worktreeDir)
     ]);
 
@@ -414,6 +432,23 @@ async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Prom
       throw error;
     }
   }
+}
+
+/**
+ * Writes the per-worktree `.cards/CARD_ID` marker.
+ *
+ * Workspace git hooks read this file (via `git rev-parse --show-toplevel` then
+ * `<root>/.cards/CARD_ID`) to attribute commits to a card without inheriting
+ * the legacy `CARD_ID` environment variable. The trailing newline is intentional
+ * — text-mode tools and `git diff` expect a newline-terminated file.
+ *
+ * @param worktreeDir - Absolute worktree root.
+ * @param cardId - Card identifier to record.
+ */
+async function writeCardBoundFile(worktreeDir: string, cardId: string): Promise<void> {
+  const cardsDir = path.join(worktreeDir, '.cards');
+  await fs.mkdir(cardsDir, { recursive: true });
+  await fs.writeFile(path.join(cardsDir, 'CARD_ID'), `${cardId}\n`);
 }
 
 interface SymlinkIgnoredPathsOptions {
@@ -768,6 +803,7 @@ interface UpdateGitExcludeOptions {
   repoRoot: string;
   directories: string[];
   files: string[];
+  additionalExcludes?: string[];
 }
 
 /**
@@ -780,7 +816,7 @@ interface UpdateGitExcludeOptions {
  * @returns No value.
  */
 export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<void> {
-  const { worktreeDir, repoRoot, directories, files } = opts;
+  const { worktreeDir, repoRoot, directories, files, additionalExcludes } = opts;
 
   const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreeDir, 'rev-parse', '--git-dir'], {
     timeout: 5_000
@@ -811,6 +847,12 @@ export async function updateGitExclude(opts: UpdateGitExcludeOptions): Promise<v
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error;
       }
+    }
+  }
+
+  if (additionalExcludes) {
+    for (const entry of additionalExcludes) {
+      if (entry) lines.push(entry);
     }
   }
 

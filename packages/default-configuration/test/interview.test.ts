@@ -479,7 +479,8 @@ describe('Default Actions', () => {
         await flushMicrotasks();
 
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
-          cwd: '/test/workspace'
+          cwd: '/test/workspace',
+          cardId: 'card-123'
         });
 
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };

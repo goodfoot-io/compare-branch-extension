@@ -187,7 +187,8 @@ describe('worktree-API desync', () => {
     // createWorktree should be called once with slot 2 (skipping occupied slot 1)
     expect(createWorktree).toHaveBeenCalledTimes(1);
     expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', {
-      cwd: '/test/workspace'
+      cwd: '/test/workspace',
+      cardId: 'card-123'
     });
 
     child.emit('close', 0);
@@ -224,7 +225,8 @@ describe('worktree-API desync', () => {
     // Should skip slots 1-15 and create at 16
     expect(createWorktree).toHaveBeenCalledTimes(1);
     expect(createWorktree).toHaveBeenCalledWith('cards/card-123/16', {
-      cwd: '/test/workspace'
+      cwd: '/test/workspace',
+      cardId: 'card-123'
     });
 
     child.emit('close', 0);

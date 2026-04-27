@@ -14,20 +14,41 @@
 import { createWorktree } from '@cards/sdk/worktree';
 import { WorktreeIncludeError } from '../worktreeInclude.js';
 
-const USAGE = 'Usage: create-worktree <branch|tag|sha>\n';
+const USAGE = 'Usage: create-worktree [--card-id <id>] <branch|tag|sha>\n';
 
-const ref = process.argv[2];
+const args = process.argv.slice(2);
+let cardId: string | undefined;
+let ref: string | undefined;
+
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i]!;
+  if (arg === '-h' || arg === '--help') {
+    process.stdout.write(USAGE);
+    process.exit(0);
+  } else if (arg === '--card-id') {
+    const next = args[i + 1];
+    if (!next) {
+      process.stderr.write(USAGE);
+      process.exit(2);
+    }
+    cardId = next;
+    i++;
+  } else if (arg.startsWith('--card-id=')) {
+    cardId = arg.slice('--card-id='.length);
+  } else if (ref === undefined) {
+    ref = arg;
+  } else {
+    process.stderr.write(USAGE);
+    process.exit(2);
+  }
+}
+
 if (!ref) {
   process.stderr.write(USAGE);
   process.exit(2);
 }
 
-if (ref === '-h' || ref === '--help') {
-  process.stdout.write(USAGE);
-  process.exit(0);
-}
-
-createWorktree(ref)
+createWorktree(ref, cardId !== undefined ? { cardId } : undefined)
   .then(({ settle }) => settle)
   .then((result) => {
     process.stdout.write(`${JSON.stringify(result)}\n`);

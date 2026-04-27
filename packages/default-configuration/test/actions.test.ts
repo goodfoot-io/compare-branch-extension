@@ -478,7 +478,8 @@ describe('Default Actions', () => {
         await flushMicrotasks();
 
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
-          cwd: '/test/workspace'
+          cwd: '/test/workspace',
+          cardId: 'card-123'
         });
 
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
@@ -606,7 +607,8 @@ describe('Default Actions', () => {
 
         // Should pick max(1,3)+1 = 4
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/4', {
-          cwd: '/test/workspace'
+          cwd: '/test/workspace',
+          cardId: 'card-123'
         });
 
         child.emit('close', 0);
@@ -864,7 +866,8 @@ describe('Default Actions', () => {
 
         // Should reattach the existing branch, not create a new one
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
-          cwd: '/test/workspace'
+          cwd: '/test/workspace',
+          cardId: 'card-123'
         });
 
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };

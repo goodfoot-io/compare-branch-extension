@@ -183,7 +183,8 @@ describe('base branch worktree collision', () => {
     expect(createWorktree).toHaveBeenCalledTimes(1);
     expect(createWorktree).not.toHaveBeenCalledWith('main', expect.anything());
     expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
-      cwd: '/test/workspace'
+      cwd: '/test/workspace',
+      cardId: 'card-123'
     });
 
     child.emit('close', 0);
