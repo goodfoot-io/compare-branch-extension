@@ -249,6 +249,52 @@ describe('transcript-watcher binary integration', () => {
     expect(existsSync(join(sentinelDir, `${sessionId}.flush`))).toBe(false);
   }, 30_000);
 
+  it('live-tails when source dir is created after watcher starts', async () => {
+    // Remove the pre-created source dir — simulate Claude not having created
+    // ~/.claude/projects/<encoded-cwd>/ yet at the moment the watcher spawns.
+    rmSync(sourceDir, { recursive: true, force: true });
+
+    child = spawnWatcher(process.pid);
+    await harness.waitForHello();
+
+    // Wait long enough that an eager fs.watch attempt would have already
+    // failed with ENOENT and been swallowed by the catch block.
+    await new Promise((r) => setTimeout(r, 500));
+
+    // Now Claude creates its project directory and starts writing the transcript.
+    mkdirSync(sourceDir, { recursive: true });
+    const srcPath = join(sourceDir, `${sessionId}.jsonl`);
+    writeFileSync(srcPath, '{"type":"line1"}\n');
+
+    const dest = join(cardRepoPath, 'streams', 'claude-code-session', `${sessionId}.jsonl`);
+
+    // Wait for the watcher to mirror the file LIVE — before any close path
+    // (stop / sentinel / PID death) has fired. With the bug, the destination
+    // remains empty until session shutdown.
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      if (existsSync(dest) && readFileSync(dest, 'utf-8').includes('line1')) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    expect(existsSync(dest), `dest ${dest} should exist before stop`).toBe(true);
+    expect(readFileSync(dest, 'utf-8')).toContain('line1');
+
+    // Append a second line and verify continued live tailing.
+    writeFileSync(srcPath, '{"type":"line1"}\n{"type":"line2"}\n');
+    const deadline2 = Date.now() + 10_000;
+    while (Date.now() < deadline2) {
+      if (existsSync(dest) && readFileSync(dest, 'utf-8').includes('line2')) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(readFileSync(dest, 'utf-8')).toContain('line2');
+
+    // Clean shutdown.
+    harness.sendToClient({ type: 'control', command: { type: 'stop' } });
+    const code = await waitForChildExit(child);
+    expect(code).toBe(0);
+  }, 60_000);
+
   it('PID death triggers exit, final flush, exit 0', async () => {
     const srcPath = join(sourceDir, `${sessionId}.jsonl`);
     writeFileSync(srcPath, '{"type":"pid-death"}\n');
