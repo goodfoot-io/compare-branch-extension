@@ -166,6 +166,9 @@ export async function createWorktree(
     await copyCardsDirectory(sourceRoot, worktreeDir);
 
     if (options?.cardId !== undefined) {
+      if (options.cardId.length === 0) {
+        throw new Error('createWorktree: cardId must be a non-empty string');
+      }
       await writeCardBoundFile(worktreeDir, options.cardId);
     }
 

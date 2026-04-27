@@ -48,6 +48,11 @@ if (!ref) {
   process.exit(2);
 }
 
+if (cardId !== undefined && cardId.length === 0) {
+  process.stderr.write('Error: --card-id requires a non-empty value\n');
+  process.exit(2);
+}
+
 createWorktree(ref, cardId !== undefined ? { cardId } : undefined)
   .then(({ settle }) => settle)
   .then((result) => {
