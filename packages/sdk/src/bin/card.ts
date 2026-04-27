@@ -589,13 +589,34 @@ export async function attachCard(
 
   const workspacePath = realpathSync(gitContext.gitRoot);
 
-  await associatePidWithCard(pid, cardId, { mode: 'attach', workspacePath });
-  console.error(`card attach: PID ${pid} associated with card ${cardId} (workspacePath=${workspacePath})`);
-
-  // Fetch card to obtain cardRepoPath for the transcript watcher.
+  // Validate card exists BEFORE writing to sessions.json. If getCard throws
+  // (e.g. 404 or transient API failure) the registry stays untouched.
   const client = await connectClient();
   const card = await client.getCard(cardId);
   const cardRepoPath = card.repositoryPath;
+
+  await associatePidWithCard(pid, cardId, { mode: 'attach', workspacePath });
+  console.error(`card attach: PID ${pid} associated with card ${cardId} (workspacePath=${workspacePath})`);
+
+  // Check for existing launch-mode watcher collision before spawning.
+  // If a watcher is already active under this sessionId, it was started via
+  // launch; attaching on top of it silently displaces launch-mode attribution.
+  const attachApiInfo = await discoverApiInfo();
+  if (attachApiInfo) {
+    const { host, port, accessToken } = attachApiInfo;
+    const watcherUrl = `http://${host}:${port}/internal/watchers/${encodeURIComponent(sessionId)}`;
+    const watcherRes = await fetch(watcherUrl, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      signal: AbortSignal.timeout(4000)
+    });
+    if (watcherRes.ok) {
+      throw new Error(
+        `card attach: session ${sessionId} already has an active watcher (started via launch?); launch+attach is not supported`
+      );
+    }
+    // 404 means no existing watcher — safe to proceed.
+    // 503 means registry not configured — also safe to proceed (no active watcher).
+  }
 
   // Spawn transcript watcher. Failure is non-fatal and logged to stderr.
   let watcherSpawned = false;
@@ -891,7 +912,11 @@ export async function detachCard(): Promise<{ pid: number }> {
   // Best-effort watcher teardown — never throws
   if (entry?.cardId) {
     const apiInfo = await discoverApiInfo();
-    if (apiInfo) {
+    if (!apiInfo) {
+      console.error(
+        `card detach: watcher teardown skipped (extension API not reachable; sidecar will remain isActive until PID exit)`
+      );
+    } else {
       const { host, port, accessToken } = apiInfo;
       try {
         const res = await fetch(`http://${host}:${port}/internal/cards/${entry.cardId}/watchers`, {
@@ -901,9 +926,18 @@ export async function detachCard(): Promise<{ pid: number }> {
         });
         if (res.ok) {
           const body = (await res.json()) as { stopped: string[]; timedOut: string[] };
-          console.error(
-            `card detach: watcher teardown stopped=${JSON.stringify(body.stopped)} timedOut=${JSON.stringify(body.timedOut)}`
-          );
+          if (body.timedOut.length > 0) {
+            console.error(
+              `card detach: watcher teardown TIMED OUT for ids=${JSON.stringify(body.timedOut)}; stopped=${JSON.stringify(body.stopped)}`
+            );
+          } else {
+            console.error(
+              `card detach: watcher teardown stopped=${JSON.stringify(body.stopped)} timedOut=${JSON.stringify(body.timedOut)}`
+            );
+          }
+        } else {
+          const text = await res.text().catch(() => '');
+          console.error(`card detach: watcher teardown returned status ${res.status} (${text})`);
         }
       } catch (error) {
         console.error(

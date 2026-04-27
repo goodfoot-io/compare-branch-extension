@@ -237,6 +237,34 @@ describe('when mode is attach', () => {
     vi.restoreAllMocks();
   });
 
+  // F5: persistEnvVar must be called BEFORE spawnTranscriptWatcher
+  it('persistEnvVar is invoked before spawnTranscriptWatcher in the attach-mode branch', async () => {
+    const callOrder: string[] = [];
+
+    mockDiscoverApiInfo.mockResolvedValue(MOCK_API_INFO);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(makeDeleteResponse(true));
+
+    mockSpawnTranscriptWatcher.mockImplementation(() => {
+      callOrder.push('spawnTranscriptWatcher');
+    });
+
+    const ctx = makeContext();
+    ctx.persistEnvVar.mockImplementation((_key: string, _val: string) => {
+      callOrder.push('persistEnvVar');
+    });
+
+    await hook(BASE_INPUT, ctx);
+
+    const firstPersist = callOrder.indexOf('persistEnvVar');
+    const spawnIndex = callOrder.indexOf('spawnTranscriptWatcher');
+
+    expect(firstPersist).toBeGreaterThanOrEqual(0);
+    expect(spawnIndex).toBeGreaterThanOrEqual(0);
+    expect(firstPersist).toBeLessThan(spawnIndex);
+
+    vi.restoreAllMocks();
+  });
+
   it('DELETE is issued to the correct URL with bearer auth', async () => {
     mockDiscoverApiInfo.mockResolvedValue(MOCK_API_INFO);
 

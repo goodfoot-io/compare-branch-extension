@@ -116,7 +116,17 @@ export default sessionStartHook({ matcher: 'compact' }, async (input, { logger, 
     });
   }
 
-  // Step 3: Spawn a fresh watcher for the new session.
+  // Step 3: Persist updated env vars BEFORE spawning the watcher, so that
+  // any bash subshells launched after the hook returns read the new values
+  // immediately. Earlier is strictly safer for subshell observability.
+  persistEnvVar('CARDS_SESSION_ID', input.session_id);
+  persistEnvVar('CARDS_TRANSCRIPT_PATH', input.transcript_path);
+  logger.info('Post-compaction session start: persisted updated session env vars', {
+    sessionId: input.session_id,
+    transcriptPath: input.transcript_path
+  });
+
+  // Step 4: Spawn a fresh watcher for the new session.
   try {
     const client = await createCardsClient();
     if (client) {
@@ -138,14 +148,6 @@ export default sessionStartHook({ matcher: 'compact' }, async (input, { logger, 
       error: err instanceof Error ? err.message : String(err)
     });
   }
-
-  // Step 4: Persist updated env vars for subsequent CLI calls.
-  persistEnvVar('CARDS_SESSION_ID', input.session_id);
-  persistEnvVar('CARDS_TRANSCRIPT_PATH', input.transcript_path);
-  logger.info('Post-compaction session start: persisted updated session env vars', {
-    sessionId: input.session_id,
-    transcriptPath: input.transcript_path
-  });
 
   void workspacePath; // consumed by getPidCardAssociation; logged above
 

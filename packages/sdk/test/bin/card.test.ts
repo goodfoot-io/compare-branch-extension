@@ -85,6 +85,10 @@ describe('card binary', () => {
   let deletedWatcherCardIds: string[];
   /** Controls whether DELETE /internal/cards/:cardId/watchers returns 200 or 503. */
   let watcherRegistryAvailable: boolean;
+  /** Active watchers by sessionId for GET /internal/watchers/:watcherId. */
+  let activeWatchers: Map<string, { watcherId: string; cardId: string; metadata: Record<string, unknown> }>;
+  /** Controls the DELETE response body (stopped/timedOut) for watcher teardown tests. */
+  let watcherDeleteResponse: { stopped: string[]; timedOut: string[] };
 
   beforeEach(async () => {
     cards = new Map();
@@ -93,6 +97,8 @@ describe('card binary', () => {
     files = new Map();
     deletedWatcherCardIds = [];
     watcherRegistryAvailable = true;
+    activeWatchers = new Map();
+    watcherDeleteResponse = { stopped: [], timedOut: [] };
     cardCounter = 0;
 
     // Create temp directory for homedir mock
@@ -218,6 +224,26 @@ describe('card binary', () => {
         return;
       }
 
+      // GET /internal/watchers/:watcherId
+      const getWatcherMatch = url.pathname.match(/^\/internal\/watchers\/([^/]+)$/);
+      if (method === 'GET' && getWatcherMatch) {
+        const watcherId = decodeURIComponent(getWatcherMatch[1]!);
+        if (!watcherRegistryAvailable) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Watcher registry not configured' }));
+          return;
+        }
+        const watcher = activeWatchers.get(watcherId);
+        if (!watcher) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Not found' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(watcher));
+        return;
+      }
+
       // DELETE /internal/cards/:cardId/watchers
       const deleteWatchersMatch = url.pathname.match(/^\/internal\/cards\/([^/]+)\/watchers$/);
       if (method === 'DELETE' && deleteWatchersMatch) {
@@ -229,7 +255,7 @@ describe('card binary', () => {
         }
         deletedWatcherCardIds.push(cardId);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ stopped: [], timedOut: [] }));
+        res.end(JSON.stringify(watcherDeleteResponse));
         return;
       }
 
@@ -553,6 +579,54 @@ describe('card binary', () => {
       expect(assoc!.mode).toBe('attach');
       expect(assoc!.workspacePath).toBe(result.workspacePath);
     });
+
+    // F2: sessions.json must not be mutated when getCard fails
+    it('does not mutate sessions registry when getCard returns 404', async () => {
+      // 'nonexistent-card' is not in cards map — server returns 404
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      await expect(attachCard('nonexistent-card')).rejects.toThrow();
+
+      const { getPidCardAssociation } = await import('@cards/sessions');
+      const assoc = await getPidCardAssociation(testPid);
+      expect(assoc).toBeNull();
+    });
+
+    // F3: collision detection — existing watcher for same sessionId should throw
+    it('throws when a watcher is already active for the current sessionId (launch+attach collision)', async () => {
+      cards.set('test-card-f3', {
+        id: 'test-card-f3',
+        title: 'F3 Test',
+        status: 'todo',
+        repositoryPath: '/tmp/test-repo'
+      });
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      const sessionId = process.env['CARDS_SESSION_ID']!;
+      // Pre-populate the watcher registry so GET /internal/watchers/:sessionId returns 200
+      activeWatchers.set(sessionId, {
+        watcherId: sessionId,
+        cardId: 'test-card-f3',
+        metadata: { pid: testPid }
+      });
+
+      await expect(attachCard('test-card-f3')).rejects.toThrow('already has an active watcher');
+    });
+
+    // F3: no collision — 404 from GET means no existing watcher, proceed normally
+    it('proceeds normally when GET watcher returns 404 (no collision)', async () => {
+      cards.set('test-card-f3b', {
+        id: 'test-card-f3b',
+        title: 'F3b Test',
+        status: 'todo',
+        repositoryPath: '/tmp/test-repo'
+      });
+      mockFindAgentPid.mockReturnValue(testPid);
+      // activeWatchers is empty — GET will return 404
+
+      const result = await attachCard('test-card-f3b');
+      expect(result.cardId).toBe('test-card-f3b');
+    });
   });
 
   describe('detachCard', () => {
@@ -624,6 +698,63 @@ describe('card binary', () => {
       const result = await detachCard();
       expect(result.pid).toBe(testPid);
       expect(deletedWatcherCardIds).toHaveLength(0);
+    });
+
+    // F1: logging on apiInfo-null path
+    it('logs skipped message to stderr when apiInfo is null', async () => {
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      const { associatePidWithCard: associate } = await import('@cards/sessions');
+      await associate(testPid, 'card-detach-log-null');
+
+      rmSync(join(testDir, '.cards', 'cards-api.json'));
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await detachCard();
+        const messages = errorSpy.mock.calls.map((c) => String(c[0]));
+        expect(messages.some((m) => m.includes('extension API not reachable'))).toBe(true);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    // F1: logging on !ok path
+    it('logs status code to stderr when teardown returns non-ok', async () => {
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      const { associatePidWithCard: associate } = await import('@cards/sessions');
+      await associate(testPid, 'card-detach-log-503');
+
+      watcherRegistryAvailable = false;
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await detachCard();
+        const messages = errorSpy.mock.calls.map((c) => String(c[0]));
+        expect(messages.some((m) => m.includes('returned status 503'))).toBe(true);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    // F1: logging on timedOut path
+    it('leads with TIMED OUT in stderr when body.timedOut is non-empty', async () => {
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      const { associatePidWithCard: associate } = await import('@cards/sessions');
+      await associate(testPid, 'card-detach-log-timeout');
+
+      watcherDeleteResponse = { stopped: [], timedOut: ['w-timeout-1'] };
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await detachCard();
+        const messages = errorSpy.mock.calls.map((c) => String(c[0]));
+        expect(messages.some((m) => m.includes('TIMED OUT'))).toBe(true);
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
   });
 
