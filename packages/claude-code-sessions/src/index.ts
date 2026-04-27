@@ -43,6 +43,8 @@ export const MAX_ENTRY_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 /** Session data stored per PID in the registry file. */
 export interface SessionEntry {
   cardId?: string;
+  mode?: 'attach' | 'launch';
+  workspacePath?: string;
   pendingCommits: string[];
   updatedAt: string;
 }
@@ -71,7 +73,34 @@ export interface PidSessionEntry {
  * @param cardId - Card identifier to bind to the PID.
  * @returns Pending SHAs captured before association, or `[]` on first-write conflict.
  */
-export async function associatePidWithCard(pid: number, cardId: string): Promise<string[]> {
+/** Options for associatePidWithCard. */
+export interface AssociatePidOptions {
+  mode?: 'attach' | 'launch';
+  workspacePath?: string;
+}
+
+/** Association data returned by getPidCardAssociation. */
+export interface PidCardAssociation {
+  cardId: string;
+  mode?: 'attach' | 'launch';
+  workspacePath?: string;
+}
+
+/**
+ * Associates PID with card. If the entry already has a `cardId`, returns `[]`
+ * (first-write-wins). Otherwise sets `cardId`, extracts and clears
+ * `pendingCommits`, and returns the extracted commits.
+ *
+ * @param pid - Agent process ID to associate.
+ * @param cardId - Card identifier to bind to the PID.
+ * @param options - Optional mode and workspacePath for attach-mode attribution.
+ * @returns Pending SHAs captured before association, or `[]` on first-write conflict.
+ */
+export async function associatePidWithCard(
+  pid: number,
+  cardId: string,
+  options?: AssociatePidOptions
+): Promise<string[]> {
   return executeTransaction<SessionRegistry, string[]>(
     getRegistryPath(),
     getLockPath(),
@@ -85,6 +114,8 @@ export async function associatePidWithCard(pid: number, cardId: string): Promise
 
       registry.sessions[pidStr] = {
         cardId,
+        ...(options?.mode !== undefined ? { mode: options.mode } : {}),
+        ...(options?.workspacePath !== undefined ? { workspacePath: options.workspacePath } : {}),
         pendingCommits: [],
         updatedAt: new Date().toISOString()
       };
@@ -141,6 +172,30 @@ export async function getPidCardId(pid: number): Promise<string | null> {
     (registry) => {
       const pidStr = String(pid);
       return registry.sessions[pidStr]?.cardId ?? null;
+    },
+    (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
+    { sessions: {} } as SessionRegistry,
+    LOCK_TIMEOUT_MS
+  );
+}
+
+/**
+ * Returns the card association for PID including mode and workspacePath, or null when absent.
+ *
+ * @param pid - Agent process ID to resolve.
+ * @returns Association data, or `null` when no entry or no cardId.
+ */
+export async function getPidCardAssociation(pid: number): Promise<PidCardAssociation | null> {
+  return executeTransaction<SessionRegistry, PidCardAssociation | null>(
+    getRegistryPath(),
+    getLockPath(),
+    (registry) => {
+      const entry = registry.sessions[String(pid)];
+      if (!entry?.cardId) return null;
+      const result: PidCardAssociation = { cardId: entry.cardId };
+      if (entry.mode !== undefined) result.mode = entry.mode;
+      if (entry.workspacePath !== undefined) result.workspacePath = entry.workspacePath;
+      return result;
     },
     (registry) => pruneStaleEntries(registry.sessions, isProcessAlive, MAX_ENTRY_AGE_MS),
     { sessions: {} } as SessionRegistry,

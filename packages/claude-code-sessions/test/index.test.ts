@@ -15,6 +15,7 @@ import { tmpdir as realTmpdir } from 'node:os';
 import {
   associatePidWithCard,
   getLockPath,
+  getPidCardAssociation,
   getPidCardId,
   getRegistryPath,
   getSessionIdForPid,
@@ -535,6 +536,57 @@ describe('sessions', () => {
     it('no-ops for non-existent PID', async () => {
       // Should not throw even when entry is absent
       await expect(removeSessionPid(999999)).resolves.toBeUndefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getPidCardAssociation
+  // -------------------------------------------------------------------------
+
+  describe('getPidCardAssociation', () => {
+    it('returns null for unknown PID', async () => {
+      expect(await getPidCardAssociation(999999)).toBeNull();
+    });
+
+    it('returns null when entry exists but has no cardId', async () => {
+      await recordPendingCommit(process.pid, 'sha-1');
+      expect(await getPidCardAssociation(process.pid)).toBeNull();
+    });
+
+    it('returns association without mode/workspacePath for pre-existing entry (launch legacy)', async () => {
+      // Simulate a pre-existing entry written without mode/workspacePath
+      const cardsDir = join(testDir, '.cards');
+      mkdirSync(cardsDir, { recursive: true });
+      const registry: SessionRegistry = {
+        sessions: {
+          [String(process.pid)]: {
+            cardId: 'card-legacy',
+            pendingCommits: [],
+            updatedAt: new Date().toISOString()
+          }
+        }
+      };
+      writeFileSync(getRegistryPath(), JSON.stringify(registry, null, 2));
+
+      const result = await getPidCardAssociation(process.pid);
+      expect(result).toEqual({ cardId: 'card-legacy' });
+      expect(result?.mode).toBeUndefined();
+      expect(result?.workspacePath).toBeUndefined();
+    });
+
+    it('round-trips launch mode association', async () => {
+      await associatePidWithCard(process.pid, 'card-launch', { mode: 'launch' });
+      const result = await getPidCardAssociation(process.pid);
+      expect(result).toEqual({ cardId: 'card-launch', mode: 'launch' });
+    });
+
+    it('round-trips attach mode association with workspacePath', async () => {
+      await associatePidWithCard(process.pid, 'card-attach', {
+        mode: 'attach',
+        workspacePath: '/home/user/project'
+      });
+      const result = await getPidCardAssociation(process.pid);
+      expect(result).toEqual({ cardId: 'card-attach', mode: 'attach', workspacePath: '/home/user/project' });
     });
   });
 
