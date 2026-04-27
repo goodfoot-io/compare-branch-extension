@@ -469,21 +469,35 @@ export async function main(): Promise<void> {
       });
     };
 
-    try {
-      fsWatcher = watch(sourceDir, { recursive: true }, (_eventType, filename) => {
-        if (exitSignaled || !filename) return;
-        const relPath = (filename as string).replace(/\\/g, '/');
-        if (!relPath.startsWith(sessionId)) return;
-        scheduleSync(relPath);
-      });
-      fsWatcher.on('error', (error) => {
-        if (!exitSignaled) {
-          warnFn(`fs.watch error: ${String(error)}`);
-        }
-      });
-    } catch (error) {
-      warnFn(`Failed to start fs.watch: ${String(error)}`);
-    }
+    const tryInstallWatcher = async (): Promise<FSWatcher | null> => {
+      try {
+        await access(sourceDir);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw error;
+      }
+      // Source dir now exists; capture anything written during the wait, then install fs.watch.
+      await fullCopyPass(sourceDir, destDir, sessionId, cardId, fileStates, warnFn);
+      try {
+        const w = watch(sourceDir, { recursive: true }, (_eventType, filename) => {
+          if (exitSignaled || !filename) return;
+          const relPath = (filename as string).replace(/\\/g, '/');
+          if (!relPath.startsWith(sessionId)) return;
+          scheduleSync(relPath);
+        });
+        w.on('error', (error) => {
+          if (!exitSignaled) {
+            warnFn(`fs.watch error: ${String(error)}`);
+          }
+        });
+        return w;
+      } catch (error) {
+        warnFn(`Failed to start fs.watch: ${String(error)}`);
+        return null;
+      }
+    };
+
+    fsWatcher = await tryInstallWatcher();
 
     ctx.logger.info(
       `Watcher started: pid=${String(pid)} session=${sessionId} node=${process.version} watcherPid=${String(process.pid)} transcriptPath=${transcriptPath} cardId=${cardId}`
@@ -511,6 +525,9 @@ export async function main(): Promise<void> {
       if (Date.now() - started > MAX_LIFETIME_MS) {
         warnFn(`Watcher exceeded maximum lifetime (${MAX_LIFETIME_MS}ms), exiting`);
         break;
+      }
+      if (!fsWatcher && !exitSignaled) {
+        fsWatcher = await tryInstallWatcher();
       }
       await new Promise<void>((resolve) => setTimeout(resolve, PERIODIC_CHECK_INTERVAL_MS));
     }
