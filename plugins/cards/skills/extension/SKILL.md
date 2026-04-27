@@ -58,7 +58,7 @@ cards-extension editor open <filePath> [--line <number>] [--character <number>] 
 
 Flags:
 - `--line <number>` — Jump to this line (1-based)
-- `--character <number>` — Jump to this column on the line (1-based)
+- `--character <number>` — Jump to this column on the line (1-based); requires `--line`
 - `--preview` — Open in preview mode (tab closes on next file open)
 - `--focus=false` — Open in background without stealing focus
 
@@ -171,7 +171,7 @@ Stop the active debug session.
 cards-extension debug stop [--workspace <path>]
 ```
 
-Returns whether the debugger was successfully stopped.
+Returns whether the debugger was successfully stopped. `stopped` is `true` only when an active session belonged to the requested `--workspace`. Returns `false` if no session is active OR if the active session belongs to a different workspace; use `cards-extension debug state` to disambiguate.
 
 ### state
 

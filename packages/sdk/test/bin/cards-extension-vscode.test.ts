@@ -538,6 +538,17 @@ describe('runDebug handler', () => {
     expect(body.configName).toBe('My Config');
   });
 
+  it('debug start --config=--no-build — parses value with leading -- via equals form', async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(204, null));
+
+    const code = await runDebug(['start', '--config=--no-build']);
+
+    expect(code).toBe(0);
+    const [, init] = mockFetch.mock.calls[0]!;
+    const body = JSON.parse(String((init as RequestInit).body));
+    expect(body.configName).toBe('--no-build');
+  });
+
   it('debug stop — POSTs /debug/stop and prints { stopped } result', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { stopped: true }));
 

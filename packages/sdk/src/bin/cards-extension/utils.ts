@@ -12,16 +12,28 @@ const execFile = util.promisify(execFileCb);
 
 /**
  * Reads the value following `flag` from `args`. Returns undefined when the
- * flag is absent. Throws when the flag is present but the next token is
- * missing or itself looks like another flag — this avoids the silent
- * acceptance of `--config --workspace foo` as `configName === '--workspace'`.
+ * flag is absent.
+ *
+ * Accepts two forms:
+ * - Space-separated: `--flag value` — throws when the next token starts with
+ *   `--` (ambiguous; could be another flag rather than a value).
+ * - Equals-separated: `--flag=value` — unambiguous; the substring after `=`
+ *   is returned even when it starts with `--` (e.g. `--config=--no-build`).
  *
  * @param args - CLI argument array.
  * @param flag - Flag name including the leading `--`.
  * @returns The flag value, or undefined when the flag is not present.
- * @throws Error when the flag is present without a usable value.
+ * @throws Error when the space-separated form is present but the next token
+ *   is missing or starts with `--`.
  */
 export function getFlagValue(args: string[], flag: string): string | undefined {
+  // Check `--flag=value` form first — unambiguous regardless of value content.
+  const eqPrefix = `${flag}=`;
+  const eqArg = args.find((a) => a.startsWith(eqPrefix));
+  if (eqArg !== undefined) {
+    return eqArg.slice(eqPrefix.length);
+  }
+
   const idx = args.indexOf(flag);
   if (idx === -1) return undefined;
   const next = args[idx + 1];
