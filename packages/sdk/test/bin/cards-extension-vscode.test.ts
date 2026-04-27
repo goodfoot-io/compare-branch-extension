@@ -91,7 +91,7 @@ describe('runWorkspace handler', () => {
     vi.unstubAllGlobals();
   });
 
-  it.skip('workspace list — GETs /workspaces and prints JSON array to stdout', async () => {
+  it('workspace list — GETs /workspaces and prints JSON array to stdout', async () => {
     const workspaces = [{ path: WORKSPACE_PATH, name: 'test-project' }];
     mockFetch.mockResolvedValueOnce(makeResponse(200, { workspaces }));
 
@@ -108,7 +108,7 @@ describe('runWorkspace handler', () => {
     expect(JSON.parse(stdout)).toEqual(workspaces);
   });
 
-  it.skip('workspace list — discovery failure returns 1 with message', async () => {
+  it('workspace list — discovery failure returns 1 with message', async () => {
     mockDiscoverApiInfo.mockResolvedValueOnce(null);
 
     const code = await runWorkspace(['list']);
@@ -117,7 +117,7 @@ describe('runWorkspace handler', () => {
     expect(collectOutput(stderrSpy)).toContain('API discovery failed');
   });
 
-  it.skip('workspace list — 404 response prints unregistered workspace message and returns 1', async () => {
+  it('workspace list — 404 response prints unregistered workspace message and returns 1', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(404, { error: 'not found' }));
 
     const code = await runWorkspace(['list']);
@@ -153,7 +153,7 @@ describe('runEditor handler', () => {
     vi.unstubAllGlobals();
   });
 
-  it.skip('editor info — GETs /editor with workspacePath from git and prints EditorInfo JSON', async () => {
+  it('editor info — GETs /editor with workspacePath from git and prints EditorInfo JSON', async () => {
     const editorInfo = { filePath: '/workspace/test-project/src/index.ts', line: 10, column: 5 };
     mockFetch.mockResolvedValueOnce(makeResponse(200, editorInfo));
 
@@ -171,7 +171,7 @@ describe('runEditor handler', () => {
     expect(JSON.parse(stdout)).toEqual(editorInfo);
   });
 
-  it.skip('editor info — uses --workspace flag when provided instead of git', async () => {
+  it('editor info — uses --workspace flag when provided instead of git', async () => {
     const editorInfo = { filePath: '/other/src/main.ts', line: 1, column: 0 };
     mockFetch.mockResolvedValueOnce(makeResponse(200, editorInfo));
 
@@ -184,7 +184,7 @@ describe('runEditor handler', () => {
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
-  it.skip('editor info — git failure without --workspace returns 1 with clear error', async () => {
+  it('editor info — git failure without --workspace returns 1 with clear error', async () => {
     mockExecFile.mockImplementation((_cmd: string, _args: string[], callback: (err: Error) => void) => {
       callback(new Error('not a git repository'));
     });
@@ -196,7 +196,7 @@ describe('runEditor handler', () => {
     expect(stderr).toContain('--workspace');
   });
 
-  it.skip('editor open — POSTs /editor/open with filePath, line, character', async () => {
+  it('editor open — POSTs /editor/open with filePath, line, character', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runEditor(['open', '/workspace/test-project/src/index.ts', '--line', '5', '--character', '3']);
@@ -211,7 +211,7 @@ describe('runEditor handler', () => {
     expect(body.character).toBe(3);
   });
 
-  it.skip('editor open — 422 response (file not found) returns 1 with clear error', async () => {
+  it('editor open — 422 response (file not found) returns 1 with clear error', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(422, { error: 'FileNotFound: /missing/file.ts' }));
 
     const code = await runEditor(['open', '/missing/file.ts']);
@@ -220,7 +220,7 @@ describe('runEditor handler', () => {
     expect(collectOutput(stderrSpy)).toMatch(/file not found|FileNotFound/i);
   });
 
-  it.skip('editor select — POSTs /editor/select with L:C parsed start and end', async () => {
+  it('editor select — POSTs /editor/select with L:C parsed start and end', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runEditor(['select', '/workspace/test-project/src/index.ts', '--start', '1:0', '--end', '3:10']);
@@ -237,7 +237,7 @@ describe('runEditor handler', () => {
     expect(body.endColumn).toBe(10);
   });
 
-  it.skip('editor — 404 from server returns 1 with workspace-not-registered message', async () => {
+  it('editor — 404 from server returns 1 with workspace-not-registered message', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(404, { error: 'workspace not registered' }));
 
     const code = await runEditor(['info']);
@@ -273,7 +273,7 @@ describe('runExecuteCommand handler', () => {
     vi.unstubAllGlobals();
   });
 
-  it.skip('reads JSON args from stdin, POSTs to /execute-command, prints result', async () => {
+  it('reads JSON args from stdin, POSTs to /execute-command, prints result', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { result: 'done' }));
     const restore = mockStdin(JSON.stringify(['arg1', 'arg2']));
 
@@ -291,7 +291,7 @@ describe('runExecuteCommand handler', () => {
     expect(JSON.parse(stdout)).toEqual({ result: 'done' });
   });
 
-  it.skip('empty stdin sends args: [] to endpoint', async () => {
+  it('empty stdin sends args: [] to endpoint', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { result: null }));
     const restore = mockStdin('');
 
@@ -304,7 +304,7 @@ describe('runExecuteCommand handler', () => {
     expect(body.args).toEqual([]);
   });
 
-  it.skip('malformed JSON on stdin returns 1 with parse error message', async () => {
+  it('malformed JSON on stdin returns 1 with parse error message', async () => {
     const restore = mockStdin('not-valid-json{');
 
     const code = await runExecuteCommand(['some.command']);
@@ -315,7 +315,7 @@ describe('runExecuteCommand handler', () => {
     expect(collectOutput(stderrSpy)).toMatch(/parse|JSON|invalid/i);
   });
 
-  it.skip('non-array stdin returns 1 with type error message', async () => {
+  it('non-array stdin returns 1 with type error message', async () => {
     const restore = mockStdin(JSON.stringify({ key: 'value' }));
 
     const code = await runExecuteCommand(['some.command']);
@@ -326,7 +326,7 @@ describe('runExecuteCommand handler', () => {
     expect(collectOutput(stderrSpy)).toMatch(/array/i);
   });
 
-  it.skip('lossyCoercion in response prints warning to stderr and exits 0', async () => {
+  it('lossyCoercion in response prints warning to stderr and exits 0', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { result: 'approximation', lossyCoercion: true }));
     const restore = mockStdin('[]');
 
@@ -338,7 +338,7 @@ describe('runExecuteCommand handler', () => {
     expect(stderr).toMatch(/lossyCoercion|serialization|warning/i);
   });
 
-  it.skip('--save flag is passed in request body as saveAll: true', async () => {
+  it('--save flag is passed in request body as saveAll: true', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { result: null }));
     const restore = mockStdin('[]');
 
@@ -351,7 +351,7 @@ describe('runExecuteCommand handler', () => {
     expect(body.saveAll).toBe(true);
   });
 
-  it.skip('404 from server returns 1 with workspace-not-registered message', async () => {
+  it('404 from server returns 1 with workspace-not-registered message', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(404, { error: 'workspace not registered' }));
     const restore = mockStdin('[]');
 
@@ -389,7 +389,7 @@ describe('runPanel handler', () => {
     vi.unstubAllGlobals();
   });
 
-  it.skip('panel show problems — POSTs /panel/show with panel: "problems"', async () => {
+  it('panel show problems — POSTs /panel/show with panel: "problems"', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runPanel(['show', 'problems']);
@@ -402,7 +402,7 @@ describe('runPanel handler', () => {
     expect(body.panel).toBe('problems');
   });
 
-  it.skip('panel show terminal — POSTs /panel/show with panel: "terminal"', async () => {
+  it('panel show terminal — POSTs /panel/show with panel: "terminal"', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runPanel(['show', 'terminal']);
@@ -413,7 +413,7 @@ describe('runPanel handler', () => {
     expect(body.panel).toBe('terminal');
   });
 
-  it.skip('panel show debug — POSTs /panel/show with panel: "debug"', async () => {
+  it('panel show debug — POSTs /panel/show with panel: "debug"', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runPanel(['show', 'debug']);
@@ -421,7 +421,7 @@ describe('runPanel handler', () => {
     expect(code).toBe(0);
   });
 
-  it.skip('panel show output — POSTs /panel/show with panel: "output"', async () => {
+  it('panel show output — POSTs /panel/show with panel: "output"', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runPanel(['show', 'output']);
@@ -429,7 +429,7 @@ describe('runPanel handler', () => {
     expect(code).toBe(0);
   });
 
-  it.skip('panel show unknown — returns 1 without making any HTTP call', async () => {
+  it('panel show unknown — returns 1 without making any HTTP call', async () => {
     const code = await runPanel(['show', 'unknown-panel']);
 
     expect(code).toBe(1);
@@ -437,7 +437,7 @@ describe('runPanel handler', () => {
     expect(collectOutput(stderrSpy)).toMatch(/unknown|invalid|panel/i);
   });
 
-  it.skip('panel — 404 from server returns 1 with workspace-not-registered message', async () => {
+  it('panel — 404 from server returns 1 with workspace-not-registered message', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(404, { error: 'workspace not registered' }));
 
     const code = await runPanel(['show', 'problems']);
@@ -473,7 +473,7 @@ describe('runDebug handler', () => {
     vi.unstubAllGlobals();
   });
 
-  it.skip('debug start — POSTs /debug/start with empty body and returns 0', async () => {
+  it('debug start — POSTs /debug/start with empty body and returns 0', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runDebug(['start']);
@@ -486,7 +486,7 @@ describe('runDebug handler', () => {
     expect(body.configName).toBeUndefined();
   });
 
-  it.skip('debug start --config "My Config" — passes configName in body', async () => {
+  it('debug start --config "My Config" — passes configName in body', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(204, null));
 
     const code = await runDebug(['start', '--config', 'My Config']);
@@ -497,7 +497,7 @@ describe('runDebug handler', () => {
     expect(body.configName).toBe('My Config');
   });
 
-  it.skip('debug stop — POSTs /debug/stop and prints { stopped } result', async () => {
+  it('debug stop — POSTs /debug/stop and prints { stopped } result', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { stopped: true }));
 
     const code = await runDebug(['stop']);
@@ -510,7 +510,7 @@ describe('runDebug handler', () => {
     expect(JSON.parse(stdout)).toEqual({ stopped: true });
   });
 
-  it.skip('debug stop — stopped: false is printed when no session was running', async () => {
+  it('debug stop — stopped: false is printed when no session was running', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { stopped: false }));
 
     const code = await runDebug(['stop']);
@@ -520,7 +520,7 @@ describe('runDebug handler', () => {
     expect(JSON.parse(stdout)).toEqual({ stopped: false });
   });
 
-  it.skip('debug state — GETs /debug/state and prints DebugState JSON', async () => {
+  it('debug state — GETs /debug/state and prints DebugState JSON', async () => {
     const debugState = { active: true, sessionName: 'Launch App' };
     mockFetch.mockResolvedValueOnce(makeResponse(200, debugState));
 
@@ -534,7 +534,7 @@ describe('runDebug handler', () => {
     expect(JSON.parse(stdout)).toEqual(debugState);
   });
 
-  it.skip('debug state with --workspace flag — uses provided workspace path in URL', async () => {
+  it('debug state with --workspace flag — uses provided workspace path in URL', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { active: false }));
 
     const code = await runDebug(['state', '--workspace', '/custom/workspace']);
@@ -545,7 +545,7 @@ describe('runDebug handler', () => {
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
-  it.skip('debug — git failure without --workspace returns 1 with clear error', async () => {
+  it('debug — git failure without --workspace returns 1 with clear error', async () => {
     mockExecFile.mockImplementation((_cmd: string, _args: string[], callback: (err: Error) => void) => {
       callback(new Error('not a git repo'));
     });
@@ -556,7 +556,7 @@ describe('runDebug handler', () => {
     expect(collectOutput(stderrSpy)).toContain('--workspace');
   });
 
-  it.skip('debug — 404 from server returns 1 with workspace-not-registered message', async () => {
+  it('debug — 404 from server returns 1 with workspace-not-registered message', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(404, { error: 'workspace not registered' }));
 
     const code = await runDebug(['start']);
