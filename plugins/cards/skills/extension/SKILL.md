@@ -28,7 +28,11 @@ List all workspaces currently registered with the extension.
 cards-extension workspace list
 ```
 
-Returns: workspace path, name, type (`single-folder`, `multi-folder`, `workspace-file`), folder count, and current active editor for each registered workspace.
+Returns a JSON array of objects with exactly two fields per workspace: `path` (absolute filesystem path) and `name` (display name).
+
+```
+cards-extension workspace list | jq '.[] | {path, name}'
+```
 
 ---
 
@@ -42,7 +46,7 @@ Return the current active editor state.
 cards-extension editor info [--workspace <path>]
 ```
 
-Returns: file path, cursor position (line and character), and selection bounds (if text is selected).
+Returns: file path, cursor position (line and character, **1-based**), and selection bounds (if text is selected). Returns `null` when no editor is active inside `--workspace`.
 
 ### open
 
@@ -54,13 +58,13 @@ cards-extension editor open <filePath> [--line <number>] [--character <number>] 
 
 Flags:
 - `--line <number>` — Jump to this line (1-based)
-- `--character <number>` — Jump to this character offset on the line
+- `--character <number>` — Jump to this column on the line (1-based)
 - `--preview` — Open in preview mode (tab closes on next file open)
 - `--focus=false` — Open in background without stealing focus
 
-Exit codes: non-zero with "file not found" error when `<filePath>` does not exist on disk.
+`<filePath>` may be relative (resolved against `--workspace`) or absolute (must lie inside `--workspace`; otherwise the request is rejected). Non-existent files exit non-zero with a "file not found" error.
 
-Example: `cards-extension editor open src/auth.ts --line 42`
+Example: `cards-extension editor open src/auth.ts --line 42 --character 1`
 
 ### select
 
@@ -70,9 +74,9 @@ Select a range of text in the active editor.
 cards-extension editor select <filePath> --start <line>:<char> --end <line>:<char> [--workspace <path>]
 ```
 
-Highlights text from `startLine:startChar` to `endLine:endChar` and moves the cursor to the selection.
+Highlights text from `startLine:startChar` to `endLine:endChar` (all **1-based**) and moves the cursor to the selection.
 
-Example: `cards-extension editor select src/index.ts --start 10:0 --end 15:20`
+Example: `cards-extension editor select src/index.ts --start 10:1 --end 15:20`
 
 ---
 
@@ -86,10 +90,14 @@ cards-extension execute-command <commandId> [--save] [--workspace <path>] < args
 
 Flags:
 - `<commandId>` — VS Code command ID (e.g. `editor.action.formatDocument`)
-- `--save` — Save all dirty files after the command executes
-- stdin — Optional JSON array of arguments to pass to the command
+- `--save` — Save all dirty editors **before** executing the command, so the command operates on disk state
+- stdin — Optional JSON array of arguments to pass to the command. Skipped when stdin is a TTY (interactive shell).
 
-Returns the command's return value serialized as JSON. Non-JSON-serializable values are coerced (`functions` → `[Function]`, etc.); when coercion occurs a warning is written to stderr (`lossyCoercion`).
+stdout receives the command's return value serialized as JSON (the bare `result`, no envelope). String arguments shaped like URIs (e.g. `file://…`, `vscode://…`, `https://…`) — including those nested inside arrays and plain objects — are converted to `vscode.Uri` before invocation. Other primitives are forwarded unchanged; pass URIs as strings rather than `Position`/`Range`/`Selection` shapes.
+
+Non-JSON-serializable values are coerced (`functions` → `[Function]`, `symbol` → `[Symbol]`, `bigint` → string, `NaN`/`Infinity` → `null`, `undefined` in arrays → `null`); when coercion occurs a `Warning: lossyCoercion` line is written to stderr.
+
+Note: `<commandId>` runs in the active VS Code window; `--workspace` selects which window's adapter receives the call but does not further scope command execution.
 
 Examples:
 ```
@@ -134,6 +142,8 @@ cards-extension panel show <panelName> [--workspace <path>]
 
 `<panelName>` must be one of: `problems`, `terminal`, `debug`, `output`.
 
+Panels are window-scoped in VS Code; `--workspace` selects which window's adapter receives the call but every panel toggles in that window globally.
+
 Example: `cards-extension panel show problems`
 
 ---
@@ -151,7 +161,7 @@ cards-extension debug start [--config <name>] [--workspace <path>]
 Flags:
 - `--config <name>` — Launch configuration name from `launch.json`. When omitted, the first available configuration is used.
 
-Exit codes: non-zero with an error when `--config <name>` is specified but no matching configuration exists in `launch.json`, or when no `launch.json` is present.
+Exit codes: non-zero with an error when `--config <name>` is specified but no matching configuration exists in `launch.json`, when no `launch.json` is present, or when `--workspace` is not open as a folder in any VS Code window. The debug-config picker is never opened — supply `--config` or create `launch.json` first.
 
 ### stop
 
@@ -171,7 +181,17 @@ Check whether the debugger is currently running.
 cards-extension debug state [--workspace <path>]
 ```
 
-Returns: debug state and the name of the active launch configuration (if any).
+Returns: debug state and the name of the active launch configuration (if any). `active` is true only when the running session belongs to the requested `--workspace`.
+
+---
+
+## Security
+
+`cards-extension execute-command` is **RCE-equivalent inside the VS Code extension host** — any caller that can invoke a VS Code command can read files, spawn terminals, and run arbitrary tasks.
+
+- The bearer token in `~/.cards/cards-api.json` is the only access control. The file is created with mode `0600` (owner read/write only); preserve those permissions.
+- Do not expose `cards-extension execute-command` to untrusted automation, shared CI runners, or processes running as other users.
+- There is **no command-id allowlist**. Every VS Code command is reachable. Allowlisting is a deliberate non-goal of this surface; treat the bearer token as the trust boundary.
 
 ---
 

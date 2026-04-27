@@ -53,7 +53,7 @@ async function runPanelShow(panel: string | undefined, args: string[]): Promise<
   const url = `http://${info.host}:${info.port}/panel/show?workspacePath=${encodeURIComponent(workspacePath)}`;
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'POST', { panel }));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension panel show: ${errMsg}`);
     return 1;

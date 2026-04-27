@@ -7,10 +7,13 @@
  */
 
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import { buildFetchOptions, handleErrorResponse, resolveWorkspacePath } from './utils.js';
+import { buildFetchOptions, handleErrorResponse, hasBooleanFlag, resolveWorkspacePath } from './utils.js';
 
 /**
  * Reads args from stdin and executes the specified VS Code command via the Cards API.
+ *
+ * Skips the stdin read entirely when stdin is a TTY (interactive shell);
+ * otherwise the process would hang silently waiting for EOF.
  *
  * @param args - Arguments following the `execute-command` token.
  * @returns The intended process exit code. Never calls process.exit.
@@ -23,26 +26,28 @@ export async function runExecuteCommand(args: string[]): Promise<number> {
     return 1;
   }
 
-  const saveAll = rest.includes('--save');
+  const saveAll = hasBooleanFlag(rest, '--save');
 
-  // Read JSON args from stdin
+  // Read JSON args from stdin (skip when interactive — would hang).
   let stdinArgs: unknown[] = [];
-  const stdinData = await readStdin();
-  if (stdinData.trim() !== '') {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(stdinData);
-    } catch (error) {
-      console.error(
-        `cards-extension execute-command: failed to parse JSON from stdin: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return 1;
+  if (!process.stdin.isTTY) {
+    const stdinData = await readStdin();
+    if (stdinData.trim() !== '') {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(stdinData);
+      } catch (error) {
+        console.error(
+          `cards-extension execute-command: failed to parse JSON from stdin: ${error instanceof Error ? error.message : String(error)}`
+        );
+        return 1;
+      }
+      if (!Array.isArray(parsed)) {
+        console.error('cards-extension execute-command: stdin must be a JSON array of arguments');
+        return 1;
+      }
+      stdinArgs = parsed;
     }
-    if (!Array.isArray(parsed)) {
-      console.error('cards-extension execute-command: stdin must be a JSON array of arguments');
-      return 1;
-    }
-    stdinArgs = parsed;
   }
 
   let workspacePath: string;
@@ -65,17 +70,18 @@ export async function runExecuteCommand(args: string[]): Promise<number> {
 
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'POST', body));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension execute-command: ${errMsg}`);
     return 1;
   }
 
-  const result = (await res.json()) as { result: unknown; lossyCoercion?: boolean };
-  if (result.lossyCoercion) {
+  const envelope = (await res.json()) as { result: unknown; lossyCoercion?: boolean };
+  if (envelope.lossyCoercion) {
     console.error('Warning: lossyCoercion — result contains values that could not be serialized exactly');
   }
-  console.log(JSON.stringify(result));
+  // Print only the bare result — `lossyCoercion` already went to stderr.
+  console.log(JSON.stringify(envelope.result));
   return 0;
 }
 

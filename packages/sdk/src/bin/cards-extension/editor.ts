@@ -7,7 +7,14 @@
  */
 
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import { buildFetchOptions, handleErrorResponse, resolveWorkspacePath } from './utils.js';
+import {
+  buildFetchOptions,
+  getBooleanFlagValue,
+  getFlagValue,
+  handleErrorResponse,
+  hasBooleanFlag,
+  resolveWorkspacePath
+} from './utils.js';
 
 /**
  * Routes `editor` subcommand arguments and dispatches to the appropriate handler.
@@ -50,7 +57,7 @@ async function runEditorInfo(args: string[]): Promise<number> {
   const url = `http://${info.host}:${info.port}/editor?workspacePath=${encodeURIComponent(workspacePath)}`;
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'GET'));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension editor info: ${errMsg}`);
     return 1;
@@ -69,18 +76,33 @@ async function runEditorOpen(args: string[]): Promise<number> {
   }
 
   let workspacePath: string;
+  let lineStr: string | undefined;
+  let charStr: string | undefined;
+  let preview: boolean | undefined;
+  let focus: boolean | undefined;
   try {
     workspacePath = await resolveWorkspacePath(rest);
+    lineStr = getFlagValue(rest, '--line');
+    charStr = getFlagValue(rest, '--character');
+    // --preview is documented as a bare boolean flag — present means true.
+    preview = hasBooleanFlag(rest, '--preview') ? true : undefined;
+    // --focus accepts --focus, --focus=false, --focus=true, --focus false.
+    focus = getBooleanFlagValue(rest, '--focus');
   } catch (error) {
     console.error(`cards-extension editor open: ${error instanceof Error ? error.message : String(error)}`);
     return 1;
   }
 
-  // Parse optional flags
-  const lineIdx = rest.indexOf('--line');
-  const charIdx = rest.indexOf('--character');
-  const line = lineIdx !== -1 ? parseInt(rest[lineIdx + 1] ?? '', 10) : undefined;
-  const character = charIdx !== -1 ? parseInt(rest[charIdx + 1] ?? '', 10) : undefined;
+  const line = lineStr !== undefined ? parseInt(lineStr, 10) : undefined;
+  const character = charStr !== undefined ? parseInt(charStr, 10) : undefined;
+  if (line !== undefined && Number.isNaN(line)) {
+    console.error('cards-extension editor open: --line must be a number');
+    return 1;
+  }
+  if (character !== undefined && Number.isNaN(character)) {
+    console.error('cards-extension editor open: --character must be a number');
+    return 1;
+  }
 
   const info = await discoverApiInfo();
   if (!info) {
@@ -90,12 +112,14 @@ async function runEditorOpen(args: string[]): Promise<number> {
 
   const url = `http://${info.host}:${info.port}/editor/open?workspacePath=${encodeURIComponent(workspacePath)}`;
   const body: Record<string, unknown> = { filePath };
-  if (line !== undefined && !Number.isNaN(line)) body['line'] = line;
-  if (character !== undefined && !Number.isNaN(character)) body['character'] = character;
+  if (line !== undefined) body['line'] = line;
+  if (character !== undefined) body['character'] = character;
+  if (preview !== undefined) body['preview'] = preview;
+  if (focus !== undefined) body['focus'] = focus;
 
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'POST', body));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension editor open: ${errMsg}`);
     return 1;
@@ -112,16 +136,16 @@ async function runEditorSelect(args: string[]): Promise<number> {
   }
 
   let workspacePath: string;
+  let startStr: string | undefined;
+  let endStr: string | undefined;
   try {
     workspacePath = await resolveWorkspacePath(rest);
+    startStr = getFlagValue(rest, '--start');
+    endStr = getFlagValue(rest, '--end');
   } catch (error) {
     console.error(`cards-extension editor select: ${error instanceof Error ? error.message : String(error)}`);
     return 1;
   }
-
-  // Parse --start L:C and --end L:C
-  const startIdx = rest.indexOf('--start');
-  const endIdx = rest.indexOf('--end');
 
   const parseLC = (val: string | undefined): { line: number; column: number } | null => {
     if (!val) return null;
@@ -132,8 +156,8 @@ async function runEditorSelect(args: string[]): Promise<number> {
     return { line, column };
   };
 
-  const start = parseLC(rest[startIdx + 1]);
-  const end = parseLC(rest[endIdx + 1]);
+  const start = parseLC(startStr);
+  const end = parseLC(endStr);
 
   if (!start || !end) {
     console.error('cards-extension editor select: --start L:C and --end L:C are required');
@@ -157,7 +181,7 @@ async function runEditorSelect(args: string[]): Promise<number> {
 
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'POST', body));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension editor select: ${errMsg}`);
     return 1;

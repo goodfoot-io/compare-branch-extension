@@ -7,7 +7,7 @@
  */
 
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import { buildFetchOptions, handleErrorResponse, resolveWorkspacePath } from './utils.js';
+import { buildFetchOptions, getFlagValue, handleErrorResponse, resolveWorkspacePath } from './utils.js';
 
 /**
  * Routes `debug` subcommand arguments and dispatches to the appropriate handler.
@@ -27,11 +27,10 @@ export async function runDebug(args: string[]): Promise<number> {
 }
 
 async function runDebugStart(args: string[]): Promise<number> {
-  const configIdx = args.indexOf('--config');
-  const configName = configIdx !== -1 ? args[configIdx + 1] : undefined;
-
+  let configName: string | undefined;
   let workspacePath: string;
   try {
+    configName = getFlagValue(args, '--config');
     workspacePath = await resolveWorkspacePath(args);
   } catch (error) {
     console.error(`cards-extension debug start: ${error instanceof Error ? error.message : String(error)}`);
@@ -50,7 +49,7 @@ async function runDebugStart(args: string[]): Promise<number> {
 
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'POST', body));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension debug start: ${errMsg}`);
     return 1;
@@ -77,7 +76,7 @@ async function runDebugStop(args: string[]): Promise<number> {
   const url = `http://${info.host}:${info.port}/debug/stop?workspacePath=${encodeURIComponent(workspacePath)}`;
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'POST', {}));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension debug stop: ${errMsg}`);
     return 1;
@@ -106,7 +105,7 @@ async function runDebugState(args: string[]): Promise<number> {
   const url = `http://${info.host}:${info.port}/debug/state?workspacePath=${encodeURIComponent(workspacePath)}`;
   const res = await fetch(url, buildFetchOptions(info.accessToken, 'GET'));
 
-  const errMsg = await handleErrorResponse(res);
+  const errMsg = await handleErrorResponse(res, workspacePath);
   if (errMsg) {
     console.error(`cards-extension debug state: ${errMsg}`);
     return 1;

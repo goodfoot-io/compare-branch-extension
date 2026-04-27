@@ -211,6 +211,26 @@ describe('runEditor handler', () => {
     expect(body.character).toBe(3);
   });
 
+  it('editor open — --preview and --focus=false populate the request body', async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(204, null));
+
+    const code = await runEditor(['open', '/workspace/test-project/src/index.ts', '--preview', '--focus=false']);
+
+    expect(code).toBe(0);
+    const [, init] = mockFetch.mock.calls[0]!;
+    const body = JSON.parse(String((init as RequestInit).body));
+    expect(body.preview).toBe(true);
+    expect(body.focus).toBe(false);
+  });
+
+  it('editor open — --line without a value returns 1 with a clear error', async () => {
+    const code = await runEditor(['open', '/workspace/test-project/src/index.ts', '--line', '--character', '3']);
+
+    expect(code).toBe(1);
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(collectOutput(stderrSpy)).toMatch(/--line.*requires a value/);
+  });
+
   it('editor open — 422 response (file not found) returns 1 with clear error', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(422, { error: 'FileNotFound: /missing/file.ts' }));
 
@@ -273,7 +293,7 @@ describe('runExecuteCommand handler', () => {
     vi.unstubAllGlobals();
   });
 
-  it('reads JSON args from stdin, POSTs to /execute-command, prints result', async () => {
+  it('reads JSON args from stdin, POSTs to /execute-command, prints bare result', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { result: 'done' }));
     const restore = mockStdin(JSON.stringify(['arg1', 'arg2']));
 
@@ -288,7 +308,26 @@ describe('runExecuteCommand handler', () => {
     expect(body.command).toBe('workbench.action.findInFiles');
     expect(body.args).toEqual(['arg1', 'arg2']);
     const stdout = collectOutput(stdoutSpy);
-    expect(JSON.parse(stdout)).toEqual({ result: 'done' });
+    // stdout receives the bare result, not the {result, lossyCoercion} envelope.
+    expect(JSON.parse(stdout)).toBe('done');
+  });
+
+  it('TTY stdin is treated as no args and does not block', async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(200, { result: null }));
+    const original = process.stdin;
+    Object.defineProperty(process, 'stdin', {
+      value: { isTTY: true },
+      configurable: true
+    });
+    try {
+      const code = await runExecuteCommand(['editor.action.formatDocument']);
+      expect(code).toBe(0);
+      const [, init] = mockFetch.mock.calls[0]!;
+      const body = JSON.parse(String((init as RequestInit).body));
+      expect(body.args).toEqual([]);
+    } finally {
+      Object.defineProperty(process, 'stdin', { value: original, configurable: true });
+    }
   });
 
   it('empty stdin sends args: [] to endpoint', async () => {
@@ -326,7 +365,7 @@ describe('runExecuteCommand handler', () => {
     expect(collectOutput(stderrSpy)).toMatch(/array/i);
   });
 
-  it('lossyCoercion in response prints warning to stderr and exits 0', async () => {
+  it('lossyCoercion in response prints warning to stderr and bare result to stdout', async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(200, { result: 'approximation', lossyCoercion: true }));
     const restore = mockStdin('[]');
 
@@ -336,6 +375,8 @@ describe('runExecuteCommand handler', () => {
     expect(code).toBe(0);
     const stderr = collectOutput(stderrSpy);
     expect(stderr).toMatch(/lossyCoercion|serialization|warning/i);
+    const stdout = collectOutput(stdoutSpy);
+    expect(JSON.parse(stdout)).toBe('approximation');
   });
 
   it('--save flag is passed in request body as saveAll: true', async () => {
