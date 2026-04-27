@@ -63,7 +63,7 @@ git commit -m "[single sentence summarizing the approach and key decisions]"
 
 ## 2. Investigate Testable Uncertainties
 
-Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source). Any assumption that affects a planned implementation step warrants investigation. Skip only when no load-bearing assumptions exist.
+Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source). Any assumption that affects a planned implementation step warrants investigation; spike it per the procedure below. Load-bearing assumptions are work items for this step, not questions to surface to the user as a choice — converting a spike into an (a)/(b) prompt is a protocol violation. Skip only when no load-bearing assumptions exist.
 
 For each testable uncertainty, load the `runtime:spike` skill and follow its instructions. That skill owns spike classification (comparison vs. validation), subagent invocation, artifact layout, quality checks, and the commit flow.
 

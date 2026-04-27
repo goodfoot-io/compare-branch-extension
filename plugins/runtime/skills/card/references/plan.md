@@ -35,6 +35,8 @@ If plan files already exist in `plan/` but are not approved, the minimum tier is
 
 ## 2. Dispatch
 
+The gates evaluated in Step 1 (`gates.planRequired`, `gates.planApproved`) are the only authorization required to dispatch. Do not pause to confirm tier selection, plan size, or scope with the user before entering a tier. Asking "shall I proceed?" or offering (a)/(b) options is a protocol violation.
+
 ### Tier 1
 
 No plan needed. Skip to Step 3: Route to Implementation.
