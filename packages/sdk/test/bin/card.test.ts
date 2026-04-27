@@ -464,14 +464,42 @@ describe('card binary', () => {
   });
 
   describe('attachCard', () => {
-    it('associates PID with card and returns result', async () => {
-      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindAgentPid.mockReturnValue(testPid);
+    let workspace: TestGitWorkspace;
+    let origCwd: string;
 
-      const result = await attachCard('test-card');
-      expect(result.pid).toBe(testPid);
-      expect(result.cardId).toBe('test-card');
-      expect(result.flushedCommits).toBe(0);
+    beforeEach(async () => {
+      workspace = new TestGitWorkspace();
+      await workspace.create();
+      origCwd = process.cwd();
+      process.chdir(workspace.getPath());
+      // Provide required env vars for attach mode
+      process.env['CARDS_SESSION_ID'] = 'test-session-id';
+      process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/test-transcript.jsonl';
+    });
+
+    afterEach(() => {
+      process.chdir(origCwd);
+      workspace.destroy();
+      delete process.env['CARDS_SESSION_ID'];
+      delete process.env['CARDS_TRANSCRIPT_PATH'];
+    });
+
+    it('fails closed when cwd is not inside a git working tree', async () => {
+      process.chdir(realTmpdir());
+      mockFindAgentPid.mockReturnValue(testPid);
+      await expect(attachCard('test-card')).rejects.toThrow('card attach: cwd is not inside a git working tree');
+    });
+
+    it('fails closed when CARDS_SESSION_ID is missing', async () => {
+      delete process.env['CARDS_SESSION_ID'];
+      mockFindAgentPid.mockReturnValue(testPid);
+      await expect(attachCard('test-card')).rejects.toThrow('card attach: CARDS_SESSION_ID is not set');
+    });
+
+    it('fails closed when CARDS_TRANSCRIPT_PATH is missing', async () => {
+      delete process.env['CARDS_TRANSCRIPT_PATH'];
+      mockFindAgentPid.mockReturnValue(testPid);
+      await expect(attachCard('test-card')).rejects.toThrow('card attach: CARDS_TRANSCRIPT_PATH is not set');
     });
 
     it('throws when no agent PID found', async () => {
@@ -479,122 +507,30 @@ describe('card binary', () => {
       await expect(attachCard('test-card')).rejects.toThrow('could not find agent ancestor PID');
     });
 
-    it('registers workspace branch when on named branch', async () => {
-      const workspace = new TestGitWorkspace();
-      await workspace.create();
-
-      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
+    it('stores realpath workspacePath with mode:attach and does not call addBranch', async () => {
+      cards.set('test-card', {
+        id: 'test-card',
+        title: 'Test',
+        status: 'todo',
+        repositoryPath: '/tmp/test-repo'
+      });
       mockFindAgentPid.mockReturnValue(testPid);
 
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        const result = await attachCard('test-card');
-        expect(result.branch).toBe('main');
-        expect(branches.get('test-card')).toEqual([{ name: 'main' }]);
-      } finally {
-        process.chdir(origCwd);
-        workspace.destroy();
-      }
-    });
+      const result = await attachCard('test-card');
 
-    it('stderr includes cwd and toplevel on association', async () => {
-      const workspace = new TestGitWorkspace();
-      await workspace.create();
+      expect(result.pid).toBe(testPid);
+      expect(result.cardId).toBe('test-card');
+      expect(typeof result.workspacePath).toBe('string');
+      expect(result.workspacePath.length).toBeGreaterThan(0);
+      // Branch registration must not have occurred
+      expect(branches.get('test-card')).toBeUndefined();
 
-      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        await attachCard('test-card');
-
-        const messages = errorSpy.mock.calls.map((c) => c[0] as string);
-        const cwdLine = messages.find((m) => m.startsWith('card attach: cwd='));
-        expect(cwdLine).toBeDefined();
-        expect(cwdLine).toContain(`cwd=${workspace.getPath()}`);
-        expect(cwdLine).toContain('toplevel=');
-      } finally {
-        process.chdir(origCwd);
-        errorSpy.mockRestore();
-        workspace.destroy();
-      }
-    });
-
-    it('stderr warns when branch is checked out in a worktree', async () => {
-      const workspace = new TestGitWorkspace();
-      await workspace.create();
-
-      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        await attachCard('test-card');
-
-        const messages = errorSpy.mock.calls.map((c) => c[0] as string);
-        // 'main' branch is checked out in the workspace itself, so warning should appear
-        const warningLine = messages.find((m) => m.includes('warning: branch main is checked out at'));
-        expect(warningLine).toBeDefined();
-      } finally {
-        process.chdir(origCwd);
-        errorSpy.mockRestore();
-        workspace.destroy();
-      }
-    });
-
-    it('flushes pending commits that are reachable from HEAD', async () => {
-      const workspace = new TestGitWorkspace();
-      await workspace.create();
-      await workspace.createAndCommitFile('file1.txt', 'content');
-      const sha = (await workspace.getGit().log({ maxCount: 1 })).latest!.hash;
-
-      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      // Pre-populate registry with a pending commit
-      const { recordPendingCommit } = await import('@cards/sessions');
-      await recordPendingCommit(testPid, sha);
-
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        const result = await attachCard('test-card');
-        expect(result.flushedCommits).toBe(1);
-        expect(commits.get('test-card')).toEqual([sha]);
-      } finally {
-        process.chdir(origCwd);
-        workspace.destroy();
-      }
-    });
-
-    it('deduplicates pending commits before flushing them', async () => {
-      const workspace = new TestGitWorkspace();
-      await workspace.create();
-      await workspace.createAndCommitFile('file1.txt', 'content');
-      const sha = (await workspace.getGit().log({ maxCount: 1 })).latest!.hash;
-
-      cards.set('test-card', { id: 'test-card', title: 'Test', status: 'todo' });
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const { recordPendingCommit } = await import('@cards/sessions');
-      await recordPendingCommit(testPid, sha);
-      await recordPendingCommit(testPid, sha);
-
-      const origCwd = process.cwd();
-      try {
-        process.chdir(workspace.getPath());
-        const result = await attachCard('test-card');
-        expect(result.flushedCommits).toBe(1);
-        expect(commits.get('test-card')).toEqual([sha]);
-      } finally {
-        process.chdir(origCwd);
-        workspace.destroy();
-      }
+      // Verify session registry recorded mode:'attach' and workspacePath
+      const { getPidCardAssociation } = await import('@cards/sessions');
+      const assoc = await getPidCardAssociation(testPid);
+      expect(assoc).not.toBeNull();
+      expect(assoc!.mode).toBe('attach');
+      expect(assoc!.workspacePath).toBe(result.workspacePath);
     });
   });
 

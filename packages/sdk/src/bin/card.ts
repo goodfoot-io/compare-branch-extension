@@ -9,9 +9,10 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { toCardListSummaries } from '@cards/sdk/card-summary';
-import type { AddBranchRequest, CardCreateData, ListCardsOptions } from '@cards/sdk/client';
+import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
 import {
   CardsClient,
   calculateBackoffMs,
@@ -27,6 +28,7 @@ import { associatePidWithCard, findAgentPid, getSessionIdForPid, removePidEntry 
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
+import { spawnTranscriptWatcher } from './spawn-transcript-watcher.js';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -548,76 +550,69 @@ function resolveAttachGitContext(): GitAttachContext {
 }
 
 /**
- * Associates the current Claude session with a card.
+ * Associates the current Claude session with a card in attach mode.
  *
- * Finds the agent ancestor PID, associates it with the card in the session
- * registry, optionally registers the workspace branch, and flushes any
- * pending commits that were buffered before association.
+ * Fails closed on non-git cwd and missing session env vars. Records the
+ * canonical realpath workspace path with mode:'attach' in the session
+ * registry and spawns the transcript watcher. Does NOT register a branch —
+ * attach-mode attribution is workspace-path-based, not branch-based.
+ *
+ * Note: WatcherRegistry.register replaces a same-watcherId watcher, so a
+ * concurrent launch+attach for the same card is "last-writer wins" and is
+ * not formally supported.
  *
  * @param cardId - The card identifier to associate with.
  * @returns Result object with association details.
- * @throws When agent PID cannot be found.
+ * @throws When cwd is not in a git repo, env vars are missing, or agent PID cannot be found.
  */
 export async function attachCard(
   cardId: string
-): Promise<{ pid: number; cardId: string; branch: string | null; flushedCommits: number }> {
+): Promise<{ pid: number; cardId: string; workspacePath: string; watcherSpawned: boolean }> {
+  const gitContext = resolveAttachGitContext();
+  if (!gitContext.gitRoot) {
+    throw new Error('card attach: cwd is not inside a git working tree');
+  }
+
+  const sessionId = process.env['CARDS_SESSION_ID'];
+  if (!sessionId) {
+    throw new Error('card attach: CARDS_SESSION_ID is not set — run inside a Cards session');
+  }
+  const transcriptPath = process.env['CARDS_TRANSCRIPT_PATH'];
+  if (!transcriptPath) {
+    throw new Error('card attach: CARDS_TRANSCRIPT_PATH is not set — run inside a Cards session');
+  }
+
   const pid = findAgentPid();
   if (!pid) {
     throw new Error('could not find agent ancestor PID');
   }
 
-  const pendingCommits = await associatePidWithCard(pid, cardId);
-  console.error(`card attach: PID ${pid} associated with card ${cardId}`);
-  const gitContext = resolveAttachGitContext();
-  console.error(`card attach: cwd=${process.cwd()} toplevel=${gitContext.gitRoot ?? '(none)'}`);
+  const workspacePath = realpathSync(gitContext.gitRoot);
 
+  await associatePidWithCard(pid, cardId, { mode: 'attach', workspacePath });
+  console.error(`card attach: PID ${pid} associated with card ${cardId} (workspacePath=${workspacePath})`);
+
+  // Fetch card to obtain cardRepoPath for the transcript watcher.
   const client = await connectClient();
+  const card = await client.getCard(cardId);
+  const cardRepoPath = card.repositoryPath;
 
-  // Register workspace branch if on a named branch.
-  // For worktree branches (cards/*), resolveOrCreateWorktree already handles
-  // registration with the correct parentBranch. Only register here for base
-  // branches (e.g., main) where the branch IS the comparison base.
-  const branch = gitContext.branch;
-
-  // Warn if the branch is already checked out in another worktree.
-  if (branch) {
-    if (gitContext.worktreePath) {
-      console.error(`card attach: warning: branch ${branch} is checked out at ${gitContext.worktreePath}`);
-    }
+  // Spawn transcript watcher. Failure is non-fatal and logged to stderr.
+  let watcherSpawned = false;
+  try {
+    spawnTranscriptWatcher(pid, sessionId, transcriptPath, cardId, cardRepoPath, {
+      error: (msg, data) => console.error(`card attach: ${msg}`, data),
+      warn: (msg, data) => console.error(`card attach: warn: ${msg}`, data)
+    });
+    watcherSpawned = true;
+    console.error(`card attach: transcript watcher spawned`);
+  } catch (error) {
+    console.error(
+      `card attach: transcript watcher spawn failed: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 
-  if (branch && !branch.startsWith('cards/')) {
-    const branchData: AddBranchRequest = { name: branch, parentBranch: branch };
-    try {
-      await client.addBranch(cardId, branchData);
-      console.error(`card attach: registered branch ${branch}`);
-    } catch (error) {
-      console.error(
-        `card attach: branch registration failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  // Flush pending commits
-  const uniquePendingCommits = [...new Set(pendingCommits)];
-  let flushedCount = 0;
-  for (const sha of uniquePendingCommits) {
-    if (!isAncestorOfHead(sha)) continue;
-    try {
-      await client.addCommit(cardId, sha);
-      flushedCount++;
-    } catch (error) {
-      console.error(
-        `card attach: failed to flush commit ${sha}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  if (uniquePendingCommits.length > 0) {
-    console.error(`card attach: flushed ${flushedCount}/${uniquePendingCommits.length} pending commit(s)`);
-  }
-
-  return { pid, cardId, branch, flushedCommits: flushedCount };
+  return { pid, cardId, workspacePath, watcherSpawned };
 }
 
 /**

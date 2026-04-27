@@ -25,7 +25,8 @@
     "./client/cardRepoFilters": "./src/client/cardRepoFilters.ts",
     "./card-repo": "./src/cardRepo.ts",
     "./card-summary": "./src/cardSummary.ts",
-    "./search-utils": "./src/searchUtils.ts"
+    "./search-utils": "./src/searchUtils.ts",
+    "./bin/spawn-transcript-watcher": "./src/bin/spawn-transcript-watcher.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",

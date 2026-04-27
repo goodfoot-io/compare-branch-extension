@@ -9,7 +9,8 @@
  * @see https://code.claude.com/docs/en/hooks#sessionstart
  */
 
-import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid, registerSession } from '@cards/sessions';
@@ -70,57 +71,6 @@ export function resolveHeadSha(repoPath: string): string | null {
 }
 
 /**
- * Spawns a detached transcript watcher process for crash-resilient transcript upload.
- *
- * The watcher monitors the agent PID and uploads the transcript if the process
- * exits without the session-end hook having run (crash/SIGKILL).
- *
- * @param pid - agent process ID to monitor.
- * @param sessionId - Session identifier for the transcript.
- * @param transcriptPath - Path to the transcript file.
- * @param cardId - Card identifier for the upload target.
- * @param cardRepoPath - Path to the card repository.
- * @param logger - Logger for structured error output when the watcher cannot be launched.
- */
-export function spawnTranscriptWatcher(
-  pid: number,
-  sessionId: string,
-  transcriptPath: string,
-  cardId: string,
-  cardRepoPath: string,
-  logger: Parameters<Parameters<typeof sessionStartHook>[1]>[1]['logger']
-): void {
-  // `transcript-watcher` is a shell wrapper published on PATH by the SDK plugin tree
-  // (public/plugins/cards/bin/transcript-watcher). It exec's the .mjs via VSCODE_NODE,
-  // so this hook does not need to know either location.
-  const readiness = spawnSync('sh', ['-c', 'command -v transcript-watcher'], { stdio: 'ignore' });
-  if (readiness.error || readiness.status !== 0) {
-    logger.error('transcript-watcher not resolvable on PATH — skipping spawn', {
-      status: readiness.status,
-      error: readiness.error instanceof Error ? readiness.error.message : undefined,
-      pid,
-      sessionId
-    });
-    return;
-  }
-
-  const spawnArgs = [String(pid), sessionId, transcriptPath, cardId, cardRepoPath];
-
-  const child = spawn('transcript-watcher', spawnArgs, {
-    detached: true,
-    stdio: 'ignore',
-    env: { ...process.env }
-  });
-  child.on('error', (err) => {
-    logger.error('transcript-watcher spawn failed', {
-      error: err instanceof Error ? err.message : String(err),
-      spawnArgs
-    });
-  });
-  child.unref();
-}
-
-/**
  * Registers the agent PID for commit attribution and spawns the transcript watcher.
  *
  * Returns a failure output if PID registration fails (blocking), or `null` on
@@ -174,13 +124,26 @@ async function registerPidAndSpawnWatcher(
 }
 
 /**
- * Environment variable name for the session ID persisted into the Bash tool
- * shell environment. The card-repo post-commit hook reads this to record
- * commits without needing a process-tree walk.
+ * Environment variable names persisted into the Bash tool shell environment.
+ *
+ * CARDS_SESSION_ID: read by the card-repo post-commit hook to record commits
+ * without a process-tree walk.
+ * CARDS_TRANSCRIPT_PATH: read by attach-mode watcher spawn to target the
+ * correct transcript file.
  */
 const CARDS_SESSION_ID_ENV = 'CARDS_SESSION_ID';
+const CARDS_TRANSCRIPT_PATH_ENV = 'CARDS_TRANSCRIPT_PATH';
 
 export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => {
+  // Persist session env vars unconditionally — before extractActionInput so
+  // they are available in every session, including non-action subprocesses.
+  persistEnvVar(CARDS_SESSION_ID_ENV, input.session_id);
+  persistEnvVar(CARDS_TRANSCRIPT_PATH_ENV, input.transcript_path);
+  logger.info('Persisted session env vars to environment', {
+    sessionId: input.session_id,
+    transcriptPath: input.transcript_path
+  });
+
   let actionInput: ActionInput;
   try {
     actionInput = extractActionInput();
@@ -191,11 +154,6 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
       systemMessage: 'SessionStart hook: not running inside an action subprocess.'
     });
   }
-
-  // Persist session ID so the card-repo post-commit hook can bypass the
-  // process tree walk entirely.
-  persistEnvVar(CARDS_SESSION_ID_ENV, input.session_id);
-  logger.info('Persisted session ID to environment', { sessionId: input.session_id });
 
   const headSha = resolveHeadSha(actionInput.cardRepoPath);
   if (headSha) {

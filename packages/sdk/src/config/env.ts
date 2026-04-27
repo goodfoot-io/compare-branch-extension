@@ -164,6 +164,15 @@ export const CARDS_ENV_VARS = {
   CARDS_SESSION_ID: 'CARDS_SESSION_ID',
 
   /**
+   * Absolute path to the Claude Code transcript JSONL file for the current
+   * session. Persisted by the session-start hook via `persistEnvVar`.
+   *
+   * Available in Bash tool shell descendants after session start. Read by
+   * attach-mode watcher spawn to target the correct transcript file.
+   */
+  CARDS_TRANSCRIPT_PATH: 'CARDS_TRANSCRIPT_PATH',
+
+  /**
    * Absolute path to the VS Code extension installation directory.
    *
    * Set by the extension host from `context.extensionUri.fsPath` and injected
