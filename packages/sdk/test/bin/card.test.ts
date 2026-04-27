@@ -81,12 +81,18 @@ describe('card binary', () => {
   let cardCounter: number;
   /** Files stored via PUT /cards/:id/fs/:path, keyed by `${cardId}/${filePath}`. */
   let files: Map<string, string>;
+  /** CardIds received via DELETE /internal/cards/:cardId/watchers. */
+  let deletedWatcherCardIds: string[];
+  /** Controls whether DELETE /internal/cards/:cardId/watchers returns 200 or 503. */
+  let watcherRegistryAvailable: boolean;
 
   beforeEach(async () => {
     cards = new Map();
     branches = new Map();
     commits = new Map();
     files = new Map();
+    deletedWatcherCardIds = [];
+    watcherRegistryAvailable = true;
     cardCounter = 0;
 
     // Create temp directory for homedir mock
@@ -209,6 +215,21 @@ describe('card binary', () => {
       if (method === 'POST' && actionMatch) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, exitCode: 0 }));
+        return;
+      }
+
+      // DELETE /internal/cards/:cardId/watchers
+      const deleteWatchersMatch = url.pathname.match(/^\/internal\/cards\/([^/]+)\/watchers$/);
+      if (method === 'DELETE' && deleteWatchersMatch) {
+        const cardId = deleteWatchersMatch[1]!;
+        if (!watcherRegistryAvailable) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Watcher registry not configured' }));
+          return;
+        }
+        deletedWatcherCardIds.push(cardId);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ stopped: [], timedOut: [] }));
         return;
       }
 
@@ -555,6 +576,54 @@ describe('card binary', () => {
     it('throws when no agent PID found', async () => {
       mockFindAgentPid.mockReturnValue(null);
       await expect(detachCard()).rejects.toThrow('could not find agent ancestor PID');
+    });
+
+    it('issues DELETE to watcher teardown endpoint when entry has cardId', async () => {
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      const { associatePidWithCard: associate } = await import('@cards/sessions');
+      await associate(testPid, 'card-detach-1');
+
+      await detachCard();
+
+      expect(deletedWatcherCardIds).toContain('card-detach-1');
+    });
+
+    it('skips watcher teardown silently when no prior entry exists', async () => {
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      // No session entry — detachCard should not throw
+      const result = await detachCard();
+      expect(result.pid).toBe(testPid);
+      expect(deletedWatcherCardIds).toHaveLength(0);
+    });
+
+    it('does not throw when watcher teardown fetch fails', async () => {
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      const { associatePidWithCard: associate } = await import('@cards/sessions');
+      await associate(testPid, 'card-detach-2');
+
+      // Make the server return 503 to simulate registry unavailable
+      watcherRegistryAvailable = false;
+
+      // Should not throw even though server returns non-ok response
+      const result = await detachCard();
+      expect(result.pid).toBe(testPid);
+    });
+
+    it('silently skips teardown when apiInfo is null (no discovery file)', async () => {
+      mockFindAgentPid.mockReturnValue(testPid);
+
+      const { associatePidWithCard: associate } = await import('@cards/sessions');
+      await associate(testPid, 'card-detach-3');
+
+      // Remove discovery file
+      rmSync(join(testDir, '.cards', 'cards-api.json'));
+
+      const result = await detachCard();
+      expect(result.pid).toBe(testPid);
+      expect(deletedWatcherCardIds).toHaveLength(0);
     });
   });
 

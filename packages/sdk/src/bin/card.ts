@@ -888,6 +888,31 @@ export async function detachCard(): Promise<{ pid: number }> {
     console.error(`card detach: PID ${pid} had no active association`);
   }
 
+  // Best-effort watcher teardown — never throws
+  if (entry?.cardId) {
+    const apiInfo = await discoverApiInfo();
+    if (apiInfo) {
+      const { host, port, accessToken } = apiInfo;
+      try {
+        const res = await fetch(`http://${host}:${port}/internal/cards/${entry.cardId}/watchers`, {
+          method: 'DELETE',
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+          signal: AbortSignal.timeout(4000)
+        });
+        if (res.ok) {
+          const body = (await res.json()) as { stopped: string[]; timedOut: string[] };
+          console.error(
+            `card detach: watcher teardown stopped=${JSON.stringify(body.stopped)} timedOut=${JSON.stringify(body.timedOut)}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `card detach: watcher teardown skipped (${error instanceof Error ? error.message : String(error)})`
+        );
+      }
+    }
+  }
+
   return { pid };
 }
 
