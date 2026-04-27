@@ -5,9 +5,12 @@ description: Create, read, or interact with a card.
 
 # Cards API
 
-Use the CLI binaries below to manage cards and send notifications. For direct
-card content operations (comments, attachments, plans), use the card's
-filesystem repository — see Card Repository below.
+Use the CLI binary below to manage cards. For direct card content operations
+(comments, attachments, plans), use the card's filesystem repository — see
+Card Repository below.
+
+For controlling VS Code (opening files, running commands, sending notifications,
+managing panels, controlling the debugger, etc.), load the `cards:extension` skill.
 
 The user is notified when you create a card or add a comment.
 
@@ -38,8 +41,6 @@ The commands below are plugin-provided executables on `PATH`. Invoke them direct
 | Command | Purpose |
 |---------|---------|
 | `card` | Card operations (get, create, list, attach, detach, action) |
-| `cards-extension notify` | Send notifications to the VS Code UI |
-| `cards-extension attribution` | Manage the attribution tree comparison mode |
 
 ### `card` — Card operations
 
@@ -122,57 +123,6 @@ card <card-id> watch "src/auth/**"
 card <card-id> watch "src/auth/**" "tests/auth/**"
 ```
 Blocks until the first eligible commit, outputs formatted commit details, attributes the commit to the current session, then exits 0. When unattributed commits already exist at invocation time, they are output immediately without subscribing. Optional glob patterns restrict output to commits where at least one changed file matches; multiple globs are OR-combined. Requires an active card session (`card attach` must have been called). Exits non-zero on connection failure or missing session.
-
-### `cards-extension notify` — Send notifications
-
-Send a notification to the VSCode UI.
-
-```
-cards-extension notify --type info --title "Build complete" --message "All tests pass" --source my-agent
-cards-extension notify --type warning --title "Slow query" --message "Query took 5s" --source db-monitor
-cards-extension notify --type error --title "Deploy failed" --message "Exit code 1" --source ci
-```
-
-Required: `--type` (error|warning|info), `--title`, `--message`, `--source`
-
-### `cards-extension attribution` — Compare operations
-
-Manage the attribution tree comparison mode. One active comparison per server.
-
-#### Commands
-
-**Set comparison** — Pipe a JSON request to stdin. Three shapes are supported. All three accept an optional `"title"` field; when present, the title overrides the derived ref-based title in the attribution tree view sidebar.
-
-Branch range — compare two arbitrary refs:
-```
-cards-extension attribution set <<'EOF'
-{ "baseRef": "main", "compareRef": "feature-branch", "title": "My Comparison" }
-EOF
-```
-
-Dynamic worktree — track a worktree's HEAD live:
-```
-cards-extension attribution set <<'EOF'
-{ "baseRef": "main", "repositoryPath": "/workspace/.worktrees/cards/main-4/1", "title": "Card Changes" }
-EOF
-```
-
-Fixed attribution — show pre-computed SHAs against a ref:
-```
-cards-extension attribution set <<'EOF'
-{ "compareRef": "main", "attributionShas": ["abc123", "def456"], "title": "Squash Attribution" }
-EOF
-```
-
-**Get current comparison**:
-```
-cards-extension attribution get
-```
-
-**Clear comparison**:
-```
-cards-extension attribution clear
-```
 
 ## Card Repository
 
