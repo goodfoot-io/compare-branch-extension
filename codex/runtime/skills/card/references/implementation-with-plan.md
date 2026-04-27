@@ -21,7 +21,7 @@ The orchestrator coordinates — it does NOT implement code.
 Plan says "implement" -> delegate to developer agent.
 Use only TodoWrite and Task tools for coordination. Never use Read/Write/Edit/MultiEdit for implementation.
 
-**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically.
+**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work. A mid-flow status report ("Step N is committed and validates; M phases remain; stopping for review") is re-solicitation; continue to the next phase.
 </orchestrator-constraints>
 
 <instructions>
@@ -81,7 +81,7 @@ Analyze tasks along three dimensions:
 **Route**:
 - **Independent files OR uniform tasks**: Parallel (concurrent agents)
 - **Dependent + varied + small**: Coherent (single agent)
-- **Dependent + varied + substantial with clear gates**: Sequential (ordered agents, validate between)
+- **Dependent + varied + substantial with clear gates**: Sequential — ordered agents advancing through phases without pausing; validate between phases and continue immediately
 
 When uncertain between Coherent and Sequential, choose **Sequential** — validation gates have low cost; missed validation opportunities have high cost.
 
@@ -133,7 +133,7 @@ Agent prompts must be self-contained — agents have no conversation context. Re
 
 ## Scope
 [Coherent: Complete all todos in sequence, committing after each logical unit.]
-[Sequential: Complete phase [N] todos: [phase todo descriptions]. Stop at gate: [GATE_CONDITION].]
+[Sequential: Complete phase [N] todos: [phase todo descriptions]. Return at gate: [GATE_CONDITION].]
 [Parallel: Complete todos: [independent group todo descriptions]]
 
 ## Context

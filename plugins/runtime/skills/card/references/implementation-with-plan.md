@@ -34,7 +34,7 @@ Based on plan completion:
 Route based on the first matching condition:
 
 - **Parallel** — Independent files, OR uniform steps across files. Concurrent agents over independent groups, one commit after the group returns.
-- **Sequential** — Multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Ordered dispatches with a validation gate per phase, one commit per phase.
+- **Sequential** — Multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Ordered dispatches advance through phases without pausing; each phase ends in a commit and an immediate return to Step 2.1.
 - **Coherent** — Dependent and varied steps, AND the plan has a single phase, AND a single end-of-scope validation gate. Single dispatch covering all steps, one commit.
 
 The Sequential tiebreaker is one-way. Route **Coherent** only when every clause of its condition holds. "Phases share context" and "validation is cleaner at the end" are not valid reasons. When uncertain, route **Sequential**.
@@ -70,7 +70,7 @@ Agent prompts must be self-contained — agents have no conversation context. Fo
 
 ## Scope
 [Coherent: Complete all implementation steps in sequence.]
-[Sequential: Complete phase [N]: [phase step descriptions]. Stop at gate: [GATE_CONDITION].]
+[Sequential: Complete phase [N]: [phase step descriptions]. Return at gate: [GATE_CONDITION].]
 [Parallel: Complete these steps: [independent group step descriptions]]
 
 ## Context
@@ -114,7 +114,7 @@ Then run tests scoped to what the group changed:
 - **Changes span multiple packages, or the package boundary is unclear**: Run the workspace's full validation suite.
 
 Based on the combined result:
-- **All validations pass**: Commit the group's changes. Return to Step 2.1: Verify Current State.
+- **All validations pass**: Commit the group's changes and return immediately to Step 2.1. Do not pause to summarize, request review, or report intent for the next phase — plan approval is the standing authorization for every remaining phase. The only loop exits are Step 2.1's "Newest plan fully implemented" branch, `<when-to-return-to-planning>`, and explicit BLOCKED STOPs.
 - **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill — per `<orchestrator-constraints>`): Fix inline and re-run the validations above.
 - **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work and re-delegate.
 
@@ -237,7 +237,7 @@ The orchestrator coordinates — it does NOT implement code.
 
 Plan says "implement" → delegate to developer agent. Never use Read/Write/Edit/MultiEdit for implementation.
 
-**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work.
+**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work. A mid-flow status report ("Step N is committed and validates; M phases remain; stopping for review") is re-solicitation; continue to the next phase.
 
 **Never dispatch a scope that cannot reach a validation gate on its own.** Each dispatched scope must be reachable to a validation-passing state without depending on a later dispatch. A scope that cannot is too large — return to Step 2.2: Assess Coherence and split. The constraint is on validation reachability within the scope, not on commit timing — commits are produced in Step 2.4: Validate and Commit after the group returns.
 </orchestrator-constraints>
