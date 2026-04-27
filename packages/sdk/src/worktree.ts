@@ -17,6 +17,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
+import { applyWorktreeInclude } from './worktreeInclude.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -75,6 +76,7 @@ export interface CreateWorktreeResult {
   branch: string;
   worktree: string;
   baseSha: string;
+  copiedFromInclude: number;
   reroutedSymlinks?: number;
 }
 
@@ -157,6 +159,7 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
     await copyCardsDirectory(sourceRoot, worktreeDir);
 
     const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
+    const copiedFromInclude = await applyWorktreeInclude({ sourceRoot, worktreeDir });
 
     const [, baseSha] = await Promise.all([
       updateGitExclude({ worktreeDir, repoRoot, directories: ignored.directories, files: ignored.files }),
@@ -166,7 +169,8 @@ export async function createWorktree(ref: string, options?: { cwd?: string }): P
     const result: CreateWorktreeResult = {
       branch: ref,
       worktree: worktreeDir,
-      baseSha
+      baseSha,
+      copiedFromInclude
     };
 
     if (reroutedCount > 0) {
