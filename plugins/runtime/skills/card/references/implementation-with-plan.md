@@ -114,7 +114,7 @@ Then run tests scoped to what the group changed:
 - **Changes span multiple packages, or the package boundary is unclear**: Run the workspace's full validation suite.
 
 Based on the combined result:
-- **All validations pass**: Commit the group's changes and return immediately to Step 2.1. Do not pause to summarize, request review, or report intent for the next phase — plan approval is the standing authorization for every remaining phase. The only loop exits are Step 2.1's "Newest plan fully implemented" branch, `<when-to-return-to-planning>`, and explicit BLOCKED STOPs.
+- **All validations pass**: Commit the group's changes and return immediately to Step 2.1. The only loop exits are Step 2.1's "Newest plan fully implemented" branch, `<when-to-return-to-planning>`, and explicit BLOCKED STOPs.
 - **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill — per `<orchestrator-constraints>`): Fix inline and re-run the validations above.
 - **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work, return to Step 2.2: Assess Coherence to re-route — if the agent returned BLOCKED with a proposed split, adopt the split as the new routing — then re-dispatch.
 
@@ -184,10 +184,10 @@ git tag -d "implement/$CARD_ID/baseline" 2>/dev/null
 
 ### 5.3 Complete or Await Review
 
-`gates.mergeRequestRequired` is the durable, pre-authorized gate for the merge step — it is the authorization the global "authorized in advance in durable instructions" rule asks for. Do not re-derive safety from context; read the gate and act:
+Based on `gates.mergeRequestRequired`:
 
-- **false or unset**: The card author has pre-authorized a local-only merge. Read `./merge.md` and follow its `<instructions>` without further confirmation.
-- **true**: **STOP** — the gate withholds authorization. Merge occurs only after user approval.
+- **false or unset**: Read `./merge.md` and follow its `<instructions>`.
+- **true**: **STOP** — Merge occurs after user approval.
 
 </instructions>
 
@@ -237,7 +237,7 @@ The orchestrator coordinates — it does NOT implement code.
 
 Plan says "implement" → delegate to developer agent. Never use Read/Write/Edit/MultiEdit for implementation.
 
-**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. **Plan approval is the authorization to proceed** — do not re-solicit direction based on scope, commit volume, or overlap with prior work. A mid-flow status report ("Step N is committed and validates; M phases remain; stopping for review") is re-solicitation; continue to the next phase.
+**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. A mid-flow status report ("Step N is committed and validates; M phases remain; stopping for review") is re-solicitation; continue to the next phase.
 
 **Never dispatch a scope that cannot be completed in a single agent session and reach a validation gate on its own.** Each dispatched scope must be reachable to a validation-passing state within one session without depending on a later dispatch. A scope that cannot — by validation reachability or by session size — is too large; return to Step 2.2: Assess Coherence and split. When the previous agent returned a proposed split with BLOCKED, treat that split as the default routing. The constraint is on validation reachability and session size within the scope, not on commit timing — commits are produced in Step 2.4: Validate and Commit after the group returns.
 </orchestrator-constraints>
