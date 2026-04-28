@@ -202,6 +202,58 @@ export async function createWorktree(
 }
 
 /**
+ * Removes a Cards-managed worktree and cleans up its git registration.
+ *
+ * Steps:
+ * 1. Scope guard: rejects paths outside `resolveWorktreesRoot()`.
+ * 2. Locates `repoRoot` by reading `<worktreePath>/.git` (a worktree file).
+ *    Returns immediately when the directory is already gone (idempotent).
+ * 3. `git worktree remove --force <path>` from `repoRoot`.
+ * 4. Sweeps any leftover directory with `fs.rm`.
+ * 5. `git worktree prune` to keep the registry clean.
+ *
+ * @param worktreePath - Absolute path to the worktree directory to remove.
+ * @throws {Error} When `worktreePath` is outside the Cards worktrees root or git operations fail.
+ */
+export async function removeWorktree(worktreePath: string): Promise<void> {
+  const worktreesRoot = path.resolve(resolveWorktreesRoot());
+  const resolved = path.resolve(worktreePath);
+  if (!resolved.startsWith(worktreesRoot + path.sep) && resolved !== worktreesRoot) {
+    throw new Error(`removeWorktree: path is outside the Cards worktrees root: ${resolved}`);
+  }
+
+  const gitFilePath = path.join(resolved, '.git');
+  let repoRoot: string;
+  try {
+    const stats = await fs.lstat(gitFilePath);
+    if (stats.isFile()) {
+      const content = await fs.readFile(gitFilePath, 'utf-8');
+      const gitdirPath = content.trim().replace(/^gitdir:\s*/, '');
+      const mainGitDir = gitdirPath.replace(/\/worktrees\/[^/]+$/, '');
+      repoRoot = mainGitDir.replace(/\/\.git$/, '');
+    } else if (stats.isDirectory()) {
+      repoRoot = resolved;
+    } else {
+      throw new Error(`removeWorktree: unexpected .git entry type at ${gitFilePath}`);
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  await execFileAsync('git', ['worktree', 'remove', '--force', resolved], {
+    cwd: repoRoot,
+    timeout: 30_000
+  });
+
+  await fs.rm(resolved, { recursive: true, force: true });
+
+  await execFileAsync('git', ['worktree', 'prune'], { cwd: repoRoot, timeout: 30_000 });
+}
+
+/**
  * Removes stale directory remnants left by a crashed previous session.
  *
  * Git doesn't track the worktree, but the directory may still exist on disk,
