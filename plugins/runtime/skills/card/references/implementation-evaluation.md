@@ -204,7 +204,7 @@ Then run tests scoped to what the group changed:
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.
 - **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
-- **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work and re-dispatch per Step 6: Dispatch Developer Wave.
+- **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work, re-group findings by coherence — if the developer returned BLOCKED with a proposed split, adopt the split as the new grouping — then re-dispatch per Step 6: Dispatch Developer Wave.
 
 Commit on success — the orchestrator owns every commit; developers do not commit:
 

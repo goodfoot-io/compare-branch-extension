@@ -59,7 +59,7 @@ Return exactly one status reflecting actual validated state.
 |---|---|---|
 | **COMPLETED** | All scope items implemented, all validations pass | Decision narratives, files modified |
 | **NEEDS_REVISION** | Validation fails after 5 attempts or requirements unmet | What was tried, exact failure output |
-| **BLOCKED** | Cannot resolve: missing dependency, ambiguous requirement, or obstacle outside agent control | Exact blocker, what was attempted |
+| **BLOCKED** | Cannot complete in this session: scope exceeds one session, missing dependency, ambiguous requirement, or obstacle outside agent control | Exact blocker, what was attempted, and — when scope is the cause — a proposed split into independently dispatchable sub-scopes (each reaches a validation gate on its own) |
 
 ### Report Format
 
