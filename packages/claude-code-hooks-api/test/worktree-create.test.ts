@@ -161,6 +161,50 @@ describe('WorktreeCreate hook', () => {
     );
   });
 
+  it('logs completion with cardId when CARD_ID env is set', async () => {
+    process.env['CARD_ID'] = 'main-99';
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue({
+      path: worktreePath,
+      settle: Promise.resolve({
+        branch: 'feature/test-branch',
+        worktree: worktreePath,
+        baseSha: 'abc123',
+        copiedFromInclude: 0,
+        reroutedSymlinks: 0
+      })
+    });
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'WorktreeCreate complete',
+      expect.objectContaining({ cardId: 'main-99', elapsedMs: expect.any(Number) })
+    );
+  });
+
+  it('logs null cardId in completion when CARD_ID is not set', async () => {
+    delete process.env['CARD_ID'];
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue({
+      path: worktreePath,
+      settle: Promise.resolve({
+        branch: 'feature/test-branch',
+        worktree: worktreePath,
+        baseSha: 'abc123',
+        copiedFromInclude: 0,
+        reroutedSymlinks: 0
+      })
+    });
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'WorktreeCreate complete',
+      expect.objectContaining({ cardId: null, elapsedMs: expect.any(Number) })
+    );
+  });
+
   it('throws when settle rejects (does not swallow)', async () => {
     mockCreateWorktree.mockResolvedValue({
       path: '/some/path',

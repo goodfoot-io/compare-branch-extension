@@ -12,7 +12,8 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createWorktree, removeWorktree } from '../src/worktree.js';
+import { resolveWorktreesRoot } from '../src/cards-config.js';
+import { createWorktree, removeWorktree, WorktreeScopeError } from '../src/worktree.js';
 
 const CARDS_WORKTREES_DIR_KEY = 'CARDS_WORKTREES_DIR';
 
@@ -97,7 +98,7 @@ describe('removeWorktree', () => {
     await expect(removeWorktree(outsidePath)).rejects.toThrow();
   });
 
-  it('force-removes a worktree that contains a .cards copy and rerouted node_modules', async () => {
+  it('force-removes a worktree containing a .cards copy', async () => {
     const { path: wPath, settle } = await createWorktree('feature/force-test', { cwd: repoDir });
     await settle;
 
@@ -106,6 +107,26 @@ describe('removeWorktree', () => {
 
     await expect(removeWorktree(wPath)).resolves.toBeUndefined();
     await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('throws WorktreeScopeError when path equals the worktrees root (not a child)', async () => {
+    const root = path.resolve(resolveWorktreesRoot());
+    await expect(removeWorktree(root)).rejects.toBeInstanceOf(WorktreeScopeError);
+  });
+
+  it('throws WorktreeScopeError when path is a symlink pointing outside the worktrees root', async () => {
+    const outsideTarget = path.join(tmpBase, 'outside-target');
+    await fs.mkdir(outsideTarget);
+    const symlinkPath = path.join(worktreesDir, 'escape');
+    await fs.symlink(outsideTarget, symlinkPath);
+
+    await expect(removeWorktree(symlinkPath)).rejects.toBeInstanceOf(WorktreeScopeError);
+    // The symlink itself must not have been deleted
+    await expect(fs.lstat(symlinkPath)).resolves.toBeDefined();
+  });
+
+  it('throws WorktreeScopeError for empty worktreePath', async () => {
+    await expect(removeWorktree('')).rejects.toBeInstanceOf(WorktreeScopeError);
   });
 
   it('runs git worktree prune afterwards so the registry stays clean', async () => {

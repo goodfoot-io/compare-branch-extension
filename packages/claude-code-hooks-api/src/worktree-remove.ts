@@ -8,7 +8,7 @@
  * @module worktree-remove
  */
 
-import { removeWorktree } from '@cards/sdk/worktree';
+import { removeWorktree, WorktreeScopeError } from '@cards/sdk/worktree';
 import { worktreeRemoveHook, worktreeRemoveOutput } from '@goodfoot/claude-code-hooks';
 
 export default worktreeRemoveHook({}, async (input, { logger }) => {
@@ -27,6 +27,9 @@ export default worktreeRemoveHook({}, async (input, { logger }) => {
       elapsedMs: Date.now() - start
     });
   } catch (error) {
+    if (error instanceof WorktreeScopeError) {
+      throw error;
+    }
     logger.warn('WorktreeRemove failed', {
       event: 'WorktreeRemove',
       worktree_path: input.worktree_path,

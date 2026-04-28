@@ -19,7 +19,7 @@ vi.mock('@cards/sdk/worktree', async (importOriginal) => {
   };
 });
 
-import { removeWorktree } from '@cards/sdk/worktree';
+import { removeWorktree, WorktreeScopeError } from '@cards/sdk/worktree';
 import hookFn from '../src/worktree-remove.js';
 
 describe('WorktreeRemove hook', () => {
@@ -73,7 +73,7 @@ describe('WorktreeRemove hook', () => {
     );
   });
 
-  it('logs but does not throw when removeWorktree fails', async () => {
+  it('logs but does not throw when removeWorktree fails with an operational error', async () => {
     resetMocks();
     mockRemoveWorktree.mockRejectedValue(new Error('git failure'));
 
@@ -86,5 +86,16 @@ describe('WorktreeRemove hook', () => {
         error: expect.stringContaining('git failure')
       })
     );
+  });
+
+  it('rethrows WorktreeScopeError without logging warn', async () => {
+    resetMocks();
+    const scopeError = new WorktreeScopeError('path is outside the Cards worktrees root: /etc');
+    mockRemoveWorktree.mockRejectedValue(scopeError);
+
+    await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toBeInstanceOf(
+      WorktreeScopeError
+    );
+    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 });

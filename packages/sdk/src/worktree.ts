@@ -19,6 +19,19 @@ import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
 import { applyWorktreeInclude } from './worktreeInclude.js';
 
+/**
+ * Thrown when a path argument falls outside the Cards worktrees root.
+ *
+ * This is a programmer error — the caller supplied a path that would allow
+ * destructive operations outside the managed worktrees directory.
+ */
+export class WorktreeScopeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WorktreeScopeError';
+  }
+}
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -216,10 +229,29 @@ export async function createWorktree(
  * @throws {Error} When `worktreePath` is outside the Cards worktrees root or git operations fail.
  */
 export async function removeWorktree(worktreePath: string): Promise<void> {
+  if (typeof worktreePath !== 'string' || worktreePath.length === 0) {
+    throw new WorktreeScopeError('removeWorktree: worktreePath must be a non-empty string');
+  }
+
   const worktreesRoot = path.resolve(resolveWorktreesRoot());
   const resolved = path.resolve(worktreePath);
-  if (!resolved.startsWith(worktreesRoot + path.sep) && resolved !== worktreesRoot) {
-    throw new Error(`removeWorktree: path is outside the Cards worktrees root: ${resolved}`);
+
+  // Canonicalize to follow symlinks before the prefix check.
+  // If the path does not exist yet (ENOENT from realpath), fall through to the
+  // idempotent no-op at the .git lstat step below.
+  let canonical: string;
+  try {
+    canonical = await fs.realpath(resolved);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      canonical = resolved;
+    } else {
+      throw error;
+    }
+  }
+
+  if (!canonical.startsWith(worktreesRoot + path.sep)) {
+    throw new WorktreeScopeError(`removeWorktree: path is outside the Cards worktrees root: ${canonical}`);
   }
 
   const gitFilePath = path.join(resolved, '.git');

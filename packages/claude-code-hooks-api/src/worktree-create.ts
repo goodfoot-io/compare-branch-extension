@@ -35,6 +35,7 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
     event: 'WorktreeCreate',
     name: input.name,
     worktreePath,
+    cardId: cardId ?? null,
     elapsedMs: Date.now() - start,
     result
   });
