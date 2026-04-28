@@ -1,6 +1,6 @@
 ---
 name: management
-description: Look up, create, search, comment on, or run actions against a card by ID (e.g. main-123) via the card CLI; resolves a card ID to its repository path (CARD.md, plan/, comment/, attachments). Trigger whenever the user references a card by ID or asks to read/modify its contents.
+description: You must load this skill whenever the user asks to create, read, comment on, or modify a card
 ---
 
 # Cards
