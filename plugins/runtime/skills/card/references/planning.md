@@ -53,7 +53,7 @@ When the card introduces new behavior whose contract is worth validating ahead o
 
 #### Write and Store Plan
 
-Write the plan to `[PLAN_FILE]` in the card repository. Create a sidecar at `[PLAN_FILE].meta.json` with a `title` prefixed with `"Plan: "` (e.g., `"title": "Plan: Three-phase migration starting with schema"`). Commit to the card repository:
+Write the plan to `[PLAN_FILE]` in the card repository. Create a sidecar at `[PLAN_FILE].meta.json` with a `title` prefixed with `"Plan: "` followed by a description of at most ten words (e.g., `"title": "Plan: Three-phase migration starting with schema"`). Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
