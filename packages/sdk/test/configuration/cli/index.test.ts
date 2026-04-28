@@ -6,7 +6,7 @@
  * @module
  */
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { build, main } from '../../../src/config/cli/index.js';
@@ -626,8 +626,7 @@ describe('wwwRoot bundling', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  it('should bundle inline module scripts in wwwRoot HTML and rewrite wwwRoot path', async () => {
-    // Create a wwwRoot directory with an HTML file that imports a local module
+  it('should copy wwwRoot contents to the output directory and rewrite wwwRoot path', async () => {
     const wwwDir = join(testDir, 'renderers', 'my-stream');
     mkdirSync(wwwDir, { recursive: true });
 
@@ -639,10 +638,7 @@ describe('wwwRoot bundling', () => {
 <head><style>body { margin: 0; }</style></head>
 <body>
   <div id="root"></div>
-  <script type="module">
-    import { greet } from './helpers.js';
-    document.getElementById('root').textContent = greet('World');
-  </script>
+  <script type="module" src="./helpers.js"></script>
 </body>
 </html>`
     );
@@ -686,18 +682,12 @@ export default {
     const settings = JSON.parse(readFileSync(result.settingsPath, 'utf-8'));
     expect(settings.environments.default.streams['my-stream'].wwwRoot).toBe('./www/my-stream');
 
-    // The bundled HTML should exist in the output
-    const bundledHtml = readFileSync(join(outdir, 'www', 'my-stream', 'index.html'), 'utf-8');
+    const copiedHtml = readFileSync(join(outdir, 'www', 'my-stream', 'index.html'), 'utf-8');
+    expect(copiedHtml).toContain('body { margin: 0; }');
+    expect(copiedHtml).toContain('<div id="root"></div>');
+    expect(copiedHtml).toContain('src="./helpers.js"');
 
-    // The inline import should be resolved — no bare import remaining
-    expect(bundledHtml).not.toContain("from './helpers.js'");
-    // The bundled code should contain the inlined function body
-    expect(bundledHtml).toContain('Hello, ');
-    // CSS and structural HTML should be preserved
-    expect(bundledHtml).toContain('body { margin: 0; }');
-    expect(bundledHtml).toContain('<div id="root"></div>');
-    // Static assets should be copied alongside
-    expect(existsSync(join(outdir, 'www', 'my-stream', 'helpers.js'))).toBe(true);
+    expect(readFileSync(join(outdir, 'www', 'my-stream', 'helpers.js'), 'utf-8')).toContain('Hello, ');
   });
 
   it('should pass through wwwRoot path unchanged when directory does not exist', async () => {
