@@ -1,5 +1,431 @@
 @import '@cards/web/styles';
-@import '@cards/web/styles/transcript';
+
+/* =============================================================================
+   TRANSCRIPT RENDERER STYLES (`.cc-*` classes)
+
+   All colors use VS Code CSS variables for theme compatibility (light, dark,
+   and high-contrast themes). Replaces the Tailwind `prose` class that
+   previously styled react-markdown output.
+
+   Two-tier typographic hierarchy:
+     Tier 1 (content):  .cc-text — 12-13px, editor font, primary reading
+     Tier 2 (metadata): .cc-system — 10px, italic, reduced opacity
+   ============================================================================= */
+
+.cc-transcript {
+  position: relative;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+}
+
+/* Base typography (scoped under .cc-transcript) — replaces Tailwind `prose`
+   for all HTML that `marked` can produce. */
+
+.cc-transcript p {
+  margin: 0 0 0.5em;
+}
+
+.cc-transcript p:last-child {
+  margin-bottom: 0;
+}
+
+.cc-transcript li p {
+  margin-bottom: 0.3em;
+}
+
+.cc-transcript pre {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  overflow: auto;
+  margin: 0.5em 0;
+  white-space: pre;
+}
+
+.cc-transcript code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 2px;
+  padding: 1px 3px;
+}
+
+.cc-transcript pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: var(--vscode-editor-foreground);
+  tab-size: 4;
+}
+
+.cc-transcript a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+
+.cc-transcript a:hover {
+  text-decoration: underline;
+}
+
+.cc-transcript blockquote {
+  margin: 0;
+  padding: 0 12px 0 8px;
+  border-left-width: 5px;
+  border-left-style: solid;
+  border-left-color: var(--vscode-textBlockQuote-border);
+  border-radius: 2px;
+  background: var(--vscode-textBlockQuote-background);
+}
+
+.cc-transcript ul,
+.cc-transcript ol {
+  margin: 0.25em 0 0.5em;
+  padding-left: 1.5em;
+}
+
+.cc-transcript ul {
+  list-style-type: disc;
+}
+
+.cc-transcript ol {
+  list-style-type: decimal;
+}
+
+.cc-transcript ul ul,
+.cc-transcript ol ul {
+  list-style-type: circle;
+}
+
+.cc-transcript ul ul ul,
+.cc-transcript ol ul ul,
+.cc-transcript ul ol ul,
+.cc-transcript ol ol ul {
+  list-style-type: square;
+}
+
+.cc-transcript li {
+  margin-bottom: 0.1em;
+}
+
+.cc-transcript h1,
+.cc-transcript h2,
+.cc-transcript h3,
+.cc-transcript h4,
+.cc-transcript h5,
+.cc-transcript h6 {
+  font-weight: 600;
+  margin-top: 20px;
+  margin-bottom: 14px;
+  line-height: 1.25;
+  color: var(--vscode-foreground);
+}
+
+.cc-transcript h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+}
+
+.cc-transcript h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+}
+
+.cc-transcript h3 { font-size: 1.25em; }
+.cc-transcript h4 { font-size: 1em; }
+.cc-transcript h5 { font-size: 0.875em; }
+.cc-transcript h6 { font-size: 0.85em; }
+
+.cc-transcript .cc-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: 11px;
+}
+
+.cc-transcript .cc-text th {
+  text-align: left;
+  border-bottom: 1px solid;
+  font-weight: 600;
+  background: var(--vscode-textCodeBlock-background);
+}
+
+.cc-transcript .cc-text th,
+.cc-transcript .cc-text td {
+  padding: 3px 6px;
+}
+
+.cc-transcript .cc-text table > tbody > tr + tr > td {
+  border-top: 1px solid;
+}
+
+.cc-transcript hr {
+  border: 0;
+  height: 1px;
+  border-bottom: 1px solid;
+  margin: 0.75em 0;
+}
+
+.vscode-high-contrast .cc-transcript h1 {
+  border-color: rgb(0, 0, 0);
+}
+
+.vscode-light .cc-transcript h1,
+.vscode-light .cc-transcript h2,
+.vscode-light .cc-transcript hr {
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark .cc-transcript h1,
+.vscode-dark .cc-transcript h2,
+.vscode-dark .cc-transcript hr {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.vscode-light .cc-transcript .cc-text th {
+  border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark .cc-transcript .cc-text th {
+  border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light .cc-transcript .cc-text td {
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark .cc-transcript .cc-text td {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.cc-transcript strong {
+  font-weight: 600;
+}
+
+.cc-transcript em {
+  font-style: italic;
+}
+
+/* Turn containers */
+
+.cc-turn {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+}
+
+.cc-turn.cc-user {
+  background: var(--vscode-textCodeBlock-background);
+  width: 75%;
+  margin-left: auto;
+  border-radius: 6px;
+  text-align: left;
+  padding: 12px;
+}
+
+.cc-turn.cc-assistant {
+}
+
+/* Content text (primary reading) */
+
+.cc-text {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--vscode-foreground);
+}
+
+/* System / metadata (background noise) */
+
+.cc-system {
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.6;
+  padding: 2px 4px;
+  margin-bottom: 4px;
+  border-left: 2px solid var(--vscode-descriptionForeground);
+  border-radius: 2px;
+}
+
+/* Tool calls — paired tool_use + tool_use_summary */
+
+.cc-tool-pair {
+  margin-bottom: 6px;
+}
+
+.cc-tool-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 10px;
+  font-style: normal;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.cc-tool-pair[data-tool='Bash'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-orange) 15%, transparent);
+  color: var(--vscode-charts-orange);
+}
+
+.cc-tool-pair[data-tool='Read'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-blue) 15%, transparent);
+  color: var(--vscode-charts-blue);
+}
+
+.cc-tool-pair[data-tool='Write'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-green) 15%, transparent);
+  color: var(--vscode-charts-green);
+}
+
+.cc-tool-pair[data-tool='Edit'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-green) 15%, transparent);
+  color: var(--vscode-charts-green);
+}
+
+.cc-tool-pair[data-tool='Grep'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-blue) 10%, color-mix(in srgb, var(--vscode-charts-green) 10%, transparent));
+  color: var(--vscode-charts-blue);
+}
+
+.cc-tool-pair[data-tool='Glob'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-blue) 10%, color-mix(in srgb, var(--vscode-charts-green) 10%, transparent));
+  color: var(--vscode-charts-blue);
+}
+
+.cc-tool-pair[data-tool='Agent'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-purple) 15%, transparent);
+  color: var(--vscode-charts-purple);
+}
+
+.cc-tool-pair[data-tool='Task'] .cc-tool-badge {
+  background: color-mix(in srgb, var(--vscode-charts-purple) 15%, transparent);
+  color: var(--vscode-charts-purple);
+}
+
+.cc-tool-input {
+  border-collapse: collapse;
+  margin: 2px 0 2px 8px;
+  font-size: 11px;
+}
+
+.cc-tool-input td {
+  border: none;
+  padding: 0 4px;
+  vertical-align: top;
+}
+
+.cc-tool-input-key {
+  text-align: right;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.cc-tool-input-val {
+  text-align: left;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-foreground);
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tool results */
+
+.cc-tool-result {
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 1px dashed var(--vscode-panel-border);
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 4px;
+}
+
+/* Thinking blocks */
+
+.cc-thinking {
+  margin-bottom: 4px;
+  background: var(--vscode-textBlockQuote-background);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.cc-thinking-label {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.cc-thinking-label ~ * {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.75;
+}
+
+/* Session start / end markers */
+
+.cc-session-start,
+.cc-session-end {
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.55;
+  margin-bottom: 4px;
+}
+
+/* Compact boundary (horizontal rule between compacted segments) */
+
+.cc-compact-boundary {
+  border: none;
+  border-top: 1px dashed var(--vscode-panel-border);
+  margin: 6px 0;
+  opacity: 0.4;
+}
+
+/* Session tree */
+
+.cc-session-tree {
+  font-size: 11px;
+  color: var(--vscode-foreground);
+}
+
+.cc-session-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cc-session-tree ul ul {
+  padding-left: 12px;
+  border-left: 1px solid var(--vscode-panel-border);
+  margin-left: 6px;
+}
+
+.cc-session-tree li {
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+.cc-session-tree ul ul > li::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  background: var(--vscode-panel-border);
+}
+
 
 /* Compact mode renders inside the cards-detail StreamIframeHost iframe.
    Keep the body transparent so the rounded corners on the inner
@@ -12,9 +438,11 @@ body.mode-compact {
 
 /* The compact container paints the code-block background, matches
    CommentEntry's radius, and provides the 12px card-detail padding.
-   Fill the iframe so the rounded background is always visible. */
+   Fill the iframe so the rounded background is always visible, and so
+   the expanded view's flex-col-reverse scroll container is bounded. */
 html,
-body.mode-compact {
+body,
+#stream-root {
   height: 100%;
 }
 .compact-container {
@@ -44,7 +472,7 @@ body {
   color: var(--vscode-editor-foreground);
 }
 
-/* Override transcript.css defaults for the stream renderer context */
+/* Stream-renderer overrides of the transcript defaults above */
 .cc-transcript p {
   margin: 0 0 0.75em;
 }
