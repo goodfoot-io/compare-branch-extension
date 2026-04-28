@@ -66,7 +66,7 @@ export function createCardMetadata(overrides: Partial<CardMetadata> = {}): CardM
     order: overrides.order ?? 0,
     repositoryId: overrides.repositoryId ?? 'main',
     environment: overrides.environment ?? 'default',
-    ...(overrides.parentBranch !== undefined ? { parentBranch: overrides.parentBranch } : {})
+    parentBranch: overrides.parentBranch ?? 'main'
   };
 }
 

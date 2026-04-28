@@ -28,6 +28,7 @@ function makeCard(overrides: Partial<CardListSummary> = {}): CardListSummary {
     hasUnread: false,
     relations: [],
     incomingRelations: [],
+    parentBranch: 'main',
     ...overrides
   };
 }

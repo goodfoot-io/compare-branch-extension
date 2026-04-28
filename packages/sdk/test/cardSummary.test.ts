@@ -31,6 +31,7 @@ function createMockCard(overrides: Partial<Card> = {}): Card {
       mergeApproved: false
     },
     repositoryPath: '/tmp/cards/card-123',
+    parentBranch: 'main',
     ...overrides
   };
 }

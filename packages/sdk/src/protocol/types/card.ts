@@ -225,9 +225,8 @@ export interface CardMetadata {
   /**
    * Workspace branch the card was created from.
    * Records the branch name at card creation time for traceability.
-   * Absent on cards created before this field was introduced.
    */
-  parentBranch?: string;
+  parentBranch: string;
 
   /** Outgoing relations from this card to others. Absent when empty; never serialized as []. */
   relations?: CardRelation[];

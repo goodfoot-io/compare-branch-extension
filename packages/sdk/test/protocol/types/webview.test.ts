@@ -225,6 +225,7 @@ describe('webview types', () => {
           repositoryId: 'main',
           repositoryPath: '/tmp/cards/card-1',
           environment: 'default',
+          parentBranch: 'main',
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z'
         },
@@ -318,6 +319,7 @@ describe('webview types', () => {
             repositoryId: 'main',
             repositoryPath: '/tmp/cards/i1',
             environment: 'default',
+            parentBranch: 'main',
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01'
           },
@@ -357,6 +359,7 @@ describe('webview types', () => {
             repositoryId: 'main',
             repositoryPath: '/tmp/cards/i1',
             environment: 'default',
+            parentBranch: 'main',
             createdAt: '2024-01-01',
             updatedAt: '2024-01-01'
           },
@@ -638,6 +641,7 @@ describe('webview types', () => {
           repositoryId: 'main',
           repositoryPath: '/tmp/cards/card-1',
           environment: 'default',
+          parentBranch: 'main',
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-02T00:00:00Z'
         },
