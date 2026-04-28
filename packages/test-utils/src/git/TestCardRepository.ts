@@ -48,6 +48,8 @@ export interface CreateCardOptions {
   tags?: string[];
   /** Gate overrides merged with `DEFAULT_CARD_GATES`. */
   gates?: Partial<CardGates>;
+  /** Parent branch written into CARD.meta.json. Defaults to `'main'`. */
+  parentBranch?: string;
 }
 
 // --- Card Update Options ---
@@ -193,7 +195,8 @@ export class TestCardRepository {
       gates,
       isPinned: false,
       order: 0,
-      repositoryId: 'test-repo'
+      repositoryId: 'test-repo',
+      parentBranch: options.parentBranch ?? 'main'
     };
     await fs.writeFile(path.join(cardPath, 'CARD.meta.json'), JSON.stringify(metadata, null, 2));
 
