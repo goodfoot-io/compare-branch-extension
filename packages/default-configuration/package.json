@@ -20,6 +20,7 @@
   "dependencies": {
     "@cards/sdk": "workspace:*",
     "@cards/sessions": "workspace:*",
+    "@vscode/codicons": "^0.0.44",
     "js-yaml": "^4.1.0",
     "marked": "^17.0.4",
     "react": "^19.0.0",

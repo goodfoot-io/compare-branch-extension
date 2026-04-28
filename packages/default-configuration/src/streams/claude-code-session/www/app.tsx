@@ -1,7 +1,7 @@
 /**
  * React entry point for the claude-code-session stream renderer.
  *
- * Mounts `<App />` into the `#compact-root` element. The App component reads
+ * Mounts `<App />` into the `#stream-root` element. The App component reads
  * the stream store mode and renders `<CompactView />` or `<ExpandedView />`
  * accordingly.
  *
@@ -32,8 +32,8 @@ streamStore.subscribe((state) => {
   applyBodyClass(state.mode);
 });
 
-// Mount the React SPA into #compact-root. App handles mode switching internally.
-const rootEl = document.getElementById('compact-root');
+// Mount the React SPA into #stream-root. App handles mode switching internally.
+const rootEl = document.getElementById('stream-root');
 if (rootEl) {
   createRoot(rootEl).render(
     <React.StrictMode>

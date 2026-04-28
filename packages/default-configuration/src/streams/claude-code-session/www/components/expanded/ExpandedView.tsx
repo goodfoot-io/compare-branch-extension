@@ -12,10 +12,6 @@
 import { streamStore } from '@cards/sdk/stream-store';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-/** Distance from bottom (px) within which auto-scroll activates. */
-const SCROLL_THRESHOLD = 80;
-
 import type { SessionMsg } from '../../lib/parse-session';
 import { mergeConsecutiveMessages, parseLines } from '../../lib/parse-session';
 import type { SessionStatus } from './SessionHeader';
@@ -50,13 +46,16 @@ export function ExpandedView(): React.ReactElement {
   });
 
   const lastLineCountRef = useRef<number>(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isAtBottomRef = useRef<boolean>(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storeState = streamStore.getState();
     const file = storeState.files.get(storeState.primary);
     lastLineCountRef.current = file ? file.lines.length : 0;
+    // column-reverse auto-pins on subsequent appends, but the initial layout
+    // with prepopulated content from __STREAM_INIT__ does not start at the
+    // bottom in Chromium. scrollTop = 0 is the bottom in column-reverse.
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, []);
 
   const handleInit = useCallback((model: string, cwd: string) => {
@@ -93,23 +92,10 @@ export function ExpandedView(): React.ReactElement {
     return unsubscribe;
   }, []);
 
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_THRESHOLD;
-  }, []);
-
-  // Scroll to bottom when new messages arrive, if already near bottom
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el || !isAtBottomRef.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, []);
-
   return (
-    <div className="flex flex-col min-h-0 overflow-hidden">
+    <div className="h-full flex flex-col min-h-0 overflow-hidden">
       <SessionHeader model={state.model} cwd={state.cwd} status={state.status} />
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0" onScroll={handleScroll}>
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse">
         <Transcript messages={state.messages} onInit={handleInit} onResult={handleResult} />
       </div>
     </div>

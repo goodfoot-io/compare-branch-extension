@@ -12,7 +12,7 @@
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { truncate } from '../../lib/markdown';
-import { summarizeTool, WRITE_TOOLS } from '../../lib/tool-summary';
+import { summarizeTool } from '../../lib/tool-summary';
 import { ToolInputTable } from './ToolInputTable';
 import { ToolResult } from './ToolResult';
 
@@ -52,8 +52,6 @@ export function ToolAccordion({ toolName, input, result, supplementalResult }: T
     }
   }
 
-  const isWriteTool = WRITE_TOOLS.has(toolName);
-
   const handleToggle = useCallback(() => {
     setOpen((prev) => {
       const next = !prev;
@@ -74,26 +72,44 @@ export function ToolAccordion({ toolName, input, result, supplementalResult }: T
         type="button"
         aria-expanded={open}
         onClick={handleToggle}
-        className="flex items-center gap-1.5 px-2 py-1.5 w-full text-left bg-transparent border-none text-vscode-foreground font-vscode text-[0.85em] cursor-pointer hover:bg-[var(--vscode-list-hoverBackground,rgba(90,93,94,0.31))]"
+        className="flex items-center gap-2 w-full text-left bg-transparent border-none font-vscode text-[11px] cursor-pointer"
+        style={{ color: 'var(--vscode-foreground)' }}
       >
         <span
-          className="font-vscode-editor text-[12px] font-semibold shrink-0"
-          style={
-            isWriteTool
-              ? { color: 'var(--vscode-terminal-ansiYellow, #ddb700)' }
-              : { color: 'var(--vscode-foreground, #cccccc)' }
-          }
+          className="shrink-0 pr-2"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            paddingTop: '6px',
+            paddingBottom: '6px',
+            color: 'var(--vscode-disabledForeground)',
+            borderRight: '1px solid var(--vscode-panel-border)'
+          }}
         >
-          {toolName}
+          <span
+            title={toolName}
+            style={{
+              display: 'inline-block',
+              width: '8rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {toolName}
+          </span>
         </span>
-        <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-vscode-editor text-[11px] opacity-55">
+        <span
+          className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
+          style={{ color: 'var(--vscode-disabledForeground)' }}
+        >
           {previewStr}
         </span>
         <span
-          className="cc-chevron text-[0.85em] shrink-0 opacity-65"
-          style={{ transform: open ? 'rotate(90deg)' : undefined }}
+          className="cc-chevron shrink-0"
+          style={{ color: 'var(--vscode-disabledForeground)', transform: open ? 'rotate(90deg)' : undefined }}
         >
-          ▶
+          ▷
         </span>
       </button>
       <div

@@ -43,16 +43,16 @@ export function ToolResult({ result }: ToolResultProps): React.ReactElement {
         background: 'color-mix(in srgb, var(--vscode-foreground, #cccccc) 3%, transparent)'
       }}
     >
-      <div className="text-[10px] text-vscode-descriptionForeground opacity-60 font-vscode-editor px-2 pt-1 pb-0.5 uppercase tracking-wider">
+      <div className="text-[10px] text-vscode-descriptionForeground opacity-60 font-vscode-editor pt-1 pb-0.5 uppercase tracking-wider">
         Result
       </div>
       {isMarkdown ? (
         <div
-          className="cc-text text-[11px] px-2 pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full"
+          className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(result) }}
         />
       ) : (
-        <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words px-2 pb-1.5">
+        <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
           {result}
         </div>
       )}

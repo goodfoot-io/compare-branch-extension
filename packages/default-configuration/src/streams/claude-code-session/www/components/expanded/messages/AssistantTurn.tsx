@@ -48,7 +48,31 @@ export function AssistantTurn({ blocks }: AssistantTurnProps): React.ReactElemen
     }
   });
 
-  if (bubbleChildren.length === 0) return null;
+  if (bubbleChildren.length === 0) {
+    // Redacted/empty thinking blocks (API returns thinking="" with a signature)
+    // produce no rendered content. Surface them as a centered placeholder so
+    // the gap they create between tool runs is explained instead of mysterious.
+    const hadThinking = blocks.some((b) => b.type === 'thinking');
+    if (hadThinking) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5em',
+            minHeight: '64px',
+            color: 'var(--vscode-disabledForeground)',
+            fontSize: '10px'
+          }}
+        >
+          <span className="codicon codicon-lightbulb" aria-hidden="true" style={{ fontSize: '12px' }} />
+          <span>Thinking</span>
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className="flex flex-col items-start w-full max-w-full min-w-0 py-2 first:pt-0">

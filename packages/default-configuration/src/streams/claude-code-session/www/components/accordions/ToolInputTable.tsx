@@ -51,7 +51,7 @@ export function ToolInputTable({ toolName, input }: ToolInputTableProps): React.
           return (
             <tr key={key}>
               <td
-                className="text-vscode-descriptionForeground opacity-50 text-left whitespace-nowrap w-px pr-3 align-top py-1.5 pl-1"
+                className="text-vscode-descriptionForeground opacity-50 text-left whitespace-nowrap w-px pr-3 align-top py-1.5"
                 style={{
                   borderTop: '0.5px solid var(--vscode-inlineChatInput-border, var(--vscode-panel-border, #3c3c3c))'
                 }}
@@ -59,7 +59,7 @@ export function ToolInputTable({ toolName, input }: ToolInputTableProps): React.
                 {key}
               </td>
               <td
-                className={`text-vscode-foreground break-words whitespace-pre-wrap align-top py-1.5 pr-2${isShort ? '' : ' cc-tool-val-clip'}`}
+                className={`text-vscode-foreground break-words whitespace-pre-wrap align-top py-1.5${isShort ? '' : ' cc-tool-val-clip'}`}
                 style={{
                   borderTop: '0.5px solid var(--vscode-inlineChatInput-border, var(--vscode-panel-border, #3c3c3c))',
                   maxHeight: isShort ? undefined : '60px',

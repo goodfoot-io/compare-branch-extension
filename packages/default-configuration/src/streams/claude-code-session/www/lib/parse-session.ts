@@ -385,7 +385,11 @@ export function parseLineEvents(line: string): CompactEvent[] {
 export function parseLine(line: string): SessionMsg | null {
   if (!line || !line.trim()) return null;
   try {
-    return JSON.parse(line) as SessionMsg;
+    const parsed = JSON.parse(line) as SessionMsg;
+    // Suppress internal orchestration events with no value to the reader.
+    const t = (parsed as { type?: string }).type;
+    if (t === 'permission-mode' || t === 'last-prompt') return null;
+    return parsed;
   } catch {
     return null;
   }

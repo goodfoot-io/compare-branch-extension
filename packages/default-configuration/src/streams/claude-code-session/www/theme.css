@@ -1,4 +1,5 @@
 @import '@cards/web/styles';
+@import '@vscode/codicons/dist/codicon.css';
 
 /* =============================================================================
    TRANSCRIPT RENDERER STYLES (`.cc-*` classes)
@@ -493,7 +494,7 @@ body {
 
 /* Thin divider between consecutive tool rows inside a ToolGroup */
 .cc-tool-group > .cc-tool-row + .cc-tool-row {
-  border-top: 1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 30%, transparent);
+  border-top: 1px solid var(--vscode-panel-border);
 }
 
 @layer components {
