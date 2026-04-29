@@ -269,10 +269,10 @@ beforeEach(async () => {
         ]
       });
     }
-    if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/CLAUDE.md') {
+    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
       return '# Claude Instructions\nUse runtime workflows.';
     }
-    if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
       return '# Commit Style\nKeep commits small.';
     }
     if (String(filePath) === '/home/node/.cards/codex/config.toml') {
@@ -576,10 +576,10 @@ describe('launch action — codex branch', () => {
       if (String(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
         return JSON.stringify({ name: 'local', plugins: [{ name: 'cards' }, { name: 'runtime' }] });
       }
-      if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/CLAUDE.md') {
+      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
         return '# Claude Instructions\nUse runtime workflows.';
       }
-      if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
         return '# Commit Style\nKeep commits small.';
       }
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });

@@ -165,10 +165,10 @@ beforeEach(async () => {
   });
 
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-    if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/CLAUDE.md') {
+    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
       return '# Claude Instructions\nUse runtime workflows.';
     }
-    if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
       return '# Commit Style\nKeep commits small.';
     }
     if (String(filePath) === '/home/node/.cards/codex/config.toml') {
@@ -279,10 +279,10 @@ describe('codex-session library', () => {
     const { mergeCodexAgentsInstructions } = await import('../src/lib/codex-session.js');
     const fs = await import('node:fs/promises');
     vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/CLAUDE.md') {
+      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
         return '# Claude Instructions\nUse runtime workflows.';
       }
-      if (String(filePath) === '/test/extension/dist/marketplace/plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
         return '# Commit Style\nKeep commits small.';
       }
       if (String(filePath) === '/home/node/.cards/codex/AGENTS.md') {

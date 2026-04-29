@@ -62,7 +62,7 @@ export function resolveMarketplacePath(): string {
  * @returns Absolute path to the claude directory within the runtime plugin.
  */
 export function resolveClaudeDirPath(marketplacePath: string): string {
-  return path.join(marketplacePath, 'plugins', 'runtime', 'claude');
+  return path.join(marketplacePath, 'claude', 'runtime', 'claude');
 }
 
 /**

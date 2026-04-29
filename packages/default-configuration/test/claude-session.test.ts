@@ -704,7 +704,7 @@ describe('claude-session shared utilities', () => {
   describe('resolveClaudeDirPath', () => {
     it('returns claude dir path within the marketplace runtime plugin', async () => {
       const { resolveClaudeDirPath } = await import('../src/lib/claude-session.js');
-      expect(resolveClaudeDirPath('/ext/dist/marketplace')).toBe('/ext/dist/marketplace/plugins/runtime/claude');
+      expect(resolveClaudeDirPath('/ext/dist/marketplace')).toBe('/ext/dist/marketplace/claude/runtime/claude');
     });
   });
 

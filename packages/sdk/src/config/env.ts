@@ -177,7 +177,7 @@ export const CARDS_ENV_VARS = {
    *
    * Set by the extension host from `context.extensionUri.fsPath` and injected
    * into all spawned action processes. Use this to locate bundled assets such
-   * as the runtime plugin directory (`<extensionPath>/dist/plugins/runtime`).
+   * as the runtime plugin directory (`<extensionPath>/dist/claude/runtime`).
    *
    * Available in actions only (not type hooks).
    */
@@ -466,7 +466,7 @@ export function getCardRepoPath(): string {
  *
  * Set by the extension host from `context.extensionUri.fsPath` and injected
  * into all spawned action processes. Use this to locate bundled assets such
- * as the runtime plugin directory (`<extensionPath>/dist/plugins/runtime`).
+ * as the runtime plugin directory (`<extensionPath>/dist/claude/runtime`).
  *
  * @returns Absolute path to the extension installation directory.
  * @throws Error if EXTENSION_PATH is missing or empty

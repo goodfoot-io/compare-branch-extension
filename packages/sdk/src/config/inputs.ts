@@ -98,7 +98,7 @@ export interface ActionInput {
    * Absolute path to the VS Code extension installation directory.
    *
    * Use this to locate bundled assets such as the runtime plugin directory
-   * (`<extensionPath>/dist/plugins/runtime`).
+   * (`<extensionPath>/dist/claude/runtime`).
    */
   extensionPath: string;
 

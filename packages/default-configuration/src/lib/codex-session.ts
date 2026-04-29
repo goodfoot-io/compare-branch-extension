@@ -608,7 +608,7 @@ export function resolveCodexPluginPath(
  * @returns Absolute path to the bundled Claude instruction directory.
  */
 export function resolveCodexClaudeInstructionsPath(marketplacePath: string): string {
-  return path.join(marketplacePath, 'plugins', 'runtime', 'claude');
+  return path.join(marketplacePath, 'claude', 'runtime', 'claude');
 }
 
 /**
