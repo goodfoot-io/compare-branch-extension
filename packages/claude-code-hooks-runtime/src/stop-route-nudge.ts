@@ -26,8 +26,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ActionInput } from '@cards/sdk/config';
-import { extractActionInput } from '@cards/sdk/config';
+import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards/sdk/config';
 import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards/sessions/card-repo';
 import { stopHook, stopOutput } from '@goodfoot/claude-code-hooks';
 
@@ -55,9 +54,15 @@ function getUnmergedCount(workspacePath: string, baseBranch: string, workspaceBr
 }
 
 export default stopHook({}, async (input, { logger }) => {
-  let actionInput: ActionInput;
+  let cardRepoPath: string;
+  let workspacePath: string;
+  let baseBranch: string;
+  let workspaceBranch: string;
   try {
-    actionInput = extractActionInput();
+    cardRepoPath = getCardRepoPath();
+    workspacePath = getWorkspacePath();
+    baseBranch = getBaseBranch();
+    workspaceBranch = getWorkspaceBranch();
   } catch (error) {
     logger.warn('stop-route-nudge: not inside an action subprocess', {
       error: error instanceof Error ? error.message : String(error)
@@ -81,7 +86,7 @@ export default stopHook({}, async (input, { logger }) => {
 
   let meta: CardMeta;
   try {
-    meta = readCardMeta(actionInput.cardRepoPath);
+    meta = readCardMeta(cardRepoPath);
   } catch (error) {
     logger.warn('stop-route-nudge: failed to read CARD.meta.json', {
       error: error instanceof Error ? error.message : String(error)
@@ -99,8 +104,6 @@ export default stopHook({}, async (input, { logger }) => {
   if (mergeRequestRequired && !mergeApproved) {
     return null;
   }
-
-  const { workspacePath, baseBranch, workspaceBranch } = actionInput;
 
   let count: number;
   try {

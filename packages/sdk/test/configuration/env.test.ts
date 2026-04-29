@@ -207,10 +207,7 @@ describe('env', () => {
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
         extensionPath: '/extension/path',
-        marketplacePath: '/test/marketplace',
-        workspacePath: '/workspace/project',
-        baseBranch: 'main',
-        workspaceBranch: 'cards/main-1/1'
+        marketplacePath: '/test/marketplace'
       });
     });
 
@@ -230,10 +227,7 @@ describe('env', () => {
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
         extensionPath: '/extension/path',
-        marketplacePath: '/test/marketplace',
-        workspacePath: '/workspace/project',
-        baseBranch: 'main',
-        workspaceBranch: 'cards/main-1/1'
+        marketplacePath: '/test/marketplace'
       });
     });
 

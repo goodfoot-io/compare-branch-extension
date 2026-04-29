@@ -78,7 +78,11 @@ export {
   CARDS_ENV_VARS,
   extractActionInput,
   extractCardsAssistantInput,
+  getBaseBranch,
+  getCardRepoPath,
   getExecutionMode,
+  getWorkspaceBranch,
+  getWorkspacePath,
   readSwitchToInteractiveData
 } from './env.js';
 

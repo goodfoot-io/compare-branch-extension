@@ -66,9 +66,6 @@ describe('buildEnvBlock', () => {
     switchToInteractiveData: undefined,
     codingAgent: undefined,
     marketplacePath: '/test/marketplace',
-    workspacePath: '/workspace',
-    baseBranch: 'main',
-    workspaceBranch: 'cards/main-1/1',
     ...overrides
   });
 
@@ -450,9 +447,6 @@ describe('buildAdditionalContext', () => {
     switchToInteractiveData: undefined,
     codingAgent: undefined,
     marketplacePath: '/test/marketplace',
-    workspacePath: '/workspace',
-    baseBranch: 'main',
-    workspaceBranch: 'cards/main-1/1',
     ...overrides
   });
 

@@ -545,10 +545,7 @@ export function extractActionInput(): ActionInput {
     cardRepoPath: getCardRepoPath(),
     configPath: getConfigPath(),
     extensionPath: getExtensionPath(),
-    marketplacePath: getMarketplacePath(),
-    workspacePath: getWorkspacePath(),
-    baseBranch: getBaseBranch(),
-    workspaceBranch: getWorkspaceBranch()
+    marketplacePath: getMarketplacePath()
   };
 }
 

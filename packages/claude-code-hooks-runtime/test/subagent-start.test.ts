@@ -92,10 +92,7 @@ describe('SubagentStart Hook', () => {
         extensionPath: '/tmp/extension',
         switchToInteractiveData: undefined,
         codingAgent: undefined,
-        marketplacePath: '/test/marketplace',
-        workspacePath: '/workspace',
-        baseBranch: 'main',
-        workspaceBranch: 'cards/main-1/1'
+        marketplacePath: '/test/marketplace'
       });
     });
 
@@ -137,10 +134,7 @@ describe('SubagentStart Hook', () => {
         extensionPath: '/tmp/extension',
         switchToInteractiveData: undefined,
         codingAgent: undefined,
-        marketplacePath: '/test/marketplace',
-        workspacePath: '/workspace',
-        baseBranch: 'main',
-        workspaceBranch: 'cards/main-1/1'
+        marketplacePath: '/test/marketplace'
       });
 
       const result = await hook(baseInput, context);

@@ -5,7 +5,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { extractActionInput } from '@cards/sdk/config';
+import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards/sdk/config';
 import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,7 +26,10 @@ vi.mock('node:path', async (importOriginal) => {
 });
 
 vi.mock('@cards/sdk/config', () => ({
-  extractActionInput: vi.fn()
+  getCardRepoPath: vi.fn(),
+  getWorkspacePath: vi.fn(),
+  getBaseBranch: vi.fn(),
+  getWorkspaceBranch: vi.fn()
 }));
 
 vi.mock('@cards/sessions/card-repo', () => ({
@@ -35,7 +38,10 @@ vi.mock('@cards/sessions/card-repo', () => ({
 }));
 
 const mockExecFileSync = vi.mocked(execFileSync);
-const mockExtractActionInput = vi.mocked(extractActionInput);
+const mockGetCardRepoPath = vi.mocked(getCardRepoPath);
+const mockGetWorkspacePath = vi.mocked(getWorkspacePath);
+const mockGetBaseBranch = vi.mocked(getBaseBranch);
+const mockGetWorkspaceBranch = vi.mocked(getWorkspaceBranch);
 const mockHasSessionRouteNudgeFired = vi.mocked(hasSessionRouteNudgeFired);
 const mockMarkSessionRouteNudgeFired = vi.mocked(markSessionRouteNudgeFired);
 
@@ -45,23 +51,6 @@ import { readFileSync } from 'node:fs';
 const mockReadFileSync = vi.mocked(readFileSync);
 
 const logger = new Logger();
-
-const baseActionInput = {
-  cardId: 'card-123',
-  actionName: 'Launch',
-  environment: 'default',
-  executionMode: 'interactive' as const,
-  repoRoot: '/workspace',
-  cardRepoPath: '/tmp/card-repos/card-123',
-  configPath: '/tmp/config',
-  extensionPath: '/tmp/extension',
-  switchToInteractiveData: undefined,
-  codingAgent: undefined,
-  marketplacePath: '/test/marketplace',
-  workspacePath: '/workspace',
-  baseBranch: 'main',
-  workspaceBranch: 'cards/main-1/1'
-};
 
 const baseCardMeta = {
   id: 'card-123',
@@ -80,7 +69,10 @@ const mockInput = { session_id: 'sess-abc' } as Parameters<typeof hook>[0];
 
 describe('Stop Route Nudge Hook', () => {
   beforeEach(() => {
-    mockExtractActionInput.mockReturnValue(baseActionInput);
+    mockGetCardRepoPath.mockReturnValue('/tmp/card-repos/card-123');
+    mockGetWorkspacePath.mockReturnValue('/workspace');
+    mockGetBaseBranch.mockReturnValue('main');
+    mockGetWorkspaceBranch.mockReturnValue('cards/main-1/1');
     mockHasSessionRouteNudgeFired.mockReturnValue(false);
     mockMarkSessionRouteNudgeFired.mockReturnValue(undefined);
     mockReadFileSync.mockReturnValue(JSON.stringify(baseCardMeta) as ReturnType<typeof readFileSync>);
@@ -207,8 +199,8 @@ describe('Stop Route Nudge Hook', () => {
   });
 
   describe('fail-open error paths', () => {
-    it('returns null (no throw) when extractActionInput throws', async () => {
-      mockExtractActionInput.mockImplementation(() => {
+    it('returns null (no throw) when an env getter throws', async () => {
+      mockGetWorkspacePath.mockImplementation(() => {
         throw new Error('missing env var');
       });
 
