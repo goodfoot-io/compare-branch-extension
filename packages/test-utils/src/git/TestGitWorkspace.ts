@@ -46,6 +46,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class TestGitWorkspace {
   private workspacePath: string | null = null;
   private git: SimpleGit | null = null;
+  private worktreePaths: string[] = [];
 
   /**
    * Gets the path to the workspace directory.
@@ -78,13 +79,39 @@ export class TestGitWorkspace {
    *
    * Behavior: uses `TEST_WORKSPACE` if provided, otherwise the OS temp folder.
    *
+   * Why identity config: the `addConfig user.name` / `addConfig user.email`
+   * calls configure a per-repo identity before any commit is made. This
+   * prevents `Author identity unknown` failures in CI containers and developer
+   * machines that lack a global `~/.gitconfig`. Do not remove them — without
+   * these calls every `git commit` in the helper will fail in those
+   * environments regardless of what the test itself does.
+   *
+   * Precondition for `getFirstCommitSha()`: when `initialCommit` is `false`,
+   * no commit is made and `getFirstCommitSha()` will throw because there is no
+   * HEAD to resolve. Only call `getFirstCommitSha()` after at least one commit
+   * exists in the repo.
+   *
    * @param options Optional configuration
-   * @param options.remoteUrl Optional remote URL to configure as `origin`
+   * @param options.remoteUrl Optional remote URL to set as origin
+   * @param options.initialCommit When `false`, skip writing README/.gitignore
+   *   and the initial commit. `git init` and identity config still run.
+   *   Defaults to `true`.
+   * @param options.identity Override the default git author identity used for
+   *   commits. Applied before the initial commit (when one is made).
+   * @param options.identity.name Git author name
+   * @param options.identity.email Git author email
    * @returns The path to the workspace directory
    */
   async create(options?: {
     /** Optional remote URL to set as origin */
     remoteUrl?: string;
+    /**
+     * When false, skip writing README/.gitignore and the initial commit.
+     * git init and identity config still run. Defaults to true.
+     */
+    initialCommit?: boolean;
+    /** Override the default git author identity. */
+    identity?: { name: string; email: string };
   }): Promise<string> {
     const workspaceId = uuidv4();
     const testWorkspace = process.env['TEST_WORKSPACE'] || path.join(os.tmpdir(), 'test-utils-workspace');
@@ -95,16 +122,22 @@ export class TestGitWorkspace {
     // Initialize git repository
     this.git = simpleGit(this.workspacePath);
     await this.git.raw(['init', '--initial-branch=main']);
-    await this.git.addConfig('user.name', 'Test User');
-    await this.git.addConfig('user.email', 'test@example.com');
+    const name = options?.identity?.name ?? 'Test User';
+    const email = options?.identity?.email ?? 'test@example.com';
+    await this.git.addConfig('user.name', name);
+    await this.git.addConfig('user.email', email);
 
-    // Create initial files
-    await fs.writeFile(path.join(this.workspacePath, 'README.md'), '# Test Workspace\n');
-    await fs.writeFile(path.join(this.workspacePath, '.gitignore'), 'node_modules/\n');
+    const makeInitialCommit = options?.initialCommit !== false;
 
-    // Create initial commit
-    await this.git.add('.');
-    await this.git.commit('Repository initializes.');
+    if (makeInitialCommit) {
+      // Create initial files
+      await fs.writeFile(path.join(this.workspacePath, 'README.md'), '# Test Workspace\n');
+      await fs.writeFile(path.join(this.workspacePath, '.gitignore'), 'node_modules/\n');
+
+      // Create initial commit
+      await this.git.add('.');
+      await this.git.commit('Repository initializes.');
+    }
 
     // Set remote if provided
     if (options?.remoteUrl) {
@@ -112,6 +145,42 @@ export class TestGitWorkspace {
     }
 
     return this.workspacePath;
+  }
+
+  /**
+   * Creates a git worktree of this repository at a sibling temp directory.
+   *
+   * Behavior: checks whether `branch` already exists in the repo; if it does,
+   * runs `git worktree add <path> <branch>`; if it does not, passes `-b` to
+   * create the branch from HEAD. The worktree path is tracked internally and
+   * removed by `destroy()` before the parent workspace is removed.
+   *
+   * @param branch Branch name to check out in the new worktree. Created from
+   *   HEAD if it does not already exist.
+   * @returns Absolute path to the new worktree directory
+   * @throws If workspace not created
+   */
+  async createWorktree(branch: string): Promise<string> {
+    if (!this.workspacePath || !this.git) {
+      throw new Error('Workspace not created');
+    }
+
+    const worktreeId = uuidv4();
+    const parentDir = path.dirname(this.workspacePath);
+    const worktreePath = path.join(parentDir, `test-worktree-${worktreeId}`);
+
+    // Determine whether the branch already exists
+    const branchList = await this.git.branch(['--list', branch]);
+    const branchExists = branchList.all.includes(branch);
+
+    if (branchExists) {
+      await this.git.raw(['worktree', 'add', worktreePath, branch]);
+    } else {
+      await this.git.raw(['worktree', 'add', '-b', branch, worktreePath]);
+    }
+
+    this.worktreePaths.push(worktreePath);
+    return worktreePath;
   }
 
   /**
@@ -176,15 +245,27 @@ export class TestGitWorkspace {
   /**
    * Destroys the test workspace, cleaning up all files.
    *
-   * Behavior: clears the git queue (if any) and removes the workspace folder;
-   * safe to call multiple times.
+   * Behavior: removes any registered worktree directories first, then clears
+   * the git queue and removes the parent workspace folder; safe to call
+   * multiple times.
    */
   destroy(): void {
+    // Remove worktrees before the parent workspace
+    for (const worktreePath of this.worktreePaths) {
+      try {
+        fs.removeSync(worktreePath);
+      } catch (error) {
+        // Log but continue — partial cleanup is better than none
+        console.warn(`TestGitWorkspace: failed to remove worktree ${worktreePath}:`, error);
+      }
+    }
+    this.worktreePaths = [];
+
     if (this.git) {
       try {
         this.git.clearQueue();
-      } catch {
-        // Cleanup errors are expected
+      } catch (error) {
+        console.warn('TestGitWorkspace: failed to clear git queue:', error);
       }
       this.git = null;
     }
@@ -192,8 +273,8 @@ export class TestGitWorkspace {
     if (this.workspacePath) {
       try {
         fs.removeSync(this.workspacePath);
-      } catch {
-        // Cleanup errors are expected
+      } catch (error) {
+        console.warn(`TestGitWorkspace: failed to remove workspace ${this.workspacePath}:`, error);
       }
       this.workspacePath = null;
     }
