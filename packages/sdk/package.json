@@ -2,7 +2,6 @@
   "name": "@cards/sdk",
   "version": "1.0.0",
   "type": "module",
-  "sideEffects": false,
   "engines": {
     "node": ">=22"
   },
