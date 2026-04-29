@@ -96,24 +96,39 @@ describe('Stop Route Nudge Hook', () => {
   });
 
   describe('trigger fires', () => {
-    it('returns a result with systemMessage and calls markSessionRouteNudgeFired when all conditions hold', async () => {
+    it('fires with decision:"block" and reason containing branch names and routing instructions when all conditions hold', async () => {
       const result = await hook(mockInput, { logger });
 
       expect(result).not.toBeNull();
       expect(result).toHaveProperty('_type', 'Stop');
-      const stdout = result!.stdout as { systemMessage?: string };
-      expect(stdout.systemMessage).toContain('cards/main-1/1');
-      expect(stdout.systemMessage).toContain('main');
+      const stdout = result!.stdout as { decision?: string; reason?: string };
+      expect(stdout.decision).toBe('block');
+      expect(stdout.reason).toContain('cards/main-1/1');
+      expect(stdout.reason).toContain('main');
+      expect(stdout.reason).toContain('SKILL.md');
       expect(mockMarkSessionRouteNudgeFired).toHaveBeenCalledWith(mockInput.session_id);
     });
 
-    it('includes unmerged commit count in the message', async () => {
+    it('includes unmerged commit count in the reason', async () => {
       mockExecFileSync.mockReturnValue('5\n' as ReturnType<typeof execFileSync>);
 
       const result = await hook(mockInput, { logger });
 
-      const stdout = result!.stdout as { systemMessage?: string };
-      expect(stdout.systemMessage).toContain('5 commit(s)');
+      const stdout = result!.stdout as { reason?: string };
+      expect(stdout.reason).toContain('5 commit(s)');
+    });
+
+    it('writes marker on first fire; subsequent invocation in same session returns null even if conditions still hold', async () => {
+      // First invocation: should fire and write the marker
+      const firstResult = await hook(mockInput, { logger });
+      expect(firstResult).not.toBeNull();
+      expect(mockMarkSessionRouteNudgeFired).toHaveBeenCalledWith(mockInput.session_id);
+
+      // Simulate a subsequent invocation: the marker is now present
+      mockHasSessionRouteNudgeFired.mockReturnValue(true);
+
+      const secondResult = await hook(mockInput, { logger });
+      expect(secondResult).toBeNull();
     });
   });
 

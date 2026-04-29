@@ -13,7 +13,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import * as path from 'node:path';
 import { createCardsClient } from '@cards/sdk/client/discovery';
-import { type ActionInput, Logger } from '@cards/sdk/config';
+import { Logger } from '@cards/sdk/config';
 import { cleanupMergedBranches, errorMessage } from './claude-session.js';
 
 /**
@@ -91,22 +91,7 @@ if (process.argv.includes('--branch-cleanup')) {
 
       const { cardId, repoRoot, cardRepoPath, sessionId } = params;
 
-      const input: ActionInput = {
-        cardId,
-        repoRoot,
-        actionName: 'branch-cleanup-watcher',
-        environment: '',
-        executionMode: 'background',
-        codingAgent: undefined,
-        switchToInteractiveData: undefined,
-        cardRepoPath,
-        configPath: '',
-        extensionPath: '',
-        marketplacePath: '',
-        workspacePath: '',
-        baseBranch: '',
-        workspaceBranch: ''
-      };
+      const input = { cardId, repoRoot };
 
       const client = await createCardsClient();
       if (!client) {

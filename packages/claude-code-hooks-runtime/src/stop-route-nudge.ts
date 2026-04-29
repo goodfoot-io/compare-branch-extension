@@ -1,13 +1,23 @@
 /**
  * Stop hook — route nudge when workspace branch has unmerged commits.
  *
- * Fires at most once per session. Emits an `additionalContext` message
+ * Fires at most once per session. Returns `decision: 'block'` with a `reason`
  * instructing the agent to re-load SKILL.md and re-route when:
  * - The card is not tagged "blocked"
  * - Merge is either not gated or already approved
  * - The workspace branch has commits not yet merged into the base branch
  *
  * Fail-open: every error path returns `null`.
+ *
+ * Peer-hook interaction: both this hook and stop.ts (unattributed-commit
+ * checker) are registered as two entries within ONE Stop hooks array entry in
+ * hooks.json (the @goodfoot/claude-code-hooks build coalesces same-event,
+ * matcher-less hooks into a single entry). Both can return `decision: 'block'`
+ * on the same Stop event — Claude receives both reasons concatenated. The
+ * route-nudge marker is written on the first fire and intentionally consumes
+ * the once-per-session budget regardless of whether the sibling hook's reason
+ * was the salient one. Cross-hook coordination is not possible because the
+ * runtime does not expose peer-hook output to individual hooks.
  *
  * @summary Stop hook — route nudge for unmerged workspace branch commits
  * @see https://code.claude.com/docs/en/hooks#stop
@@ -116,7 +126,8 @@ export default stopHook({}, async (input, { logger }) => {
   }
 
   return stopOutput({
-    systemMessage: [
+    decision: 'block',
+    reason: [
       `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`.`,
       '',
       '1. Re-evaluate the current repository state.',

@@ -430,7 +430,7 @@ async function tryCleanupStep(
  * @param sessionId - Claude Code session ID set as CARDS_SESSION_ID in the git subprocess environment so the card repo post-commit hook can attribute the commit.
  */
 export async function cleanupMergedBranches(
-  input: ActionInput,
+  input: Pick<ActionInput, 'cardId' | 'repoRoot'>,
   cardRepoPath: string,
   logger: ActionContext['logger'],
   sessionId?: string
