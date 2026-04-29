@@ -24,7 +24,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid, removeSessionPid } from '@cards/sessions';
-import { removeSessionCsv, removeSessionHeadSha } from '@cards/sessions/card-repo';
+import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { sessionEndHook } from '@goodfoot/claude-code-hooks';
 
 /**
@@ -91,6 +91,14 @@ export async function cleanupSessionArtifacts(
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     logger.warn('Failed to remove session CSV', { sessionId, error: e.message });
+    errors.push(e);
+  }
+
+  try {
+    removeSessionRouteNudge(sessionId);
+  } catch (error) {
+    const e = error instanceof Error ? error : new Error(String(error));
+    logger.warn('Failed to remove route-nudge marker', { sessionId, error: e.message });
     errors.push(e);
   }
 

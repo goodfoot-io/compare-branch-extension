@@ -110,6 +110,28 @@ export interface ActionInput {
    * or locate marketplace assets.
    */
   marketplacePath: string;
+
+  /**
+   * Absolute path to the VS Code workspace root directory (may be a worktree).
+   *
+   * Set by the launch action. Use for git operations that target the workspace
+   * branch rather than the card repository.
+   */
+  workspacePath: string;
+
+  /**
+   * Git branch that the card's workspace branch will merge into.
+   *
+   * Set by the launch action. Used to compute unmerged commit counts.
+   */
+  baseBranch: string;
+
+  /**
+   * Git branch name for the card's workspace implementation.
+   *
+   * Set by the launch action after resolving or creating the worktree.
+   */
+  workspaceBranch: string;
 }
 
 /**

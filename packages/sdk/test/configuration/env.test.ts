@@ -185,6 +185,9 @@ describe('env', () => {
       process.env[CARDS_ENV_VARS.CONFIG_PATH] = '/workspace/project/.cards/config';
       process.env[CARDS_ENV_VARS.EXTENSION_PATH] = '/extension/path';
       process.env[CARDS_ENV_VARS.MARKETPLACE_PATH] = '/test/marketplace';
+      process.env[CARDS_ENV_VARS.WORKSPACE_PATH] = '/workspace/project';
+      process.env[CARDS_ENV_VARS.BASE_BRANCH] = 'main';
+      process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH] = 'cards/main-1/1';
     }
 
     it('should extract all action input fields when all are set', () => {
@@ -204,7 +207,10 @@ describe('env', () => {
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
         extensionPath: '/extension/path',
-        marketplacePath: '/test/marketplace'
+        marketplacePath: '/test/marketplace',
+        workspacePath: '/workspace/project',
+        baseBranch: 'main',
+        workspaceBranch: 'cards/main-1/1'
       });
     });
 
@@ -224,7 +230,10 @@ describe('env', () => {
         cardRepoPath: '/workspace/project/.cards/repo',
         configPath: '/workspace/project/.cards/config',
         extensionPath: '/extension/path',
-        marketplacePath: '/test/marketplace'
+        marketplacePath: '/test/marketplace',
+        workspacePath: '/workspace/project',
+        baseBranch: 'main',
+        workspaceBranch: 'cards/main-1/1'
       });
     });
 

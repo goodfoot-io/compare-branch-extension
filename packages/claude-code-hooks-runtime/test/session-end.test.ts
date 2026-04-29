@@ -7,7 +7,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid, removeSessionPid } from '@cards/sessions';
-import { removeSessionCsv, removeSessionHeadSha } from '@cards/sessions/card-repo';
+import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/session-end.js';
@@ -28,7 +28,8 @@ vi.mock('@cards/sessions', () => ({
 
 vi.mock('@cards/sessions/card-repo', () => ({
   removeSessionCsv: vi.fn(),
-  removeSessionHeadSha: vi.fn()
+  removeSessionHeadSha: vi.fn(),
+  removeSessionRouteNudge: vi.fn()
 }));
 
 const mockExtractActionInput = vi.mocked(extractActionInput);
@@ -38,6 +39,7 @@ const mockFindClaudePid = vi.mocked(findAgentPid);
 const mockRemoveSessionPid = vi.mocked(removeSessionPid);
 const mockRemoveSessionCsv = vi.mocked(removeSessionCsv);
 const mockRemoveSessionHeadSha = vi.mocked(removeSessionHeadSha);
+const mockRemoveSessionRouteNudge = vi.mocked(removeSessionRouteNudge);
 
 const logger = new Logger();
 
@@ -52,7 +54,10 @@ const baseActionInput = {
   extensionPath: '/tmp/extension',
   switchToInteractiveData: undefined,
   codingAgent: undefined,
-  marketplacePath: '/test/marketplace'
+  marketplacePath: '/test/marketplace',
+  workspacePath: '/workspace',
+  baseBranch: 'main',
+  workspaceBranch: 'cards/main-1/1'
 };
 
 const baseInput = {
@@ -156,6 +161,12 @@ describe('SessionEnd Hook', () => {
         await hook(baseInput, context);
 
         expect(mockRemoveSessionCsv).toHaveBeenCalledWith('sess-abc');
+      });
+
+      it('calls removeSessionRouteNudge with session ID', async () => {
+        await hook(baseInput, context);
+
+        expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith('sess-abc');
       });
 
       it('handles cleanup failure gracefully — still returns null', async () => {

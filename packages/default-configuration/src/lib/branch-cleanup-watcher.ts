@@ -102,7 +102,10 @@ if (process.argv.includes('--branch-cleanup')) {
         cardRepoPath,
         configPath: '',
         extensionPath: '',
-        marketplacePath: ''
+        marketplacePath: '',
+        workspacePath: '',
+        baseBranch: '',
+        workspaceBranch: ''
       };
 
       const client = await createCardsClient();

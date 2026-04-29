@@ -65,7 +65,10 @@ const ACTION_ENV = {
   CARD_REPO_PATH: '/workspace/.cards/repo',
   CONFIG_PATH: '/tmp/config',
   EXTENSION_PATH: '/tmp/extension',
-  MARKETPLACE_PATH: '/tmp/extension/dist/marketplace'
+  MARKETPLACE_PATH: '/tmp/extension/dist/marketplace',
+  WORKSPACE_PATH: '/workspace',
+  BASE_BRANCH: 'main',
+  WORKSPACE_BRANCH: 'cards/main-1/1'
 } as const;
 
 describe('PostToolUse Hook', () => {

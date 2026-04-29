@@ -403,6 +403,34 @@ export function getWorkspacePath(): string {
 }
 
 /**
+ * Reads the base branch that the workspace branch will merge into.
+ *
+ * @returns Branch name string.
+ * @throws Error if BASE_BRANCH is missing or empty
+ */
+export function getBaseBranch(): string {
+  const value = process.env[CARDS_ENV_VARS.BASE_BRANCH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.BASE_BRANCH}`);
+  }
+  return value;
+}
+
+/**
+ * Reads the workspace branch name for the card's implementation.
+ *
+ * @returns Branch name string.
+ * @throws Error if WORKSPACE_BRANCH is missing or empty
+ */
+export function getWorkspaceBranch(): string {
+  const value = process.env[CARDS_ENV_VARS.WORKSPACE_BRANCH];
+  if (value === undefined || value === '') {
+    throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.WORKSPACE_BRANCH}`);
+  }
+  return value;
+}
+
+/**
  * Reads the main git repository root path.
  *
  * Set by ActionDispatcher; used by action handlers to resolve worktrees
@@ -517,7 +545,10 @@ export function extractActionInput(): ActionInput {
     cardRepoPath: getCardRepoPath(),
     configPath: getConfigPath(),
     extensionPath: getExtensionPath(),
-    marketplacePath: getMarketplacePath()
+    marketplacePath: getMarketplacePath(),
+    workspacePath: getWorkspacePath(),
+    baseBranch: getBaseBranch(),
+    workspaceBranch: getWorkspaceBranch()
   };
 }
 

@@ -46,7 +46,10 @@ describe('inputs', () => {
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext',
-        marketplacePath: '/test/marketplace'
+        marketplacePath: '/test/marketplace',
+        workspacePath: '/workspace',
+        baseBranch: 'main',
+        workspaceBranch: 'cards/main-1/1'
       };
 
       expectTypeOf(input.executionMode).toEqualTypeOf<'interactive' | 'background'>();
@@ -62,7 +65,10 @@ describe('inputs', () => {
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext',
-        marketplacePath: '/test/marketplace'
+        marketplacePath: '/test/marketplace',
+        workspacePath: '/workspace',
+        baseBranch: 'main',
+        workspaceBranch: 'cards/main-1/1'
       };
 
       expectTypeOf(input.executionMode).toEqualTypeOf<'interactive' | 'background'>();
@@ -79,7 +85,10 @@ describe('inputs', () => {
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext',
-        marketplacePath: '/test/marketplace'
+        marketplacePath: '/test/marketplace',
+        workspacePath: '/workspace',
+        baseBranch: 'main',
+        workspaceBranch: 'cards/main-1/1'
       };
 
       const inputWithoutAgent: ActionInput = {
@@ -91,7 +100,10 @@ describe('inputs', () => {
         cardRepoPath: '/workspace/.cards/card-123',
         configPath: '/config',
         extensionPath: '/ext',
-        marketplacePath: '/test/marketplace'
+        marketplacePath: '/test/marketplace',
+        workspacePath: '/workspace',
+        baseBranch: 'main',
+        workspaceBranch: 'cards/main-1/1'
       };
 
       expectTypeOf(inputWithAgent.codingAgent).toEqualTypeOf<string | undefined>();

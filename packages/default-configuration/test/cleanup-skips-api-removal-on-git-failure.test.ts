@@ -58,6 +58,9 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     cardRepoPath: tempCardRepo,
     configPath: '/test/config',
     extensionPath: '/test/extension',
+    workspacePath: '/test/workspace',
+    baseBranch: 'main',
+    workspaceBranch: 'cards/main-1/1',
     ...overrides
   };
 }

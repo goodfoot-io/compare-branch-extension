@@ -165,3 +165,55 @@ export function removeSessionHeadSha(sessionId: string): void {
     if (!hasErrnoCode(error, 'ENOENT')) throw error;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Per-session route-nudge marker
+// ---------------------------------------------------------------------------
+
+function getSessionRouteNudgePath(sessionId: string): string {
+  return join(getCardRepoCommitsDir(), `${sessionId}.route-nudge`);
+}
+
+/**
+ * Creates the per-session route-nudge marker file.
+ * Creates directory if it doesn't exist.
+ *
+ * @param sessionId - Session to mark as having received a route nudge.
+ * @throws Error when directory creation or file write fails.
+ */
+export function markSessionRouteNudgeFired(sessionId: string): void {
+  mkdirSync(getCardRepoCommitsDir(), { recursive: true, mode: 0o700 });
+  writeFileSync(getSessionRouteNudgePath(sessionId), '', { mode: 0o600 });
+}
+
+/**
+ * Returns whether the per-session route-nudge marker file exists.
+ *
+ * @param sessionId - Session to check.
+ * @returns `true` when the marker exists, `false` on `ENOENT`.
+ * @throws Error when the check fails for reasons other than `ENOENT`.
+ */
+export function hasSessionRouteNudgeFired(sessionId: string): boolean {
+  try {
+    readFileSync(getSessionRouteNudgePath(sessionId));
+    return true;
+  } catch (error) {
+    if (hasErrnoCode(error, 'ENOENT')) return false;
+    throw error;
+  }
+}
+
+/**
+ * Removes the per-session route-nudge marker file.
+ * No-op if file doesn't exist.
+ *
+ * @param sessionId - Session whose route-nudge marker should be deleted.
+ * @throws Error when deleting the file fails for reasons other than `ENOENT`.
+ */
+export function removeSessionRouteNudge(sessionId: string): void {
+  try {
+    unlinkSync(getSessionRouteNudgePath(sessionId));
+  } catch (error) {
+    if (!hasErrnoCode(error, 'ENOENT')) throw error;
+  }
+}

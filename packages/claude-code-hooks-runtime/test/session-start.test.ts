@@ -111,7 +111,10 @@ describe('SessionStart Hook', () => {
         CARD_REPO_PATH: repoPath,
         CONFIG_PATH: '/tmp/config',
         EXTENSION_PATH: '/tmp/extension',
-        MARKETPLACE_PATH: '/tmp/extension/dist/marketplace'
+        MARKETPLACE_PATH: '/tmp/extension/dist/marketplace',
+        WORKSPACE_PATH: '/workspace',
+        BASE_BRANCH: 'main',
+        WORKSPACE_BRANCH: 'cards/main-1/1'
       };
       for (const [key, value] of Object.entries(ACTION_ENV)) {
         process.env[key] = value;

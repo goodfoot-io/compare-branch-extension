@@ -413,6 +413,9 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
     configPath: '/test/config',
     extensionPath: '/test/extension',
     codingAgent: 'codex-cli',
+    workspacePath: '/test/workspace',
+    baseBranch: 'main',
+    workspaceBranch: 'cards/main-1/1',
     ...overrides
   };
 }

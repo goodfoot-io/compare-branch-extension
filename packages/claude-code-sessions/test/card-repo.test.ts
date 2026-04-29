@@ -16,9 +16,12 @@ import { tmpdir as realTmpdir } from 'node:os';
 import {
   appendCommitToSession,
   getSessionCommits,
+  hasSessionRouteNudgeFired,
+  markSessionRouteNudgeFired,
   readSessionHeadSha,
   removeSessionCsv,
   removeSessionHeadSha,
+  removeSessionRouteNudge,
   writeSessionHeadSha
 } from '../src/card-repo.js';
 
@@ -214,6 +217,49 @@ describe('card-repo', () => {
 
     it('no-ops when .head file is absent', () => {
       expect(() => removeSessionHeadSha('nonexistent-session')).not.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // markSessionRouteNudgeFired / hasSessionRouteNudgeFired / removeSessionRouteNudge
+  // -------------------------------------------------------------------------
+
+  describe('markSessionRouteNudgeFired', () => {
+    it('creates the .route-nudge marker file', () => {
+      markSessionRouteNudgeFired(sessionId);
+      const markerPath = join(cardRepoCommitsDir, `${sessionId}.route-nudge`);
+      expect(existsSync(markerPath)).toBe(true);
+    });
+
+    it('creates directory if it does not exist', () => {
+      markSessionRouteNudgeFired(sessionId);
+      expect(existsSync(cardRepoCommitsDir)).toBe(true);
+    });
+  });
+
+  describe('hasSessionRouteNudgeFired', () => {
+    it('returns true when marker file exists', () => {
+      markSessionRouteNudgeFired(sessionId);
+      expect(hasSessionRouteNudgeFired(sessionId)).toBe(true);
+    });
+
+    it('returns false when marker file is absent', () => {
+      expect(hasSessionRouteNudgeFired('nonexistent-session')).toBe(false);
+    });
+  });
+
+  describe('removeSessionRouteNudge', () => {
+    it('deletes the .route-nudge marker file', () => {
+      markSessionRouteNudgeFired(sessionId);
+      const markerPath = join(cardRepoCommitsDir, `${sessionId}.route-nudge`);
+      expect(existsSync(markerPath)).toBe(true);
+
+      removeSessionRouteNudge(sessionId);
+      expect(existsSync(markerPath)).toBe(false);
+    });
+
+    it('no-ops when marker file is absent', () => {
+      expect(() => removeSessionRouteNudge('nonexistent-session')).not.toThrow();
     });
   });
 });

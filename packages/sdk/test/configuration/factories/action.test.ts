@@ -25,7 +25,10 @@ describe('defineAction', () => {
     cardRepoPath: '/workspace/.cards/card-123',
     configPath: '/config',
     extensionPath: '/ext',
-    marketplacePath: '/test/marketplace'
+    marketplacePath: '/test/marketplace',
+    workspacePath: '/workspace',
+    baseBranch: 'main',
+    workspaceBranch: 'cards/main-1/1'
   };
 
   const mockLogger: ILogger = {

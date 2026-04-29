@@ -41,7 +41,10 @@ const baseActionInput = {
   extensionPath: '/tmp/extension',
   switchToInteractiveData: undefined,
   codingAgent: undefined,
-  marketplacePath: '/test/marketplace'
+  marketplacePath: '/test/marketplace',
+  workspacePath: '/workspace',
+  baseBranch: 'main',
+  workspaceBranch: 'cards/main-1/1'
 };
 
 const baseInput = {
