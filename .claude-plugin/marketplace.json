@@ -13,7 +13,7 @@
     {
       "name": "cards",
       "version": "1.0.287",
-      "source": "./plugins/cards",
+      "source": "./claude/cards",
       "description": "Claude Code plugin for interacting with Cards extension's Cards API",
       "author": {
         "name": "Goodfoot Media LLC"
@@ -23,7 +23,7 @@
     {
       "name": "cards-sdk",
       "version": "1.0.29",
-      "source": "./plugins/cards-sdk",
+      "source": "./claude/cards-sdk",
       "description": "SDK documentation and development guidance for @cards/sdk/config library - type-safe configuration for Cards Extension with actions, type validators, and lifecycle hooks",
       "author": {
         "name": "Goodfoot",

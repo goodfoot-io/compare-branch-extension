@@ -34,7 +34,7 @@ const execFileAsync = promisify(execFile);
 
 const BUILT_BINARY = path.resolve(
   path.dirname(new URL(import.meta.url).pathname),
-  '../../../../plugins/cards/bin/transcript-watcher.mjs'
+  '../../../../claude/cards/bin/transcript-watcher.mjs'
 );
 
 interface ParsedMessage {

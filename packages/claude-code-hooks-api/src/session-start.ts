@@ -22,8 +22,8 @@ const CLI_WRAPPERS = [{ envVar: 'CARDS_DEV_CLI', filename: 'cards-dev-cli' }] as
 /**
  * Resolves the absolute path to a CLI wrapper script in the plugin `bin/` directory.
  *
- * The compiled hook lives at `plugins/cards/hooks/bin/<hash>.mjs` and
- * wrappers are at `plugins/cards/bin/<name>`, two directories up
+ * The compiled hook lives at `claude/cards/hooks/bin/<hash>.mjs` and
+ * wrappers are at `claude/cards/bin/<name>`, two directories up
  * from the compiled hook location.
  *
  * @param filename - Wrapper script filename (e.g. `cards-dev-cli`).

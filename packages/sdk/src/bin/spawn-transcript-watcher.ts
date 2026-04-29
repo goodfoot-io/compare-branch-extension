@@ -43,7 +43,7 @@ export function spawnTranscriptWatcher(
   logger: TranscriptWatcherLogger
 ): void {
   // `transcript-watcher` is a shell wrapper published on PATH by the SDK plugin tree
-  // (public/plugins/cards/bin/transcript-watcher). It exec's the .mjs via VSCODE_NODE,
+  // (public/claude/cards/bin/transcript-watcher). It exec's the .mjs via VSCODE_NODE,
   // so this helper does not need to know either location.
   const readiness = spawnSync('sh', ['-c', 'command -v transcript-watcher'], { stdio: 'ignore' });
   if (readiness.error || readiness.status !== 0) {

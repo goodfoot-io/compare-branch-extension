@@ -20,8 +20,8 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import commitMessageStyle from '../../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
-import chatRoutingSkill from '../../../../plugins/runtime/skills/chat-routing/SKILL.md';
+import commitMessageStyle from '../../../../claude/runtime/claude/COMMIT_MESSAGE_STYLE.md';
+import chatRoutingSkill from '../../../../claude/runtime/skills/chat-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';

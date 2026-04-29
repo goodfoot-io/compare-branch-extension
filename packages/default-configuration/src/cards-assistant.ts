@@ -14,7 +14,7 @@
 
 import { spawn } from 'node:child_process';
 import { defineCardsAssistant } from '@cards/sdk/config';
-import commitMessageStyle from '../../../plugins/runtime/claude/COMMIT_MESSAGE_STYLE.md';
+import commitMessageStyle from '../../../claude/runtime/claude/COMMIT_MESSAGE_STYLE.md';
 import { resolveClaudeDirPath, updateMarketplaceRegistration } from './lib/claude-session.js';
 
 export default defineCardsAssistant({}, async (input, { logger }) => {

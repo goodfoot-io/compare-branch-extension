@@ -134,7 +134,7 @@ export default stopHook({}, async (input, { logger }) => {
       `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`.`,
       '',
       '1. Re-evaluate the current repository state.',
-      '2. Load `public/plugins/runtime/skills/card/SKILL.md` and follow its `<routing-instructions>` to determine the next action.'
+      '2. Load `public/claude/runtime/skills/card/SKILL.md` and follow its `<routing-instructions>` to determine the next action.'
     ].join('\n')
   });
 });
