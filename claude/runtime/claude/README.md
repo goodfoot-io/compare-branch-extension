@@ -27,6 +27,6 @@ Both files are consumed by two independent launch paths:
 
 ## Packaging
 
-This directory lives inside the runtime plugin at `public/plugins/runtime/claude/`. During the extension build, `copyMarketplace()` in `packages/extension/scripts/build/shared.js` copies the entire `public/plugins/` tree into `dist/marketplace/plugins/`. The launched Claude process receives the path `<extensionPath>/dist/marketplace/plugins/runtime/claude` via `--add-dir`.
+This directory lives inside the runtime plugin at `public/claude/runtime/claude/`. During the extension build, `copyMarketplace()` in `packages/extension/scripts/build/shared.js` copies the entire `public/claude/` tree into `dist/marketplace/claude/`. The launched Claude process receives the path `<extensionPath>/dist/marketplace/claude/runtime/claude` via `--add-dir`.
 
 The `COMMIT_MESSAGE_STYLE.md` import is resolved at bundle time by esbuild. The `.md: 'text'` loader entry in each build script (`build-production.js`, `build-dev-host.js`, `build-watch.js`, `build-debug.js`, `build-testing.js`) converts the markdown file into a string literal embedded in the JavaScript bundle. A corresponding `*.md` module declaration exists in both `packages/extension/src/types/markdown.d.ts` and `public/packages/default-configuration/src/types/markdown.d.ts` for TypeScript resolution.
