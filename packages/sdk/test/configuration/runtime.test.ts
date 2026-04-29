@@ -462,7 +462,10 @@ describe('runtime', () => {
 
         await executePromise;
 
-        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
+        // Cancellation is a user-initiated graceful stop, not a handler failure:
+        // handleCancelCommand must not exit with ERROR.
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+        expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
 
       it('should invoke onSwitchToInteractive callback and send response', async () => {
@@ -720,7 +723,8 @@ describe('runtime', () => {
 
         await executePromise;
 
-        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.ERROR);
+        expect(exitSpy).toHaveBeenCalledWith(EXIT_CODES.SUCCESS);
+        expect(exitSpy).not.toHaveBeenCalledWith(EXIT_CODES.ERROR);
       });
     });
   });
