@@ -1,1 +1,1 @@
-../../../../cards/skills/api/references/investigation.md
+../../../../cards/skills/management/references/investigation.md

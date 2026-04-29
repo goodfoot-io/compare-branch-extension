@@ -1,1 +1,1 @@
-../../../../cards/skills/api/references/commanders-intent.md
+../../../../cards/skills/management/references/commanders-intent.md

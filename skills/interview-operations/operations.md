@@ -1,1 +1,1 @@
-../../../cards/skills/api/references/operations.md
+../../claude/cards/skills/management/references/operations.md

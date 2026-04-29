@@ -1,1 +1,1 @@
-../../../cards/skills/api/references/bug-report.md
+../../claude/cards/skills/management/references/bug-report.md

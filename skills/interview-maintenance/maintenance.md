@@ -1,1 +1,1 @@
-../../../cards/skills/api/references/maintenance.md
+../../claude/cards/skills/management/references/maintenance.md
