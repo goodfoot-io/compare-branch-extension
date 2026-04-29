@@ -240,6 +240,7 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
       let cancelCallback: (() => void | Promise<void>) | undefined;
       let switchToInteractiveCallback: (() => unknown | Promise<unknown>) | undefined;
       let commandProcessed = false;
+      let capabilitiesSent = false;
 
       // Build ActionContext with logger, cwd, and socket-backed callbacks
       const context: ActionContext = {
@@ -250,6 +251,11 @@ export async function executeCommand(command: AnyCommand): Promise<void> {
         },
         onSwitchToInteractive: (callback) => {
           switchToInteractiveCallback = callback;
+          // Emit capability to the dispatcher at most once per process
+          if (socketClient && !capabilitiesSent) {
+            capabilitiesSent = true;
+            socketClient.sendResponseThen({ type: 'capabilities', switchToInteractive: true }, () => {});
+          }
         }
       };
 

@@ -31,6 +31,20 @@ export interface SwitchToInteractiveResponse {
   data: unknown;
 }
 
+/**
+ * Capability advertisement sent by the runtime to the dispatcher when
+ * `onSwitchToInteractive` is registered.
+ */
+export interface CapabilitiesMessage {
+  type: 'capabilities';
+  switchToInteractive: boolean;
+}
+
+/**
+ * Union of all messages the runtime may send to the dispatcher.
+ */
+export type SocketResponse = SwitchToInteractiveResponse | CapabilitiesMessage;
+
 // ============================================================================
 // SocketClient
 // ============================================================================
@@ -69,8 +83,13 @@ export class SocketClient {
         try {
           const parsed = JSON.parse(line) as SocketCommand;
           this.commandHandler?.(parsed);
-        } catch {
-          // Malformed JSON on socket is ignored (per plan)
+        } catch (err) {
+          // Malformed NDJSON can occur during partial socket writes; surface
+          // via stderr so it is observable in wrapper logs without using the
+          // SDK logger (which would create a config-cycle dependency).
+          process.stderr.write(
+            `SocketClient: skipping malformed line: ${err instanceof Error ? err.message : String(err)}\n`
+          );
         }
       }
     });
@@ -109,7 +128,7 @@ export class SocketClient {
    *
    * @param response - The response to send as NDJSON
    */
-  sendResponse(response: SwitchToInteractiveResponse): void {
+  sendResponse(response: SocketResponse): void {
     this.socket.write(`${JSON.stringify(response)}\n`);
   }
 
@@ -121,7 +140,7 @@ export class SocketClient {
    * @param response - The response to send as NDJSON
    * @param callback - Called after the data is flushed to the socket
    */
-  sendResponseThen(response: SwitchToInteractiveResponse, callback: () => void): void {
+  sendResponseThen(response: SocketResponse, callback: () => void): void {
     this.socket.write(`${JSON.stringify(response)}\n`, callback);
   }
 

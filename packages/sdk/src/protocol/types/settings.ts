@@ -301,6 +301,18 @@ export interface ActionState {
    * context for future consumers (e.g. error messaging).
    */
   gateRejection?: 'gate-pending' | 'gate-aborted' | 'gate-error';
+
+  /**
+   * Capabilities the running handler has advertised over the socket.
+   *
+   * `switchToInteractive` is true when the handler called
+   * `context.onSwitchToInteractive(...)`. The webview uses this to enable or
+   * disable the "Switch to interactive" control on a per-instance basis,
+   * since today only `spawnClaudeSession` registers the callback.
+   */
+  capabilities?: {
+    switchToInteractive?: boolean;
+  };
 }
 
 /**

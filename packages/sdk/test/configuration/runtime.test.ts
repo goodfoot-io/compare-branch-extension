@@ -505,7 +505,11 @@ describe('runtime', () => {
 
         // Verify response was sent on socket
         const combined = serverReceived.join('');
-        const parsed = JSON.parse(combined.trim());
+        const lines = combined
+          .trim()
+          .split('\n')
+          .filter((l) => l.trim().length > 0);
+        const parsed = lines.map((l) => JSON.parse(l)).find((m) => m.type === 'switchToInteractiveResponse');
         expect(parsed).toEqual({
           type: 'switchToInteractiveResponse',
           data: { sessionId: 'abc123' }
@@ -672,7 +676,11 @@ describe('runtime', () => {
         await executePromise;
 
         const combined = serverReceived.join('');
-        const parsed = JSON.parse(combined.trim());
+        const lines = combined
+          .trim()
+          .split('\n')
+          .filter((l) => l.trim().length > 0);
+        const parsed = lines.map((l) => JSON.parse(l)).find((m) => m.type === 'switchToInteractiveResponse');
         expect(parsed).toEqual({
           type: 'switchToInteractiveResponse',
           data: { asyncData: true }
