@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/worktree-remove.aefe9e4d.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/worktree-remove.ce9110af.mjs"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/worktree-create.4e30182d.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/worktree-create.fee86113.mjs"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.5f4ca0a6.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/stop.bd101a34.mjs"
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.bd11a72b.mjs"
+            "command": "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node) $CLAUDE_PLUGIN_ROOT/hooks/bin/session-start.1b776974.mjs"
           }
         ]
       }
@@ -43,11 +43,11 @@
   },
   "__generated": {
     "files": [
-      "worktree-remove.aefe9e4d.mjs",
-      "worktree-create.4e30182d.mjs",
-      "stop.5f4ca0a6.mjs",
-      "session-start.bd11a72b.mjs"
+      "worktree-remove.ce9110af.mjs",
+      "worktree-create.fee86113.mjs",
+      "stop.bd101a34.mjs",
+      "session-start.1b776974.mjs"
     ],
-    "timestamp": "2026-04-29T18:54:41.133Z"
+    "timestamp": "2026-04-29T20:31:09.660Z"
   }
 }
