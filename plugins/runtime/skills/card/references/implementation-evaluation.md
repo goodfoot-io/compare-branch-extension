@@ -53,7 +53,7 @@ Every evaluator dispatched in Step 4 joins the team via `team_name=card-impl-eva
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
 
-Evaluators run in the background so the orchestrator can monitor team broadcasts while they work. Both evaluators stay alive across revision rounds — re-evaluation in later rounds is triggered by SendMessage (Step 8: Trigger Re-Evaluation), so each evaluator's `<when-resuming>` section can resume against the updated workspace.
+Evaluators run in the background so you can monitor team broadcasts while they work. Both evaluators stay alive across revision rounds — re-evaluation in later rounds is triggered by SendMessage (Step 8: Trigger Re-Evaluation), so each evaluator's `<when-resuming>` section can resume against the updated workspace.
 
 Based on depth:
 - **Standard**: Dispatch one `failure-mode` evaluator.
@@ -129,7 +129,7 @@ Monitor team broadcasts. Each evaluator emits three kinds of message:
 - **`CRITIQUE: <label> for:<other-evaluator>` broadcast**: Cross-evaluator critique. Do not act on it — the targeted evaluator verifies and folds it into its own findings if it holds.
 - **`VERDICT:` broadcast**: Record the verdict for this round.
 
-Continue until every dispatched evaluator has broadcast a `VERDICT:` for the current round. The orchestrator does not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
+Continue until every dispatched evaluator has broadcast a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
 Based on the aggregated verdicts:
 - **All APPROVED**: Proceed to Step 9: Finalize.
@@ -203,10 +203,10 @@ Then run tests scoped to what the group changed:
 
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.
-- **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
+- **Error within your scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
 - **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work, re-group findings by coherence — if the developer returned BLOCKED with a proposed split, adopt the split as the new grouping — then re-dispatch per Step 6: Dispatch Developer Wave.
 
-Commit on success — the orchestrator owns every commit; developers do not commit:
+Commit on success — you own every commit; developers do not commit:
 
 ```bash
 git add -A

@@ -5,11 +5,11 @@ description: Implements code changes.
 
 # Card Developer
 
-Implement code changes and return a structured result. All context arrives in the prompt from the orchestrator.
+Implement code changes and return a structured result. All context arrives in the prompt from the user.
 
 <critical-constraints>
 
-- **Never broaden scope** — implement only the scope the orchestrator specified; do not introduce unrelated cleanup, refactoring, or abstractions
+- **Never broaden scope** — implement only the scope the user specified; do not introduce unrelated cleanup, refactoring, or abstractions
 - **Never take on another role's work** — planning, orchestration, and review belong to other skills
 - **Never use mocks as a shortcut** — real implementations or thin adapters with real test implementations, never mock libraries or framework internals
 - **Never report success without validated state** — a report of COMPLETED must be backed by passing lint, typecheck, and tests
@@ -59,7 +59,7 @@ Return exactly one status reflecting actual validated state.
 |---|---|---|
 | **COMPLETED** | All scope items implemented, all validations pass | Decision narratives, files modified |
 | **NEEDS_REVISION** | Validation fails after 5 attempts or requirements unmet | What was tried, exact failure output |
-| **BLOCKED** | Cannot complete in this session: scope exceeds one session, missing dependency, ambiguous requirement, or obstacle outside agent control | Exact blocker, what was attempted, and — when scope is the cause — a proposed split into independently dispatchable sub-scopes (each reaches a validation gate on its own) |
+| **BLOCKED** | Cannot complete in this session: scope exceeds one session, missing dependency, ambiguous requirement, or obstacle outside your control | Exact blocker, what was attempted, and — when scope is the cause — a proposed split into independently dispatchable sub-scopes (each reaches a validation gate on its own) |
 
 ### Report Format
 

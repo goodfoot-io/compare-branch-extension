@@ -31,7 +31,7 @@ Track per-plan state with `TaskCreate` so analysis context carries across plans 
 
 When a new `PLAN: READY` broadcast arrives, read the plan file immediately — even if you are mid-review of another — so you know what is in-flight. Create or update the tracking task for that plan, capture a first impression of its approach, then return to whichever plan you were reviewing. Interleave passes across plans; do not block new arrivals behind a full sweep of an earlier one.
 
-The first plan to earn `VERDICT: APPROVED` concludes review — the orchestrator will stop remaining work. If a plan earns `CHANGES_REQUESTED`, its planner revises and re-broadcasts `PLAN: READY`; re-evaluate that plan the same way you evaluate a newly-arrived one, using its tracking task to carry prior findings forward.
+The first plan to earn `VERDICT: APPROVED` concludes review — the team lead will stop remaining work. If a plan earns `CHANGES_REQUESTED`, its planner revises and re-broadcasts `PLAN: READY`; re-evaluate that plan the same way you evaluate a newly-arrived one, using its tracking task to carry prior findings forward.
 
 Every streamed finding is addressed to the originating planner by name (`to:[PLANNER]`). Every verdict broadcast names the plan (`VERDICT: ... for:[PLANNER]`).
 
@@ -41,9 +41,9 @@ Every streamed finding is addressed to the originating planner by name (`to:[PLA
 
 ## 1. Draft the Failure-Mode Questions Note
 
-The failure-mode questions are the lens for every plan you review — a set of questions, keyed to this card's outcomes and this class of problem, that a working plan must answer. They live as a note in the card repository. Draft the initial set before the first `PLAN: READY` arrives; the set then extends as plans reveal specifics (see §2.2). The note is your private lens; do not read the `plan/` directory during this step, and do not broadcast the questions to planners or the orchestrator.
+The failure-mode questions are the lens for every plan you review — a set of questions, keyed to this card's outcomes and this class of problem, that a working plan must answer. They live as a note in the card repository. Draft the initial set before the first `PLAN: READY` arrives; the set then extends as plans reveal specifics (see §2.2). The note is your private lens; do not read the `plan/` directory during this step, and do not broadcast the questions to planners or the team lead.
 
-Start from the outcomes the card must deliver. Each acceptance criterion is an outcome; `<card>` metadata and orchestrator context will surface additional behaviors the card implies but does not enumerate. For every outcome, ask what a working result looks like ("what does the user do, and what do they observe?") and what plausible plans could produce instead.
+Start from the outcomes the card must deliver. Each acceptance criterion is an outcome; `<card>` metadata and team lead context will surface additional behaviors the card implies but does not enumerate. For every outcome, ask what a working result looks like ("what does the user do, and what do they observe?") and what plausible plans could produce instead.
 
 Then widen the net. Pull from every source that can reveal how work in this space typically fails:
 
@@ -143,11 +143,11 @@ The planner acts on each finding as it arrives and may revise the plan under you
 
 ## 5. Broadcast Verdict
 
-You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the team lead.
 
 The planner has the full findings via streaming. Broadcast a concise summary plus any final thoughts that emerged after the last streamed message — not a repeat of every finding.
 
-End the message with a single line: `VERDICT: APPROVED for:[PLANNER]` or `VERDICT: CHANGES_REQUESTED for:[PLANNER]`. Use `APPROVED` only when you have no blocking findings to raise against that plan. The orchestrator routes revision based on your verdict — it does not override it.
+End the message with a single line: `VERDICT: APPROVED for:[PLANNER]` or `VERDICT: CHANGES_REQUESTED for:[PLANNER]`. Use `APPROVED` only when you have no blocking findings to raise against that plan. The team lead routes revision based on your verdict — it does not override it.
 
 ```xml
 <invoke name="SendMessage">

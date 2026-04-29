@@ -18,7 +18,7 @@ description: Find user-experienced failure modes in an implementation.
 
 The failure-mode questions are the lens for every evaluation round — a set of questions, keyed to this card's user outcomes, that a working implementation must answer at the user's surfaces. They live in your working context, not as a file in the card repository. Draft the initial set before exercising the implementation; the set then extends as exercise reveals specifics (see §3.2).
 
-Start from the user outcomes the card must deliver. Each acceptance criterion is an outcome; the orchestrator's prompt names additional user entry points the card implies. For every outcome, ask what a working result looks like — not "the feature should work" but "the user does X and observes Y" — and what plausible implementations could produce instead.
+Start from the user outcomes the card must deliver. Each acceptance criterion is an outcome; the team lead's prompt names additional user entry points the card implies. For every outcome, ask what a working result looks like — not "the feature should work" but "the user does X and observes Y" — and what plausible implementations could produce instead.
 
 Then widen the net to common user-experienced failures in this class of feature. Pull from:
 
@@ -103,7 +103,7 @@ FINDING: [short label]
 </invoke>
 ```
 
-The orchestrator listens for `FINDING:` broadcasts and dispatches developers to address them. Continue your analysis after each broadcast — if the workspace changes under you, re-exercise the affected entry point when you need to. Do not restart.
+The team lead listens for `FINDING:` broadcasts and dispatches developers to address them. Continue your analysis after each broadcast — if the workspace changes under you, re-exercise the affected entry point when you need to. Do not restart.
 
 ## 6. Handle Peer-Submitted Critiques
 
@@ -117,11 +117,11 @@ You may broadcast `CRITIQUE: <label> for:failure-mode` when you spot an internal
 
 ## 7. Broadcast Verdict
 
-You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the team lead.
 
-The orchestrator has every finding via your `FINDING:` broadcasts. Broadcast a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
+The team lead has every finding via your `FINDING:` broadcasts. Broadcast a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
 
-End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every current user-outcome question has been answered against the implementation. The orchestrator routes fixes based on your verdict — it does not override it.
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every current user-outcome question has been answered against the implementation. The team lead routes fixes based on your verdict — it does not override it.
 
 ```xml
 <invoke name="SendMessage">
@@ -137,9 +137,9 @@ VERDICT: APPROVED | CHANGES_REQUESTED
 
 ## When Resuming for a Fixed Implementation
 
-When the orchestrator broadcasts a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round.
+When the team lead broadcasts a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round.
 
-### 1. Review the Orchestrator's Mapping
+### 1. Review the Team Lead's Mapping
 
 The trigger includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use it to identify which user entry points to re-exercise.
 

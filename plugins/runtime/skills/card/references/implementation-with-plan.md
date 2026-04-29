@@ -115,7 +115,7 @@ Then run tests scoped to what the group changed:
 
 Based on the combined result:
 - **All validations pass**: Commit the group's changes and return immediately to Step 2.1. The only loop exits are Step 2.1's "Newest plan fully implemented" branch, `<when-to-return-to-planning>`, and explicit BLOCKED STOPs.
-- **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill — per `<orchestrator-constraints>`): Fix inline and re-run the validations above.
+- **Error within your scope** (syntax error, import correction, config typo, test polyfill — per `<orchestrator-constraints>`): Fix inline and re-run the validations above.
 - **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work, return to Step 2.2: Assess Coherence to re-route — if the agent returned BLOCKED with a proposed split, adopt the split as the new routing — then re-dispatch.
 
 Commit on success:
@@ -145,10 +145,36 @@ Run validation per the plan's validation commands.
 
 Based on the result:
 - **All validations pass**: Proceed to Step 4: Evaluate Quality.
-- **Resolvable error**: Delegate the fix to a developer agent, then return to Step 2.4: Validate and Commit to run the group-validation gate and commit.
-- **Unresolvable error**: Block immediately.
+- **Failure originates in files the active card's diff touched**: Delegate the fix to a developer agent, then return to Step 2.4: Validate and Commit to run the group-validation gate and commit.
+- **Otherwise** (failure is not obviously the active card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing): Dispatch `runtime:card:pre-existing-condition`. Do not investigate the failure's origin yourself — that investigation belongs to the dispatched agent, and performing it inline pulls Claude off the card.
 
-**When blocked**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write the exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
+  ```xml
+  <invoke name="Agent">
+  <parameter name="description">Investigate possible pre-existing failure</parameter>
+  <parameter name="subagent_type">runtime:card:pre-existing-condition</parameter>
+  <parameter name="model">[MODEL]</parameter>
+  <parameter name="run_in_background">false</parameter>
+  <parameter name="prompt">
+  ## Failing Command
+  [the failing command]
+
+  ## Failure Output
+  [full stdout/stderr from the failing command]
+
+  ## Active Card Diff Scope
+  [list of files the active card has modified since `implement/$CARD_ID/baseline`]
+
+  ## Task
+  Decide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the full validation command. If it does not, return NOT_PRE_EXISTING with the baseline output.
+  </parameter>
+  </invoke>
+  ```
+
+  On the agent's return:
+  - **COMPLETED**: Re-run the validation command. If it passes, proceed to Step 4: Evaluate Quality.
+  - **NOT_PRE_EXISTING**: The agent verified on baseline that the failure is in scope of the active card. Re-route to the in-scope branch above.
+  - **NEEDS_REVISION or BLOCKED**: Proceed to the block branch below with the agent's report.
+- **Block**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write the exact failure output and the pre-existing-condition agent's report to `comment/validation-failed.md`. Commit both files and **STOP**.
 
 ## 4. Evaluate Quality
 
@@ -158,7 +184,26 @@ Based on scope:
 - **Simple**: Single-file change, or a mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation — proceed to Step 5: Finalize.
 - **Behavioral or cross-file**: Any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
 
-When an evaluator needs to verify behavior against the pre-implementation state, follow `<baseline-worktree-testing>` rather than switching branches in the active workspace.
+When an evaluator needs to verify behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` rather than running the comparison in the active workspace — the agent owns baseline reproduction and reports the result back.
+
+```xml
+<invoke name="Agent">
+<parameter name="description">Verify behavior against baseline</parameter>
+<parameter name="subagent_type">runtime:card:pre-existing-condition</parameter>
+<parameter name="model">[MODEL]</parameter>
+<parameter name="run_in_background">false</parameter>
+<parameter name="prompt">
+## Behavior Under Investigation
+[the behavior the evaluator wants to compare against baseline — file/function/command and the expected pre-implementation result]
+
+## Active Card Diff Scope
+[list of files the active card has modified since `implement/$CARD_ID/baseline`]
+
+## Task
+Reproduce the named behavior on the baseline ref and report the result. Do not modify the active workspace. Return NOT_PRE_EXISTING with the baseline output so the evaluator can compare it against current behavior.
+</parameter>
+</invoke>
+```
 
 ## 5. Finalize
 
@@ -223,7 +268,7 @@ Read `./plan.md` and follow its instructions. The planner will find the existing
 </when-to-return-to-planning>
 
 <orchestrator-constraints>
-The orchestrator coordinates — it does NOT implement code.
+You coordinate — you do NOT implement code yourself.
 
 | Orchestrator handles directly | Agents handle via delegation |
 |------------------------------|------------------------------|
@@ -242,15 +287,3 @@ Plan says "implement" → delegate to developer agent. Never use Read/Write/Edit
 **Never dispatch a scope that cannot be completed in a single agent session and reach a validation gate on its own.** Each dispatched scope must be reachable to a validation-passing state within one session without depending on a later dispatch. A scope that cannot — by validation reachability or by session size — is too large; return to Step 2.2: Assess Coherence and split. When the previous agent returned a proposed split with BLOCKED, treat that split as the default routing. The constraint is on validation reachability and session size within the scope, not on commit timing — commits are produced in Step 2.4: Validate and Commit after the group returns.
 </orchestrator-constraints>
 
-<baseline-worktree-testing>
-
-The `create-worktree` command is a plugin-provided executable on `PATH`. Use it directly when you need an isolated Git worktree.
-
-To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
-
-```bash
-create-worktree "implement/$CARD_ID/baseline"
-```
-
-Run tests in the worktree, then delete the worktree and branch.
-</baseline-worktree-testing>

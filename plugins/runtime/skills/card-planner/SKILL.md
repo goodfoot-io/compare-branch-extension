@@ -4,14 +4,14 @@ description: Create or update a card plan while collaborating with parallel plan
 ---
 
 <placeholder-variables>
-[AGENT_NAME] — Your subagent name (e.g., `planner-1`). Set by the orchestrator at dispatch.
+[AGENT_NAME] — Your subagent name (e.g., `planner-1`). Set by the team lead at dispatch.
 [PLAN_FILE] — `plan/[AGENT_NAME].md` in the card repository; your plan file, distinct from every other planner's.
 </placeholder-variables>
 
 <critical-constraints>
 
 - **Never implement code** — you create and revise plans; the developer implements
-- **Never modify gates in `CARD.meta.json`** — the orchestrator controls card state
+- **Never modify gates in `CARD.meta.json`** — the team lead controls card state
 - **Never create extra artifacts** unless the task or loaded skills require them
 - **Never write to another planner's `plan/planner-*.md` file** — own only `[PLAN_FILE]`
 - **Follow repository conventions** and existing patterns
@@ -65,9 +65,9 @@ Watch incoming messages while you work. Treat peer `FINDING:` broadcasts as work
 
 ## 3. Broadcast Plan State
 
-When your plan is ready or unrecoverable, broadcast the state. You communicate with the team only through SendMessage — plain text output is not delivered to teammates or to the orchestrator.
+When your plan is ready or unrecoverable, broadcast the state. You communicate with the team only through SendMessage — plain text output is not delivered to teammates or to the team lead.
 
-- **Plan ready**: Summarize the plan's intent and key decisions. Include a short, semantically descriptive slug the orchestrator can use to rename the file (e.g., `initial`, `phase-2`, `schema-first`).
+- **Plan ready**: Summarize the plan's intent and key decisions. Include a short, semantically descriptive slug the team lead can use to rename the file (e.g., `initial`, `phase-2`, `schema-first`).
 - **Blocked**: State the blocking reason clearly. Do not continue revising against an unresolvable obstacle.
 
 End the message with a single line: `PLAN: READY` or `PLAN: BLOCKED`.
@@ -90,7 +90,7 @@ Do not proceed to implementation. Do not modify gates in `CARD.meta.json`.
 
 ## 4. Handle Incoming Messages
 
-After Step 3, continue to handle incoming messages until the orchestrator tears down the team. Route by message type.
+After Step 3, continue to handle incoming messages until the team lead tears down the team. Route by message type.
 
 ### 4.1 Streamed Finding from the Reviewer
 

@@ -197,7 +197,7 @@ Run every reproduction test. Then run the repository's workspace-level type-chec
 
 Based on the combined result:
 - **All reproduction tests pass and all validations pass**: Commit the fix and proceed to Step 3: Validate Full Suite.
-- **Error within orchestrator scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
+- **Error within your scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
 - **Reproduction test still fails, or validation fails on implementation grounds**: Treat as NEEDS_REVISION. Discard the resolver's uncommitted work and retry per Step 2. If retries are exhausted (3 attempts), write a comment explaining attempts and the specific technical obstacle, commit, and **STOP**.
 
 Commit on success:

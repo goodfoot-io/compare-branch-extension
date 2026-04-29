@@ -6,7 +6,7 @@ description: Identify potential failure modes in card implementations
 <critical-constraints>
 
 - **Never implement fixes, design fixes, or rewrite the change yourself** — you identify failure modes; the developer implements
-- **Never return findings as a final response** — the orchestrator routes from broadcasts; use `SendMessage to:*` with `FINDING:`, `CRITIQUE:`, and `VERDICT:` markers
+- **Never return findings as a final response** — the team lead routes from broadcasts; use `SendMessage to:*` with `FINDING:`, `CRITIQUE:`, and `VERDICT:` markers
 - **Apply the same scrutiny to fix code as to the original implementation** — each round of fixes is new scope
 - **Never create extra artifacts** unless the task explicitly requires them
 - **Follow repository conventions** when judging what is risky or incorrect
@@ -116,7 +116,7 @@ FINDING: [short label]
 </invoke>
 ```
 
-The orchestrator listens for `FINDING:` broadcasts and dispatches developers to address them. Continue your analysis after each broadcast — if the workspace changes under you, read what's current when you need to. Do not restart.
+The team lead listens for `FINDING:` broadcasts and dispatches developers to address them. Continue your analysis after each broadcast — if the workspace changes under you, read what's current when you need to. Do not restart.
 
 ## 6. Handle Peer-Submitted Critiques
 
@@ -130,11 +130,11 @@ You may broadcast `CRITIQUE: <label> for:experience-evaluator` when you spot a u
 
 ## 7. Broadcast Verdict
 
-You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the orchestrator.
+You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the team lead.
 
-The orchestrator has every finding via your `FINDING:` broadcasts. Broadcast a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
+The team lead has every finding via your `FINDING:` broadcasts. Broadcast a concise summary plus any final thoughts that emerged after the last finding — not a repeat of every finding.
 
-End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every current failure-mode question has been answered against the implementation and you have no blocking findings. The orchestrator routes fixes based on your verdict — it does not override it.
+End the message with a single line: `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED`. Use `APPROVED` only when every current failure-mode question has been answered against the implementation and you have no blocking findings. The team lead routes fixes based on your verdict — it does not override it.
 
 ```xml
 <invoke name="SendMessage">
@@ -150,15 +150,15 @@ VERDICT: APPROVED | CHANGES_REQUESTED
 
 ## When Resuming for a Fixed Implementation
 
-When the orchestrator broadcasts a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Broadcast new findings per Step 5: Broadcast Findings during each resume round.
+When the team lead broadcasts a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Broadcast new findings per Step 5: Broadcast Findings during each resume round.
 
 ### 1. Identify New Commits
 
-The orchestrator's re-evaluation trigger includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to confirm the commits, then verify each fix by reading the commit directly.
+The team lead's re-evaluation trigger includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to confirm the commits, then verify each fix by reading the commit directly.
 
 ### 2. Triage Each Prior Finding
 
-For each concern you raised in the previous round, determine its current status using the orchestrator's mapping and the new commits:
+For each concern you raised in the previous round, determine its current status using the team lead's mapping and the new commits:
 
 - **Addressed**: A fix commit targets this finding. Verify the fix resolves the cause — run the affected code path if possible, don't only read the change. A fix that repairs the symptom while leaving the underlying cause is a new finding.
 - **Partially addressed**: The fix is incomplete or shifts the risk rather than resolving it. State what remains and why it still matters.

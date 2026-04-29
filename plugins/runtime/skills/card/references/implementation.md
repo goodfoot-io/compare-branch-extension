@@ -127,7 +127,7 @@ git clean -fd
 git tag -l "implement/$CARD_ID/step-*" | xargs -r git tag -d
 ```
 
-Read `./plan.md` and follow its instructions. The discoveries made during implementation — the false assumption, the scope boundary, the fork — are live context the planner should incorporate when selecting an approach.
+Read `./plan.md` and follow its instructions. The discoveries made during implementation — the false assumption, the scope boundary, the fork — are live context to incorporate when selecting an approach.
 
 </when-to-return-to-planning>
 

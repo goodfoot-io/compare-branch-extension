@@ -82,7 +82,7 @@ Watch team broadcasts. Track each planner's most recent state and the reviewer's
 - **All planners broadcast `PLAN: BLOCKED`**: The race has no viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Proceed to Step 5: End the Race with no winner, then return `BLOCKED` to the caller.
 - **`CHANGES_REQUESTED` verdicts for some or all planners**: This is the normal revision loop — planners revise on streamed findings and re-broadcast `PLAN: READY`, the reviewer re-evaluates. Continue monitoring. Do not intervene.
 
-The orchestrator does not adjudicate findings. It routes on the reviewer's verdict line. A planner whose plan earns `CHANGES_REQUESTED` stays in the race and may still win on a later round.
+Do not adjudicate findings. Route on the reviewer's verdict line. A planner whose plan earns `CHANGES_REQUESTED` stays in the race and may still win on a later round.
 
 ## 5. End the Race
 
