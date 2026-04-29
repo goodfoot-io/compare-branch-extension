@@ -319,7 +319,15 @@ function toPromise<T>(result: T | Promise<T>): Promise<T> {
  *
  * If a cancel callback was registered, it is invoked. Otherwise, SIGTERM
  * is sent to the current process as a fallback. After the callback completes
- * (or immediately if no callback), the process exits with error code.
+ * (or immediately if no callback), the process exits successfully — the
+ * user-initiated stop is an expected shutdown, not a handler error. Exiting
+ * with `EXIT_CODES.ERROR` here propagates through the wrapper as a non-zero
+ * exit, which the VS Code terminal surfaces as `terminated with exit code: 1`
+ * even though nothing actually failed.
+ *
+ * Callback rejections are reported via the logger but still resolve to a
+ * successful exit — once cancellation has been requested the runtime's job
+ * is to wind down promptly, not to escalate cleanup failures.
  *
  * @param callback - The registered cancel callback, if any
  * @param socketClient - The socket client to close before exiting
@@ -338,11 +346,12 @@ function handleCancelCommand(
   toPromise(callback()).then(
     () => {
       socketClient?.close();
-      cleanupAndExit(EXIT_CODES.ERROR);
+      cleanupAndExit(EXIT_CODES.SUCCESS);
     },
-    () => {
+    (error) => {
+      logger.error(`onCancel callback error: ${getErrorMessage(error)}`);
       socketClient?.close();
-      cleanupAndExit(EXIT_CODES.ERROR);
+      cleanupAndExit(EXIT_CODES.SUCCESS);
     }
   );
 }
