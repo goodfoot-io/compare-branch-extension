@@ -34,7 +34,7 @@ fi
 
 ### 1.2 Read Card and Extract Context
 
-Read `CARD.md` from the card repository. Card metadata (title, gates, tags) is available in the `<card>` block. Extract `[BUG_DESCRIPTION]`, `[SCOPE_HINT]`, and any verbatim error messages or stack traces.
+Read `CARD.md` from the card repository. Read CARD.meta.json for current `title`, `gates`, and `tags`. Extract `[BUG_DESCRIPTION]`, `[SCOPE_HINT]`, and any verbatim error messages or stack traces.
 
 Based on the card's shape:
 - **Describes a capability gap** (language like "add", "implement", "support", or an inability to fill in "[Expected] but [Actual]" because no actual behavior exists): This is a feature request, not a bug. Write a comment explaining the triage, commit, and Read `./plan.md` to continue.

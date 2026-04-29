@@ -15,7 +15,6 @@ import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import type { ActionInput } from '@cards/sdk/config';
 import { CARDS_ENV_VARS } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
-import yaml from 'js-yaml';
 
 /**
  * Error thrown when the card repository cannot be read.
@@ -83,38 +82,6 @@ export function buildEnvBlock(actionInput: ActionInput): string {
   ];
 
   return `\`\`\`bash\n${lines.join('\n')}\n\`\`\``;
-}
-
-// ============================================================================
-// Card block
-// ============================================================================
-
-const CARD_BLOCK_KEYS = ['title', 'tags', 'gates'] as const;
-
-/**
- * Builds the `<card>` XML block with a filtered YAML body from CARD.meta.json.
- *
- * Only includes `title`, `tags`, and `gates` fields. Lets readFileSync/JSON.parse
- * errors propagate (fail closed).
- *
- * @param actionInput - Parsed action input from the environment.
- * @returns The `<card>...</card>` block string.
- * @throws {CardRepoAccessError} When CARD.meta.json cannot be read.
- */
-export function buildCardBlock(actionInput: ActionInput): string {
-  let data: Record<string, unknown>;
-  try {
-    const raw = readFileSync(join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
-    data = JSON.parse(raw) as Record<string, unknown>;
-  } catch (error) {
-    throw new CardRepoAccessError(actionInput.cardRepoPath, error);
-  }
-  const filtered: Record<string, unknown> = {};
-  for (const key of CARD_BLOCK_KEYS) {
-    if (key in data) filtered[key] = data[key];
-  }
-  const yamlBody = yaml.dump(filtered, { flowLevel: -1, lineWidth: -1 }).trimEnd();
-  return `<card>\n${yamlBody}\n</card>`;
 }
 
 // ============================================================================
@@ -418,22 +385,27 @@ export function buildWorkspaceRepoLogBlocks(workspacePath: string, cardRepoPath:
 /**
  * Builds the combined additional context string for session and subagent hooks.
  *
- * Produces: env block, `<card>`, optionally `<card-repo-log>`,
- * and optionally `<workspace-repo-log>` blocks.
- * Let {@link CardRepoAccessError} propagate to the caller for structured
- * error handling.
+ * Produces: env block, optionally `<card-repo-log>`, and optionally
+ * `<workspace-repo-log>` blocks. Asserts CARD.meta.json is readable so
+ * {@link CardRepoAccessError} surfaces at session start rather than at
+ * first agent read.
  *
  * @param actionInput - Parsed action input from the environment.
  * @returns Combined context string with env block and XML blocks.
  * @throws {CardRepoAccessError} When the card repository cannot be read.
  */
 export function buildAdditionalContext(actionInput: ActionInput): string {
+  try {
+    readFileSync(join(actionInput.cardRepoPath, 'CARD.meta.json'), 'utf-8');
+  } catch (error) {
+    throw new CardRepoAccessError(actionInput.cardRepoPath, error);
+  }
+
   const envBlock = buildEnvBlock(actionInput);
-  const cardBlock = buildCardBlock(actionInput);
   const logBlock = buildCardRepoLogBlock(actionInput.cardRepoPath);
   const workspaceLogBlocks = buildWorkspaceRepoLogBlocks(actionInput.repoRoot, actionInput.cardRepoPath);
 
-  const parts = [envBlock, cardBlock];
+  const parts = [envBlock];
   if (logBlock) parts.push(logBlock);
   parts.push(...workspaceLogBlocks);
   return parts.join('\n\n');

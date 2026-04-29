@@ -44,7 +44,7 @@ Routing runs without user interaction. Messages describing state and routing dec
 
 ### 1.1 Read Card State
 
-Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obtain the comment file listing from the `<card-repo>` block.
+Read @!`echo $CARD_REPO_PATH`/CARD.meta.json for current `gates.*` and `tags`. Obtain the comment file listing from the `<card-repo>` block.
 
 ### 1.2 Derive Routing Signals
 
@@ -55,9 +55,9 @@ Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obt
 | HAS_QUESTION | Latest user comment contains a genuine information-seeking question (not rhetorical, not "Can you fix X?", not "Could you implement Y?") |
 | IS_BLOCKED | `tags` contains "blocked" |
 | HAS_IMPLEMENTATION_FEEDBACK | `commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
-| REVIEW_APPROVED | `gates.mergeApproved` in the `<card>` block |
-| PLAN_REQUIRED | `gates.planRequired` in the `<card>` block |
-| PLAN_APPROVED | `gates.planApproved` in the `<card>` block |
+| REVIEW_APPROVED | `gates.mergeApproved` in CARD.meta.json |
+| PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
+| PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
 | HAS_PLAN | `plan/` directory in the card repository contains at least one `.md` file |
 | USER_RESPONDED_TO_PLAN | `plan/` directory contains at least one `.md` file AND there exists a user-authored commit — more recent than the most recent `plan/*.md` file's commit — that adds or modifies non-metadata files. Metadata files (`CARD.meta.json`, `branches.json`, `commits.csv`, and their sidecars) are excluded; gate changes and status transitions do not constitute a plan response. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |

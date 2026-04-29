@@ -17,7 +17,7 @@ fi
 
 Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
 
-Read `CARD.md` for goals and constraints. Card metadata (title, gates, tags) is available in the `<card>` block. Implement directly from the card description.
+Read `CARD.md` for goals and constraints. Read CARD.meta.json for current `title`, `gates`, and `tags`. Implement directly from the card description.
 
 When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `runtime:tdd-bootstrap` skill and sequence the work along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 

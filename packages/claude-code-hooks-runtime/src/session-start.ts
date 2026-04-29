@@ -18,14 +18,13 @@ import { writeSessionHeadSha } from '@cards/sessions/card-repo';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
 import {
   buildAdditionalContext,
-  buildCardBlock,
   buildCardRepoLogBlock,
   buildEnvBlock,
   buildWorkspaceRepoLogBlocks,
   CardRepoAccessError
 } from './lib/context.js';
 
-export { buildCardBlock, buildCardRepoLogBlock, buildEnvBlock, buildWorkspaceRepoLogBlocks, CardRepoAccessError };
+export { buildCardRepoLogBlock, buildEnvBlock, buildWorkspaceRepoLogBlocks, CardRepoAccessError };
 
 /**
  * Error thrown when PID-to-session registration fails.

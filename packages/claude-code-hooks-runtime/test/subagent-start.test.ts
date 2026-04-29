@@ -115,9 +115,8 @@ describe('SubagentStart Hook', () => {
       expect(stdout.systemMessage).toMatch(/^```bash\n/);
       expect(stdout.systemMessage).toContain('EXECUTION_MODE=background');
 
-      // <card> block with title and gates only
-      expect(stdout.systemMessage).toContain('<card>');
-      expect(stdout.systemMessage).toContain('title: Test card');
+      // No <card> block — agents read CARD.meta.json directly
+      expect(stdout.systemMessage).not.toContain('<card>');
 
       // additionalContext mirrors systemMessage
       expect(stdout.hookSpecificOutput?.additionalContext).toBe(stdout.systemMessage);

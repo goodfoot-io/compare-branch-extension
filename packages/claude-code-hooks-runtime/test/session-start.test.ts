@@ -147,10 +147,9 @@ describe('SessionStart Hook', () => {
       expect(stdout.systemMessage).toContain('EXECUTION_MODE=background');
       expect(stdout.systemMessage).toContain(`CARD_REPO_PATH=${repoPath}`);
 
-      // <card> block with title and gates only
-      expect(stdout.systemMessage).toContain('<card>');
-      expect(stdout.systemMessage).toContain('title: Test card');
-      expect(stdout.systemMessage).toContain('</card>');
+      // No <card> block — agents read CARD.meta.json directly
+      expect(stdout.systemMessage).not.toContain('<card>');
+      expect(stdout.systemMessage).not.toContain('</card>');
 
       // additionalContext mirrors systemMessage
       const additional = stdout.hookSpecificOutput!.additionalContext!;

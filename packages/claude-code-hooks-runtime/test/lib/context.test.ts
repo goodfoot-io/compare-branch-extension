@@ -8,7 +8,6 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import { TestGitWorkspace } from '@cards/test-utils';
-import yaml from 'js-yaml';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 /**
@@ -36,10 +35,10 @@ function parseLogEntries(body: string): Array<{ sha: string; author: string; sub
 
 import {
   buildAdditionalContext,
-  buildCardBlock,
   buildCardRepoLogBlock,
   buildEnvBlock,
-  buildWorkspaceRepoLogBlocks
+  buildWorkspaceRepoLogBlocks,
+  CardRepoAccessError
 } from '../../src/lib/context.js';
 
 let testRepo: TestGitWorkspace;
@@ -97,112 +96,6 @@ describe('buildEnvBlock', () => {
     const result = buildEnvBlock(makeActionInput({ executionMode: 'background' }));
 
     expect(result).toContain('EXECUTION_MODE=background');
-  });
-});
-
-describe('buildCardBlock', () => {
-  const makeActionInput = (overrides?: Record<string, unknown>) => ({
-    cardId: 'card-123',
-    actionName: 'Launch',
-    environment: 'default',
-    executionMode: 'interactive' as const,
-    repoRoot: '/workspace',
-    cardRepoPath: repoPath,
-    configPath: '/tmp/config',
-    extensionPath: '/tmp/extension',
-    marketplacePath: '/test/marketplace',
-    switchToInteractiveData: undefined,
-    codingAgent: undefined,
-    ...overrides
-  });
-
-  it('produces a <card> block with title, tags, and gates only', () => {
-    const tmpDir = join(repoPath, '..', `card-block-yaml-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
-    writeFileSync(
-      join(tmpDir, 'CARD.meta.json'),
-      JSON.stringify({
-        id: 'test-1',
-        title: 'Test card title',
-        status: 'active',
-        tags: ['feature', 'security'],
-        gates: {
-          planRequired: true,
-          planApproved: true,
-          mergeRequestRequired: true,
-          mergeApproved: false
-        }
-      })
-    );
-
-    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
-
-    expect(result).toMatch(/^<card>/);
-    expect(result).toContain('</card>');
-
-    const yamlContent = result.replace(/^<card>\n/, '').replace(/\n<\/card>$/, '');
-    const parsed = yaml.load(yamlContent) as Record<string, unknown>;
-    expect(parsed['title']).toBe('Test card title');
-    expect(parsed['tags']).toEqual(['feature', 'security']);
-    expect(parsed['gates']).toEqual({
-      planRequired: true,
-      planApproved: true,
-      mergeRequestRequired: true,
-      mergeApproved: false
-    });
-    expect(parsed).not.toHaveProperty('id');
-    expect(parsed).not.toHaveProperty('status');
-  });
-
-  it('omits fields beyond title, tags, and gates', () => {
-    const tmpDir = join(repoPath, '..', `card-block-rel-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
-    writeFileSync(
-      join(tmpDir, 'CARD.meta.json'),
-      JSON.stringify({
-        id: 'test-rel',
-        title: 'Card with relations',
-        status: 'active',
-        tags: [],
-        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false },
-        relations: [{ type: 'related', cardId: 'main-99' }]
-      })
-    );
-
-    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
-    const yamlContent = result.replace(/^<card>\n/, '').replace(/\n<\/card>$/, '');
-    const parsed = yaml.load(yamlContent) as Record<string, unknown>;
-
-    expect(parsed).not.toHaveProperty('relations');
-    expect(parsed).not.toHaveProperty('id');
-    expect(parsed).not.toHaveProperty('status');
-  });
-
-  it('throws when CARD.meta.json is missing (fail closed)', () => {
-    const tmpDir = join(repoPath, '..', `card-block-no-meta-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
-
-    expect(() => buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }))).toThrow();
-  });
-
-  it('does not include id, status, or mode as XML attributes', () => {
-    const tmpDir = join(repoPath, '..', `card-block-noattr-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
-    writeFileSync(
-      join(tmpDir, 'CARD.meta.json'),
-      JSON.stringify({
-        id: 'test-2',
-        title: 'Test',
-        status: 'active',
-        gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
-      })
-    );
-
-    const result = buildCardBlock(makeActionInput({ cardRepoPath: tmpDir }));
-
-    expect(result).not.toContain('id="');
-    expect(result).not.toContain('status="');
-    expect(result).not.toContain('mode="');
   });
 });
 
@@ -563,8 +456,7 @@ describe('buildAdditionalContext', () => {
     delete process.env['WORKSPACE_PATH'];
   });
 
-  it('contains env block, card block, repo block, and log block', () => {
-    // Need CARD.meta.json for buildCardBlock (fail closed)
+  it('contains env block and asserts CARD.meta.json is readable', () => {
     const tmpDir = join(repoPath, '..', `ctx-full-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
     writeFileSync(
@@ -576,27 +468,20 @@ describe('buildAdditionalContext', () => {
         gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
       })
     );
-    // Need at least one git commit for log block
-    // Use the real test repo that has git history
     process.env['WORKSPACE_PATH'] = '/workspace';
 
-    // We can't use repoPath for cardRepoPath since it needs CARD.meta.json,
-    // so we test with a tmpDir that has meta but may not have git.
-    // The key assertions are about the structure.
     const result = buildAdditionalContext(makeActionInput({ cardRepoPath: tmpDir }));
 
     expect(result).toContain('```bash');
     expect(result).toContain('EXECUTION_MODE=interactive');
-    expect(result).toMatch(/<card>/);
-    expect(result).toContain('</card>');
+    expect(result).not.toContain('<card>');
+    expect(result).not.toContain('</card>');
   });
 
-  it('throws CardRepoAccessError when repo is inaccessible', () => {
-    // buildCardBlock will throw first (CARD.meta.json missing), not CardRepoAccessError.
-    // But if cardRepoPath doesn't exist at all, buildCardBlock throws a filesystem error.
+  it('throws CardRepoAccessError when CARD.meta.json is missing', () => {
     const input = makeActionInput({ cardRepoPath: '/tmp/does-not-exist-xyz-999' });
 
-    expect(() => buildAdditionalContext(input)).toThrow();
+    expect(() => buildAdditionalContext(input)).toThrow(CardRepoAccessError);
   });
 
   it('includes branch info in env block when env vars are set', () => {

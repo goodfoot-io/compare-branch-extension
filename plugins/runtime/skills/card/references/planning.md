@@ -12,7 +12,7 @@ Shared procedure for creating an implementation plan from a card. Loaded by the 
 
 ## 1. Assess Starting State
 
-Read `CARD.md` for goals and constraints. Card metadata (title, gates, tags) is available in the `<card>` block; the comment file listing is in the `<card-repo>` block. Read the contents of the 5 most recent `comment/*.md` files for context.
+Read `CARD.md` for goals and constraints. Read CARD.meta.json for current `title`, `gates`, and `tags`; the comment file listing is in the `<card-repo>` block. Read the contents of the 5 most recent `comment/*.md` files for context.
 
 Check whether any plan files exist in `plan/` in the card repository:
 

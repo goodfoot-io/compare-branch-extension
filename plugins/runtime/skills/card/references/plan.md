@@ -11,7 +11,7 @@
 
 Tier selection is driven by **unknowns**, not work volume. Parallel planners exist to explore the *solution space* — the value of running more planners grows with the number of viable approaches, not with the number of files or lines of code. A large, mechanical change with one obvious approach is tier 2 even if it touches many files. A small change with several plausible mechanisms, contested trade-offs, or ambiguous acceptance criteria is tier 3 or 4 even if it touches one file.
 
-Read the card from the `<card>` block and assess the unknowns:
+Read CARD.meta.json and assess the unknowns:
 
 - **How many reasonable approaches could a planner take?** One → tier 2. Two or three → tier 3. Four or more → tier 4.
 - **How contested are the trade-offs?** If competing approaches each optimize for a different axis (performance vs. simplicity, correctness vs. migration effort, consistency vs. incremental rollout), the space is worth exploring.
