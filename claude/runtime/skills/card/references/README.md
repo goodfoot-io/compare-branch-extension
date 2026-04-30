@@ -25,15 +25,15 @@ Per-condition reference files for the `runtime:card` skill. The router in `../SK
 ## Shared Procedures
 
 - `planning.md` — Tier 2 self-plan procedure, also loaded by the `runtime:card-planner` subagent in tier 3–4.
-- `racing.md` — Tier 3–4 planner-race dispatch, loaded by `plan.md`.
+- `contest.md` — Tier 3–4 planner-contest dispatch, loaded by `plan.md`.
 
 ## Standalone Agent Skills (Not Consolidated)
 
 These stay as distinct top-level skills for portability to non-Claude agent systems — the skill ID is the contract a different harness honors:
 
 - `runtime:card-developer` — loaded via foreground subagent frontmatter.
-- `runtime:card-planner` — loaded via team dispatch prompt in `racing.md`.
-- `runtime:card-plan-failure-mode` — loaded via team dispatch prompt in `racing.md`.
+- `runtime:card-planner` — loaded via team dispatch prompt in `contest.md`.
+- `runtime:card-plan-failure-mode` — loaded via team dispatch prompt in `contest.md`.
 - `runtime:card-failure-mode` — loaded via team dispatch prompt in `implementation-evaluation.md`.
 - `runtime:card-experience-evaluator` — loaded via team dispatch prompt in `implementation-evaluation.md`.
 - `runtime:card-pre-existing-condition` — loaded via foreground subagent frontmatter; dispatched from `implementation-with-plan.md` when validation fails on a pre-existing condition.

@@ -1,9 +1,9 @@
 # Planning Procedure
 
-Shared procedure for creating an implementation plan from a card. Loaded by the `card-plan` orchestrator in tier 1/2 self-planning and referenced by `card-planner` in tiers 3–4.
+Shared procedure for creating an implementation plan from a card. Loaded by the `card-plan` orchestrator in tier 2 self-planning and referenced by `card-planner` in tiers 3–4.
 
 <placeholder-variables>
-[PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plan/initial.md` for self-planning, `plan/[AGENT_NAME].md` for a racing planner subagent)
+[PLAN_FILE] — The plan file path relative to the card repository root (e.g., `plan/initial.md` for self-planning, `plan/[AGENT_NAME].md` for a contest planner subagent)
 [CARD_REPO_PATH] — Absolute path to the card repository
 [WORKSPACE_PATH] — Absolute path to the card's workspace worktree
 </placeholder-variables>
@@ -26,7 +26,7 @@ Read all plan files from the `plan/` directory. Compare the plans against the cu
 Determine whether prior plans have been implemented by checking for workspace commits on the current branch that correspond to plan tasks.
 
 - **Prior plan(s) implemented and new work requested** (follow-on): Go to Step 1.2 to create a new plan file. Treat prior plans and their implementation as established context — do not revise completed plans.
-- **Plan is current and no new information**: Skip to Step 3: Broadcast Plan State (if operating as a subagent) or to the caller's next step (if operating inline).
+- **Plan is current and no new information**: If operating as a subagent (tier 3–4), return to the parent `card-planner` skill's Step 3 (Broadcast Plan State); if operating inline (tier 2), return to the caller's next step. This procedure has no Step 3 of its own.
 - **New information requires plan revision**: Incorporate changes into `[PLAN_FILE]`, commit, then go to Step 2.
 
 ### 1.2 Create Plan

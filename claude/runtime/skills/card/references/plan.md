@@ -47,9 +47,9 @@ Read `./planning.md` and follow its instructions. Set `[PLAN_FILE]` to `plan/ini
 
 After the plan is written, spiked, and committed, proceed to Step 3: Route to Implementation.
 
-### Tier 3–4 — Race Parallel Planners
+### Tier 3–4 — Contest Parallel Planners
 
-Set `[N_PLANNERS]` to `2` for tier 3 or `4` for tier 4. Read `./racing.md` and follow its instructions.
+Set `[N_PLANNERS]` to `2` for tier 3 or `4` for tier 4. Read `./contest.md` and follow its instructions.
 
 On return:
 - **`APPROVED`**: Proceed to Step 3: Route to Implementation.
