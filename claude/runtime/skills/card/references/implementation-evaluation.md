@@ -53,7 +53,7 @@ Every evaluator dispatched in Step 4 joins the team via `team_name=card-impl-eva
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
 
-Evaluators run in the background so you can monitor team broadcasts while they work. Both evaluators stay alive across revision rounds — re-evaluation in later rounds is triggered by a per-evaluator DM (Step 8: Trigger Re-Evaluation), so each evaluator's `<when-resuming>` section can resume against the updated workspace.
+Evaluators run in the background so you can collect inbound DMs from them while they work. Both evaluators stay alive across revision rounds — re-evaluation in later rounds is triggered by a per-evaluator DM (Step 8: Trigger Re-Evaluation), so each evaluator's "When Resuming for a Fixed Implementation" section in its skill can resume against the updated workspace.
 
 Based on depth:
 - **Standard**: Dispatch one `failure-mode` evaluator.
@@ -70,7 +70,10 @@ Based on depth:
 <parameter name="prompt">
 **IMPORTANT: Load the `runtime:card-failure-mode` skill immediately.**
 
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Broadcast each finding as `FINDING:`, DM critiques of the experience-evaluator's findings (when present) directly to `experience-evaluator` as `CRITIQUE: <label>`, and broadcast a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and broadcast a new verdict.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+
+## Team Name
+Your team is `card-impl-eval-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-impl-eval-[CARD_ID]/config.json`) uses this exact name.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -102,7 +105,10 @@ For **Deep**, add the second dispatch in the same message:
 <parameter name="prompt">
 **IMPORTANT: Load the `runtime:card-experience-evaluator` skill immediately.**
 
-Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. Broadcast each finding as `FINDING:`, DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`, and broadcast a verdict when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and broadcast a new verdict.
+Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
+
+## Team Name
+Your team is `card-impl-eval-[CARD_ID]`.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -123,14 +129,16 @@ All validation has passed. Focus on what a user would experience as broken, wron
 
 ## 5. Collect Verdicts and Route
 
-Monitor team broadcasts. Each evaluator emits two kinds of broadcast:
+Monitor inbound DMs from each evaluator. Each evaluator emits two kinds of DM addressed to you:
 
-- **`FINDING:` broadcast**: Record the finding (short label and body) for use in Step 6: Dispatch Developer Wave.
-- **`VERDICT:` broadcast**: Record the verdict for this round.
+- **`FINDING:` DM**: Record the finding (short label and body) for use in Step 6: Dispatch Developer Wave. Track findings per evaluator and per round so the Step 8 mapping can resolve back to the originator unambiguously even if labels collide across rounds.
+- **`VERDICT:` DM**: Record the verdict for this round.
 
-Cross-evaluator critiques are exchanged as DMs between the evaluators (`CRITIQUE: <label>` from `failure-mode` to `experience-evaluator` and vice versa) and do not appear on the broadcast bus. The targeted evaluator verifies and folds them into its own findings if they hold.
+Cross-evaluator critiques are exchanged as DMs between the evaluators (`CRITIQUE: <label>` from `failure-mode` to `experience-evaluator` and vice versa) and do not reach you. On Deep depth, evaluators also DM each other their `FINDING:` markers directly so they can critique each other's findings; you receive your own copy from each evaluator.
 
-Continue until every dispatched evaluator has broadcast a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
+If an evaluator verifies a peer's CRITIQUE and folds it into its own findings, that finding will arrive at your inbox as a fresh `FINDING:` DM from the verifying evaluator. Treat each inbound `FINDING:` as a record from its sender — do not deduplicate across evaluators. Two evaluators may legitimately raise the same underlying issue from different angles; the developer wave's prompt will inline both labels.
+
+Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
 Based on the aggregated verdicts:
 - **All APPROVED**: Proceed to Step 9: Finalize.
@@ -205,7 +213,7 @@ Then run tests scoped to what the group changed:
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.
 - **Error within your scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
-- **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work, re-group findings by coherence — if the developer returned BLOCKED with a proposed split, adopt the split as the new grouping — then re-dispatch per Step 6: Dispatch Developer Wave.
+- **Error requires implementation changes**: Discard the group's uncommitted work and re-dispatch per Step 6: Dispatch Developer Wave with regrouped findings (split a too-large group into smaller ones if a single developer's work failed to cohere; combine related findings if separate developers produced conflicting changes).
 
 Commit on success — you own every commit; developers do not commit:
 
@@ -247,11 +255,11 @@ RE_EVALUATE
 
 For Deep, send the same message to `experience-evaluator` in the same dispatch.
 
-Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed Implementation" section) and broadcasts a fresh verdict for this round. Return to Step 5: Collect Verdicts and Route. The loop continues until every evaluator broadcasts `APPROVED`, or a BLOCKED branch fires.
+Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed Implementation" section) and DMs a fresh verdict for this round. Return to Step 5: Collect Verdicts and Route. The loop continues until every evaluator DMs `APPROVED`, or a BLOCKED branch fires.
 
 ## 9. Finalize
 
-Only enter this step when every evaluator broadcast `VERDICT: APPROVED` in Step 5: Collect Verdicts and Route. Tear down the team:
+Only enter this step when every evaluator DM'd `VERDICT: APPROVED` in Step 5: Collect Verdicts and Route. Tear down the team:
 
 ```xml
 <invoke name="TeamDelete" />

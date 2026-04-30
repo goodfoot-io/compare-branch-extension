@@ -9,6 +9,8 @@ This reference fires when card work exists (`commits.csv` has commit SHAs and/or
 
 **Output asymmetry.** This skill may route backward to planning or implementation on the orchestrator's judgment alone. It cannot route forward to merge on its own — finalize requires `failure-mode` `VERDICT: APPROVED`.
 
+**Depth.** This skill always runs Standard depth (single `failure-mode` evaluator); it does not dispatch `experience-evaluator`. Re-validation is a focused safety check on already-committed work, not a full Deep evaluation.
+
 ## 1. Prepare Environment
 
 ### 1.1 Baseline Tag
@@ -88,7 +90,10 @@ Read the diff and the card before writing the prompt — the prompt must reflect
 <parameter name="prompt">
 **IMPORTANT: Load the `runtime:card-failure-mode` skill immediately.**
 
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Broadcast each finding as `FINDING:` and broadcast `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` when analysis is complete.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead`, and DM `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`.
+
+## Team Name
+Your team is `card-validate-[CARD_ID]`.
 
 This is a re-validation pass — the implementation was committed in a prior session and is being re-checked before finalize. Weight completeness against the card's acceptance criteria alongside the usual failure-mode questions.
 
@@ -111,12 +116,12 @@ Workspace validation passed before this dispatch. Focus on runtime behavior, sem
 
 ## 5. Collect Verdict and Route
 
-Monitor team broadcasts. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` line.
+Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM.
 
 Based on the verdict:
 - **`VERDICT: APPROVED`**: TeamDelete and proceed to Step 6: Finalize.
-- **`VERDICT: CHANGES_REQUESTED`**: TeamDelete, then route based on plan presence:
-  - **Plan file exists in `plan/`**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.
+- **`VERDICT: CHANGES_REQUESTED`**: TeamDelete, then route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plan/` in the card repository:
+  - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.
   - **No plan file**: Read `./plan.md` and follow its instructions. The findings inform the next planning pass.
 - **`VERDICT: BLOCKED`**: Add `blocked` to `tags` in `CARD.meta.json`, write the evaluator's rationale to `comment/validation-failed.md`, commit both, TeamDelete, **STOP**.
 
