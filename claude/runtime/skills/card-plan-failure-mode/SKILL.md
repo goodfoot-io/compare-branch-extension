@@ -33,7 +33,7 @@ Track per-plan state with `TaskCreate` so analysis context carries across plans 
 
 When a new `PLAN: READY` DM arrives, read the plan file immediately — even if you are mid-review of another — so you know what is in-flight. Create or update the tracking task for that plan, capture a first impression of its approach, then return to whichever plan you were reviewing. Interleave passes across plans; do not block new arrivals behind a full sweep of an earlier one.
 
-This is a contest, not a race. `APPROVED` is the qualifying bar; the contest stays open until every live plan has earned it AND every live planner has explicitly settled against the current field of peer plans. Approval is sticky-but-revocable — when a question raised by a peer's plan retroactively invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` to revoke (see §2.2). When the team lead DMs you `{"type": "select_winner"}`, run the final pass and DM the team lead with a `WINNER:` marker (see §6). A planner that self-declares `PLAN: BLOCKED`, or that you rule `VERDICT: BLOCKED for:[PLANNER]`, drops out of contention; do not wait on either.
+This is a contest, not a race. `APPROVED` is the qualifying bar; the contest stays open until every live plan has earned it AND every live planner has explicitly settled against the current field of peer plans. Approval is sticky-but-revocable — when a question raised by a peer's plan retroactively invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` to revoke (see §2.2). When the team lead DMs you with `SELECT_WINNER` in `summary`, run the final pass and DM the team lead with a `WINNER:` marker (see §6). A planner that self-declares `PLAN: BLOCKED`, or that you rule `VERDICT: BLOCKED for:[PLANNER]`, drops out of contention; do not wait on either.
 
 You will not see `PLAN: SETTLED` DMs — those go to the team lead only. The team lead handles the closure-condition check.
 
@@ -222,7 +222,7 @@ Then DM each other live planner with the same `summary` and a one-line body refe
 
 ## 6. Select the Winner
 
-The team lead DMs you `{"type": "select_winner"}` once the obligation graph has cleared — every live (non-`BLOCKED`) planner holds `APPROVED` for its most recent round, and every live planner has DM'd the team lead a `PLAN: SETTLED` against every other live planner's most recent round (or, in the lone-survivor case, the settlement clause is vacuous because there is only one live planner). Run a final pass before naming a winner.
+The team lead DMs you with `SELECT_WINNER` in `summary` once the obligation graph has cleared — every live (non-`BLOCKED`) planner holds `APPROVED` for its most recent round, and every live planner has DM'd the team lead a `PLAN: SETTLED` against every other live planner's most recent round (or, in the lone-survivor case, the settlement clause is vacuous because there is only one live planner). Run a final pass before naming a winner.
 
 ### 6.1. Final Retroactive Pass
 

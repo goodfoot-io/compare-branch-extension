@@ -82,7 +82,7 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 
 [N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plan/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.
 
-Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `select_winner` DM handler, and shutdown handling.
+Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and shutdown handling.
 
 ## Team Name
 Your team is `card-plan-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-plan-[CARD_ID]/config.json`) uses this exact name.
@@ -150,19 +150,20 @@ Parsing `PLAN: SETTLED ... against:...` summaries: split on whitespace after `ag
 
 ## 5. Trigger Selection
 
-Send the reviewer a DM requesting selection:
+Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in `summary`; the body is empty or notes the closure-condition state for context.
 
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">plan-failure-mode</parameter>
-  <parameter name="message">{"type": "select_winner"}</parameter>
+  <parameter name="summary">SELECT_WINNER</parameter>
+  <parameter name="message">Closure condition cleared; please run final retroactive pass and name a winner.</parameter>
 </invoke>
 ```
 
 Two responses are possible:
 
-- **`WINNER: planner-N` DM**: record `[WINNING_PLANNER] = planner-N`. Proceed to Step 6: End the Contest with a winner.
-- **A fresh `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM**: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — the affected planner is back in the revision loop, the closure condition no longer holds, and you return to Step 4: Monitor the Contest.
+- **`WINNER: planner-N` DM** from the reviewer: record `[WINNING_PLANNER] = planner-N`. Proceed to Step 6: End the Contest with a winner.
+- **A fresh `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM** from the reviewer: the reviewer's final pass uncovered a question the plan no longer answers. The contest reopens — the affected planner is back in the revision loop, the closure condition no longer holds, and you return to Step 4: Monitor the Contest.
 
 A reviewer that names a winner overrides any earlier `CHANGES_REQUESTED` for that planner — the `WINNER:` DM is the authoritative end signal.
 
