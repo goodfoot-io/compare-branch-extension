@@ -44,7 +44,7 @@ Routing runs without user interaction. Messages describing state and routing dec
 
 ### 1.1 Read Card State
 
-Read @!`echo "@$CARD_REPO_PATH"`/CARD.meta.json for current `gates.*` and `tags`. Obtain the comment file listing from the `<card-repo>` block.
+Read CARD.meta.json for current `gates.*` and `tags`. Obtain the comment file listing from the `<card-repo>` block.
 
 ### 1.2 Derive Routing Signals
 
