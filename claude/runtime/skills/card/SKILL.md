@@ -54,6 +54,7 @@ Read @!`echo $CARD_REPO_PATH`/CARD.meta.json for current `gates.*` and `tags`. O
 |--------|------------|
 | HAS_QUESTION | Latest user comment contains a genuine information-seeking question (not rhetorical, not "Can you fix X?", not "Could you implement Y?") |
 | IS_BLOCKED | `tags` contains "blocked" |
+| HAS_WORK | `commits.csv` contains one or more commit SHAs, OR `git status --porcelain` reports any uncommitted changes in the workspace |
 | HAS_IMPLEMENTATION_FEEDBACK | `commits.csv` contains at least one commit AND the latest user comment's modification time is more recent than the most recent agent comment's modification time. |
 | REVIEW_APPROVED | `gates.mergeApproved` in CARD.meta.json |
 | PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
@@ -78,6 +79,7 @@ Select the **first** matching condition and note the matched reference:
 | NOT DOR_MET | `clarify-and-enrich` |
 | PLAN_REQUIRED AND PLAN_APPROVED | `implementation-with-plan` |
 | IS_TESTABLE_BUG | `bug` |
+| HAS_WORK | `validate` |
 | Otherwise | `plan` |
 
 **Fallback**: When conditions conflict, ask "What would a human team member do?" and write down why. Articulating the ambiguity usually resolves it.
