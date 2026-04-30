@@ -107,13 +107,13 @@ The team lead listens for `FINDING:` broadcasts and dispatches developers to add
 
 ## 6. Handle Peer-Submitted Critiques
 
-The `failure-mode` agent may broadcast `CRITIQUE: <label> for:experience-evaluator` claiming a user-facing failure your evaluation has not yet flagged. Treat each broadcast critique as a candidate finding, not a verified one:
+The `failure-mode` agent may DM `CRITIQUE: <label>` to you, claiming a user-facing failure your evaluation has not yet flagged. Treat each peer DM as a candidate finding, not a verified one:
 
 - Verify the claim against the user entry point before weighting it. Re-exercise the relevant path where possible.
 - If verified, fold it into your own findings using the Step 4 format and broadcast per Step 5. The finding is yours.
 - If the claim does not verify at the user surface, drop it.
 
-You may broadcast `CRITIQUE: <label> for:failure-mode` when you spot an internal failure mode the failure-mode evaluator has not flagged — keep the body to the technical observation and the workspace evidence.
+When you spot an internal failure mode the failure-mode evaluator has not flagged, DM `CRITIQUE: <label>` to `failure-mode` — keep the body to the technical observation and the workspace evidence. Do not broadcast peer critiques: the team lead does not act on them and the broadcast bus is reserved for `FINDING:` and `VERDICT:` markers.
 
 ## 7. Broadcast Verdict
 
@@ -137,11 +137,11 @@ VERDICT: APPROVED | CHANGES_REQUESTED
 
 ## When Resuming for a Fixed Implementation
 
-When the team lead broadcasts a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round.
+When the team lead DMs you a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round.
 
 ### 1. Review the Team Lead's Mapping
 
-The trigger includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use it to identify which user entry points to re-exercise.
+The DM includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use it to identify which user entry points to re-exercise.
 
 ### 2. Re-Enter at the User's Entry Points
 

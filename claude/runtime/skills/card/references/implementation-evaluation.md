@@ -53,7 +53,7 @@ Every evaluator dispatched in Step 4 joins the team via `team_name=card-impl-eva
 
 Read the diff and the card before writing the prompts. Each prompt must reflect the specific nature of this implementation and this card.
 
-Evaluators run in the background so you can monitor team broadcasts while they work. Both evaluators stay alive across revision rounds — re-evaluation in later rounds is triggered by SendMessage (Step 8: Trigger Re-Evaluation), so each evaluator's `<when-resuming>` section can resume against the updated workspace.
+Evaluators run in the background so you can monitor team broadcasts while they work. Both evaluators stay alive across revision rounds — re-evaluation in later rounds is triggered by a per-evaluator DM (Step 8: Trigger Re-Evaluation), so each evaluator's `<when-resuming>` section can resume against the updated workspace.
 
 Based on depth:
 - **Standard**: Dispatch one `failure-mode` evaluator.
@@ -70,7 +70,7 @@ Based on depth:
 <parameter name="prompt">
 **IMPORTANT: Load the `runtime:card-failure-mode` skill immediately.**
 
-Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Broadcast each finding as `FINDING:`, broadcast critiques of the experience-evaluator's findings (when present) as `CRITIQUE: <label> for:experience-evaluator`, and broadcast a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` when analysis is complete. The orchestrator may broadcast a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and broadcast a new verdict.
+Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Broadcast each finding as `FINDING:`, DM critiques of the experience-evaluator's findings (when present) directly to `experience-evaluator` as `CRITIQUE: <label>`, and broadcast a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and broadcast a new verdict.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -102,7 +102,7 @@ For **Deep**, add the second dispatch in the same message:
 <parameter name="prompt">
 **IMPORTANT: Load the `runtime:card-experience-evaluator` skill immediately.**
 
-Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. Broadcast each finding as `FINDING:`, broadcast critiques of the failure-mode evaluator's findings as `CRITIQUE: <label> for:failure-mode`, and broadcast a verdict when analysis is complete. The orchestrator may broadcast a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and broadcast a new verdict.
+Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. Broadcast each finding as `FINDING:`, DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`, and broadcast a verdict when analysis is complete. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and broadcast a new verdict.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -123,11 +123,12 @@ All validation has passed. Focus on what a user would experience as broken, wron
 
 ## 5. Collect Verdicts and Route
 
-Monitor team broadcasts. Each evaluator emits three kinds of message:
+Monitor team broadcasts. Each evaluator emits two kinds of broadcast:
 
 - **`FINDING:` broadcast**: Record the finding (short label and body) for use in Step 6: Dispatch Developer Wave.
-- **`CRITIQUE: <label> for:<other-evaluator>` broadcast**: Cross-evaluator critique. Do not act on it — the targeted evaluator verifies and folds it into its own findings if it holds.
 - **`VERDICT:` broadcast**: Record the verdict for this round.
+
+Cross-evaluator critiques are exchanged as DMs between the evaluators (`CRITIQUE: <label>` from `failure-mode` to `experience-evaluator` and vice versa) and do not appear on the broadcast bus. The targeted evaluator verifies and folds them into its own findings if they hold.
 
 Continue until every dispatched evaluator has broadcast a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
@@ -225,11 +226,11 @@ git clean -fd
 
 ## 8. Trigger Re-Evaluation
 
-The team and its evaluators are still alive. Broadcast a re-evaluation trigger with the finding → commit mapping for the fixes that landed:
+The team and its evaluators are still alive. DM a re-evaluation trigger with the finding → commit mapping to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
 
 ```xml
 <invoke name="SendMessage">
-  <parameter name="to">*</parameter>
+  <parameter name="to">failure-mode</parameter>
   <parameter name="summary">Re-evaluate against revised implementation</parameter>
   <parameter name="message">
 The implementation has been updated to address findings from the prior round. Re-evaluate against the new HEAD.
@@ -243,6 +244,8 @@ RE_EVALUATE
   </parameter>
 </invoke>
 ```
+
+For Deep, send the same message to `experience-evaluator` in the same dispatch.
 
 Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed Implementation" section) and broadcasts a fresh verdict for this round. Return to Step 5: Collect Verdicts and Route. The loop continues until every evaluator broadcasts `APPROVED`, or a BLOCKED branch fires.
 

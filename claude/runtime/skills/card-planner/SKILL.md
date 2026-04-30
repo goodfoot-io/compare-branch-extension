@@ -25,6 +25,7 @@ You are one of several planners in a contest for the reviewer's selection. Appro
 - **Every research finding is broadcast to `*` as soon as you have it** (Step 2).
 - **Every `PLAN: READY` broadcast carries a per-planner monotonic round number** (Step 3). Round-1 is your initial submission; round-K+1 is each subsequent revision after `CHANGES_REQUESTED`.
 - **Every critique of a peer plan is broadcast to `*`** (§4.3). The reviewer picks up critiques from the public stream; it does not accept DMs about plan changes.
+- **Every reviewer verdict is a state-line broadcast plus a body DM to you** (§4.2). The broadcast routes you; the DM holds the rationale.
 - **Revisions to your own plan go in your plan file**, committed with a single sentence summarizing the change (§4.1). The reviewer reads your commits.
 - **Approval is sticky-but-revocable.** After your plan earns `VERDICT: APPROVED for:[AGENT_NAME] round-K`, you face an explicit Revise-or-Settle choice (§4.4). Either revise pre-emptively against peer plans (broadcast `PLAN: READY round-K+1`) or declare you are done responding to the current field (broadcast `PLAN: SETTLED`). The contest cannot close until every live planner has settled against every other live planner's most recent round.
 - **Settlement is per-field.** When a peer broadcasts a higher round than the one your latest `PLAN: SETTLED` referenced, your settlement is implicitly invalidated; you must re-evaluate and either revise or re-broadcast `PLAN: SETTLED` against the updated field.
@@ -113,9 +114,11 @@ Do not re-broadcast `PLAN: READY` after each streamed revision. The broadcast is
 
 ### 4.2 Verdict from the Reviewer
 
-The reviewer broadcasts a verdict per round per plan. Three outcomes apply to you:
+The reviewer issues each verdict as a two-message pair: a public state-line broadcast (`VERDICT: ... for:[AGENT_NAME] round-K`) plus a private DM with the body — the round-level synthesis, unresolved prior concerns, and any final thoughts not already streamed under §4.1. The broadcast routes you; the DM informs your revision content. Read both. The two arrive on independent channels and may interleave with other inbound messages — match them by `[AGENT_NAME]` and round before acting.
 
-- **`VERDICT: CHANGES_REQUESTED for:[AGENT_NAME] round-K`**: any finding not already addressed under Step 4.1 is now in scope. Work through the remaining findings using the same decision rubric as Step 4.1, commit any additional revisions, then return to Step 3: Broadcast Plan State to broadcast `PLAN: READY for:[AGENT_NAME] round-K+1`. This applies whether the verdict is your first `CHANGES_REQUESTED` or a *retroactive revocation* of a prior `APPROVED` — the reviewer revokes by broadcasting `CHANGES_REQUESTED` against the round you currently hold approval for. Either way, you are back in the revision loop and must produce a new round. If every streamed finding was already addressed under Step 4.1, the only remaining work is the broadcast itself — return to Step 3 directly.
+Three outcomes apply to you:
+
+- **`VERDICT: CHANGES_REQUESTED for:[AGENT_NAME] round-K`**: any finding not already addressed under Step 4.1 is now in scope. Work through the remaining findings using the same decision rubric as Step 4.1, commit any additional revisions, then return to Step 3: Broadcast Plan State to broadcast `PLAN: READY for:[AGENT_NAME] round-K+1`. This applies whether the verdict is your first `CHANGES_REQUESTED` or a *retroactive revocation* of a prior `APPROVED` — the reviewer revokes by issuing `CHANGES_REQUESTED` against the round you currently hold approval for. Either way, you are back in the revision loop and must produce a new round. If every streamed finding was already addressed under Step 4.1, the only remaining work is the broadcast itself — return to Step 3 directly.
 - **`VERDICT: APPROVED for:[AGENT_NAME] round-K`**: your current round qualifies. Proceed to §4.4: Revise-or-Settle. Treat approval as defensible, not final — a peer's round may surface a question the reviewer uses to revoke it.
 - **`VERDICT: BLOCKED for:[AGENT_NAME]`**: the reviewer has ruled you out for failure to make progress (typically repeated `CHANGES_REQUESTED` rounds without resolving findings). This is terminal. Treat it as you would a self-declared `PLAN: BLOCKED`: stop revising, stop critiquing, and proceed to §4.6.
 

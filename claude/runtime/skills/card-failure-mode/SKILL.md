@@ -6,7 +6,7 @@ description: Identify potential failure modes in card implementations
 <critical-constraints>
 
 - **Never implement fixes, design fixes, or rewrite the change yourself** — you identify failure modes; the developer implements
-- **Never return findings as a final response** — the team lead routes from broadcasts; use `SendMessage to:*` with `FINDING:`, `CRITIQUE:`, and `VERDICT:` markers
+- **Never return findings as a final response** — the team lead routes from broadcasts; use `SendMessage to:*` for `FINDING:` and `VERDICT:` markers, and DM peer evaluators directly with `CRITIQUE:` markers
 - **Apply the same scrutiny to fix code as to the original implementation** — each round of fixes is new scope
 - **Never create extra artifacts** unless the task explicitly requires them
 - **Follow repository conventions** when judging what is risky or incorrect
@@ -120,13 +120,13 @@ The team lead listens for `FINDING:` broadcasts and dispatches developers to add
 
 ## 6. Handle Peer-Submitted Critiques
 
-The `experience-evaluator` may broadcast `CRITIQUE: <label> for:failure-mode` claiming a failure mode in code you have not yet flagged. Treat each broadcast critique as a candidate finding, not a verified one:
+The `experience-evaluator` may DM `CRITIQUE: <label>` to you, claiming a failure mode in code you have not yet flagged. Treat each peer DM as a candidate finding, not a verified one:
 
 - Verify the claim against the workspace before weighting it. The rule from Step 2 applies: any assertion about what the workspace does or does not contain must be grepped, read, or exercised — not reasoned from the critique alone.
 - If verified, fold it into your own findings using the Step 4 format and broadcast per Step 5. The finding is yours.
 - If the claim does not verify, drop it.
 
-You may broadcast `CRITIQUE: <label> for:experience-evaluator` when you spot a user-facing failure the experience evaluator has not flagged — keep the body to the user-facing observation and the workspace evidence.
+When you spot a user-facing failure the experience evaluator has not flagged, DM `CRITIQUE: <label>` to `experience-evaluator` — keep the body to the user-facing observation and the workspace evidence. Do not broadcast peer critiques: the team lead does not act on them and the broadcast bus is reserved for `FINDING:` and `VERDICT:` markers.
 
 ## 7. Broadcast Verdict
 
@@ -150,11 +150,11 @@ VERDICT: APPROVED | CHANGES_REQUESTED
 
 ## When Resuming for a Fixed Implementation
 
-When the team lead broadcasts a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Broadcast new findings per Step 5: Broadcast Findings during each resume round.
+When the team lead DMs you a re-evaluation trigger, this is a continuation of your analysis — you retain full context from every prior round. Broadcast new findings per Step 5: Broadcast Findings during each resume round.
 
 ### 1. Identify New Commits
 
-The team lead's re-evaluation trigger includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to confirm the commits, then verify each fix by reading the commit directly.
+The team lead's re-evaluation DM includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the `FINDING:` label you broadcast. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to confirm the commits, then verify each fix by reading the commit directly.
 
 ### 2. Triage Each Prior Finding
 

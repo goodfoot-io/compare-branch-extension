@@ -11,8 +11,8 @@ description: Review parallel plans for technical and user-facing failure modes, 
 
 - **Never modify a plan or implement code** — you identify failure modes; the planner revises
 - **Follow repository conventions** when judging what is risky or incorrect
-- **Account for verification limits or blockers** explicitly in the verdict broadcast
-- **Tag every verdict with the round it covers** — use `VERDICT: [APPROVED | CHANGES_REQUESTED] for:[PLANNER] round-K`. The round number comes from the `PLAN: READY for:[PLANNER] round-K` broadcast you are responding to.
+- **Account for verification limits or blockers** explicitly in the body DM that accompanies the verdict broadcast
+- **Tag every verdict with the round it covers** — broadcast `VERDICT: [APPROVED | CHANGES_REQUESTED] for:[PLANNER] round-K` as the public state event. The round number comes from the `PLAN: READY for:[PLANNER] round-K` broadcast you are responding to. The verdict body — summary, rationale, final thoughts — is DM'd to the planner; the broadcast carries only the state line.
 - **`APPROVED` is qualifying, not winning** — do not conclude review on the first approval; only the `WINNER:` broadcast you issue in §6 ends the contest
 - **You hold the disqualification authority.** A planner who fails to make progress on resolving findings — repeated `CHANGES_REQUESTED` rounds without revising, accumulating findings that are never addressed — may be ruled out by you with `VERDICT: BLOCKED for:[PLANNER] because:<reason>` (see §5.1). The judgment is yours to make on the evidence; there is no fixed round count.
 
@@ -33,13 +33,13 @@ Track per-plan state with `TaskCreate` so analysis context carries across plans 
 
 When a new `PLAN: READY` broadcast arrives, read the plan file immediately — even if you are mid-review of another — so you know what is in-flight. Create or update the tracking task for that plan, capture a first impression of its approach, then return to whichever plan you were reviewing. Interleave passes across plans; do not block new arrivals behind a full sweep of an earlier one.
 
-This is a contest, not a race. `APPROVED` is the qualifying bar; the contest stays open until every live plan has earned it AND every live planner has explicitly settled against the current field of peer plans. Approval is sticky-but-revocable — when a question raised by a peer's plan retroactively invalidates a previously-approved plan, broadcast `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` to revoke (see §2.2). When the team lead DMs you `{"type": "select_winner"}`, run the final pass and broadcast a `WINNER:` (see §6). A planner that self-declares `PLAN: BLOCKED`, or that you rule `VERDICT: BLOCKED for:[PLANNER]`, drops out of contention; do not wait on either.
+This is a contest, not a race. `APPROVED` is the qualifying bar; the contest stays open until every live plan has earned it AND every live planner has explicitly settled against the current field of peer plans. Approval is sticky-but-revocable — when a question raised by a peer's plan retroactively invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` to revoke (see §2.2). When the team lead DMs you `{"type": "select_winner"}`, run the final pass and broadcast a `WINNER:` (see §6). A planner that self-declares `PLAN: BLOCKED`, or that you rule `VERDICT: BLOCKED for:[PLANNER]`, drops out of contention; do not wait on either.
 
 `PLAN: SETTLED` broadcasts from planners are the team lead's signal, not yours. They do not require a verdict from you — you can ignore them for the purpose of analysis. They matter only insofar as a settled planner has tied their plan to a specific field of peer rounds; if you later issue `CHANGES_REQUESTED` against any planner whose round is referenced by a peer's settlement, you have implicitly invalidated that settlement. The planner sees the same broadcasts you do and re-evaluates on its own.
 
 When the team lead DMs you `{"type": "shutdown_request"}`, the contest has ended (you have already broadcast `WINNER:` or the contest reached an all-blocked outcome). Stop any in-flight analysis and exit cleanly. The team lead waits for your shutdown before tearing down the team.
 
-Every streamed finding is addressed to the originating planner by name (`to:[PLANNER]`). Every verdict broadcast names the plan and the round (`VERDICT: ... for:[PLANNER] round-K`). The single exception is `VERDICT: BLOCKED for:[PLANNER]`, which is round-agnostic — it terminates the planner regardless of round.
+Every streamed finding is DM'd to the originating planner by name (`to:[PLANNER]`). Every verdict is a two-message pair (§5): the body DM goes to `[PLANNER]`, and the public state line `VERDICT: ... for:[PLANNER] round-K` is broadcast to `*` so peers and the team lead see only the line. The single exception is `VERDICT: BLOCKED for:[PLANNER]`, which is round-agnostic — it terminates the planner regardless of round.
 
 </multi-plan-contest-mode>
 
@@ -88,13 +88,13 @@ For every failure-mode question, determine how the plan answers it:
 - **Answered**: The plan provides a specific answer, and the answer holds up against the workspace. Move on.
 - **Unanswered**: The plan is silent on the question, or its answer does not hold. File a finding per Step 3.
 - **Worsened**: The plan's approach makes the underlying hazard more likely or more severe than before. File a finding per Step 3, describing how the approach amplifies the risk.
-- **Uncontested across plans**: every plan under review gives the same answer to this question, including the same load-bearing mechanism. File a finding addressed to all planners (`to:*`) labeled `approach monoculture: [question]` — the contest's value is in exploring alternatives, and this question had none. This is broadcast-wide, not per-plan; do not also DM it to individual planners.
+- **Uncontested across plans** (only when two or more plans are live): every live plan gives the same answer to this question, including the same load-bearing mechanism. File a finding addressed to all planners (`to:*`) labeled `approach monoculture: [question]` — the contest's value is in exploring alternatives, and this question had none. This is broadcast-wide, not per-plan; do not also DM it to individual planners. When the live set has shrunk to one planner, this triage path is unreachable — file the same observation as a regular `Unanswered` or `Worsened` finding via §4 instead.
 
 ### 2.2. Extend the Questions With What the Plan Reveals
 
 Your pre-plan questions were built from the card alone. The plan will introduce specifics — concrete mechanisms, concrete file sets, concrete ordering — that expose failure angles the pre-plan lens could not see. Treat this as an extension of the question set, not a separate hunt for findings: as you read the plan and trace the workspace, add new questions the plan surfaces, then answer each new question — across every plan currently under review, not only the one that surfaced it — using the §2.1 triage (Answered / Unanswered / Worsened / Uncontested across plans).
 
-A new question applies retroactively to every plan you have already touched, including ones you have already approved. When a new question invalidates a previously-approved plan, broadcast `VERDICT: CHANGES_REQUESTED for:[PLANNER]` per §5 — that revokes the prior approval. Stream the new finding to the originating planner per §4 so it can revise. The contest reopens until that plan is re-approved.
+A new question applies retroactively to every plan you have already touched, including ones you have already approved. When a new question invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER]` per §5 (DM body to the planner, broadcast the state line) — that revokes the prior approval. Stream the new finding to the originating planner per §4 so it can revise. The contest reopens until that plan is re-approved.
 
 Prompts for generating plan-revealed questions:
 
@@ -149,23 +149,32 @@ As soon as a finding meets the Step 3 detail bar, DM the originating planner by 
 
 The planner acts on each finding as it arrives and may revise the plan under you. Continue your analysis after each message — if the plan changes, read what's current when you need it. Do not restart. Never send a finding about one planner's plan to another planner.
 
-## 5. Broadcast Verdict
+## 5. Issue Verdict
 
 You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the team lead.
 
-The planner has the full findings via streaming. Broadcast a concise summary plus any final thoughts that emerged after the last streamed message — not a repeat of every finding.
+A verdict is two messages, sent in this order:
 
-Tag the verdict with the round you are responding to: the round number from the planner's most recent `PLAN: READY for:[PLANNER] round-K` broadcast. End the message with a single line: `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K`. Use `APPROVED` only when you have no blocking findings to raise against that plan. `APPROVED` is the qualifying bar, not the finish line — the contest stays open and a later question may force you to revoke this approval per §2.2 by broadcasting `CHANGES_REQUESTED for:[PLANNER] round-K` against the round you previously approved.
+1. **Body DM to `[PLANNER]`.** A concise summary plus any final thoughts that emerged after the last streamed finding — not a repeat of every finding. The planner has the full findings via §4 streaming; this DM gives the planner the round-level synthesis it needs to revise.
+2. **State-line broadcast to `*`.** A single-line public marker the team lead and peers route on. The body lives in the DM; the broadcast carries only the line.
 
-**Round-tag race.** Before broadcasting a verdict for round-K, check whether the planner has since broadcast `PLAN: READY for:[PLANNER] round-K+1`. If they have, your round-K analysis is stale — discard the verdict, re-open the task per §7, and evaluate round-K+1 instead. Findings you DM'd to the planner during round-K analysis stay on the record as inputs to your §7.2 triage: each gets re-classified as Addressed / Partially Addressed / Unaddressed against round-K+1's content. They are inputs to the round-K+1 verdict, not constraints on it — round-K+1 may resolve them, escalate them, or reveal new ones. Never broadcast a verdict for a round that the planner has already superseded.
+Tag the verdict with the round you are responding to: the round number from the planner's most recent `PLAN: READY for:[PLANNER] round-K` broadcast. The broadcast line is `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K`. Use `APPROVED` only when you have no blocking findings to raise against that plan. `APPROVED` is the qualifying bar, not the finish line — the contest stays open and a later question may force you to revoke this approval per §2.2 by issuing `CHANGES_REQUESTED for:[PLANNER] round-K` against the round you previously approved.
+
+**Round-tag race.** Before issuing a verdict for round-K, check whether the planner has since broadcast `PLAN: READY for:[PLANNER] round-K+1`. If they have, your round-K analysis is stale — discard the verdict (do not send the DM or the broadcast), re-open the task per §7, and evaluate round-K+1 instead. Findings you DM'd to the planner during round-K analysis stay on the record as inputs to your §7.2 triage: each gets re-classified as Addressed / Partially Addressed / Unaddressed against round-K+1's content. They are inputs to the round-K+1 verdict, not constraints on it — round-K+1 may resolve them, escalate them, or reveal new ones. Never issue a verdict for a round that the planner has already superseded.
 
 ```xml
+<invoke name="SendMessage">
+  <parameter name="to">[PLANNER]</parameter>
+  <parameter name="summary">Failure-mode verdict body for [PLANNER] round-K</parameter>
+  <parameter name="message">
+[Summary of key findings — approach-level concerns first, then step-level. Any final thoughts not yet streamed to the planner.]
+  </parameter>
+</invoke>
+
 <invoke name="SendMessage">
   <parameter name="to">*</parameter>
   <parameter name="summary">Failure-mode verdict for [PLANNER] round-K: [APPROVED | CHANGES_REQUESTED]</parameter>
   <parameter name="message">
-[Summary of key findings — approach-level concerns first, then step-level. Any final thoughts not yet streamed to the planner.]
-
 VERDICT: APPROVED for:[PLANNER] round-K | CHANGES_REQUESTED for:[PLANNER] round-K
   </parameter>
 </invoke>
@@ -181,15 +190,21 @@ Conservative triggers — a single `CHANGES_REQUESTED` followed by an in-progres
 
 Two reviewers in two different contests may pull this trigger at different points; that variance is acceptable across contests. What matters is **consistency within a single contest**: once you have established a threshold by ruling one planner BLOCKED, apply the same threshold to every other planner in the same contest. Do not BLOCK planner-2 for a pattern you tolerated in planner-3.
 
-The verdict is round-agnostic and terminal. The planner exits per its skill's `BLOCKED` handler; the team lead removes them from the live set used for closure. State the cause in the broadcast so the record explains the ruling.
+The verdict is round-agnostic and terminal. The planner exits per its skill's `BLOCKED` handler; the team lead removes them from the live set used for closure. Issue the verdict as the same two-message pair as §5 — DM the evidence body to the disqualified planner, then broadcast the state line. The broadcast names the cause in its `because:` clause so the record explains the ruling at a glance; the DM holds the supporting evidence.
 
 ```xml
+<invoke name="SendMessage">
+  <parameter name="to">[PLANNER]</parameter>
+  <parameter name="summary">Disqualification evidence for [PLANNER]</parameter>
+  <parameter name="message">
+[Evidence: which findings are unresolved across which rounds; what behavior was missing or wrong.]
+  </parameter>
+</invoke>
+
 <invoke name="SendMessage">
   <parameter name="to">*</parameter>
   <parameter name="summary">Disqualifying [PLANNER] for non-progress</parameter>
   <parameter name="message">
-[Evidence: which findings are unresolved across which rounds; what behavior was missing or wrong.]
-
 VERDICT: BLOCKED for:[PLANNER] because:<short cause>
   </parameter>
 </invoke>
@@ -201,7 +216,7 @@ The team lead DMs you `{"type": "select_winner"}` once the obligation graph has 
 
 ### 6.1. Final Retroactive Pass
 
-Re-check every approved plan against the current question set one final time. If any plan now fails — typically because a question raised late in review never received a satisfying answer — broadcast `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5 and stream the finding per §4. Do not select a winner. The contest reopens; the affected planner re-enters its revision loop and the obligation graph no longer holds.
+Re-check every approved plan against the current question set one final time. If any plan now fails — typically because a question raised late in review never received a satisfying answer — issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5 (DM body to the planner, broadcast the state line) and stream the finding per §4. Do not select a winner. The contest reopens; the affected planner re-enters its revision loop and the obligation graph no longer holds.
 
 ### 6.2. Lone Survivor
 
@@ -270,11 +285,11 @@ The goal of each successive round is to pursue each prior concern to a definite 
 
 When a new finding in the revised plan relates to a prior concern — whether it compounds it, partially resolves it, shifts its location, or changes its severity — document the relationship explicitly.
 
-### 7.5. Broadcast Verdict for This Round
+### 7.5. Issue Verdict for This Round
 
-Use the SendMessage format from Step 5: Broadcast Verdict. Lead with unresolved prior concerns, then new findings from this revision, then any approach-level risks that survive. Note resolved findings as closed — do not repeat them. Keep the broadcast concise; the planner has the full detail via streaming.
+Use the SendMessage pair from Step 5: Issue Verdict. Lead the body DM with unresolved prior concerns, then new findings from this revision, then any approach-level risks that survive. Note resolved findings as closed — do not repeat them. Keep the body concise; the planner has the full detail via streaming.
 
-End the message with a single line: `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K`, where `round-K` is the round you are responding to. Use `APPROVED` only when every prior concern has been resolved at the root and the revised plan introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
+The broadcast carries only the line: `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K`, where `round-K` is the round you are responding to. Use `APPROVED` only when every prior concern has been resolved at the root and the revised plan introduced no new blocking finding. A prior finding left unaddressed — marked "not viable," "limitation," or "follow-up" — is not resolved; use `CHANGES_REQUESTED` and restate it.
 
 When successive rounds revise the plan without resolving the same finding, consider whether the planner has stopped making progress. The §5.1 disqualification authority is yours to apply when the evidence supports it.
 
