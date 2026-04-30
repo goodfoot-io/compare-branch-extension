@@ -97,7 +97,8 @@ describe('Stop Route Nudge Hook', () => {
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('cards/main-1/1');
       expect(stdout.reason).toContain('main');
-      expect(stdout.reason).toContain('SKILL.md');
+      expect(stdout.reason).toContain('runtime:card');
+      expect(stdout.reason).toContain('<routing-instructions>');
       expect(mockMarkSessionRouteNudgeFired).toHaveBeenCalledWith(mockInput.session_id);
     });
 

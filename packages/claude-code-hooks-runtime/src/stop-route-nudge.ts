@@ -2,7 +2,7 @@
  * Stop hook — route nudge when workspace branch has unmerged commits.
  *
  * Fires at most once per session. Returns `decision: 'block'` with a `reason`
- * instructing the agent to re-load SKILL.md and re-route when:
+ * instructing the agent to re-load the `runtime:card` skill and re-route when:
  * - The card is not tagged "blocked"
  * - Merge is either not gated or already approved
  * - The workspace branch has commits not yet merged into the base branch
