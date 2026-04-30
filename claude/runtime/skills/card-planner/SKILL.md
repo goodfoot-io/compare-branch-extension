@@ -41,9 +41,17 @@ Peer plans are public. You may read them, steal good ideas into your own plan, a
 
 ## 1. Create and Spike Your Plan
 
-Load `runtime:card/references/planning.md` and follow its instructions with `[PLAN_FILE] = plan/[AGENT_NAME].md`. That procedure covers the starting-state check, research, plan authoring, commit, and spike investigations.
+Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plan/`; if a prior plan has been implemented and the card requests new work, treat it as established context.
 
-While following the planning procedure, DM research findings as required by Step 2. Peer findings arrive in your inbox the same way — read them and use them.
+Distill commander's intent from the card — what the situation looks like when the work is done and what constraints must hold regardless of approach. Then research: read every consumer of each symbol, field, or boundary your plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
+
+Write your plan to `[PLAN_FILE] = plan/[AGENT_NAME].md` per the `cards:markdown` guidelines, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
+
+When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), consult the `runtime:tdd-bootstrap` skill and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
+
+For load-bearing assumptions you cannot resolve from the workspace alone, load `runtime:spike` and follow its procedure to investigate. Revise `[PLAN_FILE]` after spikes return.
+
+While doing this work, DM research findings as required by Step 2. Peer findings arrive in your inbox the same way — read them and use them.
 
 ## 2. DM Research Findings as You Work
 
