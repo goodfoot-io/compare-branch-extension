@@ -118,16 +118,27 @@ Workspace validation passed before this dispatch. Focus on runtime behavior, sem
 
 Monitor inbound DMs from the evaluator. Record each `FINDING:` (label and body) for the routing branches below. Wait for the evaluator's `VERDICT:` DM.
 
-Based on the verdict:
-- **`VERDICT: APPROVED`**: TeamDelete and proceed to Step 6: Finalize.
-- **`VERDICT: CHANGES_REQUESTED`**: TeamDelete, then route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plan/` in the card repository:
-  - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.
-  - **No plan file**: Read `./plan.md` and follow its instructions. The findings inform the next planning pass.
-- **`VERDICT: BLOCKED`**: Add `blocked` to `tags` in `CARD.meta.json`, write the evaluator's rationale to `comment/validation-failed.md`, commit both, TeamDelete, **STOP**.
+Every branch tears down the team the same way: DM the evaluator a shutdown request, wait for it to exit, then `TeamDelete`. Do this before any branch-specific routing.
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">failure-mode</parameter>
+  <parameter name="message">{"type": "shutdown_request"}</parameter>
+</invoke>
+```
+
+Wait for the evaluator to shut down, then:
 
 ```xml
 <invoke name="TeamDelete" />
 ```
+
+Then route on the verdict:
+- **`VERDICT: APPROVED`**: Proceed to Step 6: Finalize.
+- **`VERDICT: CHANGES_REQUESTED`**: Route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plan/` in the card repository:
+  - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.
+  - **No plan file**: Read `./plan.md` and follow its instructions. The findings inform the next planning pass.
+- **`VERDICT: BLOCKED`**: Add `blocked` to `tags` in `CARD.meta.json`, write the evaluator's rationale to `comment/validation-failed.md`, commit both, **STOP**.
 
 ## 6. Finalize
 

@@ -9,6 +9,7 @@ description: Find user-experienced failure modes in an implementation.
 - **Stay within the card's scope** — do not raise user-facing issues unrelated to the card's requirements
 - **Never raise internal code quality findings** — broken wiring, type escape hatches, and async hazards belong to the `failure-mode` agent; your findings are failures the user encounters
 - **State verification limits explicitly** when you cannot exercise a user entry point, and account for them in the verdict DM
+- **Honor `{"type": "shutdown_request"}` from `team-lead`** — the evaluation has ended (you have already DM'd a `VERDICT:` or the team lead has hit a terminal branch). Stop any in-flight exercise and exit cleanly. The team lead waits for your shutdown before tearing down the team.
 
 </critical-constraints>
 

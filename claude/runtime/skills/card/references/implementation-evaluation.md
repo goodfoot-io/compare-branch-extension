@@ -143,7 +143,7 @@ Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current 
 Based on the aggregated verdicts:
 - **All APPROVED**: Proceed to Step 9: Finalize.
 - **Any CHANGES_REQUESTED**: Proceed to Step 6: Dispatch Developer Wave with the recorded findings.
-- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, tear down the team via `<invoke name="TeamDelete" />`, and **STOP**.
+- **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, tear down the team per Step 9: Finalize (shutdown each evaluator, wait, then `TeamDelete`), and **STOP**.
 
 ## 6. Dispatch Developer Wave
 
@@ -259,7 +259,18 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 ## 9. Finalize
 
-Only enter this step when every evaluator DM'd `VERDICT: APPROVED` in Step 5: Collect Verdicts and Route. Tear down the team:
+Enter this step on either terminal exit: every evaluator DM'd `VERDICT: APPROVED` in Step 5: Collect Verdicts and Route, or the BLOCKED branch fired.
+
+Send a shutdown request to every still-running evaluator in the team. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently:
+
+```xml
+<invoke name="SendMessage">
+  <parameter name="to">failure-mode</parameter>
+  <parameter name="message">{"type": "shutdown_request"}</parameter>
+</invoke>
+```
+
+Wait for every evaluator to shut down before tearing down the team:
 
 ```xml
 <invoke name="TeamDelete" />
