@@ -13,7 +13,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { executeTransaction, hasErrnoCode, isProcessAlive, pruneStaleEntries } from './internal.js';
 
-export { findAgentPid, findAllAgentPids, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
+export { findAgentPid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
 
 function getCardsDir(): string {
   return join(homedir(), '.cards');

@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
-import { findAgentPid, registerSession } from '@cards/sessions';
+import { associatePidWithCard, findAgentPid, registerSession } from '@cards/sessions';
 import { writeSessionHeadSha } from '@cards/sessions/card-repo';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/claude-code-hooks';
 import {
@@ -102,12 +102,35 @@ async function registerPidAndSpawnWatcher(
         '',
         `Error: ${error.message}`,
         '',
+        `Card: ${actionInput.cardId}`,
+        `Card repo: ${actionInput.cardRepoPath}`,
+        `Action: ${actionInput.actionName}`,
+        '',
         'Commit attribution requires a valid PID-to-session mapping. To resolve:',
         '1. Verify the session registry is accessible and not locked by another process',
         '2. Ensure sufficient disk space for the session registry file',
         `3. Check that the agent process (PID ${String(error.pid)}) is still running`
       ].join('\n'),
       stopReason: `Session registration failed: ${error.message}`
+    });
+  }
+
+  try {
+    await associatePidWithCard(agentPid, actionInput.cardId, {
+      mode: 'launch',
+      workspacePath: process.cwd()
+    });
+    logger.info('Enrolled launch-mode PID-to-card association', {
+      pid: agentPid,
+      cardId: actionInput.cardId,
+      workspacePath: process.cwd()
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn('Launch-mode PID-to-card association failed', {
+      pid: agentPid,
+      cardId: actionInput.cardId,
+      error: message
     });
   }
 
@@ -177,10 +200,12 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
     // attribution now resolves the card via resolveCardId (env → worktree-file)
     // independent of the PID-keyed session entry. The PID-keyed entry only feeds
     // best-effort transcript watching; its absence is a warning, not a fatal.
-    logger.warn('Could not find agent PID for transcript watcher; continuing without PID-keyed session entry', {
+    logger.warn('Could not identify agent PID; transcript watcher disabled', {
       sessionId: input.session_id,
+      ppid: process.ppid,
       cardId: actionInput.cardId,
-      ppid: process.ppid
+      cardRepoPath: actionInput.cardRepoPath,
+      actionName: actionInput.actionName
     });
   }
 

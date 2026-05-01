@@ -27,7 +27,8 @@ vi.mock('node:child_process', () => ({
 
 vi.mock('@cards/sessions', () => ({
   findAgentPid: vi.fn(),
-  registerSession: vi.fn()
+  registerSession: vi.fn(),
+  associatePidWithCard: vi.fn()
 }));
 
 vi.mock('@cards/sessions/card-repo', () => ({
@@ -224,7 +225,8 @@ describe('SessionStart Hook', () => {
       expect(mockRegisterSession).toHaveBeenCalledWith(42, 'sess-123');
     });
 
-    it('continues with a warning when findAgentPid returns null (PID-keyed entry is best-effort)', async () => {
+    it('warns and continues when findAgentPid returns null (PID-keyed entry is best-effort)', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn');
       mockFindClaudePid.mockReturnValue(null);
       vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
@@ -244,6 +246,21 @@ describe('SessionStart Hook', () => {
       };
       expect(stdout.continue).not.toBe(false);
       expect(stdout.stopReason).toBeUndefined();
+
+      const warnMatch = warnSpy.mock.calls.find(
+        ([msg, meta]) =>
+          typeof msg === 'string' &&
+          /agent PID/i.test(msg) &&
+          meta !== undefined &&
+          (meta as Record<string, unknown>)['cardId'] === 'card-123' &&
+          (meta as Record<string, unknown>)['cardRepoPath'] === repoPath &&
+          (meta as Record<string, unknown>)['actionName'] === 'Launch Claude'
+      );
+      expect(
+        warnMatch,
+        `expected diagnostic warn with cardId/cardRepoPath/actionName; got: ${JSON.stringify(warnSpy.mock.calls)}`
+      ).toBeDefined();
+      warnSpy.mockRestore();
     });
 
     it('returns continue:false with stopReason when registerSession throws', async () => {
@@ -268,6 +285,9 @@ describe('SessionStart Hook', () => {
       expect(stdout.stopReason).toContain('disk full');
       expect(stdout.systemMessage).toContain('PID 42');
       expect(stdout.systemMessage).toContain('sess-123');
+      expect(stdout.systemMessage).toContain('Card: card-123');
+      expect(stdout.systemMessage).toContain(`Card repo: ${repoPath}`);
+      expect(stdout.systemMessage).toContain('Action: Launch Claude');
       expect(stdout.systemMessage).toContain('To resolve:');
     });
 

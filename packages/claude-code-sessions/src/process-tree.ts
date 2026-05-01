@@ -10,20 +10,27 @@ import { execSync } from 'node:child_process';
 /** Maximum depth to walk up the process tree. */
 export const PROCESS_TREE_MAX_DEPTH = 10;
 
-const AGENT_ARGS_PATTERNS = [/((^|\s|\/)claude(\/|\s|$))/i, /((^|\s|\/)codex(\/|\s|$))/i];
+/**
+ * Set of `comm` values that identify shell processes the walk skips.
+ *
+ * `comm` is the kernel-maintained command name (15-char truncated basename of
+ * the executable), not influenced by argv path components. The first ancestor
+ * whose `comm` is *not* in this set is treated as the agent process.
+ */
+const SHELL_COMMS = new Set(['bash', 'zsh', 'sh', 'dash', 'fish', 'ksh']);
 
 /**
- * Checks whether a given PID belongs to a supported agent process.
+ * Returns the kernel `comm` value for `pid`, or `null` when `ps` fails.
  *
  * @param pid - Process ID to inspect.
- * @returns `true` when the process args match a supported agent executable.
+ * @returns The trimmed `comm` value, or `null` when the process is gone or
+ *   `ps` cannot be invoked.
  */
-function isSupportedAgent(pid: number): boolean {
+function getComm(pid: number): string | null {
   try {
-    const args = execSync(`ps -p ${pid} -o args=`, { encoding: 'utf8' }).trim();
-    return AGENT_ARGS_PATTERNS.some((pattern) => pattern.test(args));
+    return execSync(`ps -p ${pid} -o comm=`, { encoding: 'utf8' }).trim();
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -49,44 +56,29 @@ function getParentPid(pid: number): number | null {
 
 /**
  * Walks the process tree upward from `startPid` (default: `process.ppid`)
- * looking for the nearest supported agent ancestor.
+ * skipping shell processes and returning the first non-shell ancestor PID.
+ *
+ * Under shell-skip the first non-shell ancestor *is* the agent process. The
+ * walk traverses at most {@link PROCESS_TREE_MAX_DEPTH} levels.
  *
  * @param startPid - Optional root PID for traversal. When omitted, traversal
  *   starts at the parent of the current hook process.
- * @returns The nearest matching agent ancestor PID, or `null` when no match
- *   is found within {@link PROCESS_TREE_MAX_DEPTH}.
+ * @returns The first non-shell ancestor PID, or `null` when no non-shell
+ *   ancestor is found within {@link PROCESS_TREE_MAX_DEPTH}.
  */
 export function findAgentPid(startPid?: number): number | null {
-  const pids = findAllAgentPids(startPid);
-  return pids[0] ?? null;
-}
-
-/**
- * Walks the process tree upward from `startPid` (default: `process.ppid`) and
- * returns **all** supported agent ancestor PIDs, ordered nearest-first.
- *
- * Useful when multiple agent sessions are nested and the correct card
- * association may belong to an ancestor further up the tree.
- *
- * @param startPid - Optional root PID for traversal. When omitted, traversal
- *   starts at the parent of the current hook process.
- * @returns All matching agent ancestor PIDs discovered before traversal stops.
- */
-export function findAllAgentPids(startPid?: number): number[] {
-  const results: number[] = [];
   let pid = startPid ?? process.ppid;
 
   for (let depth = 0; depth < PROCESS_TREE_MAX_DEPTH; depth++) {
-    if (pid <= 1) break;
+    if (pid <= 1) return null;
 
-    if (isSupportedAgent(pid)) {
-      results.push(pid);
-    }
+    const comm = getComm(pid);
+    if (comm !== null && !SHELL_COMMS.has(comm)) return pid;
 
     const parentPid = getParentPid(pid);
-    if (parentPid === null) break;
+    if (parentPid === null) return null;
     pid = parentPid;
   }
 
-  return results;
+  return null;
 }
