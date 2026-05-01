@@ -188,6 +188,44 @@ describe('Stop Route Nudge Hook', () => {
     });
   });
 
+  describe('waiting-message suppression', () => {
+    const waitingPhrases = [
+      'Waiting for the test suite to complete.',
+      'I will await the build output before proceeding.',
+      'Polling the deploy status now.',
+      'Monitoring the run for failures.',
+      'The job is pending; I will check back shortly.',
+      'Standing by for your confirmation.',
+      'Holding off until the migration finishes.',
+      'In the meantime, I will not modify anything.',
+      'ETA roughly 5 minutes.'
+    ];
+
+    for (const message of waitingPhrases) {
+      it(`returns null when last_assistant_message contains "${message}"`, async () => {
+        const result = await hook({ ...mockInput, last_assistant_message: message } as Parameters<typeof hook>[0], {
+          logger
+        });
+        expect(result).toBeNull();
+        expect(mockHasSessionRouteNudgeFired).not.toHaveBeenCalled();
+        expect(mockMarkSessionRouteNudgeFired).not.toHaveBeenCalled();
+      });
+    }
+
+    it('still fires when last_assistant_message has no waiting stems', async () => {
+      const result = await hook(
+        { ...mockInput, last_assistant_message: 'Done — pushed the commits.' } as Parameters<typeof hook>[0],
+        { logger }
+      );
+      expect(result).not.toBeNull();
+    });
+
+    it('still fires when last_assistant_message is undefined', async () => {
+      const result = await hook(mockInput, { logger });
+      expect(result).not.toBeNull();
+    });
+  });
+
   describe('once-per-session suppression', () => {
     it('returns null when hasSessionRouteNudgeFired is true', async () => {
       mockHasSessionRouteNudgeFired.mockReturnValue(true);
