@@ -1,59 +1,98 @@
 
-<placeholder-variables>
-[MODEL] — LLM model selection for subagent delegation (opus, sonnet, or haiku)
-</placeholder-variables>
-
 <instructions>
 
 ## 1. Prepare Environment
 
-Create the baseline tag if one does not already exist. The baseline is pinned — it does not advance during implementation.
+Pin the baseline tag at HEAD. The baseline does not advance during implementation; if the tag already exists, leave it where it is — you are resuming from a prior checkpoint.
 
 ```bash
-if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
-  echo "Baseline tag already exists — resuming from prior checkpoint."
-else
-  git tag "implement/$CARD_ID/baseline" HEAD
-fi
+git tag "implement/$CARD_ID/baseline" HEAD  # skip if the tag already exists
 ```
 
 ## 2. Implement Plan
 
-### 2.1 Verify Current State
+This is the plan-driven path: the plan was approved before implementation, and your job is to execute it without rewriting it. If the plan turns out to be wrong, see `<when-to-return-to-planning>`.
 
-Review the plan files in the card repository's `plan/` directory. When multiple files exist, treat the plan file with the most recent commit touching it as layering on top of older ones. Use `git log -1 --format=%H -- plan/<file>` to compare.
+Work proceeds in **groups**. A group is the unit of agent dispatch — every group must reach a validation-passing state on its own, and ends in a single commit. The shape of each group (one agent, several concurrent agents, or one agent through an ordered phase) comes out of `<dispatch>`.
 
-Based on plan completion:
-- **Newest plan fully implemented**: Proceed to Step 3: Validation Gate.
-- **Implementation steps remain**: Proceed to Step 2.2: Assess Coherence.
+For each group:
 
-### 2.2 Assess Coherence
+1. Pass `<verify-plan-state>`. It either routes you into `<dispatch>` for the next group, or — when the plan is fully implemented — into `<final-validation-gate>`.
+2. Pass `<dispatch>` — assess coherence and delegate.
+3. Pass `<group-validation-gate>` — validate, then commit on success or rollback on failure.
+4. Return to step 1.
 
-**Compilability invariant.** The steps assigned to a single agent must be reachable to a validation-passing state without depending on work assigned to another agent or a later dispatch. If the plan contains any step that breaks the build, types, or tests until a later step lands, the unit of assignment is the smallest set of steps that restores green — never larger. Evaluate this before dependency or uniformity; it overrides them.
+Step 2 ends when `<final-validation-gate>` passes. Both gates are gates, not terminal states; Steps 3 and 4 still follow.
 
-Route based on the first matching condition:
+Before the first commit, load `cards:markdown` and `runtime:workspace-commit-style` — every commit in this flow follows those conventions.
 
-- **Parallel** — Independent files, OR uniform steps across files. Concurrent agents over independent groups, one commit after the group returns.
-- **Sequential** — Multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Ordered dispatches advance through phases without pausing; each phase ends in a commit and an immediate return to Step 2.1.
-- **Coherent** — Dependent and varied steps, AND the plan has a single phase, AND a single end-of-scope validation gate. Single dispatch covering all steps, one commit.
+## 3. Evaluate Quality
 
-The Sequential tiebreaker is one-way. Route **Coherent** only when every clause of its condition holds. "Phases share context" and "validation is cleaner at the end" are not valid reasons. When uncertain, route **Sequential**.
+Diff the workspace against the baseline to assess scope: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
 
-Clear gates: type-check passes, tests pass, API functional, UI renders.
+- **Simple** — single-file change, or mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation; proceed to Step 4.
+- **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
 
-### 2.3 Delegate Implementation
+When an evaluator needs to verify behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` rather than running the comparison in the active workspace — the agent owns baseline reproduction and reports the result back.
 
-Choose [MODEL] based on the work:
-- **Single-component or clearly bounded work with low ambiguity, limited architectural consequences, and a short chain of dependent steps from prompt to solution**: `haiku`
-- **Multi-file or multi-subsystem work with moderate ambiguity, several interacting constraints, and a medium-length chain of dependent steps that requires planning, revision, and integration**: `sonnet`
-- **System-level or cross-cutting work with high ambiguity, significant architectural consequences, and a long chain of dependent steps where early decisions materially shape later implementation and debugging**: `opus`
+```xml
+<invoke name="Agent">
+<parameter name="description">Verify behavior against baseline</parameter>
+<parameter name="subagent_type">runtime:card:pre-existing-condition</parameter>
+<parameter name="run_in_background">false</parameter>
+<parameter name="prompt">
+## Behavior Under Investigation
+[the behavior the evaluator wants to compare against baseline — file/function/command and the expected pre-implementation result]
 
-Dispatch agents according to the routing mode from Step 2.2: Assess Coherence:
-- **Parallel**: Launch concurrent agents for independent groups.
-- **Sequential**: Delegate the current phase, proceed to Step 2.4: Validate and Commit at its gate, then return here for the next phase.
-- **Coherent**: Single agent covering all remaining steps in the plan.
+## Active Card Diff Scope
+[list of files the active card has modified since `implement/$CARD_ID/baseline`]
 
-Agent prompts must be self-contained — agents have no conversation context. For Parallel routing, dispatch concurrent agents by placing multiple foreground `<invoke>` blocks in a single message — they execute in parallel without backgrounding.
+## Task
+Reproduce the named behavior on the baseline ref and report the result. Do not modify the active workspace. Return NOT_PRE_EXISTING with the baseline output so the evaluator can compare it against current behavior.
+</parameter>
+</invoke>
+```
+
+## 4. Finalize
+
+The card is not COMPLETED until every part of this section has run. Passing the final validation gate at the end of Step 2 is not the terminal state — staging, tag cleanup, and the merge decision all follow.
+
+**Stage remaining changes.** Commit any uncommitted implementation artifacts per the workspace commit style — same convention as `<group-validation-gate>`.
+
+**Clean up tags.** The rollback window closes once implementation commits are finalized:
+
+```bash
+git tag -d "implement/$CARD_ID/baseline" 2>/dev/null
+```
+
+**Route to merge or await review.** Based on `gates.mergeRequestRequired`:
+- **false or unset** — read `./merge.md` and follow its `<instructions>`.
+- **true** — **STOP**. Merge occurs after user approval.
+
+</instructions>
+
+<verify-plan-state>
+
+Review the plan files in the card repository's `plan/` directory. When multiple files exist, treat the plan file with the most recent commit touching it as layering on top of older ones (`git log -1 --format=%H -- plan/<file>`).
+
+- **Newest plan fully implemented** — pass `<final-validation-gate>`, then Step 3.
+- **Implementation steps remain** — pass `<dispatch>` for the next group.
+
+</verify-plan-state>
+
+<dispatch>
+
+The unit of assignment is a group. Choose the group's shape and delegate.
+
+**Compilability invariant.** Steps assigned to a single agent must reach a validation-passing state without depending on work assigned to another agent or a later dispatch. If the plan contains any step that breaks the build, types, or tests until a later step lands, the unit of assignment is the smallest set of steps that restores green — never larger. This overrides every other routing consideration.
+
+**Routing.** First match wins:
+
+- **Parallel** — independent files, or uniform steps across files. Concurrent agents over independent groups; one commit after the group returns.
+- **Sequential** — multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Each phase ends in a commit and an immediate return to `<verify-plan-state>` for the next phase.
+- **Coherent** — dependent and varied steps, single phase, single end-of-scope validation gate. One agent, one commit. When uncertain between Coherent and Sequential, choose Sequential.
+
+**Delegation.** Choose model per `<model-selection>`. Agent prompts must be self-contained — agents have no conversation context. For Parallel routing, dispatch concurrent agents by placing multiple foreground `<invoke>` blocks in a single message; they execute in parallel without backgrounding.
 
 ```xml
 <invoke name="Agent">
@@ -101,24 +140,20 @@ This work owns: [absolute paths from plan]
 </invoke>
 ```
 
-### 2.4 Validate and Commit
+</dispatch>
 
-**You must load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.**
+<group-validation-gate>
 
-Wait for every agent in the current group (Parallel, Coherent, or current Sequential phase) to return before validating.
+Wait for every agent in the current group to return before validating.
 
-Run the repository's workspace-level type-check and lint commands from the workspace root.
+Run the workspace's type-check and lint commands from the workspace root, then run tests scoped to what the group changed:
 
-Then run tests scoped to what the group changed:
-- **Changes isolated to a single package**: Run that package's test suite.
-- **Changes span multiple packages, or the package boundary is unclear**: Run the workspace's full validation suite.
+- **Changes isolated to a single package** — run that package's test suite.
+- **Changes span multiple packages, or the boundary is unclear** — run the workspace's full validation suite.
 
-Based on the combined result:
-- **All validations pass**: Commit the group's changes and return immediately to Step 2.1. The only loop exits are Step 2.1's "Newest plan fully implemented" branch, `<when-to-return-to-planning>`, and explicit BLOCKED STOPs.
-- **Error within your scope** (syntax error, import correction, config typo, test polyfill — per `<orchestrator-constraints>`): Fix inline and re-run the validations above.
-- **Error requires implementation changes**: Treat as NEEDS_REVISION. Discard the group's uncommitted work, return to Step 2.2: Assess Coherence to re-route — if the agent returned BLOCKED with a proposed split, adopt the split as the new routing — then re-dispatch.
-
-Commit on success:
+- **All pass** — commit the group's changes per the workspace commit style, then return to `<verify-plan-state>`.
+- **Orchestrator-scope error** (syntax, import correction, config typo, test polyfill — per `<orchestrator-constraints>`) — fix inline and re-run.
+- **Implementation error** — treat as NEEDS_REVISION: discard the group's uncommitted work (`git restore . && git clean -fd`), return to `<dispatch>` to re-route. If the agent returned BLOCKED with a proposed split, adopt the split as the new routing.
 
 ```bash
 git add -A
@@ -128,25 +163,15 @@ COMMITMSG
 )"
 ```
 
-NEEDS_REVISION rollback — restores the worktree to the last successful commit (or the baseline on the first group):
+</group-validation-gate>
 
-```bash
-git restore .
-git clean -fd
-```
+<final-validation-gate>
 
-Then return to Step 2.3: Delegate Implementation with a revised prompt.
+After every group is committed and the plan is fully implemented, run validation per the plan's validation commands. Every command must pass before proceeding to Step 3.
 
-## 3. Validation Gate
-
-**Requirement:** ALL validation commands must pass before proceeding.
-
-Run validation per the plan's validation commands.
-
-Based on the result:
-- **All validations pass**: Proceed to Step 4: Evaluate Quality.
-- **Failure originates in files the active card's diff touched**: Delegate the fix to a developer agent, then return to Step 2.4: Validate and Commit to run the group-validation gate and commit.
-- **Otherwise** (failure is not obviously the active card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing): Dispatch `runtime:card:pre-existing-condition`. Do not investigate the failure's origin yourself — that investigation belongs to the dispatched agent, and performing it inline pulls Claude off the card.
+- **All pass** — proceed to Step 3.
+- **Failure originates in files the active card's diff touched** — delegate the fix to a developer agent, then return to `<group-validation-gate>` to validate and commit.
+- **Otherwise** (failure is not obviously the active card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — dispatch `runtime:card:pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the dispatched agent.
 
   ```xml
   <invoke name="Agent">
@@ -171,92 +196,39 @@ Based on the result:
   ```
 
   On the agent's return:
-  - **COMPLETED**: Re-run the validation command. If it passes, proceed to Step 4: Evaluate Quality.
-  - **NOT_PRE_EXISTING**: The agent verified on baseline that the failure is in scope of the active card. Re-route to the in-scope branch above.
-  - **NEEDS_REVISION or BLOCKED**: Proceed to the block branch below with the agent's report.
-- **Block**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write the exact failure output and the pre-existing-condition agent's report to `comment/validation-failed.md`. Commit both files and **STOP**.
+  - **COMPLETED** — re-run the validation command and proceed to Step 3 if it passes.
+  - **NOT_PRE_EXISTING** — the failure is in scope of this card; re-route to the in-scope branch above.
+  - **NEEDS_REVISION or BLOCKED** — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and the agent's report to `comment/validation-failed.md`, commit both files, and **STOP**.
 
-## 4. Evaluate Quality
+</final-validation-gate>
 
-Diff the workspace against the baseline to assess the scope of changes: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
+<model-selection>
 
-Based on scope:
-- **Simple**: Single-file change, or a mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation — proceed to Step 5: Finalize.
-- **Behavioral or cross-file**: Any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
+`[MODEL]` selects the LLM for subagent delegation. Choose by the work's complexity:
 
-When an evaluator needs to verify behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` rather than running the comparison in the active workspace — the agent owns baseline reproduction and reports the result back.
+- **`haiku`** — bounded, low-ambiguity work; one component, short chain from prompt to solution.
+- **`sonnet`** — multi-file or multi-subsystem work with interacting constraints.
+- **`opus`** — system-level, high-ambiguity, or cross-cutting work where early decisions shape the rest.
 
-```xml
-<invoke name="Agent">
-<parameter name="description">Verify behavior against baseline</parameter>
-<parameter name="subagent_type">runtime:card:pre-existing-condition</parameter>
-<parameter name="model">[MODEL]</parameter>
-<parameter name="run_in_background">false</parameter>
-<parameter name="prompt">
-## Behavior Under Investigation
-[the behavior the evaluator wants to compare against baseline — file/function/command and the expected pre-implementation result]
-
-## Active Card Diff Scope
-[list of files the active card has modified since `implement/$CARD_ID/baseline`]
-
-## Task
-Reproduce the named behavior on the baseline ref and report the result. Do not modify the active workspace. Return NOT_PRE_EXISTING with the baseline output so the evaluator can compare it against current behavior.
-</parameter>
-</invoke>
-```
-
-## 5. Finalize
-
-### 5.1 Stage Remaining Changes
-
-Stage any uncommitted implementation artifacts:
-
-```bash
-git add -A
-git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
-COMMITMSG
-)"
-```
-
-### 5.2 Tag Cleanup
-
-Remove the baseline tag — the pre-implementation rollback window is closed once the implementation commits are finalized.
-
-```bash
-git tag -d "implement/$CARD_ID/baseline" 2>/dev/null
-```
-
-### 5.3 Complete or Await Review
-
-Based on `gates.mergeRequestRequired`:
-
-- **false or unset**: Read `./merge.md` and follow its `<instructions>`.
-- **true**: **STOP** — Merge occurs after user approval.
-
-</instructions>
+</model-selection>
 
 <rollback>
 
-| Tag | Created At | Advances | Purpose |
-|-----|------------|----------|---------|
-| `implement/[CARD_ID]/baseline` | Step 1: Prepare Environment | Never | Pre-implementation rollback target for `<when-to-return-to-planning>`. |
-
-Per-group commits made in Step 2.4: Validate and Commit serve as the NEEDS_REVISION rollback target within implementation — a failed group reverts only its uncommitted changes via `git restore . && git clean -fd`, leaving prior successful groups intact.
+`implement/[CARD_ID]/baseline` is created in Step 1, never advances, and serves as the pre-implementation rollback target for `<when-to-return-to-planning>`. Within implementation, per-group commits made in `<group-validation-gate>` serve as the NEEDS_REVISION rollback target — a failed group reverts only its uncommitted changes via `git restore . && git clean -fd`, leaving prior successful groups intact.
 
 </rollback>
 
 <when-to-return-to-planning>
 
-Return-to-planning triggers are plan-internal failures only. Scope-too-large-for-one-session is handled by re-routing in Step 2.2: Assess Coherence (split and re-dispatch), not by returning to planning. Runtime, prior-commit volume, and overlap with shipped code are not triggers. Stop and return to planning only if one of the following emerges:
+Return-to-planning triggers are plan-internal failures only. Scope-too-large-for-one-session is handled by re-routing in `<dispatch>` (split and re-dispatch), not by returning to planning. Runtime, prior-commit volume, and overlap with shipped code are not triggers. Stop and return to planning only if one of the following emerges:
 
-1. **A planned step is invalidated by a completed one** — steps that were each valid in isolation turn out to be mutually incompatible. The plan has an internal contradiction that only surfaces during execution.
-2. **The plan missed scope that changes the approach** — implementation reveals consumers or dependencies the plan didn't account for, and accommodating them requires a different strategy, not just additional steps.
-3. **A plan assumption proved false during implementation** — a spike verified something that implementation disproves. The approach the plan committed to no longer holds.
-4. **Implementation creates problems it then has to solve** — the approach introduces complexity (timing windows, error-handling machinery, interface mismatches) that wouldn't exist with a different approach. This is evidence the plan chose the wrong strategy.
+1. **Implementation creates problems it then has to solve** — the approach introduces complexity (timing windows, error-handling machinery, interface mismatches) that wouldn't exist with a different approach. The plan chose the wrong strategy.
+2. **A plan assumption proved false during implementation** — a spike verified something that implementation disproves. The approach the plan committed to no longer holds.
+3. **The plan missed scope that changes the approach** — implementation reveals consumers or dependencies the plan didn't account for, and accommodating them requires a different strategy, not just additional steps.
+4. **A planned step is invalidated by a completed one** — steps that were each valid in isolation turn out to be mutually incompatible. The plan has an internal contradiction that only surfaces during execution.
 5. **Requirements changed since the plan was written** — new user constraints, API changes, or clarifications arrived after the plan was approved that are incompatible with the planned approach. Continuing would implement something the user no longer wants.
 
-When any condition is met, **stop immediately** — do not continue implementing. Revert all changes to the baseline:
+When any condition holds, **stop immediately**. Revert to baseline:
 
 ```bash
 git reset --hard "implement/$CARD_ID/baseline"
@@ -268,22 +240,23 @@ Read `./plan.md` and follow its instructions. The planner will find the existing
 </when-to-return-to-planning>
 
 <orchestrator-constraints>
+
 You coordinate — you do NOT implement code yourself.
 
 | Orchestrator handles directly | Agents handle via delegation |
 |------------------------------|------------------------------|
-| Syntax errors visible in output | Feature implementation |
-| Import path corrections | Business logic changes |
-| Config file typos | Complex debugging |
-| Test setup/polyfills | Multi-file refactoring |
+| Syntax errors | Feature implementation |
+| Import corrections | Business logic changes |
+| Config typos | Complex debugging |
+| Test polyfills | Multi-file refactoring |
 | | Investigation work |
 | | Library integrations |
 | | API changes |
 
 Plan says "implement" → delegate to developer agent. Never use Read/Write/Edit/MultiEdit for implementation.
 
-**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. A mid-flow status report ("Step N is committed and validates; M phases remain; stopping for review") is re-solicitation; continue to the next phase.
+**Never update card status directly. Never include commitSha in comments after commits** — hooks handle commit tracking automatically. A mid-flow status report ("Step N is committed and validates; M phases remain; stopping for review") is re-solicitation; continue to the next group.
 
-**Never dispatch a scope that cannot be completed in a single agent session and reach a validation gate on its own.** Each dispatched scope must be reachable to a validation-passing state within one session without depending on a later dispatch. A scope that cannot — by validation reachability or by session size — is too large; return to Step 2.2: Assess Coherence and split. When the previous agent returned a proposed split with BLOCKED, treat that split as the default routing. The constraint is on validation reachability and session size within the scope, not on commit timing — commits are produced in Step 2.4: Validate and Commit after the group returns.
+**Never dispatch a scope that cannot be completed in a single agent session and reach a validation gate on its own.** Each dispatched scope must be reachable to a validation-passing state within one session without depending on a later dispatch. A scope that cannot — by validation reachability or by session size — is too large; return to `<dispatch>` and split. When the previous agent returned a proposed split with BLOCKED, treat that split as the default routing. The constraint is on validation reachability and session size within the scope, not on commit timing — commits are produced in `<group-validation-gate>` after the group returns.
+
 </orchestrator-constraints>
-

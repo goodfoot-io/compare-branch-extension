@@ -147,16 +147,16 @@ Based on the aggregated verdicts:
 
 ## 6. Dispatch Developer Wave
 
-Group the findings by coherence, using the same routing principle as `./implementation-with-plan.md` Step 2.2: Assess Coherence:
+Group the findings by coherence, using the same routing principle as `./implementation-with-plan.md`'s `<dispatch>`:
 - **Independent files OR uniform fixes**: Parallel — concurrent developers, one commit after the group returns.
 - **Dependent + varied + small**: Coherent — single developer for all findings, one commit.
 - **Dependent + varied + substantial with clear gates**: Sequential — ordered developers with a validate-and-commit gate between phases.
 
 When uncertain between Coherent and Sequential, choose **Sequential**.
 
-Choose [MODEL] per the same tiering as `./implementation-with-plan.md` Step 2.3: Delegate Implementation.
+Choose [MODEL] per the same tiering as `./implementation-with-plan.md`'s `<model-selection>`.
 
-Developers are **not** team members and receive no follow-up after dispatch — same single-prompt style as `./implementation-with-plan.md` Step 2.3. Inline every finding the developer must address into its initial prompt; do not stream new findings to a running developer. For Parallel routing, dispatch concurrent developers by placing multiple foreground `<invoke>` blocks in a single message — they execute in parallel without backgrounding. Each developer owns the files referenced in its assigned findings.
+Developers are **not** team members and receive no follow-up after dispatch — same single-prompt style as `./implementation-with-plan.md`'s `<dispatch>`. Inline every finding the developer must address into its initial prompt; do not stream new findings to a running developer. For Parallel routing, dispatch concurrent developers by placing multiple foreground `<invoke>` blocks in a single message — they execute in parallel without backgrounding. Each developer owns the files referenced in its assigned findings.
 
 ```xml
 <invoke name="Agent">

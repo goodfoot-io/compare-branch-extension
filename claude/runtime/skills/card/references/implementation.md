@@ -3,88 +3,45 @@
 
 ## 1. Prepare Environment
 
-Create the baseline tag if one does not already exist. The baseline is pinned — it does not advance during implementation.
+Pin the baseline tag at HEAD. The baseline does not advance during implementation; if the tag already exists, leave it where it is — you are resuming from a prior checkpoint.
 
 ```bash
-if git rev-parse "implement/$CARD_ID/baseline" >/dev/null 2>&1; then
-  echo "Baseline tag already exists — resuming from prior checkpoint."
-else
-  git tag "implement/$CARD_ID/baseline" HEAD
-fi
+git tag "implement/$CARD_ID/baseline" HEAD  # skip if the tag already exists
 ```
 
 ## 2. Implement
 
-Load the `runtime:card-developer` skill for implementation approach (TDD, no mocks, real implementations).
+This is the Tier-1 path: the card describes one obvious mechanism, no plan was required. If that turns out to be false during work, see `<when-to-return-to-planning>`.
 
-Read `CARD.md` for goals and constraints. Read CARD.meta.json for current `title`, `gates`, and `tags`. Implement directly from the card description.
+Read `CARD.md` for goals and constraints. Read `CARD.meta.json` for current `title`, `gates`, and `tags`. Implement directly from the card description.
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `runtime:tdd-bootstrap` skill and sequence the work along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
-
-Work proceeds in logical units. A logical unit is a coherent change that leaves the workspace in a type-check-clean, test-passing state — the natural point to commit and tag a rollback. For each logical unit:
+Work proceeds in **logical units**. A logical unit is a coherent change that leaves the workspace type-check-clean and tests-passing — the natural point to commit and tag a rollback. For each unit:
 
 1. Read relevant files.
 2. Implement the change.
-3. Run the per-unit validation gate from Step 2.1: Validate and Commit.
-4. Tag the rollback point on success:
+3. Pass the `<per-unit-gate>`.
+4. Commit, then tag the rollback point: `git tag -f "implement/$CARD_ID/step-N" HEAD`.
 
-```bash
-git tag -f "implement/$CARD_ID/step-N" HEAD
-```
+When all units are complete, pass the `<final-validation-gate>` before proceeding to Step 3.
 
-### 2.1 Validate and Commit
+Before the first commit, load `cards:markdown` and `runtime:workspace-commit-style` — every commit in this flow follows those conventions.
 
-**You must load the `cards:markdown` and `runtime:workspace-commit-style` skills before the first commit.**
-
-Run the repository's workspace-level type-check and lint commands from the workspace root.
-
-Then run tests scoped to what the unit changed:
-- **Changes isolated to a single package**: Run that package's test suite.
-- **Changes span multiple packages, or the package boundary is unclear**: Run the workspace's full validation suite.
-
-Based on the combined result:
-- **All validations pass**: Commit the unit's changes, then tag the rollback point per Step 2 item 4.
-- **Resolvable error**: Fix it and re-run the validations above.
-- **Unresolvable error**: Proceed to Step 2.2: Final Validation Gate's block procedure.
-
-Commit on success:
-
-```bash
-git add -A
-git diff --cached --quiet || git commit -m "$(cat <<'COMMITMSG'
-[commit message per <workspace-commit-style>; fragment-link every named file, function, and type per <markdown-guidelines>]
-COMMITMSG
-)"
-```
-
-### 2.2 Final Validation Gate
-
-After all logical units are complete, run validation per the workspace validation configuration.
-
-**Requirement:** ALL validation commands must pass before proceeding.
-
-Based on the result:
-- **All validations pass**: Proceed to Step 3: Evaluate Quality.
-- **Resolvable error**: Fix it and re-run validation.
-- **Unresolvable error**: Block immediately.
-
-**When blocked**: Add `blocked` to `tags` in `CARD.meta.json` if not already present. Write the exact failure output to `comment/validation-failed.md`. Commit both files and **STOP**.
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `runtime:tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 ## 3. Evaluate Quality
 
-Diff the workspace against the baseline to assess the scope of changes: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
+Diff the workspace against the baseline to assess scope: number of files changed, types of changes, and runtime risk signals (new API boundaries, async logic, shared state, error-path changes).
 
-Based on scope:
-- **Simple**: Single-file change, or a mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation — proceed to Step 4: Finalize.
-- **Behavioral or cross-file**: Any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
+- **Simple** — single-file change, or mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation; proceed to Step 4.
+- **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
 
-When an evaluator needs to verify behavior against the pre-implementation state, follow `<baseline-worktree-testing>` rather than switching branches in the active workspace.
+When an evaluator needs to verify behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` rather than running the comparison in the active workspace — the agent owns baseline reproduction and reports the result back.
 
 ## 4. Finalize
 
-### 4.1 Stage Remaining Changes
+The card is not COMPLETED until every part of this section has run. Passing the final validation gate at the end of Step 2 is not the terminal state — staging, tag cleanup, and the merge decision all follow.
 
-Stage any uncommitted implementation artifacts:
+**Stage remaining changes.** Stage any uncommitted implementation artifacts and commit per the workspace commit style:
 
 ```bash
 git add -A
@@ -94,32 +51,98 @@ COMMITMSG
 )"
 ```
 
-### 4.2 Tag Cleanup
-
-Remove the baseline and per-step tags — the rollback window is closed once the implementation commits are finalized.
+**Clean up tags.** The rollback window closes once implementation commits are finalized:
 
 ```bash
 git tag -l "implement/$CARD_ID/*" | xargs -r git tag -d
 ```
 
-### 4.3 Complete or Await Review
-
-Based on `gates.mergeRequestRequired`:
-- **false or unset**: Read `./merge.md` and follow its `<instructions>`.
-- **true**: **STOP** — Merge occurs after user approval.
+**Route to merge or await review.** Based on `gates.mergeRequestRequired`:
+- **false or unset** — read `./merge.md` and follow its `<instructions>`.
+- **true** — **STOP**. Merge occurs after user approval.
 
 </instructions>
 
+<implementation-discipline>
+
+**Scope is the card's scope.** Implement only what the card specifies; do not introduce unrelated cleanup, refactoring, or abstractions. Discoveries in code the change does not interact with become new cards.
+
+**Zero errors in affected packages.** Fix priority: pre-existing errors, then direct implementation, then test infrastructure, then environment.
+
+**No mocks.** Test with real implementations. Use dependency injection so code stays testable, and create thin adapter interfaces with real test implementations for external services — never mock libraries or framework internals.
+
+```typescript
+function createHandler(db: Database, logger: Logger) { ... }
+
+const db = createTestDatabase();
+const handler = createHandler(db, testLogger);
+```
+
+**Iterate, then escalate.** On validation failure, fix and re-run. When repeated attempts produce no new information, stop and route via `<final-validation-gate>` rather than thrashing.
+
+**Follow repository conventions** and existing patterns. Do not create extra artifacts unless the scope or loaded skills require them.
+
+</implementation-discipline>
+
+<per-unit-gate>
+
+Run the workspace's type-check and lint commands from the workspace root, then run tests scoped to what the unit changed:
+
+- **Changes isolated to a single package** — run that package's test suite.
+- **Changes span multiple packages, or the boundary is unclear** — run the workspace's full validation suite.
+
+- **All pass** — commit, then tag the rollback point.
+- **Failure originates in this unit's changes** — fix and re-run.
+- **Otherwise** — proceed to `<final-validation-gate>` and apply its routing (in-scope fix, pre-existing-condition dispatch, or block).
+
+</per-unit-gate>
+
+<final-validation-gate>
+
+After all logical units are complete, run validation per the workspace validation configuration. Every command must pass before proceeding to Step 3.
+
+- **All pass** — proceed to Step 3.
+- **Failure originates in files the card's diff touched** — fix and re-run.
+- **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — dispatch `runtime:card:pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the dispatched agent.
+
+  ```xml
+  <invoke name="Agent">
+  <parameter name="description">Investigate possible pre-existing failure</parameter>
+  <parameter name="subagent_type">runtime:card:pre-existing-condition</parameter>
+  <parameter name="run_in_background">false</parameter>
+  <parameter name="prompt">
+  ## Failing Command
+  [the failing command]
+
+  ## Failure Output
+  [full stdout/stderr from the failing command]
+
+  ## Active Card Diff Scope
+  [list of files the active card has modified since `implement/$CARD_ID/baseline`]
+
+  ## Task
+  Decide whether this failure is pre-existing by reproducing the failing command on the baseline ref. If it reproduces, repair the root cause and re-run the full validation command. If it does not, return NOT_PRE_EXISTING with the baseline output.
+  </parameter>
+  </invoke>
+  ```
+
+  On the agent's return:
+  - **COMPLETED** — re-run the validation command and proceed to Step 3 if it passes.
+  - **NOT_PRE_EXISTING** — the failure is in scope of this card; fix and re-run.
+  - **NEEDS_REVISION or BLOCKED** — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and the agent's report to `comment/validation-failed.md`, commit both files, and **STOP**.
+
+</final-validation-gate>
+
 <when-to-return-to-planning>
 
-At any point during implementation, stop and return to planning if any of the following conditions emerge:
+At any point during implementation, stop and return to planning if any of the following emerges. The first is the strongest signal — it usually means the chosen approach is wrong, not just incomplete.
 
-1. **Scope exceeded the card's implied boundary** — the *in-scope* work must touch significantly more files or systems than the card described. The original estimate of limited impact was wrong. Note: discovering issues in code the change does not interact with is not this condition — create a new card for those and continue.
-2. **Approach fork with non-trivial tradeoffs** — a decision point arises where multiple viable paths have meaningfully different implications (correctness, performance, future extensibility) that can't be resolved by reading the code alone.
-3. **Load-bearing assumption proved false** — the implementation depends on something about the codebase that turns out to be untrue or uncertain ("only one caller," "always returns X," "this field is optional"). The correct path forward now depends on what the truth implies.
-4. **Implementation creates problems it then has to solve** — the approach introduces complexity that wouldn't exist with a different approach: timing windows, error-handling machinery, interface mismatches caused by the approach itself. This signals the approach is wrong, not just incomplete.
+1. **Implementation creates problems it then has to solve** — the approach introduces complexity that wouldn't exist with a different approach: timing windows, error-handling machinery, interface mismatches caused by the approach itself.
+2. **Load-bearing assumption proved false** — the implementation depends on something about the codebase that turns out to be untrue or uncertain ("only one caller," "always returns X," "this field is optional"). The correct path forward now depends on what the truth implies.
+3. **Approach fork with non-trivial tradeoffs** — a decision point arises where multiple viable paths have meaningfully different implications (correctness, performance, future extensibility) that can't be resolved by reading the code alone.
+4. **Scope exceeded the card's implied boundary** — the in-scope work must touch significantly more files or systems than the card described. Discovering issues in code the change does not interact with is *not* this condition — create a new card for those and continue.
 
-When any condition is met, **stop immediately** — do not continue implementing. Revert all changes to the baseline and discard orphaned step tags:
+When any condition holds, **stop immediately**. Revert to baseline and discard step tags:
 
 ```bash
 git reset --hard "implement/$CARD_ID/baseline"
@@ -127,20 +150,7 @@ git clean -fd
 git tag -l "implement/$CARD_ID/step-*" | xargs -r git tag -d
 ```
 
-Read `./plan.md` and follow its instructions. The discoveries made during implementation — the false assumption, the scope boundary, the fork — are live context to incorporate when selecting an approach.
+Read `./plan.md` and follow its instructions. The discoveries made during implementation — the false assumption, the scope boundary, the fork — are live context for the next approach.
 
 </when-to-return-to-planning>
 
-<baseline-worktree-testing>
-
-The `create-worktree` command is a plugin-provided executable on `PATH`. Use it directly when you need an isolated Git worktree.
-
-To test against the baseline, create a temporary worktree — never switch branches or stash in the current workspace:
-
-```bash
-create-worktree "implement/$CARD_ID/baseline"
-```
-
-Run tests in the worktree, then delete the worktree and branch.
-
-</baseline-worktree-testing>
