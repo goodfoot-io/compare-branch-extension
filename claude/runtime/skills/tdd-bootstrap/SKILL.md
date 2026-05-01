@@ -49,7 +49,7 @@ Write acceptance checks against the stubs. Mark every check skipped with the fra
 
 - Cover expected behavior, error paths, and edge cases — skipped checks are the executable form of the specification
 - Run lint and typecheck against the check file — a skipped check that does not compile is still broken
-- Run the check suite — every new check must appear as pending, not failing or erroring
+- Run the new check file — every new check must appear as pending, not failing or erroring
 - Commit once the check file is clean against the stubs
 
 This is the payoff phase. The check code exercises the stubs as a consumer would, so contract ergonomics — awkward lifetimes, missing derives, impossible bounds, clumsy argument order — surface here, before implementation effort is sunk into the wrong shape.
@@ -59,7 +59,7 @@ This is the payoff phase. The check code exercises the stubs as a consumer would
 Unskip one check, run it, watch it fail against the stub, then implement the minimum to pass. Repeat until no skipped checks remain.
 
 - Unskip in small batches — one concern at a time
-- Run lint, typecheck, and the unskipped checks after each step
+- Lint and typecheck per CLAUDE.md `<validation>`. Re-run the single check just unskipped until it passes; once green, run the file's unskipped checks together before moving to the next
 - Refactor only after the check passes
 - New behavior discovered mid-implementation goes back to Phase 1 for its own contract — do not broaden scope inline
 

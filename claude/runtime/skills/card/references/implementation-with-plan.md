@@ -146,10 +146,7 @@ This work owns: [absolute paths from plan]
 
 Wait for every agent in the current group to return before validating.
 
-Run the workspace's type-check and lint commands from the workspace root, then run tests scoped to what the group changed:
-
-- **Changes isolated to a single package** — run that package's test suite.
-- **Changes span multiple packages, or the boundary is unclear** — run the workspace's full validation suite.
+Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
 
 - **All pass** — commit the group's changes per the workspace commit style, then return to `<verify-plan-state>`.
 - **Orchestrator-scope error** (syntax, import correction, config typo, test polyfill — per `<orchestrator-constraints>`) — fix inline and re-run.

@@ -86,10 +86,7 @@ const handler = createHandler(db, testLogger);
 
 <per-unit-gate>
 
-Run the workspace's type-check and lint commands from the workspace root, then run tests scoped to what the unit changed:
-
-- **Changes isolated to a single package** — run that package's test suite.
-- **Changes span multiple packages, or the boundary is unclear** — run the workspace's full validation suite.
+Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or suite until it passes; broaden to the changed package's suite once green, and defer cross-package or full-validation runs to `<final-validation-gate>`.
 
 - **All pass** — commit, then tag the rollback point.
 - **Failure originates in this unit's changes** — fix and re-run.

@@ -104,13 +104,7 @@ Read the full diff against the prior commit. Check:
 
 ### 5.2 Run Validation
 
-Run validation from the package directory containing the changed files, using that package's scripts:
-
-```bash
-(cd "./[PACKAGE_DIR]" && yarn lint && yarn typecheck && yarn test)
-```
-
-If the slice spans more than one package, run `yarn validate` from the workspace root.
+Validate per CLAUDE.md `<validation>`. Lint and typecheck the project; re-run only the failing test or suite until it passes, then run the changed package's suite. Defer cross-package or full-validation runs to Step 6: Complete or Await Review (merge.md owns the final gate).
 
 ### 5.3 Route on Result
 
