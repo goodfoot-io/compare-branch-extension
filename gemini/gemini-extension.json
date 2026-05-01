@@ -1,0 +1,24 @@
+{
+  "name": "cards-management",
+  "version": "1.0.0",
+  "description": "Gemini CLI extension for the Cards ecosystem",
+  "author": "Goodfoot Media LLC",
+  "license": "proprietary",
+  "commands": [
+    {
+      "name": "card",
+      "description": "Interact with cards and implementation plans",
+      "skill": "cards:card"
+    }
+  ],
+  "hooks": {
+    "onSessionStart": "./hooks/session-start.js"
+  },
+  "settings": {
+    "cardsApiUrl": {
+      "type": "string",
+      "description": "Base URL for the Cards API",
+      "default": "http://localhost:3000"
+    }
+  }
+}

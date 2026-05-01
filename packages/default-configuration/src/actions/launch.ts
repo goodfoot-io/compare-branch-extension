@@ -24,6 +24,7 @@ import codexCardSkill from '../../../../codex/runtime/skills/card/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
+import { spawnGeminiSession } from '../lib/gemini-session.js';
 
 /**
  * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
@@ -40,9 +41,9 @@ const CARD_SKILL_CODEX: string = stripFrontmatter(codexCardSkill).trim();
 /**
  * Launch action handler.
  *
- * Spawns either the `claude` or `codex` CLI as a child process, selected by
+ * Spawns either the `claude`, `codex`, or `gemini` CLI as a child process, selected by
  * `input.codingAgent`. The process lifecycle is tied to the action:
- * cancellation sends SIGTERM. In the Claude branch, switching to interactive
+ * cancellation sends SIGTERM. In the Claude and Gemini branches, switching to interactive
  * mode preserves the session ID for resumption.
  *
  * Codex + background mode is rejected explicitly: background launch is a
@@ -74,6 +75,15 @@ export default defineAction(
 
     const switchData = input.switchToInteractiveData as { sessionId?: string } | undefined;
     const [sessionId, resume] = [switchData?.sessionId ?? randomUUID(), !!switchData?.sessionId];
+
+    if (agent === 'gemini-cli') {
+      await spawnGeminiSession(input, context, {
+        prompt: 'Load the `runtime:card` skill and follow the `<routing-instructions>`.',
+        sessionId,
+        resume
+      });
+      return;
+    }
 
     await spawnClaudeSession(input, context, {
       prompt: 'Load the `runtime:card` skill and follow the `<routing-instructions>`.',

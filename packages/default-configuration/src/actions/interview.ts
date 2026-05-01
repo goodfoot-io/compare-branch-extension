@@ -26,6 +26,7 @@ import codexInterviewRoutingSkill from '../../../../codex/runtime/skills/intervi
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
+import { spawnGeminiSession } from '../lib/gemini-session.js';
 
 /**
  * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
@@ -42,7 +43,7 @@ const INTERVIEW_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexInterviewRou
 /**
  * Interview action handler.
  *
- * Spawns either the `claude` or `codex` CLI as a child process using the
+ * Spawns either the `claude`, `codex`, or `gemini` CLI as a child process using the
  * corresponding interview-routing skill, selected by `input.codingAgent`.
  * The process lifecycle is tied to the action: cancellation sends SIGTERM.
  * Session resume is not supported — each interview always starts fresh.
@@ -60,6 +61,15 @@ export default defineAction(
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {
         prompt: [INTERVIEW_ROUTING_SKILL_CODEX, 'Follow the routing `<instructions>`.'].join('\n\n')
+      });
+      return;
+    }
+
+    if (agent === 'gemini-cli') {
+      await spawnGeminiSession(input, context, {
+        prompt: 'Load the `runtime:interview` skill and follow the `<routing-instructions>`.',
+        sessionId: randomUUID(),
+        resume: false
       });
       return;
     }

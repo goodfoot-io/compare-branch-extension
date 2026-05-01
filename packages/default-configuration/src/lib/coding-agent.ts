@@ -16,7 +16,7 @@ import type { ActionInput } from '@cards/sdk/config';
 /**
  * Canonical coding-agent identifiers that action handlers branch on.
  */
-export type CodingAgent = 'claude-code-cli' | 'codex-cli';
+export type CodingAgent = 'claude-code-cli' | 'codex-cli' | 'gemini-cli';
 
 /**
  * Pre-main-319 legacy values that resolve to Claude for backward compatibility.
@@ -48,12 +48,15 @@ export function resolveCodingAgent(input: ActionInput): CodingAgent {
   if (value === 'codex-cli') {
     return 'codex-cli';
   }
+  if (value === 'gemini-cli') {
+    return 'gemini-cli';
+  }
   if (LEGACY_CLAUDE_VALUES.has(value)) {
     return 'claude-code-cli';
   }
   throw new Error(
     `cards.defaultCodingAgent='${value}' is not a supported value. ` +
-      `Set cards.defaultCodingAgent to 'claude-code-cli' or 'codex-cli' ` +
+      `Set cards.defaultCodingAgent to 'claude-code-cli', 'codex-cli', or 'gemini-cli' ` +
       `in VS Code settings, or open the Cards setup wizard.`
   );
 }
