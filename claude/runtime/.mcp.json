@@ -1,6 +1,0 @@
-{
-  "cards-mcp-server": {
-    "command": "${NODE}",
-    "args": ["${CLAUDE_PLUGIN_ROOT}/bin/cards-mcp-server.mjs"]
-  }
-}
