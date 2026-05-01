@@ -98,7 +98,7 @@ describe('Stop Route Nudge Hook', () => {
       expect(stdout.reason).toContain('cards/main-1/1');
       expect(stdout.reason).toContain('main');
       expect(stdout.reason).toContain('merge.md');
-      expect(stdout.reason).toContain('ready to merge');
+      expect(stdout.reason).toContain('<routing-instructions>');
       expect(mockMarkSessionRouteNudgeFired).toHaveBeenCalledWith(mockInput.session_id);
     });
 

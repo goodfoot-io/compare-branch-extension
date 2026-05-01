@@ -136,12 +136,11 @@ export default stopHook({}, async (input, { logger }) => {
   return stopOutput({
     decision: 'block',
     reason: [
-      `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`.`,
-      'The card is not blocked and merge is either ungated or already approved — the work is ready to merge.',
+      `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`. The card does not have a \`blocked\` tag, and merge is either ungated or already approved.`,
       '',
-      'Read `public/claude/runtime/skills/card/references/merge.md` and follow its `<instructions>` to merge.',
+      'If validation and evaluation have passed and no scope remains, read `public/claude/runtime/skills/card/references/merge.md` and follow its `<instructions>` to merge.',
       '',
-      'If you believe further work is required before merging (failing validation, unaddressed evaluation findings, scope still open), load the `runtime:card` skill and follow its `<routing-instructions>` instead — but do not re-run validation or evaluation just because this nudge fired.'
+      'Otherwise, load the `runtime:card` skill and follow its `<routing-instructions>` to determine the next action — but do not re-run validation or evaluation just because this nudge fired.'
     ].join('\n')
   });
 });
