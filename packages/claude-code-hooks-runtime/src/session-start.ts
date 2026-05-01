@@ -173,27 +173,14 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
     );
     if (failure) return failure;
   } else {
-    logger.error('Could not find agent PID for commit attribution', {
+    // Card identity is already known via actionInput.cardId, and workspace commit
+    // attribution now resolves the card via resolveCardId (env → worktree-file)
+    // independent of the PID-keyed session entry. The PID-keyed entry only feeds
+    // best-effort transcript watching; its absence is a warning, not a fatal.
+    logger.warn('Could not find agent PID for transcript watcher; continuing without PID-keyed session entry', {
       sessionId: input.session_id,
+      cardId: actionInput.cardId,
       ppid: process.ppid
-    });
-    return sessionStartOutput({
-      continue: false,
-      systemMessage: [
-        'Could not locate a supported agent process in the ancestor chain.',
-        '',
-        `Session: ${input.session_id}`,
-        `Hook PPID: ${process.ppid}`,
-        '',
-        'Commit attribution and transcript monitoring require a valid agent PID.',
-        'This is a fatal error when running inside an action subprocess (CARD_ID is set).',
-        '',
-        'To resolve:',
-        '1. Ensure Codex or Claude is running as an ancestor process',
-        '2. Check that `ps` can see ancestor processes (no PID namespace isolation)',
-        '3. Verify the process tree depth is within the allowed limit'
-      ].join('\n'),
-      stopReason: `Could not find agent PID (ppid=${process.ppid}, session=${input.session_id})`
     });
   }
 

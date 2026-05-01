@@ -224,7 +224,7 @@ describe('SessionStart Hook', () => {
       expect(mockRegisterSession).toHaveBeenCalledWith(42, 'sess-123');
     });
 
-    it('returns continue:false when findAgentPid returns null (catastrophic failure)', async () => {
+    it('continues with a warning when findAgentPid returns null (PID-keyed entry is best-effort)', async () => {
       mockFindClaudePid.mockReturnValue(null);
       vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
@@ -242,12 +242,8 @@ describe('SessionStart Hook', () => {
         systemMessage?: string;
         stopReason?: string;
       };
-      expect(stdout.continue).toBe(false);
-      expect(stdout.stopReason).toContain('Could not find agent PID');
-      expect(stdout.stopReason).toContain('sess-123');
-      expect(stdout.systemMessage).toContain('Could not locate a supported agent process');
-      expect(stdout.systemMessage).toContain('sess-123');
-      expect(stdout.systemMessage).toContain('To resolve:');
+      expect(stdout.continue).not.toBe(false);
+      expect(stdout.stopReason).toBeUndefined();
     });
 
     it('returns continue:false with stopReason when registerSession throws', async () => {
