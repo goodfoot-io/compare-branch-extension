@@ -88,7 +88,7 @@ describe('Stop Route Nudge Hook', () => {
   });
 
   describe('trigger fires', () => {
-    it('fires with decision:"block" and reason containing branch names and routing instructions when all conditions hold', async () => {
+    it('fires with decision:"block" and reason directing to merge.md when all conditions hold', async () => {
       const result = await hook(mockInput, { logger });
 
       expect(result).not.toBeNull();
@@ -97,8 +97,8 @@ describe('Stop Route Nudge Hook', () => {
       expect(stdout.decision).toBe('block');
       expect(stdout.reason).toContain('cards/main-1/1');
       expect(stdout.reason).toContain('main');
-      expect(stdout.reason).toContain('runtime:card');
-      expect(stdout.reason).toContain('<routing-instructions>');
+      expect(stdout.reason).toContain('merge.md');
+      expect(stdout.reason).toContain('ready to merge');
       expect(mockMarkSessionRouteNudgeFired).toHaveBeenCalledWith(mockInput.session_id);
     });
 

@@ -1,11 +1,16 @@
 /**
- * Stop hook — route nudge when workspace branch has unmerged commits.
+ * Stop hook — merge nudge when workspace branch has unmerged commits.
  *
  * Fires at most once per session. Returns `decision: 'block'` with a `reason`
- * instructing the agent to re-load the `runtime:card` skill and re-route when:
+ * pointing the agent at `card/references/merge.md` when:
  * - The card is not tagged "blocked"
  * - Merge is either not gated or already approved
  * - The workspace branch has commits not yet merged into the base branch
+ *
+ * Under those conditions, the card-state contract says the work is ready to
+ * merge — re-routing through `runtime:card` would push a finished card back
+ * into validation/evaluation. The reason text offers `runtime:card` only as
+ * an escape hatch for the agent that genuinely has more work to do.
  *
  * Fail-open: every error path returns `null`.
  *
@@ -132,9 +137,11 @@ export default stopHook({}, async (input, { logger }) => {
     decision: 'block',
     reason: [
       `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`.`,
+      'The card is not blocked and merge is either ungated or already approved — the work is ready to merge.',
       '',
-      '1. Re-evaluate the current repository state.',
-      '2. Load the `runtime:card` skill and follow its `<routing-instructions>` to determine the next action.'
+      'Read `public/claude/runtime/skills/card/references/merge.md` and follow its `<instructions>` to merge.',
+      '',
+      'If you believe further work is required before merging (failing validation, unaddressed evaluation findings, scope still open), load the `runtime:card` skill and follow its `<routing-instructions>` instead — but do not re-run validation or evaluation just because this nudge fired.'
     ].join('\n')
   });
 });
