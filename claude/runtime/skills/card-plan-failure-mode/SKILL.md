@@ -37,6 +37,8 @@ This is a contest, not a race. `APPROVED` is the qualifying bar; the contest sta
 
 You will not see `PLAN: SETTLED` DMs — those go to the team lead only. The team lead handles the closure-condition check.
 
+Before yielding your turn between `PLAN: READY` arrivals, launch `card $CARD_ID watch "plan/**"` from `$CARD_REPO_PATH` with `Bash` `run_in_background: true` so it does not block inbound DMs. The watch exits as soon as a planner commits a revision and the completion notification wakes you, even when the corresponding `PLAN: READY` DM fails to deliver.
+
 When the team lead DMs you `{"type": "shutdown_request"}`, the contest has ended (you have already DM'd `WINNER:` or the contest reached an all-blocked outcome). Stop any in-flight analysis and exit cleanly. The team lead waits for your shutdown before tearing down the team.
 
 Every streamed finding is DM'd to the originating planner with the marker `FINDING: <label> for:[PLANNER] round-K` in `summary` (round-tagged so the planner can match each finding to the round under review). Every verdict DM names both the team lead and the targeted planner — the team lead first — with the marker in `summary` and the body in `message`. The single exception in routing is `VERDICT: BLOCKED for:[PLANNER]`, which is also DM'd to every other live planner so they update their live-set tracking; that verdict is round-agnostic and terminates the planner regardless of round.
