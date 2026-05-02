@@ -28,6 +28,26 @@ import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 
 const execFileAsync = promisify(execFile);
 
+let _cliExecutable: string | undefined;
+
+/**
+ * Resolves the CLI executable to use for spawning sessions.
+ * Returns `'deepseek'` if it is available on the path, otherwise `'claude'`.
+ * The result is cached for the process lifetime.
+ *
+ * @returns The CLI executable name.
+ */
+async function resolveCliExecutable(): Promise<string> {
+  if (_cliExecutable !== undefined) return _cliExecutable;
+  try {
+    await execFileAsync('which', ['deepseek']);
+    _cliExecutable = 'deepseek';
+  } catch {
+    _cliExecutable = 'claude';
+  }
+  return _cliExecutable;
+}
+
 /**
  * Extracts a human-readable message from an unknown catch value.
  * @param error - The caught value to extract a message from.
@@ -686,8 +706,9 @@ export async function spawnClaudeSession(
     args.push('--append-system-prompt', appendSystemPrompt);
   }
   const isInteractive = input.executionMode === 'interactive';
+  const cliExecutable = await resolveCliExecutable();
 
-  const child: ChildProcess = spawn('claude', args, {
+  const child: ChildProcess = spawn(cliExecutable, args, {
     cwd,
     stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
     env: {
