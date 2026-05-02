@@ -140,6 +140,8 @@ If an evaluator verifies a peer's CRITIQUE and folds it into its own findings, t
 
 Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
+The evaluation is not complete until every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round. A partial set — one evaluator has approved while another has not yet DM'd a verdict — is not a terminal state; continue waiting. A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
+
 Based on the aggregated verdicts:
 - **All APPROVED**: Proceed to Step 9: Finalize.
 - **Any CHANGES_REQUESTED**: Proceed to Step 6: Dispatch Developer Wave with the recorded findings.
@@ -255,7 +257,7 @@ Each evaluator resumes its analysis (per its skill's "When Resuming for a Fixed 
 
 ## 9. Finalize
 
-Enter this step on either terminal exit: every evaluator DM'd `VERDICT: APPROVED` in Step 5: Collect Verdicts and Route, or the BLOCKED branch fired.
+Do not enter this step unless every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round, or the BLOCKED branch fired in Step 5. If you arrived here through any other path — including after applying fixes yourself — return to Step 5 and collect the remaining verdicts.
 
 Send a shutdown request to every still-running evaluator in the team. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently:
 

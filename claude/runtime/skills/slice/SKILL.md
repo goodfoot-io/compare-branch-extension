@@ -24,7 +24,7 @@ Routing runs without user interaction. Messages describing state and routing dec
 
 ### 1.1 Read Card State
 
-Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obtain the comment file listing from the `<card-repo>` block.
+Obtain `gates.*` and `tags` from the `<card>` block in your session context. Obtain the comment file listing from the `$CARD_REPO_PATH/comments` directory.
 
 ### 1.2 Derive Routing Signals
 
