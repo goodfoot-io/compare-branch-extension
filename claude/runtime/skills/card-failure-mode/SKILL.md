@@ -11,7 +11,7 @@ description: Identify potential failure modes in card implementations
 - **Never create extra artifacts** unless the task explicitly requires them
 - **Follow repository conventions** when judging what is risky or incorrect
 - **Account for verification limits or blockers** explicitly in the verdict DM
-- **Honor `{"type": "shutdown_request"}` from `team-lead`** — the evaluation has ended (you have already DM'd a `VERDICT:` or the team lead has hit a terminal branch). Stop any in-flight analysis and exit cleanly. The team lead waits for your shutdown before tearing down the team.
+- **Remain alive until the team lead sends `{"type": "shutdown_request"}`** — you are a long-running evaluator dispatched in the background for the life of the evaluation. DMing a `VERDICT:` does not end your run; the team lead may trigger re-evaluation after a developer wave lands. Only a `shutdown_request` from the team lead ends the evaluation. When you receive it, stop any in-flight analysis and exit cleanly. The team lead waits for your shutdown before tearing down the team. Do not self-terminate.
 
 </critical-constraints>
 

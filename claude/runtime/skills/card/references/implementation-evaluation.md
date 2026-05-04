@@ -143,8 +143,8 @@ Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current 
 The evaluation is not complete until every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round. A partial set — one evaluator has approved while another has not yet DM'd a verdict — is not a terminal state; continue waiting. A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
 
 Based on the aggregated verdicts:
-- **All APPROVED**: Proceed to Step 9: Finalize.
-- **Any CHANGES_REQUESTED**: Proceed to Step 6: Dispatch Developer Wave with the recorded findings.
+- **All APPROVED** (every dispatched evaluator has DM'd `VERDICT: APPROVED`): Proceed to Step 9: Finalize. This is the only path to Finalize. Do not accept fewer than the full evaluator set.
+- **Any CHANGES_REQUESTED** (at least one evaluator has DM'd `VERDICT: CHANGES_REQUESTED`, regardless of other evaluators' verdicts): Proceed to Step 6: Dispatch Developer Wave with the recorded findings. You do not fix evaluator findings — the developer wave does.
 - **BLOCKED** (an evaluator names an external constraint preventing the fix): Document the constraint and the specific finding in a comment, add `blocked` to `tags` in `CARD.meta.json`, commit, tear down the team per Step 9: Finalize (shutdown each evaluator, wait, then `TeamDelete`), and **STOP**.
 
 ## 6. Dispatch Developer Wave
@@ -210,7 +210,7 @@ Lint and typecheck per CLAUDE.md `<validation>`. Re-run only the failing test or
 
 Based on the combined result:
 - **All validations pass**: Commit the group's changes per `<workspace-commit-style>` and `<markdown-guidelines>`. If you arrived from Step 2: Pre-Evaluation Validation, return there. Otherwise proceed to Step 8: Trigger Re-Evaluation.
-- **Error within your scope** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above.
+- **Developer-introduced error** (syntax error, import correction, config typo, test polyfill): Fix inline and re-run the validations above. These are mechanical corrections to errors the developer wave introduced — not resolutions of evaluator findings. If the fix addresses an evaluator finding, discard and re-dispatch per the next bullet.
 - **Error requires implementation changes**: Discard the group's uncommitted work and re-dispatch per Step 6: Dispatch Developer Wave with regrouped findings (split a too-large group into smaller ones if a single developer's work failed to cohere; combine related findings if separate developers produced conflicting changes).
 
 Commit on success — you own every commit; developers do not commit:
