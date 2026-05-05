@@ -1,8 +1,8 @@
 import fs from 'node:fs';
-import Database from 'better-sqlite3';
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
 /**
- * In-process D1 shim backed by better-sqlite3.
+ * In-process D1 shim backed by node:sqlite.
  *
  * Accepts an ordered list of absolute schema file paths; executes each in sequence so tests are
  * explicit about their schema surface. There is no default — every caller must name its files.
@@ -11,7 +11,7 @@ import Database from 'better-sqlite3';
  * Foreign keys are enabled and WAL mode is active so FK constraint tests work identically to
  * production.
  *
- * @summary Reusable in-process D1 database shim backed by better-sqlite3 for schema and
+ * @summary Reusable in-process D1 database shim backed by node:sqlite for schema and
  * integration tests
  */
 
@@ -46,16 +46,16 @@ interface D1Database {
 }
 
 class D1PreparedStatementImpl {
-  private boundValues: unknown[] = [];
+  private boundValues: SQLInputValue[] = [];
 
   constructor(
-    private db: Database.Database,
+    private db: DatabaseSync,
     private sql: string
   ) {}
 
   bind(...values: unknown[]): D1PreparedStatementImpl {
-    // D1 transparently converts booleans to integers; better-sqlite3 does not
-    this.boundValues = values.map((v) => (typeof v === 'boolean' ? (v ? 1 : 0) : v));
+    // D1 transparently converts booleans to integers; node:sqlite does not
+    this.boundValues = values.map((v) => (typeof v === 'boolean' ? (v ? 1 : 0) : v)) as SQLInputValue[];
     return this;
   }
 
@@ -69,8 +69,8 @@ class D1PreparedStatementImpl {
 
   async run(): Promise<D1Result> {
     const stmt = this.db.prepare(this.sql);
-    const info = stmt.run(...this.boundValues);
-    return { success: true, meta: { changes: info.changes, last_row_id: info.lastInsertRowid } };
+    const { changes, lastInsertRowid } = stmt.run(...this.boundValues);
+    return { success: true, meta: { changes: changes as number, last_row_id: Number(lastInsertRowid) } };
   }
 
   async all<T>(): Promise<D1Result<T>> {
@@ -81,8 +81,8 @@ class D1PreparedStatementImpl {
 
   runSync(): D1Result {
     const stmt = this.db.prepare(this.sql);
-    const info = stmt.run(...this.boundValues);
-    return { success: true, meta: { changes: info.changes, last_row_id: info.lastInsertRowid } };
+    const { changes, lastInsertRowid } = stmt.run(...this.boundValues);
+    return { success: true, meta: { changes: changes as number, last_row_id: Number(lastInsertRowid) } };
   }
 }
 
@@ -102,15 +102,15 @@ export interface TestD1DatabaseOptions {
  * ```
  */
 export class TestD1Database {
-  private db: Database.Database;
+  private db: DatabaseSync;
   private d1: D1Database;
 
   constructor(options: TestD1DatabaseOptions) {
-    this.db = new Database(':memory:');
+    this.db = new DatabaseSync(':memory:');
 
     // Enable WAL mode and foreign keys for SQLite
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
+    this.db.exec('PRAGMA journal_mode = WAL');
+    this.db.exec('PRAGMA foreign_keys = ON');
 
     // Read each schema file in order and execute
     const sql = options.schemaFiles.map((f) => fs.readFileSync(f, 'utf-8')).join('\n');
@@ -128,13 +128,18 @@ export class TestD1Database {
       },
 
       async batch(statements: D1PreparedStatement[]): Promise<D1Result[]> {
-        const transaction = db.transaction(() => {
-          return statements.map((stmt) => {
+        db.exec('BEGIN');
+        try {
+          const results = statements.map((stmt) => {
             const impl = stmt as unknown as D1PreparedStatementImpl;
             return impl.runSync();
           });
-        });
-        return transaction();
+          db.exec('COMMIT');
+          return results;
+        } catch (error) {
+          db.exec('ROLLBACK');
+          throw error;
+        }
       },
 
       async dump(): Promise<ArrayBuffer> {
@@ -160,7 +165,7 @@ export class TestD1Database {
     this.db.close();
   }
 
-  getRawDb(): Database.Database {
+  getRawDb(): DatabaseSync {
     return this.db;
   }
 }
