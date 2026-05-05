@@ -20,7 +20,7 @@
     "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
     "@typescript/native-preview": "^7.0.0-dev",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.5"
   },
   "engines": {

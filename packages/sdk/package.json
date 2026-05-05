@@ -61,7 +61,7 @@
     "jsonpath-plus": "^10.4.0",
     "minimatch": "^10.2.5",
     "puppeteer-core": "^24.42.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
