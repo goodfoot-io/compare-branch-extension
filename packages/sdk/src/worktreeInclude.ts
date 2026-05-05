@@ -2,7 +2,7 @@
  * Applies `.worktreeinclude` copy rules after the symlink-reroute pass.
  *
  * Reads a gitignore-syntax file at `<sourceRoot>/.worktreeinclude`, intersects
- * its patterns with paths already gitignored (via `git check-ignore --stdin`),
+ * its patterns with paths already gitignored (via `git ls-files --ignored`),
  * and copies matching files/symlinks into the worktree, preserving mode bits
  * and symlinks-as-symlinks.
  *
@@ -11,7 +11,6 @@
  */
 
 import { spawn } from 'node:child_process';
-import type { Dirent } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import ignore from 'ignore';
@@ -27,53 +26,15 @@ export class WorktreeIncludeError extends Error {
 }
 
 /**
- * Recursively walks a directory and returns relative paths of all non-directory
- * entries, excluding `.git` and `.worktrees` directories.
+ * Runs `git ls-files` and returns null-delimited stdout entries.
  *
- * @param rootDir - Absolute path to the root directory to walk.
- * @param relDir - Relative path from rootDir to current directory (used in recursion).
- * @returns Array of relative paths to files and symlinks.
+ * @param cwd - Directory to run the command from.
+ * @param args - Arguments passed after `ls-files`.
+ * @returns Array of relative paths (no trailing NUL).
  */
-async function walkDir(rootDir: string, relDir = ''): Promise<string[]> {
-  const absDir = relDir ? path.join(rootDir, relDir) : rootDir;
-  let entries: Dirent[];
-  try {
-    entries = (await fs.readdir(absDir, { withFileTypes: true, encoding: 'utf8' })) as unknown as Dirent[];
-  } catch {
-    return [];
-  }
-
-  const results: string[] = [];
-  for (const entry of entries) {
-    const name = entry.name as unknown as string;
-    const relPath = relDir ? `${relDir}/${name}` : name;
-    if (entry.isDirectory()) {
-      if (name === '.git' || name === '.worktrees') continue;
-      const children = await walkDir(rootDir, relPath);
-      results.push(...children);
-    } else {
-      results.push(relPath);
-    }
-  }
-  return results;
-}
-
-/**
- * Runs `git check-ignore --stdin -z` for a batch of paths in `cwd`.
- *
- * Returns the subset of `candidates` that are gitignored.
- * Exit code 1 with empty stdout means nothing matched — not an error.
- * Any other non-zero code throws `WorktreeIncludeError`.
- *
- * @param cwd - Directory to run git check-ignore from.
- * @param candidates - Relative paths to check.
- * @returns Array of gitignored relative paths.
- */
-async function gitIgnoredPaths(cwd: string, candidates: string[]): Promise<string[]> {
-  if (candidates.length === 0) return [];
-
+function gitLsFiles(cwd: string, args: string[]): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['check-ignore', '--stdin', '-z'], {
+    const child = spawn('git', ['ls-files', ...args], {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -86,24 +47,44 @@ async function gitIgnoredPaths(cwd: string, candidates: string[]): Promise<strin
 
     child.on('close', (code) => {
       const stdout = Buffer.concat(stdoutChunks).toString('utf8');
-      const stderr = Buffer.concat(stderrChunks).toString('utf8');
       if (code === 0) {
         resolve(stdout ? stdout.split('\0').filter(Boolean) : []);
-      } else if (code === 1) {
-        // No paths matched — not an error
-        resolve([]);
       } else {
-        reject(new WorktreeIncludeError(`git check-ignore failed (exit ${String(code)}): ${stderr}`));
+        const stderr = Buffer.concat(stderrChunks).toString('utf8');
+        reject(new WorktreeIncludeError(`git ls-files failed (exit ${String(code)}): ${stderr}`));
       }
     });
 
     child.on('error', (err) => {
-      reject(new WorktreeIncludeError(`git check-ignore spawn failed: ${err.message}`, { cause: err }));
+      reject(new WorktreeIncludeError(`git ls-files spawn failed: ${err.message}`, { cause: err }));
     });
+  });
+}
 
-    const stdinData = candidates.join('\0');
-    child.stdin.write(stdinData, 'utf8');
-    child.stdin.end();
+/**
+ * Enumerates gitignored files within a directory that match include patterns.
+ *
+ * Runs `git ls-files --ignored --exclude-standard --others` scoped to `dir`
+ * and returns the subset of paths that match the ignore instance.
+ *
+ * @param sourceRoot - Source checkout root.
+ * @param dir - Relative directory path to enumerate within.
+ * @param ig - Configured ignore instance for `.worktreeinclude` patterns.
+ * @returns Array of relative paths to copy.
+ */
+async function enumerateIgnoredFiles(
+  sourceRoot: string,
+  dir: string,
+  ig: ReturnType<typeof ignore>
+): Promise<string[]> {
+  const entries = await gitLsFiles(sourceRoot, ['--ignored', '--exclude-standard', '--others', '-z', '--', dir]);
+
+  return entries.filter((p) => {
+    try {
+      return ig.ignores(p);
+    } catch {
+      return false;
+    }
   });
 }
 
@@ -111,13 +92,15 @@ async function gitIgnoredPaths(cwd: string, candidates: string[]): Promise<strin
  * Applies `.worktreeinclude` copy rules to a freshly-created worktree.
  *
  * 1. Reads `<sourceRoot>/.worktreeinclude` (gitignore syntax) using the `ignore` library.
- * 2. Walks the source tree and collects paths that match the include patterns.
- * 3. Intersects with gitignored paths by piping candidates through `git check-ignore --stdin`.
- * 4. Copies each matched path into `worktreeDir`, preserving mode bits and
+ * 2. Queries gitignored paths via `git ls-files --ignored --exclude-standard
+ *    --directory --others`. Directory entries that match the include patterns are
+ *    enumerated further to collect individual files. Directory entries that don't
+ *    match (e.g. `node_modules/`) are skipped entirely.
+ * 3. Copies each matched path into `worktreeDir`, preserving mode bits and
  *    representing symlinks as symlinks rather than dereferencing them.
  *
  * Returns the count of files copied. Throws {@link WorktreeIncludeError} on
- * parse, walk, or copy failure.
+ * parse, git, or copy failure.
  *
  * @param opts - Options for the include step.
  * @param opts.sourceRoot - Source checkout root containing `.worktreeinclude`.
@@ -140,11 +123,21 @@ export async function applyWorktreeInclude(opts: { sourceRoot: string; worktreeD
   // Step 2: Parse with ignore library
   const ig = ignore().add(includeContent);
 
-  // Step 3: Walk source tree
-  const allPaths = await walkDir(sourceRoot);
+  // Step 3: Query gitignored paths (top-level, collapsing ignored directories)
+  const ignoredEntries = await gitLsFiles(sourceRoot, [
+    '--ignored',
+    '--exclude-standard',
+    '--directory',
+    '--others',
+    '-z'
+  ]);
 
-  // Filter to paths matching the include patterns
-  const includedPaths = allPaths.filter((p) => {
+  const files = ignoredEntries.filter((e) => !e.endsWith('/'));
+  const dirs = ignoredEntries.filter((e) => e.endsWith('/'));
+
+  // Step 4: Collect matching paths
+  // Directly matching files
+  const matchedFiles = files.filter((p) => {
     try {
       return ig.ignores(p);
     } catch {
@@ -152,13 +145,20 @@ export async function applyWorktreeInclude(opts: { sourceRoot: string; worktreeD
     }
   });
 
-  if (includedPaths.length === 0) return 0;
+  // For directories that match a pattern, enumerate individual files within
+  const nestedResults = await Promise.all(
+    dirs
+      .filter((d) => {
+        try {
+          return ig.ignores(d);
+        } catch {
+          return false;
+        }
+      })
+      .map((d) => enumerateIgnoredFiles(sourceRoot, d, ig))
+  );
 
-  // Step 4: Intersect with gitignored paths
-  const gitIgnored = await gitIgnoredPaths(sourceRoot, includedPaths);
-  const gitIgnoredSet = new Set(gitIgnored);
-
-  const copySet = includedPaths.filter((p) => gitIgnoredSet.has(p));
+  const copySet = [...matchedFiles, ...nestedResults.flat()];
 
   if (copySet.length === 0) return 0;
 
