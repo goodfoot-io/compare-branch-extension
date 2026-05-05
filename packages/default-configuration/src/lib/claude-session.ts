@@ -20,6 +20,7 @@ import type { CardsClient } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { resolveClaudeConfigDir, updateMarketplaceRegistration } from '@cards/sdk/marketplace';
 import { BRANCHES_FILE } from '@cards/sdk/protocol';
+
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
 import type { CreateWorktreeResult } from '@cards/sdk/worktree';

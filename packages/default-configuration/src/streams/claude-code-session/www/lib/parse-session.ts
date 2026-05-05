@@ -288,7 +288,7 @@ export function mergeConsecutiveMessages(messages: SessionMsg[]): SessionMsg[] {
  * @returns Array of compact events parsed from the line, empty for blank or unparseable lines.
  */
 export function parseLineEvents(line: string): CompactEvent[] {
-  if (!line || !line.trim()) return [];
+  if (!line?.trim()) return [];
   let msg: Record<string, unknown>;
   try {
     msg = JSON.parse(line) as Record<string, unknown>;
@@ -383,7 +383,7 @@ export function parseLineEvents(line: string): CompactEvent[] {
  * @returns Parsed session message, or null for blank or unparseable lines.
  */
 export function parseLine(line: string): SessionMsg | null {
-  if (!line || !line.trim()) return null;
+  if (!line?.trim()) return null;
   try {
     const parsed = JSON.parse(line) as SessionMsg;
     // Suppress internal orchestration events with no value to the reader.

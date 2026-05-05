@@ -66,7 +66,7 @@ export function deriveInitialStatus(isActive: boolean): string {
  * @param line - Raw JSONL line string to process.
  */
 export function processLine(state: CompactState, line: string): void {
-  if (!line || !line.trim()) return;
+  if (!line?.trim()) return;
   let msg: Record<string, unknown>;
   try {
     msg = JSON.parse(line) as Record<string, unknown>;

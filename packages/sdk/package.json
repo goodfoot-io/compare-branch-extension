@@ -55,22 +55,22 @@
   "dependencies": {
     "@cards/sessions": "workspace:*",
     "@typescript/native-preview": "^7.0.0-dev",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.27.2",
     "glob": "^11.0.0",
     "ignore": "^7.0.5",
     "jsonpath-plus": "^10.4.0",
-    "minimatch": "^10.0.0",
-    "puppeteer-core": "^24.36.1",
+    "minimatch": "^10.2.5",
+    "puppeteer-core": "^24.42.0",
     "typescript": "^5.9.3",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.13",
+    "@biomejs/biome": "^2.4.14",
     "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",
     "jsdom": "^27.4.0",
     "vitest": "^4.0.18",
-    "ws": "^8.19.0"
+    "ws": "^8.20.0"
   }
 }
