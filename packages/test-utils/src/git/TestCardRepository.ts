@@ -177,7 +177,9 @@ export class TestCardRepository {
     await fs.ensureDir(cardPath);
 
     // Initialize git repo for this card
-    const git = simpleGit(cardPath);
+    const git = simpleGit(cardPath, {
+      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true }
+    });
     await git.raw(['init', '--initial-branch=main']);
     await git.addConfig('user.name', 'Test User');
     await git.addConfig('user.email', 'test@example.com');
@@ -643,7 +645,9 @@ export class TestCardRepository {
     if (existing) {
       return existing;
     }
-    const git = simpleGit(path.join(this.reposPath, cardId));
+    const git = simpleGit(path.join(this.reposPath, cardId), {
+      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true }
+    });
     this.cardGitClients.set(cardId, git);
     return git;
   }

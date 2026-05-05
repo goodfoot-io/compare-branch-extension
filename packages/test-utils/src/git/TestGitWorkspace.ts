@@ -120,7 +120,9 @@ export class TestGitWorkspace {
     await fs.ensureDir(this.workspacePath);
 
     // Initialize git repository
-    this.git = simpleGit(this.workspacePath);
+    this.git = simpleGit(this.workspacePath, {
+      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true }
+    });
     await this.git.raw(['init', '--initial-branch=main']);
     const name = options?.identity?.name ?? 'Test User';
     const email = options?.identity?.email ?? 'test@example.com';
