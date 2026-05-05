@@ -56,7 +56,7 @@
     "@cards/sessions": "workspace:*",
     "@typescript/native-preview": "^7.0.0-dev",
     "esbuild": "^0.28.0",
-    "glob": "^11.0.0",
+    "glob": "^13.0.0",
     "ignore": "^7.0.5",
     "jsonpath-plus": "^10.4.0",
     "minimatch": "^10.2.5",
@@ -69,7 +69,7 @@
     "@cards/test-utils": "workspace:*",
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",
-    "jsdom": "^27.4.0",
+    "jsdom": "^29.1.1",
     "vitest": "^4.1.5",
     "ws": "^8.20.0"
   }

@@ -22,7 +22,7 @@
     "@cards/sessions": "workspace:*",
     "@vscode/codicons": "^0.0.45",
     "js-yaml": "^4.1.1",
-    "marked": "^17.0.4",
+    "marked": "^18.0.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "smol-toml": "^1.6.1",
