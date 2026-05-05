@@ -30,9 +30,9 @@
     "@types/node": "24.x",
     "@types/ws": "^8.18.1",
     "@typescript/native-preview": "^7.0.0-dev",
-    "better-sqlite3": "^11",
+    "better-sqlite3": "^12.9.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.5"
   },
   "engines": {
     "node": ">=22"

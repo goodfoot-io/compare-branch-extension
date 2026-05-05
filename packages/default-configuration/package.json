@@ -47,7 +47,7 @@
     "chokidar-cli": "^3.0.0",
     "fs-extra": "^11.3.4",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18",
+    "vitest": "^4.1.5",
     "zod": "^4.0.0"
   },
   "engines": {
