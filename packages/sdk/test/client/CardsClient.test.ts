@@ -1,7 +1,7 @@
 import { TestHttpClient } from '@cards/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CardsClient } from '../../src/client/cardsClient.js';
-import { ApiError, NetworkError } from '../../src/client/types/errors.js';
+import { ApiError } from '../../src/client/types/errors.js';
 import type { StreamMeta } from '../../src/protocol/index.js';
 
 /**
@@ -658,7 +658,7 @@ describe('CardsClient', () => {
     });
   });
 
-  describe('timeout and backoff behavior', () => {
+  describe('network retry behavior', () => {
     it('should pass AbortSignal to fetch when using default HTTP client', async () => {
       const client = new CardsClient(options);
       vi.spyOn(global, 'fetch').mockResolvedValue({
@@ -686,14 +686,25 @@ describe('CardsClient', () => {
       expect(httpClient.requests).toHaveLength(1);
     });
 
-    it('should throw NetworkError with timeout message after exhausting retries', async () => {
+    it('should retry network errors and eventually succeed', async () => {
+      vi.useFakeTimers();
       const client = new CardsClient(options);
-      const timeoutError = new DOMException('signal timed out', 'TimeoutError');
-      // All 3 attempts (1 initial + 2 retries) fail with timeout
-      vi.spyOn(global, 'fetch').mockRejectedValue(timeoutError);
+      const fetchSpy = vi.spyOn(global, 'fetch');
 
-      await expect(client.listCards()).rejects.toThrow(NetworkError);
-      await expect(client.listCards()).rejects.toThrow('Request timed out');
+      // Two failures (timeout + connection refused), then success
+      fetchSpy
+        .mockRejectedValueOnce(new DOMException('signal timed out', 'TimeoutError'))
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'card-1' }] } as Response);
+
+      const promise = client.listCards();
+      await vi.advanceTimersByTimeAsync(3000); // first retry delay
+      await vi.advanceTimersByTimeAsync(6000); // second retry delay (doubled)
+      const result = await promise;
+
+      expect(result).toEqual([{ id: 'card-1' }]);
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      vi.useRealTimers();
     });
 
     it('should retry on timeout and succeed on later attempt', async () => {
@@ -710,25 +721,23 @@ describe('CardsClient', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(2);
     });
 
-    it('should retry up to MAX_TIMEOUT_RETRIES times then throw', async () => {
+    it('should retry non-timeout network errors', async () => {
+      vi.useFakeTimers();
       const client = new CardsClient(options);
       const fetchSpy = vi.spyOn(global, 'fetch');
-      fetchSpy.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'));
 
-      await expect(client.listCards()).rejects.toThrow(NetworkError);
-      // 1 initial + 2 retries = 3 total attempts
-      expect(fetchSpy).toHaveBeenCalledTimes(3);
-    });
+      // TypeError (connection refused) then success
+      fetchSpy
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'card-2' }] } as Response);
 
-    it('should not retry non-timeout NetworkError', async () => {
-      const client = new CardsClient(options);
-      const fetchSpy = vi.spyOn(global, 'fetch');
-      fetchSpy.mockRejectedValue(new TypeError('Failed to fetch'));
+      const promise = client.listCards();
+      await vi.advanceTimersByTimeAsync(3000); // past first retry delay
+      const result = await promise;
 
-      await expect(client.listCards()).rejects.toThrow(NetworkError);
-      await expect(client.listCards()).rejects.toThrow('Request failed');
-      // Each listCards() call should produce exactly 1 fetch (no retry)
+      expect(result).toEqual([{ id: 'card-2' }]);
       expect(fetchSpy).toHaveBeenCalledTimes(2);
+      vi.useRealTimers();
     });
 
     it('should not retry ApiError (server responded)', async () => {
@@ -741,63 +750,34 @@ describe('CardsClient', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('should increase timeout on consecutive failures (exponential backoff)', async () => {
+    it('should reset retry delay after a successful request', async () => {
+      vi.useFakeTimers();
       const client = new CardsClient(options);
       const fetchSpy = vi.spyOn(global, 'fetch');
 
-      // All attempts for this call time out (triggers backoff increase per retry)
-      fetchSpy.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'));
-      await expect(client.listCards()).rejects.toThrow(NetworkError);
+      // First call: one failure then success
+      fetchSpy
+        .mockRejectedValueOnce(new DOMException('signal timed out', 'TimeoutError'))
+        .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
+      const promise1 = client.listCards();
+      await vi.advanceTimersByTimeAsync(3000);
+      await promise1;
 
-      // Next call: should start with an even higher timeout from cumulative backoff
-      fetchSpy.mockResolvedValueOnce({
-        ok: true,
-        json: async () => []
-      } as Response);
-      await client.listCards();
-
-      // Extract signals - retries within the first call plus the successful call
-      const signals = fetchSpy.mock.calls.map((call) => call[1]?.signal as AbortSignal);
-      for (const signal of signals) {
-        expect(signal).toBeInstanceOf(AbortSignal);
-      }
-      // Each retry creates a new signal instance
-      expect(signals[0]).not.toBe(signals[1]);
-    });
-
-    it('should reset timeout after successful request', async () => {
-      const client = new CardsClient(options);
-      const fetchSpy = vi.spyOn(global, 'fetch');
-
-      // All retries fail with timeout
-      fetchSpy.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'));
-      await expect(client.listCards()).rejects.toThrow();
-
-      // Clear and succeed
+      // Second call: succeeds immediately (retry delay was reset)
       fetchSpy.mockReset();
       fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
-      await client.listCards();
+      const promise2 = client.listCards();
+      await promise2;
 
-      // Next call after success should use initial timeout (fresh signal)
-      fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
-      await client.listCards();
-
-      // Both successful calls should have had AbortSignal
-      for (const call of fetchSpy.mock.calls) {
-        expect(call[1]?.signal).toBeInstanceOf(AbortSignal);
-      }
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
     });
 
-    it('should reset timeout on server error responses (connection is alive)', async () => {
+    it('should not carry retry state across separate API calls', async () => {
       const client = new CardsClient(options);
       const fetchSpy = vi.spyOn(global, 'fetch');
 
-      // All retries fail with timeout (3 fetch calls)
-      fetchSpy.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'));
-      await expect(client.listCards()).rejects.toThrow();
-
-      // Server responds with 500 - connection is alive, should reset backoff
-      fetchSpy.mockReset();
+      // First API call fails with server error (not retried)
       fetchSpy.mockImplementation(async () => {
         return new Response(JSON.stringify({ error: 'Server error' }), {
           status: 500,
@@ -806,11 +786,10 @@ describe('CardsClient', () => {
       });
       await expect(client.listCards()).rejects.toThrow(ApiError);
 
-      // Next call should use initial timeout (backoff was reset by the 500 response)
+      // Second API call should succeed on first attempt
       fetchSpy.mockReset();
       fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => [] } as Response);
       await client.listCards();
-
       expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
 

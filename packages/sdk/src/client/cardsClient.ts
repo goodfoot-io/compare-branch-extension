@@ -36,14 +36,14 @@ import type {
 } from './types/client.js';
 import { ApiError, NetworkError } from './types/errors.js';
 
-/** Initial request timeout in milliseconds (3 seconds to accommodate git-backed endpoints). */
-const INITIAL_TIMEOUT_MS = 3_000;
+/** Fetch timeout in milliseconds for each individual request attempt. */
+const REQUEST_TIMEOUT_MS = 3_000;
 
-/** Maximum request timeout in milliseconds after exponential backoff. */
-const MAX_TIMEOUT_MS = 10_000;
+/** Initial delay before retrying a failed network request (3 seconds). */
+const INITIAL_RETRY_DELAY_MS = 3_000;
 
-/** Maximum number of automatic retries for timeout errors before giving up. */
-const MAX_TIMEOUT_RETRIES = 2;
+/** Maximum delay between retries (30 seconds). Once reached, retries continue at this interval. */
+const MAX_RETRY_DELAY_MS = 30_000;
 
 /**
  * Type-safe HTTP client for the Cards V2 REST API.
@@ -53,11 +53,10 @@ const MAX_TIMEOUT_RETRIES = 2;
  * methods surface server failures as {@link ApiError} and transport failures
  * as {@link NetworkError}.
  *
- * The default HTTP client applies an exponential backoff timeout to fetch
- * requests: starting at 3 seconds, doubling on each consecutive failure up
- * to a 10-second cap, and resetting on any successful response. This ensures
- * fast failure detection when the server is down while allowing slower
- * responses during recovery.
+ * All network errors (timeouts, connection refused, DNS failures) are retried
+ * with exponential backoff: 3s → 6s → 12s → 24s → 30s cap, then every 30s
+ * indefinitely until the server responds. HTTP error responses (4xx, 5xx) are
+ * not retried — they surface immediately as {@link ApiError}.
  *
  * @example
  * ```typescript
@@ -70,8 +69,8 @@ const MAX_TIMEOUT_RETRIES = 2;
 export class CardsClient {
   private readonly _httpClient?: HttpClient;
 
-  /** Current timeout in milliseconds, increases with consecutive failures. */
-  private _currentTimeoutMs = INITIAL_TIMEOUT_MS;
+  /** Current fetch timeout in milliseconds. Reset to {@link REQUEST_TIMEOUT_MS} on each successful response. */
+  private _currentTimeoutMs = REQUEST_TIMEOUT_MS;
 
   /**
    * Creates a new CardsClient instance.
@@ -129,14 +128,7 @@ export class CardsClient {
    * Records a successful request and resets the timeout backoff.
    */
   private onRequestSuccess(): void {
-    this._currentTimeoutMs = INITIAL_TIMEOUT_MS;
-  }
-
-  /**
-   * Records a failed request and increases the timeout via exponential backoff.
-   */
-  private onRequestFailure(): void {
-    this._currentTimeoutMs = Math.min(this._currentTimeoutMs * 2, MAX_TIMEOUT_MS);
+    this._currentTimeoutMs = REQUEST_TIMEOUT_MS;
   }
 
   /**
@@ -243,24 +235,30 @@ export class CardsClient {
   }
 
   /**
-   * Wraps a request with consistent error handling.
+   * Wraps a request with consistent error handling and automatic retry.
+   *
+   * HTTP error responses (4xx, 5xx) surface immediately as {@link ApiError}
+   * since the server is reachable and the request was rejected on its merits.
+   *
+   * All network errors — timeouts, connection refused, DNS failures — are
+   * retried with exponential backoff: starting at 3s, doubling each attempt
+   * up to a 30s cap, then retrying every 30s indefinitely until the server
+   * responds.
    *
    * @param fn - Async request function to execute.
    * @returns The resolved value from the request function.
    * @throws ApiError when the server responds with a non-2xx status.
-   * @throws NetworkError for network failures or unexpected exceptions.
    */
   private async request<T>(fn: () => Promise<T>): Promise<T> {
-    let lastTimeoutError: NetworkError | undefined;
+    let retryDelayMs = INITIAL_RETRY_DELAY_MS;
 
-    for (let attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
+    while (true) {
       try {
         const result = await fn();
         this.onRequestSuccess();
         return result;
       } catch (error) {
         if (error instanceof Response) {
-          // Server responded (even with an error status) - connection is alive, reset backoff
           this.onRequestSuccess();
           let body: Record<string, unknown> = {};
           try {
@@ -278,22 +276,12 @@ export class CardsClient {
           throw new ApiError(message, code, fields);
         }
 
-        // Network or timeout failure - increase backoff for next attempt
-        this.onRequestFailure();
-
-        if (error instanceof DOMException && error.name === 'TimeoutError') {
-          lastTimeoutError = new NetworkError('Request timed out', error);
-          // Retry on timeout - onRequestFailure() already increased _currentTimeoutMs
-          continue;
-        }
-
-        // Non-timeout network errors (DNS failure, connection refused) are not retried
-        throw new NetworkError('Request failed', error instanceof Error ? error : undefined);
+        // Network error — retry with exponential backoff delay
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
+        this.onRequestSuccess();
       }
     }
-
-    // All retry attempts exhausted
-    throw lastTimeoutError!;
   }
 
   // --- Card Operations ---
