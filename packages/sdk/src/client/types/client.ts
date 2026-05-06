@@ -53,6 +53,14 @@ export interface CardsClientOptions {
   accessToken?: string;
   /** Workspace path for scoping API requests. */
   workspacePath?: string;
+  /**
+   * Whether to retry network failures with exponential backoff.
+   * Defaults to `true`. When `false`, network errors throw immediately as
+   * {@link NetworkError} — useful for short-lived callers that have their own
+   * recovery path (e.g. file watchers, manual refresh) and shouldn't block
+   * forever on an unreachable server.
+   */
+  retryOnNetworkError?: boolean;
 }
 
 // ============================================================================

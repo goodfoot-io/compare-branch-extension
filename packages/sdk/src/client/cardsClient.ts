@@ -258,25 +258,42 @@ export class CardsClient {
         this.onRequestSuccess();
         return result;
       } catch (error) {
-        if (error instanceof Response) {
+        const httpLike =
+          error instanceof Response ||
+          (error !== null &&
+            typeof error === 'object' &&
+            'status' in error &&
+            'ok' in error &&
+            typeof (error as Record<string, unknown>)['json'] === 'function')
+            ? (error as { ok: boolean; status: number; statusText?: string; json(): Promise<unknown> })
+            : null;
+        if (httpLike) {
           this.onRequestSuccess();
           let body: Record<string, unknown> = {};
           try {
-            body = await error.json();
+            body = (await httpLike.json()) as Record<string, unknown>;
           } catch (parseError) {
-            // SyntaxError is expected when server returns non-JSON error response (e.g., HTML error page)
             if (!(parseError instanceof SyntaxError)) {
               console.warn('[CardsClient] Unexpected error parsing error response:', parseError);
             }
           }
           const message =
-            (body['error'] as string | undefined) || (body['message'] as string | undefined) || error.statusText;
-          const code = (body['code'] as string | undefined) || String(error.status);
+            (body['error'] as string | undefined) ||
+            (body['message'] as string | undefined) ||
+            httpLike.statusText ||
+            '';
+          const code = (body['code'] as string | undefined) || String(httpLike.status);
           const fields = body['fields'] as Array<{ field: string; message: string }> | undefined;
           throw new ApiError(message, code, fields);
         }
 
-        // Network error — retry with exponential backoff delay
+        // Network error — retry with exponential backoff delay, unless caller opted out
+        if (this.options.retryOnNetworkError === false) {
+          throw new NetworkError(
+            error instanceof Error ? error.message : String(error),
+            error instanceof Error ? error : undefined
+          );
+        }
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
         retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
         this.onRequestSuccess();
