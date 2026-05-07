@@ -6,7 +6,7 @@ tags:
   - wiki
 ---
 
-This page explains *why* the wiki is organized the way it is. For the CLI tools that enforce them, see [Wiki CLI](../../../wiki/architecture/wiki-cli.md).
+This page explains *why* the wiki is organized the way it is. For the CLI tools that enforce them, see [[default:Wiki CLI]].
 
 ## Why Documentation Modes Must Be Separated
 
