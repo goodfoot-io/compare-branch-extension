@@ -46,7 +46,7 @@ streams/                    # Append-only JSONL
 {
   "id": "main-0001",
   "title": "Implement authentication",
-  "status": "in_progress",
+  "status": "active",
   "tags": ["feature", "security"],
   "gates": {
     "planRequired": true,

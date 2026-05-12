@@ -152,7 +152,7 @@ attachment/                 # Created on first attachment
 {
   "id": "main-0001",
   "title": "Implement authentication",
-  "status": "in_progress",
+  "status": "active",
   "tags": ["feature", "security"],
   "gates": {
     "planRequired": true,
@@ -208,10 +208,9 @@ cd "$REPO" && git add "attachment/$ATT_NAME" "attachment/${ATT_NAME}.meta.json" 
 ```
 
 <card-status>
-- **in_progress**: The agent is actively working on this card.
 - **todo**: This card is ready for implementation.
-- **needs_review**: This card is awaiting feedback from the user (includes plan approval and implementation review).
+- **active**: The agent is actively working on this card. Set automatically when an action handler starts; do not set directly.
+- **needs_review**: This card is awaiting feedback from the user (includes plan approval and implementation review). Set automatically when an action handler exits; do not set directly.
 - **done**: The card is complete and needs no additional review.
-- **backlog**: The card is still under consideration. Do not modify or work on cards in the backlog.
 - **archived**: This card has been archived and is no longer in the active workflow.
 </card-status>
