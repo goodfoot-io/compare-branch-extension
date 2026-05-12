@@ -1,11 +1,9 @@
 /**
- * Retry policy for {@link CardsClient.request}:
+ * Retry policy: network errors retry with exponential backoff; programming
+ * bugs (ReferenceError, RangeError, SyntaxError, non-fetch TypeError) surface
+ * immediately because retrying produces the identical failure forever.
  *
- * - Network-shaped errors (connection refused, DNS, timeout, fetch failed)
- *   retry indefinitely with exponential backoff.
- * - Non-recoverable errors (programming bugs — `ReferenceError`, `RangeError`,
- *   `SyntaxError`, programming-style `TypeError`) surface immediately because
- *   retrying produces the identical failure forever.
+ * @summary retry policy tests for cardsclient request
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,7 +33,7 @@ describe('CardsClient retry policy (main-54)', () => {
     let attempts = 0;
     const client = new CardsClient(
       { baseUrl: 'http://localhost:0', accessToken: 't', workspacePath: '/w' },
-      makeHttpClient(<T>(): Promise<T> => {
+      makeHttpClient(async <T>(): Promise<T> => {
         attempts++;
         if (attempts < 4) return Promise.reject(new TypeError('fetch failed'));
         return Promise.resolve([] as unknown as T);
@@ -53,14 +51,13 @@ describe('CardsClient retry policy (main-54)', () => {
     let attempts = 0;
     const client = new CardsClient(
       { baseUrl: 'http://localhost:0', accessToken: 't', workspacePath: '/w' },
-      makeHttpClient(<T>(): Promise<T> => {
+      makeHttpClient(async <T>(): Promise<T> => {
         attempts++;
-        return Promise.reject(new ReferenceError('foo is not defined'));
+        throw new ReferenceError('foo is not defined');
       })
     );
 
     const promise = client.listCards();
-    await vi.advanceTimersByTimeAsync(60_000);
 
     await expect(promise).rejects.toBeInstanceOf(ReferenceError);
     expect(attempts).toBe(1);
@@ -70,14 +67,13 @@ describe('CardsClient retry policy (main-54)', () => {
     let attempts = 0;
     const client = new CardsClient(
       { baseUrl: 'http://localhost:0', accessToken: 't', workspacePath: '/w' },
-      makeHttpClient(<T>(): Promise<T> => {
+      makeHttpClient(async <T>(): Promise<T> => {
         attempts++;
-        return Promise.reject(new TypeError("Cannot read properties of undefined (reading 'x')"));
+        throw new TypeError("Cannot read properties of undefined (reading 'x')");
       })
     );
 
     const promise = client.listCards();
-    await vi.advanceTimersByTimeAsync(60_000);
 
     await expect(promise).rejects.toBeInstanceOf(TypeError);
     expect(attempts).toBe(1);
@@ -87,14 +83,13 @@ describe('CardsClient retry policy (main-54)', () => {
     let attempts = 0;
     const client = new CardsClient(
       { baseUrl: 'http://localhost:0', accessToken: 't', workspacePath: '/w' },
-      makeHttpClient(<T>(): Promise<T> => {
+      makeHttpClient(async <T>(): Promise<T> => {
         attempts++;
-        return Promise.reject(new SyntaxError('Unexpected token'));
+        throw new SyntaxError('Unexpected token');
       })
     );
 
     const promise = client.listCards();
-    await vi.advanceTimersByTimeAsync(60_000);
 
     await expect(promise).rejects.toBeInstanceOf(SyntaxError);
     expect(attempts).toBe(1);

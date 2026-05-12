@@ -46,6 +46,32 @@ const INITIAL_RETRY_DELAY_MS = 3_000;
 const MAX_RETRY_DELAY_MS = 30_000;
 
 /**
+ * Returns true when an error is a programming bug rather than a recoverable
+ * transport failure — retrying would produce the identical failure forever.
+ *
+ * `fetch` surfaces network failures as `TypeError` with messages like
+ * "fetch failed" / "Failed to fetch" / "NetworkError when attempting to fetch
+ * resource" (and Node sets `cause` to the underlying syscall error). Other
+ * `TypeError` shapes — "Cannot read properties of undefined", "x is not a
+ * function" — come from logic bugs in the caller's request function.
+ *
+ * @param error - Caught value from the request function.
+ * @returns True when the error class indicates a non-recoverable programming bug.
+ */
+function isNonRecoverableError(error: unknown): boolean {
+  if (error instanceof ReferenceError) return true;
+  if (error instanceof RangeError) return true;
+  if (error instanceof SyntaxError) return true;
+  if (error instanceof TypeError) {
+    const message = error.message;
+    const looksLikeFetchFailure =
+      /fetch|NetworkError|network request failed/i.test(message) || (error as { cause?: unknown }).cause !== undefined;
+    return !looksLikeFetchFailure;
+  }
+  return false;
+}
+
+/**
  * Type-safe HTTP client for the Cards V2 REST API.
  *
  * Uses the Fetch API by default and supports dependency injection of an
@@ -285,6 +311,13 @@ export class CardsClient {
           const code = (body['code'] as string | undefined) || String(httpLike.status);
           const fields = body['fields'] as Array<{ field: string; message: string }> | undefined;
           throw new ApiError(message, code, fields);
+        }
+
+        // Programming bug (ReferenceError, RangeError, SyntaxError, non-fetch TypeError)
+        // — surface immediately because retry produces the same failure forever.
+        if (isNonRecoverableError(error)) {
+          this.onRequestSuccess();
+          throw error;
         }
 
         // Network error — retry with exponential backoff delay, unless caller opted out
