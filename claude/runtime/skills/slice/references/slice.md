@@ -45,7 +45,7 @@ A typical sequence:
 3. Skipped integration tests asserting behavioral expectations
 4. (Subsequent sessions) Unskip and implement one behavior at a time
 
-Track the sequence with `TaskCreate` — one task per slice. Mark the first task `in_progress` and proceed.
+Track the sequence with `TaskCreate` — one task per slice. Mark the first task `active` and proceed.
 
 ## 4. Dispatch the Current Slice
 
