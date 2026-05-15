@@ -92,13 +92,14 @@ export function buildEnvBlock(actionInput: ActionInput): string {
 const MAX_CARD_REPO_LOG_COMMITS = 10;
 
 /**
- * Builds the `<card-repo-log>` block with recent commits in YAML format.
+ * Builds the `<card-repo-log>` block with recent commits as plain text.
  *
- * Each commit is a `{ sha, author, subject }` object. Uses NUL-delimited
- * fields for reliable parsing.
+ * Each commit renders as `sha • author\nsubject` followed by a `- file` list
+ * of touched paths (filtered by the same pathspec exclusions as the log).
+ * Commits are separated by blank lines.
  *
  * @param rootPath - Root directory of the card repository.
- * @returns The `<card-repo-log type="yaml" ...>...</card-repo-log>` block string, or `null`.
+ * @returns The `<card-repo-log order="oldest-first">...</card-repo-log>` block string, or `null`.
  */
 export function buildCardRepoLogBlock(rootPath: string): string | null {
   try {
@@ -108,7 +109,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         'log',
         `--max-count=${MAX_CARD_REPO_LOG_COMMITS}`,
         '--reverse',
-        '--pretty=format:%h%x00%an%x00%s',
+        '--name-only',
+        '--pretty=format:%x1e%h%x00%an%x00%s',
         '--',
         '.',
         ...CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
@@ -120,16 +122,27 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         timeout: 5000,
         stdio: ['pipe', 'pipe', 'pipe']
       }
-    ).trim();
+    );
 
-    if (!log) return null;
+    const chunks = log.split('\x1e').filter((chunk) => chunk.trim().length > 0);
+    if (chunks.length === 0) return null;
 
-    const commits = log.split('\n').map((line) => {
-      const [sha, author, subject] = line.split('\0');
-      return { sha: sha!, author: author!, subject: subject! };
+    const commits = chunks.map((chunk) => {
+      const lines = chunk.split('\n');
+      const [sha, author, subject] = lines[0]!.split('\0');
+      const files = lines
+        .slice(1)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      return { sha: sha!, author: author!, subject: subject!, files };
     });
 
-    const body = commits.map(({ sha, author, subject }) => `${sha} • ${author}\n${subject}`).join('\n\n');
+    const body = commits
+      .map(({ sha, author, subject, files }) => {
+        const fileLines = files.length > 0 ? `\n${files.map((file) => `- ${file}`).join('\n')}` : '';
+        return `${sha} • ${author}\n${subject}${fileLines}`;
+      })
+      .join('\n\n');
     return `<card-repo-log order="oldest-first">\n${body}\n</card-repo-log>`;
   } catch {
     return null;

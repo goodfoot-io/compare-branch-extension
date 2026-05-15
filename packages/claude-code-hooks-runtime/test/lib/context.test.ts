@@ -13,23 +13,34 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 /**
  * Parses the plain-text log body shared by card-repo-log and workspace-repo-log blocks.
  * Each entry is `{sha} • {author}\n{subject}` (or `{sha} [merged] • {author}\n{subject}`),
- * separated by blank lines.
+ * optionally followed by `- {file}` lines, separated by blank lines.
  *
  * @param body - Raw text content between the log XML tags.
  * @returns Array of parsed commit entries.
  */
-function parseLogEntries(body: string): Array<{ sha: string; author: string; subject: string; merged?: true }> {
+function parseLogEntries(
+  body: string
+): Array<{ sha: string; author: string; subject: string; files: string[]; merged?: true }> {
   if (!body.trim()) return [];
   return body.split('\n\n').map((entry) => {
-    const newlineIdx = entry.indexOf('\n');
-    const shaLine = entry.slice(0, newlineIdx);
-    const subject = entry.slice(newlineIdx + 1);
+    const lines = entry.split('\n');
+    const shaLine = lines[0]!;
+    const files: string[] = [];
+    const subjectLines: string[] = [];
+    for (const line of lines.slice(1)) {
+      if (line.startsWith('- ')) {
+        files.push(line.slice(2));
+      } else {
+        subjectLines.push(line);
+      }
+    }
+    const subject = subjectLines.join('\n');
     const mergedMatch = /^(\S+) \[merged\] • (.+)$/.exec(shaLine);
     if (mergedMatch) {
-      return { sha: mergedMatch[1]!, author: mergedMatch[2]!, subject, merged: true };
+      return { sha: mergedMatch[1]!, author: mergedMatch[2]!, subject, files, merged: true };
     }
     const match = /^(\S+) • (.+)$/.exec(shaLine);
-    return { sha: match![1]!, author: match![2]!, subject };
+    return { sha: match![1]!, author: match![2]!, subject, files };
   });
 }
 
@@ -154,6 +165,32 @@ describe('buildCardRepoLogBlock', () => {
       expect(firstIdx).toBeLessThan(secondIdx);
     } finally {
       chronoRepo.destroy();
+    }
+  });
+
+  it('lists files touched by each commit', async () => {
+    const fileRepo = new TestGitWorkspace();
+    const filePath = await fileRepo.create();
+
+    try {
+      await fileRepo.createAndCommitFile('CARD.md', '# Card', 'Add card');
+      await fileRepo.createAndCommitFile('plan/file2.md', '# Plan', 'Add plan');
+
+      const result = buildCardRepoLogBlock(filePath);
+
+      expect(result).not.toBeNull();
+      const body = result!.replace(/^<card-repo-log[^>]*>\n/, '').replace(/\n<\/card-repo-log>$/, '');
+      const entries = parseLogEntries(body);
+
+      const addCard = entries.find((c) => c.subject === 'Add card');
+      expect(addCard).toBeDefined();
+      expect(addCard!.files).toContain('CARD.md');
+
+      const addPlan = entries.find((c) => c.subject === 'Add plan');
+      expect(addPlan).toBeDefined();
+      expect(addPlan!.files).toContain('plan/file2.md');
+    } finally {
+      fileRepo.destroy();
     }
   });
 
