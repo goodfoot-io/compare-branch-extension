@@ -56,8 +56,11 @@ beforeEach(async () => {
         : '';
     const key = `${command} ${normalizedArgs.join(' ')}`;
 
-    if (cwd === '/test/repo' && key.startsWith('git log -5 --reverse --pretty=format:%h%x00%an%x00%s -- .')) {
-      return '123abcd\0Test User\0Add card plan';
+    if (
+      cwd === '/test/repo' &&
+      key.startsWith('git log -5 --reverse --name-only --pretty=format:%x1e%h%x00%an%x00%s -- .')
+    ) {
+      return '\x1e123abcd\0Test User\0Add card plan\nplan/file1.md\nCARD.md\n';
     }
     if (cwd === '/test/repo' && key === 'git rev-list --count HEAD') {
       return '3';
@@ -216,6 +219,9 @@ describe('codex-session library', () => {
     expect(additionalContext).toContain('CARD.md');
     expect(additionalContext).toContain('<card-repo-log type="yaml" count="3" order="oldest-first">');
     expect(additionalContext).toContain('subject: Add card plan');
+    expect(additionalContext).toContain('files:');
+    expect(additionalContext).toContain('- plan/file1.md');
+    expect(additionalContext).toContain('- CARD.md');
     expect(additionalContext).toContain(
       '<workspace-repo-log type="yaml" branch="cards/card-123/1" parentBranch="main" count="1">'
     );

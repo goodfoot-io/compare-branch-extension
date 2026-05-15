@@ -294,7 +294,8 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         'log',
         `-${MAX_CARD_REPO_LOG_COMMITS}`,
         '--reverse',
-        '--pretty=format:%h%x00%an%x00%s',
+        '--name-only',
+        '--pretty=format:%x1e%h%x00%an%x00%s',
         '--',
         '.',
         ...CARD_REPO_LOG_PATHSPEC_EXCLUSIONS,
@@ -306,13 +307,25 @@ export function buildCardRepoLogBlock(rootPath: string): string | null {
         timeout: 5000,
         stdio: ['pipe', 'pipe', 'pipe']
       }
-    ).trim();
+    );
 
-    if (!log) return null;
+    const chunks = log.split('\x1e').filter((chunk) => chunk.trim().length > 0);
+    if (chunks.length === 0) return null;
 
-    const commits = log.split('\n').map((line) => {
-      const [sha, author, subject] = line.split('\0');
-      return { sha: sha!, author: author!, subject: subject! };
+    const commits = chunks.map((chunk) => {
+      const lines = chunk.split('\n');
+      const [sha, author, subject] = lines[0]!.split('\0');
+      const files = lines
+        .slice(1)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      const commit: { sha: string; author: string; subject: string; files?: string[] } = {
+        sha: sha!,
+        author: author!,
+        subject: subject!
+      };
+      if (files.length > 0) commit.files = files;
+      return commit;
     });
 
     let totalCount: number | null = null;
