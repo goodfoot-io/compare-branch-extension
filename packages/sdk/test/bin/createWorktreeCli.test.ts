@@ -23,13 +23,19 @@ const createWorktreeBinPath = new URL('../../src/bin/create-worktree.ts', import
  *
  * @param args - CLI arguments.
  * @param cwd - Working directory for the process.
+ * @param env - Optional extra environment variables merged over `process.env`.
  * @returns stdout, stderr, and exit code.
  */
-function runCreateWorktree(args: string[], cwd: string): { stdout: string; stderr: string; exitCode: number } {
+function runCreateWorktree(
+  args: string[],
+  cwd: string,
+  env?: Record<string, string>
+): { stdout: string; stderr: string; exitCode: number } {
   try {
     const stdout = execFileSync('tsx', [createWorktreeBinPath, ...args], {
       encoding: 'utf8',
-      cwd
+      cwd,
+      ...(env ? { env: { ...process.env, ...env } } : {})
     });
     return { stdout, stderr: '', exitCode: 0 };
   } catch (error) {
@@ -128,5 +134,60 @@ describe('create-worktree CLI', () => {
   it('exits 2 when invoked without arguments (missing argument regression)', () => {
     const result = runCreateWorktree([], os.tmpdir());
     expect(result.exitCode).toBe(2);
+  });
+
+  it('provisions card-bound worktree with compiledScriptPaths from EXTENSION_PATH', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+
+    // Fake extension install with compiled git-hook artifacts.
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+
+    const result = runCreateWorktree(['--card-id', 'main-77', 'card-branch'], repoDir, {
+      EXTENSION_PATH: extDir
+    });
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout.trim()) as Record<string, unknown>;
+    const worktreePath = parsed['worktree'] as string;
+
+    // Attribution marker written.
+    const cardId = await fs.readFile(path.join(worktreePath, '.cards', 'CARD_ID'), 'utf-8');
+    expect(cardId.trim()).toBe('main-77');
+
+    // Per-worktree core.hooksPath points at the shared dispatcher dir, and the
+    // compiled .mjs were copied there from the fake extension install.
+    const hooksPath = execFileSync('git', ['-C', worktreePath, 'config', '--worktree', 'core.hooksPath'], {
+      encoding: 'utf8'
+    }).trim();
+    expect(hooksPath).toBe(path.join(repoDir, '.cards', 'workspace-hooks'));
+    const copied = await fs.readFile(path.join(hooksPath, 'post-commit.mjs'), 'utf-8');
+    expect(copied).toBe('// post-commit stub\n');
+  });
+
+  it('exits 2 with actionable error when --card-id given but extension path unresolvable', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+
+    // EXTENSION_PATH empty and HOME pointed at a dir with no .cards/EXTENSION_PATH.
+    const fakeHome = path.join(tmpBase, 'home');
+    await fs.mkdir(fakeHome, { recursive: true });
+
+    const result = runCreateWorktree(['--card-id', 'main-77', 'card-branch'], repoDir, {
+      EXTENSION_PATH: '',
+      HOME: fakeHome
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('Cannot resolve extension path');
   });
 });

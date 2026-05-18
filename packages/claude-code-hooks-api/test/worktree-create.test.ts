@@ -18,6 +18,15 @@ vi.mock('@cards/sdk/worktree', async (importOriginal) => {
   };
 });
 
+vi.mock('@cards/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/sdk')>();
+  return {
+    ...actual,
+    resolveExtensionPath: vi.fn()
+  };
+});
+
+import { resolveExtensionPath } from '@cards/sdk';
 import { createWorktree } from '@cards/sdk/worktree';
 import hookFn from '../src/worktree-create.js';
 
@@ -41,6 +50,10 @@ describe('WorktreeCreate hook', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     mockCreateWorktree.mockReset();
+    vi.mocked(resolveExtensionPath).mockReset();
+    // Default: extension path resolves so card-bound tests that don't override
+    // it still produce valid compiledScriptPaths.
+    vi.mocked(resolveExtensionPath).mockResolvedValue('/ext/install');
     mockLogger.debug.mockReset();
     mockLogger.warn.mockReset();
     mockLogger.info.mockReset();
@@ -212,5 +225,69 @@ describe('WorktreeCreate hook', () => {
     });
 
     await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow('settle failed');
+  });
+
+  it('passes compiledScriptPaths resolved from extension path when CARD_ID is set', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    vi.mocked(resolveExtensionPath).mockResolvedValue('/ext/install');
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue({
+      path: worktreePath,
+      settle: Promise.resolve({
+        branch: 'feature/test-branch',
+        worktree: worktreePath,
+        baseSha: 'abc123',
+        copiedFromInclude: 0,
+        reroutedSymlinks: 0
+      })
+    });
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(resolveExtensionPath).toHaveBeenCalledOnce();
+    expect(mockCreateWorktree).toHaveBeenCalledWith(
+      'feature/test-branch',
+      expect.objectContaining({
+        cardId: 'main-42',
+        compiledScriptPaths: {
+          'pre-commit': '/ext/install/dist/git-hooks/pre-commit.mjs',
+          'post-commit': '/ext/install/dist/git-hooks/post-commit.mjs',
+          'post-rewrite': '/ext/install/dist/git-hooks/post-rewrite.mjs'
+        }
+      })
+    );
+  });
+
+  it('does not resolve extension path when CARD_ID is unset', async () => {
+    delete process.env['CARD_ID'];
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue({
+      path: worktreePath,
+      settle: Promise.resolve({
+        branch: 'feature/test-branch',
+        worktree: worktreePath,
+        baseSha: 'abc123',
+        copiedFromInclude: 0,
+        reroutedSymlinks: 0
+      })
+    });
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(resolveExtensionPath).not.toHaveBeenCalled();
+    const call = mockCreateWorktree.mock.calls[0]!;
+    expect((call[1] as Record<string, unknown> | undefined)?.['compiledScriptPaths']).toBeUndefined();
+  });
+
+  it('propagates resolveExtensionPath failure (fail-closed) when CARD_ID is set', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    vi.mocked(resolveExtensionPath).mockRejectedValue(
+      new Error('Cannot resolve extension path: EXTENSION_PATH env var is not set')
+    );
+
+    await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow(
+      'Cannot resolve extension path'
+    );
+    expect(mockCreateWorktree).not.toHaveBeenCalled();
   });
 });

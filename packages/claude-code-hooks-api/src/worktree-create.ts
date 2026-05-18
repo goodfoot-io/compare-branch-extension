@@ -10,6 +10,8 @@
  * @module worktree-create
  */
 
+import * as path from 'node:path';
+import { resolveExtensionPath } from '@cards/sdk';
 import { createWorktree } from '@cards/sdk/worktree';
 import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
 
@@ -24,9 +26,20 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
     cardId: cardId ?? null
   });
 
+  let compiledScriptPaths: Record<string, string> | undefined;
+  if (cardId !== undefined) {
+    const extensionPath = await resolveExtensionPath();
+    const gitHooksDir = path.join(extensionPath, 'dist', 'git-hooks');
+    compiledScriptPaths = {
+      'pre-commit': path.join(gitHooksDir, 'pre-commit.mjs'),
+      'post-commit': path.join(gitHooksDir, 'post-commit.mjs'),
+      'post-rewrite': path.join(gitHooksDir, 'post-rewrite.mjs')
+    };
+  }
+
   const { path: worktreePath, settle } = await createWorktree(input.name, {
     cwd: input.cwd,
-    ...(cardId !== undefined ? { cardId } : {})
+    ...(cardId !== undefined ? { cardId, compiledScriptPaths } : {})
   });
 
   const result = await settle;

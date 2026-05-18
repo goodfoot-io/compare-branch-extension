@@ -14,6 +14,9 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { ActionInput, CardsAssistantInput } from './inputs.js';
 
 // ============================================================================
@@ -477,6 +480,41 @@ export function getExtensionPath(): string {
     throw new Error(`Missing required environment variable: ${CARDS_ENV_VARS.EXTENSION_PATH}`);
   }
   return value;
+}
+
+/**
+ * Resolves the extension installation path for CLI contexts where `EXTENSION_PATH`
+ * is not injected by the ActionDispatcher.
+ *
+ * Resolution order:
+ * 1. `EXTENSION_PATH` env var (set in action subprocess environments).
+ * 2. `~/.cards/EXTENSION_PATH` file (written by the extension on activation,
+ *    mirrors the `~/.cards/VSCODE_NODE` pattern for terminal CLI use).
+ *
+ * @returns Absolute path to the extension installation directory.
+ * @throws Error if neither source provides a non-empty path.
+ */
+export async function resolveExtensionPath(): Promise<string> {
+  const fromEnv = (process.env[CARDS_ENV_VARS.EXTENSION_PATH] ?? '').trim();
+  if (fromEnv) return fromEnv;
+
+  const filePath = join(homedir(), '.cards', 'EXTENSION_PATH');
+  let fromFile: string;
+  try {
+    fromFile = (await readFile(filePath, 'utf-8')).trim();
+  } catch {
+    throw new Error(
+      `Cannot resolve extension path: EXTENSION_PATH env var is not set and ~/.cards/EXTENSION_PATH does not exist. ` +
+        `Ensure the Cards extension is installed and has been activated at least once.`
+    );
+  }
+  if (!fromFile) {
+    throw new Error(
+      `Cannot resolve extension path: ~/.cards/EXTENSION_PATH is empty. ` +
+        `Restart VS Code to allow the Cards extension to re-write it.`
+    );
+  }
+  return fromFile;
 }
 
 /**

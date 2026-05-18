@@ -35,7 +35,8 @@ export {
   CARDS_ENV_VARS,
   extractActionInput,
   getExecutionMode,
-  readSwitchToInteractiveData
+  readSwitchToInteractiveData,
+  resolveExtensionPath
 } from './config/env.js';
 // --- Exit Codes ---
 export {
