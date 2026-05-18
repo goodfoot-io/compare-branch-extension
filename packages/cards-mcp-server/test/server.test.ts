@@ -27,7 +27,7 @@ vi.mock('@cards/sessions/card-repo', () => ({
 function makeConfig(wsUrl: string): CardsServerConfig {
   return {
     cardId: 'test-card',
-    resolveSessionId: () => Promise.resolve({ sessionId: 'test-session', agentPid: 12345 }),
+    resolveSessionId: () => Promise.resolve('test-session'),
     apiAccessToken: 'test-token',
     wsUrl,
     logPath: '/tmp/cards-mcp-server-test.log',
@@ -138,7 +138,7 @@ describe('createServer', () => {
     const [serverTransport] = InMemoryTransport.createLinkedPair();
     const config = {
       ...makeConfig(wsServer.getUrl()),
-      resolveSessionId: () => Promise.resolve({ sessionId: null, agentPid: null })
+      resolveSessionId: () => Promise.resolve(null)
     };
     const server = createServer(config, { transport: serverTransport, logger: nullLogger });
 

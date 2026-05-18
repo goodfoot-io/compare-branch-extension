@@ -84,8 +84,8 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
 
     config
       .resolveSessionId()
-      .then(({ sessionId, agentPid }) => {
-        logger.info('Resolved session for commit', { sha: event.commit.hash, sessionId, agentPid });
+      .then((sessionId) => {
+        logger.info('Resolved session for commit', { sha: event.commit.hash, sessionId });
 
         if (sessionId && isSessionCommit(sessionId, event.commit.hash)) {
           logger.info('Suppressed session-owned commit', { sha: event.commit.hash, sessionId });
@@ -103,8 +103,7 @@ export function createServer(config: CardsServerConfig, options: CreateServerOpt
         logger.info('Dispatching channel notification', {
           sha: event.commit.hash,
           author: event.commit.author_name,
-          sessionId,
-          agentPid
+          sessionId
         });
 
         mcp

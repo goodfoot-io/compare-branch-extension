@@ -2,9 +2,7 @@
  * Configuration reader for the Cards MCP server.
  *
  * Reads all required runtime values from the cards-api.json discovery file.
- * The session ID is resolved lazily from the card-repo PID registry because
- * the MCP server may start before the session-start hook has registered the
- * session.
+ * The session ID is resolved lazily via the SDK session resolver.
  *
  * @summary Configuration reader for the Cards MCP server
  * @module cards-mcp-server/config
@@ -14,11 +12,11 @@ import { join } from 'node:path';
 import type { DiscoverResult } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import { getCardId, getRepoRoot } from '@cards/sdk/config/env';
-import { findAgentPid, getSessionIdForPid } from '@cards/sessions';
+import { resolveSessionId } from '@cards/sdk/session-resolver';
 
 export interface CardsServerConfig {
   cardId: string;
-  resolveSessionId: () => Promise<SessionResolution>;
+  resolveSessionId: () => Promise<string | null>;
   apiAccessToken: string;
   wsUrl: string;
   logPath: string;
@@ -39,25 +37,6 @@ function resolveLogPath(): string {
   return join(getRepoRoot(), '.cards', 'logs', 'cards-mcp-server.log');
 }
 
-/** Result of a session ID resolution attempt, with diagnostic context. */
-export interface SessionResolution {
-  sessionId: string | null;
-  agentPid: number | null;
-}
-
-/**
- * Resolves the session ID by walking the process tree to find the parent
- * agent PID, then looking up its session in the card-repo PID registry.
- *
- * @returns Session ID and agent PID used for resolution.
- */
-async function resolveSessionIdFromPidRegistry(): Promise<SessionResolution> {
-  const agentPid = findAgentPid();
-  if (agentPid === null) return { sessionId: null, agentPid: null };
-  const sessionId = await getSessionIdForPid(agentPid);
-  return { sessionId, agentPid };
-}
-
 /**
  * Reads and validates the Cards MCP server configuration via API discovery.
  *
@@ -76,5 +55,5 @@ export async function readConfig(): Promise<CardsServerConfig> {
   const wsUrl = `ws://${info.host}:${info.port}`;
   const apiAccessToken = info.accessToken;
 
-  return { cardId, resolveSessionId: resolveSessionIdFromPidRegistry, apiAccessToken, wsUrl, logPath };
+  return { cardId, resolveSessionId, apiAccessToken, wsUrl, logPath };
 }
