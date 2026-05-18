@@ -1,15 +1,14 @@
 /**
- * Read, create, attach, and detach card sessions via the Cards API.
+ * Read, create, list, search, and act on cards via the Cards API.
  *
  * Locates the running Cards server through `~/.cards/cards-api.json`, then
  * dispatches to the requested subcommand. All output is JSON to stdout;
  * all errors go to stderr.
  *
- * @summary Card CLI for get, create, list, search, attach, detach, and action operations
+ * @summary Card CLI for get, create, list, search, watch, and action operations
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { toCardListSummaries } from '@cards/sdk/card-summary';
 import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
@@ -24,17 +23,15 @@ import {
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
-import { associatePidWithCard, findAgentPid, getSessionIdForPid, removePidEntry } from '@cards/sessions';
 import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
-import { spawnTranscriptWatcher } from './spawn-transcript-watcher.js';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
 const HELP = `Usage: card [options] <command>
 
-Read, create, list, search, attach, and detach card sessions via the Cards API.
+Read, create, list, search, and act on cards via the Cards API.
 Locates the server through ~/.cards/cards-api.json, executes the command,
 and prints the resulting Card JSON to stdout.
 
@@ -52,8 +49,6 @@ Commands:
   create                         Create a card from JSON on stdin
   list [options]                 List cards with optional filters
   search [query] [options]       Search cards using #tag @relation text syntax
-  attach <card-id>               Associate this Claude session with a card
-  detach                         Disassociate this Claude session from its card
   <card-id> action <action-id>  Execute an action on a card
   <card-id> watch [glob...]     Wait for next unattributed commit
 
@@ -112,19 +107,6 @@ Search:
     card search "#planning" --limit 20
     card search "@main-42"
 
-Attach:
-  Associates the current agent process with a card in the session registry.
-  Optionally registers the workspace branch and flushes any pending commits.
-
-  Examples:
-    card attach main-0001
-
-Detach:
-  Removes the current agent process from the session registry.
-
-  Examples:
-    card detach
-
 Action:
   Executes an action on a card via the server relay. The action ID is
   the lowercase identifier from the action definition (e.g., "launch").
@@ -136,7 +118,7 @@ Watch:
   Waits for the next unattributed commit on a card's repository. If
   unattributed commits already exist they are output immediately. Otherwise
   the command subscribes to WebSocket events and blocks until a qualifying
-  commit arrives. Requires an active card session (run 'card attach' first).
+  commit arrives. Requires an active Cards session (CARDS_SESSION_ID set).
 
   Optional glob patterns restrict output to commits that touch at least one
   matching file. Multiple globs are OR-combined.
@@ -536,115 +518,6 @@ export function isAncestorOfHead(sha: string): boolean {
   return !result.error && result.status === 0;
 }
 
-interface GitAttachContext {
-  gitRoot: string | null;
-  branch: string | null;
-  worktreePath: string | null;
-}
-
-function resolveAttachGitContext(): GitAttachContext {
-  const gitRoot = getGitRoot();
-  const branch = getCurrentBranch();
-  const worktreePath = branch ? getWorktreeForBranch(branch) : null;
-  return { gitRoot, branch, worktreePath };
-}
-
-/**
- * Associates the current Claude session with a card in attach mode.
- *
- * Fails closed on non-git cwd and missing session env vars. Records the
- * canonical realpath workspace path with mode:'attach' in the session
- * registry and spawns the transcript watcher. Does NOT register a branch —
- * attach-mode attribution is workspace-path-based, not branch-based.
- *
- * Note: WatcherRegistry.register replaces a same-watcherId watcher, so a
- * concurrent launch+attach for the same card is "last-writer wins" and is
- * not formally supported.
- *
- * @param cardId - The card identifier to associate with.
- * @returns Result object with association details.
- * @throws When cwd is not in a git repo, env vars are missing, or agent PID cannot be found.
- */
-export async function attachCard(
-  cardId: string
-): Promise<{ pid: number; cardId: string; workspacePath: string; watcherSpawned: boolean }> {
-  const gitContext = resolveAttachGitContext();
-  if (!gitContext.gitRoot) {
-    throw new Error('card attach: cwd is not inside a git working tree');
-  }
-
-  const sessionId = process.env['CARDS_SESSION_ID'];
-  if (!sessionId) {
-    throw new Error('card attach: CARDS_SESSION_ID is not set — run inside a Cards session');
-  }
-  const transcriptPath = process.env['CARDS_TRANSCRIPT_PATH'];
-  if (!transcriptPath) {
-    throw new Error('card attach: CARDS_TRANSCRIPT_PATH is not set — run inside a Cards session');
-  }
-
-  const pid = findAgentPid();
-  if (!pid) {
-    throw new Error('could not find agent ancestor PID');
-  }
-
-  const workspacePath = realpathSync(gitContext.gitRoot);
-
-  // Validate card exists BEFORE writing to sessions.json. If getCard throws
-  // (e.g. 404 or transient API failure) the registry stays untouched.
-  const client = await connectClient();
-  const card = await client.getCard(cardId);
-  const cardRepoPath = card.repositoryPath;
-
-  // Check for existing launch-mode watcher collision BEFORE writing to sessions.json.
-  // If a watcher is already active under this sessionId, it was started via
-  // launch; attaching on top of it silently displaces launch-mode attribution.
-  // Network failure on this lookup is treated as "no collision detected" so a
-  // transient extension API hiccup cannot leave a poisoned registry entry behind.
-  const attachApiInfo = await discoverApiInfo();
-  if (attachApiInfo) {
-    const { host, port, accessToken } = attachApiInfo;
-    const watcherUrl = `http://${host}:${port}/internal/watchers/${encodeURIComponent(sessionId)}`;
-    let watcherRes: Response | undefined;
-    try {
-      watcherRes = await fetch(watcherUrl, {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-        signal: AbortSignal.timeout(4000)
-      });
-    } catch (error) {
-      console.error(
-        `card attach: watcher collision check skipped (${error instanceof Error ? error.message : String(error)})`
-      );
-    }
-    if (watcherRes?.ok) {
-      throw new Error(
-        `card attach: session ${sessionId} already has an active watcher (started via launch?); launch+attach is not supported`
-      );
-    }
-    // 404 means no existing watcher — safe to proceed.
-    // 503 means registry not configured — also safe to proceed (no active watcher).
-  }
-
-  await associatePidWithCard(pid, cardId, { mode: 'attach', workspacePath });
-  console.error(`card attach: PID ${pid} associated with card ${cardId} (workspacePath=${workspacePath})`);
-
-  // Spawn transcript watcher. Failure is non-fatal and logged to stderr.
-  let watcherSpawned = false;
-  try {
-    spawnTranscriptWatcher(pid, sessionId, transcriptPath, cardId, cardRepoPath, {
-      error: (msg, data) => console.error(`card attach: ${msg}`, data),
-      warn: (msg, data) => console.error(`card attach: warn: ${msg}`, data)
-    });
-    watcherSpawned = true;
-    console.error(`card attach: transcript watcher spawned`);
-  } catch (error) {
-    console.error(
-      `card attach: transcript watcher spawn failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
-
-  return { pid, cardId, workspacePath, watcherSpawned };
-}
-
 /**
  * Builds a {@link CardCommit} from a commit SHA by querying git for metadata and file changes.
  *
@@ -736,7 +609,7 @@ function getCommitFiles(sha: string, repositoryPath: string): string[] {
  * and exits. Otherwise subscribes to WebSocket events and blocks until the
  * first qualifying commit arrives.
  *
- * Requires an active card session (`card attach` must have been called).
+ * Requires an active Cards session (`CARDS_SESSION_ID` set in the environment).
  *
  * @param cardId - The card identifier to watch.
  * @param globs - Optional glob patterns to filter qualifying commits by changed files.
@@ -748,15 +621,9 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
   const repositoryPath = card.repositoryPath;
 
   // 2. Resolve session (optional — watch works without a session, just without attribution)
-  const pid = findAgentPid();
-  let sessionId: string | null = null;
-  if (!pid) {
-    console.error('card watch: warning: Could not find agent ancestor PID. Watching for any commit.');
-  } else {
-    sessionId = await getSessionIdForPid(pid);
-    if (!sessionId) {
-      console.error(`card watch: warning: No active card session for PID ${pid}. Watching for any commit.`);
-    }
+  const sessionId = (process.env['CARDS_SESSION_ID'] ?? '').trim() || null;
+  if (!sessionId) {
+    console.error('card watch: warning: CARDS_SESSION_ID not set. Watching for any commit.');
   }
 
   // 3. Check for existing unattributed commits (only when session is available)
@@ -897,68 +764,6 @@ export async function executeAction(cardId: string, actionName: string, jsonPath
   console.log(formatOutput(result, jsonPath));
 }
 
-/**
- * Disassociates the current Claude session from its card.
- *
- * Finds the agent ancestor PID and removes its entry from the session registry.
- *
- * @returns Result object with disassociation details.
- * @throws When agent PID cannot be found.
- */
-export async function detachCard(): Promise<{ pid: number }> {
-  const pid = findAgentPid();
-  if (!pid) {
-    throw new Error('could not find agent ancestor PID');
-  }
-
-  const entry = await removePidEntry(pid);
-  if (entry) {
-    console.error(`card detach: PID ${pid} disassociated from card ${entry.cardId ?? '(none)'}`);
-  } else {
-    console.error(`card detach: PID ${pid} had no active association`);
-  }
-
-  // Best-effort watcher teardown — never throws
-  if (entry?.cardId) {
-    const apiInfo = await discoverApiInfo();
-    if (!apiInfo) {
-      console.error(
-        `card detach: watcher teardown skipped (extension API not reachable; sidecar will remain isActive until PID exit)`
-      );
-    } else {
-      const { host, port, accessToken } = apiInfo;
-      try {
-        const res = await fetch(`http://${host}:${port}/internal/cards/${entry.cardId}/watchers`, {
-          method: 'DELETE',
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-          signal: AbortSignal.timeout(4000)
-        });
-        if (res.ok) {
-          const body = (await res.json()) as { stopped: string[]; timedOut: string[] };
-          if (body.timedOut.length > 0) {
-            console.error(
-              `card detach: watcher teardown TIMED OUT for ids=${JSON.stringify(body.timedOut)}; stopped=${JSON.stringify(body.stopped)}`
-            );
-          } else {
-            console.error(
-              `card detach: watcher teardown stopped=${JSON.stringify(body.stopped)} timedOut=${JSON.stringify(body.timedOut)}`
-            );
-          }
-        } else {
-          const text = await res.text().catch(() => '');
-          console.error(`card detach: watcher teardown returned status ${res.status} (${text})`);
-        }
-      } catch (error) {
-        console.error(
-          `card detach: watcher teardown skipped (${error instanceof Error ? error.message : String(error)})`
-        );
-      }
-    }
-  }
-
-  return { pid };
-}
-
 if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
   const command = process.argv[2];
 
@@ -983,22 +788,6 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
       break;
     case 'search':
       run = searchCards(process.argv.slice(3));
-      break;
-    case 'attach': {
-      const cardId = process.argv[3];
-      if (!cardId) {
-        console.error('card attach: missing card ID argument');
-        process.exit(1);
-      }
-      run = attachCard(cardId).then((result) => {
-        console.log(JSON.stringify({ success: true, ...result }));
-      });
-      break;
-    }
-    case 'detach':
-      run = detachCard().then((result) => {
-        console.log(JSON.stringify({ success: true, ...result }));
-      });
       break;
     default: {
       // Resource-first: <card-id> [verb]

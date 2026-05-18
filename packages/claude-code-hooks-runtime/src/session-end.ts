@@ -6,8 +6,8 @@
  * gracefully. The sentinel file also provides defense against PID reuse —
  * it distinguishes a graceful exit from a new process reusing the same PID.
  *
- * After the sentinel write, cleans up session artifacts (PID registration,
- * HEAD SHA, and session CSV) that were created during session-start.
+ * After the sentinel write, cleans up session artifacts (HEAD SHA and
+ * session CSV) that were created during session-start.
  * Cleanup is performed here — not in the Stop hook — because Stop fires
  * after every Claude response turn, while SessionEnd fires once when the
  * session truly ends.
@@ -23,7 +23,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
-import { findAgentPid, removeSessionPid } from '@cards/sessions';
 import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { sessionEndHook } from '@goodfoot/claude-code-hooks';
 
@@ -44,7 +43,7 @@ export async function writeSentinelFile(cardRepoPath: string, sessionId: string)
 }
 
 /**
- * Removes session artifacts (PID registration, HEAD SHA file, session CSV)
+ * Removes session artifacts (HEAD SHA file, session CSV, route-nudge marker)
  * that were created during session-start.
  *
  * Each cleanup step is independent — a failure in one does not prevent the
@@ -65,18 +64,6 @@ export async function cleanupSessionArtifacts(
   }
 ): Promise<void> {
   const errors: Error[] = [];
-
-  try {
-    const resolvedPid = findAgentPid();
-    if (resolvedPid) {
-      await removeSessionPid(resolvedPid);
-      logger.info('Cleaned up PID registration', { pid: resolvedPid });
-    }
-  } catch (error) {
-    const e = error instanceof Error ? error : new Error(String(error));
-    logger.warn('Failed to clean up PID registration', { error: e.message });
-    errors.push(e);
-  }
 
   try {
     removeSessionHeadSha(sessionId);

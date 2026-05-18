@@ -1,32 +1,17 @@
 /**
- * Stop hook that cleans up PID registry entries.
+ * Stop hook — no-op.
  *
- * Always approves: cleanup is best-effort and never blocks the agent from
- * stopping, even when session registry IO fails.
+ * The hook's only previous job was PID-registry cleanup, which no longer
+ * exists. It is retained as a no-op so hook configuration that references
+ * this entry continues to resolve.
  *
  *
- * @summary Stop hook that cleans up PID registry entries
+ * @summary Stop hook (no-op)
  * @module stop
  */
 
-import { findAgentPid, removePidEntry } from '@cards/sessions';
 import { stopHook } from '@goodfoot/claude-code-hooks';
 
-export default stopHook({}, async (_input, { logger }) => {
-  // If CARD_ID is set, the execution wrapper manages lifecycle
-  if (process.env['CARD_ID']) {
-    return null;
-  }
-
-  try {
-    const agentPid = findAgentPid();
-    if (agentPid) {
-      await removePidEntry(agentPid);
-    }
-  } catch (error) {
-    // Fail-open: never block Claude from stopping
-    logger.debug('Stop hook cleanup error', { error: String(error) });
-  }
-
+export default stopHook({}, async (_input, _ctx) => {
   return null;
 });

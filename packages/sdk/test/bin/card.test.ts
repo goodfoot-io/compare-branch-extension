@@ -1,9 +1,8 @@
 /**
  * Tests for card CLI binary functions.
  *
- * Uses a real HTTP server for API calls, real session registry on disk,
- * and real git workspace for branch detection. Only homedir and findAgentPid
- * are mocked since tests have no Cards API discovery file or Claude ancestor.
+ * Uses a real HTTP server for API calls and a real git workspace for branch
+ * detection. Only homedir is mocked since tests have no Cards discovery file.
  *
  * @summary Tests for card CLI binary functions
  */
@@ -26,21 +25,10 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/sessions', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cards/sessions')>();
-  return {
-    ...actual,
-    findAgentPid: vi.fn()
-  };
-});
-
-import { findAgentPid } from '@cards/sessions';
 import {
   applyJsonPath,
-  attachCard,
   connectClient,
   createCard,
-  detachCard,
   executeAction,
   getCurrentBranch,
   getWorktreeForBranch,
@@ -49,8 +37,6 @@ import {
   parseCardCreateInput,
   searchCards
 } from '../../src/bin/card.js';
-
-const mockFindAgentPid = vi.mocked(findAgentPid);
 
 /**
  * Collects the full request body as a string.
@@ -67,7 +53,6 @@ function collectBody(req: IncomingMessage): Promise<string> {
 }
 
 describe('card binary', () => {
-  const testPid = process.pid;
   let testDir: string;
   let server: Server;
 
@@ -277,8 +262,6 @@ describe('card binary', () => {
         startedAt: '2024-01-01T00:00:00Z'
       })
     );
-
-    mockFindAgentPid.mockReset();
   });
 
   afterEach(async () => {
@@ -507,258 +490,6 @@ describe('card binary', () => {
 
     it('returns false for invalid SHA format', () => {
       expect(isAncestorOfHead('not-a-sha')).toBe(false);
-    });
-  });
-
-  describe('attachCard', () => {
-    let workspace: TestGitWorkspace;
-    let origCwd: string;
-
-    beforeEach(async () => {
-      workspace = new TestGitWorkspace();
-      await workspace.create();
-      origCwd = process.cwd();
-      process.chdir(workspace.getPath());
-      // Provide required env vars for attach mode
-      process.env['CARDS_SESSION_ID'] = 'test-session-id';
-      process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/test-transcript.jsonl';
-    });
-
-    afterEach(() => {
-      process.chdir(origCwd);
-      workspace.destroy();
-      delete process.env['CARDS_SESSION_ID'];
-      delete process.env['CARDS_TRANSCRIPT_PATH'];
-    });
-
-    it('fails closed when cwd is not inside a git working tree', async () => {
-      process.chdir(realTmpdir());
-      mockFindAgentPid.mockReturnValue(testPid);
-      await expect(attachCard('test-card')).rejects.toThrow('card attach: cwd is not inside a git working tree');
-    });
-
-    it('fails closed when CARDS_SESSION_ID is missing', async () => {
-      delete process.env['CARDS_SESSION_ID'];
-      mockFindAgentPid.mockReturnValue(testPid);
-      await expect(attachCard('test-card')).rejects.toThrow('card attach: CARDS_SESSION_ID is not set');
-    });
-
-    it('fails closed when CARDS_TRANSCRIPT_PATH is missing', async () => {
-      delete process.env['CARDS_TRANSCRIPT_PATH'];
-      mockFindAgentPid.mockReturnValue(testPid);
-      await expect(attachCard('test-card')).rejects.toThrow('card attach: CARDS_TRANSCRIPT_PATH is not set');
-    });
-
-    it('throws when no agent PID found', async () => {
-      mockFindAgentPid.mockReturnValue(null);
-      await expect(attachCard('test-card')).rejects.toThrow('could not find agent ancestor PID');
-    });
-
-    it('stores realpath workspacePath with mode:attach and does not call addBranch', async () => {
-      cards.set('test-card', {
-        id: 'test-card',
-        title: 'Test',
-        status: 'todo',
-        repositoryPath: '/tmp/test-repo'
-      });
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const result = await attachCard('test-card');
-
-      expect(result.pid).toBe(testPid);
-      expect(result.cardId).toBe('test-card');
-      expect(typeof result.workspacePath).toBe('string');
-      expect(result.workspacePath.length).toBeGreaterThan(0);
-      // Branch registration must not have occurred
-      expect(branches.get('test-card')).toBeUndefined();
-
-      // Verify session registry recorded mode:'attach' and workspacePath
-      const { getPidCardAssociation } = await import('@cards/sessions');
-      const assoc = await getPidCardAssociation(testPid);
-      expect(assoc).not.toBeNull();
-      expect(assoc!.mode).toBe('attach');
-      expect(assoc!.workspacePath).toBe(result.workspacePath);
-    });
-
-    // F2: sessions.json must not be mutated when getCard fails
-    it('does not mutate sessions registry when getCard returns 404', async () => {
-      // 'nonexistent-card' is not in cards map — server returns 404
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      await expect(attachCard('nonexistent-card')).rejects.toThrow();
-
-      const { getPidCardAssociation } = await import('@cards/sessions');
-      const assoc = await getPidCardAssociation(testPid);
-      expect(assoc).toBeNull();
-    });
-
-    // F3: collision detection — existing watcher for same sessionId should throw
-    it('throws when a watcher is already active for the current sessionId (launch+attach collision)', async () => {
-      cards.set('test-card-f3', {
-        id: 'test-card-f3',
-        title: 'F3 Test',
-        status: 'todo',
-        repositoryPath: '/tmp/test-repo'
-      });
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const sessionId = process.env['CARDS_SESSION_ID']!;
-      // Pre-populate the watcher registry so GET /internal/watchers/:sessionId returns 200
-      activeWatchers.set(sessionId, {
-        watcherId: sessionId,
-        cardId: 'test-card-f3',
-        metadata: { pid: testPid }
-      });
-
-      await expect(attachCard('test-card-f3')).rejects.toThrow('already has an active watcher');
-
-      // Regression: collision throw must NOT have written sessions.json
-      const { getPidCardAssociation } = await import('@cards/sessions');
-      expect(await getPidCardAssociation(testPid)).toBeNull();
-    });
-
-    // F3: no collision — 404 from GET means no existing watcher, proceed normally
-    it('proceeds normally when GET watcher returns 404 (no collision)', async () => {
-      cards.set('test-card-f3b', {
-        id: 'test-card-f3b',
-        title: 'F3b Test',
-        status: 'todo',
-        repositoryPath: '/tmp/test-repo'
-      });
-      mockFindAgentPid.mockReturnValue(testPid);
-      // activeWatchers is empty — GET will return 404
-
-      const result = await attachCard('test-card-f3b');
-      expect(result.cardId).toBe('test-card-f3b');
-    });
-  });
-
-  describe('detachCard', () => {
-    it('removes PID entry and returns result', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      // Pre-populate a session entry
-      const { associatePidWithCard: associate } = await import('@cards/sessions');
-      await associate(testPid, 'test-card');
-
-      const result = await detachCard();
-      expect(result.pid).toBe(testPid);
-    });
-
-    it('succeeds even when no entry exists', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-      const result = await detachCard();
-      expect(result.pid).toBe(testPid);
-    });
-
-    it('throws when no agent PID found', async () => {
-      mockFindAgentPid.mockReturnValue(null);
-      await expect(detachCard()).rejects.toThrow('could not find agent ancestor PID');
-    });
-
-    it('issues DELETE to watcher teardown endpoint when entry has cardId', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const { associatePidWithCard: associate } = await import('@cards/sessions');
-      await associate(testPid, 'card-detach-1');
-
-      await detachCard();
-
-      expect(deletedWatcherCardIds).toContain('card-detach-1');
-    });
-
-    it('skips watcher teardown silently when no prior entry exists', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      // No session entry — detachCard should not throw
-      const result = await detachCard();
-      expect(result.pid).toBe(testPid);
-      expect(deletedWatcherCardIds).toHaveLength(0);
-    });
-
-    it('does not throw when watcher teardown fetch fails', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const { associatePidWithCard: associate } = await import('@cards/sessions');
-      await associate(testPid, 'card-detach-2');
-
-      // Make the server return 503 to simulate registry unavailable
-      watcherRegistryAvailable = false;
-
-      // Should not throw even though server returns non-ok response
-      const result = await detachCard();
-      expect(result.pid).toBe(testPid);
-    });
-
-    it('silently skips teardown when apiInfo is null (no discovery file)', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const { associatePidWithCard: associate } = await import('@cards/sessions');
-      await associate(testPid, 'card-detach-3');
-
-      // Remove discovery file
-      rmSync(join(testDir, '.cards', 'cards-api.json'));
-
-      const result = await detachCard();
-      expect(result.pid).toBe(testPid);
-      expect(deletedWatcherCardIds).toHaveLength(0);
-    });
-
-    // F1: logging on apiInfo-null path
-    it('logs skipped message to stderr when apiInfo is null', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const { associatePidWithCard: associate } = await import('@cards/sessions');
-      await associate(testPid, 'card-detach-log-null');
-
-      rmSync(join(testDir, '.cards', 'cards-api.json'));
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      try {
-        await detachCard();
-        const messages = errorSpy.mock.calls.map((c) => String(c[0]));
-        expect(messages.some((m) => m.includes('extension API not reachable'))).toBe(true);
-      } finally {
-        errorSpy.mockRestore();
-      }
-    });
-
-    // F1: logging on !ok path
-    it('logs status code to stderr when teardown returns non-ok', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const { associatePidWithCard: associate } = await import('@cards/sessions');
-      await associate(testPid, 'card-detach-log-503');
-
-      watcherRegistryAvailable = false;
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      try {
-        await detachCard();
-        const messages = errorSpy.mock.calls.map((c) => String(c[0]));
-        expect(messages.some((m) => m.includes('returned status 503'))).toBe(true);
-      } finally {
-        errorSpy.mockRestore();
-      }
-    });
-
-    // F1: logging on timedOut path
-    it('leads with TIMED OUT in stderr when body.timedOut is non-empty', async () => {
-      mockFindAgentPid.mockReturnValue(testPid);
-
-      const { associatePidWithCard: associate } = await import('@cards/sessions');
-      await associate(testPid, 'card-detach-log-timeout');
-
-      watcherDeleteResponse = { stopped: [], timedOut: ['w-timeout-1'] };
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      try {
-        await detachCard();
-        const messages = errorSpy.mock.calls.map((c) => String(c[0]));
-        expect(messages.some((m) => m.includes('TIMED OUT'))).toBe(true);
-      } finally {
-        errorSpy.mockRestore();
-      }
     });
   });
 

@@ -6,7 +6,6 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { extractActionInput } from '@cards/sdk/config';
-import { findAgentPid, removeSessionPid } from '@cards/sessions';
 import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,11 +20,6 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn()
 }));
 
-vi.mock('@cards/sessions', () => ({
-  findAgentPid: vi.fn(),
-  removeSessionPid: vi.fn()
-}));
-
 vi.mock('@cards/sessions/card-repo', () => ({
   removeSessionCsv: vi.fn(),
   removeSessionHeadSha: vi.fn(),
@@ -35,8 +29,6 @@ vi.mock('@cards/sessions/card-repo', () => ({
 const mockExtractActionInput = vi.mocked(extractActionInput);
 const mockMkdir = vi.mocked(mkdir);
 const mockWriteFile = vi.mocked(writeFile);
-const mockFindClaudePid = vi.mocked(findAgentPid);
-const mockRemoveSessionPid = vi.mocked(removeSessionPid);
 const mockRemoveSessionCsv = vi.mocked(removeSessionCsv);
 const mockRemoveSessionHeadSha = vi.mocked(removeSessionHeadSha);
 const mockRemoveSessionRouteNudge = vi.mocked(removeSessionRouteNudge);
@@ -130,24 +122,6 @@ describe('SessionEnd Hook', () => {
     });
 
     describe('session artifact cleanup', () => {
-      it('calls removeSessionPid with resolved PID from findAgentPid', async () => {
-        mockFindClaudePid.mockReturnValue(42);
-
-        await hook(baseInput, context);
-
-        expect(mockFindClaudePid).toHaveBeenCalled();
-        expect(mockRemoveSessionPid).toHaveBeenCalledWith(42);
-      });
-
-      it('skips PID removal when findAgentPid returns null', async () => {
-        mockFindClaudePid.mockReturnValue(null);
-
-        await hook(baseInput, context);
-
-        expect(mockFindClaudePid).toHaveBeenCalled();
-        expect(mockRemoveSessionPid).not.toHaveBeenCalled();
-      });
-
       it('calls removeSessionHeadSha with session ID', async () => {
         await hook(baseInput, context);
 
@@ -170,15 +144,6 @@ describe('SessionEnd Hook', () => {
         mockRemoveSessionCsv.mockImplementation(() => {
           throw new Error('unlink failed');
         });
-
-        const result = await hook(baseInput, context);
-
-        expect(result).toBeNull();
-      });
-
-      it('handles removeSessionPid failure gracefully', async () => {
-        mockFindClaudePid.mockReturnValue(42);
-        mockRemoveSessionPid.mockRejectedValue(new Error('permission denied'));
 
         const result = await hook(baseInput, context);
 
@@ -214,8 +179,6 @@ describe('SessionEnd Hook', () => {
     it('does not attempt cleanup when not in action subprocess', async () => {
       await hook(baseInput, context);
 
-      expect(mockFindClaudePid).not.toHaveBeenCalled();
-      expect(mockRemoveSessionPid).not.toHaveBeenCalled();
       expect(mockRemoveSessionCsv).not.toHaveBeenCalled();
       expect(mockRemoveSessionHeadSha).not.toHaveBeenCalled();
     });
