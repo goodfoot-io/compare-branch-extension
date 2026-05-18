@@ -4,4 +4,5 @@
 #
 # Generated as a build artifact by claude-code-hooks-api.
 NODE=$(cat "$HOME/.cards/VSCODE_NODE" 2>/dev/null || echo node)
+export ELECTRON_RUN_AS_NODE=1
 exec "$NODE" "$(dirname "$0")/card.mjs" "$@"

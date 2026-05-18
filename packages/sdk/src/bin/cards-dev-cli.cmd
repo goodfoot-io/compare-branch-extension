@@ -8,5 +8,6 @@ set "NODE=node"
 if exist "%USERPROFILE%\.cards\VSCODE_NODE" (
   for /f "usebackq delims=" %%I in ("%USERPROFILE%\.cards\VSCODE_NODE") do set "NODE=%%I"
 )
+set "ELECTRON_RUN_AS_NODE=1"
 "%NODE%" "%~dp0cards-dev.mjs" %*
 exit /b %ERRORLEVEL%
