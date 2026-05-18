@@ -7,13 +7,14 @@
  */
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../../src/config/cli/config-loader.js';
 
-// Test fixtures directory
-const FIXTURES_DIR =
-  '/tmp/claude-1000/-workspace--worktrees-settings-updates/14bd0ed8-2e93-4c1d-bbc6-ce5ed92e3214/scratchpad/config-loader-fixtures';
+// Test fixtures directory - built with path.join so it is separator-correct on
+// every platform (production loadConfig resolves to a native absolute path).
+const FIXTURES_DIR = join(tmpdir(), 'cards-sdk-config-loader-fixtures');
 
 describe('loadConfig', () => {
   beforeAll(() => {

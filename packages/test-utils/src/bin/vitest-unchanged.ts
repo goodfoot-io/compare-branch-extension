@@ -33,12 +33,19 @@ interface Cache {
   testCount: number;
 }
 
+// On Windows, `npx` is a `.cmd` shim. child_process spawn/execFile do not
+// perform PATHEXT resolution (ENOENT for bare `npx`), and Node refuses to
+// spawn a `.cmd` without a shell (EINVAL). Use the `.cmd` name and route
+// through the shell on Windows.
+const IS_WINDOWS = process.platform === 'win32';
+const NPX = IS_WINDOWS ? 'npx.cmd' : 'npx';
+
 const SENTINEL_DIR = join(process.cwd(), 'node_modules', '.vitest-unchanged-cache');
 const SENTINEL_FILE = join(SENTINEL_DIR, 'sentinel');
 
 function execCapture(command: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { cwd: process.cwd() }, (error, stdout) => {
+    execFile(command, args, { cwd: process.cwd(), shell: IS_WINDOWS }, (error, stdout) => {
       if (error) {
         reject(error);
         return;
@@ -54,9 +61,10 @@ function execGit(args: string[]): Promise<string> {
 
 function runVitest(extraArgs: string[]): Promise<number> {
   return new Promise((resolve) => {
-    const child = spawn('npx', ['vitest', 'run', '--experimental.fsModuleCache', ...extraArgs], {
+    const child = spawn(NPX, ['vitest', 'run', '--experimental.fsModuleCache', ...extraArgs], {
       cwd: process.cwd(),
-      stdio: 'inherit'
+      stdio: 'inherit',
+      shell: IS_WINDOWS
     });
     child.on('close', (code) => resolve(code ?? 1));
   });
@@ -201,8 +209,8 @@ async function writeCache(cache: Cache): Promise<void> {
 
 async function collectAndSaveCache(): Promise<void> {
   const [filesOutput, testsOutput] = await Promise.all([
-    execCapture('npx', ['vitest', 'list', '--filesOnly']),
-    execCapture('npx', ['vitest', 'list'])
+    execCapture(NPX, ['vitest', 'list', '--filesOnly']),
+    execCapture(NPX, ['vitest', 'list'])
   ]);
   await writeCache({
     fileCount: countLines(filesOutput),

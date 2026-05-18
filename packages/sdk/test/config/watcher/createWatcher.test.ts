@@ -19,6 +19,9 @@ import { discoverApiInfo } from '../../../src/client/api-discovery.js';
 import type { WatcherContext } from '../../../src/config/watcher/context.js';
 import { createWatcher } from '../../../src/config/watcher/createWatcher.js';
 import { WatcherRegistrationError } from '../../../src/config/watcher/errors.js';
+// Listen on the same platform endpoint createWatcher dials. On Windows the
+// logical .sock path is mapped to a named pipe; on POSIX it is unchanged.
+import { socketEndpoint } from '../../../src/config/watcher/socketEndpoint.js';
 
 const mockDiscoverApiInfo = vi.mocked(discoverApiInfo);
 
@@ -74,7 +77,7 @@ async function buildHarness(opts: { onHello?: (socket: net.Socket, msg: ParsedMe
     });
   });
 
-  await new Promise<void>((resolve) => unixServer.listen(socketPath, resolve));
+  await new Promise<void>((resolve) => unixServer.listen(socketEndpoint(socketPath), resolve));
 
   const httpServer = http.createServer((_req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -277,7 +280,7 @@ describe('createWatcher', () => {
       });
     });
 
-    await new Promise<void>((r) => unixServer.listen(socketPath, r));
+    await new Promise<void>((r) => unixServer.listen(socketEndpoint(socketPath), r));
 
     const httpServer = http.createServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });

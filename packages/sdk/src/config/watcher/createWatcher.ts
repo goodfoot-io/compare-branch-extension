@@ -18,6 +18,7 @@ import type {
   WatcherLogMessage,
   WatcherToServerMessage
 } from './protocol.js';
+import { socketEndpoint } from './socketEndpoint.js';
 
 export interface WatcherRegistration {
   watcherId: string;
@@ -80,8 +81,8 @@ export async function createWatcher(
     throw new WatcherRegistrationError(`Failed to register watcher: ${String(error)}`);
   }
 
-  // 3. Connect to the Unix socket
-  const socket = net.createConnection(socketPath);
+  // 3. Connect to the Unix socket (named pipe on Windows — see socketEndpoint).
+  const socket = net.createConnection(socketEndpoint(socketPath));
 
   // 4. Perform the hello handshake
   await new Promise<void>((resolve, reject) => {

@@ -16,6 +16,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 
+// `fs.readlink` returns the link target with native separators, so a relative
+// workspace link reads back as `..\x` on Windows. The invariant under test is
+// relative-target preservation, not the separator — normalize to POSIX before
+// comparing. (The native-separator link resolves correctly on Windows.)
+const toPosix = (p: string): string => p.replace(/\\/g, '/');
+
 import {
   addDetachedWorktree,
   addWorktree,
@@ -702,12 +708,14 @@ describe('copyExistingSymlinks', () => {
 
   it('skips symlinks that already exist in the worktree', async () => {
     const tempWorktreeDir = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'temp-worktree-'));
-    await fsExtra.symlink('/tmp/existing', path.join(tempWorktreeDir, 'my-link'));
+    // Use a native absolute path so readlink round-trips identically on every OS.
+    const existingTarget = path.join(os.tmpdir(), 'existing');
+    await fsExtra.symlink(existingTarget, path.join(tempWorktreeDir, 'my-link'));
 
     await copyExistingSymlinks(sourceDir, tempWorktreeDir);
 
     const linkTarget = await fsExtra.readlink(path.join(tempWorktreeDir, 'my-link'));
-    expect(linkTarget).toBe('/tmp/existing');
+    expect(linkTarget).toBe(existingTarget);
 
     await fsExtra.remove(tempWorktreeDir);
   });
@@ -847,7 +855,7 @@ describe('rerouteNodeModules', () => {
     expect(count).toBe(1);
 
     const target = await fs.readlink(path.join(destNM, 'internal-pkg'));
-    expect(target).toBe('../../packages/internal');
+    expect(toPosix(target)).toBe('../../packages/internal');
   });
 
   it('external symlinks are linked to the source entry', async () => {
@@ -904,7 +912,7 @@ describe('rerouteNodeModules', () => {
     expect(count).toBe(1);
 
     const target = await fs.readlink(path.join(destNM, '@scope', 'internal-pkg'));
-    expect(target).toBe('../../packages/internal');
+    expect(toPosix(target)).toBe('../../packages/internal');
   });
 
   it('files are linked to source', async () => {
@@ -985,7 +993,7 @@ describe('rerouteAllNodeModules', () => {
     expect(count).toBeGreaterThanOrEqual(1);
 
     const target = await fs.readlink(path.join(worktreeDir, 'node_modules', 'pkg1'));
-    expect(target).toBe('../../packages/pkg1');
+    expect(toPosix(target)).toBe('../../packages/pkg1');
   });
 
   it('reroutes per-package node_modules under packages/', async () => {
@@ -1012,7 +1020,7 @@ describe('rerouteAllNodeModules', () => {
     expect(count).toBeGreaterThanOrEqual(1);
 
     const target = await fs.readlink(path.join(worktreeDir, 'packages', 'pkg1', 'node_modules', 'shared'));
-    expect(target).toBe('../../../packages/shared');
+    expect(toPosix(target)).toBe('../../../packages/shared');
   });
 
   it('returns total count of internal rerouted symlinks', async () => {
@@ -1285,7 +1293,7 @@ describe('createWorktree end-to-end', () => {
     const worktreeDir = resolveWorktreeDir(repoPath, 'e2e-test-branch');
 
     const internalTarget = await fs.readlink(path.join(worktreeDir, 'node_modules', '@scope', 'internal-pkg'));
-    expect(internalTarget).toBe('../../packages/internal-pkg');
+    expect(toPosix(internalTarget)).toBe('../../packages/internal-pkg');
   });
 
   it('git exclude file exists with symlinked paths', async () => {

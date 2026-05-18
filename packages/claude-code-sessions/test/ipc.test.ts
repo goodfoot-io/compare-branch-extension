@@ -5,6 +5,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { isProcessAlive } from '../src/ipc.js';
 
+// On Windows `isProcessAlive` uses `tasklist` and never calls `process.kill`,
+// so the three tests that mock `process.kill` to assert the POSIX
+// errno-handling branch exercise a code path that does not run on Windows.
+// The real Windows behavior is covered by the first two (unmocked) tests.
+const posixKillOnly = it.skipIf(process.platform === 'win32');
+
 describe('isProcessAlive', () => {
   it('returns true for the current process', () => {
     expect(isProcessAlive(process.pid)).toBe(true);
@@ -14,7 +20,7 @@ describe('isProcessAlive', () => {
     expect(isProcessAlive(999999999)).toBe(false);
   });
 
-  it('returns true when process.kill throws EPERM', () => {
+  posixKillOnly('returns true when process.kill throws EPERM', () => {
     const spy = vi.spyOn(process, 'kill').mockImplementation(() => {
       const error = new Error('EPERM') as NodeJS.ErrnoException;
       error.code = 'EPERM';
@@ -25,7 +31,7 @@ describe('isProcessAlive', () => {
     spy.mockRestore();
   });
 
-  it('rethrows unexpected errors', () => {
+  posixKillOnly('rethrows unexpected errors', () => {
     const spy = vi.spyOn(process, 'kill').mockImplementation(() => {
       throw new Error('unexpected');
     });
@@ -34,7 +40,7 @@ describe('isProcessAlive', () => {
     spy.mockRestore();
   });
 
-  it('rethrows errors with unrecognised errno codes', () => {
+  posixKillOnly('rethrows errors with unrecognised errno codes', () => {
     const spy = vi.spyOn(process, 'kill').mockImplementation(() => {
       const error = new Error('EINVAL') as NodeJS.ErrnoException;
       error.code = 'EINVAL';

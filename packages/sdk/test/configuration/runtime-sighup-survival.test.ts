@@ -23,6 +23,27 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 /**
+ * SIGHUP survival is an intrinsically POSIX-only guarantee and cannot be
+ * meaningfully tested on Windows:
+ *
+ *  - Windows has no SIGHUP. Node.js on Windows does not deliver `SIGHUP`; a
+ *    terminal/console close raises a Win32 CTRL_CLOSE_EVENT, not a POSIX
+ *    signal, and there is no `process.on('SIGHUP', ...)` equivalent that the
+ *    runtime could install.
+ *  - This spike depends on `process.kill(-pid, 'SIGHUP')` (negative-PID
+ *    process-group signaling) and `spawn(..., { detached: true })` process
+ *    groups, neither of which exist on Windows.
+ *
+ * The runtime has no Windows-equivalent shutdown signal to substitute: its
+ * only signal interactions are the POSIX-only `SIGHUP` no-op and a `SIGTERM`
+ * raised to itself for cancel (covered by runtime.test.ts via a mocked
+ * `process.kill`). Per the cross-platform strategy we skip honestly here on
+ * Windows rather than fake a green result for a guarantee that does not exist
+ * on the platform.
+ */
+const SKIP_ON_WINDOWS = process.platform === 'win32';
+
+/**
  * Wait for a condition to become true within a timeout.
  * Polls every 100ms.
  *
@@ -83,14 +104,16 @@ describe('SIGHUP survival mechanism', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('action handler with SIGHUP no-op survives to run post-exit cleanup', async () => {
-    const readyMarker = path.join(tempDir, 'ready');
-    const cleanupMarker = path.join(tempDir, 'cleanup-ran');
+  it.skipIf(SKIP_ON_WINDOWS)(
+    'action handler with SIGHUP no-op survives to run post-exit cleanup',
+    async () => {
+      const readyMarker = path.join(tempDir, 'ready');
+      const cleanupMarker = path.join(tempDir, 'cleanup-ran');
 
-    // Inline script simulating the action handler with the SIGHUP fix.
-    // It installs the same no-op SIGHUP handler that executeCommand uses,
-    // spawns a child process, and writes a marker file after the child exits.
-    const handlerScript = `
+      // Inline script simulating the action handler with the SIGHUP fix.
+      // It installs the same no-op SIGHUP handler that executeCommand uses,
+      // spawns a child process, and writes a marker file after the child exits.
+      const handlerScript = `
       const { spawn } = require('node:child_process');
       const fs = require('node:fs');
 
@@ -112,64 +135,68 @@ describe('SIGHUP survival mechanism', () => {
       });
     `;
 
-    const scriptPath = path.join(tempDir, 'handler.cjs');
-    fs.writeFileSync(scriptPath, handlerScript);
+      const scriptPath = path.join(tempDir, 'handler.cjs');
+      fs.writeFileSync(scriptPath, handlerScript);
 
-    // Spawn in a detached process group so SIGHUP hits the whole group
-    const proc = spawn('node', [scriptPath], {
-      detached: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    if (proc.pid) {
-      processGroupPids.push(proc.pid);
-    }
-
-    let stderr = '';
-    proc.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    const exitPromise = new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Handler did not exit within 10s after SIGHUP. stderr: ${stderr}`));
-      }, 10000);
-
-      proc.on('close', (code, signal) => {
-        clearTimeout(timeout);
-        resolve({ code, signal });
+      // Spawn in a detached process group so SIGHUP hits the whole group
+      const proc = spawn('node', [scriptPath], {
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe']
       });
 
-      proc.on('error', (err) => {
-        clearTimeout(timeout);
-        reject(err);
+      if (proc.pid) {
+        processGroupPids.push(proc.pid);
+      }
+
+      let stderr = '';
+      proc.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString();
       });
-    });
 
-    // Wait for the handler to be running and child spawned
-    await waitForCondition(() => fs.existsSync(readyMarker), 5000, 'ready marker');
+      const exitPromise = new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`Handler did not exit within 10s after SIGHUP. stderr: ${stderr}`));
+        }, 10000);
 
-    // Brief pause to ensure the child process is fully spawned
-    await new Promise((r) => setTimeout(r, 200));
+        proc.on('close', (code, signal) => {
+          clearTimeout(timeout);
+          resolve({ code, signal });
+        });
 
-    // Send SIGHUP to the entire process group (simulates terminal close)
-    killProcessGroup(proc.pid!, 'SIGHUP');
+        proc.on('error', (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
 
-    // The handler should survive SIGHUP, its child should die, and the
-    // close handler should write the cleanup marker before exiting.
-    const result = await exitPromise;
+      // Wait for the handler to be running and child spawned
+      await waitForCondition(() => fs.existsSync(readyMarker), 5000, 'ready marker');
 
-    expect(result.code).toBe(0);
-    expect(fs.existsSync(cleanupMarker)).toBe(true);
-    expect(fs.readFileSync(cleanupMarker, 'utf-8')).toBe('cleanup-ran');
-  }, 15000);
+      // Brief pause to ensure the child process is fully spawned
+      await new Promise((r) => setTimeout(r, 200));
 
-  it('without SIGHUP handler, post-exit cleanup does NOT run (control case)', async () => {
-    const readyMarker = path.join(tempDir, 'ready');
-    const cleanupMarker = path.join(tempDir, 'cleanup-ran');
+      // Send SIGHUP to the entire process group (simulates terminal close)
+      killProcessGroup(proc.pid!, 'SIGHUP');
 
-    // Same script but WITHOUT the SIGHUP handler — proving the fix is necessary
-    const handlerScript = `
+      // The handler should survive SIGHUP, its child should die, and the
+      // close handler should write the cleanup marker before exiting.
+      const result = await exitPromise;
+
+      expect(result.code).toBe(0);
+      expect(fs.existsSync(cleanupMarker)).toBe(true);
+      expect(fs.readFileSync(cleanupMarker, 'utf-8')).toBe('cleanup-ran');
+    },
+    15000
+  );
+
+  it.skipIf(SKIP_ON_WINDOWS)(
+    'without SIGHUP handler, post-exit cleanup does NOT run (control case)',
+    async () => {
+      const readyMarker = path.join(tempDir, 'ready');
+      const cleanupMarker = path.join(tempDir, 'cleanup-ran');
+
+      // Same script but WITHOUT the SIGHUP handler — proving the fix is necessary
+      const handlerScript = `
       const { spawn } = require('node:child_process');
       const fs = require('node:fs');
 
@@ -187,50 +214,52 @@ describe('SIGHUP survival mechanism', () => {
       });
     `;
 
-    const scriptPath = path.join(tempDir, 'handler-no-fix.cjs');
-    fs.writeFileSync(scriptPath, handlerScript);
+      const scriptPath = path.join(tempDir, 'handler-no-fix.cjs');
+      fs.writeFileSync(scriptPath, handlerScript);
 
-    const proc = spawn('node', [scriptPath], {
-      detached: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    if (proc.pid) {
-      processGroupPids.push(proc.pid);
-    }
-
-    let stderr = '';
-    proc.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    const exitPromise = new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Handler did not exit within 10s after SIGHUP. stderr: ${stderr}`));
-      }, 10000);
-
-      proc.on('close', (code, signal) => {
-        clearTimeout(timeout);
-        resolve({ code, signal });
+      const proc = spawn('node', [scriptPath], {
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe']
       });
 
-      proc.on('error', (err) => {
-        clearTimeout(timeout);
-        reject(err);
+      if (proc.pid) {
+        processGroupPids.push(proc.pid);
+      }
+
+      let stderr = '';
+      proc.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString();
       });
-    });
 
-    await waitForCondition(() => fs.existsSync(readyMarker), 5000, 'ready marker');
-    await new Promise((r) => setTimeout(r, 200));
+      const exitPromise = new Promise<{ code: number | null; signal: string | null }>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`Handler did not exit within 10s after SIGHUP. stderr: ${stderr}`));
+        }, 10000);
 
-    killProcessGroup(proc.pid!, 'SIGHUP');
+        proc.on('close', (code, signal) => {
+          clearTimeout(timeout);
+          resolve({ code, signal });
+        });
 
-    const result = await exitPromise;
+        proc.on('error', (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
 
-    // Without the SIGHUP handler, the process is killed by the signal
-    // (exit code null, signal SIGHUP) and cleanup never runs
-    expect(result.signal).toBe('SIGHUP');
-    expect(result.code).toBeNull();
-    expect(fs.existsSync(cleanupMarker)).toBe(false);
-  }, 15000);
+      await waitForCondition(() => fs.existsSync(readyMarker), 5000, 'ready marker');
+      await new Promise((r) => setTimeout(r, 200));
+
+      killProcessGroup(proc.pid!, 'SIGHUP');
+
+      const result = await exitPromise;
+
+      // Without the SIGHUP handler, the process is killed by the signal
+      // (exit code null, signal SIGHUP) and cleanup never runs
+      expect(result.signal).toBe('SIGHUP');
+      expect(result.code).toBeNull();
+      expect(fs.existsSync(cleanupMarker)).toBe(false);
+    },
+    15000
+  );
 });

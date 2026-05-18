@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
+import { join } from 'node:path';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { flushMicrotasks } from '@cards/test-utils';
@@ -727,7 +728,10 @@ describe('claude-session shared utilities', () => {
   describe('resolveClaudeDirPath', () => {
     it('returns claude dir path within the marketplace runtime plugin', async () => {
       const { resolveClaudeDirPath } = await import('../src/lib/claude-session.js');
-      expect(resolveClaudeDirPath('/ext/dist/marketplace')).toBe('/ext/dist/marketplace/claude/runtime/claude');
+      // Production uses path.join, which yields native separators (backslash on Windows).
+      expect(resolveClaudeDirPath('/ext/dist/marketplace')).toBe(
+        join('/ext/dist/marketplace', 'claude', 'runtime', 'claude')
+      );
     });
   });
 
@@ -754,7 +758,7 @@ describe('claude-session shared utilities', () => {
       try {
         const result = await resolveClaudeConfigDir();
         expect(result).toBe('/custom/claude');
-        expect(access).toHaveBeenCalledWith('/custom/claude/plugins');
+        expect(access).toHaveBeenCalledWith(join('/custom/claude', 'plugins'));
       } finally {
         if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
         else delete process.env['CLAUDE_CONFIG_DIR'];

@@ -9,6 +9,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
+import { resolve as resolvePath } from 'node:path';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { toCardListSummaries } from '@cards/sdk/card-summary';
 import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
@@ -479,7 +480,9 @@ export function getWorktreeForBranch(branchName: string): string | null {
 
   for (const line of result.stdout.split('\n')) {
     if (line.startsWith('worktree ')) {
-      currentWorktree = line.slice('worktree '.length);
+      // git emits forward-slash paths even on Windows; normalize to a native
+      // filesystem path so callers can compare against fs paths directly.
+      currentWorktree = resolvePath(line.slice('worktree '.length));
     } else if (line === branchRef && currentWorktree !== null) {
       return currentWorktree;
     }

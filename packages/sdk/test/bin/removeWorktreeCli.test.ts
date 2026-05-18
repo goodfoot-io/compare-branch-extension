@@ -8,12 +8,18 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const removeWorktreeBinPath = new URL('../../src/bin/remove-worktree.ts', import.meta.url).pathname;
+const removeWorktreeBinPath = fileURLToPath(new URL('../../src/bin/remove-worktree.ts', import.meta.url));
+/** tsx CLI entrypoint, spawned via node for cross-platform support. */
+const tsxCli = createRequire(import.meta.url).resolve('tsx/cli');
 
 /**
  * Spawns the remove-worktree CLI and returns stdout, stderr, and exit code.
@@ -29,7 +35,7 @@ function runRemoveWorktree(
   env?: Record<string, string>
 ): { stdout: string; stderr: string; exitCode: number } {
   try {
-    const stdout = execFileSync('tsx', [removeWorktreeBinPath, ...args], {
+    const stdout = execFileSync(process.execPath, [tsxCli, removeWorktreeBinPath, ...args], {
       encoding: 'utf8',
       cwd,
       env: { ...process.env, ...env }
@@ -54,7 +60,7 @@ function initGitRepo(dir: string): void {
   execFileSync('git', ['init', '-q'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
-  execFileSync('bash', ['-c', `echo '# test' > README.md`], { cwd: dir });
+  writeFileSync(join(dir, 'README.md'), '# test\n');
   execFileSync('git', ['add', '.'], { cwd: dir });
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
 }
@@ -88,8 +94,8 @@ describe('remove-worktree CLI', () => {
     initGitRepo(repoDir);
 
     const { execFileSync: exec } = await import('node:child_process');
-    const createBin = new URL('../../src/bin/create-worktree.ts', import.meta.url).pathname;
-    const createOut = exec('tsx', [createBin, 'feature/cli-remove-test'], {
+    const createBin = fileURLToPath(new URL('../../src/bin/create-worktree.ts', import.meta.url));
+    const createOut = exec(process.execPath, [tsxCli, createBin, 'feature/cli-remove-test'], {
       encoding: 'utf8',
       cwd: repoDir,
       env: { ...process.env, CARDS_WORKTREES_DIR: worktreesDir }
@@ -101,7 +107,10 @@ describe('remove-worktree CLI', () => {
     expect(result.exitCode).toBe(0);
 
     await expect(fs.access(worktreePath)).rejects.toMatchObject({ code: 'ENOENT' });
-  });
+    // Spawns the create-worktree then remove-worktree CLIs as child processes,
+    // each doing real git + worktree wiring; under the full parallel workspace
+    // run on Windows this exceeds the 5s default (git-subprocess latency).
+  }, 30000);
 
   it('exits 2 when path is outside the worktrees root', async () => {
     tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));

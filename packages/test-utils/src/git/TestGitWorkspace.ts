@@ -20,6 +20,39 @@ import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
+ * Removes a directory tree, retrying transient Windows EPERM/EBUSY errors.
+ *
+ * Why: on Windows a git subprocess may briefly retain handles into the
+ * workspace after it exits, so an immediate `fs.removeSync` can fail with
+ * EPERM/EBUSY even though the directory is about to become free. POSIX is
+ * unaffected (the first attempt succeeds), so behavior there is unchanged.
+ *
+ * @param target Absolute path of the directory tree to remove.
+ * @throws The underlying filesystem error if removal fails for a
+ *   non-transient reason or after exhausting retries.
+ */
+function removeSyncWithRetry(target: string): void {
+  const maxRetries = 10;
+  const retryDelayMs = 100;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.removeSync(target);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const transient = code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY';
+      if (!transient || attempt >= maxRetries) {
+        throw error;
+      }
+      const deadline = Date.now() + retryDelayMs;
+      while (Date.now() < deadline) {
+        // Busy-wait: destroy() is synchronous, so we cannot await a timer.
+      }
+    }
+  }
+}
+
+/**
  * Creates real Git repositories that simulate a user's project workspace.
  *
  * Why: identity resolution tests need a workspace path that behaves like a
@@ -255,7 +288,7 @@ export class TestGitWorkspace {
     // Remove worktrees before the parent workspace
     for (const worktreePath of this.worktreePaths) {
       try {
-        fs.removeSync(worktreePath);
+        removeSyncWithRetry(worktreePath);
       } catch (error) {
         // Log but continue — partial cleanup is better than none
         console.warn(`TestGitWorkspace: failed to remove worktree ${worktreePath}:`, error);
@@ -274,7 +307,7 @@ export class TestGitWorkspace {
 
     if (this.workspacePath) {
       try {
-        fs.removeSync(this.workspacePath);
+        removeSyncWithRetry(this.workspacePath);
       } catch (error) {
         console.warn(`TestGitWorkspace: failed to remove workspace ${this.workspacePath}:`, error);
       }

@@ -84,7 +84,40 @@ export function isNestedUnder(dir: string, parentSet: Set<string>): boolean {
  * @returns True when the target starts with an internal prefix.
  */
 export function isInternalSymlink(target: string): boolean {
-  return target.startsWith('../');
+  // `fs.readlink` returns the target with native separators, so a relative
+  // workspace link reads back as `../x` on POSIX and `..\x` on Windows.
+  return /^\.\.[/\\]/.test(target);
+}
+
+/**
+ * Derives the primary repository root from the contents of a worktree's `.git`
+ * file (`gitdir: <path-to>/.git/worktrees/<name>`).
+ *
+ * Git writes this path POSIX-style even on Windows, but accept either separator
+ * defensively, then return a path normalized to the host's native separators so
+ * it compares equal to `path.resolve`-derived paths.
+ *
+ * @param content - Raw contents of the `.git` file.
+ * @returns The primary repository root in native-separator form.
+ */
+function repoRootFromGitFile(content: string): string {
+  const gitdirPath = content.trim().replace(/^gitdir:\s*/, '');
+  const mainGitDir = gitdirPath.replace(/[/\\]worktrees[/\\][^/\\]+$/, '');
+  return path.resolve(mainGitDir.replace(/[/\\]\.git$/, ''));
+}
+
+/**
+ * Compares two filesystem paths for equality, tolerating separator and (on
+ * Windows) case differences. Both inputs are resolved to absolute native form.
+ *
+ * @param a - First path.
+ * @param b - Second path.
+ * @returns True when the paths refer to the same location.
+ */
+function pathsEqual(a: string, b: string): boolean {
+  const ra = path.resolve(a);
+  const rb = path.resolve(b);
+  return process.platform === 'win32' ? ra.toLowerCase() === rb.toLowerCase() : ra === rb;
 }
 
 export interface CreateWorktreeOptions {
@@ -315,9 +348,7 @@ export async function removeWorktree(worktreePath: string): Promise<void> {
     const stats = await fs.lstat(gitFilePath);
     if (stats.isFile()) {
       const content = await fs.readFile(gitFilePath, 'utf-8');
-      const gitdirPath = content.trim().replace(/^gitdir:\s*/, '');
-      const mainGitDir = gitdirPath.replace(/\/worktrees\/[^/]+$/, '');
-      repoRoot = mainGitDir.replace(/\/\.git$/, '');
+      repoRoot = repoRootFromGitFile(content);
     } else if (stats.isDirectory()) {
       repoRoot = resolved;
     } else {
@@ -378,7 +409,10 @@ interface GitRoots {
  */
 export async function findGitRoots(startDir: string): Promise<GitRoots> {
   let currentDir = path.resolve(startDir);
-  while (currentDir !== '/') {
+  // Walk up until the filesystem root. `path.dirname(root) === root` on every
+  // platform (`/` on POSIX, `C:\` on Windows) — comparing against the literal
+  // `'/'` never terminates on Windows.
+  for (;;) {
     const gitPath = path.join(currentDir, '.git');
     try {
       const stats = await fs.lstat(gitPath);
@@ -390,13 +424,9 @@ export async function findGitRoots(startDir: string): Promise<GitRoots> {
       }
       if (stats.isFile()) {
         const gitFileContent = await fs.readFile(gitPath, 'utf-8');
-        const gitdirLine = gitFileContent.trim();
-        const gitdirPath = gitdirLine.replace(/^gitdir:\s*/, '');
-        const mainGitDir = gitdirPath.replace(/\/worktrees\/[^/]+$/, '');
-        const repoRoot = mainGitDir.replace(/\/\.git$/, '');
         return {
           sourceRoot: currentDir,
-          repoRoot
+          repoRoot: repoRootFromGitFile(gitFileContent)
         };
       }
     } catch (error: unknown) {
@@ -404,9 +434,12 @@ export async function findGitRoots(startDir: string): Promise<GitRoots> {
         throw error;
       }
     }
-    currentDir = path.dirname(currentDir);
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      throw new Error('Not in a git repository');
+    }
+    currentDir = parentDir;
   }
-  throw new Error('Not in a git repository');
 }
 
 /**
@@ -433,7 +466,13 @@ export async function checkWorktreeExists(repoRoot: string, worktreeDir: string)
     timeout: 30_000
   });
   for (const line of stdout.split('\n')) {
-    if (line.startsWith('worktree ') && line.slice('worktree '.length) === worktreeDir) {
+    if (!line.startsWith('worktree ')) {
+      continue;
+    }
+    // `git worktree list --porcelain` emits forward slashes on Windows and the
+    // line may carry a trailing CR; compare separator- and case-tolerantly.
+    const listed = line.slice('worktree '.length).trim();
+    if (pathsEqual(listed, worktreeDir)) {
       return true;
     }
   }

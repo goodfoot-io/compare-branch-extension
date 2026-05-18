@@ -158,7 +158,10 @@ describe('build output: compiled handlers', () => {
       }
     });
 
-    it('should have executable permissions on compiled handlers', () => {
+    // Skipped on Windows: the executable bit (POSIX mode & 0o100) does not
+    // exist in the Windows file system, so this owner-execute assertion can
+    // never hold there. Intrinsically-POSIX; not weakened on POSIX.
+    it.skipIf(process.platform === 'win32')('should have executable permissions on compiled handlers', () => {
       const generatedFiles = settings.__generated?.files ?? [];
 
       for (const filename of generatedFiles) {

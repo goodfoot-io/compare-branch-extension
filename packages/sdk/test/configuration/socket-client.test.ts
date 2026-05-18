@@ -6,9 +6,8 @@
 
 import * as fs from 'node:fs';
 import * as net from 'node:net';
-import * as os from 'node:os';
-import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createIpcEndpoint, createNonexistentIpcEndpoint } from '../../src/config/ipc-endpoint.js';
 import type { SwitchToInteractiveResponse } from '../../src/config/socket-client.js';
 import { SocketClient } from '../../src/config/socket-client.js';
 
@@ -18,8 +17,9 @@ describe('SocketClient', () => {
   let serverConnection: net.Socket | undefined;
 
   beforeEach(() => {
-    // Create a unique socket path in the temp directory
-    socketPath = path.join(os.tmpdir(), `test-socket-${process.pid}-${Date.now()}.sock`);
+    // Platform-correct IPC endpoint: Unix socket path on POSIX, named pipe on
+    // Windows. Routed through the single portability layer.
+    socketPath = createIpcEndpoint(`test-socket-${process.pid}-${Date.now()}`);
     serverConnection = undefined;
   });
 
@@ -30,10 +30,14 @@ describe('SocketClient', () => {
         server.close(() => resolve());
       });
     }
-    try {
-      fs.unlinkSync(socketPath);
-    } catch {
-      // Ignore - file may not exist
+    // Unix domain sockets are filesystem entries that need cleanup; Windows
+    // named pipes are not and are removed by the OS when unreferenced.
+    if (process.platform !== 'win32') {
+      try {
+        fs.unlinkSync(socketPath);
+      } catch {
+        // Ignore - file may not exist
+      }
     }
   });
 
@@ -76,7 +80,9 @@ describe('SocketClient', () => {
     });
 
     it('should reject when socket path does not exist', async () => {
-      await expect(SocketClient.connect('/tmp/nonexistent-socket-path.sock')).rejects.toThrow();
+      await expect(
+        SocketClient.connect(createNonexistentIpcEndpoint(`nonexistent-socket-${process.pid}-${Date.now()}`))
+      ).rejects.toThrow();
     });
   });
 

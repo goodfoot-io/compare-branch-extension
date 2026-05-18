@@ -124,9 +124,16 @@ describe('applyWorktreeInclude', () => {
     const dstContent = await fs.readFile(destEnv);
     expect(dstContent).toEqual(srcContent);
 
-    const dstStat = await fs.stat(destEnv);
-    // Mode bits (lower 9 bits) must be preserved
-    expect(dstStat.mode & 0o777).toBe(0o600);
+    // POSIX-permission assertion only: Windows does not implement POSIX mode
+    // bits (chmod 0o600 is largely a no-op; stat reports a synthetic mode), so
+    // the lower-9-bit preservation cannot be verified there. The portable
+    // behavior above (file copied, content identical, count === 1) still runs
+    // on Windows; only this mode-bit check is skipped. Not weakened on POSIX.
+    if (process.platform !== 'win32') {
+      const dstStat = await fs.stat(destEnv);
+      // Mode bits (lower 9 bits) must be preserved
+      expect(dstStat.mode & 0o777).toBe(0o600);
+    }
   });
 
   it('returns 0 and produces no dest entry when include lists a gitignored file absent on disk', async () => {
@@ -216,25 +223,39 @@ describe('applyWorktreeInclude', () => {
     expect(linkTarget).toBe('.env.real');
   });
 
-  it('throws WorktreeIncludeError when .worktreeinclude is unreadable', async () => {
-    ({ sourceRoot, worktreeDir } = await makeTmpPair('unreadable'));
-    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+  // Skipped on Windows: this depends on POSIX permission enforcement. Windows
+  // does not implement POSIX file modes, so `fs.chmod(path, 0o000)` is largely
+  // a no-op and the subsequent read still succeeds — the expected rejection
+  // never occurs. Skipping honestly; the POSIX path is unchanged.
+  it.skipIf(process.platform === 'win32')(
+    'throws WorktreeIncludeError when .worktreeinclude is unreadable',
+    async () => {
+      ({ sourceRoot, worktreeDir } = await makeTmpPair('unreadable'));
+      await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
 
-    const includePath = path.join(sourceRoot, '.worktreeinclude');
-    await fs.writeFile(includePath, '.env\n');
-    await fs.chmod(includePath, 0o000);
+      const includePath = path.join(sourceRoot, '.worktreeinclude');
+      await fs.writeFile(includePath, '.env\n');
+      await fs.chmod(includePath, 0o000);
 
-    await expect(applyWorktreeInclude({ sourceRoot, worktreeDir })).rejects.toThrow(WorktreeIncludeError);
-  });
+      await expect(applyWorktreeInclude({ sourceRoot, worktreeDir })).rejects.toThrow(WorktreeIncludeError);
+    }
+  );
 
-  it('throws WorktreeIncludeError when copying into a read-only destination fails', async () => {
-    ({ sourceRoot, worktreeDir } = await makeTmpPair('readonly-dest'));
-    await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
+  // Skipped on Windows: this depends on POSIX permission enforcement. Windows
+  // does not implement POSIX file modes, so `fs.chmod(worktreeDir, 0o500)` is
+  // largely a no-op and the copy into the destination still succeeds — the
+  // expected rejection never occurs. Skipping honestly; POSIX path unchanged.
+  it.skipIf(process.platform === 'win32')(
+    'throws WorktreeIncludeError when copying into a read-only destination fails',
+    async () => {
+      ({ sourceRoot, worktreeDir } = await makeTmpPair('readonly-dest'));
+      await initGitRepo(sourceRoot, ['.env'], [{ rel: 'README.md', content: 'hi' }]);
 
-    await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
-    await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), '.env\n');
-    await fs.chmod(worktreeDir, 0o500);
+      await fs.writeFile(path.join(sourceRoot, '.env'), 'SECRET=1');
+      await fs.writeFile(path.join(sourceRoot, '.worktreeinclude'), '.env\n');
+      await fs.chmod(worktreeDir, 0o500);
 
-    await expect(applyWorktreeInclude({ sourceRoot, worktreeDir })).rejects.toThrow(WorktreeIncludeError);
-  });
+      await expect(applyWorktreeInclude({ sourceRoot, worktreeDir })).rejects.toThrow(WorktreeIncludeError);
+    }
+  );
 });

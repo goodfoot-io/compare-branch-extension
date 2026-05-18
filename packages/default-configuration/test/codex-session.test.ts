@@ -7,8 +7,21 @@
  * @summary Tests Codex session library helpers
  */
 
+import { join } from 'node:path';
 import type { ActionInput } from '@cards/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * Production code builds paths with node:path, so on Windows the values passed
+ * to fs mocks use backslash separators. Normalize to forward slashes so the
+ * POSIX-keyed mock lookups below match regardless of platform.
+ *
+ * @param p - Path-like value (string, Buffer, or URL) to normalize.
+ * @returns The value stringified with backslashes converted to forward slashes.
+ */
+function toPosix(p: unknown): string {
+  return String(p).replace(/\\/g, '/');
+}
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -123,13 +136,13 @@ beforeEach(async () => {
   ];
 
   vi.mocked(syncFs.readdirSync).mockImplementation((targetPath: string | Buffer | URL) => {
-    if (String(targetPath) === '/test/repo') {
+    if (toPosix(targetPath) === '/test/repo') {
       return cardRepoDirents as ReturnType<typeof syncFs.readdirSync>;
     }
-    if (String(targetPath) === '/test/repo/streams') {
+    if (toPosix(targetPath) === '/test/repo/streams') {
       return streamDirents as ReturnType<typeof syncFs.readdirSync>;
     }
-    if (String(targetPath) === '/test/repo/streams/claude-code-session') {
+    if (toPosix(targetPath) === '/test/repo/streams/claude-code-session') {
       return streamFileDirents as ReturnType<typeof syncFs.readdirSync>;
     }
     throw Object.assign(new Error(`mock: unhandled readdirSync: ${String(targetPath)}`), { code: 'ENOENT' });
@@ -140,7 +153,7 @@ beforeEach(async () => {
     } as ReturnType<typeof syncFs.statSync>;
   });
   vi.mocked(syncFs.readFileSync).mockImplementation((filePath: string | Buffer | URL) => {
-    if (String(filePath) === '/test/repo/CARD.meta.json') {
+    if (toPosix(filePath) === '/test/repo/CARD.meta.json') {
       return JSON.stringify({
         id: 'card-123',
         title: 'Test card',
@@ -153,7 +166,7 @@ beforeEach(async () => {
         }
       });
     }
-    if (String(filePath) === '/test/repo/branches.json') {
+    if (toPosix(filePath) === '/test/repo/branches.json') {
       return JSON.stringify({
         'cards/card-123/1': {
           parentBranch: 'main',
@@ -161,20 +174,20 @@ beforeEach(async () => {
         }
       });
     }
-    if (String(filePath) === '/test/repo/commits.csv') {
+    if (toPosix(filePath) === '/test/repo/commits.csv') {
       return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
     }
     throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
   });
 
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
+    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
       return '# Claude Instructions\nUse runtime workflows.';
     }
-    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
       return '# Commit Style\nKeep commits small.';
     }
-    if (String(filePath) === '/home/node/.cards/codex/config.toml') {
+    if (toPosix(filePath) === '/home/node/.cards/codex/config.toml') {
       return ['model = "gpt-5"', '', '[tools]', 'web_search = true'].join('\n');
     }
     throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
@@ -276,7 +289,7 @@ describe('codex-session library', () => {
     await mergeCodexAgentsInstructions('/home/node/.cards/codex', '/test/extension/dist/marketplace');
 
     expect(fs.writeFile).toHaveBeenCalledWith(
-      '/home/node/.cards/codex/AGENTS.md',
+      join('/home/node/.cards/codex', 'AGENTS.md'),
       '# Claude Instructions\nUse runtime workflows.\n\n# Commit Style\nKeep commits small.\n'
     );
   });
@@ -285,13 +298,13 @@ describe('codex-session library', () => {
     const { mergeCodexAgentsInstructions } = await import('../src/lib/codex-session.js');
     const fs = await import('node:fs/promises');
     vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
+      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
         return '# Claude Instructions\nUse runtime workflows.';
       }
-      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
         return '# Commit Style\nKeep commits small.';
       }
-      if (String(filePath) === '/home/node/.cards/codex/AGENTS.md') {
+      if (toPosix(filePath) === '/home/node/.cards/codex/AGENTS.md') {
         return '# Existing Agents\nPrior instructions.';
       }
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
@@ -300,7 +313,7 @@ describe('codex-session library', () => {
     await mergeCodexAgentsInstructions('/home/node/.cards/codex', '/test/extension/dist/marketplace');
 
     expect(fs.writeFile).toHaveBeenCalledWith(
-      '/home/node/.cards/codex/AGENTS.md',
+      join('/home/node/.cards/codex', 'AGENTS.md'),
       '# Existing Agents\nPrior instructions.\n\n# Claude Instructions\nUse runtime workflows.\n\n# Commit Style\nKeep commits small.\n'
     );
   });

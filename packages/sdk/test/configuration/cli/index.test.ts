@@ -7,12 +7,14 @@
  */
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { build, main } from '../../../src/config/cli/index.js';
 
-// Test fixtures directory - use a stable path for this test file
-const FIXTURES_DIR = '/tmp/cards-sdk-cli-index-test-fixtures';
+// Test fixtures directory - built with path.join so it is separator-correct on
+// every platform (build() resolves outdir to a native absolute path).
+const FIXTURES_DIR = join(tmpdir(), 'cards-sdk-cli-index-test-fixtures');
 
 // Module-level setup/teardown so fixtures are available to all describe blocks
 beforeAll(() => {
@@ -310,12 +312,15 @@ describe('build', () => {
   });
 
   describe('error handling - file system', () => {
-    it('should handle permission errors when writing files', async () => {
-      // This test is OS-specific and may not work in all environments
-      // We'll test the basic behavior by using an invalid path
+    it('should handle directory-creation errors when writing files', async () => {
+      // Portable analog of an unwritable destination: nest the outdir beneath a
+      // regular file so mkdir(recursive) fails (ENOTDIR on POSIX, ENOENT/ENOTDIR
+      // on Windows) on every platform without relying on POSIX permissions.
+      const blocker = join(FIXTURES_DIR, 'not-a-directory');
+      writeFileSync(blocker, 'i am a file');
       const result = await build({
         config: join(FIXTURES_DIR, 'valid.config.ts'),
-        outdir: '/root/forbidden/path'
+        outdir: join(blocker, 'path')
       });
 
       // The exact error depends on permissions, but it should fail

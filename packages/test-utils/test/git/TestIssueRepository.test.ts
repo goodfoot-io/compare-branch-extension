@@ -8,6 +8,7 @@
  * @summary Integration tests for TestCardRepository
  * @module test-utils/test/git/TestIssueRepository.test
  */
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { COMMITS_FILE } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
@@ -35,9 +36,13 @@ describe('TestCardRepository', () => {
     it('uses TEST_WORKSPACE env if set', async () => {
       const originalEnv = process.env['TEST_WORKSPACE'];
       try {
-        process.env['TEST_WORKSPACE'] = '/tmp/custom-test-workspace';
+        // Use a platform-appropriate absolute path: production joins this via
+        // `path.join`, which normalizes to native separators on Windows, so a
+        // hardcoded POSIX literal would never prefix-match the result there.
+        const customWorkspace = path.join(os.tmpdir(), 'custom-test-workspace');
+        process.env['TEST_WORKSPACE'] = customWorkspace;
         const reposPath = await repo.create();
-        expect(reposPath.startsWith('/tmp/custom-test-workspace')).toBe(true);
+        expect(reposPath.startsWith(customWorkspace)).toBe(true);
       } finally {
         if (originalEnv !== undefined) {
           process.env['TEST_WORKSPACE'] = originalEnv;

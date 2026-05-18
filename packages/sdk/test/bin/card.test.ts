@@ -10,10 +10,20 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import { tmpdir as realTmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * Absolute path to the tsx CLI entrypoint. Spawned via `process.execPath`
+ * (node) so it works cross-platform, unlike spawning the `tsx` shim which is
+ * a `.cmd` on Windows and not resolvable by `execFileSync`.
+ */
+const tsxCli = createRequire(import.meta.url).resolve('tsx/cli');
+
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -880,11 +890,11 @@ describe('card binary', () => {
   });
 
   describe('help mechanisms', () => {
-    const cardBinPath = new URL('../../src/bin/card.ts', import.meta.url).pathname;
+    const cardBinPath = fileURLToPath(new URL('../../src/bin/card.ts', import.meta.url));
 
     function runCard(args: string[]): { stdout: string; exitCode: number } {
       try {
-        const stdout = execFileSync('tsx', [cardBinPath, ...args], {
+        const stdout = execFileSync(process.execPath, [tsxCli, cardBinPath, ...args], {
           encoding: 'utf8'
         });
         return { stdout, exitCode: 0 };

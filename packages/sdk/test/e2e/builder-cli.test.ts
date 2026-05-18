@@ -183,7 +183,11 @@ export default {
       }
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.settingsPath).toBe(path.join(outdir, 'settings.json'));
+        // Production resolves outdir via path.resolve (adds the drive letter on
+        // Windows). Resolve the expectation the same way so the assertion is
+        // drive-letter/separator tolerant rather than over-specifying a POSIX
+        // literal path.
+        expect(result.settingsPath).toBe(path.resolve(outdir, 'settings.json'));
         expect(result.compiledHandlers.length).toBe(1);
       }
 
@@ -833,7 +837,11 @@ export default {
     expect(fs.statSync(binDir).isDirectory()).toBe(true);
   });
 
-  it('should make compiled handlers executable', async () => {
+  // Skipped on Windows: the executable bit (POSIX mode & 0o100) does not exist
+  // in the Windows file system, so `chmod +x` is a no-op and stats.mode never
+  // carries an owner-execute bit. This is an intrinsically-POSIX assertion;
+  // skipping honestly rather than weakening it on POSIX.
+  it.skipIf(process.platform === 'win32')('should make compiled handlers executable', async () => {
     writeHandler(testDir, 'action.ts', createActionHandler('Test', testDir));
 
     const configPath = writeConfig(

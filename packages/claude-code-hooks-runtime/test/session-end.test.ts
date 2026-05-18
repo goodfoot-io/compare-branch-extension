@@ -5,6 +5,7 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
 import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
@@ -84,7 +85,7 @@ describe('SessionEnd Hook', () => {
       await hook(baseInput, context);
 
       expect(mockWriteFile).toHaveBeenCalledWith(
-        '/tmp/card-repos/card-123/streams/claude-code-session/sess-abc.flush',
+        join('/tmp/card-repos/card-123', 'streams', 'claude-code-session', 'sess-abc.flush'),
         ''
       );
     });
@@ -92,7 +93,7 @@ describe('SessionEnd Hook', () => {
     it('creates parent directories if missing', async () => {
       await hook(baseInput, context);
 
-      expect(mockMkdir).toHaveBeenCalledWith('/tmp/card-repos/card-123/streams/claude-code-session', {
+      expect(mockMkdir).toHaveBeenCalledWith(join('/tmp/card-repos/card-123', 'streams', 'claude-code-session'), {
         recursive: true
       });
     });

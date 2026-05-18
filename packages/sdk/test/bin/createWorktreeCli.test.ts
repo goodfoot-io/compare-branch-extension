@@ -12,11 +12,15 @@
 
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const createWorktreeBinPath = new URL('../../src/bin/create-worktree.ts', import.meta.url).pathname;
+const createWorktreeBinPath = fileURLToPath(new URL('../../src/bin/create-worktree.ts', import.meta.url));
+/** tsx CLI entrypoint, spawned via node for cross-platform support. */
+const tsxCli = createRequire(import.meta.url).resolve('tsx/cli');
 
 /**
  * Spawns the create-worktree CLI and returns stdout, stderr, and exit code.
@@ -32,7 +36,7 @@ function runCreateWorktree(
   env?: Record<string, string>
 ): { stdout: string; stderr: string; exitCode: number } {
   try {
-    const stdout = execFileSync('tsx', [createWorktreeBinPath, ...args], {
+    const stdout = execFileSync(process.execPath, [tsxCli, createWorktreeBinPath, ...args], {
       encoding: 'utf8',
       cwd,
       ...(env ? { env: { ...process.env, ...env } } : {})
@@ -110,26 +114,32 @@ describe('create-worktree CLI', () => {
     expect(parsed['copiedFromInclude']).toBe(1);
   });
 
-  it('exits 3 and writes an error message to stderr when .worktreeinclude is unreadable', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
-    const repoDir = path.join(tmpBase, 'repo');
-    await fs.mkdir(repoDir);
-    await initGitRepo(repoDir);
+  // Relies on POSIX file-mode unreadability (chmod 0o000). Windows has no
+  // equivalent — chmod cannot remove read access — so this guarantee is
+  // genuinely POSIX-semantic and is skipped there rather than faked.
+  it.skipIf(process.platform === 'win32')(
+    'exits 3 and writes an error message to stderr when .worktreeinclude is unreadable',
+    async () => {
+      tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+      const repoDir = path.join(tmpBase, 'repo');
+      await fs.mkdir(repoDir);
+      await initGitRepo(repoDir);
 
-    const includePath = path.join(repoDir, '.worktreeinclude');
-    await fs.writeFile(includePath, '.env\n');
-    await fs.chmod(includePath, 0o000);
+      const includePath = path.join(repoDir, '.worktreeinclude');
+      await fs.writeFile(includePath, '.env\n');
+      await fs.chmod(includePath, 0o000);
 
-    try {
-      const result = runCreateWorktree(['test-branch-err'], repoDir);
+      try {
+        const result = runCreateWorktree(['test-branch-err'], repoDir);
 
-      expect(result.exitCode).toBe(3);
-      expect(result.stdout).not.toContain('"copiedFromInclude"');
-      expect(result.stderr.length).toBeGreaterThan(0);
-    } finally {
-      await fs.chmod(includePath, 0o644);
+        expect(result.exitCode).toBe(3);
+        expect(result.stdout).not.toContain('"copiedFromInclude"');
+        expect(result.stderr.length).toBeGreaterThan(0);
+      } finally {
+        await fs.chmod(includePath, 0o644);
+      }
     }
-  });
+  );
 
   it('exits 2 when invoked without arguments (missing argument regression)', () => {
     const result = runCreateWorktree([], os.tmpdir());

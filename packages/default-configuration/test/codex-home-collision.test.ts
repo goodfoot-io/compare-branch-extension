@@ -10,6 +10,18 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+/**
+ * Production code builds paths with node:path, so on Windows the values passed
+ * to fs mocks use backslash separators. Normalize to forward slashes so the
+ * POSIX suffix checks below match regardless of platform.
+ *
+ * @param p - Path-like value (string, Buffer, or URL) to normalize.
+ * @returns The value stringified with backslashes converted to forward slashes.
+ */
+function toPosix(p: unknown): string {
+  return String(p).replace(/\\/g, '/');
+}
+
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
   execFile: vi.fn(),
@@ -145,7 +157,7 @@ describe('prepareStagedCodexHome concurrent collision', () => {
 
     // Mock fs.readFile to return valid manifests for both bundled plugins.
     vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
-      const p = String(filePath);
+      const p = toPosix(filePath);
       if (p.endsWith('/cards/.codex-plugin/plugin.json')) {
         return JSON.stringify({ name: 'cards' });
       }
@@ -210,7 +222,7 @@ describe('prepareStagedCodexHome concurrent collision', () => {
     vi.mocked(fs.access).mockResolvedValue(undefined);
 
     vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
-      const p = String(filePath);
+      const p = toPosix(filePath);
       if (p.endsWith('/cards/.codex-plugin/plugin.json')) {
         return JSON.stringify({ name: 'cards' });
       }

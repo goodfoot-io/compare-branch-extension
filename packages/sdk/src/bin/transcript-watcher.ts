@@ -31,6 +31,15 @@ export const MAX_LIFETIME_MS = 24 * 60 * 60 * 1_000;
 export const PERIODIC_CHECK_INTERVAL_MS = 5_000;
 
 /**
+ * Poll interval used while the fs.watch watcher is not yet installed (the
+ * source directory has not been created by Claude Code yet). Decoupled from
+ * the 5s liveness cadence so the watcher attaches promptly once the directory
+ * appears — without this, live tailing could lag by up to a full liveness
+ * interval, which is flaky under load on slower filesystems (e.g. Windows).
+ */
+export const WATCHER_INSTALL_RETRY_INTERVAL_MS = 250;
+
+/**
  * Arguments parsed from process.argv for the transcript watcher.
  */
 export interface TranscriptWatcherArgs {
@@ -529,7 +538,10 @@ export async function main(): Promise<void> {
       if (!fsWatcher && !exitSignaled) {
         fsWatcher = await tryInstallWatcher();
       }
-      await new Promise<void>((resolve) => setTimeout(resolve, PERIODIC_CHECK_INTERVAL_MS));
+      // Poll quickly until the watcher attaches, then fall back to the slower
+      // liveness cadence once it is installed.
+      const interval = fsWatcher ? PERIODIC_CHECK_INTERVAL_MS : WATCHER_INSTALL_RETRY_INTERVAL_MS;
+      await new Promise<void>((resolve) => setTimeout(resolve, interval));
     }
 
     if (!stopRequested) {

@@ -27,13 +27,20 @@ import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+// The spawned binary dials createWatcher's platform endpoint (named pipe on
+// Windows); the harness must listen on the same mapped endpoint while still
+// advertising the logical .sock path over HTTP discovery.
+import { socketEndpoint } from '../../src/config/watcher/socketEndpoint.js';
 
 const execFileAsync = promisify(execFile);
 
+// fileURLToPath (not URL.pathname) — on Windows URL.pathname yields a
+// leading-slash, percent-encoded path like /C:/... that path APIs reject.
 const BUILT_BINARY = path.resolve(
-  path.dirname(new URL(import.meta.url).pathname),
+  path.dirname(fileURLToPath(import.meta.url)),
   '../../../../claude/cards/bin/transcript-watcher.mjs'
 );
 
@@ -95,7 +102,7 @@ async function buildHarness(): Promise<Harness> {
     });
   });
 
-  await new Promise<void>((resolve) => unixServer.listen(socketPath, resolve));
+  await new Promise<void>((resolve) => unixServer.listen(socketEndpoint(socketPath), resolve));
 
   const httpServer = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/internal/watchers') {

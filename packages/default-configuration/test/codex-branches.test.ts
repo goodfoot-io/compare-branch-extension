@@ -10,11 +10,58 @@
 
 import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { homedir } from 'node:os';
+import { join, sep } from 'node:path';
 import { PassThrough } from 'node:stream';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * Production code builds paths with node:path, so on Windows the values passed
+ * to fs mocks use backslash separators. Normalize to forward slashes so the
+ * POSIX-keyed mock lookups and matchers below match regardless of platform.
+ *
+ * @param p - Path-like value (string, Buffer, or URL) to normalize.
+ * @returns The value stringified with backslashes converted to forward slashes.
+ */
+function toPosix(p: unknown): string {
+  return String(p).replace(/\\/g, '/');
+}
+
+/**
+ * Asymmetric matcher that compares a (possibly backslash-separated) path
+ * argument against a POSIX-form regex by normalizing separators first.
+ *
+ * @param re - POSIX-form regular expression to test the normalized path against.
+ * @returns A Vitest-compatible asymmetric matcher object.
+ */
+function posixMatching(re: RegExp): unknown {
+  return {
+    asymmetricMatch: (actual: unknown) => typeof actual === 'string' && re.test(toPosix(actual)),
+    toString: () => `posixMatching(${String(re)})`
+  };
+}
+
+/**
+ * Native-separator form of a POSIX-written expected path so equality holds on
+ * every platform (mirrors what production's path.join produces).
+ *
+ * @param posix - Expected path written with forward slashes.
+ * @returns The same path using the host's native path separator.
+ */
+function nativePath(posix: string): string {
+  return posix.split('/').join(sep);
+}
+
+/**
+ * The default Codex source home, resolved exactly as production's
+ * `resolveDefaultCodexHome` does (CODEX_HOME ?? <homedir>/.codex). Hardcoding
+ * `/home/node/.codex` only works where the host home is `/home/node`; this
+ * keeps the source-home cp/stat path cross-platform.
+ */
+const DEFAULT_CODEX_HOME = join(homedir(), '.codex');
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -154,13 +201,13 @@ beforeEach(async () => {
   ];
 
   vi.mocked(syncFs.readdirSync).mockImplementation((targetPath: string | Buffer | URL) => {
-    if (String(targetPath) === '/test/repo') {
+    if (toPosix(targetPath) === '/test/repo') {
       return cardRepoDirents as ReturnType<typeof syncFs.readdirSync>;
     }
-    if (String(targetPath) === '/test/repo/streams') {
+    if (toPosix(targetPath) === '/test/repo/streams') {
       return streamDirents as ReturnType<typeof syncFs.readdirSync>;
     }
-    if (String(targetPath) === '/test/repo/streams/claude-code-session') {
+    if (toPosix(targetPath) === '/test/repo/streams/claude-code-session') {
       return streamFileDirents as ReturnType<typeof syncFs.readdirSync>;
     }
     throw Object.assign(new Error(`mock: unhandled readdirSync: ${String(targetPath)}`), { code: 'ENOENT' });
@@ -171,7 +218,7 @@ beforeEach(async () => {
     } as ReturnType<typeof syncFs.statSync>;
   });
   vi.mocked(syncFs.readFileSync).mockImplementation((filePath: string | Buffer | URL) => {
-    if (String(filePath) === '/test/repo/CARD.meta.json') {
+    if (toPosix(filePath) === '/test/repo/CARD.meta.json') {
       return JSON.stringify({
         id: 'card-123',
         title: 'Test card',
@@ -184,7 +231,7 @@ beforeEach(async () => {
         }
       });
     }
-    if (String(filePath) === '/test/repo/branches.json') {
+    if (toPosix(filePath) === '/test/repo/branches.json') {
       return JSON.stringify({
         'cards/card-123/1': {
           parentBranch: 'main',
@@ -192,7 +239,7 @@ beforeEach(async () => {
         }
       });
     }
-    if (String(filePath) === '/test/repo/commits.csv') {
+    if (toPosix(filePath) === '/test/repo/commits.csv') {
       return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
     }
     throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
@@ -224,31 +271,31 @@ beforeEach(async () => {
 
   vi.mocked(fs.access).mockResolvedValue(undefined);
   vi.mocked(fs.stat).mockImplementation(async (targetPath: string | URL) => {
-    if (String(targetPath) === '/home/node/.codex') {
+    if (String(targetPath) === DEFAULT_CODEX_HOME) {
       return { isDirectory: () => true } as Awaited<ReturnType<typeof fs.stat>>;
     }
     throw Object.assign(new Error(`mock: unhandled stat: ${String(targetPath)}`), { code: 'ENOENT' });
   });
   vi.mocked(fs.readdir).mockImplementation(async (targetPath: string | URL) => {
-    if (String(targetPath) === '/test/extension/dist/codex') {
+    if (toPosix(targetPath) === '/test/extension/dist/codex') {
       return ['.agents', 'cards', 'runtime'] as Awaited<ReturnType<typeof fs.readdir>>;
     }
     throw Object.assign(new Error(`mock: unhandled readdir: ${String(targetPath)}`), { code: 'ENOENT' });
   });
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-    if (String(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
+    if (toPosix(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
       return JSON.stringify({
         name: 'cards',
         description: 'Codex cards plugin for interacting with the Cards extension APIs'
       });
     }
-    if (String(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
+    if (toPosix(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
       return JSON.stringify({
         name: 'runtime',
         description: 'Codex runtime plugin for the Cards extension'
       });
     }
-    if (String(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
+    if (toPosix(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
       return JSON.stringify({
         name: 'local',
         plugins: [
@@ -269,13 +316,13 @@ beforeEach(async () => {
         ]
       });
     }
-    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
+    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
       return '# Claude Instructions\nUse runtime workflows.';
     }
-    if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
       return '# Commit Style\nKeep commits small.';
     }
-    if (String(filePath) === '/home/node/.cards/codex/config.toml') {
+    if (toPosix(filePath) === '/home/node/.cards/codex/config.toml') {
       return ['model = "gpt-5"', '', '[tools]', 'web_search = true'].join('\n');
     }
     throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
@@ -434,48 +481,43 @@ describe('launch action — codex branch', () => {
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
+    // Production builds these paths with path.join, so on Windows the args use
+    // native separators. Compare via separator-insensitive matchers.
+    expect(fs.cp).toHaveBeenCalledWith(DEFAULT_CODEX_HOME, posixMatching(/\/\.cards\/codex\.tmp-/), {
+      recursive: true
+    });
     expect(fs.cp).toHaveBeenCalledWith(
-      '/home/node/.codex',
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/),
-      {
-        recursive: true
-      }
-    );
-    expect(fs.cp).toHaveBeenCalledWith(
-      '/test/extension/dist/codex/.agents',
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-.*\/\.agents$/),
+      nativePath('/test/extension/dist/codex/.agents'),
+      posixMatching(/\/\.cards\/codex\.tmp-.*\/\.agents$/),
       {
         force: true,
         recursive: true
       }
     );
     expect(fs.cp).toHaveBeenCalledWith(
-      '/test/extension/dist/codex/cards',
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-.*\/cards$/),
+      nativePath('/test/extension/dist/codex/cards'),
+      posixMatching(/\/\.cards\/codex\.tmp-.*\/cards$/),
       {
         force: true,
         recursive: true
       }
     );
     expect(fs.cp).toHaveBeenCalledWith(
-      '/test/extension/dist/codex/runtime',
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-.*\/runtime$/),
+      nativePath('/test/extension/dist/codex/runtime'),
+      posixMatching(/\/\.cards\/codex\.tmp-.*\/runtime$/),
       {
         force: true,
         recursive: true
       }
     );
-    expect(fs.readFile).toHaveBeenCalledWith(
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-.*\/config\.toml$/),
-      'utf-8'
-    );
+    expect(fs.readFile).toHaveBeenCalledWith(posixMatching(/\/\.cards\/codex\.tmp-.*\/config\.toml$/), 'utf-8');
     expect(fs.writeFile).toHaveBeenCalledWith(
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-.*\/config\.toml$/),
+      posixMatching(/\/\.cards\/codex\.tmp-.*\/config\.toml$/),
       expect.stringContaining('[plugins."cards@local"]')
     );
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('[plugins."runtime@local"]'));
     expect(fs.writeFile).toHaveBeenCalledWith(
-      expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-.*\/AGENTS\.md$/),
+      posixMatching(/\/\.cards\/codex\.tmp-.*\/AGENTS\.md$/),
       expect.stringContaining('# Claude Instructions')
     );
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('# Commit Style'));
@@ -485,9 +527,9 @@ describe('launch action — codex branch', () => {
       'codex',
       ['app-server'],
       expect.objectContaining({
-        cwd: expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/),
+        cwd: posixMatching(/\/\.cards\/codex\.tmp-/),
         env: expect.objectContaining({
-          CODEX_HOME: expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/)
+          CODEX_HOME: posixMatching(/\/\.cards\/codex\.tmp-/)
         }),
         stdio: ['pipe', 'pipe', 'pipe']
       })
@@ -500,7 +542,7 @@ describe('launch action — codex branch', () => {
         cwd: '/test/workspace/.worktrees/cards/card-123/1',
         stdio: 'inherit',
         env: expect.objectContaining({
-          CODEX_HOME: expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/),
+          CODEX_HOME: posixMatching(/\/\.cards\/codex\.tmp-/),
           WORKSPACE_PATH: '/test/workspace/.worktrees/cards/card-123/1',
           BASE_BRANCH: 'main',
           PARENT_BRANCH: 'main',
@@ -536,7 +578,7 @@ describe('launch action — codex branch', () => {
       return child;
     });
     vi.mocked(fs.stat).mockImplementation(async (targetPath: string | URL) => {
-      if (String(targetPath) === '/custom/codex-home') {
+      if (toPosix(targetPath) === '/custom/codex-home') {
         return { isDirectory: () => true } as Awaited<ReturnType<typeof fs.stat>>;
       }
       throw Object.assign(new Error(`mock: unhandled stat: ${String(targetPath)}`), { code: 'ENOENT' });
@@ -546,7 +588,7 @@ describe('launch action — codex branch', () => {
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
-    expect(fs.cp).toHaveBeenCalledWith('/custom/codex-home', expect.stringMatching(/\/codex\.tmp-/), {
+    expect(fs.cp).toHaveBeenCalledWith('/custom/codex-home', posixMatching(/\/codex\.tmp-/), {
       recursive: true
     });
 
@@ -567,19 +609,19 @@ describe('launch action — codex branch', () => {
     });
     vi.mocked(fs.stat).mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
     vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (String(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
+      if (toPosix(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
         return JSON.stringify({ name: 'cards' });
       }
-      if (String(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
+      if (toPosix(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
         return JSON.stringify({ name: 'runtime' });
       }
-      if (String(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
+      if (toPosix(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
         return JSON.stringify({ name: 'local', plugins: [{ name: 'cards' }, { name: 'runtime' }] });
       }
-      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
+      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
         return '# Claude Instructions\nUse runtime workflows.';
       }
-      if (String(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
+      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
         return '# Commit Style\nKeep commits small.';
       }
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
@@ -589,10 +631,10 @@ describe('launch action — codex branch', () => {
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
-    expect(fs.mkdir).toHaveBeenCalledWith(expect.stringMatching(/\/home\/node\/\.cards\/codex\.tmp-/), {
+    expect(fs.mkdir).toHaveBeenCalledWith(posixMatching(/\/\.cards\/codex\.tmp-/), {
       recursive: true
     });
-    expect(fs.cp).not.toHaveBeenCalledWith('/home/node/.codex', expect.any(String), expect.anything());
+    expect(fs.cp).not.toHaveBeenCalledWith(DEFAULT_CODEX_HOME, expect.any(String), expect.anything());
 
     child.emit('close', 0);
     await promise;
@@ -602,7 +644,7 @@ describe('launch action — codex branch', () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
     vi.mocked(fs.access).mockImplementation(async (targetPath: string | URL) => {
-      if (String(targetPath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
+      if (toPosix(targetPath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
         throw Object.assign(new Error('marketplace missing'), { code: 'ENOENT' });
       }
     });
@@ -617,16 +659,16 @@ describe('launch action — codex branch', () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
     vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (String(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
+      if (toPosix(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
         return JSON.stringify({ name: 'cards' });
       }
-      if (String(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
+      if (toPosix(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
         return JSON.stringify({ name: 'runtime' });
       }
-      if (String(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
+      if (toPosix(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
         return JSON.stringify({ name: 'local', plugins: [{ name: 'cards' }, { name: 'runtime' }] });
       }
-      if (/\/home\/node\/\.cards\/codex\.tmp-.*\/config\.toml$/.test(String(filePath))) {
+      if (/\/\.cards\/codex\.tmp-.*\/config\.toml$/.test(toPosix(filePath))) {
         return '[broken';
       }
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
@@ -643,7 +685,7 @@ describe('launch action — codex branch', () => {
     const fs = await import('node:fs/promises');
     vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
     vi.mocked(fs.mkdir).mockImplementation(async (dirPath: unknown) => {
-      if (/codex\.tmp-/.test(String(dirPath))) {
+      if (/codex\.tmp-/.test(toPosix(dirPath))) {
         throw new Error('mkdir failed');
       }
       return undefined;

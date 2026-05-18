@@ -6,12 +6,11 @@
 
 import * as fs from 'node:fs';
 import * as net from 'node:net';
-import * as os from 'node:os';
-import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActionCommand, CardsAssistantCommand } from '../../src/config/command-types.js';
 import { CARDS_ENV_VARS } from '../../src/config/env.js';
 import { EXIT_CODES } from '../../src/config/exit-codes.js';
+import { createIpcEndpoint, createNonexistentIpcEndpoint } from '../../src/config/ipc-endpoint.js';
 import { logger } from '../../src/config/logger.js';
 import { executeCommand } from '../../src/config/runtime.js';
 
@@ -349,7 +348,7 @@ describe('runtime', () => {
       let killSpy: ReturnType<typeof vi.spyOn>;
 
       beforeEach(() => {
-        socketPath = path.join(os.tmpdir(), `test-runtime-socket-${process.pid}-${Date.now()}.sock`);
+        socketPath = createIpcEndpoint(`test-runtime-socket-${process.pid}-${Date.now()}`);
         serverConnection = undefined;
         loggerWarnSpy = vi.spyOn(logger, 'warn');
         killSpy = vi.spyOn(process, 'kill').mockImplementation((() => {}) as never);
@@ -362,11 +361,15 @@ describe('runtime', () => {
             server.close(() => resolve());
           });
         }
-        try {
-          fs.unlinkSync(socketPath);
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-            throw error;
+        // Unix domain sockets are filesystem entries that need cleanup;
+        // Windows named pipes are not and are reclaimed by the OS.
+        if (process.platform !== 'win32') {
+          try {
+            fs.unlinkSync(socketPath);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              throw error;
+            }
           }
         }
       });
@@ -414,8 +417,11 @@ describe('runtime', () => {
       });
 
       it('should continue when socket connection fails (fail-open)', async () => {
-        // Point to non-existent socket
-        process.env[CARDS_ENV_VARS.SOCKET_PATH] = '/tmp/nonexistent-runtime-socket.sock';
+        // Point to non-existent endpoint (platform-correct address that
+        // nothing is listening on)
+        process.env[CARDS_ENV_VARS.SOCKET_PATH] = createNonexistentIpcEndpoint(
+          `nonexistent-runtime-socket-${process.pid}-${Date.now()}`
+        );
 
         const handler = vi.fn().mockResolvedValue(undefined);
         const command = makeCommand(handler);
