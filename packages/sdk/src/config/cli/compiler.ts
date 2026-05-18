@@ -120,6 +120,7 @@ export type CompileResult = CompileSuccess | CompileFailure;
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 
 /**
@@ -143,7 +144,7 @@ function findPackageRoot(startDir: string): string {
 }
 
 function getPackageRoot(): string {
-  return findPackageRoot(path.dirname(new URL(import.meta.url).pathname));
+  return findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
 }
 
 /**
