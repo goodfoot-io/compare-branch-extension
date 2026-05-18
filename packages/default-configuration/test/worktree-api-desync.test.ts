@@ -188,7 +188,12 @@ describe('worktree-API desync', () => {
     expect(createWorktree).toHaveBeenCalledTimes(1);
     expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', {
       cwd: '/test/workspace',
-      cardId: 'card-123'
+      cardId: 'card-123',
+      compiledScriptPaths: {
+        'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
+        'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
+        'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
+      }
     });
 
     child.emit('close', 0);
@@ -226,7 +231,12 @@ describe('worktree-API desync', () => {
     expect(createWorktree).toHaveBeenCalledTimes(1);
     expect(createWorktree).toHaveBeenCalledWith('cards/card-123/16', {
       cwd: '/test/workspace',
-      cardId: 'card-123'
+      cardId: 'card-123',
+      compiledScriptPaths: {
+        'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
+        'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
+        'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
+      }
     });
 
     child.emit('close', 0);

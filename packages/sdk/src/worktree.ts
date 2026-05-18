@@ -85,6 +85,19 @@ export function isInternalSymlink(target: string): boolean {
   return target.startsWith('../');
 }
 
+export interface CreateWorktreeOptions {
+  /** Working directory used when locating git roots. Defaults to `process.cwd()`. */
+  cwd?: string;
+  /** When set, makes the worktree card-bound (writes `.cards/CARD_ID` and installs hooks). */
+  cardId?: string;
+  /**
+   * Required when `cardId` is provided — map of git hook name to the absolute path of the
+   * compiled `.mjs` script. Omitting it while `cardId` is set installs dispatchers with no
+   * `.mjs` files, re-creating the D10a silent-attribution-loss risk.
+   */
+  compiledScriptPaths?: Record<string, string>;
+}
+
 export interface CreateWorktreeResult {
   branch: string;
   worktree: string;
@@ -122,13 +135,14 @@ export interface EarlyWorktreeResult {
  * @param options.cardId - When provided, makes the worktree card-bound: writes `<worktree>/.cards/CARD_ID`
  *   so workspace git hooks can attribute commits without an inherited env var, and excludes the file
  *   from `git status` via the per-worktree `info/exclude`. Omitting this option leaves the worktree
- *   unbound — hooks fall back to PID-based resolution.
+ *   unbound — no Cards hooks are installed and no commits are attributed.
+ * @param options.compiledScriptPaths - Required when `cardId` is provided. Map of hook name to the
+ *   absolute path of the compiled `.mjs` script. Omitting it while `cardId` is set installs
+ *   dispatchers with no `.mjs` files, re-creating the D10a silent-attribution-loss risk, so it is
+ *   rejected.
  * @returns Early result with `path` available immediately and `settle` resolving when setup completes.
  */
-export async function createWorktree(
-  ref: string,
-  options?: { cwd?: string; cardId?: string }
-): Promise<EarlyWorktreeResult> {
+export async function createWorktree(ref: string, options?: CreateWorktreeOptions): Promise<EarlyWorktreeResult> {
   const { sourceRoot, repoRoot } = await findGitRoots(options?.cwd ?? process.cwd());
 
   // Determine whether this is an existing ref or a new branch name.
@@ -163,6 +177,45 @@ export async function createWorktree(
     await addDetachedWorktree(repoRoot, worktreeDir, ref);
   }
 
+  // Attribution-critical pre-settle block (A2 race fix). `claude-session.ts`
+  // does NOT await `settle` — it spawns the agent immediately with
+  // `cwd=worktreeDir`, so the agent can `git commit` before `settle` resolves.
+  // The marker and hook config must therefore be in place BEFORE the early
+  // return, on the synchronous path. This runs after `addWorktree` so the
+  // worktree dir exists on disk.
+  if (options?.cardId !== undefined) {
+    if (options.cardId.length === 0) {
+      throw new Error('createWorktree: cardId must be a non-empty string');
+    }
+    // D10a guard: dispatchers without .mjs files silently lose attribution.
+    if (!options.compiledScriptPaths || Object.keys(options.compiledScriptPaths).length === 0) {
+      throw new Error('createWorktree: compiledScriptPaths required when cardId is set');
+    }
+
+    // 1. Write .cards/CARD_ID (writeCardBoundFile mkdir -p's .cards itself).
+    await writeCardBoundFile(worktreeDir, options.cardId);
+
+    // 2. Snapshot the pre-existing hooks dir so the dispatcher can chain to it.
+    const originalHooksDir = await captureOriginalHooksPath(repoRoot);
+
+    // 3. Record it for the dispatcher to read at hook runtime.
+    await fs.writeFile(path.join(worktreeDir, '.cards', 'CARD_ORIGINAL_HOOK_PATH'), originalHooksDir);
+
+    // 4. Provision the shared dispatcher dir (idempotent).
+    const sharedHooksDir = path.join(repoRoot, '.cards', 'workspace-hooks');
+    await provisionSharedHooksDir(sharedHooksDir, options.compiledScriptPaths);
+
+    // 5. Enable per-worktree config — MUST precede the --worktree write (D9).
+    await execFileAsync('git', ['-C', repoRoot, 'config', 'extensions.worktreeConfig', 'true'], {
+      timeout: 5_000
+    });
+
+    // 6. Point this worktree at the shared dispatcher dir (D9: after step 5).
+    await execFileAsync('git', ['-C', worktreeDir, 'config', '--worktree', 'core.hooksPath', sharedHooksDir], {
+      timeout: 5_000
+    });
+  }
+
   // The worktree directory exists on disk — return early so callers can use
   // the path (e.g. as cwd for spawning processes) while the remaining setup
   // (symlinks, node_modules rerouting, git excludes) runs concurrently.
@@ -178,17 +231,12 @@ export async function createWorktree(
     await symlinkIgnoredPaths({ sourceRoot, worktreeDir, ignored: filteredIgnored });
     await copyCardsDirectory(sourceRoot, worktreeDir);
 
-    if (options?.cardId !== undefined) {
-      if (options.cardId.length === 0) {
-        throw new Error('createWorktree: cardId must be a non-empty string');
-      }
-      await writeCardBoundFile(worktreeDir, options.cardId);
-    }
-
     const reroutedCount = await rerouteAllNodeModules({ sourceRoot, worktreeDir, repoRoot });
     const copiedFromInclude = await applyWorktreeInclude({ sourceRoot, worktreeDir });
 
-    const additionalExcludes = options?.cardId !== undefined ? ['.cards/CARD_ID'] : [];
+    // Git-excludes are not attribution-critical (display only) so they stay in settle.
+    const additionalExcludes =
+      options?.cardId !== undefined ? ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH'] : [];
     const [, baseSha] = await Promise.all([
       updateGitExclude({
         worktreeDir,
@@ -536,6 +584,234 @@ async function writeCardBoundFile(worktreeDir: string, cardId: string): Promise<
   const cardsDir = path.join(worktreeDir, '.cards');
   await fs.mkdir(cardsDir, { recursive: true });
   await fs.writeFile(path.join(cardsDir, 'CARD_ID'), `${cardId}\n`);
+}
+
+/**
+ * Resolves the repository's pre-existing hooks directory.
+ *
+ * Reads `git -C <repoRoot> config core.hooksPath`. When unset or empty, returns
+ * the default `<repoRoot>/.git/hooks`. The dispatcher reads this path at hook
+ * runtime to chain to the developer's own hooks (D8).
+ *
+ * @param repoRoot - Primary repository root.
+ * @returns Absolute path to the original hooks directory.
+ */
+async function captureOriginalHooksPath(repoRoot: string): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('git', ['-C', repoRoot, 'config', 'core.hooksPath'], {
+      timeout: 5_000
+    });
+    const value = stdout.trim();
+    if (value.length > 0) {
+      return path.isAbsolute(value) ? value : path.join(repoRoot, value);
+    }
+  } catch (error: unknown) {
+    // `git config <key>` exits 1 when the key is unset — not an error here.
+    if ((error as { code?: unknown }).code === undefined) {
+      throw error;
+    }
+  }
+  return path.join(repoRoot, '.git', 'hooks');
+}
+
+/**
+ * All client-side git hook types the per-worktree dispatcher must cover (D1).
+ */
+const CLIENT_SIDE_HOOK_TYPES = [
+  'applypatch-msg',
+  'pre-applypatch',
+  'post-applypatch',
+  'pre-commit',
+  'prepare-commit-msg',
+  'commit-msg',
+  'post-commit',
+  'pre-rebase',
+  'post-checkout',
+  'post-merge',
+  'pre-push',
+  'post-rewrite',
+  'reference-transaction',
+  'post-index-change',
+  'pre-merge-commit',
+  'sendemail-validate',
+  'push-to-checkout'
+] as const;
+
+/**
+ * Shared prologue for every dispatcher: locate the worktree, the Cards `.mjs`
+ * (if any for this type), the recorded original hooks dir, and the original
+ * hook path. `git rev-parse --show-toplevel` returns the correct worktree root
+ * even though this script lives in a shared dir, because git sets `GIT_DIR`
+ * per-worktree at hook invocation (D8).
+ *
+ * @param hookType - Git hook name this dispatcher serves.
+ * @returns The shared bash prologue for that hook type.
+ */
+function dispatcherPrologue(hookType: string): string {
+  return `#!/bin/bash
+# cards-workspace-dispatcher: ${hookType}
+WORKTREE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+CARDS_HOOK="$(dirname "$0")/${hookType}.mjs"
+ORIGINAL_HOOKS_DIR=$(cat "$WORKTREE_ROOT/.cards/CARD_ORIGINAL_HOOK_PATH" 2>/dev/null)
+ORIGINAL_HOOK="$ORIGINAL_HOOKS_DIR/${hookType}"
+`;
+}
+
+/**
+ * Resolves the Node interpreter into `$NODE_RUN`. Prefers the extension's
+ * bundled interpreter (`~/.cards/VSCODE_NODE`), falls back to `node` on PATH.
+ */
+const RESOLVE_NODE = `NODE_BIN=$(cat "$HOME/.cards/VSCODE_NODE" 2>/dev/null)
+if [ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ]; then
+  NODE_RUN="$NODE_BIN"
+elif command -v node >/dev/null 2>&1; then
+  NODE_RUN="node"
+else
+  NODE_RUN=""
+fi
+`;
+
+/**
+ * Builds the dispatcher script for a single hook type.
+ *
+ * Per-category templates (D2/D3/D5/D11/`<fail-closed>`):
+ * - `post-commit`: Cards `.mjs` runs first (non-blocking), then chains the
+ *   original hook with exec for exit-code propagation. No stdin read (D11).
+ * - `pre-commit`: Cards `.mjs` runs first; `rc=$?` captured before any `[`
+ *   test; non-zero blocks the commit fail-closed; then chains the original.
+ *   No stdin read (D11).
+ * - `post-rewrite`: stdin captured byte-exact to a temp file so both the
+ *   Cards `.mjs` and the original hook read the same stream.
+ * - `pre-push`/`reference-transaction`: no Cards `.mjs`; pass-through `exec`
+ *   with stdin inherited directly (no capture).
+ * - `commit-msg`/`prepare-commit-msg`: file-arg, no stdin; forward `"$@"`.
+ * - everything else: pass-through-only `exec` with stdin inherited.
+ *
+ * @param hookType - Git hook name.
+ * @param hasCardsHook - Whether a compiled `.mjs` is provisioned for this type.
+ * @returns Bash script content.
+ */
+function buildDispatcherScript(hookType: string, hasCardsHook: boolean): string {
+  const prologue = dispatcherPrologue(hookType);
+
+  if (hookType === 'post-commit') {
+    return `${prologue}
+# Cards post-commit: non-blocking, runs first
+if [ -f "$CARDS_HOOK" ]; then
+${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+    "$NODE_RUN" "$CARDS_HOOK"
+  fi
+fi
+
+# Forward to original hook with exit-code propagation (D3)
+if [ -x "$ORIGINAL_HOOK" ]; then
+  exec "$ORIGINAL_HOOK" "$@"
+fi
+exit 0
+`;
+  }
+
+  if (hookType === 'pre-commit') {
+    return `${prologue}
+# Cards pre-commit runs first — capture rc before any test consumes $? (fail-closed)
+if [ -f "$CARDS_HOOK" ]; then
+${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+    "$NODE_RUN" "$CARDS_HOOK"
+    rc=$?
+    if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+  fi
+fi
+
+# Then original
+if [ -x "$ORIGINAL_HOOK" ]; then
+  exec "$ORIGINAL_HOOK" "$@"
+fi
+exit 0
+`;
+  }
+
+  if (hookType === 'post-rewrite') {
+    return `${prologue}
+# Byte-exact stdin capture so both consumers read the identical stream
+STDIN_TMPFILE=$(mktemp)
+cat > "$STDIN_TMPFILE"
+
+if [ -f "$CARDS_HOOK" ]; then
+${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+    "$NODE_RUN" "$CARDS_HOOK" "$@" < "$STDIN_TMPFILE"
+  fi
+fi
+if [ -x "$ORIGINAL_HOOK" ]; then
+  "$ORIGINAL_HOOK" "$@" < "$STDIN_TMPFILE"
+  EXIT_CODE=$?
+  rm -f "$STDIN_TMPFILE"
+  exit $EXIT_CODE
+fi
+rm -f "$STDIN_TMPFILE"
+exit 0
+`;
+  }
+
+  if (hookType === 'commit-msg' || hookType === 'prepare-commit-msg') {
+    // File-arg hooks: git passes a file path as $1, no stdin involved.
+    const cardsBlock = hasCardsHook
+      ? `if [ -f "$CARDS_HOOK" ]; then
+${RESOLVE_NODE}  if [ -n "$NODE_RUN" ]; then
+    "$NODE_RUN" "$CARDS_HOOK" "$@"
+  fi
+fi
+`
+      : '';
+    return `${prologue}
+${cardsBlock}if [ -x "$ORIGINAL_HOOK" ]; then
+  exec "$ORIGINAL_HOOK" "$@"
+fi
+exit 0
+`;
+  }
+
+  // pre-push, reference-transaction, and all remaining types: pass-through
+  // only. `exec` inherits the shell's stdin fd directly — no $(cat), no
+  // pipeline, no buffering — so stdin-driven hooks work and non-stdin hooks
+  // never block (D11). The original hook's exit code becomes ours (D3).
+  return `${prologue}
+if [ -x "$ORIGINAL_HOOK" ]; then
+  exec "$ORIGINAL_HOOK" "$@"
+fi
+exit 0
+`;
+}
+
+/**
+ * Provisions the shared per-worktree dispatcher directory.
+ *
+ * Writes one bash dispatcher script per client-side git hook type and copies
+ * the compiled Cards `.mjs` for each entry in `compiledScriptPaths`. Idempotent
+ * — safe to call for every worktree that shares `sharedHooksDir`.
+ *
+ * @param sharedHooksDir - Absolute path to the shared hooks directory.
+ * @param compiledScriptPaths - Map of hook name to compiled `.mjs` source path.
+ */
+async function provisionSharedHooksDir(
+  sharedHooksDir: string,
+  compiledScriptPaths: Record<string, string>
+): Promise<void> {
+  await fs.mkdir(sharedHooksDir, { recursive: true });
+
+  await Promise.all(
+    CLIENT_SIDE_HOOK_TYPES.map(async (hookType) => {
+      const hasCardsHook = compiledScriptPaths[hookType] !== undefined;
+      const script = buildDispatcherScript(hookType, hasCardsHook);
+      await fs.writeFile(path.join(sharedHooksDir, hookType), script, { mode: 0o755 });
+    })
+  );
+
+  await Promise.all(
+    Object.entries(compiledScriptPaths).map(async ([hookType, sourcePath]) => {
+      const content = await fs.readFile(sourcePath, 'utf-8');
+      await fs.writeFile(path.join(sharedHooksDir, `${hookType}.mjs`), content, { mode: 0o644 });
+    })
+  );
 }
 
 interface SymlinkIgnoredPathsOptions {

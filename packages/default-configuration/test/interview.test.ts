@@ -480,7 +480,12 @@ describe('Default Actions', () => {
 
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
           cwd: '/test/workspace',
-          cardId: 'card-123'
+          cardId: 'card-123',
+          compiledScriptPaths: {
+            'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
+            'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
+            'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
+          }
         });
 
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };

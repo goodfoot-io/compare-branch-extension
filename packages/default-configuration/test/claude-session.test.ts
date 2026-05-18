@@ -186,6 +186,17 @@ function configureBranchesResponse(
   });
 }
 
+/**
+ * Compiled-hook .mjs paths createWorktree() must be called with, derived from
+ * the test ActionInput's extensionPath (`/test/extension`) — see
+ * compiledHookScriptPaths() in claude-session.ts (Phase 4.5).
+ */
+const EXPECTED_COMPILED_SCRIPT_PATHS = {
+  'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
+  'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
+  'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
+};
+
 describe('claude-session shared utilities', () => {
   describe('buildArgs', () => {
     it('includes --session-id for new sessions', async () => {
@@ -406,7 +417,11 @@ describe('claude-session shared utilities', () => {
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
       const result = await resolveOrCreateWorktree(baseInput(), client, 'main', createMockLogger());
 
-      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', { cwd: '/test/workspace', cardId: 'card-123' });
+      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
+        cwd: '/test/workspace',
+        cardId: 'card-123',
+        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
+      });
       expect(result.worktreePath).toBe('/test/workspace/.worktrees/cards/card-123/1');
       expect(result.branchName).toBe('cards/card-123/1');
       expect(result.parentBranch).toBe('main');
@@ -434,7 +449,11 @@ describe('claude-session shared utilities', () => {
       const client = new CardsClient({ baseUrl: 'http://localhost:3000', accessToken: 'test-token' });
       const result = await resolveOrCreateWorktree(baseInput(), client, 'main', createMockLogger());
 
-      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', { cwd: '/test/workspace', cardId: 'card-123' });
+      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/2', {
+        cwd: '/test/workspace',
+        cardId: 'card-123',
+        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
+      });
       expect(result.branchName).toBe('cards/card-123/2');
     });
 
@@ -470,7 +489,11 @@ describe('claude-session shared utilities', () => {
       const result = await resolveOrCreateWorktree(baseInput(), client, 'main', createMockLogger());
 
       // Should reattach the existing branch, not create a new one
-      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', { cwd: '/test/workspace', cardId: 'card-123' });
+      expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
+        cwd: '/test/workspace',
+        cardId: 'card-123',
+        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
+      });
       expect(result.worktreePath).toBe('/test/workspace/.worktrees/cards/card-123/1');
       expect(result.branchName).toBe('cards/card-123/1');
       expect(result.parentBranch).toBe('main');

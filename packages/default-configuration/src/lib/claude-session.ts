@@ -260,6 +260,40 @@ async function worktreeExistsOnDisk(worktreePath: string): Promise<boolean> {
  * @param sessionId - Claude Code session ID forwarded to the API so the card repo post-commit hook can attribute the commit.
  * @returns Worktree path, branch name, and parent branch name.
  */
+/**
+ * Builds the `compiledScriptPaths` map for `createWorktree({ cardId })`.
+ *
+ * Points each Cards-active hook type at the compiled `.mjs` artifact bundled
+ * with the extension (`<extensionPath>/dist/git-hooks/*.mjs`). Required when
+ * `cardId` is set — without it `createWorktree` throws (D10a guard).
+ *
+ * @param extensionPath - Absolute path to the extension installation directory.
+ * @returns Map of hook name to absolute compiled `.mjs` path.
+ */
+function compiledHookScriptPaths(extensionPath: string): Record<string, string> {
+  const gitHooksDir = path.join(extensionPath, 'dist', 'git-hooks');
+  return {
+    'pre-commit': path.join(gitHooksDir, 'pre-commit.mjs'),
+    'post-commit': path.join(gitHooksDir, 'post-commit.mjs'),
+    'post-rewrite': path.join(gitHooksDir, 'post-rewrite.mjs')
+  };
+}
+
+/**
+ * Finds or creates a worktree for the card.
+ *
+ * Tries to reuse an existing branch whose worktree is still on disk. When no
+ * valid branch exists, creates a new one and registers it with the API. New
+ * card-bound worktrees are provisioned with the per-worktree hook dispatcher
+ * (compiled `.mjs` paths from the extension install).
+ *
+ * @param input - Action input containing cardId and workspace paths.
+ * @param client - Cards API client for branch CRUD.
+ * @param baseBranch - Current branch in the workspace (used as parent).
+ * @param logger - Logger for diagnostic output.
+ * @param sessionId - Coding-agent session ID forwarded to the API so the card repo post-commit hook can attribute the commit.
+ * @returns Worktree path, branch name, parent branch name, and optional settle promise.
+ */
 export async function resolveOrCreateWorktree(
   input: ActionInput,
   client: CardsClient,
@@ -292,7 +326,8 @@ export async function resolveOrCreateWorktree(
     logger.info('Reattaching worktree for existing branch', { branch: branch.name });
     const { path: worktreePath, settle } = await createWorktree(branch.name, {
       cwd: input.repoRoot,
-      cardId: input.cardId
+      cardId: input.cardId,
+      compiledScriptPaths: compiledHookScriptPaths(input.extensionPath)
     });
 
     // Update the API record with the new worktree path
@@ -328,7 +363,8 @@ export async function resolveOrCreateWorktree(
   const branchName = `${prefix}${nextNumber}`;
   const { path: worktreePath, settle } = await createWorktree(branchName, {
     cwd: input.repoRoot,
-    cardId: input.cardId
+    cardId: input.cardId,
+    compiledScriptPaths: compiledHookScriptPaths(input.extensionPath)
   });
   await client.addBranch(
     input.cardId,

@@ -184,7 +184,12 @@ describe('base branch worktree collision', () => {
     expect(createWorktree).not.toHaveBeenCalledWith('main', expect.anything());
     expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
       cwd: '/test/workspace',
-      cardId: 'card-123'
+      cardId: 'card-123',
+      compiledScriptPaths: {
+        'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
+        'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
+        'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
+      }
     });
 
     child.emit('close', 0);
