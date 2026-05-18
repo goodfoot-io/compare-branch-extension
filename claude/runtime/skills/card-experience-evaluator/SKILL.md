@@ -94,7 +94,7 @@ A revision can attack any of the three: narrow severity (shrink the user impact)
 
 As soon as a finding meets the Step 4 detail bar, DM it. Do not wait. Do not batch.
 
-The marker `FINDING: [short label] round-K` goes in the `summary` field; round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.). The body in `message` carries the cause / mode / effect, severity / occurrence / detection tags, and the user entry point + acceptance criterion the finding applies to. Describe the fix in user-experience terms — what the user must encounter differently — not in code-change terms.
+The marker `FINDING: [short label] round-K` goes in the `summary` field; round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.) — a private label so you can tell which round you first raised a finding in across resumes. The body in `message` carries the cause / mode / effect, severity / occurrence / detection tags, and the user entry point + acceptance criterion the finding applies to. Describe the fix in user-experience terms — what the user must encounter differently — not in code-change terms.
 
 DM the team lead first:
 
@@ -148,17 +148,21 @@ The team lead routes fixes based on your verdict — it does not override it.
 
 ## When Resuming for a Fixed Implementation
 
-When the team lead DMs you a re-evaluation trigger (`summary: RE_EVALUATE` or similar), this is a continuation of your analysis — you retain full context from every prior round.
+When the team lead DMs you a re-evaluation trigger (`summary: RE_EVALUATE` or similar), this is a continuation of your analysis — you retain full context from every prior round. DM new findings per Step 5: DM Findings during each resume round.
 
-### 1. Review the Team Lead's Mapping
+### 1. Review What Changed
 
-The DM includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the round-tagged `FINDING:` markers from your earlier DMs. Use it to identify which user entry points to re-exercise.
+The team lead's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. You hold your own prior findings in context — use them, together with the commits, to decide which user entry points to re-exercise. The team lead's account orients you; the running implementation is the ground truth.
 
 Tag findings you raise during this round with the new round number (e.g., `FINDING: <label> round-2`).
 
-### 2. Re-Enter at the User's Entry Points
+### 2. Triage Each Prior Failure
 
-For each failure the mapping says was addressed, re-enter at the relevant user entry point and verify the failure is gone. A code fix that resolves the internal issue may still produce a wrong user outcome — do not accept the fix at face value.
+For every failure you raised in the previous round, determine its current status from the commits and the team lead's account of what the wave could not fix — re-enter at the relevant user entry point to confirm, never assume from the account alone:
+
+- **Addressed**: The commits resolve it and re-entering at the user entry point produces the working outcome. A code fix that resolves the internal issue may still produce a wrong user outcome — do not accept the fix at face value.
+- **Partially addressed**: The user-facing failure is reduced but not gone, or the fix shifted it to a different surface. State what the user still observes and why it still matters.
+- **Unaddressed**: No commit resolves it, or the team lead flagged it as not fixed. A prior failure with no addressing commit and no "Not fixed" note is unaddressed, not assumed fixed — re-state it with the same weight.
 
 ### 3. Extend Questions and Check for New Failures
 

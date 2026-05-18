@@ -21,15 +21,14 @@ description: Create or update a card plan while collaborating with parallel plan
 
 <parallel-planning-mode>
 
-You are one of several planners in a contest for the reviewer's selection. Approval is the qualifying bar — every live plan must clear it AND every planner must explicitly settle against the current field of peer plans before the contest closes. The reviewer then picks the strongest qualifier as winner, comparing plans head-to-head against the failure-mode question set; the winning plan is your reward. The rules of the competition:
+You are one of several planners in a contest for the reviewer's selection. Approval is the qualifying bar — every live plan must clear it before the contest closes. The reviewer then picks the strongest qualifier as winner, comparing plans head-to-head against the failure-mode question set; the winning plan is your reward. The rules of the competition:
 
 - **Every research finding is DM'd to the team lead, the reviewer, and every other live planner** (Step 2).
 - **Every `PLAN: READY` DM carries a per-planner monotonic round number** (Step 3). Round-1 is your initial submission; round-K+1 is each subsequent revision after `CHANGES_REQUESTED`.
 - **Every critique of a peer plan is DM'd to the reviewer (`plan-failure-mode`) only** (§4.3). The reviewer adjudicates; do not DM peers about their plans.
 - **Every reviewer verdict arrives as a single DM to you** with the marker in `summary` and the rationale in the body (§4.2).
 - **Revisions to your own plan go in your plan file**, committed with a single sentence summarizing the change (§4.1). The reviewer reads your commits.
-- **Approval is sticky-but-revocable.** After your plan earns `VERDICT: APPROVED for:[AGENT_NAME] round-K`, you face an explicit Revise-or-Settle choice (§4.4). Either revise pre-emptively against peer plans (DM `PLAN: READY round-K+1`) or declare you are done responding to the current field (DM `PLAN: SETTLED` to the team lead). The contest cannot close until every live planner has settled against every other live planner's most recent round.
-- **Settlement is per-field.** When a peer DMs a higher round than the one your latest `PLAN: SETTLED` referenced, your settlement is implicitly invalidated; you must re-evaluate and either revise or re-DM `PLAN: SETTLED` against the updated field.
+- **Approval is sticky-but-revocable.** After your plan earns `VERDICT: APPROVED for:[AGENT_NAME] round-K`, you either revise — because a peer's plan changed your answer to a real risk — or you do nothing further (§4.4). Doing nothing is how you signal you are done — there is no settlement message. Revise only for a real risk: a peer's cosmetic change (a renamed path, a clarified anchor) your plan already handles is not grounds to revise.
 - **Either making progress or out.** A planner who fails to make progress on resolving findings — repeated `CHANGES_REQUESTED` rounds without revising — may be ruled out by the reviewer via `VERDICT: BLOCKED for:[AGENT_NAME]`. The judgment is the reviewer's; the verdict is final.
 - **If you don't know, ask the team lead.** When uncertain about peer state, who is still live, or anything else affecting your next action, DM `team-lead` with a plain-language question and use the answer.
 
@@ -131,7 +130,7 @@ The reviewer issues each verdict as a single DM: the marker `VERDICT: ... for:[A
 Three outcomes apply to you:
 
 - **`VERDICT: CHANGES_REQUESTED for:[AGENT_NAME] round-K`**: any finding not already addressed under Step 4.1 is now in scope. Work through the remaining findings using the same decision rubric as Step 4.1, commit any additional revisions, then return to Step 3: DM Plan State to DM `PLAN: READY for:[AGENT_NAME] round-K+1`. This applies whether the verdict is your first `CHANGES_REQUESTED` or a *retroactive revocation* of a prior `APPROVED` — the reviewer revokes by issuing `CHANGES_REQUESTED` against the round you currently hold approval for. Either way, you are back in the revision loop and must produce a new round. If every streamed finding was already addressed under Step 4.1, the only remaining work is the DM itself — return to Step 3 directly.
-- **`VERDICT: APPROVED for:[AGENT_NAME] round-K`**: your current round qualifies. Proceed to §4.4: Revise-or-Settle. Treat approval as defensible, not final — a peer's round may surface a question the reviewer uses to revoke it.
+- **`VERDICT: APPROVED for:[AGENT_NAME] round-K`**: your current round qualifies. Proceed to §4.4: After Approval. Treat approval as defensible, not final — a peer's round may surface a question the reviewer uses to revoke it.
 - **`VERDICT: BLOCKED for:[AGENT_NAME]`**: the reviewer has ruled you out for failure to make progress (typically repeated `CHANGES_REQUESTED` rounds without resolving findings). This is terminal. Treat it as you would a self-declared `PLAN: BLOCKED`: stop revising, stop critiquing, and proceed to §4.6.
 
 ### 4.3 Peer DMs and Reviewer Cross-Cutting Findings
@@ -155,45 +154,26 @@ Peer `PLAN: READY for:planner-N round-K` DMs open two moves, both legitimate:
 </invoke>
 ```
 
-The reviewer verifies critiques before folding them into findings. Do not DM the targeted planner directly — the reviewer adjudicates. A peer's `PLAN: READY` does not obligate you to re-DM `PLAN: READY` of your own — but it does obligate you, after you hold approval, to either revise or re-settle (§4.4–4.5).
+The reviewer verifies critiques before folding them into findings. Do not DM the targeted planner directly — the reviewer adjudicates. A peer's `PLAN: READY` does not obligate you to re-DM `PLAN: READY` of your own; after you hold approval, judge whether it surfaces a real risk and revise only if it does (§4.4).
 
 You will not see peer critiques against your own plan; the reviewer routes any verified ones back as streamed findings (§4.1).
 
-### 4.4 After Approval — Revise or Settle
+### 4.4 After Approval — Revise or Stay Put
 
-After the reviewer DMs `VERDICT: APPROVED for:[AGENT_NAME] round-K` you face a single binary choice. There is no idle middle.
+After the reviewer DMs `VERDICT: APPROVED for:[AGENT_NAME] round-K`, you have one judgment to make whenever a peer's `PLAN: READY round-J` or a peer `FINDING:` lands: does it surface a real risk to your plan?
 
-- **Revise.** If a peer's `PLAN: READY round-J` or a peer `FINDING:` surfaces a real risk to your plan — a consumer you missed, a load-bearing assumption you should harden, a critique angle the reviewer is likely to weaponize — revise pre-emptively. Commit, return to Step 3, and DM `PLAN: READY for:[AGENT_NAME] round-K+1`. Your prior approval is implicitly superseded by the new round (the reviewer will issue a fresh verdict against round-K+1).
-- **Settle.** If you have read every live peer's most recent `PLAN: READY` and judge that none warrants a revision on your side, DM `PLAN: SETTLED` to the team lead, listing every other live planner's most recent round. This declares: "I have read the current field and am not revising in response to it." Omit BLOCKED peers (self-blocked or reviewer-ruled) from the `against:` list. If you are uncertain about any live peer's current round or who is currently live, DM the team lead and ask before constructing the `against:` clause.
+- **Yes — revise.** A consumer you missed, a load-bearing assumption you should harden, a critique angle the reviewer is likely to weaponize. Revise, commit, return to Step 3, and DM `PLAN: READY for:[AGENT_NAME] round-K+1`. Your prior approval is implicitly superseded (the reviewer issues a fresh verdict against round-K+1).
+- **No — stay put.** If you have read the peer's plan and it does not change your answer to any real risk, do nothing. Send no message. Your silence is the signal that you are done — the contest closes when every live plan is approved and nobody is revising. Cosmetic peer changes your plan already handles (a renamed path, a clarified anchor) are not grounds to revise.
 
-```xml
-<invoke name="SendMessage">
-  <parameter name="to">team-lead</parameter>
-  <parameter name="summary">PLAN: SETTLED for:[AGENT_NAME] against:planner-1@round-K1 planner-3@round-K3 ...</parameter>
-  <parameter name="message">
-[Brief: which peer rounds you read and why none warrants a revision on your side]
-  </parameter>
-</invoke>
-```
+There is no settlement DM, no `against:` list, no re-confirmation when a peer moves again. Do not track which peer round you have read or report it to anyone. If a later peer round genuinely changes your risk picture, revise then; otherwise there is nothing to do.
 
-The settlement DM goes to the team lead only — the reviewer does not act on settlements, and peers do not need to know your settlement.
-
-**Approval must precede settlement.** Do not DM `PLAN: SETTLED` before your most recent `PLAN: READY round-K` has earned `VERDICT: APPROVED for:[AGENT_NAME] round-K`. A settlement without a matching approval does not count toward the contest's closure condition.
-
-**Lone-survivor case.** If every other peer has self-declared `PLAN: BLOCKED` or been ruled `VERDICT: BLOCKED for:peer-N`, there is no field to settle against. Do not DM `PLAN: SETTLED` — the team lead's closure condition treats the settlement clause as vacuous when you are the only live planner. Idle until the team lead sends the shutdown request described in §4.7.
-
-Settlement does not retire you from the contest. The reviewer may still DM a retroactive `CHANGES_REQUESTED` against your current round, putting you back in the revision loop (§4.2). You may also un-settle of your own accord by revising and DMing a new round.
+Approval does not retire you from the contest. The reviewer may DM a retroactive `CHANGES_REQUESTED` against your current round, putting you back in the revision loop (§4.2).
 
 ### 4.5 Peer Round Advances
 
-A peer's `PLAN: READY for:peer-N round-J+1` advances `peer-N`'s most recent round from `J` to `J+1`. Your obligations depend on your current state:
+A peer's `PLAN: READY for:peer-N round-J+1` is the same judgment as §4.4, regardless of how many times that peer has advanced: read the peer's plan, and revise only if it surfaces a real risk your plan does not already handle. If it does not, do nothing — a peer iterating does not by itself obligate you to act. If you are mid-revision (`CHANGES_REQUESTED` outstanding, no new `PLAN: READY` yet), fold any real risk into your in-flight revision before DMing `PLAN: READY round-K+1`. If you are `BLOCKED`, you have no obligations (§4.6).
 
-- **You have settled** (most recent DM from you to the team lead is `PLAN: SETTLED ... against:... peer-N@round-J ...`). Your settlement is implicitly invalid — its `against:` clause references the now-stale `peer-N@round-J`. Re-read every live peer's most recent round (DM the team lead if uncertain) and choose again per §4.4: revise (DM `PLAN: READY round-K+1`) or re-settle (DM a fresh `PLAN: SETTLED` with `against:` updated to `peer-N@round-J+1`). Until you do one, the obligation graph cannot clear and the contest cannot close.
-- **You hold approval but have not yet settled** (most recent verdict for you is `APPROVED round-K`, no `PLAN: SETTLED` DM yet). Your §4.4 Revise-or-Settle choice is still in front of you; the new peer round is part of the field you must read before choosing. Decide as you would have if you had seen `peer-N@round-J+1` from the start.
-- **You are mid-revision** (most recent verdict for you is `CHANGES_REQUESTED round-K`, no new `PLAN: READY` DM yet). Fold the new peer field into your in-flight revision before DMing `PLAN: READY round-K+1`. There is no obligation to settle until you have earned approval first.
-- **You are `BLOCKED`** (self-declared or reviewer-ruled). No obligations. See §4.6.
-
-A peer's `PLAN: BLOCKED` or a `VERDICT: BLOCKED for:peer-N` ruling removes that peer from the live set. After such a removal, your prior settlement remains valid — the team lead's closure check ignores `against:` entries that name now-`BLOCKED` peers. You do not need to re-DM a settlement just because a peer dropped out.
+A peer's `PLAN: BLOCKED` or a `VERDICT: BLOCKED for:peer-N` ruling removes that peer from the live set. This requires nothing from you.
 
 ### 4.6 After DMing or Receiving `PLAN: BLOCKED`
 
@@ -201,6 +181,6 @@ If you self-declared `PLAN: BLOCKED` at Step 3, or the reviewer ruled `VERDICT: 
 
 ### 4.7 Shutdown Request from the Team Lead
 
-When the team lead DMs you `{"type": "shutdown_request"}`, the contest has ended. Stop any in-flight revision, settlement, or critique work, commit nothing further, and exit cleanly. The team lead waits for your shutdown before tearing down the team.
+When the team lead DMs you `{"type": "shutdown_request"}`, the contest has ended. Stop any in-flight revision or critique work, commit nothing further, and exit cleanly. The team lead waits for your shutdown before tearing down the team.
 
 </instructions>

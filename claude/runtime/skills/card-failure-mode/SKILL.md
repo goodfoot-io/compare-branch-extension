@@ -105,7 +105,7 @@ A revision can attack any of the three: narrow severity (shrink the blast radius
 
 As soon as a finding meets the Step 4 detail bar, DM it. Do not wait for the rest of your analysis. Do not batch.
 
-The marker `FINDING: [short label] round-K` goes in the `summary` field; round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.). The cause / mode / effect plus severity / occurrence / detection tags plus the file or runtime path go in the `message` body. Round-tagging keeps the orchestrator's finding → commit mapping unambiguous across rounds.
+The marker `FINDING: [short label] round-K` goes in the `summary` field; round-K is the current evaluation round (round-1 on initial dispatch, round-2 after the first re-evaluation, etc.) — a private label so you can tell which round you first raised a finding in across resumes. The cause / mode / effect plus severity / occurrence / detection tags plus the file or runtime path go in the `message` body.
 
 DM the team lead first:
 
@@ -161,19 +161,19 @@ The team lead routes fixes based on your verdict — it does not override it.
 
 When the team lead DMs you a re-evaluation trigger (`summary: RE_EVALUATE` or similar), this is a continuation of your analysis — you retain full context from every prior round. DM new findings per Step 5: DM Findings during each resume round.
 
-### 1. Identify New Commits
+### 1. Review What Changed
 
-The team lead's re-evaluation DM includes a finding → commit mapping aggregated across all developers in the prior round, keyed by the round-tagged `FINDING:` markers from your earlier DMs. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` to confirm the commits, then verify each fix by reading the commit directly.
+The team lead's re-evaluation DM gives you the fix commit range, a plain account of what changed and why, and anything the wave could not fix. You hold your own prior findings in context — you do not need a label→SHA dictionary to know what you raised. Use `git log implement/$CARD_ID/baseline..HEAD --oneline` and read the commits directly; the workspace, not the team lead's account, is the ground truth for what actually changed.
 
 Tag findings you raise during this round with the new round number (e.g., `FINDING: <label> round-2`).
 
 ### 2. Triage Each Prior Finding
 
-For each concern you raised in the previous round, determine its current status using the team lead's mapping and the new commits:
+For each concern you raised in the previous round, determine its current status from the commits themselves and the team lead's account of what the wave could not fix:
 
-- **Addressed**: A fix commit targets this finding. Verify the fix resolves the cause — run the affected code path if possible, don't only read the change. A fix that repairs the symptom while leaving the underlying cause is a new finding.
+- **Addressed**: The commits resolve the cause. Verify by reading the change and running the affected code path if possible, not by trusting the team lead's account. A fix that repairs the symptom while leaving the underlying cause is a new finding.
 - **Partially addressed**: The fix is incomplete or shifts the risk rather than resolving it. State what remains and why it still matters.
-- **Unaddressed**: The mapping flagged this as not viable or deferred. Re-state it with the same weight.
+- **Unaddressed**: No commit resolves it, or the team lead flagged it as not fixed. Re-state it with the same weight.
 
 ### 3. Apply Full §3 Scrutiny to Fix Code
 

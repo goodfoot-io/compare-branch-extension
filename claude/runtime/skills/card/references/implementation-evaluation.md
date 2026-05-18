@@ -131,7 +131,7 @@ All validation has passed. Focus on what a user would experience as broken, wron
 
 Monitor inbound DMs from each evaluator. Each evaluator emits two kinds of DM addressed to you:
 
-- **`FINDING:` DM**: Record the finding (short label and body) for use in Step 6: Dispatch Developer Wave. Track findings per evaluator and per round so the Step 8 mapping can resolve back to the originator unambiguously even if labels collide across rounds.
+- **`FINDING:` DM**: Record the finding (short label and body) so you can route it into a developer wave in Step 6 and, after fixes land, brief the evaluators on what changed. Keep what you need to do those two things — not a cross-referenced ledger.
 - **`VERDICT:` DM**: Record the verdict for this round.
 
 Cross-evaluator critiques are exchanged as DMs between the evaluators (`CRITIQUE: <label>` from `failure-mode` to `experience-evaluator` and vice versa) and do not reach you. On Deep depth, evaluators also DM each other their `FINDING:` markers directly so they can critique each other's findings; you receive your own copy from each evaluator.
@@ -140,7 +140,11 @@ If an evaluator verifies a peer's CRITIQUE and folds it into its own findings, t
 
 Continue until every dispatched evaluator has DM'd a `VERDICT:` for the current round. Do not adjudicate findings — read each evaluator's `VERDICT:` line and route on the verdict, not your assessment of the findings. You may not override a verdict, reclassify a finding as a "limitation" or "follow-up," or document it as a known issue in lieu of fixing it.
 
-The evaluation is not complete until every dispatched evaluator has DM'd `VERDICT: APPROVED` for the current round. A partial set — one evaluator has approved while another has not yet DM'd a verdict — is not a terminal state; continue waiting. A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
+Never Finalize on a partial set — every dispatched evaluator must DM `VERDICT: APPROVED` for the current round first. An incomplete set while another evaluator is still working is expected; continue waiting. An evaluator that has exited without a verdict, or is unresponsive to a direct status DM, is not a wait but a judgment call: re-dispatch a replacement, or treat the evaluation as BLOCKED per the branch below if it cannot run.
+
+A re-dispatched replacement is a fresh agent with no prior context. Dispatch it through Step 4 into the same `card-impl-eval-[CARD_ID]` team, evaluating the current HEAD from scratch — the "When Resuming" path does not apply to it. Inline the known prior-round findings for its lane into its dispatch prompt so it does not have to rediscover them; it produces its own round-1 verdict, after which the normal Step 8 re-evaluation loop covers it like any other evaluator.
+
+A mixed set — one evaluator approves while another requests changes — is CHANGES_REQUESTED; proceed to Step 6.
 
 Based on the aggregated verdicts:
 - **All APPROVED** (every dispatched evaluator has DM'd `VERDICT: APPROVED`): Proceed to Step 9: Finalize. This is the only path to Finalize. Do not accept fewer than the full evaluator set.
@@ -232,19 +236,20 @@ git clean -fd
 
 ## 8. Trigger Re-Evaluation
 
-The team and its evaluators are still alive. DM a re-evaluation trigger with the finding → commit mapping to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
+The team and its evaluators are still alive. DM a re-evaluation trigger to every dispatched evaluator. On Standard depth this is one DM (`failure-mode`); on Deep depth, place both DMs in a single message so they fan out concurrently.
+
+The evaluator holds its own findings in context — it does not need a label→SHA dictionary to know what it raised. Give it the commit range and a plain account of what the wave changed and why, and flag anything the wave could *not* fix (that is information the evaluator cannot derive from the diff). The evaluator re-checks against the new HEAD on its own judgment.
 
 ```xml
 <invoke name="SendMessage">
   <parameter name="to">failure-mode</parameter>
   <parameter name="summary">Re-evaluate against revised implementation</parameter>
   <parameter name="message">
-The implementation has been updated to address findings from the prior round. Re-evaluate against the new HEAD.
+The implementation has been updated to address the prior round's findings. Re-evaluate against the new HEAD.
 
-## Finding → Commit Mapping
-- [FINDING: short-label] → [commit SHA]
-- [FINDING: short-label] → [commit SHA]
-[…or "unaddressed: [reason]" for any finding the developer wave could not fix]
+Fix commits: implement/[CARD_ID]/baseline..HEAD (this wave: [SHA list])
+What changed and why: [a plain account — which findings the wave addressed and how, in enough detail to re-check]
+Not fixed: [any finding the wave could not address, and why — omit if none]
 
 RE_EVALUATE
   </parameter>

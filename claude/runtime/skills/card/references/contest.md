@@ -1,18 +1,14 @@
 # Parallel Planner Contest
 
-Tier 3 and tier 4 orchestration: dispatch multiple sonnet planners in parallel, hold the contest open until every live plan is approved and every planner has settled against the current field, then have the reviewer select the strongest qualifier.
+Tier 3 and tier 4 orchestration: dispatch multiple sonnet planners in parallel, hold the contest open until every live plan is approved and no planner is mid-revision, then have the reviewer select the strongest qualifier.
 
-Approval is the *qualifying bar*, not the finish line. A previously-approved plan can lose its approval if a question raised by a peer's plan retroactively surfaces a hole — `APPROVED` is sticky-but-revocable. The contest does not wait on absence of activity; it waits on **explicit settlement**: every live planner DMs you a `PLAN: SETTLED` declaring that it has read the current field of peer plans and is not revising in response to it.
+Approval is the *qualifying bar*, not the finish line. A previously-approved plan can lose its approval if a question raised by a peer's plan retroactively surfaces a hole — `APPROVED` is sticky-but-revocable. There is no settlement handshake: a planner that holds approval and is not revising is done. You decide closure by looking at the contest's state, not by collecting confirmations.
 
 <definitions>
 
 **Live planner.** A planner that has not DM'd `PLAN: BLOCKED for:planner-N` and has not been ruled `VERDICT: BLOCKED for:planner-N` by the reviewer. The set of live planners shrinks over the contest as planners self-quit or are disqualified.
 
 **Most recent DM.** When multiple DMs of the same shape exist for the same subject (e.g., several `VERDICT:` DMs for `planner-1 round-1`), "most recent" means the latest one in your inbound history. A later DM for the same subject supersedes earlier ones — this is how revocation works: a `VERDICT: CHANGES_REQUESTED for:planner-N round-K` DM that arrives after a `VERDICT: APPROVED for:planner-N round-K` revokes the earlier approval.
-
-**Round reference.** The format `planner-N@round-K` names the K-th round of `planner-N`. It appears in `PLAN: SETTLED ... against:` clauses to anchor a settlement to specific peer rounds. The grammar is `planner-N@round-K` separated by spaces; e.g., `against:planner-1@round-3 planner-3@round-1`.
-
-**Settlement marker grammar.** The canonical form is `PLAN: SETTLED for:planner-N against:planner-X@round-K planner-Y@round-J ...`, where the `against:` list enumerates **every other live planner** at that planner's most recent `PLAN: READY` round. BLOCKED peers (self-blocked or reviewer-ruled) are omitted from the `against:` list — the closure check ignores them either way, but omitting keeps the marker tractable. In the lone-survivor case (only one live planner), the survivor does NOT emit `PLAN: SETTLED` at all; the closure check treats condition (2) as vacuously satisfied for the survivor.
 
 </definitions>
 
@@ -57,7 +53,7 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 
 Read the card from the card repository. Create a plan at `plan/[AGENT_NAME].md`, investigate uncertainties, and DM research findings to the team as you work. Other planners are working in parallel — cheating off their findings and plan files is encouraged.
 
-Follow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, explicit `PLAN: SETTLED` DMs to the team lead, the post-approval Revise-or-Settle choice, and shutdown handling.
+Follow the `runtime:card-planner` skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` DMs, the post-approval revise-or-stay-put choice, and shutdown handling.
 
 ## Team Name
 Your team is `card-plan-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-plan-[CARD_ID]/config.json`) uses this exact name.
@@ -98,55 +94,47 @@ Your team is `card-plan-[CARD_ID]`. Roster discovery (`~/.claude/teams/card-plan
 
 ## 4. Monitor the Contest
 
-Process inbound DMs from planners and the reviewer. Maintain a per-planner state machine in conversation context — round, verdict, settlement, live status — updated as each DM arrives. The state-line marker on each inbound DM tells you what changed. Teammates who are uncertain about state will DM you with plain-language questions; answer from your in-memory state, or ask the relevant teammate yourself if you need to verify.
+Process inbound DMs from planners and the reviewer. Maintain a per-planner state machine in conversation context — round, verdict, live status — updated as each DM arrives. The state-line marker on each inbound DM tells you what changed. Teammates who are uncertain about state will DM you with plain-language questions; answer from your in-memory state, or ask the relevant teammate yourself if you need to verify.
 
 Each planner moves along the state machine:
 
 ```
 PLANNING → READY round-K ⇄ APPROVED round-K
-                ↓                    ↓
-                CHANGES_REQUESTED    SETTLED against:<peer round list>
-                                     ↓
-                                     (re-entered if peer round list advances)
+                ↓
+                CHANGES_REQUESTED round-K → revise → READY round-K+1
 
 BLOCKED is terminal — entered by self-DM'd `PLAN: BLOCKED` or by the
 reviewer's `VERDICT: BLOCKED for:planner-N` ruling.
 ```
 
-`APPROVED` is sticky-but-revocable. `SETTLED` is sticky-but-invalidated: when any peer DMs a higher round, every prior `PLAN: SETTLED` whose `against:` list referenced that peer's earlier round is implicitly unsettled, and the planner that issued it must either revise or re-DM `PLAN: SETTLED` against the updated round list.
+`APPROVED` is sticky-but-revocable: a question raised later by a peer's plan can drop an approved planner back into the revision loop. A planner that holds approval and is not revising has nothing more to send — that is what "done" looks like.
 
-### Closure Condition (Obligation Graph Clear)
+### Closure — Judgment, Not a Handshake
 
-The contest closes when, simultaneously:
+Close the contest when every planner in the live set holds `APPROVED` for its most recent `PLAN: READY round-K` and none is under an outstanding `CHANGES_REQUESTED` without a later `PLAN: READY round-K+1`. A planner that revises after approval does not announce it — it just revises and later DMs a new `PLAN: READY round-K+1`. So "approved and silent" is indistinguishable from "approved and quietly revising," and you do not need to tell them apart: closing is safe even if a planner was mid-revision, because its next `PLAN: READY` reopens the field before any winner is finalized (Step 5). When several DMs share the same subject, the latest supersedes earlier ones — that is how revocation works.
 
-1. Every planner in the live set has its most recent verdict equal to `APPROVED for:planner-N round-K` matching that planner's most recent `PLAN: READY round-K` (no pending revision against an earlier verdict), AND
-2. Every planner in the live set has DM'd you a `PLAN: SETTLED for:planner-N` whose `against:` list, restricted to the live set, names every other live planner at exactly that planner's most recent round. Entries in the `against:` list that name now-`BLOCKED` planners are ignored — a settlement does not need to be re-DM'd just because a peer dropped out, only when a peer's round advances.
+You can see every open revision from your own inbound history; you do not need planners to certify the peer field back to you. A planner that holds approval and has gone quiet is done. An approved set with nothing in flight is closeable now — proceed to Step 5: Trigger Selection. If you find yourself tracking which peer round each planner has read, or waiting for a confirmation while a usable set of approved plans already exists, that is the signal to close, not to keep monitoring.
 
-When several DMs share the same subject (e.g., several `VERDICT:` DMs for the same planner@round), the latest one supersedes earlier ones. This is how revocation works.
+The only things that legitimately reopen a closeable field: a planner choosing to revise because a peer's plan changed its answer to a real risk (it DMs a new `PLAN: READY round-K+1`), or the reviewer retroactively revoking an approval. Absent one of those, do not wait.
 
-Both conditions are observable from your in-memory state machine alone — no clock, no quiescence window. The instant both clear, proceed to Step 5: Trigger Selection.
-
-**Lone-survivor case** is the special case where the live set has exactly one element. Condition (2) is vacuously satisfied (no peers to settle against, so the `against:` clause is not required); condition (1) reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. The lone survivor's planner skill instructs it not to DM `PLAN: SETTLED` in this case — there is no field to settle against. The closure check accepts a vacuous condition (2) and proceeds to Step 5.
+**Lone-survivor case** is the special case where the live set has exactly one element: closure reduces to the survivor holding `APPROVED` for its most recent `PLAN: READY` round. You still trigger Step 5 — the reviewer's lone-survivor branch names the survivor without comparison.
 
 ### Other Outcomes from Step 4
 
 - **All planners blocked.** No viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Skip to Step 6: End the Contest with no winner, then return `BLOCKED` to the caller.
-- **Contest in progress.** Closure condition not yet clear. Continue monitoring. Do not intervene.
-- **Stalled planner.** A live planner whose settlement was invalidated by a peer round advance and who has not re-DM'd `PLAN: READY round-K+1` or re-emitted `PLAN: SETTLED` for an extended period is stalling the obligation graph. You may DM the planner asking for its intent (revise or re-settle); if the planner is unresponsive or fails to progress across multiple such prompts, the reviewer holds the disqualification authority and may BLOCK them per §5.1 of `runtime:card-plan-failure-mode`. You do not BLOCK planners yourself.
+- **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue monitoring. Do not intervene.
+- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `runtime:card-plan-failure-mode`; you do not BLOCK planners yourself. You may DM the planner to ask its intent if its state is genuinely unclear to you.
 
-Do not adjudicate findings. Do not impose closure. Route on your in-memory state machine.
+Do not adjudicate findings. Route on the contest state you can see.
 
 ### Answering State Questions
 
-Teammates may DM you with plain-language questions about contest state — peer rounds, who is live, what settlements have been recorded. Answer in plain language from your in-memory state machine. Examples:
+Teammates may DM you with plain-language questions about contest state — peer rounds, who is live. Answer in plain language from the contest state you track. Examples:
 
 - "What is planner-2's current round?" → "planner-2 is at round-3, APPROVED."
 - "Is planner-4 still live?" → "No, planner-4 was BLOCKED by the reviewer in round 2."
-- "Who has settled and what against?" → list each settled planner and its `against:` clause.
 
 If a question requires verification beyond what you know directly (e.g., "is planner-2 about to emit a new round?"), DM that planner to ask, then synthesize a response to the original asker. Most questions resolve from your own state.
-
-Parsing `PLAN: SETTLED ... against:...` summaries: split on whitespace after `against:`, then each token is `planner-N@round-K`. The grammar is canonical (see `<definitions>`); no other separators appear in the `against:` clause.
 
 ## 5. Trigger Selection
 
@@ -156,7 +144,7 @@ Send the reviewer a DM requesting selection. The marker `SELECT_WINNER` goes in 
 <invoke name="SendMessage">
   <parameter name="to">plan-failure-mode</parameter>
   <parameter name="summary">SELECT_WINNER</parameter>
-  <parameter name="message">Closure condition cleared; please run final retroactive pass and name a winner.</parameter>
+  <parameter name="message">Every live plan is approved and nothing is in flight; please run the final retroactive pass and name a winner.</parameter>
 </invoke>
 ```
 

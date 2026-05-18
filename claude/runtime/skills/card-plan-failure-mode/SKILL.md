@@ -33,9 +33,9 @@ Track per-plan state with `TaskCreate` so analysis context carries across plans 
 
 When a new `PLAN: READY` DM arrives, read the plan file immediately — even if you are mid-review of another — so you know what is in-flight. Create or update the tracking task for that plan, capture a first impression of its approach, then return to whichever plan you were reviewing. Interleave passes across plans; do not block new arrivals behind a full sweep of an earlier one.
 
-This is a contest, not a race. `APPROVED` is the qualifying bar; the contest stays open until every live plan has earned it AND every live planner has explicitly settled against the current field of peer plans. Approval is sticky-but-revocable — when a question raised by a peer's plan retroactively invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` to revoke (see §2.2). When the team lead DMs you with `SELECT_WINNER` in `summary`, run the final pass and DM the team lead with a `WINNER:` marker (see §6). A planner that self-declares `PLAN: BLOCKED`, or that you rule `VERDICT: BLOCKED for:[PLANNER]`, drops out of contention; do not wait on either.
+This is a contest, not a race. `APPROVED` is the qualifying bar; the contest stays open until every live plan has earned it. Approval is sticky-but-revocable — when a question raised by a peer's plan retroactively invalidates a previously-approved plan, issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` to revoke (see §2.2). When the team lead DMs you with `SELECT_WINNER` in `summary`, run the final pass and DM the team lead with a `WINNER:` marker (see §6). A planner that self-declares `PLAN: BLOCKED`, or that you rule `VERDICT: BLOCKED for:[PLANNER]`, drops out of contention; do not wait on either.
 
-You will not see `PLAN: SETTLED` DMs — those go to the team lead only. The team lead handles the closure-condition check.
+The team lead decides when the contest closes — there is no settlement handshake for you to track.
 
 Before yielding your turn between `PLAN: READY` arrivals, launch `card $CARD_ID watch "plan/**"` from `$CARD_REPO_PATH` with `Bash` `run_in_background: true` so it does not block inbound DMs. The watch exits as soon as a planner commits a revision and the completion notification wakes you, even when the corresponding `PLAN: READY` DM fails to deliver.
 
@@ -45,7 +45,7 @@ Every streamed finding is DM'd to the originating planner with the marker `FINDI
 
 If you are uncertain about anything outside your direct knowledge — whether a planner is still live, what a peer planner most recently DM'd, the live set at this moment — DM the team lead and ask.
 
-If a planner DMs you asking about another planner's state (peer rounds, settlement status, live set), redirect them: tell the asking planner to DM the team lead. The team lead is canonical for cross-planner state; you only know what plan files you have reviewed.
+If a planner DMs you asking about another planner's state (peer rounds, who is live, contest state), redirect them: tell the asking planner to DM the team lead. The team lead is canonical for cross-planner state; you only know what plan files you have reviewed.
 
 </multi-plan-contest-mode>
 
@@ -224,11 +224,11 @@ Then DM each other live planner with the same `summary` and a one-line body refe
 
 ## 6. Select the Winner
 
-The team lead DMs you with `SELECT_WINNER` in `summary` once the obligation graph has cleared — every live (non-`BLOCKED`) planner holds `APPROVED` for its most recent round, and every live planner has DM'd the team lead a `PLAN: SETTLED` against every other live planner's most recent round (or, in the lone-survivor case, the settlement clause is vacuous because there is only one live planner). Run a final pass before naming a winner.
+The team lead DMs you with `SELECT_WINNER` in `summary` once every live (non-`BLOCKED`) planner holds `APPROVED` for its most recent round and no planner is mid-revision. Run a final pass before naming a winner.
 
 ### 6.1. Final Retroactive Pass
 
-Re-check every approved plan against the current question set one final time. If any plan now fails — typically because a question raised late in review never received a satisfying answer — issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5 (DM the team lead and the targeted planner) and stream the finding per §4. Do not select a winner. The contest reopens; the affected planner re-enters its revision loop and the obligation graph no longer holds.
+Re-check every approved plan against the current question set one final time. If any plan now fails — typically because a question raised late in review never received a satisfying answer — issue `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` per §5 (DM the team lead and the targeted planner) and stream the finding per §4. Do not select a winner. The contest reopens; the affected planner re-enters its revision loop and the contest is no longer closeable until it re-qualifies.
 
 ### 6.2. Lone Survivor
 
