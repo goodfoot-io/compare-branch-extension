@@ -114,7 +114,7 @@ For teams using git worktrees with multiple AI agents, Cards enables comparison 
 | Search in changed files | Yes               | No                 | No               |
 | Status filtering        | Yes               | No                 | No               |
 | Progressive loading     | Yes               | Limited            | Limited          |
-| Pricing                 | Free              | $0-19/mo           | Free             |
+| Pricing                 | $30/seat/month    | $0-19/mo           | Free             |
 | Startup impact          | None              | Measurable         | Minimal          |
 
 ### Competitive Advantages
