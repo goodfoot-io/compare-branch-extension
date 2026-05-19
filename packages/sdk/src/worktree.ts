@@ -13,7 +13,9 @@
  */
 
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveWorktreeDir, resolveWorktreesRoot } from './cards-config.js';
@@ -201,8 +203,13 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
     // 3. Record it for the dispatcher to read at hook runtime.
     await fs.writeFile(path.join(worktreeDir, '.cards', 'CARD_ORIGINAL_HOOK_PATH'), originalHooksDir);
 
-    // 4. Provision the shared dispatcher dir (idempotent).
-    const sharedHooksDir = path.join(repoRoot, '.cards', 'workspace-hooks');
+    // 4. Provision the shared dispatcher dir (idempotent). It lives at a
+    //    global, flat location (`~/.cards/workspace-hooks`) — the provisioned
+    //    scripts and `.mjs` payloads are byte-identical across all repos and
+    //    worktrees (every repo/worktree-specific value is resolved at runtime),
+    //    so a single global dir is correct and keeps it out of any working tree.
+    //    `$HOME` is the same anchor the dispatcher uses for `$HOME/.cards/VSCODE_NODE`.
+    const sharedHooksDir = path.join(resolveHomeDir(), '.cards', 'workspace-hooks');
     await provisionSharedHooksDir(sharedHooksDir, options.compiledScriptPaths);
 
     // 5. Enable per-worktree config — MUST precede the --worktree write (D9).
@@ -587,6 +594,23 @@ async function writeCardBoundFile(worktreeDir: string, cardId: string): Promise<
 }
 
 /**
+ * Resolves the user's home directory.
+ *
+ * Prefers `$HOME` so the resolution matches the dispatcher's own
+ * `$HOME/.cards/VSCODE_NODE` anchor (and stays overridable in tests), falling
+ * back to `os.homedir()` when `$HOME` is unset.
+ *
+ * @returns Absolute path to the home directory.
+ */
+function resolveHomeDir(): string {
+  const home = process.env['HOME'];
+  if (home !== undefined && home.length > 0) {
+    return home;
+  }
+  return os.homedir();
+}
+
+/**
  * Resolves the repository's pre-existing hooks directory.
  *
  * Reads `git -C <repoRoot> config core.hooksPath`. When unset or empty, returns
@@ -787,7 +811,13 @@ exit 0
  *
  * Writes one bash dispatcher script per client-side git hook type and copies
  * the compiled Cards `.mjs` for each entry in `compiledScriptPaths`. Idempotent
- * — safe to call for every worktree that shares `sharedHooksDir`.
+ * and safe under concurrency — safe to call for every worktree that shares the
+ * global `sharedHooksDir` (`~/.cards/workspace-hooks`).
+ *
+ * Each file is written to a uniquely-named temp file in the same directory and
+ * `rename(2)`d into place. `rename(2)` within a directory is atomic, so a
+ * concurrent `createWorktree` writing byte-identical content can never expose a
+ * half-written script to a hook invocation.
  *
  * @param sharedHooksDir - Absolute path to the shared hooks directory.
  * @param compiledScriptPaths - Map of hook name to compiled `.mjs` source path.
@@ -798,18 +828,33 @@ async function provisionSharedHooksDir(
 ): Promise<void> {
   await fs.mkdir(sharedHooksDir, { recursive: true });
 
+  const atomicWrite = async (destName: string, content: string, mode: number): Promise<void> => {
+    const destPath = path.join(sharedHooksDir, destName);
+    const tmpPath = path.join(sharedHooksDir, `.${destName}.${process.pid}.${randomUUID()}.tmp`);
+    try {
+      await fs.writeFile(tmpPath, content, { mode });
+      // `writeFile` honors `mode` only when it creates the file; enforce it
+      // explicitly so a pre-existing umask cannot leave the script non-exec.
+      await fs.chmod(tmpPath, mode);
+      await fs.rename(tmpPath, destPath);
+    } catch (error: unknown) {
+      await fs.rm(tmpPath, { force: true });
+      throw error;
+    }
+  };
+
   await Promise.all(
     CLIENT_SIDE_HOOK_TYPES.map(async (hookType) => {
       const hasCardsHook = compiledScriptPaths[hookType] !== undefined;
       const script = buildDispatcherScript(hookType, hasCardsHook);
-      await fs.writeFile(path.join(sharedHooksDir, hookType), script, { mode: 0o755 });
+      await atomicWrite(hookType, script, 0o755);
     })
   );
 
   await Promise.all(
     Object.entries(compiledScriptPaths).map(async ([hookType, sourcePath]) => {
       const content = await fs.readFile(sourcePath, 'utf-8');
-      await fs.writeFile(path.join(sharedHooksDir, `${hookType}.mjs`), content, { mode: 0o644 });
+      await atomicWrite(`${hookType}.mjs`, content, 0o644);
     })
   );
 }

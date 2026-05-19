@@ -150,8 +150,12 @@ describe('create-worktree CLI', () => {
       await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
     }
 
+    const homeDir = path.join(tmpBase, 'home');
+    await fs.mkdir(homeDir, { recursive: true });
+
     const result = runCreateWorktree(['--card-id', 'main-77', 'card-branch'], repoDir, {
-      EXTENSION_PATH: extDir
+      EXTENSION_PATH: extDir,
+      HOME: homeDir
     });
 
     expect(result.exitCode).toBe(0);
@@ -162,12 +166,12 @@ describe('create-worktree CLI', () => {
     const cardId = await fs.readFile(path.join(worktreePath, '.cards', 'CARD_ID'), 'utf-8');
     expect(cardId.trim()).toBe('main-77');
 
-    // Per-worktree core.hooksPath points at the shared dispatcher dir, and the
-    // compiled .mjs were copied there from the fake extension install.
+    // Per-worktree core.hooksPath points at the global shared dispatcher dir,
+    // and the compiled .mjs were copied there from the fake extension install.
     const hooksPath = execFileSync('git', ['-C', worktreePath, 'config', '--worktree', 'core.hooksPath'], {
       encoding: 'utf8'
     }).trim();
-    expect(hooksPath).toBe(path.join(repoDir, '.cards', 'workspace-hooks'));
+    expect(hooksPath).toBe(path.join(homeDir, '.cards', 'workspace-hooks'));
     const copied = await fs.readFile(path.join(hooksPath, 'post-commit.mjs'), 'utf-8');
     expect(copied).toBe('// post-commit stub\n');
   });

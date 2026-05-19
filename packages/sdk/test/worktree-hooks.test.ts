@@ -42,6 +42,8 @@ describe('createWorktree per-worktree hook provisioning', () => {
   let repoDir = '';
   let worktreesDir = '';
   let mjsDir = '';
+  let homeDir = '';
+  let sharedHooksDir = '';
   let compiledScriptPaths: Record<string, string>;
   const originalEnv = process.env;
 
@@ -50,9 +52,12 @@ describe('createWorktree per-worktree hook provisioning', () => {
     repoDir = path.join(tmpBase, 'repo');
     worktreesDir = path.join(tmpBase, 'worktrees');
     mjsDir = path.join(tmpBase, 'git-hooks');
+    homeDir = path.join(tmpBase, 'home');
+    sharedHooksDir = path.join(homeDir, '.cards', 'workspace-hooks');
     await fs.mkdir(repoDir);
     await fs.mkdir(worktreesDir);
     await fs.mkdir(mjsDir);
+    await fs.mkdir(homeDir);
     initGitRepo(repoDir);
 
     // Real compiled-artifact stand-ins: a node script per Cards-active type
@@ -72,7 +77,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
       'post-rewrite': path.join(mjsDir, 'post-rewrite.mjs')
     };
 
-    process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir };
+    process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir, HOME: homeDir };
   });
 
   afterEach(async () => {
@@ -112,8 +117,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
     }).trim();
     expect(worktreeConfigEnabled).toBe('true');
 
-    const sharedDir = path.join(repoDir, '.cards', 'workspace-hooks');
-    expect(gitWorktreeConfig(wPath, 'core.hooksPath')).toBe(sharedDir);
+    expect(gitWorktreeConfig(wPath, 'core.hooksPath')).toBe(sharedHooksDir);
 
     await settle;
   });
@@ -126,8 +130,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
     });
     await settle;
 
-    const sharedDir = path.join(repoDir, '.cards', 'workspace-hooks');
-    const entries = (await fs.readdir(sharedDir)).sort();
+    const entries = (await fs.readdir(sharedHooksDir)).sort();
     const expectedHooks = [
       'applypatch-msg',
       'pre-applypatch',
@@ -160,7 +163,7 @@ describe('createWorktree per-worktree hook provisioning', () => {
     await settle;
 
     expect(gitWorktreeConfig(wPath, 'core.hooksPath')).toBeNull();
-    await expect(fs.access(path.join(repoDir, '.cards', 'workspace-hooks'))).rejects.toMatchObject({
+    await expect(fs.access(sharedHooksDir)).rejects.toMatchObject({
       code: 'ENOENT'
     });
   });
@@ -213,7 +216,9 @@ describe('generated dispatcher scripts', () => {
       );
     }
 
-    process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir };
+    const homeDir = path.join(tmpBase, 'home');
+    await fs.mkdir(homeDir);
+    process.env = { ...originalEnv, [CARDS_WORKTREES_DIR_KEY]: worktreesDir, HOME: homeDir };
     const { path: wPath, settle } = await createWorktree('cards/main-9/1', {
       cwd: repoDir,
       cardId: 'main-9',
@@ -225,7 +230,7 @@ describe('generated dispatcher scripts', () => {
     });
     await settle;
 
-    sharedDir = path.join(repoDir, '.cards', 'workspace-hooks');
+    sharedDir = path.join(homeDir, '.cards', 'workspace-hooks');
 
     // A real git worktree root so `git rev-parse --show-toplevel` resolves.
     worktreeRoot = wPath;
