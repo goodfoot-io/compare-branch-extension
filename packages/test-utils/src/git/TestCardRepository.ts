@@ -26,6 +26,7 @@ import { CARD_GITIGNORE, COMMITS_FILE, DEFAULT_CARD_GATES } from '@cards/sdk/pro
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4 } from 'uuid';
+import { abortWithRejectionGuard } from './abortGuard.js';
 
 // --- Card Creation Options ---
 
@@ -681,15 +682,25 @@ export class TestCardRepository {
   destroy(): void {
     this.cardGitClients.clear();
 
-    if (this.git) {
+    // Cancel any in-flight git work. Gate on the controller (the thing being
+    // cancelled), not on `this.git`: this helper creates the controller in
+    // `create()` and threads it into per-card clients via `getCardGit()`, but
+    // only assigns `this.git` once a card is created with `createCard()`. A
+    // `create()` -> `getCardGit(id)` lifecycle binds the signal to clients while
+    // leaving `this.git` null, so gating abort on `this.git` would skip
+    // cancellation and leak the controller entirely.
+    if (this.abortController) {
       try {
-        this.abortController?.abort();
+        // Guarded abort: the abort plugin rejects any still-spawned git task
+        // promise, which — for an abandoned (timed-out) or fire-and-forget call —
+        // would otherwise surface as a fatal unhandled rejection.
+        abortWithRejectionGuard(this.abortController);
       } catch {
         // Cleanup errors are expected
       }
-      this.git = null;
       this.abortController = null;
     }
+    this.git = null;
 
     if (this.reposPath) {
       try {

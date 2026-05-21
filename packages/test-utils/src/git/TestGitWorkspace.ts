@@ -18,6 +18,7 @@ import * as path from 'node:path';
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4 } from 'uuid';
+import { abortWithRejectionGuard } from './abortGuard.js';
 
 /**
  * Removes a directory tree, retrying transient Windows EPERM/EBUSY errors.
@@ -301,7 +302,10 @@ export class TestGitWorkspace {
 
     if (this.git) {
       try {
-        this.abortController?.abort();
+        // Guarded abort: the abort plugin rejects any still-spawned git task
+        // promise, which — for an abandoned (timed-out) or fire-and-forget call —
+        // would otherwise surface as a fatal unhandled rejection.
+        abortWithRejectionGuard(this.abortController);
       } catch (error) {
         console.warn('TestGitWorkspace: failed to abort git operations:', error);
       }
