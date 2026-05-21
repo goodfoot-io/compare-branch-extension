@@ -32,7 +32,9 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 
 ## 2. Dispatch the Planners
 
-Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plan/[AGENT_NAME].md`:
+Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `planner-2`, ... `planner-[N_PLANNERS]`. Each writes its own plan file at `plan/[AGENT_NAME].md`.
+
+**Incumbent seeding.** If un-approved plan files already exist in `plan/` (e.g., a tier-2 `plan/initial.md` that never reached approval), pick the most substantive one and seed `planner-1` with it as the **incumbent**: `git mv` the file to `plan/planner-1.md` (and its `.meta.json` sidecar) before dispatch, and add an `## Incumbent Role` section to `planner-1`'s prompt below directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
 
 ```xml
 <invoke name="Agent">

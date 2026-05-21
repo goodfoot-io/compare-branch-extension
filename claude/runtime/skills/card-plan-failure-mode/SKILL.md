@@ -163,6 +163,8 @@ The planner acts on each finding as it arrives and may revise the plan under you
 
 You communicate with the team only through SendMessage. Plain text output is not delivered to teammates or to the team lead.
 
+Every `PLAN: READY for:[PLANNER] round-K` is answered by exactly one verdict for that same round before your turn ends — `APPROVED`, `CHANGES_REQUESTED`, or (per §5.1) `BLOCKED`. There is no silent approval. After re-reading a revision and concluding you have no further findings to stream, your next action is to DM the `APPROVED` verdict — not to wait, not to arm a watcher, not to "see if anything else comes in." The planner and team lead read closure off your verdict, never off your silence; a turn that ends with an outstanding `PLAN: READY` and no paired verdict deadlocks the contest.
+
 A verdict is one message DM'd to two recipients — the team lead first, then the targeted planner. Both DMs carry the same `summary` and `message`:
 
 - The marker `VERDICT: APPROVED for:[PLANNER] round-K` or `VERDICT: CHANGES_REQUESTED for:[PLANNER] round-K` goes in `summary`. The round number comes from the planner's most recent `PLAN: READY for:[PLANNER] round-K` DM you are responding to.
