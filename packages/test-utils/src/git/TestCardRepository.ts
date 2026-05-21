@@ -110,6 +110,7 @@ export interface UpdateCardOptions {
 export class TestCardRepository {
   private reposPath: string | null = null;
   private git: SimpleGit | null = null;
+  private abortController: AbortController | null = null;
   private readonly cardGitClients = new Map<string, SimpleGit>();
   private readonly descriptionFile = 'CARD.md';
 
@@ -155,6 +156,7 @@ export class TestCardRepository {
     await fs.ensureDir(testWorkspace);
     this.reposPath = path.join(testWorkspace, `test-repos-${repoId}`);
     await fs.ensureDir(this.reposPath);
+    this.abortController = new AbortController();
     return this.reposPath;
   }
 
@@ -177,8 +179,10 @@ export class TestCardRepository {
     await fs.ensureDir(cardPath);
 
     // Initialize git repo for this card
+    this.abortController ??= new AbortController();
     const git = simpleGit(cardPath, {
-      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true }
+      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true },
+      abort: this.abortController.signal
     });
     await git.raw(['init', '--initial-branch=main']);
     await git.addConfig('user.name', 'Test User');
@@ -645,8 +649,10 @@ export class TestCardRepository {
     if (existing) {
       return existing;
     }
+    this.abortController ??= new AbortController();
     const git = simpleGit(path.join(this.reposPath, cardId), {
-      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true }
+      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true },
+      abort: this.abortController.signal
     });
     this.cardGitClients.set(cardId, git);
     return git;
@@ -673,22 +679,16 @@ export class TestCardRepository {
    * directory; safe to call multiple times.
    */
   destroy(): void {
-    for (const git of this.cardGitClients.values()) {
-      try {
-        git.clearQueue();
-      } catch {
-        // Cleanup errors are expected
-      }
-    }
     this.cardGitClients.clear();
 
     if (this.git) {
       try {
-        this.git.clearQueue();
+        this.abortController?.abort();
       } catch {
         // Cleanup errors are expected
       }
       this.git = null;
+      this.abortController = null;
     }
 
     if (this.reposPath) {

@@ -79,6 +79,7 @@ function removeSyncWithRetry(target: string): void {
 export class TestGitWorkspace {
   private workspacePath: string | null = null;
   private git: SimpleGit | null = null;
+  private abortController: AbortController | null = null;
   private worktreePaths: string[] = [];
 
   /**
@@ -153,8 +154,10 @@ export class TestGitWorkspace {
     await fs.ensureDir(this.workspacePath);
 
     // Initialize git repository
+    this.abortController = new AbortController();
     this.git = simpleGit(this.workspacePath, {
-      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true }
+      unsafe: { allowUnsafeHooksPath: true, allowUnsafeEditor: true, allowUnsafeAskPass: true, allowUnsafePager: true },
+      abort: this.abortController.signal
     });
     await this.git.raw(['init', '--initial-branch=main']);
     const name = options?.identity?.name ?? 'Test User';
@@ -298,11 +301,12 @@ export class TestGitWorkspace {
 
     if (this.git) {
       try {
-        this.git.clearQueue();
+        this.abortController?.abort();
       } catch (error) {
-        console.warn('TestGitWorkspace: failed to clear git queue:', error);
+        console.warn('TestGitWorkspace: failed to abort git operations:', error);
       }
       this.git = null;
+      this.abortController = null;
     }
 
     if (this.workspacePath) {
