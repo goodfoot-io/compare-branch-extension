@@ -19,8 +19,8 @@ import { fileURLToPath } from 'node:url';
 /**
  * Returns the scaffold fixture directory within a packaged marketplace.
  *
- * Follows the same marketplace-path convention as `resolveClaudeDirPath()` in
- * `@cards/default-configuration`. Use this resolver in all production sites
+ * Follows the marketplace-path convention used across `@cards/default-configuration`
+ * (e.g. `buildPluginSettings()`). Use this resolver in all production sites
  * where a `marketplacePath` is available (e.g. `cardsApiLifecycle.ts`).
  *
  * @param marketplacePath - Absolute path to the bundled marketplace directory.

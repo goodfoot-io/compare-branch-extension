@@ -14,12 +14,9 @@
 
 import { spawn } from 'node:child_process';
 import { defineCardsAssistant } from '@cards/sdk/config';
-import commitMessageStyle from '../../../claude/runtime/claude/COMMIT_MESSAGE_STYLE.md';
-import { resolveClaudeDirPath, updateMarketplaceRegistration } from './lib/claude-session.js';
+import { updateMarketplaceRegistration } from './lib/claude-session.js';
 
 export default defineCardsAssistant({}, async (input, { logger }) => {
-  const claudeDirPath = resolveClaudeDirPath(input.marketplacePath);
-
   await updateMarketplaceRegistration(input.marketplacePath, logger);
 
   const settingsJson = JSON.stringify({
@@ -34,10 +31,6 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
   const shellArgs = [
     '--append-system-prompt',
     '<instructions>Load the `cards:management` skill and assist the user. Do not implement a card unless instructed to do so by the user.</instructions>',
-    '--append-system-prompt',
-    commitMessageStyle.trim(),
-    '--add-dir',
-    claudeDirPath,
     '--settings',
     settingsJson
   ];

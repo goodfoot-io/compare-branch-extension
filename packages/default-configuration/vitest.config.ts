@@ -56,5 +56,14 @@ export default defineConfig({
       // `os.devNull` is `/dev/null` on POSIX and `\\.\nul` on Windows.
       CARDS_HOOKS_LOG_FILE: devNull
     }
+  },
+  resolve: {
+    // Suites that load the logger (transitively via `@cards/sdk`) pull in
+    // `@cards/vscode-logging`, whose `import { window } from 'vscode'` has no
+    // runtime module outside VS Code. Alias `vscode` to the shared shim so
+    // these tests load — mirroring the cards server/git-hooks/hybrid-store configs.
+    alias: {
+      vscode: resolve(repoRoot, 'packages/vscode-logging/src/vscode-shim.ts')
+    }
   }
 });

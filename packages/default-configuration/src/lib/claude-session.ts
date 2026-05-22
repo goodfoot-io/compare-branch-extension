@@ -75,18 +75,6 @@ export function resolveMarketplacePath(): string {
 }
 
 /**
- * Resolves the claude configuration directory inside the bundled marketplace.
- * Contains the CLAUDE.md that is provided to the launched claude process and
- * teammates via `--add-dir`.
- *
- * @param marketplacePath - Absolute path to the bundled marketplace directory.
- * @returns Absolute path to the claude directory within the runtime plugin.
- */
-export function resolveClaudeDirPath(marketplacePath: string): string {
-  return path.join(marketplacePath, 'claude', 'runtime', 'claude');
-}
-
-/**
  * Builds the `--settings` JSON that enables the `runtime` plugin and registers
  * the `cards.management` marketplace source so the spawned `claude` process
  * can resolve the plugin from the extension's bundled marketplace.
@@ -118,7 +106,6 @@ export function buildPluginSettings(marketplacePath: string): string {
  * @param mode - Execution mode; `'background'` appends `--print`.
  * @param cardRepoPath - Absolute path passed via `--add-dir`.
  * @param marketplacePath - Absolute path to the bundled marketplace directory.
- * @param claudeDirPath - Absolute path to the bundled claude directory (contains CLAUDE.md).
  * @returns Array of CLI arguments.
  */
 export function buildArgs(
@@ -127,8 +114,7 @@ export function buildArgs(
   resume: boolean,
   mode: ActionInput['executionMode'],
   cardRepoPath: string,
-  marketplacePath: string,
-  claudeDirPath: string
+  marketplacePath: string
 ): string[] {
   const args: string[] = [];
 
@@ -148,7 +134,6 @@ export function buildArgs(
     '--disallowed-tools',
     'CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite'
   );
-  args.push('--add-dir', claudeDirPath);
   args.push('--teammate-mode', 'tmux');
   // Temporarily disable as this creates an interactive warning dialog
   // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
@@ -727,18 +712,9 @@ export async function spawnClaudeSession(
   }
 
   const marketplacePath = resolveMarketplacePath();
-  const claudeDirPath = resolveClaudeDirPath(marketplacePath);
   await updateMarketplaceRegistration(marketplacePath, context.logger);
 
-  const args = buildArgs(
-    prompt,
-    sessionId,
-    resume,
-    input.executionMode,
-    input.cardRepoPath,
-    marketplacePath,
-    claudeDirPath
-  );
+  const args = buildArgs(prompt, sessionId, resume, input.executionMode, input.cardRepoPath, marketplacePath);
   if (appendSystemPrompt) {
     args.push('--append-system-prompt', appendSystemPrompt);
   }

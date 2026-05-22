@@ -316,12 +316,6 @@ beforeEach(async () => {
         ]
       });
     }
-    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
-      return '# Claude Instructions\nUse runtime workflows.';
-    }
-    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
-      return '# Commit Style\nKeep commits small.';
-    }
     if (toPosix(filePath) === '/home/node/.cards/codex/config.toml') {
       return ['model = "gpt-5"', '', '[tools]', 'web_search = true'].join('\n');
     }
@@ -516,11 +510,6 @@ describe('launch action — codex branch', () => {
       expect.stringContaining('[plugins."cards@local"]')
     );
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('[plugins."runtime@local"]'));
-    expect(fs.writeFile).toHaveBeenCalledWith(
-      posixMatching(/\/\.cards\/codex\.tmp-.*\/AGENTS\.md$/),
-      expect.stringContaining('# Claude Instructions')
-    );
-    expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('# Commit Style'));
     expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('plugins = true'));
     expect(fs.rename).not.toHaveBeenCalled();
     expect(spawn).toHaveBeenCalledWith(
@@ -617,12 +606,6 @@ describe('launch action — codex branch', () => {
       }
       if (toPosix(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
         return JSON.stringify({ name: 'local', plugins: [{ name: 'cards' }, { name: 'runtime' }] });
-      }
-      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
-        return '# Claude Instructions\nUse runtime workflows.';
-      }
-      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
-        return '# Commit Style\nKeep commits small.';
       }
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
     });

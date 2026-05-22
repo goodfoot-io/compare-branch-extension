@@ -19,11 +19,8 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import commitMessageStyle from '../../../../claude/runtime/claude/COMMIT_MESSAGE_STYLE.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
-
-const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
 
 export default defineAction(
   {
@@ -49,8 +46,7 @@ export default defineAction(
       prompt: 'Load the `runtime:slice` skill and follow the `<routing-instructions>`.',
       sessionId,
       resume,
-      supportsSwitchToInteractive: true,
-      appendSystemPrompt: COMMIT_MESSAGE_STYLE
+      supportsSwitchToInteractive: true
     });
   }
 );

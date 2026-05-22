@@ -21,7 +21,6 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import commitMessageStyle from '../../../../claude/runtime/claude/COMMIT_MESSAGE_STYLE.md';
 import codexInterviewRoutingSkill from '../../../../codex/runtime/skills/interview-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
@@ -37,7 +36,6 @@ function stripFrontmatter(md: string): string {
   return md.replace(/^---\n[\s\S]*?\n---\n*/, '');
 }
 
-const COMMIT_MESSAGE_STYLE: string = commitMessageStyle.trim();
 const INTERVIEW_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexInterviewRoutingSkill).trim();
 
 /**
@@ -78,8 +76,7 @@ export default defineAction(
       prompt: 'Load the `runtime:interview` skill and follow the `<routing-instructions>`.',
       sessionId: randomUUID(),
       resume: false,
-      supportsSwitchToInteractive: false,
-      appendSystemPrompt: COMMIT_MESSAGE_STYLE
+      supportsSwitchToInteractive: false
     });
   }
 );

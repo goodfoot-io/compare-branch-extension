@@ -7,7 +7,6 @@
  * @summary Tests Codex session library helpers
  */
 
-import { join } from 'node:path';
 import type { ActionInput } from '@cards/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -181,12 +180,6 @@ beforeEach(async () => {
   });
 
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
-      return '# Claude Instructions\nUse runtime workflows.';
-    }
-    if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
-      return '# Commit Style\nKeep commits small.';
-    }
     if (toPosix(filePath) === '/home/node/.cards/codex/config.toml') {
       return ['model = "gpt-5"', '', '[tools]', 'web_search = true'].join('\n');
     }
@@ -280,41 +273,5 @@ describe('codex-session library', () => {
     expect(notesSkill).not.toContain('$CARD_CLI');
     expect(implementationSkill).not.toContain('$CREATE_WORKTREE_CLI');
     expect(blockedSkill).not.toContain('$CARD_CLI');
-  });
-
-  it('creates AGENTS.md from packaged Claude instructions when none exists', async () => {
-    const { mergeCodexAgentsInstructions } = await import('../src/lib/codex-session.js');
-    const fs = await import('node:fs/promises');
-
-    await mergeCodexAgentsInstructions('/home/node/.cards/codex', '/test/extension/dist/marketplace');
-
-    expect(fs.writeFile).toHaveBeenCalledWith(
-      join('/home/node/.cards/codex', 'AGENTS.md'),
-      '# Claude Instructions\nUse runtime workflows.\n\n# Commit Style\nKeep commits small.\n'
-    );
-  });
-
-  it('appends packaged Claude instructions to an existing AGENTS.md file', async () => {
-    const { mergeCodexAgentsInstructions } = await import('../src/lib/codex-session.js');
-    const fs = await import('node:fs/promises');
-    vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/CLAUDE.md') {
-        return '# Claude Instructions\nUse runtime workflows.';
-      }
-      if (toPosix(filePath) === '/test/extension/dist/marketplace/claude/runtime/claude/COMMIT_MESSAGE_STYLE.md') {
-        return '# Commit Style\nKeep commits small.';
-      }
-      if (toPosix(filePath) === '/home/node/.cards/codex/AGENTS.md') {
-        return '# Existing Agents\nPrior instructions.';
-      }
-      throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
-    });
-
-    await mergeCodexAgentsInstructions('/home/node/.cards/codex', '/test/extension/dist/marketplace');
-
-    expect(fs.writeFile).toHaveBeenCalledWith(
-      join('/home/node/.cards/codex', 'AGENTS.md'),
-      '# Existing Agents\nPrior instructions.\n\n# Claude Instructions\nUse runtime workflows.\n\n# Commit Style\nKeep commits small.\n'
-    );
   });
 });

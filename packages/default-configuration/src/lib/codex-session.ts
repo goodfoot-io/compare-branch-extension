@@ -65,7 +65,6 @@ type TomlTable = Record<string, unknown>;
 const CODEX_PLUGIN_NAMES = ['cards', 'runtime'] as const;
 const CODEX_PLUGIN_MARKETPLACE = 'local';
 const CODEX_CONFIG_FILE_NAME = 'config.toml';
-const CODEX_AGENTS_FILE_NAME = 'AGENTS.md';
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
 
@@ -615,16 +614,6 @@ export function resolveCodexPluginPath(
 }
 
 /**
- * Resolves the packaged Claude instruction directory bundled in the extension marketplace.
- *
- * @param marketplacePath - Absolute path to the packaged marketplace directory.
- * @returns Absolute path to the bundled Claude instruction directory.
- */
-export function resolveCodexClaudeInstructionsPath(marketplacePath: string): string {
-  return path.join(marketplacePath, 'claude', 'runtime', 'claude');
-}
-
-/**
  * Resolves the source Codex home that should be staged into the Cards-managed home.
  *
  * @returns Absolute path to the source Codex home.
@@ -783,34 +772,6 @@ export async function mergeCodexRuntimeConfig(stagedCodexHome: string): Promise<
   // Keep fs.writeFile (not atomic rename) — the staged CODEX_HOME may sit on
   // tmpfs/overlay where rename fails.
   await fs.writeFile(configPath, `${stringifyToml(result)}\n`);
-}
-
-/**
- * Appends packaged Claude instruction content to the staged Codex home AGENTS.md.
- *
- * @param stagedCodexHome - Absolute path to the staged Codex home.
- * @param marketplacePath - Absolute path to the packaged marketplace directory.
- */
-export async function mergeCodexAgentsInstructions(stagedCodexHome: string, marketplacePath: string): Promise<void> {
-  const claudeInstructionsPath = resolveCodexClaudeInstructionsPath(marketplacePath);
-  const claudeDocument = await fs.readFile(path.join(claudeInstructionsPath, 'CLAUDE.md'), 'utf-8');
-  const commitMessageStyle = await fs.readFile(path.join(claudeInstructionsPath, 'COMMIT_MESSAGE_STYLE.md'), 'utf-8');
-  const appendedContent = `${claudeDocument.trimEnd()}\n\n${commitMessageStyle.trimEnd()}\n`;
-  const agentsPath = path.join(stagedCodexHome, CODEX_AGENTS_FILE_NAME);
-
-  let existingContent = '';
-  try {
-    existingContent = await fs.readFile(agentsPath, 'utf-8');
-  } catch (error) {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
-      throw error;
-    }
-  }
-
-  const nextContent =
-    existingContent.length === 0 ? appendedContent : `${existingContent.replace(/\s*$/, '')}\n\n${appendedContent}`;
-
-  await fs.writeFile(agentsPath, nextContent);
 }
 
 async function installBundledCodexPlugins(stagedCodexHome: string): Promise<void> {
@@ -994,7 +955,6 @@ export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
 
   await copyDirectoryContents(bundlePath, stagedCodexHome);
   await mergeCodexRuntimeConfig(stagedCodexHome);
-  await mergeCodexAgentsInstructions(stagedCodexHome, marketplacePath);
   await installBundledCodexPlugins(stagedCodexHome);
 
   return {
