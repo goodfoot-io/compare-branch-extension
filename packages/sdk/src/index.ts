@@ -75,5 +75,7 @@ export { executeCommand } from './config/runtime.js';
 export type { SameShape } from './config/type-utils.js';
 // --- Process Tree ---
 export { findAgentPid, PROCESS_TREE_MAX_DEPTH } from './process-tree.js';
+// --- Scaffold Dir ---
+export { resolveScaffoldDir, resolveScaffoldDirFromSource } from './scaffold-dir.js';
 // --- Session Resolver ---
 export { resolveSessionId } from './session-resolver.js';
