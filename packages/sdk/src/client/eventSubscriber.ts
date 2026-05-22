@@ -6,7 +6,13 @@
  * @module sdk/EventSubscriber
  */
 
-import type { DiscoverResult, EventCallback, EventMap, EventSubscriberOptions } from './types/events.js';
+import type {
+  DiscoverResult,
+  EventCallback,
+  EventMap,
+  EventSubscriberLogger,
+  EventSubscriberOptions
+} from './types/events.js';
 
 /**
  * Calculates exponential backoff delay for reconnection attempts.
@@ -55,6 +61,7 @@ export class EventSubscriber {
   private connectionChangeCallbacks: Set<(connected: boolean) => void> = new Set();
   private hasConnected: boolean = false;
   private readonly maxReconnectAttempts: number;
+  private readonly logger: EventSubscriberLogger;
   private rawHandlers: Array<(message: Record<string, unknown>) => void> = [];
 
   /**
@@ -64,6 +71,7 @@ export class EventSubscriber {
    */
   constructor(private readonly options: EventSubscriberOptions) {
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? Infinity;
+    this.logger = options.logger ?? { warn: (message, details) => console.warn(message, details) };
   }
 
   /**
@@ -269,7 +277,7 @@ export class EventSubscriber {
             return;
           }
           if ('error' in result) {
-            console.warn(
+            this.logger.warn(
               `[EventSubscriber] Discovery failed before reconnect attempt ${this.reconnectAttempts}:`,
               result.error
             );
@@ -278,7 +286,7 @@ export class EventSubscriber {
           }
           // Connection failure triggers close handler which calls scheduleReconnect
           this.connect({ wsUrl: result.wsUrl, accessToken: result.accessToken }).catch((err) => {
-            console.warn(
+            this.logger.warn(
               `[EventSubscriber] Reconnection attempt ${this.reconnectAttempts} failed:`,
               err instanceof Error ? err.message : String(err)
             );
@@ -288,7 +296,7 @@ export class EventSubscriber {
           if (!this.shouldReconnect) {
             return;
           }
-          console.warn(
+          this.logger.warn(
             `[EventSubscriber] Discovery threw before reconnect attempt ${this.reconnectAttempts}:`,
             err instanceof Error ? err.message : String(err)
           );
@@ -331,7 +339,7 @@ export class EventSubscriber {
         }
       }
     } catch (error) {
-      console.warn('Failed to parse WebSocket message:', error);
+      this.logger.warn('Failed to parse WebSocket message:', error);
     }
     if (message !== undefined) {
       for (const handler of this.rawHandlers) {

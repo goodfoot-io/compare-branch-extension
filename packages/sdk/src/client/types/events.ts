@@ -32,6 +32,24 @@ export type EventCallback<K extends keyof EventMap> = (event: EventMap[K]) => vo
 export type DiscoverResult = { wsUrl: string; accessToken: string } | { error: string };
 
 /**
+ * Minimal logger sink for {@link EventSubscriber} diagnostics.
+ *
+ * Reconnection and message-parse failures are non-fatal and are surfaced here
+ * rather than thrown. Production callers route these into their own logging
+ * pipeline; tests inject a silent implementation to keep the suite output
+ * clean without weakening assertions.
+ */
+export interface EventSubscriberLogger {
+  /**
+   * Records a non-fatal diagnostic.
+   *
+   * @param message - Human-readable description of the condition.
+   * @param details - Optional structured detail (error, value, etc.).
+   */
+  warn: (message: string, details?: unknown) => void;
+}
+
+/**
  * Configuration options for {@link EventSubscriber}.
  */
 export interface EventSubscriberOptions {
@@ -46,4 +64,11 @@ export interface EventSubscriberOptions {
   discover: () => Promise<DiscoverResult>;
   /** Maximum reconnection attempts before giving up (default Infinity). */
   maxReconnectAttempts?: number;
+  /**
+   * Sink for non-fatal diagnostics (reconnection and parse failures).
+   *
+   * Defaults to `console.warn`, preserving existing production behavior.
+   * Tests inject a silent logger to avoid console leaks.
+   */
+  logger?: EventSubscriberLogger;
 }
