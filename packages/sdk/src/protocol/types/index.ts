@@ -56,8 +56,6 @@ export {
 // --- Card Types ---
 export type { Card, CardGates, CardMetadata, CardRelation, CardRelationType } from './card.js';
 export { CARD_RELATION_TYPES, DEFAULT_CARD_GATES } from './card.js';
-// --- Card Scaffold ---
-export { CARD_GITIGNORE } from './card-scaffold.js';
 // --- Compare Types ---
 export type {
   CompareBranchRangeRequest,

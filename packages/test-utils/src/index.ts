@@ -54,6 +54,8 @@ export {
   expectNoEventsRealTime,
   type SpyLike
 } from './negativeAssertions.js';
+// --- Store Test Utilities ---
+export { createHybridStoreForTest } from './store/createHybridStoreForTest.js';
 // --- D1 Test Utilities ---
 export { TestD1Database, type TestD1DatabaseOptions } from './TestD1Database.js';
 // --- Time Control Utilities ---

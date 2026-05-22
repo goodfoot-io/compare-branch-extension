@@ -16,6 +16,7 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@cards/hybrid-store": "workspace:*",
     "@cards/sdk": "workspace:*",
     "@cards/server": "workspace:*",
     "fs-extra": "^11.3.4",

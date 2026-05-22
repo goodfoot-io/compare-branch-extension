@@ -21,8 +21,9 @@
  */
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { resolveScaffoldDirFromSource } from '@cards/sdk';
 import type { CardGates, CardStatus } from '@cards/sdk/protocol';
-import { CARD_GITIGNORE, COMMITS_FILE, DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
+import { COMMITS_FILE, DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { type SimpleGit, simpleGit } from 'simple-git';
 import { v4 as uuidv4 } from 'uuid';
@@ -189,8 +190,12 @@ export class TestCardRepository {
     await git.addConfig('user.name', 'Test User');
     await git.addConfig('user.email', 'test@example.com');
 
-    // Create .gitignore for common build artifacts across languages
-    await fs.writeFile(path.join(cardPath, '.gitignore'), CARD_GITIGNORE);
+    // Create .gitignore for common build artifacts across languages, read from
+    // the SDK scaffold fixture (resolved from TS source under vitest).
+    await fs.writeFile(
+      path.join(cardPath, '.gitignore'),
+      fs.readFileSync(path.join(resolveScaffoldDirFromSource(), '.gitignore'), 'utf-8')
+    );
 
     // Create CARD.meta.json
     const gates: CardGates = { ...DEFAULT_CARD_GATES, ...options.gates };
