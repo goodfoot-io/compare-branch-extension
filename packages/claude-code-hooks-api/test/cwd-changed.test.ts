@@ -96,9 +96,11 @@ describe('acquireLock', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('acquires a fresh lock and records the agent PID', async () => {
-    expect(await acquireLock(lockPath, 4242, noopLogger)).toBe(true);
-    expect((await readFile(lockPath, 'utf-8')).trim()).toBe('4242');
+  it('acquires a fresh lock and records the agent PID and cardId', async () => {
+    expect(await acquireLock(lockPath, 4242, 'main-1', noopLogger)).toBe(true);
+    const lines = (await readFile(lockPath, 'utf-8')).split('\n');
+    expect(lines[0]!.trim()).toBe('4242');
+    expect(lines[1]!.trim()).toBe('main-1');
   });
 
   it('refuses when a live owner holds the lock', async () => {
@@ -106,10 +108,47 @@ describe('acquireLock', () => {
     const livePid = child.pid!;
     try {
       await mkdir(join(dir, 'adhoc-sessions'), { recursive: true });
-      await writeFile(lockPath, String(livePid));
-      expect(await acquireLock(lockPath, 4242, noopLogger)).toBe(false);
+      await writeFile(lockPath, `${livePid}\nmain-1`);
+      expect(await acquireLock(lockPath, 4242, 'main-1', noopLogger)).toBe(false);
       // Owner PID unchanged.
-      expect((await readFile(lockPath, 'utf-8')).trim()).toBe(String(livePid));
+      expect((await readFile(lockPath, 'utf-8')).split('\n')[0]!.trim()).toBe(String(livePid));
+    } finally {
+      child.kill('SIGKILL');
+    }
+  });
+
+  it('refuses and warns when the same live session enters a different card worktree', async () => {
+    const child = spawn('sleep', ['30'], { stdio: 'ignore' });
+    const livePid = child.pid!;
+    const warnings: { msg: string; data?: Record<string, unknown> }[] = [];
+    const logger = { warn: (msg: string, data?: Record<string, unknown>) => warnings.push({ msg, data }) };
+    try {
+      await mkdir(join(dir, 'adhoc-sessions'), { recursive: true });
+      // Session already bound to main-1.
+      await writeFile(lockPath, `${livePid}\nmain-1`);
+      // Same session now enters main-2's worktree.
+      expect(await acquireLock(lockPath, livePid, 'main-2', logger)).toBe(false);
+      // Original binding preserved.
+      expect((await readFile(lockPath, 'utf-8')).split('\n')[1]!.trim()).toBe('main-1');
+      expect(
+        warnings.some((w) => w.data?.['boundCardId'] === 'main-1' && w.data?.['attemptedCardId'] === 'main-2')
+      ).toBe(true);
+    } finally {
+      child.kill('SIGKILL');
+    }
+  });
+
+  it('no-ops silently when the same live session re-enters the same worktree', async () => {
+    const child = spawn('sleep', ['30'], { stdio: 'ignore' });
+    const livePid = child.pid!;
+    const warnings: string[] = [];
+    const logger = { warn: (msg: string) => warnings.push(msg) };
+    try {
+      await mkdir(join(dir, 'adhoc-sessions'), { recursive: true });
+      await writeFile(lockPath, `${livePid}\nmain-1`);
+      expect(await acquireLock(lockPath, livePid, 'main-1', logger)).toBe(false);
+      // Re-entering the same worktree is a clean no-op — no different-card warning.
+      expect(warnings.length).toBe(0);
     } finally {
       child.kill('SIGKILL');
     }
@@ -117,14 +156,16 @@ describe('acquireLock', () => {
 
   it('recovers a stale lock whose owner PID is dead', async () => {
     await mkdir(join(dir, 'adhoc-sessions'), { recursive: true });
-    await writeFile(lockPath, '2147483646');
-    expect(await acquireLock(lockPath, 4242, noopLogger)).toBe(true);
-    expect((await readFile(lockPath, 'utf-8')).trim()).toBe('4242');
+    await writeFile(lockPath, '2147483646\nmain-1');
+    expect(await acquireLock(lockPath, 4242, 'main-2', noopLogger)).toBe(true);
+    const lines = (await readFile(lockPath, 'utf-8')).split('\n');
+    expect(lines[0]!.trim()).toBe('4242');
+    expect(lines[1]!.trim()).toBe('main-2');
   });
 
   it('leaves no lock unacquired path observable when fresh dir is missing', async () => {
     // Lock dir does not yet exist; acquireLock must create it.
     await expect(access(join(dir, 'adhoc-sessions'))).rejects.toMatchObject({ code: 'ENOENT' });
-    expect(await acquireLock(lockPath, 99, noopLogger)).toBe(true);
+    expect(await acquireLock(lockPath, 99, 'main-1', noopLogger)).toBe(true);
   });
 });

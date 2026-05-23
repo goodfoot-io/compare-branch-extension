@@ -30,6 +30,7 @@
     "./bin/spawn-transcript-watcher": "./src/bin/spawn-transcript-watcher.ts",
     "./bin/spawn-adhoc-cleanup": "./src/bin/spawn-adhoc-cleanup.ts",
     "./bin/process-utils": "./src/bin/process-utils.ts",
+    "./bin/adhoc-refs": "./src/bin/adhoc-refs.ts",
     "./process-tree": "./src/process-tree.ts",
     "./session-resolver": "./src/session-resolver.ts"
   },

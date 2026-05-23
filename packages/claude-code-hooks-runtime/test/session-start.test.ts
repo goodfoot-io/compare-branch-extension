@@ -18,7 +18,8 @@ import hook, { resolveHeadSha } from '../src/session-start.js';
 const mockFindClaudePid = vi.mocked(findAgentPid);
 const mockWriteSessionHeadSha = vi.mocked(writeSessionHeadSha);
 
-vi.mock('node:child_process', () => ({
+vi.mock('node:child_process', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:child_process')>()),
   execFileSync: vi.fn(),
   spawn: vi.fn(() => ({ unref: vi.fn(), on: vi.fn() })),
   spawnSync: vi.fn(() => ({ status: 0 }))

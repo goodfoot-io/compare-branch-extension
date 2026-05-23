@@ -12,9 +12,16 @@
  * lock, spawn, or status write. A null or invalid PID is an immediate no-op:
  * a card is never marked active unless it can be monitored.
  *
+ * A card is only (re)activated when it is in a working/pre-work state: a plain
+ * session entering the worktree of a finished or review-exit card no-ops rather
+ * than force-reactivating it.
+ *
  * Both detached spawns (transcript-watcher and adhoc-cleanup) are gated behind
  * a single O_EXCL lock keyed on `input.session_id`, with stale-lock recovery
- * (dead lock-owner PID → unlink + retry once).
+ * (dead lock-owner PID → unlink + retry once). The lock records the cardId the
+ * session is bound to; a session is bound to the first card-worktree it enters
+ * and is not re-targeted (the single per-session transcript-watcher cannot be
+ * re-targeted without tearing itself down).
  *
  * @summary CwdChanged hook for ad-hoc session attribution
  * @module cwd-changed
@@ -25,7 +32,12 @@ import { mkdir, open, readFile, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { findAgentPid, resolveGlobalCardsConfigDir } from '@cards/sdk';
-import { isKnownAgentComm, isProcessAlive } from '@cards/sdk/bin/process-utils';
+import {
+  isAdhocActivatableStatus,
+  isKnownAgentComm,
+  isProcessAlive,
+  readCardStatus
+} from '@cards/sdk/bin/process-utils';
 import { spawnAdhocCleanup } from '@cards/sdk/bin/spawn-adhoc-cleanup';
 import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import { cwdChangedHook, cwdChangedOutput } from '@goodfoot/claude-code-hooks';
@@ -103,18 +115,29 @@ export async function resolveCardRepoPath(cardId: string, logger: CwdLogger): Pr
 }
 
 /**
- * Acquires an O_EXCL de-dupe lock at `lockPath`, writing `agentPid` into it.
+ * Acquires an O_EXCL de-dupe lock at `lockPath`, recording `agentPid` and the
+ * `cardId` this session is bound to.
  *
- * On EEXIST, reads the existing lock and parses its PID. If that PID is alive,
- * the session is already tracked → returns false (no-op). If the PID is dead
- * (stale lock from a crashed hook), unlinks the lock and retries O_EXCL once.
+ * On EEXIST, reads the existing lock and parses its owner PID and bound cardId.
+ * If that PID is alive, the session is already tracked → returns false (no-op).
+ * When the live lock is bound to a DIFFERENT card (the session moved to another
+ * worktree), this is logged explicitly: the session stays bound to its first
+ * card because the single per-session transcript-watcher cannot be re-targeted
+ * without tearing itself down. If the PID is dead (stale lock from a crashed
+ * hook), unlinks the lock and retries O_EXCL once.
  *
  * @param lockPath - Absolute path to the lock file.
  * @param agentPid - Agent PID to record in the lock.
+ * @param cardId - Card id this session is being bound to.
  * @param logger - Logger for warn output.
- * @returns True when the lock was acquired, false when another live session holds it.
+ * @returns True when the lock was acquired, false when this session is already tracked.
  */
-export async function acquireLock(lockPath: string, agentPid: number, logger: CwdLogger): Promise<boolean> {
+export async function acquireLock(
+  lockPath: string,
+  agentPid: number,
+  cardId: string,
+  logger: CwdLogger
+): Promise<boolean> {
   await mkdir(dirname(lockPath), { recursive: true });
 
   const writeLock = async (): Promise<boolean> => {
@@ -128,7 +151,7 @@ export async function acquireLock(lockPath: string, agentPid: number, logger: Cw
       throw error;
     }
     try {
-      await handle.writeFile(String(agentPid));
+      await handle.writeFile(`${agentPid}\n${cardId}`);
     } finally {
       await handle.close();
     }
@@ -139,10 +162,10 @@ export async function acquireLock(lockPath: string, agentPid: number, logger: Cw
     return true;
   }
 
-  // Lock exists — inspect the owner PID.
-  let ownerPid: number;
+  // Lock exists — inspect the owner PID and the card it is bound to.
+  let ownerLines: string[];
   try {
-    ownerPid = Number((await readFile(lockPath, 'utf-8')).trim());
+    ownerLines = (await readFile(lockPath, 'utf-8')).split('\n');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       // Lock vanished between EEXIST and read — retry once.
@@ -151,8 +174,19 @@ export async function acquireLock(lockPath: string, agentPid: number, logger: Cw
     throw error;
   }
 
+  const ownerPid = Number(ownerLines[0]?.trim());
+  const boundCardId = ownerLines[1]?.trim();
+
   if (Number.isFinite(ownerPid) && isProcessAlive(ownerPid)) {
-    // Already tracked by a live session.
+    // Already tracked by this live session. Re-entering the same worktree is a
+    // clean no-op; moving to a different worktree keeps the original binding.
+    if (boundCardId && boundCardId !== cardId) {
+      logger.warn('cwd-changed: session already bound to a different card — keeping original binding', {
+        boundCardId,
+        attemptedCardId: cardId,
+        ownerPid
+      });
+    }
     return false;
   }
 
@@ -184,14 +218,42 @@ export default cwdChangedHook({}, async (input, { logger }) => {
   // 3. Action-subprocess guard — never fight the wrapper.
   if (process.env['ACTION_NAME']) return cwdChangedOutput({});
 
-  // 4. PID first — fail open on missing or wrong PID.
+  // 4. Entry source-state guard — only (re)activate a card that is in a
+  //    working/pre-work state. cd-ing a plain session into a finished or
+  //    review-exit card's worktree must NOT force-reactivate it (which would
+  //    then strand it in needs_review on teardown). This guard sits BEFORE lock
+  //    acquisition so a rejected entry never orphans a lock and is symmetric
+  //    with the guarded teardown. A null status (no CARD.meta.json) is treated
+  //    as not-activatable — fail closed.
+  const currentStatus = await readCardStatus(cardRepoPath);
+  if (!isAdhocActivatableStatus(currentStatus ?? undefined)) {
+    logger.warn('cwd-changed: card not in an activatable state — no-op', {
+      cardId,
+      status: currentStatus
+    });
+    return cwdChangedOutput({});
+  }
+
+  // 5. PID first — fail open on missing or wrong PID.
   const agentPid = findAgentPid();
   if (!agentPid) return cwdChangedOutput({});
   if (!isKnownAgentComm(agentPid, logger)) return cwdChangedOutput({});
 
-  // 5. Atomic de-dupe lock (gates both spawns).
+  // 6. Atomic de-dupe lock (gates both spawns).
+  //
+  //    The lock is keyed on session_id and records the cardId this session is
+  //    bound to. A session is bound to the FIRST card-worktree it enters and
+  //    stays bound for the life of the session. This is intentional, not a
+  //    limitation to work around: the transcript-watcher's watcherId IS the
+  //    session_id, and the extension's WatcherRegistry enforces a takeover
+  //    invariant — a single session can have only one live transcript-watcher.
+  //    Re-targeting a second card would require tearing down and re-spawning
+  //    that single watcher (churn + a transcript-sync gap) and is therefore
+  //    precluded. A session that later cd's into a DIFFERENT card's worktree
+  //    correctly no-ops here (its first card keeps the attribution); re-entering
+  //    the SAME worktree also no-ops.
   const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${input.session_id}.lock`);
-  const acquired = await acquireLock(lockPath, agentPid, logger);
+  const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
   if (!acquired) return cwdChangedOutput({});
 
   // 6. Spawn transcript-watcher (non-fatal).

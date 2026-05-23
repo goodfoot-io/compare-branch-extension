@@ -3,10 +3,12 @@
  *
  * Spawned by the CwdChanged hook when a plain (non-action) Claude session
  * enters a card-owned worktree. Marks the card `active` via the API client,
- * writes a per-card reference file, then polls the agent PID. On PID death it
- * performs ref-counted teardown — flipping the card to `needs_review` (API
- * first, filesystem fallback) only when no other live ad-hoc session remains
- * for the card — and removes the de-dupe lock.
+ * writes a per-card reference file (recording the agent PID and its start-time
+ * to defeat PID reuse), then polls the agent PID. On PID death it performs
+ * ref-counted teardown — flipping the card to `needs_review` (API first,
+ * filesystem fallback) only when no other live ad-hoc session remains AND no
+ * live action wrapper is present (the wrapper owns the lifecycle of a card it
+ * is operating on) — and removes the de-dupe lock.
  *
  * Touches status only — no `git clean -fd` (that is the wrapper's job for
  * action-spawned sessions).
@@ -15,11 +17,12 @@
  * @module
  */
 
-import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { resolveGlobalCardsConfigDir } from '../cards-config.js';
+import { mkdir, unlink } from 'node:fs/promises';
 import { createCardsClient } from '../client/api-discovery.js';
-import { isProcessAlive, transitionCardStatus } from './process-utils.js';
+import { adhocActiveDir, liveActionPresent, liveRefsRemain, removeRef, writeRef } from './adhoc-refs.js';
+import { isProcessAliveWithStartTime, readProcessStartTime, transitionCardStatus } from './process-utils.js';
+
+export { adhocActiveDir, liveRefsRemain } from './adhoc-refs.js';
 
 /** Interval for periodic PID liveness checks (5 seconds). */
 export const PID_POLL_INTERVAL_MS = 5_000;
@@ -60,19 +63,6 @@ export function parseArgs(argv: string[]): AdhocCleanupArgs {
 }
 
 /**
- * Returns the per-card reference directory path under `~/.cards/adhoc-active/`.
- *
- * This namespace is distinct from `adhoc-sessions/` (which holds the per-session
- * de-dupe lock files); the separation makes the two purposes explicit.
- *
- * @param cardId - Card identifier.
- * @returns Absolute path to the per-card reference directory.
- */
-export function adhocActiveDir(cardId: string): string {
-  return join(resolveGlobalCardsConfigDir(), 'adhoc-active', cardId);
-}
-
-/**
  * Minimal logger interface used by ad-hoc cleanup.
  */
 export interface CleanupLogger {
@@ -86,13 +76,13 @@ const consoleLogger: CleanupLogger = {
 };
 
 /**
- * Removes a reference file, ignoring ENOENT.
+ * Removes a file, ignoring ENOENT.
  *
- * @param refPath - Absolute path to the reference file.
+ * @param path - Absolute path to remove.
  */
-async function unlinkIfExists(refPath: string): Promise<void> {
+async function unlinkIfExists(path: string): Promise<void> {
   try {
-    await unlink(refPath);
+    await unlink(path);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw error;
@@ -101,60 +91,19 @@ async function unlinkIfExists(refPath: string): Promise<void> {
 }
 
 /**
- * Scans the per-card reference directory and determines whether any other live
- * ad-hoc session remains. Removes stale ref files whose recorded PID is dead.
- *
- * @param cardId - Card identifier.
- * @param sessionId - The dying session's id (its ref is excluded from the scan).
- * @param logger - Logger for warn output.
- * @returns True when at least one other ref with a live PID remains.
- */
-export async function liveRefsRemain(cardId: string, sessionId: string, logger: CleanupLogger): Promise<boolean> {
-  const dir = adhocActiveDir(cardId);
-
-  let entries: string[];
-  try {
-    entries = await readdir(dir);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return false;
-    }
-    throw error;
-  }
-
-  let anyLive = false;
-  for (const entry of entries) {
-    if (!entry.endsWith('.ref')) continue;
-    if (entry === `${sessionId}.ref`) continue;
-
-    const refPath = join(dir, entry);
-    let pid: number;
-    try {
-      pid = Number((await readFile(refPath, 'utf-8')).trim());
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
-      logger.warn('failed to read ref file', { refPath, error: String(error) });
-      continue;
-    }
-
-    if (Number.isFinite(pid) && isProcessAlive(pid)) {
-      anyLive = true;
-    } else {
-      // Stale ref from a crashed cleanup — unlink it.
-      await unlinkIfExists(refPath);
-    }
-  }
-
-  return anyLive;
-}
-
-/**
  * Main entry point for the detached ad-hoc cleanup process.
+ *
+ * The agent PID's start-time is captured up front (and persisted in the ref
+ * file) so the poll loop treats a recycled PID — same number, different
+ * process — as dead rather than waiting forever on a stranger.
  *
  * @param logger - Logger for warn output (defaults to a stderr logger).
  */
 export async function main(logger: CleanupLogger = consoleLogger): Promise<void> {
   const { agentPid, sessionId, cardId, cardRepoPath, lockPath } = parseArgs(process.argv);
+
+  // Capture the monitored PID's start-time to defeat PID reuse.
+  const startTime = readProcessStartTime(agentPid);
 
   const client = await createCardsClient();
   if (client === null) {
@@ -164,7 +113,8 @@ export async function main(logger: CleanupLogger = consoleLogger): Promise<void>
     return;
   }
 
-  // 1. Mark active via API.
+  // 1. Mark active via API. (The hook's entry guard has already confirmed the
+  //    card is in a working/pre-work state before spawning this process.)
   try {
     await client.updateCard(cardId, { status: 'active', author: 'system <system@cards.local>' });
   } catch (error) {
@@ -176,30 +126,36 @@ export async function main(logger: CleanupLogger = consoleLogger): Promise<void>
     return;
   }
 
-  // 2. Write the per-card reference file.
-  const dir = adhocActiveDir(cardId);
-  const refPath = join(dir, `${sessionId}.ref`);
-  await mkdir(dir, { recursive: true });
-  await writeFile(refPath, String(agentPid), 'utf-8');
+  // 2. Write the per-card reference file (records pid + start-time).
+  await mkdir(adhocActiveDir(cardId), { recursive: true });
+  await writeRef(cardId, sessionId, agentPid);
 
-  // 3. Poll the PID until it dies.
-  while (isProcessAlive(agentPid)) {
+  // 3. Poll the PID until it dies (or is recycled to a different process).
+  while (isProcessAliveWithStartTime(agentPid, startTime)) {
     await new Promise<void>((resolve) => setTimeout(resolve, PID_POLL_INTERVAL_MS));
   }
 
   // 4. Teardown.
-  await unlinkIfExists(refPath);
+  await removeRef(cardId, sessionId);
 
   if (!(await liveRefsRemain(cardId, sessionId, logger))) {
-    // No other live ad-hoc session — flip to needs_review (API first).
-    try {
-      await client.updateCard(cardId, { status: 'needs_review', author: 'system <system@cards.local>' });
-    } catch (error) {
-      logger.warn('API needs_review failed — falling back to filesystem', {
-        cardId,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      await transitionCardStatus(cardRepoPath, logger);
+    // No other live ad-hoc session. Before flipping, check for a live action
+    // wrapper: when one is present it owns this card's status lifecycle and a
+    // second writer would race it (the wrapper writes no ad-hoc ref, so
+    // liveRefsRemain cannot see it). Fail closed — leave status to the wrapper.
+    if (await liveActionPresent(logger)) {
+      logger.warn('live action detected at teardown — deferring status flip to the wrapper', { cardId });
+    } else {
+      // Flip to needs_review (API first, filesystem fallback).
+      try {
+        await client.updateCard(cardId, { status: 'needs_review', author: 'system <system@cards.local>' });
+      } catch (error) {
+        logger.warn('API needs_review failed — falling back to filesystem', {
+          cardId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        await transitionCardStatus(cardRepoPath, logger);
+      }
     }
   }
 

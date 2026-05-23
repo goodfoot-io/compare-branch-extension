@@ -10,6 +10,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
 import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
@@ -96,6 +97,14 @@ export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => 
     sessionId: input.session_id,
     transcriptPath: input.transcript_path
   });
+
+  // Reconciliation sweep: settle any card left `active` by a dead ad-hoc
+  // monitor (the detached cleanup process died — reboot/OOM/SIGKILL — before
+  // the agent PID it was watching). Runs in EVERY session (before the
+  // action-only path below) and is a pure, bounded reconciliation: it no-ops
+  // for healthy cards and never touches a card whose monitor is still live.
+  // Best-effort — never blocks session start.
+  await runReconciliationSweep(logger);
 
   let actionInput: ActionInput;
   try {
