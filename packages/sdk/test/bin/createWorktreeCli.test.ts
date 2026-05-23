@@ -12,11 +12,67 @@
 
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+
+/**
+ * Starts a minimal stub Cards API that records branch registrations and writes
+ * a discovery file the CLI's createCardsClient() reads via CARDS_DISCOVERY_PATH.
+ *
+ * @param discoveryPath - Absolute path to write the cards-api.json discovery file.
+ * @returns The server, captured addBranch request bodies, and a stop() helper.
+ */
+async function startStubApi(discoveryPath: string): Promise<{
+  server: Server;
+  addBranchCalls: Array<{ cardId: string; body: unknown }>;
+  stop: () => Promise<void>;
+}> {
+  const addBranchCalls: Array<{ cardId: string; body: unknown }> = [];
+  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    const match = /^\/cards\/([^/]+)\/branches$/.exec(req.url ?? '');
+    if (req.method === 'POST' && match) {
+      let raw = '';
+      req.on('data', (chunk) => {
+        raw += String(chunk);
+      });
+      req.on('end', () => {
+        addBranchCalls.push({ cardId: decodeURIComponent(match[1]!), body: raw ? JSON.parse(raw) : null });
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end('{}');
+      });
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{}');
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  await fs.writeFile(
+    discoveryPath,
+    JSON.stringify({
+      host: '127.0.0.1',
+      port,
+      accessToken: 'test-token',
+      pid: process.pid,
+      startedAt: new Date().toISOString()
+    })
+  );
+  return {
+    server,
+    addBranchCalls,
+    stop: () =>
+      new Promise<void>((resolve) => {
+        // Drop any lingering keep-alive sockets so close() resolves promptly.
+        server.closeAllConnections();
+        server.close(() => resolve());
+      })
+  };
+}
 
 const createWorktreeBinPath = fileURLToPath(new URL('../../src/bin/create-worktree.ts', import.meta.url));
 /** tsx CLI entrypoint, spawned via node for cross-platform support. */
@@ -53,6 +109,36 @@ function runCreateWorktree(
 }
 
 /**
+ * Async variant of {@link runCreateWorktree}. Required for card-bound tests
+ * whose stub Cards API runs in this same process: a synchronous execFileSync
+ * would block the event loop, deadlocking against the in-process HTTP server
+ * the spawned CLI must reach. Spawning asynchronously keeps the loop free.
+ *
+ * @param args - CLI arguments.
+ * @param cwd - Working directory for the process.
+ * @param env - Extra environment variables merged over `process.env`.
+ * @returns stdout, stderr, and exit code.
+ */
+async function runCreateWorktreeAsync(
+  args: string[],
+  cwd: string,
+  env: Record<string, string>
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const { execFile } = await import('node:child_process');
+  return new Promise((resolve) => {
+    execFile(
+      process.execPath,
+      [tsxCli, createWorktreeBinPath, ...args],
+      { encoding: 'utf8', cwd, env: { ...process.env, ...env } },
+      (error, stdout, stderr) => {
+        const code = error ? ((error as { code?: number }).code ?? 1) : 0;
+        resolve({ stdout, stderr, exitCode: code });
+      }
+    );
+  });
+}
+
+/**
  * Initialises a minimal git repo at `dir` with a README tracked, so
  * `git worktree add` can operate against it.
  *
@@ -70,8 +156,13 @@ async function initGitRepo(dir: string): Promise<void> {
 
 describe('create-worktree CLI', () => {
   let tmpBase = '';
+  let stubStop: (() => Promise<void>) | undefined;
 
   afterEach(async () => {
+    if (stubStop) {
+      await stubStop();
+      stubStop = undefined;
+    }
     if (tmpBase) {
       await fs.rm(tmpBase, { recursive: true, force: true });
       tmpBase = '';
@@ -163,14 +254,25 @@ describe('create-worktree CLI', () => {
     const homeDir = path.join(tmpBase, 'home');
     await fs.mkdir(homeDir, { recursive: true });
 
-    const result = runCreateWorktree(['--card-id', 'main-77', 'card-branch'], repoDir, {
+    // Stand up a stub Cards API so the fail-closed CLI can register the branch.
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    const stub = await startStubApi(discoveryPath);
+    stubStop = stub.stop;
+
+    const result = await runCreateWorktreeAsync(['--card-id', 'main-77', 'card-branch'], repoDir, {
       EXTENSION_PATH: extDir,
-      HOME: homeDir
+      HOME: homeDir,
+      CARDS_DISCOVERY_PATH: discoveryPath
     });
 
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout.trim()) as Record<string, unknown>;
     const worktreePath = parsed['worktree'] as string;
+
+    // The branch was registered with the API against the early worktree path.
+    expect(stub.addBranchCalls).toHaveLength(1);
+    expect(stub.addBranchCalls[0]!.cardId).toBe('main-77');
+    expect(stub.addBranchCalls[0]!.body).toMatchObject({ name: 'card-branch', worktree: worktreePath });
 
     // Attribution marker written.
     const cardId = await fs.readFile(path.join(worktreePath, '.cards', 'CARD_ID'), 'utf-8');
@@ -184,6 +286,90 @@ describe('create-worktree CLI', () => {
     expect(hooksPath).toBe(path.join(homeDir, '.cards', 'workspace-hooks'));
     const copied = await fs.readFile(path.join(hooksPath, 'post-commit.mjs'), 'utf-8');
     expect(copied).toBe('// post-commit stub\n');
+  });
+
+  it('defaults parentBranch to the source repo HEAD when --parent-branch is omitted', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+    const headBranch = execFileSync('git', ['-C', repoDir, 'rev-parse', '--abbrev-ref', 'HEAD'], {
+      encoding: 'utf8'
+    }).trim();
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+    const homeDir = path.join(tmpBase, 'home');
+    await fs.mkdir(homeDir, { recursive: true });
+
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    const stub = await startStubApi(discoveryPath);
+    stubStop = stub.stop;
+
+    const result = await runCreateWorktreeAsync(['--card-id', 'main-77', 'card-branch'], repoDir, {
+      EXTENSION_PATH: extDir,
+      HOME: homeDir,
+      CARDS_DISCOVERY_PATH: discoveryPath
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(stub.addBranchCalls[0]!.body).toMatchObject({ parentBranch: headBranch });
+  });
+
+  it('honors an explicit --parent-branch over the source repo HEAD', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+    const homeDir = path.join(tmpBase, 'home');
+    await fs.mkdir(homeDir, { recursive: true });
+
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    const stub = await startStubApi(discoveryPath);
+    stubStop = stub.stop;
+
+    const result = await runCreateWorktreeAsync(
+      ['--card-id', 'main-77', '--parent-branch', 'release/v2', 'card-branch'],
+      repoDir,
+      { EXTENSION_PATH: extDir, HOME: homeDir, CARDS_DISCOVERY_PATH: discoveryPath }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(stub.addBranchCalls[0]!.body).toMatchObject({ parentBranch: 'release/v2' });
+  });
+
+  it('exits 2 (fail-closed) when --card-id given but the Cards API is unavailable', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+
+    // Point discovery at a nonexistent file so createCardsClient() returns null.
+    const result = runCreateWorktree(['--card-id', 'main-77', 'card-branch'], repoDir, {
+      EXTENSION_PATH: extDir,
+      CARDS_DISCOVERY_PATH: path.join(tmpBase, 'no-such-api.json')
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('Cards API unavailable');
   });
 
   it('exits 2 with actionable error when --card-id given but extension path unresolvable', async () => {

@@ -1,14 +1,37 @@
 /**
  * Tests for the WorktreeCreate hook handler.
  *
- * Mocks createWorktree to avoid real git operations. Verifies CARD_ID forwarding,
- * settle-awaiting, error propagation, and output shape.
+ * Mocks createWorktree (unbound path) and createWorktreeForCard (card-bound
+ * path) to avoid real git operations, plus createCardsClient for client
+ * acquisition and child_process for parent-branch derivation. Verifies CARD_ID
+ * forwarding, fail-closed client acquisition, settle-awaiting, error
+ * propagation, and output shape.
  *
  * @summary WorktreeCreate hook handler tests
  */
 
+import type { CardsClient } from '@cards/sdk/client';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// execFile is consumed via promisify(execFile), which uses the [util.promisify.custom]
+// symbol on the real execFile to resolve with { stdout, stderr }. The mock carries an
+// equivalent custom impl so promisify(mock) returns that shape; mockExecFileResult
+// controls the resolved stdout.
+let mockExecFileStdout = 'main\n';
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  const { promisify } = await import('node:util');
+  const execFileMock = vi.fn() as unknown as {
+    (...a: unknown[]): unknown;
+    [k: symbol]: unknown;
+  };
+  execFileMock[promisify.custom] = async () => ({ stdout: mockExecFileStdout, stderr: '' });
+  return {
+    ...actual,
+    execFile: execFileMock
+  };
+});
 
 vi.mock('@cards/sdk/worktree', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards/sdk/worktree')>();
@@ -17,6 +40,14 @@ vi.mock('@cards/sdk/worktree', async (importOriginal) => {
     createWorktree: vi.fn()
   };
 });
+
+vi.mock('@cards/sdk/worktree-for-card', () => ({
+  createWorktreeForCard: vi.fn()
+}));
+
+vi.mock('@cards/sdk/client/discovery', () => ({
+  createCardsClient: vi.fn()
+}));
 
 vi.mock('@cards/sdk', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards/sdk')>();
@@ -31,13 +62,40 @@ vi.mock('@cards/sessions/card-repo', () => ({
 }));
 
 import { resolveExtensionPath } from '@cards/sdk';
+import { createCardsClient } from '@cards/sdk/client/discovery';
 import { createWorktree } from '@cards/sdk/worktree';
+import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { readSessionCardId } from '@cards/sessions/card-repo';
 import hookFn from '../src/worktree-create.js';
+
+/** A non-null fake client; the hook only checks for null, never calls methods on it. */
+const fakeClient = {} as unknown as CardsClient;
+
+/**
+ * Standard early worktree result returned by both create mocks.
+ *
+ * @param worktreePath - The worktree path to report as `path` and in `settle`.
+ * @param reroutedSymlinks - Count to report in the settled result.
+ * @returns An EarlyWorktreeResult-shaped object.
+ */
+function settledResult(worktreePath: string, reroutedSymlinks = 0) {
+  return {
+    path: worktreePath,
+    settle: Promise.resolve({
+      branch: 'feature/test-branch',
+      worktree: worktreePath,
+      baseSha: 'abc123',
+      copiedFromInclude: 0,
+      reroutedSymlinks
+    })
+  };
+}
 
 describe('WorktreeCreate hook', () => {
   const originalEnv = process.env;
   const mockCreateWorktree = vi.mocked(createWorktree);
+  const mockCreateWorktreeForCard = vi.mocked(createWorktreeForCard);
+  const mockCreateCardsClient = vi.mocked(createCardsClient);
   const mockLogger = {
     debug: vi.fn(),
     warn: vi.fn(),
@@ -55,6 +113,12 @@ describe('WorktreeCreate hook', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     mockCreateWorktree.mockReset();
+    mockCreateWorktreeForCard.mockReset();
+    mockCreateCardsClient.mockReset();
+    // Default: client discovery succeeds for card-bound tests.
+    mockCreateCardsClient.mockResolvedValue(fakeClient);
+    // Default current branch resolved for parentBranch derivation.
+    mockExecFileStdout = 'main\n';
     vi.mocked(resolveExtensionPath).mockReset();
     // Default: extension path resolves so card-bound tests that don't override
     // it still produce valid compiledScriptPaths.
@@ -78,19 +142,10 @@ describe('WorktreeCreate hook', () => {
     expect(hookFn.hookEventName).toBe('WorktreeCreate');
   });
 
-  it('returns worktreePath in output after settle resolves', async () => {
+  it('returns worktreePath in output after settle resolves (unbound path)', async () => {
+    delete process.env['CARD_ID'];
     const worktreePath = '/worktrees/test/feature/test-branch';
-    const settleResult = {
-      branch: 'feature/test-branch',
-      worktree: worktreePath,
-      baseSha: 'abc123',
-      copiedFromInclude: 0,
-      reroutedSymlinks: 5
-    };
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve(settleResult)
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath, 5));
 
     const result = await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
@@ -100,102 +155,87 @@ describe('WorktreeCreate hook', () => {
     expect((result as { rawStdout: string }).rawStdout).toBe(worktreePath);
   });
 
-  it('calls createWorktree with cardId from CARD_ID env when set', async () => {
+  it('routes card-bound creation through createWorktreeForCard with cardId from CARD_ID env', async () => {
     process.env['CARD_ID'] = 'main-42';
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
-    expect(mockCreateWorktree).toHaveBeenCalledWith(
+    expect(mockCreateWorktree).not.toHaveBeenCalled();
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
       'feature/test-branch',
-      expect.objectContaining({ cardId: 'main-42', cwd: '/test/workspace' })
+      expect.objectContaining({ cardId: 'main-42', cwd: '/test/workspace', parentBranch: 'main' })
     );
   });
 
-  it('calls createWorktree without cardId when CARD_ID is not set', async () => {
+  it('calls bare createWorktree without cardId when CARD_ID is not set', async () => {
     delete process.env['CARD_ID'];
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
-    const call = mockCreateWorktree.mock.calls[0]!;
-    expect((call[1] as Record<string, unknown> | undefined)?.['cardId']).toBeUndefined();
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+    expect(mockCreateCardsClient).not.toHaveBeenCalled();
+    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
   });
 
-  it('calls createWorktree without cardId when CARD_ID is empty string', async () => {
+  it('calls bare createWorktree without cardId when CARD_ID is empty string', async () => {
     process.env['CARD_ID'] = '';
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
-    const call = mockCreateWorktree.mock.calls[0]!;
-    expect((call[1] as Record<string, unknown> | undefined)?.['cardId']).toBeUndefined();
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
   });
 
-  it('uses input.cwd as cwd for createWorktree', async () => {
+  it('uses input.cwd as cwd for createWorktreeForCard (card-bound)', async () => {
+    process.env['CARD_ID'] = 'main-42';
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn({ ...baseInput, cwd: '/custom/cwd' }, { logger: mockLogger as unknown as Logger });
 
-    expect(mockCreateWorktree).toHaveBeenCalledWith(
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
       'feature/test-branch',
       expect.objectContaining({ cwd: '/custom/cwd' })
     );
   });
 
+  it('derives parentBranch from the source repo HEAD', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
+    mockExecFileStdout = 'develop\n';
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
+      'feature/test-branch',
+      expect.objectContaining({ parentBranch: 'develop' })
+    );
+  });
+
+  it('throws (fail-closed) when the Cards client cannot be discovered for a card-bound worktree', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    mockCreateCardsClient.mockResolvedValue(null);
+
+    await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow(
+      'Cards API unavailable'
+    );
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+  });
+
   it('logs completion with cardId when CARD_ID env is set', async () => {
     process.env['CARD_ID'] = 'main-99';
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
@@ -208,16 +248,7 @@ describe('WorktreeCreate hook', () => {
   it('logs null cardId in completion when CARD_ID is not set', async () => {
     delete process.env['CARD_ID'];
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
@@ -227,7 +258,8 @@ describe('WorktreeCreate hook', () => {
     );
   });
 
-  it('throws when settle rejects (does not swallow)', async () => {
+  it('throws when settle rejects (does not swallow, unbound path)', async () => {
+    delete process.env['CARD_ID'];
     mockCreateWorktree.mockResolvedValue({
       path: '/some/path',
       settle: Promise.reject(new Error('settle failed'))
@@ -240,21 +272,13 @@ describe('WorktreeCreate hook', () => {
     process.env['CARD_ID'] = 'main-42';
     vi.mocked(resolveExtensionPath).mockResolvedValue('/ext/install');
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(resolveExtensionPath).toHaveBeenCalledOnce();
-    expect(mockCreateWorktree).toHaveBeenCalledWith(
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
       'feature/test-branch',
       expect.objectContaining({
         cardId: 'main-42',
@@ -267,46 +291,28 @@ describe('WorktreeCreate hook', () => {
     );
   });
 
-  it('does not resolve extension path when CARD_ID is unset', async () => {
+  it('does not resolve extension path or acquire a client when CARD_ID is unset', async () => {
     delete process.env['CARD_ID'];
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(resolveExtensionPath).not.toHaveBeenCalled();
-    const call = mockCreateWorktree.mock.calls[0]!;
-    expect((call[1] as Record<string, unknown> | undefined)?.['compiledScriptPaths']).toBeUndefined();
+    expect(mockCreateCardsClient).not.toHaveBeenCalled();
   });
 
   it('falls back to the session-bound card (keyed by input.session_id) when CARD_ID is unset', async () => {
     delete process.env['CARD_ID'];
     vi.mocked(readSessionCardId).mockReturnValue('main-77');
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(readSessionCardId).toHaveBeenCalledWith('test-session');
-    expect(mockCreateWorktree).toHaveBeenCalledWith(
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
       'feature/test-branch',
       expect.objectContaining({
         cardId: 'main-77',
@@ -322,21 +328,13 @@ describe('WorktreeCreate hook', () => {
   it('does not consult the session binding when CARD_ID is set', async () => {
     process.env['CARD_ID'] = 'main-42';
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(readSessionCardId).not.toHaveBeenCalled();
-    expect(mockCreateWorktree).toHaveBeenCalledWith(
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
       'feature/test-branch',
       expect.objectContaining({ cardId: 'main-42' })
     );
@@ -346,22 +344,13 @@ describe('WorktreeCreate hook', () => {
     delete process.env['CARD_ID'];
     vi.mocked(readSessionCardId).mockReturnValue(null);
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(resolveExtensionPath).not.toHaveBeenCalled();
-    const call = mockCreateWorktree.mock.calls[0]!;
-    expect((call[1] as Record<string, unknown> | undefined)?.['cardId']).toBeUndefined();
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
   });
 
   it('propagates resolveExtensionPath failure (fail-closed) when CARD_ID is set', async () => {
@@ -373,7 +362,7 @@ describe('WorktreeCreate hook', () => {
     await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow(
       'Cannot resolve extension path'
     );
-    expect(mockCreateWorktree).not.toHaveBeenCalled();
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
   });
 
   it('creates without cardId when the .card binding is empty/whitespace (no throw)', async () => {
@@ -383,22 +372,13 @@ describe('WorktreeCreate hook', () => {
     delete process.env['CARD_ID'];
     vi.mocked(readSessionCardId).mockReturnValue('   ');
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(resolveExtensionPath).not.toHaveBeenCalled();
-    const call = mockCreateWorktree.mock.calls[0]!;
-    expect((call[1] as Record<string, unknown> | undefined)?.['cardId']).toBeUndefined();
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
   });
 
   it('degrades to no attribution and logs a warning when the binding lookup throws', async () => {
@@ -410,73 +390,33 @@ describe('WorktreeCreate hook', () => {
       throw readError;
     });
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
-    const call = mockCreateWorktree.mock.calls[0]!;
-    expect((call[1] as Record<string, unknown> | undefined)?.['cardId']).toBeUndefined();
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining('session-binding lookup failed'),
       expect.objectContaining({ sessionId: 'test-session', error: readError })
     );
   });
 
-  it('does not consult the binding when CARD_ID is set (explicit env unchanged)', async () => {
-    process.env['CARD_ID'] = 'main-42';
-    vi.mocked(readSessionCardId).mockReturnValue('main-77');
-    const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
-
-    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
-
-    expect(readSessionCardId).not.toHaveBeenCalled();
-    expect(mockCreateWorktree).toHaveBeenCalledWith(
-      'feature/test-branch',
-      expect.objectContaining({ cardId: 'main-42' })
-    );
-  });
-
-  it('forwards the session-bound cardId and compiledScriptPaths via input.session_id', async () => {
+  it('forwards the session-bound cardId and sessionId via input.session_id', async () => {
     delete process.env['CARD_ID'];
     vi.mocked(readSessionCardId).mockReturnValue('main-55');
     const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue({
-      path: worktreePath,
-      settle: Promise.resolve({
-        branch: 'feature/test-branch',
-        worktree: worktreePath,
-        baseSha: 'abc123',
-        copiedFromInclude: 0,
-        reroutedSymlinks: 0
-      })
-    });
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(readSessionCardId).toHaveBeenCalledWith('test-session');
-    expect(mockCreateWorktree).toHaveBeenCalledWith(
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
       'feature/test-branch',
       expect.objectContaining({
         cardId: 'main-55',
+        sessionId: 'test-session',
         compiledScriptPaths: {
           'pre-commit': '/ext/install/dist/git-hooks/pre-commit.mjs',
           'post-commit': '/ext/install/dist/git-hooks/post-commit.mjs',

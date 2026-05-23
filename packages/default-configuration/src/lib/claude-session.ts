@@ -24,7 +24,8 @@ import { BRANCHES_FILE } from '@cards/sdk/protocol';
 export { resolveClaudeConfigDir, updateMarketplaceRegistration };
 
 import type { CreateWorktreeResult } from '@cards/sdk/worktree';
-import { checkWorktreeExists, createWorktree, findGitRoots } from '@cards/sdk/worktree';
+import { checkWorktreeExists, findGitRoots } from '@cards/sdk/worktree';
+import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 
 const execFileAsync = promisify(execFile);
@@ -309,27 +310,29 @@ export async function resolveOrCreateWorktree(
     if (!branch.name.startsWith(`cards/${input.cardId}/`)) continue;
 
     logger.info('Reattaching worktree for existing branch', { branch: branch.name });
-    const { path: worktreePath, settle } = await createWorktree(branch.name, {
+    const { path: worktreePath, settle } = await createWorktreeForCard(client, branch.name, {
       cwd: input.repoRoot,
       cardId: input.cardId,
-      compiledScriptPaths: compiledHookScriptPaths(input.extensionPath)
+      compiledScriptPaths: compiledHookScriptPaths(input.extensionPath),
+      parentBranch: branch.parentBranch,
+      sessionId
     });
-
-    // Update the API record with the new worktree path
-    await client.addBranch(
-      input.cardId,
-      { name: branch.name, worktree: worktreePath, parentBranch: branch.parentBranch },
-      { sessionId }
-    );
 
     return { worktreePath, branchName: branch.name, parentBranch: branch.parentBranch, settle };
   }
 
   // Step 3: No valid existing branch — create new one.
-  // The API may be out of sync with git (e.g. a previous worktree was created
-  // but never registered, or its API record was deleted). To avoid colliding
-  // with worktrees git already knows about, probe git's actual state and
-  // increment past any occupied slots.
+  //
+  // Since every creator now routes through createWorktreeForCard, a newly
+  // created worktree is always registered in the API the instant it exists on
+  // disk, so this codepath can no longer leave git ahead of the API for
+  // worktrees it produces. This git-probe loop is therefore a defensive safety
+  // net, not load-bearing reconciliation: it recovers from *pre-existing*
+  // orphaned worktrees (created before this consolidation, or whose API record
+  // was deleted out-of-band) by probing git's actual state and incrementing
+  // past any occupied slots so we never collide with a worktree git already
+  // knows about. It is retained deliberately — removing it would risk
+  // clobbering a legacy orphan on a user's disk.
   const prefix = `cards/${input.cardId}/`;
   const existingNumbers = branches
     .filter((b) => b.name.startsWith(prefix))
@@ -346,16 +349,13 @@ export async function resolveOrCreateWorktree(
   }
 
   const branchName = `${prefix}${nextNumber}`;
-  const { path: worktreePath, settle } = await createWorktree(branchName, {
+  const { path: worktreePath, settle } = await createWorktreeForCard(client, branchName, {
     cwd: input.repoRoot,
     cardId: input.cardId,
-    compiledScriptPaths: compiledHookScriptPaths(input.extensionPath)
+    compiledScriptPaths: compiledHookScriptPaths(input.extensionPath),
+    parentBranch: baseBranch,
+    sessionId
   });
-  await client.addBranch(
-    input.cardId,
-    { name: branchName, worktree: worktreePath, parentBranch: baseBranch },
-    { sessionId }
-  );
 
   logger.info('Created new worktree', { branch: branchName, worktree: worktreePath });
   return { worktreePath, branchName, parentBranch: baseBranch, settle };
