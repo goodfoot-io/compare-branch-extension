@@ -372,6 +372,124 @@ describe('create-worktree CLI', () => {
     expect(result.stderr).toContain('Cards API unavailable');
   });
 
+  it('exits 2 (fail-closed) and leaves no worktree when --card-id points at an unreachable server', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+    const homeDir = path.join(tmpBase, 'home');
+    await fs.mkdir(homeDir, { recursive: true });
+
+    // A well-formed discovery file pointing at a dead port: createCardsClient
+    // returns a client, addBranch fails with a network error. retryOnNetworkError
+    // is disabled so the CLI fails fast instead of hanging forever.
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    await fs.writeFile(
+      discoveryPath,
+      JSON.stringify({
+        host: '127.0.0.1',
+        port: 1, // reserved/unreachable
+        accessToken: 'test-token',
+        pid: process.pid,
+        startedAt: new Date().toISOString()
+      })
+    );
+
+    const result = await runCreateWorktreeAsync(['--card-id', 'main-77', 'card-branch'], repoDir, {
+      EXTENSION_PATH: extDir,
+      HOME: homeDir,
+      CARDS_DISCOVERY_PATH: discoveryPath
+    });
+
+    expect(result.exitCode).toBe(2);
+    // The worktree was rolled back: no orphaned worktree registered with git and
+    // no leftover directory under the repo's worktrees root. This is the exact
+    // orphaned-unregistered state the card retires — addBranch never succeeded,
+    // so the worktree must not persist.
+    const worktrees = execFileSync('git', ['-C', repoDir, 'worktree', 'list', '--porcelain'], {
+      encoding: 'utf8'
+    });
+    expect(worktrees).not.toContain('card-branch');
+  });
+
+  it('exits 2 when --parent-branch is supplied without --card-id', () => {
+    const result = runCreateWorktree(['--parent-branch', 'main', 'some-branch'], os.tmpdir());
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('--parent-branch requires --card-id');
+  });
+
+  it('exits 2 with detached-HEAD guidance when source HEAD is detached and no --parent-branch given', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+    // Detach HEAD at the current commit.
+    const sha = execFileSync('git', ['-C', repoDir, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    execFileSync('git', ['-C', repoDir, 'checkout', '-q', '--detach', sha]);
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+    const homeDir = path.join(tmpBase, 'home');
+    await fs.mkdir(homeDir, { recursive: true });
+
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    const stub = await startStubApi(discoveryPath);
+    stubStop = stub.stop;
+
+    const result = await runCreateWorktreeAsync(['--card-id', 'main-77', 'card-branch'], repoDir, {
+      EXTENSION_PATH: extDir,
+      HOME: homeDir,
+      CARDS_DISCOVERY_PATH: discoveryPath
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('detached-HEAD');
+    // No bogus "HEAD" parent branch was registered.
+    expect(stub.addBranchCalls).toHaveLength(0);
+  });
+
+  it('honors explicit --parent-branch even when source HEAD is detached', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    await fs.mkdir(repoDir);
+    await initGitRepo(repoDir);
+    const sha = execFileSync('git', ['-C', repoDir, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    execFileSync('git', ['-C', repoDir, 'checkout', '-q', '--detach', sha]);
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+    const homeDir = path.join(tmpBase, 'home');
+    await fs.mkdir(homeDir, { recursive: true });
+
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    const stub = await startStubApi(discoveryPath);
+    stubStop = stub.stop;
+
+    const result = await runCreateWorktreeAsync(
+      ['--card-id', 'main-77', '--parent-branch', 'main', 'card-branch'],
+      repoDir,
+      { EXTENSION_PATH: extDir, HOME: homeDir, CARDS_DISCOVERY_PATH: discoveryPath }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(stub.addBranchCalls[0]!.body).toMatchObject({ parentBranch: 'main' });
+  });
+
   it('exits 2 with actionable error when --card-id given but extension path unresolvable', async () => {
     tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
     const repoDir = path.join(tmpBase, 'repo');

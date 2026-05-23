@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { removeWorktree, WorktreeScopeError } from '@cards/sdk/worktree';
-import { removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { BranchUnregisterError, removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { worktreeRemoveHook, worktreeRemoveOutput } from '@goodfoot/claude-code-hooks';
 
 const execFileAsync = promisify(execFile);
@@ -42,21 +42,20 @@ async function readWorktreeCardId(worktreePath: string): Promise<string | undefi
 }
 
 /**
- * Reports whether a path still exists on disk.
+ * Resolves the registered branch name for a worktree from its current HEAD.
  *
- * Used to distinguish a failed worktree removal (path still present) from a
- * failed branch unregister (path already gone) inside the fail-open handler.
+ * Returns `undefined` when HEAD is detached (`--abbrev-ref` yields the literal
+ * `"HEAD"`): in that case the branch name cannot be confidently matched against
+ * the registered record, so the caller skips the branch unregister rather than
+ * removing the wrong record or claiming success on an unreliable name.
  *
- * @param targetPath - Absolute path to check.
- * @returns `true` if the path exists, `false` otherwise.
+ * @param worktreePath - Absolute path to the worktree directory.
+ * @returns The branch name, or `undefined` when HEAD is detached.
  */
-async function worktreePathExists(targetPath: string): Promise<boolean> {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
+async function resolveWorktreeBranch(worktreePath: string): Promise<string | undefined> {
+  const { stdout } = await execFileAsync('git', ['-C', worktreePath, 'rev-parse', '--abbrev-ref', 'HEAD']);
+  const branch = stdout.trim();
+  return branch === 'HEAD' ? undefined : branch;
 }
 
 export default worktreeRemoveHook({}, async (input, { logger }) => {
@@ -72,17 +71,28 @@ export default worktreeRemoveHook({}, async (input, { logger }) => {
     // cardId and HEAD yields the exact registered branch name (spike S2).
     const cardId = await readWorktreeCardId(input.worktree_path);
 
-    if (cardId === undefined) {
-      // Unbound worktree — no branch record to unregister.
+    const branchName = cardId === undefined ? undefined : await resolveWorktreeBranch(input.worktree_path);
+
+    if (cardId === undefined || branchName === undefined) {
+      // Unbound worktree (no marker) or detached HEAD (branch name unreliable):
+      // there is no branch record we can confidently unregister. Tear down the
+      // worktree from disk; do not silently claim a branch was unregistered.
+      if (cardId !== undefined) {
+        logger.warn(
+          'WorktreeRemove: worktree HEAD is detached; branch record could not be resolved, removing worktree only',
+          {
+            event: 'WorktreeRemove',
+            worktree_path: input.worktree_path,
+            cardId
+          }
+        );
+      }
       await removeWorktree(input.worktree_path);
     } else {
-      const { stdout } = await execFileAsync('git', ['-C', input.worktree_path, 'rev-parse', '--abbrev-ref', 'HEAD']);
-      const branchName = stdout.trim();
-
       // Fail-open: a missing client or a failed removeBranch must never block
       // disk teardown. Remove the worktree regardless, logging the orphaned
       // branch record for later reconciliation.
-      const client = await createCardsClient(logger);
+      const client = await createCardsClient(logger, { retryOnNetworkError: false });
       if (client === null) {
         logger.warn('WorktreeRemove: Cards API unavailable; removing worktree without unregistering branch', {
           event: 'WorktreeRemove',
@@ -95,15 +105,14 @@ export default worktreeRemoveHook({}, async (input, { logger }) => {
         try {
           await removeWorktreeForCard(client, input.worktree_path, { cardId, branchName });
         } catch (error) {
-          if (error instanceof WorktreeScopeError) {
-            throw error;
-          }
-          // removeWorktreeForCard removes the worktree first, then unregisters
-          // the branch. If the worktree is gone, only the branch unregister
-          // failed — log and continue (fail-open on the recoverable orphan). If
-          // the worktree is still on disk, the removal itself failed; rethrow
-          // so the outer handler logs it under 'WorktreeRemove failed'.
-          if (await worktreePathExists(input.worktree_path)) {
+          // Classify by phase via error type, not by path existence. A
+          // BranchUnregisterError means the worktree was already torn down and
+          // only the recoverable branch record is orphaned — fail open. Any
+          // other error (including WorktreeScopeError) is a teardown failure
+          // and follows the hook's existing rethrow stance, surfacing under the
+          // outer 'WorktreeRemove failed' handler (WorktreeScopeError rethrows
+          // all the way out).
+          if (!(error instanceof BranchUnregisterError)) {
             throw error;
           }
           logger.warn('WorktreeRemove: branch unregister failed; worktree removed', {

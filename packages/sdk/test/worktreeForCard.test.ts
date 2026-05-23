@@ -12,7 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardsClient } from '../src/client/cardsClient.js';
 import type { EarlyWorktreeResult } from '../src/worktree.js';
-import { createWorktreeForCard, removeWorktreeForCard } from '../src/worktreeForCard.js';
+import { BranchUnregisterError, createWorktreeForCard, removeWorktreeForCard } from '../src/worktreeForCard.js';
 
 // ---------------------------------------------------------------------------
 // Module-level fake for the worktree primitives
@@ -203,6 +203,76 @@ describe('createWorktreeForCard', () => {
 
     await expect(createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS)).rejects.toThrow('API failure');
   });
+
+  it('rolls back the worktree and rethrows the original error when addBranch rejects', async () => {
+    // Give createWorktree a settle that resolves so the test does not depend on
+    // the never-resolving default; the rollback path must not await it anyway.
+    vi.mocked(createWorktree).mockResolvedValue({
+      path: EARLY_PATH,
+      settle: Promise.resolve(undefined) as unknown as EarlyWorktreeResult['settle']
+    });
+
+    const client = makeClient({
+      addBranch: async () => {
+        throw new Error('API failure');
+      }
+    });
+
+    await expect(createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS)).rejects.toThrow('API failure');
+
+    // The just-created worktree is rolled back so no orphan remains on disk.
+    expect(removeWorktree).toHaveBeenCalledOnce();
+    expect(removeWorktree).toHaveBeenCalledWith(EARLY_PATH);
+  });
+
+  it('does not leave settle as an unhandled rejection on the addBranch-rejection path', async () => {
+    // A settle that REJECTS after the orchestrator has already failed and
+    // returned must not surface as an unhandledRejection. The orchestrator
+    // attaches a handler to settle on the rollback path.
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      const settle = Promise.reject(new Error('settle blew up')) as EarlyWorktreeResult['settle'];
+      vi.mocked(createWorktree).mockResolvedValue({ path: EARLY_PATH, settle });
+
+      const client = makeClient({
+        addBranch: async () => {
+          throw new Error('API failure');
+        }
+      });
+
+      await expect(createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS)).rejects.toThrow('API failure');
+
+      // Let any microtasks / unhandledRejection callbacks flush.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(unhandled).toHaveLength(0);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
+  it('reports a combined error when rollback also fails after addBranch rejects', async () => {
+    vi.mocked(createWorktree).mockResolvedValue({
+      path: EARLY_PATH,
+      settle: Promise.resolve(undefined) as unknown as EarlyWorktreeResult['settle']
+    });
+    vi.mocked(removeWorktree).mockRejectedValue(new Error('rollback boom'));
+
+    const client = makeClient({
+      addBranch: async () => {
+        throw new Error('API failure');
+      }
+    });
+
+    await expect(createWorktreeForCard(client, 'cards/main-95/1', BASE_OPTIONS)).rejects.toThrow(
+      /addBranch=API failure; rollback=rollback boom/
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -267,8 +337,9 @@ describe('removeWorktreeForCard', () => {
     expect(callOrder).toEqual(['removeWorktree', 'removeBranch']);
   });
 
-  it('propagates removeWorktree rejection before calling removeBranch', async () => {
-    vi.mocked(removeWorktree).mockRejectedValue(new Error('disk error'));
+  it('propagates the teardown failure untouched (not wrapped) when removeWorktree rejects', async () => {
+    const diskError = new Error('disk error');
+    vi.mocked(removeWorktree).mockRejectedValue(diskError);
     const removeBranchArgs: Parameters<CardsClient['removeBranch']>[] = [];
     const client = makeClient({
       removeBranch: async (...args) => {
@@ -276,17 +347,27 @@ describe('removeWorktreeForCard', () => {
       }
     });
 
-    await expect(removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS)).rejects.toThrow('disk error');
+    // The teardown-phase error must propagate as-is so callers can apply their
+    // teardown stance to it; it is NOT a BranchUnregisterError.
+    await expect(removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS)).rejects.toBe(diskError);
     expect(removeBranchArgs).toHaveLength(0);
   });
 
-  it('propagates removeBranch rejection', async () => {
+  it('wraps a removeBranch failure in BranchUnregisterError carrying the cause', async () => {
+    const apiError = new Error('API remove failure');
     const client = makeClient({
       removeBranch: async () => {
-        throw new Error('API remove failure');
+        throw apiError;
       }
     });
 
-    await expect(removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS)).rejects.toThrow('API remove failure');
+    await expect(removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS)).rejects.toBeInstanceOf(
+      BranchUnregisterError
+    );
+    // The original cause is preserved for diagnostics.
+    await removeWorktreeForCard(client, EARLY_PATH, REMOVE_OPTIONS).catch((error: unknown) => {
+      expect(error).toBeInstanceOf(BranchUnregisterError);
+      expect((error as BranchUnregisterError).cause).toBe(apiError);
+    });
   });
 });

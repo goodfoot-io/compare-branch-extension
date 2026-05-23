@@ -20,7 +20,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { removeWorktree } from '@cards/sdk/worktree';
-import { removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { BranchUnregisterError, removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
 
 const execFileAsync = promisify(execFile);
 
@@ -64,39 +64,46 @@ async function readWorktreeCardId(dir: string): Promise<string | undefined> {
 }
 
 /**
- * Reports whether a path still exists on disk. Used to distinguish a failed
- * worktree removal (path still present) from a failed branch unregister (path
- * already gone) in the fail-open handler.
+ * Resolves the registered branch name for a worktree from its current HEAD.
  *
- * @param targetPath - Absolute path to check.
- * @returns `true` if the path exists, `false` otherwise.
+ * Returns `undefined` when HEAD is detached (`--abbrev-ref` yields the literal
+ * `"HEAD"`): the branch name cannot then be confidently matched against the
+ * registered record, so the caller skips the branch unregister rather than
+ * removing the wrong record or claiming success on an unreliable name.
+ *
+ * @param dir - Absolute path to the worktree directory.
+ * @returns The branch name, or `undefined` when HEAD is detached.
  */
-async function pathExists(targetPath: string): Promise<boolean> {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
+async function resolveWorktreeBranch(dir: string): Promise<string | undefined> {
+  const { stdout } = await execFileAsync('git', ['-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD']);
+  const branch = stdout.trim();
+  return branch === 'HEAD' ? undefined : branch;
 }
 
 async function main(): Promise<void> {
   // Resolve the card binding from disk before removal: the marker yields the
   // cardId and HEAD yields the exact registered branch name (spike S2).
   const cardId = await readWorktreeCardId(worktreePath!);
+  const branchName = cardId === undefined ? undefined : await resolveWorktreeBranch(worktreePath!);
 
-  if (cardId === undefined) {
-    // Unbound worktree — no branch record to unregister.
+  if (cardId === undefined || branchName === undefined) {
+    // Unbound worktree (no marker) or detached HEAD (branch name unreliable):
+    // no branch record can be confidently unregistered. Tear down the worktree
+    // from disk; do not silently claim a branch was unregistered.
+    if (cardId !== undefined) {
+      process.stderr.write(
+        'Warning: worktree HEAD is detached; branch record could not be resolved, removing worktree only\n'
+      );
+    }
     await removeWorktree(worktreePath!);
     return;
   }
 
-  const { stdout } = await execFileAsync('git', ['-C', worktreePath!, 'rev-parse', '--abbrev-ref', 'HEAD']);
-  const branchName = stdout.trim();
-
   // Fail-open: a missing client or a failed removeBranch must never fail the
   // command. Remove the worktree regardless, logging the orphaned record.
-  const client = await createCardsClient();
+  // retryOnNetworkError is disabled so an unreachable server fails fast after
+  // the disk teardown rather than hanging the command forever.
+  const client = await createCardsClient(undefined, { retryOnNetworkError: false });
   if (client === null) {
     process.stderr.write('Warning: Cards API unavailable; removing worktree without unregistering branch\n');
     await removeWorktree(worktreePath!);
@@ -106,11 +113,11 @@ async function main(): Promise<void> {
   try {
     await removeWorktreeForCard(client, worktreePath!, { cardId, branchName });
   } catch (error) {
-    // removeWorktreeForCard removes the worktree first, then unregisters the
-    // branch. If the worktree is gone, only the branch unregister failed — log
-    // and exit 0 (recoverable orphan). If it is still on disk, the removal
-    // failed; rethrow so main()'s catch exits 2.
-    if (await pathExists(worktreePath!)) {
+    // Classify by phase via error type, not by path existence. A
+    // BranchUnregisterError means the worktree was torn down and only the
+    // recoverable branch record is orphaned — log and exit 0. Any other error
+    // is a teardown failure; rethrow so main()'s catch exits 2.
+    if (!(error instanceof BranchUnregisterError)) {
       throw error;
     }
     process.stderr.write(

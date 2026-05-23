@@ -97,6 +97,14 @@ if (cardId !== undefined && cardId.length === 0) {
   process.exit(2);
 }
 
+// --parent-branch only has meaning for a card-bound worktree (it is recorded in
+// the branch record). Supplying it without --card-id is a usage error rather
+// than a silent no-op.
+if (parentBranchArg !== undefined && cardId === undefined) {
+  process.stderr.write('Error: --parent-branch requires --card-id\n');
+  process.exit(2);
+}
+
 /**
  * Resolves the parent branch for a card-bound worktree: the explicit
  * `--parent-branch` value when given, otherwise the source repo's current
@@ -109,7 +117,17 @@ async function resolveParentBranch(): Promise<string> {
     return parentBranchArg;
   }
   const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
-  return stdout.trim();
+  const branch = stdout.trim();
+  // In a detached-HEAD source repo `--abbrev-ref HEAD` returns the literal
+  // "HEAD", which is not a valid parent branch. Fail closed with guidance
+  // rather than recording corrupt lineage metadata.
+  if (branch === 'HEAD') {
+    throw new Error(
+      'Source repository is in detached-HEAD state; cannot derive a parent branch. ' +
+        'Pass --parent-branch <name> explicitly.'
+    );
+  }
+  return branch;
 }
 
 async function main(): Promise<void> {
@@ -117,8 +135,10 @@ async function main(): Promise<void> {
     const compiledScriptPaths = await buildCompiledScriptPaths();
 
     // Fail-closed: a card-bound worktree must never exist on disk without a
-    // branch record. Exit 2 if the API cannot be discovered.
-    const client = await createCardsClient();
+    // branch record. Exit 2 if the API cannot be discovered. retryOnNetworkError
+    // is disabled so an unreachable/stale-discovery server surfaces promptly
+    // instead of retrying forever after the worktree already exists on disk.
+    const client = await createCardsClient(undefined, { retryOnNetworkError: false });
     if (client === null) {
       process.stderr.write('Error: Cards API unavailable; cannot register card-bound worktree\n');
       process.exit(2);

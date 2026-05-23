@@ -24,9 +24,15 @@ vi.mock('@cards/sdk/worktree', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/sdk/worktree-for-card', () => ({
-  removeWorktreeForCard: vi.fn()
-}));
+vi.mock('@cards/sdk/worktree-for-card', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/sdk/worktree-for-card')>();
+  return {
+    // Keep the real BranchUnregisterError so the hook's instanceof phase
+    // classification works against the same class the tests construct.
+    BranchUnregisterError: actual.BranchUnregisterError,
+    removeWorktreeForCard: vi.fn()
+  };
+});
 
 vi.mock('@cards/sdk/client/discovery', () => ({
   createCardsClient: vi.fn()
@@ -34,7 +40,7 @@ vi.mock('@cards/sdk/client/discovery', () => ({
 
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { removeWorktree, WorktreeScopeError } from '@cards/sdk/worktree';
-import { removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
+import { BranchUnregisterError, removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import hookFn from '../src/worktree-remove.js';
 
 /** A non-null fake client; the hook only checks for null. */
@@ -183,15 +189,22 @@ describe('WorktreeRemove hook', () => {
     );
   });
 
-  it('logs but does not throw when branch unregister fails after the worktree is removed (fail-open)', async () => {
+  it('acquires the client with retryOnNetworkError disabled (fail-fast) for a bound worktree', async () => {
     resetMocks();
     const worktree_path = await makeCardBoundWorktree('main-77', 'cards/main-77/3');
-    // Simulate removeWorktreeForCard removing the worktree, then failing on the
-    // branch unregister: delete the dir, then reject.
-    mockRemoveWorktreeForCard.mockImplementation(async () => {
-      await fs.rm(worktree_path, { recursive: true, force: true });
-      throw new Error('removeBranch failed');
-    });
+    mockRemoveWorktreeForCard.mockResolvedValue(undefined);
+
+    await hookFn({ ...baseInput, worktree_path }, { logger: mockLogger as unknown as Logger });
+
+    expect(mockCreateCardsClient).toHaveBeenCalledWith(mockLogger, { retryOnNetworkError: false });
+  });
+
+  it('fails open (logs, does not throw) when the unregister phase fails (BranchUnregisterError)', async () => {
+    resetMocks();
+    const worktree_path = await makeCardBoundWorktree('main-77', 'cards/main-77/3');
+    // The unregister phase failed: the worktree was already torn down, only the
+    // branch record is orphaned. Classified by error type, not path existence.
+    mockRemoveWorktreeForCard.mockRejectedValue(new BranchUnregisterError(new Error('removeBranch failed')));
 
     await expect(
       hookFn({ ...baseInput, worktree_path }, { logger: mockLogger as unknown as Logger })
@@ -203,18 +216,56 @@ describe('WorktreeRemove hook', () => {
     );
   });
 
-  it('rethrows when removeWorktreeForCard fails and the worktree is still on disk', async () => {
+  it('treats a non-BranchUnregisterError as a teardown failure (logged under WorktreeRemove failed)', async () => {
     resetMocks();
     const worktree_path = await makeCardBoundWorktree('main-77', 'cards/main-77/3');
-    // Worktree NOT removed (still on disk), then reject → real removal failure.
-    mockRemoveWorktreeForCard.mockRejectedValue(new Error('git worktree remove failed'));
+    // A teardown-phase failure (e.g. git worktree prune failing AFTER the dir
+    // was deleted) is NOT wrapped in BranchUnregisterError. The old heuristic
+    // would have downgraded it to fail-open because the path is gone; type
+    // classification correctly keeps it a teardown failure.
+    mockRemoveWorktreeForCard.mockImplementation(async () => {
+      await fs.rm(worktree_path, { recursive: true, force: true });
+      throw new Error('git worktree prune failed');
+    });
 
     await hookFn({ ...baseInput, worktree_path }, { logger: mockLogger as unknown as Logger });
 
-    // The outer fail-open handler logs it under 'WorktreeRemove failed'.
     expect(mockLogger.warn).toHaveBeenCalledWith(
       'WorktreeRemove failed',
-      expect.objectContaining({ error: expect.stringContaining('git worktree remove failed') })
+      expect.objectContaining({ error: expect.stringContaining('git worktree prune failed') })
+    );
+    // It must NOT have been downgraded to the fail-open branch-unregister log.
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining('branch unregister failed'),
+      expect.anything()
+    );
+  });
+
+  it('rethrows WorktreeScopeError from the unregister-routing path (still a teardown failure)', async () => {
+    resetMocks();
+    const worktree_path = await makeCardBoundWorktree('main-77', 'cards/main-77/3');
+    mockRemoveWorktreeForCard.mockRejectedValue(new WorktreeScopeError('path outside worktrees root'));
+
+    await expect(
+      hookFn({ ...baseInput, worktree_path }, { logger: mockLogger as unknown as Logger })
+    ).rejects.toBeInstanceOf(WorktreeScopeError);
+  });
+
+  it('removes the worktree only (no branch unregister) when HEAD is detached', async () => {
+    resetMocks();
+    const worktree_path = await makeCardBoundWorktree('main-77', 'cards/main-77/3');
+    // Detach HEAD so rev-parse --abbrev-ref yields the literal "HEAD".
+    const sha = execFileSync('git', ['-C', worktree_path, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    execFileSync('git', ['-C', worktree_path, 'checkout', '-q', '--detach', sha]);
+    mockRemoveWorktree.mockResolvedValue(undefined);
+
+    await hookFn({ ...baseInput, worktree_path }, { logger: mockLogger as unknown as Logger });
+
+    expect(mockRemoveWorktreeForCard).not.toHaveBeenCalled();
+    expect(mockRemoveWorktree).toHaveBeenCalledWith(worktree_path);
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('HEAD is detached'),
+      expect.objectContaining({ cardId: 'main-77' })
     );
   });
 });

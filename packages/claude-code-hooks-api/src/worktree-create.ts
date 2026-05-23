@@ -37,7 +37,16 @@ const execFileAsync = promisify(execFile);
  */
 async function resolveCurrentBranch(cwd: string): Promise<string> {
   const { stdout } = await execFileAsync('git', ['-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD']);
-  return stdout.trim();
+  const branch = stdout.trim();
+  // In a detached-HEAD source repo `--abbrev-ref HEAD` returns the literal
+  // "HEAD". Recording that as the parent branch corrupts lineage metadata, so
+  // fail closed (the create path aborts launch) rather than write a bogus value.
+  if (branch === 'HEAD') {
+    throw new Error(
+      'WorktreeCreate: source repository is in detached-HEAD state; cannot derive a parent branch for the card-bound worktree'
+    );
+  }
+  return branch;
 }
 
 export default worktreeCreateHook({}, async (input, { logger }) => {
@@ -91,7 +100,10 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
     // Fail-closed: a card-bound worktree must never exist on disk without a
     // branch record. If the API cannot be discovered, abort launch rather than
     // create an unregistered worktree.
-    const client = await createCardsClient(logger);
+    // retryOnNetworkError is disabled so an unreachable/stale-discovery server
+    // surfaces promptly (fail-closed throw) instead of retrying forever after
+    // the worktree already exists on disk.
+    const client = await createCardsClient(logger, { retryOnNetworkError: false });
     if (client === null) {
       throw new Error('WorktreeCreate: Cards API unavailable; cannot register card-bound worktree');
     }

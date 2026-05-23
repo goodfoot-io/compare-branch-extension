@@ -222,6 +222,25 @@ describe('WorktreeCreate hook', () => {
     );
   });
 
+  it('throws (fail-closed) on detached-HEAD source, recording no bogus "HEAD" parentBranch', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    // Detached HEAD: `git rev-parse --abbrev-ref HEAD` yields the literal "HEAD".
+    mockExecFileStdout = 'HEAD\n';
+
+    await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow('detached-HEAD');
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+  });
+
+  it('acquires the client with retryOnNetworkError disabled (fail-fast on unreachable server)', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockCreateCardsClient).toHaveBeenCalledWith(mockLogger, { retryOnNetworkError: false });
+  });
+
   it('throws (fail-closed) when the Cards client cannot be discovered for a card-bound worktree', async () => {
     process.env['CARD_ID'] = 'main-42';
     mockCreateCardsClient.mockResolvedValue(null);

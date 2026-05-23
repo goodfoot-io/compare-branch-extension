@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { CardsApiInfo, SessionBaseline } from '../protocol/index.js';
 import { CardsClient } from './cardsClient.js';
+import type { CardsClientOptions } from './types/client.js';
 
 /**
  * Minimal logger accepted by discovery functions.
@@ -84,15 +85,27 @@ export async function discoverApiInfo(logger?: DiscoveryLogger): Promise<CardsAp
  * Reads `~/.cards/cards-api.json`, extracts host/port/accessToken, and
  * returns a configured client instance. Returns `null` when discovery fails.
  *
+ * Accepts an optional `options` object whose fields are merged into the
+ * constructed {@link CardsClient} options, overriding the discovered defaults
+ * (`baseUrl`/`accessToken`). This lets short-lived callers opt into
+ * fail-fast behavior — e.g. `{ retryOnNetworkError: false }` so an unreachable
+ * server surfaces a {@link NetworkError} promptly instead of retrying forever.
+ *
  * @param logger - Optional logger for debug output.
+ * @param options - Optional CardsClient option overrides (additive; merged
+ *   over the discovered `baseUrl`/`accessToken`).
  * @returns A configured CardsClient, or null if discovery fails.
  */
-export async function createCardsClient(logger?: DiscoveryLogger): Promise<CardsClient | null> {
+export async function createCardsClient(
+  logger?: DiscoveryLogger,
+  options?: Partial<CardsClientOptions>
+): Promise<CardsClient | null> {
   const info = await discoverApiInfo(logger);
   if (!info) return null;
 
   return new CardsClient({
     baseUrl: `http://${info.host}:${info.port}`,
-    accessToken: info.accessToken
+    accessToken: info.accessToken,
+    ...options
   });
 }

@@ -302,6 +302,130 @@ describe('remove-worktree CLI', () => {
     await expect(fs.access(worktreePath)).rejects.toMatchObject({ code: 'ENOENT' });
   }, 30000);
 
+  it('exits 0 promptly (no hang) when the discovery server is unreachable for a bound worktree', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    const worktreesDir = path.join(tmpBase, 'worktrees');
+    await fs.mkdir(repoDir);
+    await fs.mkdir(worktreesDir);
+    initGitRepo(repoDir);
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    const stub = await startStubApi(discoveryPath);
+
+    const createOut = await runCreateWorktreeAsync(['--card-id', 'main-88', 'cards/main-88/1'], repoDir, {
+      CARDS_WORKTREES_DIR: worktreesDir,
+      EXTENSION_PATH: extDir,
+      CARDS_DISCOVERY_PATH: discoveryPath
+    });
+    const worktreePath = (JSON.parse(createOut.trim()) as { worktree: string }).worktree;
+
+    // Take the real server down but leave a WELL-FORMED discovery file pointing
+    // at a dead port: createCardsClient returns a client (discovery succeeds),
+    // and removeBranch hits a network error. retryOnNetworkError is disabled, so
+    // the command must fail open promptly instead of retrying forever.
+    await stub.stop();
+    await fs.writeFile(
+      discoveryPath,
+      JSON.stringify({
+        host: '127.0.0.1',
+        port: 1, // reserved/unreachable
+        accessToken: 'test-token',
+        pid: process.pid,
+        startedAt: new Date().toISOString()
+      })
+    );
+
+    const startedAt = Date.now();
+    const result = await runRemoveWorktreeAsync([worktreePath], repoDir, {
+      CARDS_WORKTREES_DIR: worktreesDir,
+      CARDS_DISCOVERY_PATH: discoveryPath
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain('branch unregister failed');
+    await expect(fs.access(worktreePath)).rejects.toMatchObject({ code: 'ENOENT' });
+    // Bounded: must not hang on the forever-retry path (cap is 30s/backoff).
+    expect(elapsedMs).toBeLessThan(20000);
+  }, 30000);
+
+  it('exits 0 (fail-open) when the API returns an error for the branch unregister', async () => {
+    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    const repoDir = path.join(tmpBase, 'repo');
+    const worktreesDir = path.join(tmpBase, 'worktrees');
+    await fs.mkdir(repoDir);
+    await fs.mkdir(worktreesDir);
+    initGitRepo(repoDir);
+
+    const extDir = path.join(tmpBase, 'ext');
+    const gitHooksDir = path.join(extDir, 'dist', 'git-hooks');
+    await fs.mkdir(gitHooksDir, { recursive: true });
+    for (const name of ['pre-commit', 'post-commit', 'post-rewrite']) {
+      await fs.writeFile(path.join(gitHooksDir, `${name}.mjs`), `// ${name} stub\n`);
+    }
+
+    const discoveryPath = path.join(tmpBase, 'cards-api.json');
+    const stub = await startStubApi(discoveryPath);
+    stubStop = stub.stop;
+
+    const createOut = await runCreateWorktreeAsync(['--card-id', 'main-88', 'cards/main-88/1'], repoDir, {
+      CARDS_WORKTREES_DIR: worktreesDir,
+      EXTENSION_PATH: extDir,
+      CARDS_DISCOVERY_PATH: discoveryPath
+    });
+    const worktreePath = (JSON.parse(createOut.trim()) as { worktree: string }).worktree;
+
+    // Replace the stub with one that returns 500 for the DELETE, so removeBranch
+    // throws an ApiError (not a network error) — the unregister phase fails but
+    // disk teardown already succeeded. The CLI classifies this as a
+    // BranchUnregisterError and exits 0 (fail-open), not as a teardown failure.
+    await stub.stop();
+    stubStop = undefined;
+    const errServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+      if (req.method === 'DELETE') {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'boom', code: 'INTERNAL' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{}');
+    });
+    await new Promise<void>((resolve) => errServer.listen(0, '127.0.0.1', resolve));
+    const addr = errServer.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    await fs.writeFile(
+      discoveryPath,
+      JSON.stringify({
+        host: '127.0.0.1',
+        port,
+        accessToken: 'test-token',
+        pid: process.pid,
+        startedAt: new Date().toISOString()
+      })
+    );
+
+    try {
+      const result = await runRemoveWorktreeAsync([worktreePath], repoDir, {
+        CARDS_WORKTREES_DIR: worktreesDir,
+        CARDS_DISCOVERY_PATH: discoveryPath
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toContain('branch unregister failed');
+      await expect(fs.access(worktreePath)).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      errServer.closeAllConnections();
+      await new Promise<void>((resolve) => errServer.close(() => resolve()));
+    }
+  }, 30000);
+
   it('exits 2 when path is outside the worktrees root', async () => {
     tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
     const worktreesDir = path.join(tmpBase, 'worktrees');
