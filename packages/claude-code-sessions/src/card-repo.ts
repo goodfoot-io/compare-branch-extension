@@ -201,6 +201,21 @@ export function readSessionCardId(sessionId: string): string | null {
   }
 }
 
+/**
+ * Removes the session's .card file.
+ * No-op if file doesn't exist.
+ *
+ * @param sessionId - Session whose .card file should be deleted.
+ * @throws Error when deleting the file fails for reasons other than `ENOENT`.
+ */
+export function removeSessionCardId(sessionId: string): void {
+  try {
+    unlinkSync(getSessionCardIdPath(sessionId));
+  } catch (error) {
+    if (!hasErrnoCode(error, 'ENOENT')) throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Per-session route-nudge marker
 // ---------------------------------------------------------------------------

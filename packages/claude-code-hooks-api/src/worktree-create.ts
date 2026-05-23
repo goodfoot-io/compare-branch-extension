@@ -11,7 +11,7 @@
  */
 
 import * as path from 'node:path';
-import { resolveExtensionPath, resolveSessionId } from '@cards/sdk';
+import { resolveExtensionPath } from '@cards/sdk';
 import { createWorktree } from '@cards/sdk/worktree';
 import { readSessionCardId } from '@cards/sessions/card-repo';
 import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
@@ -21,12 +21,28 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
 
   // Explicit CARD_ID always wins. Only when it is unset/empty do we fall back
   // to the card the current session created (bound at `card create` time),
-  // keyed by the same resolveSessionId() the write side used.
+  // keyed by input.session_id — the same UUID the write side stored under
+  // (session-start sets CARDS_SESSION_ID = input.session_id, so the CLI's
+  // resolveSessionId() and this key converge). Mirrors the per-session keying
+  // convention of the other hooks (stop, post-tool-use, session-end).
   let cardId = process.env['CARD_ID'] || undefined;
   if (cardId === undefined) {
-    const sessionId = await resolveSessionId();
-    if (sessionId !== null) {
-      cardId = readSessionCardId(sessionId) ?? undefined;
+    const sessionId = input.session_id?.trim() || undefined;
+    if (sessionId !== undefined) {
+      try {
+        // readSessionCardId is fail-closed (rethrows non-ENOENT) and may
+        // return '' for an empty/whitespace .card file. Any failure to
+        // resolve the binding degrades to no attribution rather than aborting
+        // worktree creation.
+        cardId = readSessionCardId(sessionId)?.trim() || undefined;
+      } catch (error) {
+        logger.warn('WorktreeCreate session-binding lookup failed; creating unattributed worktree', {
+          event: 'WorktreeCreate',
+          sessionId,
+          error
+        });
+        cardId = undefined;
+      }
     }
   }
 

@@ -20,6 +20,7 @@ import {
   markSessionRouteNudgeFired,
   readSessionCardId,
   readSessionHeadSha,
+  removeSessionCardId,
   removeSessionCsv,
   removeSessionHeadSha,
   removeSessionRouteNudge,
@@ -263,6 +264,26 @@ describe('card-repo', () => {
     it('throws on read error that is not ENOENT', () => {
       mkdirSync(join(cardRepoCommitsDir, `${sessionId}.card`), { recursive: true });
       expect(() => readSessionCardId(sessionId)).toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // removeSessionCardId
+  // -------------------------------------------------------------------------
+
+  describe('removeSessionCardId', () => {
+    it('deletes .card file', () => {
+      writeSessionCardId(sessionId, 'main-42');
+
+      const cardPath = join(cardRepoCommitsDir, `${sessionId}.card`);
+      expect(existsSync(cardPath)).toBe(true);
+
+      removeSessionCardId(sessionId);
+      expect(existsSync(cardPath)).toBe(false);
+    });
+
+    it('no-ops when .card file is absent', () => {
+      expect(() => removeSessionCardId('nonexistent-session')).not.toThrow();
     });
   });
 

@@ -7,7 +7,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
-import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
+import {
+  removeSessionCardId,
+  removeSessionCsv,
+  removeSessionHeadSha,
+  removeSessionRouteNudge
+} from '@cards/sessions/card-repo';
 import { Logger } from '@goodfoot/claude-code-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import hook from '../src/session-end.js';
@@ -22,6 +27,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 vi.mock('@cards/sessions/card-repo', () => ({
+  removeSessionCardId: vi.fn(),
   removeSessionCsv: vi.fn(),
   removeSessionHeadSha: vi.fn(),
   removeSessionRouteNudge: vi.fn()
@@ -33,6 +39,7 @@ const mockWriteFile = vi.mocked(writeFile);
 const mockRemoveSessionCsv = vi.mocked(removeSessionCsv);
 const mockRemoveSessionHeadSha = vi.mocked(removeSessionHeadSha);
 const mockRemoveSessionRouteNudge = vi.mocked(removeSessionRouteNudge);
+const mockRemoveSessionCardId = vi.mocked(removeSessionCardId);
 
 const logger = new Logger();
 
@@ -139,6 +146,12 @@ describe('SessionEnd Hook', () => {
         await hook(baseInput, context);
 
         expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith('sess-abc');
+      });
+
+      it('calls removeSessionCardId with session ID', async () => {
+        await hook(baseInput, context);
+
+        expect(mockRemoveSessionCardId).toHaveBeenCalledWith('sess-abc');
       });
 
       it('handles cleanup failure gracefully — still returns null', async () => {
