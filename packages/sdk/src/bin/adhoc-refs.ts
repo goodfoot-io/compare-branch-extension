@@ -289,9 +289,16 @@ export async function runReconciliationSweep(logger: AdhocRefsLogger): Promise<v
  *
  * Bounded and synchronous-friendly: it touches only the local filesystem and a
  * `git commit` per stranded card. It never touches a card with a live monitor
- * and never spawns a long-lived process. Action presence does not need to be
- * consulted here: a live action keeps the card legitimately `active` and writes
- * no ad-hoc ref, so it has no ref directory for the sweep to act on.
+ * and never spawns a long-lived process.
+ *
+ * Action-aware: before settling a card whose refs are all dead it consults
+ * {@link liveActionPresent} (the same fail-closed guard the teardown path
+ * uses). A STALE dead ad-hoc ref (from a prior crashed monitor) can sit in the
+ * dir of a card a live action later operates on, and the sweep runs in every
+ * session — including an action's own session-start. Skipping the settle while
+ * an action is live prevents a mid-action flip racing the wrapper, and lets a
+ * teardown-deferred ref (retained on purpose) settle on a later sweep once the
+ * action clears.
  *
  * @param cardRepoRoot - Directory containing per-card repositories
  *   (`reposPath`); each stranded card's repo is `join(cardRepoRoot, cardId)`.
@@ -353,6 +360,19 @@ export async function reconcileStrandedActiveCards(
 
     // A live monitor still owns this card — leave it and its refs untouched.
     if (anyLive) continue;
+
+    // All monitors are dead, but a STALE dead ref can sit in this card's dir
+    // for a card a live action later operates on (and the sweep runs in every
+    // session, including an action's own session-start). Consult the same
+    // fail-closed action-presence guard the teardown path uses: if a live
+    // action is present, SKIP this card — leave its dead ref in place for a
+    // later sweep to settle once the action clears. This prevents flipping the
+    // card to `needs_review` mid-action (a double write racing the wrapper),
+    // and is what lets a teardown-deferred-and-retained ref eventually settle.
+    if (await liveActionPresent(logger)) {
+      logger.warn('reconcile: live action present — deferring settle, retaining refs', { cardId });
+      continue;
+    }
 
     // All monitors are dead: settle the card (guarded), then drop stale refs.
     try {

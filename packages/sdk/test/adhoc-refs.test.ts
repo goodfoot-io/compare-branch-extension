@@ -110,6 +110,14 @@ describe('adhoc-refs CARDS_HOME-isolated suite', () => {
       await writeFile(join(cardsHome, 'a-2147483646-deadbeef.sock'), '');
       expect(await liveActionPresent(noopLogger)).toBe(false);
     });
+
+    it('returns false (not fail-closed) when the cards dir does not exist', async () => {
+      // ENOENT means there is no actions dir → there are no actions, not an
+      // unexpected error. Removing the isolated CARDS_HOME makes the readdir
+      // raise ENOENT.
+      await rm(cardsHome, { recursive: true, force: true });
+      expect(await liveActionPresent(noopLogger)).toBe(false);
+    });
   });
 
   describe('reconcileStrandedActiveCards', () => {
@@ -180,6 +188,56 @@ describe('adhoc-refs CARDS_HOME-isolated suite', () => {
 
     it('no-ops when reposRoot is null', async () => {
       await expect(reconcileStrandedActiveCards(null, noopLogger)).resolves.toBeUndefined();
+    });
+
+    it('does not settle a card with a dead ref while a live action is present', async () => {
+      const cardId = 'main-1';
+      const repoDir = await seedCardRepo(cardId, 'active');
+      await mkdir(adhocActiveDir(cardId), { recursive: true });
+      const deadRef = join(adhocActiveDir(cardId), 'dead-session.ref');
+      await writeFile(deadRef, serializeRef(2147483646, '12345'));
+
+      // A live action socket owns the card's lifecycle; the sweep must skip it.
+      const action = spawnSleep();
+      try {
+        await writeFile(join(cardsHome, `a-${action.pid}-deadbeef.sock`), '');
+
+        await reconcileStrandedActiveCards(reposRoot, noopLogger);
+
+        const meta = JSON.parse(await readFile(join(repoDir, 'CARD.meta.json'), 'utf-8')) as { status?: string };
+        // No mid-action flip; the dead ref is retained for a later sweep.
+        expect(meta.status).toBe('active');
+        await expect(access(deadRef)).resolves.toBeUndefined();
+      } finally {
+        action.kill('SIGKILL');
+      }
+    });
+
+    it('settles a deferred-and-retained dead ref on a later sweep once the action clears', async () => {
+      const cardId = 'main-1';
+      const repoDir = await seedCardRepo(cardId, 'active');
+      await mkdir(adhocActiveDir(cardId), { recursive: true });
+      const deadRef = join(adhocActiveDir(cardId), 'dead-session.ref');
+      await writeFile(deadRef, serializeRef(2147483646, '12345'));
+
+      // First sweep while the action is live: deferred, ref retained.
+      const action = spawnSleep();
+      const actionSocket = join(cardsHome, `a-${action.pid}-deadbeef.sock`);
+      await writeFile(actionSocket, '');
+      await reconcileStrandedActiveCards(reposRoot, noopLogger);
+
+      let meta = JSON.parse(await readFile(join(repoDir, 'CARD.meta.json'), 'utf-8')) as { status?: string };
+      expect(meta.status).toBe('active');
+
+      // Action clears (process dies, socket gone). A later sweep settles it.
+      action.kill('SIGKILL');
+      await rm(actionSocket, { force: true });
+
+      await reconcileStrandedActiveCards(reposRoot, noopLogger);
+
+      meta = JSON.parse(await readFile(join(repoDir, 'CARD.meta.json'), 'utf-8')) as { status?: string };
+      expect(meta.status).toBe('needs_review');
+      await expect(access(deadRef)).rejects.toMatchObject({ code: 'ENOENT' });
     });
   });
 });
