@@ -122,7 +122,7 @@ card <card-id> watch
 card <card-id> watch "src/auth/**"
 card <card-id> watch "src/auth/**" "tests/auth/**"
 ```
-Blocks until the first eligible commit, outputs formatted commit details, attributes the commit to the current session, then exits 0. When unattributed commits already exist at invocation time, they are output immediately without subscribing. Optional glob patterns restrict output to commits where at least one changed file matches; multiple globs are OR-combined. Requires an active card session (`card attach` must have been called). Exits non-zero on connection failure or missing session.
+Blocks until the first eligible commit, outputs formatted commit details, attributes the commit to the current session, then exits 0. When unattributed commits already exist at invocation time, they are output immediately without subscribing. Optional glob patterns restrict output to commits where at least one changed file matches; multiple globs are OR-combined. Requires an active card session. Exits non-zero on connection failure or missing session.
 
 ## Card Repository
 

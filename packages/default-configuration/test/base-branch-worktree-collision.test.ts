@@ -6,14 +6,14 @@ import { flushMicrotasks } from '@cards/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * Reproduces a bug where `card attach` registers the base branch (e.g. `main`)
+ * Reproduces a bug where the base branch (e.g. `main`) is registered
  * into `branches.json`, and `resolveOrCreateWorktree` Step 2 then
  * attempts to create a worktree for that base branch — failing with
  * `fatal: 'main' is already checked out`.
  *
  * Step 2 iterates all branches with `exists=true` but does not distinguish
  * base branches (like `main`) from worktree branches (like `cards/card-123/1`).
- * When the base branch was registered by `card attach` without a worktree path,
+ * When the base branch was registered without a worktree path,
  * Step 2 incorrectly treats it as a branch needing worktree reattachment.
  *
  * @summary Regression test for base branch worktree collision in resolveOrCreateWorktree
@@ -148,13 +148,13 @@ function configureBranchesResponse(branches: BranchInfo[]): void {
 }
 
 describe('base branch worktree collision', () => {
-  it('should not call createWorktree for a base branch registered by card attach', async () => {
+  it('should not call createWorktree for a registered base branch', async () => {
     const { spawn } = await import('node:child_process');
     const { createWorktree } = await import('@cards/sdk/worktree');
 
-    // Simulate the state after `card attach` registers the base branch `main`.
+    // Simulate the state where the base branch `main` is registered.
     // getBranches returns `main` with exists=true but no worktree path —
-    // exactly what card attach writes for non-cards/* branches.
+    // exactly what gets written for non-cards/* branches.
     configureBranchesResponse([
       {
         name: 'main',
