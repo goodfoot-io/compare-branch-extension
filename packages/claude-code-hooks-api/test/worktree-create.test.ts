@@ -84,11 +84,9 @@ describe('WorktreeCreate hook', () => {
     const result = await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
     expect(result).not.toBeNull();
-    const stdout = (result as NonNullable<typeof result>).stdout;
-    expect((stdout as Record<string, unknown>)['hookSpecificOutput']).toMatchObject({
-      hookEventName: 'WorktreeCreate',
-      worktreePath
-    });
+    // WorktreeCreate is a command hook: the path is written to stdout as plain
+    // text via rawStdout so Claude Code can chdir into it; the JSON stdout is empty.
+    expect((result as { rawStdout: string }).rawStdout).toBe(worktreePath);
   });
 
   it('calls createWorktree with cardId from CARD_ID env when set', async () => {

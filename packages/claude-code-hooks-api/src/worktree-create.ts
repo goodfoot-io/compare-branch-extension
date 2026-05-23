@@ -53,10 +53,5 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
     result
   });
 
-  return worktreeCreateOutput({
-    hookSpecificOutput: {
-      hookEventName: 'WorktreeCreate',
-      worktreePath
-    }
-  } as Parameters<typeof worktreeCreateOutput>[0]);
+  return worktreeCreateOutput({ worktreePath });
 });
