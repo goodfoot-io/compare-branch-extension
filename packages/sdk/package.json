@@ -28,6 +28,8 @@
     "./card-summary": "./src/cardSummary.ts",
     "./search-utils": "./src/searchUtils.ts",
     "./bin/spawn-transcript-watcher": "./src/bin/spawn-transcript-watcher.ts",
+    "./bin/spawn-adhoc-cleanup": "./src/bin/spawn-adhoc-cleanup.ts",
+    "./bin/process-utils": "./src/bin/process-utils.ts",
     "./process-tree": "./src/process-tree.ts",
     "./session-resolver": "./src/session-resolver.ts"
   },
@@ -39,7 +41,7 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "build:scaffold": "mkdir -p ../../claude/cards/scaffold && cp -R src/scaffold/. ../../claude/cards/scaffold/",
-    "build": "rm -rf ../../claude/cards/bin dist && yarn build:scaffold && yarn build:cli && yarn build:card && yarn build:card-cli && yarn build:create-worktree && yarn build:create-worktree-cli && yarn build:remove-worktree && yarn build:remove-worktree-cli && yarn build:cards-extension && yarn build:cards-extension-cli && yarn build:cards-dev && yarn build:cards-dev-cli && yarn build:transcript-watcher && yarn build:transcript-watcher-cli",
+    "build": "rm -rf ../../claude/cards/bin dist && yarn build:scaffold && yarn build:cli && yarn build:card && yarn build:card-cli && yarn build:create-worktree && yarn build:create-worktree-cli && yarn build:remove-worktree && yarn build:remove-worktree-cli && yarn build:cards-extension && yarn build:cards-extension-cli && yarn build:cards-dev && yarn build:cards-dev-cli && yarn build:transcript-watcher && yarn build:transcript-watcher-cli && yarn build:adhoc-cleanup && yarn build:adhoc-cleanup-cli",
     "build:cli": "esbuild src/config/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external --banner:js='#!/usr/bin/env node'",
     "build:card": "mkdir -p ../../claude/cards/bin && esbuild src/bin/card.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../claude/cards/bin/card.mjs '--external:node:*'",
     "build:card-cli": "mkdir -p ../../claude/cards/bin && cp src/bin/card.sh ../../claude/cards/bin/card && chmod +x ../../claude/cards/bin/card && cp src/bin/card.cmd ../../claude/cards/bin/card.cmd",
@@ -53,6 +55,8 @@
     "build:cards-dev-cli": "mkdir -p ../../claude/cards/bin && cp src/bin/cards-dev-cli.sh ../../claude/cards/bin/cards-dev-cli && chmod +x ../../claude/cards/bin/cards-dev-cli && cp src/bin/cards-dev-cli.cmd ../../claude/cards/bin/cards-dev-cli.cmd",
     "build:transcript-watcher": "mkdir -p ../../claude/cards/bin && esbuild src/bin/transcript-watcher.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../claude/cards/bin/transcript-watcher.mjs '--external:node:*'",
     "build:transcript-watcher-cli": "mkdir -p ../../claude/cards/bin && cp src/bin/transcript-watcher.sh ../../claude/cards/bin/transcript-watcher && chmod +x ../../claude/cards/bin/transcript-watcher && cp src/bin/transcript-watcher.cmd ../../claude/cards/bin/transcript-watcher.cmd",
+    "build:adhoc-cleanup": "mkdir -p ../../claude/cards/bin && esbuild src/bin/adhoc-cleanup.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../claude/cards/bin/adhoc-cleanup.mjs '--external:node:*'",
+    "build:adhoc-cleanup-cli": "mkdir -p ../../claude/cards/bin && cp src/bin/adhoc-cleanup.sh ../../claude/cards/bin/adhoc-cleanup && chmod +x ../../claude/cards/bin/adhoc-cleanup && cp src/bin/adhoc-cleanup.cmd ../../claude/cards/bin/adhoc-cleanup.cmd",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l",
     "test": "vitest-unchanged"
   },

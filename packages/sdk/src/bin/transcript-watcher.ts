@@ -14,13 +14,16 @@
  * @summary Detached transcript watcher — filesystem-event-driven directory syncer
  */
 
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import type { FSWatcher } from 'node:fs';
 import { watch } from 'node:fs';
 import { access, appendFile, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { createWatcher } from '../config/watcher/createWatcher.js';
+import { isProcessAlive } from './process-utils.js';
+
+export { isProcessAlive } from './process-utils.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -72,39 +75,6 @@ export function parseArgs(argv: string[]): TranscriptWatcherArgs {
     cardId: argv[5]!,
     cardRepoPath: argv[6]!
   };
-}
-
-/**
- * Checks whether a process with the given PID is still alive.
- *
- * Uses `process.kill(pid, 0)` which sends no signal but checks existence.
- * Returns true when the process exists (including EPERM), false on ESRCH.
- *
- * @param pid - Process ID to check.
- * @returns True if the process is alive, false otherwise.
- */
-export function isProcessAlive(pid: number): boolean {
-  if (process.platform === 'win32') {
-    try {
-      const output = execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], {
-        encoding: 'utf-8'
-      });
-      return output.includes(String(pid));
-    } catch {
-      return false;
-    }
-  }
-
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
-      return false;
-    }
-    // EPERM means the process exists but we cannot signal it
-    return true;
-  }
 }
 
 /**
