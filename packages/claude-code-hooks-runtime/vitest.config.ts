@@ -8,6 +8,7 @@
 
 import { readFileSync } from 'node:fs';
 import { devNull } from 'node:os';
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 const textAssetPlugin = {
@@ -35,6 +36,15 @@ export default defineConfig({
     env: {
       // `os.devNull` is `/dev/null` on POSIX and `\\.\nul` on Windows.
       CARDS_HOOKS_LOG_FILE: devNull
+    }
+  },
+  resolve: {
+    alias: {
+      // Tests reach `@cards/vscode-logging` transitively, which would otherwise
+      // pull in the real `vscode` module that only exists in the extension
+      // host. Alias `vscode` to the shared shim, matching the other packages
+      // whose test chains reach `vscode-logging`.
+      vscode: path.resolve(__dirname, '../../../packages/vscode-logging/src/vscode-shim.ts')
     }
   }
 });
