@@ -180,6 +180,16 @@ export async function acquireLock(
   if (Number.isFinite(ownerPid) && isProcessAlive(ownerPid)) {
     // Already tracked by this live session. Re-entering the same worktree is a
     // clean no-op; moving to a different worktree keeps the original binding.
+    //
+    // KNOWN LIMITATION (intentional): a single ad-hoc session attributes only
+    // the FIRST card-worktree it enters. The transcript-watcher's watcherId is
+    // the session id, and the WatcherRegistry takeover invariant permits only
+    // one live watcher per session — re-targeting a second card would tear down
+    // the first watcher (churn + a transcript-sync gap), which the card's "reuse
+    // the transcript-watcher as-is" constraint forbids. Consequence: work done
+    // after cd-ing into a second card's worktree within the same session streams
+    // its transcript into the FIRST card. The warning below surfaces this so a
+    // contributor switching worktrees mid-session is not surprised by it.
     if (boundCardId && boundCardId !== cardId) {
       logger.warn('cwd-changed: session already bound to a different card — keeping original binding', {
         boundCardId,
