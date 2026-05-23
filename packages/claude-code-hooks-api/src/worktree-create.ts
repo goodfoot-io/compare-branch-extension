@@ -11,13 +11,24 @@
  */
 
 import * as path from 'node:path';
-import { resolveExtensionPath } from '@cards/sdk';
+import { resolveExtensionPath, resolveSessionId } from '@cards/sdk';
 import { createWorktree } from '@cards/sdk/worktree';
+import { readSessionCardId } from '@cards/sessions/card-repo';
 import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
 
 export default worktreeCreateHook({}, async (input, { logger }) => {
   const start = Date.now();
-  const cardId = process.env['CARD_ID'] || undefined;
+
+  // Explicit CARD_ID always wins. Only when it is unset/empty do we fall back
+  // to the card the current session created (bound at `card create` time),
+  // keyed by the same resolveSessionId() the write side used.
+  let cardId = process.env['CARD_ID'] || undefined;
+  if (cardId === undefined) {
+    const sessionId = await resolveSessionId();
+    if (sessionId !== null) {
+      cardId = readSessionCardId(sessionId) ?? undefined;
+    }
+  }
 
   logger.info('WorktreeCreate', {
     event: 'WorktreeCreate',

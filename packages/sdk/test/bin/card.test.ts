@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
@@ -974,6 +974,38 @@ describe('card binary', () => {
         );
         expect(files.size).toBe(0);
       } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('binds the created card to the resolved session', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const originalSessionId = process.env['CARDS_SESSION_ID'];
+      process.env['CARDS_SESSION_ID'] = 'sess-create-bind';
+      try {
+        await withStdin(JSON.stringify({ title: 'Test' }), () => createCard(['--workspace-path', '/tmp/workspace']));
+        const cardFile = join(testDir, '.cards', 'card-repo-commits', 'sess-create-bind.card');
+        expect(existsSync(cardFile)).toBe(true);
+        expect(readFileSync(cardFile, 'utf-8')).toBe('test-1');
+      } finally {
+        if (originalSessionId === undefined) delete process.env['CARDS_SESSION_ID'];
+        else process.env['CARDS_SESSION_ID'] = originalSessionId;
+        logSpy.mockRestore();
+      }
+    });
+
+    it('most recently created card wins the session binding', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const originalSessionId = process.env['CARDS_SESSION_ID'];
+      process.env['CARDS_SESSION_ID'] = 'sess-last-wins';
+      try {
+        await withStdin(JSON.stringify({ title: 'First' }), () => createCard(['--workspace-path', '/tmp/workspace']));
+        await withStdin(JSON.stringify({ title: 'Second' }), () => createCard(['--workspace-path', '/tmp/workspace']));
+        const cardFile = join(testDir, '.cards', 'card-repo-commits', 'sess-last-wins.card');
+        expect(readFileSync(cardFile, 'utf-8')).toBe('test-2');
+      } finally {
+        if (originalSessionId === undefined) delete process.env['CARDS_SESSION_ID'];
+        else process.env['CARDS_SESSION_ID'] = originalSessionId;
         logSpy.mockRestore();
       }
     });

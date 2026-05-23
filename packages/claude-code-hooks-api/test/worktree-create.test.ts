@@ -22,12 +22,18 @@ vi.mock('@cards/sdk', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@cards/sdk')>();
   return {
     ...actual,
-    resolveExtensionPath: vi.fn()
+    resolveExtensionPath: vi.fn(),
+    resolveSessionId: vi.fn()
   };
 });
 
-import { resolveExtensionPath } from '@cards/sdk';
+vi.mock('@cards/sessions/card-repo', () => ({
+  readSessionCardId: vi.fn()
+}));
+
+import { resolveExtensionPath, resolveSessionId } from '@cards/sdk';
 import { createWorktree } from '@cards/sdk/worktree';
+import { readSessionCardId } from '@cards/sessions/card-repo';
 import hookFn from '../src/worktree-create.js';
 
 describe('WorktreeCreate hook', () => {
@@ -54,6 +60,12 @@ describe('WorktreeCreate hook', () => {
     // Default: extension path resolves so card-bound tests that don't override
     // it still produce valid compiledScriptPaths.
     vi.mocked(resolveExtensionPath).mockResolvedValue('/ext/install');
+    // Default: no session binding, so the env CARD_ID path is exercised in
+    // isolation unless a test opts into the session fallback.
+    vi.mocked(resolveSessionId).mockReset();
+    vi.mocked(resolveSessionId).mockResolvedValue(null);
+    vi.mocked(readSessionCardId).mockReset();
+    vi.mocked(readSessionCardId).mockReturnValue(null);
     mockLogger.debug.mockReset();
     mockLogger.warn.mockReset();
     mockLogger.info.mockReset();
@@ -275,6 +287,85 @@ describe('WorktreeCreate hook', () => {
     expect(resolveExtensionPath).not.toHaveBeenCalled();
     const call = mockCreateWorktree.mock.calls[0]!;
     expect((call[1] as Record<string, unknown> | undefined)?.['compiledScriptPaths']).toBeUndefined();
+  });
+
+  it('falls back to the session-bound card when CARD_ID is unset', async () => {
+    delete process.env['CARD_ID'];
+    vi.mocked(resolveSessionId).mockResolvedValue('sess-123');
+    vi.mocked(readSessionCardId).mockReturnValue('main-77');
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue({
+      path: worktreePath,
+      settle: Promise.resolve({
+        branch: 'feature/test-branch',
+        worktree: worktreePath,
+        baseSha: 'abc123',
+        copiedFromInclude: 0,
+        reroutedSymlinks: 0
+      })
+    });
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(readSessionCardId).toHaveBeenCalledWith('sess-123');
+    expect(mockCreateWorktree).toHaveBeenCalledWith(
+      'feature/test-branch',
+      expect.objectContaining({
+        cardId: 'main-77',
+        compiledScriptPaths: {
+          'pre-commit': '/ext/install/dist/git-hooks/pre-commit.mjs',
+          'post-commit': '/ext/install/dist/git-hooks/post-commit.mjs',
+          'post-rewrite': '/ext/install/dist/git-hooks/post-rewrite.mjs'
+        }
+      })
+    );
+  });
+
+  it('does not consult the session binding when CARD_ID is set', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue({
+      path: worktreePath,
+      settle: Promise.resolve({
+        branch: 'feature/test-branch',
+        worktree: worktreePath,
+        baseSha: 'abc123',
+        copiedFromInclude: 0,
+        reroutedSymlinks: 0
+      })
+    });
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(resolveSessionId).not.toHaveBeenCalled();
+    expect(readSessionCardId).not.toHaveBeenCalled();
+    expect(mockCreateWorktree).toHaveBeenCalledWith(
+      'feature/test-branch',
+      expect.objectContaining({ cardId: 'main-42' })
+    );
+  });
+
+  it('creates without cardId when CARD_ID is unset and the session has no binding', async () => {
+    delete process.env['CARD_ID'];
+    vi.mocked(resolveSessionId).mockResolvedValue('sess-empty');
+    vi.mocked(readSessionCardId).mockReturnValue(null);
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue({
+      path: worktreePath,
+      settle: Promise.resolve({
+        branch: 'feature/test-branch',
+        worktree: worktreePath,
+        baseSha: 'abc123',
+        copiedFromInclude: 0,
+        reroutedSymlinks: 0
+      })
+    });
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(resolveExtensionPath).not.toHaveBeenCalled();
+    const call = mockCreateWorktree.mock.calls[0]!;
+    expect((call[1] as Record<string, unknown> | undefined)?.['cardId']).toBeUndefined();
   });
 
   it('propagates resolveExtensionPath failure (fail-closed) when CARD_ID is set', async () => {

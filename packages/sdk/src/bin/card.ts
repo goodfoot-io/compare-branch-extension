@@ -24,7 +24,13 @@ import {
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
 import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
-import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
+import { resolveSessionId } from '@cards/sdk/session-resolver';
+import {
+  appendCommitToSession,
+  getSessionCommits,
+  readSessionHeadSha,
+  writeSessionCardId
+} from '@cards/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
 
@@ -310,6 +316,23 @@ export async function createCard(args: string[]): Promise<void> {
   const card = await client.createCard(data);
 
   const full = card as unknown as Record<string, unknown>;
+
+  // Bind the created card to this session so worktrees created later in the
+  // same session attribute to it without an explicit --card-id / CARD_ID. The
+  // binding is a best-effort side effect: a failure here must never corrupt or
+  // suppress the create result, so we log and continue.
+  const createdId = full['id'];
+  if (typeof createdId === 'string' && createdId.length > 0) {
+    try {
+      const sessionId = await resolveSessionId();
+      if (sessionId !== null) {
+        writeSessionCardId(sessionId, createdId);
+      }
+    } catch (error) {
+      console.error('warning: failed to bind created card to session:', error);
+    }
+  }
+
   const filtered: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(full)) {
     if (CREATE_ALWAYS_INCLUDE.has(key) || !inputKeys.has(key)) {
