@@ -337,7 +337,7 @@ describe('SessionStart Hook', () => {
       vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
     });
 
-    it('spawns watcher binary by name so PATH resolution locates it', async () => {
+    it('spawns the resolved watcher path with the positional arg list in order', async () => {
       mockFindClaudePid.mockReturnValue(42);
       vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
@@ -348,7 +348,7 @@ describe('SessionStart Hook', () => {
       await hook(mockInput, context);
 
       expect(vi.mocked(spawn)).toHaveBeenCalledWith(
-        'transcript-watcher',
+        expect.stringMatching(/[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/),
         ['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath],
         expect.objectContaining({ detached: true, stdio: 'ignore' })
       );

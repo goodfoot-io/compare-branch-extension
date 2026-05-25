@@ -11,7 +11,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
-import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
+import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid } from '@cards/sdk/process-tree';
@@ -69,8 +69,23 @@ function spawnWatcher(
   logger: Parameters<Parameters<typeof sessionStartHook>[1]>[1]['logger']
 ): void {
   try {
-    spawnTranscriptWatcher(agentPid, sessionId, transcriptPath, actionInput.cardId, actionInput.cardRepoPath, logger);
-    logger.info('Spawned transcript watcher', { pid: agentPid, sessionId });
+    // Resolve the watcher by absolute path: a background Launch action enables
+    // only the `runtime` plugin, so the `cards` plugin bin that publishes the
+    // `transcript-watcher` wrapper is never on PATH. The success log is gated on
+    // the spawn actually happening so a skipped spawn is not reported as success.
+    const watcher = resolveTranscriptWatcher(actionInput.marketplacePath);
+    const spawned = spawnTranscriptWatcher(
+      watcher,
+      agentPid,
+      sessionId,
+      transcriptPath,
+      actionInput.cardId,
+      actionInput.cardRepoPath,
+      logger
+    );
+    if (spawned) {
+      logger.info('Spawned transcript watcher', { pid: agentPid, sessionId, watcher });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn('Transcript watcher spawn failed', { error: message });

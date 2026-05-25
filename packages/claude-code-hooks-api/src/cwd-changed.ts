@@ -266,8 +266,18 @@ export default cwdChangedHook({}, async (input, { logger }) => {
   const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
   if (!acquired) return cwdChangedOutput({});
 
-  // 6. Spawn transcript-watcher (non-fatal).
-  spawnTranscriptWatcher(agentPid, input.session_id, input.transcript_path, cardId, cardRepoPath, logger);
+  // 6. Spawn transcript-watcher (non-fatal). Attach mode runs with the `cards`
+  //    plugin enabled, so its bin — and the `transcript-watcher` wrapper — is on
+  //    PATH; the bare name resolves there.
+  spawnTranscriptWatcher(
+    'transcript-watcher',
+    agentPid,
+    input.session_id,
+    input.transcript_path,
+    cardId,
+    cardRepoPath,
+    logger
+  );
 
   // 7. Spawn adhoc-cleanup (non-fatal).
   spawnAdhocCleanup(agentPid, input.session_id, cardId, cardRepoPath, lockPath, logger);
