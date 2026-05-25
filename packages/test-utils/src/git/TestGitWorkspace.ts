@@ -153,6 +153,13 @@ export class TestGitWorkspace {
     await fs.ensureDir(testWorkspace);
     this.workspacePath = path.join(testWorkspace, `test-workspace-${workspaceId}`);
     await fs.ensureDir(this.workspacePath);
+    // Canonicalize the path so it matches what git and the production code report.
+    // os.tmpdir() can return a symlinked or non-canonical path (macOS /var ->
+    // /private/var, Windows 8.3 short names, a symlinked $TMPDIR on Linux). Git
+    // resolves these to their real path, and worktree identity is derived by hashing
+    // the repository path, so the fixture must hand tests the same canonical path or
+    // those comparisons diverge cross-platform.
+    this.workspacePath = await fs.realpath(this.workspacePath);
 
     // Initialize git repository
     this.abortController = new AbortController();
