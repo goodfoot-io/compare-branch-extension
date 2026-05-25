@@ -57,7 +57,7 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
   // keyed by input.session_id — the same UUID the write side stored under
   // (session-start sets CARDS_SESSION_ID = input.session_id, so the CLI's
   // resolveSessionId() and this key converge). Mirrors the per-session keying
-  // convention of the other hooks (stop, post-tool-use, session-end).
+  // convention of the other hooks (post-tool-use, session-end).
   let cardId = process.env['CARD_ID'] || undefined;
   if (cardId === undefined) {
     const sessionId = input.session_id?.trim() || undefined;
