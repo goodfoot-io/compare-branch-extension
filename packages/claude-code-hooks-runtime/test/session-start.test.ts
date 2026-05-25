@@ -7,7 +7,7 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { findAgentPid } from '@cards/sdk/process-tree';
 import { writeSessionHeadSha } from '@cards/sessions/card-repo';
 import { TestGitWorkspace } from '@cards/test-utils';
@@ -127,6 +127,13 @@ describe('SessionStart Hook', () => {
       vi.mocked(execFileSync).mockReset();
       mockFindClaudePid.mockReset();
       mockWriteSessionHeadSha.mockReset();
+      // Restore child_process mock defaults so a test that overrides spawn/
+      // spawnSync (or one that fails an assertion before its own cleanup) does
+      // not leak readiness/spawn state into subsequent tests.
+      vi.mocked(spawn).mockReset();
+      vi.mocked(spawn).mockReturnValue({ unref: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof spawn>);
+      vi.mocked(spawnSync).mockReset();
+      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
     });
 
     it('returns XML context blocks in additionalContext', async () => {
@@ -273,6 +280,61 @@ describe('SessionStart Hook', () => {
         expect.arrayContaining(['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath]),
         expect.objectContaining({ detached: true, stdio: 'ignore' })
       );
+    });
+
+    // Reproduction (main-98): the background Launch action enables only the
+    // `runtime` plugin, so the `cards` plugin's bin/ — which publishes the
+    // `transcript-watcher` wrapper — is never on PATH. Spawning by bare name
+    // therefore exits 127 and the watcher never starts. The hook must instead
+    // resolve the watcher by absolute path under the marketplace cards bin.
+    it('spawns transcript-watcher by absolute path under the cards plugin bin, not a bare PATH name', async () => {
+      vi.mocked(spawn).mockClear();
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-abs', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
+
+      await hook(mockInput, context);
+
+      const watcherArg = vi.mocked(spawn).mock.calls.at(-1)?.[0] as string;
+      expect(
+        isAbsolute(watcherArg),
+        `expected an absolute watcher path resolved from MARKETPLACE_PATH; got: ${watcherArg}`
+      ).toBe(true);
+      expect(watcherArg).toMatch(/[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/);
+      // Anchored on the action's MARKETPLACE_PATH (ACTION_ENV).
+      expect(watcherArg).toContain(join('/tmp/extension/dist/marketplace', 'claude', 'cards', 'bin'));
+    });
+
+    // Reproduction (main-98): spawnWatcher logged "Spawned transcript watcher"
+    // unconditionally, even when spawnTranscriptWatcher skipped the spawn (e.g.
+    // readiness probe exits non-zero). The success log must only appear when a
+    // watcher was actually spawned.
+    it('does not log spawn success when the watcher is not resolvable', async () => {
+      vi.mocked(spawn).mockClear();
+      vi.mocked(spawnSync).mockReturnValue({ status: 1 } as unknown as ReturnType<typeof spawnSync>);
+      const infoSpy = vi.spyOn(logger, 'info');
+      mockFindClaudePid.mockReturnValue(42);
+      vi.mocked(execFileSync).mockReturnValue('abc123\n');
+      const mockInput = { session_id: 'sess-skip', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
+        typeof hook
+      >[0];
+      const context = { logger, persistEnvVar: vi.fn(), persistEnvVars: vi.fn() };
+
+      await hook(mockInput, context);
+
+      const falseSuccess = infoSpy.mock.calls.find(
+        ([msg]) => typeof msg === 'string' && /spawned transcript watcher/i.test(msg)
+      );
+      expect(
+        falseSuccess,
+        `spawn was skipped (readiness failed) but a success log was emitted: ${JSON.stringify(infoSpy.mock.calls)}`
+      ).toBeUndefined();
+      expect(vi.mocked(spawn)).not.toHaveBeenCalled();
+      infoSpy.mockRestore();
+      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
     });
 
     it('spawns watcher binary by name so PATH resolution locates it', async () => {
