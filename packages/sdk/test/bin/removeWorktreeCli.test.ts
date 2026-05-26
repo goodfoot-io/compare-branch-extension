@@ -194,7 +194,7 @@ describe('remove-worktree CLI', () => {
   });
 
   it('exits 0 when removing an existing worktree', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     const worktreesDir = path.join(tmpBase, 'worktrees');
     await fs.mkdir(repoDir);
@@ -221,7 +221,7 @@ describe('remove-worktree CLI', () => {
   }, 30000);
 
   it('unregisters the branch and removes the worktree for a card-bound worktree', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     const worktreesDir = path.join(tmpBase, 'worktrees');
     await fs.mkdir(repoDir);
@@ -264,7 +264,7 @@ describe('remove-worktree CLI', () => {
   }, 30000);
 
   it('exits 0 and still removes the worktree when the API is unavailable for a bound worktree', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     const worktreesDir = path.join(tmpBase, 'worktrees');
     await fs.mkdir(repoDir);
@@ -303,7 +303,7 @@ describe('remove-worktree CLI', () => {
   }, 30000);
 
   it('exits 0 promptly (no hang) when the discovery server is unreachable for a bound worktree', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     const worktreesDir = path.join(tmpBase, 'worktrees');
     await fs.mkdir(repoDir);
@@ -358,7 +358,7 @@ describe('remove-worktree CLI', () => {
   }, 30000);
 
   it('exits 0 (fail-open) when the API returns an error for the branch unregister', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     const worktreesDir = path.join(tmpBase, 'worktrees');
     await fs.mkdir(repoDir);
@@ -427,7 +427,7 @@ describe('remove-worktree CLI', () => {
   }, 30000);
 
   it('exits 2 when path is outside the worktrees root', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-cli-')));
     const worktreesDir = path.join(tmpBase, 'worktrees');
     await fs.mkdir(worktreesDir);
     const outsidePath = path.join(tmpBase, 'outside');

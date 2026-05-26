@@ -55,7 +55,7 @@ describe('removeWorktree', () => {
   const originalEnv = process.env;
 
   beforeEach(async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-test-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-test-')));
     repoDir = path.join(tmpBase, 'repo');
     worktreesDir = path.join(tmpBase, 'worktrees');
     await fs.mkdir(repoDir);

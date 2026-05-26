@@ -12,7 +12,7 @@
 
 import { execFile, execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -193,8 +193,10 @@ export async function readCardStatus(cardRepoPath: string): Promise<string | nul
 /**
  * Validates that the given PID belongs to a known Claude agent process.
  *
- * Reads `/proc/<pid>/comm` on Linux or `ps -p <pid> -o comm=` on macOS.
- * Verifies that the comm is a known agent comm (`claude`, `node`, or the
+ * Reads `/proc/<pid>/comm` on Linux, `ps -p <pid> -o comm=` on macOS, or
+ * `tasklist` on Windows, then normalises the value to its bare command name
+ * (basename, minus any `.exe` suffix) so every platform compares the same way.
+ * Verifies that the result is a known agent comm (`claude`, `node`, or the
  * `MainThread` name a node process exposes). Returns false (fail closed) on
  * any error or unexpected comm value.
  *
@@ -204,12 +206,26 @@ export async function readCardStatus(cardRepoPath: string): Promise<string | nul
  */
 export function isKnownAgentComm(pid: number, logger?: ProcessUtilsLogger): boolean {
   try {
-    let comm: string;
+    let rawComm: string;
     if (process.platform === 'linux') {
-      comm = execFileSync('cat', [`/proc/${pid}/comm`], { encoding: 'utf-8' }).trim();
+      rawComm = execFileSync('cat', [`/proc/${pid}/comm`], { encoding: 'utf-8' }).trim();
+    } else if (process.platform === 'win32') {
+      // tasklist CSV (no header): "node.exe","1234","Console","1","50,000 K".
+      const out = execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH', '/FO', 'CSV'], {
+        encoding: 'utf-8'
+      });
+      rawComm = out.trim().split('\n')[0]?.split(',')[0]?.replace(/^"|"$/g, '') ?? '';
     } else {
-      comm = execFileSync('ps', ['-p', String(pid), '-o', 'comm='], { encoding: 'utf-8' }).trim();
+      // macOS `ps -o comm=` reports the full executable path (e.g.
+      // /usr/local/bin/node) when the process was launched by an absolute path,
+      // unlike Linux `/proc/<pid>/comm` which is the bare command name.
+      rawComm = execFileSync('ps', ['-p', String(pid), '-o', 'comm='], { encoding: 'utf-8' }).trim();
     }
+
+    // Normalise to the bare command name so all platforms compare equally:
+    // basename strips a leading path (macOS), and the trailing-.exe strip
+    // collapses Windows image names (node.exe -> node).
+    const comm = basename(rawComm).replace(/\.exe$/i, '');
 
     if (KNOWN_AGENT_COMMS.has(comm)) {
       return true;

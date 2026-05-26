@@ -170,7 +170,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('exits 0 and JSON output includes copiedFromInclude:0 when no .worktreeinclude exists', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -184,7 +184,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('exits 0 and copiedFromInclude is 1 when include file matches one gitignored file', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -211,7 +211,7 @@ describe('create-worktree CLI', () => {
   it.skipIf(process.platform === 'win32')(
     'exits 3 and writes an error message to stderr when .worktreeinclude is unreadable',
     async () => {
-      tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+      tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
       const repoDir = path.join(tmpBase, 'repo');
       await fs.mkdir(repoDir);
       await initGitRepo(repoDir);
@@ -238,7 +238,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('provisions card-bound worktree with compiledScriptPaths from EXTENSION_PATH', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -289,7 +289,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('defaults parentBranch to the source repo HEAD when --parent-branch is omitted', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -321,7 +321,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('honors an explicit --parent-branch over the source repo HEAD', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -350,7 +350,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('exits 2 (fail-closed) when --card-id given but the Cards API is unavailable', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -373,7 +373,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('exits 2 (fail-closed) and leaves no worktree when --card-id points at an unreachable server', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -426,7 +426,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('exits 2 with detached-HEAD guidance when source HEAD is detached and no --parent-branch given', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -460,7 +460,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('honors explicit --parent-branch even when source HEAD is detached', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
@@ -491,7 +491,7 @@ describe('create-worktree CLI', () => {
   });
 
   it('exits 2 with actionable error when --card-id given but extension path unresolvable', async () => {
-    tmpBase = await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-'));
+    tmpBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'cwt-cli-')));
     const repoDir = path.join(tmpBase, 'repo');
     await fs.mkdir(repoDir);
     await initGitRepo(repoDir);
