@@ -125,6 +125,8 @@ export type {
   RemoteCommandMessage,
   RemoteCreateMessage,
   RemoteDetailMessage,
+  RemoteDialogClearMessage,
+  RemoteDialogPreloadMessage,
   RemoteEditorMessage,
   RemoteListMessage,
   RemoteMessage,
