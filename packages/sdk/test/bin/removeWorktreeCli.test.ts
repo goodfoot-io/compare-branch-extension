@@ -16,7 +16,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 /**
  * Starts a minimal stub Cards API that records branch unregistrations (DELETE)
@@ -171,11 +171,35 @@ function initGitRepo(dir: string): void {
 describe('remove-worktree CLI', () => {
   let tmpBase = '';
   let stubStop: (() => Promise<void>) | undefined;
+  // Sandbox $HOME for the whole suite. createWorktree resolves the GLOBAL shared
+  // hooks dir from `$HOME/.cards/workspace-hooks` (resolveHomeDir), and the
+  // spawned create/remove CLIs inherit this process's env. Without this, a
+  // card-bound `create-worktree` here would provision the stub hook scripts into
+  // the developer's REAL ~/.cards/workspace-hooks, clobbering live commit
+  // attribution for every worktree on the machine. Pinning HOME to a temp dir
+  // confines provisioning to the sandbox for every test, present and future.
+  let homeBase = '';
+  let originalHome: string | undefined;
+
+  beforeEach(async () => {
+    homeBase = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'rwt-home-')));
+    originalHome = process.env['HOME'];
+    process.env['HOME'] = homeBase;
+  });
 
   afterEach(async () => {
     if (stubStop) {
       await stubStop();
       stubStop = undefined;
+    }
+    if (originalHome === undefined) {
+      delete process.env['HOME'];
+    } else {
+      process.env['HOME'] = originalHome;
+    }
+    if (homeBase) {
+      await fs.rm(homeBase, { recursive: true, force: true });
+      homeBase = '';
     }
     if (tmpBase) {
       await fs.rm(tmpBase, { recursive: true, force: true });
