@@ -6,8 +6,11 @@
  *   stdio so the user gets direct terminal control. In background mode, Claude
  *   runs with `--print` so it executes non-interactively (takes a prompt, runs,
  *   and exits). The watcher handles all transcript streaming.
- * - Codex: spawns the `codex` CLI interactively with the card skill
- *   seeded as the initial prompt. Background mode is rejected explicitly.
+ * - Codex: spawns the `codex` CLI interactively with a short prompt that
+ *   instructs Codex to load the `$card` skill and follow its
+ *   `<routing-instructions>`. The skill itself is provided by the bundled
+ *   `runtime` plugin staged into the per-launch `CODEX_HOME`. Background mode
+ *   is rejected explicitly.
  *
  * The action awaits process exit before resolving, so the terminal closes
  * only after the underlying CLI finishes and cleanup is complete.
@@ -19,22 +22,10 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import codexCardSkill from '../../../../codex/runtime/skills/card/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
 import { spawnGeminiSession } from '../lib/gemini-session.js';
-
-/**
- * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
- * @param md - Markdown string potentially containing frontmatter.
- * @returns The markdown content without frontmatter.
- */
-function stripFrontmatter(md: string): string {
-  return md.replace(/^---\n[\s\S]*?\n---\n*/, '');
-}
-
-const CARD_SKILL_CODEX: string = stripFrontmatter(codexCardSkill).trim();
 
 /**
  * Launch action handler.
@@ -66,7 +57,7 @@ export default defineAction(
         );
       }
       await spawnCodexSession(input, context, {
-        prompt: [CARD_SKILL_CODEX, 'Follow the routing `<instructions>`.'].join('\n\n')
+        prompt: 'Load the `$card` skill and follow the `<routing-instructions>`.'
       });
       return;
     }

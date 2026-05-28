@@ -4,8 +4,10 @@
  * Branches on `input.codingAgent` via {@link resolveCodingAgent}:
  * - Claude: spawns the `claude` CLI and instructs it to load the
  *   `runtime:interview` skill for the current card.
- * - Codex: spawns the `codex` CLI interactively with the interview-routing
- *   skill seeded as the initial prompt.
+ * - Codex: spawns the `codex` CLI interactively with a short prompt that
+ *   instructs Codex to load the `$interview` skill and follow its
+ *   `<routing-instructions>`. The skill itself is provided by the bundled
+ *   `runtime` plugin staged into the per-launch `CODEX_HOME`.
  *
  * The process always runs interactively — stdio is inherited so the user gets
  * direct terminal control. Background mode is not supported because interviews
@@ -21,22 +23,10 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import codexInterviewRoutingSkill from '../../../../codex/runtime/skills/interview/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
 import { spawnGeminiSession } from '../lib/gemini-session.js';
-
-/**
- * Strips YAML frontmatter (`---` delimited block at the start) from a markdown string.
- * @param md - Markdown string potentially containing frontmatter.
- * @returns The markdown content without frontmatter.
- */
-function stripFrontmatter(md: string): string {
-  return md.replace(/^---\n[\s\S]*?\n---\n*/, '');
-}
-
-const INTERVIEW_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexInterviewRoutingSkill).trim();
 
 /**
  * Interview action handler.
@@ -58,7 +48,7 @@ export default defineAction(
 
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {
-        prompt: [INTERVIEW_ROUTING_SKILL_CODEX, 'Follow the routing `<instructions>`.'].join('\n\n')
+        prompt: 'Load the `$interview` skill and follow the `<routing-instructions>`.'
       });
       return;
     }

@@ -2,9 +2,11 @@
  * Chat action for Cards workflows.
  *
  * Branches on `input.codingAgent` via {@link resolveCodingAgent}:
- * - Claude: spawns the `claude` CLI with the `runtime:chat-routing` skill for
- *   the current card.
- * - Codex: spawns the `codex` CLI with no seeded prompt or system prompt.
+ * - Claude: spawns the `claude` CLI with the `runtime:chat-routing` skill
+ *   appended as the system prompt.
+ * - Codex: spawns the `codex` CLI with the codex `chat-routing` skill
+ *   appended as `developer_instructions` (the Codex analog of
+ *   `--append-system-prompt`).
  *
  * The process always runs interactively — stdio is inherited so the user gets
  * direct terminal control. Background mode is not supported because chat
@@ -21,6 +23,7 @@
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
 import chatRoutingSkill from '../../../../claude/runtime/skills/chat-routing/SKILL.md';
+import codexChatRoutingSkill from '../../../../codex/runtime/skills/chat-routing/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
@@ -35,6 +38,7 @@ function stripFrontmatter(md: string): string {
 }
 
 const CHAT_ROUTING_SKILL: string = stripFrontmatter(chatRoutingSkill).trim();
+const CHAT_ROUTING_SKILL_CODEX: string = stripFrontmatter(codexChatRoutingSkill).trim();
 
 /**
  * Chat action handler.
@@ -55,7 +59,9 @@ export default defineAction(
     const agent = resolveCodingAgent(input);
 
     if (agent === 'codex-cli') {
-      await spawnCodexSession(input, context, {});
+      await spawnCodexSession(input, context, {
+        appendSystemPrompt: CHAT_ROUTING_SKILL_CODEX
+      });
       return;
     }
 

@@ -31,6 +31,14 @@ import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreat
 export interface CodexSessionOptions {
   /** Prompt string passed to the Codex CLI. */
   prompt?: string;
+  /**
+   * Content injected into the Codex CLI as a `developer_instructions` config
+   * override (`-c developer_instructions=...`). This is the Codex analog of
+   * Claude's `--append-system-prompt`: the value is appended to the developer
+   * message bundle every turn without disabling the personality template or
+   * overriding `base_instructions` / AGENTS.md `user_instructions`.
+   */
+  appendSystemPrompt?: string;
 }
 
 /**
@@ -966,15 +974,42 @@ export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
 }
 
 /**
+ * Formats a `developer_instructions` value as a Codex `-c key=value` override.
+ *
+ * Codex parses the right-hand side of a `-c` override as TOML
+ * ({@link https://github.com/openai/codex/blob/main/codex-rs/utils/cli/src/config_override.rs}).
+ * Using `smol-toml`'s stringifier guarantees that multi-line content,
+ * embedded quotes, and other special characters are safely encoded as a TOML
+ * basic string.
+ *
+ * @param value - The developer-instructions content to inject.
+ * @returns A `developer_instructions = "..."` assignment suitable for `-c`.
+ */
+export function formatDeveloperInstructionsOverride(value: string): string {
+  return stringifyToml({ developer_instructions: value }).trimEnd();
+}
+
+/**
  * Builds the CLI argument list for the `codex` process.
  *
  * @param prompt - Prompt passed to Codex.
  * @param workspacePath - Card worktree path used as the Codex workspace root.
  * @param cardRepoPath - Additional writable directory for the card repo.
+ * @param appendSystemPrompt - Content injected as `developer_instructions`
+ *   via `-c`. This is the Codex analog of Claude's `--append-system-prompt`.
  * @returns Array of CLI arguments.
  */
-export function buildCodexArgs(prompt: string | undefined, workspacePath: string, cardRepoPath: string): string[] {
+export function buildCodexArgs(
+  prompt: string | undefined,
+  workspacePath: string,
+  cardRepoPath: string,
+  appendSystemPrompt?: string
+): string[] {
   const args = ['--dangerously-bypass-approvals-and-sandbox', '--cd', workspacePath, '--add-dir', cardRepoPath];
+
+  if (appendSystemPrompt !== undefined && appendSystemPrompt.length > 0) {
+    args.push('-c', formatDeveloperInstructionsOverride(appendSystemPrompt));
+  }
 
   if (prompt !== undefined) {
     args.push(prompt);
@@ -995,7 +1030,7 @@ export async function spawnCodexSession(
   context: ActionContext,
   options: CodexSessionOptions
 ): Promise<void> {
-  const { prompt: rawPrompt } = options;
+  const { prompt: rawPrompt, appendSystemPrompt } = options;
   const marketplacePath = resolveMarketplacePath();
 
   context.logger.info(`${input.actionName} action started`, {
@@ -1028,7 +1063,7 @@ export async function spawnCodexSession(
 
   const additionalContext = buildAdditionalContext(input, cwd, baseBranch, branchName);
   const prompt = buildCodexPrompt(rawPrompt, additionalContext);
-  const args = buildCodexArgs(prompt, cwd, input.cardRepoPath);
+  const args = buildCodexArgs(prompt, cwd, input.cardRepoPath, appendSystemPrompt);
 
   const child: ChildProcess = spawn('codex', args, {
     cwd,

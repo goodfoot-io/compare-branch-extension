@@ -545,10 +545,8 @@ describe('launch action — codex branch', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    expect(args).not.toContain('--config');
-    expect(args[args.length - 1]).toContain('Follow the routing `<instructions>`.');
-    expect(args[args.length - 1]).toContain('<routing-constraints>');
-    expect(args[args.length - 1]).not.toContain('<card-repo-commit-style>');
+    expect(args).not.toContain('-c');
+    expect(args[args.length - 1]).toMatch(/Load the `\$card` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
     await promise;
@@ -773,7 +771,11 @@ describe('chat action — codex branch', () => {
         '/test/repo'
       ])
     );
-    expect(args).toHaveLength(5);
+    const cIndex = args.indexOf('-c');
+    expect(cIndex).toBeGreaterThan(-1);
+    const developerInstructionsArg = args[cIndex + 1] as string;
+    expect(developerInstructionsArg).toMatch(/^developer_instructions = "/);
+    expect(args).toHaveLength(7);
 
     child.emit('close', 0);
     await promise;
@@ -781,7 +783,7 @@ describe('chat action — codex branch', () => {
 });
 
 describe('interview action — codex branch', () => {
-  it('spawns codex with an interview-routing prompt and routing trailer', async () => {
+  it('spawns codex with a short prompt referencing the interview skill', async () => {
     const { spawn } = await import('node:child_process');
     const appServerChild = createMockAppServerChild();
     const child = createMockChild();
@@ -801,8 +803,8 @@ describe('interview action — codex branch', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    expect(args[args.length - 1]).toContain('Follow the routing `<instructions>`.');
-    expect(args[args.length - 1]).toContain('<routing-constraints>');
+    expect(args).not.toContain('-c');
+    expect(args[args.length - 1]).toMatch(/Load the `\$interview` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
     await promise;
