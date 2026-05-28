@@ -1,12 +1,20 @@
 /**
- * CwdChanged hook for ad-hoc session attribution.
+ * EnterWorktree (PostToolUse) hook for ad-hoc session attribution.
  *
- * When a plain (non-action) Claude session `cd`s into a card-owned worktree,
- * this hook marks the card `active`, captures its transcript (reusing the
- * existing transcript-watcher), and arranges for it to return to `needs_review`
- * when the Claude agent PID dies. The action/wrapper path is left entirely
- * untouched — an action subprocess (identified by the `ACTION_NAME` env guard)
- * is a complete no-op.
+ * When a plain (non-action) Claude session enters a card-owned worktree via the
+ * `EnterWorktree` tool, this hook marks the card `active`, captures its
+ * transcript (reusing the existing transcript-watcher), and arranges for it to
+ * return to `needs_review` when the Claude agent PID dies. The action/wrapper
+ * path is left entirely untouched — an action subprocess (identified by the
+ * `ACTION_NAME` env guard) is a complete no-op.
+ *
+ * This is a `PostToolUse` hook matched to the `EnterWorktree` tool. It fires
+ * after the tool switches the session's working directory, so `input.cwd` is
+ * the freshly-entered worktree. (The harness-native `CwdChanged` event is never
+ * emitted in this environment, so the directory transition is observed through
+ * the tool that performs it instead.) Matching on `EnterWorktree` keeps the
+ * hook from spawning a process on every tool call. Entering an existing card
+ * worktree by `path` is covered too — not just create-and-enter.
  *
  * The PID is resolved and validated (findAgentPid + comm-check) before any
  * lock, spawn, or status write. A null or invalid PID is an immediate no-op:
@@ -23,8 +31,8 @@
  * and is not re-targeted (the single per-session transcript-watcher cannot be
  * re-targeted without tearing itself down).
  *
- * @summary CwdChanged hook for ad-hoc session attribution
- * @module cwd-changed
+ * @summary EnterWorktree PostToolUse hook for ad-hoc session attribution
+ * @module enter-worktree
  */
 
 import type { FileHandle } from 'node:fs/promises';
@@ -40,7 +48,7 @@ import {
 } from '@cards/sdk/bin/process-utils';
 import { spawnAdhocCleanup } from '@cards/sdk/bin/spawn-adhoc-cleanup';
 import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
-import { cwdChangedHook, cwdChangedOutput } from '@goodfoot/claude-code-hooks';
+import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 
 /** Maximum number of parent directories to walk searching for `.cards/CARD_ID`. */
 const MAX_WALK_LEVELS = 20;
@@ -48,7 +56,7 @@ const MAX_WALK_LEVELS = 20;
 /**
  * Minimal logger interface used by the helpers below.
  */
-interface CwdLogger {
+interface EnterWorktreeLogger {
   warn(message: string, data?: Record<string, unknown>): void;
 }
 
@@ -92,14 +100,14 @@ export async function resolveWorktreeCardId(cwd: string): Promise<string | null>
  * @param logger - Logger for warn output on read failure.
  * @returns The card repository path, or null when unresolvable.
  */
-export async function resolveCardRepoPath(cardId: string, logger: CwdLogger): Promise<string | null> {
+export async function resolveCardRepoPath(cardId: string, logger: EnterWorktreeLogger): Promise<string | null> {
   const discoveryPath = process.env['CARDS_DISCOVERY_PATH'] ?? join(homedir(), '.cards', 'cards-api.json');
   let config: { reposPath?: unknown };
   try {
     config = JSON.parse(await readFile(discoveryPath, 'utf-8')) as { reposPath?: unknown };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      logger.warn('cwd-changed: failed to read discovery file', {
+      logger.warn('enter-worktree: failed to read discovery file', {
         discoveryPath,
         error: error instanceof Error ? error.message : String(error)
       });
@@ -136,7 +144,7 @@ export async function acquireLock(
   lockPath: string,
   agentPid: number,
   cardId: string,
-  logger: CwdLogger
+  logger: EnterWorktreeLogger
 ): Promise<boolean> {
   await mkdir(dirname(lockPath), { recursive: true });
 
@@ -187,11 +195,11 @@ export async function acquireLock(
     // one live watcher per session — re-targeting a second card would tear down
     // the first watcher (churn + a transcript-sync gap), which the card's "reuse
     // the transcript-watcher as-is" constraint forbids. Consequence: work done
-    // after cd-ing into a second card's worktree within the same session streams
+    // after entering a second card's worktree within the same session streams
     // its transcript into the FIRST card. The warning below surfaces this so a
     // contributor switching worktrees mid-session is not surprised by it.
     if (boundCardId && boundCardId !== cardId) {
-      logger.warn('cwd-changed: session already bound to a different card — keeping original binding', {
+      logger.warn('enter-worktree: session already bound to a different card — keeping original binding', {
         boundCardId,
         attemptedCardId: cardId,
         ownerPid
@@ -205,7 +213,7 @@ export async function acquireLock(
     await unlink(lockPath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      logger.warn('cwd-changed: failed to unlink stale lock', {
+      logger.warn('enter-worktree: failed to unlink stale lock', {
         lockPath,
         error: error instanceof Error ? error.message : String(error)
       });
@@ -216,38 +224,38 @@ export async function acquireLock(
   return writeLock();
 }
 
-export default cwdChangedHook({}, async (input, { logger }) => {
-  // 1. Walk up from new_cwd to find .cards/CARD_ID.
-  const cardId = await resolveWorktreeCardId(input.new_cwd);
-  if (!cardId) return cwdChangedOutput({});
+export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { logger }) => {
+  // 1. Walk up from the entered worktree (post-tool cwd) to find .cards/CARD_ID.
+  const cardId = await resolveWorktreeCardId(input.cwd);
+  if (!cardId) return postToolUseOutput({});
 
   // 2. Derive cardRepoPath from the discovery file.
   const cardRepoPath = await resolveCardRepoPath(cardId, logger);
-  if (!cardRepoPath) return cwdChangedOutput({});
+  if (!cardRepoPath) return postToolUseOutput({});
 
   // 3. Action-subprocess guard — never fight the wrapper.
-  if (process.env['ACTION_NAME']) return cwdChangedOutput({});
+  if (process.env['ACTION_NAME']) return postToolUseOutput({});
 
   // 4. Entry source-state guard — only (re)activate a card that is in a
-  //    working/pre-work state. cd-ing a plain session into a finished or
-  //    review-exit card's worktree must NOT force-reactivate it (which would
-  //    then strand it in needs_review on teardown). This guard sits BEFORE lock
-  //    acquisition so a rejected entry never orphans a lock and is symmetric
-  //    with the guarded teardown. A null status (no CARD.meta.json) is treated
-  //    as not-activatable — fail closed.
+  //    working/pre-work state. Entering a finished or review-exit card's
+  //    worktree must NOT force-reactivate it (which would then strand it in
+  //    needs_review on teardown). This guard sits BEFORE lock acquisition so a
+  //    rejected entry never orphans a lock and is symmetric with the guarded
+  //    teardown. A null status (no CARD.meta.json) is treated as
+  //    not-activatable — fail closed.
   const currentStatus = await readCardStatus(cardRepoPath);
   if (!isAdhocActivatableStatus(currentStatus ?? undefined)) {
-    logger.warn('cwd-changed: card not in an activatable state — no-op', {
+    logger.warn('enter-worktree: card not in an activatable state — no-op', {
       cardId,
       status: currentStatus
     });
-    return cwdChangedOutput({});
+    return postToolUseOutput({});
   }
 
   // 5. PID first — fail open on missing or wrong PID.
   const agentPid = findAgentPid();
-  if (!agentPid) return cwdChangedOutput({});
-  if (!isKnownAgentComm(agentPid, logger)) return cwdChangedOutput({});
+  if (!agentPid) return postToolUseOutput({});
+  if (!isKnownAgentComm(agentPid, logger)) return postToolUseOutput({});
 
   // 6. Atomic de-dupe lock (gates both spawns).
   //
@@ -259,14 +267,14 @@ export default cwdChangedHook({}, async (input, { logger }) => {
   //    invariant — a single session can have only one live transcript-watcher.
   //    Re-targeting a second card would require tearing down and re-spawning
   //    that single watcher (churn + a transcript-sync gap) and is therefore
-  //    precluded. A session that later cd's into a DIFFERENT card's worktree
+  //    precluded. A session that later enters a DIFFERENT card's worktree
   //    correctly no-ops here (its first card keeps the attribution); re-entering
   //    the SAME worktree also no-ops.
   const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${input.session_id}.lock`);
   const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
-  if (!acquired) return cwdChangedOutput({});
+  if (!acquired) return postToolUseOutput({});
 
-  // 6. Spawn transcript-watcher (non-fatal). Attach mode runs with the `cards`
+  // 7. Spawn transcript-watcher (non-fatal). Attach mode runs with the `cards`
   //    plugin enabled, so its bin — and the `transcript-watcher` wrapper — is on
   //    PATH; the bare name resolves there.
   spawnTranscriptWatcher(
@@ -279,8 +287,8 @@ export default cwdChangedHook({}, async (input, { logger }) => {
     logger
   );
 
-  // 7. Spawn adhoc-cleanup (non-fatal).
+  // 8. Spawn adhoc-cleanup (non-fatal).
   spawnAdhocCleanup(agentPid, input.session_id, cardId, cardRepoPath, lockPath, logger);
 
-  return cwdChangedOutput({});
+  return postToolUseOutput({});
 });

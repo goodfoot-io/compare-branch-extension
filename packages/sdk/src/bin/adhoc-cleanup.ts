@@ -1,8 +1,8 @@
 /**
  * Detached ad-hoc session cleanup process.
  *
- * Spawned by the CwdChanged hook when a plain (non-action) Claude session
- * enters a card-owned worktree. Marks the card `active` via the API client,
+ * Spawned by the EnterWorktree (PostToolUse) hook when a plain (non-action)
+ * Claude session enters a card-owned worktree. Marks the card `active` via the API client,
  * writes a per-card reference file (recording the agent PID and its start-time
  * to defeat PID reuse), then polls the agent PID. On PID death it performs
  * ref-counted teardown — flipping the card to `needs_review` (API first,

@@ -1,11 +1,11 @@
 /**
- * Tests for the CwdChanged hook helpers.
+ * Tests for the EnterWorktree (PostToolUse) hook helpers.
  *
  * Real filesystem only — no mocks. Covers the upward walk for `.cards/CARD_ID`,
  * discovery-based cardRepoPath resolution, and the O_EXCL de-dupe lock with
  * stale-lock recovery.
  *
- * @summary CwdChanged hook helper tests
+ * @summary EnterWorktree hook helper tests
  */
 
 import { spawn } from 'node:child_process';
@@ -13,7 +13,7 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '../src/cwd-changed.js';
+import { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '../src/enter-worktree.js';
 
 const noopLogger = { warn: () => {} };
 

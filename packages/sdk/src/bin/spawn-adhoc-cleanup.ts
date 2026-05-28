@@ -1,7 +1,7 @@
 /**
  * Extracted helper for spawning the detached ad-hoc cleanup process.
  *
- * Used by the CwdChanged hook to launch the detached `adhoc-cleanup` bin that
+ * Used by the EnterWorktree (PostToolUse) hook to launch the detached `adhoc-cleanup` bin that
  * monitors the agent PID and flips the card back to `needs_review` when the
  * session ends. Modelled on {@link spawnTranscriptWatcher}.
  *
