@@ -21,7 +21,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/config';
-import codexInterviewRoutingSkill from '../../../../codex/runtime/skills/interview-routing/SKILL.md';
+import codexInterviewRoutingSkill from '../../../../codex/runtime/skills/interview/SKILL.md';
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
