@@ -30,7 +30,15 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
 
   const shellArgs = [
     '--append-system-prompt',
-    '<instructions>Load the `cards:management` skill and assist the user. Do not implement a card unless instructed to do so by the user.</instructions>',
+    `<instructions>
+    Load the \`cards:management\` skill and assist the user. 
+
+    If the user:
+    - **Specifies a card:** use the \`card\` CLI to explore that card
+    - **Discusses a potential task or project:** Load the appropriate 'interview' reference from the \`cards:management\` skill
+
+    Do not implement a card unless instructed to do so by the user.
+    </instructions>`,
     '--settings',
     settingsJson
   ];
