@@ -240,6 +240,40 @@ export type RemoteCommandMessage = {
 };
 
 /**
+ * Preloads a value into the extension-host `KeyedDialogInterceptor` so the next
+ * matching VS Code QuickPick / InputBox answers headlessly instead of showing UI.
+ *
+ * Routes through `_applyRemoteRouting`, which calls
+ * `getDialogInterceptor().preload(key, value)`. `key` must be the same dialog
+ * key the production handler passes to `intercept()` / `interceptQuickPick()`
+ * (e.g. the tag/relation QuickPick keys). The interceptor consumes the value on
+ * the next matching call, so a preload affects exactly one dialog.
+ *
+ * Preloading over the bus is acceptable in the staging build because the Cards
+ * server is local and token-authed — no untrusted client can reach this path.
+ */
+export type RemoteDialogPreloadMessage = {
+  type: 'remote:dialog:preload';
+  target: 'dialog';
+  key: string;
+  value: unknown;
+};
+
+/**
+ * Clears a previously-preloaded dialog value from the extension-host
+ * `KeyedDialogInterceptor`.
+ *
+ * Routes through `_applyRemoteRouting`, which calls
+ * `getDialogInterceptor().clear(key)`. Used to cancel a preload that was set but
+ * never consumed (e.g. a flow aborted before reaching the dialog).
+ */
+export type RemoteDialogClearMessage = {
+  type: 'remote:dialog:clear';
+  target: 'dialog';
+  key: string;
+};
+
+/**
  * Union of all remote programmatic API messages.
  *
  * Use the target-specific types (`RemoteDetailMessage`, `RemoteListMessage`, etc.)
@@ -253,4 +287,6 @@ export type RemoteMessage =
   | RemoteEditorMessage
   | RemoteWizardMessage
   | RemoteStreamMessage
-  | RemoteCommandMessage;
+  | RemoteCommandMessage
+  | RemoteDialogPreloadMessage
+  | RemoteDialogClearMessage;
