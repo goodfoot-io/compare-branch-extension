@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cards Configuration SDK"
+  short_description: "Build Cards Extension settings and stream renderers"
+  default_prompt: "Use $sdk to scaffold a type-safe settings.config.ts with an action handler and a stream renderer."

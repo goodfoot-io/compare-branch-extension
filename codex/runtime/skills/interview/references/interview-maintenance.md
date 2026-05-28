@@ -1,0 +1,71 @@
+<first-principles>
+1. Debt is only debt if it costs something observable — incidents, toil, risk, blocked work — not aesthetic.
+2. Invariants are the contract with the rest of the system. What must not change matters more than what will.
+3. A refactor without a safety net is a rewrite. Tests, observability, and rollback paths are preconditions.
+4. Partial migrations are a steady state to be designed, not an accident to be avoided.
+5. Consumers are part of the system. Any change to shared surfaces is a coordination problem.
+6. The end state must be describable without reference to the current state.
+7. Removal is the completion criterion — debt is not retired until the old path is gone.
+</first-principles>
+
+<critical-constraints>
+
+- No refactoring. No dependency upgrades. No code changes of any kind.
+- Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Report failing tests or broken builds in the card; do not remediate.
+
+</critical-constraints>
+
+<instructions>
+
+## 1. Dispatch Research Immediately
+
+Spawn `explorer` sub-agents in parallel (`spawn_agent` with `agent_type: explorer`) before engaging the user. Research targets:
+- Complexity-vs.-churn hotspots on the subject (git log frequency + file size/complexity)
+- Test coverage of the subject; flaky or missing cases
+- Dependency freshness and deprecation signals from lockfiles
+- Public surfaces and their consumers (imports, API callers, exported types)
+- TODO/FIXME/`deprecated` markers in-scope
+
+Do not block on research. Proceed to Section 2 while subagents run.
+
+## 2. Load Card Skills
+
+Load `$notes` and `$markdown` in parallel.
+
+## 3. Interview and Shape the Card
+
+The card already exists. Read `CARD.md` and use the conversation to close gaps, sharpen ambiguities, and surface assumptions the author left implicit — refining the commander's intent where the interview reveals it needs refining, rather than rebuilding it from scratch.
+
+- Keep each exchange short. Reflect back what you're hearing and follow up on what matters underneath the request. Match the user's register — their vocabulary, level of formality, and concreteness.
+- Use the `AskUserQuestion` tool for discrete parameters the user is best placed to set:
+  - Ask one question per turn. Batch only when a single scenario illustrates the whole cluster.
+  - Attach several short "good" and "bad" scenarios to each option — concrete, one-line each — when picking exposes non-obvious downstream consequences (e.g., scope — narrowing to one consumer leaves invariants unproven elsewhere; widening pulls in migrations the user didn't price in). Skip scenarios when the trade-off is implicit in the question itself (e.g., renaming a helper, where the cost is cosmetic).
+  - Topic axes: scope, per-consumer disposition, completion criterion, invariant surface, whether test fixtures may change.
+  - Stay in chat for motivation, invariant naming, and trade-off discussion.
+- Target motivation, invariants, rollout strategy, and completion criteria — never facts recoverable by research.
+- Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
+- Force the user to name what must *not* change; unstated invariants produce regressions.
+
+As research subagents return and as the conversation settles pieces of the destination, fold them into the card in place — do not batch to the end:
+
+- `CARD.meta.json` — title and metadata
+- `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./maintenance.md`
+- `notes/` — research findings, consumer inventory, rejected approaches
+- `plan/` — decision logs and load-bearing assumptions only; do **not** write a migration plan
+
+Commit frequently so the card improves monotonically. The destination must be describable without reference to the current mechanism.
+
+## 4. Finalize
+
+When the user confirms the card is complete, reconcile notes into `CARD.md`, ensure every load-bearing assumption is recorded, then:
+
+```bash
+cd $CARD_REPO_PATH
+git add -A
+git commit -m "[single sentence summarizing the maintenance approach and key decisions from the interview]"  # <card-repo-commit-style>
+```
+
+**STOP** — Interview complete. Do not proceed to implementation.
+
+</instructions>
