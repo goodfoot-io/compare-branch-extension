@@ -124,6 +124,22 @@ describe('build output: settings.json structure', () => {
         }
       }
     });
+
+    it('should double-quote $VSCODE_NODE so the macOS interpreter path (with spaces) survives shell expansion', () => {
+      // The wrapper runs the command via `spawn(cmd, { shell: true })`. On macOS
+      // $VSCODE_NODE expands to a path containing spaces ("Visual Studio Code.app",
+      // "Code Helper (Plugin)"), so a bare `$VSCODE_NODE ./bin/...` word-splits and
+      // the shell fails with "/bin/sh: /Applications/Visual: No such file or directory".
+      for (const [_envName, env] of Object.entries(settings.environments)) {
+        for (const action of env.actions) {
+          const cmd = action.command.command;
+          if (!cmd.includes('VSCODE_NODE')) continue;
+          expect(cmd).toContain('"$VSCODE_NODE"');
+          // Guard against the unquoted regression form `$VSCODE_NODE ./`.
+          expect(cmd).not.toMatch(/(^|[^"])\$VSCODE_NODE\s+\.\//);
+        }
+      }
+    });
   });
 });
 

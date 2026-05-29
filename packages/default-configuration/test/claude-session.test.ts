@@ -1,5 +1,4 @@
 import type { ChildProcess } from 'node:child_process';
-import { join } from 'node:path';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { flushMicrotasks } from '@cards/test-utils';
@@ -713,17 +712,20 @@ describe('claude-session shared utilities', () => {
   });
 
   describe('resolveClaudeConfigDir', () => {
-    it('returns CLAUDE_CONFIG_DIR when set and has plugins/', async () => {
+    it('returns CLAUDE_CONFIG_DIR verbatim and unconditionally when set (no disk probe)', async () => {
       const { resolveClaudeConfigDir } = await import('../src/lib/claude-session.js');
       const { access } = await import('node:fs/promises');
-      vi.mocked(access).mockResolvedValueOnce(undefined);
+      // An explicit override is authoritative — it must be honored even when its
+      // `plugins/` subdir does not exist yet (e.g. a freshly relocated config
+      // dir). The disk probe must NOT run for the override case.
+      vi.mocked(access).mockClear();
 
       const saved = process.env['CLAUDE_CONFIG_DIR'];
       process.env['CLAUDE_CONFIG_DIR'] = '/custom/claude';
       try {
         const result = await resolveClaudeConfigDir();
         expect(result).toBe('/custom/claude');
-        expect(access).toHaveBeenCalledWith(join('/custom/claude', 'plugins'));
+        expect(access).not.toHaveBeenCalled();
       } finally {
         if (saved !== undefined) process.env['CLAUDE_CONFIG_DIR'] = saved;
         else delete process.env['CLAUDE_CONFIG_DIR'];

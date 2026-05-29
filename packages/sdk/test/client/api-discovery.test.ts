@@ -30,6 +30,14 @@ describe('api-discovery', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    // Clear every input that feeds resolveGlobalCardsConfigDir so the mocked
+    // homedir() fallback is the deterministic default for these tests. Without
+    // this, a developer's real CARDS_HOME/XDG_* would leak in and the fallback
+    // path under MOCK_HOMEDIR would never be exercised.
+    delete process.env['CARDS_HOME'];
+    delete process.env['XDG_DATA_HOME'];
+    delete process.env['XDG_CONFIG_HOME'];
+    delete process.env['CARDS_DISCOVERY_PATH'];
     testDir = join(realTmpdir(), `api-discovery-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(testDir, { recursive: true });
     process.env['MOCK_HOMEDIR'] = testDir;
@@ -231,6 +239,44 @@ describe('api-discovery', () => {
         host: 'localhost',
         port: 7777,
         accessToken: 'default-token'
+      });
+    });
+
+    it('should honor CARDS_HOME over the homedir fallback', async () => {
+      // The host QA leg keeps OS HOME real and isolates only the Cards server
+      // via CARDS_HOME. Discovery must read from CARDS_HOME, NOT homedir()/.cards,
+      // or the launch wrapper escapes isolation and discovers the wrong server.
+      const cardsHome = join(testDir, 'isolated-cards-home');
+      mkdirSync(cardsHome, { recursive: true });
+      writeFileSync(
+        join(cardsHome, 'cards-api.json'),
+        JSON.stringify({
+          host: '10.0.0.5',
+          port: 6543,
+          pid: 22222,
+          accessToken: 'isolated-token',
+          startedAt: '2024-01-01T00:00:00Z'
+        })
+      );
+      // Plant a decoy under the homedir fallback to prove it is NOT read.
+      mkdirSync(join(testDir, '.cards'), { recursive: true });
+      writeFileSync(
+        join(testDir, '.cards', 'cards-api.json'),
+        JSON.stringify({
+          host: 'localhost',
+          port: 1111,
+          pid: 1,
+          accessToken: 'real-home-token',
+          startedAt: '2024-01-01T00:00:00Z'
+        })
+      );
+      process.env['CARDS_HOME'] = cardsHome;
+
+      const info = await discoverApiInfo(mockLogger);
+      expect(info).toMatchObject({
+        host: '10.0.0.5',
+        port: 6543,
+        accessToken: 'isolated-token'
       });
     });
   });

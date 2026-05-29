@@ -15,20 +15,29 @@ import * as path from 'node:path';
 import type { ILogger } from './config/logger.js';
 
 /**
- * Resolves the Claude Code configuration directory using the standard
- * fallback chain: $CLAUDE_CONFIG_DIR → $XDG_DATA_HOME/claude →
- * $XDG_CONFIG_HOME/claude → ~/.config/claude → ~/.claude.
+ * Resolves the Claude Code configuration directory.
  *
- * Returns the first candidate that exists on disk, or null if none is found.
+ * When `$CLAUDE_CONFIG_DIR` is set it is returned verbatim and unconditionally
+ * (the explicit override the CLI itself honors). Otherwise the standard
+ * disk-probe fallback chain is walked — $XDG_DATA_HOME/claude →
+ * $XDG_CONFIG_HOME/claude → ~/.config/claude → ~/.claude — returning the first
+ * candidate whose `plugins/` subdir exists, or null if none is found.
  *
- * @returns The first existing Claude config directory path, or null if none found.
+ * @returns The Claude config directory path, or null if none found.
  */
 export async function resolveClaudeConfigDir(): Promise<string | null> {
+  // `$CLAUDE_CONFIG_DIR` is an explicit, authoritative override: the Claude Code
+  // CLI uses it verbatim (creating `plugins/` on demand). Honor it
+  // UNCONDITIONALLY — do not gate on `plugins/` already existing. A freshly
+  // relocated config dir (e.g. an isolated QA run) has `settings.json` but no
+  // `plugins/` yet; gating here would silently fall through to `~/.claude` and
+  // write the marketplace registration into the user's REAL home instead of the
+  // isolated dir the CLI actually reads.
+  const claudeConfigDir = process.env['CLAUDE_CONFIG_DIR'];
+  if (claudeConfigDir) return claudeConfigDir;
+
   const home = homedir();
   const candidates: string[] = [];
-
-  const claudeConfigDir = process.env['CLAUDE_CONFIG_DIR'];
-  if (claudeConfigDir) candidates.push(claudeConfigDir);
 
   const xdgDataHome = process.env['XDG_DATA_HOME'];
   if (xdgDataHome) candidates.push(path.join(xdgDataHome, 'claude'));

@@ -140,7 +140,15 @@ function getBaseName(sourcePath: string): string {
  * Paths are relative to the settings.json file location.
  * Uses `$VSCODE_NODE` so the bundled Node.js interpreter is used
  * regardless of whether `node` is on the system PATH.
- * E.g., "$VSCODE_NODE ./bin/launch-claude.abc12345.mjs"
+ * E.g., `"$VSCODE_NODE" ./bin/launch-claude.abc12345.mjs`
+ *
+ * `$VSCODE_NODE` is double-quoted because the wrapper runs this command via a
+ * shell (`spawn(command, { shell: true })` in `cards/server/src/runtime/wrapper.ts`).
+ * On macOS the bundled interpreter path contains spaces
+ * (`/Applications/Visual Studio Code.app/.../Code Helper (Plugin)`), so an
+ * unquoted `$VSCODE_NODE` word-splits and the shell fails with
+ * `/bin/sh: /Applications/Visual: No such file or directory` — the action
+ * handler never spawns. Quoting preserves the path as a single argument.
  *
  * @param filename - Compiled handler filename placed under the bin directory.
  * @param binDir - Relative output subdirectory containing compiled handlers.
@@ -148,7 +156,7 @@ function getBaseName(sourcePath: string): string {
  */
 function generateCommandString(filename: string, binDir: string): string {
   const relativePath = path.posix.join(binDir, filename);
-  return `$VSCODE_NODE ./${relativePath}`;
+  return `"$VSCODE_NODE" ./${relativePath}`;
 }
 
 // ============================================================================

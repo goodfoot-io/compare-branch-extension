@@ -68,8 +68,9 @@ export const CARDS_ENV_VARS = {
    *
    * Set by the extension host from `process.execPath` (with
    * `ELECTRON_RUN_AS_NODE=1`). Commands in settings.json use
-   * `$VSCODE_NODE ./bin/...` so they work regardless of
-   * whether `node` is on the system PATH.
+   * `"$VSCODE_NODE" ./bin/...` (double-quoted — the macOS interpreter path
+   * contains spaces) so they work regardless of whether `node` is on the
+   * system PATH.
    *
    * Available in all actions and type hooks.
    */

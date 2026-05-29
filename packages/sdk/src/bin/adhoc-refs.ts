@@ -18,7 +18,6 @@
  */
 
 import { readdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { resolveGlobalCardsConfigDir } from '../cards-config.js';
 import { isProcessAliveWithStartTime, readProcessStartTime, transitionCardStatus } from './process-utils.js';
@@ -233,7 +232,8 @@ export async function liveActionPresent(logger: AdhocRefsLogger): Promise<boolea
 
 /**
  * Resolves the per-card repository root (`reposPath`) from the API discovery
- * file `~/.cards/cards-api.json`.
+ * file (`$CARDS_DISCOVERY_PATH`, else `<resolveGlobalCardsConfigDir()>/cards-api.json`,
+ * which honors `$CARDS_HOME`).
  *
  * Returns `null` when the discovery file is absent, malformed, or missing
  * `reposPath` — in which case there is no server and the sweep no-ops.
@@ -242,7 +242,7 @@ export async function liveActionPresent(logger: AdhocRefsLogger): Promise<boolea
  * @returns The reposPath, or null when unresolvable.
  */
 export async function resolveReposPath(logger: AdhocRefsLogger): Promise<string | null> {
-  const discoveryPath = process.env['CARDS_DISCOVERY_PATH'] ?? join(homedir(), '.cards', 'cards-api.json');
+  const discoveryPath = process.env['CARDS_DISCOVERY_PATH'] ?? join(resolveGlobalCardsConfigDir(), 'cards-api.json');
   let config: { reposPath?: unknown };
   try {
     config = JSON.parse(await readFile(discoveryPath, 'utf-8')) as { reposPath?: unknown };

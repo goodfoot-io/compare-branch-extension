@@ -187,7 +187,7 @@ export interface Environment {
  * @example
  * ```typescript
  * const assistant: CardsAssistant = {
- *   command: { command: '$VSCODE_NODE ./bin/cards-assistant.abc12345.mjs' }
+ *   command: { command: '"$VSCODE_NODE" ./bin/cards-assistant.abc12345.mjs' }
  * };
  * ```
  */

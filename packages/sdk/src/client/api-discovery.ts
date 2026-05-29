@@ -1,8 +1,17 @@
 /**
  * Cards API discovery utilities.
  *
- * Reads `~/.cards/cards-api.json` to locate the Cards API server and
- * constructs a {@link CardsClient} for use by CLI tools and hook entrypoints.
+ * Reads the Cards API discovery file (`<cards-home>/cards-api.json`) to locate
+ * the running server and constructs a {@link CardsClient} for use by CLI tools
+ * and hook entrypoints.
+ *
+ * The discovery file is resolved the SAME way the server writes it:
+ * `$CARDS_DISCOVERY_PATH` when set (the explicit per-EDH override), otherwise
+ * `<resolveGlobalCardsConfigDir()>/cards-api.json` — which honors `$CARDS_HOME`.
+ * This symmetry matters for the host QA leg, where OS `HOME` stays real and only
+ * the Cards server is isolated via `$CARDS_HOME`: a `homedir()`-based default
+ * would escape that isolation and discover the developer's real Cards server
+ * instead of the isolated one.
  *
  * All functions return `null` on failure so callers can degrade gracefully.
  * Set `API_TEST_MODE=1` to force deterministic, local values in tests.
@@ -12,8 +21,8 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { resolveGlobalCardsConfigDir } from '../cards-config.js';
 import type { CardsApiInfo, SessionBaseline } from '../protocol/index.js';
 import { CardsClient } from './cardsClient.js';
 import type { CardsClientOptions } from './types/client.js';
@@ -49,7 +58,7 @@ export async function discoverApiInfo(logger?: DiscoveryLogger): Promise<CardsAp
     };
   }
 
-  const configPath = process.env['CARDS_DISCOVERY_PATH'] ?? join(homedir(), '.cards', 'cards-api.json');
+  const configPath = process.env['CARDS_DISCOVERY_PATH'] ?? join(resolveGlobalCardsConfigDir(), 'cards-api.json');
   try {
     const content = await readFile(configPath, 'utf-8');
     const config = JSON.parse(content) as Record<string, unknown>;
@@ -82,8 +91,9 @@ export async function discoverApiInfo(logger?: DiscoveryLogger): Promise<CardsAp
 /**
  * Creates a {@link CardsClient} from the API discovery file.
  *
- * Reads `~/.cards/cards-api.json`, extracts host/port/accessToken, and
- * returns a configured client instance. Returns `null` when discovery fails.
+ * Reads the discovery file (honoring `$CARDS_DISCOVERY_PATH` / `$CARDS_HOME`,
+ * see {@link discoverApiInfo}), extracts host/port/accessToken, and returns a
+ * configured client instance. Returns `null` when discovery fails.
  *
  * Accepts an optional `options` object whose fields are merged into the
  * constructed {@link CardsClient} options, overriding the discovered defaults
