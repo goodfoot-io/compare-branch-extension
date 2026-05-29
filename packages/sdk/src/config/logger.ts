@@ -22,8 +22,9 @@
  * ```
  */
 
+import { execFileSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, writeSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 // ============================================================================
 // Log Level Types
@@ -190,10 +191,102 @@ export interface LoggerConfig {
   /**
    * Path to the log file for JSON Lines output.
    *
-   * If not set, file logging is disabled. Can also be set via the
-   * `CARDS_HOOKS_LOG_FILE` environment variable.
+   * Highest-precedence file source. If not set, the path is resolved from the
+   * environment (`CARDS_HOOKS_LOG_FILE`, then `CARDS_LOG_DIR` + `subsystem`),
+   * then from the computed main-repo-root default when a `subsystem` is given.
    */
   logFilePath?: string;
+
+  /**
+   * Subsystem name used to compute a default log file path.
+   *
+   * When set (and no explicit `logFilePath`/`CARDS_HOOKS_LOG_FILE` is present),
+   * the log file resolves to `<CARDS_LOG_DIR>/<subsystem>.log` if `CARDS_LOG_DIR`
+   * is set, otherwise to `<mainRepoRoot>/.cards/logs/<subsystem>.log`. The main
+   * repo root is resolved at construction time and is durable across linked
+   * worktrees. If neither a subsystem nor an explicit/env file source is set,
+   * file logging stays disabled.
+   */
+  subsystem?: string;
+}
+
+/**
+ * Resolves the main repository root for the computed default log path.
+ *
+ * Prefers `REPO_ROOT` when set and non-empty (present in action contexts).
+ * Otherwise computes `dirname(git rev-parse --path-format=absolute
+ * --git-common-dir)`, which collapses a linked worktree back to its owning main
+ * repo (e.g. `/workspace/.git` → `/workspace`). `--git-common-dir` is required
+ * (not `--git-dir`, which yields the worktree git dir); `--path-format=absolute`
+ * is required so `dirname` is meaningful regardless of cwd.
+ *
+ * Fail-closed: any failure (throw, empty output) returns `null` so an
+ * unresolved path degrades to disabled file output and never throws.
+ * @returns Absolute main repo root, or `null` when it cannot be resolved.
+ */
+function resolveMainRepoRoot(): string | null {
+  try {
+    const repoRoot = process.env['REPO_ROOT'];
+    if (repoRoot !== undefined && repoRoot.length > 0) {
+      return repoRoot;
+    }
+
+    const commonDir = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+      encoding: 'utf8'
+    }).trim();
+
+    if (commonDir.length === 0) {
+      return null;
+    }
+
+    return dirname(commonDir);
+  } catch {
+    // Fail-closed: any failure degrades to disabled file output, never a throw.
+    return null;
+  }
+}
+
+/**
+ * Resolves the log file path from config and environment.
+ *
+ * Resolution order (highest precedence first):
+ * 1. `config.logFilePath`
+ * 2. `CARDS_HOOKS_LOG_FILE` (exact file)
+ * 3. `CARDS_LOG_DIR` + subsystem → `<CARDS_LOG_DIR>/<subsystem>.log`
+ * 4. computed default → `<mainRepoRoot>/.cards/logs/<subsystem>.log`
+ * 5. otherwise `null` (file output disabled)
+ *
+ * Tiers 3 and 4 only apply when `subsystem` is set; tier 4 additionally requires
+ * the main repo root to resolve.
+ * @param config - Logger configuration.
+ * @returns Resolved absolute log file path, or `null` when file output is disabled.
+ */
+function resolveLogFilePath(config: LoggerConfig): string | null {
+  if (config.logFilePath !== undefined) {
+    return config.logFilePath;
+  }
+
+  const envFile = process.env['CARDS_HOOKS_LOG_FILE'];
+  if (envFile !== undefined && envFile.length > 0) {
+    return envFile;
+  }
+
+  const subsystem = config.subsystem;
+  if (subsystem === undefined || subsystem.length === 0) {
+    return null;
+  }
+
+  const logDir = process.env['CARDS_LOG_DIR'];
+  if (logDir !== undefined && logDir.length > 0) {
+    return join(logDir, `${subsystem}.log`);
+  }
+
+  const mainRepoRoot = resolveMainRepoRoot();
+  if (mainRepoRoot !== null) {
+    return join(mainRepoRoot, '.cards', 'logs', `${subsystem}.log`);
+  }
+
+  return null;
 }
 
 // ============================================================================
@@ -327,8 +420,9 @@ export class Logger {
       this.handlers.set(level, new Set());
     }
 
-    // Set log file path from config or environment
-    this.logFilePath = config.logFilePath ?? process.env['CARDS_HOOKS_LOG_FILE'] ?? null;
+    // Resolve the log file path: argument > CARDS_HOOKS_LOG_FILE >
+    // CARDS_LOG_DIR + subsystem > computed main-repo-root default > null.
+    this.logFilePath = resolveLogFilePath(config);
   }
 
   /**
@@ -498,33 +592,6 @@ export class Logger {
   clearContext(): void {
     this.currentHookType = undefined;
     this.currentInput = undefined;
-  }
-
-  /**
-   * Sets a default log file path that only takes effect if no other source
-   * has configured file logging.
-   *
-   * This is the lowest-priority file path source. It will be ignored if
-   * any of these have already set a path:
-   * - `logFilePath` in the constructor config
-   * - `CARDS_HOOKS_LOG_FILE` environment variable
-   * - {@link setLogFile} called at runtime
-   *
-   * Intended for use by CLI entry points (e.g., the `--log` flag).
-   * @param filePath - Default path to the log file
-   * @example
-   * ```typescript
-   * // Wire --log CLI argument as a fallback
-   * if (args.log) {
-   *   logger.setDefaultLogFile(args.log);
-   * }
-   * ```
-   */
-  setDefaultLogFile(filePath: string): void {
-    if (this.logFilePath === null) {
-      this.logFilePath = filePath;
-      this.fileInitialized = false;
-    }
   }
 
   /**

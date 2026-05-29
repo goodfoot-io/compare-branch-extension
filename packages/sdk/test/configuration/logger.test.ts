@@ -394,99 +394,6 @@ describe('Logger', () => {
       expect(event.message).toBe('After file - logged');
     });
 
-    it('setDefaultLogFile() sets path when no file is configured', () => {
-      logger = new Logger();
-
-      logger.setDefaultLogFile(logFilePath);
-      logger.info('Default file message');
-      logger.close();
-
-      const content = fs.readFileSync(logFilePath, 'utf-8');
-      const lines = content.trim().split('\n');
-
-      expect(lines).toHaveLength(1);
-      const event = JSON.parse(lines[0]!) as LogEvent;
-      expect(event.message).toBe('Default file message');
-    });
-
-    it('setDefaultLogFile() is ignored when constructor logFilePath is set', () => {
-      const primaryPath = path.join(tempDir, 'primary.log');
-      const defaultPath = path.join(tempDir, 'default.log');
-      logger = new Logger({ logFilePath: primaryPath });
-
-      logger.setDefaultLogFile(defaultPath);
-      logger.info('Goes to primary');
-      logger.close();
-
-      // Primary file should have the message
-      const primaryContent = fs.readFileSync(primaryPath, 'utf-8');
-      expect(primaryContent.trim().split('\n')).toHaveLength(1);
-
-      // Default file should not exist
-      expect(fs.existsSync(defaultPath)).toBe(false);
-
-      // Cleanup primary
-      fs.unlinkSync(primaryPath);
-    });
-
-    it('setDefaultLogFile() is ignored when CARDS_HOOKS_LOG_FILE is set', () => {
-      const envPath = path.join(tempDir, 'env.log');
-      const defaultPath = path.join(tempDir, 'default.log');
-      const originalEnv = process.env['CARDS_HOOKS_LOG_FILE'];
-
-      try {
-        process.env['CARDS_HOOKS_LOG_FILE'] = envPath;
-        logger = new Logger();
-
-        logger.setDefaultLogFile(defaultPath);
-        logger.info('Goes to env file');
-        logger.close();
-
-        // Env file should have the message
-        const envContent = fs.readFileSync(envPath, 'utf-8');
-        expect(envContent.trim().split('\n')).toHaveLength(1);
-
-        // Default file should not exist
-        expect(fs.existsSync(defaultPath)).toBe(false);
-
-        // Cleanup env file
-        fs.unlinkSync(envPath);
-      } finally {
-        if (originalEnv === undefined) {
-          delete process.env['CARDS_HOOKS_LOG_FILE'];
-        } else {
-          process.env['CARDS_HOOKS_LOG_FILE'] = originalEnv;
-        }
-      }
-    });
-
-    it('setLogFile() overrides setDefaultLogFile()', () => {
-      const defaultPath = path.join(tempDir, 'default.log');
-      const overridePath = path.join(tempDir, 'override.log');
-      logger = new Logger();
-
-      logger.setDefaultLogFile(defaultPath);
-      logger.info('Goes to default');
-
-      logger.setLogFile(overridePath);
-      logger.info('Goes to override');
-      logger.close();
-
-      // Default file should have only the first message
-      const defaultContent = fs.readFileSync(defaultPath, 'utf-8');
-      expect(defaultContent.trim().split('\n')).toHaveLength(1);
-      expect(JSON.parse(defaultContent.trim()).message).toBe('Goes to default');
-
-      // Override file should have only the second message
-      const overrideContent = fs.readFileSync(overridePath, 'utf-8');
-      expect(overrideContent.trim().split('\n')).toHaveLength(1);
-      expect(JSON.parse(overrideContent.trim()).message).toBe('Goes to override');
-
-      // Cleanup
-      fs.unlinkSync(defaultPath);
-      fs.unlinkSync(overridePath);
-    });
-
     it('setLogFile(null) disables file logging', () => {
       logger = new Logger({ logFilePath });
 
@@ -502,6 +409,131 @@ describe('Logger', () => {
         .filter((l) => l.length > 0);
 
       expect(lines).toHaveLength(1);
+    });
+  });
+
+  describe('log file path resolution order', () => {
+    let tempDir: string;
+    const savedEnv: Record<string, string | undefined> = {};
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'logger-resolve-test-'));
+      for (const key of ['CARDS_HOOKS_LOG_FILE', 'CARDS_LOG_DIR', 'REPO_ROOT']) {
+        savedEnv[key] = process.env[key];
+        delete process.env[key];
+      }
+    });
+
+    afterEach(() => {
+      for (const [key, value] of Object.entries(savedEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    });
+
+    /**
+     * Reads the JSON-Lines messages written to a log file, returning [] when
+     * the file was never created.
+     * @param filePath - Path to the log file to read.
+     * @returns The `message` field of each logged event, in order.
+     */
+    function readMessages(filePath: string): string[] {
+      if (!fs.existsSync(filePath)) return [];
+      return fs
+        .readFileSync(filePath, 'utf-8')
+        .trim()
+        .split('\n')
+        .filter((l) => l.length > 0)
+        .map((l) => (JSON.parse(l) as LogEvent).message);
+    }
+
+    it('uses config.logFilePath above every other source', () => {
+      const argPath = path.join(tempDir, 'arg.log');
+      process.env['CARDS_HOOKS_LOG_FILE'] = path.join(tempDir, 'env.log');
+      process.env['CARDS_LOG_DIR'] = tempDir;
+      process.env['REPO_ROOT'] = tempDir;
+
+      logger = new Logger({ logFilePath: argPath, subsystem: 'sub' });
+      logger.info('to arg');
+      logger.close();
+
+      expect(readMessages(argPath)).toEqual(['to arg']);
+      expect(fs.existsSync(path.join(tempDir, 'env.log'))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, 'sub.log'))).toBe(false);
+    });
+
+    it('uses CARDS_HOOKS_LOG_FILE above CARDS_LOG_DIR and the computed default', () => {
+      const envPath = path.join(tempDir, 'env.log');
+      process.env['CARDS_HOOKS_LOG_FILE'] = envPath;
+      process.env['CARDS_LOG_DIR'] = tempDir;
+      process.env['REPO_ROOT'] = tempDir;
+
+      logger = new Logger({ subsystem: 'sub' });
+      logger.info('to env');
+      logger.close();
+
+      expect(readMessages(envPath)).toEqual(['to env']);
+      expect(fs.existsSync(path.join(tempDir, 'sub.log'))).toBe(false);
+    });
+
+    it('uses CARDS_LOG_DIR + subsystem above the computed default', () => {
+      process.env['CARDS_LOG_DIR'] = tempDir;
+      process.env['REPO_ROOT'] = path.join(tempDir, 'repo-root-should-not-be-used');
+
+      logger = new Logger({ subsystem: 'mysub' });
+      logger.info('to log dir');
+      logger.close();
+
+      expect(readMessages(path.join(tempDir, 'mysub.log'))).toEqual(['to log dir']);
+    });
+
+    it('computes <REPO_ROOT>/.cards/logs/<subsystem>.log when only a subsystem is set', () => {
+      process.env['REPO_ROOT'] = tempDir;
+
+      logger = new Logger({ subsystem: 'workspace-hooks' });
+      logger.info('to computed default');
+      logger.close();
+
+      const expected = path.join(tempDir, '.cards', 'logs', 'workspace-hooks.log');
+      expect(readMessages(expected)).toEqual(['to computed default']);
+    });
+
+    it('disables file output (null) when no subsystem and no explicit/env source is set', () => {
+      logger = new Logger();
+      expect(logger.hasDestinations()).toBe(false);
+
+      logger.info('dropped');
+      logger.close();
+
+      expect(fs.readdirSync(tempDir)).toHaveLength(0);
+    });
+
+    it('fail-closed: disables file output when the main repo root cannot resolve', () => {
+      // No REPO_ROOT and no CARDS_LOG_DIR; force git resolution to fail by
+      // running with a cwd that is not inside any git repository.
+      const nonRepoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'logger-no-git-'));
+      const savedCwd = process.cwd();
+      try {
+        process.chdir(nonRepoDir);
+        logger = new Logger({ subsystem: 'sub' });
+        // Either resolution returned null (no destinations) — assert no throw
+        // and no file written into the non-repo dir.
+        expect(logger.hasDestinations()).toBe(false);
+        logger.info('dropped');
+        logger.close();
+        expect(fs.existsSync(path.join(nonRepoDir, '.cards'))).toBe(false);
+      } finally {
+        process.chdir(savedCwd);
+        fs.rmSync(nonRepoDir, { recursive: true, force: true });
+      }
     });
   });
 

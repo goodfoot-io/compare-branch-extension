@@ -601,13 +601,22 @@ export async function discoverIgnoredPaths(sourceRoot: string): Promise<IgnoredP
  * `.cards` needs an independent copy per worktree rather than a symlink
  * so each worktree can modify its cards state without affecting others.
  *
+ * Stale `*.log` files under `.cards/logs/` are excluded so a freshly created
+ * worktree never inherits another worktree's (or the main repo's) logs. Logs
+ * resolve at runtime to the durable main-repo-root path, so copying them would
+ * only produce confusing dead copies.
+ *
  * @param sourceRoot - Source checkout root containing `.cards`.
  * @param worktreeDir - Destination worktree root.
  */
 async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Promise<void> {
   const sourcePath = path.join(sourceRoot, '.cards');
+  const logsDir = path.join(sourcePath, 'logs');
   try {
-    await fs.cp(sourcePath, path.join(worktreeDir, '.cards'), { recursive: true });
+    await fs.cp(sourcePath, path.join(worktreeDir, '.cards'), {
+      recursive: true,
+      filter: (src) => !(src.startsWith(logsDir + path.sep) && src.endsWith('.log'))
+    });
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw error;

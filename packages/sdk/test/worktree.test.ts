@@ -109,6 +109,24 @@ describe('removeWorktree', () => {
     await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('copies .cards into a new worktree but excludes stale .cards/logs/*.log', async () => {
+    // Seed the source repo's .cards with a normal file and a stale log.
+    await fs.mkdir(path.join(repoDir, '.cards', 'logs'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, '.cards', 'CARD_ID'), 'seed-card\n');
+    await fs.writeFile(path.join(repoDir, '.cards', 'logs', 'git-workspace-repo-hooks.log'), '{"stale":true}\n');
+
+    const { path: wPath, settle } = await createWorktree('feature/log-exclusion', { cwd: repoDir });
+    await settle;
+
+    // Non-log .cards content is copied.
+    await expect(fs.readFile(path.join(wPath, '.cards', 'CARD_ID'), 'utf8')).resolves.toBe('seed-card\n');
+
+    // The stale log is NOT copied.
+    await expect(fs.access(path.join(wPath, '.cards', 'logs', 'git-workspace-repo-hooks.log'))).rejects.toMatchObject({
+      code: 'ENOENT'
+    });
+  });
+
   it('throws WorktreeScopeError when path equals the worktrees root (not a child)', async () => {
     const root = path.resolve(resolveWorktreesRoot());
     await expect(removeWorktree(root)).rejects.toBeInstanceOf(WorktreeScopeError);
