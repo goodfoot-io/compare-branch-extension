@@ -11,8 +11,7 @@ import type { ActionCommand, CardsAssistantCommand } from '../../src/config/comm
 import { CARDS_ENV_VARS } from '../../src/config/env.js';
 import { EXIT_CODES } from '../../src/config/exit-codes.js';
 import { createIpcEndpoint, createNonexistentIpcEndpoint } from '../../src/config/ipc-endpoint.js';
-import { logger } from '../../src/config/logger.js';
-import { executeCommand } from '../../src/config/runtime.js';
+import { executeCommand, logger } from '../../src/config/runtime.js';
 
 describe('runtime', () => {
   // Store original env vars

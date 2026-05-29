@@ -39,9 +39,21 @@ import type { ActionCommand, CardsAssistantCommand } from './command-types.js';
 import { CARDS_ENV_VARS, extractActionInput, extractCardsAssistantInput } from './env.js';
 import { EXIT_CODES, writeError } from './exit-codes.js';
 import type { ActionContext, ActionInput, CardsAssistantContext, CardsAssistantInput } from './inputs.js';
-import { logger } from './logger.js';
+import { Logger } from './logger.js';
 import type { SocketCommand } from './socket-client.js';
 import { SocketClient } from './socket-client.js';
+
+/**
+ * Logger for the handler runtime process.
+ *
+ * Constructed with the `cards-default-configuration-hooks` subsystem so that,
+ * absent an explicit `CARDS_HOOKS_LOG_FILE`/`CARDS_LOG_DIR` override, file
+ * output resolves to the computed `<mainRepoRoot>/.cards/logs/
+ * cards-default-configuration-hooks.log` default. The platform no longer
+ * injects a default `CARDS_HOOKS_LOG_FILE`, so the subsystem is what keeps this
+ * subsystem's logs from going dark.
+ */
+export const logger = new Logger({ subsystem: 'cards-default-configuration-hooks' });
 
 // ============================================================================
 // Command Type Union

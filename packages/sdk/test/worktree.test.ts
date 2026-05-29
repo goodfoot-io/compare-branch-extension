@@ -13,6 +13,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resolveWorktreesRoot } from '../src/cards-config.js';
+import { Logger } from '../src/config/logger.js';
 import { createWorktree, removeWorktree, WorktreeScopeError } from '../src/worktree.js';
 
 const CARDS_WORKTREES_DIR_KEY = 'CARDS_WORKTREES_DIR';
@@ -145,6 +146,51 @@ describe('removeWorktree', () => {
 
   it('throws WorktreeScopeError for empty worktreePath', async () => {
     await expect(removeWorktree('')).rejects.toBeInstanceOf(WorktreeScopeError);
+  });
+
+  it('Logger constructed from inside a linked worktree resolves log path to main repo root, not the worktree', async () => {
+    // Create a linked worktree from the main repo.
+    const { path: wPath, settle } = await createWorktree('feature/logger-collapse-test', { cwd: repoDir });
+    await settle;
+
+    // Unset all env vars that would short-circuit git resolution.
+    const savedEnv: Record<string, string | undefined> = {};
+    for (const key of ['REPO_ROOT', 'CARDS_LOG_DIR', 'CARDS_HOOKS_LOG_FILE']) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    const savedCwd = process.cwd();
+
+    try {
+      // Run from inside the linked worktree.
+      process.chdir(wPath);
+
+      const logger = new Logger({ subsystem: 'git-workspace-repo-hooks' });
+      // hasDestinations() is true only when the path resolved successfully.
+      expect(logger.hasDestinations()).toBe(true);
+
+      // Write a message so we can verify the destination file path.
+      logger.info('collapse-test');
+      logger.close();
+
+      // The log file must be under the MAIN repo root, not the worktree path.
+      const expectedLog = path.join(repoDir, '.cards', 'logs', 'git-workspace-repo-hooks.log');
+      const content = await fs.readFile(expectedLog, 'utf8');
+      expect(content).toContain('collapse-test');
+
+      // Nothing written under the worktree path.
+      const worktreeLog = path.join(wPath, '.cards', 'logs', 'git-workspace-repo-hooks.log');
+      await expect(fs.access(worktreeLog)).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      process.chdir(savedCwd);
+      for (const [key, value] of Object.entries(savedEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
   });
 
   it('runs git worktree prune afterwards so the registry stays clean', async () => {
