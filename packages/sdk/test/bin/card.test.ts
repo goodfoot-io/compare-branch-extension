@@ -62,6 +62,21 @@ function collectBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/**
+ * Restores an environment variable to a previously-saved value, deleting it when
+ * the saved value is `undefined` (i.e. it was unset before the test).
+ *
+ * @param key - Environment variable name.
+ * @param saved - The value captured before the test mutated it.
+ */
+function restoreEnv(key: string, saved: string | undefined): void {
+  if (saved === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = saved;
+  }
+}
+
 describe('card binary', () => {
   let testDir: string;
   let server: Server;
@@ -84,6 +99,10 @@ describe('card binary', () => {
   let activeWatchers: Map<string, { watcherId: string; cardId: string; metadata: Record<string, unknown> }>;
   /** Controls the DELETE response body (stopped/timedOut) for watcher teardown tests. */
   let watcherDeleteResponse: { stopped: string[]; timedOut: string[] };
+  /** Saved env around each test so inherited Cards-home overrides are restored. */
+  let savedCardsHome: string | undefined;
+  let savedXdgDataHome: string | undefined;
+  let savedXdgConfigHome: string | undefined;
 
   beforeEach(async () => {
     cards = new Map();
@@ -100,6 +119,18 @@ describe('card binary', () => {
     testDir = join(realTmpdir(), `card-bin-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(join(testDir, '.cards'), { recursive: true });
     process.env['MOCK_HOMEDIR'] = testDir;
+    // resolveGlobalCardsConfigDir() resolves $CARDS_HOME → $XDG_DATA_HOME/.cards →
+    // $XDG_CONFIG_HOME/.cards → ~/.cards. Mocking homedir only covers the last
+    // fallback; an inherited CARDS_HOME or XDG_* (e.g. on CI runners) would steer
+    // discovery away from testDir and fail with "API discovery failed". Pin
+    // CARDS_HOME (highest precedence) to the test's .cards dir and clear the XDG
+    // overrides so discovery is hermetic regardless of the host environment.
+    savedCardsHome = process.env['CARDS_HOME'];
+    savedXdgDataHome = process.env['XDG_DATA_HOME'];
+    savedXdgConfigHome = process.env['XDG_CONFIG_HOME'];
+    process.env['CARDS_HOME'] = join(testDir, '.cards');
+    delete process.env['XDG_DATA_HOME'];
+    delete process.env['XDG_CONFIG_HOME'];
 
     // Start a minimal HTTP server that handles the card API endpoints
     server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -278,6 +309,9 @@ describe('card binary', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     rmSync(testDir, { recursive: true, force: true });
     delete process.env['MOCK_HOMEDIR'];
+    restoreEnv('CARDS_HOME', savedCardsHome);
+    restoreEnv('XDG_DATA_HOME', savedXdgDataHome);
+    restoreEnv('XDG_CONFIG_HOME', savedXdgConfigHome);
   });
 
   describe('connectClient', () => {
