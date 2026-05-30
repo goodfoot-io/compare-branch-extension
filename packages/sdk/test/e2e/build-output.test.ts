@@ -125,18 +125,26 @@ describe('build output: settings.json structure', () => {
       }
     });
 
-    it('should double-quote $VSCODE_NODE so the macOS interpreter path (with spaces) survives shell expansion', () => {
-      // The wrapper runs the command via `spawn(cmd, { shell: true })`. On macOS
-      // $VSCODE_NODE expands to a path containing spaces ("Visual Studio Code.app",
-      // "Code Helper (Plugin)"), so a bare `$VSCODE_NODE ./bin/...` word-splits and
-      // the shell fails with "/bin/sh: /Applications/Visual: No such file or directory".
+    it('should double-quote the bundled-Node reference so an interpreter path with spaces survives shell expansion', () => {
+      // The wrapper runs the command via `spawn(cmd, { shell: true })`, whose
+      // shell is platform-specific: cmd.exe on win32 (expands `%VAR%`), /bin/sh
+      // elsewhere (expands `$VAR`). The reference must use the matching syntax
+      // AND be double-quoted: on macOS $VSCODE_NODE expands to a path containing
+      // spaces ("Visual Studio Code.app", "Code Helper (Plugin)"), so a bare
+      // `$VSCODE_NODE ./bin/...` word-splits and the shell fails with
+      // "/bin/sh: /Applications/Visual: No such file or directory"; the same
+      // hazard applies to `%VSCODE_NODE%` under cmd.exe. The string is generated
+      // on the host platform at build time, so it must match THIS platform.
+      const isWin = process.platform === 'win32';
+      const quoted = isWin ? '"%VSCODE_NODE%"' : '"$VSCODE_NODE"';
+      // Unquoted regression form: `%VSCODE_NODE% ./` or `$VSCODE_NODE ./`.
+      const unquotedRegression = isWin ? /(^|[^"])%VSCODE_NODE%\s+\.\// : /(^|[^"])\$VSCODE_NODE\s+\.\//;
       for (const [_envName, env] of Object.entries(settings.environments)) {
         for (const action of env.actions) {
           const cmd = action.command.command;
           if (!cmd.includes('VSCODE_NODE')) continue;
-          expect(cmd).toContain('"$VSCODE_NODE"');
-          // Guard against the unquoted regression form `$VSCODE_NODE ./`.
-          expect(cmd).not.toMatch(/(^|[^"])\$VSCODE_NODE\s+\.\//);
+          expect(cmd).toContain(quoted);
+          expect(cmd).not.toMatch(unquotedRegression);
         }
       }
     });

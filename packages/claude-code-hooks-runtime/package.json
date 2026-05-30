@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "rm -rf ../../claude/runtime/hooks ../../claude/runtime/bin ../../claude/runtime/content && claude-code-hooks -i \"src/**/*.ts\" -o \"../../claude/runtime/hooks/hooks.json\" --loader .md=text --loader .txt=text --log-env-var CLAUDE_CODE_RUNTIME_HOOKS_LOG_FILE --executable \"\\\"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\\\"\" && yarn build:mcp-server",
+    "build": "node -e \"for(const p of ['../../claude/runtime/hooks','../../claude/runtime/bin','../../claude/runtime/content'])require('fs').rmSync(p,{recursive:true,force:true})\" && claude-code-hooks -i \"src/**/*.ts\" -o \"../../claude/runtime/hooks/hooks.json\" --loader .md=text --loader .txt=text --log-env-var CLAUDE_CODE_RUNTIME_HOOKS_LOG_FILE --executable \"\\\"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\\\"\" && yarn build:mcp-server",
     "build:mcp-server": "esbuild ../cards-mcp-server/src/index.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../claude/runtime/bin/cards-mcp-server.mjs '--external:node:*'",
     "watch": "yarn build && chokidar 'src/**/*.{ts,md,txt}' -c 'yarn build'",
     "test": "vitest-unchanged",

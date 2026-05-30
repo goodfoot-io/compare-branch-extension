@@ -74,7 +74,10 @@ function resolvePluginRoot(scriptToken: string, binDir: string): string {
   const marker = '$CLAUDE_PLUGIN_ROOT/';
   expect(scriptToken.startsWith(marker)).toBe(true);
   const rel = scriptToken.slice(marker.length);
-  const actualFile = path.join(binDir, path.basename(rel));
+  // `rel` is a forward-slash path parsed from the generated command, but
+  // path.join uses the native separator (`\` on Windows). Compare and slice in
+  // a separator-agnostic way by normalizing the joined path to forward slashes.
+  const actualFile = path.join(binDir, path.basename(rel)).split(path.sep).join('/');
   expect(actualFile.endsWith(rel)).toBe(true);
   return actualFile.slice(0, actualFile.length - rel.length).replace(/\/$/, '');
 }
@@ -132,44 +135,52 @@ describe('generated hook commands tolerate spaces in VSCODE_NODE', () => {
     expect(commands.length).toBeGreaterThan(0);
   });
 
-  it('every hook command invokes the spaced interpreter with the handler as a single argument', () => {
-    const commands = Object.values(hooksJson.hooks)
-      .flat()
-      .flatMap((entry) => entry.hooks.map((h) => h.command));
+  // This case verifies POSIX `/bin/sh -c` word-splitting/quoting behavior: it
+  // executes the generated command through `/bin/sh` against a `#!/bin/sh` fake
+  // interpreter. That shell does not exist on Windows, where Claude Code also
+  // never routes hook commands through `/bin/sh`, so the concern is POSIX-only.
+  // The `resolvePluginRoot` helper above is exercised cross-platform.
+  it.skipIf(process.platform === 'win32')(
+    'every hook command invokes the spaced interpreter with the handler as a single argument',
+    () => {
+      const commands = Object.values(hooksJson.hooks)
+        .flat()
+        .flatMap((entry) => entry.hooks.map((h) => h.command));
 
-    for (const command of commands) {
-      rmSync(marker, { force: true });
+      for (const command of commands) {
+        rmSync(marker, { force: true });
 
-      const scriptToken = command.trim().split(/\s+/).pop();
-      expect(scriptToken).toBeDefined();
-      const pluginRoot = resolvePluginRoot(scriptToken!, binDir);
+        const scriptToken = command.trim().split(/\s+/).pop();
+        expect(scriptToken).toBeDefined();
+        const pluginRoot = resolvePluginRoot(scriptToken!, binDir);
 
-      const result = spawnSync('/bin/sh', ['-c', command], {
-        env: { ...process.env, HOME: fakeHome, CLAUDE_PLUGIN_ROOT: pluginRoot },
-        encoding: 'utf-8'
-      });
+        const result = spawnSync('/bin/sh', ['-c', command], {
+          env: { ...process.env, HOME: fakeHome, CLAUDE_PLUGIN_ROOT: pluginRoot },
+          encoding: 'utf-8'
+        });
 
-      // The interpreter must have actually run. Word-splitting a spaced path
-      // makes the shell fail with "No such file or directory" before the fake
-      // Node ever executes, leaving no marker.
-      let recorded: string;
-      try {
-        recorded = readFileSync(marker, 'utf-8');
-      } catch {
-        throw new Error(
-          `Interpreter never executed for command: ${command}\nshell stderr: ${result.stderr}\nshell status: ${result.status}`
-        );
+        // The interpreter must have actually run. Word-splitting a spaced path
+        // makes the shell fail with "No such file or directory" before the fake
+        // Node ever executes, leaving no marker.
+        let recorded: string;
+        try {
+          recorded = readFileSync(marker, 'utf-8');
+        } catch {
+          throw new Error(
+            `Interpreter never executed for command: ${command}\nshell stderr: ${result.stderr}\nshell status: ${result.status}`
+          );
+        }
+
+        const argcLine = recorded.split('\n').find((l) => l.startsWith('ARGC='));
+        const argLines = recorded
+          .split('\n')
+          .filter((l) => l.startsWith('ARG='))
+          .map((l) => l.slice('ARG='.length));
+
+        expect(argcLine).toBe('ARGC=1');
+        expect(argLines).toHaveLength(1);
+        expect(path.basename(argLines[0]!)).toBe(path.basename(scriptToken!));
       }
-
-      const argcLine = recorded.split('\n').find((l) => l.startsWith('ARGC='));
-      const argLines = recorded
-        .split('\n')
-        .filter((l) => l.startsWith('ARG='))
-        .map((l) => l.slice('ARG='.length));
-
-      expect(argcLine).toBe('ARGC=1');
-      expect(argLines).toHaveLength(1);
-      expect(path.basename(argLines[0]!)).toBe(path.basename(scriptToken!));
     }
-  });
+  );
 });

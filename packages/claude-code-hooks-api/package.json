@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "rm -rf ../../claude/cards/hooks && claude-code-hooks -i \"src/*.ts\" -o \"../../claude/cards/hooks/hooks.json\" --log-env-var CARDS_CLAUDE_CODE_HOOKS_LOG_FILE --executable \"\\\"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\\\"\"",
+    "build": "node -e \"require('fs').rmSync('../../claude/cards/hooks',{recursive:true,force:true})\" && claude-code-hooks -i \"src/*.ts\" -o \"../../claude/cards/hooks/hooks.json\" --log-env-var CARDS_CLAUDE_CODE_HOOKS_LOG_FILE --executable \"\\\"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\\\"\"",
     "test": "vitest-unchanged",
     "lint": "biome check --write --unsafe --max-diagnostics 500 ./src ./test && jsdoczoom -l",
     "typecheck": "tsgo --noEmit"

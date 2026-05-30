@@ -163,15 +163,24 @@ async function main(): Promise<void> {
 
 main()
   .then(() => {
-    // Exit explicitly: a card-bound run opens a keep-alive HTTP socket via
-    // CardsClient that would otherwise hold the event loop open.
-    process.exit(0);
+    // Let the event loop drain rather than forcing `process.exit(0)`. A
+    // card-bound run leaves a CardsClient keep-alive socket; on Windows a forced
+    // exit races libuv tearing that socket (and the git child's process handle)
+    // down and trips a fatal libuv assertion (async.c, 0xC0000409) even though
+    // the worktree was created. The socket idles out (undici keep-alive ~4s) and
+    // the loop exits on its own; the unref'd 5s timer is a fail-closed backstop
+    // that cannot itself keep the loop alive.
+    process.exitCode = 0;
+    setTimeout(() => process.exit(0), 5_000).unref();
   })
   .catch((error: unknown) => {
     if (error instanceof WorktreeIncludeError) {
       process.stderr.write(`${error.message}\n`);
-      process.exit(3);
+      process.exitCode = 3;
+      setTimeout(() => process.exit(3), 5_000).unref();
+      return;
     }
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(2);
+    process.exitCode = 2;
+    setTimeout(() => process.exit(2), 5_000).unref();
   });

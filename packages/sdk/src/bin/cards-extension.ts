@@ -90,7 +90,25 @@ export async function main(argv: string[]): Promise<number> {
   }
 }
 
-// Executable guard — the only place `process.exit` is called in this module.
+// Executable guard.
+//
+// We deliberately do NOT call `process.exit(code)` here. The subcommands talk
+// to the extension over HTTP via `fetch`; on Windows a forced `process.exit`
+// from this resolution races libuv tearing down the request's socket/threadpool
+// async handles and trips a fatal libuv assertion
+// (`!(handle->flags & UV_HANDLE_CLOSING)`, async.c) that aborts the process with
+// 0xC0000409 even though the command already succeeded and printed its result.
+// Setting `process.exitCode` and letting the event loop drain naturally avoids
+// the race entirely — well-behaved subcommands exit within a few hundred ms.
+//
+// The unref'd safety timer is a fail-closed backstop: it cannot itself keep the
+// loop alive, so the normal path still exits promptly and cleanly. It only fires
+// if some handle genuinely lingers past the deadline, in which case a bounded
+// forced exit is preferable to hanging a human's terminal.
 if (process.argv[1]?.endsWith('cards-extension.mjs')) {
-  main(process.argv.slice(2)).then((code) => process.exit(code));
+  main(process.argv.slice(2)).then((code) => {
+    process.exitCode = code;
+    const fallback = setTimeout(() => process.exit(code), 5_000);
+    fallback.unref();
+  });
 }

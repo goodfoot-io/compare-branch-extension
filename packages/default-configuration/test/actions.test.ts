@@ -1,5 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import path from 'node:path';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import type { BranchInfo } from '@cards/sdk/protocol';
@@ -55,6 +56,18 @@ vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
 }));
 
 const originalFetch = globalThis.fetch;
+
+/**
+ * Compiled-hook .mjs paths createWorktree() must be called with, derived from
+ * the test ActionInput's extensionPath (`/test/extension`). Built with
+ * path.join so the expectation matches production's `\`-separated paths on
+ * Windows.
+ */
+const EXPECTED_COMPILED_SCRIPT_PATHS = {
+  'pre-commit': path.join('/test/extension', 'dist', 'git-hooks', 'pre-commit.mjs'),
+  'post-commit': path.join('/test/extension', 'dist', 'git-hooks', 'post-commit.mjs'),
+  'post-rewrite': path.join('/test/extension', 'dist', 'git-hooks', 'post-rewrite.mjs')
+};
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -480,11 +493,7 @@ describe('Default Actions', () => {
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
           cwd: '/test/workspace',
           cardId: 'card-123',
-          compiledScriptPaths: {
-            'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
-            'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
-            'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
-          }
+          compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
         });
 
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };
@@ -614,11 +623,7 @@ describe('Default Actions', () => {
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/4', {
           cwd: '/test/workspace',
           cardId: 'card-123',
-          compiledScriptPaths: {
-            'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
-            'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
-            'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
-          }
+          compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
         });
 
         child.emit('close', 0);
@@ -878,11 +883,7 @@ describe('Default Actions', () => {
         expect(createWorktree).toHaveBeenCalledWith('cards/card-123/1', {
           cwd: '/test/workspace',
           cardId: 'card-123',
-          compiledScriptPaths: {
-            'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
-            'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
-            'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
-          }
+          compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
         });
 
         const spawnOpts = vi.mocked(spawn).mock.calls[0][2] as { cwd: string };

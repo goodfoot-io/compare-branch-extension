@@ -192,6 +192,17 @@ export async function applyWorktreeInclude(opts: { sourceRoot: string; worktreeD
         const target = await fs.readlink(srcAbs);
         await fs.symlink(target, destAbs);
       } catch (error) {
+        // On Windows, symlink creation fails with EPERM/EINVAL when the session
+        // lacks the privilege (Developer Mode off and not elevated). Fail closed
+        // with an actionable message rather than degrading to a copy, which
+        // would diverge worktree semantics from macOS/Linux.
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'EPERM' || code === 'EINVAL') {
+          throw new WorktreeIncludeError(
+            `Failed to create symlink at ${destAbs}: Windows requires Developer Mode (or an elevated/Administrator session) to create symlinks. Enable it via Settings > System > For developers > Developer Mode, then retry.`,
+            { cause: error }
+          );
+        }
         throw new WorktreeIncludeError(`Failed to recreate symlink ${relPath}: ${(error as Error).message}`, {
           cause: error
         });

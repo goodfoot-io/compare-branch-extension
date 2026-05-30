@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
+import * as path from 'node:path';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { flushMicrotasks } from '@cards/test-utils';
@@ -192,9 +193,9 @@ function configureBranchesResponse(
  * compiledHookScriptPaths() in claude-session.ts (Phase 4.5).
  */
 const EXPECTED_COMPILED_SCRIPT_PATHS = {
-  'pre-commit': '/test/extension/dist/git-hooks/pre-commit.mjs',
-  'post-commit': '/test/extension/dist/git-hooks/post-commit.mjs',
-  'post-rewrite': '/test/extension/dist/git-hooks/post-rewrite.mjs'
+  'pre-commit': path.join('/test/extension', 'dist', 'git-hooks', 'pre-commit.mjs'),
+  'post-commit': path.join('/test/extension', 'dist', 'git-hooks', 'post-commit.mjs'),
+  'post-rewrite': path.join('/test/extension', 'dist', 'git-hooks', 'post-rewrite.mjs')
 };
 
 describe('claude-session shared utilities', () => {

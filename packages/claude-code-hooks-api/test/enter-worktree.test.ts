@@ -69,8 +69,11 @@ describe('resolveCardRepoPath', () => {
   });
 
   it('joins reposPath with the cardId', async () => {
-    await writeFile(join(home, 'cards-api.json'), JSON.stringify({ reposPath: '/srv/cards-repos' }));
-    expect(await resolveCardRepoPath('main-96', noopLogger)).toBe('/srv/cards-repos/main-96');
+    const reposPath = join('/srv', 'cards-repos');
+    await writeFile(join(home, 'cards-api.json'), JSON.stringify({ reposPath }));
+    // Build the expectation with the same path API the production code uses so
+    // the separator matches the host platform (`/` on POSIX, `\` on Windows).
+    expect(await resolveCardRepoPath('main-96', noopLogger)).toBe(join(reposPath, 'main-96'));
   });
 
   it('returns null when the discovery file is absent', async () => {
@@ -104,7 +107,9 @@ describe('acquireLock', () => {
   });
 
   it('refuses when a live owner holds the lock', async () => {
-    const child = spawn('sleep', ['30'], { stdio: 'ignore' });
+    // A cross-platform long-lived process: a Node interpreter sleeping ~30s. Using
+    // `sleep` fails on Windows (no such executable), leaving child.pid undefined.
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
     const livePid = child.pid!;
     try {
       await mkdir(join(dir, 'adhoc-sessions'), { recursive: true });
@@ -118,7 +123,7 @@ describe('acquireLock', () => {
   });
 
   it('refuses and warns when the same live session enters a different card worktree', async () => {
-    const child = spawn('sleep', ['30'], { stdio: 'ignore' });
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
     const livePid = child.pid!;
     const warnings: { msg: string; data?: Record<string, unknown> }[] = [];
     const logger = { warn: (msg: string, data?: Record<string, unknown>) => warnings.push({ msg, data }) };
@@ -139,7 +144,7 @@ describe('acquireLock', () => {
   });
 
   it('no-ops silently when the same live session re-enters the same worktree', async () => {
-    const child = spawn('sleep', ['30'], { stdio: 'ignore' });
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
     const livePid = child.pid!;
     const warnings: string[] = [];
     const logger = { warn: (msg: string) => warnings.push(msg) };

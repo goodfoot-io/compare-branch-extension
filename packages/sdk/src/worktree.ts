@@ -37,6 +37,52 @@ export class WorktreeScopeError extends Error {
 const execFileAsync = promisify(execFile);
 
 /**
+ * Thrown when a symlink cannot be created because the OS denies the privilege.
+ *
+ * On Windows, `fs.symlink` fails with `EPERM` (or `EINVAL`) when the session
+ * lacks the symlink-creation privilege — i.e. Developer Mode is off and the
+ * process is not elevated. Worktrees rely on symlinks to share `node_modules`
+ * and ignored paths with the source checkout; falling back to a copy would
+ * diverge worktree semantics from macOS/Linux, so this fails closed with an
+ * actionable message instead.
+ */
+export class SymlinkPrivilegeError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'SymlinkPrivilegeError';
+  }
+}
+
+/**
+ * Creates a symlink, translating a Windows privilege failure into an actionable
+ * {@link SymlinkPrivilegeError}.
+ *
+ * `fs.symlink` rejects with `EPERM` or `EINVAL` on Windows when the session
+ * cannot create symlinks (Developer Mode off and not elevated). Those two codes
+ * are re-thrown as a {@link SymlinkPrivilegeError} that tells the user how to
+ * enable Developer Mode. Every other error — including `EEXIST` and `ENOENT` —
+ * propagates unchanged so existing per-call-site handling is preserved.
+ *
+ * @param target - Symlink target (passed through to `fs.symlink`).
+ * @param linkPath - Path at which to create the symlink.
+ * @throws {SymlinkPrivilegeError} When the OS denies symlink creation (EPERM/EINVAL).
+ */
+async function createSymlink(target: string, linkPath: string): Promise<void> {
+  try {
+    await fs.symlink(target, linkPath);
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'EPERM' || code === 'EINVAL') {
+      throw new SymlinkPrivilegeError(
+        `Failed to create symlink at ${linkPath}: Windows requires Developer Mode (or an elevated/Administrator session) to create symlinks. Enable it via Settings > System > For developers > Developer Mode, then retry.`,
+        { cause: error }
+      );
+    }
+    throw error;
+  }
+}
+
+/**
  * Validates a branch name against the CLI's safe subset.
  *
  * The name must start with an alphanumeric character and may then include
@@ -951,9 +997,13 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       if (parentDir !== '.') {
         await fs.mkdir(path.join(worktreeDir, parentDir), { recursive: true });
       }
-      await fs.symlink(sourcePath, destPath);
+      await createSymlink(sourcePath, destPath);
       return true;
     } catch (error: unknown) {
+      // A privilege failure must fail closed — never degrade to a silent skip.
+      if (error instanceof SymlinkPrivilegeError) {
+        throw error;
+      }
       const code = (error as NodeJS.ErrnoException).code;
       if (code === 'EEXIST' || code === 'ENOENT') {
         return false;
@@ -984,9 +1034,13 @@ export async function symlinkIgnoredPaths(opts: SymlinkIgnoredPathsOptions): Pro
       if (parentDir !== '.') {
         await fs.mkdir(path.join(worktreeDir, parentDir), { recursive: true });
       }
-      await fs.symlink(sourcePath, destPath);
+      await createSymlink(sourcePath, destPath);
       return true;
     } catch (error: unknown) {
+      // A privilege failure must fail closed — never degrade to a silent skip.
+      if (error instanceof SymlinkPrivilegeError) {
+        throw error;
+      }
       const code = (error as NodeJS.ErrnoException).code;
       if (code === 'EEXIST' || code === 'ENOENT') {
         return false;
@@ -1043,7 +1097,7 @@ export async function copyExistingSymlinks(sourceRoot: string, worktreeDir: stri
       return false;
     }
 
-    await fs.symlink(sourceLinkPath, destPath);
+    await createSymlink(sourceLinkPath, destPath);
     return true;
   };
 
@@ -1141,10 +1195,10 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
       if (entry.isSymbolicLink()) {
         const target = await fs.readlink(sourcePath);
         if (isInternalSymlink(target)) {
-          await fs.symlink(target, destPath);
+          await createSymlink(target, destPath);
           return 1;
         } else {
-          await fs.symlink(sourcePath, destPath);
+          await createSymlink(sourcePath, destPath);
           return 0;
         }
       } else if (entry.isDirectory() && entry.name.startsWith('@')) {
@@ -1158,21 +1212,21 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
             if (scopeEntry.isSymbolicLink()) {
               const target = await fs.readlink(scopeSourcePath);
               if (isInternalSymlink(target)) {
-                await fs.symlink(target, scopeDestPath);
+                await createSymlink(target, scopeDestPath);
                 return 1;
               } else {
-                await fs.symlink(scopeSourcePath, scopeDestPath);
+                await createSymlink(scopeSourcePath, scopeDestPath);
                 return 0;
               }
             } else {
-              await fs.symlink(scopeSourcePath, scopeDestPath);
+              await createSymlink(scopeSourcePath, scopeDestPath);
               return 0;
             }
           })
         );
         return scopeCounts.reduce((sum, c) => sum + c, 0);
       } else {
-        await fs.symlink(sourcePath, destPath);
+        await createSymlink(sourcePath, destPath);
         return 0;
       }
     })

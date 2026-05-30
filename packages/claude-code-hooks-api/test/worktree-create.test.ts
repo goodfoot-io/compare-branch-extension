@@ -10,9 +10,21 @@
  * @summary WorktreeCreate hook handler tests
  */
 
+import * as path from 'node:path';
 import type { CardsClient } from '@cards/sdk/client';
 import type { Logger } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * Compiled git-hook .mjs paths the hook builds from the mocked extension path
+ * (`/ext/install`). Built with the same `path.join` the production code uses so
+ * the separator matches the host platform (`/` on POSIX, `\` on Windows).
+ */
+const EXPECTED_COMPILED_SCRIPT_PATHS = {
+  'pre-commit': path.join('/ext/install', 'dist', 'git-hooks', 'pre-commit.mjs'),
+  'post-commit': path.join('/ext/install', 'dist', 'git-hooks', 'post-commit.mjs'),
+  'post-rewrite': path.join('/ext/install', 'dist', 'git-hooks', 'post-rewrite.mjs')
+};
 
 // execFile is consumed via promisify(execFile), which uses the [util.promisify.custom]
 // symbol on the real execFile to resolve with { stdout, stderr }. The mock carries an
@@ -301,11 +313,7 @@ describe('WorktreeCreate hook', () => {
       'feature/test-branch',
       expect.objectContaining({
         cardId: 'main-42',
-        compiledScriptPaths: {
-          'pre-commit': '/ext/install/dist/git-hooks/pre-commit.mjs',
-          'post-commit': '/ext/install/dist/git-hooks/post-commit.mjs',
-          'post-rewrite': '/ext/install/dist/git-hooks/post-rewrite.mjs'
-        }
+        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
       })
     );
   });
@@ -335,11 +343,7 @@ describe('WorktreeCreate hook', () => {
       'feature/test-branch',
       expect.objectContaining({
         cardId: 'main-77',
-        compiledScriptPaths: {
-          'pre-commit': '/ext/install/dist/git-hooks/pre-commit.mjs',
-          'post-commit': '/ext/install/dist/git-hooks/post-commit.mjs',
-          'post-rewrite': '/ext/install/dist/git-hooks/post-rewrite.mjs'
-        }
+        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
       })
     );
   });
@@ -436,11 +440,7 @@ describe('WorktreeCreate hook', () => {
       expect.objectContaining({
         cardId: 'main-55',
         sessionId: 'test-session',
-        compiledScriptPaths: {
-          'pre-commit': '/ext/install/dist/git-hooks/pre-commit.mjs',
-          'post-commit': '/ext/install/dist/git-hooks/post-commit.mjs',
-          'post-rewrite': '/ext/install/dist/git-hooks/post-rewrite.mjs'
-        }
+        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
       })
     );
   });

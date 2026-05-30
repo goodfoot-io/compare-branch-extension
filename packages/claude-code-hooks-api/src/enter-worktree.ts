@@ -47,7 +47,7 @@ import {
   readCardStatus
 } from '@cards/sdk/bin/process-utils';
 import { spawnAdhocCleanup } from '@cards/sdk/bin/spawn-adhoc-cleanup';
-import { spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
+import { spawnTranscriptWatcher, transcriptWatcherWrapperName } from '@cards/sdk/bin/spawn-transcript-watcher';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 
 /** Maximum number of parent directories to walk searching for `.cards/CARD_ID`. */
@@ -276,9 +276,9 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
 
   // 7. Spawn transcript-watcher (non-fatal). Attach mode runs with the `cards`
   //    plugin enabled, so its bin — and the `transcript-watcher` wrapper — is on
-  //    PATH; the bare name resolves there.
+  //    PATH; the platform-correct bare name (`.cmd` on win32) resolves there.
   spawnTranscriptWatcher(
-    'transcript-watcher',
+    transcriptWatcherWrapperName(),
     agentPid,
     input.session_id,
     input.transcript_path,

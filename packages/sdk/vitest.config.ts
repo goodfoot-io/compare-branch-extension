@@ -14,6 +14,12 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     globals: false,
     reporters: ['dot'],
+    // Many suites spawn real processes (node + tsx, git worktree, detached bin
+    // scripts). On Windows process spawn is far slower than on POSIX and, under
+    // the full parallel run, these integration tests routinely exceed vitest's
+    // 5s default. Allow more headroom so the slow-spawn host passes.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     setupFiles: ['./test/setup.ts'],
     env: {
       CARDS_HOOKS_LOG_FILE: '/dev/null'

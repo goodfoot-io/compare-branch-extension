@@ -128,9 +128,17 @@ async function main(): Promise<void> {
 
 main()
   .then(() => {
-    process.exit(0);
+    // Let the event loop drain rather than forcing `process.exit(0)`. The
+    // CardsClient request leaves a short-lived keep-alive socket; on Windows a
+    // forced exit races libuv tearing that socket (and the git child's process
+    // handle) down and trips a fatal libuv assertion (async.c, 0xC0000409). The
+    // unref'd timer is a fail-closed backstop that cannot itself keep the loop
+    // alive, so the normal path still exits promptly.
+    process.exitCode = 0;
+    setTimeout(() => process.exit(0), 5_000).unref();
   })
   .catch((error: unknown) => {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(2);
+    process.exitCode = 2;
+    setTimeout(() => process.exit(2), 5_000).unref();
   });

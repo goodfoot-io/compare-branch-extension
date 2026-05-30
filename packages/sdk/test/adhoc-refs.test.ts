@@ -26,7 +26,9 @@ import {
 const noopLogger = { warn: () => {} };
 
 function spawnSleep(): ChildProcess {
-  return spawn('sleep', ['30'], { stdio: 'ignore' });
+  // A real long-lived process to read a PID from. `sleep` is absent on Windows,
+  // so use node itself (cross-platform) to stay alive for 30s.
+  return spawn(process.execPath, ['-e', 'setTimeout(()=>{}, 30000)'], { stdio: 'ignore' });
 }
 
 function initCardRepo(repoDir: string): void {
@@ -56,7 +58,10 @@ describe('adhoc-refs CARDS_HOME-isolated suite', () => {
   });
 
   describe('writeRef + liveRefsRemain start-time reuse', () => {
-    it('treats a ref whose start-time no longer matches as dead', async () => {
+    // Start-time reuse detection is POSIX-only: on Windows readProcessStartTime
+    // returns null (see process-utils.ts), so a mismatched token degrades to
+    // plain PID liveness and a live PID's ref is correctly kept, not unlinked.
+    it.skipIf(process.platform === 'win32')('treats a ref whose start-time no longer matches as dead', async () => {
       const cardId = 'main-1';
       await mkdir(adhocActiveDir(cardId), { recursive: true });
 

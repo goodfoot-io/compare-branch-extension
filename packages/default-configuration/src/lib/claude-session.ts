@@ -42,7 +42,11 @@ let _cliExecutable: string | undefined;
 async function resolveCliExecutable(): Promise<string> {
   if (_cliExecutable !== undefined) return _cliExecutable;
   try {
-    await execFileAsync('which', ['deepseek']);
+    // `which` does not exist on native Windows; `where` is its equivalent.
+    // Mirrors packages/extension/src/utils/nodeRuntime.ts. `where` prints to
+    // stderr and exits non-zero when the executable is not found, which the
+    // catch handles; on success it may print multiple lines (one per match).
+    await execFileAsync(process.platform === 'win32' ? 'where' : 'which', ['deepseek']);
     _cliExecutable = 'deepseek';
   } catch {
     _cliExecutable = 'claude';

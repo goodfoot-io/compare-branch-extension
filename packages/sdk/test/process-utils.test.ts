@@ -39,14 +39,25 @@ function spawnLongLived(cmd: string, args: string[]): ChildProcess {
 }
 
 async function waitForComm(pid: number): Promise<void> {
-  // Give the kernel a beat to expose /proc/<pid>/comm with the exec'd name.
+  // Give the OS a beat to expose the process's command name with the exec'd
+  // name. The probe mirrors the platform-specific source: /proc on Linux,
+  // `tasklist` on Windows, `ps` elsewhere.
   for (let i = 0; i < 50; i++) {
     try {
-      execFileSync('cat', [`/proc/${pid}/comm`], { encoding: 'utf-8' });
-      return;
+      if (process.platform === 'win32') {
+        const out = execFileSync('tasklist', ['/FI', `PID eq ${pid}`, '/NH'], { encoding: 'utf-8' });
+        if (out.includes(String(pid))) return;
+      } else if (process.platform === 'linux') {
+        execFileSync('cat', [`/proc/${pid}/comm`], { encoding: 'utf-8' });
+        return;
+      } else {
+        execFileSync('ps', ['-p', String(pid), '-o', 'comm='], { encoding: 'utf-8' });
+        return;
+      }
     } catch {
-      await new Promise((r) => setTimeout(r, 20));
+      // Process not yet visible; retry.
     }
+    await new Promise((r) => setTimeout(r, 20));
   }
 }
 
@@ -71,7 +82,12 @@ describe('isKnownAgentComm', () => {
   });
 
   it('fails closed for an unrelated process comm', async () => {
-    const child = spawnLongLived('sleep', ['30']);
+    // A long-lived process whose comm is NOT a known agent comm. `sleep` is
+    // absent on Windows, so use `ping` (loops ~30s, comm `ping`) there.
+    const child =
+      process.platform === 'win32'
+        ? spawnLongLived('ping', ['-n', '31', '127.0.0.1'])
+        : spawnLongLived('sleep', ['30']);
     const pid = child.pid!;
     try {
       await waitForComm(pid);
@@ -219,7 +235,10 @@ describe('readCardStatus', () => {
 });
 
 describe('readProcessStartTime / isProcessAliveWithStartTime', () => {
-  it('reads a non-empty start-time for a live process', async () => {
+  // readProcessStartTime returns null by design on Windows (see process-utils.ts:
+  // start-time reuse detection is unsupported there and degrades to plain PID
+  // liveness), so the two start-time-identity assertions below are POSIX-only.
+  it.skipIf(process.platform === 'win32')('reads a non-empty start-time for a live process', async () => {
     const child = spawnLongLived(process.execPath, ['-e', 'setTimeout(()=>{}, 10000)']);
     const pid = child.pid!;
     try {
@@ -234,19 +253,22 @@ describe('readProcessStartTime / isProcessAliveWithStartTime', () => {
     }
   });
 
-  it('treats a PID as dead when the start-time no longer matches (PID reuse)', async () => {
-    const child = spawnLongLived(process.execPath, ['-e', 'setTimeout(()=>{}, 10000)']);
-    const pid = child.pid!;
-    try {
-      await waitForComm(pid);
-      // A stale token that cannot match the live process's real start-time.
-      expect(isProcessAliveWithStartTime(pid, 'definitely-not-the-start-time')).toBe(false);
-      // Without a token, falls back to plain liveness.
-      expect(isProcessAliveWithStartTime(pid)).toBe(true);
-    } finally {
-      child.kill('SIGKILL');
+  it.skipIf(process.platform === 'win32')(
+    'treats a PID as dead when the start-time no longer matches (PID reuse)',
+    async () => {
+      const child = spawnLongLived(process.execPath, ['-e', 'setTimeout(()=>{}, 10000)']);
+      const pid = child.pid!;
+      try {
+        await waitForComm(pid);
+        // A stale token that cannot match the live process's real start-time.
+        expect(isProcessAliveWithStartTime(pid, 'definitely-not-the-start-time')).toBe(false);
+        // Without a token, falls back to plain liveness.
+        expect(isProcessAliveWithStartTime(pid)).toBe(true);
+      } finally {
+        child.kill('SIGKILL');
+      }
     }
-  });
+  );
 
   it('returns null start-time and reads dead for a non-existent PID', () => {
     expect(readProcessStartTime(2147483646)).toBeNull();

@@ -12,6 +12,36 @@
 import { spawn, spawnSync } from 'node:child_process';
 
 /**
+ * Returns the platform-correct basename of the `adhoc-cleanup` wrapper:
+ * `adhoc-cleanup.cmd` on win32 (Windows cannot exec the extension-less POSIX
+ * script) and `adhoc-cleanup` elsewhere. Both wrappers honour the identical
+ * positional-argument and env-var contract.
+ *
+ * @returns The wrapper basename for the current platform.
+ */
+export function adhocCleanupWrapperName(): string {
+  return process.platform === 'win32' ? 'adhoc-cleanup.cmd' : 'adhoc-cleanup';
+}
+
+/**
+ * Probes whether the `adhoc-cleanup` wrapper resolves on PATH, platform-correctly.
+ *
+ * There is no `sh` on Windows, so the PATH lookup uses `where` on win32 and
+ * `command -v` via `sh` on POSIX. Both exit 0 only when the name is found.
+ *
+ * @param command - Bare wrapper name to probe.
+ * @returns True when the command resolves on PATH.
+ */
+function isOnPath(command: string): boolean {
+  if (process.platform === 'win32') {
+    const probe = spawnSync('where', [command], { stdio: 'ignore' });
+    return !probe.error && probe.status === 0;
+  }
+  const probe = spawnSync('sh', ['-c', 'command -v "$1"', 'sh', command], { stdio: 'ignore' });
+  return !probe.error && probe.status === 0;
+}
+
+/**
  * Minimal logger interface required by spawnAdhocCleanup.
  *
  * Accepts any logger that exposes `error` taking a message string plus an
@@ -44,13 +74,13 @@ export function spawnAdhocCleanup(
   logger: AdhocCleanupLogger
 ): void {
   // `adhoc-cleanup` is a shell wrapper published on PATH by the SDK plugin tree
-  // (public/claude/cards/bin/adhoc-cleanup). It exec's the .mjs via VSCODE_NODE,
-  // so this helper does not need to know either location.
-  const readiness = spawnSync('sh', ['-c', 'command -v adhoc-cleanup'], { stdio: 'ignore' });
-  if (readiness.error || readiness.status !== 0) {
+  // (public/claude/cards/bin/adhoc-cleanup{,.cmd}). It exec's the .mjs via
+  // VSCODE_NODE, so this helper does not need to know either location — it only
+  // selects the platform-correct wrapper name and verifies it resolves on PATH.
+  const wrapper = adhocCleanupWrapperName();
+  if (!isOnPath(wrapper)) {
     logger.error('adhoc-cleanup not resolvable on PATH — skipping spawn', {
-      status: readiness.status ?? undefined,
-      error: readiness.error instanceof Error ? readiness.error.message : undefined,
+      wrapper,
       agentPid,
       sessionId
     });
@@ -59,10 +89,14 @@ export function spawnAdhocCleanup(
 
   const spawnArgs = [String(agentPid), sessionId, cardId, cardRepoPath, lockPath];
 
-  const child = spawn('adhoc-cleanup', spawnArgs, {
+  // On Windows the wrapper is a `.cmd`; Node refuses to spawn a `.cmd` without a
+  // shell (EINVAL), so route through the shell there. POSIX execs the script
+  // directly.
+  const child = spawn(wrapper, spawnArgs, {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env }
+    env: { ...process.env },
+    shell: process.platform === 'win32'
   });
   child.on('error', (err) => {
     logger.error('adhoc-cleanup spawn failed', {

@@ -6,7 +6,7 @@
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { findAgentPid } from '@cards/sdk/process-tree';
 import { writeSessionHeadSha } from '@cards/sessions/card-repo';
@@ -25,6 +25,18 @@ vi.mock('node:child_process', async (importOriginal) => ({
   spawnSync: vi.fn(() => ({ status: 0 }))
 }));
 
+// The launch-mode watcher availability probe (spawnTranscriptWatcher) resolves
+// the wrapper by ABSOLUTE path and checks it with `fs.existsSync` — not a
+// `spawnSync` PATH probe. The watcher lives under the action's MARKETPLACE_PATH
+// (`/tmp/extension/dist/marketplace/...`), which does not exist on disk in this
+// test, so `existsSync` is mocked and defaults to "present"; the not-resolvable
+// cases flip it to false. Other `node:fs` members (mkdirSync/writeFileSync used
+// by beforeAll) keep their real implementations.
+vi.mock('node:fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
+  existsSync: vi.fn(() => true)
+}));
+
 vi.mock('@cards/sdk/process-tree', () => ({
   findAgentPid: vi.fn()
 }));
@@ -34,6 +46,14 @@ vi.mock('@cards/sessions/card-repo', () => ({
 }));
 
 const logger = new Logger();
+
+// The wrapper is selected by platform: `transcript-watcher.cmd` on win32
+// (Windows cannot exec the extension-less POSIX script) and `transcript-watcher`
+// elsewhere. Tests that assert the resolved watcher path must accept either.
+const WATCHER_PATH_RE =
+  process.platform === 'win32'
+    ? /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher\.cmd$/
+    : /[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/;
 
 let testRepo: TestGitWorkspace;
 let repoPath: string;
@@ -134,6 +154,10 @@ describe('SessionStart Hook', () => {
       vi.mocked(spawn).mockReturnValue({ unref: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof spawn>);
       vi.mocked(spawnSync).mockReset();
       vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
+      // Restore the watcher-availability probe default (`fs.existsSync` → present)
+      // so a not-resolvable test does not leak a false reading into later tests.
+      vi.mocked(existsSync).mockReset();
+      vi.mocked(existsSync).mockReturnValue(true);
     });
 
     it('returns XML context blocks in additionalContext', async () => {
@@ -303,7 +327,7 @@ describe('SessionStart Hook', () => {
         isAbsolute(watcherArg),
         `expected an absolute watcher path resolved from MARKETPLACE_PATH; got: ${watcherArg}`
       ).toBe(true);
-      expect(watcherArg).toMatch(/[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/);
+      expect(watcherArg).toMatch(WATCHER_PATH_RE);
       // Anchored on the action's MARKETPLACE_PATH (ACTION_ENV).
       expect(watcherArg).toContain(join('/tmp/extension/dist/marketplace', 'claude', 'cards', 'bin'));
     });
@@ -314,7 +338,9 @@ describe('SessionStart Hook', () => {
     // watcher was actually spawned.
     it('does not log spawn success when the watcher is not resolvable', async () => {
       vi.mocked(spawn).mockClear();
-      vi.mocked(spawnSync).mockReturnValue({ status: 1 } as unknown as ReturnType<typeof spawnSync>);
+      // Launch mode resolves an absolute path and probes it with fs.existsSync;
+      // simulate the wrapper file being absent.
+      vi.mocked(existsSync).mockReturnValue(false);
       const infoSpy = vi.spyOn(logger, 'info');
       mockFindClaudePid.mockReturnValue(42);
       vi.mocked(execFileSync).mockReturnValue('abc123\n');
@@ -334,7 +360,6 @@ describe('SessionStart Hook', () => {
       ).toBeUndefined();
       expect(vi.mocked(spawn)).not.toHaveBeenCalled();
       infoSpy.mockRestore();
-      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
     });
 
     it('spawns the resolved watcher path with the positional arg list in order', async () => {
@@ -348,7 +373,7 @@ describe('SessionStart Hook', () => {
       await hook(mockInput, context);
 
       expect(vi.mocked(spawn)).toHaveBeenCalledWith(
-        expect.stringMatching(/[/\\]claude[/\\]cards[/\\]bin[/\\]transcript-watcher$/),
+        expect.stringMatching(WATCHER_PATH_RE),
         ['42', 'sess-123', '/tmp/transcript.jsonl', 'card-123', repoPath],
         expect.objectContaining({ detached: true, stdio: 'ignore' })
       );
@@ -382,9 +407,11 @@ describe('SessionStart Hook', () => {
       errorSpy.mockRestore();
     });
 
-    it('logs readiness failure and does not spawn when transcript-watcher is not on PATH', async () => {
+    it('logs readiness failure and does not spawn when the resolved watcher file is absent', async () => {
       vi.mocked(spawn).mockClear();
-      vi.mocked(spawnSync).mockReturnValue({ status: 1 } as unknown as ReturnType<typeof spawnSync>);
+      // Launch mode probes the resolved absolute path with fs.existsSync;
+      // simulate the wrapper file being absent.
+      vi.mocked(existsSync).mockReturnValue(false);
       const errorSpy = vi.spyOn(logger, 'error');
       mockFindClaudePid.mockReturnValue(42);
       vi.mocked(execFileSync).mockReturnValue('abc123\n');
@@ -398,12 +425,11 @@ describe('SessionStart Hook', () => {
           typeof msg === 'string' &&
           /transcript-watcher/i.test(msg) &&
           meta !== undefined &&
-          /PATH|status/.test(JSON.stringify(meta))
+          /transcript-watcher/.test(JSON.stringify(meta))
       );
       expect(match, `expected a readiness error log; got: ${JSON.stringify(errorSpy.mock.calls)}`).toBeDefined();
       expect(vi.mocked(spawn)).not.toHaveBeenCalled();
       errorSpy.mockRestore();
-      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as unknown as ReturnType<typeof spawnSync>);
     });
 
     it('continues when watcher spawn fails', async () => {

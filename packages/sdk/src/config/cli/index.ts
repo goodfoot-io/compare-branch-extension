@@ -138,17 +138,27 @@ function getBaseName(sourcePath: string): string {
 /**
  * Generates the command string for settings.json.
  * Paths are relative to the settings.json file location.
- * Uses `$VSCODE_NODE` so the bundled Node.js interpreter is used
+ * References the bundled Node.js interpreter (`VSCODE_NODE`) so it is used
  * regardless of whether `node` is on the system PATH.
- * E.g., `"$VSCODE_NODE" ./bin/launch-claude.abc12345.mjs`
+ * E.g. (POSIX): `"$VSCODE_NODE" ./bin/launch-claude.abc12345.mjs`
+ * E.g. (win32): `"%VSCODE_NODE%" ./bin/launch-claude.abc12345.mjs`
  *
- * `$VSCODE_NODE` is double-quoted because the wrapper runs this command via a
- * shell (`spawn(command, { shell: true })` in `cards/server/src/runtime/wrapper.ts`).
- * On macOS the bundled interpreter path contains spaces
- * (`/Applications/Visual Studio Code.app/.../Code Helper (Plugin)`), so an
- * unquoted `$VSCODE_NODE` word-splits and the shell fails with
+ * The interpreter reference is double-quoted because the wrapper runs this
+ * command via a shell (`spawn(command, { shell: true })` in
+ * `cards/server/src/runtime/wrapper.ts`). On macOS the bundled interpreter path
+ * contains spaces (`/Applications/Visual Studio Code.app/.../Code Helper
+ * (Plugin)`), so an unquoted reference word-splits and the shell fails with
  * `/bin/sh: /Applications/Visual: No such file or directory` — the action
  * handler never spawns. Quoting preserves the path as a single argument.
+ *
+ * The variable syntax is platform-specific because `spawn(…, { shell: true })`
+ * uses the platform's default shell: `cmd.exe` on Windows (expands `%VAR%`,
+ * leaves `$VAR` literal) and `/bin/sh` elsewhere (expands `$VAR`). Emitting the
+ * wrong form leaves the reference unexpanded and the wrapper tries to execute a
+ * program literally named `$VSCODE_NODE`. The relative handler path keeps POSIX
+ * forward slashes — Node accepts them on Windows, and `cmd.exe` passes the token
+ * through to Node unchanged. The string is generated on the host platform at
+ * config-build time, so it always matches the shell the wrapper will use.
  *
  * @param filename - Compiled handler filename placed under the bin directory.
  * @param binDir - Relative output subdirectory containing compiled handlers.
@@ -156,7 +166,8 @@ function getBaseName(sourcePath: string): string {
  */
 function generateCommandString(filename: string, binDir: string): string {
   const relativePath = path.posix.join(binDir, filename);
-  return `"$VSCODE_NODE" ./${relativePath}`;
+  const nodeRef = process.platform === 'win32' ? '"%VSCODE_NODE%"' : '"$VSCODE_NODE"';
+  return `${nodeRef} ./${relativePath}`;
 }
 
 // ============================================================================
@@ -296,8 +307,13 @@ async function compileHandlers(
     }
     fs.renameSync(tempOutputPath, finalOutputPath);
 
-    // Make executable
-    fs.chmodSync(finalOutputPath, 0o755);
+    // Make executable (POSIX only). Windows has no execute bit — handlers are
+    // run via the bundled Node interpreter (`%VSCODE_NODE% ./bin/…`), not by
+    // direct execution — and `chmod` there would only toggle the read-only
+    // attribute, so the call is skipped rather than left as a misleading no-op.
+    if (process.platform !== 'win32') {
+      fs.chmodSync(finalOutputPath, 0o755);
+    }
 
     compiled.push({
       info: cmd,
