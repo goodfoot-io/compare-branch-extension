@@ -41,7 +41,7 @@
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "build:scaffold": "node -e \"require('fs').mkdirSync('../../claude/cards/scaffold',{recursive:true})\" && node -e \"require('fs').cpSync('src/scaffold','../../claude/cards/scaffold',{recursive:true,dereference:true})\"",
+    "build:scaffold": "node -e \"require('fs').rmSync('../../claude/cards/scaffold',{recursive:true,force:true})\" && node -e \"require('fs').mkdirSync('../../claude/cards/scaffold',{recursive:true})\" && node -e \"require('fs').cpSync('src/scaffold','../../claude/cards/scaffold',{recursive:true,dereference:true})\"",
     "build": "node -e \"for(const p of ['../../claude/cards/bin','dist'])require('fs').rmSync(p,{recursive:true,force:true})\" && yarn build:scaffold && yarn build:cli && yarn build:card && yarn build:card-cli && yarn build:create-worktree && yarn build:create-worktree-cli && yarn build:remove-worktree && yarn build:remove-worktree-cli && yarn build:cards-extension && yarn build:cards-extension-cli && yarn build:cards-dev && yarn build:cards-dev-cli && yarn build:transcript-watcher && yarn build:transcript-watcher-cli && yarn build:adhoc-cleanup && yarn build:adhoc-cleanup-cli",
     "build:cli": "esbuild src/config/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external --banner:js='#!/usr/bin/env node'",
     "build:card": "node -e \"require('fs').mkdirSync('../../claude/cards/bin',{recursive:true})\" && esbuild src/bin/card.ts --bundle --platform=node --format=esm --tree-shaking=true --outfile=../../claude/cards/bin/card.mjs '--external:node:*'",
