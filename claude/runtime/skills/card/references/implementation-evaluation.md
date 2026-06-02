@@ -7,7 +7,7 @@
 
 ## 1. Stage Uncommitted Changes
 
-**You must load the `cards:markdown` skill before the first commit.**
+**Every commit below follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.**
 
 Commit any uncommitted workspace changes:
 

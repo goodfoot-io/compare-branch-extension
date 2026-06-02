@@ -1,11 +1,7 @@
 <card-repo-commit-style>
 ### Card Repository Commits
 
-Card repository commit messages summarize the content of the commit itself. An agent scanning `git log --oneline` should understand what information each commit contributes without opening the files.
-
-**The commit message is a single sentence summarizing the commit's substance** — not a status label or inventory of files changed. If the commit adds a comment, the message summarizes the comment. If it adds a plan, the message summarizes the approach.
-
-**Format:** One sentence. The comment content carries detail; the commit message carries a summary of that detail.
+A card-repository commit message is one sentence summarizing what the commit *contributes* — the substance of the comment, plan, or note it adds — so an agent scanning `git log --oneline` grasps each commit without opening it. Summarize the point, not the action ("added a comment") or a list of changed files.
 
 **Examples:**
 
@@ -24,6 +20,6 @@ Card repository commit messages summarize the content of the commit itself. An a
 | Error recovery | `Merge failed due to conflicting changes in session.ts — needs manual resolution` |
 | No-action | `User provided context on deployment constraints, no code changes needed` |
 
-**Important:** Commits to the workspace should follow the distinct `<workspace-commit-style>`. 
+Commits to the workspace follow the distinct `<workspace-commit-style>`.
 </card-repo-commit-style>
 

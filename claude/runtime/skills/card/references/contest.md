@@ -45,7 +45,7 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-planner`, `cards:markdown`, and `cards:notes` skills immediately.**
+**IMPORTANT: Load the `runtime:card-planner` and `cards:notes` skills immediately.**
 
 ## Card Repository
 [CARD_REPO_PATH]

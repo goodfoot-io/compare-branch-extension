@@ -24,7 +24,7 @@ Work proceeds in **logical units**. A logical unit is a coherent change that lea
 
 When all units are complete, pass the `<final-validation-gate>` before proceeding to Step 3.
 
-Before the first commit, load `$markdown` — every commit in this flow follows those conventions.
+Every commit in this flow follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.
 
 When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 

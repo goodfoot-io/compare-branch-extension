@@ -46,7 +46,7 @@ If `[PLAN_FILE]` already exists when you start — the team lead seeded it from 
 
 Distill commander's intent from the card — what the situation looks like when the work is done and what constraints must hold regardless of approach. Then research: read every consumer of each symbol, field, or boundary your plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
 
-Write your plan to `[PLAN_FILE] = plan/[AGENT_NAME].md` per the `cards:markdown` guidelines, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
+Write your plan to `[PLAN_FILE] = plan/[AGENT_NAME].md` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
 
 When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), consult the `runtime:tdd-bootstrap` skill and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
 

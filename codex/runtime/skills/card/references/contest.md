@@ -31,7 +31,7 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 Each planner's spawn `message`:
 
 ```
-Use the $card-planner, $markdown, and $notes skills.
+Use the $card-planner and $notes skills.
 
 ## Card Repository
 [CARD_REPO_PATH]

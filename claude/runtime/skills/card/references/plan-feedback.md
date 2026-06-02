@@ -41,9 +41,9 @@ Update the plan to address all feedback points:
 - Answer questions within the plan context
 - Adjust scope as directed
 
-### 2.3 Load Markdown Guidelines
+### 2.3 Apply Markdown Guidelines
 
-Load the `cards:markdown` skill before writing the plan file.
+Write the plan file per `<markdown-guidelines>`.
 
 ### 2.4 Store Revised Plan
 

@@ -10,14 +10,14 @@ Trace code and data flow paths in the workspace to find information relevant to 
 
 ## 2. Write Comment and Commit
 
-Load the `cards:markdown` skill. Write a comment to the card repository with the answer. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
+Write a comment to the card repository with the answer. Fragment-link every named file, function, and type per `<markdown-guidelines>`.
 
 Commit to the card repository:
 
 ```bash
 cd $CARD_REPO_PATH
 cat <<'EOF' > comment/question-response.md
-[answer to the question with fragment links for code references per the cards:markdown skill]
+[answer to the question with fragment links for code references per <markdown-guidelines>]
 EOF
 git add comment/question-response.md
 git commit -m "[single sentence summarizing the answer to the question]"  # <card-repo-commit-style>

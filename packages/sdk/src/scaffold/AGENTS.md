@@ -144,28 +144,27 @@ Each attachment has a `.meta.json` sidecar:
 Markdown references to attachments use the pattern `att-[a-f0-9-]{36}_[\w.-]+`,
 recognized both with and without an `attachment/` prefix.
 
-## Pre-commit Hook
 
-The pre-commit hook validates all staged changes and **fails-closed** (exit 1) on any validation error:
+## Sessions
 
-1. Validates `CARD.meta.json` schema and field constraints
-2. Validates attachment references in `CARD.md` against `attachment/` contents
+Session transcripts are append-only NDJSON streams in `streams/**/`.
 
-Commits that fail validation are rejected.
+<markdown-guidelines>
 
-## Claude Code Sessions
+Guidance for markdown another agent or person will read and act on.
 
-Claude Code session transcripts are append-only NDJSON streams in `streams/claude-code-session/`.
-Each session produces a `.jsonl` transcript and a `.meta.json` sidecar.
+**Link code references instead of naming them.** When prose names a file, symbol, type, or config that exists in the codebase, make it a fragment link to its definition rather than a backtick span: `[validateSession()](./src/auth/session.ts#L15)`, not `validateSession`. A linked reference is navigable; a bare name makes the reader search for it. Add a line or range — `#L42`, `#L42-L58` — when the exact location matters. Paths resolve from the project root, not from the file the markdown lives in; leave non-code paths and external URLs as plain text.
+
+**Diagram structure; narrate everything else.** Reach for a fenced `mermaid` block only when relationships are the point — multi-component flows, state transitions, decision trees. Prefer prose when the reasoning, not the shape, carries the meaning.
+
+**Fold away digressions.** Wrap long supporting detail — error dumps, logs, optional context — in `<details><summary>…</summary>`, leaving a blank line after the summary so the body renders. The narrative stays readable and the detail stays one click away.
+
+</markdown-guidelines>
 
 <card-repo-commit-style>
 ### Card Repository Commits
 
-Card repository commit messages summarize the content of the commit itself. An agent scanning `git log --oneline` should understand what information each commit contributes without opening the files.
-
-**The commit message is a single sentence summarizing the commit's substance** — not a status label or inventory of files changed. If the commit adds a comment, the message summarizes the comment. If it adds a plan, the message summarizes the approach.
-
-**Format:** One sentence. The comment content carries detail; the commit message carries a summary of that detail.
+A card-repository commit message is one sentence summarizing what the commit *contributes* — the substance of the comment, plan, or note it adds — so an agent scanning `git log --oneline` grasps each commit without opening it. Summarize the point, not the action ("added a comment") or a list of changed files.
 
 **Examples:**
 
@@ -184,49 +183,23 @@ Card repository commit messages summarize the content of the commit itself. An a
 | Error recovery | `Merge failed due to conflicting changes in session.ts — needs manual resolution` |
 | No-action | `User provided context on deployment constraints, no code changes needed` |
 
-**Important:** Commits to the workspace should follow the distinct `<workspace-commit-style>`. 
+Commits to the workspace follow the distinct `<workspace-commit-style>`.
 </card-repo-commit-style>
 
 <workspace-commit-style>
 ### Workspace Repository Commits
 
-Workspace commits are the narrative layer of code history. Future developers will read these to understand not just *what* changed, but *why* and *how*.
+A workspace commit is the narrative layer of history — written so someone reading `git log` later understands not just *what* changed but *why* and *how*. Be rich by default: a substantive change earns a substantive message, and the body is where the reasoning lives.
 
-#### Structure (2-5 paragraphs, scaled to change scope)
+**Body — 2–5 paragraphs, following this arc:**
+- **Hook** — one plain sentence naming the change, then why it matters in the wider system.
+- **Problem** — the deficiency or pressure that prompted it; the "before" picture.
+- **Journey** (substantial changes) — alternatives weighed, why this one won, the dead ends. This is the heart of the message — what makes it worth reading.
+- **Solution** — what was built, told through *design and tradeoffs*, not a file inventory.
+- **Future** (large changes) — what it unlocks, what's left, guidance for whoever comes next.
 
-**Paragraph 1 — The Hook**: One full sentence summarizing the substance of the commit (plain text, no markdown). Follow with why this change matters in broader system context.
+**Scale to the change:** a small fix is a subject line; a feature is 2–3 paragraphs (problem → approach → solution); a milestone is the full arc above. Don't inflate a typo fix or flatten a redesign.
 
-**Paragraph 2 — The Problem**: What challenge or deficiency prompted this work? Paint the "before" picture.
+**Craft:** continuous prose, never hard-wrapped to a column width. Fragment-link every named file, function, and type per `<markdown-guidelines>`. Include a genuine insight when one surfaced — a surprise, an irony, a lesson you'd want at 2am debugging — and omit it rather than manufacture profundity. When synthesizing subagent reports, weave one story from what changed and what was learned, not a list of who did what.
 
-**Paragraph 3 — The Journey** (for substantial changes): Alternatives considered, what made this approach win, pivots or dead ends. This is the heart of the narrative — what makes the message memorable and educational.
-
-**Paragraph 4 — The Solution**: What was built, focusing on *design* over file lists. Patterns established, tradeoffs accepted.
-
-**Paragraph 5 — The Future** (optional, for large changes): What this enables, remaining work, guidance for maintainers.
-
-#### Scaling
-
-| Commit Type | Length |
-|-------------|--------|
-| Small fix / refactor | Subject sentence + optional card reference line |
-| Feature / bug fix | 2-3 paragraphs: problem, approach, solution |
-| Major milestone | 2-5 paragraphs: the full story per the structure above |
-
-#### Voice
-
-Active voice, present tense. Write paragraphs as continuous prose — do not break lines for length. Use markdown for structure and clarity in the body. Match energy to change scope — a small fix deserves small prose.
-
-#### File References
-
-Fragment-link every named file, function, and type per `<markdown-guidelines>` in commit bodies.
-
-#### Truth Over Profundity
-
-Include genuine insight when it emerges — a surprise, an irony, a lesson that only became clear after the work. When it does not, move on. The test: would this help someone debugging at 2am?
-
-#### Synthesizing from Subagent Reports
-
-Collect Decision Narratives from agent reports, extract what changed and what was learned, discard performative struggle. Weave a unified story, not a list.
-
-**Important:** Commits to the card repo should follow the distinct `<card-repo-commit-style>`. 
 </workspace-commit-style>

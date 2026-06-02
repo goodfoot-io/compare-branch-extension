@@ -31,7 +31,7 @@ fi
 
 ### 1.2 Stage Uncommitted Work
 
-**You must load the `cards:markdown` skill before the first commit.**
+**Every commit below follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.**
 
 If the worktree contains uncommitted changes — typical after a crashed session that left work unsaved — commit them so validation and the failure-mode evaluator analyze a coherent implementation:
 
