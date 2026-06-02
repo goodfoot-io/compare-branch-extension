@@ -133,12 +133,7 @@ export function buildArgs(
   }
   args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
-  args.push('--effort', 'low');
-  args.push('--model', 'default');
-  args.push(
-    '--disallowed-tools',
-    'CronList, EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite'
-  );
+  args.push('--disallowed-tools', 'EnterPlanMode, EnterWorktree, ExitPlanMode, ExitWorktree, NotebookEdit, TodoWrite');
   args.push('--teammate-mode', 'tmux');
   // Temporarily disable as this creates an interactive warning dialog
   // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
