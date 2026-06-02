@@ -31,13 +31,17 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
   const shellArgs = [
     '--append-system-prompt',
     `<instructions>
-    Load the \`cards:management\` skill and assist the user. 
-
-    If the user:
-    - **Specifies a card:** use the \`card\` CLI to explore that card
-    - **Discusses a potential task or project:** Load the appropriate 'interview' reference from the \`cards:management\` skill
-
+    Load the \`cards:management\` skill. The user has requested that you interview them about every aspect of their task until you've reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+    
+    Guidelines:
+    - Ask the questions one at a time.
+    - If a question can be answered by exploring the codebase, explore the codebase instead.
+    - Use the AskUserQuestion tool for asking questions to the user.
+    - If the user specifies a card, use the \`card\` CLI to explore that card
+    - If the user discusses a potential task or project, load the appropriate 'interview' reference from the \`cards:management\` skill
+ 
     Do not implement a card unless instructed to do so by the user.
+
     </instructions>`,
     '--settings',
     settingsJson
