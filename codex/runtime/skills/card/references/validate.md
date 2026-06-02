@@ -27,7 +27,7 @@ fi
 
 ### 1.2 Stage Uncommitted Work
 
-**You must load the `$markdown` and `$workspace-commit-style` skills before the first commit.**
+**You must load the `$markdown` skill before the first commit.**
 
 If the worktree contains uncommitted changes — typical after a crashed session that left work unsaved — commit them so validation and the failure-mode evaluator analyze a coherent implementation:
 

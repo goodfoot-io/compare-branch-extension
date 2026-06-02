@@ -24,7 +24,7 @@ For each group:
 
 Step 2 ends when `<final-validation-gate>` passes. Both gates are gates, not terminal states; Steps 3 and 4 still follow.
 
-Before the first commit, load `cards:markdown` and `runtime:workspace-commit-style` — every commit in this flow follows those conventions.
+Before the first commit, load `cards:markdown` — every commit in this flow follows those conventions.
 
 ## 3. Evaluate Quality
 

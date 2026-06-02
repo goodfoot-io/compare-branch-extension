@@ -7,7 +7,7 @@
 
 ## 1. Stage Uncommitted Changes
 
-**You must load the `$markdown` and `$workspace-commit-style` skills before the first commit.**
+**You must load the `$markdown` skill before the first commit.**
 
 Commit any uncommitted workspace changes:
 

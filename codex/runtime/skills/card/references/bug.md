@@ -89,7 +89,7 @@ Each child's final report returns to you when it finishes. After every child ret
 
 ### 1.5 Commit Reproduction
 
-**You must load the `$markdown` and `$workspace-commit-style` skills before the first commit.**
+**You must load the `$markdown` skill before the first commit.**
 
 Based on the reproduction results:
 - **One or more tests fail**: Commit all failing tests in one commit, tag the state, capture `[TEST_FAILURE_OUTPUT]`, write a progress comment to the card repository listing each viable pathway and its test, commit the card repository, and proceed to Step 2: Resolve Bug.
