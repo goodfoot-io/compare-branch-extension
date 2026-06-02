@@ -73,17 +73,9 @@ Validation rules for each field are in `references/validation.md`.
 
 ### Gate Enforcement
 
-Gates are **informational constraints**, not hard blocks. The pre-commit hook does not
-enforce gate satisfaction. Instead:
+Gates are **informational**, not enforced by the pre-commit hook — they signal intent to agents and the UI (the board may flag unsatisfied ones). Still, treat an unsatisfied gate as a blocker: don't request review while `planRequired=true` and `planApproved=false` — get the plan approved first.
 
-- Gates signal intent to other agents and the UI. The board may visually flag unsatisfied gates.
-- Cross-field constraints are enforced: `planApproved: true` requires `planRequired: true`
-  (see `references/validation.md`).
-- Agents should treat unsatisfied gates as blockers: do not request review
-  when `planRequired=true` and `planApproved=false` — write and get the plan approved first.
-
-**Gates are user-controlled.** Agents must never modify gate fields (`planRequired`,
-`planApproved`, `mergeRequestRequired`, `mergeApproved`).
+Two hard rules: never modify a gate field (`planRequired`, `planApproved`, `mergeRequestRequired`, `mergeApproved`) — they are user-controlled; and `planApproved: true` requires `planRequired: true` (full constraints in `references/validation.md`).
 
 ### repositoryId
 
@@ -93,16 +85,8 @@ different repositories use different board prefixes (e.g. `main-` vs `api-`).
 
 ## CARD.md and plan/
 
-- **`CARD.md`** is the *description*: what's happening, what's needed, and why it matters.
-  Content varies by card type — a bug report describes the defect, an enhancement describes
-  the capability gap, an investigation describes the unknown. Written by the card creator
-  (human or agent). Stable once the card is understood.
-- **`plan/`** contains the *approach*: how the card's action will be performed and for what
-  purpose (commander's intent). Each plan file (`plan/[name].md`) is a continuation document
-  with its own sidecar (`plan/[name].md.meta.json`), appearing as a separate timeline entry.
-  Adding a new plan file resets `planApproved` to false. Written by the implementing agent
-  or alongside CARD.md when the approach is clear at creation time. Subject to revision and
-  approval via the `planRequired`/`planApproved` gates.
+- **`CARD.md`** — the *description*: what's happening, what's needed, and why it matters. Content varies by card type (a bug report describes the defect, an enhancement the capability gap, an investigation the unknown). Written by the card creator (human or agent); stable once the card is understood.
+- **`plan/`** — the *approach* (commander's intent): how the work will be done and to what end. Each `plan/[name].md` is a continuation document with a `plan/[name].md.meta.json` sidecar and its own timeline entry; adding one resets `planApproved` to false. Written by the implementing agent, or alongside CARD.md when the approach is clear up front; revised and approved via the `planRequired`/`planApproved` gates.
 
 Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
 
