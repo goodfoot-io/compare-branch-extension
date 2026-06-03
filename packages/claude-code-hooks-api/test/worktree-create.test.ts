@@ -74,7 +74,12 @@ vi.mock('@cards/sdk/pending-bind', () => ({
   writePendingBind: vi.fn()
 }));
 
+vi.mock('@cards/sdk/adhoc-attribution', () => ({
+  resolveWorktreeCardId: vi.fn()
+}));
+
 import { resolveExtensionPath } from '@cards/sdk';
+import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { writePendingBind } from '@cards/sdk/pending-bind';
 import { createWorktree } from '@cards/sdk/worktree';
@@ -110,6 +115,7 @@ describe('WorktreeCreate hook', () => {
   const mockCreateWorktreeForCard = vi.mocked(createWorktreeForCard);
   const mockCreateCardsClient = vi.mocked(createCardsClient);
   const mockWritePendingBind = vi.mocked(writePendingBind);
+  const mockResolveWorktreeCardId = vi.mocked(resolveWorktreeCardId);
   const mockLogger = {
     debug: vi.fn(),
     warn: vi.fn(),
@@ -130,6 +136,10 @@ describe('WorktreeCreate hook', () => {
     mockCreateWorktreeForCard.mockReset();
     mockCreateCardsClient.mockReset();
     mockWritePendingBind.mockReset();
+    mockResolveWorktreeCardId.mockReset();
+    // Default: no `.cards/CARD_ID` marker up the tree, so an unset/empty env
+    // CARD_ID falls through to the unbound path unless a test says otherwise.
+    mockResolveWorktreeCardId.mockResolvedValue(null);
     // Default: client discovery succeeds for card-bound tests.
     mockCreateCardsClient.mockResolvedValue(fakeClient);
     // Default: writePendingBind resolves successfully.
@@ -181,27 +191,85 @@ describe('WorktreeCreate hook', () => {
     );
   });
 
-  it('calls bare createWorktree without cardId when CARD_ID is not set', async () => {
+  it('calls bare createWorktree (unbound) when CARD_ID is unset and no .cards/CARD_ID marker resolves up the tree', async () => {
     delete process.env['CARD_ID'];
+    mockResolveWorktreeCardId.mockResolvedValue(null);
     const worktreePath = '/worktrees/test/feature/test-branch';
     mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
+    // The walk-up is the second source: it must be consulted from input.cwd when
+    // the env var is absent.
+    expect(mockResolveWorktreeCardId).toHaveBeenCalledWith('/test/workspace');
     expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
     expect(mockCreateCardsClient).not.toHaveBeenCalled();
     expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
   });
 
-  it('calls bare createWorktree without cardId when CARD_ID is empty string', async () => {
+  it('calls bare createWorktree (unbound) when CARD_ID is empty string and no marker resolves up the tree', async () => {
     process.env['CARD_ID'] = '';
+    mockResolveWorktreeCardId.mockResolvedValue(null);
     const worktreePath = '/worktrees/test/feature/test-branch';
     mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 
     await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
 
+    // An empty/whitespace env var is falsy after trim, so the walk-up still runs.
+    expect(mockResolveWorktreeCardId).toHaveBeenCalledWith('/test/workspace');
     expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
     expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
+  });
+
+  it('inherits the parent binding: routes through createWorktreeForCard with the cardId resolved from .cards/CARD_ID when CARD_ID env is unset', async () => {
+    delete process.env['CARD_ID'];
+    mockResolveWorktreeCardId.mockResolvedValue('main-77');
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockResolveWorktreeCardId).toHaveBeenCalledWith('/test/workspace');
+    expect(mockCreateWorktree).not.toHaveBeenCalled();
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
+      'feature/test-branch',
+      expect.objectContaining({ cardId: 'main-77', cwd: '/test/workspace', parentBranch: 'main' })
+    );
+  });
+
+  it('inherits the parent binding even when CARD_ID env is an empty string (walk-up still wins)', async () => {
+    process.env['CARD_ID'] = '';
+    mockResolveWorktreeCardId.mockResolvedValue('main-88');
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockCreateWorktree).not.toHaveBeenCalled();
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
+      'feature/test-branch',
+      expect.objectContaining({ cardId: 'main-88' })
+    );
+  });
+
+  it('env CARD_ID wins over the on-disk marker and short-circuits the walk-up', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    // Even if a different card id sits on disk, the env var takes precedence and
+    // the walk-up is never consulted (|| short-circuits).
+    mockResolveWorktreeCardId.mockResolvedValue('main-999');
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockResolveWorktreeCardId).not.toHaveBeenCalled();
+    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
+      fakeClient,
+      'feature/test-branch',
+      expect.objectContaining({ cardId: 'main-42' })
+    );
   });
 
   it('writes PENDING_BIND marker with resolved parentBranch on unbound path', async () => {
@@ -227,6 +295,17 @@ describe('WorktreeCreate hook', () => {
 
   it('does not write PENDING_BIND when CARD_ID is set (card-bound path)', async () => {
     process.env['CARD_ID'] = 'main-42';
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockWritePendingBind).not.toHaveBeenCalled();
+  });
+
+  it('does not write PENDING_BIND when the card id is inherited from the on-disk marker', async () => {
+    delete process.env['CARD_ID'];
+    mockResolveWorktreeCardId.mockResolvedValue('main-77');
     const worktreePath = '/worktrees/test/feature/test-branch';
     mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
 
@@ -302,6 +381,20 @@ describe('WorktreeCreate hook', () => {
     expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
   });
 
+  it('throws (fail-closed) when the Cards client is unavailable for an inherited (on-disk) card id', async () => {
+    delete process.env['CARD_ID'];
+    mockResolveWorktreeCardId.mockResolvedValue('main-77');
+    mockCreateCardsClient.mockResolvedValue(null);
+
+    await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow(
+      'Cards API unavailable'
+    );
+    // No card-bound worktree is created and no PENDING_BIND fallback is written —
+    // the inherited binding is not silently degraded to unbound.
+    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+    expect(mockWritePendingBind).not.toHaveBeenCalled();
+  });
+
   it('logs completion with cardId when CARD_ID env is set', async () => {
     process.env['CARD_ID'] = 'main-99';
     const worktreePath = '/worktrees/test/feature/test-branch';
@@ -357,8 +450,9 @@ describe('WorktreeCreate hook', () => {
     );
   });
 
-  it('does not resolve extension path or acquire a client when CARD_ID is unset', async () => {
+  it('does not resolve extension path or acquire a client when CARD_ID is unset and no marker resolves up the tree', async () => {
     delete process.env['CARD_ID'];
+    mockResolveWorktreeCardId.mockResolvedValue(null);
     const worktreePath = '/worktrees/test/feature/test-branch';
     mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
 

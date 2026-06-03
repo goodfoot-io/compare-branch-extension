@@ -18,6 +18,7 @@ import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
+import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { writePendingBind } from '@cards/sdk/pending-bind';
 import { createWorktree, type EarlyWorktreeResult } from '@cards/sdk/worktree';
@@ -53,10 +54,16 @@ async function resolveCurrentBranch(cwd: string): Promise<string> {
 export default worktreeCreateHook({}, async (input, { logger }) => {
   const start = Date.now();
 
-  // CARD_ID is the sole source of a pre-bind card association. When unset or
-  // empty the worktree is created unbound and a PENDING_BIND marker is written
-  // so `card create` can bind it later.
-  const cardId = process.env['CARD_ID'] || undefined;
+  // Resolve the pre-bind card association from the same two sources, in the same
+  // order, as the EnterWorktree hook (enter-worktree.ts): an explicit CARD_ID in
+  // the environment wins, and when it is absent the card id is resolved by
+  // walking up from the creation directory for a `.cards/CARD_ID` marker. This
+  // lets a nested worktree inherit its parent worktree's binding. The two hooks
+  // resolve byte-for-byte the same id so they can never disagree about which
+  // card a given worktree belongs to. When neither source yields an id the
+  // worktree is created unbound and a PENDING_BIND marker is written so
+  // `card create` can bind it later.
+  const cardId = process.env['CARD_ID']?.trim() || (await resolveWorktreeCardId(input.cwd));
 
   logger.info('WorktreeCreate', {
     event: 'WorktreeCreate',
@@ -67,7 +74,7 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
 
   let created: EarlyWorktreeResult;
 
-  if (cardId !== undefined) {
+  if (cardId) {
     const extensionPath = await resolveExtensionPath();
     const gitHooksDir = path.join(extensionPath, 'dist', 'git-hooks');
     const compiledScriptPaths = {
