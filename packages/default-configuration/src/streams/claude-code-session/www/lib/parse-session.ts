@@ -43,6 +43,13 @@ export interface UsageEvent {
   outputTokens: number;
   /** Input tokens for the turn, when `message.usage.input_tokens` is present. */
   inputTokens?: number;
+  /**
+   * The producing assistant API message id (`message.id`). The producer splits
+   * one message across one JSONL line per content block, repeating `usage`
+   * verbatim on each — so the consumer de-duplicates by this id to count a
+   * message's tokens exactly once. Absent only on legacy lines without an id.
+   */
+  messageId?: string;
 }
 
 /** Duration of a completed turn. */
@@ -169,7 +176,7 @@ export interface UserMsg {
 export interface AssistantMsg {
   type: 'assistant';
   error?: string;
-  message?: { content?: ContentBlock[]; usage?: { output_tokens?: number; input_tokens?: number } };
+  message?: { id?: string; content?: ContentBlock[]; usage?: { output_tokens?: number; input_tokens?: number } };
 }
 
 /** Tool use summary (compact result). */
@@ -336,6 +343,10 @@ export function parseLineEvents(line: string): CompactEvent[] {
       const inputTokens = usage?.['input_tokens'];
       const event: UsageEvent = { kind: 'usage', outputTokens: Number(outputTokens) };
       if (inputTokens != null) event.inputTokens = Number(inputTokens);
+      // Carry the message id so the consumer counts a message's tokens once even
+      // though `usage` repeats verbatim across its per-content-block lines.
+      const messageId = message?.['id'];
+      if (typeof messageId === 'string' && messageId) event.messageId = messageId;
       events.push(event);
     }
     return events;

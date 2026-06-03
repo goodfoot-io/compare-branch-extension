@@ -5,6 +5,7 @@
  * @module lib/index
  */
 
+export * from './describe-event';
 export * from './markdown';
 export * from './parse-session';
 export * from './sanitize';

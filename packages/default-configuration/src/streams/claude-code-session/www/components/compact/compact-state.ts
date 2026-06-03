@@ -8,7 +8,7 @@
  * @module components/compact/compact-state
  */
 
-import { parseLineEvents, sanitizeHeadline } from '../../lib';
+import { describeEvent, parseLineEvents, sanitizeHeadline } from '../../lib';
 import type { CompactEvent, ContentBlock } from '../../lib/parse-session';
 
 /** Subagent filename pattern: two UUID segments separated by a hyphen. */
@@ -39,6 +39,13 @@ export interface CompactState {
   awaySummary: string;
   /** Top-level `uuid`s already folded in, so the doubled transcript counts once. */
   seenUuids: Set<string>;
+  /**
+   * Assistant `message.id`s whose `usage` has been added to the token totals. The
+   * producer splits one message across one line per content block — each a
+   * distinct `uuid` but the same `message.id` — and repeats `usage` on every
+   * line, so tokens are summed once per message id, not once per block line.
+   */
+  seenUsageMessageIds: Set<string>;
   /** De-duplicated count of `tool_use` blocks across assistant and subagent turns. */
   toolCallCount: number;
   /** De-duplicated count of `Agent` tool calls (sub-agent dispatches). */
@@ -74,6 +81,7 @@ export function makeInitialState(): CompactState {
     errorCount: 0,
     awaySummary: '',
     seenUuids: new Set<string>(),
+    seenUsageMessageIds: new Set<string>(),
     toolCallCount: 0,
     subagentCount: 0,
     filesTouched: new Set<string>(),
@@ -98,8 +106,18 @@ export function deriveInitialStatus(isActive: boolean): string {
 
 /**
  * Selects the compact headline: the first non-empty of the sanitized
- * `away_summary`, the sanitized last assistant text, and the sanitized text of
- * the newest tail text event (scanning from the end of {@link CompactState.tail}).
+ * `away_summary`, the sanitized last assistant text, and the latest renderable
+ * tail event (scanning from the end of {@link CompactState.tail}).
+ *
+ * The final fallback covers tool-only / subagent / slash-command sessions that
+ * carry no genuine assistant prose: a `tool-call` becomes `<Tool> <summary>`
+ * (e.g. `Agent Plan failure-mode review`), an `error` its message, and a `text`
+ * event its sanitized prose — so the recap row is never a blank box when the
+ * tail has anything to show. Text events still run through {@link sanitizeHeadline}
+ * (skipping control traffic); tool/error events are already structured, so they
+ * surface via {@link describeEvent} directly. When the tail is empty and there
+ * is no prose (the degenerate slash-command-only session), the result is `''`
+ * and the caller renders nothing for line 2.
  *
  * The pure {@link sanitizeHeadline} rule lives in `lib/sanitize`; this selector
  * is type-bound to {@link CompactState} and so stays here.
@@ -114,10 +132,14 @@ export function headline(state: CompactState): string {
   if (fromAssistant) return fromAssistant;
   for (let i = state.tail.length - 1; i >= 0; i--) {
     const evt = state.tail[i];
-    if (evt?.kind === 'text') {
+    if (!evt) continue;
+    if (evt.kind === 'text') {
       const fromTail = sanitizeHeadline(evt.text);
       if (fromTail) return fromTail;
+      continue;
     }
+    const described = describeEvent(evt);
+    if (described) return described;
   }
   return '';
 }
@@ -222,10 +244,18 @@ export function processLine(state: CompactState, line: string): void {
         state.totalDurationMs += evt.durationMs;
         state.turnCount++;
         break;
-      case 'usage':
+      case 'usage': {
+        // `usage` repeats verbatim on every per-content-block line of one
+        // message, so count it once per `message.id`. When the id is absent
+        // (legacy lines), count once as before — absence is rare.
+        if (evt.messageId != null) {
+          if (state.seenUsageMessageIds.has(evt.messageId)) break;
+          state.seenUsageMessageIds.add(evt.messageId);
+        }
         state.outputTokensTotal += evt.outputTokens;
         if (evt.inputTokens != null) state.inputTokensTotal += evt.inputTokens;
         break;
+      }
       case 'result':
         state.sessionStatus = evt.status;
         state.turnCount = evt.turns;

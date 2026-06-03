@@ -29,9 +29,13 @@ function nextUuid(): string {
  * Builds an assistant JSONL line carrying optional text, tool_use, and usage blocks.
  * @param opts - Fixture options.
  * @param opts.uuid - Top-level line uuid (defaults to a fresh unique value).
+ * @param opts.messageId - `message.id` (the assistant API message id). The real
+ *   producer repeats `message.usage` on every per-content-block line of one
+ *   message and they all share this id, so the consumer de-duplicates tokens by it.
  * @param opts.timestamp - ISO timestamp for the line.
  * @param opts.model - `message.model` value.
  * @param opts.text - Assistant text block content.
+ * @param opts.thinking - Assistant thinking block content.
  * @param opts.toolUses - Tool_use blocks to embed, each with a name and input.
  * @param opts.outputTokens - `message.usage.output_tokens` value.
  * @param opts.inputTokens - `message.usage.input_tokens` value.
@@ -39,14 +43,17 @@ function nextUuid(): string {
  */
 function assistantLine(opts: {
   uuid?: string;
+  messageId?: string;
   timestamp?: string;
   model?: string;
   text?: string;
+  thinking?: string;
   toolUses?: Array<{ name: string; input?: Record<string, unknown> }>;
   outputTokens?: number;
   inputTokens?: number;
 }): string {
   const content: unknown[] = [];
+  if (opts.thinking != null) content.push({ type: 'thinking', thinking: opts.thinking });
   if (opts.text != null) content.push({ type: 'text', text: opts.text });
   for (const tool of opts.toolUses ?? []) {
     content.push({ type: 'tool_use', id: nextUuid(), name: tool.name, input: tool.input ?? {} });
@@ -55,6 +62,7 @@ function assistantLine(opts: {
   if (opts.outputTokens != null) usage.output_tokens = opts.outputTokens;
   if (opts.inputTokens != null) usage.input_tokens = opts.inputTokens;
   const message: Record<string, unknown> = { content };
+  if (opts.messageId != null) message.id = opts.messageId;
   if (opts.model != null) message.model = opts.model;
   if (Object.keys(usage).length > 0) message.usage = usage;
   return JSON.stringify({
@@ -182,12 +190,86 @@ describe('buildState — tallies', () => {
 
   it('sums input tokens alongside output tokens', () => {
     const lines = [
-      assistantLine({ uuid: 'u1', text: 'a', outputTokens: 100, inputTokens: 40 }),
-      assistantLine({ uuid: 'u2', text: 'b', outputTokens: 200, inputTokens: 60 })
+      assistantLine({ uuid: 'u1', messageId: 'msg-1', text: 'a', outputTokens: 100, inputTokens: 40 }),
+      assistantLine({ uuid: 'u2', messageId: 'msg-2', text: 'b', outputTokens: 200, inputTokens: 60 })
     ];
     const state = buildState(lines, 'session.jsonl', undefined);
     expect(state.outputTokensTotal).toBe(300);
     expect(state.inputTokensTotal).toBe(100);
+  });
+});
+
+describe('buildState — token de-duplication by message.id (real producer shape)', () => {
+  it('counts a message split across per-content-block lines once, not per block', () => {
+    // The real producer writes one JSONL line PER content block of a single
+    // assistant API message — a `thinking` line, a `text` line, a `tool_use`
+    // line — each with a DISTINCT top-level `uuid` but the SAME `message.id`,
+    // and repeats `message.usage` (output AND input) verbatim on every line.
+    // (Mirrors main-38/4c7972a3… msg_01B9VQ…: output_tokens 105 repeated.)
+    const thinkingLine = assistantLine({
+      uuid: 'blk-1',
+      messageId: 'msg_split',
+      thinking: 'Considering the change.',
+      outputTokens: 105,
+      inputTokens: 6
+    });
+    const textLine = assistantLine({
+      uuid: 'blk-2',
+      messageId: 'msg_split',
+      text: 'Here is the plan.',
+      outputTokens: 105,
+      inputTokens: 6
+    });
+    const toolLine = assistantLine({
+      uuid: 'blk-3',
+      messageId: 'msg_split',
+      toolUses: [{ name: 'Bash', input: { command: 'yarn test' } }],
+      outputTokens: 105,
+      inputTokens: 6
+    });
+    const state = buildState([thinkingLine, textLine, toolLine], 'session.jsonl', undefined);
+
+    // Tokens counted ONCE for the message, not 3× (the inflation bug).
+    expect(state.outputTokensTotal).toBe(105);
+    expect(state.inputTokensTotal).toBe(6);
+    // Each tool_use block is still a real, distinct call on its own line.
+    expect(state.toolCallCount).toBe(1);
+  });
+
+  it('sums tokens once per message across several real-shape messages', () => {
+    const lines = [
+      // Message A: two block-lines, usage 256 repeated.
+      assistantLine({ uuid: 'a-1', messageId: 'msg_A', thinking: 't', outputTokens: 256, inputTokens: 6 }),
+      assistantLine({ uuid: 'a-2', messageId: 'msg_A', text: 'hi', outputTokens: 256, inputTokens: 6 }),
+      // Message B: one block-line, usage 140.
+      assistantLine({
+        uuid: 'b-1',
+        messageId: 'msg_B',
+        toolUses: [{ name: 'Read', input: { file_path: '/x.ts' } }],
+        outputTokens: 140,
+        inputTokens: 1
+      })
+    ];
+    const state = buildState(lines, 'session.jsonl', undefined);
+    expect(state.outputTokensTotal).toBe(256 + 140);
+    expect(state.inputTokensTotal).toBe(6 + 1);
+  });
+
+  it('still collapses same-uuid whole-line duplicates (the ~8% double-write shape)', () => {
+    // A minority of files double-write a whole line under the SAME uuid; the
+    // uuid guard must keep collapsing those (it would otherwise double tokens
+    // even before the message-id guard sees them).
+    const line = assistantLine({ uuid: 'dup-uuid', messageId: 'msg_dup', text: 'x', outputTokens: 50, inputTokens: 5 });
+    const state = buildState([line, line], 'session.jsonl', undefined);
+    expect(state.outputTokensTotal).toBe(50);
+    expect(state.inputTokensTotal).toBe(5);
+  });
+
+  it('counts a usage line without a message.id once (legacy fallback)', () => {
+    const noId = assistantLine({ uuid: 'n1', text: 'a', outputTokens: 70, inputTokens: 7 });
+    const state = buildState([noId], 'session.jsonl', undefined);
+    expect(state.outputTokensTotal).toBe(70);
+    expect(state.inputTokensTotal).toBe(7);
   });
 });
 
@@ -216,6 +298,33 @@ describe('headline — fallback chain', () => {
     const state = buildState([userLine('A genuine human prompt.')], 'session.jsonl', undefined);
     expect(state.lastAssistantText).toBe('');
     expect(headline(state)).toBe('A genuine human prompt.');
+  });
+
+  it('falls back to a tail tool-call label when there is no summary or prose (tool-only session)', () => {
+    // A tool-only / subagent session: no away_summary, no genuine assistant
+    // text — only tool calls. The headline must surface the latest tail event
+    // as `<Tool> <summary>` rather than render a blank recap box.
+    const bash = assistantLine({ uuid: 'b1', toolUses: [{ name: 'Bash', input: { command: 'yarn test' } }] });
+    const agent = assistantLine({
+      uuid: 'a1',
+      toolUses: [{ name: 'Agent', input: { description: 'Plan failure-mode review' } }]
+    });
+    const state = buildState([bash, agent], 'session.jsonl', undefined);
+    expect(state.awaySummary).toBe('');
+    expect(state.lastAssistantText).toBe('');
+    // Latest renderable tail event is the Agent dispatch.
+    expect(headline(state)).toContain('Agent');
+    expect(headline(state)).toContain('Plan failure-mode review');
+  });
+
+  it('returns empty for a degenerate session with no prose and an empty tail (slash-only)', () => {
+    // A slash-command-only session: the one user line is rejected by the
+    // sanitizer, nothing enters the tail, and there is no prose. The headline
+    // is legitimately empty and the caller renders nothing for line 2.
+    const markupOnly = '<command-name>runtime:foo</command-name><command-message>runtime:foo</command-message>';
+    const state = buildState([userLine(markupOnly)], 'session.jsonl', undefined);
+    expect(state.tail).toEqual([]);
+    expect(headline(state)).toBe('');
   });
 
   it('never surfaces a slash-command-markup user line (markup-leak regression lock)', () => {
