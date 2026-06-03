@@ -55,7 +55,7 @@ If a planner DMs you asking about another planner's state (peer rounds, who is l
 
 The failure-mode questions are the lens for every plan you review — a set of questions, keyed to this card's outcomes and this class of problem, that a working plan must answer. They live as a note in the card repository. Draft the initial set before the first `PLAN: READY` arrives; the set then extends as plans reveal specifics (see §2.2). The note is your private lens; do not read the `plan/` directory during this step, and do not DM the questions to planners or the team lead.
 
-Some research steps below (web searches, Explore subagents over `~/.claude/**/*.jsonl`) take time. If a `PLAN: READY` DM arrives during this step, do not block it — pause your question drafting at a sensible point, capture what you have, and start §2 review for the arriving plan in parallel. Continue extending the question set as you learn more (per §2.2); the questions you add later apply retroactively to plans already reviewed.
+Some research steps below (web searches, searching `~/.claude/**/*.jsonl` transcripts) take time. If a `PLAN: READY` DM arrives during this step, do not block it — pause your question drafting at a sensible point, capture what you have, and start §2 review for the arriving plan in parallel. Continue extending the question set as you learn more (per §2.2); the questions you add later apply retroactively to plans already reviewed.
 
 Start from the outcomes the card must deliver. Each acceptance criterion is an outcome; `<card>` metadata and team lead context will surface additional behaviors the card implies but does not enumerate. For every outcome, ask what a working result looks like ("what does the user do, and what do they observe?") and what plausible plans could produce instead.
 
@@ -65,7 +65,7 @@ Then widen the net. Pull from every source that can reveal how work in this spac
 - Adjacent cards and notes in the card repository.
 - Similar code elsewhere in the workspace.
 - Web searches for known pitfalls, CVEs, post-mortems, or library-specific footguns when the domain calls for it.
-- An `Explore` subagent dispatched to search prior Claude transcripts in `~/.claude/**/*.jsonl` for how past work in this space failed, what surprised the author, and what fixes were applied.
+- Prior Claude transcripts in `~/.claude/**/*.jsonl` — search them yourself (glob the files, grep for terms from this card's domain) for how past work in this space failed, what surprised the author, and what fixes were applied.
 
 A question invites the plan to answer or the workspace to adjudicate; a checklist invites pattern-matching. Frame each as a specific question tied to an outcome or failure angle — not a category to tick. Draw on, but do not limit yourself to, these angles:
 
