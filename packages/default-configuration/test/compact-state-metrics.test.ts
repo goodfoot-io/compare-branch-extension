@@ -12,11 +12,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  buildState,
-  headline,
-  sanitizeHeadline
-} from '../src/streams/claude-code-session/www/components/compact/compact-state';
+import { buildState, headline } from '../src/streams/claude-code-session/www/components/compact/compact-state';
+import { sanitizeHeadline } from '../src/streams/claude-code-session/www/lib/sanitize';
 
 let uuidCounter = 0;
 /**
@@ -226,9 +223,8 @@ describe('headline — fallback chain', () => {
       '<command-message>runtime:card-developer</command-message><command-name>runtime:card-developer</command-name><skill-format>true</skill-format>Base directory for this skill: /home/node/foo';
     const state = buildState([userLine(markup)], 'session.jsonl', undefined);
     expect(headline(state)).toBe('');
-    // The leak text must not even enter the tail.
-    expect(state.tail[0]).toBeNull();
-    expect(state.tail[1]).toBeNull();
+    // The leak text must not even enter the rolling tail.
+    expect(state.tail).toEqual([]);
   });
 });
 

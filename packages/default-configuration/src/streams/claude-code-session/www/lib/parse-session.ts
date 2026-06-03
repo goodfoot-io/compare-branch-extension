@@ -8,7 +8,7 @@
  * @module lib/parse-session
  */
 
-import { sanitizeHeadline } from '../components/compact/compact-state';
+import { sanitizeHeadline } from './sanitize';
 import { INFRASTRUCTURE_TOOLS, summarizeTool } from './tool-summary';
 
 // ============================================================================

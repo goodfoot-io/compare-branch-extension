@@ -7,4 +7,5 @@
 
 export * from './markdown';
 export * from './parse-session';
+export * from './sanitize';
 export * from './tool-summary';

@@ -8,7 +8,7 @@
  * @module components/compact/compact-state
  */
 
-import { parseLineEvents, stripMarkup } from '../../lib';
+import { parseLineEvents, sanitizeHeadline } from '../../lib';
 import type { CompactEvent, ContentBlock } from '../../lib/parse-session';
 
 /** Subagent filename pattern: two UUID segments separated by a hyphen. */
@@ -18,13 +18,20 @@ const SUBAGENT_PATTERN =
 /** Tool names whose `input.file_path` represents a file the session touched. */
 const FILE_TOUCH_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
 
+/** Rolling cap on {@link CompactState.tail}; the split panel shows the last 3. */
+const TAIL_CAP = 6;
+
 export interface CompactState {
   sessionStatus: string;
   hasErrors: boolean;
   isSubagent: boolean;
-  promptText: string;
   durationS: number;
-  tail: [CompactEvent | null, CompactEvent | null];
+  /**
+   * Rolling buffer of the most recent renderable events (newest last), capped at
+   * {@link TAIL_CAP}. Infrastructure tool calls are dropped so the panel stays
+   * meaningful; text, errors, `Agent`, `SendMessage`, and read/write tools enter.
+   */
+  tail: CompactEvent[];
   turnCount: number;
   outputTokensTotal: number;
   totalDurationMs: number;
@@ -59,9 +66,8 @@ export function makeInitialState(): CompactState {
     sessionStatus: 'running',
     hasErrors: false,
     isSubagent: false,
-    promptText: '',
     durationS: 0,
-    tail: [null, null],
+    tail: [],
     turnCount: 0,
     outputTokensTotal: 0,
     totalDurationMs: 0,
@@ -90,71 +96,13 @@ export function deriveInitialStatus(isActive: boolean): string {
   return 'success';
 }
 
-/** Prefixes that mark runtime control traffic rather than genuine prose. */
-const CONTROL_PREFIXES = ['Load the', 'Base directory', 'Stop hook feedback:'];
-
-/**
- * Raw wrapper-markup markers whose mere presence means the line is a
- * slash-command expansion or routing message, not genuine prose. These are
- * matched against the *raw* text — `stripMarkup` would otherwise drop the tags
- * and leave their machine-generated inner text looking like real prose (the
- * markup-leak the redesign exists to fix).
- */
-const CONTROL_MARKERS = /<command-(?:message|name)|<skill-format|<teammate-message/i;
-
-/**
- * Reports whether `text` parses as a complete JSON value.
- * @param text - Candidate string.
- * @returns True when `JSON.parse` accepts the input.
- * @throws Re-throws any non-`SyntaxError` raised by `JSON.parse`.
- */
-function isJsonValue(text: string): boolean {
-  try {
-    JSON.parse(text);
-    return true;
-  } catch (error) {
-    if (error instanceof SyntaxError) return false;
-    throw error;
-  }
-}
-
-/**
- * Reduces a candidate headline string to genuine human/assistant prose, or `''`.
- *
- * Rejects (returns `''`) any line carrying `<command-*>` / `<skill-format>` /
- * `<teammate-message` wrapper markup wholesale — these are slash-command
- * expansions or routing messages whose stripped inner text is the markup leak
- * the redesign exists to fix. Otherwise it strips benign inline tags and
- * markdown (via {@link stripMarkup}) and then rejects anything that is empty,
- * JSON-ish (`^\s*[{[<]`), or runtime control traffic: lines that start with
- * `Load the`, `Base directory`, or `Stop hook feedback:`, or that parse as JSON.
- *
- * This is the single source of truth for "is this genuine prose"; the
- * parse-session user-text guard imports it rather than re-deriving the rules.
- *
- * @param text - Raw candidate text (may contain wrapper markup).
- * @returns Sanitized prose, or `''` when nothing genuine remains.
- */
-export function sanitizeHeadline(text: string): string {
-  const raw = String(text ?? '');
-  // Reject slash-command / skill / routing wrapper markup on the raw text:
-  // stripMarkup would drop the tags and leave the machine inner text behind,
-  // which is exactly the leak we must prevent.
-  if (CONTROL_MARKERS.test(raw)) return '';
-  const cleaned = stripMarkup(raw);
-  if (!cleaned) return '';
-  if (/^\s*[{[<]/.test(cleaned)) return '';
-  for (const prefix of CONTROL_PREFIXES) {
-    if (cleaned.startsWith(prefix)) return '';
-  }
-  if (isJsonValue(raw.trim())) return '';
-  return cleaned;
-}
-
 /**
  * Selects the compact headline: the first non-empty of the sanitized
  * `away_summary`, the sanitized last assistant text, and the sanitized text of
- * the latest tail event (when that event is a text event).
+ * the newest tail text event (scanning from the end of {@link CompactState.tail}).
+ *
+ * The pure {@link sanitizeHeadline} rule lives in `lib/sanitize`; this selector
+ * is type-bound to {@link CompactState} and so stays here.
  *
  * @param state - The compact state to read from.
  * @returns The headline string, or `''` when no genuine prose is available.
@@ -164,10 +112,12 @@ export function headline(state: CompactState): string {
   if (fromAway) return fromAway;
   const fromAssistant = sanitizeHeadline(state.lastAssistantText);
   if (fromAssistant) return fromAssistant;
-  const latestTail = state.tail[1] ?? state.tail[0];
-  if (latestTail && latestTail.kind === 'text') {
-    const fromTail = sanitizeHeadline(latestTail.text);
-    if (fromTail) return fromTail;
+  for (let i = state.tail.length - 1; i >= 0; i--) {
+    const evt = state.tail[i];
+    if (evt?.kind === 'text') {
+      const fromTail = sanitizeHeadline(evt.text);
+      if (fromTail) return fromTail;
+    }
   }
   return '';
 }
@@ -231,27 +181,6 @@ export function processLine(state: CompactState, line: string): void {
     }
   }
 
-  // Extract prompt text from user messages
-  if (msg['type'] === 'user' && !msg['tool_use_result']) {
-    const content = (msg['message'] as Record<string, unknown> | undefined)?.['content'];
-    let text = '';
-    if (typeof content === 'string') {
-      text = content;
-    } else if (Array.isArray(content)) {
-      for (const block of content) {
-        if ((block as Record<string, unknown>)?.['type'] === 'text') {
-          const blockText = (block as Record<string, unknown>)['text'];
-          if (typeof blockText === 'string') text += blockText;
-        }
-      }
-    }
-    const cleaned = stripMarkup(text);
-    if (cleaned && !/^\s*[{[<]/.test(cleaned)) {
-      // Preserve original markdown so the renderer can format it.
-      state.promptText = text.trim();
-    }
-  }
-
   // Collect distinct Edit/Write/MultiEdit file paths from this line's tool_use
   // blocks (assistant content and subagent progress content).
   collectTouchedFiles(state, msg);
@@ -275,20 +204,18 @@ export function processLine(state: CompactState, line: string): void {
           const sanitized = sanitizeHeadline(evt.text);
           if (sanitized) state.lastAssistantText = sanitized;
         }
-        if ((evt.kind === 'tool-call' || evt.kind === 'subagent-tool-call') && evt.isInfrastructure) {
-          const hasNonInfra = state.tail.some((t) => {
-            if (t === null) return false;
-            if (t.kind !== 'tool-call' && t.kind !== 'subagent-tool-call') return true;
-            return !t.isInfrastructure;
-          });
-          if (hasNonInfra) break;
-        }
-        state.tail[0] = state.tail[1];
-        state.tail[1] = evt;
         if (evt.kind === 'error') {
           state.errorCount++;
           state.hasErrors = true;
         }
+        // Drop infrastructure tool calls from the rolling tail so the latest-
+        // lines panel stays meaningful; text, errors, `Agent`, `SendMessage`,
+        // and read/write tools all enter. Trim to the last TAIL_CAP on push.
+        if ((evt.kind === 'tool-call' || evt.kind === 'subagent-tool-call') && evt.isInfrastructure) {
+          break;
+        }
+        state.tail.push(evt);
+        if (state.tail.length > TAIL_CAP) state.tail.splice(0, state.tail.length - TAIL_CAP);
         break;
       }
       case 'turn-duration':

@@ -1,10 +1,10 @@
 /**
- * Two-line tail section for the compact micro-card view.
+ * Latest-lines panel for the wide-viewport split of the compact card.
  *
- * Renders the two most recent events, with the newest line highlighted
- * briefly when new events arrive.
+ * Renders the most recent (up to three) renderable tail events as source-
+ * labelled, role-emphasized lines via {@link TailLine}.
  *
- * @summary Compact tail: two TailLines with highlight animation
+ * @summary Compact latest-lines panel: the last three labelled tail events
  * @module components/compact/Tail
  */
 
@@ -12,30 +12,42 @@ import type React from 'react';
 import type { CompactEvent } from '../../lib/parse-session';
 import { TailLine } from './TailLine';
 
+/** Number of trailing tail events the split right panel displays. */
+const VISIBLE_LINES = 3;
+
 interface TailProps {
-  /** Older of the two visible events (may be null). */
-  prev: CompactEvent | null;
-  /** Newest of the two visible events (may be null). */
-  curr: CompactEvent | null;
-  /** Whether to highlight the newest line. */
-  highlight: boolean;
+  /** Rolling tail buffer (newest last); only the last {@link VISIBLE_LINES} show. */
+  events: CompactEvent[];
 }
 
 /**
- * Two-line tail display: prev (no highlight) + curr (highlighted when new).
- * Returns null when both events are null.
- * @param root0 - The component props.
- * @param root0.prev - Older of the two visible events (may be null).
- * @param root0.curr - Newest of the two visible events (may be null).
- * @param root0.highlight - Whether to highlight the newest line.
- * @returns Rendered tail container, or null when both events are null.
+ * Derives a stable-enough React key for a tail event from its kind and content,
+ * suffixed with its position so two identical lines remain distinct.
+ * @param event - The tail event.
+ * @param index - The event's index within the visible window.
+ * @returns A string key.
  */
-export function Tail({ prev, curr, highlight }: TailProps): React.ReactElement | null {
-  if (!prev && !curr) return null;
+function lineKey(event: CompactEvent, index: number): string {
+  let content = '';
+  if (event.kind === 'tool-call' || event.kind === 'subagent-tool-call') content = `${event.toolName}:${event.summary}`;
+  else if (event.kind === 'text') content = `${event.role}:${event.text}`;
+  else if (event.kind === 'error') content = event.message;
+  return `${index}:${event.kind}:${content}`;
+}
+
+/**
+ * Renders the latest (up to three) tail events as labelled lines.
+ * @param root0 - The component props.
+ * @param root0.events - Rolling tail buffer (newest last).
+ * @returns Rendered latest-lines list.
+ */
+export function Tail({ events }: TailProps): React.ReactElement {
+  const visible = events.slice(-VISIBLE_LINES);
   return (
-    <div className="flex flex-col gap-px mb-0.5">
-      <TailLine event={prev} highlight={false} />
-      <TailLine event={curr} highlight={highlight} />
-    </div>
+    <>
+      {visible.map((event, i) => (
+        <TailLine key={lineKey(event, i)} event={event} />
+      ))}
+    </>
   );
 }
