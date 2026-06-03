@@ -1,9 +1,9 @@
 /**
  * Per-session file operations for card-repo commit attribution.
  *
- * Manages per-session CSV files, .head files, and directory setup under
- * `~/.cards/card-repo-commits/`. Each session gets its own CSV file for
- * commit SHAs and a .head file tracking the HEAD SHA at session start.
+ * Manages per-session CSV files and .head files under `~/.cards/card-repo-commits/`.
+ * Each session gets its own CSV file for commit SHAs and a .head file tracking
+ * the HEAD SHA at session start.
  *
  * Design invariants:
  * - **Fail-closed**: unexpected errors propagate; only `ENOENT` is silently handled.
@@ -40,10 +40,6 @@ function getSessionCsvLockPath(sessionId: string): string {
 
 function getSessionHeadShaPath(sessionId: string): string {
   return join(getCardRepoCommitsDir(), `${sessionId}.head`);
-}
-
-function getSessionCardIdPath(sessionId: string): string {
-  return join(getCardRepoCommitsDir(), `${sessionId}.card`);
 }
 
 // ---------------------------------------------------------------------------
@@ -165,52 +161,6 @@ export function readSessionHeadSha(sessionId: string): string | null {
 export function removeSessionHeadSha(sessionId: string): void {
   try {
     unlinkSync(getSessionHeadShaPath(sessionId));
-  } catch (error) {
-    if (!hasErrnoCode(error, 'ENOENT')) throw error;
-  }
-}
-
-/**
- * Writes the card id a session created to the session's .card file.
- * Creates directory if it doesn't exist. Overwrites any existing binding so
- * the most recently created card wins.
- *
- * @param sessionId - Session whose created-card binding should be stored.
- * @param cardId - Card id to persist as the session's active card.
- * @throws Error when directory creation or file write fails.
- */
-export function writeSessionCardId(sessionId: string, cardId: string): void {
-  mkdirSync(getCardRepoCommitsDir(), { recursive: true, mode: 0o700 });
-  writeFileSync(getSessionCardIdPath(sessionId), cardId, { mode: 0o600 });
-}
-
-/**
- * Reads the card id bound to a session from its .card file.
- *
- * @param sessionId - Session whose created-card binding should be retrieved.
- * @returns The stored card id with whitespace trimmed, or `null` when the file
- *   is absent.
- * @throws Error when file read fails for reasons other than `ENOENT`.
- */
-export function readSessionCardId(sessionId: string): string | null {
-  try {
-    return readFileSync(getSessionCardIdPath(sessionId), 'utf-8').trim();
-  } catch (error) {
-    if (hasErrnoCode(error, 'ENOENT')) return null;
-    throw error;
-  }
-}
-
-/**
- * Removes the session's .card file.
- * No-op if file doesn't exist.
- *
- * @param sessionId - Session whose .card file should be deleted.
- * @throws Error when deleting the file fails for reasons other than `ENOENT`.
- */
-export function removeSessionCardId(sessionId: string): void {
-  try {
-    unlinkSync(getSessionCardIdPath(sessionId));
   } catch (error) {
     if (!hasErrnoCode(error, 'ENOENT')) throw error;
   }

@@ -18,13 +18,10 @@ import {
   getSessionCommits,
   hasSessionRouteNudgeFired,
   markSessionRouteNudgeFired,
-  readSessionCardId,
   readSessionHeadSha,
-  removeSessionCardId,
   removeSessionCsv,
   removeSessionHeadSha,
   removeSessionRouteNudge,
-  writeSessionCardId,
   writeSessionHeadSha
 } from '../src/card-repo.js';
 
@@ -220,70 +217,6 @@ describe('card-repo', () => {
 
     it('no-ops when .head file is absent', () => {
       expect(() => removeSessionHeadSha('nonexistent-session')).not.toThrow();
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // writeSessionCardId / readSessionCardId
-  // -------------------------------------------------------------------------
-
-  describe('writeSessionCardId', () => {
-    it('creates ~/.cards/card-repo-commits/{sessionId}.card with card id content', () => {
-      writeSessionCardId(sessionId, 'main-42');
-
-      const cardPath = join(cardRepoCommitsDir, `${sessionId}.card`);
-      expect(existsSync(cardPath)).toBe(true);
-      expect(readFileSync(cardPath, 'utf-8')).toBe('main-42');
-    });
-
-    it('creates directory if not present', () => {
-      writeSessionCardId(sessionId, 'main-1');
-      expect(existsSync(cardRepoCommitsDir)).toBe(true);
-    });
-
-    it('overwrites existing binding (last-created wins)', () => {
-      writeSessionCardId(sessionId, 'main-1');
-      writeSessionCardId(sessionId, 'main-2');
-
-      expect(readSessionCardId(sessionId)).toBe('main-2');
-    });
-  });
-
-  describe('readSessionCardId', () => {
-    it('reads and trims .card file content', () => {
-      mkdirSync(cardRepoCommitsDir, { recursive: true });
-      writeFileSync(join(cardRepoCommitsDir, `${sessionId}.card`), '  main-7  \n');
-
-      expect(readSessionCardId(sessionId)).toBe('main-7');
-    });
-
-    it('returns null when .card file is absent', () => {
-      expect(readSessionCardId('nonexistent-session')).toBeNull();
-    });
-
-    it('throws on read error that is not ENOENT', () => {
-      mkdirSync(join(cardRepoCommitsDir, `${sessionId}.card`), { recursive: true });
-      expect(() => readSessionCardId(sessionId)).toThrow();
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // removeSessionCardId
-  // -------------------------------------------------------------------------
-
-  describe('removeSessionCardId', () => {
-    it('deletes .card file', () => {
-      writeSessionCardId(sessionId, 'main-42');
-
-      const cardPath = join(cardRepoCommitsDir, `${sessionId}.card`);
-      expect(existsSync(cardPath)).toBe(true);
-
-      removeSessionCardId(sessionId);
-      expect(existsSync(cardPath)).toBe(false);
-    });
-
-    it('no-ops when .card file is absent', () => {
-      expect(() => removeSessionCardId('nonexistent-session')).not.toThrow();
     });
   });
 
