@@ -1,8 +1,9 @@
 /**
  * Exercises Codex branches of the consolidated action handlers (launch, chat,
  * interview) through end-to-end scenarios. Locks in plugin-cache population,
- * spawn argv (including the runtime plugin-enable `-c` flags), error paths,
- * cancellation, and branch-cleanup wiring for the Codex path.
+ * spawn argv (including the `--profile cards` enablement and the separate
+ * profile-config write), error paths, cancellation, and branch-cleanup wiring
+ * for the Codex path.
  *
  * @summary Tests Codex branches of consolidated action handlers
  */
@@ -76,6 +77,7 @@ vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   cp: vi.fn(),
   mkdir: vi.fn(),
+  mkdtemp: vi.fn(),
   readFile: vi.fn(),
   readdir: vi.fn(),
   rename: vi.fn(),
@@ -281,17 +283,21 @@ beforeEach(async () => {
   });
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
     const p = toPosix(filePath);
-    // Bundle manifests (read by ensureCodexBundleAvailable) and cache manifests
-    // (read by populateCodexPluginCache after the install lands at destDir).
-    if (p.endsWith('/cards/.codex-plugin/plugin.json') || p.endsWith('/cards/local/.codex-plugin/plugin.json')) {
+    // Bundle (`…/cards/…`), staged (`…/.plugin-install-*/1.0.272/…`), and
+    // published (`…/cards/1.0.272/…`) manifests all resolve — match on the plugin
+    // segment or its unique version, since installs use the manifest version as
+    // the cache path segment.
+    if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)cards\//.test(p) || p.includes('/1.0.272/'))) {
       return JSON.stringify({
         name: 'cards',
+        version: '1.0.272',
         description: 'Codex cards plugin for interacting with the Cards extension APIs'
       });
     }
-    if (p.endsWith('/runtime/.codex-plugin/plugin.json') || p.endsWith('/runtime/local/.codex-plugin/plugin.json')) {
+    if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)runtime\//.test(p) || p.includes('/1.0.355/'))) {
       return JSON.stringify({
         name: 'runtime',
+        version: '1.0.355',
         description: 'Codex runtime plugin for the Cards extension'
       });
     }
@@ -320,6 +326,7 @@ beforeEach(async () => {
   });
   vi.mocked(fs.rm).mockResolvedValue(undefined);
   vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+  vi.mocked(fs.mkdtemp).mockImplementation(async (prefix: string | URL) => `${String(prefix)}XXXXXX`);
   vi.mocked(fs.cp).mockResolvedValue(undefined);
   vi.mocked(fs.rename).mockResolvedValue(undefined);
   vi.mocked(fs.writeFile).mockResolvedValue(undefined);
@@ -372,7 +379,7 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 }
 
 describe('launch action — codex branch', () => {
-  it('populates the plugin cache and spawns codex with the resolved CODEX_HOME and plugin -c flags', async () => {
+  it('populates the plugin cache and spawns codex with the resolved CODEX_HOME and --profile enablement', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
     const child = createMockChild();
@@ -382,31 +389,36 @@ describe('launch action — codex branch', () => {
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
-    // The bundled plugins are copied into the cache (the .incoming temp dirs),
-    // never the resolved home itself. Production builds these paths with
-    // path.join, so on Windows the args use native separators — compare via
-    // separator-insensitive matchers.
+    // The bundled plugins are staged into mkdtemp dirs under the cache (a sibling
+    // of the scanned base root), never the resolved home itself. Production builds
+    // these paths with path.join, so on Windows the args use native separators —
+    // compare via separator-insensitive matchers.
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/cards'),
-      posixMatching(/\/plugins\/cache\/local\/\.incoming-.*-cards$/),
+      posixMatching(/\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.272$/),
       { force: true, recursive: true }
     );
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/runtime'),
-      posixMatching(/\/plugins\/cache\/local\/\.incoming-.*-runtime$/),
+      posixMatching(/\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.355$/),
       { force: true, recursive: true }
     );
-    // No copy of the resolved home and no config.toml mutation.
+    // No copy of the resolved home.
     expect(fs.cp).not.toHaveBeenCalledWith(DEFAULT_CODEX_HOME, expect.any(String), expect.anything());
-    expect(fs.writeFile).not.toHaveBeenCalled();
+
+    // Enablement is written to the SEPARATE profile file, never the user's config.toml.
+    const writeTargets = vi.mocked(fs.writeFile).mock.calls.map((call) => toPosix(call[0]));
+    expect(writeTargets).toContain(`${toPosix(DEFAULT_CODEX_HOME)}/cards.config.toml`);
+    expect(writeTargets).not.toContain(`${toPosix(DEFAULT_CODEX_HOME)}/config.toml`);
+
     // No app-server install RPC — only the interactive codex spawn.
     expect(spawn).not.toHaveBeenCalledWith('codex', ['app-server'], expect.anything());
     expect(vi.mocked(spawn).mock.calls).toHaveLength(1);
 
-    // The final move lands each plugin at plugins/cache/local/<plugin>/local.
+    // The publish rename lands each plugin at plugins/cache/local/<plugin>/<version>.
     const renameDests = vi.mocked(fs.rename).mock.calls.map((call) => toPosix(call[1]));
-    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/cards\/local$/.test(dest))).toBe(true);
-    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/runtime\/local$/.test(dest))).toBe(true);
+    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/cards\/1\.0\.272$/.test(dest))).toBe(true);
+    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/runtime\/1\.0\.355$/.test(dest))).toBe(true);
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',
@@ -429,10 +441,11 @@ describe('launch action — codex branch', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
+    // Enablement is via the Cards profile-v2 layer, not retired -c plugin flags.
+    expect(args[args.indexOf('--profile') + 1]).toBe('cards');
     const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
-    expect(cFlagValues).toContain('features.plugins=true');
-    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
-    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
+    expect(cFlagValues).not.toContain('features.plugins=true');
+    expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
     expect(args[args.length - 1]).toMatch(/Load the `\$card` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
@@ -567,11 +580,12 @@ describe('chat action — codex branch', () => {
         '/test/repo'
       ])
     );
-    // Plugin-enable -c flags are present alongside the chat developer_instructions.
+    // Enablement is via the Cards profile-v2 layer, alongside the chat
+    // developer_instructions -c value.
+    expect(args[args.indexOf('--profile') + 1]).toBe('cards');
     const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
-    expect(cFlagValues).toContain('features.plugins=true');
-    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
-    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
+    expect(cFlagValues).not.toContain('features.plugins=true');
+    expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
     const developerInstructionsArg = cFlagValues.find((value) => value.startsWith('developer_instructions'));
     expect(developerInstructionsArg).toMatch(/^developer_instructions = "/);
     // No seeded guidance prompt: the last arg is a -c value, not a prompt string.
@@ -597,11 +611,11 @@ describe('interview action — codex branch', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    // Plugin-enable -c flags are present; no developer_instructions for interview.
+    // Enablement is via the Cards profile-v2 layer; no developer_instructions for interview.
+    expect(args[args.indexOf('--profile') + 1]).toBe('cards');
     const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
-    expect(cFlagValues).toContain('features.plugins=true');
-    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
-    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
+    expect(cFlagValues).not.toContain('features.plugins=true');
+    expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
     expect(cFlagValues.some((value) => value.startsWith('developer_instructions'))).toBe(false);
     expect(args[args.length - 1]).toMatch(/Load the `\$interview` skill and follow the `<routing-instructions>`\.$/);
 

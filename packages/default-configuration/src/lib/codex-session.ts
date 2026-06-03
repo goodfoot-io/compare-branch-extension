@@ -9,7 +9,7 @@
  */
 
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { type Dirent, readdirSync, readFileSync, statSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
@@ -18,7 +18,8 @@ import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import yaml from 'js-yaml';
-import { stringify as stringifyToml } from 'smol-toml';
+import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
+import { applyCodexConfig } from './applyCodexConfig.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
 
@@ -43,6 +44,8 @@ export interface CodexSessionOptions {
  */
 interface CodexPluginManifest {
   name: string;
+  /** Plugin version; used as the cache version segment `<plugin>/<version>`. */
+  version: string;
 }
 
 interface CodexPluginMarketplaceManifest {
@@ -626,9 +629,34 @@ export async function readCodexPluginManifest(
     throw new Error(`Invalid Codex plugin manifest name at ${manifestPath}: expected "${expectedName}"`);
   }
 
+  if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
+    throw new Error(`Codex plugin manifest at ${manifestPath} is missing a non-empty string "version"`);
+  }
+  validatePluginVersionSegment(manifest.version, manifestPath);
+
   return {
-    name: manifest.name
+    name: manifest.name,
+    version: manifest.version
   };
+}
+
+/**
+ * Validates that a plugin version is usable as a single cache path segment
+ * `<plugin>/<version>`. Mirrors codex `validate_plugin_version_segment`
+ * (core-plugins/src/store.rs:177-193) so a bundle codex would reject fails
+ * closed here rather than producing an unscannable cache entry.
+ *
+ * @param version - Version string from the plugin manifest.
+ * @param sourceLabel - Manifest path, for the error message.
+ * @throws {Error} When the version is not a single safe path segment.
+ */
+function validatePluginVersionSegment(version: string, sourceLabel: string): void {
+  if (version === '.' || version === '..' || !/^[A-Za-z0-9._+-]+$/.test(version)) {
+    throw new Error(
+      `Invalid Codex plugin version segment "${version}" at ${sourceLabel}: ` +
+        `only ASCII letters, digits, '.', '+', '_', and '-' are allowed`
+    );
+  }
 }
 
 async function readCodexMarketplaceManifest(bundlePath: string): Promise<CodexPluginMarketplaceManifest> {
@@ -649,11 +677,13 @@ async function readCodexMarketplaceManifest(bundlePath: string): Promise<CodexPl
 async function ensureCodexBundleAvailable(marketplacePath: string): Promise<{
   bundlePath: string;
   pluginPaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
+  pluginVersions: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
 }> {
   const bundlePath = resolveCodexBundlePath(marketplacePath);
   const pluginPaths = Object.fromEntries(
     CODEX_PLUGIN_NAMES.map((pluginName) => [pluginName, resolveCodexPluginPath(marketplacePath, pluginName)])
   ) as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
+  const pluginVersions = {} as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
   const marketplaceManifestPath = path.join(bundlePath, '.agents', 'plugins', 'marketplace.json');
 
   await fs.access(bundlePath);
@@ -661,28 +691,31 @@ async function ensureCodexBundleAvailable(marketplacePath: string): Promise<{
   await readCodexMarketplaceManifest(bundlePath);
   for (const pluginName of CODEX_PLUGIN_NAMES) {
     await fs.access(pluginPaths[pluginName]);
-    await readCodexPluginManifest(pluginPaths[pluginName], pluginName);
+    const manifest = await readCodexPluginManifest(pluginPaths[pluginName], pluginName);
+    pluginVersions[pluginName] = manifest.version;
   }
 
-  return { bundlePath, pluginPaths };
+  return { bundlePath, pluginPaths, pluginVersions };
 }
 
 // Matches codex PLUGINS_CACHE_DIR (store.rs:17,40)
 const CODEX_PLUGINS_CACHE_DIR = 'plugins/cache';
-// Matches codex DEFAULT_PLUGIN_VERSION (store.rs:16)
-const CODEX_PLUGIN_VERSION = 'local';
-
-let cacheInstallCounter = 0;
 
 /**
- * Copies each bundled plugin into the codex plugin cache under the resolved
- * home, making them loadable via `-c plugins."<name>@local".enabled=true`
- * without touching the user's config.toml.
+ * Materializes each bundled plugin into the codex plugin cache under the
+ * resolved home, then verifies the load path — without touching the user's
+ * config.toml. Enablement is supplied separately by {@link writeCodexProfileConfig}.
  *
- * Cache path: `<codexHome>/plugins/cache/local/<pluginName>/local/`
- * (marketplace=`local`, version segment=`local` per codex DEFAULT_PLUGIN_VERSION)
+ * Each plugin is installed under its own manifest version segment:
+ * `<codexHome>/plugins/cache/local/<plugin>/<version>/` (marketplace=`local`).
+ * codex's version scanner (`active_plugin_version`, store.rs:70-91) prefers the
+ * highest semver when no `local` dir is present, so an extension upgrade lands a
+ * new, higher-versioned sibling that supersedes the old one without disturbing
+ * it — and a version slot, once published, is never moved or removed, making the
+ * post-install verification below race-free under concurrent launches.
  *
- * Errors from mkdir or cp propagate — fail closed.
+ * Errors from staging, copy, manifest validation, or the publish rename
+ * propagate — fail closed.
  *
  * @param codexHome - Resolved codex home (`$CODEX_HOME ?? ~/.codex`).
  * @param marketplacePath - Absolute path to the packaged marketplace directory.
@@ -696,7 +729,7 @@ export async function populateCodexPluginCache(
   pluginPaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
   pluginCachePaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
 }> {
-  const { bundlePath, pluginPaths } = await ensureCodexBundleAvailable(marketplacePath);
+  const { bundlePath, pluginPaths, pluginVersions } = await ensureCodexBundleAvailable(marketplacePath);
   const pluginCachePaths = {} as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
 
   // marketplaceDir = plugins/cache/local/ — ONE LEVEL ABOVE plugin_base_root.
@@ -706,13 +739,19 @@ export async function populateCodexPluginCache(
   await fs.mkdir(marketplaceDir, { recursive: true });
 
   for (const pluginName of CODEX_PLUGIN_NAMES) {
-    const destDir = path.join(marketplaceDir, pluginName, CODEX_PLUGIN_VERSION);
-    await installPluginToCache(pluginName, marketplaceDir, pluginPaths[pluginName], destDir);
+    const destDir = await installPluginToCache(
+      pluginName,
+      marketplaceDir,
+      pluginPaths[pluginName],
+      pluginVersions[pluginName]
+    );
 
-    // Verify manifest is present at the exact load path — fail closed.
-    // An off-by-one in destDir (missing version segment, wrong marketplace)
-    // produces a concrete error here rather than a silent "plugin not installed"
-    // at session startup (Q22 primary detection).
+    // Verify the manifest at the exact load path — fail closed. An off-by-one in
+    // destDir (missing/wrong version segment, wrong marketplace) produces a
+    // concrete error here rather than a silent "plugin not installed" at session
+    // startup (Q22 primary detection). Race-free: installPluginToCache never
+    // moves or removes a live version slot, so no concurrent launch can move this
+    // path out from under the read.
     await readCodexPluginManifest(destDir, pluginName);
     pluginCachePaths[pluginName] = destDir;
   }
@@ -720,45 +759,210 @@ export async function populateCodexPluginCache(
   return { bundlePath, pluginPaths, pluginCachePaths };
 }
 
+/**
+ * Installs one bundled plugin into the cache under its own version segment
+ * `<marketplaceDir>/<plugin>/<version>` and returns that load path.
+ *
+ * Race-free by construction: fully-built content is staged in an OS-unique
+ * `mkdtemp` dir under `marketplaceDir` (a sibling of the scanned base root, so
+ * codex never enumerates it as a version candidate), validated, then published
+ * with a single atomic rename into the version slot. Once present, the slot is
+ * never moved or removed by this function, so concurrent launches against the
+ * same `$CODEX_HOME` either win the rename or observe `EEXIST`/`ENOTEMPTY` — the
+ * slot already holds identical content — both of which are success.
+ *
+ * @param pluginName - Bundled plugin name.
+ * @param marketplaceDir - `<codexHome>/plugins/cache/local`.
+ * @param sourceDir - Packaged plugin source directory.
+ * @param version - Validated manifest version used as the cache segment.
+ * @returns The load path `<marketplaceDir>/<plugin>/<version>`.
+ */
 async function installPluginToCache(
-  pluginName: string,
+  pluginName: (typeof CODEX_PLUGIN_NAMES)[number],
   marketplaceDir: string,
   sourceDir: string,
-  destDir: string
-): Promise<void> {
-  const n = cacheInstallCounter++;
-  // Stage under marketplaceDir (= plugins/cache/local/), NOT inside
-  // plugin_base_root (= plugins/cache/local/<plugin>/).
-  // codex's version scanner reads only plugin_base_root/; dirs under
-  // marketplaceDir are never enumerated as version candidates.
-  const incomingDir = path.join(marketplaceDir, `.incoming-${process.pid}-${n}-${pluginName}`);
-  const outgoingDir = path.join(marketplaceDir, `.outgoing-${process.pid}-${n}-${pluginName}`);
+  version: string
+): Promise<string> {
+  const baseRoot = path.join(marketplaceDir, pluginName);
+  const destVersionDir = path.join(baseRoot, version);
 
-  // 1. Write into temp under marketplaceDir — invisible to version scanner.
-  await fs.mkdir(incomingDir, { recursive: true });
-  await fs.cp(sourceDir, incomingDir, { recursive: true, force: true });
-
-  // 1b. Ensure the plugin-base dir (parent of destDir) exists — fs.rename does
-  //     not create missing parents, so the move into destDir would ENOENT on a
-  //     fresh cache. Creating it empty is harmless: the version scanner finds no
-  //     version candidates until the rename lands the `local` child.
-  await fs.mkdir(path.dirname(destDir), { recursive: true });
-
-  // 2. Step aside the live version dir (if present) — single atomic rename.
-  //    Moves plugins/cache/local/<plugin>/local → marketplaceDir/.outgoing-…
+  const staging = await fs.mkdtemp(path.join(marketplaceDir, '.plugin-install-'));
   try {
-    await fs.rename(destDir, outgoingDir);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    // destDir did not exist yet — nothing to step aside; continue.
+    const stagedVersionDir = path.join(staging, version);
+    await fs.cp(sourceDir, stagedVersionDir, { recursive: true, force: true });
+
+    // Validate the staged bundle BEFORE publishing — fail closed on a bad bundle.
+    await readCodexPluginManifest(stagedVersionDir, pluginName);
+
+    await fs.mkdir(baseRoot, { recursive: true });
+    try {
+      // Publish with a single atomic rename into the (absent) version slot.
+      await fs.rename(stagedVersionDir, destVersionDir);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      // EEXIST/ENOTEMPTY: a concurrent or previous launch already published this
+      // exact version (identical content) — idempotent success, leave it.
+      if (code !== 'EEXIST' && code !== 'ENOTEMPTY') {
+        throw error;
+      }
+    }
+  } finally {
+    // Remove the staging dir (the publish either consumed its version child via
+    // rename or lost the race and left it behind). Never touches a live slot.
+    await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
   }
 
-  // 3. Rename incoming into place — single atomic rename; destDir vacant.
-  //    Moves marketplaceDir/.incoming-… → plugins/cache/local/<plugin>/local
-  await fs.rename(incomingDir, destDir);
+  await pruneSupersededPluginVersions(baseRoot, version);
+  return destVersionDir;
+}
 
-  // 4. Best-effort cleanup of the stepped-aside dir (non-fatal).
-  await fs.rm(outgoingDir, { recursive: true, force: true }).catch(() => undefined);
+/**
+ * Best-effort removal of version slots strictly older than `keepVersion` under a
+ * plugin base root, mirroring codex `remove_old_plugin_versions` (store.rs:333-368).
+ * codex's scanner already prefers the highest semver, so older slots are inert;
+ * pruning keeps the cache bounded across upgrades.
+ *
+ * Never fatal, and never removes `keepVersion` or any equal-or-higher version —
+ * so it cannot race a concurrent launch into deleting the slot that launch
+ * resolved to.
+ *
+ * @param baseRoot - `<marketplaceDir>/<plugin>`.
+ * @param keepVersion - The version just installed; this and any higher are kept.
+ */
+async function pruneSupersededPluginVersions(baseRoot: string, keepVersion: string): Promise<void> {
+  let entries: Dirent<string>[];
+  try {
+    entries = await fs.readdir(baseRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isDirectory() || entry.name === keepVersion) {
+        return;
+      }
+      if (comparePluginVersions(entry.name, keepVersion) >= 0) {
+        return;
+      }
+      await fs.rm(path.join(baseRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
+    })
+  );
+}
+
+/**
+ * Orders two plugin version segments. Parses `major.minor.patch` numerically
+ * (build/pre-release suffix ignored) and falls back to lexicographic comparison
+ * when either side is not a semver triple — matching the intent of codex
+ * `compare_plugin_versions` (store.rs:375-381) for our bundle versions.
+ *
+ * @param a - First version segment.
+ * @param b - Second version segment.
+ * @returns Negative when `a < b`, positive when `a > b`, zero when equal.
+ */
+function comparePluginVersions(a: string, b: string): number {
+  const pa = parseSemverTriple(a);
+  const pb = parseSemverTriple(b);
+  if (pa && pb) {
+    for (let i = 0; i < 3; i++) {
+      const av = pa[i] ?? 0;
+      const bv = pb[i] ?? 0;
+      if (av !== bv) {
+        return av < bv ? -1 : 1;
+      }
+    }
+    return 0;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function parseSemverTriple(version: string): [number, number, number] | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(version);
+  if (match === null) {
+    return null;
+  }
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+// Profile-v2: plugin enablement lives in a SEPARATE `${CODEX_HOME}/<name>.config.toml`
+// User-config layer selected with `--profile <name>`, never in the user's own
+// config.toml. Suffix matches codex CONFIG_PROFILE_V2_SUFFIX (core/config/mod.rs:200);
+// the name satisfies ProfileV2Name (ASCII alphanumeric + `_`/`-`).
+const CODEX_PROFILE_NAME = 'cards';
+const CODEX_PROFILE_CONFIG_SUFFIX = '.config.toml';
+
+/**
+ * Writes the Cards profile-v2 config file `${codexHome}/cards.config.toml`, which
+ * enables the bundled plugins via a SEPARATE User-config layer. codex loads this
+ * file as a second User layer only when launched with `--profile cards` (see
+ * {@link buildCodexArgs}); the user's own `codex` (no `--profile`) never reads it
+ * and the user's `config.toml` is never read-modified-written.
+ *
+ * Fail-closed pre-check: codex hard-errors a `--profile cards` launch if the base
+ * config.toml declares a legacy `profile = "cards"` selector or a `[profiles.cards]`
+ * table (config/src/loader/mod.rs:227-247). {@link assertNoLegacyProfileCollision}
+ * surfaces that as a clear, actionable error before codex is spawned.
+ *
+ * @param codexHome - Resolved codex home (`$CODEX_HOME ?? ~/.codex`).
+ * @returns Absolute path to the written profile config file.
+ */
+export async function writeCodexProfileConfig(codexHome: string): Promise<string> {
+  await assertNoLegacyProfileCollision(codexHome);
+
+  const enablePlugins = CODEX_PLUGIN_NAMES.map(
+    (name) => `${name}@${CODEX_PLUGIN_MARKETPLACE}` as 'cards@local' | 'runtime@local'
+  );
+  const { result } = applyCodexConfig({}, { enablePlugins, featuresPlugins: true });
+
+  const profilePath = path.join(codexHome, `${CODEX_PROFILE_NAME}${CODEX_PROFILE_CONFIG_SUFFIX}`);
+  await fs.writeFile(profilePath, `${stringifyToml(result)}\n`, 'utf-8');
+  return profilePath;
+}
+
+/**
+ * Throws a clear error when the user's base `config.toml` would collide with the
+ * Cards profile-v2 name — the one case where codex refuses a `--profile` launch.
+ *
+ * Best-effort: when `config.toml` is absent or unparseable, codex remains the
+ * authority (it still fails closed on a genuine collision) and we proceed rather
+ * than block a launch on our own parse disagreement.
+ *
+ * @param codexHome - Resolved codex home holding the user's `config.toml`.
+ */
+async function assertNoLegacyProfileCollision(codexHome: string): Promise<void> {
+  const configPath = path.join(codexHome, 'config.toml');
+  let raw: string;
+  try {
+    raw = await fs.readFile(configPath, 'utf-8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = parseToml(raw) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+
+  const legacySelector = parsed['profile'] === CODEX_PROFILE_NAME;
+  const profilesTable = parsed['profiles'];
+  const legacyTable =
+    typeof profilesTable === 'object' &&
+    profilesTable !== null &&
+    !Array.isArray(profilesTable) &&
+    Object.hasOwn(profilesTable, CODEX_PROFILE_NAME);
+
+  if (legacySelector || legacyTable) {
+    throw new Error(
+      `Cannot launch codex with the Cards profile "${CODEX_PROFILE_NAME}": ${configPath} declares a legacy ` +
+        `profile = "${CODEX_PROFILE_NAME}" selector or a [profiles.${CODEX_PROFILE_NAME}] table, which codex ` +
+        `refuses to combine with --profile. Rename or remove that legacy profile to launch Cards sessions.`
+    );
+  }
 }
 
 /**
@@ -793,13 +997,19 @@ export function buildCodexArgs(
   cardRepoPath: string,
   appendSystemPrompt?: string
 ): string[] {
-  const args = ['--dangerously-bypass-approvals-and-sandbox', '--cd', workspacePath, '--add-dir', cardRepoPath];
-
-  // Enable bundled plugins at runtime — never persisted to config.toml.
-  // Keys contain no '.' so codex's dotted-path -c parser maps them correctly.
-  args.push('-c', 'features.plugins=true');
-  args.push('-c', 'plugins.cards@local.enabled=true');
-  args.push('-c', 'plugins.runtime@local.enabled=true');
+  // Enable the bundled plugins via the Cards profile-v2 User-config layer
+  // (`${CODEX_HOME}/cards.config.toml`, written by writeCodexProfileConfig).
+  // codex loads that file only under `--profile cards`, so the user's own
+  // `config.toml` is never touched and their plain `codex` sees no Cards plugins.
+  const args = [
+    '--dangerously-bypass-approvals-and-sandbox',
+    '--profile',
+    CODEX_PROFILE_NAME,
+    '--cd',
+    workspacePath,
+    '--add-dir',
+    cardRepoPath
+  ];
 
   if (appendSystemPrompt !== undefined && appendSystemPrompt.length > 0) {
     args.push('-c', formatDeveloperInstructionsOverride(appendSystemPrompt));
@@ -850,6 +1060,9 @@ export async function spawnCodexSession(
   const codexHome = resolveDefaultCodexHome();
   const { bundlePath, pluginPaths, pluginCachePaths } = await populateCodexPluginCache(codexHome, marketplacePath);
   context.logger.info('Populated Codex plugin cache', { codexHome, bundlePath, pluginPaths, pluginCachePaths });
+
+  const profilePath = await writeCodexProfileConfig(codexHome);
+  context.logger.info('Wrote Codex plugin-enablement profile', { codexHome, profilePath });
 
   const additionalContext = buildAdditionalContext(input, cwd, baseBranch, branchName);
   const prompt = buildCodexPrompt(rawPrompt, additionalContext);

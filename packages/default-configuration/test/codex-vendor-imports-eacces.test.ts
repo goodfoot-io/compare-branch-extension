@@ -52,8 +52,14 @@ beforeEach(async () => {
   marketplacePath = path.join(sandbox, 'marketplace');
   const bundlePath = path.join(sandbox, 'codex');
   await writeJson(path.join(bundlePath, '.agents', 'plugins', 'marketplace.json'), { name: 'local' });
-  await writeJson(path.join(bundlePath, 'cards', '.codex-plugin', 'plugin.json'), { name: 'cards' });
-  await writeJson(path.join(bundlePath, 'runtime', '.codex-plugin', 'plugin.json'), { name: 'runtime' });
+  await writeJson(path.join(bundlePath, 'cards', '.codex-plugin', 'plugin.json'), {
+    name: 'cards',
+    version: '1.0.272'
+  });
+  await writeJson(path.join(bundlePath, 'runtime', '.codex-plugin', 'plugin.json'), {
+    name: 'runtime',
+    version: '1.0.355'
+  });
 
   // A real source CODEX_HOME holding a codex-managed partial-clone repo whose
   // packfile cannot be read — exactly the state git leaves objects in.
@@ -93,7 +99,9 @@ describe('populateCodexPluginCache with an unreadable vendor_imports packfile', 
     const cardsHomeEntries = await fs.readdir(cardsHome).catch(() => [] as string[]);
     expect(cardsHomeEntries.filter((entry) => entry.startsWith('codex.tmp-'))).toEqual([]);
 
-    // 3 & 4. Cached manifests exist at the exact load paths and parse correctly.
+    // 3 & 4. Cached manifests exist at the exact version-segmented load paths
+    // and parse correctly.
+    const versions = { cards: '1.0.272', runtime: '1.0.355' } as const;
     for (const pluginName of ['cards', 'runtime'] as const) {
       const manifestPath = path.join(
         codexHome,
@@ -101,12 +109,12 @@ describe('populateCodexPluginCache with an unreadable vendor_imports packfile', 
         'cache',
         'local',
         pluginName,
-        'local',
+        versions[pluginName],
         '.codex-plugin',
         'plugin.json'
       );
-      const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as { name: string };
-      expect(manifest).toEqual({ name: pluginName });
+      const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as { name: string; version: string };
+      expect(manifest).toEqual({ name: pluginName, version: versions[pluginName] });
     }
   });
 });

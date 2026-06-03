@@ -3,8 +3,10 @@
  *
  * These tests verify that `applyCodexConfig` produces the same structural
  * outcome as the inline logic that previously lived in the now-removed
- * `mergeCodexRuntimeConfig` (retired when plugin enablement moved from a
- * persisted config.toml write to runtime `-c` flags).
+ * `mergeCodexRuntimeConfig`. `applyCodexConfig` now generates the contents of
+ * the Cards profile-v2 file (`${CODEX_HOME}/cards.config.toml`) written by
+ * `writeCodexProfileConfig`, so this `features`/`plugins` tree is the exact
+ * enablement codex reads from that separate User-config layer.
  *
  * Non-tracked keys (whitespace, key ordering, TOML comments) are explicitly
  * ignored — only the `features`, `plugins`, and `projects` subtrees are

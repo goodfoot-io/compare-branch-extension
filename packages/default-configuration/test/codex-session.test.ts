@@ -38,6 +38,7 @@ vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
   cp: vi.fn(),
   mkdir: vi.fn(),
+  mkdtemp: vi.fn(),
   readFile: vi.fn(),
   readdir: vi.fn(),
   rename: vi.fn(),
@@ -247,11 +248,15 @@ describe('codex-session library', () => {
     vi.mocked(fs.access).mockResolvedValue(undefined);
     vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
       const p = toPosix(filePath);
-      if (p.endsWith('/cards/local/.codex-plugin/plugin.json') || p.endsWith('/cards/.codex-plugin/plugin.json')) {
-        return JSON.stringify({ name: 'cards' });
+      // Plugin manifests resolve for the bundle source (`…/cards/…`), the staged
+      // copy (`…/.plugin-install-*/1.0.272/…`), and the published load path
+      // (`…/cards/1.0.272/…`) alike — match on the plugin segment or its unique
+      // version, since installs now use the manifest version as the path segment.
+      if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)cards\//.test(p) || p.includes('/1.0.272/'))) {
+        return JSON.stringify({ name: 'cards', version: '1.0.272' });
       }
-      if (p.endsWith('/runtime/local/.codex-plugin/plugin.json') || p.endsWith('/runtime/.codex-plugin/plugin.json')) {
-        return JSON.stringify({ name: 'runtime' });
+      if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)runtime\//.test(p) || p.includes('/1.0.355/'))) {
+        return JSON.stringify({ name: 'runtime', version: '1.0.355' });
       }
       if (p.endsWith('marketplace.json')) {
         return JSON.stringify({ name: 'local' });
@@ -259,28 +264,69 @@ describe('codex-session library', () => {
       throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
     });
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+    // mkdtemp returns the staging dir the install renames its version child out of.
+    vi.mocked(fs.mkdtemp).mockImplementation(async (prefix: unknown) => `${toPosix(prefix)}XXXXXX`);
     vi.mocked(fs.cp).mockResolvedValue(undefined);
     vi.mocked(fs.rename).mockResolvedValue(undefined);
     vi.mocked(fs.rm).mockResolvedValue(undefined);
+    // No sibling version dirs to prune in the unit fixture.
+    vi.mocked(fs.readdir).mockResolvedValue([]);
     return fs;
   }
 
-  it('buildCodexArgs includes plugin-enable -c flags', async () => {
+  it('buildCodexArgs enables plugins via --profile, not -c plugin flags', async () => {
     const { buildCodexArgs } = await import('../src/lib/codex-session.js');
 
     const args = buildCodexArgs('do the thing', '/test/workspace', '/test/repo', 'be helpful');
 
+    // Enablement is supplied by the Cards profile-v2 layer, selected here.
+    expect(args[args.indexOf('--profile') + 1]).toBe('cards');
+
+    // The retired runtime per-plugin / features -c flags must be gone — they
+    // landed in the SessionFlags layer and never enabled the plugins.
     const cFlagValues = args.filter((_arg, index) => args[index - 1] === '-c');
-    expect(cFlagValues).toContain('features.plugins=true');
-    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
-    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
+    expect(cFlagValues).not.toContain('features.plugins=true');
+    expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
 
     // Existing args are preserved.
     expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
     expect(args[args.indexOf('--cd') + 1]).toBe('/test/workspace');
     expect(args[args.indexOf('--add-dir') + 1]).toBe('/test/repo');
+    // developer_instructions is still injected via -c.
     expect(cFlagValues.some((value) => value.startsWith('developer_instructions'))).toBe(true);
     expect(args[args.length - 1]).toBe('do the thing');
+  });
+
+  it('writeCodexProfileConfig writes the enablement profile without touching config.toml', async () => {
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    const profilePath = await writeCodexProfileConfig('/test/codexhome');
+
+    expect(toPosix(profilePath)).toBe('/test/codexhome/cards.config.toml');
+    const writes = vi.mocked(fs.writeFile).mock.calls.map((call) => toPosix(call[0]));
+    expect(writes).toEqual(['/test/codexhome/cards.config.toml']);
+    // The user's own config.toml is never written.
+    expect(writes).not.toContain('/test/codexhome/config.toml');
+    const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
+    expect(written).toContain('[features]');
+    expect(written).toContain('plugins = true');
+    expect(written).toContain('[plugins."cards@local"]');
+    expect(written).toContain('[plugins."runtime@local"]');
+    expect(written).toContain('enabled = true');
+  });
+
+  it('writeCodexProfileConfig fails closed on a legacy profile collision', async () => {
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockResolvedValue('[profiles.cards]\nmodel = "x"\n');
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    await expect(writeCodexProfileConfig('/test/codexhome')).rejects.toThrow(/legacy/i);
+    // It must not write the profile when codex would reject the launch.
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 
   it('populateCodexPluginCache respects CODEX_HOME env override', async () => {
