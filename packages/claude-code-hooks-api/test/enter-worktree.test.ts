@@ -177,7 +177,9 @@ describe('EnterWorktree hook — bound path', () => {
       cardId: 'main-42',
       cardRepoPath: '/srv/cards-repos/main-42'
     });
-    expect(params.lockPath).toMatch(/adhoc-sessions\/session-abc\.lock$/);
+    // lockPath is built with path.join, so on Windows it uses native (`\`)
+    // separators — normalize to `/` before the separator-agnostic match.
+    expect(params.lockPath.replace(/\\/g, '/')).toMatch(/adhoc-sessions\/session-abc\.lock$/);
   });
 
   it('prefers CARD_ID env over disk walk', async () => {

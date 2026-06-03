@@ -10,7 +10,7 @@
  * @module
  */
 
-import { type ChildProcess, execFile, spawn } from 'node:child_process';
+import { type ChildProcess, execFile } from 'node:child_process';
 import * as fsSyncNs from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -27,6 +27,7 @@ import type { CreateWorktreeResult } from '@cards/sdk/worktree';
 import { checkWorktreeExists, findGitRoots } from '@cards/sdk/worktree';
 import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
+import { spawnAgentCli } from './spawn-cli.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -720,7 +721,7 @@ export async function spawnClaudeSession(
   const isInteractive = input.executionMode === 'interactive';
   const cliExecutable = await resolveCliExecutable();
 
-  const child: ChildProcess = spawn(cliExecutable, args, {
+  const child: ChildProcess = spawnAgentCli(cliExecutable, args, {
     cwd,
     stdio: isInteractive ? 'inherit' : ['ignore', 'ignore', 'pipe'],
     env: {

@@ -11,6 +11,8 @@
  * @module cards-dev
  */
 
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import puppeteer, { type Browser, type Frame, type Page } from 'puppeteer-core';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -92,7 +94,7 @@ SUBCOMMANDS
   screenshot             Take a screenshot
     --target detail|list   Webview body screenshot (omit for full window)
     --card <id>            Card to target (e.g. main:42); opens it if not already open
-    --output <path>        Output path (default: /tmp/screenshot.png)
+    --output <path>        Output path (default: <os-temp-dir>/screenshot.png)
 
   list-elements          List interactive elements in a webview
     --target detail|list   (required)
@@ -427,18 +429,28 @@ export async function findWebviewFrame(pages: Page[], target: WebviewTarget, car
 // ─── Subcommands ─────────────────────────────────────────────────────────────
 
 /**
+ * Resolves the default screenshot output path inside the OS temp directory.
+ * Used when `--output` is omitted. Cross-platform: never hardcodes a POSIX path.
+ *
+ * @returns Absolute path to `screenshot.png` in the OS temp dir.
+ */
+export function defaultScreenshotPath(): string {
+  return join(tmpdir(), 'screenshot.png');
+}
+
+/**
  * Takes a screenshot of the full VS Code window or a specific webview body.
  *
  * - No `--target`: full window screenshot using `captureBeyondViewport: false`
  * - `--target detail|list`: body screenshot of the matching Cards webview
- * - `--output <path>`: custom output path (default `/tmp/screenshot.png`)
+ * - `--output <path>`: custom output path (default: `screenshot.png` in the OS temp dir)
  *
  * @param args - CLI arguments after the `screenshot` subcommand.
  * @returns The file path of the saved screenshot.
  */
 export async function screenshot(args: string[]): Promise<ScreenshotResult> {
   const flags = parseFlags(args);
-  const outputPath = flags['output']?.[0] ?? '/tmp/screenshot.png';
+  const outputPath = flags['output']?.[0] ?? defaultScreenshotPath();
   const target = flags['target']?.[0];
   const cardId = flags['card']?.[0];
 

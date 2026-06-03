@@ -8,6 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -27,7 +28,7 @@ function initGitRepo(dir: string): void {
   execFileSync('git', ['init', '-q'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
-  execFileSync('bash', ['-c', `echo '# test' > README.md`], { cwd: dir });
+  writeFileSync(path.join(dir, 'README.md'), '# test\n');
   execFileSync('git', ['add', '.'], { cwd: dir });
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
 }
@@ -202,4 +203,63 @@ describe('removeWorktree', () => {
     const worktrees = listWorktrees(repoDir);
     expect(worktrees.every((w) => w !== wPath)).toBe(true);
   });
+
+  it('sweeps a residual worktree directory left behind after git worktree remove', async () => {
+    const { path: wPath, settle } = await createWorktree('feature/sweep-residual', { cwd: repoDir });
+    await settle;
+
+    // Drop an untracked file so a directory remains for the post-git sweep
+    // (line 415) to actually delete, proving the sweep path executes.
+    await fs.writeFile(path.join(wPath, 'residual.txt'), 'leftover\n');
+
+    await removeWorktree(wPath);
+
+    await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'retries past a transient lock on a worktree child file (Windows)',
+    async () => {
+      const { path: wPath, settle } = await createWorktree('feature/transient-lock', { cwd: repoDir });
+      await settle;
+
+      const lockedFile = path.join(wPath, 'locked.txt');
+      await fs.writeFile(lockedFile, 'held\n');
+
+      // Hold an open handle into the worktree so the sweep's first rm attempts
+      // hit a transient EPERM/EBUSY, then release it mid-retry. With
+      // maxRetries:10/retryDelay:100 (line 415) the sweep should retry past the
+      // lock and resolve; without the retry it rejects on the first attempt.
+      const handle = await fs.open(lockedFile, 'r');
+      const release = setTimeout(() => {
+        void handle.close();
+      }, 150);
+
+      // Capture the test outcome so cleanup always runs, then re-throw after —
+      // re-throwing inside `finally` would clobber the original control flow.
+      let testError: unknown;
+      try {
+        await removeWorktree(wPath);
+        await expect(fs.access(wPath)).rejects.toMatchObject({ code: 'ENOENT' });
+      } catch (error: unknown) {
+        testError = error;
+      }
+
+      clearTimeout(release);
+      try {
+        await handle.close();
+      } catch (error: unknown) {
+        // The handle is normally already closed by the timer; ignore the
+        // resulting "file already closed" rejection so cleanup never masks a
+        // real test failure.
+        if (!(error instanceof Error) || !/closed/i.test(error.message)) {
+          throw error;
+        }
+      }
+
+      if (testError) {
+        throw testError;
+      }
+    }
+  );
 });

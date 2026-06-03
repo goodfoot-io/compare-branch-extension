@@ -43,9 +43,20 @@ vi.mock('../src/pendingBind.js', () => ({
   clearPendingBind: vi.fn()
 }));
 
-vi.mock('node:child_process', () => ({
-  execFile: vi.fn()
-}));
+// Override only `execFile` (used for the git rev-parse in the bind path) but
+// keep every other real export. The cross-process bind lock's liveness check
+// (`isProcessAlive` in @cards/sessions) calls `execFileSync('tasklist')` on
+// Windows; replacing the whole module with `{ execFile }` would make
+// `execFileSync` undefined, so the lock's stale-detection would throw, treat the
+// live holder as dead, and break mutual exclusion — failing the serialization
+// test on Windows only (POSIX uses `process.kill`, not `execFileSync`).
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execFile: vi.fn()
+  };
+});
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();

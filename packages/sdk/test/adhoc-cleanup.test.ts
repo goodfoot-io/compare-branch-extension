@@ -19,8 +19,17 @@ import type { CardUpdateData } from '../src/client/types/client.js';
 
 const noopLogger = { warn: () => {} };
 
+/**
+ * Spawns a cross-platform long-lived child process with a real, live PID.
+ *
+ * `sleep` does not exist on Windows, so hold the event loop open with node
+ * instead — the test only needs a process whose PID stays alive for the liveness
+ * probe.
+ *
+ * @returns The spawned long-lived child process.
+ */
 function spawnSleep(): ChildProcess {
-  return spawn('sleep', ['30'], { stdio: 'ignore' });
+  return spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], { stdio: 'ignore' });
 }
 
 /**

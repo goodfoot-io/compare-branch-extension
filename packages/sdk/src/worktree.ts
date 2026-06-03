@@ -412,7 +412,12 @@ export async function removeWorktree(worktreePath: string): Promise<void> {
     timeout: 30_000
   });
 
-  await fs.rm(resolved, { recursive: true, force: true });
+  // On Windows a just-exited `git worktree remove` subprocess (or a watcher/AV
+  // indexer) can briefly retain a handle into the worktree directory, so the
+  // sweep can hit a transient EPERM/EBUSY. fs.rm({recursive:true}) retries
+  // EBUSY/EMFILE/ENFILE/ENOTEMPTY/EPERM with linear backoff only when
+  // maxRetries > 0. POSIX is unaffected: the first attempt succeeds.
+  await fs.rm(resolved, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 
   await execFileAsync('git', ['worktree', 'prune'], { cwd: repoRoot, timeout: 30_000 });
 }

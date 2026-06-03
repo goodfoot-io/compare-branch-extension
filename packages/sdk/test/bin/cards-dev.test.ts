@@ -9,8 +9,10 @@
  * @summary Tests for cards-dev CLI binary helper functions
  */
 
+import { tmpdir } from 'node:os';
+import { isAbsolute, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseFlags } from '../../src/bin/cards-dev.js';
+import { defaultScreenshotPath, parseFlags } from '../../src/bin/cards-dev.js';
 
 describe('parseFlags', () => {
   it('parses a single key-value flag', () => {
@@ -72,5 +74,18 @@ describe('parseFlags', () => {
   it('handles a flag with a value that looks like another flag', () => {
     const result = parseFlags(['--selector', '--foo']);
     expect(result['selector']).toEqual(['--foo']);
+  });
+});
+
+describe('defaultScreenshotPath', () => {
+  it('resolves screenshot.png inside the OS temp dir for the current platform', () => {
+    const p = defaultScreenshotPath();
+    expect(p).toBe(join(tmpdir(), 'screenshot.png'));
+    expect(isAbsolute(p)).toBe(true); // drive-rooted on win32, /-rooted on POSIX
+    expect(p.startsWith(tmpdir())).toBe(true); // lives under a real, existing temp dir
+  });
+
+  it('does not return the bare POSIX /tmp default', () => {
+    expect(defaultScreenshotPath()).not.toBe('/tmp/screenshot.png');
   });
 });

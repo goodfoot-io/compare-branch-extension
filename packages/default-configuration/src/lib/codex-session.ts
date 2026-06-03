@@ -8,7 +8,7 @@
  * @module
  */
 
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { type ChildProcess, execFileSync } from 'node:child_process';
 import { type Dirent, readdirSync, readFileSync, statSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -22,6 +22,7 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { applyCodexConfig } from './applyCodexConfig.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
+import { spawnAgentCli } from './spawn-cli.js';
 
 /**
  * Options for {@link spawnCodexSession}.
@@ -760,6 +761,24 @@ export async function populateCodexPluginCache(
 }
 
 /**
+ * Resolves whether `directoryPath` exists and is a directory.
+ *
+ * @param directoryPath - Absolute path to probe.
+ * @returns `true` when the path exists and is a directory; `false` on ENOENT.
+ * @throws Rethrows non-ENOENT stat errors so genuine failures propagate.
+ */
+async function isExistingDirectory(directoryPath: string): Promise<boolean> {
+  try {
+    return (await fs.stat(directoryPath)).isDirectory();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
  * Installs one bundled plugin into the cache under its own version segment
  * `<marketplaceDir>/<plugin>/<version>` and returns that load path.
  *
@@ -768,8 +787,9 @@ export async function populateCodexPluginCache(
  * codex never enumerates it as a version candidate), validated, then published
  * with a single atomic rename into the version slot. Once present, the slot is
  * never moved or removed by this function, so concurrent launches against the
- * same `$CODEX_HOME` either win the rename or observe `EEXIST`/`ENOTEMPTY` — the
- * slot already holds identical content — both of which are success.
+ * same `$CODEX_HOME` either win the rename or observe that the slot already
+ * holds identical content (`EEXIST`/`ENOTEMPTY` on POSIX, `EPERM`/`EACCES` from
+ * Windows `MoveFile` refusing to overwrite a directory) — all idempotent success.
  *
  * @param pluginName - Bundled plugin name.
  * @param marketplaceDir - `<codexHome>/plugins/cache/local`.
@@ -800,9 +820,17 @@ async function installPluginToCache(
       await fs.rename(stagedVersionDir, destVersionDir);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      // EEXIST/ENOTEMPTY: a concurrent or previous launch already published this
-      // exact version (identical content) — idempotent success, leave it.
-      if (code !== 'EEXIST' && code !== 'ENOTEMPTY') {
+      // The destination slot already holds identical content from a concurrent
+      // or previous publish — idempotent success, leave it. POSIX surfaces this
+      // as EEXIST/ENOTEMPTY; Windows `MoveFile` refuses to overwrite an existing
+      // directory with EPERM/EACCES instead. For the Windows codes, confirm the
+      // slot is actually present so a genuine permission failure still propagates
+      // (fail closed).
+      const slotAlreadyPublished =
+        code === 'EEXIST' ||
+        code === 'ENOTEMPTY' ||
+        ((code === 'EPERM' || code === 'EACCES') && (await isExistingDirectory(destVersionDir)));
+      if (!slotAlreadyPublished) {
         throw error;
       }
     }
@@ -1068,7 +1096,7 @@ export async function spawnCodexSession(
   const prompt = buildCodexPrompt(rawPrompt, additionalContext);
   const args = buildCodexArgs(prompt, cwd, input.cardRepoPath, appendSystemPrompt);
 
-  const child: ChildProcess = spawn('codex', args, {
+  const child: ChildProcess = spawnAgentCli('codex', args, {
     cwd,
     stdio: 'inherit',
     env: {

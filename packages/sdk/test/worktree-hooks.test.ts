@@ -10,6 +10,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { existsSync, writeFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -18,11 +19,43 @@ import { createWorktree } from '../src/worktree.js';
 
 const CARDS_WORKTREES_DIR_KEY = 'CARDS_WORKTREES_DIR';
 
+let _bash: string | undefined;
+
+/**
+ * Resolves a `bash` executable for running the generated dispatcher scripts.
+ *
+ * On POSIX `bash` is on PATH. On Windows, Git for Windows ships bash but usually
+ * keeps it off the PATH, so derive it from `git --exec-path`
+ * (`.../<GitRoot>/mingw{64,32}/libexec/git-core`) — the same bash git uses to run
+ * hooks at runtime. Falls back to the bare name so a missing bash surfaces a
+ * clear ENOENT rather than a silent skip.
+ *
+ * @returns Absolute path to a bash executable, or the bare name `bash`.
+ */
+function resolveBash(): string {
+  if (_bash !== undefined) return _bash;
+  if (process.platform !== 'win32') {
+    _bash = 'bash';
+    return _bash;
+  }
+  const execPath = execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim().replace(/\\/g, '/');
+  const marker = execPath.search(/\/mingw(?:64|32)\//);
+  const gitRoot = marker >= 0 ? execPath.slice(0, marker) : path.dirname(path.dirname(execPath));
+  for (const candidate of [`${gitRoot}/bin/bash.exe`, `${gitRoot}/usr/bin/bash.exe`]) {
+    if (existsSync(candidate)) {
+      _bash = candidate;
+      return _bash;
+    }
+  }
+  _bash = 'bash';
+  return _bash;
+}
+
 function initGitRepo(dir: string): void {
   execFileSync('git', ['init', '-q'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
-  execFileSync('bash', ['-c', `echo '# test' > README.md`], { cwd: dir });
+  writeFileSync(path.join(dir, 'README.md'), '# test\n');
   execFileSync('git', ['add', '.'], { cwd: dir });
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
 }
@@ -261,7 +294,7 @@ describe('generated dispatcher scripts', () => {
     stdin: string
   ): { status: number; stdout: string; stderr: string } {
     try {
-      const stdout = execFileSync('bash', [path.join(sharedDir, hookType), ...args], {
+      const stdout = execFileSync(resolveBash(), [path.join(sharedDir, hookType), ...args], {
         cwd: worktreeRoot,
         input: stdin,
         encoding: 'utf8',

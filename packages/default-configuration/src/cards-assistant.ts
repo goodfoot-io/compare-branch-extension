@@ -28,36 +28,51 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
     }
   });
 
-  const shellArgs = [
-    '--append-system-prompt',
-    `<instructions>
-    Load the \`cards:management\` skill. The user has requested that you interview them about every aspect of their task until you've reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
-    
-    Guidelines:
-    - Ask the questions one at a time.
-    - If a question can be answered by exploring the codebase, explore the codebase instead.
-    - Use the AskUserQuestion tool for asking questions to the user.
-    - If the user specifies a card, use the \`card\` CLI to explore that card
-    - If the user discusses a potential task or project, load the appropriate 'interview' reference from the \`cards:management\` skill
- 
-    Do not implement a card unless instructed to do so by the user.
+  // The system prompt is collapsed onto a single physical line. On Windows the
+  // spawn below routes through `cmd.exe` (`shell: true`) to resolve the
+  // `claude.cmd`/`claude.ps1` PATH shim, and cmd.exe cannot safely represent a
+  // single argument that contains embedded newlines. The newlines here were
+  // purely cosmetic, so collapsing them keeps the argument cmd-quotable while
+  // remaining byte-identical in meaning on POSIX.
+  const appendSystemPrompt =
+    '<instructions> ' +
+    "Load the `cards:management` skill. The user has requested that you interview them about every aspect of their task until you've reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer. " +
+    'Guidelines: ' +
+    '- Ask the questions one at a time. ' +
+    '- If a question can be answered by exploring the codebase, explore the codebase instead. ' +
+    '- Use the AskUserQuestion tool for asking questions to the user. ' +
+    '- If the user specifies a card, use the `card` CLI to explore that card ' +
+    "- If the user discusses a potential task or project, load the appropriate 'interview' reference from the `cards:management` skill " +
+    'Do not implement a card unless instructed to do so by the user. ' +
+    '</instructions>';
 
-    </instructions>`,
-    '--settings',
-    settingsJson
-  ];
+  const shellArgs = ['--append-system-prompt', appendSystemPrompt, '--settings', settingsJson];
 
   logger.info('Starting cards assistant', {
     cwd: input.repoRoot,
     marketplacePath: input.marketplacePath
   });
 
+  // On Windows the `claude` CLI is an npm-installed `claude.cmd`/`claude.ps1`
+  // PATH shim, and Node refuses to spawn a `.cmd` without a shell (EINVAL), so
+  // route through the shell there. POSIX execs the binary directly, preserving
+  // the existing exec-direct behavior and quoting. Matches the documented
+  // pattern in `@cards/sdk/bin/spawn-adhoc-cleanup`.
   const child = spawn('claude', shellArgs, {
     cwd: input.repoRoot,
-    stdio: 'inherit'
+    stdio: 'inherit',
+    shell: process.platform === 'win32'
   });
 
   const exitCode = await new Promise<number | null>((resolve) => {
+    // Fail closed: a spawn failure (e.g. ENOENT when the shim is missing) emits
+    // `error` but never `close`, which would leave this promise hung forever.
+    child.on('error', (error) => {
+      logger.error('Failed to spawn claude', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      resolve(null);
+    });
     child.on('close', resolve);
   });
 

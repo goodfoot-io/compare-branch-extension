@@ -235,7 +235,7 @@ describe('transcript-watcher binary integration', () => {
     expect(harness.serverMessages.some((m) => m.type === 'stop-ack')).toBe(true);
     const dest = join(cardRepoPath, 'streams', 'claude-code-session', `${sessionId}.jsonl`);
     expect(readFileSync(dest, 'utf-8')).toBe('{"type":"init"}\n');
-  }, 60_000);
+  }, 120_000);
 
   it('.flush sentinel triggers exit, final flush, exit 0', async () => {
     const srcPath = join(sourceDir, `${sessionId}.jsonl`);
@@ -254,7 +254,7 @@ describe('transcript-watcher binary integration', () => {
     const dest = join(sentinelDir, `${sessionId}.jsonl`);
     expect(readFileSync(dest, 'utf-8')).toBe('{"type":"sentinel"}\n');
     expect(existsSync(join(sentinelDir, `${sessionId}.flush`))).toBe(false);
-  }, 30_000);
+  }, 60_000);
 
   it('live-tails when source dir is created after watcher starts', async () => {
     // Remove the pre-created source dir — simulate Claude not having created
@@ -300,7 +300,7 @@ describe('transcript-watcher binary integration', () => {
     harness.sendToClient({ type: 'control', command: { type: 'stop' } });
     const code = await waitForChildExit(child);
     expect(code).toBe(0);
-  }, 60_000);
+  }, 120_000);
 
   it('PID death triggers exit, final flush, exit 0', async () => {
     const srcPath = join(sourceDir, `${sessionId}.jsonl`);
@@ -324,5 +324,5 @@ describe('transcript-watcher binary integration', () => {
 
     const dest = join(cardRepoPath, 'streams', 'claude-code-session', `${sessionId}.jsonl`);
     expect(readFileSync(dest, 'utf-8')).toBe('{"type":"pid-death"}\n');
-  }, 30_000);
+  }, 60_000);
 });

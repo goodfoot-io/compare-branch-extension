@@ -17,7 +17,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
-  execFile: vi.fn()
+  execFile: vi.fn(),
+  execFileSync: vi.fn()
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -42,14 +43,18 @@ vi.mock('node:crypto', async () => {
 
 const originalFetch = globalThis.fetch;
 
-beforeEach(async () => {
-  vi.clearAllMocks();
-
-  // Enable discovery test mode so createCardsClient() returns a client without
-  // a real cards-api.json file on disk.
-  process.env['API_TEST_MODE'] = '1';
-
-  // Default: resolveBaseBranch → 'main'
+/**
+ * (Re)configures the default module mocks for a fresh module graph.
+ *
+ * Re-imports the mocked modules and installs their default implementations so
+ * `spawnClaudeSession` can run end-to-end. Extracted from `beforeEach` so the
+ * cross-platform spawn tests — which call `vi.resetModules()` to clear the
+ * `resolveCliExecutable` cache — can re-establish the defaults against the fresh
+ * module instances the reset produced.
+ */
+async function setupDefaultMocks(): Promise<void> {
+  // Default: resolveBaseBranch → 'main', and resolveCliExecutable's `where/which
+  // deepseek` probe falls through to the unhandled-command branch (→ 'claude').
   const { execFile } = await import('node:child_process');
   vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
     const cb = args[args.length - 1];
@@ -91,6 +96,16 @@ beforeEach(async () => {
       baseSha: 'abc123'
     })
   });
+}
+
+beforeEach(async () => {
+  vi.clearAllMocks();
+
+  // Enable discovery test mode so createCardsClient() returns a client without
+  // a real cards-api.json file on disk.
+  process.env['API_TEST_MODE'] = '1';
+
+  await setupDefaultMocks();
 });
 
 afterEach(() => {
@@ -1032,6 +1047,148 @@ describe('claude-session shared utilities', () => {
 
       child.emit('close', null);
       await promise;
+    });
+
+    describe('cross-platform CLI spawn', () => {
+      const originalPlatform = process.platform;
+      let savedComSpec: string | undefined;
+
+      /**
+       * Forces process.platform for the duration of a test so the win32 / POSIX
+       * branch of spawnAgentCli is exercised. resolveCliExecutable caches its
+       * result for the process lifetime, so platform overrides must be paired
+       * with vi.resetModules() (done in each test) to re-import a fresh module.
+       *
+       * @param platform - Platform value to install on process.platform.
+       */
+      function forcePlatform(platform: NodeJS.Platform): void {
+        Object.defineProperty(process, 'platform', { value: platform, configurable: true });
+      }
+
+      beforeEach(() => {
+        process.env['EXTENSION_PATH'] = '/test/extension';
+        process.env['MARKETPLACE_PATH'] = '/test/extension/dist/marketplace';
+        savedComSpec = process.env['ComSpec'];
+      });
+
+      afterEach(() => {
+        Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true });
+        if (savedComSpec !== undefined) process.env['ComSpec'] = savedComSpec;
+        else delete process.env['ComSpec'];
+      });
+
+      it('spawns the bare CLI name through the shell on win32 so the PATHEXT .cmd shim resolves', async () => {
+        vi.resetModules();
+        await setupDefaultMocks();
+        forcePlatform('win32');
+
+        const { spawn } = await import('node:child_process');
+        const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const promise = spawnClaudeSession(baseInput(), createMockContext(), {
+          prompt: 'fix the bug',
+          sessionId: 'session-123',
+          resume: false,
+          supportsSwitchToInteractive: false
+        });
+        await flushMicrotasks();
+
+        const [command, spawnArgs, spawnOpts] = vi.mocked(spawn).mock.calls[0]! as [
+          string,
+          string[],
+          Record<string, unknown>
+        ];
+        // Bare name + shell:true — cmd.exe resolves `claude.cmd` via PATHEXT
+        // (a bare spawn would ENOENT, a `.cmd` name without a shell would EINVAL).
+        expect(command).toBe('claude');
+        expect(spawnArgs).toContain('session-123');
+        expect(spawnOpts['shell']).toBe(true);
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('selects the deepseek launcher on win32 when deepseek resolves on PATH', async () => {
+        vi.resetModules();
+        await setupDefaultMocks();
+        forcePlatform('win32');
+
+        const { spawn, execFile } = await import('node:child_process');
+        const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+        // resolveCliExecutable probes `where deepseek` via execFileAsync; success
+        // selects deepseek over the claude default.
+        vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+          const cb = args[args.length - 1];
+          const cmd = args[0] as string;
+          const cmdArgs = args[1] as string[];
+          const key = `${cmd} ${cmdArgs.join(' ')}`;
+          if (typeof cb === 'function') {
+            if (key.startsWith('where deepseek')) {
+              cb(null, { stdout: 'C:\\bin\\deepseek.cmd\r\n', stderr: '' });
+            } else if (key.startsWith('git rev-parse --abbrev-ref HEAD')) {
+              cb(null, { stdout: 'main\n', stderr: '' });
+            } else {
+              cb(new Error(`mock: unhandled command: ${key}`));
+            }
+          }
+          return {} as ReturnType<typeof execFile>;
+        });
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const promise = spawnClaudeSession(baseInput(), createMockContext(), {
+          prompt: 'test prompt',
+          sessionId: 'session-123',
+          resume: false,
+          supportsSwitchToInteractive: false
+        });
+        await flushMicrotasks();
+
+        const [command, , spawnOpts] = vi.mocked(spawn).mock.calls[0]! as [string, string[], Record<string, unknown>];
+        expect(command).toBe('deepseek');
+        expect(spawnOpts['shell']).toBe(true);
+
+        child.emit('close', 0);
+        await promise;
+      });
+
+      it('spawns the bare CLI name with no shell on posix', async () => {
+        vi.resetModules();
+        await setupDefaultMocks();
+        forcePlatform('linux');
+
+        const { spawn } = await import('node:child_process');
+        const { spawnClaudeSession } = await import('../src/lib/claude-session.js');
+
+        const child = createMockChild();
+        vi.mocked(spawn).mockReturnValue(child);
+
+        const promise = spawnClaudeSession(baseInput(), createMockContext(), {
+          prompt: 'fix bug & echo OWNED',
+          sessionId: 'session-123',
+          resume: false,
+          supportsSwitchToInteractive: false
+        });
+        await flushMicrotasks();
+
+        const [command, spawnArgs, spawnOpts] = vi.mocked(spawn).mock.calls[0]! as [
+          string,
+          string[],
+          Record<string, unknown>
+        ];
+        // POSIX: bare name, prompt carried verbatim, no shell.
+        expect(command).toBe('claude');
+        expect(spawnArgs[0]).toBe('fix bug & echo OWNED');
+        expect(spawnOpts['shell']).toBe(false);
+
+        child.emit('close', 0);
+        await promise;
+      });
     });
   });
 });
