@@ -8,8 +8,20 @@
  * @module worktreeForCard
  */
 
+import { execFile } from 'node:child_process';
+import { access } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import type { CardsClient } from './client/cardsClient.js';
-import { createWorktree, type EarlyWorktreeResult, removeWorktree } from './worktree.js';
+import { clearPendingBind, writePendingBind } from './pendingBind.js';
+import {
+  clearCardBoundFile,
+  createWorktree,
+  type EarlyWorktreeResult,
+  removeWorktree,
+  writeCardBoundFile
+} from './worktree.js';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Raised by {@link removeWorktreeForCard} when the worktree was torn down from
@@ -146,4 +158,148 @@ export async function removeWorktreeForCard(
   } catch (error) {
     throw new BranchUnregisterError(error);
   }
+}
+
+export interface BindWorktreeToCardOptions {
+  /** Card identifier to bind the worktree to. */
+  cardId: string;
+  /** Parent branch recorded in branches.json — the branch that was current when the worktree was created. */
+  parentBranch: string;
+  /** Session ID forwarded to addBranch for commit attribution. */
+  sessionId?: string;
+}
+
+/**
+ * Binds an already-existing, unbound worktree to a card.
+ *
+ * Sibling to {@link createWorktreeForCard} but for the inverted flow: the
+ * worktree already exists on disk (created by a WorktreeCreate hook without a
+ * pre-bound card), carries a `.cards/PENDING_BIND` marker, and needs to be
+ * associated with a card record after `card create` runs inside it.
+ *
+ * Steps (under a worktree-path-keyed lock so concurrent binds serialize against
+ * the same worktree — `addBranch` is a non-idempotent POST):
+ *
+ * 1. Reconciliation guard: if `.cards/CARD_ID` already exists, the worktree is
+ *    already bound (or in a both-markers crash state). Clear any stale
+ *    `PENDING_BIND` and return without calling `addBranch`.
+ * 2. Write `.cards/CARD_ID` via {@link writeCardBoundFile}.
+ * 3. Call `client.addBranch(...)` with the worktree's checked-out branch name.
+ * 4. Clear the `PENDING_BIND` marker.
+ *
+ * **Worktree-preserving rollback**: if `addBranch` throws, `CARD_ID` is
+ * un-written and `PENDING_BIND` is restored, then the original error is
+ * rethrown. `removeWorktree` is NEVER called — the worktree predates the bind
+ * and must survive regardless of bind outcome.
+ *
+ * @param client - CardsClient used to register the branch record.
+ * @param worktreeDir - Absolute path to the (already-existing) worktree root.
+ * @param options - Binding options.
+ */
+export async function bindWorktreeToCard(
+  client: CardsClient,
+  worktreeDir: string,
+  options: BindWorktreeToCardOptions
+): Promise<void> {
+  const { cardId, parentBranch, sessionId } = options;
+
+  // Serialize concurrent binds against the same worktree. `addBranch` is a
+  // non-idempotent POST so two racing callers would register duplicate branch
+  // records. We use a module-level Map<worktreeDir, Promise<void>> chain rather
+  // than an O_EXCL file lock because: (a) this is an in-process constraint —
+  // only one Node process runs `card create` per worktree at a time in normal
+  // operation; (b) it avoids a lock-file cleanup step that would complicate the
+  // worktree-preserving rollback; (c) it is the lowest-churn correct approach
+  // for serializing async calls within a single process.
+  const prev = bindLocks.get(worktreeDir) ?? Promise.resolve();
+  let resolveCurrent!: () => void;
+  const current = new Promise<void>((res) => {
+    resolveCurrent = res;
+  });
+  bindLocks.set(
+    worktreeDir,
+    prev.then(() => current)
+  );
+
+  try {
+    await prev;
+    await bindWorktreeToCardUnlocked(client, worktreeDir, cardId, parentBranch, sessionId);
+  } finally {
+    resolveCurrent();
+    // Clean up the map entry when this is still the last waiter, avoiding
+    // unbounded map growth on long-running processes.
+    if (bindLocks.get(worktreeDir) === prev.then(() => current)) {
+      bindLocks.delete(worktreeDir);
+    }
+  }
+}
+
+/**
+ * Module-level lock map for worktree-path-keyed serialization.
+ *
+ * Keys are absolute worktree directory paths; values are the tail of the
+ * current promise chain for that path. Each call to {@link bindWorktreeToCard}
+ * appends to the chain and cleans up its entry when it is the last waiter.
+ */
+const bindLocks = new Map<string, Promise<void>>();
+
+async function bindWorktreeToCardUnlocked(
+  client: CardsClient,
+  worktreeDir: string,
+  cardId: string,
+  parentBranch: string,
+  sessionId: string | undefined
+): Promise<void> {
+  // Step 1 — Reconciliation guard: if CARD_ID already exists, the worktree is
+  // already bound (normal re-entry) or in a both-markers crash state (CARD_ID
+  // written, PENDING_BIND clear not yet done before crash). In either case,
+  // drain the stale PENDING_BIND so the EnterWorktree nag stops and return
+  // without calling addBranch (which is a non-idempotent POST).
+  const cardIdPath = `${worktreeDir}/.cards/CARD_ID`;
+  let alreadyBound = false;
+  try {
+    await access(cardIdPath);
+    alreadyBound = true;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+    // ENOENT — not yet bound, proceed normally.
+  }
+
+  if (alreadyBound) {
+    await clearPendingBind(worktreeDir);
+    return;
+  }
+
+  // Step 2 — Write the CARD_ID marker.
+  await writeCardBoundFile(worktreeDir, cardId);
+
+  // Step 3 — Register the branch with the Cards API. Derive the branch name
+  // from the worktree's checked-out HEAD — the same pattern used in
+  // remove-worktree.ts (`git -C <dir> rev-parse --abbrev-ref HEAD`).
+  let branchName: string;
+  try {
+    const { stdout } = await execFileAsync('git', ['-C', worktreeDir, 'rev-parse', '--abbrev-ref', 'HEAD']);
+    branchName = stdout.trim();
+  } catch (gitError) {
+    // Cannot resolve the branch name — roll back the CARD_ID write and
+    // preserve PENDING_BIND so the worktree is still re-tryable.
+    await clearCardBoundFile(worktreeDir);
+    throw gitError;
+  }
+
+  try {
+    await client.addBranch(cardId, { name: branchName, worktree: worktreeDir, parentBranch }, { sessionId });
+  } catch (addBranchError) {
+    // Worktree-preserving rollback: un-write CARD_ID and restore PENDING_BIND
+    // so the bind can be retried. NEVER call removeWorktree — the worktree
+    // predates this bind and must survive regardless of outcome.
+    await clearCardBoundFile(worktreeDir);
+    await writePendingBind(worktreeDir, { version: 1, parentBranch, sessionId });
+    throw addBranchError;
+  }
+
+  // Step 4 — Clear the PENDING_BIND marker now that the branch is registered.
+  await clearPendingBind(worktreeDir);
 }

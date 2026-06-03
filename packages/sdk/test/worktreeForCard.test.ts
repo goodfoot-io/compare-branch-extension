@@ -1,18 +1,29 @@
 /**
- * Unit tests for createWorktreeForCard and removeWorktreeForCard orchestrators.
+ * Unit tests for createWorktreeForCard, removeWorktreeForCard, and
+ * bindWorktreeToCard orchestrators.
  *
  * The bare createWorktree / removeWorktree primitives are replaced with
  * controllable fakes via vi.mock so no real git or filesystem operations run.
  * CardsClient is injected as a plain object implementing only addBranch /
  * removeBranch — no mocking framework needed for the client half.
  *
- * @summary createWorktreeForCard / removeWorktreeForCard unit tests
+ * bindWorktreeToCard mocks the worktree.ts bound-file helpers, pendingBind.ts
+ * helpers, and the child_process execFile used to resolve the branch name —
+ * again via vi.mock so no real filesystem or git operations run.
+ *
+ * @summary createWorktreeForCard / removeWorktreeForCard / bindWorktreeToCard unit tests
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardsClient } from '../src/client/cardsClient.js';
 import type { EarlyWorktreeResult } from '../src/worktree.js';
-import { BranchUnregisterError, createWorktreeForCard, removeWorktreeForCard } from '../src/worktreeForCard.js';
+import type { BindWorktreeToCardOptions } from '../src/worktreeForCard.js';
+import {
+  BranchUnregisterError,
+  bindWorktreeToCard,
+  createWorktreeForCard,
+  removeWorktreeForCard
+} from '../src/worktreeForCard.js';
 
 // ---------------------------------------------------------------------------
 // Module-level fake for the worktree primitives
@@ -20,11 +31,34 @@ import { BranchUnregisterError, createWorktreeForCard, removeWorktreeForCard } f
 
 vi.mock('../src/worktree.js', () => ({
   createWorktree: vi.fn(),
-  removeWorktree: vi.fn()
+  removeWorktree: vi.fn(),
+  writeCardBoundFile: vi.fn(),
+  clearCardBoundFile: vi.fn()
 }));
 
+vi.mock('../src/pendingBind.js', () => ({
+  readPendingBind: vi.fn(),
+  writePendingBind: vi.fn(),
+  clearPendingBind: vi.fn()
+}));
+
+vi.mock('node:child_process', () => ({
+  execFile: vi.fn()
+}));
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return {
+    ...actual,
+    access: vi.fn()
+  };
+});
+
+import { execFile } from 'node:child_process';
+import { access } from 'node:fs/promises';
+import { clearPendingBind, writePendingBind } from '../src/pendingBind.js';
 // Import after vi.mock so we get the mocked versions.
-import { createWorktree, removeWorktree } from '../src/worktree.js';
+import { clearCardBoundFile, createWorktree, removeWorktree, writeCardBoundFile } from '../src/worktree.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -369,5 +403,145 @@ describe('removeWorktreeForCard', () => {
       expect(error).toBeInstanceOf(BranchUnregisterError);
       expect((error as BranchUnregisterError).cause).toBe(apiError);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// bindWorktreeToCard
+// ---------------------------------------------------------------------------
+
+describe('bindWorktreeToCard', () => {
+  const WORKTREE_DIR = '/worktrees/cards/main-115/1';
+  const BIND_OPTIONS: BindWorktreeToCardOptions = {
+    cardId: 'main-115',
+    parentBranch: 'main',
+    sessionId: 'sess-bind-abc'
+  };
+  beforeEach(() => {
+    // Default: CARD_ID does not exist (ENOENT → not yet bound).
+    vi.mocked(access).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    // Default: git rev-parse succeeds and returns the branch name.
+    vi.mocked(execFile).mockImplementation((_cmd, _args, cb) => {
+      (cb as (err: null, result: { stdout: string; stderr: string }) => void)(null, {
+        stdout: 'cards/main-115/1\n',
+        stderr: ''
+      });
+      return {} as ReturnType<typeof execFile>;
+    });
+    vi.mocked(writeCardBoundFile).mockResolvedValue(undefined);
+    vi.mocked(clearCardBoundFile).mockResolvedValue(undefined);
+    vi.mocked(writePendingBind).mockResolvedValue(undefined);
+    vi.mocked(clearPendingBind).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('happy path: writes CARD_ID, calls addBranch with correct shape, then clears PENDING_BIND', async () => {
+    const addBranchArgs: Parameters<CardsClient['addBranch']>[] = [];
+    const client = makeClient({
+      addBranch: async (...args) => {
+        addBranchArgs.push(args as Parameters<CardsClient['addBranch']>);
+      }
+    });
+
+    await bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
+
+    // CARD_ID written before addBranch.
+    expect(writeCardBoundFile).toHaveBeenCalledOnce();
+    expect(writeCardBoundFile).toHaveBeenCalledWith(WORKTREE_DIR, 'main-115');
+
+    // addBranch called with branch name from git HEAD, worktree path, and parentBranch.
+    expect(addBranchArgs).toHaveLength(1);
+    const [cardId, data, opts] = addBranchArgs[0]!;
+    expect(cardId).toBe('main-115');
+    expect(data).toEqual({ name: 'cards/main-115/1', worktree: WORKTREE_DIR, parentBranch: 'main' });
+    expect(opts).toEqual({ sessionId: 'sess-bind-abc' });
+
+    // PENDING_BIND cleared after successful addBranch.
+    expect(clearPendingBind).toHaveBeenCalledOnce();
+    expect(clearPendingBind).toHaveBeenCalledWith(WORKTREE_DIR);
+  });
+
+  it('addBranch failure: un-writes CARD_ID, restores PENDING_BIND, never removes worktree, rethrows original error', async () => {
+    const apiError = new Error('addBranch API failure');
+    const client = makeClient({
+      addBranch: async () => {
+        throw apiError;
+      }
+    });
+
+    await expect(bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS)).rejects.toBe(apiError);
+
+    // CARD_ID un-written on rollback.
+    expect(clearCardBoundFile).toHaveBeenCalledOnce();
+    expect(clearCardBoundFile).toHaveBeenCalledWith(WORKTREE_DIR);
+
+    // PENDING_BIND restored with parentBranch and sessionId.
+    expect(writePendingBind).toHaveBeenCalledOnce();
+    expect(writePendingBind).toHaveBeenCalledWith(WORKTREE_DIR, {
+      version: 1,
+      parentBranch: 'main',
+      sessionId: 'sess-bind-abc'
+    });
+
+    // removeWorktree is NEVER called — the worktree predates the bind.
+    expect(removeWorktree).not.toHaveBeenCalled();
+  });
+
+  it('CARD_ID already present: clears stale PENDING_BIND and does not call addBranch', async () => {
+    // Simulate CARD_ID already existing on disk.
+    vi.mocked(access).mockResolvedValue(undefined);
+    const addBranchArgs: Parameters<CardsClient['addBranch']>[] = [];
+    const client = makeClient({
+      addBranch: async (...args) => {
+        addBranchArgs.push(args as Parameters<CardsClient['addBranch']>);
+      }
+    });
+
+    await bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
+
+    // PENDING_BIND drained so the EnterWorktree nag stops.
+    expect(clearPendingBind).toHaveBeenCalledOnce();
+    expect(clearPendingBind).toHaveBeenCalledWith(WORKTREE_DIR);
+
+    // addBranch NOT called — would be a duplicate non-idempotent POST.
+    expect(addBranchArgs).toHaveLength(0);
+
+    // writeCardBoundFile NOT called — it's already there.
+    expect(writeCardBoundFile).not.toHaveBeenCalled();
+  });
+
+  it('lock serializes concurrent binds: second call waits for first to complete before executing', async () => {
+    const callOrder: string[] = [];
+    let resolveFirst!: () => void;
+    const firstStarted = new Promise<void>((res) => {
+      resolveFirst = res;
+    });
+
+    const client = makeClient({
+      addBranch: async () => {
+        callOrder.push('addBranch');
+      }
+    });
+
+    vi.mocked(writeCardBoundFile).mockImplementation(async () => {
+      callOrder.push('writeCardBoundFile');
+      resolveFirst();
+      // Yield to allow second call to attempt entry while first is in progress.
+      await new Promise<void>((res) => setTimeout(res, 10));
+    });
+
+    // Launch both binds concurrently. The second must queue behind the first.
+    const first = bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
+    await firstStarted; // wait until first has started its critical section
+    const second = bindWorktreeToCard(client, WORKTREE_DIR, { ...BIND_OPTIONS, sessionId: 'sess-2' });
+
+    await Promise.all([first, second]);
+
+    // Both calls completed; operations interleaved in first-then-second order.
+    // writeCardBoundFile and addBranch must appear in pairs, not interleaved.
+    expect(callOrder).toEqual(['writeCardBoundFile', 'addBranch', 'writeCardBoundFile', 'addBranch']);
   });
 });
