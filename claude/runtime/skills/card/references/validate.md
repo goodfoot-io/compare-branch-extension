@@ -88,8 +88,6 @@ Read the diff and the card before writing the prompt — the prompt must reflect
 <parameter name="team_name">card-validate-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-failure-mode` skill immediately.**
-
 Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead`, and DM `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`.
 
 ## Team Name

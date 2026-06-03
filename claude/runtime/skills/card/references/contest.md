@@ -45,8 +45,6 @@ Dispatch `[N_PLANNERS]` planner subagents in parallel, named `planner-1`, `plann
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-planner` and `cards:notes` skills immediately.**
-
 ## Card Repository
 [CARD_REPO_PATH]
 
@@ -76,8 +74,6 @@ Dispatch exactly one `plan-failure-mode` subagent in parallel with the planners.
 <parameter name="team_name">card-plan-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-plan-failure-mode` and `cards:notes` skills immediately.**
-
 [N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plan/planner-N.md` and DMs round-numbered `PLAN: READY` updates as it revises.
 
 Follow the skill from the top — it is the canonical source for the contest protocol, including round-tagged verdicts, retroactive approval revocation, the `BLOCKED for:planner-N` authority you hold over non-progressing planners, the `SELECT_WINNER` DM handler, and shutdown handling.

@@ -68,8 +68,6 @@ Based on depth:
 <parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-failure-mode` skill immediately.**
-
 Follow the skill from the top. Draft the failure-mode questions for this implementation, then evaluate against them. DM each finding as `FINDING:` to `team-lead` (and on Deep depth, also DM `experience-evaluator`); DM critiques of the experience-evaluator's findings directly to `experience-evaluator` as `CRITIQUE: <label>`; DM a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Team Name
@@ -103,8 +101,6 @@ For **Deep**, add the second dispatch in the same message:
 <parameter name="team_name">card-impl-eval-[CARD_ID]</parameter>
 <parameter name="run_in_background">true</parameter>
 <parameter name="prompt">
-**IMPORTANT: Load the `runtime:card-experience-evaluator` skill immediately.**
-
 Follow the skill from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. DM each finding as `FINDING:` to `team-lead` and to `failure-mode`; DM critiques of the failure-mode evaluator's findings directly to `failure-mode` as `CRITIQUE: <label>`; DM a verdict to `team-lead` when analysis is complete. The marker goes in the `summary` field; the body in `message`. The orchestrator DMs you a re-evaluation trigger after fix commits land — extend the questions, triage prior findings, and DM a new verdict.
 
 ## Team Name

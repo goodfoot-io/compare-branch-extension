@@ -134,7 +134,7 @@ export function buildArgs(
   args.push('--settings', buildPluginSettings(marketplacePath));
   args.push('--add-dir', cardRepoPath);
   args.push('--disallowed-tools', 'EnterPlanMode, ExitPlanMode, NotebookEdit, TodoWrite');
-  args.push('--teammate-mode', 'tmux');
+  args.push('--teammate-mode', 'in-process');
   // Temporarily disable as this creates an interactive warning dialog
   // args.push('--dangerously-load-development-channels', 'plugin:runtime@cards.management');
   if (mode === 'background') {

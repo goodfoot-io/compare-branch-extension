@@ -48,7 +48,7 @@ Distill commander's intent from the card — what the situation looks like when 
 
 Write your plan to `[PLAN_FILE] = plan/[AGENT_NAME].md` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), consult the `runtime:tdd-bootstrap` skill and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), follow the `<tdd-bootstrap>` instructions and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
 
 For load-bearing assumptions you cannot resolve from the workspace alone, load `runtime:spike` and follow its procedure to investigate. Revise `[PLAN_FILE]` after spikes return.
 
