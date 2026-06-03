@@ -218,6 +218,39 @@ describe('adhoc-refs CARDS_HOME-isolated suite', () => {
       }
     });
 
+    it('skips a bound card with no active-ref files (regression: invisible to sweep)', async () => {
+      // A card bound to a worktree but with no .ref files in its adhoc-active
+      // dir is completely invisible to the reconciliation sweep: its status is
+      // never transitioned, even if it is active. This guards the invariant
+      // that motivates writing the adhoc ref atomically-with the `active` flip.
+      const cardId = 'main-1';
+      const repoDir = await seedCardRepo(cardId, 'active');
+      // Create the adhoc-active dir for the card (simulating it is bound to a
+      // worktree), but do not write any .ref files.
+      await mkdir(adhocActiveDir(cardId), { recursive: true });
+
+      await reconcileStrandedActiveCards(reposRoot, noopLogger);
+
+      // Card status must remain unchanged; the sweep skips it entirely.
+      const meta = JSON.parse(await readFile(join(repoDir, 'CARD.meta.json'), 'utf-8')) as { status?: string };
+      expect(meta.status).toBe('active');
+    });
+
+    it('skips a bound card when ref dir does not exist (regression: invisible to sweep)', async () => {
+      // A card may be bound but have no adhoc-active dir at all (the binding
+      // marker exists, but no ref files have ever been written). The sweep must
+      // skip such cards entirely.
+      const cardId = 'main-2';
+      const repoDir = await seedCardRepo(cardId, 'active');
+      // Do NOT create adhoc-active dir for this card.
+
+      await reconcileStrandedActiveCards(reposRoot, noopLogger);
+
+      // Card status must remain unchanged; the sweep skips it entirely.
+      const meta = JSON.parse(await readFile(join(repoDir, 'CARD.meta.json'), 'utf-8')) as { status?: string };
+      expect(meta.status).toBe('active');
+    });
+
     it('settles a deferred-and-retained dead ref on a later sweep once the action clears', async () => {
       const cardId = 'main-1';
       const repoDir = await seedCardRepo(cardId, 'active');

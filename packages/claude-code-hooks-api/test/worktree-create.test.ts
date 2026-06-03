@@ -3,9 +3,10 @@
  *
  * Mocks createWorktree (unbound path) and createWorktreeForCard (card-bound
  * path) to avoid real git operations, plus createCardsClient for client
- * acquisition and child_process for parent-branch derivation. Verifies CARD_ID
- * forwarding, fail-closed client acquisition, settle-awaiting, error
- * propagation, and output shape.
+ * acquisition, writePendingBind for marker writes, and child_process for
+ * parent-branch derivation. Verifies CARD_ID forwarding, PENDING_BIND marker
+ * writing on the unbound path, fail-closed client acquisition, settle-awaiting,
+ * error propagation, and output shape.
  *
  * @summary WorktreeCreate hook handler tests
  */
@@ -28,7 +29,7 @@ const EXPECTED_COMPILED_SCRIPT_PATHS = {
 
 // execFile is consumed via promisify(execFile), which uses the [util.promisify.custom]
 // symbol on the real execFile to resolve with { stdout, stderr }. The mock carries an
-// equivalent custom impl so promisify(mock) returns that shape; mockExecFileResult
+// equivalent custom impl so promisify(mock) returns that shape; mockExecFileStdout
 // controls the resolved stdout.
 let mockExecFileStdout = 'main\n';
 vi.mock('node:child_process', async (importOriginal) => {
@@ -69,15 +70,15 @@ vi.mock('@cards/sdk', async (importOriginal) => {
   };
 });
 
-vi.mock('@cards/sessions/card-repo', () => ({
-  readSessionCardId: vi.fn()
+vi.mock('@cards/sdk/pending-bind', () => ({
+  writePendingBind: vi.fn()
 }));
 
 import { resolveExtensionPath } from '@cards/sdk';
 import { createCardsClient } from '@cards/sdk/client/discovery';
+import { writePendingBind } from '@cards/sdk/pending-bind';
 import { createWorktree } from '@cards/sdk/worktree';
 import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
-import { readSessionCardId } from '@cards/sessions/card-repo';
 import hookFn from '../src/worktree-create.js';
 
 /** A non-null fake client; the hook only checks for null, never calls methods on it. */
@@ -108,6 +109,7 @@ describe('WorktreeCreate hook', () => {
   const mockCreateWorktree = vi.mocked(createWorktree);
   const mockCreateWorktreeForCard = vi.mocked(createWorktreeForCard);
   const mockCreateCardsClient = vi.mocked(createCardsClient);
+  const mockWritePendingBind = vi.mocked(writePendingBind);
   const mockLogger = {
     debug: vi.fn(),
     warn: vi.fn(),
@@ -127,20 +129,17 @@ describe('WorktreeCreate hook', () => {
     mockCreateWorktree.mockReset();
     mockCreateWorktreeForCard.mockReset();
     mockCreateCardsClient.mockReset();
+    mockWritePendingBind.mockReset();
     // Default: client discovery succeeds for card-bound tests.
     mockCreateCardsClient.mockResolvedValue(fakeClient);
+    // Default: writePendingBind resolves successfully.
+    mockWritePendingBind.mockResolvedValue(undefined);
     // Default current branch resolved for parentBranch derivation.
     mockExecFileStdout = 'main\n';
     vi.mocked(resolveExtensionPath).mockReset();
     // Default: extension path resolves so card-bound tests that don't override
     // it still produce valid compiledScriptPaths.
     vi.mocked(resolveExtensionPath).mockResolvedValue('/ext/install');
-    // Default: no session binding (readSessionCardId returns null), so the env
-    // CARD_ID path is exercised in isolation unless a test opts into the
-    // session fallback. The hook keys the binding off input.session_id, so
-    // tests set up readSessionCardId for baseInput.session_id ('test-session').
-    vi.mocked(readSessionCardId).mockReset();
-    vi.mocked(readSessionCardId).mockReturnValue(null);
     mockLogger.debug.mockReset();
     mockLogger.warn.mockReset();
     mockLogger.info.mockReset();
@@ -205,6 +204,37 @@ describe('WorktreeCreate hook', () => {
     expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
   });
 
+  it('writes PENDING_BIND marker with resolved parentBranch on unbound path', async () => {
+    delete process.env['CARD_ID'];
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockWritePendingBind).toHaveBeenCalledWith(worktreePath, { version: 1, parentBranch: 'main' });
+  });
+
+  it('writes PENDING_BIND with the branch resolved from source repo HEAD', async () => {
+    delete process.env['CARD_ID'];
+    mockExecFileStdout = 'develop\n';
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockWritePendingBind).toHaveBeenCalledWith(worktreePath, { version: 1, parentBranch: 'develop' });
+  });
+
+  it('does not write PENDING_BIND when CARD_ID is set (card-bound path)', async () => {
+    process.env['CARD_ID'] = 'main-42';
+    const worktreePath = '/worktrees/test/feature/test-branch';
+    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
+
+    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
+
+    expect(mockWritePendingBind).not.toHaveBeenCalled();
+  });
+
   it('uses input.cwd as cwd for createWorktreeForCard (card-bound)', async () => {
     process.env['CARD_ID'] = 'main-42';
     const worktreePath = '/worktrees/test/feature/test-branch';
@@ -219,7 +249,7 @@ describe('WorktreeCreate hook', () => {
     );
   });
 
-  it('derives parentBranch from the source repo HEAD', async () => {
+  it('derives parentBranch from the source repo HEAD (card-bound path)', async () => {
     process.env['CARD_ID'] = 'main-42';
     const worktreePath = '/worktrees/test/feature/test-branch';
     mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
@@ -241,6 +271,15 @@ describe('WorktreeCreate hook', () => {
 
     await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow('detached-HEAD');
     expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
+  });
+
+  it('throws (fail-closed) on detached-HEAD source for unbound path too', async () => {
+    delete process.env['CARD_ID'];
+    mockExecFileStdout = 'HEAD\n';
+
+    await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow('detached-HEAD');
+    expect(mockCreateWorktree).not.toHaveBeenCalled();
+    expect(mockWritePendingBind).not.toHaveBeenCalled();
   });
 
   it('acquires the client with retryOnNetworkError disabled (fail-fast on unreachable server)', async () => {
@@ -329,53 +368,6 @@ describe('WorktreeCreate hook', () => {
     expect(mockCreateCardsClient).not.toHaveBeenCalled();
   });
 
-  it('falls back to the session-bound card (keyed by input.session_id) when CARD_ID is unset', async () => {
-    delete process.env['CARD_ID'];
-    vi.mocked(readSessionCardId).mockReturnValue('main-77');
-    const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
-
-    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
-
-    expect(readSessionCardId).toHaveBeenCalledWith('test-session');
-    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
-      fakeClient,
-      'feature/test-branch',
-      expect.objectContaining({
-        cardId: 'main-77',
-        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
-      })
-    );
-  });
-
-  it('does not consult the session binding when CARD_ID is set', async () => {
-    process.env['CARD_ID'] = 'main-42';
-    const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
-
-    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
-
-    expect(readSessionCardId).not.toHaveBeenCalled();
-    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
-      fakeClient,
-      'feature/test-branch',
-      expect.objectContaining({ cardId: 'main-42' })
-    );
-  });
-
-  it('creates without cardId when CARD_ID is unset and the session has no binding', async () => {
-    delete process.env['CARD_ID'];
-    vi.mocked(readSessionCardId).mockReturnValue(null);
-    const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
-
-    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
-
-    expect(resolveExtensionPath).not.toHaveBeenCalled();
-    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
-    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
-  });
-
   it('propagates resolveExtensionPath failure (fail-closed) when CARD_ID is set', async () => {
     process.env['CARD_ID'] = 'main-42';
     vi.mocked(resolveExtensionPath).mockRejectedValue(
@@ -388,60 +380,12 @@ describe('WorktreeCreate hook', () => {
     expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
   });
 
-  it('creates without cardId when the .card binding is empty/whitespace (no throw)', async () => {
-    // readSessionCardId trims and returns '' for an empty/whitespace .card
-    // file (not null). The hook must normalize that to no attribution rather
-    // than passing an empty string into createWorktree (which rejects it).
+  it('throws (fail-closed) when writePendingBind fails on unbound path', async () => {
     delete process.env['CARD_ID'];
-    vi.mocked(readSessionCardId).mockReturnValue('   ');
     const worktreePath = '/worktrees/test/feature/test-branch';
     mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
+    mockWritePendingBind.mockRejectedValue(new Error('EACCES: permission denied'));
 
-    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
-
-    expect(resolveExtensionPath).not.toHaveBeenCalled();
-    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
-    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
-  });
-
-  it('degrades to no attribution and logs a warning when the binding lookup throws', async () => {
-    // readSessionCardId is fail-closed and rethrows non-ENOENT errors (EACCES,
-    // EIO, EISDIR). The hook must not let that abort worktree creation.
-    delete process.env['CARD_ID'];
-    const readError = Object.assign(new Error('permission denied'), { code: 'EACCES' });
-    vi.mocked(readSessionCardId).mockImplementation(() => {
-      throw readError;
-    });
-    const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktree.mockResolvedValue(settledResult(worktreePath));
-
-    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
-
-    expect(mockCreateWorktreeForCard).not.toHaveBeenCalled();
-    expect(mockCreateWorktree).toHaveBeenCalledWith('feature/test-branch', { cwd: '/test/workspace' });
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('session-binding lookup failed'),
-      expect.objectContaining({ sessionId: 'test-session', error: readError })
-    );
-  });
-
-  it('forwards the session-bound cardId and sessionId via input.session_id', async () => {
-    delete process.env['CARD_ID'];
-    vi.mocked(readSessionCardId).mockReturnValue('main-55');
-    const worktreePath = '/worktrees/test/feature/test-branch';
-    mockCreateWorktreeForCard.mockResolvedValue(settledResult(worktreePath));
-
-    await hookFn(baseInput, { logger: mockLogger as unknown as Logger });
-
-    expect(readSessionCardId).toHaveBeenCalledWith('test-session');
-    expect(mockCreateWorktreeForCard).toHaveBeenCalledWith(
-      fakeClient,
-      'feature/test-branch',
-      expect.objectContaining({
-        cardId: 'main-55',
-        sessionId: 'test-session',
-        compiledScriptPaths: EXPECTED_COMPILED_SCRIPT_PATHS
-      })
-    );
+    await expect(hookFn(baseInput, { logger: mockLogger as unknown as Logger })).rejects.toThrow('EACCES');
   });
 });

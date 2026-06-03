@@ -322,7 +322,7 @@ export async function createWorktree(ref: string, options?: CreateWorktreeOption
 
     // Git-excludes are not attribution-critical (display only) so they stay in settle.
     const additionalExcludes =
-      options?.cardId !== undefined ? ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH'] : [];
+      options?.cardId !== undefined ? ['.cards/CARD_ID', '.cards/CARD_ORIGINAL_HOOK_PATH'] : ['.cards/PENDING_BIND'];
     const [, baseSha] = await Promise.all([
       updateGitExclude({
         worktreeDir,

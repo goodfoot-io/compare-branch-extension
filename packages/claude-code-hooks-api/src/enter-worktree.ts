@@ -1,115 +1,155 @@
 /**
  * EnterWorktree (PostToolUse) hook for ad-hoc session attribution.
  *
- * When a plain (non-action) Claude session enters a card-owned worktree via the
- * `EnterWorktree` tool, this hook marks the card `active`, captures its
- * transcript (reusing the existing transcript-watcher), and arranges for it to
- * return to `needs_review` when the Claude agent PID dies. The action/wrapper
- * path is left entirely untouched — an action subprocess (identified by the
- * `ACTION_NAME` env guard) is a complete no-op.
+ * Routes on the worktree's on-disk state:
+ *
+ * - **BOUND** — `.cards/CARD_ID` present on disk (or `CARD_ID` env set) →
+ *   re-attaches via `spawnAdhocAttribution`. Never nudges. Operator experience
+ *   is identical to the previous guarded-spawn behavior.
+ *
+ * - **UNBOUND** — no `CARD_ID`, but `.cards/PENDING_BIND` present → records
+ *   this worker session's `transcriptPath` + `sessionId` into the marker
+ *   (atomic read-modify-write) then emits a one-time `additionalContext` nudge
+ *   instructing the agent to run `card create`. Re-entering the same unbound
+ *   worktree in the **same** session (marker already carries this `sessionId`)
+ *   silently no-ops — the nudge is idempotent.
+ *
+ * - **Neither** → no-op.
+ *
+ * `CARD_ID` (bound) wins over `PENDING_BIND` when both markers are present
+ * (the "both-markers crash state" described in the plan).
  *
  * This is a `PostToolUse` hook matched to the `EnterWorktree` tool. It fires
  * after the tool switches the session's working directory, so `input.cwd` is
- * the freshly-entered worktree. (The harness-native `CwdChanged` event is never
- * emitted in this environment, so the directory transition is observed through
- * the tool that performs it instead.) Matching on `EnterWorktree` keeps the
- * hook from spawning a process on every tool call. Entering an existing card
- * worktree by `path` is covered too — not just create-and-enter.
+ * the freshly-entered worktree.
  *
- * The PID is resolved and validated (findAgentPid + comm-check) before any
- * lock, spawn, or status write. A null or invalid PID is an immediate no-op:
- * a card is never marked active unless it can be monitored.
- *
- * A card is only (re)activated when it is in a working/pre-work state: a plain
- * session entering the worktree of a finished or review-exit card no-ops rather
- * than force-reactivating it.
- *
- * Both detached spawns (transcript-watcher and adhoc-cleanup) are gated behind
- * a single O_EXCL lock keyed on `input.session_id`, with stale-lock recovery
- * (dead lock-owner PID → unlink + retry once). The lock records the cardId the
- * session is bound to; a session is bound to the first card-worktree it enters
- * and is not re-targeted (the single per-session transcript-watcher cannot be
- * re-targeted without tearing itself down).
+ * The PID is resolved and validated (`findAgentPid` + comm-check) before any
+ * lock, spawn, or status write on the BOUND path. A null or invalid PID is an
+ * immediate no-op: a card is never marked active unless it can be monitored.
  *
  * @summary EnterWorktree PostToolUse hook for ad-hoc session attribution
  * @module enter-worktree
  */
 
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { findAgentPid, resolveGlobalCardsConfigDir } from '@cards/sdk';
-import { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
-import { isAdhocActivatableStatus, isKnownAgentComm, readCardStatus } from '@cards/sdk/bin/process-utils';
-import { spawnAdhocCleanup } from '@cards/sdk/bin/spawn-adhoc-cleanup';
-import { spawnTranscriptWatcher, transcriptWatcherWrapperName } from '@cards/sdk/bin/spawn-transcript-watcher';
+import { MAX_WALK_LEVELS, resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
+import { isKnownAgentComm } from '@cards/sdk/bin/process-utils';
+import { spawnAdhocAttribution } from '@cards/sdk/bin/spawn-adhoc-attribution';
+import { readPendingBind, writePendingBind } from '@cards/sdk/pending-bind';
 import { postToolUseHook, postToolUseOutput } from '@goodfoot/claude-code-hooks';
 
 export { acquireLock, resolveCardRepoPath, resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
 
+/**
+ * Walks upward from `cwd` toward `/`, up to {@link MAX_WALK_LEVELS} levels,
+ * looking for a `.cards/PENDING_BIND` file. Returns the first directory that
+ * contains the marker, or `null` when none is found.
+ *
+ * Mirrors the walk pattern of `resolveWorktreeCardId` but returns the
+ * containing worktree directory rather than the file's contents, because
+ * `readPendingBind` / `writePendingBind` take the worktree dir as their
+ * parameter.
+ *
+ * @param cwd - Directory to start the walk from.
+ * @returns Absolute path to the worktree directory holding PENDING_BIND, or null.
+ */
+async function resolveWorktreePendingBindDir(cwd: string): Promise<string | null> {
+  let dir = cwd;
+  for (let level = 0; level < MAX_WALK_LEVELS; level++) {
+    const markerPath = join(dir, '.cards', 'PENDING_BIND');
+    try {
+      await readFile(markerPath);
+      return dir;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
 export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { logger }) => {
-  // 1. Walk up from the entered worktree (post-tool cwd) to find .cards/CARD_ID.
-  const cardId = await resolveWorktreeCardId(input.cwd);
-  if (!cardId) return postToolUseOutput({});
+  // ─── BOUND PATH ───────────────────────────────────────────────────────────
+  //
+  // Resolve card identity: CARD_ID env wins, then disk walk via
+  // resolveWorktreeCardId. Either source triggers the re-attach path.
 
-  // 2. Derive cardRepoPath from the discovery file.
-  const cardRepoPath = await resolveCardRepoPath(cardId, logger);
-  if (!cardRepoPath) return postToolUseOutput({});
+  const cardId = process.env['CARD_ID']?.trim() || (await resolveWorktreeCardId(input.cwd));
 
-  // 3. Action-subprocess guard — never fight the wrapper.
-  if (process.env['ACTION_NAME']) return postToolUseOutput({});
+  if (cardId) {
+    // Derive cardRepoPath from the discovery file.
+    const cardRepoPath = await resolveCardRepoPath(cardId, logger);
+    if (!cardRepoPath) return postToolUseOutput({});
 
-  // 4. Entry source-state guard — only (re)activate a card that is in a
-  //    working/pre-work state. Entering a finished or review-exit card's
-  //    worktree must NOT force-reactivate it (which would then strand it in
-  //    needs_review on teardown). This guard sits BEFORE lock acquisition so a
-  //    rejected entry never orphans a lock and is symmetric with the guarded
-  //    teardown. A null status (no CARD.meta.json) is treated as
-  //    not-activatable — fail closed.
-  const currentStatus = await readCardStatus(cardRepoPath);
-  if (!isAdhocActivatableStatus(currentStatus ?? undefined)) {
-    logger.warn('enter-worktree: card not in an activatable state — no-op', {
-      cardId,
-      status: currentStatus
-    });
+    // Action-subprocess guard — never fight the wrapper.
+    if (process.env['ACTION_NAME']) return postToolUseOutput({});
+
+    // PID first — fail closed on missing or wrong PID.
+    const agentPid = findAgentPid();
+    if (!agentPid) return postToolUseOutput({});
+    if (!isKnownAgentComm(agentPid, logger)) return postToolUseOutput({});
+
+    // Build the per-session de-dupe lock path.
+    const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${input.session_id}.lock`);
+
+    // Delegate the status guard + lock + both spawns to the shared helper so
+    // first-bind (card create) and re-attach (this hook) share one code path
+    // and cannot drift apart.
+    await spawnAdhocAttribution(
+      {
+        agentPid,
+        sessionId: input.session_id,
+        transcriptPath: input.transcript_path,
+        cardId,
+        cardRepoPath,
+        lockPath
+      },
+      logger
+    );
+
     return postToolUseOutput({});
   }
 
-  // 5. PID first — fail open on missing or wrong PID.
-  const agentPid = findAgentPid();
-  if (!agentPid) return postToolUseOutput({});
-  if (!isKnownAgentComm(agentPid, logger)) return postToolUseOutput({});
-
-  // 6. Atomic de-dupe lock (gates both spawns).
+  // ─── UNBOUND PATH ─────────────────────────────────────────────────────────
   //
-  //    The lock is keyed on session_id and records the cardId this session is
-  //    bound to. A session is bound to the FIRST card-worktree it enters and
-  //    stays bound for the life of the session. This is intentional, not a
-  //    limitation to work around: the transcript-watcher's watcherId IS the
-  //    session_id, and the extension's WatcherRegistry enforces a takeover
-  //    invariant — a single session can have only one live transcript-watcher.
-  //    Re-targeting a second card would require tearing down and re-spawning
-  //    that single watcher (churn + a transcript-sync gap) and is therefore
-  //    precluded. A session that later enters a DIFFERENT card's worktree
-  //    correctly no-ops here (its first card keeps the attribution); re-entering
-  //    the SAME worktree also no-ops.
-  const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${input.session_id}.lock`);
-  const acquired = await acquireLock(lockPath, agentPid, cardId, logger);
-  if (!acquired) return postToolUseOutput({});
+  // No CARD_ID — check for a PENDING_BIND marker. Walk up from cwd so a
+  // nested cwd (e.g. a subdirectory of the worktree root) still finds the
+  // marker written by the WorktreeCreate hook at the worktree root.
 
-  // 7. Spawn transcript-watcher (non-fatal). Attach mode runs with the `cards`
-  //    plugin enabled, so its bin — and the `transcript-watcher` wrapper — is on
-  //    PATH; the platform-correct bare name (`.cmd` on win32) resolves there.
-  spawnTranscriptWatcher(
-    transcriptWatcherWrapperName(),
-    agentPid,
-    input.session_id,
-    input.transcript_path,
-    cardId,
-    cardRepoPath,
-    logger
-  );
+  const worktreeDir = await resolveWorktreePendingBindDir(input.cwd);
+  if (!worktreeDir) return postToolUseOutput({});
 
-  // 8. Spawn adhoc-cleanup (non-fatal).
-  spawnAdhocCleanup(agentPid, input.session_id, cardId, cardRepoPath, lockPath, logger);
+  const marker = await readPendingBind(worktreeDir);
+  if (!marker) return postToolUseOutput({});
 
-  return postToolUseOutput({});
+  // Idempotency: if this session already recorded its sessionId into the
+  // marker, the nudge was already emitted in an earlier EnterWorktree fire
+  // for the same session — do not re-nag.
+  if (marker.sessionId === input.session_id) {
+    return postToolUseOutput({});
+  }
+
+  // Atomically record this session's transcript info into the marker so
+  // `card create` can validate it belongs to this session.
+  await writePendingBind(worktreeDir, {
+    ...marker,
+    transcriptPath: input.transcript_path,
+    sessionId: input.session_id
+  });
+
+  // Emit the one-time nudge.
+  return postToolUseOutput({
+    hookSpecificOutput: {
+      additionalContext:
+        'This worktree is not yet bound to a card. Run `card create` inside it to ' +
+        'create a card and start tracking this session.'
+    }
+  });
 });

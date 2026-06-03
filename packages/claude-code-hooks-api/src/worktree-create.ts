@@ -5,9 +5,10 @@
  * non-zero and the harness aborts launch. When the worktree is card-bound, it
  * is registered with the Cards API via `createWorktreeForCard` — discovery
  * failure (no client) throws rather than leaving an unregistered worktree on
- * disk. Unbound worktrees skip the API entirely. The worktree path is returned
- * only after `settle` resolves, ensuring symlinks and node_modules rerouting
- * are complete before the agent uses the directory.
+ * disk. Unbound worktrees skip the API entirely and write a `.cards/PENDING_BIND`
+ * marker so `card create` can bind the worktree later. The worktree path is
+ * returned only after `settle` resolves, ensuring symlinks and node_modules
+ * rerouting are complete before the agent uses the directory.
  *
  * @summary WorktreeCreate hook for Cards-managed worktrees
  * @module worktree-create
@@ -18,9 +19,9 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
 import { createCardsClient } from '@cards/sdk/client/discovery';
+import { writePendingBind } from '@cards/sdk/pending-bind';
 import { createWorktree, type EarlyWorktreeResult } from '@cards/sdk/worktree';
 import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
-import { readSessionCardId } from '@cards/sessions/card-repo';
 import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
 
 const execFileAsync = promisify(execFile);
@@ -52,32 +53,10 @@ async function resolveCurrentBranch(cwd: string): Promise<string> {
 export default worktreeCreateHook({}, async (input, { logger }) => {
   const start = Date.now();
 
-  // Explicit CARD_ID always wins. Only when it is unset/empty do we fall back
-  // to the card the current session created (bound at `card create` time),
-  // keyed by input.session_id — the same UUID the write side stored under
-  // (session-start sets CARDS_SESSION_ID = input.session_id, so the CLI's
-  // resolveSessionId() and this key converge). Mirrors the per-session keying
-  // convention of the other hooks (post-tool-use, session-end).
-  let cardId = process.env['CARD_ID'] || undefined;
-  if (cardId === undefined) {
-    const sessionId = input.session_id?.trim() || undefined;
-    if (sessionId !== undefined) {
-      try {
-        // readSessionCardId is fail-closed (rethrows non-ENOENT) and may
-        // return '' for an empty/whitespace .card file. Any failure to
-        // resolve the binding degrades to no attribution rather than aborting
-        // worktree creation.
-        cardId = readSessionCardId(sessionId)?.trim() || undefined;
-      } catch (error) {
-        logger.warn('WorktreeCreate session-binding lookup failed; creating unattributed worktree', {
-          event: 'WorktreeCreate',
-          sessionId,
-          error
-        });
-        cardId = undefined;
-      }
-    }
-  }
+  // CARD_ID is the sole source of a pre-bind card association. When unset or
+  // empty the worktree is created unbound and a PENDING_BIND marker is written
+  // so `card create` can bind it later.
+  const cardId = process.env['CARD_ID'] || undefined;
 
   logger.info('WorktreeCreate', {
     event: 'WorktreeCreate',
@@ -121,7 +100,16 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
       sessionId: input.session_id
     });
   } else {
+    // Derive parentBranch before creating the worktree — it is the only point
+    // at which the source repo HEAD is definitively knowable. Fail closed on
+    // detached HEAD for the same reason as the card-bound path.
+    const parentBranch = await resolveCurrentBranch(input.cwd);
     created = await createWorktree(input.name, { cwd: input.cwd });
+    // Write the PENDING_BIND marker immediately after the worktree directory
+    // exists on disk (created.path is available before settle) so `card create`
+    // can discover and bind this worktree. Fails closed — any write failure
+    // surfaces as a thrown error and aborts launch.
+    await writePendingBind(created.path, { version: 1, parentBranch });
   }
 
   const { path: worktreePath, settle } = created;

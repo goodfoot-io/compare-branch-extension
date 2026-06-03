@@ -9,7 +9,12 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { resolve as resolvePath } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve as resolvePath } from 'node:path';
+import { resolveGlobalCardsConfigDir } from '@cards/sdk';
+import { resolveCardRepoPath } from '@cards/sdk/adhoc-attribution';
+import { isKnownAgentComm } from '@cards/sdk/bin/process-utils';
+import { spawnAdhocAttribution } from '@cards/sdk/bin/spawn-adhoc-attribution';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { toCardListSummaries } from '@cards/sdk/card-summary';
 import type { CardCreateData, ListCardsOptions } from '@cards/sdk/client';
@@ -22,17 +27,59 @@ import {
   isBookkeepingCommit
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
+import { readPendingBind } from '@cards/sdk/pending-bind';
+import { findAgentPid } from '@cards/sdk/process-tree';
 import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
 import { resolveSessionId } from '@cards/sdk/session-resolver';
-import {
-  appendCommitToSession,
-  getSessionCommits,
-  readSessionHeadSha,
-  writeSessionCardId
-} from '@cards/sessions/card-repo';
+import { bindWorktreeToCard } from '@cards/sdk/worktree-for-card';
+import { appendCommitToSession, getSessionCommits, readSessionHeadSha } from '@cards/sessions/card-repo';
 import { JSONPath } from 'jsonpath-plus';
 import { minimatch } from 'minimatch';
+
+/** Maximum number of parent directories to walk searching for a `.cards/PENDING_BIND` marker. */
+const MAX_WALK_LEVELS = 20;
+
+/**
+ * Minimal stderr-backed logger for the binding side-effects of `card create`.
+ *
+ * The CLI has no structured logger, but {@link spawnAdhocAttribution} and the
+ * adhoc-attribution helpers expect a `warn`/`error` interface. Diagnostics go
+ * to stderr so the stdout payload stays exactly the create-result JSON.
+ */
+const stderrLogger = {
+  warn(message: string, data?: Record<string, unknown>): void {
+    console.error(data ? `${message} ${JSON.stringify(data)}` : message);
+  },
+  error(message: string, data?: Record<string, unknown>): void {
+    console.error(data ? `${message} ${JSON.stringify(data)}` : message);
+  }
+};
+
+/**
+ * Walks upward from `startDir` toward `/`, up to {@link MAX_WALK_LEVELS} levels,
+ * looking for a `.cards/PENDING_BIND` marker. Returns the absolute path of the
+ * first worktree directory that holds the marker, or `null` when none is found
+ * within the bound.
+ *
+ * Models {@link resolveWorktreeCardId}'s walk pattern: the marker locates the
+ * unbound worktree root that `card create` is being invoked inside.
+ *
+ * @param startDir - Directory to start the walk from (typically `process.cwd()`).
+ * @returns The worktree directory holding `.cards/PENDING_BIND`, or null.
+ */
+function findPendingBindWorktreeDir(startDir: string): string | null {
+  let dir = startDir;
+  for (let level = 0; level < MAX_WALK_LEVELS; level++) {
+    if (existsSync(join(dir, '.cards', 'PENDING_BIND'))) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -317,20 +364,14 @@ export async function createCard(args: string[]): Promise<void> {
 
   const full = card as unknown as Record<string, unknown>;
 
-  // Bind the created card to this session so worktrees created later in the
-  // same session attribute to it without an explicit --card-id / CARD_ID. The
-  // binding is a best-effort side effect: a failure here must never corrupt or
-  // suppress the create result, so we log and continue.
+  // Binding is a deliberate act but still a side effect of `create`: when the
+  // command runs inside an unbound worktree (one carrying a PENDING_BIND
+  // marker), creating the card is the moment that worktree becomes bound to it.
+  // A bind/spawn failure must surface on stderr but never corrupt or suppress
+  // the create-result JSON on stdout, so we await it and swallow nothing here.
   const createdId = full['id'];
   if (typeof createdId === 'string' && createdId.length > 0) {
-    try {
-      const sessionId = await resolveSessionId();
-      if (sessionId !== null) {
-        writeSessionCardId(sessionId, createdId);
-      }
-    } catch (error) {
-      console.error('warning: failed to bind created card to session:', error);
-    }
+    await bindCreatedWorktree(client, createdId);
   }
 
   const filtered: Record<string, unknown> = {};
@@ -340,6 +381,92 @@ export async function createCard(args: string[]): Promise<void> {
     }
   }
   console.log(formatOutput(filtered, flags['jsonpath']?.[0]));
+}
+
+/**
+ * Binds the worktree `card create` is running inside to the newly-created card.
+ *
+ * This is the moment an unbound worktree (one carrying a `.cards/PENDING_BIND`
+ * marker) becomes bound: the branch link is recorded, `.cards/CARD_ID` is
+ * written, the marker is cleared, and transcript streaming + active status
+ * begin. The steps:
+ *
+ * 1. Bounded walk-up from `process.cwd()` for a `.cards/PENDING_BIND` marker.
+ *    No marker → an untracked planning card; skip binding entirely.
+ * 2. Fail-closed gate: the marker must carry a `transcriptPath`, and its
+ *    recorded `sessionId` must match the binder's own resolved session. A
+ *    same-session transcript is required for streaming; if it cannot be
+ *    obtained, refuse to spawn-bind and tell the operator to re-enter the
+ *    worktree via the EnterWorktree tool (so the hook records a fresh
+ *    transcript). This is a deliberate no-bind, not an error.
+ * 3. {@link bindWorktreeToCard} records the branch under a worktree-path-keyed
+ *    lock, then {@link spawnAdhocAttribution} starts the watcher using the
+ *    BINDER's own resolved session for watcherId / lock / PID — the marker's
+ *    `sessionId` is only a transcript validation tag.
+ *
+ * A bind/spawn failure is reported to stderr but never propagates: the create
+ * result must remain the sole stdout payload regardless of binding outcome.
+ *
+ * @param client - Connected CardsClient used to register the branch record.
+ * @param cardId - The newly-created card's identifier.
+ */
+async function bindCreatedWorktree(client: CardsClient, cardId: string): Promise<void> {
+  const worktreeDir = findPendingBindWorktreeDir(process.cwd());
+  if (!worktreeDir) {
+    // No marker — this is an untracked planning card created outside an unbound
+    // worktree. Nothing to bind.
+    return;
+  }
+
+  const marker = await readPendingBind(worktreeDir);
+  if (!marker) {
+    // The walk-up found a marker file but it failed fail-closed parsing
+    // (malformed / wrong version). Treat as no usable marker.
+    return;
+  }
+
+  const sessionId = await resolveSessionId();
+
+  // Fail-closed gate: a bind that cannot obtain a same-session transcript must
+  // refuse to spawn-bind silently. The marker must carry a transcriptPath
+  // recorded by EnterWorktree, and its sessionId must match the binder's own
+  // session — otherwise the transcript belongs to a different session and would
+  // stream the wrong agent's work.
+  if (!marker.transcriptPath || marker.sessionId !== sessionId || sessionId === null) {
+    console.error(
+      'card create: refusing to bind worktree — no same-session transcript recorded in PENDING_BIND. ' +
+        'Re-enter the worktree via the EnterWorktree tool so the hook can record a same-session transcript, then run `card create` again.'
+    );
+    return;
+  }
+
+  try {
+    await bindWorktreeToCard(client, worktreeDir, {
+      cardId,
+      parentBranch: marker.parentBranch,
+      sessionId
+    });
+
+    const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
+    if (!cardRepoPath) {
+      console.error('card create: bound worktree but could not resolve card repository path — watcher not spawned');
+      return;
+    }
+
+    const agentPid = findAgentPid();
+    if (!agentPid || !isKnownAgentComm(agentPid, stderrLogger)) {
+      console.error('card create: bound worktree but could not resolve a known agent PID — watcher not spawned');
+      return;
+    }
+
+    const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
+    await spawnAdhocAttribution(
+      { agentPid, sessionId, transcriptPath: marker.transcriptPath, cardId, cardRepoPath, lockPath },
+      stderrLogger
+    );
+  } catch (error) {
+    console.error('card create: failed to bind worktree to card:', error instanceof Error ? error.message : error);
+  }
 }
 
 /**

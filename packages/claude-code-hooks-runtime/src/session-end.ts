@@ -23,12 +23,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractActionInput } from '@cards/sdk/config';
-import {
-  removeSessionCardId,
-  removeSessionCsv,
-  removeSessionHeadSha,
-  removeSessionRouteNudge
-} from '@cards/sessions/card-repo';
+import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { sessionEndHook } from '@goodfoot/claude-code-hooks';
 
 /**
@@ -48,8 +43,8 @@ export async function writeSentinelFile(cardRepoPath: string, sessionId: string)
 }
 
 /**
- * Removes session artifacts (HEAD SHA file, session CSV, route-nudge marker,
- * card binding) that were created during the session.
+ * Removes session artifacts (HEAD SHA file, session CSV, route-nudge marker)
+ * that were created during the session.
  *
  * Each cleanup step is independent — a failure in one does not prevent the
  * others from running. Errors are collected and re-thrown as an aggregate
@@ -91,14 +86,6 @@ export async function cleanupSessionArtifacts(
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
     logger.warn('Failed to remove route-nudge marker', { sessionId, error: e.message });
-    errors.push(e);
-  }
-
-  try {
-    removeSessionCardId(sessionId);
-  } catch (error) {
-    const e = error instanceof Error ? error : new Error(String(error));
-    logger.warn('Failed to remove card binding', { sessionId, error: e.message });
     errors.push(e);
   }
 
