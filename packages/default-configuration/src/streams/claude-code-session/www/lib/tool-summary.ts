@@ -22,7 +22,6 @@ export const INFRASTRUCTURE_TOOLS = new Set([
   'ToolSearch',
   'TeamCreate',
   'TeamDelete',
-  'SendMessage',
   'Skill',
   'CronCreate',
   'CronDelete',
@@ -82,6 +81,10 @@ export function summarizeTool(toolName: string, input: Record<string, unknown> |
     case 'Agent': {
       const desc = input['description'];
       return typeof desc === 'string' ? desc : '';
+    }
+    case 'SendMessage': {
+      const summary = input['summary'];
+      return typeof summary === 'string' && summary ? summary : '';
     }
     default: {
       const skill = input['skill'];

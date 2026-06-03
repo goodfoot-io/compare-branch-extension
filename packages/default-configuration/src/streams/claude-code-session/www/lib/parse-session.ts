@@ -8,6 +8,7 @@
  * @module lib/parse-session
  */
 
+import { sanitizeHeadline } from '../components/compact/compact-state';
 import { INFRASTRUCTURE_TOOLS, summarizeTool } from './tool-summary';
 
 // ============================================================================
@@ -22,9 +23,11 @@ export interface ToolCallEvent {
   isInfrastructure: boolean;
 }
 
-/** A text excerpt from an assistant turn. */
+/** A text excerpt from an assistant or genuine user turn. */
 export interface TextEvent {
   kind: 'text';
+  /** Speaker of the text, so the tail can label and tint it by source. */
+  role: 'assistant' | 'user';
   text: string;
 }
 
@@ -38,6 +41,8 @@ export interface ErrorEvent {
 export interface UsageEvent {
   kind: 'usage';
   outputTokens: number;
+  /** Input tokens for the turn, when `message.usage.input_tokens` is present. */
+  inputTokens?: number;
 }
 
 /** Duration of a completed turn. */
@@ -164,7 +169,7 @@ export interface UserMsg {
 export interface AssistantMsg {
   type: 'assistant';
   error?: string;
-  message?: { content?: ContentBlock[]; usage?: { output_tokens?: number } };
+  message?: { content?: ContentBlock[]; usage?: { output_tokens?: number; input_tokens?: number } };
 }
 
 /** Tool use summary (compact result). */
@@ -312,7 +317,7 @@ export function parseLineEvents(line: string): CompactEvent[] {
       if (block.type === 'text' && typeof block.text === 'string') {
         const cleaned = block.text.trim();
         if (cleaned && !/^\s*[{[<]/.test(cleaned)) {
-          events.push({ kind: 'text', text: cleaned });
+          events.push({ kind: 'text', role: 'assistant', text: cleaned });
         }
       }
       if (block.type === 'tool_use') {
@@ -325,9 +330,33 @@ export function parseLineEvents(line: string): CompactEvent[] {
         });
       }
     }
-    const outputTokens = (message?.['usage'] as Record<string, unknown> | undefined)?.['output_tokens'];
+    const usage = message?.['usage'] as Record<string, unknown> | undefined;
+    const outputTokens = usage?.['output_tokens'];
     if (outputTokens != null) {
-      events.push({ kind: 'usage', outputTokens: Number(outputTokens) });
+      const inputTokens = usage?.['input_tokens'];
+      const event: UsageEvent = { kind: 'usage', outputTokens: Number(outputTokens) };
+      if (inputTokens != null) event.inputTokens = Number(inputTokens);
+      events.push(event);
+    }
+    return events;
+  }
+
+  // User message — emit a text event only for genuine human/assistant prose.
+  // The same rejection logic that guards the headline (empty, JSON-ish, or
+  // control traffic) is reused here so machine/markup lines never reach the tail.
+  if (msg['type'] === 'user' && !msg['tool_use_result']) {
+    const content = (msg['message'] as Record<string, unknown> | undefined)?.['content'];
+    let text = '';
+    if (typeof content === 'string') {
+      text = content;
+    } else if (Array.isArray(content)) {
+      for (const block of content as ContentBlock[]) {
+        if (block?.type === 'text' && typeof block.text === 'string') text += block.text;
+      }
+    }
+    const sanitized = sanitizeHeadline(text);
+    if (sanitized) {
+      events.push({ kind: 'text', role: 'user', text: sanitized });
     }
     return events;
   }
