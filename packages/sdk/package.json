@@ -32,7 +32,9 @@
     "./bin/process-utils": "./src/bin/process-utils.ts",
     "./bin/adhoc-refs": "./src/bin/adhoc-refs.ts",
     "./process-tree": "./src/process-tree.ts",
-    "./session-resolver": "./src/session-resolver.ts"
+    "./session-resolver": "./src/session-resolver.ts",
+    "./pending-bind": "./src/pendingBind.ts",
+    "./adhoc-attribution": "./src/adhocAttribution.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",

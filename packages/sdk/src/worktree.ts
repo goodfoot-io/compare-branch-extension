@@ -681,10 +681,29 @@ async function copyCardsDirectory(sourceRoot: string, worktreeDir: string): Prom
  * @param worktreeDir - Absolute worktree root.
  * @param cardId - Card identifier to record.
  */
-async function writeCardBoundFile(worktreeDir: string, cardId: string): Promise<void> {
+export async function writeCardBoundFile(worktreeDir: string, cardId: string): Promise<void> {
   const cardsDir = path.join(worktreeDir, '.cards');
   await fs.mkdir(cardsDir, { recursive: true });
   await fs.writeFile(path.join(cardsDir, 'CARD_ID'), `${cardId}\n`);
+}
+
+/**
+ * Removes the per-worktree `.cards/CARD_ID` marker.
+ *
+ * ENOENT-tolerant: if the file does not exist the call is a no-op. Any other
+ * error is re-thrown so genuine failures (permission denied, I/O errors) remain
+ * visible to the caller.
+ *
+ * @param worktreeDir - Absolute worktree root.
+ */
+export async function clearCardBoundFile(worktreeDir: string): Promise<void> {
+  try {
+    await fs.unlink(path.join(worktreeDir, '.cards', 'CARD_ID'));
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
 }
 
 /**
