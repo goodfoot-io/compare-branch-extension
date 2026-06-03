@@ -39,7 +39,7 @@ Interview the user conversationally. The commander's intent is built through the
   - Attach several short "good" and "bad" scenarios to each option — concrete, one-line each — when picking exposes non-obvious downstream consequences (e.g., "intermittent vs. deterministic" reproducibility routes the fix toward timing or ordering work the reporter may not have anticipated). Skip scenarios when the trade-off is implicit in the question itself (e.g., repro-data shape, where the fidelity-vs.-sensitivity trade is self-evident from the data involved).
   - Topic axes: regression vs. latent, reproducibility class, repro surface, source of expected behavior, repro-data shape.
   - Stay in chat for the reproduction narrative, observed-vs.-expected framing, and anything that risks freezing the user's hypothesis.
-- Target what only the user can supply: reproduction specifics, environment, severity, workarounds, observed vs. expected, sensitivity of repro data.
+- Target what only the user can supply: reproduction specifics, environment, workarounds, observed vs. expected, sensitivity of repro data.
 - Anchor in the user's frame: name the artefact, command, or moment they will actually see. Vocabulary from the writing guides does not belong in exchanges with the user.
 - Separate observation from interpretation; do not let the user's hypothesis narrow the investigation prematurely.
 
@@ -53,6 +53,7 @@ When the destination is clear, write the opening paragraph as a summary of what 
 
 - No fixes. No code, no remediation, no test stubs.
 - Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
+- Do not ask the user how the bug currently affects them or to rate its severity — current-impact questions yield answers that are neither actionable nor relevant to the resolution. Derive impact and blast radius from the reproduction and the affected code path instead.
 - Report failing tests or broken builds you encounter during research in the card; do not remediate.
 
 ## 6. Finalize
