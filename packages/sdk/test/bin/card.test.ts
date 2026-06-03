@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
@@ -1227,6 +1227,68 @@ describe('card binary', () => {
           expect(diagnostic).toContain('EnterWorktree');
         } finally {
           errSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      });
+
+      it('creates an untracked card and drains the stale marker when CARD_ID exists alongside a foreign-session PENDING_BIND', async () => {
+        // Both-markers crash state: worktree already bound (CARD_ID present) but
+        // stale marker from a different session left behind. CARD_ID wins — no
+        // bind/spawn, stale marker drained, untracked card created.
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        process.env['CARDS_SESSION_ID'] = 'sess-current';
+        writeFileSync(join(worktreeDir, '.cards', 'CARD_ID'), 'main-007');
+        await writePendingBind(worktreeDir, {
+          version: 1,
+          parentBranch: 'main',
+          transcriptPath: '/tmp/transcript.jsonl',
+          sessionId: 'sess-original'
+        });
+        try {
+          process.chdir(worktreeDir);
+          await withStdin(JSON.stringify({ title: 'Untracked after both-markers' }), () =>
+            createCard(['--workspace-path', '/tmp/workspace'])
+          );
+
+          // CARD_ID precedence: no bind, no spawn, untracked card created.
+          expect(bindWorktreeToCard).not.toHaveBeenCalled();
+          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
+          const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+          expect(output['id']).toBe('test-1');
+          // Stale marker drained.
+          expect(existsSync(join(worktreeDir, '.cards', 'PENDING_BIND'))).toBe(false);
+        } finally {
+          logSpy.mockRestore();
+        }
+      });
+
+      it('creates an untracked card and drains the stale marker when CARD_ID exists alongside a same-session PENDING_BIND', async () => {
+        // Both-markers state where the PENDING_BIND happens to carry the current
+        // session's id (e.g. same agent re-ran card create after a crash).
+        // CARD_ID still wins: no bind/spawn, marker drained, untracked card.
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        process.env['CARDS_SESSION_ID'] = 'sess-same';
+        writeFileSync(join(worktreeDir, '.cards', 'CARD_ID'), 'main-008');
+        await writePendingBind(worktreeDir, {
+          version: 1,
+          parentBranch: 'main',
+          transcriptPath: '/tmp/transcript.jsonl',
+          sessionId: 'sess-same'
+        });
+        try {
+          process.chdir(worktreeDir);
+          await withStdin(JSON.stringify({ title: 'Same-session both-markers' }), () =>
+            createCard(['--workspace-path', '/tmp/workspace'])
+          );
+
+          // CARD_ID precedence still wins even with a matching session id.
+          expect(bindWorktreeToCard).not.toHaveBeenCalled();
+          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
+          const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+          expect(output['id']).toBe('test-1');
+          // Stale marker drained.
+          expect(existsSync(join(worktreeDir, '.cards', 'PENDING_BIND'))).toBe(false);
+        } finally {
           logSpy.mockRestore();
         }
       });

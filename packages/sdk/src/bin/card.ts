@@ -27,7 +27,7 @@ import {
   isBookkeepingCommit
 } from '@cards/sdk/client';
 import { discoverApiInfo } from '@cards/sdk/client/discovery';
-import { readPendingBind } from '@cards/sdk/pending-bind';
+import { clearPendingBind, readPendingBind } from '@cards/sdk/pending-bind';
 import { findAgentPid } from '@cards/sdk/process-tree';
 import type { ActionResult, CardCommit, CardCommitEvent } from '@cards/sdk/protocol';
 import { DERIVED_TAGS, filterCardsByTags, parseSearchQuery } from '@cards/sdk/search-utils';
@@ -403,8 +403,9 @@ export async function createCard(args: string[]): Promise<void> {
 /**
  * Outcome of resolving the pending-bind state for the current `card create`.
  *
- * - `none` — not inside an eligible unbound worktree (no marker found, or the
- *   marker file failed fail-closed parsing). The card is created untracked.
+ * - `none` — not inside an eligible unbound worktree (no marker found, the
+ *   marker file failed fail-closed parsing, or the worktree is already bound
+ *   via `.cards/CARD_ID`). The card is created untracked.
  * - `refuse` — a marker was found but the fail-closed gate denied it (no
  *   same-session transcript). The card must NOT be created.
  * - `bind` — the gate passed; the resolved worktree + marker + binder session
@@ -422,12 +423,19 @@ type PendingBindContext =
  * 1. Bounded walk-up from `process.cwd()` for a `.cards/PENDING_BIND` marker.
  *    No marker (or a marker that failed fail-closed parsing) → `none`: an
  *    untracked planning card, no bind.
- * 2. Fail-closed gate: the marker must carry a `transcriptPath`, and its
+ * 2. CARD_ID precedence: if `.cards/CARD_ID` is already present in the
+ *    marker-bearing worktree dir, the worktree is already bound. The stale
+ *    PENDING_BIND marker is drained via {@link clearPendingBind} (reconciles
+ *    the both-markers state) and the function returns `none` so `card create`
+ *    produces an untracked planning card. This mirrors
+ *    `bindWorktreeToCard`'s reconciliation and is consistent with
+ *    `EnterWorktree`'s CARD_ID-wins-over-PENDING_BIND precedence rule.
+ * 3. Fail-closed gate: the marker must carry a `transcriptPath`, and its
  *    recorded `sessionId` must match the binder's own resolved session. A
  *    same-session transcript is required for streaming; if it cannot be
  *    obtained → `refuse`, so the caller declines to create a card and instructs
  *    the operator to re-enter the worktree via the EnterWorktree tool.
- * 3. Otherwise → `bind`, carrying the worktree dir, parent branch, transcript,
+ * 4. Otherwise → `bind`, carrying the worktree dir, parent branch, transcript,
  *    and the BINDER's own resolved session forward.
  *
  * @returns The resolved pending-bind context.
@@ -437,6 +445,16 @@ async function resolvePendingBind(): Promise<PendingBindContext> {
   if (!worktreeDir) {
     // No marker — this is an untracked planning card created outside an unbound
     // worktree. Nothing to bind.
+    return { kind: 'none' };
+  }
+
+  // CARD_ID precedence: if the worktree is already bound, the PENDING_BIND
+  // marker is stale (crash between writeCardBoundFile and clearPendingBind).
+  // Drain the marker so this both-markers state does not recur, then return
+  // `none` — `card create` mints an untracked card, consistent with running
+  // inside a bound worktree (acceptance signal #3).
+  if (existsSync(join(worktreeDir, '.cards', 'CARD_ID'))) {
+    await clearPendingBind(worktreeDir);
     return { kind: 'none' };
   }
 
