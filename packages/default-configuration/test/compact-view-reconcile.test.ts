@@ -60,7 +60,10 @@ function awaySummaryLine(content: string): string {
   return JSON.stringify({ type: 'system', subtype: 'away_summary', uuid: nextUuid(), content });
 }
 
-/** The empty folded state the view starts from when the iframe boots with no lines. */
+/**
+ * The empty folded state the view starts from when the iframe boots with no lines.
+ * @returns A folded state wrapping an empty `CompactState` with a zero watermark.
+ */
 function emptyFolded(): FoldedState {
   return { state: buildState([], 'session.jsonl', false), lineCount: 0 };
 }

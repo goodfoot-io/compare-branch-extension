@@ -435,6 +435,13 @@
 body.mode-compact {
   background: transparent;
   margin: 0;
+  /* Anchor the compact root to the host's em basis. StreamIframeHost sizes the
+     iframe to `calc(3 * 1.5em + 24px)`, whose `em` resolves against the webview
+     font (`--vscode-font-size`, ~13px). The iframe document would otherwise
+     default to 16px, so the three em-sized rows overshoot the fixed box and the
+     bottom row's descenders (the stem of a "p") get clipped. Matching the basis
+     makes the rows fit the box the host reserved. */
+  font-size: var(--vscode-font-size, 13px);
 }
 
 /* The compact container paints the code-block background, matches

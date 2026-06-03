@@ -305,3 +305,54 @@ export function buildState(lines: string[], primaryFilename: string, isActive: b
   }
   return state;
 }
+
+/** A folded {@link CompactState} paired with the count of source lines folded into it. */
+export interface FoldedState {
+  /** The folded compact state. */
+  state: CompactState;
+  /** Number of `lines` already folded into {@link FoldedState.state}. */
+  lineCount: number;
+}
+
+/**
+ * Reconciles a previously folded {@link FoldedState} against the authoritative
+ * current `lines`.
+ *
+ * Carrying the folded line count *inside* the returned value — rather than in a
+ * watermark snapshotted separately from the state — is the invariant that keeps
+ * the compact card from rendering blank: the watermark can never drift from the
+ * lines the state was actually built from. The host boots the iframe with no
+ * lines and the store delivers the history via an asynchronous
+ * `subscribe:response`; that history is reconciled here whenever it lands,
+ * whether before or after the view first subscribes, so no line is ever skipped.
+ *
+ * New trailing lines (the common append, and the initial history fold) are
+ * folded incrementally onto the prior state; a shrink — `lines` shorter than
+ * what was folded — triggers a full rebuild so no stale tally survives. When the
+ * line count is unchanged the previous folded value is returned by reference so
+ * React can bail out of a re-render.
+ *
+ * @param prev - The previously folded state and its line watermark.
+ * @param lines - The authoritative current lines from the store.
+ * @param primaryFilename - Primary stream filename (subagent detection on rebuild).
+ * @param isActive - Whether the stream is live (seeds initial status on rebuild).
+ * @returns The reconciled folded state; `prev` by reference when nothing changed.
+ */
+export function reconcileFolded(
+  prev: FoldedState,
+  lines: string[],
+  primaryFilename: string,
+  isActive: boolean
+): FoldedState {
+  const n = lines.length;
+  if (n === prev.lineCount) return prev;
+  if (n < prev.lineCount) return { state: buildState(lines, primaryFilename, isActive), lineCount: n };
+  // Fold only the lines past the watermark onto a fresh state object (new `tail`
+  // array so React sees a changed reference); the de-dup Sets carry forward.
+  const state: CompactState = { ...prev.state, tail: [...prev.state.tail] };
+  for (let i = prev.lineCount; i < n; i++) {
+    const line = lines[i];
+    if (line !== undefined) processLine(state, line);
+  }
+  return { state, lineCount: n };
+}

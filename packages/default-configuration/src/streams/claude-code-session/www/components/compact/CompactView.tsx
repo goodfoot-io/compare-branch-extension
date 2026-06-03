@@ -15,9 +15,9 @@
 
 import { close, streamStore } from '@cards/sdk/stream-store';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import type { CompactState } from './compact-state';
-import { buildState, headline, processLine } from './compact-state';
+import { useEffect, useState } from 'react';
+import type { CompactState, FoldedState } from './compact-state';
+import { buildState, headline, reconcileFolded } from './compact-state';
 import { formatCount, formatDate, formatDuration } from './format';
 import { Tail } from './Tail';
 
@@ -38,9 +38,9 @@ function readPrimary(): { lines: string[]; primary: string; isActive: boolean } 
  * @returns Rendered compact card, or null when there is nothing to show.
  */
 export function CompactView(): React.ReactElement | null {
-  const [compactState, setCompactState] = useState<CompactState>(() => {
+  const [folded, setFolded] = useState<FoldedState>(() => {
     const { lines, primary, isActive } = readPrimary();
-    return buildState(lines, primary, isActive);
+    return { state: buildState(lines, primary, isActive), lineCount: lines.length };
   });
   const [isActive, setIsActive] = useState<boolean>(() => readPrimary().isActive);
   // `now` drives the live elapsed timer; it only advances while the stream is
@@ -48,33 +48,24 @@ export function CompactView(): React.ReactElement | null {
   // re-renders on a timer.
   const [now, setNow] = useState<number>(() => Date.now());
 
-  const lastLineCountRef = useRef<number>(0);
-
+  // Reconcile the folded state against the store, then subscribe for updates.
+  // The first reconcile folds any lines that arrived between the initial render
+  // and this effect — the empty-on-boot primary's `subscribe:response` delivers
+  // the whole transcript and can land in exactly this window. Without folding it
+  // here, an already-ended session (no further lines to come) would render as a
+  // blank "ENDED" card. `reconcileFolded` keeps the watermark inside `folded`,
+  // so a no-op reconcile returns the same reference and skips a re-render.
   useEffect(() => {
-    const { lines } = readPrimary();
-    lastLineCountRef.current = lines.length;
+    const sync = (): void => {
+      const { lines, primary, isActive: active } = readPrimary();
+      setIsActive(active);
+      setFolded((prev) => reconcileFolded(prev, lines, primary, active));
+    };
+    sync();
+    return streamStore.subscribe(sync);
   }, []);
 
-  useEffect(() => {
-    return streamStore.subscribe((newState) => {
-      const file = newState.files.get(newState.primary);
-      const lines = file ? file.lines : [];
-      const n = lines.length;
-      setIsActive(file?.meta.isActive ?? false);
-      if (n > lastLineCountRef.current) {
-        const newLines = lines.slice(lastLineCountRef.current);
-        lastLineCountRef.current = n;
-        setCompactState((prev) => {
-          const next: CompactState = { ...prev, tail: [...prev.tail] };
-          for (const line of newLines) processLine(next, line);
-          return next;
-        });
-      } else if (n < lastLineCountRef.current) {
-        lastLineCountRef.current = n;
-        setCompactState(buildState(lines, newState.primary, file?.meta.isActive ?? false));
-      }
-    });
-  }, []);
+  const compactState: CompactState = folded.state;
 
   // Tick the live elapsed timer ~1s, but only while the stream is active. The
   // interval is cleared on unmount and whenever `isActive` flips to false, so an
