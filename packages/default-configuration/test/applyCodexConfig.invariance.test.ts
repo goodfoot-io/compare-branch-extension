@@ -2,7 +2,9 @@
  * Structural invariance tests for `applyCodexConfig`.
  *
  * These tests verify that `applyCodexConfig` produces the same structural
- * outcome as the inline logic that previously lived in `mergeCodexRuntimeConfig`.
+ * outcome as the inline logic that previously lived in the now-removed
+ * `mergeCodexRuntimeConfig` (retired when plugin enablement moved from a
+ * persisted config.toml write to runtime `-c` flags).
  *
  * Non-tracked keys (whitespace, key ordering, TOML comments) are explicitly
  * ignored — only the `features`, `plugins`, and `projects` subtrees are
@@ -16,8 +18,8 @@
  *
  * For each fixture the test applies `applyCodexConfig` with
  * `enablePlugins: ['cards@local', 'runtime@local']` and `featuresPlugins: true`
- * (the same options used by `mergeCodexRuntimeConfig`) and verifies the
- * expected structure is present.
+ * (the same options `mergeCodexRuntimeConfig` used before it was removed) and
+ * verifies the expected structure is present.
  *
  * @summary Structural invariance tests for applyCodexConfig
  */
@@ -49,7 +51,7 @@ function parseRelevant(toml: Record<string, unknown>): RelevantSubtrees {
 }
 
 // ---------------------------------------------------------------------------
-// Expected outcome after applying mergeCodexRuntimeConfig-equivalent options
+// Expected outcome after applying the (now-removed) mergeCodexRuntimeConfig-equivalent options
 // ---------------------------------------------------------------------------
 
 const EXPECTED_FEATURES = { plugins: true };

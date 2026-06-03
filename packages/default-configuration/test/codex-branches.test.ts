@@ -1,18 +1,15 @@
 /**
  * Exercises Codex branches of the consolidated action handlers (launch, chat,
- * interview) through end-to-end scenarios. Locks in staging, spawn argv, error
- * paths, cancellation, and branch-cleanup wiring for the Codex path so the
- * main-334 consolidation preserves the pre-refactor `codex.ts` / `codex-chat.ts`
- * contract byte-for-byte and adds a parallel `interview` Codex path.
+ * interview) through end-to-end scenarios. Locks in plugin-cache population,
+ * spawn argv (including the runtime plugin-enable `-c` flags), error paths,
+ * cancellation, and branch-cleanup wiring for the Codex path.
  *
  * @summary Tests Codex branches of consolidated action handlers
  */
 
 import type { ChildProcess } from 'node:child_process';
-import { EventEmitter } from 'node:events';
 import { homedir } from 'node:os';
 import { join, sep } from 'node:path';
-import { PassThrough } from 'node:stream';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { Logger } from '@cards/sdk/config';
 import { flushMicrotasks } from '@cards/test-utils';
@@ -283,19 +280,22 @@ beforeEach(async () => {
     throw Object.assign(new Error(`mock: unhandled readdir: ${String(targetPath)}`), { code: 'ENOENT' });
   });
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-    if (toPosix(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
+    const p = toPosix(filePath);
+    // Bundle manifests (read by ensureCodexBundleAvailable) and cache manifests
+    // (read by populateCodexPluginCache after the install lands at destDir).
+    if (p.endsWith('/cards/.codex-plugin/plugin.json') || p.endsWith('/cards/local/.codex-plugin/plugin.json')) {
       return JSON.stringify({
         name: 'cards',
         description: 'Codex cards plugin for interacting with the Cards extension APIs'
       });
     }
-    if (toPosix(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
+    if (p.endsWith('/runtime/.codex-plugin/plugin.json') || p.endsWith('/runtime/local/.codex-plugin/plugin.json')) {
       return JSON.stringify({
         name: 'runtime',
         description: 'Codex runtime plugin for the Cards extension'
       });
     }
-    if (toPosix(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
+    if (p.endsWith('/.agents/plugins/marketplace.json')) {
       return JSON.stringify({
         name: 'local',
         plugins: [
@@ -315,9 +315,6 @@ beforeEach(async () => {
           }
         ]
       });
-    }
-    if (toPosix(filePath) === '/home/node/.cards/codex/config.toml') {
-      return ['model = "gpt-5"', '', '[tools]', 'web_search = true'].join('\n');
     }
     throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
   });
@@ -359,90 +356,6 @@ function createMockChild(): ChildProcess {
   } as unknown as ChildProcess;
 }
 
-function createMockAppServerChild(): ChildProcess {
-  const child = new EventEmitter() as ChildProcess;
-  const stdout = new PassThrough();
-  const stderr = new PassThrough();
-  const stdin = new PassThrough();
-  let initialized = false;
-
-  stdin.setEncoding('utf-8');
-  stdin.on('data', (chunk: string) => {
-    for (const line of chunk.split('\n').filter((entry) => entry.length > 0)) {
-      const message = JSON.parse(line) as {
-        id?: number;
-        method?: string;
-        params?: { pluginName?: string };
-      };
-
-      if (message.method === 'initialize') {
-        stdout.write(
-          `${JSON.stringify({
-            id: message.id,
-            result: {
-              userAgent: 'cards-test/0.1.0',
-              codexHome: '/home/node/.cards/codex.tmp-test',
-              platformFamily: 'unix',
-              platformOs: 'linux'
-            }
-          })}\n`
-        );
-        stdout.write(
-          `${JSON.stringify({
-            method: 'configWarning',
-            params: {
-              summary: 'warning',
-              details: null
-            }
-          })}\n`
-        );
-        continue;
-      }
-
-      if (message.method === 'initialized') {
-        initialized = true;
-        continue;
-      }
-
-      if (message.method === 'plugin/install') {
-        if (!initialized) {
-          stdout.write(
-            `${JSON.stringify({
-              id: message.id,
-              error: {
-                message: 'not initialized'
-              }
-            })}\n`
-          );
-          continue;
-        }
-
-        stdout.write(
-          `${JSON.stringify({
-            id: message.id,
-            result: {
-              authPolicy: 'ON_INSTALL',
-              appsNeedingAuth: []
-            }
-          })}\n`
-        );
-      }
-    }
-  });
-
-  child.pid = 23456;
-  child.stdin = stdin;
-  child.stdout = stdout;
-  child.stderr = stderr;
-  child.kill = vi.fn(() => {
-    child.emit('close', 0, null);
-    return true;
-  }) as ChildProcess['kill'];
-  child.on = child.addListener.bind(child) as ChildProcess['on'];
-
-  return child;
-}
-
 function baseInput(overrides?: Partial<ActionInput>): ActionInput {
   return {
     cardId: 'card-123',
@@ -459,70 +372,41 @@ function baseInput(overrides?: Partial<ActionInput>): ActionInput {
 }
 
 describe('launch action — codex branch', () => {
-  it('stages codex home, overlays the bundled marketplace, and spawns codex with staged CODEX_HOME', async () => {
+  it('populates the plugin cache and spawns codex with the resolved CODEX_HOME and plugin -c flags', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
-    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
+    vi.mocked(spawn).mockReturnValue(child);
 
     const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
-    // Production builds these paths with path.join, so on Windows the args use
-    // native separators. Compare via separator-insensitive matchers.
-    expect(fs.cp).toHaveBeenCalledWith(DEFAULT_CODEX_HOME, posixMatching(/\/\.cards\/codex\.tmp-/), {
-      recursive: true
-    });
-    expect(fs.cp).toHaveBeenCalledWith(
-      nativePath('/test/extension/dist/codex/.agents'),
-      posixMatching(/\/\.cards\/codex\.tmp-.*\/\.agents$/),
-      {
-        force: true,
-        recursive: true
-      }
-    );
+    // The bundled plugins are copied into the cache (the .incoming temp dirs),
+    // never the resolved home itself. Production builds these paths with
+    // path.join, so on Windows the args use native separators — compare via
+    // separator-insensitive matchers.
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/cards'),
-      posixMatching(/\/\.cards\/codex\.tmp-.*\/cards$/),
-      {
-        force: true,
-        recursive: true
-      }
+      posixMatching(/\/plugins\/cache\/local\/\.incoming-.*-cards$/),
+      { force: true, recursive: true }
     );
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/runtime'),
-      posixMatching(/\/\.cards\/codex\.tmp-.*\/runtime$/),
-      {
-        force: true,
-        recursive: true
-      }
+      posixMatching(/\/plugins\/cache\/local\/\.incoming-.*-runtime$/),
+      { force: true, recursive: true }
     );
-    expect(fs.readFile).toHaveBeenCalledWith(posixMatching(/\/\.cards\/codex\.tmp-.*\/config\.toml$/), 'utf-8');
-    expect(fs.writeFile).toHaveBeenCalledWith(
-      posixMatching(/\/\.cards\/codex\.tmp-.*\/config\.toml$/),
-      expect.stringContaining('[plugins."cards@local"]')
-    );
-    expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('[plugins."runtime@local"]'));
-    expect(fs.writeFile).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('plugins = true'));
-    expect(fs.rename).not.toHaveBeenCalled();
-    expect(spawn).toHaveBeenCalledWith(
-      'codex',
-      ['app-server'],
-      expect.objectContaining({
-        cwd: posixMatching(/\/\.cards\/codex\.tmp-/),
-        env: expect.objectContaining({
-          CODEX_HOME: posixMatching(/\/\.cards\/codex\.tmp-/)
-        }),
-        stdio: ['pipe', 'pipe', 'pipe']
-      })
-    );
+    // No copy of the resolved home and no config.toml mutation.
+    expect(fs.cp).not.toHaveBeenCalledWith(DEFAULT_CODEX_HOME, expect.any(String), expect.anything());
+    expect(fs.writeFile).not.toHaveBeenCalled();
+    // No app-server install RPC — only the interactive codex spawn.
+    expect(spawn).not.toHaveBeenCalledWith('codex', ['app-server'], expect.anything());
+    expect(vi.mocked(spawn).mock.calls).toHaveLength(1);
+
+    // The final move lands each plugin at plugins/cache/local/<plugin>/local.
+    const renameDests = vi.mocked(fs.rename).mock.calls.map((call) => toPosix(call[1]));
+    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/cards\/local$/.test(dest))).toBe(true);
+    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/runtime\/local$/.test(dest))).toBe(true);
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',
@@ -531,7 +415,7 @@ describe('launch action — codex branch', () => {
         cwd: '/test/workspace/.worktrees/cards/card-123/1',
         stdio: 'inherit',
         env: expect.objectContaining({
-          CODEX_HOME: posixMatching(/\/\.cards\/codex\.tmp-/),
+          CODEX_HOME: DEFAULT_CODEX_HOME,
           WORKSPACE_PATH: '/test/workspace/.worktrees/cards/card-123/1',
           BASE_BRANCH: 'main',
           PARENT_BRANCH: 'main',
@@ -540,82 +424,38 @@ describe('launch action — codex branch', () => {
       })
     );
 
-    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
     expect(args).toContain('--cd');
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    expect(args).not.toContain('-c');
+    const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
+    expect(cFlagValues).toContain('features.plugins=true');
+    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
+    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
     expect(args[args.length - 1]).toMatch(/Load the `\$card` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
     await promise;
   });
 
-  it('stages codex home from CODEX_HOME when provided', async () => {
+  it('populates the cache under the resolved home when CODEX_HOME is provided', async () => {
     process.env['CODEX_HOME'] = '/custom/codex-home';
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
-    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
-    vi.mocked(fs.stat).mockImplementation(async (targetPath: string | URL) => {
-      if (toPosix(targetPath) === '/custom/codex-home') {
-        return { isDirectory: () => true } as Awaited<ReturnType<typeof fs.stat>>;
-      }
-      throw Object.assign(new Error(`mock: unhandled stat: ${String(targetPath)}`), { code: 'ENOENT' });
-    });
+    vi.mocked(spawn).mockReturnValue(child);
 
     const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), createMockContext());
     await flushMicrotasks();
 
-    expect(fs.cp).toHaveBeenCalledWith('/custom/codex-home', posixMatching(/\/codex\.tmp-/), {
-      recursive: true
-    });
-
-    child.emit('close', 0);
-    await promise;
-  });
-
-  it('creates the staged home from scratch when the source home does not exist', async () => {
-    const { spawn } = await import('node:child_process');
-    const fs = await import('node:fs/promises');
-    const appServerChild = createMockAppServerChild();
-    const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
-    vi.mocked(fs.stat).mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
-    vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (toPosix(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
-        return JSON.stringify({ name: 'cards' });
-      }
-      if (toPosix(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
-        return JSON.stringify({ name: 'runtime' });
-      }
-      if (toPosix(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
-        return JSON.stringify({ name: 'local', plugins: [{ name: 'cards' }, { name: 'runtime' }] });
-      }
-      throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
-    });
-
-    const action = (await import('../src/actions/launch.js')).default;
-    const promise = action(baseInput(), createMockContext());
-    await flushMicrotasks();
-
-    expect(fs.mkdir).toHaveBeenCalledWith(posixMatching(/\/\.cards\/codex\.tmp-/), {
-      recursive: true
-    });
-    expect(fs.cp).not.toHaveBeenCalledWith(DEFAULT_CODEX_HOME, expect.any(String), expect.anything());
+    const cpDests = vi.mocked(fs.cp).mock.calls.map((call) => toPosix(call[1]));
+    expect(cpDests.length).toBeGreaterThan(0);
+    expect(cpDests.every((dest) => dest.startsWith('/custom/codex-home/plugins/cache/local/'))).toBe(true);
+    expect(vi.mocked(spawn).mock.calls[0][2]).toEqual(
+      expect.objectContaining({ env: expect.objectContaining({ CODEX_HOME: '/custom/codex-home' }) })
+    );
 
     child.emit('close', 0);
     await promise;
@@ -636,37 +476,11 @@ describe('launch action — codex branch', () => {
     expect(spawn).not.toHaveBeenCalled();
   });
 
-  it('fails closed when copied config.toml is malformed', async () => {
+  it('fails closed when the cache directory creation fails', async () => {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs/promises');
-    vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-      if (toPosix(filePath) === '/test/extension/dist/codex/cards/.codex-plugin/plugin.json') {
-        return JSON.stringify({ name: 'cards' });
-      }
-      if (toPosix(filePath) === '/test/extension/dist/codex/runtime/.codex-plugin/plugin.json') {
-        return JSON.stringify({ name: 'runtime' });
-      }
-      if (toPosix(filePath) === '/test/extension/dist/codex/.agents/plugins/marketplace.json') {
-        return JSON.stringify({ name: 'local', plugins: [{ name: 'cards' }, { name: 'runtime' }] });
-      }
-      if (/\/\.cards\/codex\.tmp-.*\/config\.toml$/.test(toPosix(filePath))) {
-        return '[broken';
-      }
-      throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
-    });
-
-    const action = (await import('../src/actions/launch.js')).default;
-
-    await expect(action(baseInput(), createMockContext())).rejects.toThrow();
-    expect(spawn).not.toHaveBeenCalled();
-  });
-
-  it('fails closed when staging directory creation fails', async () => {
-    const { spawn } = await import('node:child_process');
-    const fs = await import('node:fs/promises');
-    vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
     vi.mocked(fs.mkdir).mockImplementation(async (dirPath: unknown) => {
-      if (/codex\.tmp-/.test(toPosix(dirPath))) {
+      if (/plugins\/cache\/local/.test(toPosix(dirPath))) {
         throw new Error('mkdir failed');
       }
       return undefined;
@@ -680,14 +494,8 @@ describe('launch action — codex branch', () => {
 
   it('registers onCancel that kills the child process', async () => {
     const { spawn } = await import('node:child_process');
-    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
+    vi.mocked(spawn).mockReturnValue(child);
 
     const context = createMockContext();
     const action = (await import('../src/actions/launch.js')).default;
@@ -705,14 +513,8 @@ describe('launch action — codex branch', () => {
 
   it('calls spawnBranchCleanupWatcher after session exits', async () => {
     const { spawn, execFile } = await import('node:child_process');
-    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
+    vi.mocked(spawn).mockReturnValue(child);
 
     const action = (await import('../src/actions/launch.js')).default;
     const promise = action(baseInput(), createMockContext());
@@ -748,20 +550,14 @@ describe('launch action — codex branch', () => {
 describe('chat action — codex branch', () => {
   it('spawns codex chat without a seeded guidance prompt', async () => {
     const { spawn } = await import('node:child_process');
-    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
+    vi.mocked(spawn).mockReturnValue(child);
 
     const action = (await import('../src/actions/chat.js')).default;
     const promise = action(baseInput({ actionName: 'Chat' }), createMockContext());
     await flushMicrotasks();
 
-    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
     expect(args).toEqual(
       expect.arrayContaining([
         '--dangerously-bypass-approvals-and-sandbox',
@@ -771,11 +567,15 @@ describe('chat action — codex branch', () => {
         '/test/repo'
       ])
     );
-    const cIndex = args.indexOf('-c');
-    expect(cIndex).toBeGreaterThan(-1);
-    const developerInstructionsArg = args[cIndex + 1] as string;
+    // Plugin-enable -c flags are present alongside the chat developer_instructions.
+    const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
+    expect(cFlagValues).toContain('features.plugins=true');
+    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
+    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
+    const developerInstructionsArg = cFlagValues.find((value) => value.startsWith('developer_instructions'));
     expect(developerInstructionsArg).toMatch(/^developer_instructions = "/);
-    expect(args).toHaveLength(7);
+    // No seeded guidance prompt: the last arg is a -c value, not a prompt string.
+    expect(args[args.length - 2]).toBe('-c');
 
     child.emit('close', 0);
     await promise;
@@ -785,25 +585,24 @@ describe('chat action — codex branch', () => {
 describe('interview action — codex branch', () => {
   it('spawns codex with a short prompt referencing the interview skill', async () => {
     const { spawn } = await import('node:child_process');
-    const appServerChild = createMockAppServerChild();
     const child = createMockChild();
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return appServerChild;
-      }
-      return child;
-    });
+    vi.mocked(spawn).mockReturnValue(child);
 
     const action = (await import('../src/actions/interview.js')).default;
     const promise = action(baseInput({ actionName: 'Interview' }), createMockContext());
     await flushMicrotasks();
 
-    const args = vi.mocked(spawn).mock.calls[1][1] as string[];
+    const args = vi.mocked(spawn).mock.calls[0][1] as string[];
     expect(args).toContain('--cd');
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    expect(args).not.toContain('-c');
+    // Plugin-enable -c flags are present; no developer_instructions for interview.
+    const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
+    expect(cFlagValues).toContain('features.plugins=true');
+    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
+    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
+    expect(cFlagValues.some((value) => value.startsWith('developer_instructions'))).toBe(false);
     expect(args[args.length - 1]).toMatch(/Load the `\$interview` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);

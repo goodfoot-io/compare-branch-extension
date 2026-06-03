@@ -179,12 +179,6 @@ beforeEach(async () => {
     throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
   });
 
-  vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
-    if (toPosix(filePath) === '/home/node/.cards/codex/config.toml') {
-      return ['model = "gpt-5"', '', '[tools]', 'web_search = true'].join('\n');
-    }
-    throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
-  });
   vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 });
 
@@ -242,22 +236,84 @@ describe('codex-session library', () => {
     expect(buildCodexPrompt(undefined, additionalContext)).toBeUndefined();
   });
 
-  it('preserves unrelated config settings while enabling the bundled plugins', async () => {
-    const { mergeCodexRuntimeConfig } = await import('../src/lib/codex-session.js');
+  /**
+   * Wires the fs mocks needed for a successful `populateCodexPluginCache` run:
+   * bundle/plugin paths resolve, manifests parse, and all writes succeed.
+   *
+   * @returns The mocked `node:fs/promises` module for per-test assertions.
+   */
+  async function mockSuccessfulCacheFs(): Promise<typeof import('node:fs/promises')> {
     const fs = await import('node:fs/promises');
+    vi.mocked(fs.access).mockResolvedValue(undefined);
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+      const p = toPosix(filePath);
+      if (p.endsWith('/cards/local/.codex-plugin/plugin.json') || p.endsWith('/cards/.codex-plugin/plugin.json')) {
+        return JSON.stringify({ name: 'cards' });
+      }
+      if (p.endsWith('/runtime/local/.codex-plugin/plugin.json') || p.endsWith('/runtime/.codex-plugin/plugin.json')) {
+        return JSON.stringify({ name: 'runtime' });
+      }
+      if (p.endsWith('marketplace.json')) {
+        return JSON.stringify({ name: 'local' });
+      }
+      throw Object.assign(new Error(`mock: unhandled readFile: ${String(filePath)}`), { code: 'ENOENT' });
+    });
+    vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+    vi.mocked(fs.cp).mockResolvedValue(undefined);
+    vi.mocked(fs.rename).mockResolvedValue(undefined);
+    vi.mocked(fs.rm).mockResolvedValue(undefined);
+    return fs;
+  }
 
-    await mergeCodexRuntimeConfig('/home/node/.cards/codex');
+  it('buildCodexArgs includes plugin-enable -c flags', async () => {
+    const { buildCodexArgs } = await import('../src/lib/codex-session.js');
 
-    const writtenConfig = vi.mocked(fs.writeFile).mock.calls[0]?.[1];
-    expect(typeof writtenConfig).toBe('string');
-    expect(writtenConfig).toContain('model = "gpt-5"');
-    expect(writtenConfig).toContain('[tools]');
-    expect(writtenConfig).toContain('web_search = true');
-    expect(writtenConfig).toContain('[features]');
-    expect(writtenConfig).toContain('plugins = true');
-    expect(writtenConfig).toContain('[plugins."cards@local"]');
-    expect(writtenConfig).toContain('[plugins."runtime@local"]');
-    expect(writtenConfig).toContain('enabled = true');
+    const args = buildCodexArgs('do the thing', '/test/workspace', '/test/repo', 'be helpful');
+
+    const cFlagValues = args.filter((_arg, index) => args[index - 1] === '-c');
+    expect(cFlagValues).toContain('features.plugins=true');
+    expect(cFlagValues).toContain('plugins.cards@local.enabled=true');
+    expect(cFlagValues).toContain('plugins.runtime@local.enabled=true');
+
+    // Existing args are preserved.
+    expect(args).toContain('--dangerously-bypass-approvals-and-sandbox');
+    expect(args[args.indexOf('--cd') + 1]).toBe('/test/workspace');
+    expect(args[args.indexOf('--add-dir') + 1]).toBe('/test/repo');
+    expect(cFlagValues.some((value) => value.startsWith('developer_instructions'))).toBe(true);
+    expect(args[args.length - 1]).toBe('do the thing');
+  });
+
+  it('populateCodexPluginCache respects CODEX_HOME env override', async () => {
+    process.env['CODEX_HOME'] = '/alt/home';
+    const fs = await mockSuccessfulCacheFs();
+    const { populateCodexPluginCache, resolveDefaultCodexHome } = await import('../src/lib/codex-session.js');
+
+    await populateCodexPluginCache(resolveDefaultCodexHome(), '/test/extension/dist/marketplace');
+
+    const cpDestinations = vi.mocked(fs.cp).mock.calls.map((call) => toPosix(call[1]));
+    expect(cpDestinations.length).toBeGreaterThan(0);
+    expect(cpDestinations.every((dest) => dest.startsWith('/alt/home/plugins/cache/local/'))).toBe(true);
+  });
+
+  it('populateCodexPluginCache does not touch config.toml', async () => {
+    const fs = await mockSuccessfulCacheFs();
+    const { populateCodexPluginCache } = await import('../src/lib/codex-session.js');
+
+    await populateCodexPluginCache('/test/codexhome', '/test/extension/dist/marketplace');
+
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('populateCodexPluginCache propagates cache-write errors (fail closed)', async () => {
+    const fs = await mockSuccessfulCacheFs();
+    vi.mocked(fs.mkdir).mockRejectedValue(Object.assign(new Error('EACCES'), { code: 'EACCES' }));
+    const { populateCodexPluginCache } = await import('../src/lib/codex-session.js');
+
+    await expect(populateCodexPluginCache('/test/codexhome', '/test/extension/dist/marketplace')).rejects.toMatchObject(
+      {
+        code: 'EACCES'
+      }
+    );
   });
 
   it('uses translated Codex skills instead of Claude CLI env vars', async () => {

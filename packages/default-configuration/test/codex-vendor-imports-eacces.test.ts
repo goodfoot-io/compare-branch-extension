@@ -1,19 +1,20 @@
 /**
- * Reproduces the Launch failure where staging the Codex home recursively copies
- * the source `~/.codex` directory — including the codex-managed
- * `vendor_imports/skills/.git` partial-clone repository — and aborts with EACCES
- * when an unreadable git packfile is encountered.
+ * Regression guard for the Launch failure where staging the Codex home
+ * recursively copied the source `~/.codex` directory — including the
+ * codex-managed `vendor_imports/skills/.git` partial-clone repository — and
+ * aborted with EACCES when an unreadable git packfile was encountered.
  *
  * Observed in the wild as:
  *   Handler error: EACCES: permission denied, copyfile
  *     '.../.codex/vendor_imports/skills/.git/objects/pack/pack-<hash>.idx' -> '...'
  *
- * This exercises the real `prepareStagedCodexHome` over a real filesystem: a real
- * marketplace bundle, a real CODEX_HOME containing a packfile with no read
- * permission, and a real staging parent (CARDS_HOME). No fs mocking — the failure
- * comes from the production `fs.cp(sourceCodexHome, stagedCodexHome, {recursive:true})`.
+ * The cache-install path replaces the recursive home copy: `populateCodexPluginCache`
+ * only copies the bundled plugins into `<codexHome>/plugins/cache/local/…` and never
+ * traverses `vendor_imports`. This test proves it: a real marketplace bundle, a real
+ * CODEX_HOME containing an unreadable packfile, and a real cache write — no fs mocking
+ * — must start cleanly, leave no staging dir, and produce valid cached manifests.
  *
- * @summary Reproduces vendor_imports/.git EACCES during Codex home staging
+ * @summary Regression guard: cache-install never traverses vendor_imports/.git
  */
 
 import * as fs from 'node:fs/promises';
@@ -80,18 +81,32 @@ afterEach(async () => {
   }
 });
 
-describe('prepareStagedCodexHome with an unreadable vendor_imports packfile', () => {
-  it('aborts staging with EACCES on the git packfile (reproduces the Launch handler error)', async () => {
-    const { prepareStagedCodexHome } = await import('../src/lib/codex-session.js');
+describe('populateCodexPluginCache with an unreadable vendor_imports packfile', () => {
+  it('starts cleanly with unreadable vendor_imports packfile — no staging dir created', async () => {
+    const { populateCodexPluginCache } = await import('../src/lib/codex-session.js');
 
-    await expect(prepareStagedCodexHome(marketplacePath)).rejects.toMatchObject({
-      code: 'EACCES',
-      syscall: 'copyfile'
-    });
+    // 1. The cache write resolves — the packfile at mode 0000 is never traversed.
+    await expect(populateCodexPluginCache(codexHome, marketplacePath)).resolves.toBeDefined();
 
-    // And the offending path is the codex-managed git internals it should never copy.
-    await expect(prepareStagedCodexHome(marketplacePath)).rejects.toThrow(
-      /vendor_imports[/\\]skills[/\\]\.git[/\\]objects[/\\]pack/
-    );
+    // 2. No `codex.tmp-*` staging directory appears under CARDS_HOME.
+    const cardsHome = process.env['CARDS_HOME']!;
+    const cardsHomeEntries = await fs.readdir(cardsHome).catch(() => [] as string[]);
+    expect(cardsHomeEntries.filter((entry) => entry.startsWith('codex.tmp-'))).toEqual([]);
+
+    // 3 & 4. Cached manifests exist at the exact load paths and parse correctly.
+    for (const pluginName of ['cards', 'runtime'] as const) {
+      const manifestPath = path.join(
+        codexHome,
+        'plugins',
+        'cache',
+        'local',
+        pluginName,
+        'local',
+        '.codex-plugin',
+        'plugin.json'
+      );
+      const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as { name: string };
+      expect(manifest).toEqual({ name: pluginName });
+    }
   });
 });

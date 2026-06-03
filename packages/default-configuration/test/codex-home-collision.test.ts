@@ -1,18 +1,38 @@
 /**
- * Reproduces the CODEX_HOME collision bug where concurrent calls to
- * `prepareStagedCodexHome` race on a shared staging path.
+ * Concurrency and atomicity coverage for `populateCodexPluginCache`.
  *
- * @summary Tests concurrent prepareStagedCodexHome collision
+ * The cache-install path replaces the staged-home copy: each bundled plugin is
+ * written into a temp dir under `plugins/cache/local/` and moved into place at
+ * `plugins/cache/local/<plugin>/local` with an atomic rename (mirroring codex's
+ * own `replace_plugin_root_atomically`). These tests run against a real
+ * filesystem sandbox: `node:fs/promises` is wrapped so `fs.cp` and `fs.rename`
+ * delegate to the real implementations while recording their arguments, so the
+ * assertions exercise the production move sequence rather than a stub.
+ *
+ * @summary Tests concurrent populateCodexPluginCache cache installs
  */
 
-import type { ChildProcess } from 'node:child_process';
-import { EventEmitter } from 'node:events';
-import { PassThrough } from 'node:stream';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * Wrap `node:fs/promises` so every call delegates to the real implementation
+ * while recording its arguments. ESM forbids `vi.spyOn` on module exports, so
+ * the module is mocked with real-backed spies — no behavior is stubbed.
+ */
+vi.mock('node:fs/promises', async () => {
+  const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  const wrapped = {} as Record<string, unknown>;
+  for (const [key, value] of Object.entries(actual)) {
+    wrapped[key] = typeof value === 'function' ? vi.fn(value as (...args: unknown[]) => unknown) : value;
+  }
+  return wrapped;
+});
 
 /**
  * Production code builds paths with node:path, so on Windows the values passed
- * to fs mocks use backslash separators. Normalize to forward slashes so the
+ * to fs spies use backslash separators. Normalize to forward slashes so the
  * POSIX suffix checks below match regardless of platform.
  *
  * @param p - Path-like value (string, Buffer, or URL) to normalize.
@@ -22,242 +42,119 @@ function toPosix(p: unknown): string {
   return String(p).replace(/\\/g, '/');
 }
 
-vi.mock('node:child_process', () => ({
-  spawn: vi.fn(),
-  execFile: vi.fn(),
-  execFileSync: vi.fn()
-}));
+let fs: typeof import('node:fs/promises');
+let sandbox: string;
+let codexHome: string;
+let marketplacePath: string;
+const savedEnv: Record<string, string | undefined> = {};
 
-vi.mock('node:fs', () => ({
-  readdirSync: vi.fn(),
-  readFileSync: vi.fn(),
-  statSync: vi.fn()
-}));
-
-vi.mock('node:fs/promises', () => ({
-  access: vi.fn(),
-  cp: vi.fn(),
-  mkdir: vi.fn(),
-  readFile: vi.fn(),
-  readdir: vi.fn(),
-  rename: vi.fn(),
-  rm: vi.fn(),
-  stat: vi.fn(),
-  writeFile: vi.fn()
-}));
-
-vi.mock('@cards/sdk', () => ({
-  resolveGlobalCardsConfigDir: vi.fn(() => '/mock/cards-config')
-}));
-
-vi.mock('@cards/sdk/worktree', () => ({
-  createWorktree: vi.fn(),
-  checkWorktreeExists: vi.fn(),
-  findGitRoots: vi.fn()
-}));
-
-vi.mock('../src/lib/branch-cleanup-watcher.js', () => ({
-  spawnBranchCleanupWatcher: vi.fn()
-}));
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  delete process.env['CODEX_HOME'];
-  delete process.env['CARDS_HOME'];
-  delete process.env['XDG_DATA_HOME'];
-  delete process.env['XDG_CONFIG_HOME'];
-});
-
-function createMockAppServerChild(): ChildProcess {
-  const child = new EventEmitter() as ChildProcess;
-  const stdout = new PassThrough();
-  const stderr = new PassThrough();
-  const stdin = new PassThrough();
-  let initialized = false;
-
-  stdin.setEncoding('utf-8');
-  stdin.on('data', (chunk: string) => {
-    for (const line of chunk.split('\n').filter((entry) => entry.length > 0)) {
-      const message = JSON.parse(line) as {
-        id?: number;
-        method?: string;
-      };
-
-      if (message.method === 'initialize') {
-        stdout.write(
-          `${JSON.stringify({
-            id: message.id,
-            result: {
-              userAgent: 'collision-test/0.1.0',
-              codexHome: '/mock/cards-config/codex.tmp-test',
-              platformFamily: 'unix',
-              platformOs: 'linux'
-            }
-          })}\n`
-        );
-        continue;
-      }
-
-      if (message.method === 'initialized') {
-        initialized = true;
-        continue;
-      }
-
-      if (message.method === 'plugin/install') {
-        stdout.write(
-          `${JSON.stringify(
-            initialized
-              ? {
-                  id: message.id,
-                  result: {
-                    authPolicy: 'ON_INSTALL',
-                    appsNeedingAuth: []
-                  }
-                }
-              : {
-                  id: message.id,
-                  error: {
-                    message: 'not initialized'
-                  }
-                }
-          )}\n`
-        );
-      }
-    }
-  });
-
-  child.pid = 45678;
-  child.stdin = stdin;
-  child.stdout = stdout;
-  child.stderr = stderr;
-  child.kill = vi.fn(() => {
-    child.emit('close', 0, null);
-    return true;
-  }) as ChildProcess['kill'];
-  child.on = child.addListener.bind(child) as ChildProcess['on'];
-  child.once = child.once.bind(child) as ChildProcess['once'];
-
-  return child;
+/**
+ * Writes a JSON file, creating parent directories as needed.
+ *
+ * @param filePath - Absolute path to write.
+ * @param value - Value serialized as JSON.
+ */
+async function writeJson(filePath: string, value: unknown): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(value));
 }
 
-describe('prepareStagedCodexHome concurrent collision', () => {
-  it('concurrent calls should produce isolated staging directories', async () => {
-    const fs = await import('node:fs/promises');
-    const { spawn } = await import('node:child_process');
+beforeEach(async () => {
+  fs = await import('node:fs/promises');
+  vi.clearAllMocks();
 
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return createMockAppServerChild();
-      }
-      throw new Error(`mock: unexpected spawn ${command} ${(args ?? []).join(' ')}`);
-    });
+  for (const key of ['CODEX_HOME', 'CARDS_HOME', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME']) {
+    savedEnv[key] = process.env[key];
+    delete process.env[key];
+  }
 
-    // Mock fs.access to succeed (bundle/plugin paths exist)
-    vi.mocked(fs.access).mockResolvedValue(undefined);
+  sandbox = await fs.mkdtemp(path.join(tmpdir(), 'codex-collision-'));
 
-    // Mock fs.readFile to return valid manifests for both bundled plugins.
-    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
-      const p = toPosix(filePath);
-      if (p.endsWith('/cards/.codex-plugin/plugin.json')) {
-        return JSON.stringify({ name: 'cards' });
-      }
-      if (p.endsWith('/runtime/.codex-plugin/plugin.json')) {
-        return JSON.stringify({ name: 'runtime' });
-      }
-      if (p.endsWith('marketplace.json')) {
-        return JSON.stringify({ name: 'local' });
-      }
-      if (p.endsWith('config.toml')) {
-        return '';
-      }
-      if (p.endsWith('agents.md') || p.endsWith('AGENTS.md')) {
-        return '';
-      }
-      return '';
-    });
+  // A real marketplace bundle that satisfies ensureCodexBundleAvailable().
+  // bundlePath = dirname(marketplacePath)/codex
+  marketplacePath = path.join(sandbox, 'marketplace');
+  const bundlePath = path.join(sandbox, 'codex');
+  await writeJson(path.join(bundlePath, '.agents', 'plugins', 'marketplace.json'), { name: 'local' });
+  await writeJson(path.join(bundlePath, 'cards', '.codex-plugin', 'plugin.json'), { name: 'cards' });
+  await writeJson(path.join(bundlePath, 'runtime', '.codex-plugin', 'plugin.json'), { name: 'runtime' });
 
-    // Mock fs.readdir to return empty dirs (no entries to copy)
-    vi.mocked(fs.readdir).mockResolvedValue([]);
+  codexHome = path.join(sandbox, 'codexhome');
+  process.env['CODEX_HOME'] = codexHome;
+});
 
-    // Mock fs.mkdir, fs.rm, fs.cp, fs.writeFile to succeed
-    vi.mocked(fs.mkdir).mockResolvedValue(undefined);
-    vi.mocked(fs.rm).mockResolvedValue(undefined);
-    vi.mocked(fs.cp).mockResolvedValue(undefined);
-    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+afterEach(async () => {
+  await fs.rm(sandbox, { recursive: true, force: true }).catch(() => undefined);
+  for (const [key, value] of Object.entries(savedEnv)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+});
 
-    // Mock fs.stat to make resolveExistingDirectory return false (no source home)
-    vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+/**
+ * Asserts the cache holds a valid manifest for `pluginName` at the exact load
+ * path `<codexHome>/plugins/cache/local/<plugin>/local/.codex-plugin/plugin.json`.
+ *
+ * @param pluginName - Bundled plugin name to verify.
+ */
+async function expectCachedManifest(pluginName: 'cards' | 'runtime'): Promise<void> {
+  const manifestPath = path.join(
+    codexHome,
+    'plugins',
+    'cache',
+    'local',
+    pluginName,
+    'local',
+    '.codex-plugin',
+    'plugin.json'
+  );
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as { name: string };
+  expect(manifest).toEqual({ name: pluginName });
+}
 
-    vi.mocked(fs.rename).mockResolvedValue(undefined);
+describe('populateCodexPluginCache concurrency and atomicity', () => {
+  it('concurrent populateCodexPluginCache calls both succeed and produce the same cache', async () => {
+    const { populateCodexPluginCache } = await import('../src/lib/codex-session.js');
 
-    const { prepareStagedCodexHome } = await import('../src/lib/codex-session.js');
-
-    // Run two concurrent calls
     const [result1, result2] = await Promise.all([
-      prepareStagedCodexHome('/test/marketplace'),
-      prepareStagedCodexHome('/test/marketplace')
+      populateCodexPluginCache(codexHome, marketplacePath),
+      populateCodexPluginCache(codexHome, marketplacePath)
     ]);
 
-    // Both calls should succeed
-    expect(result1.stagedCodexHome).toBeDefined();
-    expect(result2.stagedCodexHome).toBeDefined();
+    // Both calls resolve and resolve the same load paths.
+    for (const result of [result1, result2]) {
+      expect(result.pluginCachePaths.cards).toBe(path.join(codexHome, 'plugins', 'cache', 'local', 'cards', 'local'));
+      expect(result.pluginCachePaths.runtime).toBe(
+        path.join(codexHome, 'plugins', 'cache', 'local', 'runtime', 'local')
+      );
+    }
 
-    // The bug: both calls rename to the SAME destination path, causing a collision.
-    // A correct implementation would give each call an isolated staging directory
-    // so concurrent calls don't race on the same destination.
-    expect(result1.stagedCodexHome).not.toBe(result2.stagedCodexHome);
+    // fs.cp is called with a destination under the marketplace dir for each plugin.
+    const cpDestinations = vi.mocked(fs.cp).mock.calls.map((call) => toPosix(call[1]));
+    expect(cpDestinations.some((dest) => /\/plugins\/cache\/local\/\.incoming-.*-cards$/.test(dest))).toBe(true);
+    expect(cpDestinations.some((dest) => /\/plugins\/cache\/local\/\.incoming-.*-runtime$/.test(dest))).toBe(true);
+
+    // The shared cache ends with valid manifests at the load paths.
+    await expectCachedManifest('cards');
+    await expectCachedManifest('runtime');
   });
 
-  it('does not depend on fs.rename when concurrent calls stage isolated directories', async () => {
-    const fs = await import('node:fs/promises');
-    const { spawn } = await import('node:child_process');
+  it('populateCodexPluginCache moves each incoming dir into place with an atomic rename', async () => {
+    const { populateCodexPluginCache } = await import('../src/lib/codex-session.js');
 
-    vi.mocked(spawn).mockImplementation((command, args) => {
-      if (command === 'codex' && Array.isArray(args) && args[0] === 'app-server') {
-        return createMockAppServerChild();
-      }
-      throw new Error(`mock: unexpected spawn ${command} ${(args ?? []).join(' ')}`);
-    });
+    await populateCodexPluginCache(codexHome, marketplacePath);
 
-    vi.mocked(fs.access).mockResolvedValue(undefined);
-
-    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
-      const p = toPosix(filePath);
-      if (p.endsWith('/cards/.codex-plugin/plugin.json')) {
-        return JSON.stringify({ name: 'cards' });
-      }
-      if (p.endsWith('/runtime/.codex-plugin/plugin.json')) {
-        return JSON.stringify({ name: 'runtime' });
-      }
-      if (p.endsWith('marketplace.json')) {
-        return JSON.stringify({ name: 'local' });
-      }
-      if (p.endsWith('config.toml')) {
-        return '';
-      }
-      return '';
-    });
-
-    vi.mocked(fs.readdir).mockResolvedValue([]);
-    vi.mocked(fs.mkdir).mockResolvedValue(undefined);
-    vi.mocked(fs.rm).mockResolvedValue(undefined);
-    vi.mocked(fs.cp).mockResolvedValue(undefined);
-    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-    vi.mocked(fs.stat).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
-
-    vi.mocked(fs.rename).mockRejectedValue(
-      Object.assign(new Error('rename should not be used'), { code: 'ENOTEMPTY' })
+    // The final move lands each plugin at plugins/cache/local/<plugin>/local.
+    const renameDestinations = vi.mocked(fs.rename).mock.calls.map((call) => toPosix(call[1]));
+    expect(renameDestinations).toContain(toPosix(path.join(codexHome, 'plugins', 'cache', 'local', 'cards', 'local')));
+    expect(renameDestinations).toContain(
+      toPosix(path.join(codexHome, 'plugins', 'cache', 'local', 'runtime', 'local'))
     );
 
-    const { prepareStagedCodexHome } = await import('../src/lib/codex-session.js');
-
-    const results = await Promise.allSettled([
-      prepareStagedCodexHome('/test/marketplace'),
-      prepareStagedCodexHome('/test/marketplace')
-    ]);
-
-    expect(results[0].status).toBe('fulfilled');
-    expect(results[1].status).toBe('fulfilled');
-    expect(fs.rename).not.toHaveBeenCalled();
+    // The resulting cache dirs contain valid manifests at the load path.
+    await expectCachedManifest('cards');
+    await expectCachedManifest('runtime');
   });
 });

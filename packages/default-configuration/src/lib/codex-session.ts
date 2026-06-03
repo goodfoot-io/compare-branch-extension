@@ -2,7 +2,7 @@
  * Shared session utilities for Codex action workflows.
  *
  * Reuses the existing worktree lifecycle used by Claude-based actions, while
- * staging an extension-managed Codex home before launching the `codex` CLI.
+ * populating the Codex plugin cache before launching the `codex` CLI.
  *
  * @summary Shared session utilities for Codex action workflows
  * @module
@@ -13,15 +13,12 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
-import { createInterface } from 'node:readline';
-import { resolveGlobalCardsConfigDir } from '@cards/sdk';
 import { CARD_REPO_LOG_PATHSPEC_EXCLUSIONS } from '@cards/sdk/client';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import type { ActionContext, ActionInput } from '@cards/sdk/config';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import yaml from 'js-yaml';
-import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
-import { applyCodexConfig } from './applyCodexConfig.js';
+import { stringify as stringifyToml } from 'smol-toml';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
 
@@ -52,27 +49,8 @@ interface CodexPluginMarketplaceManifest {
   name: string;
 }
 
-interface JsonRpcSuccessMessage {
-  id: number;
-  result: unknown;
-}
-
-interface JsonRpcErrorMessage {
-  id: number;
-  error: {
-    message?: string;
-  };
-}
-
-interface JsonRpcNotificationMessage {
-  method: string;
-}
-
-type TomlTable = Record<string, unknown>;
-
 const CODEX_PLUGIN_NAMES = ['cards', 'runtime'] as const;
 const CODEX_PLUGIN_MARKETPLACE = 'local';
-const CODEX_CONFIG_FILE_NAME = 'config.toml';
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
 
@@ -631,15 +609,6 @@ export function resolveDefaultCodexHome(): string {
 }
 
 /**
- * Resolves the Cards-managed staged Codex home.
- *
- * @returns Absolute path to the staged Codex home.
- */
-export function resolveStagedCodexHome(): string {
-  return path.join(resolveGlobalCardsConfigDir(), 'codex');
-}
-
-/**
  * Reads and validates the packaged Codex plugin manifest.
  *
  * @param pluginPath - Absolute path to the packaged Codex plugin directory.
@@ -698,279 +667,98 @@ async function ensureCodexBundleAvailable(marketplacePath: string): Promise<{
   return { bundlePath, pluginPaths };
 }
 
-async function readDirectoryEntries(directoryPath: string): Promise<string[]> {
-  return (await fs.readdir(directoryPath)).sort((left, right) => left.localeCompare(right));
-}
+// Matches codex PLUGINS_CACHE_DIR (store.rs:17,40)
+const CODEX_PLUGINS_CACHE_DIR = 'plugins/cache';
+// Matches codex DEFAULT_PLUGIN_VERSION (store.rs:16)
+const CODEX_PLUGIN_VERSION = 'local';
 
-async function copyDirectoryContents(sourceDir: string, destinationDir: string): Promise<void> {
-  const entries = await readDirectoryEntries(sourceDir);
-  for (const entry of entries) {
-    await fs.cp(path.join(sourceDir, entry), path.join(destinationDir, entry), {
-      force: true,
-      recursive: true
-    });
-  }
-}
-
-async function resolveExistingDirectory(directoryPath: string): Promise<boolean> {
-  try {
-    const stats = await fs.stat(directoryPath);
-    if (!stats.isDirectory()) {
-      throw new Error(`Expected directory at ${directoryPath}`);
-    }
-    return true;
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      return false;
-    }
-    throw error;
-  }
-}
-
-function isJsonRpcSuccessMessage(value: unknown): value is JsonRpcSuccessMessage {
-  return !!value && typeof value === 'object' && 'id' in value && 'result' in value;
-}
-
-function isJsonRpcErrorMessage(value: unknown): value is JsonRpcErrorMessage {
-  return !!value && typeof value === 'object' && 'id' in value && 'error' in value;
-}
-
-function isJsonRpcNotificationMessage(value: unknown): value is JsonRpcNotificationMessage {
-  return !!value && typeof value === 'object' && 'method' in value;
-}
-
-function ensureTomlTable(value: unknown, fieldName: string): TomlTable {
-  if (value === undefined) {
-    return {};
-  }
-
-  if (!value || Array.isArray(value) || typeof value !== 'object') {
-    throw new Error(`Expected TOML table for "${fieldName}"`);
-  }
-
-  return value as TomlTable;
-}
+let cacheInstallCounter = 0;
 
 /**
- * Merges the staged config with the plugin settings required by the bundled marketplace.
+ * Copies each bundled plugin into the codex plugin cache under the resolved
+ * home, making them loadable via `-c plugins."<name>@local".enabled=true`
+ * without touching the user's config.toml.
  *
- * @param stagedCodexHome - Absolute path to the staged Codex home.
- */
-export async function mergeCodexRuntimeConfig(stagedCodexHome: string): Promise<void> {
-  const configPath = path.join(stagedCodexHome, CODEX_CONFIG_FILE_NAME);
-
-  let config: TomlTable = {};
-  try {
-    const rawConfig = await fs.readFile(configPath, 'utf-8');
-    const parsedConfig = parseToml(rawConfig);
-    config = ensureTomlTable(parsedConfig, 'root');
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      config = {};
-    } else {
-      throw error;
-    }
-  }
-
-  const { result } = applyCodexConfig(config, {
-    enablePlugins: ['cards@local', 'runtime@local'],
-    featuresPlugins: true
-  });
-
-  // Keep fs.writeFile (not atomic rename) — the staged CODEX_HOME may sit on
-  // tmpfs/overlay where rename fails.
-  await fs.writeFile(configPath, `${stringifyToml(result)}\n`);
-}
-
-async function installBundledCodexPlugins(stagedCodexHome: string): Promise<void> {
-  const marketplacePath = path.join(stagedCodexHome, '.agents', 'plugins', 'marketplace.json');
-  const child = spawn('codex', ['app-server'], {
-    cwd: stagedCodexHome,
-    env: {
-      ...process.env,
-      CODEX_HOME: stagedCodexHome
-    },
-    stdio: ['pipe', 'pipe', 'pipe']
-  });
-
-  if (!child.stdin || !child.stdout) {
-    child.kill('SIGTERM');
-    throw new Error('Codex app-server did not provide stdio pipes');
-  }
-
-  const stderrLines: string[] = [];
-  child.stderr?.on('data', (chunk: Buffer | string) => {
-    stderrLines.push(chunk.toString());
-  });
-
-  let closeCode: number | null = null;
-  let closeSignal: NodeJS.Signals | null = null;
-  let closeError: Error | null = null;
-  child.once('error', (error) => {
-    closeError = error;
-  });
-  child.once('close', (code, signal) => {
-    closeCode = code;
-    closeSignal = signal;
-  });
-
-  const reader = createInterface({ input: child.stdout });
-  const pendingLines: string[] = [];
-  const pendingResolvers: Array<(line: string) => void> = [];
-
-  reader.on('line', (line) => {
-    const nextResolver = pendingResolvers.shift();
-    if (nextResolver) {
-      nextResolver(line);
-      return;
-    }
-    pendingLines.push(line);
-  });
-
-  function readLine(): Promise<string> {
-    const nextLine = pendingLines.shift();
-    if (nextLine !== undefined) {
-      return Promise.resolve(nextLine);
-    }
-    return new Promise((resolve) => {
-      pendingResolvers.push(resolve);
-    });
-  }
-
-  async function sendJsonRpc(message: Record<string, unknown>): Promise<void> {
-    child.stdin!.write(`${JSON.stringify(message)}\n`);
-  }
-
-  async function readResponse(requestId: number): Promise<void> {
-    while (true) {
-      if (closeError) {
-        throw closeError;
-      }
-      if (closeCode !== null) {
-        throw new Error(
-          `Codex app-server exited before responding to request ${requestId} (code=${closeCode}, signal=${closeSignal ?? 'none'})`
-        );
-      }
-
-      const line = await readLine();
-      const message = JSON.parse(line) as unknown;
-      if (isJsonRpcNotificationMessage(message)) {
-        continue;
-      }
-      if (isJsonRpcSuccessMessage(message) && message.id === requestId) {
-        return;
-      }
-      if (isJsonRpcErrorMessage(message) && message.id === requestId) {
-        throw new Error(message.error.message ?? `Codex app-server request ${requestId} failed`);
-      }
-    }
-  }
-
-  try {
-    await sendJsonRpc({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: {
-        clientInfo: {
-          name: 'cards-codex-launcher',
-          version: '1.0.0'
-        },
-        capabilities: {
-          experimentalApi: true
-        }
-      }
-    });
-    await readResponse(1);
-
-    await sendJsonRpc({
-      jsonrpc: '2.0',
-      method: 'initialized'
-    });
-
-    let requestId = 2;
-    for (const pluginName of CODEX_PLUGIN_NAMES) {
-      await sendJsonRpc({
-        jsonrpc: '2.0',
-        id: requestId,
-        method: 'plugin/install',
-        params: {
-          marketplacePath,
-          pluginName,
-          forceRemoteSync: false
-        }
-      });
-      await readResponse(requestId);
-      requestId++;
-    }
-  } finally {
-    reader.close();
-    child.stdin.end();
-    child.kill('SIGTERM');
-  }
-
-  if (closeError) {
-    throw closeError;
-  }
-}
-
-const STAGED_HOME_PREFIX = 'codex.tmp-';
-let stagingCounter = 0;
-
-async function cleanupStaleStagedHomes(stagingParent: string): Promise<void> {
-  let entries: string[];
-  try {
-    entries = await fs.readdir(stagingParent);
-  } catch {
-    return;
-  }
-
-  const currentPid = String(process.pid);
-  const removals = entries
-    .filter(
-      (entry) =>
-        entry.startsWith(STAGED_HOME_PREFIX) && entry.slice(STAGED_HOME_PREFIX.length).split('-')[0] !== currentPid
-    )
-    .map((entry) => fs.rm(path.join(stagingParent, entry), { recursive: true, force: true }));
-  await Promise.allSettled(removals);
-}
-
-/**
- * Prepares the staged Codex home under the Cards global config directory.
+ * Cache path: `<codexHome>/plugins/cache/local/<pluginName>/local/`
+ * (marketplace=`local`, version segment=`local` per codex DEFAULT_PLUGIN_VERSION)
  *
+ * Errors from mkdir or cp propagate — fail closed.
+ *
+ * @param codexHome - Resolved codex home (`$CODEX_HOME ?? ~/.codex`).
  * @param marketplacePath - Absolute path to the packaged marketplace directory.
- * @returns Staging metadata for logging and spawning.
+ * @returns Bundle path, source plugin paths, and the on-disk cache load paths.
  */
-export async function prepareStagedCodexHome(marketplacePath: string): Promise<{
+export async function populateCodexPluginCache(
+  codexHome: string,
+  marketplacePath: string
+): Promise<{
   bundlePath: string;
   pluginPaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
-  sourceCodexHome: string;
-  stagedCodexHome: string;
+  pluginCachePaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
 }> {
   const { bundlePath, pluginPaths } = await ensureCodexBundleAvailable(marketplacePath);
-  const sourceCodexHome = resolveDefaultCodexHome();
-  const stagingParent = path.dirname(resolveStagedCodexHome());
-  const stagedCodexHome = path.join(stagingParent, `codex.tmp-${process.pid}-${Date.now()}-${stagingCounter++}`);
+  const pluginCachePaths = {} as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
 
-  await fs.mkdir(stagingParent, { recursive: true });
-  await cleanupStaleStagedHomes(stagingParent);
+  // marketplaceDir = plugins/cache/local/ — ONE LEVEL ABOVE plugin_base_root.
+  // Staging dirs are placed here so the version scanner (active_plugin_version,
+  // store.rs:70-91) — which reads only <plugin_base_root>/ — never enumerates them.
+  const marketplaceDir = path.join(codexHome, CODEX_PLUGINS_CACHE_DIR, CODEX_PLUGIN_MARKETPLACE);
+  await fs.mkdir(marketplaceDir, { recursive: true });
 
-  if (await resolveExistingDirectory(sourceCodexHome)) {
-    await fs.cp(sourceCodexHome, stagedCodexHome, { recursive: true });
-  } else {
-    await fs.mkdir(stagedCodexHome, { recursive: true });
+  for (const pluginName of CODEX_PLUGIN_NAMES) {
+    const destDir = path.join(marketplaceDir, pluginName, CODEX_PLUGIN_VERSION);
+    await installPluginToCache(pluginName, marketplaceDir, pluginPaths[pluginName], destDir);
+
+    // Verify manifest is present at the exact load path — fail closed.
+    // An off-by-one in destDir (missing version segment, wrong marketplace)
+    // produces a concrete error here rather than a silent "plugin not installed"
+    // at session startup (Q22 primary detection).
+    await readCodexPluginManifest(destDir, pluginName);
+    pluginCachePaths[pluginName] = destDir;
   }
 
-  await copyDirectoryContents(bundlePath, stagedCodexHome);
-  await mergeCodexRuntimeConfig(stagedCodexHome);
-  await installBundledCodexPlugins(stagedCodexHome);
+  return { bundlePath, pluginPaths, pluginCachePaths };
+}
 
-  return {
-    bundlePath,
-    pluginPaths,
-    sourceCodexHome,
-    stagedCodexHome
-  };
+async function installPluginToCache(
+  pluginName: string,
+  marketplaceDir: string,
+  sourceDir: string,
+  destDir: string
+): Promise<void> {
+  const n = cacheInstallCounter++;
+  // Stage under marketplaceDir (= plugins/cache/local/), NOT inside
+  // plugin_base_root (= plugins/cache/local/<plugin>/).
+  // codex's version scanner reads only plugin_base_root/; dirs under
+  // marketplaceDir are never enumerated as version candidates.
+  const incomingDir = path.join(marketplaceDir, `.incoming-${process.pid}-${n}-${pluginName}`);
+  const outgoingDir = path.join(marketplaceDir, `.outgoing-${process.pid}-${n}-${pluginName}`);
+
+  // 1. Write into temp under marketplaceDir — invisible to version scanner.
+  await fs.mkdir(incomingDir, { recursive: true });
+  await fs.cp(sourceDir, incomingDir, { recursive: true, force: true });
+
+  // 1b. Ensure the plugin-base dir (parent of destDir) exists — fs.rename does
+  //     not create missing parents, so the move into destDir would ENOENT on a
+  //     fresh cache. Creating it empty is harmless: the version scanner finds no
+  //     version candidates until the rename lands the `local` child.
+  await fs.mkdir(path.dirname(destDir), { recursive: true });
+
+  // 2. Step aside the live version dir (if present) — single atomic rename.
+  //    Moves plugins/cache/local/<plugin>/local → marketplaceDir/.outgoing-…
+  try {
+    await fs.rename(destDir, outgoingDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    // destDir did not exist yet — nothing to step aside; continue.
+  }
+
+  // 3. Rename incoming into place — single atomic rename; destDir vacant.
+  //    Moves marketplaceDir/.incoming-… → plugins/cache/local/<plugin>/local
+  await fs.rename(incomingDir, destDir);
+
+  // 4. Best-effort cleanup of the stepped-aside dir (non-fatal).
+  await fs.rm(outgoingDir, { recursive: true, force: true }).catch(() => undefined);
 }
 
 /**
@@ -1006,6 +794,12 @@ export function buildCodexArgs(
   appendSystemPrompt?: string
 ): string[] {
   const args = ['--dangerously-bypass-approvals-and-sandbox', '--cd', workspacePath, '--add-dir', cardRepoPath];
+
+  // Enable bundled plugins at runtime — never persisted to config.toml.
+  // Keys contain no '.' so codex's dotted-path -c parser maps them correctly.
+  args.push('-c', 'features.plugins=true');
+  args.push('-c', 'plugins.cards@local.enabled=true');
+  args.push('-c', 'plugins.runtime@local.enabled=true');
 
   if (appendSystemPrompt !== undefined && appendSystemPrompt.length > 0) {
     args.push('-c', formatDeveloperInstructionsOverride(appendSystemPrompt));
@@ -1053,13 +847,9 @@ export async function spawnCodexSession(
 
   context.logger.info('Using worktree', { cwd, branch: branchName, baseBranch, parentBranch });
 
-  const { bundlePath, pluginPaths, sourceCodexHome, stagedCodexHome } = await prepareStagedCodexHome(marketplacePath);
-  context.logger.info('Prepared staged Codex home', {
-    bundlePath,
-    pluginPaths,
-    sourceCodexHome,
-    stagedCodexHome
-  });
+  const codexHome = resolveDefaultCodexHome();
+  const { bundlePath, pluginPaths, pluginCachePaths } = await populateCodexPluginCache(codexHome, marketplacePath);
+  context.logger.info('Populated Codex plugin cache', { codexHome, bundlePath, pluginPaths, pluginCachePaths });
 
   const additionalContext = buildAdditionalContext(input, cwd, baseBranch, branchName);
   const prompt = buildCodexPrompt(rawPrompt, additionalContext);
@@ -1070,7 +860,7 @@ export async function spawnCodexSession(
     stdio: 'inherit',
     env: {
       ...process.env,
-      CODEX_HOME: stagedCodexHome,
+      CODEX_HOME: codexHome,
       WORKSPACE_PATH: cwd,
       BASE_BRANCH: baseBranch,
       PARENT_BRANCH: parentBranch,
