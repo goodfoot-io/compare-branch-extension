@@ -129,10 +129,12 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
   const marker = await readPendingBind(worktreeDir);
   if (!marker) return postToolUseOutput({});
 
-  // Idempotency: if this session already recorded its sessionId into the
-  // marker, the nudge was already emitted in an earlier EnterWorktree fire
-  // for the same session — do not re-nag.
-  if (marker.sessionId === input.session_id) {
+  // Idempotency: skip only when the marker already carries BOTH this
+  // session's id AND a transcriptPath. A marker that has the sessionId but
+  // no transcriptPath is a partially-recorded state (e.g. written before the
+  // transcript was available) — fall through to re-record and re-nudge so
+  // `card create` can bind rather than staying stuck on a dead-end marker.
+  if (marker.sessionId === input.session_id && marker.transcriptPath) {
     return postToolUseOutput({});
   }
 

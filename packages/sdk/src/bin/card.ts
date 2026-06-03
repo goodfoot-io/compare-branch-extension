@@ -360,19 +360,27 @@ export async function createCard(args: string[]): Promise<void> {
   const raw = await readStdin();
   const { data, inputKeys } = parseCardCreateInput(raw);
   const client = await connectClient(flags['workspace-path']?.[0]);
-  const card = await client.createCard(data);
 
-  const full = card as unknown as Record<string, unknown>;
-
-  // Binding is a deliberate act but still a side effect of `create`: when the
-  // command runs inside an unbound worktree (one carrying a PENDING_BIND
-  // marker), creating the card is the moment that worktree becomes bound to it.
-  // A bind/spawn failure must surface on stderr but never corrupt or suppress
-  // the create-result JSON on stdout, so we await it and swallow nothing here.
-  const createdId = full['id'];
-  if (typeof createdId === 'string' && createdId.length > 0) {
-    await bindCreatedWorktree(client, createdId);
+  // Resolve the pending-bind state BEFORE creating the card. Creating a card is
+  // the moment an unbound worktree (one carrying a `.cards/PENDING_BIND` marker)
+  // becomes bound to it — but binding is fail-closed: it requires a same-session
+  // transcript. If the gate would refuse, we must NOT mint a card, or the
+  // printed recovery ("re-enter, run `card create` again") would orphan the
+  // first card and bind to a second on retry. So the gate runs first.
+  const bindContext = await resolvePendingBind();
+  if (bindContext.kind === 'refuse') {
+    // Fail-closed: no card is created on a refusal, so a retry creates+binds
+    // atomically with no duplicate. Diagnostic only; stdout stays empty.
+    console.error(
+      'card create: refusing to bind worktree — no same-session transcript recorded in PENDING_BIND. ' +
+        'Re-enter the worktree via the EnterWorktree tool so the hook can record a same-session transcript, then run `card create` again.'
+    );
+    process.exitCode = 1;
+    return;
   }
+
+  const card = await client.createCard(data);
+  const full = card as unknown as Record<string, unknown>;
 
   const filtered: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(full)) {
@@ -381,71 +389,131 @@ export async function createCard(args: string[]): Promise<void> {
     }
   }
   console.log(formatOutput(filtered, flags['jsonpath']?.[0]));
+
+  // The gate already passed; bind + spawn does not re-run it. A bind/spawn
+  // failure surfaces on stderr but never corrupts the create-result JSON above.
+  if (bindContext.kind === 'bind') {
+    const createdId = full['id'];
+    if (typeof createdId === 'string' && createdId.length > 0) {
+      await bindCreatedWorktree(client, createdId, bindContext);
+    }
+  }
 }
 
 /**
- * Binds the worktree `card create` is running inside to the newly-created card.
+ * Outcome of resolving the pending-bind state for the current `card create`.
  *
- * This is the moment an unbound worktree (one carrying a `.cards/PENDING_BIND`
- * marker) becomes bound: the branch link is recorded, `.cards/CARD_ID` is
- * written, the marker is cleared, and transcript streaming + active status
- * begin. The steps:
+ * - `none` — not inside an eligible unbound worktree (no marker found, or the
+ *   marker file failed fail-closed parsing). The card is created untracked.
+ * - `refuse` — a marker was found but the fail-closed gate denied it (no
+ *   same-session transcript). The card must NOT be created.
+ * - `bind` — the gate passed; the resolved worktree + marker + binder session
+ *   are carried forward so {@link bindCreatedWorktree} can bind and spawn.
+ */
+type PendingBindContext =
+  | { kind: 'none' }
+  | { kind: 'refuse' }
+  | { kind: 'bind'; worktreeDir: string; parentBranch: string; transcriptPath: string; sessionId: string };
+
+/**
+ * Resolves the pending-bind state for the worktree `card create` runs inside,
+ * applying the fail-closed same-session-transcript gate WITHOUT creating a card.
  *
  * 1. Bounded walk-up from `process.cwd()` for a `.cards/PENDING_BIND` marker.
- *    No marker → an untracked planning card; skip binding entirely.
+ *    No marker (or a marker that failed fail-closed parsing) → `none`: an
+ *    untracked planning card, no bind.
  * 2. Fail-closed gate: the marker must carry a `transcriptPath`, and its
  *    recorded `sessionId` must match the binder's own resolved session. A
  *    same-session transcript is required for streaming; if it cannot be
- *    obtained, refuse to spawn-bind and tell the operator to re-enter the
- *    worktree via the EnterWorktree tool (so the hook records a fresh
- *    transcript). This is a deliberate no-bind, not an error.
- * 3. {@link bindWorktreeToCard} records the branch under a worktree-path-keyed
- *    lock, then {@link spawnAdhocAttribution} starts the watcher using the
- *    BINDER's own resolved session for watcherId / lock / PID — the marker's
- *    `sessionId` is only a transcript validation tag.
+ *    obtained → `refuse`, so the caller declines to create a card and instructs
+ *    the operator to re-enter the worktree via the EnterWorktree tool.
+ * 3. Otherwise → `bind`, carrying the worktree dir, parent branch, transcript,
+ *    and the BINDER's own resolved session forward.
  *
- * A bind/spawn failure is reported to stderr but never propagates: the create
- * result must remain the sole stdout payload regardless of binding outcome.
- *
- * @param client - Connected CardsClient used to register the branch record.
- * @param cardId - The newly-created card's identifier.
+ * @returns The resolved pending-bind context.
  */
-async function bindCreatedWorktree(client: CardsClient, cardId: string): Promise<void> {
+async function resolvePendingBind(): Promise<PendingBindContext> {
   const worktreeDir = findPendingBindWorktreeDir(process.cwd());
   if (!worktreeDir) {
     // No marker — this is an untracked planning card created outside an unbound
     // worktree. Nothing to bind.
-    return;
+    return { kind: 'none' };
   }
 
   const marker = await readPendingBind(worktreeDir);
   if (!marker) {
     // The walk-up found a marker file but it failed fail-closed parsing
     // (malformed / wrong version). Treat as no usable marker.
-    return;
+    return { kind: 'none' };
   }
 
   const sessionId = await resolveSessionId();
 
   // Fail-closed gate: a bind that cannot obtain a same-session transcript must
-  // refuse to spawn-bind silently. The marker must carry a transcriptPath
-  // recorded by EnterWorktree, and its sessionId must match the binder's own
-  // session — otherwise the transcript belongs to a different session and would
-  // stream the wrong agent's work.
-  if (!marker.transcriptPath || marker.sessionId !== sessionId || sessionId === null) {
-    console.error(
-      'card create: refusing to bind worktree — no same-session transcript recorded in PENDING_BIND. ' +
-        'Re-enter the worktree via the EnterWorktree tool so the hook can record a same-session transcript, then run `card create` again.'
-    );
-    return;
+  // refuse. The marker must carry a transcriptPath recorded by EnterWorktree,
+  // and its sessionId must match the binder's own session — otherwise the
+  // transcript belongs to a different session and would stream the wrong
+  // agent's work.
+  if (!marker.transcriptPath || sessionId === null || marker.sessionId !== sessionId) {
+    return { kind: 'refuse' };
   }
 
+  return {
+    kind: 'bind',
+    worktreeDir,
+    parentBranch: marker.parentBranch,
+    transcriptPath: marker.transcriptPath,
+    sessionId
+  };
+}
+
+/**
+ * Binds the worktree `card create` is running inside to the newly-created card,
+ * then spawns transcript attribution. Called only after the fail-closed gate in
+ * {@link resolvePendingBind} has passed, so it does NOT re-run the gate.
+ *
+ * {@link bindWorktreeToCard} returns `'bound'` when it actually wrote
+ * `.cards/CARD_ID`, registered the branch, and cleared the marker; it returns
+ * `'already-bound'` when the worktree was already bound to a DIFFERENT card (it
+ * cleared the stale marker and did NOT register this card's branch). Attribution
+ * is spawned ONLY on `'bound'` — an `'already-bound'` worktree belongs to
+ * another card, so the freshly-created card is left untracked/not-activated and
+ * a stderr diagnostic explains why.
+ *
+ * The watcher uses the BINDER's own resolved session for watcherId / lock / PID
+ * — the marker's `sessionId` is only a transcript validation tag.
+ *
+ * A bind/spawn failure is reported to stderr but never propagates: the create
+ * result must remain the sole stdout payload regardless of binding outcome.
+ *
+ * @param client - Connected CardsClient used to register the branch record.
+ * @param cardId - The newly-created card's identifier.
+ * @param context - The gate-passed pending-bind context.
+ */
+async function bindCreatedWorktree(
+  client: CardsClient,
+  cardId: string,
+  context: Extract<PendingBindContext, { kind: 'bind' }>
+): Promise<void> {
+  const { worktreeDir, parentBranch, transcriptPath, sessionId } = context;
   try {
-    await bindWorktreeToCard(client, worktreeDir, {
+    // bindWorktreeToCard reports whether it actually bound this worktree
+    // (`'bound'`) or merely reconciled a worktree already bound to a different
+    // card (`'already-bound'`). The reconciliation outcome drives whether
+    // attribution is spawned.
+    const result = await bindWorktreeToCard(client, worktreeDir, {
       cardId,
-      parentBranch: marker.parentBranch,
+      parentBranch,
       sessionId
     });
+
+    if (result === 'already-bound') {
+      console.error(
+        `card create: worktree ${worktreeDir} is already bound to another card — ` +
+          `the newly-created card ${cardId} was left untracked and not activated.`
+      );
+      return;
+    }
 
     const cardRepoPath = await resolveCardRepoPath(cardId, stderrLogger);
     if (!cardRepoPath) {
@@ -460,10 +528,7 @@ async function bindCreatedWorktree(client: CardsClient, cardId: string): Promise
     }
 
     const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${sessionId}.lock`);
-    await spawnAdhocAttribution(
-      { agentPid, sessionId, transcriptPath: marker.transcriptPath, cardId, cardRepoPath, lockPath },
-      stderrLogger
-    );
+    await spawnAdhocAttribution({ agentPid, sessionId, transcriptPath, cardId, cardRepoPath, lockPath }, stderrLogger);
   } catch (error) {
     console.error('card create: failed to bind worktree to card:', error instanceof Error ? error.message : error);
   }

@@ -707,6 +707,31 @@ export async function clearCardBoundFile(worktreeDir: string): Promise<void> {
 }
 
 /**
+ * Appends entries to a worktree's git `info/exclude` so they are hidden from
+ * `git status` and never staged.
+ *
+ * Resolves the worktree's git-dir via `git -C <worktreeDir> rev-parse
+ * --git-dir`, ensures `<git-dir>/info/` exists, and appends each entry on its
+ * own line. Used to exclude per-worktree binding markers (e.g.
+ * `.cards/CARD_ID`) written after worktree creation — the unbound creation path
+ * only excludes `.cards/PENDING_BIND`, so a later bind must exclude the marker
+ * it writes. Fail-closed: a git-dir resolution failure propagates.
+ *
+ * @param worktreeDir - Absolute worktree root.
+ * @param entries - Exclude patterns to append (each on its own line).
+ */
+export async function appendWorktreeGitExcludes(worktreeDir: string, entries: readonly string[]): Promise<void> {
+  if (entries.length === 0) return;
+
+  const { stdout: gitDir } = await execFileAsync('git', ['-C', worktreeDir, 'rev-parse', '--git-dir'], {
+    timeout: 5_000
+  });
+  const excludePath = path.join(gitDir.trim(), 'info', 'exclude');
+  await fs.mkdir(path.dirname(excludePath), { recursive: true });
+  await fs.appendFile(excludePath, `${entries.join('\n')}\n`);
+}
+
+/**
  * Resolves the user's home directory.
  *
  * Prefers `$HOME` so the resolution matches the dispatcher's own

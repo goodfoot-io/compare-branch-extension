@@ -305,8 +305,9 @@ describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
     expect(getAdditionalContext(result)).toBeUndefined();
   });
 
-  it('idempotency: second entry in the same session does not re-nudge', async () => {
-    // Marker already records this session's id.
+  it('idempotency: second entry in the same session does not re-nudge (sessionId + transcriptPath both present)', async () => {
+    // Marker already records this session's id AND a transcriptPath — fully
+    // recorded state — so the hook should no-op without re-writing or re-nudging.
     mocks.readPendingBind.mockResolvedValue({
       version: 1,
       parentBranch: 'main',
@@ -333,6 +334,42 @@ describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
     expect(mocks.writePendingBind).not.toHaveBeenCalled();
     // No nudge emitted.
     expect(getAdditionalContext(result)).toBeUndefined();
+  });
+
+  it('self-heal: same session but no transcriptPath in marker → re-records and re-nudges', async () => {
+    // Marker carries this session's id but NO transcriptPath — partial state
+    // that must be healed so `card create` can bind.
+    mocks.readPendingBind.mockResolvedValue({
+      version: 1,
+      parentBranch: 'main',
+      sessionId: 'session-abc'
+      // transcriptPath intentionally absent
+    });
+    mocks.writePendingBind.mockResolvedValue(undefined);
+    await mkdir(join(tmp, '.cards'), { recursive: true });
+    await writeFile(
+      join(tmp, '.cards', 'PENDING_BIND'),
+      JSON.stringify({ version: 1, parentBranch: 'main', sessionId: 'session-abc' })
+    );
+
+    const hook = await importHook();
+    const input = makeInput({ cwd: tmp, session_id: 'session-abc', transcript_path: '/tmp/t/abc.jsonl' });
+    const result = await hook(input, { logger: mockLogger });
+
+    // writePendingBind must be called with transcriptPath filled in.
+    expect(mocks.writePendingBind).toHaveBeenCalledOnce();
+    const [, written] = mocks.writePendingBind.mock.calls[0]!;
+    expect(written).toMatchObject({
+      version: 1,
+      parentBranch: 'main',
+      sessionId: 'session-abc',
+      transcriptPath: '/tmp/t/abc.jsonl'
+    });
+
+    // Nudge emitted so the agent is prompted to run `card create`.
+    const ctx = getAdditionalContext(result);
+    expect(typeof ctx).toBe('string');
+    expect(ctx).toMatch(/card create/);
   });
 
   it('no-ops when readPendingBind returns null (malformed marker)', async () => {

@@ -5,7 +5,8 @@
   "main": "./src/card-repo.ts",
   "types": "./src/card-repo.ts",
   "exports": {
-    "./card-repo": "./src/card-repo.ts"
+    "./card-repo": "./src/card-repo.ts",
+    "./internal": "./src/internal.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit",
