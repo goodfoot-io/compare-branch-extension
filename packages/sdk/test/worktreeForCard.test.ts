@@ -609,4 +609,28 @@ describe('bindWorktreeToCard', () => {
     // pair completed before the next began — not interleaved.
     expect(callOrder).toEqual(['writeCardBoundFile', 'addBranch', 'writeCardBoundFile', 'addBranch']);
   });
+
+  it('appendWorktreeGitExcludes failure: still returns bound, clears PENDING_BIND, and addBranch was called', async () => {
+    // Simulate a transient git/fs error in the display-only exclude step.
+    vi.mocked(appendWorktreeGitExcludes).mockRejectedValue(new Error('git rev-parse hiccup'));
+
+    const addBranchArgs: Parameters<CardsClient['addBranch']>[] = [];
+    const client = makeClient({
+      addBranch: async (...args) => {
+        addBranchArgs.push(args as Parameters<CardsClient['addBranch']>);
+      }
+    });
+
+    // The exclude failure must not propagate — the bind is already durable.
+    const outcome = await bindWorktreeToCard(client, WORKTREE_DIR, BIND_OPTIONS);
+    expect(outcome).toBe('bound');
+
+    // The durable bind step (addBranch) ran exactly once.
+    expect(addBranchArgs).toHaveLength(1);
+
+    // The PENDING_BIND marker was cleared despite the exclude failure (reorder
+    // ensures clearPendingBind runs before appendWorktreeGitExcludes).
+    expect(clearPendingBind).toHaveBeenCalledOnce();
+    expect(clearPendingBind).toHaveBeenCalledWith(WORKTREE_DIR);
+  });
 });

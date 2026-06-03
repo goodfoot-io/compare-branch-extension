@@ -315,13 +315,26 @@ export async function bindWorktreeToCard(
       throw addBranchError;
     }
 
-    // Step 4 — Exclude the CARD_ID marker from the worktree's git status. The
+    // Step 4 — Clear the PENDING_BIND marker now that the branch is registered.
+    // This runs before the git-exclude step so that a transient fs/git hiccup
+    // in the display-only exclude cannot strand the both-markers state.
+    await clearPendingBind(worktreeDir);
+
+    // Step 5 — Exclude the CARD_ID marker from the worktree's git status. The
     // unbound creation path only excluded PENDING_BIND, so the CARD_ID this
     // bind just wrote would otherwise show as untracked and committable.
-    await appendWorktreeGitExcludes(worktreeDir, ['.cards/CARD_ID']);
+    // This step is display-only (not attribution-critical): if it throws, log
+    // the failure to stderr and continue — the bind is already durable.
+    try {
+      await appendWorktreeGitExcludes(worktreeDir, ['.cards/CARD_ID']);
+    } catch (excludeError) {
+      process.stderr.write(
+        `bindWorktreeToCard: failed to add .cards/CARD_ID to git info/exclude (display-only; bind succeeded): ${
+          excludeError instanceof Error ? excludeError.message : String(excludeError)
+        }\n`
+      );
+    }
 
-    // Step 5 — Clear the PENDING_BIND marker now that the branch is registered.
-    await clearPendingBind(worktreeDir);
     return 'bound';
   } finally {
     releaseLock(lockPath);
