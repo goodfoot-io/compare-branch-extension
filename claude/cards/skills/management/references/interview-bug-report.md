@@ -54,6 +54,7 @@ When the destination is clear, write the opening paragraph as a summary of what 
 - No fixes. No code, no remediation, no test stubs.
 - Never ask the user to look something up. If it is recoverable by Glob/Grep/Read/git, find it yourself.
 - Do not ask the user how the bug currently affects them or to rate its severity — current-impact questions yield answers that are neither actionable nor relevant to the resolution. Derive impact and blast radius from the reproduction and the affected code path instead.
+- Ask only for the expected observable behavior, never for the resolution. Do not ask the user where the fix should live, which component to change, or which mechanism resolves the defect — the reporter supplies the symptom; choosing the fix is a later step.
 - Report failing tests or broken builds you encounter during research in the card; do not remediate.
 
 ## 6. Finalize
