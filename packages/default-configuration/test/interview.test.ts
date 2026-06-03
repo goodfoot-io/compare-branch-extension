@@ -706,7 +706,7 @@ describe('Default Actions', () => {
 
       it.each([
         ['codex (pre-rename sentinel)', 'codex'],
-        ['gemini (unknown agent)', 'gemini'],
+        ['gemini-cli (removed harness)', 'gemini-cli'],
         ['claude (agent id not env value)', 'claude'],
         ['CLAUDE-CODE-CLI (wrong case)', 'CLAUDE-CODE-CLI']
       ])('rejects %s with a cards.defaultCodingAgent error and does not spawn', async (_label, codingAgent) => {

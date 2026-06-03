@@ -26,12 +26,11 @@ import { type ActionContext, type ActionInput, defineAction } from '@cards/sdk/c
 import { spawnClaudeSession } from '../lib/claude-session.js';
 import { spawnCodexSession } from '../lib/codex-session.js';
 import { resolveCodingAgent } from '../lib/coding-agent.js';
-import { spawnGeminiSession } from '../lib/gemini-session.js';
 
 /**
  * Interview action handler.
  *
- * Spawns either the `claude`, `codex`, or `gemini` CLI as a child process using the
+ * Spawns either the `claude` or `codex` CLI as a child process using the
  * corresponding interview-routing skill, selected by `input.codingAgent`.
  * The process lifecycle is tied to the action: cancellation sends SIGTERM.
  * Session resume is not supported — each interview always starts fresh.
@@ -49,15 +48,6 @@ export default defineAction(
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {
         prompt: 'Load the `$interview` skill and follow the `<routing-instructions>`.'
-      });
-      return;
-    }
-
-    if (agent === 'gemini-cli') {
-      await spawnGeminiSession(input, context, {
-        prompt: 'Load the `runtime:interview` skill and follow the `<routing-instructions>`.',
-        sessionId: randomUUID(),
-        resume: false
       });
       return;
     }
