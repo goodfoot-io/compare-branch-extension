@@ -4,23 +4,20 @@
  * @summary Tests for the SessionStart hook
  */
 
-import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { findAgentPid } from '@cards/sdk/process-tree';
-import { writeSessionHeadSha } from '@cards/sessions/card-repo';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { Logger } from '@goodfoot/codex-hooks';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import hook, { resolveHeadSha } from '../src/session-start.js';
+import hook from '../src/session-start.js';
 
 const mockFindClaudePid = vi.mocked(findAgentPid);
-const mockWriteSessionHeadSha = vi.mocked(writeSessionHeadSha);
 
 vi.mock('node:child_process', async (importOriginal) => ({
   ...(await importOriginal<typeof import('node:child_process')>()),
-  execFileSync: vi.fn(),
   spawn: vi.fn(() => ({ unref: vi.fn(), on: vi.fn() })),
   spawnSync: vi.fn(() => ({ status: 0 }))
 }));
@@ -76,35 +73,6 @@ afterAll(() => {
   testRepo.destroy();
 });
 
-describe('resolveHeadSha', () => {
-  let realExecFileSync: typeof execFileSync;
-
-  beforeAll(async () => {
-    const real = await vi.importActual<typeof import('node:child_process')>('node:child_process');
-    realExecFileSync = real.execFileSync;
-  });
-
-  beforeEach(() => {
-    vi.mocked(execFileSync).mockImplementation(realExecFileSync as typeof execFileSync);
-  });
-
-  afterEach(() => {
-    vi.mocked(execFileSync).mockReset();
-  });
-
-  it('returns trimmed sha on success', async () => {
-    const sha = resolveHeadSha(repoPath);
-    const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
-
-    expect(sha).toBe(expectedSha);
-    expect(sha).toMatch(/^[0-9a-f]{40}$/);
-  });
-
-  it('returns null when git command fails', () => {
-    expect(resolveHeadSha('/tmp/not-a-repo')).toBeNull();
-  });
-});
-
 describe('SessionStart Hook', () => {
   it('exports a valid hook function', () => {
     expect(hook).toBeDefined();
@@ -120,7 +88,6 @@ describe('SessionStart Hook', () => {
     let ACTION_ENV: Record<string, string>;
 
     beforeEach(async () => {
-      // Get the real HEAD SHA for assertions
       ACTION_ENV = {
         CARD_ID: 'card-123',
         ACTION_NAME: 'Launch Claude',
@@ -144,9 +111,7 @@ describe('SessionStart Hook', () => {
       for (const key of Object.keys(ACTION_ENV)) {
         delete process.env[key];
       }
-      vi.mocked(execFileSync).mockReset();
       mockFindClaudePid.mockReset();
-      mockWriteSessionHeadSha.mockReset();
       // Restore child_process mock defaults so a test that overrides spawn/
       // spawnSync (or one that fails an assertion before its own cleanup) does
       // not leak readiness/spawn state into subsequent tests.
@@ -162,8 +127,6 @@ describe('SessionStart Hook', () => {
 
     it('returns XML context blocks in additionalContext', async () => {
       mockFindClaudePid.mockReturnValue(42);
-      const realSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
-      vi.mocked(execFileSync).mockReturnValue(`${realSha}\n`);
       const mockInput = {} as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -190,46 +153,8 @@ describe('SessionStart Hook', () => {
       expect(additional).toBe(stdout.systemMessage);
     });
 
-    it('persists git HEAD sha via writeSessionHeadSha', async () => {
-      mockFindClaudePid.mockReturnValue(42);
-      const expectedSha = (await testRepo.getGit().revparse(['HEAD'])).trim();
-      vi.mocked(execFileSync).mockReturnValue(`${expectedSha}\n`);
-      const mockInput = { session_id: 'sess-sha' } as Parameters<typeof hook>[0];
-      const context = { logger };
-
-      await hook(mockInput, context);
-
-      expect(mockWriteSessionHeadSha).toHaveBeenCalledWith('sess-sha', expectedSha);
-    });
-
-    it('does not call writeSessionHeadSha when git fails', async () => {
-      mockFindClaudePid.mockReturnValue(42);
-      // Use a real directory that exists but is not a git repo
-      const tmpDir = join(repoPath, '..', `no-git-${Date.now()}`);
-      mkdirSync(tmpDir, { recursive: true });
-      writeFileSync(
-        join(tmpDir, 'CARD.meta.json'),
-        JSON.stringify({
-          id: 'card-123',
-          title: 'Test',
-          status: 'active',
-          gates: { planRequired: false, planApproved: false, mergeRequestRequired: false, mergeApproved: false }
-        })
-      );
-      process.env['CARD_REPO_PATH'] = tmpDir;
-      const mockInput = {} as Parameters<typeof hook>[0];
-      const context = { logger };
-
-      const result = await hook(mockInput, context);
-
-      expect(mockWriteSessionHeadSha).not.toHaveBeenCalled();
-      const stdout = (result as { stdout: { systemMessage?: string } }).stdout;
-      expect(stdout.systemMessage).not.toContain('HEAD:');
-    });
-
     it('calls findAgentPid when inside action subprocess', async () => {
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
         typeof hook
       >[0];
@@ -243,7 +168,6 @@ describe('SessionStart Hook', () => {
     it('warns and continues when findAgentPid returns null (PID-keyed entry is best-effort)', async () => {
       const warnSpy = vi.spyOn(logger, 'warn');
       mockFindClaudePid.mockReturnValue(null);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
         typeof hook
       >[0];
@@ -273,9 +197,37 @@ describe('SessionStart Hook', () => {
       warnSpy.mockRestore();
     });
 
+    it('does not spawn the transcript watcher when transcript_path is null', async () => {
+      mockFindClaudePid.mockReturnValue(42);
+      const warnSpy = vi.spyOn(logger, 'warn');
+      // transcript_path is absent (null / undefined) — watcher guard is false
+      const mockInput = { session_id: 'sess-no-transcript' } as Parameters<typeof hook>[0];
+      const context = { logger };
+
+      const result = await hook(mockInput, context);
+
+      // Hook must succeed — no throw, normal SessionStart output
+      expect(result).toHaveProperty('_type', 'SessionStart');
+      const stdout = (result as { stdout: { continue?: boolean; stopReason?: string } }).stdout;
+      expect(stdout.continue).not.toBe(false);
+      expect(stdout.stopReason).toBeUndefined();
+
+      // Watcher must NOT be spawned
+      expect(vi.mocked(spawn)).not.toHaveBeenCalled();
+
+      // A warning must be emitted explaining why the watcher was skipped
+      const warnMatch = warnSpy.mock.calls.find(
+        ([msg]) => typeof msg === 'string' && /agent PID|transcript watcher/i.test(msg)
+      );
+      expect(
+        warnMatch,
+        `expected a warn about skipped watcher; got: ${JSON.stringify(warnSpy.mock.calls)}`
+      ).toBeDefined();
+      warnSpy.mockRestore();
+    });
+
     it('spawns transcript watcher with correct args', async () => {
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
         typeof hook
       >[0];
@@ -298,7 +250,6 @@ describe('SessionStart Hook', () => {
     it('spawns transcript-watcher by absolute path under the cards plugin bin, not a bare PATH name', async () => {
       vi.mocked(spawn).mockClear();
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-abs', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
         typeof hook
       >[0];
@@ -327,7 +278,6 @@ describe('SessionStart Hook', () => {
       vi.mocked(existsSync).mockReturnValue(false);
       const infoSpy = vi.spyOn(logger, 'info');
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-skip', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
         typeof hook
       >[0];
@@ -348,7 +298,6 @@ describe('SessionStart Hook', () => {
 
     it('spawns the resolved watcher path with the positional arg list in order', async () => {
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
         typeof hook
       >[0];
@@ -369,7 +318,6 @@ describe('SessionStart Hook', () => {
       vi.mocked(spawn).mockReturnValue(emitter as unknown as ReturnType<typeof spawn>);
       const errorSpy = vi.spyOn(logger, 'error');
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-err', transcript_path: '/tmp/t.jsonl' } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -398,7 +346,6 @@ describe('SessionStart Hook', () => {
       vi.mocked(existsSync).mockReturnValue(false);
       const errorSpy = vi.spyOn(logger, 'error');
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-r', transcript_path: '/tmp/t.jsonl' } as Parameters<typeof hook>[0];
       const context = { logger };
 
@@ -421,7 +368,6 @@ describe('SessionStart Hook', () => {
         throw new Error('spawn failed');
       });
       mockFindClaudePid.mockReturnValue(42);
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123', transcript_path: '/tmp/transcript.jsonl' } as Parameters<
         typeof hook
       >[0];
@@ -435,7 +381,6 @@ describe('SessionStart Hook', () => {
     it('returns continue:false with stopReason when card repo is inaccessible', async () => {
       mockFindClaudePid.mockReturnValue(42);
       process.env['CARD_REPO_PATH'] = '/tmp/does-not-exist-xyz-123';
-      vi.mocked(execFileSync).mockReturnValue('abc123\n');
       const mockInput = { session_id: 'sess-123' } as Parameters<typeof hook>[0];
       const context = { logger };
 

@@ -8,13 +8,11 @@
  * @summary SessionStart hook implementation
  */
 
-import { execFileSync } from 'node:child_process';
 import { runReconciliationSweep } from '@cards/sdk/bin/adhoc-refs';
 import { resolveTranscriptWatcher, spawnTranscriptWatcher } from '@cards/sdk/bin/spawn-transcript-watcher';
 import type { ActionInput } from '@cards/sdk/config';
 import { extractActionInput } from '@cards/sdk/config';
 import { findAgentPid } from '@cards/sdk/process-tree';
-import { writeSessionHeadSha } from '@cards/sessions/card-repo';
 import { sessionStartHook, sessionStartOutput } from '@goodfoot/codex-hooks';
 import {
   buildAdditionalContext,
@@ -25,29 +23,6 @@ import {
 } from './lib/context.js';
 
 export { buildCardRepoLogBlock, buildEnvBlock, buildWorkspaceRepoLogBlocks, CardRepoAccessError };
-
-/**
- * Resolves the git HEAD sha for a repository path.
- *
- * Returns `null` when the path is not a git repository or git is
- * unavailable. Intentionally fails open so hook failures do not block
- * the agent.
- *
- * @param repoPath - Repository directory where `git rev-parse HEAD` should run.
- * @returns Current `HEAD` SHA, or `null` when unavailable.
- */
-export function resolveHeadSha(repoPath: string): string | null {
-  try {
-    return execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Spawns the transcript watcher for the agent process.
@@ -111,22 +86,16 @@ export default sessionStartHook({}, async (input, { logger }) => {
     });
   }
 
-  const headSha = resolveHeadSha(actionInput.cardRepoPath);
-  if (headSha) {
-    writeSessionHeadSha(input.session_id, headSha);
-    logger.info('Stored git HEAD sha', { headSha, repoPath: actionInput.cardRepoPath });
-  } else {
-    logger.warn('Could not resolve git HEAD sha', { repoPath: actionInput.cardRepoPath });
-  }
-
   const agentPid = findAgentPid();
   if (agentPid && input.transcript_path) {
     spawnWatcher(agentPid, input.session_id, input.transcript_path, actionInput, logger);
   } else {
-    // Card identity is already known via actionInput.cardId, and workspace commit
-    // attribution now resolves the card via resolveCardId (worktree-file only)
-    // independent of the PID. The PID only feeds best-effort transcript watching;
-    // its absence is a warning, not a fatal.
+    // The PID only feeds best-effort transcript watching; its absence is a warning, not a fatal.
+    // When the watcher does not spawn (null agentPid or null transcript_path), the route-nudge
+    // marker written later by stop-route-nudge.ts for this session will not be cleaned up. This
+    // is a bounded, harmless leak: the marker is an empty file keyed by a dead session id with
+    // zero behavioral impact on future sessions. It is accepted because there is no SessionEnd
+    // event on Codex, and a reaper's age-gating would risk deleting live sessions' artifacts.
     logger.warn('Could not identify agent PID; transcript watcher disabled', {
       sessionId: input.session_id,
       ppid: process.ppid,
