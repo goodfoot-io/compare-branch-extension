@@ -20,6 +20,7 @@ import { watch } from 'node:fs';
 import { access, appendFile, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { createWatcher } from '../config/watcher/createWatcher.js';
 import { isProcessAlive } from './process-utils.js';
 
@@ -528,7 +529,40 @@ export async function main(): Promise<void> {
     }
 
     ctx.logger.info(`Watcher completed for session ${sessionId}`);
+    await cleanupSessionArtifacts(sessionId, warnFn);
   }).then((w) => w.run());
+}
+
+/**
+ * Removes per-session artifact files written during the session lifecycle.
+ *
+ * Called unconditionally at the end of every watcher run so that both Claude
+ * (which also removes these in session-end.ts) and Codex (which has no
+ * SessionEnd hook) clean up. Each removal is independent and best-effort:
+ * a failure in one does not prevent the others, and errors are surfaced as
+ * warnings rather than thrown.
+ *
+ * @param sessionId - Session whose artifacts should be removed.
+ * @param warnFn - Warning logger used to surface individual removal failures.
+ */
+export async function cleanupSessionArtifacts(sessionId: string, warnFn: (msg: string) => void): Promise<void> {
+  try {
+    removeSessionHeadSha(sessionId);
+  } catch (error) {
+    warnFn(`cleanupSessionArtifacts: removeSessionHeadSha failed: ${String(error)}`);
+  }
+
+  try {
+    removeSessionCsv(sessionId);
+  } catch (error) {
+    warnFn(`cleanupSessionArtifacts: removeSessionCsv failed: ${String(error)}`);
+  }
+
+  try {
+    removeSessionRouteNudge(sessionId);
+  } catch (error) {
+    warnFn(`cleanupSessionArtifacts: removeSessionRouteNudge failed: ${String(error)}`);
+  }
 }
 
 if (process.argv[1]?.endsWith('transcript-watcher.mjs') || process.argv[1]?.endsWith('transcript-watcher.ts')) {

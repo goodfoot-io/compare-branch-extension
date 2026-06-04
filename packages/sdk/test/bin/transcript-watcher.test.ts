@@ -8,6 +8,10 @@
  * createWatcher tests plus the existing sentinel-coordination integration
  * test in the hooks-runtime package.
  *
+ * cleanupSessionArtifacts is also covered here: all three removeSession*
+ * functions are invoked on completion, and a failure in one does not prevent
+ * the others from running or throw out of the cleanup path.
+ *
  * @summary Regression tests for the SDK-hosted transcript watcher helpers
  */
 
@@ -25,8 +29,27 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, execFileSync: (...args: unknown[]) => mockExecFileSync(...args) };
 });
 
+// Mock @cards/sessions/card-repo so the cleanup tests remain unit-level and
+// do not touch the real ~/.cards/card-repo-commits directory.
+const mockRemoveSessionHeadSha = vi.fn<(sessionId: string) => void>();
+const mockRemoveSessionCsv = vi.fn<(sessionId: string) => void>();
+const mockRemoveSessionRouteNudge = vi.fn<(sessionId: string) => void>();
+vi.mock('@cards/sessions/card-repo', () => ({
+  removeSessionHeadSha: (sessionId: string) => mockRemoveSessionHeadSha(sessionId),
+  removeSessionCsv: (sessionId: string) => mockRemoveSessionCsv(sessionId),
+  removeSessionRouteNudge: (sessionId: string) => mockRemoveSessionRouteNudge(sessionId),
+  // Pass-through for any other exports used by the module under test.
+  appendCommitToSession: vi.fn(),
+  getSessionCommits: vi.fn(() => []),
+  readSessionHeadSha: vi.fn(() => null),
+  writeSessionHeadSha: vi.fn(),
+  markSessionRouteNudgeFired: vi.fn(),
+  hasSessionRouteNudgeFired: vi.fn(() => false)
+}));
+
 import {
   buildSidecarMeta,
+  cleanupSessionArtifacts,
   ensureGitignoreEntry,
   isProcessAlive,
   MAX_LIFETIME_MS,
@@ -212,5 +235,66 @@ describe('MAX_LIFETIME_MS / PERIODIC_CHECK_INTERVAL_MS ordering', () => {
     // Guards against accidental swap of the two constants — a swap would make
     // the watcher exit in ~24ms instead of 24h, or poll every 24h.
     expect(MAX_LIFETIME_MS).toBeGreaterThan(PERIODIC_CHECK_INTERVAL_MS);
+  });
+});
+
+describe('cleanupSessionArtifacts', () => {
+  const SESSION_ID = 'cleanup-test-session-id';
+
+  beforeEach(() => {
+    mockRemoveSessionHeadSha.mockReset();
+    mockRemoveSessionCsv.mockReset();
+    mockRemoveSessionRouteNudge.mockReset();
+  });
+
+  it('invokes all three removeSession* functions with the session id', async () => {
+    const warnings: string[] = [];
+    await cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg));
+
+    expect(mockRemoveSessionHeadSha).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionHeadSha).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionCsv).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('continues and calls remaining removals when one throws', async () => {
+    const boom = new Error('disk full');
+    mockRemoveSessionHeadSha.mockImplementation(() => {
+      throw boom;
+    });
+
+    const warnings: string[] = [];
+    // Must not throw even though removeSessionHeadSha throws.
+    await expect(cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg))).resolves.toBeUndefined();
+
+    // The failing call is warned, the other two still fire.
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('removeSessionHeadSha');
+    expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionCsv).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+  });
+
+  it('warns for each individual failure independently', async () => {
+    const err1 = new Error('head-sha error');
+    const err2 = new Error('csv error');
+    mockRemoveSessionHeadSha.mockImplementation(() => {
+      throw err1;
+    });
+    mockRemoveSessionCsv.mockImplementation(() => {
+      throw err2;
+    });
+
+    const warnings: string[] = [];
+    await expect(cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg))).resolves.toBeUndefined();
+
+    // Two warnings, one per failing call; the third still fires.
+    expect(warnings).toHaveLength(2);
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
   });
 });
