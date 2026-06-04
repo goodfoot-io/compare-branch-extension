@@ -87,44 +87,45 @@ interface LogEventError {
 
 ### File Output
 
-Configure the log file path. Sources are listed from highest to lowest priority:
+The log file path is resolved at Logger construction time. Sources are listed from highest to lowest priority:
 
 ```typescript
-import { Logger } from '@cards/sdk/config';
+import { Logger, logger } from '@cards/sdk/config';
 
-// 1. Via setLogFile() — highest priority, overrides all others
+// 1. setLogFile() — runtime override, takes precedence over everything below
 logger.setLogFile('/var/log/hooks.log');
 
-// 2. Via constructor config
-const logger = new Logger({ logFilePath: '/var/log/hooks.log' });
+// 2. Constructor logFilePath
+const explicit = new Logger({ logFilePath: '/var/log/hooks.log' });
 
-// 3. Via environment variable (or compiled --log default, see below)
+// 3. CARDS_HOOKS_LOG_FILE env var (exact file path)
 // export CARDS_HOOKS_LOG_FILE=/var/log/hooks.log
+
+// 4. CARDS_LOG_DIR + subsystem → <CARDS_LOG_DIR>/<subsystem>.log
+const viaSubsystem = new Logger({ subsystem: 'my-action' });
 
 // Disable file logging
 logger.setLogFile(null);
 ```
 
-### Build-Time Log Configuration (`--log`)
+### Subsystem-Based Defaults
 
-The `--log` CLI flag embeds a default log destination into every compiled handler:
+A Logger created with a `subsystem` resolves a default log file even when no
+explicit path or `CARDS_HOOKS_LOG_FILE` env var is set. Resolution order
+(highest precedence first):
 
-```bash
-cards-sdk build -c settings.config.ts -o dist --log .cards/logs/hooks.log
-```
+1. `config.logFilePath`
+2. `CARDS_HOOKS_LOG_FILE` (exact file)
+3. `CARDS_LOG_DIR` + subsystem → `<CARDS_LOG_DIR>/<subsystem>.log`
+4. Computed default → `<mainRepoRoot>/.cards/logs/<subsystem>.log`
+5. Otherwise `null` (file output disabled)
 
-The compiler generates a preamble in each handler bundle that resolves the path against `CARD_REPO_PATH` and sets `process.env.CARDS_HOOKS_LOG_FILE` as a compiled const — before any Logger is constructed:
-
-```javascript
-// Generated wrapper preamble (you don't write this — the compiler produces it)
-const __DEFAULT_LOG_DEST = ".cards/logs/hooks.log";
-const __cardRepo = process.env['CARD_REPO_PATH'];
-if (__cardRepo && !process.env['CARDS_HOOKS_LOG_FILE']) {
-  process.env['CARDS_HOOKS_LOG_FILE'] = resolve(__cardRepo, __DEFAULT_LOG_DEST);
-}
-```
-
-This is a no-op when `CARDS_HOOKS_LOG_FILE` is already set by the runtime environment, so an explicit env var always wins. Stream transforms are excluded since they run in a different execution model (VM sandbox).
+Tiers 3 and 4 apply only when `subsystem` is set; tier 4 additionally requires
+the main repo root to resolve. The main repo root prefers the `REPO_ROOT` env
+var (present in action contexts) and otherwise derives it from `git rev-parse
+--git-common-dir`, which collapses a linked worktree back to its owning main
+repo. Non-standard git layouts (bare repos, submodules) fail closed to disabled
+file output rather than writing to a wrong path.
 
 ### Event Handlers
 
@@ -257,7 +258,7 @@ logger.error('Failed to save', { reason: 'disk full' });
 | `warn(message, context?)` | Log warning message |
 | `error(message, context?)` | Log error message |
 | `logError(error, message, context?)` | Log caught exception with full details |
-| `setLogFile(path \| null)` | Set or disable log file (highest priority) |
-| `setDefaultLogFile(path)` | Set fallback log file (no-op if file logging already configured) |
+| `setLogFile(path \| null)` | Set or disable the log file (runtime override, highest priority) |
+| `on(level, handler)` | Subscribe to events at a level; returns an unsubscribe function |
 
 </instructions>

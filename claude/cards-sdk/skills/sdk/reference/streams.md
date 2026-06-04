@@ -93,6 +93,8 @@ interface StreamStoreState {
   availableFiles: string[];
   /** Whether the postMessage connection to the host is active. */
   connected: boolean;
+  /** Current host-controlled display mode for this iframe. */
+  mode: StreamDisplayMode;  // 'compact' | 'expanded'
 }
 
 interface StreamFile {
@@ -105,17 +107,14 @@ interface StreamFile {
 }
 
 interface StreamMeta {
-  filename: string;
-  streamType: string;
+  /** Number of lines appended so far. */
   lineCount: number;
   /** true while the stream is live (not yet committed to git); false once committed. */
   isActive: boolean;
+  /** Opaque session identifier for grouping related streams. */
   sessionId?: string;
+  /** Human-readable title for UI display. */
   title?: string;
-  agentId?: string;
-  taskContent?: string;
-  slug?: string;
-  createdAt: string;
 }
 ```
 
