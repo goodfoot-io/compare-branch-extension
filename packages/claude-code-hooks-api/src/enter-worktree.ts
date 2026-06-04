@@ -86,15 +86,15 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
   if (cardId) {
     // Derive cardRepoPath from the discovery file.
     const cardRepoPath = await resolveCardRepoPath(cardId, logger);
-    if (!cardRepoPath) return postToolUseOutput({});
+    if (!cardRepoPath) return null;
 
     // Action-subprocess guard — never fight the wrapper.
-    if (process.env['ACTION_NAME']) return postToolUseOutput({});
+    if (process.env['ACTION_NAME']) return null;
 
     // PID first — fail closed on missing or wrong PID.
     const agentPid = findAgentPid();
-    if (!agentPid) return postToolUseOutput({});
-    if (!isKnownAgentComm(agentPid, logger)) return postToolUseOutput({});
+    if (!agentPid) return null;
+    if (!isKnownAgentComm(agentPid, logger)) return null;
 
     // Build the per-session de-dupe lock path.
     const lockPath = join(resolveGlobalCardsConfigDir(), 'adhoc-sessions', `${input.session_id}.lock`);
@@ -114,7 +114,7 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
       logger
     );
 
-    return postToolUseOutput({});
+    return null;
   }
 
   // ─── UNBOUND PATH ─────────────────────────────────────────────────────────
@@ -124,10 +124,10 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
   // marker written by the WorktreeCreate hook at the worktree root.
 
   const worktreeDir = await resolveWorktreePendingBindDir(input.cwd);
-  if (!worktreeDir) return postToolUseOutput({});
+  if (!worktreeDir) return null;
 
   const marker = await readPendingBind(worktreeDir);
-  if (!marker) return postToolUseOutput({});
+  if (!marker) return null;
 
   // Idempotency: skip only when the marker already carries BOTH this
   // session's id AND a transcriptPath. A marker that has the sessionId but
@@ -135,7 +135,7 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
   // transcript was available) — fall through to re-record and re-nudge so
   // `card create` can bind rather than staying stuck on a dead-end marker.
   if (marker.sessionId === input.session_id && marker.transcriptPath) {
-    return postToolUseOutput({});
+    return null;
   }
 
   // Atomically record this session's transcript info into the marker so
@@ -146,12 +146,13 @@ export default postToolUseHook({ matcher: 'EnterWorktree' }, async (input, { log
     sessionId: input.session_id
   });
 
+  const message = `You must load the \`cards:management\` skill and create a card for these changes.`;
+
   // Emit the one-time nudge.
   return postToolUseOutput({
+    systemMessage: message,
     hookSpecificOutput: {
-      additionalContext:
-        'This worktree is not yet bound to a card. Run `card create` inside it to ' +
-        'create a card and start tracking this session.'
+      additionalContext: message
     }
   });
 });

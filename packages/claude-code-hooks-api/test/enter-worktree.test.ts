@@ -288,7 +288,7 @@ describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
     // additionalContext nudge present in output.
     const ctx = getAdditionalContext(result);
     expect(typeof ctx).toBe('string');
-    expect(ctx).toMatch(/card create/);
+    expect(ctx).toMatch(/create a card/);
   });
 
   it('does NOT nudge when CARD_ID is also present (CARD_ID wins over PENDING_BIND)', async () => {
@@ -369,7 +369,7 @@ describe('EnterWorktree hook — unbound path (PENDING_BIND)', () => {
     // Nudge emitted so the agent is prompted to run `card create`.
     const ctx = getAdditionalContext(result);
     expect(typeof ctx).toBe('string');
-    expect(ctx).toMatch(/card create/);
+    expect(ctx).toMatch(/create a card/);
   });
 
   it('no-ops when readPendingBind returns null (malformed marker)', async () => {
