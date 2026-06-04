@@ -83,6 +83,39 @@ async function createSymlink(target: string, linkPath: string): Promise<void> {
 }
 
 /**
+ * Creates a symlink at `linkPath`, first removing a pre-existing symlink so the
+ * operation is idempotent across re-runs.
+ *
+ * {@link rerouteNodeModules} can run more than once against the same worktree —
+ * a re-fired WorktreeCreate hook, worktree re-entry, or a retried launch. The
+ * first run turns `destNodeModules` into a real directory populated with
+ * per-entry symlinks, so the symlink-only unlink guard on `destNodeModules`
+ * itself no longer fires on a second run and each per-entry `fs.symlink` would
+ * reject with `EEXIST`. Unlinking a pre-existing symlink first makes every
+ * per-entry link safe to recreate. A non-symlink at `linkPath` is left
+ * untouched so genuine on-disk data is never clobbered — the subsequent
+ * `createSymlink` then surfaces the conflict (fail-closed) rather than masking
+ * it.
+ *
+ * @param target - Symlink target (passed through to {@link createSymlink}).
+ * @param linkPath - Path at which to create the symlink.
+ * @throws {SymlinkPrivilegeError} When the OS denies symlink creation (EPERM/EINVAL).
+ */
+async function replaceSymlink(target: string, linkPath: string): Promise<void> {
+  try {
+    const stats = await fs.lstat(linkPath);
+    if (stats.isSymbolicLink()) {
+      await fs.unlink(linkPath);
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+  await createSymlink(target, linkPath);
+}
+
+/**
  * Validates a branch name against the CLI's safe subset.
  *
  * The name must start with an alphanumeric character and may then include
@@ -1239,10 +1272,10 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
       if (entry.isSymbolicLink()) {
         const target = await fs.readlink(sourcePath);
         if (isInternalSymlink(target)) {
-          await createSymlink(target, destPath);
+          await replaceSymlink(target, destPath);
           return 1;
         } else {
-          await createSymlink(sourcePath, destPath);
+          await replaceSymlink(sourcePath, destPath);
           return 0;
         }
       } else if (entry.isDirectory() && entry.name.startsWith('@')) {
@@ -1256,21 +1289,21 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
             if (scopeEntry.isSymbolicLink()) {
               const target = await fs.readlink(scopeSourcePath);
               if (isInternalSymlink(target)) {
-                await createSymlink(target, scopeDestPath);
+                await replaceSymlink(target, scopeDestPath);
                 return 1;
               } else {
-                await createSymlink(scopeSourcePath, scopeDestPath);
+                await replaceSymlink(scopeSourcePath, scopeDestPath);
                 return 0;
               }
             } else {
-              await createSymlink(scopeSourcePath, scopeDestPath);
+              await replaceSymlink(scopeSourcePath, scopeDestPath);
               return 0;
             }
           })
         );
         return scopeCounts.reduce((sum, c) => sum + c, 0);
       } else {
-        await createSymlink(sourcePath, destPath);
+        await replaceSymlink(sourcePath, destPath);
         return 0;
       }
     })
