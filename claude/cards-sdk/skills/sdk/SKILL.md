@@ -1,5 +1,5 @@
 ---
-name: Cards Configuration SDK
+name: sdk
 description: Build Cards Extension settings and stream renderers.
 version: 1.0.0
 ---
