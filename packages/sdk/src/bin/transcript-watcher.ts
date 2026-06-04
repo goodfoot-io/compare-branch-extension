@@ -608,9 +608,12 @@ export async function main(): Promise<void> {
 /**
  * Removes per-session artifact files written during the session lifecycle.
  *
- * Called unconditionally at the end of every watcher run so that both Claude
- * (which also removes these in session-end.ts) and Codex (which has no
- * SessionEnd hook) clean up. Each removal is independent and best-effort:
+ * Called at the end of a watcher run on a genuine session-end exit (graceful
+ * stop, flush sentinel, or process death), so that both Claude (which also
+ * removes these in session-end.ts) and Codex (which has no SessionEnd hook)
+ * clean up. It is intentionally skipped on the max-lifetime exit — see the
+ * `maxLifetimeExceeded` gate in {@link main}/{@link runWatcherLoop}, where the
+ * watched session may still be alive. Each removal is independent and best-effort:
  * a failure in one does not prevent the others, and errors are surfaced as
  * warnings rather than thrown.
  *

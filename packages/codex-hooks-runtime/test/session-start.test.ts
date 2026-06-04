@@ -38,10 +38,6 @@ vi.mock('@cards/sdk/process-tree', () => ({
   findAgentPid: vi.fn()
 }));
 
-vi.mock('@cards/sessions/card-repo', () => ({
-  writeSessionHeadSha: vi.fn()
-}));
-
 const logger = new Logger();
 
 // The wrapper is selected by platform: `transcript-watcher.cmd` on win32
