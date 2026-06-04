@@ -18,6 +18,9 @@ interface ActionInput {
   switchToInteractiveData?: unknown;      // Data from user switching to interactive mode
   repoRoot: string;                       // Main git repository root (NOT a worktree)
   cardRepoPath: string;                   // Card repository path
+  configPath: string;                     // Settings configuration directory
+  extensionPath: string;                  // VS Code extension installation directory
+  marketplacePath: string;                // Stable marketplace symlink in global storage
 }
 ```
 

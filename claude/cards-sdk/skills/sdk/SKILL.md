@@ -13,12 +13,13 @@ SDK documentation for the `@cards/sdk/config` library: type-safe action handlers
 Actions and stream renderer www-root directories are processed at build time. Rebuild after every change.
 
 ```bash
-npx @cards/sdk/config build -c settings.config.ts -o dist
+cards-sdk build -c settings.config.ts -o dist
 ```
 
 **Parameters:**
-- `-c settings.config.ts`: Configuration file (TypeScript)
-- `-o dist`: Output directory containing `settings.json` and `bin/` folder
+- `-c, --config settings.config.ts`: Configuration file (TypeScript)
+- `-o, --outdir dist`: Output directory containing `settings.json` and `bin/` folder
+- `--loader .ext=type`: Register an esbuild loader for non-code imports (repeatable, e.g. `--loader .md=text`)
 
 ## Action Handler Example
 
@@ -56,13 +57,30 @@ export default defineAction(
 );
 ```
 
+## Cards Assistant Handler Example
+
+The cards assistant is a single, workspace-scoped handler created with `defineCardsAssistant`. Unlike actions, it has no card context (no `cardId`, worktree, or socket) and takes an empty config object:
+
+```typescript
+// src/cards-assistant.ts
+import { defineCardsAssistant } from '@cards/sdk/config';
+
+export default defineCardsAssistant(
+  {},
+  async (input, { logger, cwd }) => {
+    logger.info('Launching cards assistant', { marketplacePath: input.marketplacePath });
+  }
+);
+```
+
 ## Configuration File Structure
 
-Define environments, actions, and streams in `settings.config.ts`:
+Define environments, actions, streams, and the optional cards assistant in `settings.config.ts`:
 
 ```typescript
 import { defineConfig } from '@cards/sdk/config';
 import launchClaude from './src/actions/launch-claude.js';
+import cardsAssistant from './src/cards-assistant.js';
 
 export default defineConfig({
   environments: {
@@ -78,7 +96,8 @@ export default defineConfig({
         }
       }
     }
-  }
+  },
+  cardsAssistant
 });
 ```
 
@@ -155,7 +174,8 @@ Minimal renderer template:
 
 | Factory | Purpose | Config Fields |
 |---------|---------|---------------|
-| `defineAction` | Action handler | `actionName`, `id?`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?` |
+| `defineAction` | Per-card action handler | `actionName`, `id?`, `description?`, `icon?`, `supportsBackgroundMode?`, `allowConcurrent?`, `timeout?` |
+| `defineCardsAssistant` | Workspace-scoped assistant handler | _(none — pass an empty `{}` config)_ |
 
 ## Stream Configuration Fields
 
@@ -182,7 +202,7 @@ Before debugging issues, verify:
 
 Consult these reference files for detailed information:
 
-- **[reference/input-types.md](reference/input-types.md)**: ActionInput
+- **[reference/input-types.md](reference/input-types.md)**: ActionInput, CardsAssistantInput, and context types
 - **[reference/environment.md](reference/environment.md)**: CARDS_ENV_VARS and extraction utilities
 - **[reference/logging.md](reference/logging.md)**: Logger API and configuration
 - **[reference/streams.md](reference/streams.md)**: Stream renderer configuration and the stream-store SDK
