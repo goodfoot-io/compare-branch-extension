@@ -35,6 +35,10 @@ export interface CodexSessionOptions {
    * Claude's `--append-system-prompt`: the value is appended to the developer
    * message bundle every turn without disabling the personality template or
    * overriding `base_instructions` / AGENTS.md `user_instructions`.
+   *
+   * {@link spawnCodexSession} always prepends the card repository's `AGENTS.md`
+   * to this value (see {@link readCardRepoAgentsMd}), so it loads additively
+   * alongside the global `~/.codex/AGENTS.md` and any `<workspace>/AGENTS.md`.
    */
   appendSystemPrompt?: string;
 }
@@ -981,6 +985,52 @@ export function formatDeveloperInstructionsOverride(value: string): string {
   return stringifyToml({ developer_instructions: value }).trimEnd();
 }
 
+// ============================================================================
+// Developer instructions
+// ============================================================================
+
+/**
+ * Reads the card repository's `AGENTS.md` instruction file.
+ *
+ * The card-repo `AGENTS.md` is provisioned as a symlink to a central shared
+ * instruction file (`HybridStore.provisionScaffold`) and is the canonical card
+ * repository reference. Codex never auto-discovers it: project-doc discovery is
+ * anchored at the workspace cwd (`--cd`) and bounded upward by the project-root
+ * marker, so the card repo — a separate tree reachable only via `--add-dir` — is
+ * never on the search path. We read it here and fold it into the additive
+ * `developer_instructions` channel instead (see {@link spawnCodexSession}).
+ *
+ * Fail-closed: a missing or unreadable file aborts the session as a
+ * {@link CardRepoAccessError}, consistent with {@link buildCardBlock}, rather
+ * than launching Codex without the card repository's guidance.
+ *
+ * @param cardRepoPath - Absolute path to the card repository directory.
+ * @returns The trimmed `AGENTS.md` contents.
+ * @throws {CardRepoAccessError} When the file cannot be read.
+ */
+export function readCardRepoAgentsMd(cardRepoPath: string): string {
+  try {
+    return readFileSync(path.join(cardRepoPath, 'AGENTS.md'), 'utf-8').trim();
+  } catch (error) {
+    throw new CardRepoAccessError(cardRepoPath, error);
+  }
+}
+
+/**
+ * Joins instruction fragments into a single `developer_instructions` value,
+ * dropping empty fragments and separating the rest with a blank line.
+ *
+ * @param fragments - Ordered instruction fragments (card-repo `AGENTS.md` first,
+ *   then any caller-supplied session guidance).
+ * @returns The combined value, or `undefined` when every fragment is empty.
+ */
+export function composeDeveloperInstructions(fragments: ReadonlyArray<string | undefined>): string | undefined {
+  const nonEmpty = fragments
+    .map((fragment) => fragment?.trim())
+    .filter((fragment): fragment is string => fragment !== undefined && fragment.length > 0);
+  return nonEmpty.length > 0 ? nonEmpty.join('\n\n') : undefined;
+}
+
 /**
  * Builds the CLI argument list for the `codex` process.
  *
@@ -1066,7 +1116,14 @@ export async function spawnCodexSession(
 
   const additionalContext = buildAdditionalContext(input, cwd, baseBranch, branchName);
   const prompt = buildCodexPrompt(rawPrompt, additionalContext);
-  const args = buildCodexArgs(prompt, cwd, input.cardRepoPath, appendSystemPrompt);
+
+  // Codex cannot auto-discover the card-repo AGENTS.md (it lives outside the
+  // workspace cwd→project-root search path), so fold it into developer_instructions
+  // ahead of any caller-supplied session guidance. This loads additively — it does
+  // not displace the global ~/.codex/AGENTS.md or a <workspace>/AGENTS.md.
+  const cardRepoAgentsMd = readCardRepoAgentsMd(input.cardRepoPath);
+  const developerInstructions = composeDeveloperInstructions([cardRepoAgentsMd, appendSystemPrompt]);
+  const args = buildCodexArgs(prompt, cwd, input.cardRepoPath, developerInstructions);
 
   const child: ChildProcess = spawn('codex', args, {
     cwd,

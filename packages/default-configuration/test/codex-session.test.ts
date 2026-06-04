@@ -297,6 +297,45 @@ describe('codex-session library', () => {
     expect(args[args.length - 1]).toBe('do the thing');
   });
 
+  it('readCardRepoAgentsMd returns the trimmed AGENTS.md contents', async () => {
+    const syncFs = await import('node:fs');
+    vi.mocked(syncFs.readFileSync).mockImplementation((filePath: string | Buffer | URL) => {
+      if (toPosix(filePath) === '/test/repo/AGENTS.md') {
+        return '\n\n# Card Repository Reference\n\nCommit everything that must persist.\n\n';
+      }
+      throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
+    });
+    const { readCardRepoAgentsMd } = await import('../src/lib/codex-session.js');
+
+    expect(readCardRepoAgentsMd('/test/repo')).toBe(
+      '# Card Repository Reference\n\nCommit everything that must persist.'
+    );
+  });
+
+  it('readCardRepoAgentsMd fails closed when AGENTS.md is unreadable', async () => {
+    const syncFs = await import('node:fs');
+    vi.mocked(syncFs.readFileSync).mockImplementation((filePath: string | Buffer | URL) => {
+      throw Object.assign(new Error(`ENOENT: ${String(filePath)}`), { code: 'ENOENT' });
+    });
+    const { readCardRepoAgentsMd, CardRepoAccessError } = await import('../src/lib/codex-session.js');
+
+    expect(() => readCardRepoAgentsMd('/test/repo')).toThrow(CardRepoAccessError);
+  });
+
+  it('composeDeveloperInstructions orders fragments and drops empty ones', async () => {
+    const { composeDeveloperInstructions } = await import('../src/lib/codex-session.js');
+
+    // Card-repo AGENTS.md leads; caller guidance follows.
+    expect(composeDeveloperInstructions(['AGENTS', 'SKILL'])).toBe('AGENTS\n\nSKILL');
+    // Whitespace is trimmed and blank/undefined fragments are skipped.
+    expect(composeDeveloperInstructions(['  AGENTS  ', undefined, '', '   ', 'SKILL'])).toBe('AGENTS\n\nSKILL');
+    // A single surviving fragment is returned without a separator.
+    expect(composeDeveloperInstructions([undefined, 'AGENTS'])).toBe('AGENTS');
+    // All-empty input collapses to undefined so no -c flag is emitted.
+    expect(composeDeveloperInstructions([undefined, '   '])).toBeUndefined();
+    expect(composeDeveloperInstructions([])).toBeUndefined();
+  });
+
   it('writeCodexProfileConfig writes the enablement profile without touching config.toml', async () => {
     const fs = await import('node:fs/promises');
     vi.mocked(fs.readFile).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));

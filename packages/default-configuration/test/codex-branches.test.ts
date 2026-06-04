@@ -241,6 +241,9 @@ beforeEach(async () => {
     if (toPosix(filePath) === '/test/repo/commits.csv') {
       return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
     }
+    if (toPosix(filePath) === '/test/repo/AGENTS.md') {
+      return '# Card Repository Reference\n\nEach card is an isolated Git repository.\n';
+    }
     throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
   });
 
@@ -446,6 +449,11 @@ describe('launch action — codex branch', () => {
     const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
     expect(cFlagValues).not.toContain('features.plugins=true');
     expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
+    // The card-repo AGENTS.md is folded into developer_instructions via -c.
+    const developerInstructions = cFlagValues.find((value) => value.startsWith('developer_instructions'));
+    expect(developerInstructions).toBeDefined();
+    expect(developerInstructions).toContain('Card Repository Reference');
+    expect(developerInstructions).toContain('Each card is an isolated Git repository.');
     expect(args[args.length - 1]).toMatch(/Load the `\$card` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
@@ -611,12 +619,15 @@ describe('interview action — codex branch', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    // Enablement is via the Cards profile-v2 layer; no developer_instructions for interview.
+    // Enablement is via the Cards profile-v2 layer; interview passes no session
+    // guidance, so developer_instructions carries only the card-repo AGENTS.md.
     expect(args[args.indexOf('--profile') + 1]).toBe('cards');
     const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
     expect(cFlagValues).not.toContain('features.plugins=true');
     expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
-    expect(cFlagValues.some((value) => value.startsWith('developer_instructions'))).toBe(false);
+    const developerInstructions = cFlagValues.find((value) => value.startsWith('developer_instructions'));
+    expect(developerInstructions).toBeDefined();
+    expect(developerInstructions).toContain('Card Repository Reference');
     expect(args[args.length - 1]).toMatch(/Load the `\$interview` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
