@@ -6,6 +6,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PLANS_PREFIX } from '@cards/sdk/card-repo-layout';
 import { BRANCHES_FILE, COMMITS_FILE } from '@cards/sdk/protocol';
 import { TestGitWorkspace } from '@cards/test-utils';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -153,7 +154,7 @@ describe('buildCardRepoLogBlock', () => {
 
     try {
       await chronoRepo.createAndCommitFile('CARD.md', '# First', 'First commit');
-      await chronoRepo.createAndCommitFile('plan/initial.md', '# Second', 'Second commit');
+      await chronoRepo.createAndCommitFile(`${PLANS_PREFIX}initial.md`, '# Second', 'Second commit');
 
       const result = buildCardRepoLogBlock(chronoPath);
 
@@ -174,7 +175,7 @@ describe('buildCardRepoLogBlock', () => {
 
     try {
       await fileRepo.createAndCommitFile('CARD.md', '# Card', 'Add card');
-      await fileRepo.createAndCommitFile('plan/file2.md', '# Plan', 'Add plan');
+      await fileRepo.createAndCommitFile(`${PLANS_PREFIX}file2.md`, '# Plan', 'Add plan');
 
       const result = buildCardRepoLogBlock(filePath);
 
@@ -188,7 +189,7 @@ describe('buildCardRepoLogBlock', () => {
 
       const addPlan = entries.find((c) => c.subject === 'Add plan');
       expect(addPlan).toBeDefined();
-      expect(addPlan!.files).toContain('plan/file2.md');
+      expect(addPlan!.files).toContain(`${PLANS_PREFIX}file2.md`);
     } finally {
       fileRepo.destroy();
     }

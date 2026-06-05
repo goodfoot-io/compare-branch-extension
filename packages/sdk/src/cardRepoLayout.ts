@@ -3,8 +3,8 @@
  *
  * This module defines the canonical names of the three card-repository document
  * directories. Every other occurrence in the codebase derives from these
- * constants — no caller should hardcode `'plan'`, `'comment'`, or `'attachment'`
- * (or their trailing-slash prefix forms) as a literal.
+ * constants — no caller should hardcode `'plans'`, `'comments'`, or
+ * `'attachments'` (or their trailing-slash prefix forms) as a literal.
  *
  * Two constant shapes are exported for each directory:
  *
@@ -24,9 +24,9 @@
  * @module
  */
 
-export const PLANS_DIR = 'plan';
-export const COMMENTS_DIR = 'comment';
-export const ATTACHMENTS_DIR = 'attachment';
+export const PLANS_DIR = 'plans';
+export const COMMENTS_DIR = 'comments';
+export const ATTACHMENTS_DIR = 'attachments';
 
 export const PLANS_PREFIX = `${PLANS_DIR}/`;
 export const COMMENTS_PREFIX = `${COMMENTS_DIR}/`;

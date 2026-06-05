@@ -78,7 +78,7 @@ CARD_EOF
 cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
-3. Load the `cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plan/` files at creation time.
+3. Load the `cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 
@@ -134,17 +134,17 @@ gives the absolute path to this repository.
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
-plan/                       # Plan documents (continuation-based)
+plans/                      # Plan documents (continuation-based)
   [name].md                 # Semantically-named plan files
   [name].md.meta.json       # Sidecar with display title
-comment/                    # Created on first comment
+comments/                   # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
-attachment/                 # Created on first attachment
+attachments/                # Created on first attachment
   att-{uuid4}_{name}        # Binary content
   att-{uuid4}_{name}.meta.json
 ```
 
-`comment/` and `attachment/` directories do not exist until first use (lazy creation).
+`comments/` and `attachments/` directories do not exist until first use (lazy creation).
 
 ### CARD.meta.json
 
@@ -177,11 +177,11 @@ Comments are pure markdown files with descriptive slug filenames. Authorship is 
 
 ```bash
 REPO=$(card <card-id> --jsonpath '$.repositoryPath')
-mkdir -p "$REPO/comment"
-cat <<'COMMENT_EOF' > "$REPO/comment/my-slug-name.md"
+mkdir -p "$REPO/comments"
+cat <<'COMMENT_EOF' > "$REPO/comments/my-slug-name.md"
 Your comment content here (plain markdown, no frontmatter).
 COMMENT_EOF
-cd "$REPO" && git add "comment/my-slug-name.md" && git commit -m "Added comment [single sentence summarizing the comment's substance]."
+cd "$REPO" && git add "comments/my-slug-name.md" && git commit -m "Added comment [single sentence summarizing the comment's substance]."
 ```
 
 ### Adding an Attachment
@@ -193,18 +193,18 @@ Attachments use UUID4 identifiers with a sanitized original filename, plus a
 REPO=$(card <card-id> --jsonpath '$.repositoryPath')
 ATT_UUID=$(cat /proc/sys/kernel/random/uuid)  # UUID4
 ATT_NAME="att-${ATT_UUID}_screenshot.png"
-mkdir -p "$REPO/attachment"
-cp /path/to/file.png "$REPO/attachment/$ATT_NAME"
-cat <<METAEOF > "$REPO/attachment/${ATT_NAME}.meta.json"
+mkdir -p "$REPO/attachments"
+cp /path/to/file.png "$REPO/attachments/$ATT_NAME"
+cat <<METAEOF > "$REPO/attachments/${ATT_NAME}.meta.json"
 {
   "id": "$ATT_UUID",
   "name": "$ATT_NAME",
   "originalName": "screenshot.png",
-  "size": $(stat -c%s "$REPO/attachment/$ATT_NAME"),
+  "size": $(stat -c%s "$REPO/attachments/$ATT_NAME"),
   "mimeType": "image/png"
 }
 METAEOF
-cd "$REPO" && git add "attachment/$ATT_NAME" "attachment/${ATT_NAME}.meta.json" && git commit -m "Added attachment [single sentence describing what was attached and why]."
+cd "$REPO" && git add "attachments/$ATT_NAME" "attachments/${ATT_NAME}.meta.json" && git commit -m "Added attachment [single sentence describing what was attached and why]."
 ```
 
 <card-status>

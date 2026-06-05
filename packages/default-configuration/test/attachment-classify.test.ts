@@ -15,6 +15,7 @@
  * @summary Skipped unit tests for the attachment classifier pure transform
  */
 
+import { PLANS_PREFIX } from '@cards/sdk/card-repo-layout';
 import { describe, expect, it } from 'vitest';
 import { classifyAttachment } from '../src/streams/claude-code-session/www/lib/classify-attachment.js';
 import type {
@@ -212,18 +213,18 @@ const dynamicSkillFixture: DynamicSkillAttachment = {
 
 const fileFixture: FileAttachment = {
   type: 'file',
-  filename: '/home/node/.cards/cards-repos/main-110/plan/planner-1.md.meta.json',
+  filename: `/home/node/.cards/cards-repos/main-110/${PLANS_PREFIX}planner-1.md.meta.json`,
   content: {
     type: 'text',
     file: {
-      filePath: '/home/node/.cards/cards-repos/main-110/plan/planner-1.md.meta.json',
+      filePath: `/home/node/.cards/cards-repos/main-110/${PLANS_PREFIX}planner-1.md.meta.json`,
       content: '{"title": "Plan: Reactive service, layout module, per-action picker"}\n',
       numLines: 2,
       startLine: 1,
       totalLines: 2
     }
   },
-  displayPath: '../../../../../cards-repos/main-110/plan/planner-1.md.meta.json'
+  displayPath: `../../../../../cards-repos/main-110/${PLANS_PREFIX}planner-1.md.meta.json`
 };
 
 const editedTextFileFixture: EditedTextFileAttachment = {
@@ -241,8 +242,8 @@ const queuedCommandFixture: QueuedCommandAttachment = {
 
 const compactFileReferenceFixture: CompactFileReferenceAttachment = {
   type: 'compact_file_reference',
-  filename: '/home/node/.cards/cards-repos/main-110/plan/planner-1.md',
-  displayPath: '../../../../../cards-repos/main-110/plan/planner-1.md'
+  filename: `/home/node/.cards/cards-repos/main-110/${PLANS_PREFIX}planner-1.md`,
+  displayPath: `../../../../../cards-repos/main-110/${PLANS_PREFIX}planner-1.md`
 };
 
 const openedFileInIdeFixture: OpenedFileInIdeAttachment = {
@@ -439,7 +440,7 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.tier).toBe('ambient');
     expect(d.glyph).toBe('·');
     expect(d.glyphSeverity).toBe('neutral');
-    expect(d.linkPath).toBe('../../../../../cards-repos/main-110/plan/planner-1.md');
+    expect(d.linkPath).toBe(`../../../../../cards-repos/main-110/${PLANS_PREFIX}planner-1.md`);
     expect(d.hidden).toBe(false);
     expect(d.expandable).toBe(false);
   });
@@ -522,7 +523,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
     expect(d.scope).toBe('turn');
     expect(d.tier).toBe('content');
     expect(d.summary).toContain('planner-1.md.meta.json');
-    expect(d.linkPath).toBe('../../../../../cards-repos/main-110/plan/planner-1.md.meta.json');
+    expect(d.linkPath).toBe(`../../../../../cards-repos/main-110/${PLANS_PREFIX}planner-1.md.meta.json`);
     expect(d.hidden).toBe(false);
     expect(d.expandable).toBe(true);
   });

@@ -4,6 +4,7 @@
  * @summary Tests for lib/file-tree
  */
 
+import { COMMENTS_PREFIX } from '@cards/sdk/card-repo-layout';
 import { describe, expect, it } from 'vitest';
 import { formatCommitLog, formatFileTree } from '../../src/shared/file-tree.js';
 
@@ -52,9 +53,9 @@ describe('formatFileTree', () => {
   });
 
   it('handles root-level files mixed with directories', () => {
-    const result = formatFileTree(['CARD.md', 'CARD.meta.json', 'comment/abc123.md']);
+    const result = formatFileTree(['CARD.md', 'CARD.meta.json', `${COMMENTS_PREFIX}abc123.md`]);
     // Directories sort before files at each level
-    expect(result).toBe(' comment/abc123.md\n' + ' CARD.md\n' + ' CARD.meta.json');
+    expect(result).toBe(` ${COMMENTS_PREFIX}abc123.md\n CARD.md\n CARD.meta.json`);
   });
 
   it('sorts entries alphabetically within each level', () => {

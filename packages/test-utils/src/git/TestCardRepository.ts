@@ -5,7 +5,7 @@
  * not a mocked filesystem, to validate behavior around commits and conflicts.
  *
  * Behavior: uses real `simple-git` and `fs-extra` operations to build card
- * repositories that match the Cards layout (CARD.meta.json, CARD.md, plan/, etc.).
+ * repositories that match the Cards layout (CARD.meta.json, CARD.md, plans/, etc.).
  *
  * Constraint: this utility performs actual filesystem and git operations.
  * Always call `destroy()` to clean up temporary directories.
