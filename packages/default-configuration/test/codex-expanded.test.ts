@@ -400,6 +400,30 @@ describe('renderCodexTranscript — same-turn dedup: event_msg mirrors response_
   });
 });
 
+describe('renderCodexTranscript — same-turn dedup: event_msg BEFORE response_item (real Codex order)', () => {
+  it('suppresses a mirrored assistant response_item when event_msg arrives first, keeping exactly one assistant_message', () => {
+    // Real Codex persistence order: turn_context → event_msg (agent_message) → response_item (assistant message)
+    const lines = [sessionMetaLine(), turnContextLine(), eventMsgAgentLine('Hi! Done.'), assistantMsgLine('Hi! Done.')];
+    const items = renderCodexTranscript(lines);
+    const assistantMessages = items.filter((i) => i.kind === 'assistant_message');
+    expect(assistantMessages).toHaveLength(1);
+    if (assistantMessages[0]?.kind === 'assistant_message') {
+      expect(assistantMessages[0].text).toBe('Hi! Done.');
+    }
+  });
+
+  it('suppresses a mirrored user response_item when event_msg arrives first, keeping exactly one user_message', () => {
+    // Real Codex persistence order: turn_context → event_msg (user_message) → response_item (user message)
+    const lines = [sessionMetaLine(), turnContextLine(), eventMsgUserLine('Hello there'), userMsgLine('Hello there')];
+    const items = renderCodexTranscript(lines);
+    const userMessages = items.filter((i) => i.kind === 'user_message');
+    expect(userMessages).toHaveLength(1);
+    if (userMessages[0]?.kind === 'user_message') {
+      expect(userMessages[0].text).toBe('Hello there');
+    }
+  });
+});
+
 describe('renderCodexTranscript — cross-turn identical text is not suppressed', () => {
   it('keeps both assistant messages when the same text appears in two separate turns', () => {
     // Turn 1: response_item "Done." + event_msg "Done." → 1 item (deduped)

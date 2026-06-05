@@ -384,6 +384,48 @@ describe('buildCodexCompactState — same-turn dedup: event_msg mirrors response
   });
 });
 
+describe('buildCodexCompactState — same-turn dedup: event_msg BEFORE response_item (real Codex order)', () => {
+  it('omits a mirrored assistant response_item from the tail when event_msg arrives first', () => {
+    // Real Codex persistence order: turn_context → event_msg (agent_message) → response_item (assistant message)
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine(),
+      agentMsgLine('Hi! Done.'),
+      responseMsgLine('assistant', 'Hi! Done.')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    const messageTail = state.tail.filter((e) => e.kind === 'message');
+    expect(messageTail).toHaveLength(1);
+    expect(messageTail[0]?.text).toBe('Hi! Done.');
+  });
+
+  it('sets headlineText exactly once when event_msg arrives before response_item for the same assistant text', () => {
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine(),
+      agentMsgLine('Task complete.'),
+      responseMsgLine('assistant', 'Task complete.')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.headlineText).toBe('Task complete.');
+    expect(state.tail.filter((e) => e.kind === 'message')).toHaveLength(1);
+  });
+
+  it('omits a mirrored user response_item from the tail when event_msg arrives first', () => {
+    // Real Codex persistence order: turn_context → event_msg (user_message) → response_item (user message)
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine(),
+      userEventMsgLine('Hello there'),
+      responseMsgLine('user', 'Hello there')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    const messageTail = state.tail.filter((e) => e.kind === 'message');
+    expect(messageTail).toHaveLength(1);
+    expect(messageTail[0]?.text).toBe('Hello there');
+  });
+});
+
 describe('buildCodexCompactState — cross-turn identical text is not suppressed', () => {
   it('keeps per-turn-deduped count across two turns with the same text', () => {
     // Each turn: response_item "Done." + event_msg "Done." → 1 tail entry (deduped)

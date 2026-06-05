@@ -1,20 +1,18 @@
 /**
  * Tests for the Codex deduplication helpers.
  *
- * `extractMessageText` and `isDuplicateEventMsg` work together to suppress
- * `event_msg` lines whose content duplicates an already-seen `response_item`
- * message in the current turn window. The window resets at each `turn_context`
- * boundary to avoid false-positive suppression of identical text in different
- * turns.
+ * `extractMessageText` and `createTurnDedupMatcher` work together to suppress
+ * the later of a mirrored `event_msg`/`response_item` message pair within a
+ * turn. The matcher is bidirectional (order-independent), consumable (one-shot
+ * per pair), and turn-scoped — the matching window resets at each
+ * `turn_context` boundary so identical text in different turns is never
+ * cross-suppressed.
  *
- * All tests are skipped (Phase 2 TDD). Phase 3 unskips them by implementing
- * the functions in `lib/dedup.ts`.
- *
- * @summary Skipped unit tests for the Codex dedup helpers
+ * @summary Unit tests for the Codex dedup helpers
  */
 
 import { describe, expect, it } from 'vitest';
-import { extractMessageText, isDuplicateEventMsg } from '../src/streams/codex-session/www/lib/dedup.js';
+import { createTurnDedupMatcher, extractMessageText } from '../src/streams/codex-session/www/lib/dedup.js';
 import type { ContentItem, EventMsgPayload, ResponseItemPayload } from '../src/streams/codex-session/www/lib/parser.js';
 
 // ============================================================================
@@ -104,135 +102,138 @@ describe('extractMessageText', () => {
 });
 
 // ============================================================================
-// isDuplicateEventMsg tests
+// createTurnDedupMatcher — bidirectional, order-independent suppression
 // ============================================================================
 
-describe('isDuplicateEventMsg — suppression cases', () => {
-  it('suppresses an agent_message matching a same-role response_item message', () => {
-    const responseItems: ResponseItemPayload[] = [
-      responseMessage('assistant', outputText('I have completed the task.'))
-    ];
-    const candidate = agentMessageEvent('I have completed the task.');
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(true);
+describe('createTurnDedupMatcher — response_item before event_msg (prior test order)', () => {
+  it('suppresses the event_msg when response_item arrives first (assistant pair)', () => {
+    const dedup = createTurnDedupMatcher();
+    const suppressed = dedup.processResponseItem(responseMessage('assistant', outputText('Task done.')));
+    expect(suppressed).toBe(false); // response_item emitted
+
+    const suppressed2 = dedup.processEventMsg(agentMessageEvent('Task done.'));
+    expect(suppressed2).toBe(true); // event_msg suppressed
   });
 
-  it('suppresses a user_message matching a same-role response_item message', () => {
-    const responseItems: ResponseItemPayload[] = [responseMessage('user', inputText('Fix the bug in parser.ts'))];
-    const candidate = userMessageEvent('Fix the bug in parser.ts');
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(true);
-  });
-
-  it('suppresses when message text matches after trimming', () => {
-    const responseItems: ResponseItemPayload[] = [responseMessage('assistant', outputText('Done.'))];
-    // event_msg strings are trimmed before comparison
-    const candidate = agentMessageEvent('  Done.  ');
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(true);
+  it('suppresses the event_msg when response_item arrives first (user pair)', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processResponseItem(responseMessage('user', inputText('Hello')))).toBe(false);
+    expect(dedup.processEventMsg(userMessageEvent('Hello'))).toBe(true);
   });
 });
 
-describe('isDuplicateEventMsg — non-suppression cases', () => {
-  it('does not suppress a non-duplicate event_msg', () => {
-    const responseItems: ResponseItemPayload[] = [responseMessage('assistant', outputText('Task A complete.'))];
-    const candidate = agentMessageEvent('Task B complete.');
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(false);
+describe('createTurnDedupMatcher — event_msg before response_item (real Codex order)', () => {
+  it('suppresses the response_item when event_msg arrives first (assistant pair)', () => {
+    const dedup = createTurnDedupMatcher();
+    const suppressed = dedup.processEventMsg(agentMessageEvent('Task done.'));
+    expect(suppressed).toBe(false); // event_msg emitted
+
+    const suppressed2 = dedup.processResponseItem(responseMessage('assistant', outputText('Task done.')));
+    expect(suppressed2).toBe(true); // response_item suppressed
   });
 
-  it('does not suppress when roles differ', () => {
-    const responseItems: ResponseItemPayload[] = [responseMessage('user', inputText('Hello'))];
-    // Same text but different role
-    const candidate = agentMessageEvent('Hello');
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(false);
+  it('suppresses the response_item when event_msg arrives first (user pair)', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processEventMsg(userMessageEvent('Hello there'))).toBe(false);
+    expect(dedup.processResponseItem(responseMessage('user', inputText('Hello there')))).toBe(true);
   });
 
-  it('does not suppress a token_count event', () => {
-    const responseItems: ResponseItemPayload[] = [responseMessage('assistant', outputText('some text'))];
-    const candidate = tokenCountEvent();
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(false);
-  });
-
-  it('does not suppress a lifecycle event (task_started)', () => {
-    const responseItems: ResponseItemPayload[] = [];
-    const candidate = taskStartedEvent();
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(false);
-  });
-
-  it('does not suppress when currentTurnResponseItems is empty', () => {
-    const candidate = agentMessageEvent('Some message');
-    expect(isDuplicateEventMsg([], candidate)).toBe(false);
+  it('suppresses when text matches after trimming (event_msg first)', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processEventMsg(agentMessageEvent('  Done.  '))).toBe(false);
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(true);
   });
 });
 
-describe('isDuplicateEventMsg — structural (not reference) match', () => {
-  it('matches structurally even when response_item and event_msg are separate objects', () => {
-    // Deliberately construct distinct objects
-    const items1: ResponseItemPayload[] = [responseMessage('assistant', outputText('Identical text'))];
-    const items2: ResponseItemPayload[] = [responseMessage('assistant', outputText('Identical text'))];
-    const candidate1 = agentMessageEvent('Identical text');
-    const candidate2 = agentMessageEvent('Identical text');
+describe('createTurnDedupMatcher — cross-side only: no same-side suppression', () => {
+  it('does not suppress two same-side response_item messages with identical text', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(false);
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(false);
+  });
 
-    expect(isDuplicateEventMsg(items1, candidate1)).toBe(true);
-    expect(isDuplicateEventMsg(items2, candidate2)).toBe(true);
+  it('does not suppress two same-side event_msg messages with identical text', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processEventMsg(agentMessageEvent('Done.'))).toBe(false);
+    expect(dedup.processEventMsg(agentMessageEvent('Done.'))).toBe(false);
   });
 });
 
-describe('isDuplicateEventMsg — turn-scoping', () => {
-  it('same text in turn N is suppressed, but turn N+1 is NOT suppressed after window reset', () => {
-    // Turn N: both response_item and event_msg with "Done."
-    const turnNResponseItems: ResponseItemPayload[] = [responseMessage('assistant', outputText('Done.'))];
-    const turnNCandidate = agentMessageEvent('Done.');
-    expect(isDuplicateEventMsg(turnNResponseItems, turnNCandidate)).toBe(true);
-
-    // Turn N+1: the caller resets currentTurnResponseItems at each turn_context boundary.
-    // An empty window means the same "Done." in the next turn is NOT suppressed.
-    const turnN1ResponseItems: ResponseItemPayload[] = [];
-    const turnN1Candidate = agentMessageEvent('Done.');
-    expect(isDuplicateEventMsg(turnN1ResponseItems, turnN1Candidate)).toBe(false);
+describe('createTurnDedupMatcher — one-shot / consumable semantics', () => {
+  it('two same-text response_items and one event_msg mirror: both response_items emitted, event_msg suppressed', () => {
+    const dedup = createTurnDedupMatcher();
+    // Two response_items first — both emitted (no event_msg pending yet)
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(false);
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(false);
+    // One event_msg — suppressed because a pending response_item matches (one-shot: one pairing consumed)
+    expect(dedup.processEventMsg(agentMessageEvent('Done.'))).toBe(true);
+    // Result: 2 items emitted (both response_items), 1 suppressed (event_msg). Net 2 items.
   });
 
-  it('does not cross-suppress identical text across different turns when window is reset', () => {
-    // Simulate what the caller does: reset currentTurnResponseItems at turn_context
-    const text = 'Acknowledged.';
-    const firstTurnItems: ResponseItemPayload[] = [responseMessage('assistant', outputText(text))];
-    // Turn 1: suppressed
-    expect(isDuplicateEventMsg(firstTurnItems, agentMessageEvent(text))).toBe(true);
-
-    // After turn_context, caller resets to empty:
-    const secondTurnItems: ResponseItemPayload[] = [];
-    // Turn 2: NOT suppressed — different turn, window is fresh
-    expect(isDuplicateEventMsg(secondTurnItems, agentMessageEvent(text))).toBe(false);
+  it('one event_msg and two same-text response_items: event_msg emitted, first response_item suppressed, second emitted', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processEventMsg(agentMessageEvent('Done.'))).toBe(false); // emitted
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(true); // suppressed (consumed the pending event_msg)
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(false); // emitted (no pending event_msg left)
   });
 });
 
-describe('isDuplicateEventMsg — multi-part content concatenation', () => {
-  it('suppresses when two OutputText items concatenated equal the flat event_msg string', () => {
-    const responseItems: ResponseItemPayload[] = [
-      responseMessage('assistant', outputText('Part one'), outputText(' and part two'))
-    ];
-    const candidate = agentMessageEvent('Part one and part two');
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(true);
+describe('createTurnDedupMatcher — turn-scoping and reset', () => {
+  it('matching window resets at turn_context; same text in next turn is not suppressed', () => {
+    const dedup = createTurnDedupMatcher();
+    // Turn 1
+    expect(dedup.processEventMsg(agentMessageEvent('Done.'))).toBe(false);
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(true);
+    // Turn 2: reset
+    dedup.reset();
+    expect(dedup.processEventMsg(agentMessageEvent('Done.'))).toBe(false); // not suppressed — new turn
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Done.')))).toBe(true); // suppressed within turn 2
   });
 
-  it('does not suppress when concatenation does not match', () => {
-    const responseItems: ResponseItemPayload[] = [
-      responseMessage('assistant', outputText('Part one'), outputText(' and part two'))
-    ];
-    const candidate = agentMessageEvent('Part one and part three');
-    expect(isDuplicateEventMsg(responseItems, candidate)).toBe(false);
+  it('pending entries from turn N do not survive into turn N+1 after reset', () => {
+    const dedup = createTurnDedupMatcher();
+    // Turn 1: register a pending event_msg but never match it
+    expect(dedup.processEventMsg(agentMessageEvent('Unmatched.'))).toBe(false);
+    // Reset (new turn)
+    dedup.reset();
+    // Turn 2: a response_item with matching text should NOT be suppressed — turn 1 pending was cleared
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Unmatched.')))).toBe(false);
   });
 });
 
-describe('isDuplicateEventMsg — empty content edge case', () => {
-  it('extractMessageText with empty content returns empty string', () => {
-    expect(extractMessageText([])).toBe('');
+describe('createTurnDedupMatcher — role cross-suppression prevention', () => {
+  it('does not suppress assistant event_msg against a user response_item (role mismatch)', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processResponseItem(responseMessage('user', inputText('Hello')))).toBe(false);
+    expect(dedup.processEventMsg(agentMessageEvent('Hello'))).toBe(false); // different role
   });
 
-  it('isDuplicateEventMsg returns false when response_item message has empty content', () => {
-    const responseItems: ResponseItemPayload[] = [
-      responseMessage('assistant') // no content items
-    ];
-    const candidate = agentMessageEvent('');
-    // An empty event_msg matching an empty response_item message: conservatively not suppressed,
-    // or suppressed — both are correct. The key invariant is: no throw.
-    expect(() => isDuplicateEventMsg(responseItems, candidate)).not.toThrow();
+  it('does not suppress user event_msg against an assistant response_item (role mismatch)', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processResponseItem(responseMessage('assistant', outputText('Hello')))).toBe(false);
+    expect(dedup.processEventMsg(userMessageEvent('Hello'))).toBe(false); // different role
+  });
+});
+
+describe('createTurnDedupMatcher — non-message types are never suppressed', () => {
+  it('processEventMsg returns false for token_count events', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processEventMsg(tokenCountEvent())).toBe(false);
+  });
+
+  it('processEventMsg returns false for lifecycle events (task_started)', () => {
+    const dedup = createTurnDedupMatcher();
+    expect(dedup.processEventMsg(taskStartedEvent())).toBe(false);
+  });
+
+  it('processResponseItem returns false for non-message response_item types', () => {
+    const dedup = createTurnDedupMatcher();
+    const toolCall: ResponseItemPayload = {
+      type: 'function_call',
+      call_id: 'c1',
+      name: 'read_file',
+      arguments: '{}'
+    } as unknown as ResponseItemPayload;
+    expect(dedup.processResponseItem(toolCall)).toBe(false);
   });
 });

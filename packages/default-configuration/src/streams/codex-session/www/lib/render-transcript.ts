@@ -19,7 +19,7 @@
  * @module streams/codex-session/www/lib/render-transcript
  */
 
-import { extractMessageText, isDuplicateEventMsg } from './dedup.js';
+import { createTurnDedupMatcher, extractMessageText } from './dedup.js';
 import type { ContentItem, EventMsgPayload, ResponseItemPayload } from './parser.js';
 import { type CodexRolloutLine, parseCodexLine } from './parser.js';
 
@@ -61,20 +61,24 @@ export function renderCodexTranscript(lines: string[]): TranscriptItem[] {
   // Tracks the index in `items` of each emitted tool_call so a later output can
   // be attached to its originating call in place, preserving source order.
   const callItemIndex = new Map<string, number>();
-  // Turn-scoped response_item accumulator; reset at each turn_context boundary.
-  let currentTurnResponseItems: ResponseItemPayload[] = [];
+  // Bidirectional, order-independent turn-scoped dedup matcher.
+  // Works regardless of whether response_item or event_msg arrives first.
+  const dedup = createTurnDedupMatcher();
 
   for (const raw of lines) {
     const line = parseCodexLine(raw);
 
     // Maintain the turn-scoped window for deduplication.
     if (line.kind === 'turn_context') {
-      currentTurnResponseItems = [];
+      dedup.reset();
     } else if (line.kind === 'response_item') {
-      currentTurnResponseItems.push(line.payload);
+      // Suppress response_item messages that mirror an already-seen event_msg.
+      if (dedup.processResponseItem(line.payload)) {
+        continue;
+      }
     } else if (line.kind === 'event_msg') {
       // Suppress event_msg messages that mirror a same-turn response_item message.
-      if (isDuplicateEventMsg(currentTurnResponseItems, line.payload)) {
+      if (dedup.processEventMsg(line.payload)) {
         continue;
       }
     }
@@ -156,9 +160,10 @@ export function extractOutputText(output: unknown): string {
  * array for most visible lines; may return more than one item only for
  * `response_item` lines that carry both a message and embedded reasoning.
  *
- * Deduplication (suppressing event_msg lines that mirror a same-turn
- * response_item message) is the caller's responsibility — callers should
- * filter with {@link isDuplicateEventMsg} before passing the line here.
+ * Deduplication (suppressing the later of a mirrored event_msg/response_item
+ * message pair within a turn) is the caller's responsibility — callers should
+ * filter through a {@link createTurnDedupMatcher} instance before passing the
+ * line here.
  *
  * @param line - A pre-parsed Codex rollout line.
  * @returns Zero or more transcript items derived from this line.

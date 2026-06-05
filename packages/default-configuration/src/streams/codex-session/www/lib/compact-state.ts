@@ -51,8 +51,8 @@ export interface CodexCompactState {
  * @returns The bounded compact-view state.
  * @throws Error 'not implemented' — Phase 1 stub.
  */
-import { extractMessageText, isDuplicateEventMsg } from './dedup.js';
-import { type CodexRolloutLine, type ContentItem, parseCodexLine, type ResponseItemPayload } from './parser.js';
+import { createTurnDedupMatcher, extractMessageText } from './dedup.js';
+import { type CodexRolloutLine, type ContentItem, parseCodexLine } from './parser.js';
 
 /**
  * Defensively reads `total_token_usage` from an `event_msg` `token_count` info object.
@@ -134,8 +134,6 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
   const tail: CodexTailEvent[] = [];
   let firstTimestamp: string | undefined;
   let lastTimestamp: string | undefined;
-  // Turn-scoped response_item accumulator; reset at each turn_context boundary.
-  let currentTurnResponseItems: ResponseItemPayload[] = [];
 
   const pushTail = (event: CodexTailEvent): void => {
     tail.push(event);
@@ -143,6 +141,10 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
       tail.shift();
     }
   };
+
+  // Bidirectional, order-independent turn-scoped dedup matcher.
+  // Works regardless of whether response_item or event_msg arrives first.
+  const dedup = createTurnDedupMatcher();
 
   for (const raw of lines) {
     const line: CodexRolloutLine = parseCodexLine(raw);
@@ -164,14 +166,17 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
       }
       case 'turn_context': {
         turnCount += 1;
-        currentTurnResponseItems = [];
+        dedup.reset();
         if (model === undefined && typeof line.payload.model === 'string') {
           model = line.payload.model;
         }
         break;
       }
       case 'response_item': {
-        currentTurnResponseItems.push(line.payload);
+        // Suppress response_item messages that mirror an already-seen event_msg.
+        if (dedup.processResponseItem(line.payload)) {
+          break;
+        }
         const payload = line.payload as Record<string, unknown> & { type: string };
         if (payload.type === 'message') {
           const content = Array.isArray(payload['content']) ? (payload['content'] as ContentItem[]) : [];
@@ -199,7 +204,7 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
           }
         } else if (payload.type === 'agent_message' || payload.type === 'user_message') {
           // Suppress event_msg messages that mirror a same-turn response_item message.
-          if (isDuplicateEventMsg(currentTurnResponseItems, line.payload)) {
+          if (dedup.processEventMsg(line.payload)) {
             break;
           }
           const message = typeof payload['message'] === 'string' ? payload['message'] : '';
