@@ -5,10 +5,7 @@
  * (`codex-rs/protocol/src/protocol.rs`, `models.rs`) — real envelope shapes
  * and nested variant structures, not invented ones.
  *
- * All tests in this file are skipped (Phase 2 TDD). Phase 3 unskips them
- * by implementing `parseCodexLine` in `lib/parser.ts`.
- *
- * @summary Skipped unit tests for the Codex rollout JSONL parser
+ * @summary Unit tests for the Codex rollout JSONL parser
  */
 
 import { describe, expect, it } from 'vitest';
@@ -37,7 +34,7 @@ describe('parseCodexLine — root envelope shapes', () => {
   it('parses a session_meta line', () => {
     const raw = envelope('session_meta', {
       id: 'thread-abc123',
-      model: 'gpt-4o',
+      model_provider: 'openai',
       cwd: '/home/user/project',
       originator: 'user',
       cli_version: '0.137.0',
@@ -47,7 +44,8 @@ describe('parseCodexLine — root envelope shapes', () => {
     expect(result.kind).toBe('session_meta');
     if (result.kind === 'session_meta') {
       expect(result.timestamp).toBe('2026-06-04T12:00:00.000Z');
-      expect(result.payload.model).toBe('gpt-4o');
+      // SessionMeta carries no model; the provider id and thread id are present.
+      expect(result.payload.model_provider).toBe('openai');
       expect(result.payload.id).toBe('thread-abc123');
     }
   });
@@ -303,6 +301,62 @@ describe('parseCodexLine — event_msg payload variants', () => {
     expect(result.kind).toBe('event_msg');
     if (result.kind === 'event_msg' && result.payload.type === 'error') {
       expect(result.payload.message).toBe('Connection timeout');
+    }
+  });
+});
+
+// ============================================================================
+// Tier 3 contract corrections (protocol fidelity at rust-v0.137.0)
+// ============================================================================
+
+describe('parseCodexLine — session_meta contract corrections', () => {
+  it('parses model_provider on session_meta (renamed from model_provider_id)', () => {
+    const raw = envelope('session_meta', {
+      id: 'thread-abc123',
+      model_provider: 'openai',
+      cwd: '/home/user/project'
+    });
+    const result = parseCodexLine(raw);
+    expect(result.kind).toBe('session_meta');
+    if (result.kind === 'session_meta') {
+      expect(result.payload.model_provider).toBe('openai');
+      // `model` is no longer a declared field on SessionMetaPayload — it lives on
+      // turn_context. Reading it via the index signature yields undefined here.
+      expect(result.payload['model']).toBeUndefined();
+    }
+  });
+});
+
+describe('parseCodexLine — task_complete carries duration_ms and turn_id', () => {
+  it('exposes duration_ms and turn_id on a task_complete event', () => {
+    const raw = envelope('event_msg', {
+      type: 'task_complete',
+      turn_id: 'turn-9',
+      last_agent_message: 'All done.',
+      duration_ms: 4200
+    });
+    const result = parseCodexLine(raw);
+    expect(result.kind).toBe('event_msg');
+    if (result.kind === 'event_msg' && result.payload.type === 'task_complete') {
+      expect(result.payload.duration_ms).toBe(4200);
+      expect(result.payload.turn_id).toBe('turn-9');
+    }
+  });
+});
+
+describe('parseCodexLine — persisted tool-activity end events', () => {
+  it('parses an mcp_tool_call_end event with invocation and result', () => {
+    const raw = envelope('event_msg', {
+      type: 'mcp_tool_call_end',
+      call_id: 'mcp-1',
+      invocation: { server: 'github', tool: 'list_prs', arguments: { state: 'open' } },
+      result: { ok: true }
+    });
+    const result = parseCodexLine(raw);
+    expect(result.kind).toBe('event_msg');
+    if (result.kind === 'event_msg' && result.payload.type === 'mcp_tool_call_end') {
+      expect(result.payload.invocation.server).toBe('github');
+      expect(result.payload.invocation.tool).toBe('list_prs');
     }
   });
 });

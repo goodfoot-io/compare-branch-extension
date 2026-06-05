@@ -99,6 +99,16 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
               <span className="cx-header-key">model</span> {item.model}
             </span>
           )}
+          {item.provider !== undefined && (
+            <span>
+              <span className="cx-header-key">provider</span> {item.provider}
+            </span>
+          )}
+          {item.threadId !== undefined && (
+            <span>
+              <span className="cx-header-key">thread</span> {item.threadId}
+            </span>
+          )}
           {item.cwd !== undefined && (
             <span>
               <span className="cx-header-key">cwd</span> {item.cwd}
@@ -132,7 +142,10 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
       return (
         <div className="cx-item cx-reasoning">
           <div className="cx-role-label">Reasoning</div>
-          <div className="cx-message-text">{item.summaryText}</div>
+          {item.summaryText.length > 0 && <div className="cx-message-text">{item.summaryText}</div>}
+          {item.contentText !== undefined && item.contentText.length > 0 && (
+            <div className="cx-message-text cx-reasoning-content">{item.contentText}</div>
+          )}
         </div>
       );
 
@@ -145,7 +158,10 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
           </div>
           {item.argumentsText.length > 0 && (
             <div className="cx-tool-args">
-              <div className="cx-section-label">arguments{item.prettyPrinted ? '' : ' (raw)'}</div>
+              <div className="cx-section-label">
+                {item.argsLabel ?? 'arguments'}
+                {item.prettyPrinted ? '' : ' (raw)'}
+              </div>
               <pre className="cx-pre">{item.argumentsText}</pre>
             </div>
           )}
@@ -163,6 +179,31 @@ function TranscriptItemView({ item }: { item: TranscriptItem }): React.ReactElem
         <div className="cx-orphan">
           <div className="cx-tool-output-label">output (call {item.callId})</div>
           <pre className="cx-pre">{item.outputText}</pre>
+        </div>
+      );
+
+    case 'turn_boundary':
+      return (
+        <div className="cx-turn-boundary">
+          <span className="cx-turn-boundary-label">turn{item.turnId !== undefined ? ` ${item.turnId}` : ''}</span>
+        </div>
+      );
+
+    case 'compaction':
+      return (
+        <div className="cx-compaction">
+          <div className="cx-compaction-label">context compacted</div>
+          {item.message.length > 0 && <div className="cx-message-text">{item.message}</div>}
+        </div>
+      );
+
+    case 'event_activity':
+      return (
+        <div className="cx-event">
+          <div className="cx-event-label">{item.label}</div>
+          {item.detailText !== undefined && item.detailText.length > 0 && (
+            <pre className="cx-pre">{item.detailText}</pre>
+          )}
         </div>
       );
 

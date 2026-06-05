@@ -367,6 +367,69 @@ body.mode-expanded {
   padding: 3px 8px 0;
 }
 
+/* Reasoning detail content rendered alongside the summary. */
+.cx-reasoning-content {
+  margin-top: 4px;
+  font-style: normal;
+  color: var(--vscode-foreground);
+}
+
+/* Turn boundary marker — a thin labelled divider between turns. */
+.cx-turn-boundary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  color: var(--vscode-descriptionForeground);
+}
+.cx-turn-boundary::before,
+.cx-turn-boundary::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--vscode-panel-border);
+}
+.cx-turn-boundary-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Compaction marker. */
+.cx-compaction {
+  border: 1px dashed var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--vscode-charts-purple) 6%, transparent);
+}
+.cx-compaction-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--vscode-charts-purple);
+  margin-bottom: 3px;
+}
+
+/* Persisted high-level event activity (mcp/web_search/image/patch/plan). */
+.cx-event {
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.cx-event-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--vscode-charts-blue);
+  padding: 4px 8px;
+  background: var(--vscode-textCodeBlock-background);
+}
+
 .cx-empty {
   font-size: 11px;
   font-style: italic;

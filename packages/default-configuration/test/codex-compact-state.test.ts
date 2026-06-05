@@ -6,10 +6,7 @@
  * displays. Because it is pure (no watermark), passing a different array
  * always produces fresh state with no stale carryover.
  *
- * All tests are skipped (Phase 2 TDD). Phase 3 unskips them by implementing
- * `buildCodexCompactState` in `lib/compact-state.ts`.
- *
- * @summary Skipped unit tests for the Codex compact-state builder
+ * @summary Unit tests for the Codex compact-state builder
  */
 
 import { describe, expect, it } from 'vitest';
@@ -30,12 +27,13 @@ function envelope(type: string, payload: unknown, timestamp = '2026-06-04T12:00:
   return JSON.stringify({ timestamp, type, payload });
 }
 
-function sessionMetaLine(opts: { model?: string; timestamp?: string; id?: string } = {}): string {
+function sessionMetaLine(opts: { timestamp?: string; id?: string } = {}): string {
+  // SessionMeta carries no model field — the model lives on turn_context.
   return envelope(
     'session_meta',
     {
       id: opts.id ?? 'thread-001',
-      model: opts.model ?? 'gpt-4o',
+      model_provider: 'openai',
       cwd: '/home/user/project',
       originator: 'user'
     },
@@ -143,11 +141,21 @@ describe('buildCodexCompactState — empty and zero state', () => {
   });
 });
 
-describe('buildCodexCompactState — session_meta only', () => {
-  it('populates model from session_meta, no turns', () => {
-    const lines = [sessionMetaLine({ model: 'gpt-4o-mini' })];
+describe('buildCodexCompactState — model from turn_context', () => {
+  it('populates model from the first turn_context (SessionMeta carries no model)', () => {
+    // Protocol truth: the model lives on TurnContextItem.model, not SessionMeta.
+    const lines = [
+      sessionMetaLine(),
+      envelope('turn_context', { turn_id: 'turn-1', model: 'gpt-4o-mini', cwd: '/home/user/project' })
+    ];
     const state = buildCodexCompactState(lines, false);
     expect(state.model).toBe('gpt-4o-mini');
+    expect(state.turnCount).toBe(1);
+  });
+
+  it('leaves model undefined when no turn_context is present', () => {
+    const state = buildCodexCompactState([sessionMetaLine()], false);
+    expect(state.model).toBeUndefined();
     expect(state.turnCount).toBe(0);
   });
 
@@ -336,6 +344,22 @@ describe('buildCodexCompactState — durationMs from timestamps', () => {
     if (state.durationMs !== undefined) {
       expect(state.durationMs).toBe(0);
     }
+  });
+});
+
+// ============================================================================
+// durationMs prefers task_complete.duration_ms when present
+// ============================================================================
+
+describe('buildCodexCompactState — durationMs from task_complete.duration_ms', () => {
+  it('prefers task_complete.duration_ms over the timestamp-derived duration', () => {
+    const lines = [
+      sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),
+      // Timestamps span 5 minutes (300_000 ms), but the explicit duration wins.
+      envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1', duration_ms: 1234 }, '2026-06-04T10:05:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.durationMs).toBe(1234);
   });
 });
 

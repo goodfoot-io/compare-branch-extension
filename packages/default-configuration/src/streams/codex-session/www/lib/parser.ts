@@ -52,7 +52,12 @@ export type MessagePhase = 'commentary' | 'final_answer';
 export type ResponseItemPayload =
   | { type: 'message'; role: string; content: ContentItem[]; phase?: MessagePhase }
   | { type: 'reasoning'; summary: unknown[]; content?: unknown[]; encrypted_content?: string }
-  | { type: 'local_shell_call'; call_id?: string; status: string; action: unknown }
+  | {
+      type: 'local_shell_call';
+      call_id?: string;
+      status: 'completed' | 'in_progress' | 'incomplete';
+      action: unknown;
+    }
   | { type: 'function_call'; name: string; namespace?: string; arguments: string; call_id: string }
   | { type: 'function_call_output'; call_id: string; output: FunctionCallOutput }
   | { type: 'custom_tool_call'; status?: string; call_id: string; name: string; input: string }
@@ -67,11 +72,14 @@ export type ResponseItemPayload =
   | { type: string; [key: string]: unknown };
 
 /**
- * Session metadata payload for a `session_meta` line (`protocol.rs` L2835-L2841).
+ * Session metadata payload for a `session_meta` line (`SessionMeta`,
+ * `protocol.rs` L2774).
  *
- * Flattens `SessionMeta` together with optional git info. All fields are
- * treated as optional context — present-only header/context information, never
- * proof that a session or turn succeeded.
+ * Flattens `SessionMeta` together with optional git info. `id` is the session's
+ * `ThreadId` (the thread id), and `model_provider` is the optional provider id.
+ * There is no `model` field here — the model lives on `TurnContextItem.model`.
+ * All fields are treated as optional context — present-only header/context
+ * information, never proof that a session or turn succeeded.
  */
 export interface SessionMetaPayload {
   id?: string;
@@ -80,14 +88,14 @@ export interface SessionMetaPayload {
   originator?: string;
   cli_version?: string;
   source?: string;
-  model?: string;
-  model_provider_id?: string;
+  model_provider?: string;
   git?: unknown;
   [key: string]: unknown;
 }
 
 /**
- * Compaction marker payload for a `compacted` line (`protocol.rs` L2853-L2858).
+ * Compaction marker payload for a `compacted` line (`CompactedItem`,
+ * `protocol.rs` L2854).
  *
  * `message` is the human-readable summary; `replacement_history` optionally
  * re-establishes context after mid-turn compaction.
@@ -98,9 +106,11 @@ export interface CompactedPayload {
 }
 
 /**
- * Durable per-turn context baseline for a `turn_context` line (`protocol.rs`
- * L2879-L2889). Repeats once per real user turn and again after compaction; the
- * dedup window resets at each occurrence.
+ * Durable per-turn context baseline for a `turn_context` line (`TurnContextItem`,
+ * `protocol.rs` L2884-L2920). Repeats once per real user turn and again after
+ * compaction; the dedup window resets at each occurrence. `model` is required on
+ * the wire (the model the turn ran under) and is the renderer's source of truth
+ * for the session model.
  */
 export interface TurnContextPayload {
   turn_id?: string;
@@ -127,20 +137,39 @@ export interface TokenUsage {
  * Discriminated union over the `payload.type` of an `event_msg` line.
  *
  * Covers the high-level events the renderer presents — user/assistant messages,
- * token counts, and turn lifecycle markers (`protocol.rs` L1160 onward). The
- * open-ended final member preserves unknown/future variants so they never
- * invalidate the rest of the transcript. `message` events deliberately omit
- * `phase`: it is absent from `AgentMessageEvent`/`UserMessageEvent` for dedup
- * purposes (`protocol.rs` L2170-L2176), so relying on it would cause false
- * negatives.
+ * token counts, persisted tool-activity end events, and turn lifecycle markers
+ * (`protocol.rs` L1160 onward). The open-ended final member preserves
+ * unknown/future variants so they never invalidate the rest of the transcript.
+ *
+ * `AgentMessageEvent` does carry an optional `phase` (`protocol.rs` L2170-L2176);
+ * the dedup discriminator deliberately omits it and matches structurally on the
+ * message text instead, for robustness — providers do not emit `phase`
+ * consistently, so keying on it would cause false negatives. The omission is a
+ * design choice, not a reflection of the field being absent.
  */
 export type EventMsgPayload =
   | { type: 'agent_message'; message: string; phase?: MessagePhase }
   | { type: 'user_message'; message: string; client_id?: string; images?: string[] }
-  | { type: 'token_count'; info?: { total_token_usage?: TokenUsage; last_token_usage?: TokenUsage } }
-  | { type: 'task_started' }
-  | { type: 'task_complete'; [key: string]: unknown }
+  | { type: 'token_count'; info?: { total_token_usage: TokenUsage; last_token_usage: TokenUsage } }
+  | { type: 'task_started'; turn_id?: string }
+  | {
+      type: 'task_complete';
+      turn_id?: string;
+      last_agent_message?: string;
+      duration_ms?: number;
+      [key: string]: unknown;
+    }
   | { type: 'error'; message?: string }
+  | {
+      type: 'mcp_tool_call_end';
+      call_id: string;
+      invocation: { server: string; tool: string; arguments?: unknown };
+      result?: unknown;
+    }
+  | { type: 'web_search_end'; call_id: string; query: string; action?: unknown }
+  | { type: 'image_generation_end'; call_id: string; status: string; revised_prompt?: string; result: string }
+  | { type: 'patch_apply_end'; call_id: string; stdout: string; stderr: string; success: boolean; status?: string }
+  | { type: 'item_completed'; item: unknown }
   | { type: string; [key: string]: unknown };
 
 /**

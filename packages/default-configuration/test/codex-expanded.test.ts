@@ -6,14 +6,11 @@
  * This mirrors the Claude renderer's architecture where `parseLines` is tested
  * as a pure transform before the component wraps it.
  *
- * All tests are skipped (Phase 2 TDD). Phase 3 unskips them by implementing
- * `renderCodexTranscript`, `parseArguments`, and `extractOutputText` in
- * `lib/render-transcript.ts`.
- *
- * @summary Skipped unit tests for the Codex expanded transcript renderer
+ * @summary Unit tests for the Codex expanded transcript renderer
  */
 
 import { describe, expect, it } from 'vitest';
+import type { TranscriptItem } from '../src/streams/codex-session/www/lib/render-transcript.js';
 import {
   extractOutputText,
   parseArguments,
@@ -113,6 +110,16 @@ function eventMsgAgentLine(text: string, ts = '2026-06-04T10:07:00.000Z'): strin
 
 function eventMsgUserLine(text: string, ts = '2026-06-04T10:07:00.000Z'): string {
   return envelope('event_msg', { type: 'user_message', message: text }, ts);
+}
+
+/**
+ * Finds the first tool_call item in a rendered transcript.
+ * @param items - The rendered transcript items.
+ * @returns The first `tool_call` item, or undefined.
+ */
+function firstToolCall(items: TranscriptItem[]): Extract<TranscriptItem, { kind: 'tool_call' }> | undefined {
+  const found = items.find((i) => i.kind === 'tool_call');
+  return found?.kind === 'tool_call' ? found : undefined;
 }
 
 // ============================================================================
@@ -441,6 +448,190 @@ describe('renderCodexTranscript — cross-turn identical text is not suppressed'
     const items = renderCodexTranscript(lines);
     const assistantMessages = items.filter((i) => i.kind === 'assistant_message');
     expect(assistantMessages).toHaveLength(2);
+  });
+});
+
+// ============================================================================
+// Per-variant tool-call field reads (protocol fidelity)
+// ============================================================================
+
+describe('renderCodexTranscript — custom_tool_call surfaces input', () => {
+  it('renders the custom_tool_call input text (read from input, not arguments)', () => {
+    const line = envelope('response_item', {
+      type: 'custom_tool_call',
+      call_id: 'ct-1',
+      name: 'apply_patch',
+      input: '*** Begin Patch\n*** End Patch'
+    });
+    const items = renderCodexTranscript([line]);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    expect(tc?.argumentsText).toContain('Begin Patch');
+    expect(tc?.argsLabel).toBe('input');
+  });
+});
+
+describe('renderCodexTranscript — local_shell_call surfaces command', () => {
+  it('renders the joined exec command from action.command', () => {
+    const line = envelope('response_item', {
+      type: 'local_shell_call',
+      call_id: 'sh-1',
+      status: 'completed',
+      action: { type: 'exec', command: ['ls', '-la'] }
+    });
+    const items = renderCodexTranscript([line]);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    expect(tc?.argumentsText).toContain('ls -la');
+    expect(tc?.argsLabel).toBe('command');
+  });
+});
+
+describe('renderCodexTranscript — web_search_call and image_generation_call surface detail', () => {
+  it('renders the web_search_call query from action.search', () => {
+    const line = envelope('response_item', {
+      type: 'web_search_call',
+      status: 'completed',
+      action: { type: 'search', query: 'rust lifetimes' }
+    });
+    const items = renderCodexTranscript([line]);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    expect(tc?.argumentsText).toContain('rust lifetimes');
+  });
+
+  it('renders image_generation_call revised_prompt and result', () => {
+    const line = envelope('response_item', {
+      type: 'image_generation_call',
+      id: 'ig-1',
+      status: 'completed',
+      revised_prompt: 'A gray tabby cat hugging an otter',
+      result: 'data:image/png;base64,AAAA'
+    });
+    const items = renderCodexTranscript([line]);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    expect(tc?.argumentsText).toContain('gray tabby cat');
+  });
+});
+
+describe('renderCodexTranscript — tool_search_call surfaces object arguments + execution', () => {
+  it('renders non-empty detail from object arguments and execution', () => {
+    const line = envelope('response_item', {
+      type: 'tool_search_call',
+      call_id: 'ts-1',
+      status: 'completed',
+      execution: 'remote',
+      arguments: { query: 'list files', limit: 10 }
+    });
+    const items = renderCodexTranscript([line]);
+    const tc = firstToolCall(items);
+    expect(tc).toBeDefined();
+    expect(tc?.argumentsText.length ?? 0).toBeGreaterThan(0);
+    expect(tc?.argumentsText).toContain('list files');
+  });
+});
+
+// ============================================================================
+// Session header — model from turn_context, provider + threadId from session_meta
+// ============================================================================
+
+describe('renderCodexTranscript — session header exposes model, provider, thread id', () => {
+  it('back-patches model from the first turn_context and reads provider/id from session_meta', () => {
+    const lines = [
+      envelope('session_meta', { id: 'thread-xyz', model_provider: 'openai', cwd: '/project' }),
+      envelope('turn_context', { turn_id: 'turn-1', model: 'gpt-5-codex', cwd: '/project' })
+    ];
+    const items = renderCodexTranscript(lines);
+    const header = items.find((i) => i.kind === 'session_header');
+    expect(header?.kind).toBe('session_header');
+    if (header?.kind === 'session_header') {
+      expect(header.model).toBe('gpt-5-codex');
+      expect(header.provider).toBe('openai');
+      expect(header.threadId).toBe('thread-xyz');
+    }
+  });
+});
+
+// ============================================================================
+// Reasoning content (alongside summary)
+// ============================================================================
+
+describe('renderCodexTranscript — reasoning surfaces content alongside summary', () => {
+  it('renders reasoning content from content[].reasoning_text', () => {
+    const line = envelope('response_item', {
+      type: 'reasoning',
+      summary: [{ type: 'summary_text', text: 'Short summary.' }],
+      content: [{ type: 'reasoning_text', text: 'Detailed chain of thought.' }]
+    });
+    const items = renderCodexTranscript([line]);
+    const reasoning = items.find((i) => i.kind === 'reasoning');
+    expect(reasoning?.kind).toBe('reasoning');
+    if (reasoning?.kind === 'reasoning') {
+      expect(reasoning.summaryText).toContain('Short summary.');
+      expect(reasoning.contentText).toContain('Detailed chain of thought.');
+    }
+  });
+});
+
+// ============================================================================
+// Turn boundary and compaction markers
+// ============================================================================
+
+describe('renderCodexTranscript — turn_context and compacted produce display items', () => {
+  it('emits a turn_boundary for turn_context carrying the turn id', () => {
+    const items = renderCodexTranscript([envelope('turn_context', { turn_id: 'turn-7', model: 'gpt-5-codex' })]);
+    const boundary = items.find((i) => i.kind === 'turn_boundary');
+    expect(boundary?.kind).toBe('turn_boundary');
+    if (boundary?.kind === 'turn_boundary') {
+      expect(boundary.turnId).toBe('turn-7');
+    }
+  });
+
+  it('emits a compaction item carrying the message', () => {
+    const items = renderCodexTranscript([envelope('compacted', { message: 'Context compacted after 10 turns.' })]);
+    const compaction = items.find((i) => i.kind === 'compaction');
+    expect(compaction?.kind).toBe('compaction');
+    if (compaction?.kind === 'compaction') {
+      expect(compaction.message).toContain('Context compacted');
+    }
+  });
+});
+
+// ============================================================================
+// Persisted high-level events → event_activity
+// ============================================================================
+
+describe('renderCodexTranscript — persisted events render as event_activity', () => {
+  it('renders mcp_tool_call_end as an event_activity with server.tool label', () => {
+    const line = envelope('event_msg', {
+      type: 'mcp_tool_call_end',
+      call_id: 'mcp-1',
+      invocation: { server: 'github', tool: 'list_prs', arguments: { state: 'open' } },
+      result: { ok: true }
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity');
+    expect(activity?.kind).toBe('event_activity');
+    if (activity?.kind === 'event_activity') {
+      expect(activity.label).toContain('github');
+      expect(activity.label).toContain('list_prs');
+    }
+  });
+
+  it('renders web_search_end as an event_activity carrying the query', () => {
+    const line = envelope('event_msg', {
+      type: 'web_search_end',
+      call_id: 'ws-1',
+      query: 'codex rollout protocol',
+      action: { type: 'search', query: 'codex rollout protocol' }
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity');
+    expect(activity?.kind).toBe('event_activity');
+    if (activity?.kind === 'event_activity') {
+      expect(activity.detailText).toContain('codex rollout protocol');
+    }
   });
 });
 
