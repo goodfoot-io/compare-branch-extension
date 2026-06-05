@@ -346,34 +346,31 @@ export function eventActivity(
 /**
  * Summarizes a persisted `item_completed.item` for plan updates.
  *
- * Only plan-shaped items produce a summary (the persistence policy persists
- * `ItemCompleted` for Plan items); other items yield `undefined` so they are
- * skipped. All reads are defensive.
+ * The Codex persistence policy persists `ItemCompleted` only for `Plan`
+ * variants. `TurnItem::Plan(PlanItem)` serializes (internally-tagged, fields
+ * flattened beside the tag) as `{ "type": "Plan", "id": "...", "text": "..." }`.
+ * There is no `plan`/`steps` array; the plan text lives directly on `item.text`.
+ *
+ * Returns `item.text` when `item.type === 'Plan'` and `item.text` is a
+ * non-empty string; returns `undefined` otherwise so the caller skips the item.
+ * All reads are defensive.
  *
  * @param item - The `item_completed.item` value (shape not guaranteed).
- * @returns A short plan summary string, or `undefined` when not a plan item.
+ * @returns The plan text string, or `undefined` when not a plan item.
  */
 function summarizePlanItem(item: unknown): string | undefined {
   if (item === null || typeof item !== 'object') {
     return undefined;
   }
-  const obj = item as { type?: unknown; plan?: unknown; steps?: unknown };
-  const planSource = Array.isArray(obj.plan) ? obj.plan : Array.isArray(obj.steps) ? obj.steps : undefined;
-  if (planSource === undefined) {
+  const obj = item as { type?: unknown; text?: unknown };
+  if (obj.type !== 'Plan') {
     return undefined;
   }
-  const lines: string[] = [];
-  for (const step of planSource) {
-    if (step !== null && typeof step === 'object') {
-      const s = step as { step?: unknown; status?: unknown };
-      const label = typeof s.step === 'string' ? s.step : '';
-      const status = typeof s.status === 'string' ? s.status : '';
-      if (label.length > 0) {
-        lines.push(status.length > 0 ? `[${status}] ${label}` : label);
-      }
-    }
+  const text = obj.text;
+  if (typeof text !== 'string' || text.length === 0) {
+    return undefined;
   }
-  return lines.length > 0 ? lines.join('\n') : undefined;
+  return text;
 }
 
 /**

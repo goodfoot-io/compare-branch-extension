@@ -348,18 +348,39 @@ describe('buildCodexCompactState — durationMs from timestamps', () => {
 });
 
 // ============================================================================
-// durationMs prefers task_complete.duration_ms when present
+// durationMs is always derived from first/last timestamps, never from
+// task_complete.duration_ms (which is per-turn, not per-session).
 // ============================================================================
 
-describe('buildCodexCompactState — durationMs from task_complete.duration_ms', () => {
-  it('prefers task_complete.duration_ms over the timestamp-derived duration', () => {
+describe('buildCodexCompactState — durationMs is always from first/last timestamps', () => {
+  it('uses the timestamp span across two turns, not the last turn task_complete.duration_ms', () => {
+    // Two turns each emit a task_complete with a small per-turn duration_ms (50 ms).
+    // The timestamps span 10 minutes (600_000 ms).
+    // durationMs must equal the timestamp span, not the per-turn value.
     const lines = [
       sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),
-      // Timestamps span 5 minutes (300_000 ms), but the explicit duration wins.
+      envelope('turn_context', { turn_id: 'turn-1', model: 'gpt-4o' }, '2026-06-04T10:01:00.000Z'),
+      envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1', duration_ms: 50 }, '2026-06-04T10:05:00.000Z'),
+      envelope('turn_context', { turn_id: 'turn-2', model: 'gpt-4o' }, '2026-06-04T10:06:00.000Z'),
+      envelope('event_msg', { type: 'task_complete', turn_id: 'turn-2', duration_ms: 50 }, '2026-06-04T10:10:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    // Timestamp span: 10:00 → 10:10 = 600_000 ms
+    expect(state.durationMs).toBe(600_000);
+    // Confirm it is NOT the per-turn value
+    expect(state.durationMs).not.toBe(50);
+  });
+
+  it('ignores task_complete.duration_ms even when a single turn is present', () => {
+    // Single task_complete with duration_ms=1234; timestamps span 5 minutes (300_000 ms).
+    // The result must be the timestamp-derived span, not 1234.
+    const lines = [
+      sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),
       envelope('event_msg', { type: 'task_complete', turn_id: 'turn-1', duration_ms: 1234 }, '2026-06-04T10:05:00.000Z')
     ];
     const state = buildCodexCompactState(lines, false);
-    expect(state.durationMs).toBe(1234);
+    expect(state.durationMs).toBe(300_000);
+    expect(state.durationMs).not.toBe(1234);
   });
 });
 

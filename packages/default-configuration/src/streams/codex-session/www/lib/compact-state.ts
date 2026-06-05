@@ -134,9 +134,6 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
   const tail: CodexTailEvent[] = [];
   let firstTimestamp: string | undefined;
   let lastTimestamp: string | undefined;
-  // When a task_complete carries an explicit duration_ms, it is authoritative
-  // and preferred over the timestamp-derived span.
-  let explicitDurationMs: number | undefined;
 
   const pushTail = (event: CodexTailEvent): void => {
     tail.push(event);
@@ -200,10 +197,6 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
           if (usage !== undefined) {
             tokenCount = { input: usage.input_tokens, output: usage.output_tokens };
           }
-        } else if (payload.type === 'task_complete') {
-          if (typeof payload['duration_ms'] === 'number') {
-            explicitDurationMs = payload['duration_ms'];
-          }
         } else if (payload.type === 'agent_message' || payload.type === 'user_message') {
           // Suppress event_msg messages that mirror a same-turn response_item message.
           if (dedup.processEventMsg(line.payload)) {
@@ -234,7 +227,7 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
     toolCallCount,
     tokenCount,
     model,
-    durationMs: explicitDurationMs ?? durationBetween(firstTimestamp, lastTimestamp),
+    durationMs: durationBetween(firstTimestamp, lastTimestamp),
     tail
   };
 }

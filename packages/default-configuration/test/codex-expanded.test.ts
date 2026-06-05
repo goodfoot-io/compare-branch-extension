@@ -636,6 +636,65 @@ describe('renderCodexTranscript — persisted events render as event_activity', 
 });
 
 // ============================================================================
+// item_completed → plan_update event_activity
+// ============================================================================
+
+describe('renderCodexTranscript — item_completed renders plan text', () => {
+  it('emits an event_activity with label plan_update and detailText from Plan item text', () => {
+    // Real persisted shape: TurnItem::Plan serializes as { type: "Plan", id: "...", text: "..." }
+    const line = envelope('event_msg', {
+      type: 'item_completed',
+      item: { type: 'Plan', id: 'plan-1', text: '1. do X\n2. do Y' }
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity');
+    expect(activity?.kind).toBe('event_activity');
+    if (activity?.kind === 'event_activity') {
+      expect(activity.label).toBe('plan_update');
+      expect(activity.detailText).toContain('1. do X');
+      expect(activity.detailText).toContain('2. do Y');
+    }
+  });
+
+  it('does NOT emit an event_activity for the old plan/steps array shape (regression guard)', () => {
+    // The old implementation read item.plan / item.steps as arrays of {step,status} objects.
+    // That shape was never written by the Codex protocol. Confirm it produces nothing.
+    const line = envelope('event_msg', {
+      type: 'item_completed',
+      item: {
+        plan: [
+          { step: 'do X', status: 'pending' },
+          { step: 'do Y', status: 'done' }
+        ]
+      }
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity');
+    expect(activity).toBeUndefined();
+  });
+
+  it('skips item_completed when item.type is not Plan', () => {
+    const line = envelope('event_msg', {
+      type: 'item_completed',
+      item: { type: 'Message', id: 'msg-1', text: 'some text' }
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity');
+    expect(activity).toBeUndefined();
+  });
+
+  it('skips item_completed when item.text is empty', () => {
+    const line = envelope('event_msg', {
+      type: 'item_completed',
+      item: { type: 'Plan', id: 'plan-empty', text: '' }
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity');
+    expect(activity).toBeUndefined();
+  });
+});
+
+// ============================================================================
 // Build verification — covered as a skipped test
 // ============================================================================
 
