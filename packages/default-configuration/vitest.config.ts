@@ -23,7 +23,7 @@ const repoRoot = resolve(__dirname, '../../..');
  * @summary Vitest logic for package
  */
 
-// Mirror the working `@cards/claude-code-hooks-runtime` plugin: no custom
+// Mirror the working `@cards/agent-hooks` plugin: no custom
 // `resolveId` (returning a raw absolute path there is what makes Vite
 // synthesize the broken `C:\@fs\C:\...` URL on Windows). Vite's default
 // resolver hands `load` the resolved id; normalize a `/@fs/` prefix and a
