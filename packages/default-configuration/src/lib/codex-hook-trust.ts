@@ -288,7 +288,7 @@ export function buildPluginHooksState(
           return;
         }
 
-        assertHandlerFieldsModeled(handler, pluginId, sourceRelativePath, event, gi, hi);
+        assertHandlerFieldsModeled(handler, pluginId, sourceRelativePath, label, gi, hi);
 
         if (handler.async === true) {
           return;
@@ -298,7 +298,7 @@ export function buildPluginHooksState(
         try {
           command = selectHashedCommand(handler);
         } catch {
-          throw new Error(`Command hook missing "command" at ${event}:${gi}:${hi}`);
+          throw new Error(`Command hook missing "command" at ${label}:${gi}:${hi}`);
         }
 
         const key = `${pluginId}:${sourceRelativePath}:${label}:${gi}:${hi}`;
@@ -328,7 +328,7 @@ export function buildPluginHooksState(
  * @param handler - The command handler being seeded.
  * @param pluginId - The plugin id (`<name>@<marketplace>`), for the message.
  * @param sourceRelativePath - The source-relative `hooks.json` path, for the message.
- * @param event - The PascalCase event key, for the positional location.
+ * @param eventLabel - The snake_case event label, matching the seeded hook key's positional location.
  * @param gi - The group index, for the positional location.
  * @param hi - The handler index, for the positional location.
  * @throws {Error} When the handler has any key outside the modeled set.
@@ -337,7 +337,7 @@ function assertHandlerFieldsModeled(
   handler: HookHandler,
   pluginId: string,
   sourceRelativePath: string,
-  event: string,
+  eventLabel: string,
   gi: number,
   hi: number
 ): void {
@@ -348,7 +348,7 @@ function assertHandlerFieldsModeled(
 
   const keyList = unmodeled.map((key) => `"${key}"`).join(', ');
   throw new Error(
-    `Unmodeled Codex hook field(s) ${keyList} on command handler ${event}:${gi}:${hi} ` +
+    `Unmodeled Codex hook field(s) ${keyList} on command handler ${eventLabel}:${gi}:${hi} ` +
       `in ${pluginId} (${sourceRelativePath}): this field is not modeled by the trust hash, ` +
       `so the launch is aborted to avoid silently seeding an incorrect trust hash.`
   );

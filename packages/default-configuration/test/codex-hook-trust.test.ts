@@ -242,8 +242,9 @@ describe('codex-hook-trust', () => {
       }
     };
     expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', withUnknownField)).toThrow(/frobnicate/);
-    // The error names the positional location and the plugin/source path.
-    expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', withUnknownField)).toThrow(/SessionStart:0:0/);
+    // The error names the positional location using the same snake_case event
+    // label as the seeded hook key (not the PascalCase JSON key).
+    expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', withUnknownField)).toThrow(/session_start:0:0/);
     expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', withUnknownField)).toThrow(
       /p@local.*hooks\/hooks\.json/
     );
