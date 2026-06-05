@@ -12,7 +12,9 @@
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { truncate } from '../../lib/markdown';
+import type { AttachmentPayload, HookBlockingErrorAttachment } from '../../lib/parse-session';
 import { summarizeTool } from '../../lib/tool-summary';
+import { HookSection } from './HookSection';
 import { ToolInputTable } from './ToolInputTable';
 import { ToolResult } from './ToolResult';
 
@@ -25,6 +27,19 @@ interface ToolAccordionProps {
   result: string | null;
   /** Supplemental result from isMeta injection (e.g. skill content). Replaces result when present. */
   supplementalResult?: string | null;
+  /** Hook attachments that fired for this tool, nested inside the body. */
+  hooks?: AttachmentPayload[];
+}
+
+/**
+ * Finds the first `hook_blocking_error` among a tool's hooks, if any.
+ * Drives the collapsed-header escalation (rule 5): a blocking error tints the
+ * row to errorForeground and surfaces the offending hook name even when closed.
+ * @param hooks - Hook attachments for the tool.
+ * @returns The blocking-error hook, or undefined when none blocked.
+ */
+function findBlockingHook(hooks: AttachmentPayload[] | undefined): HookBlockingErrorAttachment | undefined {
+  return hooks?.find((h): h is HookBlockingErrorAttachment => h.type === 'hook_blocking_error');
 }
 
 /**
@@ -34,12 +49,22 @@ interface ToolAccordionProps {
  * @param root0.input - Tool input object (may be empty).
  * @param root0.result - Tool result string (may be null if no result yet).
  * @param root0.supplementalResult - Supplemental result from isMeta injection (e.g. skill content). Replaces result when present.
+ * @param root0.hooks - Hook attachments that fired for this tool, nested inside the body.
  * @returns Rendered collapsible tool accordion element.
  */
-export function ToolAccordion({ toolName, input, result, supplementalResult }: ToolAccordionProps): React.ReactElement {
+export function ToolAccordion({
+  toolName,
+  input,
+  result,
+  supplementalResult,
+  hooks
+}: ToolAccordionProps): React.ReactElement {
   const [open, setOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const displayResult = supplementalResult ?? result;
+  const blockingHook = findBlockingHook(hooks);
+  const escalated = blockingHook !== undefined;
+  const hasHooks = hooks !== undefined && hooks.length > 0;
 
   // Build preview string from summarizeTool or first input value
   let previewStr = summarizeTool(toolName, input);
@@ -67,7 +92,10 @@ export function ToolAccordion({ toolName, input, result, supplementalResult }: T
   }, []);
 
   return (
-    <div className="cc-tool-row overflow-hidden">
+    <div
+      className="cc-tool-row overflow-hidden"
+      style={escalated ? { borderLeft: '2px solid var(--vscode-errorForeground)' } : undefined}
+    >
       <button
         type="button"
         aria-expanded={open}
@@ -101,9 +129,9 @@ export function ToolAccordion({ toolName, input, result, supplementalResult }: T
         </span>
         <span
           className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
-          style={{ color: 'var(--vscode-disabledForeground)' }}
+          style={{ color: escalated ? 'var(--vscode-errorForeground)' : 'var(--vscode-disabledForeground)' }}
         >
-          {previewStr}
+          {escalated ? `✗ blocked by ${blockingHook?.hookName ?? ''}` : previewStr}
         </span>
         <span
           className="cc-chevron shrink-0"
@@ -119,6 +147,7 @@ export function ToolAccordion({ toolName, input, result, supplementalResult }: T
       >
         <ToolInputTable toolName={toolName} input={input} />
         {displayResult !== null && displayResult !== undefined && <ToolResult result={displayResult} />}
+        {hasHooks && hooks !== undefined && <HookSection hooks={hooks} />}
       </div>
     </div>
   );

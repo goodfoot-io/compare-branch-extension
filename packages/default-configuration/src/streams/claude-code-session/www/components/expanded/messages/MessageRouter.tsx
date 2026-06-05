@@ -13,7 +13,7 @@
  */
 
 import type React from 'react';
-import type { ContentBlock, SessionMsg } from '../../../lib/parse-session';
+import type { AttachmentPayload, ContentBlock, SessionMsg } from '../../../lib/parse-session';
 import { ToolAccordion } from '../../accordions/ToolAccordion';
 import { ToolGroup } from '../../accordions/ToolGroup';
 import { AssistantTurn } from './AssistantTurn';
@@ -28,6 +28,16 @@ interface PendingToolUse {
   name: string;
   input: Record<string, unknown>;
 }
+
+/** The six `hook_*` attachment subtypes that nest inside their owning tool. */
+const HOOK_ATTACHMENT_TYPES = new Set<string>([
+  'hook_success',
+  'hook_additional_context',
+  'hook_system_message',
+  'hook_non_blocking_error',
+  'hook_blocking_error',
+  'hook_cancelled'
+]);
 
 interface MessageRouterProps {
   /** All parsed session messages. */
@@ -74,6 +84,29 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
       if (textParts.length > 0) supplementalResultMap.set(toolUseId, textParts.join('\n\n'));
     }
   }
+
+  // Pre-pass: collect hook_* attachment messages keyed by their toolUseID, so each
+  // tool's hooks can nest inside its ToolAccordion body. Mirrors the
+  // supplementalResultMap precedent above (a Map<toolUseID, …> built before render).
+  const toolAttachmentsMap = new Map<string, AttachmentPayload[]>();
+  for (const msg of messages) {
+    if (msg.type !== 'attachment') continue;
+    const attachment = (msg as Extract<SessionMsg, { type: 'attachment' }>).attachment;
+    if (!HOOK_ATTACHMENT_TYPES.has(attachment.type)) continue;
+    const toolUseID = (attachment as { toolUseID?: string }).toolUseID;
+    if (!toolUseID) continue;
+    const existing = toolAttachmentsMap.get(toolUseID);
+    if (existing) {
+      existing.push(attachment);
+    } else {
+      toolAttachmentsMap.set(toolUseID, [attachment]);
+    }
+  }
+
+  // Records every toolUseID whose hooks were actually nested into a rendered tool.
+  // The next group's `case 'attachment'` arm skips hooks already consumed here and
+  // renders only true orphans (a hook whose toolUseID matched no rendered tool).
+  const consumedHookToolUseIds = new Set<string>();
 
   const nodes: React.ReactElement[] = [];
 
@@ -129,6 +162,8 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                   : '';
             const pending = pendingToolUses.get(b.tool_use_id);
             const supplemental = supplementalResultMap.get(b.tool_use_id) ?? null;
+            const hooks = toolAttachmentsMap.get(b.tool_use_id);
+            if (hooks) consumedHookToolUseIds.add(b.tool_use_id);
             if (pending) {
               nodes.push(
                 <ToolAccordion
@@ -137,6 +172,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                   input={pending.input}
                   result={resultContent}
                   supplementalResult={supplemental}
+                  hooks={hooks}
                 />
               );
               pendingToolUses.delete(b.tool_use_id);
@@ -148,6 +184,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                   input={{}}
                   result={resultContent}
                   supplementalResult={supplemental}
+                  hooks={hooks}
                 />
               );
             }
@@ -225,8 +262,16 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         for (const id of ids) {
           const pending = pendingToolUses.get(id);
           if (pending) {
+            const hooks = toolAttachmentsMap.get(id);
+            if (hooks) consumedHookToolUseIds.add(id);
             nodes.push(
-              <ToolAccordion key={`${key}-tus-${id}`} toolName={pending.name} input={pending.input} result={summary} />
+              <ToolAccordion
+                key={`${key}-tus-${id}`}
+                toolName={pending.name}
+                input={pending.input}
+                result={summary}
+                hooks={hooks}
+              />
             );
             pendingToolUses.delete(id);
             rendered = true;
@@ -268,6 +313,11 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         break;
     }
   });
+
+  // consumedHookToolUseIds is populated above and consumed by the forthcoming
+  // `case 'attachment'` arm (next group) to skip already-nested hooks and render
+  // only true orphans. Referenced here so the set stays live until that arm exists.
+  void consumedHookToolUseIds;
 
   // Group consecutive ToolAccordion nodes into ToolGroup containers.
   // Non-conversational system events (files_persisted, compact_boundary, etc.) are buffered
