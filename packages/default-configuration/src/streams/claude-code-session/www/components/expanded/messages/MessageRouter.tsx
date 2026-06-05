@@ -42,6 +42,66 @@ const HOOK_ATTACHMENT_TYPES = new Set<string>([
   'hook_cancelled'
 ]);
 
+/**
+ * Pre-pass: collect every `toolUseID` that WILL reach a ToolAccordion render
+ * site, so orphan-vs-nested hook detection is independent of stream ordering.
+ *
+ * Mirrors exactly the two render arms that emit a ToolAccordion:
+ * - the `user` arm renders a ToolAccordion for **every** `tool_result` block's
+ *   `tool_use_id` (paired or not), so each such id will nest its hooks;
+ * - the `tool_use_summary` arm renders a ToolAccordion for each
+ *   `preceding_tool_use_ids` entry that matches a registered assistant
+ *   `tool_use` block id.
+ *
+ * The hook attachment line for a tool usually precedes that tool's
+ * `tool_result` in the real stream, so a set populated only when the tool
+ * renders would still be empty at the hook's position — making the orphan
+ * guard order-dependent and double-rendering the hook. Walking the whole list
+ * up front removes that dependence.
+ * @param messages - All parsed session messages.
+ * @returns Set of toolUseIDs that pair into a rendered ToolAccordion.
+ */
+function computeWillNestToolUseIds(messages: SessionMsg[]): Set<string> {
+  const willNest = new Set<string>();
+  const registeredToolUseIds = new Set<string>();
+
+  for (const msg of messages) {
+    switch (msg.type) {
+      case 'assistant': {
+        const aMsg = msg as Extract<SessionMsg, { type: 'assistant' }>;
+        const blocks = aMsg.message?.content ?? [];
+        for (const block of blocks) {
+          const b = block as ContentBlock;
+          if (b.type === 'tool_use') registeredToolUseIds.add(b.id);
+        }
+        break;
+      }
+      case 'user': {
+        if ((msg as Record<string, unknown>)['isMeta'] === true) break;
+        const userMsg = msg as Extract<SessionMsg, { type: 'user' }>;
+        const content = userMsg.message?.content;
+        if (!Array.isArray(content)) break;
+        for (const block of content) {
+          const b = block as ContentBlock;
+          if (b.type === 'tool_result' && b.tool_use_id) willNest.add(b.tool_use_id);
+        }
+        break;
+      }
+      case 'tool_use_summary': {
+        const tusMsg = msg as Extract<SessionMsg, { type: 'tool_use_summary' }>;
+        for (const id of tusMsg.preceding_tool_use_ids ?? []) {
+          if (registeredToolUseIds.has(id)) willNest.add(id);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  return willNest;
+}
+
 interface MessageRouterProps {
   /** All parsed session messages. */
   messages: SessionMsg[];
@@ -106,10 +166,17 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     }
   }
 
-  // Records every toolUseID whose hooks were actually nested into a rendered tool.
-  // The next group's `case 'attachment'` arm skips hooks already consumed here and
-  // renders only true orphans (a hook whose toolUseID matched no rendered tool).
-  const consumedHookToolUseIds = new Set<string>();
+  // Pre-pass: compute the set of toolUseIDs that WILL reach a ToolAccordion
+  // render site, so the `case 'attachment'` arm can decide orphan-vs-nested
+  // order-independently. A hook attachment line usually precedes its own
+  // tool_result in the real stream, so a mid-loop "consumed" set populated only
+  // when the tool renders would still be empty at the hook's position and the
+  // hook would double-render (once standalone, once nested). Walking the whole
+  // message list up front removes that ordering dependence: an assistant
+  // tool_use block id "will nest" iff a later tool_result carries it, or a
+  // tool_use_summary lists it among preceding_tool_use_ids — exactly the ids
+  // that pair into a ToolAccordion below.
+  const willNestToolUseIds = computeWillNestToolUseIds(messages);
 
   const nodes: React.ReactElement[] = [];
 
@@ -166,7 +233,6 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
             const pending = pendingToolUses.get(b.tool_use_id);
             const supplemental = supplementalResultMap.get(b.tool_use_id) ?? null;
             const hooks = toolAttachmentsMap.get(b.tool_use_id);
-            if (hooks) consumedHookToolUseIds.add(b.tool_use_id);
             if (pending) {
               nodes.push(
                 <ToolAccordion
@@ -266,7 +332,6 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
           const pending = pendingToolUses.get(id);
           if (pending) {
             const hooks = toolAttachmentsMap.get(id);
-            if (hooks) consumedHookToolUseIds.add(id);
             nodes.push(
               <ToolAccordion
                 key={`${key}-tus-${id}`}
@@ -314,26 +379,31 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
       case 'attachment': {
         const attachment = (msg as Extract<SessionMsg, { type: 'attachment' }>).attachment;
 
-        // A hook whose tool was rendered is already nested inside that tool's
-        // accordion (via toolAttachmentsMap → consumedHookToolUseIds); skip it
-        // here so it does not render twice. A hook whose toolUseID matched no
-        // rendered tool is a true orphan and falls through to AttachmentRouter,
-        // which renders it as a standalone row.
+        // A hook whose tool reaches a ToolAccordion render site is already nested
+        // inside that accordion (via the toolAttachmentsMap `hooks` prop); skip it
+        // here so it does not render twice. Orphan detection is order-independent:
+        // it consults the pre-computed willNestToolUseIds set rather than a set
+        // populated mid-loop, because the hook attachment line usually precedes
+        // its own tool_result. A hook whose toolUseID is NOT in the will-nest set
+        // is a true orphan and falls through to AttachmentRouter as a standalone
+        // row.
         if (HOOK_ATTACHMENT_TYPES.has(attachment.type)) {
           const toolUseID = (attachment as { toolUseID?: string }).toolUseID;
-          if (toolUseID && consumedHookToolUseIds.has(toolUseID)) break;
+          if (toolUseID && willNestToolUseIds.has(toolUseID)) break;
         }
 
-        // Classify once here only to decide whether the row is ambient-tier (and
-        // thus must be wrapped in the AmbientRow marker the grouping sweep keys
-        // off). AttachmentRouter classifies again to render — both reads of the
-        // same pure function. Hidden rows render nothing and produce no marker,
-        // so they never create an empty group artifact.
+        // Classify once here only to decide whether the row is wrapped in the
+        // AmbientRow marker the grouping sweep keys off. AttachmentRouter
+        // classifies again to render — both reads of the same pure function.
+        // Hidden rows render nothing and produce no marker, so they never create
+        // an empty group artifact. Only turn-scoped ambient rows are grouped:
+        // a session-scoped ambient marker (date_change) must stay standalone so
+        // it is never folded into — or erased by — the AmbientGroup collapse.
         const descriptor = classifyAttachment(attachment);
         if (descriptor.hidden) break;
 
         const rendered = <AttachmentRouter key={`${key}-att`} attachment={attachment} />;
-        if (descriptor.tier === 'ambient') {
+        if (descriptor.scope === 'turn' && descriptor.tier === 'ambient') {
           nodes.push(<AmbientRow key={`${key}-ambient`}>{rendered}</AmbientRow>);
         } else {
           nodes.push(rendered);
@@ -346,9 +416,6 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         break;
     }
   });
-
-  // consumedHookToolUseIds is populated in the tool arms above and consumed by
-  // the `case 'attachment'` arm to skip already-nested hooks; no keepalive needed.
 
   // Group consecutive ToolAccordion nodes into ToolGroup containers, and — in the
   // same pass — coalesce consecutive ambient attachment rows (AmbientRow markers)

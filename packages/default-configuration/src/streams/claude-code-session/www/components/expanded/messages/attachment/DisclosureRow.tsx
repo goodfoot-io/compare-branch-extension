@@ -69,8 +69,18 @@ function bodyText(attachment: AttachmentPayload): string | null {
     case 'invoked_skills': {
       const a = attachment as InvokedSkillsAttachment;
       const skills = a.skills ?? [];
-      const lines = skills.map((s) => s.name ?? s.path ?? '').filter((s) => s.length > 0);
-      return lines.length > 0 ? lines.join('\n') : null;
+      // One sub-row per skill: a `### name/path` heading followed by its content,
+      // so the disclosure shows what each skill loaded — not just its name. The
+      // markdown heading renders through renderMarkdown like the other bodies.
+      const sections = skills
+        .map((s) => {
+          const heading = s.name ?? s.path ?? '';
+          if (heading.length === 0 && !s.content) return '';
+          const content = typeof s.content === 'string' ? s.content : '';
+          return content.length > 0 ? `### ${heading}\n\n${content}` : `### ${heading}`;
+        })
+        .filter((section) => section.length > 0);
+      return sections.length > 0 ? sections.join('\n\n') : null;
     }
     case 'dynamic_skill': {
       const a = attachment as DynamicSkillAttachment;

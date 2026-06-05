@@ -22,8 +22,9 @@
  */
 
 import type React from 'react';
-import { type AttachmentGlyphSeverity, classifyAttachment } from '../../../../lib/classify-attachment';
+import { classifyAttachment } from '../../../../lib/classify-attachment';
 import type { AttachmentPayload } from '../../../../lib/parse-session';
+import { HookRow } from '../../../accordions/HookRow';
 import { RawJsonFallback } from '../RawJsonFallback';
 import { ContextStateRow } from './ContextStateRow';
 import { DateMarker } from './DateMarker';
@@ -73,53 +74,24 @@ interface AttachmentRouterProps {
   attachment: AttachmentPayload;
 }
 
-/**
- * Maps a classifier glyph severity to its VS Code theme color token, mirroring
- * the hook-row coloring inside a tool accordion. Only `warning` and `error`
- * carry color; neutral glyphs inherit the muted foreground.
- * @param severity - Glyph severity from the classifier descriptor.
- * @returns A CSS color value, or undefined for neutral.
- */
-function glyphColor(severity: AttachmentGlyphSeverity): string | undefined {
-  if (severity === 'warning') return 'var(--vscode-editorWarning-foreground, #cca700)';
-  if (severity === 'error') return 'var(--vscode-errorForeground)';
-  return undefined;
-}
-
 interface OrphanHookRowProps {
-  /** The classifier descriptor for the orphan hook. */
-  descriptor: ReturnType<typeof classifyAttachment>;
+  /** The raw attachment payload for the orphan hook. */
+  attachment: AttachmentPayload;
 }
 
 /**
  * Renders an orphan hook (a `hook_*` whose tool was never rendered) as a
- * standalone top-level row, reusing the hook-row look: glyph + summary at
- * content weight. A `hook_blocking_error` escalates to the `errorForeground`
- * variant with a left border, not the muted default.
+ * standalone top-level row via the shared {@link HookRow}, so it is at full
+ * parity with the nested hook row: glyph + summary AND the same in-place
+ * expandable body. A `hook_blocking_error` keeps the `errorForeground`
+ * escalation and now expands to its blocking reason + command, which would
+ * otherwise be lost (in the real corpus every blocking error is an orphan).
  * @param root0 - The component props.
- * @param root0.descriptor - The classifier descriptor for the orphan hook.
+ * @param root0.attachment - The raw orphan hook attachment payload.
  * @returns Rendered standalone hook row element.
  */
-function OrphanHookRow({ descriptor }: OrphanHookRowProps): React.ReactElement {
-  const color = glyphColor(descriptor.glyphSeverity);
-  const isBlocking = descriptor.kind === 'hook_blocking_error';
-  return (
-    <div
-      className="flex items-center gap-2 w-full font-vscode text-[11px] py-0.5 px-2"
-      style={
-        isBlocking
-          ? { color: 'var(--vscode-errorForeground)', borderLeft: '2px solid var(--vscode-errorForeground)' }
-          : { color: 'var(--vscode-foreground)' }
-      }
-    >
-      {descriptor.glyph ? (
-        <span className="shrink-0" style={color ? { color } : undefined}>
-          {descriptor.glyph}
-        </span>
-      ) : null}
-      <span className="overflow-hidden text-ellipsis whitespace-nowrap">{descriptor.summary}</span>
-    </div>
-  );
+function OrphanHookRow({ attachment }: OrphanHookRowProps): React.ReactElement {
+  return <HookRow hook={attachment} />;
 }
 
 /**
@@ -136,7 +108,7 @@ export function AttachmentRouter({ attachment }: AttachmentRouterProps): React.R
 
   const kind = descriptor.kind;
 
-  if (HOOK_TYPES.has(kind)) return <OrphanHookRow descriptor={descriptor} />;
+  if (HOOK_TYPES.has(kind)) return <OrphanHookRow attachment={attachment} />;
   if (CONTEXT_STATE_TYPES.has(kind)) return <ContextStateRow descriptor={descriptor} attachment={attachment} />;
   if (DISCLOSURE_TYPES.has(kind)) return <DisclosureRow descriptor={descriptor} attachment={attachment} />;
   if (FILE_TYPES.has(kind)) return <FileRow descriptor={descriptor} attachment={attachment} />;

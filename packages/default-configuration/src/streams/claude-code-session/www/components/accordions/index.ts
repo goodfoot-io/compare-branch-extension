@@ -6,6 +6,7 @@
  */
 
 export { ExpandableRow } from './ExpandableRow';
+export { HookRow } from './HookRow';
 export { HookSection } from './HookSection';
 export { ThinkingAccordion } from './ThinkingAccordion';
 export { ToolAccordion } from './ToolAccordion';

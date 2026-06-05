@@ -452,7 +452,7 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.hidden).toBe(true);
   });
 
-  it('selected_lines_in_ide: scope=turn, tier=ambient, glyph=·, summary includes basename and line range, linkPath=displayPath, expandable=false', () => {
+  it('selected_lines_in_ide: scope=turn, tier=ambient, glyph=·, summary includes basename and line range, linkPath=displayPath, expandable=true (opens to content)', () => {
     const d = classifyAttachment(selectedLinesInIdeFixture);
     expect(d.kind).toBe('selected_lines_in_ide');
     expect(d.scope).toBe('turn');
@@ -464,7 +464,9 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.summary).toContain('91');
     expect(d.linkPath).toBeDefined();
     expect(d.hidden).toBe(false);
-    expect(d.expandable).toBe(false);
+    // The payload carries the selected source text in `content`, so the row
+    // expands to it (FileRow renders that body) rather than being a bodyless leaf.
+    expect(d.expandable).toBe(true);
   });
 });
 

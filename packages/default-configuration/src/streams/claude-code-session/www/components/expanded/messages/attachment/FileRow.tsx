@@ -26,7 +26,8 @@ import type {
   AttachmentPayload,
   EditedTextFileAttachment,
   FileAttachment,
-  QueuedCommandAttachment
+  QueuedCommandAttachment,
+  SelectedLinesInIdeAttachment
 } from '../../../../lib/parse-session';
 import { ExpandableRow } from '../../../accordions/ExpandableRow';
 
@@ -61,6 +62,10 @@ function bodyText(attachment: AttachmentPayload): string | null {
         (p): p is string => typeof p === 'string' && p.length > 0
       );
       return parts.length > 0 ? parts.join('\n\n') : null;
+    }
+    case 'selected_lines_in_ide': {
+      const a = attachment as SelectedLinesInIdeAttachment;
+      return typeof a.content === 'string' && a.content.length > 0 ? a.content : null;
     }
     default:
       return null;
@@ -117,7 +122,22 @@ export function FileRow({ descriptor, attachment }: FileRowProps): React.ReactEl
   }
 
   const body = bodyText(attachment);
-  const header = (
+
+  // selected_lines_in_ide keeps the rule-6 `·` reference affordance — a linkified
+  // path at link weight — in its collapsed header, but the `content` it carries
+  // makes it expandable to that selected source text rather than a bodyless leaf.
+  const isLinkReference = descriptor.kind === 'selected_lines_in_ide' && descriptor.linkPath !== undefined;
+  const header = isLinkReference ? (
+    <span className="flex items-center gap-2 flex-1 overflow-hidden">
+      {glyphNode(descriptor)}
+      <span
+        className="overflow-hidden text-ellipsis whitespace-nowrap hover:underline"
+        style={{ color: 'var(--vscode-textLink-foreground, #3794ff)' }}
+      >
+        {descriptor.summary}
+      </span>
+    </span>
+  ) : (
     <span
       className="flex items-center gap-2 flex-1 overflow-hidden"
       style={{ color: 'var(--vscode-disabledForeground)' }}

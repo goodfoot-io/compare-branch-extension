@@ -388,7 +388,9 @@ export function classifyAttachment(attachment: AttachmentPayload): AttachmentDes
         summary: `${name} :${lineStart}–${lineEnd}`,
         hidden: false,
         linkPath,
-        expandable: false
+        // The payload carries the selected source text in `content`; the leaf
+        // header stays a `·` reference, but it opens to that content on click.
+        expandable: true
       };
     }
 
