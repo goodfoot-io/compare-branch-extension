@@ -9,6 +9,11 @@
 
 import type { ActionInput } from '@cards/sdk/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// Bundled hook definitions, imported as JSON modules (not via the mocked
+// `node:fs`) so the trust-seeding tests below feed production code the real
+// command strings the ground-truth hashes were captured from.
+import assistantHooksJson from '../../../codex/cards-assistant/hooks/hooks.json';
+import runtimeHooksJson from '../../../codex/runtime/hooks/hooks.json';
 
 /**
  * Production code builds paths with node:path, so on Windows the values passed
@@ -400,6 +405,95 @@ describe('codex-session library', () => {
     expect(written).toContain('enabled = true');
     // The assistant session must NOT enable the runtime plugin.
     expect(written).not.toContain('runtime@local');
+  });
+
+  it('writeCodexProfileConfig seeds hooks.state from the runtime bundle hooks.json', async () => {
+    const runtimeHooks = JSON.stringify(runtimeHooksJson);
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+      const p = toPosix(filePath);
+      if (p.endsWith('/config.toml')) {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      }
+      if (p === '/cache/runtime/hooks/hooks.json') {
+        return runtimeHooks;
+      }
+      throw Object.assign(new Error(`mock: unhandled readFile: ${p}`), { code: 'ENOENT' });
+    });
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    await writeCodexProfileConfig('/test/codexhome', {
+      pluginCachePaths: { cards: '/cache/cards', runtime: '/cache/runtime' }
+    });
+
+    const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
+    // All five runtime keys/hashes land as top-level [hooks.state."…"] tables.
+    expect(written).toContain(
+      '[hooks.state."runtime@local:hooks/hooks.json:session_start:0:0"]\ntrusted_hash = "sha256:bd9f38f124866b8b62da60248953eaef2feecf1f9ec493dcd62fea72f4527f73"'
+    );
+    expect(written).toContain('"runtime@local:hooks/hooks.json:session_start:1:0"');
+    expect(written).toContain('sha256:f3768ee10f2ba13e29d615d8ca9b9809a3fb45213d671ed4fbf22fabae7bf0b6');
+    expect(written).toContain('"runtime@local:hooks/hooks.json:subagent_start:0:0"');
+    expect(written).toContain('sha256:23736d1765dc7b9f8974956f352f99cd561eb98dc710cdb3fd1942fe1c8a66e7');
+    expect(written).toContain('"runtime@local:hooks/hooks.json:subagent_stop:0:0"');
+    expect(written).toContain('sha256:7f94d390a4a20896e8957bec354b720eb2a522f78a632f00c6a03f1f705c19b2');
+    expect(written).toContain('"runtime@local:hooks/hooks.json:stop:0:0"');
+    expect(written).toContain('sha256:ea8f27e5d8ecbdd2e1ed0677fa4037a85b5887719b8eb634892094a3413ea66a');
+    // No bypass flag is involved — trust comes entirely from the profile.
+    expect(written).not.toContain('bypass');
+  });
+
+  it('writeCodexProfileConfig seeds only the assistant bundle, never runtime, for the assistant profile', async () => {
+    const assistantHooks = JSON.stringify(assistantHooksJson);
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+      const p = toPosix(filePath);
+      if (p.endsWith('/config.toml')) {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      }
+      if (p === '/cache/cards-assistant/hooks/hooks.json') {
+        return assistantHooks;
+      }
+      throw Object.assign(new Error(`mock: unhandled readFile: ${p}`), { code: 'ENOENT' });
+    });
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    await writeCodexProfileConfig('/test/codexhome', {
+      profileName: 'cards-assistant',
+      pluginNames: ['cards', 'cards-assistant'],
+      pluginCachePaths: { cards: '/cache/cards', 'cards-assistant': '/cache/cards-assistant' }
+    });
+
+    const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
+    expect(written).toContain(
+      '[hooks.state."cards-assistant@local:hooks/hooks.json:session_start:0:0"]\ntrusted_hash = "sha256:bd9f38f124866b8b62da60248953eaef2feecf1f9ec493dcd62fea72f4527f73"'
+    );
+    // The assistant profile must never carry runtime trust entries.
+    expect(written).not.toContain('runtime@local');
+  });
+
+  it('writeCodexProfileConfig writes no hooks.state when no enabled plugin ships hooks.json', async () => {
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+      const p = toPosix(filePath);
+      if (p.endsWith('/config.toml')) {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      }
+      // No hooks.json on disk for the enabled plugin → fall through to ENOENT.
+      throw Object.assign(new Error(`ENOENT: ${p}`), { code: 'ENOENT' });
+    });
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    await writeCodexProfileConfig('/test/codexhome', {
+      pluginNames: ['cards'],
+      pluginCachePaths: { cards: '/cache/cards' }
+    });
+
+    const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
+    expect(written).not.toContain('hooks.state');
   });
 
   it('writeCodexProfileConfig fails closed on a legacy collision with the assistant profile name', async () => {

@@ -48,10 +48,15 @@ export default defineCardsAssistant({}, async (input, { logger }) => {
 
   if (agent === 'codex-cli') {
     const codexHome = resolveDefaultCodexHome();
-    await populateCodexPluginCache(codexHome, input.marketplacePath, CODEX_ASSISTANT_PLUGIN_NAMES);
+    const { pluginCachePaths } = await populateCodexPluginCache(
+      codexHome,
+      input.marketplacePath,
+      CODEX_ASSISTANT_PLUGIN_NAMES
+    );
     const profilePath = await writeCodexProfileConfig(codexHome, {
       profileName: 'cards-assistant',
-      pluginNames: CODEX_ASSISTANT_PLUGIN_NAMES
+      pluginNames: CODEX_ASSISTANT_PLUGIN_NAMES,
+      pluginCachePaths
     });
 
     const args = [

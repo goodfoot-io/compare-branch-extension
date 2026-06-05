@@ -22,6 +22,7 @@ import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { applyCodexConfig } from './applyCodexConfig.js';
 import { spawnBranchCleanupWatcher } from './branch-cleanup-watcher.js';
 import { errorMessage, resolveBaseBranch, resolveMarketplacePath, resolveOrCreateWorktree } from './claude-session.js';
+import { buildPluginHooksState, type HooksJson, type HookTrustEntry } from './codex-hook-trust.js';
 
 /**
  * Options for {@link spawnCodexSession}.
@@ -923,29 +924,97 @@ const CODEX_DEFAULT_PROFILE_NAME = 'cards';
  * Calling with no `options` (or an empty object) preserves the original launch
  * behavior: writes `cards.config.toml` enabling `cards@local` and `runtime@local`.
  *
+ * Each enabled plugin that ships a `hooks/hooks.json` in its installed cache dir
+ * (supplied via `options.pluginCachePaths`) also contributes `[hooks.state."…"]`
+ * trust entries whose `trusted_hash` matches the hash Codex computes for each
+ * bundled command hook. Codex therefore reports those hooks as Trusted at
+ * discovery — no `/hooks` review interstitial and no broad
+ * `--dangerously-bypass-hook-trust` flag. Fail-closed: a plugin without a
+ * `hooks.json` (e.g. `cards`) contributes nothing, and only plugins enabled for
+ * this profile are seeded — the assistant profile never trusts runtime's hooks.
+ *
  * @param codexHome - Resolved codex home (`$CODEX_HOME ?? ~/.codex`).
  * @param options - Optional overrides for profile name and plugin set.
  * @param options.profileName - Profile name written as `<profileName>.config.toml`
  *   and used in the legacy-collision pre-check. Defaults to `'cards'`.
  * @param options.pluginNames - Plugin names to enable in the profile. Defaults to
  *   `CODEX_LAUNCH_PLUGIN_NAMES` (`cards` + `runtime`).
+ * @param options.pluginCachePaths - Map of plugin name → installed cache dir (as
+ *   returned by {@link populateCodexPluginCache}). Used to locate each enabled
+ *   plugin's `hooks/hooks.json` for trust seeding. Omitted entries seed no hooks.
  * @returns Absolute path to the written profile config file.
  */
 export async function writeCodexProfileConfig(
   codexHome: string,
-  options: { profileName?: string; pluginNames?: readonly CodexPluginName[] } = {}
+  options: {
+    profileName?: string;
+    pluginNames?: readonly CodexPluginName[];
+    pluginCachePaths?: Record<string, string>;
+  } = {}
 ): Promise<string> {
   const profileName = options.profileName ?? CODEX_DEFAULT_PROFILE_NAME;
   const pluginNames = options.pluginNames ?? CODEX_LAUNCH_PLUGIN_NAMES;
+  const pluginCachePaths = options.pluginCachePaths ?? {};
 
   await assertNoLegacyProfileCollision(codexHome, profileName);
 
   const enablePlugins = pluginNames.map((name) => `${name}@${CODEX_PLUGIN_MARKETPLACE}`);
   const { result } = applyCodexConfig({}, { enablePlugins, featuresPlugins: true });
 
+  const hooksState = await buildEnabledPluginsHooksState(pluginNames, pluginCachePaths);
+  if (Object.keys(hooksState).length > 0) {
+    const hooks = { ...((result['hooks'] as Record<string, unknown> | undefined) ?? {}) };
+    hooks['state'] = { ...((hooks['state'] as Record<string, unknown> | undefined) ?? {}), ...hooksState };
+    result['hooks'] = hooks;
+  }
+
   const profilePath = path.join(codexHome, `${profileName}${CODEX_PROFILE_CONFIG_SUFFIX}`);
   await fs.writeFile(profilePath, `${stringifyToml(result)}\n`, 'utf-8');
   return profilePath;
+}
+
+/**
+ * Collects `hooks.state` trust entries for every enabled plugin that ships a
+ * `hooks/hooks.json` in its installed cache directory.
+ *
+ * For each plugin name, resolves `<cacheDir>/hooks/hooks.json`. A plugin with no
+ * cache path or no `hooks.json` on disk contributes nothing (normal — `cards`
+ * has no hooks). Any other read or parse error propagates (fail closed): a
+ * present-but-unreadable bundle hooks file must not silently launch a session
+ * whose hooks fall back to the review flow under a false sense of trust.
+ *
+ * @param pluginNames - Plugin names enabled for this profile.
+ * @param pluginCachePaths - Map of plugin name → installed cache dir.
+ * @returns Merged `<hook_key>` → `{ trusted_hash }` entries across all plugins.
+ */
+async function buildEnabledPluginsHooksState(
+  pluginNames: readonly CodexPluginName[],
+  pluginCachePaths: Record<string, string>
+): Promise<Record<string, HookTrustEntry>> {
+  const state: Record<string, HookTrustEntry> = {};
+
+  for (const name of pluginNames) {
+    const cacheDir = pluginCachePaths[name];
+    if (cacheDir === undefined) {
+      continue;
+    }
+
+    const hooksJsonPath = path.join(cacheDir, 'hooks', 'hooks.json');
+    let raw: string;
+    try {
+      raw = await fs.readFile(hooksJsonPath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        continue;
+      }
+      throw error;
+    }
+
+    const json = JSON.parse(raw) as HooksJson;
+    Object.assign(state, buildPluginHooksState(`${name}@${CODEX_PLUGIN_MARKETPLACE}`, 'hooks/hooks.json', json));
+  }
+
+  return state;
 }
 
 /**
@@ -1137,7 +1206,7 @@ export async function spawnCodexSession(
   const { bundlePath, pluginPaths, pluginCachePaths } = await populateCodexPluginCache(codexHome, marketplacePath);
   context.logger.info('Populated Codex plugin cache', { codexHome, bundlePath, pluginPaths, pluginCachePaths });
 
-  const profilePath = await writeCodexProfileConfig(codexHome);
+  const profilePath = await writeCodexProfileConfig(codexHome, { pluginCachePaths });
   context.logger.info('Wrote Codex plugin-enablement profile', { codexHome, profilePath });
 
   const additionalContext = buildAdditionalContext(input, cwd, baseBranch, branchName);
