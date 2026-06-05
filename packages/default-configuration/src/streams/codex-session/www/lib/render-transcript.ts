@@ -19,7 +19,9 @@
  * @module streams/codex-session/www/lib/render-transcript
  */
 
-import type { CodexRolloutLine } from './parser.js';
+import { extractMessageText } from './dedup.js';
+import type { ContentItem } from './parser.js';
+import { type CodexRolloutLine, parseCodexLine } from './parser.js';
 
 /**
  * A rendered transcript item produced by {@link renderCodexTranscript}.
@@ -51,12 +53,46 @@ export type TranscriptItem =
  * block; orphan outputs render standalone in source order. Malformed lines
  * produce an isolated error block so the rest of the transcript is unaffected.
  *
- * @param _lines - Raw rollout JSONL lines from the stream store.
+ * @param lines - Raw rollout JSONL lines from the stream store.
  * @returns Flat list of transcript items in display order.
- * @throws Error 'not implemented' — Phase 1 stub.
  */
-export function renderCodexTranscript(_lines: string[]): TranscriptItem[] {
-  throw new Error('not implemented');
+export function renderCodexTranscript(lines: string[]): TranscriptItem[] {
+  const items: TranscriptItem[] = [];
+  const pendingCalls = new Map<
+    string,
+    { name: string; argumentsText: string; prettyPrinted: boolean; timestamp?: string }
+  >();
+  // Tracks the index in `items` of each emitted tool_call so a later output can
+  // be attached to its originating call in place, preserving source order.
+  const callItemIndex = new Map<string, number>();
+
+  for (const raw of lines) {
+    const line = parseCodexLine(raw);
+    const produced = lineToItems(line, pendingCalls);
+
+    for (const item of produced) {
+      if (item.kind === 'tool_call') {
+        callItemIndex.set(item.callId, items.length);
+        items.push(item);
+      } else if (item.kind === 'orphan_output') {
+        // Attach to a preceding call when one exists; otherwise render standalone.
+        const callIdx = callItemIndex.get(item.callId);
+        if (callIdx !== undefined) {
+          const target = items[callIdx];
+          if (target !== undefined && target.kind === 'tool_call') {
+            target.outputText = item.outputText;
+            target.hasOutput = true;
+            continue;
+          }
+        }
+        items.push(item);
+      } else {
+        items.push(item);
+      }
+    }
+  }
+
+  return items;
 }
 
 /**
@@ -67,12 +103,16 @@ export function renderCodexTranscript(_lines: string[]): TranscriptItem[] {
  * wraps `JSON.parse` for arguments; callers never call `JSON.parse` directly
  * on this value.
  *
- * @param _raw - The raw arguments string from the `function_call` payload.
+ * @param raw - The raw arguments string from the `function_call` payload.
  * @returns `{ text, prettyPrinted }` — the display string and whether it was pretty-printed.
- * @throws Error 'not implemented' — Phase 1 stub.
  */
-export function parseArguments(_raw: string): { text: string; prettyPrinted: boolean } {
-  throw new Error('not implemented');
+export function parseArguments(raw: string): { text: string; prettyPrinted: boolean } {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return { text: JSON.stringify(parsed, null, 2), prettyPrinted: true };
+  } catch {
+    return { text: raw, prettyPrinted: false };
+  }
 }
 
 /**
@@ -83,12 +123,17 @@ export function parseArguments(_raw: string): { text: string; prettyPrinted: boo
  * and `output_text` items concatenated in source order. Neither shape throws
  * on the other.
  *
- * @param _output - The output value from the function call output payload.
+ * @param output - The output value from the function call output payload.
  * @returns The flat display string.
- * @throws Error 'not implemented' — Phase 1 stub.
  */
-export function extractOutputText(_output: unknown): string {
-  throw new Error('not implemented');
+export function extractOutputText(output: unknown): string {
+  if (typeof output === 'string') {
+    return output;
+  }
+  if (Array.isArray(output)) {
+    return extractMessageText(output as ContentItem[]);
+  }
+  return '';
 }
 
 /**
@@ -100,16 +145,160 @@ export function extractOutputText(_output: unknown): string {
  * array for most visible lines; may return more than one item only for
  * `response_item` lines that carry both a message and embedded reasoning.
  *
- * @param _line - A pre-parsed Codex rollout line.
- * @param _pendingCalls - Map of `call_id` → partially-built tool-call items
+ * @param line - A pre-parsed Codex rollout line.
+ * @param pendingCalls - Map of `call_id` → partially-built tool-call items
  *   that have been seen but not yet paired with their output. The caller
  *   maintains this map across the full transcript and passes it on each call.
  * @returns Zero or more transcript items derived from this line.
- * @throws Error 'not implemented' — Phase 1 stub.
  */
 export function lineToItems(
-  _line: CodexRolloutLine,
-  _pendingCalls: Map<string, { name: string; argumentsText: string; prettyPrinted: boolean; timestamp?: string }>
+  line: CodexRolloutLine,
+  pendingCalls: Map<string, { name: string; argumentsText: string; prettyPrinted: boolean; timestamp?: string }>
 ): TranscriptItem[] {
-  throw new Error('not implemented');
+  switch (line.kind) {
+    case 'malformed':
+      return [{ kind: 'malformed', rawLine: line.raw }];
+
+    case 'unknown':
+      return [{ kind: 'unknown_item', rawJson: JSON.stringify(line.raw, null, 2), timestamp: line.timestamp }];
+
+    case 'session_meta':
+      return [
+        {
+          kind: 'session_header',
+          model: line.payload.model,
+          cwd: line.payload.cwd,
+          timestamp: line.timestamp === '' ? undefined : line.timestamp
+        }
+      ];
+
+    case 'turn_context':
+    case 'compacted':
+      // No directly visible transcript item; turn boundaries and compaction
+      // markers do not render as standalone entries.
+      return [];
+
+    case 'event_msg':
+      return eventMsgToItems(line.payload, line.timestamp);
+
+    case 'response_item':
+      return responseItemToItems(line.payload, line.timestamp, pendingCalls);
+
+    default:
+      return [];
+  }
+}
+
+/**
+ * Converts an `event_msg` payload into zero or one transcript item.
+ *
+ * Only user/assistant message events render; token counts and lifecycle events
+ * produce no standalone transcript entry here.
+ *
+ * @param rawPayload - The `event_msg` payload.
+ * @param timestamp - The envelope timestamp (empty string when absent).
+ * @returns Zero or one transcript item.
+ */
+function eventMsgToItems(rawPayload: import('./parser.js').EventMsgPayload, timestamp: string): TranscriptItem[] {
+  const ts = timestamp === '' ? undefined : timestamp;
+  const payload = rawPayload as Record<string, unknown> & { type: string };
+  const message = typeof payload['message'] === 'string' ? payload['message'] : '';
+  if (payload.type === 'agent_message') {
+    return [{ kind: 'assistant_message', text: message, timestamp: ts }];
+  }
+  if (payload.type === 'user_message') {
+    return [{ kind: 'user_message', text: message, timestamp: ts }];
+  }
+  return [];
+}
+
+/**
+ * Concatenates the `text` of `summary_text` items in a reasoning summary array.
+ *
+ * @param summary - The reasoning `summary` array.
+ * @returns The concatenated summary text.
+ */
+function extractReasoningSummary(summary: unknown[]): string {
+  let text = '';
+  for (const item of summary) {
+    if (item !== null && typeof item === 'object') {
+      const candidate = item as { text?: unknown };
+      if (typeof candidate.text === 'string') {
+        text += candidate.text;
+      }
+    }
+  }
+  return text;
+}
+
+/**
+ * Converts a `response_item` payload into zero or more transcript items.
+ *
+ * Calls are recorded in `pendingCalls` and emitted as `tool_call`; outputs are
+ * emitted as `orphan_output` for the caller to pair by `call_id` or render
+ * standalone. Unknown nested variants become a readable raw block.
+ *
+ * @param rawPayload - The `response_item` payload.
+ * @param timestamp - The envelope timestamp (empty string when absent).
+ * @param pendingCalls - Map of `call_id` to partially-built tool-call metadata.
+ * @returns Zero or more transcript items.
+ */
+function responseItemToItems(
+  rawPayload: import('./parser.js').ResponseItemPayload,
+  timestamp: string,
+  pendingCalls: Map<string, { name: string; argumentsText: string; prettyPrinted: boolean; timestamp?: string }>
+): TranscriptItem[] {
+  const ts = timestamp === '' ? undefined : timestamp;
+  const payload = rawPayload as Record<string, unknown> & { type: string };
+
+  switch (payload.type) {
+    case 'message': {
+      const content = Array.isArray(payload['content']) ? (payload['content'] as ContentItem[]) : [];
+      const text = extractMessageText(content);
+      if (payload['role'] === 'user') {
+        return [{ kind: 'user_message', text, timestamp: ts }];
+      }
+      return [{ kind: 'assistant_message', text, timestamp: ts }];
+    }
+
+    case 'reasoning': {
+      const summary = Array.isArray(payload['summary']) ? payload['summary'] : [];
+      return [{ kind: 'reasoning', summaryText: extractReasoningSummary(summary), timestamp: ts }];
+    }
+
+    case 'function_call':
+    case 'local_shell_call':
+    case 'custom_tool_call':
+    case 'tool_search_call':
+    case 'web_search_call':
+    case 'image_generation_call': {
+      const callId = typeof payload['call_id'] === 'string' ? payload['call_id'] : '';
+      const name = typeof payload['name'] === 'string' ? payload['name'] : payload.type;
+      const rawArgs = typeof payload['arguments'] === 'string' ? payload['arguments'] : '';
+      const { text: argumentsText, prettyPrinted } = parseArguments(rawArgs);
+      pendingCalls.set(callId, { name, argumentsText, prettyPrinted, timestamp: ts });
+      return [
+        {
+          kind: 'tool_call',
+          name,
+          callId,
+          argumentsText,
+          prettyPrinted,
+          hasOutput: false,
+          timestamp: ts
+        }
+      ];
+    }
+
+    case 'function_call_output':
+    case 'custom_tool_call_output':
+    case 'tool_search_output': {
+      const callId = typeof payload['call_id'] === 'string' ? payload['call_id'] : '';
+      const outputText = extractOutputText(payload['output']);
+      return [{ kind: 'orphan_output', callId, outputText, timestamp: ts }];
+    }
+
+    default:
+      return [{ kind: 'unknown_item', rawJson: JSON.stringify(payload, null, 2), timestamp: ts }];
+  }
 }

@@ -161,6 +161,24 @@ export type CodexRolloutLine =
   | { kind: 'malformed'; raw: string };
 
 /**
+ * The set of recognized root `type` discriminators for a rollout line.
+ * Any other root type is preserved verbatim as a `kind: 'unknown'` result.
+ */
+const KNOWN_ROOT_TYPES = new Set(['session_meta', 'response_item', 'compacted', 'turn_context', 'event_msg']);
+
+/**
+ * Reads a `string`-typed property from an arbitrary parsed object.
+ *
+ * @param obj - The parsed envelope object.
+ * @param key - The property name.
+ * @returns The string value, or `undefined` when absent or non-string.
+ */
+function readStringField(obj: Record<string, unknown>, key: string): string | undefined {
+  const value = obj[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+/**
  * Parses one raw rollout JSONL line into a {@link CodexRolloutLine}.
  *
  * Validates the root `{ timestamp, type, payload }` envelope without asserting
@@ -168,10 +186,50 @@ export type CodexRolloutLine =
  * `{ kind: 'malformed', raw }`; an unrecognized root `type` yields
  * `{ kind: 'unknown', raw }`.
  *
- * @param _raw - A single line of rollout JSONL.
+ * @param raw - A single line of rollout JSONL.
  * @returns The discriminated parse result.
- * @throws Error 'not implemented' — Phase 1 stub.
  */
-export function parseCodexLine(_raw: string): CodexRolloutLine {
-  throw new Error('not implemented');
+export function parseCodexLine(raw: string): CodexRolloutLine {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { kind: 'malformed', raw };
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { kind: 'malformed', raw };
+  }
+
+  const envelope = parsed as Record<string, unknown>;
+  const type = readStringField(envelope, 'type');
+  if (type === undefined) {
+    return { kind: 'malformed', raw };
+  }
+
+  const timestamp = readStringField(envelope, 'timestamp');
+
+  if (!KNOWN_ROOT_TYPES.has(type)) {
+    return { kind: 'unknown', timestamp, raw: parsed };
+  }
+
+  // A known root type without a usable timestamp is still rendered, defaulting
+  // to an empty string rather than discarding an otherwise-valid line.
+  const ts = timestamp ?? '';
+  const payload = (envelope['payload'] ?? {}) as Record<string, unknown>;
+
+  switch (type) {
+    case 'session_meta':
+      return { kind: 'session_meta', timestamp: ts, payload: payload as SessionMetaPayload };
+    case 'response_item':
+      return { kind: 'response_item', timestamp: ts, payload: payload as ResponseItemPayload };
+    case 'compacted':
+      return { kind: 'compacted', timestamp: ts, payload: payload as unknown as CompactedPayload };
+    case 'turn_context':
+      return { kind: 'turn_context', timestamp: ts, payload: payload as TurnContextPayload };
+    case 'event_msg':
+      return { kind: 'event_msg', timestamp: ts, payload: payload as EventMsgPayload };
+    default:
+      return { kind: 'unknown', timestamp, raw: parsed };
+  }
 }

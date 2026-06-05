@@ -33,7 +33,7 @@ function envelope(type: string, payload: unknown, timestamp = '2026-06-04T12:00:
 // Root envelope shapes
 // ============================================================================
 
-describe.skip('parseCodexLine — root envelope shapes', () => {
+describe('parseCodexLine — root envelope shapes', () => {
   it('parses a session_meta line', () => {
     const raw = envelope('session_meta', {
       id: 'thread-abc123',
@@ -109,7 +109,7 @@ describe.skip('parseCodexLine — root envelope shapes', () => {
 // Nested response_item variants
 // ============================================================================
 
-describe.skip('parseCodexLine — response_item payload variants', () => {
+describe('parseCodexLine — response_item payload variants', () => {
   it('parses a message variant with role and content', () => {
     const raw = envelope('response_item', {
       type: 'message',
@@ -233,7 +233,7 @@ describe.skip('parseCodexLine — response_item payload variants', () => {
 // event_msg variants
 // ============================================================================
 
-describe.skip('parseCodexLine — event_msg payload variants', () => {
+describe('parseCodexLine — event_msg payload variants', () => {
   it('parses a user_message event', () => {
     const raw = envelope('event_msg', {
       type: 'user_message',
@@ -311,7 +311,7 @@ describe.skip('parseCodexLine — event_msg payload variants', () => {
 // Malformed and unknown lines
 // ============================================================================
 
-describe.skip('parseCodexLine — malformed and unknown lines', () => {
+describe('parseCodexLine — malformed and unknown lines', () => {
   it('returns malformed for truncated JSON', () => {
     const raw = '{"timestamp":"2026-06-04T12:00:00.000Z","type":"session_meta","payload":{';
     const result = parseCodexLine(raw);
@@ -365,7 +365,7 @@ describe.skip('parseCodexLine — malformed and unknown lines', () => {
 // Optional fields — no-throw guarantee
 // ============================================================================
 
-describe.skip('parseCodexLine — optional fields absent do not throw', () => {
+describe('parseCodexLine — optional fields absent do not throw', () => {
   it('parses session_meta with minimal fields present', () => {
     // All session_meta fields are optional (protocol.rs L2835-L2841)
     const raw = envelope('session_meta', {});

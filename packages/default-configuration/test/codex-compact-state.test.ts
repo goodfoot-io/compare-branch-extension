@@ -120,7 +120,7 @@ function agentMsgLine(message: string, timestamp = '2026-06-04T10:06:00.000Z'): 
 // Tests
 // ============================================================================
 
-describe.skip('buildCodexCompactState — empty and zero state', () => {
+describe('buildCodexCompactState — empty and zero state', () => {
   it('returns sensible zero state for an empty stream', () => {
     const state = buildCodexCompactState([], false);
     expect(state.isActive).toBe(false);
@@ -139,7 +139,7 @@ describe.skip('buildCodexCompactState — empty and zero state', () => {
   });
 });
 
-describe.skip('buildCodexCompactState — session_meta only', () => {
+describe('buildCodexCompactState — session_meta only', () => {
   it('populates model from session_meta, no turns', () => {
     const lines = [sessionMetaLine({ model: 'gpt-4o-mini' })];
     const state = buildCodexCompactState(lines, false);
@@ -157,7 +157,7 @@ describe.skip('buildCodexCompactState — session_meta only', () => {
   });
 });
 
-describe.skip('buildCodexCompactState — incremental append', () => {
+describe('buildCodexCompactState — incremental append', () => {
   it('each call with a longer array produces updated counts', () => {
     const line1 = sessionMetaLine();
     const line2 = turnContextLine();
@@ -174,7 +174,7 @@ describe.skip('buildCodexCompactState — incremental append', () => {
   });
 });
 
-describe.skip('buildCodexCompactState — shrink/reset full rebuild', () => {
+describe('buildCodexCompactState — shrink/reset full rebuild', () => {
   it('full rebuild from replacement lines produces no stale carryover', () => {
     const many = [
       sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),
@@ -192,7 +192,7 @@ describe.skip('buildCodexCompactState — shrink/reset full rebuild', () => {
   });
 });
 
-describe.skip('buildCodexCompactState — tool call counting', () => {
+describe('buildCodexCompactState — tool call counting', () => {
   it('tallies function_call items', () => {
     const lines = [functionCallLine('read_file', 'call-001'), functionCallLine('write_file', 'call-002')];
     const state = buildCodexCompactState(lines, false);
@@ -212,7 +212,7 @@ describe.skip('buildCodexCompactState — tool call counting', () => {
   });
 });
 
-describe.skip('buildCodexCompactState — token accumulation', () => {
+describe('buildCodexCompactState — token accumulation', () => {
   it('accumulates token counts from event_msg token_count events', () => {
     const lines = [tokenCountLine(500, 200)];
     const state = buildCodexCompactState(lines, false);
@@ -240,7 +240,7 @@ describe.skip('buildCodexCompactState — token accumulation', () => {
   });
 });
 
-describe.skip('buildCodexCompactState — headline selection', () => {
+describe('buildCodexCompactState — headline selection', () => {
   it('returns the latest assistant message text as headline', () => {
     const lines = [
       responseMsgLine('assistant', 'First response.', '2026-06-04T10:01:00.000Z'),
@@ -272,7 +272,7 @@ describe.skip('buildCodexCompactState — headline selection', () => {
   });
 });
 
-describe.skip('buildCodexCompactState — tail bounded ≤5, newest last', () => {
+describe('buildCodexCompactState — tail bounded ≤5, newest last', () => {
   it('tail contains at most 5 items', () => {
     const lines = [
       functionCallLine('tool_1', 'c1', '2026-06-04T10:01:00.000Z'),
@@ -314,7 +314,7 @@ describe.skip('buildCodexCompactState — tail bounded ≤5, newest last', () =>
   });
 });
 
-describe.skip('buildCodexCompactState — durationMs from timestamps', () => {
+describe('buildCodexCompactState — durationMs from timestamps', () => {
   it('computes durationMs from first and last line timestamps', () => {
     const lines = [
       sessionMetaLine({ timestamp: '2026-06-04T10:00:00.000Z' }),

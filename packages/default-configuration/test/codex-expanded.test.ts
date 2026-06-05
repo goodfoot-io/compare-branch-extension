@@ -111,7 +111,7 @@ function malformedLine(): string {
 // Source-order rendering
 // ============================================================================
 
-describe.skip('renderCodexTranscript — source-order rendering', () => {
+describe('renderCodexTranscript — source-order rendering', () => {
   it('renders session metadata, messages, and tool calls in source order', () => {
     const lines = [
       sessionMetaLine(),
@@ -143,7 +143,7 @@ describe.skip('renderCodexTranscript — source-order rendering', () => {
 // function_call / function_call_output pairing by call_id
 // ============================================================================
 
-describe.skip('renderCodexTranscript — call/output pairing by call_id', () => {
+describe('renderCodexTranscript — call/output pairing by call_id', () => {
   it('pairs function_call and function_call_output by call_id', () => {
     const lines = [
       functionCallLine('read_file', 'call-abc', '{"path": "/src/index.ts"}'),
@@ -175,7 +175,7 @@ describe.skip('renderCodexTranscript — call/output pairing by call_id', () => 
 // Defensive contracts on arguments and output
 // ============================================================================
 
-describe.skip('parseArguments — raw string and pretty-print fallback', () => {
+describe('parseArguments — raw string and pretty-print fallback', () => {
   it('returns raw text unchanged for a non-JSON arguments string', () => {
     const raw = 'not valid json at all!!!';
     const { text, prettyPrinted } = parseArguments(raw);
@@ -206,7 +206,7 @@ describe.skip('parseArguments — raw string and pretty-print fallback', () => {
   });
 });
 
-describe.skip('renderCodexTranscript — non-JSON arguments in function_call', () => {
+describe('renderCodexTranscript — non-JSON arguments in function_call', () => {
   it('displays non-JSON arguments as raw text, no throw, surrounding transcript intact', () => {
     const lines = [
       assistantMsgLine('Starting tool...'),
@@ -230,7 +230,7 @@ describe.skip('renderCodexTranscript — non-JSON arguments in function_call', (
 // output as plain string vs ContentItem[]
 // ============================================================================
 
-describe.skip('extractOutputText — output union branches', () => {
+describe('extractOutputText — output union branches', () => {
   it('returns a plain string output as-is', () => {
     expect(extractOutputText('file contents here')).toBe('file contents here');
   });
@@ -252,7 +252,7 @@ describe.skip('extractOutputText — output union branches', () => {
   });
 });
 
-describe.skip('renderCodexTranscript — function_call_output with plain string', () => {
+describe('renderCodexTranscript — function_call_output with plain string', () => {
   it('renders plain string output correctly', () => {
     const lines = [
       functionCallLine('get_file', 'call-str', '{}'),
@@ -264,7 +264,7 @@ describe.skip('renderCodexTranscript — function_call_output with plain string'
   });
 });
 
-describe.skip('renderCodexTranscript — function_call_output with ContentItem[] output', () => {
+describe('renderCodexTranscript — function_call_output with ContentItem[] output', () => {
   it('renders ContentItem[] output by extracting text items', () => {
     const contentOutput = [
       { type: 'output_text', text: 'First chunk' },
@@ -286,7 +286,7 @@ describe.skip('renderCodexTranscript — function_call_output with ContentItem[]
 // Orphan function_call_output
 // ============================================================================
 
-describe.skip('renderCodexTranscript — orphan function_call_output', () => {
+describe('renderCodexTranscript — orphan function_call_output', () => {
   it('renders orphan output standalone in source order, not dropped, no throw', () => {
     // An output whose call_id matches no preceding call — due to persistence-policy
     // filtering or order inversion. Must be rendered, not dropped.
@@ -312,7 +312,7 @@ describe.skip('renderCodexTranscript — orphan function_call_output', () => {
 // Unknown item and malformed line isolation
 // ============================================================================
 
-describe.skip('renderCodexTranscript — unknown item → raw block', () => {
+describe('renderCodexTranscript — unknown item → raw block', () => {
   it('renders an unknown response_item variant as a raw JSON block', () => {
     const lines = [envelope('response_item', { type: 'future_unknown_variant', data: 'something' })];
     const items = renderCodexTranscript(lines);
@@ -321,7 +321,7 @@ describe.skip('renderCodexTranscript — unknown item → raw block', () => {
   });
 });
 
-describe.skip('renderCodexTranscript — malformed line isolation', () => {
+describe('renderCodexTranscript — malformed line isolation', () => {
   it('renders malformed line as isolated error block, remainder of transcript intact', () => {
     const lines = [assistantMsgLine('Before malformed.'), malformedLine(), assistantMsgLine('After malformed.')];
     expect(() => renderCodexTranscript(lines)).not.toThrow();
@@ -335,7 +335,7 @@ describe.skip('renderCodexTranscript — malformed line isolation', () => {
 // Incremental append and reset rebuild
 // ============================================================================
 
-describe.skip('renderCodexTranscript — incremental append', () => {
+describe('renderCodexTranscript — incremental append', () => {
   it('appending new lines produces items for the new lines', () => {
     const initial = [userMsgLine('Hello'), assistantMsgLine('Hi there.')];
     const appended = [...initial, functionCallLine('read_file', 'call-new', '{}')];
@@ -348,7 +348,7 @@ describe.skip('renderCodexTranscript — incremental append', () => {
   });
 });
 
-describe.skip('renderCodexTranscript — reset rebuild', () => {
+describe('renderCodexTranscript — reset rebuild', () => {
   it('full rebuild from replacement lines discards stale items', () => {
     const many = [
       assistantMsgLine('Message A.'),

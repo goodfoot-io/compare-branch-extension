@@ -29,12 +29,20 @@ import type { ContentItem, EventMsgPayload, ResponseItemPayload } from './parser
  * and `output_text` item; non-text items (e.g. `input_image`) are skipped. An
  * empty array yields the empty string.
  *
- * @param _content - The `ContentItem[]` of a `ResponseItem::Message`.
+ * @param content - The `ContentItem[]` of a `ResponseItem::Message`.
  * @returns The concatenated flat text.
- * @throws Error 'not implemented' — Phase 1 stub.
  */
-export function extractMessageText(_content: ContentItem[]): string {
-  throw new Error('not implemented');
+export function extractMessageText(content: ContentItem[]): string {
+  let text = '';
+  for (const item of content) {
+    if (item.type === 'input_text' || item.type === 'output_text') {
+      const value = (item as { text?: unknown }).text;
+      if (typeof value === 'string') {
+        text += value;
+      }
+    }
+  }
+  return text;
 }
 
 /**
@@ -46,15 +54,38 @@ export function extractMessageText(_content: ContentItem[]): string {
  * `turn_context`). Token counts, lifecycle events, and any non-message event
  * are never suppressed.
  *
- * @param _currentTurnResponseItems - Response-item payloads seen since the last
+ * @param currentTurnResponseItems - Response-item payloads seen since the last
  *   `turn_context` boundary; the caller resets this list at each boundary.
- * @param _candidate - The `event_msg` payload under consideration.
+ * @param candidate - The `event_msg` payload under consideration.
  * @returns `true` when the event_msg should be suppressed as a duplicate.
- * @throws Error 'not implemented' — Phase 1 stub.
  */
 export function isDuplicateEventMsg(
-  _currentTurnResponseItems: ResponseItemPayload[],
-  _candidate: EventMsgPayload
+  currentTurnResponseItems: ResponseItemPayload[],
+  candidate: EventMsgPayload
 ): boolean {
-  throw new Error('not implemented');
+  // Only user/assistant message events are candidates for suppression; token
+  // counts, lifecycle events, and every other variant are never suppressed.
+  let candidateRole: string;
+  if (candidate.type === 'agent_message') {
+    candidateRole = 'assistant';
+  } else if (candidate.type === 'user_message') {
+    candidateRole = 'user';
+  } else {
+    return false;
+  }
+
+  const message = (candidate as { message?: unknown }).message;
+  const candidateText = (typeof message === 'string' ? message : '').trim();
+
+  for (const rawItem of currentTurnResponseItems) {
+    const item = rawItem as Record<string, unknown> & { type: string };
+    if (item.type !== 'message' || item['role'] !== candidateRole) {
+      continue;
+    }
+    const content = Array.isArray(item['content']) ? (item['content'] as ContentItem[]) : [];
+    if (extractMessageText(content).trim() === candidateText) {
+      return true;
+    }
+  }
+  return false;
 }

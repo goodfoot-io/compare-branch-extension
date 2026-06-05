@@ -68,7 +68,7 @@ function taskStartedEvent(): EventMsgPayload {
 // extractMessageText tests
 // ============================================================================
 
-describe.skip('extractMessageText', () => {
+describe('extractMessageText', () => {
   it('returns empty string for an empty content array', () => {
     expect(extractMessageText([])).toBe('');
   });
@@ -107,7 +107,7 @@ describe.skip('extractMessageText', () => {
 // isDuplicateEventMsg tests
 // ============================================================================
 
-describe.skip('isDuplicateEventMsg — suppression cases', () => {
+describe('isDuplicateEventMsg — suppression cases', () => {
   it('suppresses an agent_message matching a same-role response_item message', () => {
     const responseItems: ResponseItemPayload[] = [
       responseMessage('assistant', outputText('I have completed the task.'))
@@ -130,7 +130,7 @@ describe.skip('isDuplicateEventMsg — suppression cases', () => {
   });
 });
 
-describe.skip('isDuplicateEventMsg — non-suppression cases', () => {
+describe('isDuplicateEventMsg — non-suppression cases', () => {
   it('does not suppress a non-duplicate event_msg', () => {
     const responseItems: ResponseItemPayload[] = [responseMessage('assistant', outputText('Task A complete.'))];
     const candidate = agentMessageEvent('Task B complete.');
@@ -162,7 +162,7 @@ describe.skip('isDuplicateEventMsg — non-suppression cases', () => {
   });
 });
 
-describe.skip('isDuplicateEventMsg — structural (not reference) match', () => {
+describe('isDuplicateEventMsg — structural (not reference) match', () => {
   it('matches structurally even when response_item and event_msg are separate objects', () => {
     // Deliberately construct distinct objects
     const items1: ResponseItemPayload[] = [responseMessage('assistant', outputText('Identical text'))];
@@ -175,7 +175,7 @@ describe.skip('isDuplicateEventMsg — structural (not reference) match', () => 
   });
 });
 
-describe.skip('isDuplicateEventMsg — turn-scoping', () => {
+describe('isDuplicateEventMsg — turn-scoping', () => {
   it('same text in turn N is suppressed, but turn N+1 is NOT suppressed after window reset', () => {
     // Turn N: both response_item and event_msg with "Done."
     const turnNResponseItems: ResponseItemPayload[] = [responseMessage('assistant', outputText('Done.'))];
@@ -203,7 +203,7 @@ describe.skip('isDuplicateEventMsg — turn-scoping', () => {
   });
 });
 
-describe.skip('isDuplicateEventMsg — multi-part content concatenation', () => {
+describe('isDuplicateEventMsg — multi-part content concatenation', () => {
   it('suppresses when two OutputText items concatenated equal the flat event_msg string', () => {
     const responseItems: ResponseItemPayload[] = [
       responseMessage('assistant', outputText('Part one'), outputText(' and part two'))
@@ -221,7 +221,7 @@ describe.skip('isDuplicateEventMsg — multi-part content concatenation', () => 
   });
 });
 
-describe.skip('isDuplicateEventMsg — empty content edge case', () => {
+describe('isDuplicateEventMsg — empty content edge case', () => {
   it('extractMessageText with empty content returns empty string', () => {
     expect(extractMessageText([])).toBe('');
   });
