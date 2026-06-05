@@ -275,7 +275,7 @@ const unknownTypeFixture: AttachmentPayload = {
 // ============================================================================
 
 describe('classifyAttachment — hook types (scope: tool)', () => {
-  it.skip('hook_success: scope=tool, tier=content, glyph=✓, glyphSeverity=neutral, summary includes hookName and hookEvent, toolUseID propagated, expandable=true', () => {
+  it('hook_success: scope=tool, tier=content, glyph=✓, glyphSeverity=neutral, summary includes hookName and hookEvent, toolUseID propagated, expandable=true', () => {
     const d = classifyAttachment(hookSuccessFixture);
     expect(d.kind).toBe('hook_success');
     expect(d.scope).toBe('tool');
@@ -289,7 +289,7 @@ describe('classifyAttachment — hook types (scope: tool)', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('hook_additional_context: scope=tool, tier=content, glyph=context tag, summary includes hookName, toolUseID propagated, expandable=true', () => {
+  it('hook_additional_context: scope=tool, tier=content, glyph=context tag, summary includes hookName, toolUseID propagated, expandable=true', () => {
     const d = classifyAttachment(hookAdditionalContextFixture);
     expect(d.kind).toBe('hook_additional_context');
     expect(d.scope).toBe('tool');
@@ -303,7 +303,7 @@ describe('classifyAttachment — hook types (scope: tool)', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('hook_system_message: scope=tool, tier=content, glyph=message tag, summary includes hookName, toolUseID propagated, expandable=true', () => {
+  it('hook_system_message: scope=tool, tier=content, glyph=message tag, summary includes hookName, toolUseID propagated, expandable=true', () => {
     const d = classifyAttachment(hookSystemMessageFixture);
     expect(d.kind).toBe('hook_system_message');
     expect(d.scope).toBe('tool');
@@ -317,7 +317,7 @@ describe('classifyAttachment — hook types (scope: tool)', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('hook_non_blocking_error: scope=tool, tier=content, glyph=!, glyphSeverity=warning, summary includes (non-blocking), toolUseID propagated, expandable=true', () => {
+  it('hook_non_blocking_error: scope=tool, tier=content, glyph=!, glyphSeverity=warning, summary includes (non-blocking), toolUseID propagated, expandable=true', () => {
     const d = classifyAttachment(hookNonBlockingErrorFixture);
     expect(d.kind).toBe('hook_non_blocking_error');
     expect(d.scope).toBe('tool');
@@ -331,7 +331,7 @@ describe('classifyAttachment — hook types (scope: tool)', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('hook_blocking_error: scope=tool, tier=content, glyph=✗, glyphSeverity=error, summary includes "blocked", toolUseID propagated, expandable=true', () => {
+  it('hook_blocking_error: scope=tool, tier=content, glyph=✗, glyphSeverity=error, summary includes "blocked", toolUseID propagated, expandable=true', () => {
     const d = classifyAttachment(hookBlockingErrorFixture);
     expect(d.kind).toBe('hook_blocking_error');
     expect(d.scope).toBe('tool');
@@ -345,7 +345,7 @@ describe('classifyAttachment — hook types (scope: tool)', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('hook_cancelled: scope=tool, tier=content, glyph=○, glyphSeverity=neutral, summary includes hookName, toolUseID propagated, expandable=false (leaf)', () => {
+  it('hook_cancelled: scope=tool, tier=content, glyph=○, glyphSeverity=neutral, summary includes hookName, toolUseID propagated, expandable=false (leaf)', () => {
     const d = classifyAttachment(hookCancelledFixture);
     expect(d.kind).toBe('hook_cancelled');
     expect(d.scope).toBe('tool');
@@ -365,7 +365,7 @@ describe('classifyAttachment — hook types (scope: tool)', () => {
 // ============================================================================
 
 describe('classifyAttachment — ambient turn-scoped types', () => {
-  it.skip('team_context: scope=turn, tier=ambient, no glyph, summary includes teamName and agentName, hidden=false, expandable=false', () => {
+  it('team_context: scope=turn, tier=ambient, no glyph, summary includes teamName and agentName, hidden=false, expandable=false', () => {
     const d = classifyAttachment(teamContextFixture);
     expect(d.kind).toBe('team_context');
     expect(d.scope).toBe('turn');
@@ -377,7 +377,7 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.expandable).toBe(false);
   });
 
-  it.skip('command_permissions: hidden when allowedTools is empty', () => {
+  it('command_permissions: hidden when allowedTools is empty', () => {
     const d = classifyAttachment(commandPermissionsEmptyFixture);
     expect(d.kind).toBe('command_permissions');
     expect(d.scope).toBe('turn');
@@ -385,14 +385,14 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.hidden).toBe(true);
   });
 
-  it.skip('command_permissions: rendered (hidden=false) when allowedTools is populated', () => {
+  it('command_permissions: rendered (hidden=false) when allowedTools is populated', () => {
     const d = classifyAttachment(commandPermissionsPopulatedFixture);
     expect(d.kind).toBe('command_permissions');
     expect(d.hidden).toBe(false);
     expect(d.summary).toContain('3');
   });
 
-  it.skip('deferred_tools_delta: hidden when added/readded/removed all empty', () => {
+  it('deferred_tools_delta: hidden when added/readded/removed all empty', () => {
     const d = classifyAttachment(deferredToolsDeltaEmptyFixture);
     expect(d.kind).toBe('deferred_tools_delta');
     expect(d.scope).toBe('turn');
@@ -400,14 +400,14 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.hidden).toBe(true);
   });
 
-  it.skip('deferred_tools_delta: rendered (hidden=false) when addedNames is populated', () => {
+  it('deferred_tools_delta: rendered (hidden=false) when addedNames is populated', () => {
     const d = classifyAttachment(deferredToolsDeltaPopulatedFixture);
     expect(d.kind).toBe('deferred_tools_delta');
     expect(d.hidden).toBe(false);
     expect(d.summary).toContain('5');
   });
 
-  it.skip('mcp_instructions_delta: scope=turn, tier=ambient, hidden=false, summary includes addedNames, expandable=true', () => {
+  it('mcp_instructions_delta: scope=turn, tier=ambient, hidden=false, summary includes addedNames, expandable=true', () => {
     const d = classifyAttachment(mcpInstructionsDeltaFixture);
     expect(d.kind).toBe('mcp_instructions_delta');
     expect(d.scope).toBe('turn');
@@ -417,7 +417,7 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('task_reminder: hidden when itemCount is 0', () => {
+  it('task_reminder: hidden when itemCount is 0', () => {
     const d = classifyAttachment(taskReminderEmptyFixture);
     expect(d.kind).toBe('task_reminder');
     expect(d.scope).toBe('turn');
@@ -425,14 +425,14 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.hidden).toBe(true);
   });
 
-  it.skip('task_reminder: rendered (hidden=false) when itemCount > 0', () => {
+  it('task_reminder: rendered (hidden=false) when itemCount > 0', () => {
     const d = classifyAttachment(taskReminderPopulatedFixture);
     expect(d.kind).toBe('task_reminder');
     expect(d.hidden).toBe(false);
     expect(d.summary).toContain('1');
   });
 
-  it.skip('compact_file_reference: scope=turn, tier=ambient, glyph=·, glyphSeverity=neutral, summary=displayPath, linkPath=displayPath, expandable=false', () => {
+  it('compact_file_reference: scope=turn, tier=ambient, glyph=·, glyphSeverity=neutral, summary=displayPath, linkPath=displayPath, expandable=false', () => {
     const d = classifyAttachment(compactFileReferenceFixture);
     expect(d.kind).toBe('compact_file_reference');
     expect(d.scope).toBe('turn');
@@ -444,7 +444,7 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.expandable).toBe(false);
   });
 
-  it.skip('opened_file_in_ide: always hidden', () => {
+  it('opened_file_in_ide: always hidden', () => {
     const d = classifyAttachment(openedFileInIdeFixture);
     expect(d.kind).toBe('opened_file_in_ide');
     expect(d.scope).toBe('turn');
@@ -452,7 +452,7 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
     expect(d.hidden).toBe(true);
   });
 
-  it.skip('selected_lines_in_ide: scope=turn, tier=ambient, glyph=·, summary includes basename and line range, linkPath=displayPath, expandable=false', () => {
+  it('selected_lines_in_ide: scope=turn, tier=ambient, glyph=·, summary includes basename and line range, linkPath=displayPath, expandable=false', () => {
     const d = classifyAttachment(selectedLinesInIdeFixture);
     expect(d.kind).toBe('selected_lines_in_ide');
     expect(d.scope).toBe('turn');
@@ -473,7 +473,7 @@ describe('classifyAttachment — ambient turn-scoped types', () => {
 // ============================================================================
 
 describe('classifyAttachment — content turn-scoped types', () => {
-  it.skip('nested_memory: scope=turn, tier=content, summary=Memory · basename(displayPath), linkPath=displayPath, expandable=true', () => {
+  it('nested_memory: scope=turn, tier=content, summary=Memory · basename(displayPath), linkPath=displayPath, expandable=true', () => {
     const d = classifyAttachment(nestedMemoryFixture);
     expect(d.kind).toBe('nested_memory');
     expect(d.scope).toBe('turn');
@@ -484,7 +484,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('skill_listing: scope=turn, tier=content, summary includes skillCount, hidden=false, expandable=true', () => {
+  it('skill_listing: scope=turn, tier=content, summary includes skillCount, hidden=false, expandable=true', () => {
     const d = classifyAttachment(skillListingFixture);
     expect(d.kind).toBe('skill_listing');
     expect(d.scope).toBe('turn');
@@ -494,7 +494,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('invoked_skills: scope=turn, tier=content, summary includes skills.length, hidden=false, expandable=true', () => {
+  it('invoked_skills: scope=turn, tier=content, summary includes skills.length, hidden=false, expandable=true', () => {
     const d = classifyAttachment(invokedSkillsFixture);
     expect(d.kind).toBe('invoked_skills');
     expect(d.scope).toBe('turn');
@@ -504,7 +504,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('dynamic_skill: scope=turn, tier=content, summary includes displayPath, hidden=false, expandable=false', () => {
+  it('dynamic_skill: scope=turn, tier=content, summary includes displayPath, hidden=false, expandable=false', () => {
     const d = classifyAttachment(dynamicSkillFixture);
     expect(d.kind).toBe('dynamic_skill');
     expect(d.scope).toBe('turn');
@@ -514,7 +514,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
     expect(d.expandable).toBe(false);
   });
 
-  it.skip('file: scope=turn, tier=content, summary=basename(displayPath), linkPath=displayPath, hidden=false, expandable=true', () => {
+  it('file: scope=turn, tier=content, summary=basename(displayPath), linkPath=displayPath, hidden=false, expandable=true', () => {
     const d = classifyAttachment(fileFixture);
     expect(d.kind).toBe('file');
     expect(d.scope).toBe('turn');
@@ -525,7 +525,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('edited_text_file: scope=turn, tier=content, summary includes basename(filename) and "edited", hidden=false, expandable=true', () => {
+  it('edited_text_file: scope=turn, tier=content, summary includes basename(filename) and "edited", hidden=false, expandable=true', () => {
     const d = classifyAttachment(editedTextFileFixture);
     expect(d.kind).toBe('edited_text_file');
     expect(d.scope).toBe('turn');
@@ -536,7 +536,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
     expect(d.expandable).toBe(true);
   });
 
-  it.skip('queued_command: scope=turn, tier=content (UserTurn vocab), glyph=⏎, summary includes truncated prompt, hidden=false, expandable=false', () => {
+  it('queued_command: scope=turn, tier=content (UserTurn vocab), glyph=⏎, summary includes truncated prompt, hidden=false, expandable=false', () => {
     const d = classifyAttachment(queuedCommandFixture);
     expect(d.kind).toBe('queued_command');
     expect(d.scope).toBe('turn');
@@ -554,7 +554,7 @@ describe('classifyAttachment — content turn-scoped types', () => {
 // ============================================================================
 
 describe('classifyAttachment — session-scoped types', () => {
-  it.skip('date_change: scope=session, tier=ambient, summary=newDate, hidden=false, expandable=false', () => {
+  it('date_change: scope=session, tier=ambient, summary=newDate, hidden=false, expandable=false', () => {
     const d = classifyAttachment(dateChangeFixture);
     expect(d.kind).toBe('date_change');
     expect(d.scope).toBe('session');
@@ -570,7 +570,7 @@ describe('classifyAttachment — session-scoped types', () => {
 // ============================================================================
 
 describe('classifyAttachment — unknown type sentinel', () => {
-  it.skip('unknown attachment.type returns kind: __unknown__ sentinel', () => {
+  it('unknown attachment.type returns kind: __unknown__ sentinel', () => {
     const d = classifyAttachment(unknownTypeFixture);
     expect(d.kind).toBe('__unknown__');
     expect(d.hidden).toBe(false);
