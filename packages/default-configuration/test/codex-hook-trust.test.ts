@@ -233,6 +233,64 @@ describe('codex-hook-trust', () => {
     expect(state['p@local:hooks/hooks.json:session_start:0:0']!.trusted_hash).toBe(statusHash);
   });
 
+  it('fails closed when a command handler carries an unmodeled field', () => {
+    // A field the trust hash does not model would be silently dropped from the
+    // hashed identity, seeding a valid-but-wrong hash — so seeding must abort.
+    const withUnknownField: HooksJson = {
+      hooks: {
+        SessionStart: [{ hooks: [{ type: 'command', command: 'x', frobnicate: true } as never] }]
+      }
+    };
+    expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', withUnknownField)).toThrow(/frobnicate/);
+    // The error names the positional location and the plugin/source path.
+    expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', withUnknownField)).toThrow(/SessionStart:0:0/);
+    expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', withUnknownField)).toThrow(
+      /p@local.*hooks\/hooks\.json/
+    );
+  });
+
+  it('validates unmodeled fields even on a skipped async handler', () => {
+    // async:true handlers are skipped before seeding, but an unmodeled field on
+    // one must still abort the launch — not slip through unseeded.
+    const asyncWithUnknownField: HooksJson = {
+      hooks: {
+        SessionStart: [{ hooks: [{ type: 'command', command: 'x', async: true, frobnicate: true } as never] }]
+      }
+    };
+    expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', asyncWithUnknownField)).toThrow(/frobnicate/);
+  });
+
+  it('does not trip the unmodeled-field guard on bundled hooks or modeled fixtures', () => {
+    // The six bundled hooks carry only type+command.
+    expect(() =>
+      buildPluginHooksState('runtime@local', 'hooks/hooks.json', readBundleHooks('runtime/hooks/hooks.json'))
+    ).not.toThrow();
+    expect(() =>
+      buildPluginHooksState(
+        'cards-assistant@local',
+        'hooks/hooks.json',
+        readBundleHooks('cards-assistant/hooks/hooks.json')
+      )
+    ).not.toThrow();
+
+    // The modeled timeout / statusMessage / async fields are all permitted.
+    const modeled: HooksJson = {
+      hooks: {
+        SessionStart: [
+          {
+            hooks: [
+              { type: 'command', command: 'A', timeout: 30 },
+              { type: 'command', command: 'B', statusMessage: 'Running' },
+              { type: 'command', command: 'C', async: true },
+              { type: 'command', command: 'D', commandWindows: 'D-WIN' }
+            ]
+          }
+        ]
+      }
+    };
+    expect(() => buildPluginHooksState('p@local', 'hooks/hooks.json', modeled)).not.toThrow();
+  });
+
   it('selectHashedCommand mirrors Codex per-host commandWindows selection', () => {
     const handler = { command: 'POSIX-CMD', commandWindows: 'WIN-CMD' };
 

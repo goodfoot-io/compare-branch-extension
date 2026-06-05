@@ -1010,7 +1010,16 @@ async function buildEnabledPluginsHooksState(
       throw error;
     }
 
-    const json = JSON.parse(raw) as HooksJson;
+    let json: HooksJson;
+    try {
+      json = JSON.parse(raw) as HooksJson;
+    } catch (error) {
+      throw new Error(
+        `Corrupt Cards bundle: Codex hooks manifest at ${hooksJsonPath} is not valid JSON ` +
+          `(${(error as Error).message})`,
+        { cause: error }
+      );
+    }
     Object.assign(state, buildPluginHooksState(`${name}@${CODEX_PLUGIN_MARKETPLACE}`, 'hooks/hooks.json', json));
   }
 

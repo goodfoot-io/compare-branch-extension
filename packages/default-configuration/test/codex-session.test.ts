@@ -496,6 +496,32 @@ describe('codex-session library', () => {
     expect(written).not.toContain('hooks.state');
   });
 
+  it('writeCodexProfileConfig fails closed with a path-named error on a malformed bundle hooks.json', async () => {
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
+      const p = toPosix(filePath);
+      if (p.endsWith('/config.toml')) {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      }
+      // The bundle hooks.json is present but corrupt (truncated JSON).
+      if (p === '/cache/runtime/hooks/hooks.json') {
+        return '{ "hooks": ';
+      }
+      throw Object.assign(new Error(`mock: unhandled readFile: ${p}`), { code: 'ENOENT' });
+    });
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    const promise = writeCodexProfileConfig('/test/codexhome', {
+      pluginCachePaths: { cards: '/cache/cards', runtime: '/cache/runtime' }
+    });
+    // The error names the offending path and identifies a bundle-integrity failure.
+    await expect(promise).rejects.toThrow(/\/cache\/runtime\/hooks\/hooks\.json/);
+    await expect(promise).rejects.toThrow(/Corrupt Cards bundle/i);
+    // A corrupt bundle must abort the launch, not write a profile.
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
   it('writeCodexProfileConfig fails closed on a legacy collision with the assistant profile name', async () => {
     const fs = await import('node:fs/promises');
     // A legacy [profiles.cards-assistant] table is present, but no [profiles.cards].

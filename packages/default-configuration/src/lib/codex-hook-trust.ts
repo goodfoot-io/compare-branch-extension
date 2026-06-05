@@ -122,6 +122,25 @@ const HOOK_EVENT_KEY_LABELS: Record<string, string> = {
 const MATCHER_FORCED_NULL_EVENTS = new Set(['UserPromptSubmit', 'Stop']);
 
 /**
+ * The complete set of command-handler keys the trust hash models. `type` selects
+ * the handler kind; the rest are exactly the fields {@link selectHashedCommand}
+ * (`command`, `commandWindows`) and {@link commandHookHash} (`timeout`,
+ * `statusMessage`) consume, plus `async` (which gates whether a handler is
+ * seeded). A command handler carrying any key outside this set would be seeded
+ * with a hash that silently omits the unmodeled field — so {@link
+ * buildPluginHooksState} fails closed on it. When a new Codex hook field is added
+ * to the hash, add it here in the same change.
+ */
+const MODELED_COMMAND_HANDLER_KEYS = new Set<string>([
+  'type',
+  'command',
+  'commandWindows',
+  'timeout',
+  'statusMessage',
+  'async'
+]);
+
+/**
  * Maps a PascalCase `hooks.json` event key to the snake_case label Codex uses in
  * a hook key. Fails closed on an unknown key rather than guessing a label.
  *
@@ -259,9 +278,19 @@ export function buildPluginHooksState(
       const matcher = forceNullMatcher ? null : (group.matcher ?? null);
 
       group.hooks.forEach((handler, hi) => {
-        // Skip non-command and async handlers, but let the positional index
-        // advance over them — Codex's `enumerate` counts every handler.
-        if (handler.type !== 'command' || handler.async === true) {
+        // Non-command handlers (`prompt` / `agent`) are not trust-seedable and
+        // carry no hashed fields, so they are skipped without validation. Every
+        // `command`-type handler — including async ones skipped before seeding —
+        // is checked for unmodeled fields first: a field the hash does not model
+        // would otherwise be silently mis-hashed. The positional index advances
+        // over skipped handlers regardless, mirroring Codex's `enumerate`.
+        if (handler.type !== 'command') {
+          return;
+        }
+
+        assertHandlerFieldsModeled(handler, pluginId, sourceRelativePath, event, gi, hi);
+
+        if (handler.async === true) {
           return;
         }
 
@@ -285,6 +314,44 @@ export function buildPluginHooksState(
   }
 
   return state;
+}
+
+/**
+ * Fails closed when a `command`-type handler carries any own-enumerable key the
+ * trust hash does not model ({@link MODELED_COMMAND_HANDLER_KEYS}). Such a field
+ * would be silently dropped from the hashed identity, seeding a valid-but-wrong
+ * `trusted_hash` — that one hook would quietly fall back to Untrusted at the
+ * user's next session start. Aborting the launch loudly is the fail-closed
+ * choice: a future Codex hook field must be modeled in the hash before it can be
+ * trusted, not seeded blind.
+ *
+ * @param handler - The command handler being seeded.
+ * @param pluginId - The plugin id (`<name>@<marketplace>`), for the message.
+ * @param sourceRelativePath - The source-relative `hooks.json` path, for the message.
+ * @param event - The PascalCase event key, for the positional location.
+ * @param gi - The group index, for the positional location.
+ * @param hi - The handler index, for the positional location.
+ * @throws {Error} When the handler has any key outside the modeled set.
+ */
+function assertHandlerFieldsModeled(
+  handler: HookHandler,
+  pluginId: string,
+  sourceRelativePath: string,
+  event: string,
+  gi: number,
+  hi: number
+): void {
+  const unmodeled = Object.keys(handler).filter((key) => !MODELED_COMMAND_HANDLER_KEYS.has(key));
+  if (unmodeled.length === 0) {
+    return;
+  }
+
+  const keyList = unmodeled.map((key) => `"${key}"`).join(', ');
+  throw new Error(
+    `Unmodeled Codex hook field(s) ${keyList} on command handler ${event}:${gi}:${hi} ` +
+      `in ${pluginId} (${sourceRelativePath}): this field is not modeled by the trust hash, ` +
+      `so the launch is aborted to avoid silently seeding an incorrect trust hash.`
+  );
 }
 
 /**
