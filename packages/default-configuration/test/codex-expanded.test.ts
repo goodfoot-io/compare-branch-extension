@@ -107,6 +107,14 @@ function malformedLine(): string {
   return '{"timestamp":"2026-06-04T12:00:00.000Z","type":"response_item","payload":{';
 }
 
+function eventMsgAgentLine(text: string, ts = '2026-06-04T10:07:00.000Z'): string {
+  return envelope('event_msg', { type: 'agent_message', message: text }, ts);
+}
+
+function eventMsgUserLine(text: string, ts = '2026-06-04T10:07:00.000Z'): string {
+  return envelope('event_msg', { type: 'user_message', message: text }, ts);
+}
+
 // ============================================================================
 // Source-order rendering
 // ============================================================================
@@ -363,6 +371,52 @@ describe('renderCodexTranscript — reset rebuild', () => {
     const reset_items = renderCodexTranscript(reset);
     expect(reset_items.filter((i) => i.kind === 'assistant_message')).toHaveLength(1);
     expect(reset_items.some((i) => i.kind === 'tool_call')).toBe(false);
+  });
+});
+
+// ============================================================================
+// Deduplication — same-turn event_msg suppressed; cross-turn preserved
+// ============================================================================
+
+describe('renderCodexTranscript — same-turn dedup: event_msg mirrors response_item', () => {
+  it('suppresses a mirrored assistant event_msg in the same turn, keeping exactly one assistant_message', () => {
+    const lines = [sessionMetaLine(), turnContextLine(), assistantMsgLine('Hi! Done.'), eventMsgAgentLine('Hi! Done.')];
+    const items = renderCodexTranscript(lines);
+    const assistantMessages = items.filter((i) => i.kind === 'assistant_message');
+    expect(assistantMessages).toHaveLength(1);
+    if (assistantMessages[0]?.kind === 'assistant_message') {
+      expect(assistantMessages[0].text).toBe('Hi! Done.');
+    }
+  });
+
+  it('suppresses a mirrored user event_msg in the same turn, keeping exactly one user_message', () => {
+    const lines = [sessionMetaLine(), turnContextLine(), userMsgLine('Hello there'), eventMsgUserLine('Hello there')];
+    const items = renderCodexTranscript(lines);
+    const userMessages = items.filter((i) => i.kind === 'user_message');
+    expect(userMessages).toHaveLength(1);
+    if (userMessages[0]?.kind === 'user_message') {
+      expect(userMessages[0].text).toBe('Hello there');
+    }
+  });
+});
+
+describe('renderCodexTranscript — cross-turn identical text is not suppressed', () => {
+  it('keeps both assistant messages when the same text appears in two separate turns', () => {
+    // Turn 1: response_item "Done." + event_msg "Done." → 1 item (deduped)
+    // Turn 2: response_item "Done." + event_msg "Done." → 1 item (deduped within turn 2)
+    // Total: 2 assistant_message items
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine('2026-06-04T10:01:00.000Z'),
+      assistantMsgLine('Done.', '2026-06-04T10:02:00.000Z'),
+      eventMsgAgentLine('Done.', '2026-06-04T10:03:00.000Z'),
+      turnContextLine('2026-06-04T10:04:00.000Z'),
+      assistantMsgLine('Done.', '2026-06-04T10:05:00.000Z'),
+      eventMsgAgentLine('Done.', '2026-06-04T10:06:00.000Z')
+    ];
+    const items = renderCodexTranscript(lines);
+    const assistantMessages = items.filter((i) => i.kind === 'assistant_message');
+    expect(assistantMessages).toHaveLength(2);
   });
 });
 

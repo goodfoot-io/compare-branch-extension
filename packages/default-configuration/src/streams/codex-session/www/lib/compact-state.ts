@@ -51,8 +51,8 @@ export interface CodexCompactState {
  * @returns The bounded compact-view state.
  * @throws Error 'not implemented' — Phase 1 stub.
  */
-import { extractMessageText } from './dedup.js';
-import { type CodexRolloutLine, type ContentItem, parseCodexLine } from './parser.js';
+import { extractMessageText, isDuplicateEventMsg } from './dedup.js';
+import { type CodexRolloutLine, type ContentItem, parseCodexLine, type ResponseItemPayload } from './parser.js';
 
 /**
  * Defensively reads `total_token_usage` from an `event_msg` `token_count` info object.
@@ -134,6 +134,8 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
   const tail: CodexTailEvent[] = [];
   let firstTimestamp: string | undefined;
   let lastTimestamp: string | undefined;
+  // Turn-scoped response_item accumulator; reset at each turn_context boundary.
+  let currentTurnResponseItems: ResponseItemPayload[] = [];
 
   const pushTail = (event: CodexTailEvent): void => {
     tail.push(event);
@@ -162,12 +164,14 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
       }
       case 'turn_context': {
         turnCount += 1;
+        currentTurnResponseItems = [];
         if (model === undefined && typeof line.payload.model === 'string') {
           model = line.payload.model;
         }
         break;
       }
       case 'response_item': {
+        currentTurnResponseItems.push(line.payload);
         const payload = line.payload as Record<string, unknown> & { type: string };
         if (payload.type === 'message') {
           const content = Array.isArray(payload['content']) ? (payload['content'] as ContentItem[]) : [];
@@ -194,6 +198,10 @@ export function buildCodexCompactState(lines: string[], isActive: boolean): Code
             tokenCount = { input: usage.input_tokens, output: usage.output_tokens };
           }
         } else if (payload.type === 'agent_message' || payload.type === 'user_message') {
+          // Suppress event_msg messages that mirror a same-turn response_item message.
+          if (isDuplicateEventMsg(currentTurnResponseItems, line.payload)) {
+            break;
+          }
           const message = typeof payload['message'] === 'string' ? payload['message'] : '';
           const text = message.trim();
           if (text.length > 0) {

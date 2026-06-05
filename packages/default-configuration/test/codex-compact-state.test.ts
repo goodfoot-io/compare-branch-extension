@@ -116,6 +116,10 @@ function agentMsgLine(message: string, timestamp = '2026-06-04T10:06:00.000Z'): 
   return envelope('event_msg', { type: 'agent_message', message }, timestamp);
 }
 
+function userEventMsgLine(message: string, timestamp = '2026-06-04T10:07:00.000Z'): string {
+  return envelope('event_msg', { type: 'user_message', message }, timestamp);
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -332,5 +336,70 @@ describe('buildCodexCompactState — durationMs from timestamps', () => {
     if (state.durationMs !== undefined) {
       expect(state.durationMs).toBe(0);
     }
+  });
+});
+
+// ============================================================================
+// Deduplication — same-turn event_msg suppressed; cross-turn preserved
+// ============================================================================
+
+describe('buildCodexCompactState — same-turn dedup: event_msg mirrors response_item', () => {
+  it('omits a mirrored assistant event_msg from the tail so the message appears exactly once', () => {
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine(),
+      responseMsgLine('assistant', 'Hi! Done.'),
+      agentMsgLine('Hi! Done.')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    const messageTail = state.tail.filter((e) => e.kind === 'message');
+    expect(messageTail).toHaveLength(1);
+    expect(messageTail[0]?.text).toBe('Hi! Done.');
+  });
+
+  it('sets headlineText exactly once when both response_item and event_msg carry the same assistant text', () => {
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine(),
+      responseMsgLine('assistant', 'Task complete.'),
+      agentMsgLine('Task complete.')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    expect(state.headlineText).toBe('Task complete.');
+    // Verify the tail has only one message entry
+    expect(state.tail.filter((e) => e.kind === 'message')).toHaveLength(1);
+  });
+
+  it('omits a mirrored user event_msg from the tail so the user message appears exactly once', () => {
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine(),
+      responseMsgLine('user', 'Hello there'),
+      userEventMsgLine('Hello there')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    const messageTail = state.tail.filter((e) => e.kind === 'message');
+    expect(messageTail).toHaveLength(1);
+    expect(messageTail[0]?.text).toBe('Hello there');
+  });
+});
+
+describe('buildCodexCompactState — cross-turn identical text is not suppressed', () => {
+  it('keeps per-turn-deduped count across two turns with the same text', () => {
+    // Each turn: response_item "Done." + event_msg "Done." → 1 tail entry (deduped)
+    // Two turns → 2 tail entries total
+    const lines = [
+      sessionMetaLine(),
+      turnContextLine('2026-06-04T10:01:00.000Z'),
+      responseMsgLine('assistant', 'Done.', '2026-06-04T10:02:00.000Z'),
+      agentMsgLine('Done.', '2026-06-04T10:03:00.000Z'),
+      turnContextLine('2026-06-04T10:04:00.000Z'),
+      responseMsgLine('assistant', 'Done.', '2026-06-04T10:05:00.000Z'),
+      agentMsgLine('Done.', '2026-06-04T10:06:00.000Z')
+    ];
+    const state = buildCodexCompactState(lines, false);
+    const messageTail = state.tail.filter((e) => e.kind === 'message');
+    expect(messageTail).toHaveLength(2);
+    expect(state.turnCount).toBe(2);
   });
 });

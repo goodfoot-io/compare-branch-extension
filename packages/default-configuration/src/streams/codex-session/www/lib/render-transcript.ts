@@ -19,8 +19,8 @@
  * @module streams/codex-session/www/lib/render-transcript
  */
 
-import { extractMessageText } from './dedup.js';
-import type { ContentItem } from './parser.js';
+import { extractMessageText, isDuplicateEventMsg } from './dedup.js';
+import type { ContentItem, EventMsgPayload, ResponseItemPayload } from './parser.js';
 import { type CodexRolloutLine, parseCodexLine } from './parser.js';
 
 /**
@@ -58,17 +58,28 @@ export type TranscriptItem =
  */
 export function renderCodexTranscript(lines: string[]): TranscriptItem[] {
   const items: TranscriptItem[] = [];
-  const pendingCalls = new Map<
-    string,
-    { name: string; argumentsText: string; prettyPrinted: boolean; timestamp?: string }
-  >();
   // Tracks the index in `items` of each emitted tool_call so a later output can
   // be attached to its originating call in place, preserving source order.
   const callItemIndex = new Map<string, number>();
+  // Turn-scoped response_item accumulator; reset at each turn_context boundary.
+  let currentTurnResponseItems: ResponseItemPayload[] = [];
 
   for (const raw of lines) {
     const line = parseCodexLine(raw);
-    const produced = lineToItems(line, pendingCalls);
+
+    // Maintain the turn-scoped window for deduplication.
+    if (line.kind === 'turn_context') {
+      currentTurnResponseItems = [];
+    } else if (line.kind === 'response_item') {
+      currentTurnResponseItems.push(line.payload);
+    } else if (line.kind === 'event_msg') {
+      // Suppress event_msg messages that mirror a same-turn response_item message.
+      if (isDuplicateEventMsg(currentTurnResponseItems, line.payload)) {
+        continue;
+      }
+    }
+
+    const produced = lineToItems(line);
 
     for (const item of produced) {
       if (item.kind === 'tool_call') {
@@ -145,16 +156,14 @@ export function extractOutputText(output: unknown): string {
  * array for most visible lines; may return more than one item only for
  * `response_item` lines that carry both a message and embedded reasoning.
  *
+ * Deduplication (suppressing event_msg lines that mirror a same-turn
+ * response_item message) is the caller's responsibility — callers should
+ * filter with {@link isDuplicateEventMsg} before passing the line here.
+ *
  * @param line - A pre-parsed Codex rollout line.
- * @param pendingCalls - Map of `call_id` → partially-built tool-call items
- *   that have been seen but not yet paired with their output. The caller
- *   maintains this map across the full transcript and passes it on each call.
  * @returns Zero or more transcript items derived from this line.
  */
-export function lineToItems(
-  line: CodexRolloutLine,
-  pendingCalls: Map<string, { name: string; argumentsText: string; prettyPrinted: boolean; timestamp?: string }>
-): TranscriptItem[] {
+export function lineToItems(line: CodexRolloutLine): TranscriptItem[] {
   switch (line.kind) {
     case 'malformed':
       return [{ kind: 'malformed', rawLine: line.raw }];
@@ -182,7 +191,7 @@ export function lineToItems(
       return eventMsgToItems(line.payload, line.timestamp);
 
     case 'response_item':
-      return responseItemToItems(line.payload, line.timestamp, pendingCalls);
+      return responseItemToItems(line.payload, line.timestamp);
 
     default:
       return [];
@@ -199,7 +208,7 @@ export function lineToItems(
  * @param timestamp - The envelope timestamp (empty string when absent).
  * @returns Zero or one transcript item.
  */
-function eventMsgToItems(rawPayload: import('./parser.js').EventMsgPayload, timestamp: string): TranscriptItem[] {
+function eventMsgToItems(rawPayload: EventMsgPayload, timestamp: string): TranscriptItem[] {
   const ts = timestamp === '' ? undefined : timestamp;
   const payload = rawPayload as Record<string, unknown> & { type: string };
   const message = typeof payload['message'] === 'string' ? payload['message'] : '';
@@ -234,20 +243,15 @@ function extractReasoningSummary(summary: unknown[]): string {
 /**
  * Converts a `response_item` payload into zero or more transcript items.
  *
- * Calls are recorded in `pendingCalls` and emitted as `tool_call`; outputs are
- * emitted as `orphan_output` for the caller to pair by `call_id` or render
- * standalone. Unknown nested variants become a readable raw block.
+ * Tool calls are emitted as `tool_call`; outputs are emitted as `orphan_output`
+ * for the caller to pair by `call_id` or render standalone. Unknown nested
+ * variants become a readable raw block.
  *
  * @param rawPayload - The `response_item` payload.
  * @param timestamp - The envelope timestamp (empty string when absent).
- * @param pendingCalls - Map of `call_id` to partially-built tool-call metadata.
  * @returns Zero or more transcript items.
  */
-function responseItemToItems(
-  rawPayload: import('./parser.js').ResponseItemPayload,
-  timestamp: string,
-  pendingCalls: Map<string, { name: string; argumentsText: string; prettyPrinted: boolean; timestamp?: string }>
-): TranscriptItem[] {
+function responseItemToItems(rawPayload: ResponseItemPayload, timestamp: string): TranscriptItem[] {
   const ts = timestamp === '' ? undefined : timestamp;
   const payload = rawPayload as Record<string, unknown> & { type: string };
 
@@ -276,7 +280,6 @@ function responseItemToItems(
       const name = typeof payload['name'] === 'string' ? payload['name'] : payload.type;
       const rawArgs = typeof payload['arguments'] === 'string' ? payload['arguments'] : '';
       const { text: argumentsText, prettyPrinted } = parseArguments(rawArgs);
-      pendingCalls.set(callId, { name, argumentsText, prettyPrinted, timestamp: ts });
       return [
         {
           kind: 'tool_call',
