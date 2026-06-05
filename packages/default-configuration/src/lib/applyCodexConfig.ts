@@ -78,12 +78,13 @@ function getOrCreateTable(obj: TomlObject, key: string, label: string): TomlObje
 export interface ApplyCodexConfigOptions {
   /**
    * Plugin identifiers to enable. Each entry causes the corresponding
-   * `plugins."<entry>@local".enabled = true` key to be set.
+   * `plugins."<entry>".enabled = true` key to be set, and each must end with
+   * `@local` (validated at runtime — a malformed entry fails closed).
    *
    * Pass `['cards@local', 'runtime@local']` to match the existing
    * `mergeCodexRuntimeConfig` behavior.
    */
-  enablePlugins: Array<'cards@local' | 'runtime@local'>;
+  enablePlugins: readonly string[];
 
   /**
    * When `true`, sets `features.plugins = true`. When `false`, sets it to

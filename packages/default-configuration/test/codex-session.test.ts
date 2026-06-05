@@ -368,6 +368,49 @@ describe('codex-session library', () => {
     expect(fs.writeFile).not.toHaveBeenCalled();
   });
 
+  it('writeCodexProfileConfig writes the assistant profile enabling cards + cards-assistant, not runtime', async () => {
+    const fs = await import('node:fs/promises');
+    vi.mocked(fs.readFile).mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    const profilePath = await writeCodexProfileConfig('/test/codexhome', {
+      profileName: 'cards-assistant',
+      pluginNames: ['cards', 'cards-assistant']
+    });
+
+    // The assistant profile lands in its own <home>/cards-assistant.config.toml file.
+    expect(toPosix(profilePath)).toBe('/test/codexhome/cards-assistant.config.toml');
+    const writes = vi.mocked(fs.writeFile).mock.calls.map((call) => toPosix(call[0]));
+    expect(writes).toEqual(['/test/codexhome/cards-assistant.config.toml']);
+
+    const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
+    expect(written).toContain('[features]');
+    expect(written).toContain('plugins = true');
+    expect(written).toContain('[plugins."cards@local"]');
+    expect(written).toContain('[plugins."cards-assistant@local"]');
+    expect(written).toContain('enabled = true');
+    // The assistant session must NOT enable the runtime plugin.
+    expect(written).not.toContain('runtime@local');
+  });
+
+  it('writeCodexProfileConfig fails closed on a legacy collision with the assistant profile name', async () => {
+    const fs = await import('node:fs/promises');
+    // A legacy [profiles.cards-assistant] table is present, but no [profiles.cards].
+    vi.mocked(fs.readFile).mockResolvedValue('[profiles.cards-assistant]\nmodel = "x"\n');
+    vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    const { writeCodexProfileConfig } = await import('../src/lib/codex-session.js');
+
+    await expect(
+      writeCodexProfileConfig('/test/codexhome', {
+        profileName: 'cards-assistant',
+        pluginNames: ['cards', 'cards-assistant']
+      })
+    ).rejects.toThrow(/cards-assistant/);
+    // It must not write the profile when codex would reject the launch.
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
   it('populateCodexPluginCache respects CODEX_HOME env override', async () => {
     process.env['CODEX_HOME'] = '/alt/home';
     const fs = await mockSuccessfulCacheFs();

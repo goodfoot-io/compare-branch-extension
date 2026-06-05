@@ -56,7 +56,15 @@ interface CodexPluginMarketplaceManifest {
   name: string;
 }
 
-const CODEX_PLUGIN_NAMES = ['cards', 'runtime'] as const;
+/** All plugin names that may appear in a Codex plugin set managed by Cards. */
+export type CodexPluginName = 'cards' | 'runtime' | 'cards-assistant';
+
+/** Plugin set used for the standard Cards launch session (cards + runtime). */
+const CODEX_LAUNCH_PLUGIN_NAMES = ['cards', 'runtime'] as const satisfies readonly CodexPluginName[];
+
+/** Plugin set used for the Cards Assistant session (cards + cards-assistant, no runtime). */
+export const CODEX_ASSISTANT_PLUGIN_NAMES = ['cards', 'cards-assistant'] as const satisfies readonly CodexPluginName[];
+
 const CODEX_PLUGIN_MARKETPLACE = 'local';
 const MAX_CARD_REPO_LOG_COMMITS = 5;
 const MAX_WORKSPACE_COMMITS_PER_BRANCH = 5;
@@ -599,10 +607,7 @@ export function resolveCodexBundlePath(marketplacePath: string): string {
  * @param pluginName - Bundled Codex plugin name to resolve.
  * @returns Absolute path to the packaged Codex runtime plugin directory.
  */
-export function resolveCodexPluginPath(
-  marketplacePath: string,
-  pluginName: (typeof CODEX_PLUGIN_NAMES)[number]
-): string {
+export function resolveCodexPluginPath(marketplacePath: string, pluginName: CodexPluginName): string {
   return path.join(resolveCodexBundlePath(marketplacePath), pluginName);
 }
 
@@ -624,7 +629,7 @@ export function resolveDefaultCodexHome(): string {
  */
 export async function readCodexPluginManifest(
   pluginPath: string,
-  expectedName: (typeof CODEX_PLUGIN_NAMES)[number]
+  expectedName: CodexPluginName
 ): Promise<CodexPluginManifest> {
   const manifestPath = path.join(pluginPath, '.codex-plugin', 'plugin.json');
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as Partial<CodexPluginManifest>;
@@ -678,24 +683,28 @@ async function readCodexMarketplaceManifest(bundlePath: string): Promise<CodexPl
   };
 }
 
-async function ensureCodexBundleAvailable(marketplacePath: string): Promise<{
+async function ensureCodexBundleAvailable(
+  marketplacePath: string,
+  pluginNames: readonly CodexPluginName[] = CODEX_LAUNCH_PLUGIN_NAMES
+): Promise<{
   bundlePath: string;
-  pluginPaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
-  pluginVersions: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
+  pluginPaths: Record<string, string>;
+  pluginVersions: Record<string, string>;
 }> {
   const bundlePath = resolveCodexBundlePath(marketplacePath);
-  const pluginPaths = Object.fromEntries(
-    CODEX_PLUGIN_NAMES.map((pluginName) => [pluginName, resolveCodexPluginPath(marketplacePath, pluginName)])
-  ) as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
-  const pluginVersions = {} as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
+  const pluginPaths: Record<string, string> = Object.fromEntries(
+    pluginNames.map((pluginName) => [pluginName, resolveCodexPluginPath(marketplacePath, pluginName)])
+  );
+  const pluginVersions: Record<string, string> = {};
   const marketplaceManifestPath = path.join(bundlePath, '.agents', 'plugins', 'marketplace.json');
 
   await fs.access(bundlePath);
   await fs.access(marketplaceManifestPath);
   await readCodexMarketplaceManifest(bundlePath);
-  for (const pluginName of CODEX_PLUGIN_NAMES) {
-    await fs.access(pluginPaths[pluginName]);
-    const manifest = await readCodexPluginManifest(pluginPaths[pluginName], pluginName);
+  for (const pluginName of pluginNames) {
+    const pluginPath = pluginPaths[pluginName]!;
+    await fs.access(pluginPath);
+    const manifest = await readCodexPluginManifest(pluginPath, pluginName);
     pluginVersions[pluginName] = manifest.version;
   }
 
@@ -723,18 +732,21 @@ const CODEX_PLUGINS_CACHE_DIR = 'plugins/cache';
  *
  * @param codexHome - Resolved codex home (`$CODEX_HOME ?? ~/.codex`).
  * @param marketplacePath - Absolute path to the packaged marketplace directory.
+ * @param pluginNames - Plugin set to stage into the cache. Defaults to
+ *   `CODEX_LAUNCH_PLUGIN_NAMES` (`cards` + `runtime`), preserving launch behavior.
  * @returns Bundle path, source plugin paths, and the on-disk cache load paths.
  */
 export async function populateCodexPluginCache(
   codexHome: string,
-  marketplacePath: string
+  marketplacePath: string,
+  pluginNames: readonly CodexPluginName[] = CODEX_LAUNCH_PLUGIN_NAMES
 ): Promise<{
   bundlePath: string;
-  pluginPaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
-  pluginCachePaths: Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
+  pluginPaths: Record<string, string>;
+  pluginCachePaths: Record<string, string>;
 }> {
-  const { bundlePath, pluginPaths, pluginVersions } = await ensureCodexBundleAvailable(marketplacePath);
-  const pluginCachePaths = {} as Record<(typeof CODEX_PLUGIN_NAMES)[number], string>;
+  const { bundlePath, pluginPaths, pluginVersions } = await ensureCodexBundleAvailable(marketplacePath, pluginNames);
+  const pluginCachePaths: Record<string, string> = {};
 
   // marketplaceDir = plugins/cache/local/ — ONE LEVEL ABOVE plugin_base_root.
   // Staging dirs are placed here so the version scanner (active_plugin_version,
@@ -742,12 +754,12 @@ export async function populateCodexPluginCache(
   const marketplaceDir = path.join(codexHome, CODEX_PLUGINS_CACHE_DIR, CODEX_PLUGIN_MARKETPLACE);
   await fs.mkdir(marketplaceDir, { recursive: true });
 
-  for (const pluginName of CODEX_PLUGIN_NAMES) {
+  for (const pluginName of pluginNames) {
     const destDir = await installPluginToCache(
       pluginName,
       marketplaceDir,
-      pluginPaths[pluginName],
-      pluginVersions[pluginName]
+      pluginPaths[pluginName]!,
+      pluginVersions[pluginName]!
     );
 
     // Verify the manifest at the exact load path — fail closed. An off-by-one in
@@ -782,7 +794,7 @@ export async function populateCodexPluginCache(
  * @returns The load path `<marketplaceDir>/<plugin>/<version>`.
  */
 async function installPluginToCache(
-  pluginName: (typeof CODEX_PLUGIN_NAMES)[number],
+  pluginName: CodexPluginName,
   marketplaceDir: string,
   sourceDir: string,
   version: string
@@ -892,48 +904,62 @@ function parseSemverTriple(version: string): [number, number, number] | null {
 // User-config layer selected with `--profile <name>`, never in the user's own
 // config.toml. Suffix matches codex CONFIG_PROFILE_V2_SUFFIX (core/config/mod.rs:200);
 // the name satisfies ProfileV2Name (ASCII alphanumeric + `_`/`-`).
-const CODEX_PROFILE_NAME = 'cards';
 const CODEX_PROFILE_CONFIG_SUFFIX = '.config.toml';
+const CODEX_DEFAULT_PROFILE_NAME = 'cards';
 
 /**
- * Writes the Cards profile-v2 config file `${codexHome}/cards.config.toml`, which
- * enables the bundled plugins via a SEPARATE User-config layer. codex loads this
- * file as a second User layer only when launched with `--profile cards` (see
- * {@link buildCodexArgs}); the user's own `codex` (no `--profile`) never reads it
- * and the user's `config.toml` is never read-modified-written.
+ * Writes a Codex profile-v2 config file `${codexHome}/${profileName}.config.toml`,
+ * enabling the given plugins via a SEPARATE User-config layer. codex loads this
+ * file as a second User layer only when launched with `--profile <profileName>`;
+ * the user's own `codex` (no `--profile`) never reads it and the user's
+ * `config.toml` is never read-modified-written.
  *
- * Fail-closed pre-check: codex hard-errors a `--profile cards` launch if the base
- * config.toml declares a legacy `profile = "cards"` selector or a `[profiles.cards]`
- * table (config/src/loader/mod.rs:227-247). {@link assertNoLegacyProfileCollision}
- * surfaces that as a clear, actionable error before codex is spawned.
+ * Fail-closed pre-check: codex hard-errors a `--profile <profileName>` launch if
+ * the base config.toml declares a legacy `profile = "<profileName>"` selector or a
+ * `[profiles.<profileName>]` table (config/src/loader/mod.rs:227-247).
+ * {@link assertNoLegacyProfileCollision} surfaces that as a clear, actionable error
+ * before codex is spawned.
+ *
+ * Calling with no `options` (or an empty object) preserves the original launch
+ * behavior: writes `cards.config.toml` enabling `cards@local` and `runtime@local`.
  *
  * @param codexHome - Resolved codex home (`$CODEX_HOME ?? ~/.codex`).
+ * @param options - Optional overrides for profile name and plugin set.
+ * @param options.profileName - Profile name written as `<profileName>.config.toml`
+ *   and used in the legacy-collision pre-check. Defaults to `'cards'`.
+ * @param options.pluginNames - Plugin names to enable in the profile. Defaults to
+ *   `CODEX_LAUNCH_PLUGIN_NAMES` (`cards` + `runtime`).
  * @returns Absolute path to the written profile config file.
  */
-export async function writeCodexProfileConfig(codexHome: string): Promise<string> {
-  await assertNoLegacyProfileCollision(codexHome);
+export async function writeCodexProfileConfig(
+  codexHome: string,
+  options: { profileName?: string; pluginNames?: readonly CodexPluginName[] } = {}
+): Promise<string> {
+  const profileName = options.profileName ?? CODEX_DEFAULT_PROFILE_NAME;
+  const pluginNames = options.pluginNames ?? CODEX_LAUNCH_PLUGIN_NAMES;
 
-  const enablePlugins = CODEX_PLUGIN_NAMES.map(
-    (name) => `${name}@${CODEX_PLUGIN_MARKETPLACE}` as 'cards@local' | 'runtime@local'
-  );
+  await assertNoLegacyProfileCollision(codexHome, profileName);
+
+  const enablePlugins = pluginNames.map((name) => `${name}@${CODEX_PLUGIN_MARKETPLACE}`);
   const { result } = applyCodexConfig({}, { enablePlugins, featuresPlugins: true });
 
-  const profilePath = path.join(codexHome, `${CODEX_PROFILE_NAME}${CODEX_PROFILE_CONFIG_SUFFIX}`);
+  const profilePath = path.join(codexHome, `${profileName}${CODEX_PROFILE_CONFIG_SUFFIX}`);
   await fs.writeFile(profilePath, `${stringifyToml(result)}\n`, 'utf-8');
   return profilePath;
 }
 
 /**
  * Throws a clear error when the user's base `config.toml` would collide with the
- * Cards profile-v2 name — the one case where codex refuses a `--profile` launch.
+ * given profile name — the one case where codex refuses a `--profile` launch.
  *
  * Best-effort: when `config.toml` is absent or unparseable, codex remains the
  * authority (it still fails closed on a genuine collision) and we proceed rather
  * than block a launch on our own parse disagreement.
  *
  * @param codexHome - Resolved codex home holding the user's `config.toml`.
+ * @param profileName - Profile name to check for a legacy collision.
  */
-async function assertNoLegacyProfileCollision(codexHome: string): Promise<void> {
+async function assertNoLegacyProfileCollision(codexHome: string, profileName: string): Promise<void> {
   const configPath = path.join(codexHome, 'config.toml');
   let raw: string;
   try {
@@ -952,18 +978,18 @@ async function assertNoLegacyProfileCollision(codexHome: string): Promise<void> 
     return;
   }
 
-  const legacySelector = parsed['profile'] === CODEX_PROFILE_NAME;
+  const legacySelector = parsed['profile'] === profileName;
   const profilesTable = parsed['profiles'];
   const legacyTable =
     typeof profilesTable === 'object' &&
     profilesTable !== null &&
     !Array.isArray(profilesTable) &&
-    Object.hasOwn(profilesTable, CODEX_PROFILE_NAME);
+    Object.hasOwn(profilesTable, profileName);
 
   if (legacySelector || legacyTable) {
     throw new Error(
-      `Cannot launch codex with the Cards profile "${CODEX_PROFILE_NAME}": ${configPath} declares a legacy ` +
-        `profile = "${CODEX_PROFILE_NAME}" selector or a [profiles.${CODEX_PROFILE_NAME}] table, which codex ` +
+      `Cannot launch codex with the Cards profile "${profileName}": ${configPath} declares a legacy ` +
+        `profile = "${profileName}" selector or a [profiles.${profileName}] table, which codex ` +
         `refuses to combine with --profile. Rename or remove that legacy profile to launch Cards sessions.`
     );
   }
@@ -1054,7 +1080,7 @@ export function buildCodexArgs(
   const args = [
     '--dangerously-bypass-approvals-and-sandbox',
     '--profile',
-    CODEX_PROFILE_NAME,
+    CODEX_DEFAULT_PROFILE_NAME,
     '--cd',
     workspacePath,
     '--add-dir',
