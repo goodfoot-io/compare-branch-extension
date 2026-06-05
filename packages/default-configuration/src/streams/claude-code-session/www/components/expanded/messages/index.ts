@@ -5,8 +5,10 @@
  * @module components/expanded/messages/index
  */
 
+export { AmbientGroup, AmbientRow } from './AmbientGroup';
 export { AssistantTurn } from './AssistantTurn';
 export { AuthStatus } from './AuthStatus';
+export { AttachmentRouter, ContextStateRow, DateMarker, DisclosureRow, FileRow } from './attachment';
 export { classifyCoordination, isCoordinationContent } from './CoordinationLine';
 export { MessageRouter } from './MessageRouter';
 export { ResultBoundary } from './ResultBoundary';

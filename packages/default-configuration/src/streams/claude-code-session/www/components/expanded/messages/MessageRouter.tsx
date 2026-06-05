@@ -13,11 +13,14 @@
  */
 
 import type React from 'react';
+import { classifyAttachment } from '../../../lib/classify-attachment';
 import type { AttachmentPayload, ContentBlock, SessionMsg } from '../../../lib/parse-session';
 import { ToolAccordion } from '../../accordions/ToolAccordion';
 import { ToolGroup } from '../../accordions/ToolGroup';
+import { AmbientGroup, AmbientRow } from './AmbientGroup';
 import { AssistantTurn } from './AssistantTurn';
 import { AuthStatus } from './AuthStatus';
+import { AttachmentRouter } from './attachment/AttachmentRouter';
 import { RawJsonFallback } from './RawJsonFallback';
 import { ResultBoundary } from './ResultBoundary';
 import { SystemRouter } from './system/SystemRouter';
@@ -308,25 +311,69 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         break;
       }
 
+      case 'attachment': {
+        const attachment = (msg as Extract<SessionMsg, { type: 'attachment' }>).attachment;
+
+        // A hook whose tool was rendered is already nested inside that tool's
+        // accordion (via toolAttachmentsMap → consumedHookToolUseIds); skip it
+        // here so it does not render twice. A hook whose toolUseID matched no
+        // rendered tool is a true orphan and falls through to AttachmentRouter,
+        // which renders it as a standalone row.
+        if (HOOK_ATTACHMENT_TYPES.has(attachment.type)) {
+          const toolUseID = (attachment as { toolUseID?: string }).toolUseID;
+          if (toolUseID && consumedHookToolUseIds.has(toolUseID)) break;
+        }
+
+        // Classify once here only to decide whether the row is ambient-tier (and
+        // thus must be wrapped in the AmbientRow marker the grouping sweep keys
+        // off). AttachmentRouter classifies again to render — both reads of the
+        // same pure function. Hidden rows render nothing and produce no marker,
+        // so they never create an empty group artifact.
+        const descriptor = classifyAttachment(attachment);
+        if (descriptor.hidden) break;
+
+        const rendered = <AttachmentRouter key={`${key}-att`} attachment={attachment} />;
+        if (descriptor.tier === 'ambient') {
+          nodes.push(<AmbientRow key={`${key}-ambient`}>{rendered}</AmbientRow>);
+        } else {
+          nodes.push(rendered);
+        }
+        break;
+      }
+
       default:
         nodes.push(<RawJsonFallback key={key} data={msg} />);
         break;
     }
   });
 
-  // consumedHookToolUseIds is populated above and consumed by the forthcoming
-  // `case 'attachment'` arm (next group) to skip already-nested hooks and render
-  // only true orphans. Referenced here so the set stays live until that arm exists.
-  void consumedHookToolUseIds;
+  // consumedHookToolUseIds is populated in the tool arms above and consumed by
+  // the `case 'attachment'` arm to skip already-nested hooks; no keepalive needed.
 
-  // Group consecutive ToolAccordion nodes into ToolGroup containers.
-  // Non-conversational system events (files_persisted, compact_boundary, etc.) are buffered
-  // while a tool run is in progress — they flush after the group closes, not inside it.
-  // Conversational boundaries (AssistantTurn, UserTurn) always close the current group first.
+  // Group consecutive ToolAccordion nodes into ToolGroup containers, and — in the
+  // same pass — coalesce consecutive ambient attachment rows (AmbientRow markers)
+  // into AmbientGroup zones.
+  //
+  // Two runs are buffered independently and ordered with each other:
+  //   - `toolRun`     — consecutive ToolAccordion nodes (matched by referential
+  //                     type so the existing tool-grouping invariant is intact;
+  //                     AmbientRow is a distinct type and never enters it).
+  //   - `ambientRun`  — consecutive AmbientRow nodes folded into an AmbientGroup.
+  // Non-conversational system events (files_persisted, compact_boundary, etc.)
+  // are buffered while a tool run is open — they flush after the group closes.
+  // Conversational boundaries (AssistantTurn, UserTurn) always close both runs.
   const grouped: React.ReactElement[] = [];
   let toolRun: React.ReactElement[] = [];
+  let ambientRun: React.ReactElement[] = [];
   let systemBuffer: React.ReactElement[] = [];
   let toolRunKey = 0;
+  let ambientRunKey = 0;
+
+  const flushAmbientRun = () => {
+    if (ambientRun.length === 0) return;
+    grouped.push(<AmbientGroup key={`ag-${ambientRunKey++}`} rows={ambientRun} />);
+    ambientRun = [];
+  };
 
   const flushToolRun = () => {
     if (toolRun.length === 0) {
@@ -342,11 +389,21 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
 
   for (const node of nodes) {
     if (node.type === ToolAccordion) {
+      // A tool run opening closes any pending ambient run first so the two zones
+      // stay ordered and never interleave.
+      flushAmbientRun();
       toolRun.push(node);
+    } else if (node.type === AmbientRow) {
+      // Ambient rows only coalesce when truly adjacent; an open tool run closes
+      // first so an AmbientGroup never lands inside a ToolGroup.
+      flushToolRun();
+      ambientRun.push(node);
     } else if (node.type === AssistantTurn || node.type === UserTurn) {
       flushToolRun();
+      flushAmbientRun();
       grouped.push(node);
     } else {
+      flushAmbientRun();
       // Non-conversational node: buffer it if a tool run is in progress so it
       // doesn't break the group; otherwise emit immediately.
       if (toolRun.length > 0) {
@@ -359,6 +416,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     }
   }
   flushToolRun();
+  flushAmbientRun();
   grouped.push(...systemBuffer);
 
   return <>{grouped}</>;

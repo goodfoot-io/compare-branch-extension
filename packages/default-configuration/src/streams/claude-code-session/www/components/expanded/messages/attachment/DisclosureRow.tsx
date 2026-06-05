@@ -1,0 +1,121 @@
+/**
+ * Content-tier openable attachment row.
+ *
+ * Renders the content-tier disclosure attachments — `nested_memory`,
+ * `skill_listing`, `invoked_skills`, `dynamic_skill`, and a long
+ * `mcp_instructions_delta` — as a content-weight summary that expands to the
+ * payload's text via the shared {@link ExpandableRow} primitive. Markdown-shaped
+ * bodies render through {@link renderMarkdown}, mirroring how
+ * {@link ToolResult} displays skill instructions; plain bodies render
+ * pre-wrapped.
+ *
+ * Styling follows the content tier from the plan: `disabledForeground` text at
+ * 11px. The presenter reads the descriptor for its summary and assembles the
+ * body text from the raw payload; it does not re-derive meaning.
+ *
+ * @summary Content-tier disclosure row (memory / skills / mcp instructions)
+ * @module components/expanded/messages/attachment/DisclosureRow
+ */
+
+import type React from 'react';
+import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
+import { renderMarkdown } from '../../../../lib/markdown';
+import type {
+  AttachmentPayload,
+  DynamicSkillAttachment,
+  InvokedSkillsAttachment,
+  NestedMemoryAttachment,
+  SkillListingAttachment
+} from '../../../../lib/parse-session';
+import { ExpandableRow } from '../../../accordions/ExpandableRow';
+
+interface DisclosureRowProps {
+  /** The classifier descriptor for this attachment. */
+  descriptor: AttachmentDescriptor;
+  /** The raw attachment payload, read only for body assembly. */
+  attachment: AttachmentPayload;
+}
+
+/**
+ * Heuristic: treat body as markdown when it carries heading, list, or table
+ * markers — the same test {@link ToolResult} applies.
+ * @param text - The body string to test.
+ * @returns True when the text appears to contain markdown formatting.
+ */
+function looksLikeMarkdown(text: string): boolean {
+  return /^#{1,6}\s|^\s*[-*]\s|^\s*\d+\.\s|^\|.+\|/m.test(text);
+}
+
+/**
+ * Assembles the expandable body text for a content-tier disclosure attachment.
+ * Reads only the fields relevant per subtype; returns null when the payload
+ * carries no body worth disclosing.
+ * @param attachment - The raw attachment payload.
+ * @returns The body text, or null when there is nothing to expand.
+ */
+function bodyText(attachment: AttachmentPayload): string | null {
+  switch (attachment.type) {
+    case 'nested_memory': {
+      const a = attachment as NestedMemoryAttachment;
+      const content = a.content?.content;
+      return typeof content === 'string' && content.length > 0 ? content : null;
+    }
+    case 'skill_listing': {
+      const a = attachment as SkillListingAttachment;
+      if (typeof a.content === 'string' && a.content.length > 0) return a.content;
+      const names = a.names ?? [];
+      return names.length > 0 ? names.join('\n') : null;
+    }
+    case 'invoked_skills': {
+      const a = attachment as InvokedSkillsAttachment;
+      const skills = a.skills ?? [];
+      const lines = skills.map((s) => s.name ?? s.path ?? '').filter((s) => s.length > 0);
+      return lines.length > 0 ? lines.join('\n') : null;
+    }
+    case 'dynamic_skill': {
+      const a = attachment as DynamicSkillAttachment;
+      const names = a.skillNames ?? [];
+      return names.length > 0 ? names.join('\n') : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Renders a content-tier disclosure attachment row.
+ * @param root0 - The component props.
+ * @param root0.descriptor - The classifier descriptor for this attachment.
+ * @param root0.attachment - The raw attachment payload, read for body assembly.
+ * @returns Rendered disclosure row element.
+ */
+export function DisclosureRow({ descriptor, attachment }: DisclosureRowProps): React.ReactElement {
+  const body = bodyText(attachment);
+  const header = (
+    <span
+      className="overflow-hidden text-ellipsis whitespace-nowrap"
+      style={{ color: 'var(--vscode-disabledForeground)' }}
+    >
+      {descriptor.summary}
+    </span>
+  );
+
+  if (body === null) {
+    return <ExpandableRow header={header} expandable={false} />;
+  }
+
+  return (
+    <ExpandableRow header={header}>
+      {looksLikeMarkdown(body) ? (
+        <div
+          className="cc-text text-[11px] pb-2 break-words overflow-wrap-anywhere min-w-0 max-w-full"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }}
+        />
+      ) : (
+        <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
+          {body}
+        </div>
+      )}
+    </ExpandableRow>
+  );
+}

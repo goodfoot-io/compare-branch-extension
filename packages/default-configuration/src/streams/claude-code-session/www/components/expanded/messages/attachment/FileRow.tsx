@@ -1,0 +1,141 @@
+/**
+ * File-oriented attachment row.
+ *
+ * Renders the file-lifecycle attachments in two shapes driven by the
+ * descriptor's `expandable` flag:
+ *
+ * - **Expandable** (`file`, `edited_text_file`, `queued_command`) — a
+ *   content-tier summary that opens to the file content, the edit snippet, or
+ *   the full queued prompt via the shared {@link ExpandableRow} primitive. The
+ *   `edited_text_file` glyph rides the git-modified hue.
+ * - **Leaf** (`compact_file_reference`, `opened_file_in_ide`,
+ *   `selected_lines_in_ide`) — a rule-6 `·` bullet line whose linkified path
+ *   uses `textLink-foreground` with a hover underline and no body.
+ *
+ * The linkified path is `descriptor.linkPath`; the presenter never re-derives
+ * it. Color appears only on the glyph and link per the plan, always with a
+ * literal `var(--vscode-…, #fallback)`.
+ *
+ * @summary File-lifecycle row (file / edited / queued / IDE-reference leaves)
+ * @module components/expanded/messages/attachment/FileRow
+ */
+
+import type React from 'react';
+import type { AttachmentDescriptor } from '../../../../lib/classify-attachment';
+import type {
+  AttachmentPayload,
+  EditedTextFileAttachment,
+  FileAttachment,
+  QueuedCommandAttachment
+} from '../../../../lib/parse-session';
+import { ExpandableRow } from '../../../accordions/ExpandableRow';
+
+interface FileRowProps {
+  /** The classifier descriptor for this attachment. */
+  descriptor: AttachmentDescriptor;
+  /** The raw attachment payload, read only for body assembly. */
+  attachment: AttachmentPayload;
+}
+
+/**
+ * Assembles the expandable body text for a file-lifecycle attachment.
+ * Reads only the fields relevant per subtype; returns null when the payload
+ * carries no body worth disclosing.
+ * @param attachment - The raw attachment payload.
+ * @returns The body text, or null when there is nothing to expand.
+ */
+function bodyText(attachment: AttachmentPayload): string | null {
+  switch (attachment.type) {
+    case 'file': {
+      const a = attachment as FileAttachment;
+      const content = a.content?.file?.content;
+      return typeof content === 'string' && content.length > 0 ? content : null;
+    }
+    case 'edited_text_file': {
+      const a = attachment as EditedTextFileAttachment;
+      return typeof a.snippet === 'string' && a.snippet.length > 0 ? a.snippet : null;
+    }
+    case 'queued_command': {
+      const a = attachment as QueuedCommandAttachment;
+      const parts = [a.prompt, a.commandMode ? `mode: ${a.commandMode}` : null].filter(
+        (p): p is string => typeof p === 'string' && p.length > 0
+      );
+      return parts.length > 0 ? parts.join('\n\n') : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Renders the descriptor glyph, tinting the `edited_text_file` glyph with the
+ * git-modified hue and leaving every other glyph neutral.
+ * @param descriptor - The classifier descriptor.
+ * @returns The glyph element, or null when the descriptor has no glyph.
+ */
+function glyphNode(descriptor: AttachmentDescriptor): React.ReactNode {
+  if (!descriptor.glyph) return null;
+  const color =
+    descriptor.kind === 'edited_text_file'
+      ? 'var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)'
+      : undefined;
+  return (
+    <span className="shrink-0" style={color ? { color } : undefined}>
+      {descriptor.glyph}
+    </span>
+  );
+}
+
+/**
+ * Renders a file-lifecycle attachment row — expandable for content payloads,
+ * leaf for IDE-reference rows.
+ * @param root0 - The component props.
+ * @param root0.descriptor - The classifier descriptor for this attachment.
+ * @param root0.attachment - The raw attachment payload, read for body assembly.
+ * @returns Rendered file row element.
+ */
+export function FileRow({ descriptor, attachment }: FileRowProps): React.ReactElement {
+  // Leaf rows (rule 6): the `·` bullet is supplied by ExpandableRow's leaf mode,
+  // so the header carries only the linkified path with the textLink hue.
+  if (!descriptor.expandable) {
+    const header = descriptor.linkPath ? (
+      <span
+        className="overflow-hidden text-ellipsis whitespace-nowrap hover:underline cursor-pointer"
+        style={{ color: 'var(--vscode-textLink-foreground, #3794ff)' }}
+      >
+        {descriptor.summary}
+      </span>
+    ) : (
+      <span
+        className="overflow-hidden text-ellipsis whitespace-nowrap"
+        style={{ color: 'var(--vscode-descriptionForeground)', fontSize: '0.78em' }}
+      >
+        {descriptor.summary}
+      </span>
+    );
+    return <ExpandableRow header={header} expandable={false} />;
+  }
+
+  const body = bodyText(attachment);
+  const header = (
+    <span
+      className="flex items-center gap-2 flex-1 overflow-hidden"
+      style={{ color: 'var(--vscode-disabledForeground)' }}
+    >
+      {glyphNode(descriptor)}
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap">{descriptor.summary}</span>
+    </span>
+  );
+
+  if (body === null) {
+    return <ExpandableRow header={header} expandable={false} />;
+  }
+
+  return (
+    <ExpandableRow header={header}>
+      <div className="text-[11px] text-vscode-foreground font-vscode-editor whitespace-pre-wrap break-words pb-1.5">
+        {body}
+      </div>
+    </ExpandableRow>
+  );
+}

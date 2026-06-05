@@ -5,6 +5,7 @@
  * @module components/expanded/messages/system/index
  */
 
+export { AwaySummaryBoundary } from './AwaySummaryBoundary';
 export { CompactBoundaryLine } from './CompactBoundaryLine';
 export { FilesPersisted } from './FilesPersisted';
 export type { HookSubtype } from './HookLine';
