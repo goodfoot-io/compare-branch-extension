@@ -633,6 +633,43 @@ describe('renderCodexTranscript — persisted events render as event_activity', 
       expect(activity.detailText).toContain('codex rollout protocol');
     }
   });
+
+  it('renders image_generation_end as an event_activity with revised_prompt and result', () => {
+    const line = envelope('event_msg', {
+      type: 'image_generation_end',
+      call_id: 'img-1',
+      status: 'completed',
+      revised_prompt: 'a gray tabby cat',
+      result: 'https://img/result.png'
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'image_generation');
+    expect(activity?.kind).toBe('event_activity');
+    if (activity?.kind === 'event_activity') {
+      expect(activity.label).toBe('image_generation');
+      expect(activity.detailText).toContain('a gray tabby cat');
+      expect(activity.detailText).toContain('https://img/result.png');
+    }
+  });
+
+  it('renders patch_apply_end as an event_activity with success flag and stdout', () => {
+    const line = envelope('event_msg', {
+      type: 'patch_apply_end',
+      call_id: 'patch-1',
+      stdout: 'Applied patch to foo.ts',
+      stderr: '',
+      success: true,
+      status: 'completed'
+    });
+    const items = renderCodexTranscript([line]);
+    const activity = items.find((i) => i.kind === 'event_activity' && i.label === 'patch_apply');
+    expect(activity?.kind).toBe('event_activity');
+    if (activity?.kind === 'event_activity') {
+      expect(activity.label).toBe('patch_apply');
+      expect(activity.detailText).toContain('success: true');
+      expect(activity.detailText).toContain('Applied patch to foo.ts');
+    }
+  });
 });
 
 // ============================================================================
