@@ -202,6 +202,248 @@ export interface AuthStatusMsg {
   isAuthenticating?: boolean;
 }
 
+// ============================================================================
+// Attachment payload types (discriminated union over 22 known subtypes)
+// ============================================================================
+
+/**
+ * Base fields shared by all hook attachment subtypes.
+ * Real payloads carry additive fields beyond those listed here; the index
+ * signature keeps TypeScript permissive so callers are not broken by new fields.
+ */
+interface HookAttachmentBase {
+  /** @ignore index signature — permits additive fields from real JSONL lines */
+  [key: string]: unknown;
+  hookName: string;
+  toolUseID: string;
+  hookEvent: string;
+}
+
+/** hook_success — tool lifecycle hook ran successfully. */
+export interface HookSuccessAttachment extends HookAttachmentBase {
+  type: 'hook_success';
+  content?: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  command?: string;
+  durationMs?: number;
+}
+
+/** hook_additional_context — hook injected additional context. */
+export interface HookAdditionalContextAttachment extends HookAttachmentBase {
+  type: 'hook_additional_context';
+  content?: string[];
+}
+
+/** hook_system_message — hook injected a system message. */
+export interface HookSystemMessageAttachment extends HookAttachmentBase {
+  type: 'hook_system_message';
+  content?: string;
+}
+
+/** hook_non_blocking_error — hook failed but did not block the tool. Carries full run fields. */
+export interface HookNonBlockingErrorAttachment extends HookAttachmentBase {
+  type: 'hook_non_blocking_error';
+  stderr?: string;
+  stdout?: string;
+  exitCode?: number;
+  command?: string;
+  durationMs?: number;
+}
+
+/** hook_blocking_error — hook failed and blocked the tool. */
+export interface HookBlockingErrorAttachment extends HookAttachmentBase {
+  type: 'hook_blocking_error';
+  blockingError?: { blockingError?: string; command?: string };
+}
+
+/** hook_cancelled — hook was cancelled before completion. */
+export interface HookCancelledAttachment extends HookAttachmentBase {
+  type: 'hook_cancelled';
+}
+
+/** team_context — subagent team membership context. */
+export interface TeamContextAttachment {
+  type: 'team_context';
+  agentId?: string;
+  agentName?: string;
+  teamName?: string;
+  teamConfigPath?: string;
+  taskListPath?: string;
+  [key: string]: unknown;
+}
+
+/** command_permissions — allowed tool set for the turn. */
+export interface CommandPermissionsAttachment {
+  type: 'command_permissions';
+  allowedTools: string[];
+  [key: string]: unknown;
+}
+
+/** deferred_tools_delta — MCP tool availability changes. */
+export interface DeferredToolsDeltaAttachment {
+  type: 'deferred_tools_delta';
+  addedNames?: string[];
+  addedLines?: string[];
+  removedNames?: string[];
+  readdedNames?: string[];
+  pendingMcpServers?: string[];
+  [key: string]: unknown;
+}
+
+/** mcp_instructions_delta — MCP server instruction changes. */
+export interface McpInstructionsDeltaAttachment {
+  type: 'mcp_instructions_delta';
+  addedNames?: string[];
+  addedBlocks?: string[];
+  removedNames?: string[];
+  [key: string]: unknown;
+}
+
+/** task_reminder — pending task list reminder. */
+export interface TaskReminderAttachment {
+  type: 'task_reminder';
+  content?: unknown[];
+  itemCount?: number;
+  [key: string]: unknown;
+}
+
+/** nested_memory — a CLAUDE.md memory file loaded into context. */
+export interface NestedMemoryAttachment {
+  type: 'nested_memory';
+  path?: string;
+  displayPath?: string;
+  content?: { path?: string; type?: string; content?: string; contentDiffersFromDisk?: boolean };
+  [key: string]: unknown;
+}
+
+/** skill_listing — available skills enumerated. */
+export interface SkillListingAttachment {
+  type: 'skill_listing';
+  content?: string;
+  skillCount?: number;
+  isInitial?: boolean;
+  names?: string[];
+  [key: string]: unknown;
+}
+
+/** invoked_skills — skills loaded for this turn. */
+export interface InvokedSkillsAttachment {
+  type: 'invoked_skills';
+  skills?: Array<{ name?: string; path?: string; content?: string }>;
+  [key: string]: unknown;
+}
+
+/** dynamic_skill — a skills directory loaded from the workspace. */
+export interface DynamicSkillAttachment {
+  type: 'dynamic_skill';
+  skillDir?: string;
+  skillNames?: string[];
+  displayPath?: string;
+  [key: string]: unknown;
+}
+
+/** file — a file read into context. */
+export interface FileAttachment {
+  type: 'file';
+  filename?: string;
+  displayPath?: string;
+  content?: {
+    type?: string;
+    file?: { filePath?: string; content?: string; numLines?: number; startLine?: number; totalLines?: number };
+  };
+  [key: string]: unknown;
+}
+
+/** edited_text_file — a file was edited during the turn. */
+export interface EditedTextFileAttachment {
+  type: 'edited_text_file';
+  filename?: string;
+  snippet?: string;
+  [key: string]: unknown;
+}
+
+/** queued_command — a command queued for the next turn. */
+export interface QueuedCommandAttachment {
+  type: 'queued_command';
+  prompt?: string;
+  commandMode?: string;
+  [key: string]: unknown;
+}
+
+/** compact_file_reference — a file referenced in compact mode. */
+export interface CompactFileReferenceAttachment {
+  type: 'compact_file_reference';
+  filename?: string;
+  displayPath?: string;
+  [key: string]: unknown;
+}
+
+/** opened_file_in_ide — a file was opened in the IDE. Always hidden. */
+export interface OpenedFileInIdeAttachment {
+  type: 'opened_file_in_ide';
+  filename?: string;
+  [key: string]: unknown;
+}
+
+/** selected_lines_in_ide — lines were selected in the IDE. */
+export interface SelectedLinesInIdeAttachment {
+  type: 'selected_lines_in_ide';
+  ideName?: string;
+  lineStart?: number;
+  lineEnd?: number;
+  filename?: string;
+  displayPath?: string;
+  content?: string;
+  [key: string]: unknown;
+}
+
+/** date_change — the calendar date changed during the session. */
+export interface DateChangeAttachment {
+  type: 'date_change';
+  newDate?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Discriminated union of all 22 known attachment subtypes, plus a catch-all for
+ * future/unknown types.  Modeled permissively so additive fields on real JSONL
+ * lines do not fail typecheck.
+ *
+ * @summary Discriminated union of all known attachment payload subtypes
+ */
+export type AttachmentPayload =
+  | HookSuccessAttachment
+  | HookAdditionalContextAttachment
+  | HookSystemMessageAttachment
+  | HookNonBlockingErrorAttachment
+  | HookBlockingErrorAttachment
+  | HookCancelledAttachment
+  | TeamContextAttachment
+  | CommandPermissionsAttachment
+  | DeferredToolsDeltaAttachment
+  | McpInstructionsDeltaAttachment
+  | TaskReminderAttachment
+  | NestedMemoryAttachment
+  | SkillListingAttachment
+  | InvokedSkillsAttachment
+  | DynamicSkillAttachment
+  | FileAttachment
+  | EditedTextFileAttachment
+  | QueuedCommandAttachment
+  | CompactFileReferenceAttachment
+  | OpenedFileInIdeAttachment
+  | SelectedLinesInIdeAttachment
+  | DateChangeAttachment
+  | { type: string; [key: string]: unknown };
+
+/** A parsed attachment line from the JSONL stream. */
+export interface AttachmentMsg {
+  type: 'attachment';
+  attachment: AttachmentPayload;
+}
+
 /** Union of all parsed session messages. */
 export type SessionMsg =
   | SystemMsg
@@ -210,6 +452,7 @@ export type SessionMsg =
   | ToolUseSummaryMsg
   | SessionResultMsg
   | AuthStatusMsg
+  | AttachmentMsg
   | { type: string };
 
 // ============================================================================
