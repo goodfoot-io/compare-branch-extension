@@ -12,7 +12,7 @@
   "dependencies": {
     "@cards/sdk": "workspace:*",
     "@cards/sessions": "workspace:*",
-    "@goodfoot/codex-hooks": "^1.0.2",
+    "@goodfoot/codex-hooks": "^1.1.0",
     "esbuild": "^0.28.0",
     "js-yaml": "^4.1.1",
     "ws": "^8.20.0"

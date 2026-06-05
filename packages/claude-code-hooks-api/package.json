@@ -16,7 +16,7 @@
     "@cards/sdk": "workspace:*",
     "@cards/sessions": "workspace:*",
     "@cards/web": "workspace:*",
-    "@goodfoot/claude-code-hooks": "^1.4.1"
+    "@goodfoot/claude-code-hooks": "^1.7.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",

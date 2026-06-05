@@ -21,7 +21,7 @@ import { spawn } from 'node:child_process';
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Logger } from '@goodfoot/claude-code-hooks';
+import type { Logger, TypedPostToolUseHookInput } from '@goodfoot/claude-code-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -109,10 +109,12 @@ async function importHook() {
 // Minimal hook input factory
 // ---------------------------------------------------------------------------
 
-function makeInput(overrides: Record<string, unknown> = {}) {
+function makeInput(
+  overrides: Partial<TypedPostToolUseHookInput<'EnterWorktree'>> = {}
+): TypedPostToolUseHookInput<'EnterWorktree'> {
   return {
     tool_name: 'EnterWorktree',
-    hook_event_name: 'PostToolUse' as const,
+    hook_event_name: 'PostToolUse',
     tool_use_id: 'tool-use-1',
     cwd: '/tmp/worktree',
     session_id: 'session-abc',
