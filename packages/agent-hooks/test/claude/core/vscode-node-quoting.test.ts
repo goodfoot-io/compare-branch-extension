@@ -29,6 +29,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { EXECUTABLE, targets } from '../../../scripts/build.mjs';
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -36,33 +37,47 @@ interface HooksJson {
   hooks: Record<string, Array<{ hooks: Array<{ type: string; command: string }> }>>;
 }
 
-// The VSCODE_NODE executable wrapper as the shell receives it (this command is
-// run through execSync, i.e. /bin/sh). `\$` keeps `$(...)` and `$HOME` literal
-// so the CLI stamps them verbatim into each command string — matching the
-// `EXECUTABLE` constant the `claude-core` target passes in scripts/build.mjs.
-const EXECUTABLE_SHELL_ARG = '"\\"\\$(cat \\$HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)\\""';
+/**
+ * Escapes a literal string so it survives one level of `/bin/sh` word-splitting
+ * when embedded in a command passed to `execSync` (which itself calls
+ * `/bin/sh -c`).  Backslashes, double-quotes, and dollar signs are all
+ * shell-special and must be escaped.
+ *
+ * @param value - The raw string to make shell-safe.
+ * @returns The escaped string, suitable for embedding in a double-quoted shell word.
+ */
+function shellEscape(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
+}
 
 /**
- * Builds the exact `claude-code-hooks` invocation the `claude-core` build target
- * uses, redirecting its output to a temp file. Every other argument — notably
- * `--executable` — stays byte-for-byte identical to the production build, so the
- * quoting this test guards is the real shipped quoting.
+ * Builds the exact `claude-code-hooks` invocation the `claude-core` build
+ * target uses (derived from the exported build manifest), redirecting its
+ * output to a temp file. Every other argument — notably `--executable` — stays
+ * byte-for-byte identical to the production build, so the quoting this test
+ * guards is the real shipped quoting.
  *
  * @param outputFile - Absolute path the generator should write hooks.json to.
  * @returns The generator command line writing to `outputFile`.
+ * @throws {Error} If the claude-core target is not found in the build manifest.
  */
 function buildGeneratorCommand(outputFile: string): string {
-  return [
-    'claude-code-hooks',
-    '-i',
-    '"src/claude/core/**/*.ts"',
-    '-o',
-    `"${outputFile}"`,
-    '--log-env-var',
-    'CARDS_CLAUDE_CODE_HOOKS_LOG_FILE',
-    '--executable',
-    EXECUTABLE_SHELL_ARG
-  ].join(' ');
+  const coreTarget = targets.find((t) => t.name === 'claude-core');
+  if (!coreTarget) {
+    throw new Error('claude-core target not found in build manifest');
+  }
+  // EXECUTABLE contains shell metacharacters ($, ") that must be escaped so
+  // they survive the execSync → /bin/sh -c layer before the CLI receives them.
+  const executableShellArg = `"${shellEscape(EXECUTABLE)}"`;
+  const args: string[] = [coreTarget.cli, '-i', `"${coreTarget.input}"`, '-o', `"${outputFile}"`];
+  if (coreTarget.logEnvVar) {
+    args.push('--log-env-var', coreTarget.logEnvVar);
+  }
+  args.push('--executable', executableShellArg);
+  for (const loader of coreTarget.loaders) {
+    args.push(loader);
+  }
+  return args.join(' ');
 }
 
 /**
