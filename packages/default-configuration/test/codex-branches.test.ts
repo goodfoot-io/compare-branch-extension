@@ -60,6 +60,10 @@ function nativePath(posix: string): string {
  * keeps the source-home cp/stat path cross-platform.
  */
 const DEFAULT_CODEX_HOME = join(homedir(), '.codex');
+const TEST_CODEX_PLUGIN_VERSIONS = {
+  cards: 'cards-test-version',
+  runtime: 'runtime-test-version'
+} as const;
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -286,21 +290,25 @@ beforeEach(async () => {
   });
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
     const p = toPosix(filePath);
-    // Bundle (`…/cards/…`), staged (`…/.plugin-install-*/1.0.272/…`), and
-    // published (`…/cards/1.0.272/…`) manifests all resolve — match on the plugin
-    // segment or its unique version, since installs use the manifest version as
-    // the cache path segment.
-    if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)cards\//.test(p) || p.includes('/1.0.272/'))) {
+    // Bundle (`.../cards/...`), staged (`.../.plugin-install-*/<version>/...`), and
+    // published (`.../cards/<version>/...`) manifests all resolve.
+    if (
+      p.endsWith('.codex-plugin/plugin.json') &&
+      (/(^|\/)cards\//.test(p) || p.includes(`/${TEST_CODEX_PLUGIN_VERSIONS.cards}/`))
+    ) {
       return JSON.stringify({
         name: 'cards',
-        version: '1.0.272',
+        version: TEST_CODEX_PLUGIN_VERSIONS.cards,
         description: 'Codex cards plugin for interacting with the Cards extension APIs'
       });
     }
-    if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)runtime\//.test(p) || p.includes('/1.0.355/'))) {
+    if (
+      p.endsWith('.codex-plugin/plugin.json') &&
+      (/(^|\/)runtime\//.test(p) || p.includes(`/${TEST_CODEX_PLUGIN_VERSIONS.runtime}/`))
+    ) {
       return JSON.stringify({
         name: 'runtime',
-        version: '1.0.355',
+        version: TEST_CODEX_PLUGIN_VERSIONS.runtime,
         description: 'Codex runtime plugin for the Cards extension'
       });
     }
@@ -398,12 +406,12 @@ describe('launch action — codex branch', () => {
     // compare via separator-insensitive matchers.
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/cards'),
-      posixMatching(/\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.272$/),
+      posixMatching(new RegExp(`/plugins/cache/local/\\.plugin-install-[^/]+/${TEST_CODEX_PLUGIN_VERSIONS.cards}$`)),
       { force: true, recursive: true }
     );
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/runtime'),
-      posixMatching(/\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.355$/),
+      posixMatching(new RegExp(`/plugins/cache/local/\\.plugin-install-[^/]+/${TEST_CODEX_PLUGIN_VERSIONS.runtime}$`)),
       { force: true, recursive: true }
     );
     // No copy of the resolved home.
@@ -420,8 +428,12 @@ describe('launch action — codex branch', () => {
 
     // The publish rename lands each plugin at plugins/cache/local/<plugin>/<version>.
     const renameDests = vi.mocked(fs.rename).mock.calls.map((call) => toPosix(call[1]));
-    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/cards\/1\.0\.272$/.test(dest))).toBe(true);
-    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/runtime\/1\.0\.355$/.test(dest))).toBe(true);
+    expect(renameDests).toContain(
+      toPosix(`${DEFAULT_CODEX_HOME}/plugins/cache/local/cards/${TEST_CODEX_PLUGIN_VERSIONS.cards}`)
+    );
+    expect(renameDests).toContain(
+      toPosix(`${DEFAULT_CODEX_HOME}/plugins/cache/local/runtime/${TEST_CODEX_PLUGIN_VERSIONS.runtime}`)
+    );
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',

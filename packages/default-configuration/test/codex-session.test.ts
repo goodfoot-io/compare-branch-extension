@@ -22,6 +22,11 @@ function toPosix(p: unknown): string {
   return String(p).replace(/\\/g, '/');
 }
 
+const TEST_CODEX_PLUGIN_VERSIONS = {
+  cards: 'cards-test-version',
+  runtime: 'runtime-test-version'
+} as const;
+
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
   execFile: vi.fn(),
@@ -248,15 +253,18 @@ describe('codex-session library', () => {
     vi.mocked(fs.access).mockResolvedValue(undefined);
     vi.mocked(fs.readFile).mockImplementation(async (filePath: unknown) => {
       const p = toPosix(filePath);
-      // Plugin manifests resolve for the bundle source (`…/cards/…`), the staged
-      // copy (`…/.plugin-install-*/1.0.272/…`), and the published load path
-      // (`…/cards/1.0.272/…`) alike — match on the plugin segment or its unique
-      // version, since installs now use the manifest version as the path segment.
-      if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)cards\//.test(p) || p.includes('/1.0.272/'))) {
-        return JSON.stringify({ name: 'cards', version: '1.0.272' });
+      // Plugin manifests resolve for bundle, staged, and published load paths.
+      if (
+        p.endsWith('.codex-plugin/plugin.json') &&
+        (/(^|\/)cards\//.test(p) || p.includes(`/${TEST_CODEX_PLUGIN_VERSIONS.cards}/`))
+      ) {
+        return JSON.stringify({ name: 'cards', version: TEST_CODEX_PLUGIN_VERSIONS.cards });
       }
-      if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)runtime\//.test(p) || p.includes('/1.0.355/'))) {
-        return JSON.stringify({ name: 'runtime', version: '1.0.355' });
+      if (
+        p.endsWith('.codex-plugin/plugin.json') &&
+        (/(^|\/)runtime\//.test(p) || p.includes(`/${TEST_CODEX_PLUGIN_VERSIONS.runtime}/`))
+      ) {
+        return JSON.stringify({ name: 'runtime', version: TEST_CODEX_PLUGIN_VERSIONS.runtime });
       }
       if (p.endsWith('marketplace.json')) {
         return JSON.stringify({ name: 'local' });
