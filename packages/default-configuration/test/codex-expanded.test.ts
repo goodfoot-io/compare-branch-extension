@@ -370,10 +370,8 @@ describe('renderCodexTranscript — reset rebuild', () => {
 // Build verification — covered as a skipped test
 // ============================================================================
 
-describe.skip('build verification — both renderer bundles emitted', () => {
+describe('build verification — both renderer bundles emitted', () => {
   it('yarn build emits dist/www/claude-code-session/index.html and dist/www/codex-session/index.html', async () => {
-    // Phase 3 makes this pass once the SPA + build scripts land.
-    // This test is intentionally skipped; it documents the Phase-3 build contract.
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const distRoot = path.resolve(process.cwd(), 'dist/www');
