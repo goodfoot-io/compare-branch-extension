@@ -155,7 +155,10 @@ function buildTarget(target) {
 export { EXECUTABLE, targets };
 
 // Only run the build when executed directly (not when imported as a module).
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Guard on argv[1] being defined: an importer with no script argument (e.g.
+// `node -e 'import(...)'`) leaves it undefined, and pathToFileURL(undefined)
+// would throw at evaluation time before the importer receives the exports.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   for (const target of targets) {
     console.log(`\n[agent-hooks] building ${target.name}`);
     buildTarget(target);
