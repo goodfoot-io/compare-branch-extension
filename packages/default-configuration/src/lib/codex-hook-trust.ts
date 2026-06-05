@@ -49,12 +49,35 @@ export interface HookMatcherGroup {
   hooks: HookHandler[];
 }
 
-/** A single hook handler. Only `command` handlers are trust-seedable. */
+/** A single hook handler. Only synchronous `command` handlers are trust-seedable. */
 export interface HookHandler {
   /** Handler kind; non-`command` handlers (`prompt`/`agent`) are skipped. */
   type: string;
   /** Raw command string (`${PLUGIN_ROOT}` left literal) for `command` handlers. */
   command?: string;
+  /**
+   * Windows-specific command override. On a `win32` host Codex hashes this in
+   * place of {@link command} (when present); on every other host it is ignored
+   * and never appears in the hashed identity.
+   */
+  commandWindows?: string;
+  /**
+   * Declared timeout in seconds. Codex normalizes an unset/zero timeout to its
+   * `Math.max(1, timeout ?? 600)` default before hashing.
+   */
+  timeout?: number;
+  /**
+   * Status message Codex surfaces while the hook runs. Included in the hashed
+   * identity only when declared (None-omitted otherwise).
+   */
+  statusMessage?: string;
+  /**
+   * Whether the handler runs asynchronously. Codex does not yet support async
+   * hooks: it skips them at discovery (never trusts or runs them), so an
+   * `async: true` handler is skipped here and seeds no trust entry — while still
+   * consuming its positional handler index.
+   */
+  async?: boolean;
 }
 
 /** A single trust entry as it appears under `[hooks.state."<key>"]`. */
@@ -115,24 +138,77 @@ export function hookEventKeyLabel(jsonEventKey: string): string {
 }
 
 /**
+ * The normalized command-handler fields that feed Codex's hashed hook identity,
+ * after Codex's discovery-time normalization (commandWindows selected away,
+ * timeout defaulted, statusMessage preserved when present).
+ */
+export interface NormalizedCommandHandler {
+  /**
+   * The command Codex hashes, already platform-selected: `commandWindows ??
+   * command` on a `win32` host, the plain `command` everywhere else.
+   */
+  command: string;
+  /** The declared timeout in seconds, or `undefined` to take Codex's default. */
+  timeout?: number;
+  /** The status message, included in the identity only when present. */
+  statusMessage?: string;
+}
+
+/**
+ * Selects the command Codex hashes for a handler on the current host. Codex
+ * substitutes `command_windows.unwrap_or(command)` only under `cfg!(windows)`
+ * (discovery.rs#L463-467); the launcher generates the profile on the same host
+ * that runs `codex`, so the host platform is the authoritative selector.
+ *
+ * @param handler - The declared handler.
+ * @param platform - The host platform (defaults to `process.platform`).
+ * @returns The command string Codex will fold into the hashed identity.
+ * @throws {Error} When the selected command is absent for the host platform.
+ */
+export function selectHashedCommand(
+  handler: Pick<HookHandler, 'command' | 'commandWindows'>,
+  platform: NodeJS.Platform = process.platform
+): string {
+  const command = platform === 'win32' ? (handler.commandWindows ?? handler.command) : handler.command;
+  if (command === undefined) {
+    throw new Error('Command hook missing "command"');
+  }
+  return command;
+}
+
+/**
  * Computes the trusted hash Codex stores for a single command hook handler.
  *
- * Reproduces Codex's `command_hook_hash` pipeline exactly: build the normalized
- * identity object, recursively sort every object's keys, serialize compact, and
- * SHA-256 the UTF-8 bytes. The `matcher` field is included only when non-null,
- * `async` is always the literal `false`, and `timeout` is always `600` (Codex
- * normalizes an unset timeout to 600 for the bundled hooks). `commandWindows`
- * and `statusMessage` are `None` for bundled hooks and so are omitted.
+ * Reproduces Codex's `command_hook_hash` pipeline exactly (discovery.rs): build
+ * the normalized identity object, recursively sort every object's keys,
+ * serialize compact, and SHA-256 the UTF-8 bytes. The `matcher` field is
+ * included only when non-null. `async` is always the literal `false` — async
+ * handlers are skipped upstream and never reach this function. `timeout`
+ * normalizes to `Math.max(1, timeout ?? 600)` (discovery.rs#L482). `statusMessage`
+ * is preserved in the identity only when present (None-omitted otherwise,
+ * discovery.rs#L488). `commandWindows` is always dropped from the normalized
+ * identity (discovery.rs#L485) — the host-platform selection happens before
+ * hashing, in {@link selectHashedCommand}.
  *
  * @param eventLabel - The snake_case event label (e.g. `session_start`).
  * @param matcher - The normalized matcher, or `null` when the event/group has none.
- * @param command - The raw command string (`${PLUGIN_ROOT}` left literal).
+ * @param handler - The platform-selected command, timeout, and optional status message.
  * @returns The `sha256:<lowercase-hex>` trusted hash.
  */
-export function commandHookHash(eventLabel: string, matcher: string | null, command: string): string {
+export function commandHookHash(eventLabel: string, matcher: string | null, handler: NormalizedCommandHandler): string {
+  const normalized: Record<string, unknown> = {
+    type: 'command',
+    command: handler.command,
+    async: false,
+    timeout: Math.max(1, handler.timeout ?? 600)
+  };
+  if (handler.statusMessage !== undefined) {
+    normalized['statusMessage'] = handler.statusMessage;
+  }
+
   const identity: Record<string, unknown> = {
     event_name: eventLabel,
-    hooks: [{ type: 'command', command, async: false, timeout: 600 }]
+    hooks: [normalized]
   };
   if (matcher !== null) {
     identity['matcher'] = matcher;
@@ -148,10 +224,14 @@ export function commandHookHash(eventLabel: string, matcher: string | null, comm
  *
  * Iterates events in {@link HOOK_EVENT_ORDER}, then each event's matcher groups
  * and each group's handlers positionally. Non-`command` handlers (`prompt` /
- * `agent`) are skipped (they are not trust-seedable) but do not shift the
- * positional handler indices of surrounding command handlers. The matcher is
- * forced to `null` for `UserPromptSubmit` and `Stop`; every other event uses the
- * group's declared matcher (or `null` when absent).
+ * `agent`) and `async: true` command handlers are skipped — the former are not
+ * trust-seedable, the latter Codex never trusts or runs (it skips them at
+ * discovery, discovery.rs#L468) — but neither shifts the positional handler
+ * indices of surrounding command handlers, mirroring Codex's `enumerate`. Each
+ * seeded handler's declared `timeout`, `statusMessage`, and (on a `win32` host)
+ * `commandWindows` flow into the hashed identity. The matcher is forced to
+ * `null` for `UserPromptSubmit` and `Stop`; every other event uses the group's
+ * declared matcher (or `null` when absent).
  *
  * @param pluginId - The plugin id (`<name>@<marketplace>`) for the key prefix.
  * @param sourceRelativePath - The source-relative path (`hooks/hooks.json`).
@@ -179,15 +259,27 @@ export function buildPluginHooksState(
       const matcher = forceNullMatcher ? null : (group.matcher ?? null);
 
       group.hooks.forEach((handler, hi) => {
-        if (handler.type !== 'command') {
+        // Skip non-command and async handlers, but let the positional index
+        // advance over them — Codex's `enumerate` counts every handler.
+        if (handler.type !== 'command' || handler.async === true) {
           return;
         }
-        if (handler.command === undefined) {
+
+        let command: string;
+        try {
+          command = selectHashedCommand(handler);
+        } catch {
           throw new Error(`Command hook missing "command" at ${event}:${gi}:${hi}`);
         }
 
         const key = `${pluginId}:${sourceRelativePath}:${label}:${gi}:${hi}`;
-        state[key] = { trusted_hash: commandHookHash(label, matcher, handler.command) };
+        state[key] = {
+          trusted_hash: commandHookHash(label, matcher, {
+            command,
+            timeout: handler.timeout,
+            statusMessage: handler.statusMessage
+          })
+        };
       });
     });
   }
