@@ -21,6 +21,15 @@ export * from './protocol/index.js';
 // The colliding configuration types (Action, Command, Environment, Settings,
 // StreamDefinition) are available via the `@cards/sdk/config` subpath export.
 
+// --- Card Repo Layout ---
+export {
+  ATTACHMENTS_DIR,
+  ATTACHMENTS_PREFIX,
+  COMMENTS_DIR,
+  COMMENTS_PREFIX,
+  PLANS_DIR,
+  PLANS_PREFIX
+} from './cardRepoLayout.js';
 // --- Command Types ---
 export type { ActionCommand } from './config/command-types.js';
 // --- Configuration ---

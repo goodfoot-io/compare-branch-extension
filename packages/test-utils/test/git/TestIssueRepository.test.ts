@@ -10,6 +10,7 @@
  */
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { ATTACHMENTS_DIR, COMMENTS_DIR, COMMENTS_PREFIX, PLANS_DIR } from '@cards/sdk/card-repo-layout';
 import { COMMITS_FILE } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -63,9 +64,9 @@ describe('TestCardRepository', () => {
       const cardPath = repo.getCardPath(cardId);
 
       expect(await fs.pathExists(path.join(cardPath, 'CARD.md'))).toBe(true);
-      expect(await fs.pathExists(path.join(cardPath, 'plan', 'initial.md'))).toBe(false);
-      expect(await fs.pathExists(path.join(cardPath, 'comment'))).toBe(false);
-      expect(await fs.pathExists(path.join(cardPath, 'attachment'))).toBe(false);
+      expect(await fs.pathExists(path.join(cardPath, PLANS_DIR, 'initial.md'))).toBe(false);
+      expect(await fs.pathExists(path.join(cardPath, COMMENTS_DIR))).toBe(false);
+      expect(await fs.pathExists(path.join(cardPath, ATTACHMENTS_DIR))).toBe(false);
       // workspace commits are managed via commits.csv
     });
 
@@ -164,7 +165,7 @@ describe('TestCardRepository', () => {
 
     it('creates comment file', async () => {
       const filename = await repo.addComment(cardId, 'test-comment', 'This is a comment');
-      const content = await repo.readFile(cardId, `comment/${filename}`);
+      const content = await repo.readFile(cardId, `${COMMENTS_PREFIX}${filename}`);
       expect(content).toBe('This is a comment');
     });
   });

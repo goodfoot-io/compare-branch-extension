@@ -22,6 +22,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { resolveScaffoldDirFromSource } from '@cards/sdk';
+import { COMMENTS_DIR } from '@cards/sdk/card-repo-layout';
 import type { CardGates, CardStatus } from '@cards/sdk/protocol';
 import { COMMITS_FILE, DEFAULT_CARD_GATES } from '@cards/sdk/protocol';
 import * as fs from 'fs-extra';
@@ -270,7 +271,7 @@ export class TestCardRepository {
   /**
    * Adds a comment to a card.
    *
-   * Behavior: stores the raw content in `comment/{slug}.md` and
+   * Behavior: stores the raw content in `comments/{slug}.md` and
    * creates a commit for the new file.
    *
    * @param cardId Identifier of the card repository that will receive the comment
@@ -285,7 +286,7 @@ export class TestCardRepository {
     }
 
     const cardPath = path.join(this.reposPath, cardId);
-    const commentsPath = path.join(cardPath, 'comment');
+    const commentsPath = path.join(cardPath, COMMENTS_DIR);
     const filename = `${slug}.md`;
 
     // Ensure comment directory exists (lazy creation)
@@ -554,8 +555,9 @@ export class TestCardRepository {
 
     try {
       await git.merge(['feature-branch']);
-    } catch {
-      // Merge conflict is expected during test setup
+    } catch (error) {
+      // Merge conflict is expected during test setup — swallow intentionally
+      void error;
     }
   }
 
@@ -700,8 +702,9 @@ export class TestCardRepository {
         // promise, which — for an abandoned (timed-out) or fire-and-forget call —
         // would otherwise surface as a fatal unhandled rejection.
         abortWithRejectionGuard(this.abortController);
-      } catch {
-        // Cleanup errors are expected
+      } catch (error) {
+        // Cleanup errors are expected — swallow intentionally
+        void error;
       }
       this.abortController = null;
     }
@@ -710,8 +713,9 @@ export class TestCardRepository {
     if (this.reposPath) {
       try {
         fs.removeSync(this.reposPath);
-      } catch {
-        // Cleanup errors are expected
+      } catch (error) {
+        // Cleanup errors are expected — swallow intentionally
+        void error;
       }
       this.reposPath = null;
     }

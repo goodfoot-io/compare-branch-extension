@@ -25,6 +25,7 @@
     "./worktree-include": "./src/worktreeInclude.ts",
     "./client/cardRepoFilters": "./src/client/cardRepoFilters.ts",
     "./card-repo": "./src/cardRepo.ts",
+    "./card-repo-layout": "./src/cardRepoLayout.ts",
     "./card-summary": "./src/cardSummary.ts",
     "./search-utils": "./src/searchUtils.ts",
     "./bin/spawn-transcript-watcher": "./src/bin/spawn-transcript-watcher.ts",
