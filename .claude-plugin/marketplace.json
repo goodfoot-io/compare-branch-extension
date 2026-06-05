@@ -39,6 +39,16 @@
         "name": "Goodfoot Media LLC"
       },
       "license": "proprietary"
+    },
+    {
+      "name": "cards-assistant",
+      "version": "1.0.0",
+      "source": "./claude/cards-assistant",
+      "description": "Cards Assistant session-start announcement plugin",
+      "author": {
+        "name": "Goodfoot Media LLC"
+      },
+      "license": "proprietary"
     }
   ]
 }

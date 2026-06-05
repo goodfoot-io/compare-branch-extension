@@ -2,16 +2,14 @@
  * Shared coding-agent resolver for action handlers.
  *
  * Encapsulates the single-chokepoint legacy-tolerant mapping from the
- * `cards.defaultCodingAgent` setting value (carried on {@link ActionInput.codingAgent})
- * to the canonical handler branch. Legacy pre-main-319 values map to Claude;
+ * `cards.defaultCodingAgent` setting value (carried on the `codingAgent` property of any
+ * action or assistant input) to the canonical handler branch. Legacy pre-main-319 values map to Claude;
  * the canonical Codex value `'codex-cli'` maps to Codex; any other literal
  * fails closed so typos and stale sentinels surface explicitly.
  *
  * @summary Resolve `cards.defaultCodingAgent` to a canonical coding-agent branch
  * @module
  */
-
-import type { ActionInput } from '@cards/sdk/config';
 
 /**
  * Canonical coding-agent identifiers that action handlers branch on.
@@ -34,16 +32,21 @@ const LEGACY_CLAUDE_VALUES: ReadonlySet<string | undefined> = new Set([
 ]);
 
 /**
- * Resolves an {@link ActionInput}'s `codingAgent` field to a canonical
- * {@link CodingAgent} branch for action handlers.
+ * Resolves a `codingAgent` field to a canonical {@link CodingAgent} branch for
+ * action handlers and assistant handlers.
  *
- * @param input - Action input carrying the raw `cards.defaultCodingAgent` setting value.
+ * Accepts any object that carries an optional `codingAgent` string, so both
+ * {@link ActionInput} and `CardsAssistantInput` satisfy the structural type
+ * without either importing the other.
+ *
+ * @param input - Object carrying the raw `cards.defaultCodingAgent` setting value.
+ * @param input.codingAgent - The raw `cards.defaultCodingAgent` setting value.
  * @returns The canonical coding-agent identifier for handler branching.
  * @throws {Error} When `input.codingAgent` is neither a recognized legacy value
  *   nor `'codex-cli'`. The message names the offending value and points at the
  *   `cards.defaultCodingAgent` setting.
  */
-export function resolveCodingAgent(input: ActionInput): CodingAgent {
+export function resolveCodingAgent(input: { codingAgent?: string }): CodingAgent {
   const value = input.codingAgent;
   if (value === 'codex-cli') {
     return 'codex-cli';
