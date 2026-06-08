@@ -10,13 +10,13 @@ Use the CLI binary below to manage cards. For direct card content operations
 Card Repository below.
 
 For controlling VS Code (opening files, running commands, sending notifications,
-managing panels, controlling the debugger, etc.), load the `$extension` skill.
+managing panels, controlling the debugger, etc.), load the `$cards:extension` skill.
 
 The user is notified when you create a card or add a comment.
 
 ## Card Type References
 
-Before creating a card, load the `$markdown` skill, `./references/commanders-intent.md`, and both references for the matched card type. Two references load together:
+Before creating a card, load the `$cards:markdown` skill, `./references/commanders-intent.md`, and both references for the matched card type. Two references load together:
 - An **interview** guide describing how to reach enough signal for the card.
 - A **writing** guide describing the target CARD.md structure.
 
@@ -64,7 +64,7 @@ EOF
 
 The response includes `repositoryPath`. After creation:
 
-1. Load the `$markdown` skill before writing CARD.md.
+1. Load the `$cards:markdown` skill before writing CARD.md.
 2. Write card content and commit:
 
 ```bash
@@ -78,7 +78,7 @@ CARD_EOF
 cd "$REPO" && git add CARD.md && git commit -m "Added description [single sentence summarizing the current and desired behavior covered]."
 ```
 
-3. Load the `$notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
+3. Load the `$cards:notes` skill and record research discoveries — including any approach that emerged — as notes in the card repository. Planning happens in a later step; do not write `plans/` files at creation time.
 
 Include `relations` at creation time when the new card has a known relationship to an existing card. Each entry has a `type` (only `"related"` is valid) and a `cardId` referencing the target card. Relations can only be set at creation time via the CLI; to modify relations after creation, edit `CARD.meta.json` directly in the card repository.
 

@@ -466,7 +466,7 @@ describe('launch action — codex branch', () => {
     expect(developerInstructions).toBeDefined();
     expect(developerInstructions).toContain('Card Repository Reference');
     expect(developerInstructions).toContain('Each card is an isolated Git repository.');
-    expect(args[args.length - 1]).toMatch(/Load the `\$card` skill and follow the `<routing-instructions>`\.$/);
+    expect(args[args.length - 1]).toMatch(/Load the `\$runtime:card` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
     await promise;
@@ -640,7 +640,9 @@ describe('interview action — codex branch', () => {
     const developerInstructions = cFlagValues.find((value) => value.startsWith('developer_instructions'));
     expect(developerInstructions).toBeDefined();
     expect(developerInstructions).toContain('Card Repository Reference');
-    expect(args[args.length - 1]).toMatch(/Load the `\$interview` skill and follow the `<routing-instructions>`\.$/);
+    expect(args[args.length - 1]).toMatch(
+      /Load the `\$runtime:interview` skill and follow the `<routing-instructions>`\.$/
+    );
 
     child.emit('close', 0);
     await promise;

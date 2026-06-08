@@ -33,8 +33,8 @@ Diff the workspace against the baseline to see the full scope of changes. Select
 
 | Depth | What runs |
 |-------|-----------|
-| Standard | One `$card-failure-mode` evaluator child |
-| Deep | One `$card-failure-mode` child + one `$card-experience-evaluator` child |
+| Standard | One `$runtime:card-failure-mode` evaluator child |
+| Deep | One `$runtime:card-failure-mode` child + one `$runtime:card-experience-evaluator` child |
 
 Choose **Deep** when the implementation touches many files, introduces new API boundaries, modifies shared state, adds significant async or error-path logic, or makes substantial changes to user-facing behavior.
 
@@ -51,7 +51,7 @@ Based on depth:
 For the `failure_mode` child (`task_name: failure_mode`), the `message`:
 
 ```
-Use the $card-failure-mode skill and follow it from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Record each finding with a `FINDING:` marker and report a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` as your final message to me, the orchestrator that spawned you. On Deep depth I relay the experience-evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
+Use the $runtime:card-failure-mode skill and follow it from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Record each finding with a `FINDING:` marker and report a `VERDICT: APPROVED` or `VERDICT: CHANGES_REQUESTED` as your final message to me, the orchestrator that spawned you. On Deep depth I relay the experience-evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -71,7 +71,7 @@ All validation has passed. Focus on runtime behavior, semantic failures, and gap
 For **Deep**, also spawn the `experience_evaluator` child (`task_name: experience_evaluator`) with the `message`:
 
 ```
-Use the $card-experience-evaluator skill and follow it from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. Record each finding with a `FINDING:` marker and report a verdict as your final message to me, the orchestrator that spawned you. I relay the failure-mode evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
+Use the $runtime:card-experience-evaluator skill and follow it from the top. Draft the user-outcome failure-mode questions, then evaluate by exercising the user entry points. Record each finding with a `FINDING:` marker and report a verdict as your final message to me, the orchestrator that spawned you. I relay the failure-mode evaluator's findings to you for cross-evaluator critique; include any `CRITIQUE: <label>` responses in your report and I relay them back. After fix commits land I re-engage you to re-evaluate — extend the questions, triage prior findings, and report a fresh verdict.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -124,7 +124,7 @@ Choose [EFFORT] per the same tiering as `./implementation-with-plan.md`'s `<effo
 Developer children are spawned as leaves of the tree and receive no follow-up after spawn — same single-message style as `./implementation-with-plan.md`'s `<dispatch>`. Inline every finding the developer must address into its spawn `message`; do not stream new findings to a running developer. For Parallel routing, `spawn_agent` one developer child per independent group (descriptive `task_name` like `fix_group_1`) so they run concurrently. Each developer owns the files referenced in its assigned findings. The spawn `message`:
 
 ```
-Use the $card-developer skill.
+Use the $runtime:card-developer skill.
 
 ## Task
 Apply fixes for the findings below. Do not run full validation and do not commit — the orchestrator validates and commits after you return.

@@ -9,12 +9,12 @@ Plus one shared reference used by every card type:
 
 ## Consumers
 
-1. **Card creation** (`$management` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `card create` time.
+1. **Card creation** (`$cards:management` skill) — loads both the interview and writing guide for the matched card type. Interview runs first; the writing guide shapes CARD.md at `card create` time.
 2. **Interview skills** (`$interview-*`) — symlink the **writing guide** (`<type>.md`) into their skill directory and load it via `./<type>.md` during the post-creation interview. The `interview-<type>.md` files are pre-creation only and are **not** symlinked into `$interview-*`.
 
 ## Symlinks
 
-The `$interview` skill's `references/` directory symlinks back to this directory:
+The `$runtime:interview` skill's `references/` directory symlinks back to this directory:
 
 ```
 runtime/skills/interview/references/bug-report.md        -> ../../../../cards/skills/api/references/bug-report.md
@@ -31,5 +31,5 @@ Edit the files here; the symlinks ensure both consumers see the same content.
 ## Markdown Formatting
 
 Markdown formatting guidelines (fragment links, mermaid diagrams, collapsible
-sections, code blocks) are consolidated in the `$markdown` skill. Each
+sections, code blocks) are consolidated in the `$cards:markdown` skill. Each
 card-type guide references those guidelines in its writing principles.

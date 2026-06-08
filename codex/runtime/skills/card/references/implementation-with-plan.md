@@ -33,10 +33,10 @@ Diff the workspace against the baseline to assess scope: number of files changed
 - **Simple** — single-file change, or mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation; proceed to Step 4.
 - **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
 
-When an evaluator needs to verify behavior against the pre-implementation state, `spawn_agent` a child (`task_name` like `baseline_check`) whose `message` tells it to use `$card-pre-existing-condition` rather than running the comparison in the active workspace — the child owns baseline reproduction and reports the result back. The `message`:
+When an evaluator needs to verify behavior against the pre-implementation state, `spawn_agent` a child (`task_name` like `baseline_check`) whose `message` tells it to use `$runtime:card-pre-existing-condition` rather than running the comparison in the active workspace — the child owns baseline reproduction and reports the result back. The `message`:
 
 ```
-Use the $card-pre-existing-condition skill.
+Use the $runtime:card-pre-existing-condition skill.
 
 ## Behavior Under Investigation
 [the behavior the evaluator wants to compare against baseline — file/function/command and the expected pre-implementation result]
@@ -87,10 +87,10 @@ The unit of assignment is a group. Choose the group's shape and delegate.
 - **Sequential** — multi-phase plan, intermediate validation gates, or paired remove/add steps in the same scope. Each phase ends in a commit and an immediate return to `<verify-plan-state>` for the next phase.
 - **Coherent** — dependent and varied steps, single phase, single end-of-scope validation gate. One agent, one commit. When uncertain between Coherent and Sequential, choose Sequential.
 
-**Delegation.** `spawn_agent` a developer child whose `message` tells it to use `$card-developer`. Spawn messages must be self-contained — children have no conversation context. For Parallel routing, spawn one child per independent group (descriptive `task_name` like `group_1`, `phase_2`); each runs concurrently and returns its report to you when it finishes.
+**Delegation.** `spawn_agent` a developer child whose `message` tells it to use `$runtime:card-developer`. Spawn messages must be self-contained — children have no conversation context. For Parallel routing, spawn one child per independent group (descriptive `task_name` like `group_1`, `phase_2`); each runs concurrently and returns its report to you when it finishes.
 
 ```
-Use the $card-developer skill.
+Use the $runtime:card-developer skill.
 
 ## Task
 [Description with testing requirements from plan]
@@ -157,10 +157,10 @@ After every group is committed and the plan is fully implemented, run validation
 
 - **All pass** — proceed to Step 3.
 - **Failure originates in files the active card's diff touched** — delegate the fix to a developer agent, then return to `<group-validation-gate>` to validate and commit.
-- **Otherwise** (failure is not obviously the active card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$card-pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the spawned child. The `message`:
+- **Otherwise** (failure is not obviously the active card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$runtime:card-pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the spawned child. The `message`:
 
   ```
-  Use the $card-pre-existing-condition skill.
+  Use the $runtime:card-pre-existing-condition skill.
 
   ## Failing Command
   [the failing command]

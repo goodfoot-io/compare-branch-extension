@@ -24,14 +24,14 @@ Approval is the *qualifying bar*, not the finish line. A previously-approved pla
 
 ## 1. Spawn the Planners
 
-`spawn_agent` `[N_PLANNERS]` planner children in parallel, with `task_name`s `planner_1`, `planner_2`, ... `planner_[N_PLANNERS]`. Each writes its own plan file at `plan/[task_name].md`. Each child's `message` tells it to use `$card-planner`.
+`spawn_agent` `[N_PLANNERS]` planner children in parallel, with `task_name`s `planner_1`, `planner_2`, ... `planner_[N_PLANNERS]`. Each writes its own plan file at `plan/[task_name].md`. Each child's `message` tells it to use `$runtime:card-planner`.
 
 **Incumbent seeding.** If un-approved plan files already exist in `plan/` (e.g., a tier-2 `plan/initial.md` that never reached approval), pick the most substantive one and seed `planner_1` with it as the **incumbent**: `git mv` the file to `plan/planner_1.md` (and its `.meta.json` sidecar) before spawning, and add an `## Incumbent Role` section to `planner_1`'s message directing it to defend or refine that plan rather than draft from scratch. Skip seeding when the pre-existing plan is thin or clearly off-track — treat it as discarded prior art and run a normal contest. Other planners draft fresh as challengers either way; they may read the incumbent's file like any other peer plan.
 
 Each planner's spawn `message`:
 
 ```
-Use the $card-planner and $notes skills.
+Use the $runtime:card-planner and $cards:notes skills.
 
 ## Card Repository
 [CARD_REPO_PATH]
@@ -41,15 +41,15 @@ Use the $card-planner and $notes skills.
 
 Read the card from the card repository. Create a plan at `plan/[task_name].md`, investigate uncertainties, and report research findings to me, the orchestrator, as you work — I relay them to the reviewer and the other live planners, and relay theirs to you. Cheating off relayed peer findings and plan files is encouraged.
 
-Follow the $card-planner skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` reports, the post-approval revise-or-stay-put choice, and contest-end handling. Your `task_name` is `[task_name]`; report all findings, plan-state updates, and critiques to me.
+Follow the $runtime:card-planner skill from the top — it is the canonical source for the contest protocol, including round-numbered `PLAN: READY` reports, the post-approval revise-or-stay-put choice, and contest-end handling. Your `task_name` is `[task_name]`; report all findings, plan-state updates, and critiques to me.
 ```
 
 ## 2. Spawn the Reviewer
 
-`spawn_agent` exactly one reviewer child (`task_name: plan_failure_mode`) in parallel with the planners. It reviews each plan as the orchestrator relays that plan's `PLAN: READY` report, and stays live until the contest closes. Its `message` tells it to use `$card-plan-failure-mode`:
+`spawn_agent` exactly one reviewer child (`task_name: plan_failure_mode`) in parallel with the planners. It reviews each plan as the orchestrator relays that plan's `PLAN: READY` report, and stays live until the contest closes. Its `message` tells it to use `$runtime:card-plan-failure-mode`:
 
 ```
-Use the $card-plan-failure-mode and $notes skills.
+Use the $runtime:card-plan-failure-mode and $cards:notes skills.
 
 [N_PLANNERS] planners are working on parallel plans for this card. Each writes to `plan/planner_N.md`. I, the orchestrator, relay each planner's round-numbered `PLAN: READY` updates to you, and relay your findings, verdicts, and winner selection back to the planners.
 
@@ -101,7 +101,7 @@ The only things that legitimately reopen a closeable field: a planner choosing t
 
 - **All planners blocked.** No viable plan. Document the blocking reasons in a card comment, add the `blocked` tag, commit. Skip to Step 5: End the Contest with no winner, then return `BLOCKED` to the caller.
 - **Contest in progress.** A live planner is mid-revision or under an outstanding `CHANGES_REQUESTED`. Continue mediating. Do not intervene.
-- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `$card-plan-failure-mode`; you do not BLOCK planners yourself. You may ask the planner its intent if its state is genuinely unclear to you.
+- **Stalled planner.** A live planner stuck under `CHANGES_REQUESTED` without revising holds the contest open. The reviewer holds the disqualification authority and may BLOCK them per §5.1 of `$runtime:card-plan-failure-mode`; you do not BLOCK planners yourself. You may ask the planner its intent if its state is genuinely unclear to you.
 
 Do not adjudicate findings. Route on the contest state you can see.
 

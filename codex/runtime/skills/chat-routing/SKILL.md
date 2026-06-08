@@ -33,15 +33,15 @@ Read the user's conversational message(s) to classify intent.
 
 Select the **first** matching condition:
 
-- **1. REQUESTING_INTERVIEW**: `$interview`
-- **2. REQUESTING_DEVELOPMENT**: `$card`
+- **1. REQUESTING_INTERVIEW**: `$runtime:interview`
+- **2. REQUESTING_DEVELOPMENT**: `$runtime:card`
 - **3. Otherwise**: non-routed — agent handles directly
 
 **Fallback**: When conditions conflict, default to non-routed. Do not force a structured flow the user did not request.
 
 ## 3. Load Routed Skill
 
-For conditions 1 and 2, invoke the matched skill by mentioning it as `$[MATCHED_SKILL]` (for example, `$interview` or `$card`).
+For conditions 1 and 2, invoke the matched skill by mentioning it as `$[MATCHED_SKILL]` (for example, `$runtime:interview` or `$runtime:card`).
 
 For condition 3, continue without loading a skill.
 

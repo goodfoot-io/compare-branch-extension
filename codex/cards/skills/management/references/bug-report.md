@@ -1,7 +1,7 @@
 
 <how-to-write-a-bug-report>
 
-Capture what happened with enough precision that someone else can reproduce it. Separate observation from speculation. CARD.md describes the defect and its impact — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `$notes` skill).
+Capture what happened with enough precision that someone else can reproduce it. Separate observation from speculation. CARD.md describes the defect and its impact — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `$cards:notes` skill).
 
 ## Report Structure
 

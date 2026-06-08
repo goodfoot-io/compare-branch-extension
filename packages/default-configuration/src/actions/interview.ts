@@ -5,7 +5,7 @@
  * - Claude: spawns the `claude` CLI and instructs it to load the
  *   `runtime:interview` skill for the current card.
  * - Codex: spawns the `codex` CLI interactively with a short prompt that
- *   instructs Codex to load the `$interview` skill and follow its
+ *   instructs Codex to load the `$runtime:interview` skill and follow its
  *   `<routing-instructions>`. The skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch `CODEX_HOME`.
  *
@@ -47,7 +47,7 @@ export default defineAction(
 
     if (agent === 'codex-cli') {
       await spawnCodexSession(input, context, {
-        prompt: 'Load the `$interview` skill and follow the `<routing-instructions>`.'
+        prompt: 'Load the `$runtime:interview` skill and follow the `<routing-instructions>`.'
       });
       return;
     }
