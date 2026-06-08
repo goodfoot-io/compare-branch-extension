@@ -258,16 +258,16 @@ describe('codex-session library', () => {
     const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
     // All five runtime keys/hashes land as top-level [hooks.state."…"] tables.
     expect(written).toContain(
-      '[hooks.state."runtime@local:hooks/hooks.json:session_start:0:0"]\ntrusted_hash = "sha256:bd9f38f124866b8b62da60248953eaef2feecf1f9ec493dcd62fea72f4527f73"'
+      '[hooks.state."runtime@local:hooks/hooks.json:session_start:0:0"]\ntrusted_hash = "sha256:21d730d0414d7091677bd53ef201c488c18439fc3ac718785df55646241eaae8"'
     );
     expect(written).toContain('"runtime@local:hooks/hooks.json:session_start:1:0"');
-    expect(written).toContain('sha256:f3768ee10f2ba13e29d615d8ca9b9809a3fb45213d671ed4fbf22fabae7bf0b6');
+    expect(written).toContain('sha256:6146bc10073c31e58aa110b6221c8876f1111120ff014cb6382dc556e27e38a9');
     expect(written).toContain('"runtime@local:hooks/hooks.json:subagent_start:0:0"');
-    expect(written).toContain('sha256:23736d1765dc7b9f8974956f352f99cd561eb98dc710cdb3fd1942fe1c8a66e7');
+    expect(written).toContain('sha256:0bd046db0832f7f396d80a6c048087a24b2d17ed59c9d6113ef07c02f3bf8fdd');
     expect(written).toContain('"runtime@local:hooks/hooks.json:subagent_stop:0:0"');
-    expect(written).toContain('sha256:7f94d390a4a20896e8957bec354b720eb2a522f78a632f00c6a03f1f705c19b2');
+    expect(written).toContain('sha256:66e82567070ae6fb22862a19bcdb46ef3bd4517dca31c385705baf6e9aa56c99');
     expect(written).toContain('"runtime@local:hooks/hooks.json:stop:0:0"');
-    expect(written).toContain('sha256:ea8f27e5d8ecbdd2e1ed0677fa4037a85b5887719b8eb634892094a3413ea66a');
+    expect(written).toContain('sha256:295405e4ed87f8b94dbe4959dd53247b1f0de243566a5926292fd56de2ba4f23');
     // No bypass flag is involved — trust comes entirely from the profile.
     expect(written).not.toContain('bypass');
   });
@@ -296,7 +296,7 @@ describe('codex-session library', () => {
 
     const written = String(vi.mocked(fs.writeFile).mock.calls[0]![1]);
     expect(written).toContain(
-      '[hooks.state."cards-assistant@local:hooks/hooks.json:session_start:0:0"]\ntrusted_hash = "sha256:bd9f38f124866b8b62da60248953eaef2feecf1f9ec493dcd62fea72f4527f73"'
+      '[hooks.state."cards-assistant@local:hooks/hooks.json:session_start:0:0"]\ntrusted_hash = "sha256:21d730d0414d7091677bd53ef201c488c18439fc3ac718785df55646241eaae8"'
     );
     // The assistant profile must never carry runtime trust entries.
     expect(written).not.toContain('runtime@local');

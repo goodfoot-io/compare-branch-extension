@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
@@ -1065,6 +1065,9 @@ describe('card binary', () => {
         savedExitCode = process.exitCode;
         worktreeDir = join(realTmpdir(), `card-bin-wt-${Date.now()}-${Math.random().toString(36).slice(2)}`);
         mkdirSync(join(worktreeDir, '.cards'), { recursive: true });
+        // Canonicalize so the path matches process.cwd() after chdir — on macOS
+        // the tmpdir is a /var -> /private/var symlink that cwd() resolves.
+        worktreeDir = realpathSync(worktreeDir);
         bindWorktreeToCard.mockClear();
         bindWorktreeToCard.mockResolvedValue('bound');
         spawnAdhocAttribution.mockClear();
