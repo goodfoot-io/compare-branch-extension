@@ -23,7 +23,7 @@
  * @summary Hook commands quote the VSCODE_NODE interpreter path
  */
 
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -38,46 +38,31 @@ interface HooksJson {
 }
 
 /**
- * Escapes a literal string so it survives one level of `/bin/sh` word-splitting
- * when embedded in a command passed to `execSync` (which itself calls
- * `/bin/sh -c`).  Backslashes, double-quotes, and dollar signs are all
- * shell-special and must be escaped.
- *
- * @param value - The raw string to make shell-safe.
- * @returns The escaped string, suitable for embedding in a double-quoted shell word.
- */
-function shellEscape(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
-}
-
-/**
- * Builds the exact `claude-code-hooks` invocation the `claude-core` build
- * target uses (derived from the exported build manifest), redirecting its
- * output to a temp file. Every other argument — notably `--executable` — stays
- * byte-for-byte identical to the production build, so the quoting this test
- * guards is the real shipped quoting.
+ * Builds the argv vector for the exact `claude-code-hooks` invocation the
+ * `claude-core` build target uses (derived from the exported build manifest),
+ * redirecting its output to a temp file. Mirrors {@link buildTarget} in
+ * `build.mjs`: the CLI is run via `process.execPath` with argv passed verbatim
+ * (no shell), so `--executable` — which carries shell metacharacters (`"`,
+ * `$()`) — reaches the CLI byte-for-byte on Windows as well as POSIX. Routing it
+ * through a shell instead would word-split on the `:` PATH separator and let
+ * cmd.exe mangle the executable argument, so the generated hooks.json would
+ * never be written.
  *
  * @param outputFile - Absolute path the generator should write hooks.json to.
- * @returns The generator command line writing to `outputFile`.
+ * @returns The argv vector (CLI entry first) for `spawnSync(process.execPath, …)`.
  * @throws {Error} If the claude-core target is not found in the build manifest.
  */
-function buildGeneratorCommand(outputFile: string): string {
+function buildGeneratorArgs(outputFile: string): string[] {
   const coreTarget = targets.find((t) => t.name === 'claude-core');
   if (!coreTarget) {
     throw new Error('claude-core target not found in build manifest');
   }
-  // EXECUTABLE contains shell metacharacters ($, ") that must be escaped so
-  // they survive the execSync → /bin/sh -c layer before the CLI receives them.
-  const executableShellArg = `"${shellEscape(EXECUTABLE)}"`;
-  const args: string[] = [coreTarget.cli, '-i', `"${coreTarget.input}"`, '-o', `"${outputFile}"`];
+  const args: string[] = [coreTarget.cli, '-i', coreTarget.input, '-o', outputFile, ...coreTarget.loaders];
   if (coreTarget.logEnvVar) {
     args.push('--log-env-var', coreTarget.logEnvVar);
   }
-  args.push('--executable', executableShellArg);
-  for (const loader of coreTarget.loaders) {
-    args.push(loader);
-  }
-  return args.join(' ');
+  args.push('--executable', EXECUTABLE);
+  return args;
 }
 
 /**
@@ -111,15 +96,14 @@ describe('generated hook commands tolerate spaces in VSCODE_NODE', () => {
     workDir = mkdtempSync(path.join(tmpdir(), 'vscode-node-quoting-'));
 
     const outputFile = path.join(workDir, 'cards', 'hooks', 'hooks.json');
-    const generatorCommand = buildGeneratorCommand(outputFile);
-    execSync(generatorCommand, {
+    const result = spawnSync(process.execPath, buildGeneratorArgs(outputFile), {
       cwd: packageDir,
-      env: {
-        ...process.env,
-        PATH: `${path.join(packageDir, 'node_modules', '.bin')}:${process.env['PATH'] ?? ''}`
-      },
-      stdio: 'pipe'
+      stdio: 'pipe',
+      encoding: 'utf-8'
     });
+    if (result.status !== 0) {
+      throw new Error(`hooks generator failed (status ${result.status}): ${result.stderr}`);
+    }
 
     hooksJson = JSON.parse(readFileSync(outputFile, 'utf-8')) as HooksJson;
     binDir = path.join(path.dirname(outputFile), 'bin');
