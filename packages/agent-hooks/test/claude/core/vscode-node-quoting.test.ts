@@ -153,6 +153,19 @@ describe('generated hook commands tolerate spaces in VSCODE_NODE', () => {
     expect(commands.length).toBeGreaterThan(0);
   });
 
+  // Regression: every command must force ELECTRON_RUN_AS_NODE=1 so a desktop VS
+  // Code's Electron interpreter (the common VSCODE_NODE on macOS) runs the hook
+  // headless instead of launching a focus-stealing GUI window. The agent CLI
+  // spawns these commands without the var, so the generator must stamp it.
+  it('prefixes every hook command with ELECTRON_RUN_AS_NODE=1', () => {
+    const commands = Object.values(hooksJson.hooks)
+      .flat()
+      .flatMap((entry) => entry.hooks.map((h) => h.command));
+    for (const command of commands) {
+      expect(command.startsWith('ELECTRON_RUN_AS_NODE=1 ')).toBe(true);
+    }
+  });
+
   // This case verifies POSIX `/bin/sh -c` word-splitting/quoting behavior: it
   // executes the generated command through `/bin/sh` against a `#!/bin/sh` fake
   // interpreter. That shell does not exist on Windows, where Claude Code also

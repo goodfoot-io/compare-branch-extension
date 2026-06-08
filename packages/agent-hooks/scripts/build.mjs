@@ -31,7 +31,14 @@ const codexCli = 'codex-hooks';
 // command string. The `$(...)` is intentionally NOT command-substituted — the
 // CLI stamps this literal string (including the surrounding quotes) so the
 // plugin resolves the VS Code-bundled Node at runtime.
-const EXECUTABLE = '"$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)"';
+//
+// `ELECTRON_RUN_AS_NODE=1` forces a desktop VS Code's Electron binary to run as
+// a headless Node interpreter rather than launching a GUI window. The agent CLI
+// (claude/codex) spawns these hook commands and does NOT set the var, so without
+// it every hook invocation (SessionStart, PostToolUse, Stop, …) pops a focus-
+// stealing Electron window on a macOS host where VSCODE_NODE is the Electron
+// `code` binary. It is a no-op for a real `node` on PATH.
+const EXECUTABLE = 'ELECTRON_RUN_AS_NODE=1 "$(cat $HOME/.cards/VSCODE_NODE 2>/dev/null || echo node)"';
 
 const TEXT_LOADERS = ['--loader', '.md=text', '--loader', '.txt=text'];
 

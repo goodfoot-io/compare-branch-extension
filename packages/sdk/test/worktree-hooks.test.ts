@@ -158,6 +158,24 @@ describe('createWorktree per-worktree hook provisioning', () => {
     expect(entries).toContain('post-rewrite.mjs');
   });
 
+  // Regression: dispatchers resolve $NODE_RUN to the bundled VSCODE_NODE, which
+  // is a desktop VS Code's Electron binary. git spawns these hooks without
+  // ELECTRON_RUN_AS_NODE=1, so without the export every commit pops a focus-
+  // stealing Electron GUI window (very visible on a macOS host).
+  it('exports ELECTRON_RUN_AS_NODE in the Cards-hook dispatchers', async () => {
+    const { settle } = await createWorktree('cards/main-6/1', {
+      cwd: repoDir,
+      cardId: 'main-6',
+      compiledScriptPaths
+    });
+    await settle;
+
+    for (const hook of ['post-commit', 'pre-commit', 'post-rewrite']) {
+      const content = await fs.readFile(path.join(sharedHooksDir, hook), 'utf-8');
+      expect(content).toContain('export ELECTRON_RUN_AS_NODE=1');
+    }
+  });
+
   it('does NOT set core.hooksPath when cardId is omitted (unbound worktree, no hook injection)', async () => {
     const { path: wPath, settle } = await createWorktree('feature/unbound', { cwd: repoDir });
     await settle;

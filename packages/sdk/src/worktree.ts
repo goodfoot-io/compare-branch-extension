@@ -855,8 +855,17 @@ ORIGINAL_HOOK="$ORIGINAL_HOOKS_DIR/${hookType}"
 /**
  * Resolves the Node interpreter into `$NODE_RUN`. Prefers the extension's
  * bundled interpreter (`~/.cards/VSCODE_NODE`), falls back to `node` on PATH.
+ *
+ * Exports `ELECTRON_RUN_AS_NODE=1` so a desktop VS Code's Electron binary runs
+ * as a headless Node interpreter rather than launching a GUI window. These
+ * dispatchers are git hooks spawned by `git`, which does NOT inherit the var
+ * from the extension host — without it every commit pops a focus-stealing
+ * Electron window (invisible under Xvfb on Linux, very visible on macOS host).
+ * The var is a no-op for a real `node` on PATH, so it is safe to set in both
+ * branches.
  */
-const RESOLVE_NODE = `NODE_BIN=$(cat "$HOME/.cards/VSCODE_NODE" 2>/dev/null)
+const RESOLVE_NODE = `export ELECTRON_RUN_AS_NODE=1
+NODE_BIN=$(cat "$HOME/.cards/VSCODE_NODE" 2>/dev/null)
 if [ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ]; then
   NODE_RUN="$NODE_BIN"
 elif command -v node >/dev/null 2>&1; then
