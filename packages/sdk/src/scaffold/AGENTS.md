@@ -22,14 +22,14 @@ The following environment variables are available in all bash statements:
 ```
 CARD.meta.json              # Metadata (source of truth)
 CARD.md                     # Description (pure markdown, NO frontmatter)
-plan/                       # Plan documents (continuation-based)
+plans/                      # Plan documents (continuation-based)
   [name].md                 # Semantically-named plan files
   [name].md.meta.json       # Sidecar with display title
 branches.json               # Branches associated with the card
 commits.csv                 # Git commit SHAs associated with the card
-comment/                    # Created on first comment
+comments/                   # Created on first comment
   {slug}.md                 # Descriptive semantic slug, pure markdown
-attachment/                 # Created on first attachment
+attachments/                # Created on first attachment
   att-{uuid4}_{name}        # Binary content
   att-{uuid4}_{name}.meta.json
 streams/                    # Append-only JSONL
@@ -83,23 +83,23 @@ Two hard rules: never modify a gate field (`planRequired`, `planApproved`, `merg
 (e.g. `github.com/org/repo`). Each card targets exactly one repository. Cards for
 different repositories use different board prefixes (e.g. `main-` vs `api-`).
 
-## CARD.md and plan/
+## CARD.md and plans/
 
 - **`CARD.md`** — the *description*: what's happening, what's needed, and why it matters. Content varies by card type (a bug report describes the defect, an enhancement the capability gap, an investigation the unknown). Written by the card creator (human or agent); stable once the card is understood.
-- **`plan/`** — the *approach* (commander's intent): how the work will be done and to what end. Each `plan/[name].md` is a continuation document with a `plan/[name].md.meta.json` sidecar and its own timeline entry; adding one resets `planApproved` to false. Written by the implementing agent, or alongside CARD.md when the approach is clear up front; revised and approved via the `planRequired`/`planApproved` gates.
+- **`plans/`** — the *approach* (commander's intent): how the work will be done and to what end. Each `plans/[name].md` is a continuation document with a `plans/[name].md.meta.json` sidecar and its own timeline entry; adding one resets `planApproved` to false. Written by the implementing agent, or alongside CARD.md when the approach is clear up front; revised and approved via the `planRequired`/`planApproved` gates.
 
 Both are pure markdown with no YAML frontmatter. Never wrap content in `---` delimiters.
 
 
 ## Comments
 
-`comment/*.md` files are **pure markdown with no YAML frontmatter**.
+`comments/*.md` files are **pure markdown with no YAML frontmatter**.
 
 Comment filenames are free-form — use descriptive semantic slugs (e.g., `plan-approved.md`, `blocked-status.md`). Authorship is determined by git commit ownership, order is determined by git creation time.
 
 **Adding:**
 ```bash
-cat <<'EOF' > comment/my-slug-name.md
+cat <<'EOF' > comments/my-slug-name.md
 [COMMENT CONTENT]
 EOF
 ```
@@ -126,7 +126,7 @@ Each attachment has a `.meta.json` sidecar:
 ```
 
 Markdown references to attachments use the pattern `att-[a-f0-9-]{36}_[\w.-]+`,
-recognized both with and without an `attachment/` prefix.
+recognized both with and without an `attachments/` prefix.
 
 
 ## Sessions

@@ -9,7 +9,7 @@ Slicing reads the card holistically and implements it as a sequence of bounded, 
 
 ## 1. Prepare Environment
 
-Create the baseline tag if one does not already exist. The baseline is pinned — it does not advance during slicing and serves as the rollback target if the card has to exit to `$card` for planning.
+Create the baseline tag if one does not already exist. The baseline is pinned — it does not advance during slicing and serves as the rollback target if the card has to exit to `$runtime:card` for planning.
 
 ```bash
 if git rev-parse "slice/$CARD_ID/baseline" >/dev/null 2>&1; then
@@ -157,7 +157,7 @@ git reset --hard "slice/$CARD_ID/baseline"
 git clean -fd
 ```
 
-Write a comment to the card repository naming which trigger fired and what the slicing session learned, then ask the user to run the Launch action so `$card` can route the card through `card-plan`. **STOP** — do not re-dispatch slices.
+Write a comment to the card repository naming which trigger fired and what the slicing session learned, then ask the user to run the Launch action so `$runtime:card` can route the card through `card-plan`. **STOP** — do not re-dispatch slices.
 
 </when-to-return-to-planning>
 

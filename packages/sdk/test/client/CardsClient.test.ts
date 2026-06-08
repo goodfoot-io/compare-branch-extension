@@ -1,3 +1,4 @@
+import { PLANS_PREFIX } from '@cards/sdk/card-repo-layout';
 import { TestHttpClient } from '@cards/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CardsClient } from '../../src/client/cardsClient.js';
@@ -226,10 +227,10 @@ describe('CardsClient', () => {
     it('should PUT /cards/:id/fs/:path when putting file', async () => {
       const httpClient = new TestHttpClient();
       const client = new CardsClient(options, httpClient);
-      await client.putFile('card-1', 'plan/initial.md', '# My Plan');
+      await client.putFile('card-1', `${PLANS_PREFIX}initial.md`, '# My Plan');
       expect(httpClient.requests[0]).toMatchObject({
         method: 'PUT',
-        url: 'http://localhost:3000/cards/card-1/fs/plan/initial.md',
+        url: `http://localhost:3000/cards/card-1/fs/${PLANS_PREFIX}initial.md`,
         body: '# My Plan'
       });
     });

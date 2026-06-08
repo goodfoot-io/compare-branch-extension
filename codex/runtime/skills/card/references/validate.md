@@ -3,9 +3,9 @@
 
 This reference fires when card work exists (`commits.csv` has commit SHAs and/or the worktree has uncommitted changes) and no stronger signal claims the card — typically after the card emerged from a `blocked` state, after a session crashed or terminated mid-flow, or when work exists without an approved plan or pending merge approval.
 
-**Output asymmetry.** This skill may route backward to planning or implementation on the orchestrator's judgment alone. It cannot route forward to merge on its own — finalize requires a `$card-failure-mode` `VERDICT: APPROVED`.
+**Output asymmetry.** This skill may route backward to planning or implementation on the orchestrator's judgment alone. It cannot route forward to merge on its own — finalize requires a `$runtime:card-failure-mode` `VERDICT: APPROVED`.
 
-**Depth.** This skill always runs Standard depth (single `$card-failure-mode` evaluator child); it does not spawn an `experience-evaluator`. Re-validation is a focused safety check on already-committed work, not a full Deep evaluation.
+**Depth.** This skill always runs Standard depth (single `$runtime:card-failure-mode` evaluator child); it does not spawn an `experience-evaluator`. Re-validation is a focused safety check on already-committed work, not a full Deep evaluation.
 
 ## 1. Prepare Environment
 
@@ -45,7 +45,7 @@ Run the workspace's typecheck, lint, and tests. If a plan file in `plan/` declar
 
 Based on the result:
 - **All validations pass**: Proceed to Step 3.
-- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): `spawn_agent` a child whose `message` tells it to use `$card-pre-existing-condition`, per the spawn shape used by `./implementation-with-plan.md` Step 3. Do not investigate the failure inline.
+- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): `spawn_agent` a child whose `message` tells it to use `$runtime:card-pre-existing-condition`, per the spawn shape used by `./implementation-with-plan.md` Step 3. Do not investigate the failure inline.
   - On COMPLETED: re-run the validation command. If it passes, proceed to Step 3.
   - On NOT_PRE_EXISTING: the agent verified the failure is in scope of the active card's work. Proceed to Step 3 — the orchestrator escape hatch should fire on this evidence.
   - On NEEDS_REVISION or BLOCKED: add `blocked` to `tags` in `CARD.meta.json`, write the agent's report and exact failure output to `comment/validation-failed.md`, commit, **STOP**.
@@ -64,10 +64,10 @@ If you choose not to bail out, continue to Step 4.
 
 ## 4. Spawn failure-mode
 
-Read the diff and the card before writing the spawn message — it must reflect this specific implementation, not generic instructions. `spawn_agent` a single evaluator child (`task_name: failure_mode`) whose `message` tells it to use `$card-failure-mode`:
+Read the diff and the card before writing the spawn message — it must reflect this specific implementation, not generic instructions. `spawn_agent` a single evaluator child (`task_name: failure_mode`) whose `message` tells it to use `$runtime:card-failure-mode`:
 
 ```
-Use the $card-failure-mode skill and follow it from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Record each finding with a `FINDING:` marker and report `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` as your final message to me, the orchestrator that spawned you.
+Use the $runtime:card-failure-mode skill and follow it from the top. Draft the failure-mode questions for this implementation, then evaluate against them. Record each finding with a `FINDING:` marker and report `VERDICT: APPROVED`, `VERDICT: CHANGES_REQUESTED`, or `VERDICT: BLOCKED` as your final message to me, the orchestrator that spawned you.
 
 This is a re-validation pass — the implementation was committed in a prior session and is being re-checked before finalize. Weight completeness against the card's acceptance criteria alongside the usual failure-mode questions.
 

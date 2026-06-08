@@ -23,14 +23,14 @@ Volume-only cards — many files but one mechanism — do **not** warrant tier 3
 |------|------|
 | 1 | No plan — one obvious mechanism, minimal risk, planning adds no value |
 | 2 | Orchestrator self-plans inline — one approach dominates; work may be large but direction is clear |
-| 3 | 2 `$card-planner` children + 1 `$card-plan-failure-mode` reviewer — 2–3 plausible approaches with real trade-offs |
-| 4 | 4 `$card-planner` children + 1 `$card-plan-failure-mode` reviewer — 4+ plausible approaches or deep unknowns that benefit from diverse exploration |
+| 3 | 2 `$runtime:card-planner` children + 1 `$runtime:card-plan-failure-mode` reviewer — 2–3 plausible approaches with real trade-offs |
+| 4 | 4 `$runtime:card-planner` children + 1 `$runtime:card-plan-failure-mode` reviewer — 4+ plausible approaches or deep unknowns that benefit from diverse exploration |
 
 If `gates.planRequired` is true, skip tier 1 — always create a plan (tier 2–4).
 
 If `gates.planApproved` is true, skip to Step 3: Route to Implementation — the plan is already approved, proceed to implementation.
 
-If plan files already exist in `plan/` but are not approved, the minimum tier is 3 — always spawn at least one `$card-plan-failure-mode` reviewer to evaluate the existing plan. The contest is the mechanism by which that evaluation happens: per `./contest.md`, one planner is seeded with the pre-existing plan as the **incumbent** and defends it through review; the others draft fresh as challengers. This way the prior work is actually graded rather than re-derived in parallel.
+If plan files already exist in `plan/` but are not approved, the minimum tier is 3 — always spawn at least one `$runtime:card-plan-failure-mode` reviewer to evaluate the existing plan. The contest is the mechanism by which that evaluation happens: per `./contest.md`, one planner is seeded with the pre-existing plan as the **incumbent** and defends it through review; the others draft fresh as challengers. This way the prior work is actually graded rather than re-derived in parallel.
 
 ## 2. Dispatch
 

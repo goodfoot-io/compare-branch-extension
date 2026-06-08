@@ -26,7 +26,7 @@ When all units are complete, pass the `<final-validation-gate>` before proceedin
 
 Every commit in this flow follows the `<workspace-commit-style>` and `<markdown-guidelines>` conventions.
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — consult the `<tdd-bootstrap>` instructions from the `$runtime:tdd-bootstrap` skill. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 ## 3. Evaluate Quality
 
@@ -35,7 +35,7 @@ Diff the workspace against the baseline to assess scope: number of files changed
 - **Simple** — single-file change, or mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation; proceed to Step 4.
 - **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
 
-When an evaluator needs to verify behavior against the pre-implementation state, spawn a `$card-pre-existing-condition` child rather than running the comparison in the active workspace — the child owns baseline reproduction and reports the result back.
+When an evaluator needs to verify behavior against the pre-implementation state, spawn a `$runtime:card-pre-existing-condition` child rather than running the comparison in the active workspace — the child owns baseline reproduction and reports the result back.
 
 ## 4. Finalize
 
@@ -100,10 +100,10 @@ After all logical units are complete, run validation per the workspace validatio
 
 - **All pass** — proceed to Step 3.
 - **Failure originates in files the card's diff touched** — fix and re-run.
-- **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$card-pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the spawned child. The `message`:
+- **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — `spawn_agent` a child (`task_name` like `pre_existing_check`) whose `message` tells it to use `$runtime:card-pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the spawned child. The `message`:
 
   ```
-  Use the $card-pre-existing-condition skill.
+  Use the $runtime:card-pre-existing-condition skill.
 
   ## Failing Command
   [the failing command]

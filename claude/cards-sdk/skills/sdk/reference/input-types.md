@@ -18,6 +18,9 @@ interface ActionInput {
   switchToInteractiveData?: unknown;      // Data from user switching to interactive mode
   repoRoot: string;                       // Main git repository root (NOT a worktree)
   cardRepoPath: string;                   // Card repository path
+  configPath: string;                     // Settings configuration directory
+  extensionPath: string;                  // VS Code extension installation directory
+  marketplacePath: string;                // Stable marketplace symlink in global storage
 }
 ```
 
@@ -100,11 +103,57 @@ async (input: ActionInput, context: ActionContext) => {
 Extract complete typed input objects:
 
 ```typescript
-import { extractActionInput } from '@cards/sdk/config';
+import { extractActionInput, extractCardsAssistantInput } from '@cards/sdk/config';
 
 // For action handlers
 const actionInput = extractActionInput();
 // Returns ActionInput with all fields
+
+// For the cards assistant handler
+const assistantInput = extractCardsAssistantInput();
+// Returns CardsAssistantInput
+```
+
+## Cards Assistant Types
+
+The cards assistant is a single, workspace-scoped handler created with `defineCardsAssistant`. It runs outside the per-card action pipeline, so it has no card context (no `cardId`, worktree, or socket).
+
+### CardsAssistantInput
+
+Input payload for the cards-assistant handler.
+
+```typescript
+interface CardsAssistantInput {
+  marketplacePath: string;  // Stable marketplace symlink in global storage
+  extensionPath: string;    // VS Code extension installation directory
+  codingAgent?: string;     // Configured AI coding assistant
+  repoRoot: string;         // Main git repository root (NOT a worktree)
+}
+```
+
+### CardsAssistantContext
+
+Runtime context injected for the **cards-assistant** handler. Simpler than `ActionContext`: no socket, so no `onCancel` or `onSwitchToInteractive`.
+
+```typescript
+interface CardsAssistantContext {
+  logger: ILogger;  // Logger for structured, context-aware logging
+  cwd: string;      // Current working directory for the cards assistant
+}
+```
+
+**Usage Example:**
+
+```typescript
+import { defineCardsAssistant } from '@cards/sdk/config';
+
+export default defineCardsAssistant(
+  {},
+  async (input: CardsAssistantInput, context: CardsAssistantContext) => {
+    const { logger, cwd } = context;
+    logger.info('Cards assistant started', { cwd, marketplacePath: input.marketplacePath });
+  }
+);
 ```
 
 ## Switch to Interactive Flow

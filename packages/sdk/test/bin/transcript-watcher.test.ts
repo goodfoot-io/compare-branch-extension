@@ -8,6 +8,10 @@
  * createWatcher tests plus the existing sentinel-coordination integration
  * test in the hooks-runtime package.
  *
+ * cleanupSessionArtifacts is also covered here: all three removeSession*
+ * functions are invoked on completion, and a failure in one does not prevent
+ * the others from running or throw out of the cleanup path.
+ *
  * @summary Regression tests for the SDK-hosted transcript watcher helpers
  */
 
@@ -25,16 +29,37 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, execFileSync: (...args: unknown[]) => mockExecFileSync(...args) };
 });
 
+// Mock @cards/sessions/card-repo so the cleanup tests remain unit-level and
+// do not touch the real ~/.cards/card-repo-commits directory.
+const mockRemoveSessionHeadSha = vi.fn<(sessionId: string) => void>();
+const mockRemoveSessionCsv = vi.fn<(sessionId: string) => void>();
+const mockRemoveSessionRouteNudge = vi.fn<(sessionId: string) => void>();
+vi.mock('@cards/sessions/card-repo', () => ({
+  removeSessionHeadSha: (sessionId: string) => mockRemoveSessionHeadSha(sessionId),
+  removeSessionCsv: (sessionId: string) => mockRemoveSessionCsv(sessionId),
+  removeSessionRouteNudge: (sessionId: string) => mockRemoveSessionRouteNudge(sessionId),
+  // Pass-through for any other exports used by the module under test.
+  appendCommitToSession: vi.fn(),
+  getSessionCommits: vi.fn(() => []),
+  readSessionHeadSha: vi.fn(() => null),
+  writeSessionHeadSha: vi.fn(),
+  markSessionRouteNudgeFired: vi.fn(),
+  hasSessionRouteNudgeFired: vi.fn(() => false)
+}));
+
 import {
   buildSidecarMeta,
+  cleanupSessionArtifacts,
   ensureGitignoreEntry,
   isProcessAlive,
   MAX_LIFETIME_MS,
   PERIODIC_CHECK_INTERVAL_MS,
   parseArgs,
   removeSentinelFile,
+  runWatcherLoop,
   sentinelFileExists,
-  translatePath
+  translatePath,
+  WATCHER_INSTALL_RETRY_INTERVAL_MS
 } from '../../src/bin/transcript-watcher.js';
 
 describe('parseArgs', () => {
@@ -212,5 +237,230 @@ describe('MAX_LIFETIME_MS / PERIODIC_CHECK_INTERVAL_MS ordering', () => {
     // Guards against accidental swap of the two constants — a swap would make
     // the watcher exit in ~24ms instead of 24h, or poll every 24h.
     expect(MAX_LIFETIME_MS).toBeGreaterThan(PERIODIC_CHECK_INTERVAL_MS);
+  });
+});
+
+describe('cleanupSessionArtifacts', () => {
+  const SESSION_ID = 'cleanup-test-session-id';
+
+  beforeEach(() => {
+    mockRemoveSessionHeadSha.mockReset();
+    mockRemoveSessionCsv.mockReset();
+    mockRemoveSessionRouteNudge.mockReset();
+  });
+
+  it('invokes all three removeSession* functions with the session id', async () => {
+    const warnings: string[] = [];
+    await cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg));
+
+    expect(mockRemoveSessionHeadSha).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionHeadSha).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionCsv).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('continues and calls remaining removals when one throws', async () => {
+    const boom = new Error('disk full');
+    mockRemoveSessionHeadSha.mockImplementation(() => {
+      throw boom;
+    });
+
+    const warnings: string[] = [];
+    // Must not throw even though removeSessionHeadSha throws.
+    await expect(cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg))).resolves.toBeUndefined();
+
+    // The failing call is warned, the other two still fire.
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('removeSessionHeadSha');
+    expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionCsv).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+  });
+
+  it('warns for each individual failure independently', async () => {
+    const err1 = new Error('head-sha error');
+    const err2 = new Error('csv error');
+    mockRemoveSessionHeadSha.mockImplementation(() => {
+      throw err1;
+    });
+    mockRemoveSessionCsv.mockImplementation(() => {
+      throw err2;
+    });
+
+    const warnings: string[] = [];
+    await expect(cleanupSessionArtifacts(SESSION_ID, (msg) => warnings.push(msg))).resolves.toBeUndefined();
+
+    // Two warnings, one per failing call; the third still fires.
+    expect(warnings).toHaveLength(2);
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledWith(SESSION_ID);
+  });
+});
+
+describe('runWatcherLoop — cleanup gate wiring', () => {
+  interface DepsOverrides {
+    signal?: { stopped: boolean };
+    checkSentinel?: () => Promise<boolean>;
+    checkAlive?: () => boolean;
+    onTick?: () => Promise<number>;
+    onMaxLifetime?: () => void;
+    maxLifetimeMs?: number;
+  }
+
+  // Builds a WatcherLoopDeps where the clock starts at 0 and each call to
+  // `sleep` advances it by the sleep duration. `checkSentinel` and `checkAlive`
+  // default to "session still running" so individual tests can override them to
+  // trigger a specific exit path. `onTick`/`onMaxLifetime` carry the same
+  // injection points main() uses (fsWatcher install cadence, max-lifetime warn).
+  function makeDeps(overrides: DepsOverrides = {}) {
+    let clock = 0;
+    const signal = overrides.signal ?? { stopped: false };
+    return {
+      signal,
+      checkSentinel: overrides.checkSentinel ?? (() => Promise.resolve(false)),
+      checkAlive: overrides.checkAlive ?? (() => true),
+      now: () => clock,
+      sleep: (ms: number): Promise<void> => {
+        clock += ms;
+        return Promise.resolve();
+      },
+      onTick: overrides.onTick,
+      onMaxLifetime: overrides.onMaxLifetime,
+      maxLifetimeMs: overrides.maxLifetimeMs ?? MAX_LIFETIME_MS
+    };
+  }
+
+  it('returns maxLifetimeExceeded=true when the loop exits via the max-lifetime timeout', async () => {
+    // One tick: sentinel=false, alive=true, then clock advances past the limit.
+    // maxLifetimeMs=0 so any sleep immediately exceeds the limit.
+    const deps = makeDeps({ maxLifetimeMs: 0 });
+    const result = await runWatcherLoop(deps);
+    expect(result.maxLifetimeExceeded).toBe(true);
+    expect(result.stopRequested).toBe(false);
+  });
+
+  it('returns maxLifetimeExceeded=false when the loop exits because the process died', async () => {
+    // checkAlive returns false immediately — process-death exit.
+    const deps = makeDeps({ checkAlive: () => false });
+    const result = await runWatcherLoop(deps);
+    expect(result.maxLifetimeExceeded).toBe(false);
+    expect(result.stopRequested).toBe(false);
+  });
+
+  it('returns stopRequested=true and maxLifetimeExceeded=false when the loop exits via the stop-control path', async () => {
+    // Set signal.stopped=true before the loop even checks — simulates the
+    // stop-control handler firing before the first iteration.
+    const signal = { stopped: true };
+    const deps = makeDeps({ signal });
+    const result = await runWatcherLoop(deps);
+    expect(result.stopRequested).toBe(true);
+    expect(result.maxLifetimeExceeded).toBe(false);
+  });
+
+  it('cleanup is skipped (mocks not called) when maxLifetimeExceeded is true', async () => {
+    mockRemoveSessionHeadSha.mockReset();
+    mockRemoveSessionCsv.mockReset();
+    mockRemoveSessionRouteNudge.mockReset();
+
+    const deps = makeDeps({ maxLifetimeMs: 0 });
+    const { maxLifetimeExceeded } = await runWatcherLoop(deps);
+
+    // Caller (main) guards cleanup with this flag — verify the guard works.
+    if (!maxLifetimeExceeded) {
+      await cleanupSessionArtifacts('sess', () => {});
+    }
+
+    expect(mockRemoveSessionHeadSha).not.toHaveBeenCalled();
+    expect(mockRemoveSessionCsv).not.toHaveBeenCalled();
+    expect(mockRemoveSessionRouteNudge).not.toHaveBeenCalled();
+  });
+
+  it('cleanup runs when the loop exits via the process-death path', async () => {
+    mockRemoveSessionHeadSha.mockReset();
+    mockRemoveSessionCsv.mockReset();
+    mockRemoveSessionRouteNudge.mockReset();
+
+    const deps = makeDeps({ checkAlive: () => false });
+    const { maxLifetimeExceeded } = await runWatcherLoop(deps);
+
+    if (!maxLifetimeExceeded) {
+      await cleanupSessionArtifacts('sess', () => {});
+    }
+
+    expect(mockRemoveSessionHeadSha).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+  });
+
+  it('cleanup runs when the loop exits via the stop-control path', async () => {
+    mockRemoveSessionHeadSha.mockReset();
+    mockRemoveSessionCsv.mockReset();
+    mockRemoveSessionRouteNudge.mockReset();
+
+    const signal = { stopped: true };
+    const deps = makeDeps({ signal });
+    const { maxLifetimeExceeded } = await runWatcherLoop(deps);
+
+    if (!maxLifetimeExceeded) {
+      await cleanupSessionArtifacts('sess', () => {});
+    }
+
+    expect(mockRemoveSessionHeadSha).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionCsv).toHaveBeenCalledOnce();
+    expect(mockRemoveSessionRouteNudge).toHaveBeenCalledOnce();
+  });
+
+  it('runs onTick each surviving iteration and sleeps the interval it returns', async () => {
+    // Mirrors main()'s install-retry cadence: onTick reports the fast retry
+    // interval until the (simulated) watcher attaches, then the periodic one.
+    // The liveness check counts iterations and reports dead on the third, so
+    // the loop survives two full iterations (each reaching onTick + sleep).
+    let aliveChecks = 0;
+    let ticks = 0;
+    const sleepCalls: number[] = [];
+    let clock = 0;
+    const result = await runWatcherLoop({
+      signal: { stopped: false },
+      checkSentinel: () => Promise.resolve(false),
+      checkAlive: () => {
+        aliveChecks += 1;
+        return aliveChecks < 3;
+      },
+      now: () => clock,
+      sleep: (ms: number): Promise<void> => {
+        sleepCalls.push(ms);
+        clock += ms;
+        return Promise.resolve();
+      },
+      onTick: () => {
+        ticks += 1;
+        // First tick: not yet installed → fast retry; afterwards: periodic.
+        return Promise.resolve(ticks === 1 ? WATCHER_INSTALL_RETRY_INTERVAL_MS : PERIODIC_CHECK_INTERVAL_MS);
+      }
+    });
+
+    // onTick ran on the two surviving iterations; the third broke at the
+    // liveness check before reaching onTick. Sleep used the interval onTick
+    // returned each time — fast retry first, then periodic.
+    expect(ticks).toBe(2);
+    expect(sleepCalls).toEqual([WATCHER_INSTALL_RETRY_INTERVAL_MS, PERIODIC_CHECK_INTERVAL_MS]);
+    expect(result.maxLifetimeExceeded).toBe(false);
+    expect(result.stopRequested).toBe(false);
+  });
+
+  it('invokes onMaxLifetime exactly once on the timeout exit and not on other exits', async () => {
+    const timedOut = vi.fn();
+    const timeoutResult = await runWatcherLoop(makeDeps({ maxLifetimeMs: 0, onMaxLifetime: timedOut }));
+    expect(timeoutResult.maxLifetimeExceeded).toBe(true);
+    expect(timedOut).toHaveBeenCalledOnce();
+
+    const notTimedOut = vi.fn();
+    const deathResult = await runWatcherLoop(makeDeps({ checkAlive: () => false, onMaxLifetime: notTimedOut }));
+    expect(deathResult.maxLifetimeExceeded).toBe(false);
+    expect(notTimedOut).not.toHaveBeenCalled();
   });
 });

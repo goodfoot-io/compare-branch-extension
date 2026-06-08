@@ -11,6 +11,7 @@
 import type React from 'react';
 import type { SystemMsg } from '../../../../lib/parse-session';
 import { RawJsonFallback } from '../RawJsonFallback';
+import { AwaySummaryBoundary } from './AwaySummaryBoundary';
 import { CompactBoundaryLine } from './CompactBoundaryLine';
 import { FilesPersisted } from './FilesPersisted';
 import { HookLine } from './HookLine';
@@ -84,6 +85,10 @@ export function SystemRouter({ msg, onInit }: SystemRouterProps): React.ReactEle
       return (
         <TaskNotification taskId={tnMsg.task_id ?? ''} status={tnMsg.status ?? ''} summary={tnMsg.summary ?? ''} />
       );
+    }
+    case 'away_summary': {
+      const awayMsg = msg as Extract<SystemMsg, { subtype: 'away_summary' }>;
+      return <AwaySummaryBoundary content={awayMsg.content} />;
     }
     default:
       return <RawJsonFallback data={msg} />;

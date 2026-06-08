@@ -60,6 +60,10 @@ function nativePath(posix: string): string {
  * keeps the source-home cp/stat path cross-platform.
  */
 const DEFAULT_CODEX_HOME = join(homedir(), '.codex');
+const TEST_CODEX_PLUGIN_VERSIONS = {
+  cards: 'cards-test-version',
+  runtime: 'runtime-test-version'
+} as const;
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -241,6 +245,9 @@ beforeEach(async () => {
     if (toPosix(filePath) === '/test/repo/commits.csv') {
       return ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
     }
+    if (toPosix(filePath) === '/test/repo/AGENTS.md') {
+      return '# Card Repository Reference\n\nEach card is an isolated Git repository.\n';
+    }
     throw Object.assign(new Error(`mock: unhandled readFileSync: ${String(filePath)}`), { code: 'ENOENT' });
   });
 
@@ -283,21 +290,25 @@ beforeEach(async () => {
   });
   vi.mocked(fs.readFile).mockImplementation(async (filePath: string | URL) => {
     const p = toPosix(filePath);
-    // Bundle (`…/cards/…`), staged (`…/.plugin-install-*/1.0.272/…`), and
-    // published (`…/cards/1.0.272/…`) manifests all resolve — match on the plugin
-    // segment or its unique version, since installs use the manifest version as
-    // the cache path segment.
-    if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)cards\//.test(p) || p.includes('/1.0.272/'))) {
+    // Bundle (`.../cards/...`), staged (`.../.plugin-install-*/<version>/...`), and
+    // published (`.../cards/<version>/...`) manifests all resolve.
+    if (
+      p.endsWith('.codex-plugin/plugin.json') &&
+      (/(^|\/)cards\//.test(p) || p.includes(`/${TEST_CODEX_PLUGIN_VERSIONS.cards}/`))
+    ) {
       return JSON.stringify({
         name: 'cards',
-        version: '1.0.272',
+        version: TEST_CODEX_PLUGIN_VERSIONS.cards,
         description: 'Codex cards plugin for interacting with the Cards extension APIs'
       });
     }
-    if (p.endsWith('.codex-plugin/plugin.json') && (/(^|\/)runtime\//.test(p) || p.includes('/1.0.355/'))) {
+    if (
+      p.endsWith('.codex-plugin/plugin.json') &&
+      (/(^|\/)runtime\//.test(p) || p.includes(`/${TEST_CODEX_PLUGIN_VERSIONS.runtime}/`))
+    ) {
       return JSON.stringify({
         name: 'runtime',
-        version: '1.0.355',
+        version: TEST_CODEX_PLUGIN_VERSIONS.runtime,
         description: 'Codex runtime plugin for the Cards extension'
       });
     }
@@ -395,12 +406,12 @@ describe('launch action — codex branch', () => {
     // compare via separator-insensitive matchers.
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/cards'),
-      posixMatching(/\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.272$/),
+      posixMatching(new RegExp(`/plugins/cache/local/\\.plugin-install-[^/]+/${TEST_CODEX_PLUGIN_VERSIONS.cards}$`)),
       { force: true, recursive: true }
     );
     expect(fs.cp).toHaveBeenCalledWith(
       nativePath('/test/extension/dist/codex/runtime'),
-      posixMatching(/\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.355$/),
+      posixMatching(new RegExp(`/plugins/cache/local/\\.plugin-install-[^/]+/${TEST_CODEX_PLUGIN_VERSIONS.runtime}$`)),
       { force: true, recursive: true }
     );
     // No copy of the resolved home.
@@ -417,8 +428,12 @@ describe('launch action — codex branch', () => {
 
     // The publish rename lands each plugin at plugins/cache/local/<plugin>/<version>.
     const renameDests = vi.mocked(fs.rename).mock.calls.map((call) => toPosix(call[1]));
-    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/cards\/1\.0\.272$/.test(dest))).toBe(true);
-    expect(renameDests.some((dest) => /\/plugins\/cache\/local\/runtime\/1\.0\.355$/.test(dest))).toBe(true);
+    expect(renameDests).toContain(
+      toPosix(`${DEFAULT_CODEX_HOME}/plugins/cache/local/cards/${TEST_CODEX_PLUGIN_VERSIONS.cards}`)
+    );
+    expect(renameDests).toContain(
+      toPosix(`${DEFAULT_CODEX_HOME}/plugins/cache/local/runtime/${TEST_CODEX_PLUGIN_VERSIONS.runtime}`)
+    );
 
     expect(spawn).toHaveBeenCalledWith(
       'codex',
@@ -446,7 +461,12 @@ describe('launch action — codex branch', () => {
     const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
     expect(cFlagValues).not.toContain('features.plugins=true');
     expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
-    expect(args[args.length - 1]).toMatch(/Load the `\$card` skill and follow the `<routing-instructions>`\.$/);
+    // The card-repo AGENTS.md is folded into developer_instructions via -c.
+    const developerInstructions = cFlagValues.find((value) => value.startsWith('developer_instructions'));
+    expect(developerInstructions).toBeDefined();
+    expect(developerInstructions).toContain('Card Repository Reference');
+    expect(developerInstructions).toContain('Each card is an isolated Git repository.');
+    expect(args[args.length - 1]).toMatch(/Load the `\$runtime:card` skill and follow the `<routing-instructions>`\.$/);
 
     child.emit('close', 0);
     await promise;
@@ -611,13 +631,18 @@ describe('interview action — codex branch', () => {
     expect(args).toContain('/test/workspace/.worktrees/cards/card-123/1');
     expect(args).toContain('--add-dir');
     expect(args).toContain('/test/repo');
-    // Enablement is via the Cards profile-v2 layer; no developer_instructions for interview.
+    // Enablement is via the Cards profile-v2 layer; interview passes no session
+    // guidance, so developer_instructions carries only the card-repo AGENTS.md.
     expect(args[args.indexOf('--profile') + 1]).toBe('cards');
     const cFlagValues = args.filter((_value, index) => args[index - 1] === '-c');
     expect(cFlagValues).not.toContain('features.plugins=true');
     expect(cFlagValues.some((value) => value.startsWith('plugins.'))).toBe(false);
-    expect(cFlagValues.some((value) => value.startsWith('developer_instructions'))).toBe(false);
-    expect(args[args.length - 1]).toMatch(/Load the `\$interview` skill and follow the `<routing-instructions>`\.$/);
+    const developerInstructions = cFlagValues.find((value) => value.startsWith('developer_instructions'));
+    expect(developerInstructions).toBeDefined();
+    expect(developerInstructions).toContain('Card Repository Reference');
+    expect(args[args.length - 1]).toMatch(
+      /Load the `\$runtime:interview` skill and follow the `<routing-instructions>`\.$/
+    );
 
     child.emit('close', 0);
     await promise;

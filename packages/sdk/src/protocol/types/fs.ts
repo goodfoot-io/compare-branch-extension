@@ -57,7 +57,7 @@ export interface CardCommit {
  * A snapshot of a card repository's full commit history and non-binary file contents.
  *
  * Returned by `GET /cards/:id/snapshot`. Only non-binary files are included;
- * attachment blobs (`attachment/att-*` files without a `.meta.json` extension)
+ * attachment blobs (`attachments/att-*` files without a `.meta.json` extension)
  * are excluded.
  */
 export interface CardSnapshot {

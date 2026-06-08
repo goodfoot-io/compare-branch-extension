@@ -28,7 +28,7 @@
 
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { describe, expect, it } from 'vitest';
-import { applyCodexConfig, applyCodexTrustKey } from '../src/lib/applyCodexConfig.js';
+import { applyCodexConfig } from '../src/lib/applyCodexConfig.js';
 
 // ---------------------------------------------------------------------------
 // Helper: extract the relevant subtrees from a TOML round-trip
@@ -223,32 +223,5 @@ describe('applyCodexConfig — trustProjects', () => {
     const { projects } = parseRelevant(result);
     expect(projects['other-project']).toEqual({ trust_level: 'trusted' });
     expect(projects[repoRoot]).toEqual({ trust_level: 'trusted' });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// applyCodexTrustKey
-// ---------------------------------------------------------------------------
-
-describe('applyCodexTrustKey', () => {
-  it('adds trust entry to empty config', () => {
-    const repoRoot = '/home/user/project';
-    const { result, touchedSegments } = applyCodexTrustKey({}, { repoRoot });
-    const { projects } = parseRelevant(result);
-    expect(projects[repoRoot]).toEqual({ trust_level: 'trusted' });
-    expect(touchedSegments).toHaveLength(1);
-    expect(touchedSegments[0]![1]!.segment).toBe(repoRoot);
-  });
-
-  it('does not affect features or plugins', () => {
-    const { result } = applyCodexTrustKey({ features: { plugins: true } }, { repoRoot: '/tmp/x' });
-    const { features } = parseRelevant(result);
-    expect(features['plugins']).toBe(true);
-  });
-
-  it('does not mutate the input object', () => {
-    const input: Record<string, unknown> = {};
-    applyCodexTrustKey(input, { repoRoot: '/tmp/x' });
-    expect(Object.keys(input)).toHaveLength(0);
   });
 });

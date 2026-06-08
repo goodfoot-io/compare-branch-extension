@@ -14,7 +14,7 @@ This package provides consolidated test infrastructure:
 
 ### TestIssueRepository
 
-Creates real Git repositories with proper card layout (CARD.md, comment/, attachment/).
+Creates real Git repositories with proper card layout (CARD.md, comments/, attachments/).
 
 ```typescript
 const repo = new TestIssueRepository();

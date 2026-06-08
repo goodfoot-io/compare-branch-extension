@@ -50,9 +50,10 @@ let codexHome: string;
 let marketplacePath: string;
 const savedEnv: Record<string, string | undefined> = {};
 
-const CARDS_VERSION = '1.0.272';
-const RUNTIME_VERSION = '1.0.355';
-const PLUGIN_VERSIONS = { cards: CARDS_VERSION, runtime: RUNTIME_VERSION } as const;
+const PLUGIN_VERSIONS = {
+  cards: 'cards-test-version',
+  runtime: 'runtime-test-version'
+} as const;
 
 /**
  * Writes a JSON file, creating parent directories as needed.
@@ -83,11 +84,11 @@ beforeEach(async () => {
   await writeJson(path.join(bundlePath, '.agents', 'plugins', 'marketplace.json'), { name: 'local' });
   await writeJson(path.join(bundlePath, 'cards', '.codex-plugin', 'plugin.json'), {
     name: 'cards',
-    version: CARDS_VERSION
+    version: PLUGIN_VERSIONS.cards
   });
   await writeJson(path.join(bundlePath, 'runtime', '.codex-plugin', 'plugin.json'), {
     name: 'runtime',
-    version: RUNTIME_VERSION
+    version: PLUGIN_VERSIONS.runtime
   });
 
   codexHome = path.join(sandbox, 'codexhome');
@@ -140,10 +141,10 @@ describe('populateCodexPluginCache concurrency and atomicity', () => {
     // Both calls resolve and resolve the same version-segmented load paths.
     for (const result of [result1, result2]) {
       expect(result.pluginCachePaths.cards).toBe(
-        path.join(codexHome, 'plugins', 'cache', 'local', 'cards', CARDS_VERSION)
+        path.join(codexHome, 'plugins', 'cache', 'local', 'cards', PLUGIN_VERSIONS.cards)
       );
       expect(result.pluginCachePaths.runtime).toBe(
-        path.join(codexHome, 'plugins', 'cache', 'local', 'runtime', RUNTIME_VERSION)
+        path.join(codexHome, 'plugins', 'cache', 'local', 'runtime', PLUGIN_VERSIONS.runtime)
       );
     }
 
@@ -151,16 +152,20 @@ describe('populateCodexPluginCache concurrency and atomicity', () => {
     // copied there (a sibling of the scanned base root) before publication.
     const cpDestinations = vi.mocked(fs.cp).mock.calls.map((call) => toPosix(call[1]));
     expect(
-      cpDestinations.some((dest) => /\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.272$/.test(dest))
+      cpDestinations.some((dest) =>
+        new RegExp(`/plugins/cache/local/\\.plugin-install-[^/]+/${PLUGIN_VERSIONS.cards}$`).test(dest)
+      )
     ).toBe(true);
     expect(
-      cpDestinations.some((dest) => /\/plugins\/cache\/local\/\.plugin-install-[^/]+\/1\.0\.355$/.test(dest))
+      cpDestinations.some((dest) =>
+        new RegExp(`/plugins/cache/local/\\.plugin-install-[^/]+/${PLUGIN_VERSIONS.runtime}$`).test(dest)
+      )
     ).toBe(true);
 
     // The shared cache ends with valid manifests at the load paths, and no
     // staging dir is left behind.
-    await expectCachedManifest('cards', CARDS_VERSION);
-    await expectCachedManifest('runtime', RUNTIME_VERSION);
+    await expectCachedManifest('cards', PLUGIN_VERSIONS.cards);
+    await expectCachedManifest('runtime', PLUGIN_VERSIONS.runtime);
     for (const pluginName of ['cards', 'runtime'] as const) {
       const baseRoot = path.join(codexHome, 'plugins', 'cache', 'local', pluginName);
       const siblings = await fs.readdir(baseRoot);
@@ -178,14 +183,14 @@ describe('populateCodexPluginCache concurrency and atomicity', () => {
     // The publish rename lands each plugin at plugins/cache/local/<plugin>/<version>.
     const renameDestinations = vi.mocked(fs.rename).mock.calls.map((call) => toPosix(call[1]));
     expect(renameDestinations).toContain(
-      toPosix(path.join(codexHome, 'plugins', 'cache', 'local', 'cards', CARDS_VERSION))
+      toPosix(path.join(codexHome, 'plugins', 'cache', 'local', 'cards', PLUGIN_VERSIONS.cards))
     );
     expect(renameDestinations).toContain(
-      toPosix(path.join(codexHome, 'plugins', 'cache', 'local', 'runtime', RUNTIME_VERSION))
+      toPosix(path.join(codexHome, 'plugins', 'cache', 'local', 'runtime', PLUGIN_VERSIONS.runtime))
     );
 
-    await expectCachedManifest('cards', CARDS_VERSION);
-    await expectCachedManifest('runtime', RUNTIME_VERSION);
+    await expectCachedManifest('cards', PLUGIN_VERSIONS.cards);
+    await expectCachedManifest('runtime', PLUGIN_VERSIONS.runtime);
   });
 
   it('a higher bundle version supersedes and prunes the older slot', async () => {
@@ -195,7 +200,7 @@ describe('populateCodexPluginCache concurrency and atomicity', () => {
     await populateCodexPluginCache(codexHome, marketplacePath);
 
     // Simulate an extension upgrade: the bundle now ships a higher cards version.
-    const upgraded = '1.0.300';
+    const upgraded = 'cards-test-version-z';
     await writeJson(path.join(sandbox, 'codex', 'cards', '.codex-plugin', 'plugin.json'), {
       name: 'cards',
       version: upgraded

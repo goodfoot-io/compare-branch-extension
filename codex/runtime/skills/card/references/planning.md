@@ -26,7 +26,7 @@ Read all plan files from the `plan/` directory. Compare the plans against the cu
 Determine whether prior plans have been implemented by checking for workspace commits on the current branch that correspond to plan tasks.
 
 - **Prior plan(s) implemented and new work requested** (follow-on): Go to Step 1.2 to create a new plan file. Treat prior plans and their implementation as established context — do not revise completed plans.
-- **Plan is current and no new information**: If operating as a spawned planner child (tier 3–4), return to the `$card-planner` skill's Step 3 (Report Plan State); if operating inline (tier 2), return to the caller's next step. This procedure has no Step 3 of its own.
+- **Plan is current and no new information**: If operating as a spawned planner child (tier 3–4), return to the `$runtime:card-planner` skill's Step 3 (Report Plan State); if operating inline (tier 2), return to the caller's next step. This procedure has no Step 3 of its own.
 - **New information requires plan revision**: Incorporate changes into `[PLAN_FILE]`, commit, then go to Step 2.
 
 ### 1.2 Create Plan
@@ -39,7 +39,7 @@ Distill from the card what the situation looks like when the work is done and wh
 
 Review all relevant resources: files, web searches, tools. Identify every consumer of each symbol, field, and boundary the plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
 
-Follow the `<take-notes>` instructions from `$notes` skill — write a note to the card repository for each architectural discovery made during research.
+Follow the `<take-notes>` instructions from `$cards:notes` skill — write a note to the card repository for each architectural discovery made during research.
 
 #### Apply Markdown Guidelines
 
@@ -49,7 +49,7 @@ The plan file is stored in the card repository (`$CARD_REPO_PATH`), but the card
 
 #### Consider Bootstrap Sequencing
 
-When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `$tdd-bootstrap` skill and structure the plan's implementation steps along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
+When the card introduces new behavior whose contract is worth validating ahead of implementation — a new public function, API, data type, schema, or algorithm — **you must consult the `<tdd-bootstrap>` instructions** from the `$runtime:tdd-bootstrap` skill and structure the plan's implementation steps along the three phases. Skip the bootstrap for refactors, spikes, UI or visual work, glue code, one-shot scripts, framework-determined shapes, and small in-place edits.
 
 #### Write and Store Plan
 
@@ -65,7 +65,7 @@ git commit -m "[single sentence summarizing the approach and key decisions]"
 
 Scan the plan for assumptions — both explicit and implicit (statements presented as facts not read from source). Any assumption that affects a planned implementation step warrants investigation; spike it per the procedure below. Load-bearing assumptions are work items for this step, not questions to surface to the user as a choice — converting a spike into an (a)/(b) prompt is a protocol violation. Skip only when no load-bearing assumptions exist.
 
-For each testable uncertainty, load the `$spike` skill and follow its instructions. That skill owns spike classification (comparison vs. validation), subagent invocation, artifact layout, quality checks, and the commit flow.
+For each testable uncertainty, load the `$runtime:spike` skill and follow its instructions. That skill owns spike classification (comparison vs. validation), subagent invocation, artifact layout, quality checks, and the commit flow.
 
 After spikes return, revise `[PLAN_FILE]` to incorporate their results — a spike that disproves a load-bearing assumption invalidates the plan from intent through approach, so rewrite rather than patch.
 

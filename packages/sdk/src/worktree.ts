@@ -83,6 +83,39 @@ async function createSymlink(target: string, linkPath: string): Promise<void> {
 }
 
 /**
+ * Creates a symlink at `linkPath`, first removing a pre-existing symlink so the
+ * operation is idempotent across re-runs.
+ *
+ * {@link rerouteNodeModules} can run more than once against the same worktree —
+ * a re-fired WorktreeCreate hook, worktree re-entry, or a retried launch. The
+ * first run turns `destNodeModules` into a real directory populated with
+ * per-entry symlinks, so the symlink-only unlink guard on `destNodeModules`
+ * itself no longer fires on a second run and each per-entry `fs.symlink` would
+ * reject with `EEXIST`. Unlinking a pre-existing symlink first makes every
+ * per-entry link safe to recreate. A non-symlink at `linkPath` is left
+ * untouched so genuine on-disk data is never clobbered — the subsequent
+ * `createSymlink` then surfaces the conflict (fail-closed) rather than masking
+ * it.
+ *
+ * @param target - Symlink target (passed through to {@link createSymlink}).
+ * @param linkPath - Path at which to create the symlink.
+ * @throws {SymlinkPrivilegeError} When the OS denies symlink creation (EPERM/EINVAL).
+ */
+async function replaceSymlink(target: string, linkPath: string): Promise<void> {
+  try {
+    const stats = await fs.lstat(linkPath);
+    if (stats.isSymbolicLink()) {
+      await fs.unlink(linkPath);
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+  await createSymlink(target, linkPath);
+}
+
+/**
  * Validates a branch name against the CLI's safe subset.
  *
  * The name must start with an alphanumeric character and may then include
@@ -827,8 +860,17 @@ ORIGINAL_HOOK="$ORIGINAL_HOOKS_DIR/${hookType}"
 /**
  * Resolves the Node interpreter into `$NODE_RUN`. Prefers the extension's
  * bundled interpreter (`~/.cards/VSCODE_NODE`), falls back to `node` on PATH.
+ *
+ * Exports `ELECTRON_RUN_AS_NODE=1` so a desktop VS Code's Electron binary runs
+ * as a headless Node interpreter rather than launching a GUI window. These
+ * dispatchers are git hooks spawned by `git`, which does NOT inherit the var
+ * from the extension host — without it every commit pops a focus-stealing
+ * Electron window (invisible under Xvfb on Linux, very visible on macOS host).
+ * The var is a no-op for a real `node` on PATH, so it is safe to set in both
+ * branches.
  */
-const RESOLVE_NODE = `NODE_BIN=$(cat "$HOME/.cards/VSCODE_NODE" 2>/dev/null)
+const RESOLVE_NODE = `export ELECTRON_RUN_AS_NODE=1
+NODE_BIN=$(cat "$HOME/.cards/VSCODE_NODE" 2>/dev/null)
 if [ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ]; then
   NODE_RUN="$NODE_BIN"
 elif command -v node >/dev/null 2>&1; then
@@ -1244,10 +1286,10 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
       if (entry.isSymbolicLink()) {
         const target = await fs.readlink(sourcePath);
         if (isInternalSymlink(target)) {
-          await createSymlink(target, destPath);
+          await replaceSymlink(target, destPath);
           return 1;
         } else {
-          await createSymlink(sourcePath, destPath);
+          await replaceSymlink(sourcePath, destPath);
           return 0;
         }
       } else if (entry.isDirectory() && entry.name.startsWith('@')) {
@@ -1261,21 +1303,21 @@ export async function rerouteNodeModules(opts: RerouteNodeModulesOptions): Promi
             if (scopeEntry.isSymbolicLink()) {
               const target = await fs.readlink(scopeSourcePath);
               if (isInternalSymlink(target)) {
-                await createSymlink(target, scopeDestPath);
+                await replaceSymlink(target, scopeDestPath);
                 return 1;
               } else {
-                await createSymlink(scopeSourcePath, scopeDestPath);
+                await replaceSymlink(scopeSourcePath, scopeDestPath);
                 return 0;
               }
             } else {
-              await createSymlink(scopeSourcePath, scopeDestPath);
+              await replaceSymlink(scopeSourcePath, scopeDestPath);
               return 0;
             }
           })
         );
         return scopeCounts.reduce((sum, c) => sum + c, 0);
       } else {
-        await createSymlink(sourcePath, destPath);
+        await replaceSymlink(sourcePath, destPath);
         return 0;
       }
     })

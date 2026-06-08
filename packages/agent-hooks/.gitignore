@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build outputs land in repo-root public/claude/** and public/codex/** (ignored
+# there), never inside this package, so nothing here is a build artifact. In
+# particular scripts/build.mjs is tracked source, not generated output.
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

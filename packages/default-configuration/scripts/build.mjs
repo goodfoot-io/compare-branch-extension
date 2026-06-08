@@ -15,7 +15,7 @@
  *   5. copy dist/* into <workspaceRoot>/.cards/ (after clearing bin/settings.json/www)
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,11 +64,37 @@ run('cards-sdk build -c settings.config.ts -o dist --loader .md=text');
 // 3. Build the stream webview (bun).
 run('yarn build:www');
 
-// 4. Prune the generated stream webview to just index.html.
-const streamDir = join(dist, 'www', 'claude-code-session');
-for (const entry of readdirSync(streamDir)) {
-  if (entry !== 'index.html') {
-    rmSync(join(streamDir, entry), { recursive: true, force: true });
+// 4. Prune each registered renderer's output to just index.html, drop any
+//    unexpected sibling directories, and fail closed if either renderer's
+//    entry point is missing — a failed Codex build must not ship a partial
+//    artifact alongside the Claude renderer.
+const RENDERER_TYPES = ['claude-code-session', 'codex-session'];
+const wwwDir = join(dist, 'www');
+
+for (const type of RENDERER_TYPES) {
+  const streamDir = join(wwwDir, type);
+  if (!existsSync(streamDir)) continue;
+  for (const entry of readdirSync(streamDir)) {
+    if (entry !== 'index.html') {
+      rmSync(join(streamDir, entry), { recursive: true, force: true });
+    }
+  }
+}
+
+// Prune any sibling directory under dist/www that is not a registered renderer.
+if (existsSync(wwwDir)) {
+  for (const entry of readdirSync(wwwDir, { withFileTypes: true })) {
+    if (entry.isDirectory() && !RENDERER_TYPES.includes(entry.name)) {
+      rmSync(join(wwwDir, entry.name), { recursive: true, force: true });
+    }
+  }
+}
+
+// Verify every registered renderer emitted its entry point.
+for (const type of RENDERER_TYPES) {
+  const indexHtml = join(wwwDir, type, 'index.html');
+  if (!existsSync(indexHtml)) {
+    throw new Error(`[build] missing renderer artifact: ${indexHtml} — refusing to publish a partial bundle`);
   }
 }
 

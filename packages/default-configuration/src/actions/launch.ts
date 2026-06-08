@@ -7,7 +7,7 @@
  *   runs with `--print` so it executes non-interactively (takes a prompt, runs,
  *   and exits). The watcher handles all transcript streaming.
  * - Codex: spawns the `codex` CLI interactively with a short prompt that
- *   instructs Codex to load the `$card` skill and follow its
+ *   instructs Codex to load the `$runtime:card` skill and follow its
  *   `<routing-instructions>`. The skill itself is provided by the bundled
  *   `runtime` plugin staged into the per-launch `CODEX_HOME`. Background mode
  *   is rejected explicitly.
@@ -55,7 +55,7 @@ export default defineAction(
         );
       }
       await spawnCodexSession(input, context, {
-        prompt: 'Load the `$card` skill and follow the `<routing-instructions>`.'
+        prompt: 'Load the `$runtime:card` skill and follow the `<routing-instructions>`.'
       });
       return;
     }

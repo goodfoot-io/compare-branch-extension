@@ -1,10 +1,10 @@
 # Card References
 
-Per-condition reference files for the `$card` skill. The router in `../SKILL.md` evaluates card state, selects one condition, and reads the matched file.
+Per-condition reference files for the `$runtime:card` skill. The router in `../SKILL.md` evaluates card state, selects one condition, and reads the matched file.
 
 ## Consumer
 
-**`$card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. References cross-load each other by sibling path (e.g. `./plan.md`) when one hands off to another.
+**`$runtime:card` skill** — loads exactly one of these references per session, per Step 3 of `../SKILL.md`. References cross-load each other by sibling path (e.g. `./plan.md`) when one hands off to another.
 
 ## Routing Map
 
@@ -24,16 +24,16 @@ Per-condition reference files for the `$card` skill. The router in `../SKILL.md`
 
 ## Shared Procedures
 
-- `planning.md` — Tier 2 self-plan procedure, also used by spawned `$card-planner` children in tier 3–4.
+- `planning.md` — Tier 2 self-plan procedure, also used by spawned `$runtime:card-planner` children in tier 3–4.
 - `contest.md` — Tier 3–4 planner-contest spawn tree, loaded by `plan.md`.
 
 ## Standalone Agent Skills (Not Consolidated)
 
 These stay as distinct top-level skills for portability across agent systems — the skill ID is the contract a different harness honors, and each pairs with an `agents/openai.yaml` so it can be selected as a spawned agent role:
 
-- `$card-developer` — spawned to implement a group of work.
-- `$card-planner` — spawned per planner in the `contest.md` spawn tree.
-- `$card-plan-failure-mode` — spawned as the reviewer in the `contest.md` spawn tree.
-- `$card-failure-mode` — spawned as an evaluator in `implementation-evaluation.md`.
-- `$card-experience-evaluator` — spawned as the Deep-depth evaluator in `implementation-evaluation.md`.
-- `$card-pre-existing-condition` — spawned from `implementation-with-plan.md` when validation fails on a pre-existing condition.
+- `$runtime:card-developer` — spawned to implement a group of work.
+- `$runtime:card-planner` — spawned per planner in the `contest.md` spawn tree.
+- `$runtime:card-plan-failure-mode` — spawned as the reviewer in the `contest.md` spawn tree.
+- `$runtime:card-failure-mode` — spawned as an evaluator in `implementation-evaluation.md`.
+- `$runtime:card-experience-evaluator` — spawned as the Deep-depth evaluator in `implementation-evaluation.md`.
+- `$runtime:card-pre-existing-condition` — spawned from `implementation-with-plan.md` when validation fails on a pre-existing condition.

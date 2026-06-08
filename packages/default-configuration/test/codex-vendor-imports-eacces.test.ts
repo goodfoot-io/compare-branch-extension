@@ -27,6 +27,10 @@ let codexHome: string;
 let packfile: string;
 let marketplacePath: string;
 const savedEnv: Record<string, string | undefined> = {};
+const PLUGIN_VERSIONS = {
+  cards: 'cards-test-version',
+  runtime: 'runtime-test-version'
+} as const;
 
 /**
  * Writes a JSON file, creating parent directories as needed.
@@ -54,11 +58,11 @@ beforeEach(async () => {
   await writeJson(path.join(bundlePath, '.agents', 'plugins', 'marketplace.json'), { name: 'local' });
   await writeJson(path.join(bundlePath, 'cards', '.codex-plugin', 'plugin.json'), {
     name: 'cards',
-    version: '1.0.272'
+    version: PLUGIN_VERSIONS.cards
   });
   await writeJson(path.join(bundlePath, 'runtime', '.codex-plugin', 'plugin.json'), {
     name: 'runtime',
-    version: '1.0.355'
+    version: PLUGIN_VERSIONS.runtime
   });
 
   // A real source CODEX_HOME holding a codex-managed partial-clone repo whose
@@ -101,7 +105,6 @@ describe('populateCodexPluginCache with an unreadable vendor_imports packfile', 
 
     // 3 & 4. Cached manifests exist at the exact version-segmented load paths
     // and parse correctly.
-    const versions = { cards: '1.0.272', runtime: '1.0.355' } as const;
     for (const pluginName of ['cards', 'runtime'] as const) {
       const manifestPath = path.join(
         codexHome,
@@ -109,12 +112,12 @@ describe('populateCodexPluginCache with an unreadable vendor_imports packfile', 
         'cache',
         'local',
         pluginName,
-        versions[pluginName],
+        PLUGIN_VERSIONS[pluginName],
         '.codex-plugin',
         'plugin.json'
       );
       const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as { name: string; version: string };
-      expect(manifest).toEqual({ name: pluginName, version: versions[pluginName] });
+      expect(manifest).toEqual({ name: pluginName, version: PLUGIN_VERSIONS[pluginName] });
     }
   });
 });

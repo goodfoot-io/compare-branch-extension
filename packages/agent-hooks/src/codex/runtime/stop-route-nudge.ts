@@ -1,0 +1,164 @@
+/**
+ * Stop hook — merge nudge when workspace branch has unmerged commits.
+ *
+ * Fires at most once per session. Returns `decision: 'block'` with a `reason`
+ * pointing the agent at `card/references/merge.md` when:
+ * - The card is not tagged "blocked"
+ * - Merge is either not gated or already approved
+ * - The workspace branch has commits not yet merged into the base branch
+ *
+ * Under those conditions, the card-state contract says the work is ready to
+ * merge — re-routing through `runtime:card` would push a finished card back
+ * into validation/evaluation. The reason text offers `runtime:card` only as
+ * an escape hatch for the agent that genuinely has more work to do.
+ *
+ * Fail-open: every error path returns `undefined`.
+ *
+ * Peer-hook interaction: both this hook and stop.ts (unattributed-commit
+ * checker) are registered as two entries within ONE Stop hooks array entry in
+ * hooks.json (the @goodfoot/codex-hooks build coalesces same-event,
+ * matcher-less hooks into a single entry). Both can return `decision: 'block'`
+ * on the same Stop event — the agent receives both reasons concatenated. The
+ * route-nudge marker is written on the first fire and intentionally consumes
+ * the once-per-session budget regardless of whether the sibling hook's reason
+ * was the salient one. Cross-hook coordination is not possible because the
+ * runtime does not expose peer-hook output to individual hooks.
+ *
+ * @summary Stop hook — route nudge for unmerged workspace branch commits
+ */
+
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { getBaseBranch, getCardRepoPath, getWorkspaceBranch, getWorkspacePath } from '@cards/sdk/config';
+import { hasSessionRouteNudgeFired, markSessionRouteNudgeFired } from '@cards/sessions/card-repo';
+import { stopHook, stopOutput } from '@goodfoot/codex-hooks';
+
+interface CardMeta {
+  tags?: string[];
+  gates?: {
+    mergeRequestRequired?: boolean;
+    mergeApproved?: boolean;
+  };
+}
+
+/**
+ * Word stems that signal the assistant is intentionally pausing — waiting on a
+ * timer, a build, an external check, or a follow-up trigger. If the last
+ * assistant message contains any of these, suppress the merge nudge: the agent
+ * has not declared the work finished, it has parked itself mid-task. Firing the
+ * nudge here would consume the once-per-session budget on a false positive and
+ * push a paused agent toward merge.
+ */
+const WAITING_STEM_RE =
+  /\b(?:wait(?:ing|ed|s)?|await(?:ing|ed|s)?|poll(?:ing|ed|s)?|monitor(?:ing|ed|s)?|pending|sleep(?:ing)?|standby|stand(?:ing)?\s+by|check(?:ing)?\s+back|hold(?:ing)?\s+(?:on|off)|in\s+the\s+meantime|until\s+(?:it|the|then)|ETA)\b/i;
+
+function isWaitingMessage(message: string | undefined | null): boolean {
+  return typeof message === 'string' && WAITING_STEM_RE.test(message);
+}
+
+function readCardMeta(cardRepoPath: string): CardMeta {
+  const raw = readFileSync(join(cardRepoPath, 'CARD.meta.json'), 'utf-8');
+  return JSON.parse(raw) as CardMeta;
+}
+
+function getUnmergedCount(workspacePath: string, baseBranch: string, workspaceBranch: string): number {
+  const output = execFileSync('git', ['rev-list', '--count', `${baseBranch}..${workspaceBranch}`], {
+    cwd: workspacePath,
+    encoding: 'utf-8',
+    timeout: 5000,
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+  return parseInt(output.trim(), 10);
+}
+
+export default stopHook({}, async (input, { logger }) => {
+  let cardRepoPath: string;
+  let workspacePath: string;
+  let baseBranch: string;
+  let workspaceBranch: string;
+  try {
+    cardRepoPath = getCardRepoPath();
+    workspacePath = getWorkspacePath();
+    baseBranch = getBaseBranch();
+    workspaceBranch = getWorkspaceBranch();
+  } catch (error) {
+    logger.warn('stop-route-nudge: not inside an action subprocess', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return undefined;
+  }
+
+  if (isWaitingMessage(input.last_assistant_message)) {
+    return undefined;
+  }
+
+  let nudgeFired: boolean;
+  try {
+    nudgeFired = hasSessionRouteNudgeFired(input.session_id);
+  } catch (error) {
+    logger.warn('stop-route-nudge: failed to check route-nudge marker', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return undefined;
+  }
+
+  if (nudgeFired) {
+    return undefined;
+  }
+
+  let meta: CardMeta;
+  try {
+    meta = readCardMeta(cardRepoPath);
+  } catch (error) {
+    logger.warn('stop-route-nudge: failed to read CARD.meta.json', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return undefined;
+  }
+
+  const tags: string[] = Array.isArray(meta.tags) ? meta.tags : [];
+  if (tags.includes('blocked')) {
+    return undefined;
+  }
+
+  const mergeRequestRequired = meta.gates?.mergeRequestRequired === true;
+  const mergeApproved = meta.gates?.mergeApproved === true;
+  if (mergeRequestRequired && !mergeApproved) {
+    return undefined;
+  }
+
+  let count: number;
+  try {
+    count = getUnmergedCount(workspacePath, baseBranch, workspaceBranch);
+  } catch (error) {
+    logger.warn('stop-route-nudge: git rev-list failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return undefined;
+  }
+
+  if (count === 0) {
+    return undefined;
+  }
+
+  try {
+    markSessionRouteNudgeFired(input.session_id);
+  } catch (error) {
+    logger.error('stop-route-nudge: failed to write route-nudge marker', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return undefined;
+  }
+
+  return stopOutput({
+    decision: 'block',
+    reason: [
+      `Workspace branch \`${workspaceBranch}\` has ${count} commit(s) not merged into \`${baseBranch}\`. The card does not have a \`blocked\` tag, and merge is either ungated or already approved.`,
+      '',
+      'If validation and evaluation have passed and no scope remains, read `public/codex/runtime/skills/card/references/merge.md` and follow its `<instructions>` to merge.',
+      '',
+      'Otherwise, load the `runtime:card` skill and follow its `<routing-instructions>` to determine the next action — but do not re-run validation or evaluation just because this nudge fired.'
+    ].join('\n')
+  });
+});

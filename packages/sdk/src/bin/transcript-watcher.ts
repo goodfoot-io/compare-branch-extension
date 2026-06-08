@@ -20,6 +20,7 @@ import { watch } from 'node:fs';
 import { access, appendFile, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { removeSessionCsv, removeSessionHeadSha, removeSessionRouteNudge } from '@cards/sessions/card-repo';
 import { createWatcher } from '../config/watcher/createWatcher.js';
 import { isProcessAlive } from './process-utils.js';
 
@@ -406,6 +407,76 @@ async function commitSessionClose(
 }
 
 /**
+ * Dependencies injected into {@link runWatcherLoop}. The single loop body lives
+ * in `runWatcherLoop`; `main()` supplies the real filesystem/PID/clock
+ * implementations, while tests supply deterministic fakes. The per-tick
+ * `onTick` callback carries the fsWatcher install-retry behavior so that the
+ * loop itself stays free of watcher-specific state.
+ */
+export interface WatcherLoopDeps {
+  /** Mutable signal object — set `signal.stopped = true` to trigger the stop-control exit path. */
+  signal: { stopped: boolean };
+  /** Returns true when the sentinel flush file is present. */
+  checkSentinel: () => Promise<boolean>;
+  /** Returns true when the monitored process is still alive. */
+  checkAlive: () => boolean;
+  /** Returns the current epoch timestamp in milliseconds. */
+  now: () => number;
+  /** Waits for the given number of milliseconds. */
+  sleep: (ms: number) => Promise<void>;
+  /**
+   * Runs once per surviving tick after the three break checks pass. In
+   * production this attempts the fsWatcher install and returns the next sleep
+   * interval (fast retry while uninstalled, periodic cadence once installed).
+   * Defaults to the periodic interval when omitted.
+   */
+  onTick?: () => Promise<number>;
+  /** Invoked when the max-lifetime timeout fires, before the loop breaks. */
+  onMaxLifetime?: () => void;
+  /** Maximum watcher lifetime before forced exit. Defaults to {@link MAX_LIFETIME_MS}. */
+  maxLifetimeMs?: number;
+}
+
+/**
+ * Runs the core polling loop used by the transcript watcher — the single loop
+ * implementation shared by {@link main} and the tests.
+ *
+ * The loop exits when any of the four terminal conditions is reached:
+ * - `deps.signal.stopped` is set to `true` (stop-control path)
+ * - The sentinel file is detected (graceful Claude session end)
+ * - The monitored PID is no longer alive (process death)
+ * - The elapsed time exceeds `maxLifetimeMs` (forced timeout)
+ *
+ * @param deps - Injectable dependencies for deterministic testing.
+ * @returns An object indicating which exit path was taken. `maxLifetimeExceeded`
+ *   is `true` only for the timeout path — callers must skip cleanup in that case.
+ *   `stopRequested` is `true` only for the stop-control path.
+ */
+export async function runWatcherLoop(
+  deps: WatcherLoopDeps
+): Promise<{ maxLifetimeExceeded: boolean; stopRequested: boolean }> {
+  const { signal, checkSentinel, checkAlive, now, sleep, onTick, onMaxLifetime } = deps;
+  const maxLifetimeMs = deps.maxLifetimeMs ?? MAX_LIFETIME_MS;
+
+  let maxLifetimeExceeded = false;
+
+  const started = now();
+  while (!signal.stopped) {
+    if (await checkSentinel()) break;
+    if (!checkAlive()) break;
+    if (now() - started > maxLifetimeMs) {
+      maxLifetimeExceeded = true;
+      onMaxLifetime?.();
+      break;
+    }
+    const interval = onTick ? await onTick() : PERIODIC_CHECK_INTERVAL_MS;
+    await sleep(interval);
+  }
+
+  return { maxLifetimeExceeded, stopRequested: signal.stopped };
+}
+
+/**
  * Main entry point for the detached watcher process.
  *
  * Parses arguments from process.argv and uses createWatcher to register with
@@ -482,9 +553,9 @@ export async function main(): Promise<void> {
       `Watcher started: pid=${String(pid)} session=${sessionId} node=${process.version} watcherPid=${String(process.pid)} transcriptPath=${transcriptPath} cardId=${cardId}`
     );
 
-    let stopRequested = false;
+    const signal = { stopped: false };
     ctx.onControl('stop', async () => {
-      stopRequested = true;
+      signal.stopped = true;
       exitSignaled = true;
       if (fsWatcher) {
         try {
@@ -497,22 +568,22 @@ export async function main(): Promise<void> {
       await syncOnce();
     });
 
-    const started = Date.now();
-    while (!stopRequested) {
-      if (await sentinelFileExists(cardRepoPath, sessionId)) break;
-      if (!isProcessAlive(pid)) break;
-      if (Date.now() - started > MAX_LIFETIME_MS) {
-        warnFn(`Watcher exceeded maximum lifetime (${MAX_LIFETIME_MS}ms), exiting`);
-        break;
+    const { maxLifetimeExceeded, stopRequested } = await runWatcherLoop({
+      signal,
+      checkSentinel: () => sentinelFileExists(cardRepoPath, sessionId),
+      checkAlive: () => isProcessAlive(pid),
+      now: () => Date.now(),
+      sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+      onMaxLifetime: () => warnFn(`Watcher exceeded maximum lifetime (${MAX_LIFETIME_MS}ms), exiting`),
+      onTick: async () => {
+        if (!fsWatcher && !exitSignaled) {
+          fsWatcher = await tryInstallWatcher();
+        }
+        // Poll quickly until the watcher attaches, then fall back to the slower
+        // liveness cadence once it is installed.
+        return fsWatcher ? PERIODIC_CHECK_INTERVAL_MS : WATCHER_INSTALL_RETRY_INTERVAL_MS;
       }
-      if (!fsWatcher && !exitSignaled) {
-        fsWatcher = await tryInstallWatcher();
-      }
-      // Poll quickly until the watcher attaches, then fall back to the slower
-      // liveness cadence once it is installed.
-      const interval = fsWatcher ? PERIODIC_CHECK_INTERVAL_MS : WATCHER_INSTALL_RETRY_INTERVAL_MS;
-      await new Promise<void>((resolve) => setTimeout(resolve, interval));
-    }
+    });
 
     if (!stopRequested) {
       exitSignaled = true;
@@ -528,7 +599,45 @@ export async function main(): Promise<void> {
     }
 
     ctx.logger.info(`Watcher completed for session ${sessionId}`);
+    if (!maxLifetimeExceeded) {
+      await cleanupSessionArtifacts(sessionId, warnFn);
+    }
   }).then((w) => w.run());
+}
+
+/**
+ * Removes per-session artifact files written during the session lifecycle.
+ *
+ * Called at the end of a watcher run on a genuine session-end exit (graceful
+ * stop, flush sentinel, or process death), so that both Claude (which also
+ * removes these in session-end.ts) and Codex (which has no SessionEnd hook)
+ * clean up. It is intentionally skipped on the max-lifetime exit — see the
+ * `maxLifetimeExceeded` gate in {@link main}/{@link runWatcherLoop}, where the
+ * watched session may still be alive. Each removal is independent and best-effort:
+ * a failure in one does not prevent the others, and errors are surfaced as
+ * warnings rather than thrown.
+ *
+ * @param sessionId - Session whose artifacts should be removed.
+ * @param warnFn - Warning logger used to surface individual removal failures.
+ */
+export async function cleanupSessionArtifacts(sessionId: string, warnFn: (msg: string) => void): Promise<void> {
+  try {
+    removeSessionHeadSha(sessionId);
+  } catch (error) {
+    warnFn(`cleanupSessionArtifacts: removeSessionHeadSha failed: ${String(error)}`);
+  }
+
+  try {
+    removeSessionCsv(sessionId);
+  } catch (error) {
+    warnFn(`cleanupSessionArtifacts: removeSessionCsv failed: ${String(error)}`);
+  }
+
+  try {
+    removeSessionRouteNudge(sessionId);
+  } catch (error) {
+    warnFn(`cleanupSessionArtifacts: removeSessionRouteNudge failed: ${String(error)}`);
+  }
 }
 
 if (process.argv[1]?.endsWith('transcript-watcher.mjs') || process.argv[1]?.endsWith('transcript-watcher.ts')) {

@@ -15,13 +15,23 @@ CARDS_ENV_VARS.ACTION_NAME                   // 'ACTION_NAME'
 CARDS_ENV_VARS.ENVIRONMENT                   // 'ENVIRONMENT'
 CARDS_ENV_VARS.EXECUTION_MODE                // 'EXECUTION_MODE'
 CARDS_ENV_VARS.CODING_AGENT                  // 'CODING_AGENT'
-CARDS_ENV_VARS.VSCODE_NODE               // 'VSCODE_NODE'
+CARDS_ENV_VARS.VSCODE_NODE                   // 'VSCODE_NODE'
+CARDS_ENV_VARS.NODE                          // 'NODE'
 CARDS_ENV_VARS.SOCKET_PATH                   // 'SOCKET_PATH'
 CARDS_ENV_VARS.SWITCH_TO_INTERACTIVE_DATA_PATH // 'SWITCH_TO_INTERACTIVE_DATA_PATH'
 CARDS_ENV_VARS.CONFIG_PATH                   // 'CONFIG_PATH'
 CARDS_ENV_VARS.WORKSPACE_PATH                // 'WORKSPACE_PATH'
+CARDS_ENV_VARS.REPO_ROOT                     // 'REPO_ROOT'
 CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
+CARDS_ENV_VARS.BASE_BRANCH                   // 'BASE_BRANCH'
+CARDS_ENV_VARS.PARENT_BRANCH                 // 'PARENT_BRANCH'
+CARDS_ENV_VARS.WORKSPACE_BRANCH              // 'WORKSPACE_BRANCH'
+CARDS_ENV_VARS.EXTENSION_PATH                // 'EXTENSION_PATH'
+CARDS_ENV_VARS.MARKETPLACE_PATH              // 'MARKETPLACE_PATH'
+CARDS_ENV_VARS.HOOKS_LOG_FILE                // 'CARDS_HOOKS_LOG_FILE'
 ```
+
+> `CARDS_ENV_VARS` also defines wrapper-internal keys consumed by the runtime rather than handlers (`ACTION_COMMAND`, `CARDS_SESSION_ID`, `CARDS_TRANSCRIPT_PATH`). Note that `HOOKS_LOG_FILE` maps to the env var name `'CARDS_HOOKS_LOG_FILE'`.
 
 ## Variable Availability
 
@@ -33,15 +43,28 @@ CARDS_ENV_VARS.CARD_REPO_PATH                // 'CARD_REPO_PATH'
 | `EXECUTION_MODE` | Yes |
 | `CODING_AGENT` | Yes (optional) |
 | `VSCODE_NODE` | Yes |
+| `NODE` | Yes |
 | `SOCKET_PATH` | Yes |
-| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes |
+| `SWITCH_TO_INTERACTIVE_DATA_PATH` | Yes (optional) |
 | `CONFIG_PATH` | Yes |
 | `WORKSPACE_PATH` | Yes |
+| `REPO_ROOT` | Yes |
 | `CARD_REPO_PATH` | Yes |
+| `BASE_BRANCH` | Yes |
+| `PARENT_BRANCH` | Yes |
+| `WORKSPACE_BRANCH` | Yes |
+| `EXTENSION_PATH` | Yes |
+| `MARKETPLACE_PATH` | Yes |
 
 ## Individual Getters
 
-Each environment variable has a dedicated getter function with validation.
+Each environment variable has a dedicated getter function with validation. The
+individual getters live in the `@cards/sdk/config/env` subpath. The package root
+(`@cards/sdk/config`) re-exports only the commonly used ones (`CARDS_ENV_VARS`,
+`extractActionInput`, `extractCardsAssistantInput`, `getBaseBranch`,
+`getCardRepoPath`, `getExecutionMode`, `getWorkspaceBranch`, `getWorkspacePath`,
+`readSwitchToInteractiveData`), so import the full getter set from
+`@cards/sdk/config/env`.
 
 ### Common Variables (All Handlers)
 
@@ -49,7 +72,7 @@ Each environment variable has a dedicated getter function with validation.
 import {
   getCardId,
   getEnvironment
-} from '@cards/sdk/config';
+} from '@cards/sdk/config/env';
 
 // All throw Error if missing or empty
 const cardId = getCardId();
@@ -59,7 +82,7 @@ const environment = getEnvironment();
 ### Common Variables (All Handlers) — continued
 
 ```typescript
-import { getVscodeNodePath } from '@cards/sdk/config';
+import { getVscodeNodePath } from '@cards/sdk/config/env';
 
 // Path to VS Code's bundled Node.js interpreter
 // Used in settings.json command paths ($VSCODE_NODE ./bin/handler.mjs)
@@ -75,10 +98,16 @@ import {
   getCodingAgent,
   getSocketPath,
   getSwitchToInteractiveDataPath,
+  readSwitchToInteractiveData,
   getConfigPath,
   getRepoRoot,
-  getCardRepoPath
-} from '@cards/sdk/config';
+  getCardRepoPath,
+  getWorkspacePath,
+  getBaseBranch,
+  getWorkspaceBranch,
+  getExtensionPath,
+  getMarketplacePath
+} from '@cards/sdk/config/env';
 
 // Throws if missing, returns the action button display name
 const actionName = getActionName();          // e.g., 'Launch Claude'
@@ -89,15 +118,30 @@ const mode = getExecutionMode();
 // Returns string | undefined (does not throw)
 const codingAgent = getCodingAgent();
 
-// Additional action-specific variables
-// socketPath, configPath, repoRoot, cardRepoPath throw Error if missing
+// Additional action-specific variables (throw Error if missing)
 const socketPath = getSocketPath();                        // e.g., '/tmp/socket-123'
-// getSwitchToInteractiveDataPath returns string | undefined (does not throw)
-const switchToInteractiveDataPath = getSwitchToInteractiveDataPath(); // Path to switch data
-const configPath = getConfigPath();                        // Path to action config
+const configPath = getConfigPath();                        // Settings configuration directory
 const repoRoot = getRepoRoot();                            // Main git repository root
 const cardRepoPath = getCardRepoPath();                    // Card repository path
+const extensionPath = getExtensionPath();                  // VS Code extension install dir
+const marketplacePath = getMarketplacePath();              // Stable marketplace symlink
+
+// Branch context set by the launch action (throw Error if missing)
+const baseBranch = getBaseBranch();                        // Branch the workspace merges into
+const workspaceBranch = getWorkspaceBranch();              // Card's implementation branch
+// getWorkspacePath is for hooks running inside the Claude CLI, not action handlers
+const workspacePath = getWorkspacePath();                  // Active workspace / worktree path
+
+// getSwitchToInteractiveDataPath returns string | undefined (does not throw)
+const switchToInteractiveDataPath = getSwitchToInteractiveDataPath(); // Path to switch data
+// readSwitchToInteractiveData reads + JSON-parses that file (undefined when unset)
+const switchData = readSwitchToInteractiveData();
 ```
+
+> For CLI contexts where `EXTENSION_PATH` is not injected (e.g. terminal tools),
+> use the async `resolveExtensionPath()` (also from `@cards/sdk/config/env`),
+> which falls back to the `~/.cards/EXTENSION_PATH` file written by the extension
+> on activation.
 
 ## Typed Input Extraction
 
@@ -118,7 +162,25 @@ const input = extractActionInput();
 //   codingAgent?: string,
 //   switchToInteractiveData?: unknown,
 //   repoRoot: string,
-//   cardRepoPath: string
+//   cardRepoPath: string,
+//   configPath: string,
+//   extensionPath: string,
+//   marketplacePath: string
+// }
+```
+
+### Cards Assistant Input
+
+```typescript
+import { extractCardsAssistantInput } from '@cards/sdk/config';
+
+// Returns CardsAssistantInput — workspace-scoped, no card context
+const input = extractCardsAssistantInput();
+// {
+//   marketplacePath: string,
+//   extensionPath: string,
+//   codingAgent?: string,
+//   repoRoot: string
 // }
 ```
 

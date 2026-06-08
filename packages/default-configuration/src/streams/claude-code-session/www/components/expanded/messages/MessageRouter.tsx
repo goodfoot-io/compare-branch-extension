@@ -13,11 +13,14 @@
  */
 
 import type React from 'react';
-import type { ContentBlock, SessionMsg } from '../../../lib/parse-session';
+import { classifyAttachment } from '../../../lib/classify-attachment';
+import type { AttachmentPayload, ContentBlock, SessionMsg } from '../../../lib/parse-session';
 import { ToolAccordion } from '../../accordions/ToolAccordion';
 import { ToolGroup } from '../../accordions/ToolGroup';
+import { AmbientGroup, AmbientRow } from './AmbientGroup';
 import { AssistantTurn } from './AssistantTurn';
 import { AuthStatus } from './AuthStatus';
+import { AttachmentRouter } from './attachment/AttachmentRouter';
 import { RawJsonFallback } from './RawJsonFallback';
 import { ResultBoundary } from './ResultBoundary';
 import { SystemRouter } from './system/SystemRouter';
@@ -27,6 +30,76 @@ import { UserTurn } from './UserTurn';
 interface PendingToolUse {
   name: string;
   input: Record<string, unknown>;
+}
+
+/** The six `hook_*` attachment subtypes that nest inside their owning tool. */
+const HOOK_ATTACHMENT_TYPES = new Set<string>([
+  'hook_success',
+  'hook_additional_context',
+  'hook_system_message',
+  'hook_non_blocking_error',
+  'hook_blocking_error',
+  'hook_cancelled'
+]);
+
+/**
+ * Pre-pass: collect every `toolUseID` that WILL reach a ToolAccordion render
+ * site, so orphan-vs-nested hook detection is independent of stream ordering.
+ *
+ * Mirrors exactly the two render arms that emit a ToolAccordion:
+ * - the `user` arm renders a ToolAccordion for **every** `tool_result` block's
+ *   `tool_use_id` (paired or not), so each such id will nest its hooks;
+ * - the `tool_use_summary` arm renders a ToolAccordion for each
+ *   `preceding_tool_use_ids` entry that matches a registered assistant
+ *   `tool_use` block id.
+ *
+ * The hook attachment line for a tool usually precedes that tool's
+ * `tool_result` in the real stream, so a set populated only when the tool
+ * renders would still be empty at the hook's position — making the orphan
+ * guard order-dependent and double-rendering the hook. Walking the whole list
+ * up front removes that dependence.
+ * @param messages - All parsed session messages.
+ * @returns Set of toolUseIDs that pair into a rendered ToolAccordion.
+ */
+function computeWillNestToolUseIds(messages: SessionMsg[]): Set<string> {
+  const willNest = new Set<string>();
+  const registeredToolUseIds = new Set<string>();
+
+  for (const msg of messages) {
+    switch (msg.type) {
+      case 'assistant': {
+        const aMsg = msg as Extract<SessionMsg, { type: 'assistant' }>;
+        const blocks = aMsg.message?.content ?? [];
+        for (const block of blocks) {
+          const b = block as ContentBlock;
+          if (b.type === 'tool_use') registeredToolUseIds.add(b.id);
+        }
+        break;
+      }
+      case 'user': {
+        if ((msg as Record<string, unknown>)['isMeta'] === true) break;
+        const userMsg = msg as Extract<SessionMsg, { type: 'user' }>;
+        const content = userMsg.message?.content;
+        if (!Array.isArray(content)) break;
+        for (const block of content) {
+          const b = block as ContentBlock;
+          if (b.type === 'tool_result' && b.tool_use_id) willNest.add(b.tool_use_id);
+        }
+        break;
+      }
+      case 'tool_use_summary': {
+        const tusMsg = msg as Extract<SessionMsg, { type: 'tool_use_summary' }>;
+        for (const id of tusMsg.preceding_tool_use_ids ?? []) {
+          if (registeredToolUseIds.has(id)) willNest.add(id);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  return willNest;
 }
 
 interface MessageRouterProps {
@@ -74,6 +147,36 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
       if (textParts.length > 0) supplementalResultMap.set(toolUseId, textParts.join('\n\n'));
     }
   }
+
+  // Pre-pass: collect hook_* attachment messages keyed by their toolUseID, so each
+  // tool's hooks can nest inside its ToolAccordion body. Mirrors the
+  // supplementalResultMap precedent above (a Map<toolUseID, …> built before render).
+  const toolAttachmentsMap = new Map<string, AttachmentPayload[]>();
+  for (const msg of messages) {
+    if (msg.type !== 'attachment') continue;
+    const attachment = (msg as Extract<SessionMsg, { type: 'attachment' }>).attachment;
+    if (!HOOK_ATTACHMENT_TYPES.has(attachment.type)) continue;
+    const toolUseID = (attachment as { toolUseID?: string }).toolUseID;
+    if (!toolUseID) continue;
+    const existing = toolAttachmentsMap.get(toolUseID);
+    if (existing) {
+      existing.push(attachment);
+    } else {
+      toolAttachmentsMap.set(toolUseID, [attachment]);
+    }
+  }
+
+  // Pre-pass: compute the set of toolUseIDs that WILL reach a ToolAccordion
+  // render site, so the `case 'attachment'` arm can decide orphan-vs-nested
+  // order-independently. A hook attachment line usually precedes its own
+  // tool_result in the real stream, so a mid-loop "consumed" set populated only
+  // when the tool renders would still be empty at the hook's position and the
+  // hook would double-render (once standalone, once nested). Walking the whole
+  // message list up front removes that ordering dependence: an assistant
+  // tool_use block id "will nest" iff a later tool_result carries it, or a
+  // tool_use_summary lists it among preceding_tool_use_ids — exactly the ids
+  // that pair into a ToolAccordion below.
+  const willNestToolUseIds = computeWillNestToolUseIds(messages);
 
   const nodes: React.ReactElement[] = [];
 
@@ -129,6 +232,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                   : '';
             const pending = pendingToolUses.get(b.tool_use_id);
             const supplemental = supplementalResultMap.get(b.tool_use_id) ?? null;
+            const hooks = toolAttachmentsMap.get(b.tool_use_id);
             if (pending) {
               nodes.push(
                 <ToolAccordion
@@ -137,6 +241,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                   input={pending.input}
                   result={resultContent}
                   supplementalResult={supplemental}
+                  hooks={hooks}
                 />
               );
               pendingToolUses.delete(b.tool_use_id);
@@ -148,6 +253,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
                   input={{}}
                   result={resultContent}
                   supplementalResult={supplemental}
+                  hooks={hooks}
                 />
               );
             }
@@ -225,8 +331,15 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         for (const id of ids) {
           const pending = pendingToolUses.get(id);
           if (pending) {
+            const hooks = toolAttachmentsMap.get(id);
             nodes.push(
-              <ToolAccordion key={`${key}-tus-${id}`} toolName={pending.name} input={pending.input} result={summary} />
+              <ToolAccordion
+                key={`${key}-tus-${id}`}
+                toolName={pending.name}
+                input={pending.input}
+                result={summary}
+                hooks={hooks}
+              />
             );
             pendingToolUses.delete(id);
             rendered = true;
@@ -263,20 +376,71 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
         break;
       }
 
+      case 'attachment': {
+        const attachment = (msg as Extract<SessionMsg, { type: 'attachment' }>).attachment;
+
+        // A hook whose tool reaches a ToolAccordion render site is already nested
+        // inside that accordion (via the toolAttachmentsMap `hooks` prop); skip it
+        // here so it does not render twice. Orphan detection is order-independent:
+        // it consults the pre-computed willNestToolUseIds set rather than a set
+        // populated mid-loop, because the hook attachment line usually precedes
+        // its own tool_result. A hook whose toolUseID is NOT in the will-nest set
+        // is a true orphan and falls through to AttachmentRouter as a standalone
+        // row.
+        if (HOOK_ATTACHMENT_TYPES.has(attachment.type)) {
+          const toolUseID = (attachment as { toolUseID?: string }).toolUseID;
+          if (toolUseID && willNestToolUseIds.has(toolUseID)) break;
+        }
+
+        // Classify once here only to decide whether the row is wrapped in the
+        // AmbientRow marker the grouping sweep keys off. AttachmentRouter
+        // classifies again to render — both reads of the same pure function.
+        // Hidden rows render nothing and produce no marker, so they never create
+        // an empty group artifact. Only turn-scoped ambient rows are grouped:
+        // a session-scoped ambient marker (date_change) must stay standalone so
+        // it is never folded into — or erased by — the AmbientGroup collapse.
+        const descriptor = classifyAttachment(attachment);
+        if (descriptor.hidden) break;
+
+        const rendered = <AttachmentRouter key={`${key}-att`} attachment={attachment} />;
+        if (descriptor.scope === 'turn' && descriptor.tier === 'ambient') {
+          nodes.push(<AmbientRow key={`${key}-ambient`}>{rendered}</AmbientRow>);
+        } else {
+          nodes.push(rendered);
+        }
+        break;
+      }
+
       default:
         nodes.push(<RawJsonFallback key={key} data={msg} />);
         break;
     }
   });
 
-  // Group consecutive ToolAccordion nodes into ToolGroup containers.
-  // Non-conversational system events (files_persisted, compact_boundary, etc.) are buffered
-  // while a tool run is in progress — they flush after the group closes, not inside it.
-  // Conversational boundaries (AssistantTurn, UserTurn) always close the current group first.
+  // Group consecutive ToolAccordion nodes into ToolGroup containers, and — in the
+  // same pass — coalesce consecutive ambient attachment rows (AmbientRow markers)
+  // into AmbientGroup zones.
+  //
+  // Two runs are buffered independently and ordered with each other:
+  //   - `toolRun`     — consecutive ToolAccordion nodes (matched by referential
+  //                     type so the existing tool-grouping invariant is intact;
+  //                     AmbientRow is a distinct type and never enters it).
+  //   - `ambientRun`  — consecutive AmbientRow nodes folded into an AmbientGroup.
+  // Non-conversational system events (files_persisted, compact_boundary, etc.)
+  // are buffered while a tool run is open — they flush after the group closes.
+  // Conversational boundaries (AssistantTurn, UserTurn) always close both runs.
   const grouped: React.ReactElement[] = [];
   let toolRun: React.ReactElement[] = [];
+  let ambientRun: React.ReactElement[] = [];
   let systemBuffer: React.ReactElement[] = [];
   let toolRunKey = 0;
+  let ambientRunKey = 0;
+
+  const flushAmbientRun = () => {
+    if (ambientRun.length === 0) return;
+    grouped.push(<AmbientGroup key={`ag-${ambientRunKey++}`} rows={ambientRun} />);
+    ambientRun = [];
+  };
 
   const flushToolRun = () => {
     if (toolRun.length === 0) {
@@ -292,11 +456,21 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
 
   for (const node of nodes) {
     if (node.type === ToolAccordion) {
+      // A tool run opening closes any pending ambient run first so the two zones
+      // stay ordered and never interleave.
+      flushAmbientRun();
       toolRun.push(node);
+    } else if (node.type === AmbientRow) {
+      // Ambient rows only coalesce when truly adjacent; an open tool run closes
+      // first so an AmbientGroup never lands inside a ToolGroup.
+      flushToolRun();
+      ambientRun.push(node);
     } else if (node.type === AssistantTurn || node.type === UserTurn) {
       flushToolRun();
+      flushAmbientRun();
       grouped.push(node);
     } else {
+      flushAmbientRun();
       // Non-conversational node: buffer it if a tool run is in progress so it
       // doesn't break the group; otherwise emit immediately.
       if (toolRun.length > 0) {
@@ -309,6 +483,7 @@ export function MessageRouter({ messages, onInit, onResult }: MessageRouterProps
     }
   }
   flushToolRun();
+  flushAmbientRun();
   grouped.push(...systemBuffer);
 
   return <>{grouped}</>;

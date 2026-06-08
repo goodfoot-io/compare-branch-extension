@@ -1,7 +1,7 @@
 
 <how-to-write-an-investigation-request>
 
-Make the intent and outcomes explicit: what needs to be learned, why it matters, and how to know when complete. Focus on evidence gathering and decision readiness, not solutions. CARD.md describes the unknown and why it matters — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `$notes` skill).
+Make the intent and outcomes explicit: what needs to be learned, why it matters, and how to know when complete. Focus on evidence gathering and decision readiness, not solutions. CARD.md describes the unknown and why it matters — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `$cards:notes` skill).
 
 ## Document Structure
 

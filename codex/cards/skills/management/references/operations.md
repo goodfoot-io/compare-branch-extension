@@ -1,6 +1,6 @@
 <how-to-write-an-operations-request>
 
-Capture the operational goal, evidence, and verification while minimizing risk. Emphasize outcomes, constraints, and safety over implementation details. CARD.md describes the operational situation and urgency — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `$notes` skill).
+Capture the operational goal, evidence, and verification while minimizing risk. Emphasize outcomes, constraints, and safety over implementation details. CARD.md describes the operational situation and urgency — approach observations that emerge during research belong in notes (`<take-notes>` instructions from `$cards:notes` skill).
 
 ## Request Structure
 

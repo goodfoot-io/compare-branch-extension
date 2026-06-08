@@ -1,0 +1,438 @@
+@import '@cards/web/styles';
+@import '@vscode/codicons/dist/codicon.css';
+
+/* =============================================================================
+   CODEX SESSION RENDERER STYLES (`.cx-*` classes)
+
+   All colors use VS Code CSS variables for theme compatibility (light, dark,
+   and high-contrast themes). The compact card mirrors the claude-code-session
+   layout — a fixed-height three-row card that reflows into two panels at a wide
+   viewport — and the expanded transcript renders ordered Codex rollout items.
+   No hardcoded colors anywhere: every surface, text, and accent reads a
+   `--vscode-*` variable.
+   ============================================================================= */
+
+html,
+body,
+#stream-root {
+  height: 100%;
+}
+
+body {
+  color: var(--vscode-editor-foreground);
+}
+
+/* Compact mode renders inside the cards-detail StreamIframeHost iframe. Keep
+   the body transparent so the rounded corners on the inner container are
+   visible, and anchor the root to the host's em basis (see the Claude renderer
+   for the full rationale on the font-size match). */
+body.mode-compact {
+  background: transparent;
+  margin: 0;
+  font-size: var(--vscode-font-size, 13px);
+}
+
+/* ============================================================================
+   Compact stream card
+
+   Honours the host's fixed box (StreamIframeHost COMPACT_STREAM_HEIGHT =
+   calc(3 * 1.5em + 24px)): a 3-row body at 1.5em line-height inside 12px
+   padding. Content beyond the box is CLIPPED, never scrolled, and no row grows.
+
+   Below the breakpoint the container is a single code-block panel; at/above it
+   the container goes transparent and its two child panels become distinct
+   rounded rectangles — recap+metrics on the left, latest lines on the right.
+   ============================================================================ */
+.compact-container {
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 4px;
+  padding: 12px;
+  box-sizing: border-box;
+  height: 100%;
+  overflow: hidden;
+}
+
+.compact-container .split-row {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+}
+
+.compact-container .panel {
+  min-width: 0;
+}
+.compact-container .panel-left {
+  flex: 1 1 auto;
+}
+.compact-container .panel-right {
+  display: none;
+}
+
+.compact-container .body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  min-width: 0;
+}
+
+/* Row 1 — liveness dot + status word + right-aligned timing. */
+.compact-container .row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.5em;
+}
+.compact-container .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 6px;
+}
+.compact-container .dot.ended {
+  background: var(--vscode-descriptionForeground);
+}
+.compact-container .dot.running {
+  background: var(--vscode-terminal-ansiBlue);
+  animation: compact-pulse 1.6s ease-in-out infinite;
+}
+.compact-container .dot.error {
+  background: var(--vscode-errorForeground);
+}
+@keyframes compact-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.compact-container .status {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: var(--vscode-foreground);
+}
+.compact-container .meta-right {
+  margin-left: auto;
+  font-size: 0.78em;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.compact-container .meta-split {
+  display: none;
+}
+
+/* Row 2 — headline, single clamped line. Never the card title/status. */
+.compact-container .headline {
+  font-size: 0.85em;
+  line-height: 1.5em;
+  color: var(--vscode-editor-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Row 3 — metrics: dimmed, separator-joined, numbers bold. */
+.compact-container .metrics {
+  font-size: 0.78em;
+  line-height: 1.5em;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.compact-container .metrics .sep {
+  opacity: 0.5;
+  padding: 0 5px;
+}
+.compact-container .metrics b {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+/* Latest-lines panel rows (only rendered in the split layout). */
+.compact-container .panel-right .line {
+  font-size: 0.78em;
+  line-height: 1.5em;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--vscode-descriptionForeground);
+}
+.compact-container .panel-right .line .lbl {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+.compact-container .panel-right .line .txt {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vscode-foreground);
+}
+.compact-container .panel-right .line .lbl.tool {
+  color: var(--vscode-terminal-ansiBlue);
+}
+.compact-container .panel-right .line .lbl.message {
+  color: var(--vscode-terminal-ansiGreen);
+}
+.compact-container .panel-right .line .lbl.event {
+  color: var(--vscode-charts-purple);
+}
+
+/* Wide-viewport split (see Claude renderer for the 560px breakpoint rationale). */
+@media (min-width: 560px) {
+  .compact-container {
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+  }
+  .compact-container .split-row {
+    gap: 8px;
+    align-items: stretch;
+  }
+  .compact-container .panel {
+    background: var(--vscode-textCodeBlock-background);
+    border-radius: 4px;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+  .compact-container .panel-left {
+    flex: 1 1 58%;
+  }
+  .compact-container .panel-right {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    flex: 0 0 40%;
+    background: color-mix(in srgb, var(--vscode-textCodeBlock-background) 93%, var(--vscode-foreground) 7%);
+  }
+}
+
+/* ============================================================================
+   Expanded transcript
+
+   An ordered list of Codex rollout items: session header, user/assistant
+   messages, reasoning, tool calls with paired outputs, orphan outputs, and
+   readable raw fallbacks for unknown/malformed lines.
+   ============================================================================ */
+body.mode-expanded {
+  margin: 0;
+}
+
+.cx-transcript {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.cx-header {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cx-header .cx-header-key {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.cx-item {
+  margin-bottom: 10px;
+}
+
+.cx-role-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.cx-item.cx-user .cx-role-label {
+  color: var(--vscode-charts-purple);
+}
+.cx-item.cx-assistant .cx-role-label {
+  color: var(--vscode-terminal-ansiGreen);
+}
+.cx-item.cx-reasoning .cx-role-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.cx-message-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--vscode-foreground);
+}
+
+.cx-item.cx-user .cx-message-text {
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 6px;
+  padding: 10px 12px;
+  width: 75%;
+  margin-left: auto;
+}
+
+.cx-reasoning .cx-message-text {
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  border-left: 2px solid var(--vscode-descriptionForeground);
+  padding-left: 8px;
+}
+
+/* Tool call + paired output. */
+.cx-tool {
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.cx-tool-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--vscode-textCodeBlock-background);
+}
+.cx-tool-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 10px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--vscode-charts-blue) 15%, transparent);
+  color: var(--vscode-charts-blue);
+}
+.cx-tool-callid {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+.cx-pre {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background);
+  padding: 8px 10px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--vscode-editor-foreground);
+  tab-size: 4;
+}
+.cx-tool-args {
+  border-top: 1px solid var(--vscode-widget-border);
+}
+.cx-tool-output {
+  border-top: 1px dashed var(--vscode-panel-border);
+}
+.cx-tool-output-label,
+.cx-section-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vscode-descriptionForeground);
+  padding: 3px 8px 0;
+}
+
+.cx-orphan {
+  border: 1px dashed var(--vscode-panel-border);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.cx-raw {
+  border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-widget-border));
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.cx-raw-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vscode-errorForeground);
+  padding: 3px 8px 0;
+}
+
+/* Reasoning detail content rendered alongside the summary. */
+.cx-reasoning-content {
+  margin-top: 4px;
+  font-style: normal;
+  color: var(--vscode-foreground);
+}
+
+/* Turn boundary marker — a thin labelled divider between turns. */
+.cx-turn-boundary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  color: var(--vscode-descriptionForeground);
+}
+.cx-turn-boundary::before,
+.cx-turn-boundary::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--vscode-panel-border);
+}
+.cx-turn-boundary-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Compaction marker. */
+.cx-compaction {
+  border: 1px dashed var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--vscode-charts-purple) 6%, transparent);
+}
+.cx-compaction-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--vscode-charts-purple);
+  margin-bottom: 3px;
+}
+
+/* Persisted high-level event activity (mcp/web_search/image/patch/plan). */
+.cx-event {
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.cx-event-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--vscode-charts-blue);
+  padding: 4px 8px;
+  background: var(--vscode-textCodeBlock-background);
+}
+
+.cx-empty {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  padding: 12px;
+}

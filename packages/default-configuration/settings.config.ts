@@ -42,6 +42,13 @@ export default defineConfig({
           version: 1,
           wwwRoot: './src/streams/claude-code-session/www',
           maxLineLength: 1_048_576
+        },
+        'codex-session': {
+          version: 1,
+          wwwRoot: './src/streams/codex-session/www',
+          // Codex rollout lines can carry full function-call payloads, so the
+          // per-line limit is larger (4 MiB) than the Claude renderer's.
+          maxLineLength: 4_194_304
         }
       }
     }

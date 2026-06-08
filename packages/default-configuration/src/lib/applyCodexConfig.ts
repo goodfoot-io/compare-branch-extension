@@ -78,12 +78,13 @@ function getOrCreateTable(obj: TomlObject, key: string, label: string): TomlObje
 export interface ApplyCodexConfigOptions {
   /**
    * Plugin identifiers to enable. Each entry causes the corresponding
-   * `plugins."<entry>@local".enabled = true` key to be set.
+   * `plugins."<entry>".enabled = true` key to be set, and each must end with
+   * `@local` (validated at runtime — a malformed entry fails closed).
    *
    * Pass `['cards@local', 'runtime@local']` to match the existing
    * `mergeCodexRuntimeConfig` behavior.
    */
-  enablePlugins: Array<'cards@local' | 'runtime@local'>;
+  enablePlugins: readonly string[];
 
   /**
    * When `true`, sets `features.plugins = true`. When `false`, sets it to
@@ -194,52 +195,6 @@ export function applyCodexConfig(parsedToml: TomlObject, options: ApplyCodexConf
 
     result['projects'] = projects;
   }
-
-  return { result, touchedSegments };
-}
-
-// ---------------------------------------------------------------------------
-// applyCodexTrustKey
-// ---------------------------------------------------------------------------
-
-/**
- * Options for `applyCodexTrustKey`.
- */
-export interface ApplyCodexTrustKeyOptions {
-  /** Absolute path to the project root to trust. */
-  repoRoot: string;
-}
-
-/**
- * Applies a single Codex project trust-key to a parsed `config.toml` object.
- *
- * This is a **pure function** — no file I/O.
- *
- * Writes `projects."<repoRoot>".trust_level = "trusted"` into the TOML
- * object and returns the updated object plus the typed segment path for
- * manifest recording.
- *
- * @param parsedToml - Parsed TOML document. Not mutated — a shallow copy is
- *                     returned.
- * @param opts       - `{ repoRoot }` — absolute path of the project to trust.
- * @returns `{ result, touchedSegments }`.
- */
-export function applyCodexTrustKey(parsedToml: TomlObject, opts: ApplyCodexTrustKeyOptions): ApplyCodexConfigResult {
-  const { repoRoot } = opts;
-  const result: TomlObject = { ...parsedToml };
-  const touchedSegments: TomlPath[] = [];
-
-  const projects = { ...getOrCreateTable(result, 'projects', 'projects') };
-  const projectEntry = { ...getOrCreateTable(projects, repoRoot, `projects.${repoRoot}`) };
-  projectEntry['trust_level'] = 'trusted';
-  projects[repoRoot] = projectEntry;
-  result['projects'] = projects;
-
-  touchedSegments.push([
-    { segment: 'projects', quoted: false },
-    { segment: repoRoot, quoted: true },
-    { segment: 'trust_level', quoted: false }
-  ]);
 
   return { result, touchedSegments };
 }

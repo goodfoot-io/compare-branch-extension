@@ -65,7 +65,7 @@ desktop.ini
 # --- Logs & temp ---
 *.log
 !streams/**/*.log
-!attachment/**/*.log
+!attachments/**/*.log
 tmp/
 temp/
 .cache/
