@@ -56,6 +56,7 @@ interface Harness {
   serverMessages: ParsedMessage[];
   sendToClient: (msg: object) => void;
   waitForHello: () => Promise<void>;
+  waitForWatching: () => Promise<void>;
   waitForStopAck: () => Promise<void>;
   stop(): Promise<void>;
 }
@@ -71,6 +72,10 @@ async function buildHarness(): Promise<Harness> {
   let stopAckResolve: (() => void) | undefined;
   const stopAckPromise = new Promise<void>((r) => {
     stopAckResolve = r;
+  });
+  let watchingResolve: (() => void) | undefined;
+  const watchingPromise = new Promise<void>((r) => {
+    watchingResolve = r;
   });
 
   const unixServer = net.createServer((clientSocket) => {
@@ -95,6 +100,11 @@ async function buildHarness(): Promise<Harness> {
         if (parsed.type === 'hello') {
           clientSocket.write(`${JSON.stringify({ type: 'hello-ack' })}\n`);
           helloResolve?.();
+        } else if (
+          parsed.type === 'event' &&
+          (parsed as ParsedMessage & { event?: { type?: string } }).event?.type === 'watching'
+        ) {
+          watchingResolve?.();
         } else if (parsed.type === 'stop-ack') {
           stopAckResolve?.();
         }
@@ -149,6 +159,7 @@ async function buildHarness(): Promise<Harness> {
       activeSocket?.write(`${JSON.stringify(msg)}\n`);
     },
     waitForHello: () => helloPromise,
+    waitForWatching: () => watchingPromise,
     waitForStopAck: () => stopAckPromise,
     async stop() {
       await new Promise<void>((r) => httpServer.close(() => r()));
@@ -225,8 +236,10 @@ describe('transcript-watcher binary integration', () => {
 
     child = spawnWatcher(process.pid);
     await harness.waitForHello();
-    // Let the handler enter its poll-loop before we send stop.
-    await new Promise((r) => setTimeout(r, 100));
+    // Wait until the handler has entered its poll-loop (emits a 'watching'
+    // event) before sending stop — otherwise the control can arrive before the
+    // handler is listening and be dropped.
+    await harness.waitForWatching();
     harness.sendToClient({ type: 'control', command: { type: 'stop' } });
 
     const code = await waitForChildExit(child);

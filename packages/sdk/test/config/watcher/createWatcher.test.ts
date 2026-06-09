@@ -38,6 +38,8 @@ interface Harness {
   socketPath: string;
   serverMessages: ParsedMessage[];
   sendToClient: (msg: object) => void;
+  waitForHello(): Promise<void>;
+  waitForStopAck(): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -45,6 +47,16 @@ async function buildHarness(opts: { onHello?: (socket: net.Socket, msg: ParsedMe
   const socketPath = tmpSocketPath();
   const serverMessages: ParsedMessage[] = [];
   let activeSocket: net.Socket | undefined;
+
+  let resolveHello: (() => void) | undefined;
+  const helloPromise: Promise<void> = new Promise<void>((r) => {
+    resolveHello = r;
+  });
+
+  let resolveStopAck: (() => void) | undefined;
+  const stopAckPromise: Promise<void> = new Promise<void>((r) => {
+    resolveStopAck = r;
+  });
 
   const unixServer = net.createServer((clientSocket) => {
     activeSocket = clientSocket;
@@ -67,11 +79,15 @@ async function buildHarness(opts: { onHello?: (socket: net.Socket, msg: ParsedMe
         }
         serverMessages.push(parsed);
         if (parsed.type === 'hello') {
+          resolveHello?.();
           if (opts.onHello) {
             opts.onHello(clientSocket, parsed);
           } else {
             clientSocket.write(`${JSON.stringify({ type: 'hello-ack' })}\n`);
           }
+        }
+        if (parsed.type === 'stop-ack') {
+          resolveStopAck?.();
         }
       }
     });
@@ -103,6 +119,16 @@ async function buildHarness(opts: { onHello?: (socket: net.Socket, msg: ParsedMe
     serverMessages,
     sendToClient(msg: object) {
       activeSocket?.write(`${JSON.stringify(msg)}\n`);
+    },
+    waitForHello() {
+      // If hello already arrived, resolve immediately
+      if (serverMessages.some((m) => m.type === 'hello')) return Promise.resolve();
+      return helloPromise;
+    },
+    waitForStopAck() {
+      // If stop-ack already arrived, resolve immediately
+      if (serverMessages.some((m) => m.type === 'stop-ack')) return Promise.resolve();
+      return stopAckPromise;
     },
     async stop() {
       await new Promise<void>((r) => httpServer.close(() => r()));
@@ -169,7 +195,7 @@ describe('createWatcher', () => {
 
       const runPromise = firstHandle.run();
 
-      await new Promise<void>((r) => setTimeout(r, 50));
+      await harness.waitForHello();
 
       const secondHandle = await createWatcher({ watcherId: 'dup', cardId: 'c1', metadata: {} }, async () => {});
 
@@ -204,13 +230,14 @@ describe('createWatcher', () => {
 
       const runPromise = handle.run();
 
-      await new Promise<void>((r) => setTimeout(r, 50));
+      await harness.waitForHello();
+      // Yield to let handle.run() start the handler and register onControl before
+      // the stop command is delivered.
+      await new Promise<void>((r) => setImmediate(r));
       harness.sendToClient({ type: 'control', command: { type: 'stop' } });
 
       await runPromise;
-      // Allow server's data event to fire (stop-ack is written before socket.end()
-      // callback, but the server data event is async relative to the end callback)
-      await new Promise<void>((r) => setTimeout(r, 20));
+      await harness.waitForStopAck();
 
       expect(stopCallbackFired).toBe(true);
       expect(harness.serverMessages.some((m) => m.type === 'stop-ack')).toBe(true);
@@ -234,7 +261,9 @@ describe('createWatcher', () => {
 
       const runPromise = handle.run();
 
-      await new Promise<void>((r) => setTimeout(r, 50));
+      await harness.waitForHello();
+      // Yield to let handle.run() start the handler before the control message arrives.
+      await new Promise<void>((r) => setImmediate(r));
       harness.sendToClient({ type: 'control', command: { type: 'unknown-cmd' } });
 
       await runPromise;
@@ -254,6 +283,10 @@ describe('createWatcher', () => {
     let resolveHelloSeen: (() => void) | undefined;
     const helloSeen = new Promise<void>((r) => {
       resolveHelloSeen = r;
+    });
+    let resolveStopAckSeen: (() => void) | undefined;
+    const stopAckSeen = new Promise<void>((r) => {
+      resolveStopAckSeen = r;
     });
 
     const unixServer = net.createServer((socket) => {
@@ -276,6 +309,7 @@ describe('createWatcher', () => {
           }
           serverMessages.push(msg);
           if (msg.type === 'hello') resolveHelloSeen?.();
+          if (msg.type === 'stop-ack') resolveStopAckSeen?.();
         }
       });
     });
@@ -327,13 +361,13 @@ describe('createWatcher', () => {
     const handle = await watcherPromise;
     const runPromise = handle.run();
 
-    await new Promise<void>((r) => setTimeout(r, 50));
+    // Yield to let handle.run() start the handler and register onControl before
+    // the stop command is delivered.
+    await new Promise<void>((r) => setImmediate(r));
     clientSocket!.write(`${JSON.stringify({ type: 'control', command: { type: 'stop' } })}\n`);
 
     await runPromise;
-    // Allow server's data event to fire (stop-ack write precedes socket.end() callback
-    // but the server data event is async relative to the local end callback)
-    await new Promise<void>((r) => setTimeout(r, 20));
+    await stopAckSeen;
 
     const eventMsgs = serverMessages.filter((m) => m.type === 'event');
     expect(eventMsgs.some((m) => (m['event'] as ParsedMessage | undefined)?.type === 'post-ack-event')).toBe(true);
