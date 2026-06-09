@@ -23,3 +23,4 @@ export type {
   WatcherStopAckMessage,
   WatcherToServerMessage
 } from './protocol.js';
+export { socketEndpoint } from './socketEndpoint.js';

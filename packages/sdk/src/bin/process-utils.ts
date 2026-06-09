@@ -29,6 +29,33 @@ const execFileAsync = promisify(execFile);
 const KNOWN_AGENT_COMMS = new Set(['claude', 'node', 'MainThread']);
 
 /**
+ * Requests a process exit without a synchronous {@link process.exit}.
+ *
+ * A synchronous `process.exit` while an HTTP (`fetch`/undici) or WebSocket
+ * request is still tearing down races libuv closing the request's socket /
+ * threadpool async handles and trips a fatal assertion
+ * (`!(handle->flags & UV_HANDLE_CLOSING)`, `src/win/async.c`) that aborts the
+ * process with `0xC0000409` on Windows — even when the command already
+ * succeeded and printed its result. Setting `process.exitCode` and letting the
+ * event loop drain naturally avoids the race; well-behaved commands exit within
+ * a few hundred ms once their client connections close.
+ *
+ * The unref'd backstop is fail-closed: it forces exit only if a handle genuinely
+ * lingers past the deadline, and being unref'd it cannot itself keep the loop
+ * alive, so the normal path still exits promptly and cleanly.
+ *
+ * Use this in CLI bins that talk to the Cards server (fetch / WebSocket) instead
+ * of a bare `process.exit(code)`. It does NOT halt synchronously — callers in a
+ * code path that must stop further execution should `return` after calling it.
+ *
+ * @param code - The exit code to set and, if needed, force.
+ */
+export function requestProcessExit(code: number): void {
+  process.exitCode = code;
+  setTimeout(() => process.exit(code), 5_000).unref();
+}
+
+/**
  * Reads the start-time identity of a process, used to defeat PID reuse.
  *
  * The value is an opaque, stable, per-process token that changes when a PID is

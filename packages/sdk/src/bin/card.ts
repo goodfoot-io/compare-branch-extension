@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { resolveGlobalCardsConfigDir } from '@cards/sdk';
 import { resolveCardRepoPath } from '@cards/sdk/adhoc-attribution';
-import { isKnownAgentComm } from '@cards/sdk/bin/process-utils';
+import { isKnownAgentComm, requestProcessExit } from '@cards/sdk/bin/process-utils';
 import { spawnAdhocAttribution } from '@cards/sdk/bin/spawn-adhoc-attribution';
 import { getCommitsSince } from '@cards/sdk/card-repo';
 import { toCardListSummaries } from '@cards/sdk/card-summary';
@@ -928,7 +928,7 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
         if (disconnectedAt !== null) {
           subscriber.disconnect();
           console.error('Lost connection to Cards server after maximum reconnection attempts.');
-          process.exit(1);
+          requestProcessExit(1);
         }
       }, maxBackoffMs + 1000);
     }
@@ -937,13 +937,13 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
   process.on('SIGINT', () => {
     unsubConnectionChange();
     subscriber.disconnect();
-    process.exit(130);
+    requestProcessExit(130);
   });
 
   process.on('SIGTERM', () => {
     unsubConnectionChange();
     subscriber.disconnect();
-    process.exit(143);
+    requestProcessExit(143);
   });
 
   const onCommit = async (event: CardCommitEvent): Promise<void> => {
@@ -973,14 +973,14 @@ export async function watchCard(cardId: string, globs: string[]): Promise<void> 
     console.log(formatCommit(event.commit));
     unsubConnectionChange();
     subscriber.disconnect();
-    process.exit(0);
+    requestProcessExit(0);
   };
 
   subscriber.on('card:commit', (event) => {
     onCommit(event).catch((err: unknown) => {
       console.error('card watch: error handling commit event:', err instanceof Error ? err.message : String(err));
       subscriber.disconnect();
-      process.exit(1);
+      requestProcessExit(1);
     });
   });
 
@@ -1015,6 +1015,10 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
   }
 
   let run: Promise<void>;
+  // `watch` is intentionally long-running: it blocks on the WebSocket and drives
+  // its own exit from its commit/connection/signal handlers. Every other command
+  // is one-shot and must exit once its work settles (see the run handler below).
+  let isWatch = false;
   switch (command) {
     case 'create':
       run = createCard(process.argv.slice(3));
@@ -1039,6 +1043,7 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
       } else if (verb === 'watch') {
         const watchGlobs = process.argv.slice(4);
         run = watchCard(command, watchGlobs);
+        isWatch = true;
       } else if (verb?.startsWith('--')) {
         const getFlags = parseFlags(process.argv.slice(3));
         run = getCard(command, getFlags['jsonpath']?.[0]);
@@ -1052,8 +1057,22 @@ if (process.argv[1]?.match(/card\.(mjs|ts)$/)) {
     }
   }
 
-  run.catch((error: unknown) => {
-    console.error('card:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
+  run
+    .then(() => {
+      // One-shot commands must not rely on the event loop draining naturally:
+      // the `CardsClient`'s HTTP (fetch/undici) keep-alive socket can keep the
+      // loop alive on Windows long after the result printed — `card list` was
+      // observed hanging for tens of minutes. `requestProcessExit` sets the exit
+      // code and lets the loop drain, with an unref'd backstop that force-exits
+      // if a handle lingers — bounding teardown without the synchronous
+      // `process.exit` that races libuv (0xC0000409). `watch` self-manages, so
+      // its `connect()` resolving here must NOT trigger an exit.
+      if (!isWatch) {
+        requestProcessExit(typeof process.exitCode === 'number' ? process.exitCode : 0);
+      }
+    })
+    .catch((error: unknown) => {
+      console.error('card:', error instanceof Error ? error.message : String(error));
+      requestProcessExit(1);
+    });
 }

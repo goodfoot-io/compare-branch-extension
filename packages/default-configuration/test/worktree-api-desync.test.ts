@@ -20,6 +20,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * @summary Regression test for worktree-API desync bug in resolveOrCreateWorktree
  */
 
+vi.mock('cross-spawn', async () => {
+  // spawnAgentCli routes the agent launch through cross-spawn; forward it to the
+  // mocked node:child_process.spawn so existing spawn('claude'/'codex', ...)
+  // assertions hold on every platform (cross-spawn would otherwise rewrite the
+  // call into a cmd.exe invocation on win32 and bypass the node:child_process mock).
+  const cp = await import('node:child_process');
+  return { default: cp.spawn };
+});
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
   execFile: vi.fn()

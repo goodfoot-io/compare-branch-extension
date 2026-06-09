@@ -12,9 +12,11 @@ import { spawnAgentCli } from '../src/lib/spawn-cli.js';
  * is written to a temp dir as both an extension-less POSIX shim and a `.cmd`
  * sibling that echoes its received argv as JSON, and the temp dir is prepended
  * to PATH. The win32 case proves the core fix — a bare CLI name resolves to its
- * PATHEXT `.cmd` shim through the shell (a bare `spawn('name')` would ENOENT and
- * `spawn('name.cmd')` without a shell would EINVAL). The POSIX case proves the
- * bare name is spawned directly.
+ * PATHEXT `.cmd` shim (a bare `spawn('name')` would ENOENT and `spawn('name.cmd')`
+ * without a shell would EINVAL), AND complex arguments containing cmd.exe
+ * metacharacters and embedded quotes (the `--settings` JSON) survive intact
+ * rather than being mangled by an unquoted `shell: true` concatenation. The POSIX
+ * case proves the bare name is spawned directly with argv preserved verbatim.
  *
  * @summary Tests for spawnAgentCli cross-platform behavior
  */
@@ -32,11 +34,13 @@ beforeEach(async () => {
   const echoScript = `console.log(JSON.stringify(process.argv.slice(1)))`;
 
   // Windows launcher: a .cmd shim that forwards all args to node -e via `%*`.
-  await fs.writeFile(path.join(tmpDir, `${FAKE_CLI}.cmd`), `@echo off\r\nnode -e "${echoScript}" %*\r\n`, 'utf-8');
+  // The `--` terminator stops node from interpreting forwarded `--flag` tokens as
+  // its own options (the fake CLI must echo them as argv, like the real agent).
+  await fs.writeFile(path.join(tmpDir, `${FAKE_CLI}.cmd`), `@echo off\r\nnode -e "${echoScript}" -- %*\r\n`, 'utf-8');
 
   // POSIX shim: extension-less script that forwards "$@" to node -e.
   const posixShim = path.join(tmpDir, FAKE_CLI);
-  await fs.writeFile(posixShim, `#!/bin/sh\nexec node -e '${echoScript}' "$@"\n`, 'utf-8');
+  await fs.writeFile(posixShim, `#!/bin/sh\nexec node -e '${echoScript}' -- "$@"\n`, 'utf-8');
   if (!isWin) {
     await fs.chmod(posixShim, 0o755);
   }
@@ -88,6 +92,19 @@ describe('spawnAgentCli', () => {
     // shell on win32 is what makes the shim runnable.
     const argv = await runAndCaptureArgv(['interview', '--print']);
     expect(argv).toEqual(['interview', '--print']);
+  });
+
+  it.skipIf(!isWin)('delivers a --settings JSON argument intact through the .cmd shim (win32)', async () => {
+    // The regression this guards: under `shell: true` Node concatenates args
+    // unquoted, so cmd.exe mangles the embedded quotes/braces of the settings
+    // JSON and the agent rejects it ("Invalid JSON") before its session starts.
+    // cross-spawn escapes each arg correctly, so it round-trips byte-for-byte.
+    const settings = JSON.stringify({
+      enabledPlugins: { 'runtime@cards.management': true },
+      extraKnownMarketplaces: { 'cards.management': { source: { source: 'directory', path: 'C:\\some path\\mp' } } }
+    });
+    const argv = await runAndCaptureArgv(['--print', '--settings', settings, 'say ok']);
+    expect(argv).toEqual(['--print', '--settings', settings, 'say ok']);
   });
 
   it.skipIf(isWin)('spawns the bare extensionless CLI directly and preserves argv verbatim (posix)', async () => {

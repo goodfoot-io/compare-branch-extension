@@ -143,6 +143,7 @@ export type {
 } from './watcher/index.js';
 export {
   createWatcher,
+  socketEndpoint,
   type WatcherHandle,
   type WatcherHandler,
   WatcherHandshakeError,

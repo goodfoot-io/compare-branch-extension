@@ -17,34 +17,37 @@ const mockExecSync = vi.mocked(execSync);
 interface ProcEntry {
   comm: string;
   ppid: number | null;
-  /** When true, `ps -p <pid> -o comm=` throws (process gone). */
+  /** When true, the process-info query throws (process gone). */
   commFails?: boolean;
 }
+
+const IS_WINDOWS = process.platform === 'win32';
 
 describe('process-tree', () => {
   beforeEach(() => {
     mockExecSync.mockReset();
   });
 
+  /**
+   * Mocks the single per-PID process-info query for the host platform.
+   *
+   * `findAgentPid` issues one subprocess per level: `ps -p <pid> -o comm=,ppid=`
+   * on POSIX and a PowerShell `Win32_Process` query emitting `Name|ParentProcessId`
+   * on Windows. This recognizes both shapes so the same logical tree drives the
+   * test regardless of the host the suite runs on.
+   *
+   * @param tree - Logical process tree keyed by PID.
+   */
   function setupProcessTree(tree: Record<number, ProcEntry>): void {
     mockExecSync.mockImplementation((cmd: string) => {
-      const commMatch = cmd.match(/ps -p (\d+) -o comm=/);
-      if (commMatch) {
-        const pid = Number.parseInt(commMatch[1]!, 10);
-        const entry = tree[pid];
-        if (!entry || entry.commFails) throw new Error(`ps: pid ${pid} not found`);
-        return `${entry.comm}\n`;
+      const match = cmd.match(/ProcessId=(\d+)/) ?? cmd.match(/ps -p (\d+) /);
+      if (!match) throw new Error(`Unexpected command: ${cmd}`);
+      const pid = Number.parseInt(match[1]!, 10);
+      const entry = tree[pid];
+      if (!entry || entry.commFails || entry.ppid === null) {
+        throw new Error(`process ${pid} not found`);
       }
-
-      const ppidMatch = cmd.match(/ps -p (\d+) -o ppid=/);
-      if (ppidMatch) {
-        const pid = Number.parseInt(ppidMatch[1]!, 10);
-        const entry = tree[pid];
-        if (!entry || entry.ppid === null) throw new Error(`ps: pid ${pid} not found`);
-        return `${entry.ppid}\n`;
-      }
-
-      throw new Error(`Unexpected command: ${cmd}`);
+      return IS_WINDOWS ? `${entry.comm}|${entry.ppid}\n` : `${entry.comm} ${entry.ppid}\n`;
     });
   }
 

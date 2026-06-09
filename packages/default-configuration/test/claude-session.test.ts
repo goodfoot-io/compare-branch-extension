@@ -15,6 +15,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * @summary Tests for shared claude-session utilities
  */
 
+vi.mock('cross-spawn', async () => {
+  // spawnAgentCli routes the agent launch through cross-spawn; forward it to the
+  // mocked node:child_process.spawn so existing spawn('claude'/'codex', ...)
+  // assertions hold on every platform (cross-spawn would otherwise rewrite the
+  // call into a cmd.exe invocation on win32 and bypass the node:child_process mock).
+  const cp = await import('node:child_process');
+  return { default: cp.spawn };
+});
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
   execFile: vi.fn(),
@@ -1101,11 +1109,13 @@ describe('claude-session shared utilities', () => {
           string[],
           Record<string, unknown>
         ];
-        // Bare name + shell:true — cmd.exe resolves `claude.cmd` via PATHEXT
-        // (a bare spawn would ENOENT, a `.cmd` name without a shell would EINVAL).
+        // Bare name forwarded to the launcher; cross-spawn (exercised for real in
+        // spawn-cli.test.ts) resolves the win32 `claude.cmd` PATHEXT shim and escapes
+        // args. The session code itself sets no `shell` option — that concern is
+        // delegated to the launcher, so none leaks into the spawn options here.
         expect(command).toBe('claude');
         expect(spawnArgs).toContain('session-123');
-        expect(spawnOpts['shell']).toBe(true);
+        expect(spawnOpts['shell']).toBeUndefined();
 
         child.emit('close', 0);
         await promise;
@@ -1151,7 +1161,7 @@ describe('claude-session shared utilities', () => {
 
         const [command, , spawnOpts] = vi.mocked(spawn).mock.calls[0]! as [string, string[], Record<string, unknown>];
         expect(command).toBe('deepseek');
-        expect(spawnOpts['shell']).toBe(true);
+        expect(spawnOpts['shell']).toBeUndefined();
 
         child.emit('close', 0);
         await promise;
@@ -1181,10 +1191,11 @@ describe('claude-session shared utilities', () => {
           string[],
           Record<string, unknown>
         ];
-        // POSIX: bare name, prompt carried verbatim, no shell.
+        // POSIX: bare name, prompt carried verbatim. cross-spawn is a pass-through to
+        // child_process.spawn on POSIX, so no `shell` option is set by the session code.
         expect(command).toBe('claude');
         expect(spawnArgs[0]).toBe('fix bug & echo OWNED');
-        expect(spawnOpts['shell']).toBe(false);
+        expect(spawnOpts['shell']).toBeUndefined();
 
         child.emit('close', 0);
         await promise;
