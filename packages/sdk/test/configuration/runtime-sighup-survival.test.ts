@@ -73,17 +73,29 @@ function waitForCondition(check: () => boolean, timeoutMs: number, label?: strin
 }
 
 /**
- * Kill a process group (negative PID). Silently ignores ESRCH (already dead).
+ * Kill a process group (negative PID). Silently ignores errors that mean
+ * "the group is already gone or not ours":
+ *
+ *  - `ESRCH`: the process/group no longer exists (normal race on exit).
+ *  - `EPERM`: the PID was recycled and is now owned by a different uid — the
+ *    original group leader has already exited. This can happen under parallel
+ *    test load where the OS reuses PIDs quickly.
+ *  - `ENOENT`: platform variant of "no such process" (some macOS paths).
+ *
+ * These are all benign during afterEach cleanup: the processes we intended to
+ * kill are already gone. Re-throw anything else so real permission failures
+ * surface.
  *
  * @param pid - The process group leader PID.
  * @param signal - Signal to send (defaults to SIGKILL).
- * @throws {NodeJS.ErrnoException} When process.kill fails with an error other than ESRCH.
+ * @throws {NodeJS.ErrnoException} When process.kill fails with an unexpected error.
  */
 function killProcessGroup(pid: number, signal: NodeJS.Signals = 'SIGKILL'): void {
   try {
     process.kill(-pid, signal);
   } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'ESRCH' && code !== 'EPERM' && code !== 'ENOENT') throw error;
   }
 }
 
@@ -109,6 +121,7 @@ describe('SIGHUP survival mechanism', () => {
     async () => {
       const readyMarker = path.join(tempDir, 'ready');
       const cleanupMarker = path.join(tempDir, 'cleanup-ran');
+      const childReadyMarker = path.join(tempDir, 'child-ready');
 
       // Inline script simulating the action handler with the SIGHUP fix.
       // It installs the same no-op SIGHUP handler that executeCommand uses,
@@ -125,8 +138,14 @@ describe('SIGHUP survival mechanism', () => {
         stdio: 'ignore'
       });
 
-      // Signal that the handler is ready
+      // Signal that the handler is ready (parent process initialized)
       fs.writeFileSync(${JSON.stringify(readyMarker)}, 'ready');
+
+      // Signal that the grandchild is spawned — written on the spawn event so
+      // the test knows it is safe to send SIGHUP without racing the child start.
+      child.on('spawn', () => {
+        fs.writeFileSync(${JSON.stringify(childReadyMarker)}, 'ready');
+      });
 
       // After the child exits (killed by SIGHUP), run post-exit cleanup
       child.on('close', () => {
@@ -171,9 +190,7 @@ describe('SIGHUP survival mechanism', () => {
 
       // Wait for the handler to be running and child spawned
       await waitForCondition(() => fs.existsSync(readyMarker), 5000, 'ready marker');
-
-      // Brief pause to ensure the child process is fully spawned
-      await new Promise((r) => setTimeout(r, 200));
+      await waitForCondition(() => fs.existsSync(childReadyMarker), 5000, 'child ready');
 
       // Send SIGHUP to the entire process group (simulates terminal close)
       killProcessGroup(proc.pid!, 'SIGHUP');
@@ -194,6 +211,7 @@ describe('SIGHUP survival mechanism', () => {
     async () => {
       const readyMarker = path.join(tempDir, 'ready');
       const cleanupMarker = path.join(tempDir, 'cleanup-ran');
+      const childReadyMarker = path.join(tempDir, 'child-ready');
 
       // Same script but WITHOUT the SIGHUP handler — proving the fix is necessary
       const handlerScript = `
@@ -207,6 +225,12 @@ describe('SIGHUP survival mechanism', () => {
       });
 
       fs.writeFileSync(${JSON.stringify(readyMarker)}, 'ready');
+
+      // Signal that the grandchild is spawned so the test can send SIGHUP
+      // without racing the child start.
+      child.on('spawn', () => {
+        fs.writeFileSync(${JSON.stringify(childReadyMarker)}, 'ready');
+      });
 
       child.on('close', () => {
         fs.writeFileSync(${JSON.stringify(cleanupMarker)}, 'cleanup-ran');
@@ -248,7 +272,7 @@ describe('SIGHUP survival mechanism', () => {
       });
 
       await waitForCondition(() => fs.existsSync(readyMarker), 5000, 'ready marker');
-      await new Promise((r) => setTimeout(r, 200));
+      await waitForCondition(() => fs.existsSync(childReadyMarker), 5000, 'child ready');
 
       killProcessGroup(proc.pid!, 'SIGHUP');
 

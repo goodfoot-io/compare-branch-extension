@@ -568,6 +568,8 @@ export async function main(): Promise<void> {
       await syncOnce();
     });
 
+    ctx.emit({ type: 'watching', data: null });
+
     const { maxLifetimeExceeded, stopRequested } = await runWatcherLoop({
       signal,
       checkSentinel: () => sentinelFileExists(cardRepoPath, sessionId),
