@@ -11,6 +11,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -23,8 +24,8 @@ function initGitRepo(dir: string): void {
   execFileSync('git', ['init', '-q'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
-  execFileSync('bash', ['-c', `echo '# test' > README.md`], { cwd: dir });
-  execFileSync('bash', ['-c', `echo 'node_modules/' > .gitignore`], { cwd: dir });
+  writeFileSync(path.join(dir, 'README.md'), '# test\n');
+  writeFileSync(path.join(dir, '.gitignore'), 'node_modules/\n');
   execFileSync('git', ['add', '.'], { cwd: dir });
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
 }
