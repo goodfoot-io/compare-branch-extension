@@ -163,7 +163,10 @@ export class EventSubscriber {
    * When `overrides` are provided (e.g. from a discovery result), those values
    * are used for this connection instead of the construction-time options.
    * The access token is always appended as a `?token=` query parameter.
-   * Connection failures reject the returned promise.
+   * Connection failures reject the returned promise. If a newer `connect()`
+   * call supersedes this one before its socket opens, the returned promise
+   * rejects with an `'Superseded by a newer connect()'` error rather than
+   * hanging.
    *
    * @param overrides - Optional URL and token to use instead of construction-time options.
    * @param overrides.wsUrl - WebSocket URL to connect to.
@@ -203,6 +206,14 @@ export class EventSubscriber {
       };
 
       const onOpen = (): void => {
+        // Ignore open events from a stale socket that has already been replaced
+        // by a concurrent connect() call. Reject this promise so the superseded
+        // caller does not hang; the newer connect()'s promise governs state.
+        if (ws !== this.ws) {
+          cleanup();
+          reject(new Error('Superseded by a newer connect()'));
+          return;
+        }
         this.connected = true;
         this.hasConnected = true;
         this.reconnectAttempts = 0;
@@ -239,6 +250,8 @@ export class EventSubscriber {
         }
       });
       ws.addEventListener('message', (event: MessageEvent) => {
+        // Ignore messages from a stale socket that has already been replaced.
+        if (ws !== this.ws) return;
         this.handleMessage(event);
       });
     });
@@ -377,8 +390,12 @@ export class EventSubscriber {
    * browser JavaScript, so an app-level exchange is required for liveness
    * detection. Two consecutive misses tolerate one lost response (e.g., due
    * to throttled timers in a backgrounded VS Code webview).
+   *
+   * Defensive: any pre-existing heartbeat interval is stopped first so a second
+   * invocation can never leak a timer.
    */
   private _startHeartbeat(): void {
+    this._stopHeartbeat();
     this.missedPongs = 0;
     this.heartbeatInterval = setInterval(() => {
       if (!this.isConnected()) return;

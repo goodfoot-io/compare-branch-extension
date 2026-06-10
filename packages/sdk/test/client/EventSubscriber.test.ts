@@ -304,6 +304,101 @@ describe('EventSubscriber', () => {
       expect(discoverFn).not.toHaveBeenCalled();
       expect(mock.instances[0]!.url).toBe('ws://localhost:3000/events?token=original-token');
     });
+
+    it('should not flip connected state when a stale socket opens after being superseded', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+
+      // Start a first connect() but do not open it yet.
+      const firstConnect = subscriber.connect();
+      const staleWs = mock.instances[0]!;
+
+      // A second connect() supersedes the first; its socket is now this.ws.
+      const secondConnect = subscriber.connect();
+      const liveWs = mock.instances[1]!;
+      expect(mock.instances).toHaveLength(2);
+
+      // The superseded socket opens late. Its open handler must not set
+      // connected; the first connect()'s promise rejects instead of hanging.
+      staleWs.simulateOpen();
+      await expect(firstConnect).rejects.toThrow('Superseded by a newer connect()');
+      expect(subscriber.isConnected()).toBe(false);
+
+      // The live socket opening drives the real connected state.
+      liveWs.simulateOpen();
+      await secondConnect;
+      expect(subscriber.isConnected()).toBe(true);
+
+      subscriber.disconnect();
+    });
+
+    it('should ignore messages from a stale socket that was superseded', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+
+      const received: unknown[] = [];
+      subscriber.on('card:deleted', (e) => received.push(e));
+
+      const firstConnect = subscriber.connect();
+      const staleWs = mock.instances[0]!;
+      const secondConnect = subscriber.connect();
+      const liveWs = mock.instances[1]!;
+
+      staleWs.simulateOpen();
+      await expect(firstConnect).rejects.toThrow();
+      liveWs.simulateOpen();
+      await secondConnect;
+
+      // A late message from the stale socket must be ignored.
+      staleWs.simulateMessage({ type: 'card:deleted', cardId: 'stale' });
+      expect(received).toHaveLength(0);
+
+      // Messages from the live socket are still delivered.
+      liveWs.simulateMessage({ type: 'card:deleted', cardId: 'live' });
+      expect(received).toHaveLength(1);
+
+      subscriber.disconnect();
+    });
+  });
+
+  describe('heartbeat', () => {
+    let mock: ReturnType<typeof installMockWebSocket>;
+    let setIntervalSpy: MockInstance;
+    let clearIntervalSpy: MockInstance;
+
+    beforeEach(() => {
+      mock = installMockWebSocket();
+      setIntervalSpy = vi.spyOn(global, 'setInterval');
+      clearIntervalSpy = vi.spyOn(global, 'clearInterval');
+    });
+
+    afterEach(() => {
+      mock.restore();
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    });
+
+    it('should not leak a prior interval when the heartbeat starts twice', async () => {
+      const subscriber = new EventSubscriber(defaultOptions);
+
+      // First successful open starts a heartbeat interval.
+      const firstConnect = subscriber.connect();
+      mock.instances[0]!.simulateOpen();
+      await firstConnect;
+      const intervalsAfterFirst = setIntervalSpy.mock.calls.length;
+      const clearsBeforeSecond = clearIntervalSpy.mock.calls.length;
+
+      // A fresh connect() opens again; _startHeartbeat must clear the prior
+      // interval before creating the new one.
+      const secondConnect = subscriber.connect();
+      mock.instances[mock.instances.length - 1]!.simulateOpen();
+      await secondConnect;
+
+      expect(setIntervalSpy.mock.calls.length).toBeGreaterThan(intervalsAfterFirst);
+      // The prior interval was cleared (connect() stops heartbeat, and
+      // _startHeartbeat defensively stops again before re-arming).
+      expect(clearIntervalSpy.mock.calls.length).toBeGreaterThan(clearsBeforeSecond);
+
+      subscriber.disconnect();
+    });
   });
 
   describe('send()', () => {
