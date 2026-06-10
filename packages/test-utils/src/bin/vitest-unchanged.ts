@@ -54,11 +54,12 @@ interface CacheLookup {
 }
 
 /**
- * Resolve the local vitest entry-point script once at startup.
+ * Resolve the local vitest entry-point script.
  * Uses `createRequire` so we find the copy installed in this package's
  * node_modules rather than relying on PATH or npx resolution at spawn time.
  * Spawning `process.execPath` (the running Node binary) with the script
  * directly avoids shell quoting hazards on all platforms.
+ * Resolved on first spawn, memoized for subsequent calls.
  * @returns Absolute path to the vitest entry-point script.
  */
 function resolveVitestBin(): string {
@@ -74,7 +75,14 @@ function resolveVitestBin(): string {
   return join(vitestDir, relBin);
 }
 
-const VITEST_BIN = resolveVitestBin();
+let vitestBin: string | null = null;
+
+function getVitestBin(): string {
+  if (vitestBin === null) {
+    vitestBin = resolveVitestBin();
+  }
+  return vitestBin;
+}
 
 const SENTINEL_DIR = join(process.cwd(), 'node_modules', '.vitest-unchanged-cache');
 const SENTINEL_FILE = join(SENTINEL_DIR, 'sentinel');
@@ -133,7 +141,7 @@ async function runVitest(extraArgs: string[], options?: { collectCounts?: boolea
   }
 
   const code = await new Promise<number>((resolve) => {
-    const child = spawn(process.execPath, [VITEST_BIN, ...vitestArgs], {
+    const child = spawn(process.execPath, [getVitestBin(), ...vitestArgs], {
       cwd: process.cwd(),
       stdio: 'inherit'
     });
@@ -426,10 +434,15 @@ const STAT_BATCH_SIZE = 32;
  * check for the corresponding central cache file. The computed hash is always
  * returned so the caller can reuse it when writing the cache after the run.
  *
+ * Self-heal: on a slow-path cache hit (e.g. fresh worktree, wiped node_modules,
+ * or corrupt sentinel), the local sentinel is refreshed best-effort so that
+ * the next run takes the fast path instead of paying the git subprocesses again.
+ *
  * @returns A `CacheLookup` describing the result. `cachePath` is non-null on
  *   a hit. `contentHash` is non-null whenever `cachePath` is null (slow path).
  */
 async function findValidCache(): Promise<CacheLookup> {
+  const lookupStart = new Date();
   const cwd = process.cwd();
   const sentinel = await readSentinel();
 
@@ -491,6 +504,12 @@ async function findValidCache(): Promise<CacheLookup> {
   const cachePath = join(centralDir, `${contentHash}.json`);
   try {
     await stat(cachePath);
+    // Slow-path hit: refresh the sentinel so subsequent runs take the fast path.
+    try {
+      await writeSentinel(contentHash, centralDir, lookupStart);
+    } catch (error) {
+      console.warn('vitest-unchanged: could not refresh sentinel.', error);
+    }
     return { cachePath, contentHash, centralDir };
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
