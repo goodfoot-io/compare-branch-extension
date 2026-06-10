@@ -24,6 +24,7 @@ import {
   buildWorkspaceRepoLogBlocks,
   CardRepoAccessError
 } from '../../shared/context.js';
+import { persistSessionEnv } from '../../shared/session-env.js';
 
 export { buildCardRepoLogBlock, buildEnvBlock, buildWorkspaceRepoLogBlocks, CardRepoAccessError };
 
@@ -92,22 +93,10 @@ function spawnWatcher(
   }
 }
 
-/**
- * Environment variable names persisted into the Bash tool shell environment.
- *
- * CARDS_SESSION_ID: read by the card-repo post-commit hook to record commits
- * without a process-tree walk.
- * CARDS_TRANSCRIPT_PATH: read by attach-mode watcher spawn to target the
- * correct transcript file.
- */
-const CARDS_SESSION_ID_ENV = 'CARDS_SESSION_ID';
-const CARDS_TRANSCRIPT_PATH_ENV = 'CARDS_TRANSCRIPT_PATH';
-
 export default sessionStartHook({}, async (input, { logger, persistEnvVar }) => {
   // Persist session env vars unconditionally — before extractActionInput so
   // they are available in every session, including non-action subprocesses.
-  persistEnvVar(CARDS_SESSION_ID_ENV, input.session_id);
-  persistEnvVar(CARDS_TRANSCRIPT_PATH_ENV, input.transcript_path);
+  persistSessionEnv(input.session_id, input.transcript_path, persistEnvVar);
   logger.info('Persisted session env vars to environment', {
     sessionId: input.session_id,
     transcriptPath: input.transcript_path
