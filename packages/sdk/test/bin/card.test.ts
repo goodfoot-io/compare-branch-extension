@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
@@ -35,46 +35,35 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-// Mock the worktree-bind step and the attribution-spawn step so createCard's
-// binding side-effect is observable without registering branches or spawning
-// detached watcher processes. The real bind/spawn paths have their own suites.
-const bindWorktreeToCard = vi.fn<(...args: unknown[]) => Promise<'bound' | 'already-bound'>>(() =>
-  Promise.resolve('bound')
-);
+// Mock the worktree-outfit orchestrator so createCard's binding side-effect is
+// observable without registering branches, installing hooks, or spawning
+// detached watcher processes. The real outfit path has its own suite.
+const outfitWorktreeForCard = vi.fn<(...args: unknown[]) => Promise<void>>(() => Promise.resolve());
 vi.mock('@cards/sdk/worktree-for-card', () => ({
-  bindWorktreeToCard: (...args: unknown[]) => bindWorktreeToCard(...args)
+  outfitWorktreeForCard: (...args: unknown[]) => outfitWorktreeForCard(...args)
 }));
 
-const spawnAdhocAttribution = vi.fn<(...args: unknown[]) => Promise<void>>(() => Promise.resolve());
-vi.mock('@cards/sdk/bin/spawn-adhoc-attribution', () => ({
-  spawnAdhocAttribution: (...args: unknown[]) => spawnAdhocAttribution(...args)
+// Mock the candidate-set reads/removals so the run-from-outside fallback is
+// driven deterministically without touching the global cards config dir.
+const readUnboundCandidates = vi.fn<
+  (...args: unknown[]) => Promise<{ worktreeDir: string; sessionId: string; transcriptPath: string }[]>
+>(() => Promise.resolve([]));
+const removeUnboundCandidate = vi.fn<(...args: unknown[]) => Promise<void>>(() => Promise.resolve());
+vi.mock('@cards/sdk/unbound-worktree-candidates', () => ({
+  readUnboundCandidates: (...args: unknown[]) => readUnboundCandidates(...args),
+  removeUnboundCandidate: (...args: unknown[]) => removeUnboundCandidate(...args)
 }));
 
-// Stub the agent-PID and card-repo resolution so the gate-passes path reaches
-// the spawn step deterministically (the real implementations depend on the
-// host process tree and discovery file).
-const resolveCardRepoPath = vi.fn<(...args: unknown[]) => Promise<string | null>>(() =>
-  Promise.resolve('/tmp/test-repo')
-);
-vi.mock('@cards/sdk/adhoc-attribution', () => ({
-  resolveCardRepoPath: (...args: unknown[]) => resolveCardRepoPath(...args)
-}));
-
-const findAgentPid = vi.fn<() => number | null>(() => 4242);
-vi.mock('@cards/sdk/process-tree', () => ({
-  findAgentPid: () => findAgentPid()
-}));
-
-const isKnownAgentComm = vi.fn<(...args: unknown[]) => boolean>(() => true);
-vi.mock('@cards/sdk/bin/process-utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/bin/process-utils.js')>();
+// resolveExtensionPath is invoked only to build compiledScriptPaths for the
+// (mocked) outfit call; stub it so it never touches the real install.
+vi.mock('@cards/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@cards/sdk')>();
   return {
     ...actual,
-    isKnownAgentComm: (...args: unknown[]) => isKnownAgentComm(...args)
+    resolveExtensionPath: vi.fn(() => Promise.resolve('/tmp/ext-install'))
   };
 });
 
-import { writePendingBind } from '@cards/sdk/pending-bind';
 import {
   applyJsonPath,
   connectClient,
@@ -1107,45 +1096,72 @@ describe('card binary', () => {
     });
 
     describe('worktree binding', () => {
-      /** A separate temp worktree dir createCard is invoked from in binding tests. */
-      let worktreeDir: string;
+      /** A main repo + linked worktree createCard is invoked from in binding tests. */
+      let base: string;
+      let mainRepo: string;
+      let linkedWorktree: string;
       let origCwd: string;
       let savedSessionId: string | undefined;
+      let savedTranscript: string | undefined;
       let savedExitCode: typeof process.exitCode;
+
+      /**
+       * Creates a real linked git worktree (git-dir ≠ common-dir) so the
+       * cwd-primary leg of resolveBindTarget treats it as a bind target. Records
+       * `branch.<name>.cardsParent` so parent-branch resolution succeeds.
+       */
+      function makeLinkedWorktree(): void {
+        mainRepo = join(base, 'main');
+        execFileSync('git', ['init', '-q', '-b', 'main', mainRepo]);
+        execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: mainRepo });
+        execFileSync('git', ['config', 'user.name', 'Test'], { cwd: mainRepo });
+        execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'init'], { cwd: mainRepo });
+        const linkedRaw = join(base, 'linked');
+        execFileSync('git', ['worktree', 'add', '-q', '-b', 'feature/x', linkedRaw], { cwd: mainRepo });
+        // Canonicalize so the path matches process.cwd() after chdir.
+        linkedWorktree = realpathSync(linkedRaw);
+        execFileSync('git', ['config', 'branch.feature/x.cardsParent', 'main'], { cwd: linkedWorktree });
+      }
 
       beforeEach(() => {
         origCwd = process.cwd();
         savedSessionId = process.env['CARDS_SESSION_ID'];
+        savedTranscript = process.env['CARDS_TRANSCRIPT_PATH'];
         savedExitCode = process.exitCode;
-        worktreeDir = join(realTmpdir(), `card-bin-wt-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-        mkdirSync(join(worktreeDir, '.cards'), { recursive: true });
-        // Canonicalize so the path matches process.cwd() after chdir — on macOS
-        // the tmpdir is a /var -> /private/var symlink that cwd() resolves.
-        worktreeDir = realpathSync(worktreeDir);
-        bindWorktreeToCard.mockClear();
-        bindWorktreeToCard.mockResolvedValue('bound');
-        spawnAdhocAttribution.mockClear();
+        base = realpathSync(
+          (() => {
+            const b = join(realTmpdir(), `card-bin-wt-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            mkdirSync(b, { recursive: true });
+            return b;
+          })()
+        );
+        outfitWorktreeForCard.mockClear();
+        outfitWorktreeForCard.mockResolvedValue(undefined);
+        readUnboundCandidates.mockClear();
+        readUnboundCandidates.mockResolvedValue([]);
+        removeUnboundCandidate.mockClear();
       });
 
       afterEach(() => {
         process.chdir(origCwd);
         restoreEnv('CARDS_SESSION_ID', savedSessionId);
+        restoreEnv('CARDS_TRANSCRIPT_PATH', savedTranscript);
         process.exitCode = savedExitCode;
-        rmSync(worktreeDir, { recursive: true, force: true });
+        rmSync(base, { recursive: true, force: true });
       });
 
-      it('creates an untracked card without binding when no PENDING_BIND marker is present', async () => {
+      it('creates an untracked card without binding when cwd is the main worktree (not linked)', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         process.env['CARDS_SESSION_ID'] = 'sess-no-marker';
         try {
-          // worktreeDir has a .cards dir but no PENDING_BIND marker.
-          process.chdir(worktreeDir);
+          makeLinkedWorktree();
+          // Run from the MAIN worktree — git-dir equals common-dir, so it is
+          // never a bind target, and the candidate set is empty.
+          process.chdir(mainRepo);
           await withStdin(JSON.stringify({ title: 'Planning card' }), () =>
             createCard(['--workspace-path', '/tmp/workspace'])
           );
-          expect(bindWorktreeToCard).not.toHaveBeenCalled();
-          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
-          // stdout is still the create-result JSON.
+          expect(outfitWorktreeForCard).not.toHaveBeenCalled();
           const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
           expect(output['id']).toBe('test-1');
         } finally {
@@ -1153,40 +1169,28 @@ describe('card binary', () => {
         }
       });
 
-      it('binds the worktree and spawns attribution when the marker passes the same-session gate', async () => {
+      it('outfits the worktree (cwd-primary) with the binder env session + resolved parent branch', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         process.env['CARDS_SESSION_ID'] = 'sess-bind-ok';
-        await writePendingBind(worktreeDir, {
-          version: 1,
-          parentBranch: 'main',
-          transcriptPath: '/tmp/transcript.jsonl',
-          sessionId: 'sess-bind-ok'
-        });
+        process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/transcript.jsonl';
         try {
-          process.chdir(worktreeDir);
+          makeLinkedWorktree();
+          process.chdir(linkedWorktree);
           await withStdin(JSON.stringify({ title: 'Bound card' }), () =>
             createCard(['--workspace-path', '/tmp/workspace'])
           );
 
-          expect(bindWorktreeToCard).toHaveBeenCalledOnce();
-          const [, boundDir, bindOptions] = bindWorktreeToCard.mock.calls[0]! as [
+          expect(outfitWorktreeForCard).toHaveBeenCalledOnce();
+          const [, boundDir, outfitOptions] = outfitWorktreeForCard.mock.calls[0]! as [
             unknown,
             string,
-            { cardId: string; parentBranch: string; sessionId?: string }
+            { cardId: string; parentBranch: string; sessionId: string; transcriptPath: string }
           ];
-          expect(boundDir).toBe(worktreeDir);
-          expect(bindOptions.cardId).toBe('test-1');
-          expect(bindOptions.parentBranch).toBe('main');
-          expect(bindOptions.sessionId).toBe('sess-bind-ok');
-
-          expect(spawnAdhocAttribution).toHaveBeenCalledOnce();
-          const [spawnParams] = spawnAdhocAttribution.mock.calls[0]! as [
-            { agentPid: number; sessionId: string; transcriptPath: string; cardId: string }
-          ];
-          expect(spawnParams.cardId).toBe('test-1');
-          expect(spawnParams.sessionId).toBe('sess-bind-ok');
-          expect(spawnParams.transcriptPath).toBe('/tmp/transcript.jsonl');
-          expect(spawnParams.agentPid).toBe(4242);
+          expect(boundDir).toBe(linkedWorktree);
+          expect(outfitOptions.cardId).toBe('test-1');
+          expect(outfitOptions.parentBranch).toBe('main');
+          expect(outfitOptions.sessionId).toBe('sess-bind-ok');
+          expect(outfitOptions.transcriptPath).toBe('/tmp/transcript.jsonl');
 
           // stdout payload remains the create-result JSON.
           const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
@@ -1196,88 +1200,21 @@ describe('card binary', () => {
         }
       });
 
-      it('leaves the worktree already-bound case untracked: no spawn, stderr diagnostic, stdout still create JSON', async () => {
+      it('refuses to create the card when the binder env carries no session/transcript', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        process.env['CARDS_SESSION_ID'] = 'sess-already-bound';
-        bindWorktreeToCard.mockResolvedValue('already-bound');
-        await writePendingBind(worktreeDir, {
-          version: 1,
-          parentBranch: 'main',
-          transcriptPath: '/tmp/transcript.jsonl',
-          sessionId: 'sess-already-bound'
-        });
+        delete process.env['CARDS_SESSION_ID'];
+        delete process.env['CARDS_TRANSCRIPT_PATH'];
         try {
-          process.chdir(worktreeDir);
-          await withStdin(JSON.stringify({ title: 'Card for a bound worktree' }), () =>
-            createCard(['--workspace-path', '/tmp/workspace'])
-          );
-
-          // The gate passed, so the card was created and bind was attempted...
-          expect(bindWorktreeToCard).toHaveBeenCalledOnce();
-          // ...but reconciliation found a different card already bound, so no spawn.
-          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
-          const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
-          expect(diagnostic).toContain('already bound');
-          // stdout payload remains the create-result JSON.
-          const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
-          expect(output['id']).toBe('test-1');
-        } finally {
-          errSpy.mockRestore();
-          logSpy.mockRestore();
-        }
-      });
-
-      it('refuses to create the card when the marker has no transcriptPath, emitting a stderr diagnostic', async () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        process.env['CARDS_SESSION_ID'] = 'sess-no-transcript';
-        await writePendingBind(worktreeDir, {
-          version: 1,
-          parentBranch: 'main',
-          sessionId: 'sess-no-transcript'
-        });
-        try {
-          process.chdir(worktreeDir);
+          makeLinkedWorktree();
+          process.chdir(linkedWorktree);
           await withStdin(JSON.stringify({ title: 'Ungated card' }), () =>
             createCard(['--workspace-path', '/tmp/workspace'])
           );
 
-          // Fail-closed: the card is NOT minted, so nothing binds or spawns.
+          // Fail-closed: the card is NOT minted, so nothing outfits.
           expect(cards.size).toBe(0);
-          expect(bindWorktreeToCard).not.toHaveBeenCalled();
-          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
-          // Non-zero exit and EMPTY stdout — no create JSON to capture/orphan.
-          expect(process.exitCode).not.toBe(0);
-          expect(logSpy).not.toHaveBeenCalled();
-          // Diagnostic on stderr instructs re-entry via EnterWorktree.
-          const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
-          expect(diagnostic).toContain('EnterWorktree');
-        } finally {
-          errSpy.mockRestore();
-          logSpy.mockRestore();
-        }
-      });
-
-      it('refuses to create the card when the marker session does not match the binder session', async () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        process.env['CARDS_SESSION_ID'] = 'sess-binder';
-        await writePendingBind(worktreeDir, {
-          version: 1,
-          parentBranch: 'main',
-          transcriptPath: '/tmp/transcript.jsonl',
-          sessionId: 'sess-someone-else'
-        });
-        try {
-          process.chdir(worktreeDir);
-          await withStdin(JSON.stringify({ title: 'Mismatched card' }), () =>
-            createCard(['--workspace-path', '/tmp/workspace'])
-          );
-
-          expect(cards.size).toBe(0);
-          expect(bindWorktreeToCard).not.toHaveBeenCalled();
-          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
+          expect(outfitWorktreeForCard).not.toHaveBeenCalled();
           expect(process.exitCode).not.toBe(0);
           expect(logSpy).not.toHaveBeenCalled();
           const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
@@ -1288,63 +1225,117 @@ describe('card binary', () => {
         }
       });
 
-      it('creates an untracked card and drains the stale marker when CARD_ID exists alongside a foreign-session PENDING_BIND', async () => {
-        // Both-markers crash state: worktree already bound (CARD_ID present) but
-        // stale marker from a different session left behind. CARD_ID wins — no
-        // bind/spawn, stale marker drained, untracked card created.
+      it('creates an untracked card (no outfit) when the cwd linked worktree is already bound', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         process.env['CARDS_SESSION_ID'] = 'sess-current';
-        writeFileSync(join(worktreeDir, '.cards', 'CARD_ID'), 'main-007');
-        await writePendingBind(worktreeDir, {
-          version: 1,
-          parentBranch: 'main',
-          transcriptPath: '/tmp/transcript.jsonl',
-          sessionId: 'sess-original'
-        });
+        process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/transcript.jsonl';
         try {
-          process.chdir(worktreeDir);
-          await withStdin(JSON.stringify({ title: 'Untracked after both-markers' }), () =>
+          makeLinkedWorktree();
+          mkdirSync(join(linkedWorktree, '.cards'), { recursive: true });
+          writeFileSync(join(linkedWorktree, '.cards', 'CARD_ID'), 'main-007');
+          process.chdir(linkedWorktree);
+          await withStdin(JSON.stringify({ title: 'Untracked nested card' }), () =>
             createCard(['--workspace-path', '/tmp/workspace'])
           );
 
-          // CARD_ID precedence: no bind, no spawn, untracked card created.
-          expect(bindWorktreeToCard).not.toHaveBeenCalled();
-          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
+          // CARD_ID precedence (main-126): no outfit, untracked card created.
+          expect(outfitWorktreeForCard).not.toHaveBeenCalled();
           const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
           expect(output['id']).toBe('test-1');
-          // Stale marker drained.
-          expect(existsSync(join(worktreeDir, '.cards', 'PENDING_BIND'))).toBe(false);
         } finally {
           logSpy.mockRestore();
         }
       });
 
-      it('creates an untracked card and drains the stale marker when CARD_ID exists alongside a same-session PENDING_BIND', async () => {
-        // Both-markers state where the PENDING_BIND happens to carry the current
-        // session's id (e.g. same agent re-ran card create after a crash).
-        // CARD_ID still wins: no bind/spawn, marker drained, untracked card.
+      it('candidate-set fallback: single same-session candidate binds with a loud stderr notice', async () => {
         const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        process.env['CARDS_SESSION_ID'] = 'sess-same';
-        writeFileSync(join(worktreeDir, '.cards', 'CARD_ID'), 'main-008');
-        await writePendingBind(worktreeDir, {
-          version: 1,
-          parentBranch: 'main',
-          transcriptPath: '/tmp/transcript.jsonl',
-          sessionId: 'sess-same'
-        });
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        process.env['CARDS_SESSION_ID'] = 'sess-fallback';
+        process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/binder-transcript.jsonl';
         try {
-          process.chdir(worktreeDir);
-          await withStdin(JSON.stringify({ title: 'Same-session both-markers' }), () =>
+          makeLinkedWorktree();
+          // The candidate is the linked worktree, but the binder runs from the
+          // MAIN repo (not inside the worktree), so the fallback leg is taken.
+          readUnboundCandidates.mockResolvedValue([
+            { worktreeDir: linkedWorktree, sessionId: 'sess-fallback', transcriptPath: '/tmp/cand-transcript.jsonl' }
+          ]);
+          process.chdir(mainRepo);
+          await withStdin(JSON.stringify({ title: 'Fallback card' }), () =>
             createCard(['--workspace-path', '/tmp/workspace'])
           );
 
-          // CARD_ID precedence still wins even with a matching session id.
-          expect(bindWorktreeToCard).not.toHaveBeenCalled();
-          expect(spawnAdhocAttribution).not.toHaveBeenCalled();
+          expect(outfitWorktreeForCard).toHaveBeenCalledOnce();
+          const [, boundDir, outfitOptions] = outfitWorktreeForCard.mock.calls[0]! as [
+            unknown,
+            string,
+            { cardId: string; parentBranch: string; sessionId: string; transcriptPath: string }
+          ];
+          expect(boundDir).toBe(linkedWorktree);
+          // The candidate's own transcript is used (it was recorded at create).
+          expect(outfitOptions.transcriptPath).toBe('/tmp/cand-transcript.jsonl');
+          expect(outfitOptions.sessionId).toBe('sess-fallback');
+          // Candidate removed on success.
+          expect(removeUnboundCandidate).toHaveBeenCalledWith('sess-fallback', linkedWorktree);
+          // Loud stderr notice naming the worktree.
+          const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
+          expect(diagnostic).toContain(linkedWorktree);
           const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
           expect(output['id']).toBe('test-1');
-          // Stale marker drained.
-          expect(existsSync(join(worktreeDir, '.cards', 'PENDING_BIND'))).toBe(false);
+        } finally {
+          errSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      });
+
+      it('candidate-set fallback: 2+ candidates refuse-and-list, no card minted', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        process.env['CARDS_SESSION_ID'] = 'sess-ambiguous';
+        process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/binder-transcript.jsonl';
+        try {
+          mainRepo = join(base, 'main');
+          execFileSync('git', ['init', '-q', '-b', 'main', mainRepo]);
+          readUnboundCandidates.mockResolvedValue([
+            { worktreeDir: '/wt/one', sessionId: 'sess-ambiguous', transcriptPath: '/tmp/t1.jsonl' },
+            { worktreeDir: '/wt/two', sessionId: 'sess-ambiguous', transcriptPath: '/tmp/t2.jsonl' }
+          ]);
+          process.chdir(mainRepo);
+          await withStdin(JSON.stringify({ title: 'Ambiguous card' }), () =>
+            createCard(['--workspace-path', '/tmp/workspace'])
+          );
+
+          expect(cards.size).toBe(0);
+          expect(outfitWorktreeForCard).not.toHaveBeenCalled();
+          expect(process.exitCode).not.toBe(0);
+          expect(logSpy).not.toHaveBeenCalled();
+          const diagnostic = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
+          expect(diagnostic).toContain('/wt/one');
+          expect(diagnostic).toContain('/wt/two');
+        } finally {
+          errSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      });
+
+      it('candidate-set fallback: wrong-session candidates are filtered out (untracked card)', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        process.env['CARDS_SESSION_ID'] = 'sess-binder';
+        process.env['CARDS_TRANSCRIPT_PATH'] = '/tmp/binder-transcript.jsonl';
+        try {
+          mainRepo = join(base, 'main');
+          execFileSync('git', ['init', '-q', '-b', 'main', mainRepo]);
+          readUnboundCandidates.mockResolvedValue([
+            { worktreeDir: '/wt/other', sessionId: 'sess-someone-else', transcriptPath: '/tmp/t.jsonl' }
+          ]);
+          process.chdir(mainRepo);
+          await withStdin(JSON.stringify({ title: 'Untracked card' }), () =>
+            createCard(['--workspace-path', '/tmp/workspace'])
+          );
+
+          // No same-session candidate → untracked card, no outfit.
+          expect(outfitWorktreeForCard).not.toHaveBeenCalled();
+          const output = JSON.parse(logSpy.mock.calls[0]![0] as string) as Record<string, unknown>;
+          expect(output['id']).toBe('test-1');
         } finally {
           logSpy.mockRestore();
         }

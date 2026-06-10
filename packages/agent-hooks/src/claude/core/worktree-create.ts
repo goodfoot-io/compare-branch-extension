@@ -5,10 +5,11 @@
  * non-zero and the harness aborts launch. When the worktree is card-bound, it
  * is registered with the Cards API via `createWorktreeForCard` — discovery
  * failure (no client) throws rather than leaving an unregistered worktree on
- * disk. Unbound worktrees skip the API entirely and write a `.cards/PENDING_BIND`
- * marker so `card create` can bind the worktree later. The worktree path is
- * returned only after `settle` resolves, ensuring symlinks and node_modules
- * rerouting are complete before the agent uses the directory.
+ * disk. Unbound worktrees skip the API entirely: the parent branch is recorded
+ * as `branch.<name>.cardsParent` git config and the worktree is added to the
+ * per-session unbound-candidate set so `card create` can bind it later. The
+ * worktree path is returned only after `settle` resolves, ensuring symlinks and
+ * node_modules rerouting are complete before the agent uses the directory.
  *
  * @summary WorktreeCreate hook for Cards-managed worktrees
  * @module worktree-create
@@ -19,8 +20,9 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveExtensionPath } from '@cards/sdk';
 import { resolveWorktreeCardId } from '@cards/sdk/adhoc-attribution';
+import { writeCardsParentConfig } from '@cards/sdk/cards-parent-branch';
 import { createCardsClient } from '@cards/sdk/client/discovery';
-import { writePendingBind } from '@cards/sdk/pending-bind';
+import { addUnboundCandidate } from '@cards/sdk/unbound-worktree-candidates';
 import { createWorktree, type EarlyWorktreeResult } from '@cards/sdk/worktree';
 import { createWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { worktreeCreateHook, worktreeCreateOutput } from '@goodfoot/claude-code-hooks';
@@ -61,8 +63,9 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
   // lets a nested worktree inherit its parent worktree's binding. The two hooks
   // resolve byte-for-byte the same id so they can never disagree about which
   // card a given worktree belongs to. When neither source yields an id the
-  // worktree is created unbound and a PENDING_BIND marker is written so
-  // `card create` can bind it later.
+  // worktree is created unbound: its parent branch is recorded as git config
+  // and it is added to the per-session unbound-candidate set so `card create`
+  // can bind it later.
   const cardId = process.env['CARD_ID']?.trim() || (await resolveWorktreeCardId(input.cwd));
 
   logger.info('WorktreeCreate', {
@@ -112,11 +115,19 @@ export default worktreeCreateHook({}, async (input, { logger }) => {
     // detached HEAD for the same reason as the card-bound path.
     const parentBranch = await resolveCurrentBranch(input.cwd);
     created = await createWorktree(input.name, { cwd: input.cwd });
-    // Write the PENDING_BIND marker immediately after the worktree directory
-    // exists on disk (created.path is available before settle) so `card create`
-    // can discover and bind this worktree. Fails closed — any write failure
-    // surfaces as a thrown error and aborts launch.
-    await writePendingBind(created.path, { version: 1, parentBranch });
+
+    // Record the parent branch as durable git config on the new branch, so
+    // bind-time `card create` can recover it via `resolveCardsParentBranch`.
+    // Written after the branch exists on disk (createWorktree created it). The
+    // new branch name matches input.name (createWorktree names it after the
+    // worktree). Fails closed — any write failure aborts launch.
+    await writeCardsParentConfig(created.path, input.name, parentBranch);
+
+    // Feed the per-session unbound-candidate set so `card create` invoked from
+    // outside this worktree can discover and bind it. The session is the
+    // worktree-creating session; the transcript is recorded for attribution at
+    // bind time.
+    await addUnboundCandidate(input.session_id, created.path, input.transcript_path);
   }
 
   const { path: worktreePath, settle } = created;

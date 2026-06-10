@@ -159,7 +159,7 @@ describe('WorktreeRemove hook', () => {
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  it('routes a card-bound worktree through removeWorktreeForCard with derived cardId + branch', async () => {
+  it('routes a card-bound worktree through removeWorktreeForCard with the derived cardId', async () => {
     resetMocks();
     const worktree_path = await makeCardBoundWorktree('main-77', 'cards/main-77/3');
     mockRemoveWorktreeForCard.mockResolvedValue(undefined);
@@ -167,9 +167,10 @@ describe('WorktreeRemove hook', () => {
     await hookFn({ ...baseInput, worktree_path }, { logger: mockLogger as unknown as Logger });
 
     expect(mockRemoveWorktree).not.toHaveBeenCalled();
+    // The hook no longer resolves the branch name itself — releaseWorktreeForCard
+    // derives it from HEAD — so it forwards only the cardId.
     expect(mockRemoveWorktreeForCard).toHaveBeenCalledWith(fakeClient, worktree_path, {
-      cardId: 'main-77',
-      branchName: 'cards/main-77/3'
+      cardId: 'main-77'
     });
   });
 
@@ -185,7 +186,7 @@ describe('WorktreeRemove hook', () => {
     expect(mockRemoveWorktree).toHaveBeenCalledWith(worktree_path);
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining('Cards API unavailable'),
-      expect.objectContaining({ cardId: 'main-77', branchName: 'cards/main-77/3' })
+      expect.objectContaining({ cardId: 'main-77' })
     );
   });
 
@@ -212,7 +213,7 @@ describe('WorktreeRemove hook', () => {
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining('branch unregister failed'),
-      expect.objectContaining({ cardId: 'main-77', branchName: 'cards/main-77/3' })
+      expect.objectContaining({ cardId: 'main-77' })
     );
   });
 
@@ -251,21 +252,22 @@ describe('WorktreeRemove hook', () => {
     ).rejects.toBeInstanceOf(WorktreeScopeError);
   });
 
-  it('removes the worktree only (no branch unregister) when HEAD is detached', async () => {
+  it('still routes a detached-HEAD bound worktree through removeWorktreeForCard', async () => {
     resetMocks();
     const worktree_path = await makeCardBoundWorktree('main-77', 'cards/main-77/3');
     // Detach HEAD so rev-parse --abbrev-ref yields the literal "HEAD".
     const sha = execFileSync('git', ['-C', worktree_path, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     execFileSync('git', ['-C', worktree_path, 'checkout', '-q', '--detach', sha]);
-    mockRemoveWorktree.mockResolvedValue(undefined);
+    mockRemoveWorktreeForCard.mockResolvedValue(undefined);
 
     await hookFn({ ...baseInput, worktree_path }, { logger: mockLogger as unknown as Logger });
 
-    expect(mockRemoveWorktreeForCard).not.toHaveBeenCalled();
-    expect(mockRemoveWorktree).toHaveBeenCalledWith(worktree_path);
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('HEAD is detached'),
-      expect.objectContaining({ cardId: 'main-77' })
-    );
+    // The hook no longer special-cases detached HEAD: it forwards to
+    // removeWorktreeForCard, and the detached-HEAD skip-with-warning now lives
+    // inside releaseWorktreeForCard (covered by the SDK-level tests).
+    expect(mockRemoveWorktreeForCard).toHaveBeenCalledWith(fakeClient, worktree_path, {
+      cardId: 'main-77'
+    });
+    expect(mockRemoveWorktree).not.toHaveBeenCalled();
   });
 });

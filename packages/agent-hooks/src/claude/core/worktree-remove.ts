@@ -13,16 +13,12 @@
  * @module worktree-remove
  */
 
-import { execFile } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
 import { createCardsClient } from '@cards/sdk/client/discovery';
 import { removeWorktree, WorktreeScopeError } from '@cards/sdk/worktree';
 import { BranchUnregisterError, removeWorktreeForCard } from '@cards/sdk/worktree-for-card';
 import { worktreeRemoveHook, worktreeRemoveOutput } from '@goodfoot/claude-code-hooks';
-
-const execFileAsync = promisify(execFile);
 
 /**
  * Reads the `.cards/CARD_ID` marker from a worktree, returning the trimmed card
@@ -41,23 +37,6 @@ async function readWorktreeCardId(worktreePath: string): Promise<string | undefi
   }
 }
 
-/**
- * Resolves the registered branch name for a worktree from its current HEAD.
- *
- * Returns `undefined` when HEAD is detached (`--abbrev-ref` yields the literal
- * `"HEAD"`): in that case the branch name cannot be confidently matched against
- * the registered record, so the caller skips the branch unregister rather than
- * removing the wrong record or claiming success on an unreliable name.
- *
- * @param worktreePath - Absolute path to the worktree directory.
- * @returns The branch name, or `undefined` when HEAD is detached.
- */
-async function resolveWorktreeBranch(worktreePath: string): Promise<string | undefined> {
-  const { stdout } = await execFileAsync('git', ['-C', worktreePath, 'rev-parse', '--abbrev-ref', 'HEAD']);
-  const branch = stdout.trim();
-  return branch === 'HEAD' ? undefined : branch;
-}
-
 export default worktreeRemoveHook({}, async (input, { logger }) => {
   const start = Date.now();
 
@@ -68,25 +47,14 @@ export default worktreeRemoveHook({}, async (input, { logger }) => {
 
   try {
     // Resolve the card binding from disk before removal: the marker yields the
-    // cardId and HEAD yields the exact registered branch name (spike S2).
+    // cardId. The exact branch name is derived inside releaseWorktreeForCard
+    // from the worktree's HEAD, where the detached-HEAD skip-with-warning stance
+    // now lives — so the hook no longer resolves the branch itself.
     const cardId = await readWorktreeCardId(input.worktree_path);
 
-    const branchName = cardId === undefined ? undefined : await resolveWorktreeBranch(input.worktree_path);
-
-    if (cardId === undefined || branchName === undefined) {
-      // Unbound worktree (no marker) or detached HEAD (branch name unreliable):
-      // there is no branch record we can confidently unregister. Tear down the
-      // worktree from disk; do not silently claim a branch was unregistered.
-      if (cardId !== undefined) {
-        logger.warn(
-          'WorktreeRemove: worktree HEAD is detached; branch record could not be resolved, removing worktree only',
-          {
-            event: 'WorktreeRemove',
-            worktree_path: input.worktree_path,
-            cardId
-          }
-        );
-      }
+    if (cardId === undefined) {
+      // Unbound worktree (no marker): there is no branch record to unregister.
+      // Tear down the worktree from disk only.
       await removeWorktree(input.worktree_path);
     } else {
       // Fail-open: a missing client or a failed removeBranch must never block
@@ -97,13 +65,12 @@ export default worktreeRemoveHook({}, async (input, { logger }) => {
         logger.warn('WorktreeRemove: Cards API unavailable; removing worktree without unregistering branch', {
           event: 'WorktreeRemove',
           worktree_path: input.worktree_path,
-          cardId,
-          branchName
+          cardId
         });
         await removeWorktree(input.worktree_path);
       } else {
         try {
-          await removeWorktreeForCard(client, input.worktree_path, { cardId, branchName });
+          await removeWorktreeForCard(client, input.worktree_path, { cardId });
         } catch (error) {
           // Classify by phase via error type, not by path existence. A
           // BranchUnregisterError means the worktree was already torn down and
@@ -119,7 +86,6 @@ export default worktreeRemoveHook({}, async (input, { logger }) => {
             event: 'WorktreeRemove',
             worktree_path: input.worktree_path,
             cardId,
-            branchName,
             error: String(error)
           });
         }
