@@ -49,7 +49,7 @@ Run the workspace's typecheck, lint, and tests. If a plan file in `plan/` declar
 
 Based on the result:
 - **All validations pass**: Proceed to Step 3.
-- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): Dispatch `runtime:card:pre-existing-condition` per the dispatch shape used by `./implementation-with-plan.md` Step 3. Do not investigate the failure inline.
+- **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): Dispatch `runtime:pre-existing-condition` per the dispatch shape used by `./implementation-with-plan.md` Step 3. Do not investigate the failure inline.
   - On COMPLETED: re-run the validation command. If it passes, proceed to Step 3.
   - On NOT_PRE_EXISTING: the agent verified the failure is in scope of the active card's work. Proceed to Step 3 — the orchestrator escape hatch should fire on this evidence.
   - On NEEDS_REVISION or BLOCKED: add `blocked` to `tags` in `CARD.meta.json`, write the agent's report and exact failure output to `comment/validation-failed.md`, commit, **STOP**.

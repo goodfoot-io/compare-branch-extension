@@ -35,7 +35,7 @@ Diff the workspace against the baseline to assess scope: number of files changed
 - **Simple** — single-file change, or mechanical edit (rename, type signature update, config tweak) with no behavioral change. Skip evaluation; proceed to Step 4.
 - **Behavioral or cross-file** — any new logic, new API boundary, multi-file change, or async/error-path modification. Read `./implementation-evaluation.md` and follow its instructions.
 
-When an evaluator needs to verify behavior against the pre-implementation state, dispatch `runtime:card:pre-existing-condition` rather than running the comparison in the active workspace — the agent owns baseline reproduction and reports the result back.
+When an evaluator needs to verify behavior against the pre-implementation state, dispatch `runtime:pre-existing-condition` rather than running the comparison in the active workspace — the agent owns baseline reproduction and reports the result back.
 
 ## 4. Finalize
 
@@ -100,12 +100,12 @@ After all logical units are complete, run validation per the workspace validatio
 
 - **All pass** — proceed to Step 3.
 - **Failure originates in files the card's diff touched** — fix and re-run.
-- **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — dispatch `runtime:card:pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the dispatched agent.
+- **Otherwise** (failure is not obviously the card's work — anything ambiguous, unfamiliar, or that "feels" pre-existing) — dispatch `runtime:pre-existing-condition`. Do not investigate the failure's origin yourself; that investigation belongs to the dispatched agent.
 
   ```xml
   <invoke name="Agent">
   <parameter name="description">Investigate possible pre-existing failure</parameter>
-  <parameter name="subagent_type">runtime:card:pre-existing-condition</parameter>
+  <parameter name="subagent_type">runtime:pre-existing-condition</parameter>
   <parameter name="run_in_background">false</parameter>
   <parameter name="prompt">
   ## Failing Command

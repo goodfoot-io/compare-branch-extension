@@ -36,4 +36,4 @@ These stay as distinct top-level skills for portability across agent systems —
 - `$runtime:card-plan-failure-mode` — spawned as the reviewer in the `contest.md` spawn tree.
 - `$runtime:card-failure-mode` — spawned as an evaluator in `implementation-evaluation.md`.
 - `$runtime:card-experience-evaluator` — spawned as the Deep-depth evaluator in `implementation-evaluation.md`.
-- `$runtime:card-pre-existing-condition` — spawned from `implementation-with-plan.md` when validation fails on a pre-existing condition.
+- `$runtime:card-pre-existing-condition` (skill) — loaded by the `runtime:pre-existing-condition` agent; spawned from `implementation-with-plan.md` when validation fails on a pre-existing condition. Use `$runtime:card-pre-existing-condition` in the spawn message, not as the agent type.
