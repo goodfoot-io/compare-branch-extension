@@ -63,6 +63,13 @@ export class EventSubscriber {
   private readonly maxReconnectAttempts: number;
   private readonly logger: EventSubscriberLogger;
   private rawHandlers: Array<(message: Record<string, unknown>) => void> = [];
+  /**
+   * Monotonically increasing counter incremented on every manual `connect()` call.
+   * Each scheduled reconnect timer captures the generation at scheduling time and
+   * bails if the generation has advanced, preventing stale timer callbacks from
+   * creating phantom sockets after a manual reconnect supersedes them.
+   */
+  private connectGeneration: number = 0;
 
   // --- Heartbeat state ---
   /** App-level ping interval timer. Set after a successful connect, cleared on disconnect. */
@@ -160,22 +167,54 @@ export class EventSubscriber {
   /**
    * Connects to the WebSocket server and starts listening for events.
    *
-   * When `overrides` are provided (e.g. from a discovery result), those values
-   * are used for this connection instead of the construction-time options.
    * The access token is always appended as a `?token=` query parameter.
    * Connection failures reject the returned promise. If a newer `connect()`
    * call supersedes this one before its socket opens, the returned promise
    * rejects with an `'Superseded by a newer connect()'` error rather than
    * hanging.
    *
-   * @param overrides - Optional URL and token to use instead of construction-time options.
-   * @param overrides.wsUrl - WebSocket URL to connect to.
-   * @param overrides.accessToken - Bearer token for authentication.
+   * Any pending backoff timer is cancelled and the reconnect-attempt counter is
+   * reset so the next auto-reconnect sequence (should this call also fail) starts
+   * fresh at 1 000 ms rather than continuing from wherever a prior sequence left
+   * off.
+   *
    * @returns Promise that resolves when the socket opens.
    */
-  async connect(overrides?: { wsUrl: string; accessToken: string }): Promise<void> {
-    const wsUrl = overrides?.wsUrl ?? this.options.wsUrl;
-    const accessToken = overrides?.accessToken ?? this.options.accessToken;
+  async connect(): Promise<void> {
+    // Advance the generation counter so any stale timer callbacks scheduled
+    // before this call will bail out when they fire and find their captured
+    // generation no longer matches.
+    this.connectGeneration++;
+
+    // Cancel any pending backoff timer so a manual connect() call does not race
+    // with a scheduled reconnect that would create a second socket once the
+    // timer fires.
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    // Reset the attempt counter so that if this manual connect also fails,
+    // the subsequent auto-reconnect backoff sequence starts fresh at 1000 ms
+    // rather than continuing from wherever a prior sequence left off.
+    this.reconnectAttempts = 0;
+
+    return this._openSocket(this.options.wsUrl, this.options.accessToken);
+  }
+
+  /**
+   * Opens a WebSocket to the given URL and token.
+   *
+   * This is the internal socket-creation path shared by the public {@link connect}
+   * and the auto-reconnect scheduler. It does NOT advance the generation counter,
+   * cancel pending timers, or reset the attempt counter — callers are responsible
+   * for those invariants.
+   *
+   * @param wsUrl - WebSocket endpoint URL.
+   * @param accessToken - Bearer token appended as `?token=`.
+   * @returns Promise that resolves when the socket opens.
+   */
+  private async _openSocket(wsUrl: string, accessToken: string): Promise<void> {
     const url = `${wsUrl}?token=${encodeURIComponent(accessToken)}`;
 
     // Close any existing socket before creating a new one to prevent parallel
@@ -317,9 +356,13 @@ export class EventSubscriber {
     const backoffMs = calculateBackoffMs(this.reconnectAttempts);
     this.reconnectAttempts++;
 
+    // Capture the current generation so the callback can detect whether a
+    // manual connect() call has superseded this scheduled attempt.
+    const generation = this.connectGeneration;
+
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;
-      if (!this.shouldReconnect) {
+      if (!this.shouldReconnect || this.connectGeneration !== generation) {
         return;
       }
 
@@ -338,7 +381,7 @@ export class EventSubscriber {
             return;
           }
           // Connection failure triggers close handler which calls scheduleReconnect
-          this.connect({ wsUrl: result.wsUrl, accessToken: result.accessToken }).catch((err) => {
+          this._openSocket(result.wsUrl, result.accessToken).catch((err) => {
             this.logger.warn(
               `[EventSubscriber] Reconnection attempt ${this.reconnectAttempts} failed:`,
               err instanceof Error ? err.message : String(err)

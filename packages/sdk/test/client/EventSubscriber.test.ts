@@ -740,6 +740,71 @@ describe('EventSubscriber', () => {
       // After exhaustion, no additional timeouts should be scheduled
       expect(setTimeoutSpy.mock.calls.length).toBe(timeoutCallCount);
     });
+
+    it('should cancel a pending reconnect timer when connect() is called manually', async () => {
+      // This pins the fix: if a failed initial connect schedules a backoff
+      // timer and the caller immediately calls connect() again (as
+      // seedFromInitData does), the pending timer must be cancelled so it
+      // does not race and create a second WebSocket.
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 });
+
+      // First connect fails — the close event that follows will schedule a
+      // reconnect timeout.
+      const firstConnect = subscriber.connect();
+      mock.instances[0]!.simulateError();
+      mock.instances[0]!.simulateClose();
+      await expect(firstConnect).rejects.toThrow('WebSocket connection failed');
+
+      const timeoutCountAfterFail = setTimeoutSpy.mock.calls.length;
+      expect(timeoutCountAfterFail).toBeGreaterThan(0);
+
+      // Caller issues a manual connect() before the pending timer fires.
+      const secondConnect = subscriber.connect();
+      mock.instances[1]!.simulateOpen();
+      await secondConnect;
+
+      // The pending timer from the first failure must have been cancelled; no
+      // additional socket should be created when the timer delay expires.
+      const timeoutCountAfterSecond = setTimeoutSpy.mock.calls.length;
+
+      // Fire every timeout that was scheduled up to this point — none should
+      // create a new WebSocket because the timer was cleared by connect().
+      for (const call of setTimeoutSpy.mock.calls.slice(0, timeoutCountAfterSecond)) {
+        const cb = call[0] as () => void;
+        cb();
+      }
+      await vi.waitFor(() => {}); // flush microtasks
+
+      // Still only two WebSocket instances — the cancelled timer did not fire.
+      expect(mock.instances).toHaveLength(2);
+
+      subscriber.disconnect();
+    });
+
+    it('should reset reconnect attempt counter when connect() is called manually mid-backoff', async () => {
+      // After a failed initial connect that schedules attempt 0 (delay 1000ms),
+      // a manual connect() should reset the counter so the *next* auto-reconnect
+      // (if this one also fails) starts fresh at 1000ms rather than 2000ms.
+      const subscriber = new EventSubscriber({ ...defaultOptions, maxReconnectAttempts: 5 });
+
+      // Fail the initial connect — scheduleReconnect increments attempt to 1.
+      const firstConnect = subscriber.connect();
+      mock.instances[0]!.simulateError();
+      mock.instances[0]!.simulateClose();
+      await expect(firstConnect).rejects.toThrow('WebSocket connection failed');
+
+      // Manual connect() — should reset reconnectAttempts to 0.
+      const secondConnect = subscriber.connect();
+      // Let the second connect fail too.
+      mock.instances[1]!.simulateError();
+      mock.instances[1]!.simulateClose();
+      await expect(secondConnect).rejects.toThrow('WebSocket connection failed');
+
+      // The next scheduled backoff must start at 1000ms (attempt 0), not 2000ms.
+      expect(getLastTimeoutDelay(setTimeoutSpy)).toBe(1000);
+
+      subscriber.disconnect();
+    });
   });
 
   describe('Connection Change Callbacks', () => {
