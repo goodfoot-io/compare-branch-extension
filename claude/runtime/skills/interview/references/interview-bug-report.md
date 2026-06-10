@@ -54,7 +54,7 @@ As research subagents return and as the conversation settles pieces of the desti
 - `CARD.meta.json` — title and metadata
 - `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./bug-report.md`
 - `notes/` — research findings, log excerpts, rejected hypotheses
-- `plan/` — decision logs and load-bearing assumptions only; do **not** write a fix plan
+- `plans/` — decision logs and load-bearing assumptions only; do **not** write a fix plan
 
 Commit frequently so the card improves monotonically.
 

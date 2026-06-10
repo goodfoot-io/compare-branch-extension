@@ -14,10 +14,10 @@ Based on comments and prior clarification requests:
 
   ```bash
   cd $CARD_REPO_PATH
-  cat <<'EOF' > comment/clarification-received.md
+  cat <<'EOF' > comments/clarification-received.md
   [acknowledge the new information and explain how it affects requirements analysis]
   EOF
-  git add comment/clarification-received.md
+  git add comments/clarification-received.md
   git commit -m "[single sentence summarizing the new information and how it affects requirements]"  # <card-repo-commit-style>
   ```
 
@@ -25,10 +25,10 @@ Based on comments and prior clarification requests:
 
   ```bash
   cd $CARD_REPO_PATH
-  cat <<'EOF' > comment/clarification-pending.md
+  cat <<'EOF' > comments/clarification-pending.md
   [confirm still waiting; reference which questions from the prior clarification request remain unanswered]
   EOF
-  git add comment/clarification-pending.md
+  git add comments/clarification-pending.md
   git commit -m "[single sentence noting which questions from the prior request remain unanswered]"  # <card-repo-commit-style>
   ```
 
@@ -123,10 +123,10 @@ Search the workspace codebase for keywords from the card description:
 
   ```bash
   cd $CARD_REPO_PATH
-  cat <<'EOF' > comment/research-findings.md
+  cat <<'EOF' > comments/research-findings.md
   [research findings: relevant implementations found, expected behaviors from tests, file paths with code references that resolve the missing requirements]
   EOF
-  git add comment/research-findings.md
+  git add comments/research-findings.md
   git commit -m "[single sentence summarizing the research findings that resolved requirement gaps]"  # <card-repo-commit-style>
   ```
 
@@ -136,10 +136,10 @@ Write a comment presenting specific questions needed to proceed. Prioritize by w
 
 ```bash
 cd $CARD_REPO_PATH
-cat <<'EOF' > comment/clarification-request.md
+cat <<'EOF' > comments/clarification-request.md
 [specific questions needed to proceed, prioritized by what is most blocking, with explanation of why each is needed and references to relevant workspace code]
 EOF
-git add comment/clarification-request.md
+git add comments/clarification-request.md
 git commit -m "[single sentence summarizing which requirements are missing and what is needed to proceed]"  # <card-repo-commit-style>
 ```
 

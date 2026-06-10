@@ -52,7 +52,7 @@ As research subagents return and as the conversation settles pieces of the desti
 - `CARD.meta.json` — title and metadata
 - `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./enhancement.md`
 - `notes/` — research findings, rejected alternatives, open questions
-- `plan/` — decision logs and load-bearing assumptions only; do **not** write an implementation plan
+- `plans/` — decision logs and load-bearing assumptions only; do **not** write an implementation plan
 
 Commit frequently so the card improves monotonically. If an earlier version of the intent named a mechanism, climb to the underlying job as you revise.
 

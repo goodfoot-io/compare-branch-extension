@@ -6,7 +6,7 @@
 
 Read:
 - Recent user additions to the card repository — comments, attachments (screenshots, logs), and any updates to `CARD.md`
-- Plan files from the `plan/` directory in the card repository (prior approach and context)
+- Plan files from the `plans/` directory in the card repository (prior approach and context)
 - `CARD.md` for the card's broader purpose
 - Recent workspace commits on the current branch (what was already delivered)
 
@@ -15,10 +15,10 @@ Based on the user's feedback (comments, attachments, or direct messages):
 
 ```bash
 cd $CARD_REPO_PATH
-cat <<'EOF' > comment/feedback-clarification.md
+cat <<'EOF' > comments/feedback-clarification.md
 [clarification request: what specific changes are needed based on the feedback?]
 EOF
-git add comment/feedback-clarification.md
+git add comments/feedback-clarification.md
 git commit -m "[single sentence describing what clarification is needed about the feedback]"  # <card-repo-commit-style>
 ```
 

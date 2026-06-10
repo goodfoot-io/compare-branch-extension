@@ -29,10 +29,10 @@ Based on blocker analysis:
 
   ```bash
   cd $CARD_REPO_PATH
-  cat <<'EOF' > comment/clarify-blocker.md
+  cat <<'EOF' > comments/clarify-blocker.md
   [clarification request: describe what blocker information is missing and what the user should provide]
   EOF
-  git add comment/clarify-blocker.md
+  git add comments/clarify-blocker.md
   git commit -m "[single sentence describing what blocker information is missing]"  # <card-repo-commit-style>
   ```
 
@@ -49,10 +49,10 @@ Write a comment explaining:
 
 ```bash
 cd $CARD_REPO_PATH
-cat <<'EOF' > comment/blocked-status.md
+cat <<'EOF' > comments/blocked-status.md
 [what is preventing progress, the specific blocker with any referenced card IDs, what action is needed to resolve it, and that work will resume once the blocker is cleared]
 EOF
-git add comment/blocked-status.md
+git add comments/blocked-status.md
 git commit -m "[single sentence describing what is blocking progress and what is needed to resolve it]"  # <card-repo-commit-style>
 ```
 

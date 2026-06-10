@@ -25,7 +25,7 @@ Read, in parallel:
 
 - `CARD.md` — problem, desired outcomes, acceptance criteria
 - `CARD.meta.json` — gates, tags, relations
-- `comment/*.md` — questions, feedback, clarifications (most recent last)
+- `comments/*.md` — questions, feedback, clarifications (most recent last)
 - `notes/*` — research and architectural context
 - Any files named in CARD.md or comments — verify they exist and read the referenced regions
 
@@ -57,7 +57,7 @@ Implement the public API boundary and behavioral expectations for [SLICE_LABEL].
 
 ## Card
 @[CARD_REPO_PATH]/CARD.md
-@[CARD_REPO_PATH]/comment/
+@[CARD_REPO_PATH]/comments/
 @[CARD_REPO_PATH]/notes/
 
 ## Scope

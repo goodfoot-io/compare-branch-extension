@@ -121,7 +121,7 @@ After all logical units are complete, run validation per the workspace validatio
   On the child's return:
   - **COMPLETED** — re-run the validation command and proceed to Step 3 if it passes.
   - **NOT_PRE_EXISTING** — the failure is in scope of this card; fix and re-run.
-  - **NEEDS_REVISION or BLOCKED** — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and the agent's report to `comment/validation-failed.md`, commit both files, and **STOP**.
+  - **NEEDS_REVISION or BLOCKED** — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and the agent's report to `comments/validation-failed.md`, commit both files, and **STOP**.
 
 </final-validation-gate>
 

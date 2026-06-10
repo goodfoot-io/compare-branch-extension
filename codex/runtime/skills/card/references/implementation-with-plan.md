@@ -68,7 +68,7 @@ git tag -d "implement/$CARD_ID/baseline" 2>/dev/null
 
 <verify-plan-state>
 
-Review the plan files in the card repository's `plan/` directory. When multiple files exist, treat the plan file with the most recent commit touching it as layering on top of older ones (`git log -1 --format=%H -- plan/<file>`).
+Review the plan files in the card repository's `plans/` directory. When multiple files exist, treat the plan file with the most recent commit touching it as layering on top of older ones (`git log -1 --format=%H -- plans/<file>`).
 
 - **Newest plan fully implemented** — pass `<final-validation-gate>`, then Step 3.
 - **Implementation steps remain** — pass `<dispatch>` for the next group.
@@ -96,7 +96,7 @@ Use the $runtime:card-developer skill.
 [Description with testing requirements from plan]
 
 ## Plan
-@[CARD_REPO_PATH]/plan/
+@[CARD_REPO_PATH]/plans/
 
 ## Scope
 [Coherent: Complete all implementation steps in sequence.]
@@ -178,7 +178,7 @@ After every group is committed and the plan is fully implemented, run validation
   On the child's return:
   - **COMPLETED** — re-run the validation command and proceed to Step 3 if it passes.
   - **NOT_PRE_EXISTING** — the failure is in scope of this card; re-route to the in-scope branch above.
-  - **NEEDS_REVISION or BLOCKED** — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and the child's report to `comment/validation-failed.md`, commit both files, and **STOP**.
+  - **NEEDS_REVISION or BLOCKED** — block: add `blocked` to `tags` in `CARD.meta.json` if not already present, write the failure output and the child's report to `comments/validation-failed.md`, commit both files, and **STOP**.
 
 </final-validation-gate>
 
@@ -215,7 +215,7 @@ git reset --hard "implement/$CARD_ID/baseline"
 git clean -fd
 ```
 
-Read `./plan.md` and follow its instructions. The planner will find the existing plan files in `plan/` and revise them — the invalidated assumption, missed scope, or contradicting steps are live context that should drive the revision.
+Read `./plan.md` and follow its instructions. The planner will find the existing plan files in `plans/` and revise them — the invalidated assumption, missed scope, or contradicting steps are live context that should drive the revision.
 
 </when-to-return-to-planning>
 

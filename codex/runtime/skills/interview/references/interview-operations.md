@@ -52,7 +52,7 @@ As research subagents return and as the conversation settles pieces of the desti
 - `CARD.meta.json` — title and metadata
 - `CARD.md` — revise the commander's intent as the conversation sharpens it, then the section structure in `./operations.md`
 - `notes/` — research findings, related incidents, rejected approaches
-- `plan/` — decision logs and load-bearing assumptions only; do **not** write a change plan
+- `plans/` — decision logs and load-bearing assumptions only; do **not** write a change plan
 
 Commit frequently so the card improves monotonically.
 

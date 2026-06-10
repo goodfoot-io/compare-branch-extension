@@ -48,7 +48,7 @@ Hold the questions in your working context as your private lens; do not write th
 
 ## 2. Read the Code, Not the Diff's Description of It
 
-Read the plan files from the `plan/` directory and `CARD.md` for intent and constraints. Then diff the workspace against the implementation baseline tag to identify every changed file:
+Read the plan files from the `plans/` directory and `CARD.md` for intent and constraints. Then diff the workspace against the implementation baseline tag to identify every changed file:
 
 ```bash
 git diff implement/$CARD_ID/baseline --name-only

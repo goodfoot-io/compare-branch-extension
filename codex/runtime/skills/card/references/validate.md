@@ -41,23 +41,23 @@ COMMITMSG
 
 ## 2. Pre-Evaluator Validation
 
-Run the workspace's typecheck, lint, and tests. If a plan file in `plan/` declares custom validation commands, run those instead.
+Run the workspace's typecheck, lint, and tests. If a plan file in `plans/` declares custom validation commands, run those instead.
 
 Based on the result:
 - **All validations pass**: Proceed to Step 3.
 - **Failure not obviously the active card's work** (anything ambiguous, unfamiliar, or that "feels" pre-existing): `spawn_agent` a child whose `message` tells it to use `$runtime:card-pre-existing-condition`, per the spawn shape used by `./implementation-with-plan.md` Step 3. Do not investigate the failure inline.
   - On COMPLETED: re-run the validation command. If it passes, proceed to Step 3.
   - On NOT_PRE_EXISTING: the agent verified the failure is in scope of the active card's work. Proceed to Step 3 — the orchestrator escape hatch should fire on this evidence.
-  - On NEEDS_REVISION or BLOCKED: add `blocked` to `tags` in `CARD.meta.json`, write the agent's report and exact failure output to `comment/validation-failed.md`, commit, **STOP**.
+  - On NEEDS_REVISION or BLOCKED: add `blocked` to `tags` in `CARD.meta.json`, write the agent's report and exact failure output to `comments/validation-failed.md`, commit, **STOP**.
 - **Failure clearly originates in files the active card's diff touched**: Proceed to Step 3 — the validation suite is reporting that the work is not actually done.
 
 ## 3. Optional Escape Hatch — Orchestrator Judgment
 
-Before dispatching the evaluator, you may bail out if your reading of `plan/`, `commits.csv`, `CARD.md`, the diff against `implement/$CARD_ID/baseline`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
+Before dispatching the evaluator, you may bail out if your reading of `plans/`, `commits.csv`, `CARD.md`, the diff against `implement/$CARD_ID/baseline`, and the pre-evaluator validation result indicates the implementation is not ready for evaluation. The trigger is your judgment — there is no checklist.
 
 This skill cannot finalize the card on its own. The escape hatch may only re-route backward, never forward to merge:
 
-- **Plan file exists in `plan/`**: Read `./implementation-with-plan.md` and follow its instructions. Its Step 2.1 detects partial-implementation and resumes the work.
+- **Plan file exists in `plans/`**: Read `./implementation-with-plan.md` and follow its instructions. Its Step 2.1 detects partial-implementation and resumes the work.
 - **No plan file**: Read `./plan.md` and follow its instructions.
 
 If you choose not to bail out, continue to Step 4.
@@ -92,10 +92,10 @@ The evaluator child returns a structured final report to you when its task compl
 
 Route on the verdict:
 - **`VERDICT: APPROVED`**: Proceed to Step 6: Finalize.
-- **`VERDICT: CHANGES_REQUESTED`**: Route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plan/` in the card repository:
+- **`VERDICT: CHANGES_REQUESTED`**: Route based on plan presence. "Plan file exists" means at least one non-`.meta.json` `.md` file under `plans/` in the card repository:
   - **Plan file exists**: Read `./implementation-with-plan.md` and follow its instructions. Carry the recorded findings into your context so its Step 2.2 routing sees the same scope the evaluator named.
   - **No plan file**: Read `./plan.md` and follow its instructions. The findings inform the next planning pass.
-- **`VERDICT: BLOCKED`**: Add `blocked` to `tags` in `CARD.meta.json`, write the evaluator's rationale to `comment/validation-failed.md`, commit both, **STOP**.
+- **`VERDICT: BLOCKED`**: Add `blocked` to `tags` in `CARD.meta.json`, write the evaluator's rationale to `comments/validation-failed.md`, commit both, **STOP**.
 
 ## 6. Finalize
 

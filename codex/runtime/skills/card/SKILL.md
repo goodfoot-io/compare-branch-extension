@@ -48,7 +48,7 @@ Read `$CARD_REPO_PATH/CARD.meta.json` for current `gates.*` and `tags`. Obtain t
 
 ### 1.2 Derive Routing Signals
 
-> **Comment authorship convention**: Determine authorship from the git commit that added each comment file: `git log --diff-filter=A --format='%an' -1 -- comment/<file>`. User-authored comments are committed by the user's git identity; agent-authored comments are committed by the agent's git identity. Sort `comment/*.md` by modification time; the most recent user-authored file is the "latest user comment."
+> **Comment authorship convention**: Determine authorship from the git commit that added each comment file: `git log --diff-filter=A --format='%an' -1 -- comments/<file>`. User-authored comments are committed by the user's git identity; agent-authored comments are committed by the agent's git identity. Sort `comments/*.md` by modification time; the most recent user-authored file is the "latest user comment."
 
 | Signal | Derivation |
 |--------|------------|
@@ -59,8 +59,8 @@ Read `$CARD_REPO_PATH/CARD.meta.json` for current `gates.*` and `tags`. Obtain t
 | REVIEW_APPROVED | `gates.mergeApproved` in CARD.meta.json |
 | PLAN_REQUIRED | `gates.planRequired` in CARD.meta.json |
 | PLAN_APPROVED | `gates.planApproved` in CARD.meta.json |
-| HAS_PLAN | `plan/` directory in the card repository contains at least one `.md` file |
-| USER_RESPONDED_TO_PLAN | `plan/` directory contains at least one `.md` file AND there exists a user-authored commit — more recent than the most recent `plan/*.md` file's commit — that adds or modifies non-metadata files. Metadata files (`CARD.meta.json`, `branches.json`, `commits.csv`, and their sidecars) are excluded; gate changes and status transitions do not constitute a plan response. |
+| HAS_PLAN | `plans/` directory in the card repository contains at least one `.md` file |
+| USER_RESPONDED_TO_PLAN | `plans/` directory contains at least one `.md` file AND there exists a user-authored commit — more recent than the most recent `plans/*.md` file's commit — that adds or modifies non-metadata files. Metadata files (`CARD.meta.json`, `branches.json`, `commits.csv`, and their sidecars) are excluded; gate changes and status transitions do not constitute a plan response. |
 | DOR_MET | Card description states what the user wants to achieve and why; acceptance criteria inferable; technical approach determinable |
 | IS_TESTABLE_BUG | Card describes an expected-vs-actual behavior gap on a named surface (file, component, command, or user action). Stack traces and error messages count; so does an observable wrong behavior. "Sometimes" and "intermittent" do not disqualify — they describe the race the test must force. |
 

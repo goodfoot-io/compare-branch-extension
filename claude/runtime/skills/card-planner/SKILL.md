@@ -6,7 +6,7 @@ description: Create or update a card plan while collaborating with parallel plan
 <placeholder-variables>
 [AGENT_NAME] — Your subagent name (e.g., `planner-1`). Set by the team lead at dispatch.
 [TEAM_NAME] — Your team's name (e.g., `card-plan-[CARD_ID]`). The dispatch prompt names it explicitly under "Team Name".
-[PLAN_FILE] — `plan/[AGENT_NAME].md` in the card repository; your plan file, distinct from every other planner's.
+[PLAN_FILE] — `plans/[AGENT_NAME].md` in the card repository; your plan file, distinct from every other planner's.
 </placeholder-variables>
 
 <critical-constraints>
@@ -14,7 +14,7 @@ description: Create or update a card plan while collaborating with parallel plan
 - **Never implement code** — you create and revise plans; the developer implements
 - **Never modify gates in `CARD.meta.json`** — the team lead controls card state
 - **Never create extra artifacts** unless the task or loaded skills require them
-- **Never write to another planner's `plan/planner-*.md` file** — own only `[PLAN_FILE]`
+- **Never write to another planner's `plans/planner-*.md` file** — own only `[PLAN_FILE]`
 - **Follow repository conventions** and existing patterns
 
 </critical-constraints>
@@ -40,13 +40,13 @@ Peer plans are public. You may read them, steal good ideas into your own plan, a
 
 ## 1. Create and Spike Your Plan
 
-Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plan/`; if a prior plan has been implemented and the card requests new work, treat it as established context.
+Read `CARD.md` and the most recent comments in the card repository. Read any existing plan files in `plans/`; if a prior plan has been implemented and the card requests new work, treat it as established context.
 
 If `[PLAN_FILE]` already exists when you start — the team lead seeded it from a pre-existing un-approved plan — you are the **incumbent**. Your job is to defend and refine that plan through review, not to rewrite it from scratch. Round-1 is the inherited draft as-is (with any small corrections you already see); subsequent rounds revise in response to reviewer findings. You may still steal from peer plans and revise on real risks like any other planner — the incumbent role sets your starting point, not your ceiling.
 
 Distill commander's intent from the card — what the situation looks like when the work is done and what constraints must hold regardless of approach. Then research: read every consumer of each symbol, field, or boundary your plan will touch. A component discovered during implementation that belongs in the plan is a research failure.
 
-Write your plan to `[PLAN_FILE] = plan/[AGENT_NAME].md` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
+Write your plan to `[PLAN_FILE] = plans/[AGENT_NAME].md` per `<markdown-guidelines>`, with a sidecar `[PLAN_FILE].meta.json` whose `title` is `"Plan: <≤10 words>"`. Commit the plan file with a single sentence summarizing the approach.
 
 When the card introduces new behavior whose contract is worth validating ahead of implementation (a new public function, API, data type, schema, or algorithm), follow the `<tdd-bootstrap>` instructions and structure the plan along its three phases. Skip for refactors, spikes, UI work, glue code, and small in-place edits.
 
@@ -87,7 +87,7 @@ When your plan is ready or unrecoverable, DM the state. You communicate with the
 
 For both READY and BLOCKED, the marker (`PLAN: READY for:[AGENT_NAME] round-K` or `PLAN: BLOCKED for:[AGENT_NAME]`) goes in the `summary` field. The `summary` is identical across recipients; the `message` body is sized to the recipient's needs.
 
-- **Plan ready**: DM the team lead first, then the reviewer with the full body (plan summary, key decisions, suggested slug like `initial`, `phase-2`, `schema-first`), then each other live planner with a one-line body referencing your plan file path (peers can read `plan/[AGENT_NAME].md` directly when they want to consider stealing or critiquing). Tag the round in the marker: round-1 for your initial submission, round-K+1 for each subsequent revision following a `CHANGES_REQUESTED` verdict. The round number is per-planner — `planner-2 round-3` is unrelated to `planner-1 round-3`.
+- **Plan ready**: DM the team lead first, then the reviewer with the full body (plan summary, key decisions, suggested slug like `initial`, `phase-2`, `schema-first`), then each other live planner with a one-line body referencing your plan file path (peers can read `plans/[AGENT_NAME].md` directly when they want to consider stealing or critiquing). Tag the round in the marker: round-1 for your initial submission, round-K+1 for each subsequent revision following a `CHANGES_REQUESTED` verdict. The round number is per-planner — `planner-2 round-3` is unrelated to `planner-1 round-3`.
 - **Blocked**: DM the team lead first, then the reviewer + every other live planner. Body states the blocking reason; the same body is fine for every recipient. Do not continue revising against an unresolvable obstacle.
 
 ```xml
@@ -151,7 +151,7 @@ Peer `PLAN: READY for:planner-N round-K` DMs open two moves, both legitimate:
   <parameter name="to">plan-failure-mode</parameter>
   <parameter name="summary">CRITIQUE: [short label] for:planner-N</parameter>
   <parameter name="message">
-[The error, where in plan/planner-N.md, and the workspace evidence that confirms it]
+[The error, where in plans/planner-N.md, and the workspace evidence that confirms it]
   </parameter>
 </invoke>
 ```

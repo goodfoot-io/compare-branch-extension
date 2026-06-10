@@ -20,13 +20,13 @@ description: Review parallel plans for technical and user-facing failure modes, 
 
 <multi-plan-contest-mode>
 
-Multiple planners produce plans in parallel, each writing to `plan/[PLANNER].md`. They DM round-numbered `PLAN: READY for:[PLANNER] round-K` updates as they revise. You review plans as their `PLAN: READY` DMs arrive — you do not wait for all planners to finish.
+Multiple planners produce plans in parallel, each writing to `plans/[PLANNER].md`. They DM round-numbered `PLAN: READY for:[PLANNER] round-K` updates as they revise. You review plans as their `PLAN: READY` DMs arrive — you do not wait for all planners to finish.
 
 Track per-plan state with `TaskCreate` so analysis context carries across plans and across revision rounds:
 
 ```xml
 <invoke name="TaskCreate">
-  <parameter name="subject">Review plan/[PLANNER].md</parameter>
+  <parameter name="subject">Review plans/[PLANNER].md</parameter>
   <parameter name="description">Track findings, prior round verdicts, and open concerns for [PLANNER].</parameter>
 </invoke>
 ```
@@ -37,7 +37,7 @@ This is a contest, not a race. `APPROVED` is the qualifying bar; the contest sta
 
 The team lead decides when the contest closes — there is no settlement handshake for you to track.
 
-Before yielding your turn between `PLAN: READY` arrivals, launch `card $CARD_ID watch "plan/**"` from `$CARD_REPO_PATH` with `Bash` `run_in_background: true` so it does not block inbound DMs. The watch exits as soon as a planner commits a revision and the completion notification wakes you, even when the corresponding `PLAN: READY` DM fails to deliver.
+Before yielding your turn between `PLAN: READY` arrivals, launch `card $CARD_ID watch "plans/**"` from `$CARD_REPO_PATH` with `Bash` `run_in_background: true` so it does not block inbound DMs. The watch exits as soon as a planner commits a revision and the completion notification wakes you, even when the corresponding `PLAN: READY` DM fails to deliver.
 
 When the team lead DMs you `{"type": "shutdown_request"}`, the contest has ended (you have already DM'd `WINNER:` or the contest reached an all-blocked outcome). Stop any in-flight analysis and exit cleanly. The team lead waits for your shutdown before tearing down the team.
 
@@ -53,7 +53,7 @@ If a planner DMs you asking about another planner's state (peer rounds, who is l
 
 ## 1. Draft the Failure-Mode Questions Note
 
-The failure-mode questions are the lens for every plan you review — a set of questions, keyed to this card's outcomes and this class of problem, that a working plan must answer. They live as a note in the card repository. Draft the initial set before the first `PLAN: READY` arrives; the set then extends as plans reveal specifics (see §2.2). The note is your private lens; do not read the `plan/` directory during this step, and do not DM the questions to planners or the team lead.
+The failure-mode questions are the lens for every plan you review — a set of questions, keyed to this card's outcomes and this class of problem, that a working plan must answer. They live as a note in the card repository. Draft the initial set before the first `PLAN: READY` arrives; the set then extends as plans reveal specifics (see §2.2). The note is your private lens; do not read the `plans/` directory during this step, and do not DM the questions to planners or the team lead.
 
 Some research steps below (web searches, searching `~/.claude/**/*.jsonl` transcripts) take time. If a `PLAN: READY` DM arrives during this step, do not block it — pause your question drafting at a sensible point, capture what you have, and start §2 review for the arriving plan in parallel. Continue extending the question set as you learn more (per §2.2); the questions you add later apply retroactively to plans already reviewed.
 
@@ -81,7 +81,7 @@ Save the questions as a note to the card repository per the `<take-notes>` instr
 
 ## 2. Evaluate Each Plan Against the Questions and Beyond
 
-For each plan under review, read `plan/[PLANNER].md`. Other plan files in `plan/` belong to parallel planners — read them only to compare approaches, not as part of the plan under review. Then read every source file the plan references — the files themselves, not the plan's characterization of them. Trace the runtime paths the plan will modify: follow function calls, check error paths, read the tests that cover the affected code. Search the workspace for consumers of every symbol, type, and file the plan modifies. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count.
+For each plan under review, read `plans/[PLANNER].md`. Other plan files in `plans/` belong to parallel planners — read them only to compare approaches, not as part of the plan under review. Then read every source file the plan references — the files themselves, not the plan's characterization of them. Trace the runtime paths the plan will modify: follow function calls, check error paths, read the tests that cover the affected code. Search the workspace for consumers of every symbol, type, and file the plan modifies. Follow the data flow to its terminal consumer — do not stop at an arbitrary hop count.
 
 Your scope is all code the plan interacts with, not just code the plan directly modifies. Pre-existing issues in adjacent code are first-class findings — report them with the same weight as newly introduced risks.
 
@@ -271,7 +271,7 @@ Run `git log` on the plan file to see its full revision history. Use them to ide
 
 ```bash
 cd $CARD_REPO_PATH
-git log plan/[PLANNER].md
+git log plans/[PLANNER].md
 ```
 
 Changed sections are your primary focus, but do not abandon prior concerns that remain open.
